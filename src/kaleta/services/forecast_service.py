@@ -6,7 +6,6 @@ import asyncio
 import datetime
 import logging
 from dataclasses import dataclass
-from decimal import Decimal
 from functools import partial
 
 from sqlalchemy import func, select
@@ -55,7 +54,6 @@ class ForecastService:
         self.session = session
 
     async def available_accounts(self) -> list[Account]:
-        from sqlalchemy.orm import selectinload
         result = await self.session.execute(select(Account).order_by(Account.name))
         return list(result.scalars().all())
 

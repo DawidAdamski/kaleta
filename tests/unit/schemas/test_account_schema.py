@@ -125,3 +125,67 @@ class TestAccountUpdate:
     def test_sql_injection_in_name_update(self, payload: str):
         schema = AccountUpdate(name=payload[:100])
         assert schema.name == payload[:100]
+
+
+# ── Currency field — AccountCreate ────────────────────────────────────────────
+
+
+class TestAccountCreateCurrency:
+
+    def test_currency_defaults_to_pln(self):
+        schema = AccountCreate(name="Test")
+        assert schema.currency == "PLN"
+
+    def test_currency_explicit_eur(self):
+        schema = AccountCreate(name="Euro Account", currency="EUR")
+        assert schema.currency == "EUR"
+
+    def test_currency_explicit_usd(self):
+        schema = AccountCreate(name="Dollar Account", currency="USD")
+        assert schema.currency == "USD"
+
+    def test_currency_must_be_exactly_3_chars(self):
+        schema = AccountCreate(name="Test", currency="GBP")
+        assert schema.currency == "GBP"
+
+    def test_currency_too_short_rejected(self):
+        with pytest.raises(ValidationError, match="string_too_short"):
+            AccountCreate(name="Test", currency="PL")
+
+    def test_currency_too_long_rejected(self):
+        with pytest.raises(ValidationError, match="string_too_long"):
+            AccountCreate(name="Test", currency="EURO")
+
+    def test_currency_empty_rejected(self):
+        with pytest.raises(ValidationError, match="string_too_short"):
+            AccountCreate(name="Test", currency="")
+
+    def test_currency_integer_rejected(self):
+        with pytest.raises(ValidationError):
+            AccountCreate(name="Test", currency=123)  # type: ignore[arg-type]
+
+
+# ── Currency field — AccountUpdate ────────────────────────────────────────────
+
+
+class TestAccountUpdateCurrency:
+
+    def test_currency_defaults_to_none(self):
+        schema = AccountUpdate()
+        assert schema.currency is None
+
+    def test_currency_explicit_usd(self):
+        schema = AccountUpdate(currency="USD")
+        assert schema.currency == "USD"
+
+    def test_currency_explicit_eur(self):
+        schema = AccountUpdate(currency="EUR")
+        assert schema.currency == "EUR"
+
+    def test_currency_too_short_rejected(self):
+        with pytest.raises(ValidationError, match="string_too_short"):
+            AccountUpdate(currency="EU")
+
+    def test_currency_too_long_rejected(self):
+        with pytest.raises(ValidationError, match="string_too_long"):
+            AccountUpdate(currency="EURO")

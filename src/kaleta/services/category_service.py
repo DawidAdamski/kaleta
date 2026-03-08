@@ -45,8 +45,11 @@ class CategoryService:
         category = Category(**data.model_dump())
         self.session.add(category)
         await self.session.commit()
-        await self.session.refresh(category)
-        return category
+        # Re-fetch with eager-loaded children so the response serializer never
+        # hits a lazy relationship outside of an async context.
+        fetched = await self.get(category.id)
+        assert fetched is not None
+        return fetched
 
     async def update(self, category_id: int, data: CategoryUpdate) -> Category | None:
         category = await self.get(category_id)
@@ -55,8 +58,8 @@ class CategoryService:
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(category, field, value)
         await self.session.commit()
-        await self.session.refresh(category)
-        return category
+        # Re-fetch with selectinload so children are available for serialization.
+        return await self.get(category_id)
 
     async def delete(self, category_id: int) -> bool:
         category = await self.get(category_id)

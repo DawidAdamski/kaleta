@@ -5,18 +5,17 @@ from collections import defaultdict
 from nicegui import ui
 
 from kaleta.db import AsyncSessionFactory
+from kaleta.i18n import t
 from kaleta.models.account import Account, AccountType
 from kaleta.models.institution import Institution
 from kaleta.schemas.account import AccountCreate, AccountUpdate
 from kaleta.services import AccountService, InstitutionService
 from kaleta.views.layout import page_layout
 
-_TYPE_LABELS: dict[str, str] = {
-    AccountType.CHECKING: "Checking",
-    AccountType.SAVINGS: "Savings",
-    AccountType.CASH: "Cash",
-    AccountType.CREDIT: "Credit",
-}
+COMMON_CURRENCIES: list[str] = [
+    "PLN", "EUR", "USD", "GBP", "CHF", "CZK", "HUF", "NOK", "SEK", "DKK",
+]
+
 
 _TYPE_ICONS: dict[str, str] = {
     AccountType.CHECKING: "account_balance_wallet",
@@ -25,38 +24,75 @@ _TYPE_ICONS: dict[str, str] = {
     AccountType.CREDIT: "credit_card",
 }
 
-_COL_TYPE = {"name": "type", "label": "Type", "field": "type", "align": "left", "sortable": True}
-_COL_INST = {
-    "name": "institution",
-    "label": "Institution",
-    "field": "institution_name",
-    "align": "left",
-    "sortable": True,
-}
-_COL_NAME = {"name": "name", "label": "Name", "field": "name", "align": "left", "sortable": True}
-_COL_BAL = {
-    "name": "balance",
-    "label": "Balance (PLN)",
-    "field": "balance",
-    "align": "right",
-    "sortable": True,
-}
-_COL_ACTIONS = {"name": "actions", "label": "", "field": "actions", "align": "right"}
+
+def _type_labels() -> dict[str, str]:
+    return {
+        AccountType.CHECKING: t("accounts.checking"),
+        AccountType.SAVINGS: t("accounts.savings"),
+        AccountType.CASH: t("accounts.cash"),
+        AccountType.CREDIT: t("accounts.credit"),
+    }
+
+
+def _col_type() -> dict:
+    return {
+        "name": "type",
+        "label": t("common.type"),
+        "field": "type",
+        "align": "left",
+        "sortable": True,
+    }
+
+
+def _col_inst() -> dict:
+    return {
+        "name": "institution",
+        "label": t("common.institution"),
+        "field": "institution_name",
+        "align": "left",
+        "sortable": True,
+    }
+
+
+def _col_name() -> dict:
+    return {
+        "name": "name",
+        "label": t("common.name"),
+        "field": "name",
+        "align": "left",
+        "sortable": True,
+    }
+
+
+def _col_bal() -> dict:
+    return {
+        "name": "balance",
+        "label": t("common.balance"),
+        "field": "balance",
+        "align": "right",
+        "sortable": True,
+    }
+
+
+def _col_actions() -> dict:
+    return {"name": "actions", "label": "", "field": "actions", "align": "right"}
 
 
 def _columns_for(by: str) -> list[dict]:
-    extra = _COL_INST if by == "type" else _COL_TYPE
-    return [_COL_NAME, extra, _COL_BAL, _COL_ACTIONS]
+    extra = _col_inst() if by == "type" else _col_type()
+    return [_col_name(), extra, _col_bal(), _col_actions()]
 
 
 def _account_row(a: Account) -> dict:
+    labels = _type_labels()
     return {
         "id": a.id,
         "name": a.name,
-        "type": _TYPE_LABELS.get(a.type, a.type.value),
-        "balance": f"{a.balance:,.2f}",
+        "type": labels.get(a.type, a.type.value),
+        "balance": f"{a.balance:,.2f} {a.currency}",
         "institution_id": a.institution_id,
         "institution_name": a.institution.name if a.institution else "",
+        "currency": a.currency,
     }
 
 
@@ -74,21 +110,25 @@ def register() -> None:
         inst_options: dict[str | int, str] = {0: "— None —"}
         inst_options.update({i.id: i.name for i in institution_list})
 
-        with page_layout("Accounts"):
+        with page_layout(t("accounts.title")):
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label("Accounts").classes("text-2xl font-bold")
+                ui.label(t("accounts.title")).classes("text-2xl font-bold")
                 with ui.row().classes("gap-2 items-center"):
-                    ui.label("Group by:").classes("text-sm text-grey-6")
+                    ui.label(t("accounts.group_by")).classes("text-sm text-grey-6")
                     group_toggle = ui.toggle(
-                        {"type": "Type", "institution": "Institution"},
+                        {
+                            "type": t("accounts.group_type"),
+                            "institution": t("accounts.group_institution"),
+                        },
                         value="type",
                     ).props("dense")
-                    ui.button("Add Account", icon="add", on_click=lambda: _open_add()).props(
-                        "color=primary"
-                    )
+                    ui.button(
+                        t("accounts.add"), icon="add", on_click=lambda: _open_add()
+                    ).props("color=primary")
 
             @ui.refreshable
             def account_table() -> None:
+                labels = _type_labels()
                 by = group_by[0]
 
                 if by == "institution":
@@ -102,10 +142,10 @@ def register() -> None:
                     # group by account type
                     groups = defaultdict(list)
                     for a in account_list:
-                        groups[_TYPE_LABELS.get(a.type, a.type.value)].append(a)
+                        groups[labels.get(a.type, a.type.value)].append(a)
 
                 if not groups:
-                    ui.label("No accounts yet.").classes("text-grey-6 mt-8")
+                    ui.label(t("accounts.no_accounts")).classes("text-grey-6 mt-8")
                     return
 
                 for group_name in sorted(groups.keys()):
@@ -116,9 +156,9 @@ def register() -> None:
                         .props("default-opened")
                     ):
                         rows = [_account_row(a) for a in accts]
-                        table = ui.table(columns=_columns_for(by), rows=rows, row_key="id").classes(
-                            "w-full"
-                        )
+                        table = ui.table(
+                            columns=_columns_for(by), rows=rows, row_key="id"
+                        ).classes("w-full")
                         table.add_slot(
                             "body-cell-actions",
                             """
@@ -134,8 +174,9 @@ def register() -> None:
                         table.on("delete", lambda e: _open_delete_row(e.args))
 
             def _group_icon(by: str, name: str, accts: list[Account]) -> str:
+                labels = _type_labels()
                 if by == "type":
-                    rev = {v: k for k, v in _TYPE_LABELS.items()}
+                    rev = {v: k for k, v in labels.items()}
                     atype = rev.get(name)
                     return _TYPE_ICONS.get(atype, "folder") if atype else "folder"
                 return "account_balance" if name != "No Institution" else "folder_off"
@@ -149,25 +190,33 @@ def register() -> None:
 
         # ── Add dialog ────────────────────────────────────────────────────────
         with ui.dialog() as add_dialog, ui.card().classes("w-[420px]"):
-            ui.label("Add Account").classes("text-lg font-bold mb-2")
-            add_name = ui.input("Name *").classes("w-full")
+            ui.label(t("accounts.add")).classes("text-lg font-bold mb-2")
+            add_name = ui.input(f"{t('common.name')} *").classes("w-full")
             add_type = ui.select(
-                {t.value: _TYPE_LABELS[t] for t in AccountType},
-                label="Type",
+                {at.value: _type_labels()[at] for at in AccountType},
+                label=t("common.type"),
                 value=AccountType.CHECKING.value,
             ).classes("w-full")
-            add_balance = ui.number("Initial Balance", value=0, format="%.2f").classes("w-full")
-            add_inst = ui.select(inst_options, label="Institution", value=0).classes("w-full")
+            add_currency = ui.select(
+                COMMON_CURRENCIES,
+                label=t("accounts.currency"),
+                value="PLN",
+            ).classes("w-full").tooltip(t("accounts.currency_hint"))
+            add_balance = ui.number(t("common.balance"), value=0, format="%.2f").classes("w-full")
+            add_inst = ui.select(
+                inst_options, label=t("common.institution"), value=0
+            ).classes("w-full")
 
             async def save_add() -> None:
                 if not add_name.value or not add_name.value.strip():
-                    ui.notify("Name is required.", type="negative")
+                    ui.notify(t("accounts.name_required"), type="negative")
                     return
                 inst_id = add_inst.value if add_inst.value != 0 else None
                 data = AccountCreate(
                     name=add_name.value.strip(),
                     type=AccountType(add_type.value),
                     balance=add_balance.value,
+                    currency=add_currency.value or "PLN",
                     institution_id=inst_id,
                 )
                 async with AsyncSessionFactory() as session:
@@ -177,34 +226,42 @@ def register() -> None:
                 if acc:
                     account_list.append(acc)
                 account_table.refresh()
-                ui.notify("Account created.", type="positive")
+                ui.notify(t("accounts.created"), type="positive")
                 add_dialog.close()
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
-                ui.button("Cancel", on_click=add_dialog.close).props("flat")
-                ui.button("Save", on_click=save_add).props("color=primary")
+                ui.button(t("common.cancel"), on_click=add_dialog.close).props("flat")
+                ui.button(t("common.save"), on_click=save_add).props("color=primary")
 
         # ── Edit dialog ───────────────────────────────────────────────────────
         with ui.dialog() as edit_dialog, ui.card().classes("w-[420px]"):
-            ui.label("Edit Account").classes("text-lg font-bold mb-2")
-            edit_name = ui.input("Name *").classes("w-full")
+            ui.label(t("accounts.edit")).classes("text-lg font-bold mb-2")
+            edit_name = ui.input(f"{t('common.name')} *").classes("w-full")
             edit_type = ui.select(
-                {t.value: _TYPE_LABELS[t] for t in AccountType},
-                label="Type",
+                {at.value: _type_labels()[at] for at in AccountType},
+                label=t("common.type"),
             ).classes("w-full")
-            edit_inst = ui.select(inst_options, label="Institution", value=0).classes("w-full")
+            edit_currency = ui.select(
+                COMMON_CURRENCIES,
+                label=t("accounts.currency"),
+                value="PLN",
+            ).classes("w-full").tooltip(t("accounts.currency_hint"))
+            edit_inst = ui.select(
+                inst_options, label=t("common.institution"), value=0
+            ).classes("w-full")
 
             async def save_edit() -> None:
                 aid = selected_id[0]
                 if aid is None:
                     return
                 if not edit_name.value or not edit_name.value.strip():
-                    ui.notify("Name is required.", type="negative")
+                    ui.notify(t("accounts.name_required"), type="negative")
                     return
                 inst_id = edit_inst.value if edit_inst.value != 0 else None
                 data = AccountUpdate(
                     name=edit_name.value.strip(),
                     type=AccountType(edit_type.value),
+                    currency=edit_currency.value or "PLN",
                     institution_id=inst_id,
                 )
                 async with AsyncSessionFactory() as session:
@@ -217,12 +274,12 @@ def register() -> None:
                             account_list[idx] = updated
                             break
                 account_table.refresh()
-                ui.notify("Account updated.", type="positive")
+                ui.notify(t("accounts.updated"), type="positive")
                 edit_dialog.close()
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
-                ui.button("Cancel", on_click=edit_dialog.close).props("flat")
-                ui.button("Save", on_click=save_edit).props("color=primary")
+                ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
+                ui.button(t("common.save"), on_click=save_edit).props("color=primary")
 
         # ── Delete dialog ─────────────────────────────────────────────────────
         with ui.dialog() as delete_dialog, ui.card().classes("w-96"):
@@ -239,16 +296,17 @@ def register() -> None:
                         account_list.remove(a)
                         break
                 account_table.refresh()
-                ui.notify("Account deleted.", type="positive")
+                ui.notify(t("accounts.deleted"), type="positive")
                 delete_dialog.close()
 
             with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                ui.button("Cancel", on_click=delete_dialog.close).props("flat")
-                ui.button("Delete", on_click=confirm_delete).props("color=negative")
+                ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
+                ui.button(t("common.delete"), on_click=confirm_delete).props("color=negative")
 
         def _open_add() -> None:
             add_name.set_value("")
             add_type.set_value(AccountType.CHECKING.value)
+            add_currency.set_value("PLN")
             add_balance.set_value(0)
             add_inst.set_value(0)
             add_dialog.open()
@@ -256,16 +314,16 @@ def register() -> None:
         def _open_edit_row(row: dict) -> None:
             selected_id[0] = row["id"]
             edit_name.set_value(row["name"])
-            rev = {v: k for k, v in _TYPE_LABELS.items()}
+            labels = _type_labels()
+            rev = {v: k for k, v in labels.items()}
             atype = rev.get(row["type"])
             edit_type.set_value(atype.value if atype else AccountType.CHECKING.value)
+            edit_currency.set_value(row.get("currency") or "PLN")
             inst_id = row.get("institution_id") or 0
             edit_inst.set_value(inst_id)
             edit_dialog.open()
 
         def _open_delete_row(row: dict) -> None:
             selected_id[0] = row["id"]
-            delete_label.set_text(
-                f'Delete account "{row["name"]}"? All its transactions will be deleted too.'
-            )
+            delete_label.set_text(t("accounts.delete_confirm", name=row["name"]))
             delete_dialog.open()

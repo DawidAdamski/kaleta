@@ -710,7 +710,9 @@ class TestSplitTransactionList:
 
 class TestSplitTransactionDelete:
 
-    async def test_delete_split_transaction_removes_splits(self, svc: TransactionService, session: AsyncSession):
+    async def test_delete_split_transaction_removes_splits(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
         tx = await svc.create(TransactionCreate(
@@ -727,3 +729,150 @@ class TestSplitTransactionDelete:
         tx_id = tx.id
         assert await svc.delete(tx_id) is True
         assert await svc.get(tx_id) is None
+
+
+# ── create_transfer() ─────────────────────────────────────────────────────────
+
+
+def _transfer_leg(account_id: int, amount: Decimal, **kwargs) -> TransactionCreate:
+    defaults = dict(
+        account_id=account_id,
+        category_id=None,
+        amount=amount,
+        type=TransactionType.TRANSFER,
+        date=TODAY,
+        description="Transfer",
+        is_internal_transfer=True,
+    )
+    defaults.update(kwargs)
+    return TransactionCreate(**defaults)
+
+
+class TestCreateTransfer:
+
+    async def test_create_transfer_returns_two_transactions(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-200.00")),
+            _transfer_leg(dst_id, Decimal("200.00")),
+        )
+        assert tx_out.id is not None
+        assert tx_in.id is not None
+
+    async def test_create_transfer_legs_are_linked_to_each_other(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-500.00")),
+            _transfer_leg(dst_id, Decimal("500.00")),
+        )
+        assert tx_out.linked_transaction_id == tx_in.id
+        assert tx_in.linked_transaction_id == tx_out.id
+
+    async def test_create_transfer_outgoing_leg_has_source_account(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, _ = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-100.00")),
+            _transfer_leg(dst_id, Decimal("100.00")),
+        )
+        assert tx_out.account_id == src_id
+
+    async def test_create_transfer_incoming_leg_has_destination_account(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        _, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-100.00")),
+            _transfer_leg(dst_id, Decimal("100.00")),
+        )
+        assert tx_in.account_id == dst_id
+
+    async def test_create_transfer_both_legs_are_internal_transfers(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-300.00")),
+            _transfer_leg(dst_id, Decimal("300.00")),
+        )
+        assert tx_out.is_internal_transfer is True
+        assert tx_in.is_internal_transfer is True
+
+    async def test_create_transfer_both_legs_have_transfer_type(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-150.00")),
+            _transfer_leg(dst_id, Decimal("150.00")),
+        )
+        assert tx_out.type == TransactionType.TRANSFER
+        assert tx_in.type == TransactionType.TRANSFER
+
+    async def test_create_transfer_both_legs_persisted_to_db(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-250.00")),
+            _transfer_leg(dst_id, Decimal("250.00")),
+        )
+        fetched_out = await svc.get(tx_out.id)
+        fetched_in = await svc.get(tx_in.id)
+        assert fetched_out is not None
+        assert fetched_in is not None
+
+    async def test_create_transfer_with_exchange_rate_same_on_both_legs(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Cross-currency transfer: both legs carry the same exchange_rate."""
+        src_id = await _make_account(session, "PLN Account")
+        dst_id = await _make_account(session, "EUR Account")
+        rate = Decimal("4.25")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-425.00"), exchange_rate=rate),
+            _transfer_leg(dst_id, Decimal("100.00"), exchange_rate=rate),
+        )
+        assert tx_out.exchange_rate == rate
+        assert tx_in.exchange_rate == rate
+
+    async def test_create_transfer_without_exchange_rate_defaults_none(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-100.00")),
+            _transfer_leg(dst_id, Decimal("100.00")),
+        )
+        assert tx_out.exchange_rate is None
+        assert tx_in.exchange_rate is None
+
+    async def test_create_transfer_linked_ids_fetched_from_db(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Verify link integrity survives a round-trip through the database."""
+        src_id = await _make_account(session, "Source")
+        dst_id = await _make_account(session, "Destination")
+        tx_out, tx_in = await svc.create_transfer(
+            _transfer_leg(src_id, Decimal("-200.00")),
+            _transfer_leg(dst_id, Decimal("200.00")),
+        )
+        fetched_out = await svc.get(tx_out.id)
+        fetched_in = await svc.get(tx_in.id)
+        assert fetched_out is not None
+        assert fetched_in is not None
+        assert fetched_out.linked_transaction_id == tx_in.id
+        assert fetched_in.linked_transaction_id == tx_out.id

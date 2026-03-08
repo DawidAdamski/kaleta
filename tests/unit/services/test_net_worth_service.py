@@ -15,7 +15,9 @@ from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services import AccountService, CategoryService, NetWorthService, TransactionService
+from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.net_worth_service import AccountSnapshot, MonthlyNetWorth, NetWorthSummary
+from kaleta.schemas.currency_rate import CurrencyRateCreate
 
 TODAY = datetime.date.today()
 
@@ -28,9 +30,12 @@ async def _make_account(
     name: str = "Checking",
     balance: Decimal = Decimal("0.00"),
     account_type: AccountType = AccountType.CHECKING,
+    currency: str = "PLN",
 ) -> int:
     svc = AccountService(session)
-    acc = await svc.create(AccountCreate(name=name, type=account_type, balance=balance))
+    acc = await svc.create(
+        AccountCreate(name=name, type=account_type, balance=balance, currency=currency)
+    )
     return acc.id
 
 
@@ -81,12 +86,14 @@ def svc(session: AsyncSession) -> NetWorthService:
 class TestAccountSnapshotProperties:
 
     def _snap(self, balance: Decimal) -> AccountSnapshot:
+        # In the single-currency (PLN) case balance_in_default == balance
         return AccountSnapshot(
             id=1,
             name="Test",
             type=AccountType.CHECKING,
             institution_name=None,
             balance=balance,
+            balance_in_default=balance,
         )
 
     def test_is_asset_true_for_positive_balance(self):
@@ -139,6 +146,7 @@ class TestNetWorthSummaryAggregates:
                 type=AccountType.CHECKING,
                 institution_name=None,
                 balance=b,
+                balance_in_default=b,
             )
             for i, b in enumerate(balances, start=1)
         ]
@@ -187,6 +195,7 @@ class TestNetWorthSummaryAggregates:
                 type=AccountType.CHECKING,
                 institution_name=None,
                 balance=Decimal("1200.00"),
+                balance_in_default=Decimal("1200.00"),
             )
         ]
         history = [MonthlyNetWorth(year=2025, month=1, net_worth=Decimal("1000.00"))]
@@ -206,6 +215,7 @@ class TestNetWorthSummaryAggregates:
                 type=AccountType.CHECKING,
                 institution_name=None,
                 balance=Decimal("800.00"),
+                balance_in_default=Decimal("800.00"),
             )
         ]
         history = [MonthlyNetWorth(year=2025, month=1, net_worth=Decimal("1000.00"))]
@@ -525,3 +535,182 @@ class TestAccountSnapshotInstitutionName:
         await _make_account(session, name="Lone Account", balance=Decimal("100.00"))
         summary = await svc.get_summary()
         assert summary.accounts[0].institution_name is None
+
+
+# ── AccountSnapshot currency & balance_in_default ────────────────────────────
+
+
+class TestAccountSnapshotCurrency:
+
+    def _snap(self, balance: Decimal, currency: str = "PLN", balance_in_default: Decimal | None = None) -> AccountSnapshot:  # noqa: E501
+        return AccountSnapshot(
+            id=1,
+            name="Test",
+            type=AccountType.CHECKING,
+            institution_name=None,
+            balance=balance,
+            currency=currency,
+            balance_in_default=balance_in_default if balance_in_default is not None else balance,
+        )
+
+    def test_currency_field_stored(self):
+        snap = self._snap(Decimal("100.00"), currency="EUR")
+        assert snap.currency == "EUR"
+
+    def test_balance_in_default_computed_correctly(self):
+        # 100 EUR * 4.25 = 425 PLN
+        snap = self._snap(Decimal("100.00"), currency="EUR", balance_in_default=Decimal("425.00"))
+        assert snap.balance_in_default == Decimal("425.00")
+
+    def test_is_asset_uses_balance_in_default_not_raw_balance(self):
+        # Raw balance is negative in EUR but balance_in_default is positive (shouldn't happen
+        # in practice — but the property must use balance_in_default)
+        snap = AccountSnapshot(
+            id=1,
+            name="Test",
+            type=AccountType.CHECKING,
+            institution_name=None,
+            balance=Decimal("-50.00"),
+            currency="EUR",
+            balance_in_default=Decimal("100.00"),
+        )
+        assert snap.is_asset is True
+
+    def test_is_asset_false_when_balance_in_default_negative(self):
+        snap = AccountSnapshot(
+            id=1,
+            name="Test",
+            type=AccountType.CHECKING,
+            institution_name=None,
+            balance=Decimal("10.00"),
+            currency="EUR",
+            balance_in_default=Decimal("-5.00"),
+        )
+        assert snap.is_asset is False
+
+    def test_asset_value_uses_balance_in_default(self):
+        snap = self._snap(Decimal("200.00"), currency="USD", balance_in_default=Decimal("760.00"))
+        assert snap.asset_value == Decimal("760.00")
+
+    def test_liability_value_uses_balance_in_default(self):
+        snap = AccountSnapshot(
+            id=1,
+            name="Credit EUR",
+            type=AccountType.CREDIT,
+            institution_name=None,
+            balance=Decimal("-100.00"),
+            currency="EUR",
+            balance_in_default=Decimal("-425.00"),
+        )
+        assert snap.liability_value == Decimal("425.00")
+
+
+# ── get_summary() — multi-currency rate conversion ────────────────────────────
+
+
+async def _add_rate(
+    session: AsyncSession,
+    from_currency: str,
+    to_currency: str,
+    rate: Decimal,
+    on_date: datetime.date | None = None,
+) -> None:
+    svc = CurrencyRateService(session)
+    await svc.create(CurrencyRateCreate(
+        date=on_date or TODAY,
+        from_currency=from_currency,
+        to_currency=to_currency,
+        rate=rate,
+    ))
+
+
+class TestGetSummaryMultiCurrency:
+
+    async def test_eur_account_converted_via_rate(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        await _make_account(session, name="Euro Acc", balance=Decimal("100.00"), currency="EUR")
+        await _add_rate(session, "EUR", "PLN", Decimal("4.25"))
+        summary = await svc.get_summary(default_currency="PLN")
+        snap = summary.accounts[0]
+        assert snap.currency == "EUR"
+        assert snap.balance_in_default == Decimal("425.00")
+
+    async def test_pln_account_with_default_pln_unchanged(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        await _make_account(session, name="PLN Acc", balance=Decimal("1000.00"), currency="PLN")
+        summary = await svc.get_summary(default_currency="PLN")
+        snap = summary.accounts[0]
+        assert snap.balance_in_default == Decimal("1000.00")
+
+    async def test_total_assets_sums_balance_in_default(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        # 100 EUR @ 4.25 = 425 PLN, 200 PLN = 200 PLN → total = 625 PLN
+        await _make_account(session, name="Euro Acc", balance=Decimal("100.00"), currency="EUR")
+        await _make_account(session, name="PLN Acc", balance=Decimal("200.00"), currency="PLN")
+        await _add_rate(session, "EUR", "PLN", Decimal("4.25"))
+        summary = await svc.get_summary(default_currency="PLN")
+        assert summary.total_assets == Decimal("625.00")
+
+    async def test_unknown_currency_falls_back_to_1_to_1(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        """When no rate is in the DB for a currency, falls back to 1:1 — no crash."""
+        await _make_account(session, name="CHF Acc", balance=Decimal("50.00"), currency="CHF")
+        # No CHF rate in DB
+        summary = await svc.get_summary(default_currency="PLN")
+        snap = summary.accounts[0]
+        assert snap.balance_in_default == Decimal("50.00")
+        assert snap.rate_known is False
+
+    async def test_no_foreign_accounts_no_crash(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        """No foreign currency accounts — get_summary() must not raise."""
+        await _make_account(session, name="PLN Acc", balance=Decimal("100.00"), currency="PLN")
+        summary = await svc.get_summary()
+        assert summary.accounts[0].balance_in_default == Decimal("100.00")
+
+    async def test_net_worth_uses_converted_balances(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        await _make_account(session, name="Euro Asset", balance=Decimal("200.00"), currency="EUR")
+        await _make_account(
+            session, name="Euro Credit", balance=Decimal("-50.00"), currency="EUR",
+            account_type=AccountType.CREDIT,
+        )
+        await _add_rate(session, "EUR", "PLN", Decimal("4.00"))
+        summary = await svc.get_summary(default_currency="PLN")
+        # assets: 200 * 4 = 800, liabilities: 50 * 4 = 200, net = 600
+        assert summary.total_assets == Decimal("800.00")
+        assert summary.total_liabilities == Decimal("200.00")
+        assert summary.net_worth == Decimal("600.00")
+
+    async def test_default_currency_in_summary(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        summary = await svc.get_summary(default_currency="EUR")
+        assert summary.default_currency == "EUR"
+
+    async def test_pln_account_is_default_currency(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        """PLN account with default_currency=PLN needs no rate entry in DB."""
+        await _make_account(session, name="PLN Acc", balance=Decimal("500.00"), currency="PLN")
+        summary = await svc.get_summary(default_currency="PLN")
+        snap = summary.accounts[0]
+        assert snap.balance_in_default == Decimal("500.00")
+        assert snap.rate_known is True
+
+    async def test_inverse_rate_used_when_direct_missing(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        """If EUR→PLN is missing but PLN→EUR exists, service uses the inverse."""
+        await _make_account(session, name="Euro Acc", balance=Decimal("100.00"), currency="EUR")
+        # Store PLN→EUR (inverse); service should find EUR→PLN = 1/0.235... ≈ 4.25
+        await _add_rate(session, "PLN", "EUR", Decimal("1") / Decimal("4.25"))
+        summary = await svc.get_summary(default_currency="PLN")
+        snap = summary.accounts[0]
+        assert abs(snap.balance_in_default - Decimal("425.00")) < Decimal("0.01")

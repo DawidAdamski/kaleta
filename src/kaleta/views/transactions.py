@@ -3,27 +3,33 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
-from nicegui import ui
+from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
+from kaleta.i18n import t
+from kaleta.models.account import Account
 from kaleta.models.category import CategoryType
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import AccountService, CategoryService, TransactionService
+from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.views.layout import page_layout
 
 PAGE_SIZE = 50
-_NO_DATA_SLOT = (
-    '<div class="text-center text-grey-6 py-8">No transactions match your filters.</div>'
-)
 _KBD_CLS = "text-xs bg-grey-2 border border-grey-4 rounded px-2 py-0.5 font-mono text-grey-7"
 
 
-def _category_label(t: Transaction) -> str:
-    if t.is_split and t.splits:
-        names = [s.category.name for s in t.splits if s.category]
+def _no_data_slot() -> str:
+    return (
+        f'<div class="text-center text-grey-6 py-8">{t("transactions.no_results")}</div>'
+    )
+
+
+def _category_label(tx: Transaction) -> str:
+    if tx.is_split and tx.splits:
+        names = [s.category.name for s in tx.splits if s.category]
         return f"(Split: {', '.join(names)})" if names else "(Split)"
-    return t.category.name if t.category else "—"
+    return tx.category.name if tx.category else "—"
 
 
 def register() -> None:
@@ -98,19 +104,39 @@ def register() -> None:
             end_n = min(start_n + PAGE_SIZE - 1, total)
 
             columns = [
-                {"name": "date", "label": "Date", "field": "date", "sortable": True},
-                {"name": "account", "label": "Account", "field": "account", "align": "left"},
+                {
+                    "name": "date",
+                    "label": t("common.date"),
+                    "field": "date",
+                    "sortable": True,
+                },
+                {
+                    "name": "account",
+                    "label": t("common.account"),
+                    "field": "account",
+                    "align": "left",
+                },
                 {
                     "name": "description",
-                    "label": "Description",
+                    "label": t("common.description"),
                     "field": "description",
                     "align": "left",
                 },
-                {"name": "category", "label": "Category", "field": "category", "align": "left"},
-                {"name": "type", "label": "Type", "field": "type", "align": "left"},
+                {
+                    "name": "category",
+                    "label": t("common.category"),
+                    "field": "category",
+                    "align": "left",
+                },
+                {
+                    "name": "type",
+                    "label": t("common.type"),
+                    "field": "type",
+                    "align": "left",
+                },
                 {
                     "name": "amount",
-                    "label": "Amount",
+                    "label": t("common.amount"),
                     "field": "amount",
                     "align": "right",
                     "sortable": True,
@@ -118,32 +144,34 @@ def register() -> None:
             ]
             rows = [
                 {
-                    "id": t.id,
-                    "date": str(t.date),
-                    "account": t.account.name if t.account else "—",
-                    "description": t.description or "—",
-                    "category": _category_label(t),
-                    "type": t.type.value,
+                    "id": tx.id,
+                    "date": str(tx.date),
+                    "account": tx.account.name if tx.account else "—",
+                    "description": tx.description or "—",
+                    "category": _category_label(tx),
+                    "type": tx.type.value,
                     "amount": (
-                        f"+{abs(t.amount):,.2f}"
-                        if t.type == TransactionType.INCOME
-                        else f"-{abs(t.amount):,.2f}"
+                        f"+{abs(tx.amount):,.2f}"
+                        if tx.type == TransactionType.INCOME
+                        else f"-{abs(tx.amount):,.2f}"
                     ),
                 }
-                for t in txs
+                for tx in txs
             ]
 
             tbl = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
-            tbl.add_slot("no-data", _NO_DATA_SLOT)
+            tbl.add_slot("no-data", _no_data_slot())
 
             # Pagination row
             with ui.row().classes(
                 "w-full items-center justify-between px-2 pt-2 text-sm text-grey-7"
             ):
                 if total == 0:
-                    ui.label("No results")
+                    ui.label(t("transactions.no_results"))
                 else:
-                    ui.label(f"Showing {start_n}–{end_n} of {total}")
+                    ui.label(
+                        t("transactions.showing", **{"from": start_n, "to": end_n, "total": total})
+                    )
 
                 with ui.row().classes("gap-1 items-center"):
                     ui.button(
@@ -152,7 +180,9 @@ def register() -> None:
                         {"v": current_page > 0},
                         "v",  # type: ignore[arg-type]
                     )
-                    ui.label(f"Page {current_page + 1} / {total_pages}").classes("text-sm")
+                    ui.label(
+                        t("transactions.page", current=current_page + 1, total=total_pages)
+                    ).classes("text-sm")
                     ui.button(
                         icon="chevron_right", on_click=lambda: _go_page(current_page + 1)
                     ).props("flat round dense").bind_enabled_from(
@@ -174,34 +204,125 @@ def register() -> None:
         split_rows: list[dict] = []
         is_split: dict = {"value": False}
 
+        # Build {account_id -> Account} map for currency look-ups
+        accounts_by_id: dict[int, Account] = {a.id: a for a in accounts}
+
         dialog = ui.dialog().on("show", lambda: amount_input.run_method("focus"))
         with dialog, ui.card().classes("w-[520px]"):
-            ui.label("Add Transaction").classes("text-lg font-bold")
+            ui.label(t("transactions.add")).classes("text-lg font-bold")
 
             tx_type_sel = ui.select(
-                {t.value: t.value.capitalize() for t in TransactionType},
-                label="Type",
+                {tx.value: tx.value.capitalize() for tx in TransactionType},
+                label=t("common.type"),
                 value=TransactionType.EXPENSE.value,
             ).classes("w-full")
 
-            account_sel = ui.select(account_options, label="Account").classes("w-full")
+            account_sel = ui.select(account_options, label=t("common.account")).classes("w-full")
             if account_options:
                 account_sel.value = next(iter(account_options))
 
-            # Category row (hidden in split mode)
+            # ── Destination account row (transfers only) ───────────────────────
+            dest_row = ui.row().classes("w-full")
+            dest_row.set_visibility(False)
+            with dest_row:
+                dest_account_sel = ui.select(
+                    account_options, label=t("transactions.to_account")
+                ).classes("w-full")
+
+            # ── Exchange rate section (cross-currency transfers) ───────────────
+            fx_row = ui.column().classes("w-full gap-2 border rounded p-3 bg-blue-50")
+            fx_row.set_visibility(False)
+            with fx_row:
+                ui.label(t("transactions.cross_currency_transfer")).classes(
+                    "text-sm font-semibold text-primary"
+                )
+                with ui.row().classes("w-full gap-2 items-end"):
+                    fx_rate_input = ui.number(
+                        t("transactions.exchange_rate"), min=0.000001, format="%.6f", step=0.01
+                    ).classes("flex-1")
+                    dest_amount_input = ui.number(
+                        t("transactions.dest_amount", currency="?"), min=0.01, format="%.2f"
+                    ).classes("flex-1")
+                fx_info = ui.label("").classes("text-xs text-grey-6")
+
+            # Category row (hidden in split mode and transfer mode)
             category_row = ui.row().classes("w-full")
             with category_row:
-                category_sel = ui.select(expense_cats, label="Category").classes("w-full")
+                category_sel = ui.select(expense_cats, label=t("common.category")).classes(
+                    "w-full"
+                )
                 ui.button(
-                    "Split",
+                    t("transactions.split"),
                     icon="call_split",
                     on_click=lambda: _toggle_split(),
-                ).props("flat dense color=primary").tooltip(  # noqa: E501
-                    "Split this transaction across categories"
+                ).props("flat dense color=primary").tooltip(t("transactions.split_tooltip"))
+
+            amount_input = ui.number(
+                t("common.amount"), min=0.01, format="%.2f"
+            ).classes("w-full").props("autofocus")
+            amount_input.on_value_change(lambda _: (split_rows_ui.refresh(), _update_fx()))
+
+            def _src_currency() -> str:
+                src_id = account_sel.value
+                return accounts_by_id[src_id].currency if src_id in accounts_by_id else "PLN"
+
+            def _dst_currency() -> str:
+                dst_id = dest_account_sel.value
+                return accounts_by_id[dst_id].currency if dst_id in accounts_by_id else "PLN"
+
+            def _is_cross_currency() -> bool:
+                return (
+                    tx_type_sel.value == TransactionType.TRANSFER.value
+                    and dest_account_sel.value is not None
+                    and _src_currency() != _dst_currency()
                 )
+
+            def _update_fx() -> None:
+                if not _is_cross_currency():
+                    return
+                src_cur = _src_currency()
+                dst_cur = _dst_currency()
+                dest_amount_input.props(f'label="{t("transactions.dest_amount", currency=dst_cur)}"')
+                fx_rate_input.props(
+                    f'label="{t("transactions.exchange_rate_hint", src=src_cur, dst=dst_cur)}"'
+                )
+                # Auto-calculate rate when dest_amount changes
+                src_amt = float(amount_input.value or 0)
+                dst_amt = float(dest_amount_input.value or 0)
+                rate_val = float(fx_rate_input.value or 0)
+                if dst_amt > 0 and src_amt > 0 and dst_amt != rate_val * src_amt:
+                    # dest_amount was just changed — recalculate rate
+                    computed_rate = dst_amt / src_amt
+                    fx_info.set_text(
+                        t("transactions.rate_auto", src=src_cur, rate=f"{computed_rate:.6f}", dst=dst_cur)
+                    )
+                elif rate_val > 0 and src_amt > 0:
+                    fx_info.set_text(
+                        t("transactions.rate_auto", src=src_cur, rate=f"{rate_val:.6f}", dst=dst_cur)
+                    )
+
+            def _on_fx_rate_change() -> None:
+                src_amt = float(amount_input.value or 0)
+                rate = float(fx_rate_input.value or 0)
+                if src_amt > 0 and rate > 0:
+                    computed_dest = src_amt * rate
+                    dest_amount_input.set_value(round(computed_dest, 2))
+                _update_fx()
+
+            def _on_dest_amount_change() -> None:
+                src_amt = float(amount_input.value or 0)
+                dst_amt = float(dest_amount_input.value or 0)
+                if src_amt > 0 and dst_amt > 0:
+                    computed_rate = dst_amt / src_amt
+                    fx_rate_input.set_value(round(computed_rate, 6))
+                _update_fx()
+
+            fx_rate_input.on_value_change(lambda _: _on_fx_rate_change())
+            dest_amount_input.on_value_change(lambda _: _on_dest_amount_change())
 
             def on_type_change() -> None:
                 chosen = tx_type_sel.value
+                is_transfer = chosen == TransactionType.TRANSFER.value
                 if chosen == TransactionType.INCOME.value:
                     category_sel.set_options(income_cats)
                 elif chosen == TransactionType.EXPENSE.value:
@@ -209,18 +330,26 @@ def register() -> None:
                 else:
                     category_sel.set_options({})
                 category_sel.value = None
+                dest_row.set_visibility(is_transfer)
+                category_row.set_visibility(not is_transfer and not is_split["value"])
+                _refresh_fx_visibility()
+
+            def _refresh_fx_visibility() -> None:
+                show = _is_cross_currency()
+                fx_row.set_visibility(show)
+                if show:
+                    _update_fx()
 
             tx_type_sel.on("update:model-value", lambda _: on_type_change())
+            account_sel.on("update:model-value", lambda _: _refresh_fx_visibility())
+            dest_account_sel.on("update:model-value", lambda _: _refresh_fx_visibility())
 
-            amount_input = ui.number("Amount", min=0.01, format="%.2f").classes("w-full").props(
-                "autofocus"
-            )
-            amount_input.on_value_change(lambda _: split_rows_ui.refresh())
-
-            desc_input = ui.input("Description (optional)").classes("w-full")
+            desc_input = ui.input(
+                f"{t('common.description')} ({t('common.optional')})"
+            ).classes("w-full")
 
             today_str = str(datetime.date.today())
-            date_text = ui.input("Date").props("type=date").classes("w-full")
+            date_text = ui.input(t("common.date")).props("type=date").classes("w-full")
             date_text.value = today_str
             date_cal = ui.date(value=today_str).classes("w-full")
 
@@ -246,6 +375,7 @@ def register() -> None:
             split_container.set_visibility(False)
 
             with split_container:
+
                 @ui.refreshable
                 def split_rows_ui() -> None:
                     chosen = tx_type_sel.value
@@ -255,21 +385,21 @@ def register() -> None:
                         with ui.row().classes("w-full items-center gap-2 no-wrap"):
                             ui.select(
                                 cats,
-                                label="Category",
+                                label=t("common.category"),
                                 value=row["category_id"],
                                 on_change=lambda e, idx=i: split_rows.__setitem__(
                                     idx, {**split_rows[idx], "category_id": e.value}
                                 ),
                             ).classes("flex-1 min-w-0")
                             ui.input(
-                                "Note",
+                                t("common.note"),
                                 value=row["note"],
                                 on_change=lambda e, idx=i: split_rows.__setitem__(
                                     idx, {**split_rows[idx], "note": e.value}
                                 ),
                             ).classes("w-28")
                             ui.number(
-                                "Amount",
+                                t("common.amount"),
                                 value=row["amount"],
                                 min=0.01,
                                 format="%.2f",
@@ -287,27 +417,28 @@ def register() -> None:
 
                     # Balance indicator + Add button
                     main_amount = Decimal(str(amount_input.value or 0))
-                    total_split = sum(
-                        Decimal(str(r["amount"] or 0)) for r in split_rows
-                    )
+                    total_split = sum(Decimal(str(r["amount"] or 0)) for r in split_rows)
                     remaining = main_amount - total_split
                     balanced = remaining == Decimal("0")
 
                     with ui.row().classes("w-full items-center justify-between mt-1"):
                         if main_amount > 0:
                             color = "text-positive" if balanced else "text-warning"
-                            ui.label(
-                                f"{'✓ Balanced' if balanced else f'{remaining:+.2f} remaining'}"
-                            ).classes(f"text-sm {color}")
+                            balance_text = (
+                                "✓ " + t("transactions.balanced")
+                                if balanced
+                                else f"{remaining:+.2f} {t('transactions.remaining')}"
+                            )
+                            ui.label(balance_text).classes(f"text-sm {color}")
                             if not balanced and remaining > 0:
                                 ui.button(
-                                    "Fill last",
+                                    t("transactions.fill_last"),
                                     on_click=lambda r=remaining: _fill_last(r),
                                 ).props("flat dense size=sm color=primary")
                         else:
-                            ui.label("Enter total amount above").classes("text-sm text-grey-5")
+                            ui.label(t("transactions.enter_total")).classes("text-sm text-grey-5")
                         ui.button(
-                            "Add split",
+                            t("transactions.add_split"),
                             icon="add",
                             on_click=lambda: _add_split(),
                         ).props("flat dense size=sm color=primary")
@@ -316,10 +447,10 @@ def register() -> None:
 
             async def submit() -> None:
                 if not account_sel.value:
-                    ui.notify("Select an account.", type="negative")
+                    ui.notify(t("transactions.select_account"), type="negative")
                     return
                 if not amount_input.value or amount_input.value <= 0:
-                    ui.notify("Enter a valid amount.", type="negative")
+                    ui.notify(t("transactions.enter_amount"), type="negative")
                     return
                 chosen_type = TransactionType(tx_type_sel.value)
 
@@ -335,13 +466,17 @@ def register() -> None:
 
                 if is_split["value"]:
                     if not split_rows:
-                        ui.notify("Add at least one split.", type="negative")
+                        ui.notify(t("transactions.add_one_split"), type="negative")
                         return
                     main_amount = Decimal(str(amount_input.value))
                     total_split = sum(Decimal(str(r["amount"] or 0)) for r in split_rows)
                     if total_split != main_amount:
                         ui.notify(
-                            f"Splits must sum to {main_amount:.2f} (currently {total_split:.2f}).",
+                            t(
+                                "transactions.splits_must_sum",
+                                total=f"{main_amount:.2f}",
+                                current=f"{total_split:.2f}",
+                            ),
                             type="negative",
                         )
                         return
@@ -364,31 +499,82 @@ def register() -> None:
                         splits=splits_payload,
                     )
                 else:
-                    if chosen_type != TransactionType.TRANSFER and not category_sel.value:
-                        ui.notify("Select a category.", type="negative")
+                    if chosen_type == TransactionType.TRANSFER:
+                        # ── Transfer: create both legs ─────────────────────────
+                        if not dest_account_sel.value:
+                            ui.notify(t("transactions.select_dest_account"), type="negative")
+                            return
+                        if dest_account_sel.value == account_sel.value:
+                            ui.notify(t("transactions.dest_same_as_src"), type="negative")
+                            return
+                        src_cur = _src_currency()
+                        dst_cur = _dst_currency()
+                        cross = src_cur != dst_cur
+                        if cross:
+                            rate = Decimal(str(fx_rate_input.value or 0))
+                            if rate <= 0:
+                                ui.notify(t("transactions.enter_rate_or_amount"), type="negative")
+                                return
+                            dest_amt = Decimal(str(dest_amount_input.value or 0))
+                            if dest_amt <= 0:
+                                dest_amt = Decimal(str(amount_input.value)) * rate
+                        else:
+                            rate = None
+                            dest_amt = Decimal(str(amount_input.value))
+
+                        outgoing = TransactionCreate(
+                            account_id=account_sel.value,
+                            amount=Decimal(str(amount_input.value)),
+                            exchange_rate=rate,
+                            type=TransactionType.TRANSFER,
+                            date=parsed_date,
+                            description=desc_input.value or "",
+                            is_internal_transfer=True,
+                        )
+                        incoming = TransactionCreate(
+                            account_id=dest_account_sel.value,
+                            amount=dest_amt,
+                            exchange_rate=rate,
+                            type=TransactionType.TRANSFER,
+                            date=parsed_date,
+                            description=desc_input.value or "",
+                            is_internal_transfer=True,
+                        )
+                        async with AsyncSessionFactory() as session:
+                            await TransactionService(session).create_transfer(outgoing, incoming)
+                            # Persist the exchange rate for this date in the DB
+                            if cross and rate and rate > 0:
+                                await CurrencyRateService(session).record_transfer_rate(
+                                    parsed_date, src_cur, dst_cur, rate
+                                )
+
+                        ui.notify(t("transactions.saved"), type="positive")
+                        dialog.close()
+                        _apply_filters()
                         return
-                    data = TransactionCreate(
-                        account_id=account_sel.value,
-                        category_id=category_sel.value
-                        if chosen_type != TransactionType.TRANSFER
-                        else None,
-                        amount=amount_input.value,
-                        type=chosen_type,
-                        date=parsed_date,
-                        description=desc_input.value or "",
-                        is_internal_transfer=(chosen_type == TransactionType.TRANSFER),
-                    )
+                    else:
+                        if not category_sel.value:
+                            ui.notify(t("transactions.select_category"), type="negative")
+                            return
+                        data = TransactionCreate(
+                            account_id=account_sel.value,
+                            category_id=category_sel.value,
+                            amount=amount_input.value,
+                            type=chosen_type,
+                            date=parsed_date,
+                            description=desc_input.value or "",
+                        )
 
                 async with AsyncSessionFactory() as session:
                     await TransactionService(session).create(data)
 
-                ui.notify("Transaction saved.", type="positive")
+                ui.notify(t("transactions.saved"), type="positive")
                 dialog.close()
                 _apply_filters()
 
             with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                ui.button("Cancel", on_click=dialog.close).props("flat")
-                ui.button("Save", on_click=submit).props("color=primary")
+                ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+                ui.button(t("common.save"), on_click=submit).props("color=primary")
 
             ui.keyboard(
                 on_key=lambda e: submit() if e.key == "Enter" and e.action.keydown else None
@@ -397,7 +583,8 @@ def register() -> None:
         # Dialog helpers (defined after dialog so widget refs exist)
         def _toggle_split() -> None:
             is_split["value"] = not is_split["value"]
-            category_row.set_visibility(not is_split["value"])
+            is_transfer = tx_type_sel.value == TransactionType.TRANSFER.value
+            category_row.set_visibility(not is_split["value"] and not is_transfer)
             split_container.set_visibility(is_split["value"])
             if is_split["value"] and not split_rows:
                 split_rows.append({"category_id": None, "amount": None, "note": ""})
@@ -425,63 +612,73 @@ def register() -> None:
             is_split["value"] = False
             category_row.set_visibility(True)
             split_container.set_visibility(False)
+            dest_row.set_visibility(False)
+            fx_row.set_visibility(False)
+            dest_account_sel.set_value(None)
+            fx_rate_input.set_value(None)
+            dest_amount_input.set_value(None)
+            fx_info.set_text("")
             split_rows_ui.refresh()
 
         dialog.on("hide", lambda: _reset_dialog())
 
         # ── Page layout ───────────────────────────────────────────────────────
-        with page_layout("Transactions"):
+        with page_layout(t("transactions.title")):
             # Header row
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label("Transactions").classes("text-2xl font-bold")
+                ui.label(t("transactions.title")).classes("text-2xl font-bold")
                 with ui.row().classes("gap-2 items-center"):
                     ui.label("N").classes(_KBD_CLS)
-                    ui.button("Add Transaction", icon="add", on_click=lambda: dialog.open()).props(
-                        "color=primary"
-                    )
+                    ui.button(
+                        t("transactions.add"),
+                        icon="add",
+                        on_click=lambda: dialog.open(),
+                    ).props("color=primary")
 
             # Filter card
             with ui.card().classes("w-full p-4"):
                 with ui.row().classes("w-full items-center gap-2 flex-wrap"):
                     ui.icon("filter_list").classes("text-grey-6")
-                    ui.label("Filters").classes("font-medium")
+                    ui.label(t("transactions.filters")).classes("font-medium")
                     badge_label = ui.badge("0", color="primary").classes("ml-1")
                     badge_label.set_visibility(False)
                     ui.space()
-                    ui.button("Clear", icon="clear", on_click=lambda: _clear_filters()).props(
-                        "flat dense size=sm color=grey-7"
-                    )
+                    ui.button(
+                        t("common.clear"),
+                        icon="clear",
+                        on_click=lambda: _clear_filters(),
+                    ).props("flat dense size=sm color=grey-7")
 
                 with ui.row().classes("w-full gap-4 flex-wrap items-end mt-2"):
                     date_from_input = (
-                        ui.input("Date from")
+                        ui.input(t("transactions.date_from"))
                         .props("type=date clearable")
                         .classes("w-36")
                         .on("update:model-value", lambda e: _set_date_from(e.args))
                     )
                     date_to_input = (
-                        ui.input("Date to")
+                        ui.input(t("transactions.date_to"))
                         .props("type=date clearable")
                         .classes("w-36")
                         .on("update:model-value", lambda e: _set_date_to(e.args))
                     )
                     account_filter = ui.select(
                         account_options,
-                        label="Accounts",
+                        label=t("transactions.accounts"),
                         multiple=True,
                         value=[],
                         on_change=lambda e: _set_list_filter("account_ids", e.value or []),
                     ).classes("w-48").props("use-chips clearable")
                     category_filter = ui.select(
                         all_cats,
-                        label="Categories",
+                        label=t("transactions.categories"),
                         multiple=True,
                         value=[],
                         on_change=lambda e: _set_list_filter("category_ids", e.value or []),
                     ).classes("w-48").props("use-chips clearable")
                     type_filter = ui.select(
-                        {t.value: t.value.capitalize() for t in TransactionType},
-                        label="Types",
+                        {tx.value: tx.value.capitalize() for tx in TransactionType},
+                        label=t("transactions.types"),
                         multiple=True,
                         value=[],
                         on_change=lambda e: _set_list_filter(
@@ -490,7 +687,7 @@ def register() -> None:
                         ),
                     ).classes("w-40").props("use-chips clearable")
                     search_input = (
-                        ui.input("Search description")
+                        ui.input(t("transactions.search_description"))
                         .props("clearable")
                         .classes("w-52")
                         .on("update:model-value", lambda e: _set_filter("search", e.args or ""))

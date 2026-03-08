@@ -98,8 +98,33 @@ class TransactionService:
             split = TransactionSplit(transaction_id=transaction.id, **split_data.model_dump())
             self.session.add(split)
         await self.session.commit()
-        await self.session.refresh(transaction)
-        return transaction
+        # Re-fetch with eager-loaded relationships so the response serializer
+        # never hits a lazy relationship outside of an async context.
+        fetched = await self.get(transaction.id)
+        assert fetched is not None
+        return fetched
+
+    async def create_transfer(
+        self,
+        outgoing: TransactionCreate,
+        incoming: TransactionCreate,
+    ) -> tuple[Transaction, Transaction]:
+        """Create a paired internal transfer (two linked legs) atomically."""
+        tx_out = Transaction(**outgoing.model_dump(exclude={"splits"}))
+        self.session.add(tx_out)
+        await self.session.flush()  # get tx_out.id
+
+        tx_in = Transaction(**incoming.model_dump(exclude={"splits"}))
+        tx_in.linked_transaction_id = tx_out.id
+        self.session.add(tx_in)
+        await self.session.flush()  # get tx_in.id
+
+        tx_out.linked_transaction_id = tx_in.id
+        await self.session.commit()
+        fetched_out = await self.get(tx_out.id)
+        fetched_in = await self.get(tx_in.id)
+        assert fetched_out is not None and fetched_in is not None
+        return fetched_out, fetched_in
 
     async def update(self, transaction_id: int, data: TransactionUpdate) -> Transaction | None:
         transaction = await self.get(transaction_id)
@@ -108,8 +133,7 @@ class TransactionService:
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(transaction, field, value)
         await self.session.commit()
-        await self.session.refresh(transaction)
-        return transaction
+        return await self.get(transaction_id)
 
     async def delete(self, transaction_id: int) -> bool:
         transaction = await self.get(transaction_id)

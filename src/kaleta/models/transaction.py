@@ -28,6 +28,10 @@ class Transaction(TimestampMixin, Base):
     )
 
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
+    # For cross-currency transfers: how many dest-currency units per 1 src-currency unit
+    exchange_rate: Mapped[Decimal | None] = mapped_column(
+        Numeric(precision=15, scale=6), nullable=True
+    )
     type: Mapped[TransactionType] = mapped_column(SAEnum(TransactionType, native_enum=False), nullable=False)  # noqa: E501
     date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False, default="")

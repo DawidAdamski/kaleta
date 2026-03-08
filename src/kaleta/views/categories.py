@@ -1,6 +1,7 @@
 from nicegui import ui
 
 from kaleta.db import AsyncSessionFactory
+from kaleta.i18n import t
 from kaleta.models.category import Category, CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryUpdate
 from kaleta.services import CategoryService
@@ -16,21 +17,21 @@ def register() -> None:
 
         # ── Add dialog ────────────────────────────────────────────────────
         with ui.dialog() as add_dialog, ui.card().classes("w-96"):
-            ui.label("Add Category").classes("text-lg font-bold mb-2")
-            add_name = ui.input("Name *").classes("w-full")
+            ui.label(t("categories.add")).classes("text-lg font-bold mb-2")
+            add_name = ui.input(f"{t('common.name')} *").classes("w-full")
             add_type = ui.select(
-                {t.value: t.value.capitalize() for t in CategoryType},
-                label="Type",
+                {ct.value: ct.value.capitalize() for ct in CategoryType},
+                label=t("common.type"),
                 value=CategoryType.EXPENSE.value,
             ).classes("w-full")
-            add_parent = ui.select({0: "— None (top-level) —"}, label="Parent", value=0).classes(
-                "w-full"
-            )
+            add_parent = ui.select(
+                {0: t("categories.none_parent")}, label=t("categories.parent"), value=0
+            ).classes("w-full")
 
             async def _load_add_parents(cat_type: str) -> None:
                 async with AsyncSessionFactory() as session:
                     roots = await CategoryService(session).list_roots(type=CategoryType(cat_type))
-                options: dict = {0: "— None (top-level) —"}
+                options: dict = {0: t("categories.none_parent")}
                 options.update({c.id: c.name for c in roots})
                 add_parent.set_options(options, value=0)
 
@@ -38,7 +39,7 @@ def register() -> None:
 
             async def save_add() -> None:
                 if not add_name.value.strip():
-                    ui.notify("Name is required.", type="negative")
+                    ui.notify(t("categories.name_required"), type="negative")
                     return
                 parent_id = add_parent.value if add_parent.value != 0 else None
                 data = CategoryCreate(
@@ -48,15 +49,15 @@ def register() -> None:
                 )
                 async with AsyncSessionFactory() as session:
                     await CategoryService(session).create(data)
-                ui.notify("Category created.", type="positive")
+                ui.notify(t("categories.created"), type="positive")
                 add_name.set_value("")
                 add_parent.set_value(0)
                 add_dialog.close()
                 category_list.refresh()
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
-                ui.button("Cancel", on_click=add_dialog.close).props("flat")
-                ui.button("Save", on_click=save_add).props("color=primary")
+                ui.button(t("common.cancel"), on_click=add_dialog.close).props("flat")
+                ui.button(t("common.save"), on_click=save_add).props("color=primary")
 
         async def open_add_dialog(
             preset_type: CategoryType = CategoryType.EXPENSE,
@@ -71,19 +72,19 @@ def register() -> None:
 
         # ── Edit dialog ───────────────────────────────────────────────────
         with ui.dialog() as edit_dialog, ui.card().classes("w-96"):
-            ui.label("Edit Category").classes("text-lg font-bold mb-2")
-            edit_name = ui.input("Name *").classes("w-full")
+            ui.label(t("categories.edit")).classes("text-lg font-bold mb-2")
+            edit_name = ui.input(f"{t('common.name')} *").classes("w-full")
             edit_type = ui.select(
-                {t.value: t.value.capitalize() for t in CategoryType},
-                label="Type",
+                {ct.value: ct.value.capitalize() for ct in CategoryType},
+                label=t("common.type"),
             ).classes("w-full")
-            edit_parent = ui.select({0: "— None (top-level) —"}, label="Parent", value=0).classes(
-                "w-full"
-            )
+            edit_parent = ui.select(
+                {0: t("categories.none_parent")}, label=t("categories.parent"), value=0
+            ).classes("w-full")
 
             async def save_edit() -> None:
                 if not edit_name.value.strip():
-                    ui.notify("Name is required.", type="negative")
+                    ui.notify(t("categories.name_required"), type="negative")
                     return
                 parent_id = edit_parent.value if edit_parent.value != 0 else None
                 data = CategoryUpdate(
@@ -93,13 +94,13 @@ def register() -> None:
                 )
                 async with AsyncSessionFactory() as session:
                     await CategoryService(session).update(edit_state["id"], data)
-                ui.notify("Category updated.", type="positive")
+                ui.notify(t("categories.updated"), type="positive")
                 edit_dialog.close()
                 category_list.refresh()
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
-                ui.button("Cancel", on_click=edit_dialog.close).props("flat")
-                ui.button("Save", on_click=save_edit).props("color=primary")
+                ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
+                ui.button(t("common.save"), on_click=save_edit).props("color=primary")
 
         async def open_edit_dialog(
             cat: Category, cat_type: CategoryType, parent_id: int | None
@@ -109,31 +110,31 @@ def register() -> None:
             edit_type.set_value(cat_type.value)
             async with AsyncSessionFactory() as session:
                 roots = await CategoryService(session).list_roots(type=cat_type)
-            options: dict = {0: "— None (top-level) —"}
+            options: dict = {0: t("categories.none_parent")}
             options.update({c.id: c.name for c in roots if c.id != cat.id})
             edit_parent.set_options(options, value=parent_id or 0)
             edit_dialog.open()
 
         # ── Delete dialog ─────────────────────────────────────────────────
         with ui.dialog() as delete_dialog, ui.card().classes("w-80"):
-            ui.label("Delete Category").classes("text-lg font-bold mb-2")
+            ui.label(t("common.delete")).classes("text-lg font-bold mb-2")
             delete_label = ui.label("").classes("text-sm mb-4")
 
             async def confirm_delete() -> None:
                 async with AsyncSessionFactory() as session:
                     await CategoryService(session).delete(delete_state["id"])
-                ui.notify("Category deleted.", type="positive")
+                ui.notify(t("categories.deleted"), type="positive")
                 delete_dialog.close()
                 category_list.refresh()
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
-                ui.button("Cancel", on_click=delete_dialog.close).props("flat")
-                ui.button("Delete", on_click=confirm_delete).props("color=negative")
+                ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
+                ui.button(t("common.delete"), on_click=confirm_delete).props("color=negative")
 
         def open_delete_dialog(cat: Category, has_children: bool) -> None:
             delete_state["id"] = cat.id
-            suffix = " Its subcategories will also be deleted." if has_children else ""
-            delete_label.set_text(f'Delete "{cat.name}"?{suffix}')
+            suffix = f" {t('categories.delete_subcategory_warning')}" if has_children else ""
+            delete_label.set_text(f'{t("categories.delete_confirm", name=cat.name)}{suffix}')
             delete_dialog.open()
 
         # ── Refreshable tree list ─────────────────────────────────────────
@@ -149,7 +150,7 @@ def register() -> None:
                 is_income = group_type == CategoryType.INCOME
                 color = "green" if is_income else "red"
                 icon = "trending_up" if is_income else "trending_down"
-                label = "Income" if is_income else "Expense"
+                label = t("categories.income_type") if is_income else t("categories.expense")
 
                 with ui.card().classes("w-full p-0 overflow-hidden"):
                     # Header row
@@ -161,11 +162,13 @@ def register() -> None:
                             icon="add",
                             on_click=lambda gt=group_type: open_add_dialog(gt),
                         ).props("flat round dense color=primary size=sm").tooltip(
-                            f"Add {label} category"
+                            t("categories.add_type_category", type=label)
                         )
 
                     if not roots:
-                        ui.label("No categories yet.").classes("text-grey-5 text-sm px-4 py-3")
+                        ui.label(t("categories.no_categories")).classes(
+                            "text-grey-5 text-sm px-4 py-3"
+                        )
                         return
 
                     # Tree rows
@@ -187,7 +190,7 @@ def register() -> None:
                                         gt, p.id, p.name
                                     ),
                                 ).props("flat round dense size=sm color=grey-6").tooltip(
-                                    "Add subcategory"
+                                    t("categories.add_subcategory")
                                 )
                                 ui.button(
                                     icon="edit",
@@ -227,11 +230,11 @@ def register() -> None:
             _render_group(expense_roots, CategoryType.EXPENSE)
 
         # ── Page layout ───────────────────────────────────────────────────
-        with page_layout("Categories"):
+        with page_layout(t("categories.title")):
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label("Categories").classes("text-2xl font-bold")
-                ui.button("Add Category", icon="add", on_click=lambda: open_add_dialog()).props(
-                    "color=primary"
-                )
+                ui.label(t("categories.title")).classes("text-2xl font-bold")
+                ui.button(
+                    t("categories.add"), icon="add", on_click=lambda: open_add_dialog()
+                ).props("color=primary")
 
             await category_list()

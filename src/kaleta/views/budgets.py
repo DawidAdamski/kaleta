@@ -7,6 +7,7 @@ from decimal import Decimal
 from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
+from kaleta.i18n import t
 from kaleta.models.category import CategoryType
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.services import BudgetService, CategoryService
@@ -15,18 +16,19 @@ from kaleta.views.layout import page_layout
 
 # ── Range helpers ──────────────────────────────────────────────────────────────
 
-RANGE_OPTIONS: dict[str, str] = {
-    "this_month":   "This Month",
-    "last_month":   "Last Month",
-    "this_quarter": "This Quarter",
-    "last_quarter": "Last Quarter",
-    "this_year":    "This Year",
-    "last_year":    "Last Year",
-    "last_30_days": "Last 30 Days",
-    "last_60_days": "Last 60 Days",
-    "last_90_days": "Last 90 Days",
-    "last_5_years": "Last 5 Years",
-}
+def _range_options() -> dict[str, str]:
+    return {
+        "this_month":   t("budgets.this_month"),
+        "last_month":   t("budgets.last_month"),
+        "this_quarter": t("budgets.this_quarter"),
+        "last_quarter": t("budgets.last_quarter"),
+        "this_year":    t("budgets.this_year"),
+        "last_year":    t("budgets.last_year"),
+        "last_30_days": t("budgets.last_30_days"),
+        "last_60_days": t("budgets.last_60_days"),
+        "last_90_days": t("budgets.last_90_days"),
+        "last_5_years": t("budgets.last_5_years"),
+    }
 
 
 def _date_range(key: str) -> tuple[datetime.date, datetime.date]:
@@ -96,20 +98,20 @@ def _budget_chart_options(summaries: list, is_dark: bool = False) -> dict:
 
     _opts = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-        "legend": {"data": ["Budget", "Actual"], "bottom": 0},
+        "legend": {"data": [t("budgets.budgeted"), t("budgets.actual")], "bottom": 0},
         "grid": {"left": "3%", "right": "4%", "bottom": "12%", "containLabel": True},
         "xAxis": {"type": "value", "axisLabel": {"formatter": "{value} zł"}},
         "yAxis": {"type": "category", "data": categories, "inverse": True},
         "series": [
             {
-                "name": "Budget",
+                "name": t("budgets.budgeted"),
                 "type": "bar",
                 "data": budgeted,
                 "itemStyle": {"color": "#90caf9"},
                 "barGap": "0%",
             },
             {
-                "name": "Actual",
+                "name": t("budgets.actual"),
                 "type": "bar",
                 "data": [
                     {"value": v, "itemStyle": {"color": c}}
@@ -139,26 +141,24 @@ def register() -> None:
 
             if summaries:
                 with ui.card().classes("w-full"):
-                    ui.label("Budget vs Actual Spending").classes("text-lg font-semibold mb-2")
+                    ui.label(t("budgets.vs_actual")).classes("text-lg font-semibold mb-2")
                     chart_height = max(300, len(summaries) * 48)
                     ui.echart(_budget_chart_options(summaries, is_dark)).classes("w-full").style(
                         f"height:{chart_height}px"
                     )
             else:
                 with ui.card().classes("w-full"):
-                    ui.label(
-                        "No budgets set for this period. Click 'Add / Edit Budget' to start."
-                    ).classes("text-grey-6 py-4")
+                    ui.label(t("budgets.no_budgets")).classes("text-grey-6 py-4")
 
             if summaries:
                 with ui.card().classes("w-full"):
-                    ui.label("Details").classes("text-lg font-semibold mb-2")
+                    ui.label(t("common.description")).classes("text-lg font-semibold mb-2")
                     columns = [
-                        {"name": "category",  "label": "Category",  "field": "category",  "align": "left"},
-                        {"name": "budget",    "label": "Budget",    "field": "budget",    "align": "right"},
-                        {"name": "actual",    "label": "Spent",     "field": "actual",    "align": "right"},
-                        {"name": "remaining", "label": "Remaining", "field": "remaining", "align": "right"},
-                        {"name": "pct",       "label": "Used %",    "field": "pct",       "align": "right"},
+                        {"name": "category",  "label": t("common.category"),   "field": "category",  "align": "left"},
+                        {"name": "budget",    "label": t("budgets.budgeted"),   "field": "budget",    "align": "right"},
+                        {"name": "actual",    "label": t("budgets.actual"),     "field": "actual",    "align": "right"},
+                        {"name": "remaining", "label": t("budgets.remaining"),  "field": "remaining", "align": "right"},
+                        {"name": "pct",       "label": t("budgets.used_pct"),   "field": "pct",       "align": "right"},
                     ]
                     rows = [
                         {
@@ -191,14 +191,14 @@ def register() -> None:
             available        = {k: v for k, v in expense_cat_opts.items() if k not in budgeted_ids}
 
             if available:
-                ui.label("Add category budget").classes("text-sm font-medium mt-2")
-                new_cat_sel = ui.select(available, label="Category").classes("w-full")
+                ui.label(t("budgets.add_category_budget")).classes("text-sm font-medium mt-2")
+                new_cat_sel = ui.select(available, label=t("common.category")).classes("w-full")
                 new_cat_sel.value = next(iter(available))
-                new_amount = ui.number("Amount (zł)", min=1, format="%.2f").classes("w-full")
+                new_amount = ui.number(t("budgets.amount_pln"), min=1, format="%.2f").classes("w-full")
 
                 async def save_new() -> None:
                     if not new_cat_sel.value or not new_amount.value:
-                        ui.notify("Fill in all fields.", type="negative")
+                        ui.notify(t("budgets.fill_all_fields"), type="negative")
                         return
                     data = BudgetCreate(
                         category_id=new_cat_sel.value,
@@ -208,19 +208,19 @@ def register() -> None:
                     )
                     async with AsyncSessionFactory() as s:
                         await BudgetService(s).upsert(data)
-                    ui.notify("Budget saved.", type="positive")
+                    ui.notify(t("budgets.saved"), type="positive")
                     edit_dialog.close()
                     budget_content.refresh()
 
-                ui.button("Save", on_click=save_new).props("color=primary").classes("mt-2")
+                ui.button(t("common.save"), on_click=save_new).props("color=primary").classes("mt-2")
             else:
-                ui.label("All expense categories have budgets this month.").classes(
+                ui.label(t("budgets.all_budgeted")).classes(
                     "text-grey-6 text-sm"
                 )
 
             if month_summaries:
                 ui.separator().classes("my-3")
-                ui.label("Edit existing budgets").classes("text-sm font-medium")
+                ui.label(t("budgets.edit_existing")).classes("text-sm font-medium")
                 for s in month_summaries:
                     with ui.row().classes("w-full items-center gap-2"):
                         ui.label(s.category_name).classes("flex-1 text-sm")
@@ -239,7 +239,7 @@ def register() -> None:
                             )
                             async with AsyncSessionFactory() as s2:
                                 await BudgetService(s2).upsert(data)
-                            ui.notify("Updated.", type="positive")
+                            ui.notify(t("budgets.saved"), type="positive")
                             edit_dialog.close()
                             budget_content.refresh()
 
@@ -247,20 +247,20 @@ def register() -> None:
 
         # ── Edit dialog (created once, outside refreshable) ────────────────
         with ui.dialog() as edit_dialog, ui.card().classes("w-96"):
-            ui.label("Set Monthly Budget").classes("text-lg font-bold")
-            ui.label(f"Period: {today.month:02d}/{today.year}").classes("text-sm text-grey-6 mb-2")
+            ui.label(t("budgets.edit")).classes("text-lg font-bold")
+            ui.label(t("budgets.period_label", month=f"{today.month:02d}", year=str(today.year))).classes("text-sm text-grey-6 mb-2")
             await dialog_content()
             with ui.row().classes("w-full justify-end mt-4"):
-                ui.button("Close", on_click=edit_dialog.close).props("flat")
+                ui.button(t("common.close"), on_click=edit_dialog.close).props("flat")
 
         async def open_edit_dialog() -> None:
             dialog_content.refresh()
             edit_dialog.open()
 
         # ── Page layout ────────────────────────────────────────────────────
-        with page_layout("Budgets"):
+        with page_layout(t("budgets.title")):
             with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
-                ui.label("Budgets").classes("text-2xl font-bold")
+                ui.label(t("budgets.title")).classes("text-2xl font-bold")
 
                 with ui.row().classes("items-center gap-3"):
                     range_date_label = ui.label(_range_label("this_month")).classes(
@@ -273,14 +273,14 @@ def register() -> None:
                         budget_content.refresh()
 
                     ui.select(
-                        options=RANGE_OPTIONS,
+                        options=_range_options(),
                         value="this_month",
-                        label="Period",
+                        label=t("budgets.period"),
                         on_change=on_range_change,
                     ).classes("w-44")
 
                     ui.button(
-                        "Add / Edit Budget",
+                        t("budgets.edit"),
                         icon="edit",
                         on_click=open_edit_dialog,
                     ).props("color=primary")

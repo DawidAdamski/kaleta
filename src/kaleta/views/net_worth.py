@@ -5,6 +5,7 @@ from decimal import Decimal
 from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
+from kaleta.i18n import t
 from kaleta.models.account import AccountType
 from kaleta.models.asset import AssetType
 from kaleta.schemas.asset import AssetCreate, AssetUpdate
@@ -17,33 +18,39 @@ from kaleta.services.net_worth_service import (
 )
 from kaleta.views.layout import page_layout
 
-_TYPE_LABEL: dict[AccountType, str] = {
-    AccountType.CHECKING: "Checking",
-    AccountType.SAVINGS: "Savings",
-    AccountType.CASH: "Cash",
-    AccountType.CREDIT: "Credit",
-}
 
-_ASSET_TYPE_LABEL: dict[str, str] = {
-    AssetType.REAL_ESTATE.value: "Real Estate",
-    AssetType.VEHICLE.value: "Vehicle",
-    AssetType.VALUABLES.value: "Valuables",
-    AssetType.OTHER.value: "Other",
-}
+def _type_label() -> dict[AccountType, str]:
+    return {
+        AccountType.CHECKING: t("accounts.checking"),
+        AccountType.SAVINGS: t("accounts.savings"),
+        AccountType.CASH: t("accounts.cash"),
+        AccountType.CREDIT: t("accounts.credit"),
+    }
 
 
-def _fmt(amount: Decimal) -> str:
-    return f"{amount:,.2f} PLN"
+def _asset_type_label() -> dict[str, str]:
+    return {
+        AssetType.REAL_ESTATE.value: t("net_worth.real_estate"),
+        AssetType.VEHICLE.value: t("net_worth.vehicle"),
+        AssetType.VALUABLES.value: t("net_worth.valuables"),
+        AssetType.OTHER.value: t("net_worth.other"),
+    }
 
 
-def _summary_card(label: str, amount: Decimal, color: str, change: Decimal | None = None) -> None:
+def _fmt(amount: Decimal, currency: str = "PLN") -> str:
+    return f"{amount:,.2f} {currency}"
+
+
+def _summary_card(
+    label: str, amount: Decimal, color: str, currency: str = "PLN", change: Decimal | None = None
+) -> None:
     with ui.card().classes("flex-1 p-5 min-w-48"):
         ui.label(label).classes("text-sm text-grey-6 uppercase tracking-wide mb-1")
-        ui.label(_fmt(amount)).classes(f"text-2xl font-bold text-{color}")
+        ui.label(_fmt(amount, currency)).classes(f"text-2xl font-bold text-{color}")
         if change is not None:
             ch_sign = "+" if change >= 0 else ""
             ch_color = "positive" if change >= 0 else "negative"
-            ui.label(f"{ch_sign}{_fmt(change)} vs last month").classes(
+            ui.label(f"{ch_sign}{_fmt(change, currency)} {t('net_worth.vs_last_month')}").classes(
                 f"text-xs text-{ch_color} mt-1"
             )
 
@@ -98,24 +105,29 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
     ).classes("w-full h-64")
 
 
-def _account_table(accounts: list[AccountSnapshot], assets: bool) -> None:
+def _account_table(accounts: list[AccountSnapshot], assets: bool, default_currency: str = "PLN") -> None:
     filtered = [a for a in accounts if a.is_asset == assets or (not assets and not a.is_asset)]
     if not filtered:
-        ui.label("None").classes("text-grey-5 text-sm px-4 py-2")
+        ui.label(t("common.none")).classes("text-grey-5 text-sm px-4 py-2")
         return
 
     columns = [
-        {"name": "name", "label": "Account", "field": "name", "align": "left"},
-        {"name": "type", "label": "Type", "field": "type", "align": "left"},
-        {"name": "institution", "label": "Institution", "field": "institution", "align": "left"},
-        {"name": "balance", "label": "Balance", "field": "balance", "align": "right"},
+        {"name": "name", "label": t("common.account"), "field": "name", "align": "left"},
+        {"name": "type", "label": t("common.type"), "field": "type", "align": "left"},
+        {"name": "institution", "label": t("common.institution"), "field": "institution", "align": "left"},
+        {"name": "balance", "label": t("common.balance"), "field": "balance", "align": "right"},
     ]
+    type_labels = _type_label()
     rows = [
         {
             "name": a.name,
-            "type": _TYPE_LABEL.get(a.type, a.type.value),
+            "type": type_labels.get(a.type, a.type.value),
             "institution": a.institution_name or "—",
-            "balance": _fmt(a.balance if assets else -a.balance),
+            "balance": (
+                f"{_fmt(a.balance, a.currency)} ≈ {_fmt(a.balance_in_default, default_currency)}"
+                if a.currency != default_currency
+                else _fmt(a.balance if assets else -a.balance, a.currency)
+            ),
         }
         for a in filtered
     ]
@@ -125,27 +137,28 @@ def _account_table(accounts: list[AccountSnapshot], assets: bool) -> None:
 def _physical_assets_section(summary: NetWorthSummary) -> None:
     """Renders the physical assets card with CRUD controls. All dialogs pre-created at render."""
 
-    type_options = _ASSET_TYPE_LABEL
+    type_options = _asset_type_label()
     editing: dict = {"id": None, "snapshot": None}
 
     @ui.refreshable
     def assets_ui() -> None:
         if not summary.physical_assets:
-            ui.label("No physical assets added yet.").classes("text-grey-5 text-sm px-4 py-2")
+            ui.label(t("net_worth.no_assets")).classes("text-grey-5 text-sm px-4 py-2")
             return
 
+        asset_type_labels = _asset_type_label()
         columns = [
-            {"name": "name", "label": "Name", "field": "name", "align": "left"},
-            {"name": "type", "label": "Type", "field": "type", "align": "left"},
-            {"name": "value", "label": "Value", "field": "value", "align": "right"},
-            {"name": "note", "label": "Note", "field": "note", "align": "left"},
+            {"name": "name", "label": t("net_worth.asset_name"), "field": "name", "align": "left"},
+            {"name": "type", "label": t("net_worth.asset_type"), "field": "type", "align": "left"},
+            {"name": "value", "label": t("net_worth.asset_value"), "field": "value", "align": "right"},
+            {"name": "note", "label": t("net_worth.asset_note"), "field": "note", "align": "left"},
             {"name": "actions", "label": "", "field": "actions", "align": "right"},
         ]
         rows = [
             {
                 "id": a.id,
                 "name": a.name,
-                "type": _ASSET_TYPE_LABEL.get(a.type, a.type),
+                "type": asset_type_labels.get(a.type, a.type),
                 "value": _fmt(a.value),
                 "note": a.description,
             }
@@ -172,13 +185,15 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
     # ── Add dialog ────────────────────────────────────────────────────────────
     add_dlg = ui.dialog()
     with add_dlg, ui.card().classes("w-96"):
-        ui.label("Add Physical Asset").classes("text-lg font-semibold mb-2")
-        add_name = ui.input("Name").classes("w-full")
-        add_type = ui.select(type_options, label="Type", value=AssetType.OTHER.value).classes(
+        ui.label(t("net_worth.add_asset_title")).classes("text-lg font-semibold mb-2")
+        add_name = ui.input(t("net_worth.asset_name")).classes("w-full")
+        add_type = ui.select(
+            type_options, label=t("net_worth.asset_type"), value=AssetType.OTHER.value
+        ).classes("w-full")
+        add_value = ui.number(t("net_worth.asset_value"), value=0, min=0, step=1000).classes(
             "w-full"
         )
-        add_value = ui.number("Current Value (PLN)", value=0, min=0, step=1000).classes("w-full")
-        add_desc = ui.input("Note (optional)").classes("w-full")
+        add_desc = ui.input(t("net_worth.asset_note")).classes("w-full")
 
         async def _add_save() -> None:
             async with AsyncSessionFactory() as session:
@@ -209,19 +224,21 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
             add_desc.set_value("")
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
-            ui.button("Cancel", on_click=add_dlg.close).props("flat")
-            ui.button("Save", on_click=_add_save).props("color=primary")
+            ui.button(t("common.cancel"), on_click=add_dlg.close).props("flat")
+            ui.button(t("common.save"), on_click=_add_save).props("color=primary")
 
     # ── Edit dialog ───────────────────────────────────────────────────────────
     edit_dlg = ui.dialog()
     with edit_dlg, ui.card().classes("w-96"):
-        ui.label("Edit Physical Asset").classes("text-lg font-semibold mb-2")
-        edit_name = ui.input("Name").classes("w-full")
-        edit_type = ui.select(type_options, label="Type", value=AssetType.OTHER.value).classes(
+        ui.label(t("net_worth.edit_asset")).classes("text-lg font-semibold mb-2")
+        edit_name = ui.input(t("net_worth.asset_name")).classes("w-full")
+        edit_type = ui.select(
+            type_options, label=t("net_worth.asset_type"), value=AssetType.OTHER.value
+        ).classes("w-full")
+        edit_value = ui.number(t("net_worth.asset_value"), value=0, min=0, step=1000).classes(
             "w-full"
         )
-        edit_value = ui.number("Current Value (PLN)", value=0, min=0, step=1000).classes("w-full")
-        edit_desc = ui.input("Note (optional)").classes("w-full")
+        edit_desc = ui.input(t("net_worth.asset_note")).classes("w-full")
 
         async def _edit_save() -> None:
             snap: PhysicalAssetSnapshot = editing["snapshot"]
@@ -244,14 +261,14 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
             edit_dlg.close()
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
-            ui.button("Cancel", on_click=edit_dlg.close).props("flat")
-            ui.button("Save", on_click=_edit_save).props("color=primary")
+            ui.button(t("common.cancel"), on_click=edit_dlg.close).props("flat")
+            ui.button(t("common.save"), on_click=_edit_save).props("color=primary")
 
     # ── Delete dialog ─────────────────────────────────────────────────────────
     del_dlg = ui.dialog()
     with del_dlg, ui.card().classes("w-80"):
         del_label = ui.label("").classes("text-lg font-semibold")
-        ui.label("This action cannot be undone.").classes("text-sm text-grey-6 mt-1")
+        ui.label(t("net_worth.cannot_undo")).classes("text-sm text-grey-6 mt-1")
 
         async def _del_confirm() -> None:
             async with AsyncSessionFactory() as session:
@@ -263,8 +280,8 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
             del_dlg.close()
 
         with ui.row().classes("w-full justify-end gap-2 mt-4"):
-            ui.button("Cancel", on_click=del_dlg.close).props("flat")
-            ui.button("Delete", on_click=_del_confirm).props("color=negative")
+            ui.button(t("common.cancel"), on_click=del_dlg.close).props("flat")
+            ui.button(t("common.delete"), on_click=_del_confirm).props("color=negative")
 
     # ── Event handlers ────────────────────────────────────────────────────────
     def _on_edit(row: dict) -> None:
@@ -284,38 +301,53 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
         if snap is None:
             return
         editing["id"] = snap.id
-        del_label.set_text(f'Delete "{snap.name}"?')
+        del_label.set_text(t("net_worth.delete_asset_confirm", name=snap.name))
         del_dlg.open()
 
     def _on_add() -> None:
         _add_reset()
         add_dlg.open()
 
-    ui.button("Add Asset", icon="add", on_click=_on_add).props("flat color=primary").classes(
-        "mx-4 mb-2"
-    )
+    ui.button(t("net_worth.add_asset"), icon="add", on_click=_on_add).props(
+        "flat color=primary"
+    ).classes("mx-4 mb-2")
 
 
 def register() -> None:
     @ui.page("/net-worth")
     async def net_worth_page() -> None:
         dark: bool = app.storage.user.get("dark_mode", False)
+        default_currency: str = app.storage.user.get("currency", "PLN")
 
         async with AsyncSessionFactory() as session:
-            summary = await NetWorthService(session).get_summary(history_months=13)
+            summary = await NetWorthService(session).get_summary(
+                history_months=13,
+                default_currency=default_currency,
+            )
 
-        with page_layout("Net Worth"):
+        with page_layout(t("net_worth.title")):
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label("Net Worth").classes("text-2xl font-bold")
+                ui.label(t("net_worth.title")).classes("text-2xl font-bold")
 
             # ── Summary cards ─────────────────────────────────────────────────
             with ui.row().classes("w-full gap-4 flex-wrap"):
-                _summary_card("Total Assets", summary.total_assets, "positive")
-                _summary_card("Total Liabilities", summary.total_liabilities, "negative")
                 _summary_card(
-                    "Net Worth",
+                    t("net_worth.total_assets"),
+                    summary.total_assets,
+                    "positive",
+                    currency=default_currency,
+                )
+                _summary_card(
+                    t("net_worth.total_liabilities"),
+                    summary.total_liabilities,
+                    "negative",
+                    currency=default_currency,
+                )
+                _summary_card(
+                    t("net_worth.net_worth"),
                     summary.net_worth,
                     "primary" if summary.net_worth >= 0 else "negative",
+                    currency=default_currency,
                     change=summary.monthly_change,
                 )
 
@@ -323,7 +355,7 @@ def register() -> None:
             with ui.card().classes("w-full"):
                 with ui.row().classes("items-center px-4 pt-4 pb-2"):
                     ui.icon("show_chart").classes("text-primary text-xl")
-                    ui.label("Net Worth History").classes("text-lg font-semibold ml-2")
+                    ui.label(t("net_worth.history")).classes("text-lg font-semibold ml-2")
                 _chart(summary, dark)
 
             # ── Account breakdown ─────────────────────────────────────────────
@@ -332,28 +364,28 @@ def register() -> None:
                 with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
                     with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
                         ui.icon("trending_up", color="positive").classes("text-xl")
-                        ui.label("Assets").classes("text-lg font-semibold flex-1")
-                        ui.label(_fmt(summary.total_assets)).classes(
+                        ui.label(t("net_worth.assets")).classes("text-lg font-semibold flex-1")
+                        ui.label(_fmt(summary.total_assets, default_currency)).classes(
                             "font-bold text-positive text-sm"
                         )
-                    _account_table(summary.accounts, assets=True)
+                    _account_table(summary.accounts, assets=True, default_currency=default_currency)
 
                 # Liabilities
                 with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
                     with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
                         ui.icon("trending_down", color="negative").classes("text-xl")
-                        ui.label("Liabilities").classes("text-lg font-semibold flex-1")
-                        ui.label(_fmt(summary.total_liabilities)).classes(
+                        ui.label(t("net_worth.liabilities")).classes("text-lg font-semibold flex-1")
+                        ui.label(_fmt(summary.total_liabilities, default_currency)).classes(
                             "font-bold text-negative text-sm"
                         )
-                    _account_table(summary.accounts, assets=False)
+                    _account_table(summary.accounts, assets=False, default_currency=default_currency)
 
             # ── Physical assets ───────────────────────────────────────────────
             with ui.card().classes("w-full p-0 overflow-hidden"):
                 with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
                     ui.icon("home", color="primary").classes("text-xl")
-                    ui.label("Physical Assets").classes("text-lg font-semibold flex-1")
-                    ui.label(_fmt(summary.total_physical_assets)).classes(
+                    ui.label(t("net_worth.physical_assets")).classes("text-lg font-semibold flex-1")
+                    ui.label(_fmt(summary.total_physical_assets, default_currency)).classes(
                         "font-bold text-primary text-sm"
                     )
                 _physical_assets_section(summary)

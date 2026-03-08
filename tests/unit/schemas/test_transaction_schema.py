@@ -176,6 +176,56 @@ class TestTransactionCreate:
         assert schema.date == old
 
 
+# ── exchange_rate field ────────────────────────────────────────────────────────
+
+
+class TestTransactionExchangeRate:
+
+    def test_exchange_rate_defaults_to_none(self):
+        schema = TransactionCreate(
+            account_id=1,
+            category_id=1,
+            amount=Decimal("100.00"),
+            type=TransactionType.EXPENSE,
+            date=TODAY,
+        )
+        assert schema.exchange_rate is None
+
+    def test_exchange_rate_none_is_accepted(self):
+        schema = TransactionCreate(**_base(exchange_rate=None))
+        assert schema.exchange_rate is None
+
+    def test_exchange_rate_positive_decimal_accepted(self):
+        schema = TransactionCreate(**_base(exchange_rate=Decimal("4.250000")))
+        assert schema.exchange_rate == Decimal("4.250000")
+
+    def test_exchange_rate_on_transfer_accepted(self):
+        schema = TransactionCreate(
+            account_id=1,
+            category_id=None,
+            amount=Decimal("500.00"),
+            type=TransactionType.TRANSFER,
+            date=TODAY,
+            description="Cross-currency transfer",
+            is_internal_transfer=True,
+            exchange_rate=Decimal("4.25"),
+        )
+        assert schema.exchange_rate == Decimal("4.25")
+        assert schema.is_internal_transfer is True
+
+    def test_exchange_rate_non_numeric_string_rejected(self):
+        with pytest.raises(ValidationError):
+            TransactionCreate(**_base(exchange_rate="not-a-number"))  # type: ignore[arg-type]
+
+    def test_exchange_rate_small_fractional_accepted(self):
+        schema = TransactionCreate(**_base(exchange_rate=Decimal("0.000001")))
+        assert schema.exchange_rate == Decimal("0.000001")
+
+    def test_exchange_rate_large_value_accepted(self):
+        schema = TransactionCreate(**_base(exchange_rate=Decimal("999999999.123456")))
+        assert schema.exchange_rate == Decimal("999999999.123456")
+
+
 class TestTransactionUpdate:
 
     def test_all_optional(self):

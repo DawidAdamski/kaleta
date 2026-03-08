@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy import Enum as SAEnum, String
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
@@ -30,7 +31,7 @@ class Institution(TimestampMixin, Base):
     website: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    accounts: Mapped[list["Account"]] = relationship(  # type: ignore[name-defined]  # noqa: F821
+    accounts: Mapped[list[Account]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Account", back_populates="institution"
     )
 

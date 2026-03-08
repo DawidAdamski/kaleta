@@ -18,7 +18,9 @@
       "Bash(uv run:*)",
       "Bash(curl:*)",
       "Bash(sed:*)",
-      "Bash(taskkill:*)"
+      "Bash(taskkill:*)",
+      "Bash(python:*)",
+      "Bash(ls:*)"
     ]
   }
 }

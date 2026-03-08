@@ -10,6 +10,7 @@ class AccountBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     type: AccountType = AccountType.CHECKING
     balance: Decimal = Field(default=Decimal("0.00"), decimal_places=2)
+    currency: str = Field(default="PLN", min_length=3, max_length=3)
     institution_id: int | None = None
 
 
@@ -21,6 +22,7 @@ class AccountUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=100)
     type: AccountType | None = None
     balance: Decimal | None = Field(default=None, decimal_places=2)
+    currency: str | None = Field(default=None, min_length=3, max_length=3)
     institution_id: int | None = None
 
 

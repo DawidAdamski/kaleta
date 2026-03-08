@@ -46,8 +46,9 @@ Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
 | Accounts grouping   | Toggle between group-by-Type and group-by-Institution; dynamic column swap via `_columns_for(by)`; institution selector in add/edit dialogs |
 | Transaction filtering | Filter panel: date range, multi-select accounts/categories/types, description search; 50/page pagination with total count display |
 | Split transactions  | `is_split` mode in add-transaction dialog; per-split category, amount, note; balance indicator; Fill Last button; auto-scroll on add row |
-| Net Worth           | `/net-worth`: summary cards (assets/liabilities/net worth + monthly change), 13-month ECharts line+area chart (axis label colour overrides for dark mode), side-by-side assets/liabilities account table, physical assets CRUD section (Add/Edit/Delete dialogs) |
+| Net Worth           | `/net-worth`: summary cards (assets/liabilities/net worth + monthly change), 13-month ECharts line+area chart (axis label colour overrides for dark mode), side-by-side assets/liabilities account table, physical assets CRUD section (Add/Edit/Delete dialogs); foreign-currency account rows show native and converted balances; all totals in default currency |
 | Physical assets     | `Asset` model (`models/asset.py`): name, type (`AssetType`), current value, description, optional purchase date and price; `AssetService` provides full CRUD; values included in `total_assets` and net worth history via `NetWorthService` |
+| Multi-currency      | Currency selector in Accounts add/edit dialogs; Settings page: default currency selector + per-currency manual exchange rate editor; Transfer dialog shows "To Account" selector and exchange rate panel for cross-currency pairs (rate or amount auto-calculation) |
 
 ## Development Tools
 

@@ -10,6 +10,8 @@ from kaleta.db.base import Base
 # Import all models so Alembic can detect them for autogenerate.
 from kaleta.models import Account, AccountType, Budget, Category, CategoryType, Transaction, TransactionSplit, TransactionType  # noqa: F401
 from kaleta.models.institution import Institution, InstitutionType  # noqa: F401  # noqa: F401
+from kaleta.models.currency_rate import CurrencyRate  # noqa: F401
+from kaleta.models.report import SavedReport  # noqa: F401
 
 config = context.config
 if config.config_file_name is not None:

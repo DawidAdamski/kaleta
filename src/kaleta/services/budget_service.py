@@ -4,7 +4,7 @@ import datetime
 from dataclasses import dataclass
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -199,3 +199,23 @@ class BudgetService:
             ],
             key=lambda s: s.category_name,
         )
+
+    async def actuals_by_category_month(self, year: int) -> dict[tuple[int, int], Decimal]:
+        """Return {(category_id, month): actual_amount} for expense transactions in the given year.
+        """
+        result = await self.session.execute(
+            select(
+                Transaction.category_id,
+                extract("month", Transaction.date).label("month"),
+                func.sum(Transaction.amount).label("total"),
+            )
+            .where(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.date >= datetime.date(year, 1, 1),
+                Transaction.date <= datetime.date(year, 12, 31),
+                Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.category_id.isnot(None),
+            )
+            .group_by(Transaction.category_id, extract("month", Transaction.date))
+        )
+        return {(int(row.category_id), int(row.month)): row.total for row in result}

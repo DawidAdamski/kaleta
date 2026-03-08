@@ -3,7 +3,8 @@ from __future__ import annotations
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Enum as SAEnum, ForeignKey, Numeric, String
+from sqlalchemy import Enum as SAEnum
+from sqlalchemy import ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
@@ -28,14 +29,15 @@ class Account(TimestampMixin, Base):
     balance: Mapped[Decimal] = mapped_column(
         Numeric(precision=15, scale=2), nullable=False, default=Decimal("0.00")
     )
+    currency: Mapped[str] = mapped_column(String(3), nullable=False, default="PLN")
     institution_id: Mapped[int | None] = mapped_column(
         ForeignKey("institutions.id", ondelete="SET NULL"), nullable=True
     )
 
-    institution: Mapped["Institution | None"] = relationship(  # type: ignore[name-defined]  # noqa: F821
+    institution: Mapped[Institution | None] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Institution", back_populates="accounts"
     )
-    transactions: Mapped[list["Transaction"]] = relationship(  # type: ignore[name-defined]  # noqa: F821
+    transactions: Mapped[list[Transaction]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Transaction", back_populates="account", cascade="all, delete-orphan"
     )
 

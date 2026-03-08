@@ -28,6 +28,8 @@ class TransactionBase(BaseModel):
     account_id: int
     category_id: int | None = None
     amount: Decimal = Field(..., decimal_places=2)
+    # Exchange rate for cross-currency transfers: dest_currency per 1 src_currency unit
+    exchange_rate: Decimal | None = None
     type: TransactionType
     date: datetime.date
     description: str = Field(default="", max_length=500)

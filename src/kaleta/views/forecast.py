@@ -5,6 +5,7 @@ import datetime
 from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
+from kaleta.i18n import t
 from kaleta.services.forecast_service import ForecastResult, ForecastService
 from kaleta.views.chart_utils import apply_dark
 from kaleta.views.layout import page_layout
@@ -21,7 +22,7 @@ def _forecast_chart(result: ForecastResult, is_dark: bool = False) -> dict:
     _opts = {
         "tooltip": {"trigger": "axis", "formatter": "{b}<br/>{a0}: {c0} zł"},
         "legend": {
-            "data": ["Historical", "Forecast", "Confidence band"],
+            "data": [t("forecast.actual"), t("forecast.predicted"), t("forecast.confidence_band")],
             "bottom": 0,
         },
         "grid": {"left": "3%", "right": "4%", "bottom": "12%", "containLabel": True},
@@ -30,7 +31,7 @@ def _forecast_chart(result: ForecastResult, is_dark: bool = False) -> dict:
             "data": [p[0] for p in hist] + [p[0] for p in fore],
             "axisLabel": {"rotate": 30},
             "markLine": {
-                "data": [{"xAxis": today_str, "name": "Today"}],
+                "data": [{"xAxis": today_str, "name": t("forecast.today")}],
             },
         },
         "yAxis": {
@@ -39,7 +40,7 @@ def _forecast_chart(result: ForecastResult, is_dark: bool = False) -> dict:
         },
         "series": [
             {
-                "name": "Historical",
+                "name": t("forecast.actual"),
                 "type": "line",
                 "data": [v for _, v in hist],
                 "itemStyle": {"color": "#1976d2"},
@@ -48,7 +49,7 @@ def _forecast_chart(result: ForecastResult, is_dark: bool = False) -> dict:
                 "z": 3,
             },
             {
-                "name": "Forecast",
+                "name": t("forecast.predicted"),
                 "type": "line",
                 "data": [None] * len(hist) + [v for _, v in fore],
                 "itemStyle": {"color": "#fb8c00"},
@@ -57,7 +58,7 @@ def _forecast_chart(result: ForecastResult, is_dark: bool = False) -> dict:
                 "z": 3,
             },
             {
-                "name": "Upper bound",
+                "name": t("forecast.upper"),
                 "type": "line",
                 "data": [None] * len(hist) + [v for _, v in upper],
                 "lineStyle": {"opacity": 0},
@@ -66,7 +67,7 @@ def _forecast_chart(result: ForecastResult, is_dark: bool = False) -> dict:
                 "z": 1,
             },
             {
-                "name": "Confidence band",
+                "name": t("forecast.confidence_band"),
                 "type": "line",
                 "data": [None] * len(hist) + [u - l for (_, u), (_, l) in zip(upper, lower)],
                 "lineStyle": {"opacity": 0},
@@ -90,24 +91,24 @@ def register() -> None:
         account_options: dict[int | str, str] = {"all": "All Accounts"}
         account_options.update({a.id: a.name for a in accounts})
 
-        with page_layout("Forecast"):
-            ui.label("Balance Forecast").classes("text-2xl font-bold")
+        with page_layout(t("forecast.title")):
+            ui.label(t("forecast.chart_title")).classes("text-2xl font-bold")
 
             # Controls
             with ui.card().classes("w-full"):
                 with ui.row().classes("items-end gap-4 flex-wrap"):
                     account_sel = ui.select(
-                        account_options, label="Account", value="all"
+                        account_options, label=t("forecast.account"), value="all"
                     ).classes("min-w-52")
                     horizon_sel = ui.select(
-                        {30: "30 days", 60: "60 days", 90: "90 days"},
-                        label="Forecast horizon",
+                        {30: t("forecast.days_30"), 60: t("forecast.days_60"), 90: t("forecast.days_90")},
+                        label=t("forecast.horizon"),
                         value=60,
                     ).classes("min-w-36")
-                    run_btn = ui.button("Run Forecast", icon="insights").props("color=primary")
+                    run_btn = ui.button(t("forecast.run"), icon="insights").props("color=primary")
 
             # Output area
-            status = ui.label("Click 'Run Forecast' to generate predictions.").classes(
+            status = ui.label(t("forecast.click_run")).classes(
                 "text-grey-6 text-sm"
             )
             chart_container = ui.column().classes("w-full")
@@ -116,7 +117,7 @@ def register() -> None:
             async def run_forecast() -> None:
                 chart_container.clear()
                 kpi_row.clear()
-                status.set_text("Running Prophet — this may take a few seconds...")
+                status.set_text(t("forecast.running"))
                 run_btn.props("loading")
 
                 chosen = account_sel.value
@@ -131,9 +132,7 @@ def register() -> None:
                 run_btn.props(remove="loading")
 
                 if result.insufficient_data or not result.points:
-                    status.set_text(
-                        "Not enough historical data to run a forecast (need at least 14 days)."
-                    )
+                    status.set_text(t("forecast.insufficient"))
                     return
 
                 status.set_text(
@@ -149,31 +148,31 @@ def register() -> None:
                     pred_30 = result.predicted_balance_30d
 
                     if today_balance is not None:
-                        _kpi(kpi_row, "Current Balance", f"{today_balance:,.2f} zł", "account_balance", "blue-7")
+                        _kpi(kpi_row, t("forecast.current_balance"), f"{today_balance:,.2f} zł", "account_balance", "blue-7")
                     if pred_30 is not None:
                         color = "green-7" if pred_30 >= (today_balance or 0) else "red-7"
-                        _kpi(kpi_row, "Predicted in 30 days", f"{pred_30:,.2f} zł", "trending_flat", color)
+                        _kpi(kpi_row, t("forecast.predicted_30"), f"{pred_30:,.2f} zł", "trending_flat", color)
                         if today_balance is not None:
                             delta = pred_30 - today_balance
                             sign = "+" if delta >= 0 else ""
                             delta_color = "green-7" if delta >= 0 else "red-7"
-                            _kpi(kpi_row, "30-day change", f"{sign}{delta:,.2f} zł", "swap_vert", delta_color)
+                            _kpi(kpi_row, t("forecast.change_30"), f"{sign}{delta:,.2f} zł", "swap_vert", delta_color)
 
                 with chart_container:
                     with ui.card().classes("w-full"):
-                        ui.label(f"Balance forecast — {result.account_name}").classes(
+                        ui.label(t("forecast.chart_title_account", account=result.account_name)).classes(
                             "text-lg font-semibold mb-2"
                         )
                         ui.echart(_forecast_chart(result, is_dark)).classes("w-full h-96")
 
                     with ui.card().classes("w-full"):
-                        ui.label("Upcoming 14 days").classes("text-lg font-semibold mb-2")
+                        ui.label(t("forecast.upcoming_14")).classes("text-lg font-semibold mb-2")
                         upcoming = result.forecast[:14]
                         columns = [
-                            {"name": "date",  "label": "Date",            "field": "date",  "align": "left"},
-                            {"name": "yhat",  "label": "Predicted",       "field": "yhat",  "align": "right"},
-                            {"name": "lower", "label": "Lower (80% CI)",  "field": "lower", "align": "right"},
-                            {"name": "upper", "label": "Upper (80% CI)",  "field": "upper", "align": "right"},
+                            {"name": "date",  "label": t("common.date"),        "field": "date",  "align": "left"},
+                            {"name": "yhat",  "label": t("forecast.predicted"),  "field": "yhat",  "align": "right"},
+                            {"name": "lower", "label": t("forecast.lower_ci"),   "field": "lower", "align": "right"},
+                            {"name": "upper", "label": t("forecast.upper_ci"),   "field": "upper", "align": "right"},
                         ]
                         rows = [
                             {
@@ -190,10 +189,8 @@ def register() -> None:
 
 
 def _kpi(parent: ui.row, title: str, value: str, icon: str, icon_color: str) -> None:
-    with parent:
-        with ui.card().classes("flex-1 min-w-44"):
-            with ui.row().classes("items-center gap-3"):
-                ui.icon(icon, size="2rem").classes(f"text-{icon_color}")
-                with ui.column().classes("gap-0"):
-                    ui.label(title).classes("text-xs text-grey-6 uppercase tracking-wide")
-                    ui.label(value).classes("text-xl font-bold")
+    with parent, ui.card().classes("flex-1 min-w-44"), ui.row().classes("items-center gap-3"):
+        ui.icon(icon, size="2rem").classes(f"text-{icon_color}")
+        with ui.column().classes("gap-0"):
+            ui.label(title).classes("text-xs text-grey-6 uppercase tracking-wide")
+            ui.label(value).classes("text-xl font-bold")

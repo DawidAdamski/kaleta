@@ -1,8 +1,43 @@
 import uvicorn
 from fastapi import FastAPI
+from fastapi.openapi.docs import get_swagger_ui_html
+from fastapi.responses import HTMLResponse
+from nicegui import app as nicegui_app
 from nicegui import ui
 
+from kaleta.api import create_api_router
 from kaleta.config import settings
+
+# Cached OpenAPI spec — generated once from our router tree.
+_openapi_spec: dict | None = None
+
+
+def _api_spec() -> dict:
+    global _openapi_spec  # noqa: PLW0603
+    if _openapi_spec is None:
+        tmp = FastAPI(
+            title="Kaleta API",
+            version="1.0.0",
+            description="Public REST API for the Kaleta personal finance app.",
+        )
+        tmp.include_router(create_api_router())
+        _openapi_spec = tmp.openapi()
+    return _openapi_spec
+
+
+def _register_api() -> None:
+    nicegui_app.include_router(create_api_router())
+
+    @nicegui_app.get("/api-docs", response_class=HTMLResponse, include_in_schema=False)
+    async def _swagger_ui() -> HTMLResponse:
+        return get_swagger_ui_html(
+            openapi_url="/api-docs/openapi.json",
+            title="Kaleta API",
+        )
+
+    @nicegui_app.get("/api-docs/openapi.json", include_in_schema=False)
+    async def _openapi_json() -> dict:
+        return _api_spec()
 
 
 def _register_views() -> None:
@@ -17,6 +52,8 @@ def _register_views() -> None:
         import_view,
         institutions,
         net_worth,
+        reports,
+        settings,
         transactions,
     )
 
@@ -29,8 +66,10 @@ def _register_views() -> None:
     budget_plan.register()
     import_view.register()
     forecast.register()
+    reports.register()
     net_worth.register()
     credit_calculator.register()
+    settings.register()
 
 
 def create_api() -> FastAPI:
@@ -39,6 +78,7 @@ def create_api() -> FastAPI:
 
 
 def run_web() -> None:
+    _register_api()
     _register_views()
     ui.run(
         host=settings.host,
@@ -51,6 +91,7 @@ def run_web() -> None:
 
 
 def run_app() -> None:
+    _register_api()
     _register_views()
     ui.run(
         host=settings.host,
@@ -64,6 +105,7 @@ def run_app() -> None:
 
 def run_api() -> None:
     api = create_api()
+    api.include_router(create_api_router())
     uvicorn.run(api, host=settings.host, port=settings.port)
 
 

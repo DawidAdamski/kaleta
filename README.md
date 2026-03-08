@@ -12,6 +12,7 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Budget creation and monitoring (budget vs. actual charts)
 - CSV import with auto-detection of Polish bank formats
 - Internal transfer detection between accounts
+- Multi-currency accounts with per-account ISO currency codes; cross-currency transfer entry with exchange rate panel; net worth and all totals converted to a configurable default currency
 - Net worth tracking with 13-month history chart, asset/liability breakdown, and physical asset management (real estate, vehicles, valuables)
 - Cash flow forecasting with Prophet (30–60 day horizon)
 - REST API for integrations
