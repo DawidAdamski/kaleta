@@ -1,0 +1,39 @@
+services:
+  kaleta:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - KALETA_DB_URL=sqlite:///data/kaleta.db
+      - KALETA_HOST=0.0.0.0
+      - KALETA_PORT=8080
+    volumes:
+      - kaleta-data:/app/data
+    restart: unless-stopped
+
+  # Uncomment for PostgreSQL setup
+  # kaleta-pg:
+  #   build: .
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - KALETA_DB_URL=postgresql://kaleta:kaleta@db:5432/kaleta
+  #     - KALETA_HOST=0.0.0.0
+  #     - KALETA_PORT=8080
+  #   depends_on:
+  #     - db
+  #   restart: unless-stopped
+  #
+  # db:
+  #   image: postgres:16-alpine
+  #   environment:
+  #     - POSTGRES_USER=kaleta
+  #     - POSTGRES_PASSWORD=kaleta
+  #     - POSTGRES_DB=kaleta
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+volumes:
+  kaleta-data:
+  # postgres-data:

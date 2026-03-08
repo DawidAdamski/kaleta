@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__f9ad55bb-4e17-4a04-8bb7-bb9e44bbe789__notion-update-data-source",
+      "mcp__f9ad55bb-4e17-4a04-8bb7-bb9e44bbe789__notion-update-page",
+      "mcp__f9ad55bb-4e17-4a04-8bb7-bb9e44bbe789__notion-create-pages",
+      "Bash(cd /c/Users/Dawid/Coding/Kaleta && uv sync --extra dev 2>&1)",
+      "Bash(cd /c/Users/Dawid/Coding/Kaleta && uv run alembic init alembic 2>&1)",
+      "Bash(cd /c/Users/Dawid/Coding/Kaleta && uv run alembic revision --autogenerate -m \"initial schema\" 2>&1)",
+      "Bash(cd /c/Users/Dawid/Coding/Kaleta && uv run alembic upgrade head 2>&1)",
+      "Bash(cd /c/Users/Dawid/Coding/Kaleta && uv run python scripts/seed.py 2>&1)",
+      "Bash(cd /c/Users/Dawid/Coding/Kaleta && uv run alembic revision --autogenerate -m \"enum column types\" 2>&1 && uv run alembic upgrade head 2>&1)",
+      "Bash(cd:*)",
+      "Bash(cd /c/Users/Dawid/Coding/Kaleta && uv run kaleta 2>&1)",
+      "Bash(grep:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(uv run:*)",
+      "Bash(curl:*)",
+      "Bash(sed:*)",
+      "Bash(taskkill:*)"
+    ]
+  }
+}
