@@ -15,6 +15,7 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Multi-currency accounts with per-account ISO currency codes; cross-currency transfer entry with exchange rate panel; net worth and all totals converted to a configurable default currency
 - Net worth tracking with 13-month history chart, asset/liability breakdown, and physical asset management (real estate, vehicles, valuables)
 - Cash flow forecasting with Prophet (30–60 day horizon)
+- Installable as a Progressive Web App (PWA) on mobile and desktop
 - REST API for integrations
 - SQLite (default) or PostgreSQL
 
@@ -135,6 +136,8 @@ uv run alembic upgrade head
 ```
 src/kaleta/
 ├── main.py          # Entrypoint
+├── pwa.py           # PWA setup: manifest, service worker, static routes
+├── static/          # Static assets (manifest.json, sw.js, icons/)
 ├── config/          # Settings via pydantic-settings
 ├── db/              # Engine, session factory, base model
 ├── models/          # SQLAlchemy ORM models

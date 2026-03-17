@@ -49,6 +49,7 @@ Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
 | Net Worth           | `/net-worth`: summary cards (assets/liabilities/net worth + monthly change), 13-month ECharts line+area chart (axis label colour overrides for dark mode), side-by-side assets/liabilities account table, physical assets CRUD section (Add/Edit/Delete dialogs); foreign-currency account rows show native and converted balances; all totals in default currency |
 | Physical assets     | `Asset` model (`models/asset.py`): name, type (`AssetType`), current value, description, optional purchase date and price; `AssetService` provides full CRUD; values included in `total_assets` and net worth history via `NetWorthService` |
 | Multi-currency      | Currency selector in Accounts add/edit dialogs; Settings page: default currency selector + per-currency manual exchange rate editor; Transfer dialog shows "To Account" selector and exchange rate panel for cross-currency pairs (rate or amount auto-calculation) |
+| PWA                 | `pwa.py` registers `/manifest.json`, `/sw.js`, `/static`; `PWA_HEAD` injected via `ui.add_head_html()` on every page; service worker: cache-first static assets, network-first navigation, API calls bypass cache |
 
 ## Development Tools
 
