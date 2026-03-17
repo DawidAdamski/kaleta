@@ -8,6 +8,7 @@ from pathlib import Path
 from nicegui import ui
 
 from kaleta.i18n import t
+from kaleta.pwa import PWA_HEAD
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -193,6 +194,7 @@ def _render_recent() -> None:
 def register() -> None:  # noqa: PLR0915
     @ui.page("/setup")
     async def setup_page() -> None:  # noqa: PLR0915
+        ui.add_head_html(PWA_HEAD)
         with ui.column().classes(
             "w-full min-h-screen items-center justify-center p-8 gap-6"
         ):

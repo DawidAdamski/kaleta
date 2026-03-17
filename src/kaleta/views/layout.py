@@ -5,6 +5,7 @@ from importlib.metadata import version as _pkg_version
 from nicegui import app, ui
 
 from kaleta.i18n import t
+from kaleta.pwa import PWA_HEAD
 
 try:
     _APP_VERSION = f"v{_pkg_version('kaleta')}"
@@ -44,6 +45,8 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
 def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     """Shared layout: header + left drawer + main content area."""
     from kaleta.config.setup_config import is_configured
+
+    ui.add_head_html(PWA_HEAD)
 
     if not is_configured():
         ui.navigate.to("/setup")

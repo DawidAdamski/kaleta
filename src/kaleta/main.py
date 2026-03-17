@@ -25,6 +25,11 @@ def _api_spec() -> dict:
     return _openapi_spec
 
 
+def _setup_pwa() -> None:
+    from kaleta.pwa import setup
+    setup()
+
+
 def _register_api() -> None:
     nicegui_app.include_router(create_api_router())
 
@@ -99,6 +104,7 @@ def create_api() -> FastAPI:
 
 def run_web() -> None:
     _preload_config()
+    _setup_pwa()
     _register_api()
     _register_views()
     ui.run(
@@ -113,6 +119,7 @@ def run_web() -> None:
 
 def run_app() -> None:
     _preload_config()
+    _setup_pwa()
     _register_api()
     _register_views()
     ui.run(
