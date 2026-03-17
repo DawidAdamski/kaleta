@@ -185,6 +185,49 @@ def register() -> None:
                         ]
                         ui.table(columns=columns, rows=rows).classes("w-full").props("flat dense")
 
+                    # Planned transactions card
+                    if result.planned_occurrences:
+                        with ui.card().classes("w-full"):
+                            ui.label(t("forecast.planned_in_period")).classes(
+                                "text-lg font-semibold mb-2"
+                            )
+                            p_cols = [
+                                {"name": "date", "label": t("common.date"),
+                                 "field": "date", "align": "left"},
+                                {"name": "name", "label": t("planned.name"),
+                                 "field": "name", "align": "left"},
+                                {"name": "category", "label": t("common.category"),
+                                 "field": "category", "align": "left"},
+                                {"name": "amount", "label": t("common.amount"),
+                                 "field": "amount", "align": "right"},
+                            ]
+                            p_rows = [
+                                {
+                                    "date": str(occ.date),
+                                    "name": occ.name,
+                                    "category": occ.category_name or "—",
+                                    "amount": (
+                                        f"+{occ.amount:,.2f} zł"
+                                        if occ.type.value == "income"
+                                        else f"-{occ.amount:,.2f} zł"
+                                    ),
+                                    "type": occ.type.value,
+                                }
+                                for occ in result.planned_occurrences
+                            ]
+                            p_tbl = (
+                                ui.table(columns=p_cols, rows=p_rows)
+                                .classes("w-full")
+                                .props("flat dense")
+                            )
+                            p_tbl.add_slot(
+                                "body-cell-amount",
+                                '<q-td :props="props" class="text-right">'
+                                "<span :class=\"props.row.type === 'income'"
+                                " ? 'text-positive' : 'text-negative'\">"
+                                "{{ props.row.amount }}</span></q-td>",
+                            )
+
             run_btn.on("click", run_forecast)
 
 

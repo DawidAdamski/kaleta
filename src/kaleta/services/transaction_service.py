@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
 from kaleta.schemas.transaction import TransactionCreate, TransactionUpdate
 
@@ -22,6 +23,7 @@ class TransactionService:
         date_to: datetime.date | None = None,
         tx_types: list[TransactionType] | None = None,
         search: str | None = None,
+        tag_ids: list[int] | None = None,
     ):  # type: ignore[return]
         stmt = select(Transaction)
         if account_ids:
@@ -36,6 +38,8 @@ class TransactionService:
             stmt = stmt.where(Transaction.type.in_(tx_types))
         if search:
             stmt = stmt.where(Transaction.description.ilike(f"%{search}%"))
+        if tag_ids:
+            stmt = stmt.where(Transaction.tags.any(Tag.id.in_(tag_ids)))
         return stmt
 
     async def list(
@@ -46,15 +50,19 @@ class TransactionService:
         date_to: datetime.date | None = None,
         tx_types: list[TransactionType] | None = None,
         search: str | None = None,
+        tag_ids: list[int] | None = None,
         limit: int = 50,
         offset: int = 0,
     ) -> list[Transaction]:
         stmt = (
-            self._base_stmt(account_ids, category_ids, date_from, date_to, tx_types, search)
+            self._base_stmt(
+                account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
+            )
             .options(
                 selectinload(Transaction.account),
                 selectinload(Transaction.category),
                 selectinload(Transaction.splits).selectinload(TransactionSplit.category),
+                selectinload(Transaction.tags),
             )
             .order_by(Transaction.date.desc(), Transaction.id.desc())
             .limit(limit)
@@ -71,8 +79,11 @@ class TransactionService:
         date_to: datetime.date | None = None,
         tx_types: list[TransactionType] | None = None,
         search: str | None = None,
+        tag_ids: list[int] | None = None,
     ) -> int:
-        stmt = self._base_stmt(account_ids, category_ids, date_from, date_to, tx_types, search)
+        stmt = self._base_stmt(
+            account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
+        )
         count_stmt = select(func.count()).select_from(stmt.subquery())
         result = await self.session.execute(count_stmt)
         return result.scalar_one()
@@ -85,18 +96,27 @@ class TransactionService:
                 selectinload(Transaction.account),
                 selectinload(Transaction.category),
                 selectinload(Transaction.splits).selectinload(TransactionSplit.category),
+                selectinload(Transaction.tags),
             )
         )
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
+    async def _load_tags(self, tag_ids: list[int]) -> list[Tag]:
+        if not tag_ids:
+            return []
+        result = await self.session.execute(select(Tag).where(Tag.id.in_(tag_ids)))
+        return list(result.scalars())
+
     async def create(self, data: TransactionCreate) -> Transaction:
-        transaction = Transaction(**data.model_dump(exclude={"splits"}))
+        transaction = Transaction(**data.model_dump(exclude={"splits", "tag_ids"}))
         self.session.add(transaction)
         await self.session.flush()
         for split_data in data.splits:
             split = TransactionSplit(transaction_id=transaction.id, **split_data.model_dump())
             self.session.add(split)
+        if data.tag_ids:
+            transaction.tags = await self._load_tags(data.tag_ids)
         await self.session.commit()
         # Re-fetch with eager-loaded relationships so the response serializer
         # never hits a lazy relationship outside of an async context.
@@ -110,11 +130,11 @@ class TransactionService:
         incoming: TransactionCreate,
     ) -> tuple[Transaction, Transaction]:
         """Create a paired internal transfer (two linked legs) atomically."""
-        tx_out = Transaction(**outgoing.model_dump(exclude={"splits"}))
+        tx_out = Transaction(**outgoing.model_dump(exclude={"splits", "tag_ids"}))
         self.session.add(tx_out)
         await self.session.flush()  # get tx_out.id
 
-        tx_in = Transaction(**incoming.model_dump(exclude={"splits"}))
+        tx_in = Transaction(**incoming.model_dump(exclude={"splits", "tag_ids"}))
         tx_in.linked_transaction_id = tx_out.id
         self.session.add(tx_in)
         await self.session.flush()  # get tx_in.id
@@ -130,8 +150,12 @@ class TransactionService:
         transaction = await self.get(transaction_id)
         if transaction is None:
             return None
-        for field, value in data.model_dump(exclude_unset=True).items():
+        updates = data.model_dump(exclude_unset=True)
+        tag_ids = updates.pop("tag_ids", None)
+        for field, value in updates.items():
             setattr(transaction, field, value)
+        if tag_ids is not None:
+            transaction.tags = await self._load_tags(tag_ids)
         await self.session.commit()
         return await self.get(transaction_id)
 

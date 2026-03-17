@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
 from kaleta.models.mixins import TimestampMixin
+from kaleta.models.tag import transaction_tags
 
 
 class TransactionType(str, enum.Enum):  # noqa: UP042
@@ -49,6 +50,9 @@ class Transaction(TimestampMixin, Base):
     )
     splits: Mapped[list["TransactionSplit"]] = relationship(
         "TransactionSplit", back_populates="transaction", cascade="all, delete-orphan"
+    )
+    tags: Mapped[list["Tag"]] = relationship(  # type: ignore[name-defined]  # noqa: F821
+        "Tag", secondary=transaction_tags, back_populates="transactions"
     )
 
     def __repr__(self) -> str:

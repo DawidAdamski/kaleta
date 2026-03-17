@@ -40,6 +40,7 @@ class TransactionBase(BaseModel):
 
 class TransactionCreate(TransactionBase):
     splits: list[TransactionSplitCreate] = Field(default_factory=list)
+    tag_ids: list[int] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_rules(self) -> TransactionCreate:
@@ -60,6 +61,7 @@ class TransactionCreate(TransactionBase):
 
 
 class TransactionUpdate(BaseModel):
+    account_id: int | None = None
     category_id: int | None = None
     amount: Decimal | None = Field(default=None, decimal_places=2)
     type: TransactionType | None = None
@@ -67,6 +69,7 @@ class TransactionUpdate(BaseModel):
     description: str | None = Field(default=None, max_length=500)
     is_internal_transfer: bool | None = None
     linked_transaction_id: int | None = None
+    tag_ids: list[int] | None = None
 
 
 class TransactionResponse(TransactionBase):

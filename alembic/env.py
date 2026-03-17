@@ -1,16 +1,26 @@
 import asyncio
+import os
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from alembic import context
 from kaleta.config import settings
 from kaleta.db.base import Base
 
 # Import all models so Alembic can detect them for autogenerate.
-from kaleta.models import Account, AccountType, Budget, Category, CategoryType, Transaction, TransactionSplit, TransactionType  # noqa: F401
-from kaleta.models.institution import Institution, InstitutionType  # noqa: F401  # noqa: F401
+from kaleta.models import (  # noqa: F401
+    Account,
+    AccountType,
+    Budget,
+    Category,
+    CategoryType,
+    Transaction,
+    TransactionSplit,
+    TransactionType,
+)
 from kaleta.models.currency_rate import CurrencyRate  # noqa: F401
+from kaleta.models.institution import Institution, InstitutionType  # noqa: F401
 from kaleta.models.report import SavedReport  # noqa: F401
 
 config = context.config
@@ -19,10 +29,13 @@ if config.config_file_name is not None:
 
 target_metadata = Base.metadata
 
+# Allow programmatic migration runs to override the DB URL without restarting.
+_effective_db_url: str = os.environ.get("KALETA_MIGRATE_URL") or settings.db_url
+
 
 def run_migrations_offline() -> None:
     context.configure(
-        url=settings.db_url,
+        url=_effective_db_url,
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
@@ -43,7 +56,7 @@ def do_run_migrations(connection):  # type: ignore[no-untyped-def]
 
 
 async def run_migrations_online() -> None:
-    async_engine = create_async_engine(settings.db_url)
+    async_engine = create_async_engine(_effective_db_url)
     async with async_engine.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await async_engine.dispose()

@@ -40,6 +40,18 @@ def _register_api() -> None:
         return _api_spec()
 
 
+def _preload_config() -> None:
+    """Read ~/.kaleta/config.json and reconfigure the DB proxy before views are registered."""
+    from kaleta.config import settings as app_settings
+    from kaleta.config.setup_config import get_db_url
+
+    db_url = get_db_url()
+    if db_url:
+        from kaleta.db import configure_database
+
+        configure_database(db_url, debug=app_settings.debug)
+
+
 def _register_views() -> None:
     from kaleta.views import (
         accounts,
@@ -52,11 +64,16 @@ def _register_views() -> None:
         import_view,
         institutions,
         net_worth,
+        planned_transactions,
         reports,
         settings,
+        setup,
+        tags,
         transactions,
+        wizard,
     )
 
+    setup.register()
     dashboard.register()
     transactions.register()
     accounts.register()
@@ -66,9 +83,12 @@ def _register_views() -> None:
     budget_plan.register()
     import_view.register()
     forecast.register()
+    planned_transactions.register()
     reports.register()
     net_worth.register()
     credit_calculator.register()
+    tags.register()
+    wizard.register()
     settings.register()
 
 
@@ -78,6 +98,7 @@ def create_api() -> FastAPI:
 
 
 def run_web() -> None:
+    _preload_config()
     _register_api()
     _register_views()
     ui.run(
@@ -91,6 +112,7 @@ def run_web() -> None:
 
 
 def run_app() -> None:
+    _preload_config()
     _register_api()
     _register_views()
     ui.run(

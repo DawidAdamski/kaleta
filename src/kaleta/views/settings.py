@@ -1,18 +1,24 @@
 from __future__ import annotations
 
 import datetime
+import functools
+import json
 from decimal import Decimal, InvalidOperation
 
 from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import available_languages, t
+from kaleta.models.audit_log import MAX_AUDIT_ENTRIES
 from kaleta.models.currency_rate import CurrencyRate
 from kaleta.schemas.currency_rate import CurrencyRateCreate
-from kaleta.services import AccountService, BackupService
+from kaleta.services import AccountService, AuditService, BackupService
 from kaleta.services.currency_rate_service import CurrencyRateService
+from kaleta.services.data_service import DataService
 from kaleta.views.accounts import COMMON_CURRENCIES
 from kaleta.views.layout import page_layout
+
+_MONTHS_LABEL = "6 lat"  # matches DataService._YEARS
 
 
 def register() -> None:
@@ -113,10 +119,14 @@ def register() -> None:
                                 )
                             else:
                                 cols = [
-                                    {"name": "date", "label": t("common.date"), "field": "date", "align": "left"},
-                                    {"name": "pair", "label": t("settings.rate_pair"), "field": "pair", "align": "left"},
-                                    {"name": "rate", "label": t("settings.rate_value"), "field": "rate", "align": "right"},
-                                    {"name": "actions", "label": "", "field": "id", "align": "right"},
+                                    {"name": "date", "label": t("common.date"),
+                                     "field": "date", "align": "left"},
+                                    {"name": "pair", "label": t("settings.rate_pair"),
+                                     "field": "pair", "align": "left"},
+                                    {"name": "rate", "label": t("settings.rate_value"),
+                                     "field": "rate", "align": "right"},
+                                    {"name": "actions", "label": "",
+                                     "field": "id", "align": "right"},
                                 ]
                                 table_rows = [
                                     {
@@ -159,7 +169,7 @@ def register() -> None:
                         dlg_from = ui.select(
                             fc_options,
                             label=t("settings.rate_from_currency"),
-                            value=foreign_currencies[0] if foreign_currencies else COMMON_CURRENCIES[1],
+                            value=foreign_currencies[0] if foreign_currencies else COMMON_CURRENCIES[1],  # noqa: E501
                         ).classes("w-full")
                         dlg_rate = ui.number(
                             t("settings.rate_value"),
@@ -286,3 +296,196 @@ def register() -> None:
                     ui.button(
                         t("settings.backup_restore"), icon="upload", on_click=restore_dlg.open
                     ).props("outline color=negative")
+
+            # ── Demo data ─────────────────────────────────────────────────────
+            with ui.card().classes("p-6 w-full mt-4"):
+                with ui.row().classes("items-center gap-2 mb-1"):
+                    ui.icon("science", color="primary").classes("text-xl")
+                    ui.label(t("settings.data_title")).classes("text-lg font-semibold")
+                ui.label(t("settings.data_hint")).classes("text-xs text-grey-6 mb-4")
+
+                # Define handlers first — dialogs are assigned below and captured
+                # by closure (Python looks them up at call time, not definition time).
+                async def _do_seed() -> None:
+                    seed_dlg.close()
+                    notif = ui.notification(t("settings.seeding"), spinner=True, timeout=0)
+                    try:
+                        async with AsyncSessionFactory() as s:
+                            stats = await DataService(s).seed()
+                        notif.dismiss()
+                        ui.notify(
+                            t(
+                                "settings.seed_done",
+                                tx=stats["transactions"],
+                                months=_MONTHS_LABEL,
+                            ),
+                            type="positive",
+                        )
+                    except Exception as exc:
+                        notif.dismiss()
+                        ui.notify(f"{t('settings.seed_error')}: {exc}", type="negative")
+
+                async def _do_clear_data() -> None:
+                    clear_data_dlg.close()
+                    notif = ui.notification(t("settings.clearing"), spinner=True, timeout=0)
+                    try:
+                        async with AsyncSessionFactory() as s:
+                            await DataService(s).clear_all()
+                        notif.dismiss()
+                        ui.notify(t("settings.clear_done"), type="positive")
+                    except Exception as exc:
+                        notif.dismiss()
+                        ui.notify(f"{t('settings.clear_error')}: {exc}", type="negative")
+
+                # ── seed confirm dialog ────────────────────────────────────────
+                seed_dlg = ui.dialog()
+                with seed_dlg, ui.card().classes("w-96"):
+                    ui.label(t("settings.seed_confirm_title")).classes(
+                        "text-base font-semibold mb-1"
+                    )
+                    ui.label(t("settings.seed_confirm_body")).classes(
+                        "text-sm text-grey-7 mb-4"
+                    )
+                    with ui.row().classes("w-full justify-end gap-2"):
+                        ui.button(t("common.cancel"), on_click=seed_dlg.close).props("flat")
+                        ui.button(
+                            t("settings.seed_btn"),
+                            icon="science",
+                            on_click=_do_seed,
+                        ).props("color=primary unelevated")
+
+                # ── clear confirm dialog ───────────────────────────────────────
+                clear_data_dlg = ui.dialog()
+                with clear_data_dlg, ui.card().classes("w-96"):
+                    ui.label(t("settings.clear_confirm_title")).classes(
+                        "text-base font-semibold mb-1"
+                    )
+                    ui.label(t("settings.clear_confirm_body")).classes(
+                        "text-sm text-negative mb-4"
+                    )
+                    with ui.row().classes("w-full justify-end gap-2"):
+                        ui.button(t("common.cancel"), on_click=clear_data_dlg.close).props(
+                            "flat"
+                        )
+                        ui.button(
+                            t("settings.clear_btn"),
+                            icon="delete_forever",
+                            on_click=_do_clear_data,
+                        ).props("color=negative unelevated")
+
+                with ui.row().classes("gap-3"):
+                    ui.button(
+                        t("settings.seed_btn"), icon="science", on_click=seed_dlg.open
+                    ).props("color=primary")
+                    ui.button(
+                        t("settings.clear_btn"),
+                        icon="delete_forever",
+                        on_click=clear_data_dlg.open,
+                    ).props("outline color=negative")
+
+            # ── Change History ────────────────────────────────────────────────
+            with ui.card().classes("p-6 w-full mt-4"):
+                with ui.row().classes("items-center justify-between mb-1"):
+                    with ui.row().classes("items-center gap-2"):
+                        ui.icon("history", color="primary").classes("text-xl")
+                        ui.label(t("audit.title")).classes("text-lg font-semibold")
+                    ui.button(
+                        t("audit.clear"), icon="delete_sweep", on_click=lambda: _confirm_clear()
+                    ).props("flat dense color=negative size=sm")
+                ui.label(t("audit.hint", n=MAX_AUDIT_ENTRIES)).classes(
+                    "text-xs text-grey-6 mb-4"
+                )
+
+                async def _do_revert(audit_id: int) -> None:
+                    try:
+                        async with AsyncSessionFactory() as s:
+                            await AuditService(s).revert(audit_id)
+                        ui.notify(t("audit.reverted_ok"), type="positive")
+                        audit_history.refresh()
+                    except Exception as exc:
+                        ui.notify(t("audit.revert_failed", error=str(exc)), type="negative")
+
+                async def _do_clear() -> None:
+                    async with AsyncSessionFactory() as s:
+                        await AuditService(s).clear()
+                    ui.notify(t("audit.cleared"), type="positive")
+                    clear_dlg.close()
+                    audit_history.refresh()
+
+                clear_dlg = ui.dialog()
+                with clear_dlg, ui.card().classes("w-80"):
+                    ui.label(t("audit.clear_confirm")).classes("text-base mb-4")
+                    with ui.row().classes("w-full justify-end gap-2"):
+                        ui.button(t("common.cancel"), on_click=clear_dlg.close).props("flat")
+                        ui.button(t("audit.clear"), on_click=_do_clear).props("color=negative")
+
+                def _confirm_clear() -> None:
+                    clear_dlg.open()
+
+                _op_color = {"INSERT": "positive", "UPDATE": "warning", "DELETE": "negative"}
+
+                @ui.refreshable
+                async def audit_history() -> None:
+                    async with AsyncSessionFactory() as s:
+                        entries = await AuditService(s).list()
+
+                    if not entries:
+                        ui.label(t("audit.empty")).classes("text-grey-5 text-sm")
+                        return
+
+                    # Column headers
+                    with ui.row().classes(
+                        "w-full px-2 py-1 text-xs text-grey-6 font-medium border-b"
+                    ):
+                        ui.label(t("audit.timestamp")).classes("w-40")
+                        ui.label(t("audit.operation")).classes("w-28")
+                        ui.label(t("audit.table")).classes("w-36")
+                        ui.label(t("audit.record_id")).classes("w-16 text-right")
+                        ui.label(t("audit.changes")).classes("flex-1")
+                        ui.label("").classes("w-24")
+
+                    for entry in entries:
+                        op_label = t(f"audit.op_{entry.operation.lower()}")
+                        color = _op_color.get(entry.operation, "grey")
+
+                        if entry.operation == "UPDATE":
+                            try:
+                                keys = list(json.loads(entry.old_data or "{}").keys())
+                                summary = ", ".join(keys[:6])
+                                if len(keys) > 6:
+                                    summary += f" +{len(keys) - 6}"
+                            except Exception:
+                                summary = "—"
+                        elif entry.operation == "INSERT":
+                            summary = t("audit.new_record")
+                        else:
+                            summary = t("audit.record_deleted")
+
+                        row_cls = "w-full px-2 py-2 items-center border-b"
+                        if entry.reverted:
+                            row_cls += " opacity-50"
+
+                        with ui.row().classes(row_cls):
+                            ui.label(
+                                entry.timestamp.strftime("%Y-%m-%d %H:%M:%S")
+                            ).classes("w-40 text-sm font-mono text-grey-7")
+                            ui.badge(op_label, color=color).classes("w-28 text-center")
+                            ui.label(entry.table_name).classes("w-36 text-sm")
+                            ui.label(
+                                str(entry.record_id) if entry.record_id is not None else "—"
+                            ).classes("w-16 text-right text-sm text-grey-6")
+                            ui.label(summary).classes(
+                                "flex-1 text-sm text-grey-7 truncate"
+                            )
+                            with ui.row().classes("w-24 justify-end"):
+                                if entry.reverted:
+                                    ui.badge(t("audit.reverted"), color="grey").classes(
+                                        "text-xs"
+                                    )
+                                else:
+                                    ui.button(
+                                        t("audit.revert"),
+                                        on_click=functools.partial(_do_revert, entry.id),
+                                    ).props("flat dense color=warning size=sm")
+
+                await audit_history()

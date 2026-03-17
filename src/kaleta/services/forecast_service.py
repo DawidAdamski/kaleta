@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 
 from sqlalchemy import func, select
@@ -33,6 +33,7 @@ class ForecastResult:
     account_name: str
     points: list[ForecastPoint]
     insufficient_data: bool = False
+    planned_occurrences: list = field(default_factory=list)  # list[PlannedOccurrence]
 
     @property
     def historical(self) -> list[ForecastPoint]:
@@ -97,7 +98,11 @@ class ForecastService:
         # Build daily net: income positive, expense negative
         daily: dict[datetime.date, float] = {}
         for row in rows:
-            d = row.day if isinstance(row.day, datetime.date) else datetime.date.fromisoformat(str(row.day))
+            d = (
+                row.day
+                if isinstance(row.day, datetime.date)
+                else datetime.date.fromisoformat(str(row.day))
+            )
             if row.type == TransactionType.INCOME:
                 daily[d] = daily.get(d, 0.0) + float(row.total)
             elif row.type == TransactionType.EXPENSE:
@@ -150,7 +155,38 @@ class ForecastService:
             for row_date, yhat, lower, upper in prophet_result
         ]
 
-        return ForecastResult(account_name=account_name, points=points)
+        # ── Overlay planned transactions on the forecast ──────────────────────
+        from kaleta.services.planned_transaction_service import PlannedTransactionService
+
+        today = datetime.date.today()
+        horizon_end = today + datetime.timedelta(days=horizon_days)
+        planned_svc = PlannedTransactionService(self.session)
+        planned_occs = await planned_svc.get_occurrences(
+            today + datetime.timedelta(days=1), horizon_end, account_id
+        )
+
+        if planned_occs:
+            # Build daily delta map from planned transactions
+            delta_by_date: dict[datetime.date, float] = {}
+            for occ in planned_occs:
+                amt = float(occ.amount)
+                delta = amt if occ.type == TransactionType.INCOME else -amt
+                delta_by_date[occ.date] = delta_by_date.get(occ.date, 0.0) + delta
+
+            # Apply cumulative adjustment to forecast points (in chronological order)
+            cumulative = 0.0
+            for point in points:
+                if point.is_forecast:
+                    cumulative += delta_by_date.get(point.date, 0.0)
+                    point.value = round(point.value + cumulative, 2)
+                    point.lower = round(point.lower + cumulative, 2)
+                    point.upper = round(point.upper + cumulative, 2)
+
+        return ForecastResult(
+            account_name=account_name,
+            points=points,
+            planned_occurrences=planned_occs,
+        )
 
 
 def _run_prophet(
