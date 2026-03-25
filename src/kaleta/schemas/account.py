@@ -24,11 +24,13 @@ class AccountUpdate(BaseModel):
     balance: Decimal | None = Field(default=None, decimal_places=2)
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     institution_id: int | None = None
+    external_account_number: str | None = Field(default=None, max_length=50)
 
 
 class AccountResponse(AccountBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    external_account_number: str | None = None
     created_at: datetime
     updated_at: datetime

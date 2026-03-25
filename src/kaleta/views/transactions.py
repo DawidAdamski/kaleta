@@ -15,7 +15,8 @@ from kaleta.services import AccountService, CategoryService, TagService, Transac
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.views.layout import page_layout
 
-PAGE_SIZE = 50
+_PAGE_SIZES = [25, 50, 100, 200]
+_DEFAULT_PAGE_SIZE = 50
 _KBD_CLS = "text-xs bg-grey-2 border border-grey-4 rounded px-2 py-0.5 font-mono text-grey-7"
 
 
@@ -50,6 +51,24 @@ def _category_label(tx: Transaction) -> str:
     return tx.category.name if tx.category else "—"
 
 
+def _get_sep_label(tx: Transaction, prev_tx: Transaction | None, grouping: str) -> str:
+    if grouping == "none":
+        return ""
+    date = tx.date
+    if grouping == "week":
+        year, week, _ = date.isocalendar()
+        label = f"W{week:02d} {year}"
+        if prev_tx is None:
+            return label
+        py, pw, _ = prev_tx.date.isocalendar()
+        return label if (year, week) != (py, pw) else ""
+    # month
+    label = date.strftime("%B %Y")
+    if prev_tx is None:
+        return label
+    return label if (date.year, date.month) != (prev_tx.date.year, prev_tx.date.month) else ""
+
+
 def register() -> None:
     @ui.page("/transactions")
     async def transactions_page() -> None:
@@ -82,6 +101,8 @@ def register() -> None:
             "tag_ids": [],
             "search": "",
             "page": 0,
+            "page_size": _DEFAULT_PAGE_SIZE,
+            "grouping": "none",  # "none" | "week" | "month"
         }
 
         def active_filter_count() -> int:
@@ -103,6 +124,9 @@ def register() -> None:
         # ── Refreshable table ─────────────────────────────────────────────────
         @ui.refreshable
         async def transaction_table() -> None:
+            page_size = filters["page_size"]
+            grouping = filters["grouping"]
+
             async with AsyncSessionFactory() as session:
                 svc = TransactionService(session)
                 total = await svc.count(
@@ -122,14 +146,14 @@ def register() -> None:
                     tx_types=_list_or_none("tx_types"),
                     tag_ids=_list_or_none("tag_ids"),
                     search=filters["search"] or None,
-                    limit=PAGE_SIZE,
-                    offset=filters["page"] * PAGE_SIZE,
+                    limit=page_size,
+                    offset=filters["page"] * page_size,
                 )
 
-            total_pages = max(1, (total + PAGE_SIZE - 1) // PAGE_SIZE)
+            total_pages = max(1, (total + page_size - 1) // page_size)
             current_page = filters["page"]
-            start_n = current_page * PAGE_SIZE + 1
-            end_n = min(start_n + PAGE_SIZE - 1, total)
+            start_n = current_page * page_size + 1
+            end_n = min(start_n + page_size - 1, total)
 
             columns = [
                 {
@@ -137,30 +161,36 @@ def register() -> None:
                     "label": t("common.date"),
                     "field": "date",
                     "sortable": True,
+                    "style": "width: 95px; min-width: 95px",
                 },
                 {
                     "name": "account",
                     "label": t("common.account"),
                     "field": "account",
                     "align": "left",
+                    "style": "width: 110px; min-width: 90px",
                 },
                 {
                     "name": "description",
                     "label": t("common.description"),
                     "field": "description",
                     "align": "left",
+                    "style": "max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap",  # noqa: E501
+                    "classes": "max-w-xs truncate",
                 },
                 {
                     "name": "category",
                     "label": t("common.category"),
                     "field": "category",
                     "align": "left",
+                    "style": "width: 130px; min-width: 100px",
                 },
                 {
                     "name": "type",
                     "label": t("common.type"),
                     "field": "type",
                     "align": "left",
+                    "style": "width: 80px; min-width: 70px",
                 },
                 {
                     "name": "amount",
@@ -168,68 +198,92 @@ def register() -> None:
                     "field": "amount",
                     "align": "right",
                     "sortable": True,
+                    "style": "width: 110px; min-width: 90px",
                 },
                 {
                     "name": "tags",
                     "label": t("transactions.tags"),
                     "field": "tags",
                     "align": "left",
+                    "style": "width: 100px; min-width: 80px",
                 },
                 {
                     "name": "actions",
                     "label": "",
                     "field": "actions",
                     "align": "right",
+                    "style": "width: 48px; min-width: 48px",
                 },
             ]
-            rows = [
-                {
-                    "id": tx.id,
-                    "date": str(tx.date),
-                    "account": tx.account.name if tx.account else "—",
-                    "description": tx.description or "—",
-                    "category": _category_label(tx),
-                    "type": tx.type.value,
-                    "amount": (
-                        f"+{abs(tx.amount):,.2f}"
-                        if tx.type == TransactionType.INCOME
-                        else f"-{abs(tx.amount):,.2f}"
-                    ),
-                    "tags": [
-                        {
-                            "id": tg.id,
-                            "name": tg.name,
-                            "color": tg.color or "#9E9E9E",
-                            "icon": tg.icon or "label",
-                        }
-                        for tg in tx.tags
-                    ],
-                }
-                for tx in txs
-            ]
+            rows = []
+            for i, tx in enumerate(txs):
+                prev_tx = txs[i - 1] if i > 0 else None
+                rows.append(
+                    {
+                        "id": tx.id,
+                        "date": str(tx.date),
+                        "account": tx.account.name if tx.account else "—",
+                        "description": (tx.description or "—")[:55],
+                        "category": _category_label(tx),
+                        "type": tx.type.value,
+                        "amount": (
+                            f"+{abs(tx.amount):,.2f}"
+                            if tx.type == TransactionType.INCOME
+                            else f"-{abs(tx.amount):,.2f}"
+                        ),
+                        "tags": "",  # list stored in tags_data to avoid NiceGUI list warning
+                        "tags_data": [
+                            {
+                                "id": tg.id,
+                                "name": tg.name,
+                                "color": tg.color or "#9E9E9E",
+                                "icon": tg.icon or "label",
+                            }
+                            for tg in tx.tags
+                        ],
+                        "sep_label": _get_sep_label(tx, prev_tx, grouping),
+                    }
+                )
 
             tbl = (
                 ui.table(columns=columns, rows=rows, row_key="id")
                 .classes("w-full")
-                .style("min-width: 1100px")
+                .style("min-width: 1100px; table-layout: fixed")
             )
             tbl.props("selection=multiple")
             tbl.add_slot("no-data", _no_data_slot())
             tbl.add_slot(
-                "body-cell-tags",
-                '<q-td :props="props">'
-                '<q-chip v-for="tag in props.row.tags" :key="tag.id"'
+                "body",
+                # Separator row injected before the first row of each group
+                '<tr v-if="props.row.sep_label" class="bg-grey-1">'
+                '<td colspan="9" style="font-weight:500;border-bottom:1px solid #e0e0e0"'
+                ' class="text-caption text-grey-7 q-px-md q-py-xs">'
+                "{{ props.row.sep_label }}"
+                "</td>"
+                "</tr>"
+                # Actual data row (always rendered)
+                '<q-tr :props="props">'
+                "<q-td auto-width>"
+                '<q-checkbox dense :model-value="props.selected"'
+                ' @update:model-value="val => props.selected = val" color="primary" />'
+                "</q-td>"
+                '<q-td key="date" :props="props">{{ props.row.date }}</q-td>'
+                '<q-td key="account" :props="props">{{ props.row.account }}</q-td>'
+                '<q-td key="description" :props="props">{{ props.row.description }}</q-td>'
+                '<q-td key="category" :props="props">{{ props.row.category }}</q-td>'
+                '<q-td key="type" :props="props">{{ props.row.type }}</q-td>'
+                '<q-td key="amount" :props="props" class="text-right">{{ props.row.amount }}</q-td>'
+                '<q-td key="tags" :props="props">'
+                '<q-chip v-for="tag in props.row.tags_data" :key="tag.id"'
                 ' :icon="tag.icon" dense outline'
                 ' :style="`border-color:${tag.color};color:${tag.color}`"'
                 ' class="q-mr-xs text-xs">{{ tag.name }}</q-chip>'
-                "</q-td>",
-            )
-            tbl.add_slot(
-                "body-cell-actions",
-                '<q-td :props="props" auto-width>'
+                "</q-td>"
+                '<q-td key="actions" :props="props" auto-width>'
                 '<q-btn flat round dense icon="edit" size="sm" color="primary"'
-                ' @click="$parent.$emit(\'edit_tx\', props.row.id)" />'
-                "</q-td>",
+                " @click=\"$parent.$emit('edit_tx', props.row.id)\" />"
+                "</q-td>"
+                "</q-tr>",
             )
 
             async def _handle_edit(e: object) -> None:
@@ -256,28 +310,60 @@ def register() -> None:
                         t("transactions.showing", **{"from": start_n, "to": end_n, "total": total})
                     )
 
-                with ui.row().classes("gap-1 items-center"):
-                    ui.button(
-                        icon="chevron_left", on_click=lambda: _go_page(current_page - 1)
-                    ).props("flat round dense").bind_enabled_from(
-                        {"v": current_page > 0},
-                        "v",  # type: ignore[arg-type]
-                    )
-                    ui.label(
-                        t("transactions.page", current=current_page + 1, total=total_pages)
-                    ).classes("text-sm")
-                    ui.button(
-                        icon="chevron_right", on_click=lambda: _go_page(current_page + 1)
-                    ).props("flat round dense").bind_enabled_from(
-                        {"v": current_page < total_pages - 1},
-                        "v",  # type: ignore[arg-type]
-                    )
+                with ui.row().classes("gap-3 items-center"):
+                    # Grouping selector
+                    with ui.row().classes("gap-1 items-center"):
+                        ui.label(t("transactions.grouping")).classes("text-xs text-grey-6")
+                        ui.toggle(
+                            {
+                                "none": t("transactions.group_none"),
+                                "week": t("transactions.group_week"),
+                                "month": t("transactions.group_month"),
+                            },
+                            value=grouping,
+                            on_change=lambda e: _set_grouping(e.value),
+                        ).props("dense")
+
+                    # Page size selector
+                    ui.select(
+                        {s: str(s) for s in _PAGE_SIZES},
+                        value=page_size,
+                        on_change=lambda e: _set_page_size(e.value),
+                    ).props("dense options-dense borderless").classes("w-16 text-sm")
+
+                    # Page navigation
+                    with ui.row().classes("gap-1 items-center"):
+                        ui.button(
+                            icon="chevron_left", on_click=lambda: _go_page(current_page - 1)
+                        ).props("flat round dense").bind_enabled_from(
+                            {"v": current_page > 0},
+                            "v",  # type: ignore[arg-type]
+                        )
+                        ui.label(
+                            t("transactions.page", current=current_page + 1, total=total_pages)
+                        ).classes("text-sm")
+                        ui.button(
+                            icon="chevron_right", on_click=lambda: _go_page(current_page + 1)
+                        ).props("flat round dense").bind_enabled_from(
+                            {"v": current_page < total_pages - 1},
+                            "v",  # type: ignore[arg-type]
+                        )
 
         def _go_page(page: int) -> None:
             filters["page"] = page
             selected_tx_ids.clear()
             transaction_table.refresh()
             table_actions_ui.refresh()
+
+        def _set_grouping(value: str) -> None:
+            filters["grouping"] = value
+            filters["page"] = 0
+            transaction_table.refresh()
+
+        def _set_page_size(value: int) -> None:
+            filters["page_size"] = value
+            filters["page"] = 0
+            transaction_table.refresh()
 
         def _apply_filters() -> None:
             filters["page"] = 0
@@ -299,7 +385,7 @@ def register() -> None:
             ui.label(t("transactions.add")).classes("text-lg font-bold")
 
             tx_type_sel = ui.select(
-                {tx.value: tx.value.capitalize() for tx in TransactionType},
+                {tx.value: t(f"common.{tx.value}") for tx in TransactionType},
                 label=t("common.type"),
                 value=TransactionType.EXPENSE.value,
             ).classes("w-full")
@@ -756,7 +842,7 @@ def register() -> None:
             ui.label(t("transactions.edit")).classes("text-lg font-bold")
 
             edit_type_sel = ui.select(
-                {tx.value: tx.value.capitalize() for tx in TransactionType},
+                {tx.value: t(f"common.{tx.value}") for tx in TransactionType},
                 label=t("common.type"),
                 value=TransactionType.EXPENSE.value,
             ).classes("w-full")
@@ -983,7 +1069,7 @@ def register() -> None:
                         on_change=lambda e: _set_list_filter("category_ids", e.value or []),
                     ).classes("w-48").props("use-chips clearable")
                     type_filter = ui.select(
-                        {tx.value: tx.value.capitalize() for tx in TransactionType},
+                        {tx.value: t(f"common.{tx.value}") for tx in TransactionType},
                         label=t("transactions.types"),
                         multiple=True,
                         value=[],

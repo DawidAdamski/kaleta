@@ -25,7 +25,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
         ("event_repeat", "/planned", "nav.planned"),
         ("bar_chart", "/budgets", "nav.budgets"),
         ("edit_note", "/budget-plan", "nav.budget_plan"),
-        ("upload_file", "/import", "nav.import_csv"),
+        ("upload_file", "/import", "nav.import"),
         ("auto_awesome", "/wizard", "nav.wizard"),
     ]),
     ("nav.group_tools", [
@@ -36,6 +36,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
         ("account_balance", "/institutions", "nav.institutions"),
         ("category", "/categories", "nav.categories"),
         ("label", "/tags", "nav.tags"),
+        ("person_search", "/payees", "nav.payees"),
         ("settings", "/settings", "nav.settings"),
     ]),
 ]

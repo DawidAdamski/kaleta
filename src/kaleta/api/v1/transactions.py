@@ -10,6 +10,8 @@ from kaleta.models.transaction import TransactionType
 from kaleta.schemas.transaction import TransactionCreate, TransactionResponse, TransactionUpdate
 from kaleta.services.transaction_service import TransactionService
 
+_404 = {404: {"description": "Transaction not found"}}
+
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
 
@@ -17,6 +19,12 @@ router = APIRouter(prefix="/transactions", tags=["Transactions"])
     "/",
     response_model=PagedResponse[TransactionResponse],
     summary="List transactions (paginated)",
+    description=(
+        "Returns a paginated list of transactions. All filters are optional and combinable. "
+        "`account_ids` and `category_ids` accept multiple values. "
+        "`type` accepts multiple values: `income`, `expense`, `transfer`. "
+        "`search` performs a case-insensitive substring match on the description field."
+    ),
 )
 async def list_transactions(
     account_ids: list[int] = Query(default=[], description="Filter by account IDs"),
@@ -45,7 +53,21 @@ async def list_transactions(
 
 
 @router.post(
-    "/", response_model=TransactionResponse, status_code=201, summary="Create a transaction"
+    "/",
+    response_model=TransactionResponse,
+    status_code=201,
+    summary="Create a transaction",
+    description=(
+        "Creates a new transaction. Validation rules:\n\n"
+        "- `type=transfer` is required when `is_internal_transfer=true`.\n"
+        "- `income` and `expense` transactions require a `category_id`, unless `is_split=true`.\n"
+        "- Split transactions (`is_split=true`) must not set a top-level `category_id` "
+        "and must include at least one entry in `splits`.\n"
+        "- `exchange_rate` is only relevant for cross-currency internal transfers "
+        "(destination currency units per 1 source currency unit).\n"
+        "- `tag_ids` must reference existing tag IDs.\n"
+        "- `linked_transaction_id` links the matching leg of an internal transfer."
+    ),
 )
 async def create_transaction(
     data: TransactionCreate,
@@ -55,7 +77,10 @@ async def create_transaction(
 
 
 @router.get(
-    "/{transaction_id}", response_model=TransactionResponse, summary="Get transaction by ID"
+    "/{transaction_id}",
+    response_model=TransactionResponse,
+    summary="Get transaction by ID",
+    responses=_404,
 )
 async def get_transaction(
     transaction_id: int,
@@ -68,7 +93,13 @@ async def get_transaction(
 
 
 @router.put(
-    "/{transaction_id}", response_model=TransactionResponse, summary="Update a transaction"
+    "/{transaction_id}",
+    response_model=TransactionResponse,
+    summary="Update a transaction",
+    description=(
+        "Partially updates a transaction. Only fields included in the request body are changed."
+    ),
+    responses=_404,
 )
 async def update_transaction(
     transaction_id: int,
@@ -82,7 +113,9 @@ async def update_transaction(
     return updated  # type: ignore[return-value]
 
 
-@router.delete("/{transaction_id}", status_code=204, summary="Delete a transaction")
+@router.delete(
+    "/{transaction_id}", status_code=204, summary="Delete a transaction", responses=_404
+)
 async def delete_transaction(
     transaction_id: int,
     session: AsyncSession = Depends(get_session),

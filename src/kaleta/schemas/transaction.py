@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -27,6 +28,7 @@ class TransactionSplitResponse(BaseModel):
 class TransactionBase(BaseModel):
     account_id: int
     category_id: int | None = None
+    payee_id: int | None = None
     amount: Decimal = Field(..., decimal_places=2)
     # Exchange rate for cross-currency transfers: dest_currency per 1 src_currency unit
     exchange_rate: Decimal | None = None
@@ -63,6 +65,7 @@ class TransactionCreate(TransactionBase):
 class TransactionUpdate(BaseModel):
     account_id: int | None = None
     category_id: int | None = None
+    payee_id: int | None = None
     amount: Decimal | None = Field(default=None, decimal_places=2)
     type: TransactionType | None = None
     date: datetime.date | None = None
@@ -76,6 +79,17 @@ class TransactionResponse(TransactionBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    payee_name: str | None = None
     splits: list[TransactionSplitResponse] = Field(default_factory=list)
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+    @model_validator(mode="wrap")
+    @classmethod
+    def _set_payee_name(
+        cls, value: Any, handler: Any
+    ) -> TransactionResponse:
+        obj = handler(value)
+        if hasattr(value, "payee") and value.payee is not None:
+            obj.payee_name = value.payee.name
+        return obj

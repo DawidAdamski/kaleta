@@ -3,7 +3,7 @@ from __future__ import annotations
 import enum
 
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
@@ -17,9 +17,12 @@ class CategoryType(str, enum.Enum):  # noqa: UP042
 
 class Category(TimestampMixin, Base):
     __tablename__ = "categories"
+    __table_args__ = (
+        UniqueConstraint("name", "parent_id", name="uq_categories_name_parent"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[CategoryType] = mapped_column(
         SAEnum(CategoryType, native_enum=False), nullable=False
     )

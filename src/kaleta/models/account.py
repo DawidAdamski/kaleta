@@ -33,6 +33,9 @@ class Account(TimestampMixin, Base):
     institution_id: Mapped[int | None] = mapped_column(
         ForeignKey("institutions.id", ondelete="SET NULL"), nullable=True
     )
+    external_account_number: Mapped[str | None] = mapped_column(
+        String(50), nullable=True
+    )
 
     institution: Mapped[Institution | None] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Institution", back_populates="accounts"

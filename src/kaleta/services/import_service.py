@@ -15,6 +15,122 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate
 
+# ── mBank preprocessor ───────────────────────────────────────────────────────
+
+@dataclass
+class MBankFileMetadata:
+    client_name: str
+    account_type: str
+    currency: str
+    account_number: str          # raw, e.g. "55 1140 2004 0000 3302 7888 6836"
+    account_number_digits: str   # digits only, e.g. "55114020040000330278886836"
+    date_from: datetime.date | None
+    date_to: datetime.date | None
+
+
+class MBankPreprocessor:
+    """Parses and normalises mBank CSV export files.
+
+    mBank files start with ~20–30 lines of metadata before the actual data table.
+    This class extracts that metadata and strips the header so the generic
+    ``ImportService.parse_csv`` can handle the rest.
+    """
+
+    @staticmethod
+    def _value_after_key(lines: list[str], key: str) -> str:
+        """Return the first non-empty value that follows a line starting with *key*."""
+        for i, line in enumerate(lines):
+            if line.strip().startswith(key):
+                for j in range(i + 1, min(i + 5, len(lines))):
+                    val = lines[j].strip().rstrip(";").strip()
+                    if val:
+                        return val
+        return ""
+
+    @staticmethod
+    def extract_metadata(content: str) -> MBankFileMetadata:
+        lines = content.splitlines()
+        get = lambda key: MBankPreprocessor._value_after_key(lines, key)  # noqa: E731
+
+        account_number_raw = get("#Numer rachunku")
+        digits = re.sub(r"\D", "", account_number_raw)
+
+        date_from: datetime.date | None = None
+        date_to: datetime.date | None = None
+        period_raw = get("#Za okres:")
+        if period_raw:
+            parts = [p.strip() for p in period_raw.split(";") if p.strip()]
+            try:
+                if len(parts) >= 2:
+                    date_from = datetime.date.fromisoformat(parts[0])
+                    date_to = datetime.date.fromisoformat(parts[1])
+                elif len(parts) == 1:
+                    date_from = datetime.date.fromisoformat(parts[0])
+            except ValueError:
+                pass
+
+        return MBankFileMetadata(
+            client_name=get("#Klient"),
+            account_type=get("#Rodzaj rachunku"),
+            currency=get("#Waluta"),
+            account_number=account_number_raw,
+            account_number_digits=digits,
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+    @staticmethod
+    def extract_data_section(content: str) -> str | None:
+        """Return the data CSV (header + rows) stripped of the mBank metadata block."""
+        lines = content.splitlines()
+        for i, line in enumerate(lines):
+            if "#Data" in line and "#Kwota" in line:
+                clean_header = ";".join(
+                    col.lstrip("#").strip() for col in line.split(";")
+                )
+                data_lines = [clean_header]
+                for body_line in lines[i + 1:]:
+                    stripped = body_line.strip()
+                    if not stripped or stripped.startswith("Niniejszy dokument"):
+                        break
+                    data_lines.append(stripped)
+                return "\n".join(data_lines)
+        return None
+
+    @staticmethod
+    def is_mbank_file(content: str) -> bool:
+        """Quick heuristic — check if the file looks like an mBank export."""
+        return "#Numer rachunku" in content or "#Rodzaj rachunku" in content
+
+
+
+def _build_mbank_description(raw: dict[str, str]) -> str:
+    """Build a human-readable description from mBank CSV row fields.
+
+    Priority:
+    1. ``Nadawca/Odbiorca — Tytuł``  (transfer with a known counterparty)
+    2. ``Nadawca/Odbiorca``          (counterparty only, no title)
+    3. ``Tytuł``                     (card purchase — payee name is in the title)
+    4. ``Opis operacji``             (fallback — generic operation type only)
+    """
+    def _clean(val: str) -> str:
+        text = re.sub(r"\s{2,}", " ", val).strip()
+        # mBank appends " DATA TRANSAKCJI: YYYY-MM-DD" to card-purchase titles;
+        # the date is already stored separately so we strip it here.
+        return re.sub(r"\s+DATA TRANSAKCJI:\s*\d{4}-\d{2}-\d{2}$", "", text).strip()
+
+    opis  = _clean(raw.get("Opis operacji",   ""))
+    tytul = _clean(raw.get("Tytuł",           ""))
+    payee = _clean(raw.get("Nadawca/Odbiorca",""))
+
+    if payee and tytul:
+        return f"{payee} — {tytul}"
+    if payee:
+        return payee
+    if tytul:
+        return tytul
+    return opis
+
 # ── Date format auto-detection ───────────────────────────────────────────────
 
 _DATE_FORMATS = [
@@ -157,7 +273,9 @@ class ImportService:
                     amount = credit - debit  # positive = income
 
                 description = row.get(desc_key, "").strip() if desc_key else ""
-                result.rows.append(ParsedRow(date=date, amount=amount, description=description, raw=dict(row)))
+                result.rows.append(
+                    ParsedRow(date=date, amount=amount, description=description, raw=dict(row))
+                )
 
             except (ValueError, KeyError) as exc:
                 result.errors.append(f"Row {line_no}: {exc}")
@@ -171,7 +289,7 @@ class ImportService:
         default_expense_category_id: int | None = None,
         default_income_category_id: int | None = None,
     ) -> list[TransactionCreate]:
-        """Convert ParsedRows to TransactionCreate schemas."""
+        """Convert ParsedRows to TransactionCreate schemas (generic CSV)."""
         creates: list[TransactionCreate] = []
         for row in rows:
             tx_type = TransactionType.INCOME if row.amount >= 0 else TransactionType.EXPENSE
@@ -189,7 +307,113 @@ class ImportService:
             ))
         return creates
 
-    # ── Internal Transfer Detection ──────────────────────────────────────────
+    async def to_transaction_creates_with_payees(
+        self,
+        rows: list[ParsedRow],
+        account_id: int,
+        default_expense_category_id: int | None = None,
+        default_income_category_id: int | None = None,
+        known_account_digits: set[str] | None = None,
+    ) -> list[TransactionCreate]:
+        """mBank-aware: resolves payees and detects transfers to registered accounts.
+
+        A transaction is marked as TRANSFER only when the counterparty account
+        number (``Numer rachunku`` column) matches one of the user's own accounts
+        (identified by their stored ``external_account_number`` digits).
+
+        Does NOT commit — the caller owns the transaction boundary.
+        """
+        from kaleta.services.payee_service import PayeeService
+
+        payee_svc = PayeeService(self.session)
+        known = known_account_digits or set()
+        creates: list[TransactionCreate] = []
+
+        for row in rows:
+            description = _build_mbank_description(row.raw)
+            payee_raw = row.raw.get("Nadawca/Odbiorca", "").strip()
+            payee_id: int | None = None
+            if payee_raw:
+                payee = await payee_svc.find_or_create(payee_raw)
+                payee_id = payee.id
+
+            # Transfer only when the counterparty account is one of ours
+            counterparty_raw = row.raw.get("Numer rachunku", "").strip()
+            counterparty_digits = re.sub(r"\D", "", counterparty_raw)
+            if counterparty_digits and counterparty_digits in known:
+                creates.append(TransactionCreate(
+                    account_id=account_id,
+                    category_id=None,
+                    payee_id=payee_id,
+                    amount=abs(row.amount),
+                    type=TransactionType.TRANSFER,
+                    date=row.date,
+                    description=description,
+                    is_internal_transfer=True,
+                ))
+            else:
+                tx_type = TransactionType.INCOME if row.amount >= 0 else TransactionType.EXPENSE
+                cat_id = (
+                    default_income_category_id if tx_type == TransactionType.INCOME
+                    else default_expense_category_id
+                )
+                creates.append(TransactionCreate(
+                    account_id=account_id,
+                    category_id=cat_id,
+                    payee_id=payee_id,
+                    amount=abs(row.amount),
+                    type=tx_type,
+                    date=row.date,
+                    description=description,
+                ))
+        return creates
+
+    # ── Duplicate detection ───────────────────────────────────────────────────
+
+    async def find_duplicate(
+        self,
+        account_id: int,
+        date: datetime.date,
+        amount: Decimal,
+        description: str,
+    ) -> bool:
+        """Return True if a transaction with the same (account, date, amount, description) exists."""  # noqa: E501
+        stmt = (
+            select(Transaction)
+            .where(
+                Transaction.account_id == account_id,
+                Transaction.date == date,
+                Transaction.amount == amount,
+                Transaction.description == description,
+            )
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    async def filter_duplicates(
+        self, creates: list[TransactionCreate]
+    ) -> tuple[list[TransactionCreate], int]:
+        """Remove creates that already exist in the database.
+
+        Returns ``(unique_creates, skipped_count)``.
+        """
+        unique: list[TransactionCreate] = []
+        skipped = 0
+        for create in creates:
+            is_dupe = await self.find_duplicate(
+                account_id=create.account_id,
+                date=create.date,
+                amount=create.amount,
+                description=create.description,
+            )
+            if is_dupe:
+                skipped += 1
+            else:
+                unique.append(create)
+        return unique, skipped
+
+    # ── Internal Transfer Detection ───────────────────────────────────────────
 
     async def detect_and_link_transfers(
         self,

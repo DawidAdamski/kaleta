@@ -49,6 +49,22 @@ class AccountService:
         await self.session.commit()
         return True
 
+    async def find_by_external_number(self, digits: str) -> Account | None:
+        """Find account whose ``external_account_number`` ends with the given digit string."""
+        result = await self.session.execute(
+            select(Account)
+            .options(selectinload(Account.institution))
+            .where(Account.external_account_number.ilike(f"%{digits}"))
+        )
+        return result.scalar_one_or_none()
+
+    async def save_external_number(self, account_id: int, number: str) -> None:
+        """Persist the last-10-digits of an external account number for auto-matching."""
+        account = await self.get(account_id)
+        if account is not None:
+            account.external_account_number = number[-10:]
+            await self.session.commit()
+
     async def adjust_balance(self, account_id: int, delta: Decimal) -> None:
         account = await self.get(account_id)
         if account is not None:

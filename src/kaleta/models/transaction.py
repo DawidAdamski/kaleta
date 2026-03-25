@@ -23,6 +23,9 @@ class Transaction(TimestampMixin, Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
     category_id: Mapped[int | None] = mapped_column(ForeignKey("categories.id"), nullable=True)
+    payee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("payees.id", ondelete="SET NULL"), nullable=True
+    )
     # Self-referential FK for linking paired internal transfer legs
     linked_transaction_id: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id"), nullable=True
@@ -44,6 +47,9 @@ class Transaction(TimestampMixin, Base):
     )
     category: Mapped["Category | None"] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Category", back_populates="transactions"
+    )
+    payee: Mapped["Payee | None"] = relationship(  # type: ignore[name-defined]  # noqa: F821
+        "Payee", back_populates="transactions"
     )
     linked_transaction: Mapped["Transaction | None"] = relationship(
         "Transaction", remote_side="Transaction.id", foreign_keys=[linked_transaction_id]

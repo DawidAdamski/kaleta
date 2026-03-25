@@ -69,6 +69,7 @@ def _register_views() -> None:
         import_view,
         institutions,
         net_worth,
+        payees,
         planned_transactions,
         reports,
         settings,
@@ -83,6 +84,7 @@ def _register_views() -> None:
     transactions.register()
     accounts.register()
     institutions.register()
+    payees.register()
     categories.register()
     budgets.register()
     budget_plan.register()

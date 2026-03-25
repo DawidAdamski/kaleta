@@ -1,4 +1,5 @@
 from kaleta.models.account import Account, AccountType
+from kaleta.models.payee import Payee
 from kaleta.models.asset import Asset, AssetType
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.budget import Budget
@@ -20,6 +21,7 @@ __all__ = [
     "PlannedTransaction",
     "RecurrenceFrequency",
     "SavedReport",
+    "Payee",
     "Tag",
     "transaction_tags",
     "Transaction",

@@ -62,9 +62,10 @@ kaleta/
 │   │   ├── account.py
 │   │   ├── transaction.py   # Transaction + TransactionSplit models
 │   │   ├── budget.py
-│   │   ├── category.py
+│   │   ├── category.py      # UNIQUE(name, parent_id) constraint
 │   │   ├── institution.py   # Institution model + InstitutionType enum
 │   │   ├── asset.py         # Asset model + AssetType enum
+│   │   ├── payee.py         # Payee model (name UNIQUE)
 │   │   └── mixins.py        # TimestampMixin
 │   ├── schemas/             # Pydantic schemas (request/response)
 │   │   ├── account.py
@@ -83,7 +84,8 @@ kaleta/
 │   │   ├── forecast_service.py
 │   │   ├── institution_service.py
 │   │   ├── asset_service.py
-│   │   └── net_worth_service.py
+│   │   ├── net_worth_service.py
+│   │   └── payee_service.py # Payee CRUD + merge() + find_or_create()
 │   ├── controllers/         # Route handlers, orchestration
 │   ├── api/                 # REST API endpoints (v1/)
 │   └── views/               # NiceGUI UI pages
@@ -104,10 +106,13 @@ kaleta/
 │   │   ├── schemas/         # Pydantic validation tests
 │   │   ├── services/        # Service layer tests
 │   │   └── security/        # SQL injection, XSS, input security
-│   └── integration/
+│   ├── integration/
+│   └── e2e/                 # Playwright browser tests (pytest-playwright)
+│       └── conftest.py      # base_url fixture; requires live app on :8080
 ├── scripts/
 │   └── seed.py              # 6-year fake data generator (Faker pl_PL)
 ├── docs/
+│   └── bdd.md               # BDD scenarios (Gherkin) for e2e tests
 ├── alembic/                 # Database migrations
 ├── pyproject.toml
 ├── Dockerfile
@@ -217,3 +222,23 @@ kaleta/
 - **Decision**: Add PWA support via `src/kaleta/pwa.py`, which registers `/manifest.json`, `/sw.js`, and `/static` endpoints on the NiceGUI/FastAPI app. `PWA_HEAD` (meta tags + service worker registration script) is injected via `ui.add_head_html()` in every page. `pwa.setup()` runs in `main.py` before views register, for both `web` and `app` modes.
 - **Rationale**: PWA support allows Kaleta to be installed on mobile and desktop as a standalone app without a separate native build. The service worker uses cache-first for static assets and network-first for navigation; API calls bypass the cache entirely to keep financial data fresh.
 - **Consequence**: Static files live in `src/kaleta/static/` (manifest, service worker, SVG icon). The `pwa` module owns all PWA-related routes and keeps them out of `main.py` and individual views.
+
+### ADR-018: Category Uniqueness Scoped to Parent
+- **Decision**: Replace the `UNIQUE(name)` constraint on `categories` with `UNIQUE(name, parent_id)` (`uq_categories_name_parent`).
+- **Rationale**: The previous global uniqueness constraint prevented the same category name from appearing under different parent categories (e.g., "Other" under both "Food" and "Transport"). Scoping uniqueness to `(name, parent_id)` reflects how users actually organise hierarchical categories, where name collisions across different parents are valid and expected.
+- **Consequence**: The migration is `alembic/versions/e3f4a5b6c7d8_categories_unique_name_parent.py`. Two top-level categories (both with `parent_id = NULL`) that share a name remain disallowed, since NULL = NULL in this context uses the constraint's composite key behaviour.
+
+### ADR-019: Payee as a First-Class Entity with Merge Support
+- **Decision**: Introduce a `Payee` model (`payees` table, `name UNIQUE`) and a `PayeeService` with full CRUD, `find_or_create()`, and `merge(keep_id, merge_ids)`. Transactions gain a nullable `payee_id` FK. During mBank CSV import, `ImportService.to_transaction_creates_with_payees()` resolves payee names via `find_or_create()`.
+- **Rationale**: Payee names in bank exports are often inconsistent (truncated, all-caps, with bank reference suffixes). A deduplicated `Payee` entity allows users to merge duplicates into a canonical record, after which all historical transactions automatically reflect the merged payee. Separating payee identity from transaction descriptions enables cleaner reporting and future rule-based auto-categorisation.
+- **Consequence**: `PayeeService.merge()` bulk-reassigns transactions from the merged payees to the kept payee using a single `UPDATE` statement, then deletes the redundant rows. `find_or_create()` uses `flush()` rather than `commit()` so that the caller owns the transaction boundary. The migration is `alembic/versions/d2e3f4a5b6c7_add_payees.py`.
+
+### ADR-020: Transfer Detection via Counterparty Account Number Matching
+- **Decision**: During mBank CSV import, `ImportService.to_transaction_creates_with_payees()` marks a row as `TRANSFER` (with `is_internal_transfer=True`) only when the row's `Numer rachunku` field (digits-only) appears in the caller-supplied `known_account_digits` set — the digit-normalised `external_account_number` values of the user's own accounts.
+- **Rationale**: Generic heuristics (description keyword matching, amount pairing) produce false positives. Matching against the literal counterparty account number is deterministic and requires no fuzzy logic. Using a `known_account_digits` parameter keeps the import service stateless with respect to account data; the caller queries and passes the set.
+- **Consequence**: Rows whose counterparty account is not in `known_account_digits` are classified as normal income/expense. After import, `ImportService.detect_and_link_transfers()` can pair unlinked `TRANSFER` legs across accounts (same amount ± tolerance, dates within `max_days_apart`) and write `linked_transaction_id` on both rows.
+
+### ADR-021: BDD/E2E Test Layer with pytest-playwright
+- **Decision**: Add a `tests/e2e/` layer using pytest-playwright. Tests run against a live Kaleta instance (default `http://localhost:8080`). The Gherkin-style scenarios driving the suite are documented in `docs/bdd.md`.
+- **Rationale**: Unit and integration tests cover service logic and schema validation in isolation but cannot catch regressions in UI flow, page routing, or NiceGUI component wiring. Playwright-based e2e tests exercise the full stack from the browser, covering the same user journeys described in the BDD scenarios.
+- **Consequence**: The app must be running before the e2e suite executes. Browsers must be installed once with `uv run playwright install chromium`. E2e tests are kept in a separate directory so they are not picked up by the default `uv run pytest` invocation (which targets unit/integration). The `tests/e2e/conftest.py` provides the `base_url` session fixture.

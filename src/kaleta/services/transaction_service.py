@@ -61,6 +61,7 @@ class TransactionService:
             .options(
                 selectinload(Transaction.account),
                 selectinload(Transaction.category),
+                selectinload(Transaction.payee),
                 selectinload(Transaction.splits).selectinload(TransactionSplit.category),
                 selectinload(Transaction.tags),
             )
@@ -95,6 +96,7 @@ class TransactionService:
             .options(
                 selectinload(Transaction.account),
                 selectinload(Transaction.category),
+                selectinload(Transaction.payee),
                 selectinload(Transaction.splits).selectinload(TransactionSplit.category),
                 selectinload(Transaction.tags),
             )
@@ -123,6 +125,21 @@ class TransactionService:
         fetched = await self.get(transaction.id)
         assert fetched is not None
         return fetched
+
+    async def create_bulk(self, creates: list[TransactionCreate]) -> int:
+        """Insert many simple transactions in a single commit (no splits, no tags).
+
+        Significantly faster than calling ``create()`` in a loop — intended for CSV
+        import where transactions have no splits and no tags.
+        Returns the number of inserted rows.
+        """
+        objects = [
+            Transaction(**c.model_dump(exclude={"splits", "tag_ids"}))
+            for c in creates
+        ]
+        self.session.add_all(objects)
+        await self.session.commit()
+        return len(objects)
 
     async def create_transfer(
         self,

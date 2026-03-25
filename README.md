@@ -114,8 +114,14 @@ podman-compose up
 # Install with dev dependencies
 uv sync --extra dev
 
-# Run tests
+# Run unit and integration tests
 uv run pytest
+
+# Install Playwright browsers (once)
+uv run playwright install chromium
+
+# Run e2e tests (requires a running app instance)
+uv run pytest tests/e2e/
 
 # Lint and format
 uv run ruff check .
@@ -153,7 +159,8 @@ tests/
 │   ├── schemas/     # Pydantic validation tests
 │   ├── services/    # Service layer tests
 │   └── security/    # SQL injection, XSS, input security tests
-└── integration/
+├── integration/
+└── e2e/             # Playwright browser tests (requires live app)
 ```
 
 ---
@@ -162,6 +169,7 @@ tests/
 
 - [Architecture](docs/architecture.md) — Architecture decisions and patterns
 - [Tech Stack](docs/tech-stack.md) — Technology choices and configuration
+- [BDD Scenarios](docs/bdd.md) — Gherkin scenarios for e2e tests
 
 ## License
 

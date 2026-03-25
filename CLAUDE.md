@@ -102,4 +102,19 @@ KALETA_DEBUG=false
 ## Key Documents
 - `docs/architecture.md` — Architecture Decision Records
 - `docs/tech-stack.md` — Technology choices and config reference
+- `docs/bdd.md` — BDD scenarios in Gherkin for all major features
 - `README.md` — Project overview and quick start
+
+## Available Subagents
+
+Use the `Agent` tool to delegate to these specialists. Trigger them proactively when the task matches their description — don't wait for the user to ask.
+
+| Agent | When to use |
+|---|---|
+| `test-runner` | After any code change — verify tests pass; write unit tests for new services, schemas, or input fields |
+| `docs-writer` | After features, bug fixes, or architectural changes — keep `docs/architecture.md`, `docs/tech-stack.md`, `README.md` in sync |
+| `migration-creator` | After adding or changing any SQLAlchemy model in `src/kaleta/models/` — creates the Alembic migration file |
+| `seed-updater` | After adding a new model — adds realistic Polish-language seed data to `scripts/seed.py` |
+| `i18n-verifier` | After adding or modifying a NiceGUI view — checks all user-facing strings use `t()` and all keys exist in `en.json` / `pl.json` |
+| `view-scaffolder` | When adding a completely new page — creates the view file, registers it in `main.py`, adds nav entry, wires service layer, adds i18n keys |
+| `scenario-runner` | When implementing or running BDD end-to-end tests from `docs/bdd.md` using pytest-playwright against a live app instance (`http://localhost:8080`) |

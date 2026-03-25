@@ -7,6 +7,8 @@ from kaleta.api.deps import get_session
 from kaleta.schemas.institution import InstitutionCreate, InstitutionResponse, InstitutionUpdate
 from kaleta.services.institution_service import InstitutionService
 
+_404 = {404: {"description": "Institution not found"}}
+
 router = APIRouter(prefix="/institutions", tags=["Institutions"])
 
 
@@ -18,7 +20,15 @@ async def list_institutions(
 
 
 @router.post(
-    "/", response_model=InstitutionResponse, status_code=201, summary="Create an institution"
+    "/",
+    response_model=InstitutionResponse,
+    status_code=201,
+    summary="Create an institution",
+    description=(
+        "Creates a new institution (bank, brokerage, etc.). "
+        "`color` accepts a hex color code (e.g. `#FF5733`). "
+        "`website` is optional and must be at most 200 characters."
+    ),
 )
 async def create_institution(
     data: InstitutionCreate,
@@ -28,7 +38,10 @@ async def create_institution(
 
 
 @router.get(
-    "/{institution_id}", response_model=InstitutionResponse, summary="Get institution by ID"
+    "/{institution_id}",
+    response_model=InstitutionResponse,
+    summary="Get institution by ID",
+    responses=_404,
 )
 async def get_institution(
     institution_id: int,
@@ -41,7 +54,13 @@ async def get_institution(
 
 
 @router.put(
-    "/{institution_id}", response_model=InstitutionResponse, summary="Update an institution"
+    "/{institution_id}",
+    response_model=InstitutionResponse,
+    summary="Update an institution",
+    description=(
+        "Partially updates an institution. Only fields included in the request body are changed."
+    ),
+    responses=_404,
 )
 async def update_institution(
     institution_id: int,
@@ -55,7 +74,9 @@ async def update_institution(
     return updated  # type: ignore[return-value]
 
 
-@router.delete("/{institution_id}", status_code=204, summary="Delete an institution")
+@router.delete(
+    "/{institution_id}", status_code=204, summary="Delete an institution", responses=_404
+)
 async def delete_institution(
     institution_id: int,
     session: AsyncSession = Depends(get_session),
