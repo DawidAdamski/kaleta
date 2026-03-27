@@ -55,7 +55,7 @@ logs/
 .ruff_cache/
 
 # Claude / AI context
-.claude/
+.claude/settings.local.json
 .ai/
 
 # Docker
