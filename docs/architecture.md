@@ -66,6 +66,7 @@ kaleta/
 │   │   ├── institution.py   # Institution model + InstitutionType enum
 │   │   ├── asset.py         # Asset model + AssetType enum
 │   │   ├── payee.py         # Payee model (name UNIQUE)
+│   │   ├── planned_transaction.py  # PlannedTransaction model (frequency, end_date, occurrences)
 │   │   └── mixins.py        # TimestampMixin
 │   ├── schemas/             # Pydantic schemas (request/response)
 │   │   ├── account.py
@@ -73,7 +74,8 @@ kaleta/
 │   │   ├── budget.py
 │   │   ├── category.py
 │   │   ├── institution.py
-│   │   └── asset.py
+│   │   ├── asset.py
+│   │   └── planned_transaction.py
 │   ├── services/            # Business logic
 │   │   ├── account_service.py
 │   │   ├── transaction_service.py
@@ -85,7 +87,8 @@ kaleta/
 │   │   ├── institution_service.py
 │   │   ├── asset_service.py
 │   │   ├── net_worth_service.py
-│   │   └── payee_service.py # Payee CRUD + merge() + find_or_create()
+│   │   ├── payee_service.py # Payee CRUD + merge() + find_or_create()
+│   │   └── planned_transaction_service.py  # Planned/recurring transaction CRUD
 │   ├── controllers/         # Route handlers, orchestration
 │   ├── api/                 # REST API endpoints (v1/)
 │   └── views/               # NiceGUI UI pages
@@ -97,9 +100,14 @@ kaleta/
 │       ├── categories.py
 │       ├── budgets.py
 │       ├── import_view.py
-│       ├── forecast.py
+│       ├── forecast.py      # Account balance forecast page (/forecast)
 │       ├── institutions.py  # Institutions CRUD page (/institutions)
-│       └── net_worth.py     # Net Worth summary page (/net-worth)
+│       ├── net_worth.py     # Net Worth summary page (/net-worth)
+│       ├── planned_transactions.py  # Planned/recurring transactions page (/planned)
+│       ├── credit_calculator.py     # Loan amortization calculator (/credit-calculator)
+│       ├── budget_plan.py           # Annual budget planning grid (/budget-plan)
+│       ├── setup.py                 # First-run database setup page (/setup)
+│       └── wizard.py                # Onboarding wizard (/wizard)
 ├── tests/
 │   ├── conftest.py          # In-memory SQLite async fixtures
 │   ├── unit/
@@ -237,6 +245,31 @@ kaleta/
 - **Decision**: During mBank CSV import, `ImportService.to_transaction_creates_with_payees()` marks a row as `TRANSFER` (with `is_internal_transfer=True`) only when the row's `Numer rachunku` field (digits-only) appears in the caller-supplied `known_account_digits` set — the digit-normalised `external_account_number` values of the user's own accounts.
 - **Rationale**: Generic heuristics (description keyword matching, amount pairing) produce false positives. Matching against the literal counterparty account number is deterministic and requires no fuzzy logic. Using a `known_account_digits` parameter keeps the import service stateless with respect to account data; the caller queries and passes the set.
 - **Consequence**: Rows whose counterparty account is not in `known_account_digits` are classified as normal income/expense. After import, `ImportService.detect_and_link_transfers()` can pair unlinked `TRANSFER` legs across accounts (same amount ± tolerance, dates within `max_days_apart`) and write `linked_transaction_id` on both rows.
+
+### ADR-022: Planned/Recurring Transactions as a First-Class Model
+- **Decision**: Introduce a `PlannedTransaction` model that stores name, type (income/expense/transfer), amount, account(s), optional category, frequency (`WEEKLY`, `MONTHLY`, `YEARLY`), start date, optional end date, optional occurrence limit, and an `is_active` flag.
+- **Rationale**: Recurring cash flows (subscriptions, salaries, rent) are predictable and should be modelled explicitly rather than inferred from historical data. An explicit model allows the forecast service to inject future occurrences into the Prophet series and the transactions view to surface them as upcoming items before they are recorded.
+- **Consequence**: `PlannedTransactionService` provides full CRUD and an `active_occurrences_between(start, end)` method used by both the transactions view (show-planned toggle) and `ForecastService`. Transfer-type planned transactions reference both a source and destination account. Inactive planned transactions are excluded from the forecast and from the upcoming transactions overlay. The view lives at `/planned`.
+
+### ADR-023: Credit Calculator as a Stateless Pure-Python Service
+- **Decision**: The credit calculator (`/credit-calculator`) performs all amortization math in `CreditService` without persisting any data to the database.
+- **Rationale**: Loan amortization is a deterministic calculation: given principal, rate, term, and installment type, the full schedule can be derived on the fly. Storing schedules would require invalidation logic whenever inputs change. A stateless service keeps the feature simple.
+- **Consequence**: Amortization logic lives directly in `views/credit_calculator.py` or a co-located helper, with no ORM dependency. Equal and decreasing installment schedules each return a list of dataclasses (period, installment, principal, interest, remaining balance). Overpayment variants accept an extra monthly amount or a one-off lump sum at a given period. The view renders results in an ECharts chart and a scrollable amortization table. No migration is required.
+
+### ADR-024: Account Balance Forecast View Replaces Implicit Forecast Page
+- **Decision**: Rename and expand the existing forecast view to a dedicated `/forecast` page that accepts per-account or multi-account selection, a configurable horizon, and a "include planned transactions" toggle. A zero-balance alert is shown when the predicted balance crosses zero within the horizon.
+- **Rationale**: The original forecast was a single-account, fixed-horizon summary. Users need to combine accounts, tune the horizon, and understand interactions with planned transactions. The zero-balance alert is a high-value early-warning signal that requires no extra data.
+- **Consequence**: `ForecastService` gains a `forecast_balance(account_ids, horizon_days, include_planned)` method that queries daily balance series for the selected accounts, optionally prepends planned-transaction occurrences, and runs Prophet in a thread pool. Individual account series are returned as secondary chart lines alongside the combined total. If Prophet receives fewer than 90 data points it returns a warning rather than a chart.
+
+### ADR-025: Annual Budget Planning Grid with Year Navigation
+- **Decision**: Add a `/budget-plan` view that displays a 12-column (month) × N-row (category) grid for a selected year. Each cell holds a budget target. A "Budget vs Actual" toggle overlays actual spending from `TransactionService`. Year-over-year comparison shows the previous year's values alongside the current year.
+- **Rationale**: The existing budgets page covers period summaries but does not support planning an entire year at once or comparing years. A spreadsheet-style grid matches how users plan annual budgets and makes bulk entry (uniform amount, copy previous month) practical.
+- **Consequence**: Budget targets are stored in the existing `Budget` model (one row per category per month). `BudgetService` already stores per-month rows; the new view reads and writes them in bulk. The "set uniform amount" and "copy previous month" actions are view-level conveniences that write multiple budget rows in a single service call. Negative budget values are rejected at the schema level.
+
+### ADR-026: Initial Setup Wizard with Zero-Based Budget Enforcement
+- **Decision**: Add a `/wizard` view (`views/wizard.py`) that guides new users through sequential steps: institution → accounts with opening balances → categories → zero-based budget assignment. The "Finish Setup" button is disabled until the unassigned amount equals zero. A separate `/setup` view (`views/setup.py`) handles first-run database configuration (local vs cloud).
+- **Rationale**: An empty database provides no orientation. The wizard ensures every user begins with a valid institution, at least one account, a category structure, and a fully assigned budget — the minimum viable state for the app to be useful. Enforcing zero-based assignment at setup establishes the budgeting discipline the app is built around.
+- **Consequence**: A `setup_complete` flag (stored in `app.storage.user` or a settings row) gates the redirect: an empty database sends the user to `/wizard`; a completed setup sends them to the dashboard. Wizard state (which steps are complete) persists so users can resume after an interruption. The "load suggested categories" action inserts a predefined Polish-language category set. Opening balances entered in the accounts step are recorded as initial-balance transactions on the respective accounts.
 
 ### ADR-021: BDD/E2E Test Layer with pytest-playwright
 - **Decision**: Add a `tests/e2e/` layer using pytest-playwright. Tests run against a live Kaleta instance (default `http://localhost:8080`). The Gherkin-style scenarios driving the suite are documented in `docs/bdd.md`.

@@ -56,6 +56,7 @@ logs/
 
 # Claude / AI context
 .claude/settings.local.json
+.playwright-mcp/
 .ai/
 
 # Docker

@@ -140,7 +140,7 @@ def register() -> None:
             def _update_preview(e: object) -> None:  # noqa: ARG001
                 try:
                     total_val = float(yearly_amount.value or 0)
-                    yearly_preview.set_text(f"≈ {total_val / 12:,.2f} zł / month")
+                    yearly_preview.set_text(t("budget_plan.per_month_preview", amount=f"{total_val / 12:,.2f}"))
                 except (TypeError, ZeroDivisionError):
                     yearly_preview.set_text("")
 
@@ -223,7 +223,7 @@ def register() -> None:
                 total = sum(bmap.get((cat_id, m), Decimal("0")) for m in range(1, 13))
                 yearly_amount.set_value(float(total))
                 yearly_preview.set_text(
-                    f"≈ {float(total) / 12:,.2f} zł / month" if total else ""
+                    t("budget_plan.per_month_preview", amount=f"{float(total) / 12:,.2f}") if total else ""
                 )
                 yearly_dialog.open()
 

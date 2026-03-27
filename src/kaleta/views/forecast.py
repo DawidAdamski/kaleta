@@ -88,7 +88,7 @@ def register() -> None:
         async with AsyncSessionFactory() as session:
             accounts = await ForecastService(session).available_accounts()
 
-        account_options: dict[int | str, str] = {"all": "All Accounts"}
+        account_options: dict[int | str, str] = {"all": t("forecast.all_accounts")}
         account_options.update({a.id: a.name for a in accounts})
 
         with page_layout(t("forecast.title")):
@@ -136,8 +136,12 @@ def register() -> None:
                     return
 
                 status.set_text(
-                    f"Forecast for: {result.account_name} | "
-                    f"{len(result.historical)} historical days + {horizon} day forecast"
+                    t(
+                        "forecast.status_running",
+                        account=result.account_name,
+                        days=len(result.historical),
+                        horizon=horizon,
+                    )
                 )
 
                 # KPI cards

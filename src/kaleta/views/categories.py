@@ -20,7 +20,7 @@ def register() -> None:
             ui.label(t("categories.add")).classes("text-lg font-bold mb-2")
             add_name = ui.input(f"{t('common.name')} *").classes("w-full")
             add_type = ui.select(
-                {ct.value: ct.value.capitalize() for ct in CategoryType},
+                {CategoryType.EXPENSE.value: t("common.expense"), CategoryType.INCOME.value: t("common.income")},
                 label=t("common.type"),
                 value=CategoryType.EXPENSE.value,
             ).classes("w-full")
@@ -75,7 +75,7 @@ def register() -> None:
             ui.label(t("categories.edit")).classes("text-lg font-bold mb-2")
             edit_name = ui.input(f"{t('common.name')} *").classes("w-full")
             edit_type = ui.select(
-                {ct.value: ct.value.capitalize() for ct in CategoryType},
+                {CategoryType.EXPENSE.value: t("common.expense"), CategoryType.INCOME.value: t("common.income")},
                 label=t("common.type"),
             ).classes("w-full")
             edit_parent = ui.select(

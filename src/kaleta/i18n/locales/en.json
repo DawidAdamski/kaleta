@@ -219,7 +219,8 @@
     "deleted": "Account deleted.",
     "name_required": "Name is required.",
     "currency": "Currency",
-    "currency_hint": "Currency used by this account"
+    "currency_hint": "Currency used by this account",
+    "no_institution": "No institution"
   },
   "institutions": {
     "title": "Institutions",
@@ -330,6 +331,7 @@
     "year_total": "Year total",
     "set_from_yearly": "Set from yearly total",
     "clear_all": "Clear all months",
+    "per_month_preview": "≈ {amount} / month",
     "help_text": "Single year: click Monthly column to set all 12 months; click a cell to override. Multiple years: read-only comparison. Orange ~ = mixed amounts.",
     "monthly_header": "Monthly",
     "year_header": "Year",
@@ -435,7 +437,9 @@
     "upcoming_14": "Upcoming 14 days",
     "lower_ci": "Lower (80% CI)",
     "upper_ci": "Upper (80% CI)",
-    "planned_in_period": "Planned transactions in this period"
+    "planned_in_period": "Planned transactions in this period",
+    "all_accounts": "All Accounts",
+    "status_running": "Forecast for: {account} | {days} historical days + {horizon} day forecast"
   },
   "planned": {
     "title": "Planned Transactions",
@@ -491,7 +495,8 @@
     "valuables": "Valuables",
     "other": "Other",
     "delete_asset_confirm": "Delete \"{name}\"?",
-    "cannot_undo": "This action cannot be undone."
+    "cannot_undo": "This action cannot be undone.",
+    "thousand_pln": "tys. PLN"
   },
   "reports": {
     "title": "Reports",
@@ -626,6 +631,7 @@
     "seeding": "Generating example data...",
     "clearing": "Clearing all data...",
     "seed_done": "Done! Loaded {tx} transactions across {months}.",
+    "seed_years": "6 years",
     "clear_done": "All data has been deleted.",
     "seed_error": "Seed failed",
     "clear_error": "Clear failed"
@@ -678,6 +684,7 @@
     "no_recent": "No recently opened databases.",
     "browse": "Browse",
     "select_folder": "Select this folder",
-    "picker_no_access": "Permission denied"
+    "picker_no_access": "Permission denied",
+    "db_name_default": "My Budget"
   }
 }

@@ -219,7 +219,8 @@
     "deleted": "Konto usunięte.",
     "name_required": "Nazwa jest wymagana.",
     "currency": "Waluta",
-    "currency_hint": "Waluta używana przez to konto"
+    "currency_hint": "Waluta używana przez to konto",
+    "no_institution": "Brak instytucji"
   },
   "institutions": {
     "title": "Instytucje",
@@ -330,6 +331,7 @@
     "year_total": "Suma roku",
     "set_from_yearly": "Ustaw z sumy rocznej",
     "clear_all": "Wyczyść wszystkie miesiące",
+    "per_month_preview": "≈ {amount} / miesiąc",
     "help_text": "Jeden rok: kliknij kolumnę Miesiąc, aby ustawić wszystkie 12 miesięcy; kliknij komórkę, aby zmienić. Wiele lat: porównanie tylko do odczytu. Pomarańczowy ~ = różne kwoty.",
     "monthly_header": "Miesięcznie",
     "year_header": "Rok",
@@ -435,7 +437,9 @@
     "upcoming_14": "Nadchodzące 14 dni",
     "lower_ci": "Dolna (80% CI)",
     "upper_ci": "Górna (80% CI)",
-    "planned_in_period": "Planowane transakcje w tym okresie"
+    "planned_in_period": "Planowane transakcje w tym okresie",
+    "all_accounts": "Wszystkie konta",
+    "status_running": "Prognoza dla: {account} | {days} dni historycznych + {horizon} dni prognozy"
   },
   "planned": {
     "title": "Planowane transakcje",
@@ -491,7 +495,8 @@
     "valuables": "Kosztowności",
     "other": "Inne",
     "delete_asset_confirm": "Usunąć \"{name}\"?",
-    "cannot_undo": "Tej operacji nie można cofnąć."
+    "cannot_undo": "Tej operacji nie można cofnąć.",
+    "thousand_pln": "tys. PLN"
   },
   "reports": {
     "title": "Raporty",
@@ -626,6 +631,7 @@
     "seeding": "Generowanie przykładowych danych...",
     "clearing": "Usuwanie wszystkich danych...",
     "seed_done": "Gotowe! Załadowano {tx} transakcji z okresu {months}.",
+    "seed_years": "6 lat",
     "clear_done": "Wszystkie dane zostały usunięte.",
     "seed_error": "Błąd podczas generowania danych",
     "clear_error": "Błąd podczas usuwania danych"
@@ -678,6 +684,7 @@
     "no_recent": "Brak ostatnio otwieranych baz danych.",
     "browse": "Przeglądaj",
     "select_folder": "Wybierz ten folder",
-    "picker_no_access": "Brak dostępu"
+    "picker_no_access": "Brak dostępu",
+    "db_name_default": "Mój budżet"
   }
 }

@@ -255,8 +255,8 @@ def register() -> None:  # noqa: PLR0915
 
                                 new_name = ui.input(
                                     t("setup.db_name"),
-                                    value="My Budget",
-                                    placeholder="My Budget",
+                                    value=t("setup.db_name_default"),
+                                    placeholder=t("setup.db_name_default"),
                                 ).classes("w-full")
 
                                 default_folder = str(Path.home() / "Documents")

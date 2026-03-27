@@ -279,3 +279,71 @@ class TestRangeSummaryMultiMonth:
 
         result = await svc.range_summary(datetime.date(2025, 8, 1), datetime.date(2025, 8, 31))
         assert result[0].actual_amount == Decimal("100.00")
+
+
+# ── list_for_year ───────────────────────────────────────────────────────────────
+
+
+class TestListForYear:
+
+    async def test_list_for_year_returns_only_that_year(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        cat_id = await _make_category(session)
+        # Budgets in 2024 and 2025
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("100.00"), month=6, year=2024))
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("200.00"), month=3, year=2025))
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("300.00"), month=9, year=2025))
+
+        result = await svc.list_for_year(2025)
+        assert len(result) == 2
+        assert all(b.year == 2025 for b in result)
+
+    async def test_list_for_year_empty_when_no_budgets(self, svc: BudgetService):
+        result = await svc.list_for_year(2099)
+        assert result == []
+
+    async def test_list_for_year_ordered_by_month(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        cat_id = await _make_category(session)
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("100.00"), month=12, year=2025))
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("100.00"), month=1, year=2025))
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("100.00"), month=6, year=2025))
+
+        result = await svc.list_for_year(2025)
+        months = [b.month for b in result]
+        assert months == sorted(months)
+
+
+# ── list filtered by year + month ──────────────────────────────────────────────
+
+
+class TestListFiltered:
+
+    async def test_list_filtered_by_year_and_month_returns_only_that_month(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        cat_id = await _make_category(session, name="Utilities")
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("100.00"), month=1, year=2025))
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("200.00"), month=2, year=2025))
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("300.00"), month=1, year=2026))
+
+        result = await svc.list(month=1, year=2025)
+        assert len(result) == 1
+        assert result[0].month == 1
+        assert result[0].year == 2025
+
+    async def test_list_no_filter_returns_all(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        cat_id = await _make_category(session, name="Transport")
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("50.00"), month=1, year=2025))
+        await svc.create(BudgetCreate(category_id=cat_id, amount=Decimal("50.00"), month=2, year=2025))
+
+        result = await svc.list()
+        assert len(result) == 2
+
+    async def test_list_filtered_empty_when_no_match(self, svc: BudgetService):
+        result = await svc.list(month=7, year=2099)
+        assert result == []

@@ -18,7 +18,6 @@ from kaleta.services.data_service import DataService
 from kaleta.views.accounts import COMMON_CURRENCIES
 from kaleta.views.layout import page_layout
 
-_MONTHS_LABEL = "6 lat"  # matches DataService._YEARS
 
 
 def register() -> None:
@@ -317,7 +316,7 @@ def register() -> None:
                             t(
                                 "settings.seed_done",
                                 tx=stats["transactions"],
-                                months=_MONTHS_LABEL,
+                                months=t("settings.seed_years"),
                             ),
                             type="positive",
                         )

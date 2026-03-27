@@ -83,14 +83,14 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
             },
             "yAxis": {
                 "type": "value",
-                "name": "tys. PLN",
+                "name": t("net_worth.thousand_pln"),
                 "nameTextStyle": {"color": text_color, "fontSize": 10},
                 "axisLabel": {"formatter": "{value}k", "color": text_color},
                 "splitLine": {"lineStyle": {"color": "#444444" if dark else "#e0e0e0"}},
             },
             "series": [
                 {
-                    "name": "Net Worth",
+                    "name": t("net_worth.net_worth"),
                     "type": "line",
                     "data": values_k,
                     "smooth": True,

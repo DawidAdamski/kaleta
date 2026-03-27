@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -42,6 +43,22 @@ class CategoryService:
         return result.scalar_one_or_none()
 
     async def create(self, data: CategoryCreate) -> Category:
+        # SQLite treats NULL != NULL in unique constraints, so enforce (name, parent_id)
+        # uniqueness manually to catch duplicate root-level category names.
+        stmt = select(Category).where(Category.name == data.name)
+        if data.parent_id is None:
+            stmt = stmt.where(Category.parent_id.is_(None))
+        else:
+            stmt = stmt.where(Category.parent_id == data.parent_id)
+        existing = await self.session.execute(stmt)
+        if existing.scalar_one_or_none() is not None:
+            raise IntegrityError(
+                statement=None,
+                params=None,
+                orig=Exception(
+                    f"Category name '{data.name}' already exists under the same parent"
+                ),
+            )
         category = Category(**data.model_dump())
         self.session.add(category)
         await self.session.commit()

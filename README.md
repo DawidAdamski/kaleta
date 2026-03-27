@@ -14,7 +14,11 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Internal transfer detection between accounts
 - Multi-currency accounts with per-account ISO currency codes; cross-currency transfer entry with exchange rate panel; net worth and all totals converted to a configurable default currency
 - Net worth tracking with 13-month history chart, asset/liability breakdown, and physical asset management (real estate, vehicles, valuables)
-- Cash flow forecasting with Prophet (30–60 day horizon)
+- Cash flow forecasting with Prophet (30–90 day horizon), per-account or combined multi-account, with confidence interval and zero-balance alert
+- Planned and recurring transactions (weekly/monthly/yearly) with active/inactive toggle; visible as upcoming items in the transactions view and included in the forecast
+- Credit calculator — loan amortization for consumer loans, car loans, and mortgages; equal vs decreasing installments; monthly overpayment and lump-sum simulation
+- Annual budget planning grid — per-category monthly targets across a full year, budget-vs-actual overlay, year-over-year comparison
+- Initial setup wizard — guided onboarding with zero-based budget assignment; "Finish Setup" requires every opening-balance zloty to be assigned
 - Installable as a Progressive Web App (PWA) on mobile and desktop
 - REST API for integrations
 - SQLite (default) or PostgreSQL
