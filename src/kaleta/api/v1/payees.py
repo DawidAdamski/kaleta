@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.api.deps import get_session
-from kaleta.schemas.payee import PayeeCreate, PayeeResponse, PayeeUpdate
+from kaleta.schemas.payee import PayeeCreate, PayeeMerge, PayeeResponse, PayeeUpdate
 from kaleta.services.payee_service import PayeeService
 
 _404 = {404: {"description": "Payee not found"}}
@@ -73,3 +73,25 @@ async def delete_payee(
     if not await svc.get(payee_id):
         raise HTTPException(status_code=404, detail="Payee not found")
     await svc.delete(payee_id)
+
+
+@router.post(
+    "/merge",
+    summary="Merge payees",
+    description=(
+        "Reassigns all transactions from `merge_ids` to `keep_id`, then deletes the merged payees. "
+        "`keep_id` must not appear in `merge_ids`."
+    ),
+    responses={**_404, 400: {"description": "keep_id in merge_ids or not found"}},
+)
+async def merge_payees(
+    data: PayeeMerge,
+    session: AsyncSession = Depends(get_session),
+) -> dict[str, int]:
+    svc = PayeeService(session)
+    if data.keep_id in data.merge_ids:
+        raise HTTPException(status_code=400, detail="keep_id must not be in merge_ids")
+    if not await svc.get(data.keep_id):
+        raise HTTPException(status_code=404, detail="Payee not found")
+    deleted = await svc.merge(data.keep_id, data.merge_ids)
+    return {"deleted": deleted}

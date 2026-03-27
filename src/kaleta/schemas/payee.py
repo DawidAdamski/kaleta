@@ -31,6 +31,11 @@ class PayeeUpdate(BaseModel):
     notes: str | None = Field(default=None, max_length=500)
 
 
+class PayeeMerge(BaseModel):
+    keep_id: int = Field(..., description="ID of the payee to keep")
+    merge_ids: list[int] = Field(..., min_length=1, description="IDs of payees to merge into keep_id")
+
+
 class PayeeResponse(PayeeBase):
     model_config = ConfigDict(from_attributes=True)
 

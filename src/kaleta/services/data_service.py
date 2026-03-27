@@ -20,6 +20,7 @@ from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.currency_rate import CurrencyRate
 from kaleta.models.institution import Institution, InstitutionType
+from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.report import SavedReport
 from kaleta.models.tag import Tag
@@ -102,6 +103,7 @@ class DataService:
             Account,
             Category,
             Institution,
+            Payee,
         ):
             await s.execute(delete(model))
         # Clear the many-to-many join table
