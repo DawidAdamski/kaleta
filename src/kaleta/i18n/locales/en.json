@@ -63,7 +63,14 @@
     "transfer": "Transfer",
     "pln": "PLN",
     "close_confirm": "Close the current database and return to the selection screen?",
-    "close_db": "Close database"
+    "close_db": "Close database",
+    "shortcuts_help": "Keyboard shortcuts",
+    "shortcuts_global": "Global",
+    "shortcuts_transactions": "Transactions",
+    "shortcut_new_tx": "New transaction",
+    "shortcut_submit": "Submit form",
+    "shortcut_close": "Close dialog",
+    "shortcut_open_help": "Show this help"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -362,6 +369,11 @@
     "stats_expense": "Expenses",
     "stats_income": "Income",
     "stats_transfer": "Transfers",
+    "step_format": "Format",
+    "step_upload": "Upload",
+    "step_settings": "Settings",
+    "step_preview": "Preview",
+    "step_confirm": "Import",
     "import_btn": "Import all",
     "rows_loaded": "Loaded {count} rows.",
     "done": "Imported {count} transactions.",
@@ -409,7 +421,14 @@
     "merge_keep_required": "Select which payee to keep.",
     "merge_confirm": "Merge",
     "merged": "Payees merged.",
-    "selected_count": "{count} selected"
+    "selected_count": "{count} selected",
+    "contact_details": "Contact details",
+    "website": "Website",
+    "address": "Address",
+    "city": "City",
+    "country": "Country",
+    "email": "E-mail",
+    "phone": "Phone"
   },
   "forecast": {
     "title": "Forecast",

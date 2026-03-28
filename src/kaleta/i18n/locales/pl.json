@@ -63,7 +63,14 @@
     "transfer": "Przelew",
     "pln": "PLN",
     "close_confirm": "Zamknąć bieżącą bazę danych i wrócić do ekranu wyboru?",
-    "close_db": "Zamknij bazę danych"
+    "close_db": "Zamknij bazę danych",
+    "shortcuts_help": "Skróty klawiszowe",
+    "shortcuts_global": "Globalne",
+    "shortcuts_transactions": "Transakcje",
+    "shortcut_new_tx": "Nowa transakcja",
+    "shortcut_submit": "Zatwierdź formularz",
+    "shortcut_close": "Zamknij dialog",
+    "shortcut_open_help": "Pokaż tę pomoc"
   },
   "dashboard": {
     "title": "Pulpit",
@@ -362,6 +369,11 @@
     "stats_expense": "Wydatki",
     "stats_income": "Przychody",
     "stats_transfer": "Przelewy",
+    "step_format": "Format",
+    "step_upload": "Plik",
+    "step_settings": "Ustawienia",
+    "step_preview": "Podgląd",
+    "step_confirm": "Import",
     "import_btn": "Importuj wszystko",
     "rows_loaded": "Wczytano {count} wierszy.",
     "done": "Zaimportowano {count} transakcji.",
@@ -409,7 +421,14 @@
     "merge_keep_required": "Wybierz odbiorcę do zachowania.",
     "merge_confirm": "Scal",
     "merged": "Odbiorcy scaleni.",
-    "selected_count": "Wybrano: {count}"
+    "selected_count": "Wybrano: {count}",
+    "contact_details": "Dane kontaktowe",
+    "website": "Strona WWW",
+    "address": "Adres",
+    "city": "Miasto",
+    "country": "Kraj",
+    "email": "E-mail",
+    "phone": "Telefon"
   },
   "forecast": {
     "title": "Prognoza",

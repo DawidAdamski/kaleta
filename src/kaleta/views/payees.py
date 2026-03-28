@@ -21,9 +21,21 @@ def register() -> None:
 
         # ── Add / Edit dialog ──────────────────────────────────────────────────
         dialog = ui.dialog()
-        with dialog, ui.card().classes("w-[480px] gap-3"):
+        with dialog, ui.card().classes("w-[520px] gap-3"):
             dialog_title = ui.label("").classes("text-lg font-bold")
             name_input = ui.input(t("payees.name")).classes("w-full").props("autofocus")
+
+            with ui.expansion(t("payees.contact_details"), icon="contact_page").classes("w-full"):  # noqa: SIM117
+                with ui.column().classes("w-full gap-2"):
+                    website_input = ui.input(t("payees.website")).classes("w-full")
+                    with ui.row().classes("w-full gap-2"):
+                        address_input = ui.input(t("payees.address")).classes("flex-1")
+                        city_input = ui.input(t("payees.city")).classes("w-32")
+                    with ui.row().classes("w-full gap-2"):
+                        country_input = ui.input(t("payees.country")).classes("flex-1")
+                        phone_input = ui.input(t("payees.phone")).classes("flex-1")
+                    email_input = ui.input(t("payees.email")).classes("w-full")
+
             notes_input = ui.textarea(
                 t("payees.notes"),
                 placeholder=t("payees.notes_hint"),
@@ -36,6 +48,12 @@ def register() -> None:
                     return
                 payload = PayeeCreate(
                     name=name,
+                    website=(website_input.value or "").strip() or None,
+                    address=(address_input.value or "").strip() or None,
+                    city=(city_input.value or "").strip() or None,
+                    country=(country_input.value or "").strip() or None,
+                    email=(email_input.value or "").strip() or None,
+                    phone=(phone_input.value or "").strip() or None,
                     notes=(notes_input.value or "").strip() or None,
                 )
                 async with AsyncSessionFactory() as session:
@@ -55,6 +73,10 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-1"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=_submit).props("color=primary")
+            ui.keyboard(on_key=lambda e: (
+                _submit() if e.key == "Enter" and e.action.keydown else
+                dialog.close() if e.key == "Escape" and e.action.keydown else None
+            ))
 
         # ── Delete dialog ──────────────────────────────────────────────────────
         delete_dialog = ui.dialog()
@@ -111,6 +133,12 @@ def register() -> None:
             dialog_payee_id["value"] = None
             dialog_title.set_text(t("payees.add"))
             name_input.set_value("")
+            website_input.set_value("")
+            address_input.set_value("")
+            city_input.set_value("")
+            country_input.set_value("")
+            email_input.set_value("")
+            phone_input.set_value("")
             notes_input.set_value("")
             dialog.open()
 
@@ -118,6 +146,12 @@ def register() -> None:
             dialog_payee_id["value"] = payee.id
             dialog_title.set_text(t("payees.edit"))
             name_input.set_value(payee.name)
+            website_input.set_value(payee.website or "")
+            address_input.set_value(payee.address or "")
+            city_input.set_value(payee.city or "")
+            country_input.set_value(payee.country or "")
+            email_input.set_value(payee.email or "")
+            phone_input.set_value(payee.phone or "")
             notes_input.set_value(payee.notes or "")
             dialog.open()
 

@@ -75,6 +75,26 @@ def register() -> None:
         with page_layout(t("import.title")):
             ui.label(t("import.title")).classes("text-2xl font-bold")
 
+            # ── Step indicator ────────────────────────────────────────────────
+            _steps = [
+                t("import.step_format"),
+                t("import.step_upload"),
+                t("import.step_settings"),
+                t("import.step_preview"),
+                t("import.step_confirm"),
+            ]
+            with ui.row().classes("w-full items-center gap-0 mb-2"):
+                for i, step_label in enumerate(_steps):
+                    num = i + 1
+                    with ui.row().classes("items-center gap-1"):
+                        ui.label(str(num)).classes(
+                            "text-xs font-bold rounded-full w-6 h-6 flex items-center "
+                            "justify-center bg-primary text-white"
+                        )
+                        ui.label(step_label).classes("text-sm text-grey-7 font-medium")
+                    if i < len(_steps) - 1:
+                        ui.label("→").classes("text-grey-4 mx-2 text-sm")
+
             # ══════════════════════════════════════════════════════════════════
             # SECTION 1 — Profile selector
             # ══════════════════════════════════════════════════════════════════

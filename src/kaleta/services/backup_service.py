@@ -7,7 +7,7 @@ import zipfile
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import text
+from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 _BACKUP_VERSION = "1"
@@ -92,18 +92,33 @@ class BackupService:
             for table in reversed(_TABLES):
                 await self.session.execute(text(f"DELETE FROM {table}"))  # noqa: S608
 
+            # Build a map of known columns per table from the live schema.
+            # run_sync is required because SQLAlchemy's inspect() is synchronous.
+            conn = await self.session.connection()
+            schema_cols: dict[str, set[str]] = {}
+            for _t in _TABLES:
+                schema_cols[_t] = await conn.run_sync(
+                    lambda sync_conn, t=_t: {
+                        col["name"] for col in inspect(sync_conn).get_columns(t)
+                    }
+                )
+
             counts: dict[str, int] = {}
             for table in _TABLES:
                 rows = table_data.get(table, [])
                 if rows:
-                    cols = list(rows[0].keys())
+                    allowed = schema_cols[table]
+                    cols = [c for c in rows[0] if c in allowed]
+                    if not cols:
+                        counts[table] = 0
+                        continue
                     col_names = ", ".join(cols)
                     placeholders = ", ".join(f":{c}" for c in cols)
                     stmt = text(
                         f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})"  # noqa: S608
                     )
                     for row in rows:
-                        await self.session.execute(stmt, row)
+                        await self.session.execute(stmt, {c: row[c] for c in cols if c in row})
                 counts[table] = len(rows)
 
             await self.session.commit()

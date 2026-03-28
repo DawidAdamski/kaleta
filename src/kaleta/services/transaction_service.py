@@ -123,7 +123,8 @@ class TransactionService:
         # Re-fetch with eager-loaded relationships so the response serializer
         # never hits a lazy relationship outside of an async context.
         fetched = await self.get(transaction.id)
-        assert fetched is not None
+        if fetched is None:
+            raise RuntimeError(f"Transaction id={transaction.id} not found after commit")
         return fetched
 
     async def create_bulk(self, creates: list[TransactionCreate]) -> int:
@@ -160,7 +161,8 @@ class TransactionService:
         await self.session.commit()
         fetched_out = await self.get(tx_out.id)
         fetched_in = await self.get(tx_in.id)
-        assert fetched_out is not None and fetched_in is not None
+        if fetched_out is None or fetched_in is None:
+            raise RuntimeError("Transfer legs not found after commit")
         return fetched_out, fetched_in
 
     async def update(self, transaction_id: int, data: TransactionUpdate) -> Transaction | None:

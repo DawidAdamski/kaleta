@@ -176,6 +176,10 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-1"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=_submit).props("color=primary")
+            ui.keyboard(on_key=lambda e: (
+                _submit() if e.key == "Enter" and e.action.keydown else
+                dialog.close() if e.key == "Escape" and e.action.keydown else None
+            ))
 
         # ── Delete dialog ─────────────────────────────────────────────────────
         del_id: dict = {"value": None}

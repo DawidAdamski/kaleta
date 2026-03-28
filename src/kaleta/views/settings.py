@@ -19,7 +19,6 @@ from kaleta.views.accounts import COMMON_CURRENCIES
 from kaleta.views.layout import page_layout
 
 
-
 def register() -> None:
     @ui.page("/settings")
     async def settings_page() -> None:

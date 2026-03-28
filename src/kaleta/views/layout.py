@@ -26,11 +26,11 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
         ("bar_chart", "/budgets", "nav.budgets"),
         ("edit_note", "/budget-plan", "nav.budget_plan"),
         ("upload_file", "/import", "nav.import"),
-        ("auto_awesome", "/wizard", "nav.wizard"),
     ]),
     ("nav.group_tools", [
         ("insights", "/forecast", "nav.forecast"),
         ("calculate", "/credit-calculator", "nav.credit_calculator"),
+        ("auto_awesome", "/wizard", "nav.wizard"),
     ]),
     ("nav.group_setup", [
         ("account_balance", "/institutions", "nav.institutions"),
@@ -157,6 +157,45 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
 
         ui.space()
         ui.label(_APP_VERSION).classes("text-xs text-grey-4 text-center pb-3 w-full")
+
+    # ── Keyboard shortcuts help dialog (press ?) ──────────────────────────
+    with ui.dialog() as shortcuts_dialog, ui.card().classes("w-[480px] gap-3"):
+        ui.label(t("common.shortcuts_help")).classes("text-lg font-bold")
+        ui.label(t("common.shortcuts_global")).classes("text-sm font-semibold text-grey-6 mt-2")
+        with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
+            ui.label("Alt+N").classes("font-mono text-sm text-primary font-bold")
+            ui.label(t("common.shortcut_new_tx")).classes("text-sm")
+            ui.label("?").classes("font-mono text-sm text-primary font-bold")
+            ui.label(t("common.shortcut_open_help")).classes("text-sm")
+        ui.label(t("common.shortcuts_transactions")).classes(
+            "text-sm font-semibold text-grey-6 mt-3"
+        )
+        with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
+            ui.label("Enter").classes("font-mono text-sm text-primary font-bold")
+            ui.label(t("common.shortcut_submit")).classes("text-sm")
+            ui.label("Escape").classes("font-mono text-sm text-primary font-bold")
+            ui.label(t("common.shortcut_close")).classes("text-sm")
+        with ui.row().classes("w-full justify-end mt-2"):
+            ui.button(t("common.close"), on_click=shortcuts_dialog.close).props("flat")
+
+    # ── Global keyboard shortcut: Alt+N → new transaction from any page ──
+    # On /transactions the page-local handler opens the dialog directly.
+    # From any other page we navigate to /transactions?new=1 so the dialog
+    # auto-opens on arrival.
+    async def _global_key(e: object) -> None:
+        if not getattr(e, "action", None) or not e.action.keydown:  # type: ignore[attr-defined]
+            return
+        key = getattr(e, "key", None)
+        no_mod = not getattr(e.modifiers, "ctrl", False) and not getattr(e.modifiers, "alt", False)  # type: ignore[attr-defined]
+        alt_only = getattr(e.modifiers, "alt", False) and not getattr(e.modifiers, "ctrl", False)  # type: ignore[attr-defined]
+        if key == "?" and no_mod:
+            shortcuts_dialog.open()
+        elif key == "n" and alt_only:
+            is_tx_page = await ui.run_javascript("window.location.pathname === '/transactions'")
+            if not is_tx_page:
+                ui.navigate.to("/transactions?new=1")
+
+    ui.keyboard(on_key=_global_key, active=True)
 
     width_cls = "max-w-screen-2xl" if wide else "max-w-7xl"
     with ui.column().classes(f"w-full {width_cls} mx-auto p-6 gap-4"):

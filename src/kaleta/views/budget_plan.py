@@ -93,6 +93,10 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=cell_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_cell).props("color=primary")
+            ui.keyboard(on_key=lambda e: (
+                save_cell() if e.key == "Enter" and e.action.keydown else
+                cell_dialog.close() if e.key == "Escape" and e.action.keydown else None
+            ))
 
         # ── Monthly dialog (fill all 12 months) ────────────────────────────
         with ui.dialog() as monthly_dialog, ui.card().classes("w-72"):
@@ -128,6 +132,10 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=monthly_dialog.close).props("flat")
                 ui.button(t("budget_plan.apply_all"), on_click=save_monthly).props("color=primary")
+            ui.keyboard(on_key=lambda e: (
+                save_monthly() if e.key == "Enter" and e.action.keydown else
+                monthly_dialog.close() if e.key == "Escape" and e.action.keydown else None
+            ))
 
         # ── Yearly dialog (spread total evenly) ────────────────────────────
         with ui.dialog() as yearly_dialog, ui.card().classes("w-72"):
@@ -175,6 +183,10 @@ def register() -> None:
                 ui.button(
                     t("budget_plan.distribute_evenly"), on_click=save_yearly
                 ).props("color=primary")
+            ui.keyboard(on_key=lambda e: (
+                save_yearly() if e.key == "Enter" and e.action.keydown else
+                yearly_dialog.close() if e.key == "Escape" and e.action.keydown else None
+            ))
 
         # ── Grid ───────────────────────────────────────────────────────────
         @ui.refreshable

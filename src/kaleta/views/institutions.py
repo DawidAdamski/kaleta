@@ -51,7 +51,7 @@ def register() -> None:
                     return
                 with ui.grid(columns=3).classes("w-full gap-4"):
                     for inst in institution_list:
-                        color = inst.color or "#607d8b"
+                        color = inst.color or "#1976d2"
                         icon = _TYPE_ICONS.get(inst.type, "business")
                         with ui.card().classes("p-4 gap-2"):
                             with ui.row().classes("items-center gap-3 w-full"):
@@ -93,11 +93,11 @@ def register() -> None:
             ).classes("w-full")
 
             with ui.row().classes("items-center gap-2 w-full"):
-                add_swatch = ui.element("div").style(_swatch_style.format("#607d8b"))
-                add_color = ui.input(t("institutions.color"), value="#607d8b").classes("flex-1")
+                add_swatch = ui.element("div").style(_swatch_style.format("#1976d2"))
+                add_color = ui.input(t("institutions.color"), value="#1976d2").classes("flex-1")
 
                 def _add_sync_swatch() -> None:
-                    add_swatch.style(_swatch_style.format(add_color.value or "#607d8b"))
+                    add_swatch.style(_swatch_style.format(add_color.value or "#1976d2"))
 
                 add_color.on_value_change(lambda _: _add_sync_swatch())
 
@@ -135,6 +135,10 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=add_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_add).props("color=primary")
+            ui.keyboard(on_key=lambda e: (
+                save_add() if e.key == "Enter" and e.action.keydown else
+                add_dialog.close() if e.key == "Escape" and e.action.keydown else None
+            ))
 
         # ── Edit dialog ───────────────────────────────────────────────────────
         with ui.dialog() as edit_dialog, ui.card().classes("w-[480px]"):
@@ -146,11 +150,11 @@ def register() -> None:
             ).classes("w-full")
 
             with ui.row().classes("items-center gap-2 w-full"):
-                edit_swatch = ui.element("div").style(_swatch_style.format("#607d8b"))
-                edit_color = ui.input(t("institutions.color"), value="#607d8b").classes("flex-1")
+                edit_swatch = ui.element("div").style(_swatch_style.format("#1976d2"))
+                edit_color = ui.input(t("institutions.color"), value="#1976d2").classes("flex-1")
 
                 def _edit_sync_swatch() -> None:
-                    edit_swatch.style(_swatch_style.format(edit_color.value or "#607d8b"))
+                    edit_swatch.style(_swatch_style.format(edit_color.value or "#1976d2"))
 
                 edit_color.on_value_change(lambda _: _edit_sync_swatch())
 
@@ -195,6 +199,10 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_edit).props("color=primary")
+            ui.keyboard(on_key=lambda e: (
+                save_edit() if e.key == "Enter" and e.action.keydown else
+                edit_dialog.close() if e.key == "Escape" and e.action.keydown else None
+            ))
 
         # ── Delete dialog ─────────────────────────────────────────────────────
         with ui.dialog() as delete_dialog, ui.card().classes("w-96"):
@@ -221,7 +229,7 @@ def register() -> None:
         def _open_add() -> None:
             add_name.set_value("")
             add_type.set_value(InstitutionType.BANK.value)
-            add_color.set_value("#607d8b")
+            add_color.set_value("#1976d2")
             _add_sync_swatch()
             add_website.set_value("")
             add_desc.set_value("")
@@ -231,7 +239,7 @@ def register() -> None:
             selected_id[0] = inst.id  # type: ignore[attr-defined]
             edit_name.set_value(inst.name)  # type: ignore[attr-defined]
             edit_type.set_value(inst.type.value)  # type: ignore[attr-defined]
-            edit_color.set_value(inst.color or "#607d8b")  # type: ignore[attr-defined]
+            edit_color.set_value(inst.color or "#1976d2")  # type: ignore[attr-defined]
             edit_website.set_value(inst.website or "")  # type: ignore[attr-defined]
             edit_desc.set_value(inst.description or "")  # type: ignore[attr-defined]
             _edit_sync_swatch()

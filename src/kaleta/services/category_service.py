@@ -65,7 +65,8 @@ class CategoryService:
         # Re-fetch with eager-loaded children so the response serializer never
         # hits a lazy relationship outside of an async context.
         fetched = await self.get(category.id)
-        assert fetched is not None
+        if fetched is None:
+            raise RuntimeError(f"Category id={category.id} not found after commit")
         return fetched
 
     async def update(self, category_id: int, data: CategoryUpdate) -> Category | None:

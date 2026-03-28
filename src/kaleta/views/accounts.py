@@ -123,6 +123,10 @@ def register() -> None:
                 with ui.row().classes("w-full justify-end gap-2 mt-4"):
                     ui.button(t("common.cancel"), on_click=add_dialog.close).props("flat")
                     ui.button(t("common.save"), on_click=save_add).props("color=primary")
+                ui.keyboard(on_key=lambda e: (
+                    save_add() if e.key == "Enter" and e.action.keydown else
+                    add_dialog.close() if e.key == "Escape" and e.action.keydown else None
+                ))
 
             with ui.dialog() as edit_dialog, ui.card().classes("w-[420px]"):
                 ui.label(t("accounts.edit")).classes("text-lg font-bold mb-2")
@@ -168,6 +172,10 @@ def register() -> None:
                 with ui.row().classes("w-full justify-end gap-2 mt-4"):
                     ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
                     ui.button(t("common.save"), on_click=save_edit).props("color=primary")
+                ui.keyboard(on_key=lambda e: (
+                    save_edit() if e.key == "Enter" and e.action.keydown else
+                    edit_dialog.close() if e.key == "Escape" and e.action.keydown else None
+                ))
 
             with ui.dialog() as delete_dialog, ui.card().classes("w-96"):
                 delete_label = ui.label("").classes("text-base mb-4")

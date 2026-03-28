@@ -71,7 +71,8 @@ def _get_sep_label(tx: Transaction, prev_tx: Transaction | None, grouping: str) 
 
 def register() -> None:
     @ui.page("/transactions")
-    async def transactions_page() -> None:
+    async def transactions_page(new: str = "") -> None:
+        open_new = new == "1"
         async with AsyncSessionFactory() as session:
             accounts = await AccountService(session).list()
             categories = await CategoryService(session).list()
@@ -151,6 +152,7 @@ def register() -> None:
                 )
 
             total_pages = max(1, (total + page_size - 1) // page_size)
+            filters["total_pages"] = total_pages
             current_page = filters["page"]
             start_n = current_page * page_size + 1
             end_n = min(start_n + page_size - 1, total)
@@ -433,7 +435,7 @@ def register() -> None:
             )
 
             # ── Exchange rate section (cross-currency transfers) ───────────────
-            fx_row = ui.column().classes("w-full gap-2 border rounded p-3 bg-blue-50")
+            fx_row = ui.column().classes("w-full gap-2 border border-primary rounded p-3")
             fx_row.set_visibility(False)
             with fx_row:
                 ui.label(t("transactions.cross_currency_transfer")).classes(
@@ -1020,7 +1022,7 @@ def register() -> None:
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(t("transactions.title")).classes("text-2xl font-bold")
                 with ui.row().classes("gap-2 items-center"):
-                    ui.label("N").classes(_KBD_CLS)
+                    ui.label("Alt+N").classes(_KBD_CLS)
                     ui.button(
                         t("transactions.add"),
                         icon="add",
@@ -1149,13 +1151,33 @@ def register() -> None:
             _update_badge()
             transaction_table.refresh()
 
-        # ── Global keyboard shortcut: N opens dialog ──────────────────────────
+        # ── Keyboard shortcuts: Alt+N = new tx, Page Down/Up = pagination ──
         def handle_key(e: object) -> None:
             key_event = e  # type: ignore[assignment]
-            no_mod = not getattr(key_event.modifiers, "ctrl", False) and not getattr(
-                key_event.modifiers, "alt", False
+            if not key_event.action.keydown:
+                return
+            key = getattr(key_event, "key", None)
+            alt_only = getattr(key_event.modifiers, "alt", False) and not getattr(
+                key_event.modifiers, "ctrl", False
             )
-            if getattr(key_event, "key", None) == "n" and key_event.action.keydown and no_mod:
+            no_mod = not getattr(key_event.modifiers, "alt", False) and not getattr(
+                key_event.modifiers, "ctrl", False
+            )
+            if key == "n" and alt_only:
                 dialog.open()
+            elif key == "PageDown" and no_mod:
+                cur = filters["page"]
+                total = filters.get("total_pages", 1)
+                if cur < total - 1:
+                    _go_page(cur + 1)
+            elif key == "PageUp" and no_mod:
+                cur = filters["page"]
+                if cur > 0:
+                    _go_page(cur - 1)
 
         ui.keyboard(on_key=handle_key, active=True)
+
+        # Auto-open dialog when navigated here via Alt+N from another page (?new=1)
+        if open_new:
+            dialog.open()
+            await ui.run_javascript("history.replaceState(null, '', '/transactions')")
