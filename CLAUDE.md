@@ -119,3 +119,4 @@ Use the `Agent` tool to delegate to these specialists. Trigger them proactively 
 | `view-scaffolder` | When adding a completely new page — creates the view file, registers it in `main.py`, adds nav entry, wires service layer, adds i18n keys |
 | `scenario-runner` | When implementing or running BDD end-to-end tests from `docs/bdd.md` using pytest-playwright against a live app instance (`http://localhost:8080`) |
 | `ux-designer` | When evaluating UI flows, reviewing view files, or auditing UX against BDD scenarios — provides high-level recommendations based on Nielsen heuristics and Kaleta brand guidelines |
+| `security-auditor` | After adding API endpoints, services, or any code handling user input/file uploads — runs Bandit static analysis and reports findings with remediation advice |
