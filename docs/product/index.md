@@ -1,17 +1,17 @@
-# Produkt
+# Product
 
-To jest startowa sekcja dokumentacji produktowej Kalety.
+This is the starting section for Kaleta's product documentation.
 
-## Zakres
+## Scope
 
-Docelowo warto tu trzymac:
+This section should eventually include:
 
-- opis modulow aplikacji
-- reguly biznesowe widoczne z perspektywy uzytkownika
-- slownik pojec produktowych
-- decyzje UX istotne dla obslugi budzetu, transakcji, planow i majatku
+- module-level product descriptions
+- user-facing business rules
+- product terminology and glossary
+- UX decisions for budgets, transactions, plans, and net worth
 
-## Proponowana struktura
+## Suggested Structure
 
 - `budzety.md`
 - `transakcje.md`

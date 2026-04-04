@@ -1,12 +1,12 @@
 # Walkthrough
 
-To jest placeholder pod przyszly przewodnik krok po kroku po aplikacji.
+This is a placeholder for a future step-by-step walkthrough of the app.
 
-## Proponowane scenariusze
+## Suggested Scenarios
 
-- pierwsze uruchomienie i konfiguracja
-- dodanie kont, kategorii i pierwszego budzetu
-- import transakcji
-- analiza wydatkow i raportow
-- planowanie przyszlych transakcji
-- monitorowanie majatku i prognoz
+- first launch and setup
+- creating accounts, categories, and the first budget
+- importing transactions
+- reviewing spending and reports
+- planning future transactions
+- tracking net worth and forecasts

@@ -1,14 +1,14 @@
 # Kaleta
 
-Kaleta to aplikacja do zarzadzania budzetem i finansami osobistymi.
+Kaleta is a personal budget and finance management application.
 
-Ta strona ma byc miejscem na dokumentacje produktowa, instrukcje uzytkownika i
-przyszly walkthrough po kluczowych przeplywach w aplikacji.
+This site is the home for product documentation, user-facing guides, and a future
+walkthrough of the app's key workflows.
 
-## Sekcje
+## Sections
 
-- [Produkt](product/index.md) - opis funkcji i zalozen produktowych
-- [Walkthrough](walkthrough/index.md) - miejsce na przewodnik krok po kroku
-- [Architektura](architecture.md) - dokumentacja techniczna
-- [Tech Stack](tech-stack.md) - technologie i konfiguracja
-- [Scenariusze BDD](bdd.md) - zachowania i flow biznesowe
+- [Product](product/index.md) - product features and behavior
+- [Walkthrough](walkthrough/index.md) - step-by-step user guide
+- [Architecture](architecture.md) - technical architecture
+- [Tech Stack](tech-stack.md) - technologies and configuration
+- [BDD Scenarios](bdd.md) - business flows and expected behavior

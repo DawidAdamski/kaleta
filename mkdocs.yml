@@ -1,5 +1,5 @@
 site_name: Kaleta
-site_description: Dokumentacja produktu Kaleta
+site_description: Kaleta product documentation
 site_url: https://dawidadamski.github.io/kaleta/
 repo_url: https://github.com/DawidAdamski/kaleta
 repo_name: DawidAdamski/kaleta
@@ -8,7 +8,7 @@ docs_dir: docs
 
 theme:
   name: material
-  language: pl
+  language: en
   features:
     - navigation.instant
     - navigation.sections
@@ -16,12 +16,12 @@ theme:
     - search.highlight
 
 nav:
-  - Start: index.md
-  - Produkt:
-      - Przeglad: product/index.md
+  - Home: index.md
+  - Product:
+      - Overview: product/index.md
   - Walkthrough:
-      - Start: walkthrough/index.md
-  - Techniczne:
-      - Architektura: architecture.md
+      - Overview: walkthrough/index.md
+  - Technical:
+      - Architecture: architecture.md
       - Tech Stack: tech-stack.md
-      - Scenariusze BDD: bdd.md
+      - BDD Scenarios: bdd.md
