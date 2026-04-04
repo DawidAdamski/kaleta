@@ -7,6 +7,7 @@ The credit calculator is a pure client-side computation page — no seeding
 required. All scenarios drive the form inputs and assert on the rendered
 result cards.
 """
+
 from __future__ import annotations
 
 from playwright.sync_api import Page, expect
@@ -24,6 +25,7 @@ def _fill_number(page: Page, label: str, value: str) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Calculate a standard consumer loan with equal installments
 # ---------------------------------------------------------------------------
+
 
 def test_calculate_consumer_loan_equal_installments(page: Page) -> None:
     """Scenario: Calculate a standard consumer loan with equal installments"""
@@ -46,6 +48,7 @@ def test_calculate_consumer_loan_equal_installments(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Calculate a car loan with equal installments + amortization table
 # ---------------------------------------------------------------------------
+
 
 def test_calculate_car_loan_equal_installments_with_schedule(page: Page) -> None:
     """Scenario: Calculate a car loan with equal installments"""
@@ -70,6 +73,7 @@ def test_calculate_car_loan_equal_installments_with_schedule(page: Page) -> None
 # Scenario: Calculate a mortgage with equal installments
 # ---------------------------------------------------------------------------
 
+
 def test_calculate_mortgage_equal_installments(page: Page) -> None:
     """Scenario: Calculate a mortgage with equal installments"""
     page.goto(f"{BASE_URL}/credit-calculator")
@@ -91,6 +95,7 @@ def test_calculate_mortgage_equal_installments(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Compare equal vs decreasing installments
 # ---------------------------------------------------------------------------
+
 
 def test_compare_equal_vs_decreasing_installments(page: Page) -> None:
     """Scenario: Compare equal vs decreasing installments"""
@@ -124,6 +129,7 @@ def test_compare_equal_vs_decreasing_installments(page: Page) -> None:
 # Scenario: Simulate overpayment to shorten loan term
 # ---------------------------------------------------------------------------
 
+
 def test_simulate_overpayment_shortens_loan_term(page: Page) -> None:
     """Scenario: Simulate overpayment to shorten loan term"""
     page.goto(f"{BASE_URL}/credit-calculator")
@@ -145,6 +151,7 @@ def test_simulate_overpayment_shortens_loan_term(page: Page) -> None:
 # Scenario: Page loads with defaults and produces valid results
 # ---------------------------------------------------------------------------
 
+
 def test_page_shows_results_with_valid_defaults(page: Page) -> None:
     """Page loads with pre-filled defaults and can calculate without error."""
     page.goto(f"{BASE_URL}/credit-calculator")
@@ -160,6 +167,7 @@ def test_page_shows_results_with_valid_defaults(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Zero interest rate shows validation message
 # ---------------------------------------------------------------------------
+
 
 def test_zero_rate_shows_valid_params_message(page: Page) -> None:
     """Scenario: Interest rate must be positive — zero triggers error hint."""

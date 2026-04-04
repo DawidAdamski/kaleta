@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +9,7 @@ from kaleta.api.deps import get_session
 from kaleta.schemas.payee import PayeeCreate, PayeeMerge, PayeeResponse, PayeeUpdate
 from kaleta.services.payee_service import PayeeService
 
-_404 = {404: {"description": "Payee not found"}}
+_404: dict[int | str, dict[str, Any]] = {404: {"description": "Payee not found"}}
 
 router = APIRouter(prefix="/payees", tags=["Payees"])
 

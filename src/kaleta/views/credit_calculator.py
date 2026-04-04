@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 
 from nicegui import ui
 
@@ -27,10 +28,10 @@ def _amortization(
     months: int,
     extra: float = 0.0,
     start: datetime.date | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     r = annual_rate / 100 / 12
     payment = _monthly_payment(principal, annual_rate, months)
-    schedule: list[dict] = []
+    schedule: list[dict[str, Any]] = []
     balance = principal
     date = (start or datetime.date.today()).replace(day=1)
 
@@ -80,11 +81,11 @@ def _amortization_decreasing(
     months: int,
     extra: float = 0.0,
     start: datetime.date | None = None,
-) -> list[dict]:
+) -> list[dict[str, Any]]:
     """Decreasing installments (raty malejące): fixed principal, falling total payment."""
     r = annual_rate / 100 / 12
     fixed_principal = principal / months
-    schedule: list[dict] = []
+    schedule: list[dict[str, Any]] = []
     balance = principal
     date = (start or datetime.date.today()).replace(day=1)
 
@@ -119,7 +120,7 @@ def _fmt(amount: float) -> str:
 def register() -> None:
     @ui.page("/credit-calculator")
     async def credit_calculator_page() -> None:
-        state: dict = {
+        state: dict[str, Any] = {
             "principal": 300_000.0,
             "rate": 7.5,
             "months": 360,
@@ -131,7 +132,6 @@ def register() -> None:
             ui.label(t("credit_calculator.title")).classes("text-2xl font-bold")
 
             with ui.row().classes("w-full gap-6 items-start flex-wrap"):
-
                 # ── Form ─────────────────────────────────────────────────────
                 with ui.card().classes("p-6 w-80 shrink-0"):
                     ui.label(t("credit_calculator.loan_parameters")).classes(
@@ -191,9 +191,9 @@ def register() -> None:
                         state["payment_type"] = type_in.value
                         results_ui.refresh()
 
-                    ui.button(t("credit_calculator.calculate"), icon="calculate", on_click=_calculate).props(
-                        "color=primary"
-                    ).classes("w-full mt-3")
+                    ui.button(
+                        t("credit_calculator.calculate"), icon="calculate", on_click=_calculate
+                    ).props("color=primary").classes("w-full mt-3")
 
                 # ── Results ───────────────────────────────────────────────────
                 with ui.column().classes("flex-1 min-w-0 gap-4"):
@@ -206,7 +206,9 @@ def register() -> None:
                         extra = state["extra"]
 
                         if p <= 0 or r <= 0 or m <= 0:
-                            ui.label(t("credit_calculator.valid_params")).classes("text-grey-5 mt-4")
+                            ui.label(t("credit_calculator.valid_params")).classes(
+                                "text-grey-5 mt-4"
+                            )
                             return
 
                         decreasing = state["payment_type"] == "decreasing"
@@ -268,23 +270,30 @@ def register() -> None:
                             interest_saved = total_interest - interest_extra
                             years_s, rem_s = divmod(months_saved, 12)
                             saved_str = (
-                                t("credit_calculator.time_years_months", years=years_s, months=rem_s)
+                                t(
+                                    "credit_calculator.time_years_months",
+                                    years=years_s,
+                                    months=rem_s,
+                                )
                                 if years_s
                                 else t("credit_calculator.time_months", months=months_saved)
                             )
-                            with ui.card().classes("w-full p-4 border-2 border-positive"), ui.row().classes("items-center gap-3"):  # noqa: E501
-                                    ui.icon("savings", color="positive").classes("text-2xl")
-                                    with ui.column().classes("gap-0"):
-                                        ui.label(t("credit_calculator.overpayment_savings")).classes(
-                                            "text-sm font-semibold text-positive"
+                            with (
+                                ui.card().classes("w-full p-4 border-2 border-positive"),
+                                ui.row().classes("items-center gap-3"),
+                            ):  # noqa: E501
+                                ui.icon("savings", color="positive").classes("text-2xl")
+                                with ui.column().classes("gap-0"):
+                                    ui.label(t("credit_calculator.overpayment_savings")).classes(
+                                        "text-sm font-semibold text-positive"
+                                    )
+                                    ui.label(
+                                        t(
+                                            "credit_calculator.save_interest",
+                                            amount=_fmt(interest_saved),
+                                            time=saved_str,
                                         )
-                                        ui.label(
-                                            t(
-                                                "credit_calculator.save_interest",
-                                                amount=_fmt(interest_saved),
-                                                time=saved_str,
-                                            )
-                                        ).classes("text-sm text-grey-7")
+                                    ).classes("text-sm text-grey-7")
 
                         # ── Balance chart ──────────────────────────────────────
                         with ui.card().classes("w-full"):
@@ -302,9 +311,7 @@ def register() -> None:
                                 {
                                     "name": t("credit_calculator.standard"),
                                     "type": "line",
-                                    "data": [
-                                        round(row["balance"] / 1000, 1) for row in schedule
-                                    ],
+                                    "data": [round(row["balance"] / 1000, 1) for row in schedule],
                                     "smooth": True,
                                     "symbol": "none",
                                     "lineStyle": {"color": "#1976d2", "width": 2},
@@ -336,7 +343,10 @@ def register() -> None:
                                 )
 
                             legend_data = (
-                                [t("credit_calculator.standard"), t("credit_calculator.with_overpayment")]
+                                [
+                                    t("credit_calculator.standard"),
+                                    t("credit_calculator.with_overpayment"),
+                                ]
                                 if schedule_extra
                                 else [t("credit_calculator.standard")]
                             )
@@ -379,8 +389,18 @@ def register() -> None:
                                 )
 
                             cols = [
-                                {"name": "month", "label": t("credit_calculator.col_month"), "field": "month", "align": "right"},
-                                {"name": "date", "label": t("credit_calculator.col_date"), "field": "date", "align": "left"},
+                                {
+                                    "name": "month",
+                                    "label": t("credit_calculator.col_month"),
+                                    "field": "month",
+                                    "align": "right",
+                                },
+                                {
+                                    "name": "date",
+                                    "label": t("credit_calculator.col_date"),
+                                    "field": "date",
+                                    "align": "left",
+                                },
                                 {
                                     "name": "payment",
                                     "label": t("credit_calculator.col_payment"),

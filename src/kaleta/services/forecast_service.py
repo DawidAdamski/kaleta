@@ -7,12 +7,16 @@ import datetime
 import logging
 from dataclasses import dataclass, field
 from functools import partial
+from typing import TYPE_CHECKING
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import Account
 from kaleta.models.transaction import Transaction, TransactionType
+
+if TYPE_CHECKING:
+    from kaleta.services.planned_transaction_service import PlannedOccurrence
 
 # Suppress noisy Stan / Prophet output
 logging.getLogger("prophet").setLevel(logging.WARNING)
@@ -33,7 +37,7 @@ class ForecastResult:
     account_name: str
     points: list[ForecastPoint]
     insufficient_data: bool = False
-    planned_occurrences: list = field(default_factory=list)  # list[PlannedOccurrence]
+    planned_occurrences: list[PlannedOccurrence] = field(default_factory=list)
 
     @property
     def historical(self) -> list[ForecastPoint]:
@@ -195,12 +199,10 @@ def _run_prophet(
 ) -> list[tuple[datetime.date, float, float, float]] | None:
     """Synchronous Prophet fit + predict (runs in thread pool)."""
     try:
-        import pandas as pd
-        from prophet import Prophet
+        import pandas as pd  # type: ignore[import-untyped]
+        from prophet import Prophet  # type: ignore[import-untyped]
 
-        df = pd.DataFrame(
-            [{"ds": d, "y": v} for d, v in sorted(running.items())]
-        )
+        df = pd.DataFrame([{"ds": d, "y": v} for d, v in sorted(running.items())])
 
         model = Prophet(
             yearly_seasonality=True,

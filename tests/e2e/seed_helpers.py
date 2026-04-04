@@ -3,6 +3,7 @@
 All helpers seed data via the app's REST API so that data lands in whichever
 SQLite file the running app is configured to use — regardless of the CWD.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -93,7 +94,11 @@ def seed_budget(category_id: int, amount: float, month: int, year: int) -> int:
     resp = _client.get(f"{API_BASE}/budgets/?year={year}&month={month}")
     resp.raise_for_status()
     for b in resp.json():
-        if b.get("category_id") == category_id and b.get("month") == month and b.get("year") == year:
+        if (
+            b.get("category_id") == category_id
+            and b.get("month") == month
+            and b.get("year") == year
+        ):
             return b["id"]
     body = {
         "category_id": category_id,
@@ -112,12 +117,10 @@ def seed_many_transactions(
     n_days: int = 90,
     amount: float = 50.0,
 ) -> None:
-    """Seed one expense transaction per day for the past n_days days (idempotent by description+date)."""
+    """Seed one expense transaction per day for the past n_days days."""
     resp = _client.get(f"{API_BASE}/transactions/?account_id={account_id}&limit=1000")
     resp.raise_for_status()
-    existing_dates = {
-        t["date"] for t in resp.json() if t.get("description") == "seed"
-    }
+    existing_dates = {t["date"] for t in resp.json() if t.get("description") == "seed"}
 
     today = datetime.date.today()
     for i in range(n_days):
@@ -145,17 +148,19 @@ def seed_planned_transaction(
     import asyncio
     from concurrent.futures import ThreadPoolExecutor
     from decimal import Decimal
+
     from sqlalchemy import select
 
     def _worker() -> int:
-        from kaleta.db import AsyncSessionFactory, configure_database
+        # Point AsyncSessionFactory at the app's DB
+        import httpx as _httpx
+
+        from kaleta.db import AsyncSessionFactory
         from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
         from kaleta.models.transaction import TransactionType
         from kaleta.schemas.planned_transaction import PlannedTransactionCreate
         from kaleta.services import PlannedTransactionService
 
-        # Point AsyncSessionFactory at the app's DB
-        import httpx as _httpx
         resp = _httpx.get("http://localhost:8080/api/v1/accounts/")
         resp.raise_for_status()
 

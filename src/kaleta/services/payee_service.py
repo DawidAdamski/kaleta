@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,11 +14,11 @@ class PayeeService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list(self) -> list[Payee]:
+    async def list(self) -> builtins.list[Payee]:
         result = await self.session.execute(select(Payee).order_by(Payee.name))
-        return list(result.scalars().all())
+        return builtins.list(result.scalars().all())
 
-    async def list_with_counts(self) -> list[tuple[Payee, int]]:
+    async def list_with_counts(self) -> builtins.list[tuple[Payee, int]]:
         """Return (payee, tx_count) tuples ordered by name."""
         stmt = (
             select(Payee, func.count(Transaction.id).label("tx_count"))
@@ -28,9 +30,7 @@ class PayeeService:
         return [(row.Payee, row.tx_count) for row in result]
 
     async def get(self, payee_id: int) -> Payee | None:
-        result = await self.session.execute(
-            select(Payee).where(Payee.id == payee_id)
-        )
+        result = await self.session.execute(select(Payee).where(Payee.id == payee_id))
         return result.scalar_one_or_none()
 
     async def create(self, data: PayeeCreate) -> Payee:
@@ -58,7 +58,7 @@ class PayeeService:
         await self.session.commit()
         return True
 
-    async def merge(self, keep_id: int, merge_ids: list[int]) -> int:
+    async def merge(self, keep_id: int, merge_ids: builtins.list[int]) -> int:
         """Reassign all transactions from *merge_ids* to *keep_id*, then delete merged payees.
 
         Returns the number of deleted payees.
@@ -66,9 +66,7 @@ class PayeeService:
         if not merge_ids:
             return 0
         await self.session.execute(
-            update(Transaction)
-            .where(Transaction.payee_id.in_(merge_ids))
-            .values(payee_id=keep_id)
+            update(Transaction).where(Transaction.payee_id.in_(merge_ids)).values(payee_id=keep_id)
         )
         deleted = 0
         for pid in merge_ids:
@@ -91,9 +89,7 @@ class PayeeService:
         here because mBank payee names arrive as ALL-CAPS and are stored as-is.
         """
         name_clean = name.strip()
-        result = await self.session.execute(
-            select(Payee).where(Payee.name == name_clean)
-        )
+        result = await self.session.execute(select(Payee).where(Payee.name == name_clean))
         existing = result.scalar_one_or_none()
         if existing:
             return existing

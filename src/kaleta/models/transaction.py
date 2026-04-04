@@ -36,7 +36,9 @@ class Transaction(TimestampMixin, Base):
     exchange_rate: Mapped[Decimal | None] = mapped_column(
         Numeric(precision=15, scale=6), nullable=True
     )
-    type: Mapped[TransactionType] = mapped_column(SAEnum(TransactionType, native_enum=False), nullable=False)  # noqa: E501
+    type: Mapped[TransactionType] = mapped_column(
+        SAEnum(TransactionType, native_enum=False), nullable=False
+    )  # noqa: E501
     date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     is_internal_transfer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -67,9 +69,7 @@ class Transaction(TimestampMixin, Base):
 
 class TransactionSplit(Base):
     __tablename__ = "transaction_splits"
-    __table_args__ = (
-        Index("ix_transaction_splits_transaction_id", "transaction_id"),
-    )
+    __table_args__ = (Index("ix_transaction_splits_transaction_id", "transaction_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     transaction_id: Mapped[int] = mapped_column(

@@ -6,6 +6,7 @@ import json
 import zipfile
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Any, cast
 
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,7 +42,7 @@ class BackupService:
     async def export(self) -> bytes:
         """Dump every table to JSON and package as a ZIP archive."""
         buf = io.BytesIO()
-        meta: dict = {
+        meta: dict[str, Any] = {
             "version": _BACKUP_VERSION,
             "exported_at": datetime.utcnow().isoformat(),
             "tables": {},
@@ -49,7 +50,8 @@ class BackupService:
 
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for table in _TABLES:
-                result = await self.session.execute(text(f"SELECT * FROM {table}"))  # noqa: S608
+                # nosec B608: table names come only from the hardcoded _TABLES allowlist.
+                result = await self.session.execute(text(f"SELECT * FROM {table}"))  # nosec B608
                 columns = list(result.keys())
                 rows = [
                     {col: _serialize(val) for col, val in zip(columns, row, strict=False)}
@@ -78,7 +80,7 @@ class BackupService:
                     f"Unsupported backup version: {meta.get('version')} "
                     f"(expected {_BACKUP_VERSION})"
                 )
-            table_data: dict[str, list[dict]] = {}
+            table_data: dict[str, list[dict[str, Any]]] = {}
             for table in _TABLES:
                 fname = f"{table}.json"
                 table_data[table] = json.loads(zf.read(fname)) if fname in names else []
@@ -90,18 +92,21 @@ class BackupService:
         try:
             # Clear tables in reverse dependency order
             for table in reversed(_TABLES):
-                await self.session.execute(text(f"DELETE FROM {table}"))  # noqa: S608
+                # nosec B608: table names come only from the hardcoded _TABLES allowlist.
+                await self.session.execute(text(f"DELETE FROM {table}"))  # nosec B608
 
             # Build a map of known columns per table from the live schema.
             # run_sync is required because SQLAlchemy's inspect() is synchronous.
             conn = await self.session.connection()
             schema_cols: dict[str, set[str]] = {}
             for _t in _TABLES:
-                schema_cols[_t] = await conn.run_sync(
-                    lambda sync_conn, t=_t: {
-                        col["name"] for col in inspect(sync_conn).get_columns(t)
+
+                def _column_names(sync_conn: Any, table_name: str = _t) -> set[str]:
+                    return {
+                        cast(str, col["name"]) for col in inspect(sync_conn).get_columns(table_name)
                     }
-                )
+
+                schema_cols[_t] = await conn.run_sync(_column_names)
 
             counts: dict[str, int] = {}
             for table in _TABLES:
@@ -115,7 +120,8 @@ class BackupService:
                     col_names = ", ".join(cols)
                     placeholders = ", ".join(f":{c}" for c in cols)
                     stmt = text(
-                        f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})"  # noqa: S608
+                        # nosec B608: table and column names are constrained by schema introspection.
+                        f"INSERT INTO {table} ({col_names}) VALUES ({placeholders})"  # nosec B608
                     )
                     for row in rows:
                         await self.session.execute(stmt, {c: row[c] for c in cols if c in row})

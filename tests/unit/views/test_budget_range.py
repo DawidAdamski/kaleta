@@ -7,9 +7,7 @@ deterministic regardless of when the suite runs.
 
 from __future__ import annotations
 
-import calendar
 import datetime
-from unittest.mock import patch
 
 import pytest
 
@@ -22,6 +20,7 @@ FIXED_TODAY = datetime.date(2025, 5, 15)
 
 def _patch_today(monkeypatch: pytest.MonkeyPatch, fake_today: datetime.date) -> None:
     """Patch datetime.date.today() inside the budgets module."""
+
     class _FakeDate(datetime.date):
         @classmethod
         def today(cls) -> datetime.date:  # type: ignore[override]
@@ -32,6 +31,7 @@ def _patch_today(monkeypatch: pytest.MonkeyPatch, fake_today: datetime.date) -> 
 
 # ── this_month ─────────────────────────────────────────────────────────────────
 
+
 def test_this_month(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
     start, end = _date_range("this_month")
@@ -40,6 +40,7 @@ def test_this_month(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ── last_month ─────────────────────────────────────────────────────────────────
+
 
 def test_last_month(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
@@ -57,6 +58,7 @@ def test_last_month_january_rolls_to_december(monkeypatch: pytest.MonkeyPatch) -
 
 
 # ── this_quarter ───────────────────────────────────────────────────────────────
+
 
 def test_this_quarter_q2(monkeypatch: pytest.MonkeyPatch) -> None:
     """May is in Q2 (Apr–Jun)."""
@@ -89,6 +91,7 @@ def test_this_quarter_q4(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # ── last_quarter ───────────────────────────────────────────────────────────────
 
+
 def test_last_quarter_from_q2(monkeypatch: pytest.MonkeyPatch) -> None:
     """Today in Q2 → last quarter is Q1."""
     _patch_today(monkeypatch, FIXED_TODAY)
@@ -107,6 +110,7 @@ def test_last_quarter_from_q1_rolls_to_previous_year(monkeypatch: pytest.MonkeyP
 
 # ── this_year ─────────────────────────────────────────────────────────────────
 
+
 def test_this_year(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
     start, end = _date_range("this_year")
@@ -115,6 +119,7 @@ def test_this_year(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ── last_year ─────────────────────────────────────────────────────────────────
+
 
 def test_last_year(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
@@ -125,6 +130,7 @@ def test_last_year(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # ── last_30_days ───────────────────────────────────────────────────────────────
 
+
 def test_last_30_days(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
     start, end = _date_range("last_30_days")
@@ -133,6 +139,7 @@ def test_last_30_days(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ── last_60_days ───────────────────────────────────────────────────────────────
+
 
 def test_last_60_days(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
@@ -143,6 +150,7 @@ def test_last_60_days(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # ── last_90_days ───────────────────────────────────────────────────────────────
 
+
 def test_last_90_days(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
     start, end = _date_range("last_90_days")
@@ -151,6 +159,7 @@ def test_last_90_days(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 # ── last_5_years ───────────────────────────────────────────────────────────────
+
 
 def test_last_5_years(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
@@ -161,6 +170,7 @@ def test_last_5_years(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # ── unknown key falls back to this_month ──────────────────────────────────────
 
+
 def test_unknown_key_falls_back_to_this_month(monkeypatch: pytest.MonkeyPatch) -> None:
     _patch_today(monkeypatch, FIXED_TODAY)
     start, end = _date_range("completely_invalid_key")
@@ -169,6 +179,7 @@ def test_unknown_key_falls_back_to_this_month(monkeypatch: pytest.MonkeyPatch) -
 
 
 # ── end >= start for all known keys ───────────────────────────────────────────
+
 
 @pytest.mark.parametrize(
     "key",

@@ -11,6 +11,7 @@ Strategy:
 
 Module-level imports ensure AuditLog is registered in Base.metadata at startup.
 """
+
 from __future__ import annotations
 
 import datetime
@@ -34,6 +35,7 @@ _SKIP_TABLES: frozenset[str] = frozenset({"audit_log"})
 
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────
+
 
 def _jsonify(val: Any) -> Any:
     if val is None:
@@ -62,6 +64,7 @@ def _is_auditable(obj: Any) -> bool:
 
 # ── Event listeners ───────────────────────────────────────────────────────────
 
+
 @event.listens_for(Session, "before_flush")
 def _before_flush(session: Session, flush_ctx: UOWTransaction, instances: Any) -> None:
     for obj in session.new:
@@ -86,23 +89,27 @@ def _before_flush(session: Session, flush_ctx: UOWTransaction, instances: Any) -
                 new[attr.key] = _jsonify(hist.added[0])
         if old or new:
             identity = insp.identity
-            session.info.setdefault("_audit_updates", []).append({
-                "table_name": obj.__tablename__,
-                "record_id": identity[0] if identity else None,
-                "old_data": json.dumps(old),
-                "new_data": json.dumps(new),
-            })
+            session.info.setdefault("_audit_updates", []).append(
+                {
+                    "table_name": obj.__tablename__,
+                    "record_id": identity[0] if identity else None,
+                    "old_data": json.dumps(old),
+                    "new_data": json.dumps(new),
+                }
+            )
 
     for obj in session.deleted:
         if not _is_auditable(obj):
             continue
         insp = sa_inspect(obj)
         identity = insp.identity
-        session.info.setdefault("_audit_deletes", []).append({
-            "table_name": obj.__tablename__,
-            "record_id": identity[0] if identity else None,
-            "old_data": json.dumps(_serialize(obj)),
-        })
+        session.info.setdefault("_audit_deletes", []).append(
+            {
+                "table_name": obj.__tablename__,
+                "record_id": identity[0] if identity else None,
+                "old_data": json.dumps(_serialize(obj)),
+            }
+        )
 
 
 @event.listens_for(Session, "after_flush_postexec")
@@ -112,13 +119,15 @@ def _after_flush_postexec(session: Session, flush_ctx: UOWTransaction) -> None:
     for obj, data in session.info.pop("_audit_inserts", []):
         record_id = getattr(obj, "id", None)  # PK survives attribute expiry
         data["id"] = record_id
-        entries.append(AuditLog(
-            operation="INSERT",
-            table_name=obj.__tablename__,
-            record_id=record_id,
-            old_data=None,
-            new_data=json.dumps(data),
-        ))
+        entries.append(
+            AuditLog(
+                operation="INSERT",
+                table_name=obj.__tablename__,
+                record_id=record_id,
+                old_data=None,
+                new_data=json.dumps(data),
+            )
+        )
 
     for d in session.info.pop("_audit_updates", []):
         entries.append(AuditLog(operation="UPDATE", **d))

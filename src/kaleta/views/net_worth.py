@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 from nicegui import app, ui
 
@@ -105,7 +106,9 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
     ).classes("w-full h-64")
 
 
-def _account_table(accounts: list[AccountSnapshot], assets: bool, default_currency: str = "PLN") -> None:
+def _account_table(
+    accounts: list[AccountSnapshot], assets: bool, default_currency: str = "PLN"
+) -> None:
     filtered = [a for a in accounts if a.is_asset == assets or (not assets and not a.is_asset)]
     if not filtered:
         ui.label(t("common.none")).classes("text-grey-5 text-sm px-4 py-2")
@@ -114,7 +117,12 @@ def _account_table(accounts: list[AccountSnapshot], assets: bool, default_curren
     columns = [
         {"name": "name", "label": t("common.account"), "field": "name", "align": "left"},
         {"name": "type", "label": t("common.type"), "field": "type", "align": "left"},
-        {"name": "institution", "label": t("common.institution"), "field": "institution", "align": "left"},
+        {
+            "name": "institution",
+            "label": t("common.institution"),
+            "field": "institution",
+            "align": "left",
+        },
         {"name": "balance", "label": t("common.balance"), "field": "balance", "align": "right"},
     ]
     type_labels = _type_label()
@@ -138,7 +146,7 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
     """Renders the physical assets card with CRUD controls. All dialogs pre-created at render."""
 
     type_options = _asset_type_label()
-    editing: dict = {"id": None, "snapshot": None}
+    editing: dict[str, Any] = {"id": None, "snapshot": None}
 
     @ui.refreshable
     def assets_ui() -> None:
@@ -150,7 +158,12 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
         columns = [
             {"name": "name", "label": t("net_worth.asset_name"), "field": "name", "align": "left"},
             {"name": "type", "label": t("net_worth.asset_type"), "field": "type", "align": "left"},
-            {"name": "value", "label": t("net_worth.asset_value"), "field": "value", "align": "right"},
+            {
+                "name": "value",
+                "label": t("net_worth.asset_value"),
+                "field": "value",
+                "align": "right",
+            },
             {"name": "note", "label": t("net_worth.asset_note"), "field": "note", "align": "left"},
             {"name": "actions", "label": "", "field": "actions", "align": "right"},
         ]
@@ -284,7 +297,7 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
             ui.button(t("common.delete"), on_click=_del_confirm).props("color=negative")
 
     # ── Event handlers ────────────────────────────────────────────────────────
-    def _on_edit(row: dict) -> None:
+    def _on_edit(row: dict[str, Any]) -> None:
         snap = next((a for a in summary.physical_assets if a.id == row["id"]), None)
         if snap is None:
             return
@@ -296,7 +309,7 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
         edit_desc.set_value(snap.description)
         edit_dlg.open()
 
-    def _on_delete(row: dict) -> None:
+    def _on_delete(row: dict[str, Any]) -> None:
         snap = next((a for a in summary.physical_assets if a.id == row["id"]), None)
         if snap is None:
             return
@@ -378,7 +391,9 @@ def register() -> None:
                         ui.label(_fmt(summary.total_liabilities, default_currency)).classes(
                             "font-bold text-negative text-sm"
                         )
-                    _account_table(summary.accounts, assets=False, default_currency=default_currency)
+                    _account_table(
+                        summary.accounts, assets=False, default_currency=default_currency
+                    )
 
             # ── Physical assets ───────────────────────────────────────────────
             with ui.card().classes("w-full p-0 overflow-hidden"):

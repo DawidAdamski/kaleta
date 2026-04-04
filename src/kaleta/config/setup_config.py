@@ -2,26 +2,28 @@
 
 Stored at ~/.kaleta/config.json — survives app restarts.
 """
+
 from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any, cast
 
 _CONFIG_DIR = Path.home() / ".kaleta"
 _CONFIG_FILE = _CONFIG_DIR / "config.json"
 _MAX_RECENT = 5
 
 
-def _read() -> dict:
+def _read() -> dict[str, Any]:
     if _CONFIG_FILE.exists():
         try:
-            return json.loads(_CONFIG_FILE.read_text(encoding="utf-8"))
+            return cast(dict[str, Any], json.loads(_CONFIG_FILE.read_text(encoding="utf-8")))
         except Exception:
             return {}
     return {}
 
 
-def _write(data: dict) -> None:
+def _write(data: dict[str, Any]) -> None:
     _CONFIG_DIR.mkdir(parents=True, exist_ok=True)
     _CONFIG_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -37,7 +39,7 @@ def save_db(db_url: str, name: str = "") -> None:
     data["db_url"] = db_url
     data["name"] = name
 
-    recent: list[dict] = data.get("recent", [])
+    recent: list[dict[str, str]] = data.get("recent", [])
     # deduplicate by URL
     recent = [r for r in recent if r.get("url") != db_url]
     recent.insert(0, {"url": db_url, "name": name or db_url})
@@ -45,9 +47,9 @@ def save_db(db_url: str, name: str = "") -> None:
     _write(data)
 
 
-def get_recent() -> list[dict]:
+def get_recent() -> list[dict[str, str]]:
     """Return recent database entries: [{url, name}, ...]."""
-    return _read().get("recent", [])
+    return cast(list[dict[str, str]], _read().get("recent", []))
 
 
 def is_configured() -> bool:

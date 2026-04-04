@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -7,7 +9,7 @@ from kaleta.api.deps import get_session
 from kaleta.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 from kaleta.services.budget_service import BudgetService
 
-_404 = {404: {"description": "Budget entry not found"}}
+_404: dict[int | str, dict[str, Any]] = {404: {"description": "Budget entry not found"}}
 
 router = APIRouter(prefix="/budgets", tags=["Budgets"])
 

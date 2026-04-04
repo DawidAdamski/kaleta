@@ -8,9 +8,8 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import patch
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
@@ -21,9 +20,13 @@ from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.transaction import TransactionCreate
-from kaleta.services import AccountService, CategoryService, PlannedTransactionService, TransactionService
-from kaleta.services.forecast_service import ForecastResult, ForecastService
-
+from kaleta.services import (
+    AccountService,
+    CategoryService,
+    PlannedTransactionService,
+    TransactionService,
+)
+from kaleta.services.forecast_service import ForecastService
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -84,19 +87,14 @@ def _make_prophet_result(
 
 
 class TestForecastInsufficientData:
-
-    async def test_returns_insufficient_data_when_no_transactions(
-        self, session: AsyncSession
-    ):
+    async def test_returns_insufficient_data_when_no_transactions(self, session: AsyncSession):
         acc_id = await _make_account(session)
         svc = ForecastService(session)
         result = await svc.forecast_account(acc_id)
         assert result.insufficient_data is True
         assert result.points == []
 
-    async def test_returns_insufficient_data_when_fewer_than_14_days(
-        self, session: AsyncSession
-    ):
+    async def test_returns_insufficient_data_when_fewer_than_14_days(self, session: AsyncSession):
         """Service requires at least 14 distinct days to run Prophet."""
         acc_id = await _make_account(session)
         # Seed only 10 days of data
@@ -106,9 +104,7 @@ class TestForecastInsufficientData:
         assert result.insufficient_data is True
         assert result.points == []
 
-    async def test_returns_insufficient_data_when_prophet_raises(
-        self, session: AsyncSession
-    ):
+    async def test_returns_insufficient_data_when_prophet_raises(self, session: AsyncSession):
         """If _run_prophet returns None (e.g. Prophet unavailable), service marks insufficient."""
         acc_id = await _make_account(session)
         # Seed enough data so we pass the 14-day check
@@ -116,9 +112,7 @@ class TestForecastInsufficientData:
         svc = ForecastService(session)
 
         # Patch _run_prophet to return None (simulates Prophet crash)
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=None
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=None):
             result = await svc.forecast_account(acc_id)
 
         assert result.insufficient_data is True
@@ -129,10 +123,7 @@ class TestForecastInsufficientData:
 
 
 class TestForecastSuccess:
-
-    async def test_returns_forecast_points_when_data_sufficient(
-        self, session: AsyncSession
-    ):
+    async def test_returns_forecast_points_when_data_sufficient(self, session: AsyncSession):
         acc_id = await _make_account(session)
         await _seed_transactions(session, acc_id, n_days=20)
         svc = ForecastService(session)
@@ -141,17 +132,13 @@ class TestForecastSuccess:
         history_start = today - datetime.timedelta(days=19)
         mock_result = _make_prophet_result(history_start, n_history=20, n_forecast=60)
 
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=mock_result
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=mock_result):
             result = await svc.forecast_account(acc_id, horizon_days=60)
 
         assert result.insufficient_data is False
         assert len(result.points) > 0
 
-    async def test_result_contains_historical_and_forecast_points(
-        self, session: AsyncSession
-    ):
+    async def test_result_contains_historical_and_forecast_points(self, session: AsyncSession):
         acc_id = await _make_account(session)
         n_days = 20
         await _seed_transactions(session, acc_id, n_days=n_days)
@@ -161,17 +148,13 @@ class TestForecastSuccess:
         history_start = today - datetime.timedelta(days=n_days - 1)
         mock_result = _make_prophet_result(history_start, n_history=n_days, n_forecast=30)
 
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=mock_result
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=mock_result):
             result = await svc.forecast_account(acc_id, horizon_days=30)
 
         assert len(result.historical) > 0
         assert len(result.forecast) > 0
 
-    async def test_forecast_points_are_date_value_pairs(
-        self, session: AsyncSession
-    ):
+    async def test_forecast_points_are_date_value_pairs(self, session: AsyncSession):
         """Each ForecastPoint has .date and .value attributes."""
         acc_id = await _make_account(session)
         await _seed_transactions(session, acc_id, n_days=20)
@@ -181,9 +164,7 @@ class TestForecastSuccess:
         history_start = today - datetime.timedelta(days=19)
         mock_result = _make_prophet_result(history_start, n_history=20, n_forecast=10)
 
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=mock_result
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=mock_result):
             result = await svc.forecast_account(acc_id, horizon_days=10)
 
         for point in result.points:
@@ -199,16 +180,12 @@ class TestForecastSuccess:
         history_start = today - datetime.timedelta(days=19)
         mock_result = _make_prophet_result(history_start, n_history=20, n_forecast=10)
 
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=mock_result
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=mock_result):
             result = await svc.forecast_account(acc_id, horizon_days=10)
 
         assert result.account_name == "Savings"
 
-    async def test_all_accounts_forecast_when_account_id_none(
-        self, session: AsyncSession
-    ):
+    async def test_all_accounts_forecast_when_account_id_none(self, session: AsyncSession):
         acc_id = await _make_account(session)
         await _seed_transactions(session, acc_id, n_days=20)
         svc = ForecastService(session)
@@ -217,9 +194,7 @@ class TestForecastSuccess:
         history_start = today - datetime.timedelta(days=19)
         mock_result = _make_prophet_result(history_start, n_history=20, n_forecast=10)
 
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=mock_result
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=mock_result):
             result = await svc.forecast_account(None, horizon_days=10)
 
         assert result.account_name == "All Accounts"
@@ -230,10 +205,7 @@ class TestForecastSuccess:
 
 
 class TestForecastWithPlannedTransactions:
-
-    async def test_planned_transactions_included_in_result(
-        self, session: AsyncSession
-    ):
+    async def test_planned_transactions_included_in_result(self, session: AsyncSession):
         """When planned transactions exist, result.planned_occurrences is non-empty."""
         acc_id = await _make_account(session)
         await _seed_transactions(session, acc_id, n_days=20)
@@ -257,18 +229,14 @@ class TestForecastWithPlannedTransactions:
         history_start = today - datetime.timedelta(days=19)
         mock_result = _make_prophet_result(history_start, n_history=20, n_forecast=60)
 
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=mock_result
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=mock_result):
             result = await svc.forecast_account(acc_id, horizon_days=60)
 
         assert result.insufficient_data is False
         # There should be at least one planned occurrence in the 60-day window
         assert len(result.planned_occurrences) >= 1
 
-    async def test_planned_transactions_adjust_forecast_values(
-        self, session: AsyncSession
-    ):
+    async def test_planned_transactions_adjust_forecast_values(self, session: AsyncSession):
         """A planned expense should reduce at least one forecast point's value."""
         acc_id = await _make_account(session)
         await _seed_transactions(session, acc_id, n_days=20)
@@ -293,15 +261,9 @@ class TestForecastWithPlannedTransactions:
         # Provide stable mock data so we can reason about adjustments
         mock_result = _make_prophet_result(history_start, n_history=20, n_forecast=30)
         # Collect the raw yhat values for forecast points before overlay
-        raw_forecast_values = {
-            row[0]: row[1]
-            for row in mock_result
-            if row[0] > today
-        }
+        raw_forecast_values = {row[0]: row[1] for row in mock_result if row[0] > today}
 
-        with patch(
-            "kaleta.services.forecast_service._run_prophet", return_value=mock_result
-        ):
+        with patch("kaleta.services.forecast_service._run_prophet", return_value=mock_result):
             result = await svc.forecast_account(acc_id, horizon_days=30)
 
         # At least one forecast point on or after tomorrow should differ from raw

@@ -9,7 +9,6 @@ from kaleta.models.institution import InstitutionType
 from kaleta.schemas.institution import InstitutionCreate, InstitutionUpdate
 from kaleta.services import InstitutionService
 
-
 SQL_INJECTION_NAMES = [
     "'; DROP TABLE institutions; --",
     "' OR '1'='1",
@@ -24,7 +23,6 @@ def svc(session: AsyncSession) -> InstitutionService:
 
 
 class TestInstitutionServiceCreate:
-
     async def test_create_returns_institution_with_id(self, svc: InstitutionService):
         institution = await svc.create(InstitutionCreate(name="PKO Bank"))
         assert institution.id is not None
@@ -35,13 +33,15 @@ class TestInstitutionServiceCreate:
         assert institution.type == InstitutionType.BANK
 
     async def test_create_preserves_all_fields(self, svc: InstitutionService):
-        institution = await svc.create(InstitutionCreate(
-            name="Revolut",
-            type=InstitutionType.FINTECH,
-            color="#FF5733",
-            website="https://revolut.com",
-            description="Digital bank.",
-        ))
+        institution = await svc.create(
+            InstitutionCreate(
+                name="Revolut",
+                type=InstitutionType.FINTECH,
+                color="#FF5733",
+                website="https://revolut.com",
+                description="Digital bank.",
+            )
+        )
         assert institution.name == "Revolut"
         assert institution.type == InstitutionType.FINTECH
         assert institution.color == "#FF5733"
@@ -56,9 +56,9 @@ class TestInstitutionServiceCreate:
 
     async def test_create_all_institution_types(self, svc: InstitutionService):
         for i, institution_type in enumerate(InstitutionType):
-            institution = await svc.create(InstitutionCreate(
-                name=f"Institution {i}", type=institution_type
-            ))
+            institution = await svc.create(
+                InstitutionCreate(name=f"Institution {i}", type=institution_type)
+            )
             assert institution.type == institution_type
 
     @pytest.mark.parametrize("payload", SQL_INJECTION_NAMES)
@@ -78,16 +78,13 @@ class TestInstitutionServiceCreate:
 
     async def test_xss_description_stored_verbatim(self, svc: InstitutionService):
         payload = '"><img src=x onerror=alert(1)>'
-        institution = await svc.create(InstitutionCreate(
-            name="Test", description=payload[:500]
-        ))
+        institution = await svc.create(InstitutionCreate(name="Test", description=payload[:500]))
         fetched = await svc.get(institution.id)
         assert fetched is not None
         assert fetched.description == payload[:500]
 
 
 class TestInstitutionServiceRead:
-
     async def test_get_nonexistent_returns_none(self, svc: InstitutionService):
         result = await svc.get(99999)
         assert result is None
@@ -122,7 +119,6 @@ class TestInstitutionServiceRead:
 
 
 class TestInstitutionServiceUpdate:
-
     async def test_update_name(self, svc: InstitutionService):
         institution = await svc.create(InstitutionCreate(name="Old Name"))
         updated = await svc.update(institution.id, InstitutionUpdate(name="New Name"))
@@ -130,20 +126,21 @@ class TestInstitutionServiceUpdate:
         assert updated.name == "New Name"
 
     async def test_update_type(self, svc: InstitutionService):
-        institution = await svc.create(InstitutionCreate(
-            name="Test", type=InstitutionType.BANK
-        ))
+        institution = await svc.create(InstitutionCreate(name="Test", type=InstitutionType.BANK))
         updated = await svc.update(institution.id, InstitutionUpdate(type=InstitutionType.BROKER))
         assert updated is not None
         assert updated.type == InstitutionType.BROKER
 
     async def test_update_optional_fields(self, svc: InstitutionService):
         institution = await svc.create(InstitutionCreate(name="Test Bank"))
-        updated = await svc.update(institution.id, InstitutionUpdate(
-            color="#123456",
-            website="https://testbank.com",
-            description="A test bank.",
-        ))
+        updated = await svc.update(
+            institution.id,
+            InstitutionUpdate(
+                color="#123456",
+                website="https://testbank.com",
+                description="A test bank.",
+            ),
+        )
         assert updated is not None
         assert updated.color == "#123456"
         assert updated.website == "https://testbank.com"
@@ -154,9 +151,7 @@ class TestInstitutionServiceUpdate:
         assert result is None
 
     async def test_update_only_provided_fields(self, svc: InstitutionService):
-        institution = await svc.create(InstitutionCreate(
-            name="Test", type=InstitutionType.FINTECH
-        ))
+        institution = await svc.create(InstitutionCreate(name="Test", type=InstitutionType.FINTECH))
         updated = await svc.update(institution.id, InstitutionUpdate(name="New Name"))
         assert updated is not None
         assert updated.type == InstitutionType.FINTECH  # unchanged
@@ -170,7 +165,6 @@ class TestInstitutionServiceUpdate:
 
 
 class TestInstitutionServiceDelete:
-
     async def test_delete_existing(self, svc: InstitutionService):
         institution = await svc.create(InstitutionCreate(name="To Delete"))
         result = await svc.delete(institution.id)

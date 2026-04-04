@@ -9,7 +9,6 @@ from kaleta.schemas.payee import PayeeCreate, PayeeResponse, PayeeUpdate
 
 
 class TestPayeeCreate:
-
     def test_minimal_valid(self):
         schema = PayeeCreate(name="Biedronka")
         assert schema.name == "Biedronka"
@@ -141,7 +140,6 @@ class TestPayeeCreate:
 
 
 class TestPayeeUpdate:
-
     def test_fully_empty_update_is_valid(self):
         schema = PayeeUpdate()
         assert schema.name is None
@@ -197,7 +195,6 @@ class TestPayeeUpdate:
 
 
 class TestPayeeResponse:
-
     def test_from_orm_attributes(self):
         from datetime import datetime
 

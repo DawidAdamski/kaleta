@@ -22,9 +22,7 @@ class AuditService:
         # Trim: if we filled the limit, older entries exist — delete them now.
         if len(entries) == limit:
             oldest_kept_id = entries[-1].id
-            await self.session.execute(
-                delete(AuditLog).where(AuditLog.id < oldest_kept_id)
-            )
+            await self.session.execute(delete(AuditLog).where(AuditLog.id < oldest_kept_id))
             await self.session.commit()
 
         return entries
@@ -40,9 +38,7 @@ class AuditService:
 
         if entry.operation == "INSERT":
             # Revert: delete the record that was inserted
-            await self.session.execute(
-                delete(table).where(table.c.id == entry.record_id)
-            )
+            await self.session.execute(delete(table).where(table.c.id == entry.record_id))
         elif entry.operation == "DELETE":
             # Revert: re-insert the deleted record with its original data
             data = json.loads(entry.old_data or "{}")
@@ -52,9 +48,7 @@ class AuditService:
             data = json.loads(entry.old_data or "{}")
             if data and entry.record_id is not None:
                 await self.session.execute(
-                    table.update()
-                    .where(table.c.id == entry.record_id)
-                    .values(**data)
+                    table.update().where(table.c.id == entry.record_id).values(**data)
                 )
 
         entry.reverted = True

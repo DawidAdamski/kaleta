@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from nicegui import events, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
+from kaleta.models.category import Category
 from kaleta.services import AccountService, CategoryService, TransactionService
 from kaleta.services.import_service import (
     ImportResult,
@@ -19,7 +21,7 @@ from kaleta.services.import_service import (
 from kaleta.views.layout import page_layout
 
 
-def _build_cat_opts(cats_list: list) -> dict[int, str]:
+def _build_cat_opts(cats_list: list[Category]) -> dict[int, str]:
     """Build {id: label} with hierarchical labels like 'Food → Groceries'."""
     cats_by_id = {c.id: c for c in cats_list}
     result: dict[int, str] = {}
@@ -29,19 +31,18 @@ def _build_cat_opts(cats_list: list) -> dict[int, str]:
     )
     for root in roots:
         result[root.id] = root.name
-        children = sorted(
-            [c for c in cats_list if c.parent_id == root.id], key=lambda c: c.name
-        )
+        children = sorted([c for c in cats_list if c.parent_id == root.id], key=lambda c: c.name)
         for child in children:
             result[child.id] = f"{root.name} \u2192 {child.name}"
     return result
+
 
 # ── Bank profiles ─────────────────────────────────────────────────────────────
 # Each entry: (profile_key, label_i18n_key, icon, enabled)
 # Add new banks here when supported.
 _PROFILES: list[tuple[str, str, str, bool]] = [
     ("generic", "import.profile_generic", "table_chart", True),
-    ("mbank",   "import.profile_mbank",   "account_balance", True),
+    ("mbank", "import.profile_mbank", "account_balance", True),
 ]
 
 
@@ -58,18 +59,18 @@ def register() -> None:
     @ui.page("/import")
     async def import_page() -> None:
         async with AsyncSessionFactory() as session:
-            accounts   = await AccountService(session).list()
+            accounts = await AccountService(session).list()
             categories = await CategoryService(session).list()
 
-        account_options  = {a.id: f"{a.name} ({a.currency})" for a in accounts}
+        account_options = {a.id: f"{a.name} ({a.currency})" for a in accounts}
         expense_cat_opts = _build_cat_opts([c for c in categories if c.type.value == "expense"])
-        income_cat_opts  = _build_cat_opts([c for c in categories if c.type.value == "income"])
+        income_cat_opts = _build_cat_opts([c for c in categories if c.type.value == "income"])
 
         # ── Mutable state ──────────────────────────────────────────────────────
-        state: dict = {
-            "profile":     "generic",
-            "parsed_rows": [],        # list[ParsedRow]
-            "metadata":    None,      # MBankFileMetadata | None
+        state: dict[str, Any] = {
+            "profile": "generic",
+            "parsed_rows": [],  # list[ParsedRow]
+            "metadata": None,  # MBankFileMetadata | None
         }
 
         with page_layout(t("import.title")):
@@ -112,9 +113,7 @@ def register() -> None:
                         _reset_ui()
                         for k, btn in profile_btns.items():
                             btn.props(
-                                "color=primary unelevated"
-                                if k == key
-                                else "color=grey-4 flat"
+                                "color=primary unelevated" if k == key else "color=grey-4 flat"
                             )
 
                     for profile_key, label_key, icon, enabled in _PROFILES:
@@ -123,11 +122,7 @@ def register() -> None:
                             t(label_key),
                             icon=icon,
                             on_click=lambda k=profile_key: _select_profile(k),
-                        ).props(
-                            "color=primary unelevated"
-                            if is_active
-                            else "color=grey-4 flat"
-                        )
+                        ).props("color=primary unelevated" if is_active else "color=grey-4 flat")
                         if not enabled:
                             btn.props("disable")
                             btn.tooltip(t("import.profile_coming_soon"))
@@ -138,11 +133,11 @@ def register() -> None:
             # ══════════════════════════════════════════════════════════════════
             with ui.card().classes("w-full"):
                 ui.label(t("import.upload_section")).classes("text-lg font-semibold mb-1")
-                upload_hint_label = ui.label(
-                    t("import.upload_hint_generic")
-                ).classes("text-sm text-grey-6 mb-3")
+                upload_hint_label = ui.label(t("import.upload_hint_generic")).classes(
+                    "text-sm text-grey-6 mb-3"
+                )
 
-                file_error  = ui.label("").classes("text-sm text-red-600")
+                file_error = ui.label("").classes("text-sm text-red-600")
                 file_status = ui.label("").classes("text-sm text-green-700")
 
                 # mBank metadata banner — hidden until mBank file is loaded
@@ -151,11 +146,15 @@ def register() -> None:
                 with meta_card:
                     meta_grid = ui.grid(columns=2).classes("w-full gap-x-6 gap-y-1")
 
-                upload_widget = ui.upload(
-                    label=t("import.drop_hint_generic"),
-                    auto_upload=True,
-                    max_files=1,
-                ).props("accept=.csv flat bordered").classes("w-full mt-2")
+                upload_widget = (
+                    ui.upload(
+                        label=t("import.drop_hint_generic"),
+                        auto_upload=True,
+                        max_files=1,
+                    )
+                    .props("accept=.csv flat bordered")
+                    .classes("w-full mt-2")
+                )
 
             # ══════════════════════════════════════════════════════════════════
             # SECTION 3 — Settings (shown after upload)
@@ -165,7 +164,7 @@ def register() -> None:
             with settings_card:
                 ui.label(t("import.settings_section")).classes("text-lg font-semibold mb-3")
 
-                auto_match_label    = ui.label("").classes("text-sm text-green-700")
+                auto_match_label = ui.label("").classes("text-sm text-green-700")
                 currency_warn_label = ui.label("").classes("text-sm text-amber-600")
 
                 with ui.row().classes("w-full gap-4 flex-wrap"):
@@ -178,22 +177,22 @@ def register() -> None:
                     expense_cat_sel = ui.select(
                         expense_cat_opts, label=t("import.default_expense_cat")
                     ).classes("flex-1 min-w-48")
-                    income_cat_sel  = ui.select(
-                        income_cat_opts,  label=t("import.default_income_cat")
+                    income_cat_sel = ui.select(
+                        income_cat_opts, label=t("import.default_income_cat")
                     ).classes("flex-1 min-w-48")
 
                 skip_dupes_cb = ui.checkbox(t("import.skip_duplicates"), value=True)
 
                 def _check_currency(_e: object = None) -> None:
-                    meta: MBankFileMetadata | None = state.get("metadata")
-                    if not meta:
+                    metadata: MBankFileMetadata | None = state.get("metadata")
+                    if not metadata:
                         return
                     acc = next((a for a in accounts if a.id == account_sel.value), None)
-                    if acc and acc.currency.upper() != meta.currency.upper():
+                    if acc and acc.currency.upper() != metadata.currency.upper():
                         currency_warn_label.set_text(
                             t(
                                 "import.currency_mismatch",
-                                file=meta.currency,
+                                file=metadata.currency,
                                 account=acc.currency,
                             )
                         )
@@ -213,32 +212,42 @@ def register() -> None:
 
                 stats_row = ui.row().classes("gap-3 mb-3")
 
-                preview_table = ui.table(
-                    columns=[
-                        {
-                            "name": "date", "label": t("common.date"),
-                            "field": "date", "align": "left",
-                        },
-                        {
-                            "name": "amount", "label": t("common.amount"),
-                            "field": "amount", "align": "right",
-                        },
-                        {
-                            "name": "description", "label": t("common.description"),
-                            "field": "description", "align": "left",
-                        },
-                        {
-                            "name": "type", "label": t("common.type"),
-                            "field": "type", "align": "left",
-                        },
-                    ],
-                    rows=[],
-                    row_key="idx",
-                ).classes("w-full").props("dense")
+                preview_table = (
+                    ui.table(
+                        columns=[
+                            {
+                                "name": "date",
+                                "label": t("common.date"),
+                                "field": "date",
+                                "align": "left",
+                            },
+                            {
+                                "name": "amount",
+                                "label": t("common.amount"),
+                                "field": "amount",
+                                "align": "right",
+                            },
+                            {
+                                "name": "description",
+                                "label": t("common.description"),
+                                "field": "description",
+                                "align": "left",
+                            },
+                            {
+                                "name": "type",
+                                "label": t("common.type"),
+                                "field": "type",
+                                "align": "left",
+                            },
+                        ],
+                        rows=[],
+                        row_key="idx",
+                    )
+                    .classes("w-full")
+                    .props("dense")
+                )
 
-                import_btn = ui.button(
-                    t("import.import_btn"), icon="upload"
-                ).props("color=primary")
+                import_btn = ui.button(t("import.import_btn"), icon="upload").props("color=primary")
                 import_result = ui.label("").classes("text-sm mt-2")
                 import_spinner = ui.spinner("dots", size="md")
                 import_spinner.set_visibility(False)
@@ -249,12 +258,8 @@ def register() -> None:
             transfer_card = ui.card().classes("w-full")
             transfer_card.set_visibility(False)
             with transfer_card:
-                ui.label(t("import.transfer_section")).classes(
-                    "text-lg font-semibold mb-1"
-                )
-                ui.label(t("import.transfer_hint")).classes(
-                    "text-sm text-grey-6 mb-3"
-                )
+                ui.label(t("import.transfer_section")).classes("text-lg font-semibold mb-1")
+                ui.label(t("import.transfer_hint")).classes("text-sm text-grey-6 mb-3")
                 transfer_result = ui.label("").classes("text-sm text-green-700")
 
                 async def run_detect() -> None:
@@ -299,8 +304,8 @@ def register() -> None:
                 return bool(digits and digits in known)
 
             def _populate_preview(rows: list[ParsedRow]) -> None:
-                n_income   = 0
-                n_expense  = 0
+                n_income = 0
+                n_expense = 0
                 n_transfer = 0
                 for r in rows:
                     if _is_transfer_row(r):
@@ -312,24 +317,19 @@ def register() -> None:
 
                 stats_row.clear()
                 with stats_row:
-                    ui.chip(
-                        f"📥 {t('import.stats_expense')}: {n_expense}", color="red-2"
-                    )
-                    ui.chip(
-                        f"📤 {t('import.stats_income')}: {n_income}", color="green-2"
-                    )
-                    ui.chip(
-                        f"🔄 {t('import.stats_transfer')}: {n_transfer}", color="blue-2"
-                    )
+                    ui.chip(f"📥 {t('import.stats_expense')}: {n_expense}", color="red-2")
+                    ui.chip(f"📤 {t('import.stats_income')}: {n_income}", color="green-2")
+                    ui.chip(f"🔄 {t('import.stats_transfer')}: {n_transfer}", color="blue-2")
 
                 preview_table.rows = [
                     {
-                        "idx":         i,
-                        "date":        str(r.date),
-                        "amount":      f"{'+' if r.amount >= 0 else ''}{r.amount:,.2f}",
+                        "idx": i,
+                        "date": str(r.date),
+                        "amount": f"{'+' if r.amount >= 0 else ''}{r.amount:,.2f}",
                         "description": r.description[:70],
-                        "type":        (
-                            "transfer" if _is_transfer_row(r)
+                        "type": (
+                            "transfer"
+                            if _is_transfer_row(r)
                             else ("income" if r.amount >= 0 else "expense")
                         ),
                     }
@@ -366,14 +366,15 @@ def register() -> None:
                         meta_grid.clear()
                         with meta_grid:
                             for label, value in [
-                                (t("import.detected_client"),       meta.client_name),
+                                (t("import.detected_client"), meta.client_name),
                                 (t("import.detected_account_type"), meta.account_type),
-                                (t("import.detected_currency"),     meta.currency),
-                                (t("import.detected_account"),      meta.account_number),
+                                (t("import.detected_currency"), meta.currency),
+                                (t("import.detected_account"), meta.account_number),
                                 (
                                     t("import.detected_period"),
                                     f"{meta.date_from} – {meta.date_to}"
-                                    if meta.date_from and meta.date_to else "—",
+                                    if meta.date_from and meta.date_to
+                                    else "—",
                                 ),
                                 (
                                     t("import.detected_tx_count"),
@@ -404,9 +405,7 @@ def register() -> None:
                 if result.errors:
                     file_error.set_text(" | ".join(result.errors[:3]))
                 if not result.rows:
-                    file_status.set_text(
-                        t("import.no_rows", skipped=result.skipped)
-                    )
+                    file_status.set_text(t("import.no_rows", skipped=result.skipped))
                     return
 
                 file_status.set_text(t("import.rows_loaded", count=len(result.rows)))
@@ -434,16 +433,14 @@ def register() -> None:
 
                 # Block mBank import when file currency ≠ account currency
                 if state["profile"] == "mbank":
-                    meta: MBankFileMetadata | None = state.get("metadata")
-                    if meta and meta.currency:
-                        acc = next(
-                            (a for a in accounts if a.id == account_sel.value), None
-                        )
-                        if acc and acc.currency.upper() != meta.currency.upper():
+                    metadata: MBankFileMetadata | None = state.get("metadata")
+                    if metadata and metadata.currency:
+                        acc = next((a for a in accounts if a.id == account_sel.value), None)
+                        if acc and acc.currency.upper() != metadata.currency.upper():
                             ui.notify(
                                 t(
                                     "import.currency_mismatch_block",
-                                    file=meta.currency,
+                                    file=metadata.currency,
                                     account=acc.currency,
                                 ),
                                 type="negative",
@@ -485,10 +482,10 @@ def register() -> None:
                     count = await TransactionService(session).create_bulk(creates)
 
                     # mBank: save external account number for future auto-matching
-                    meta: MBankFileMetadata | None = state.get("metadata")
-                    if meta and meta.account_number_digits:
+                    file_metadata: MBankFileMetadata | None = state.get("metadata")
+                    if file_metadata and file_metadata.account_number_digits:
                         await AccountService(session).save_external_number(
-                            account_sel.value, meta.account_number_digits
+                            account_sel.value, file_metadata.account_number_digits
                         )
 
                 import_spinner.set_visibility(False)

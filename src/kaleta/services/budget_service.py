@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import builtins
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
@@ -40,7 +41,9 @@ class BudgetService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list(self, month: int | None = None, year: int | None = None) -> list[Budget]:
+    async def list(
+        self, month: int | None = None, year: int | None = None
+    ) -> builtins.list[Budget]:
         stmt = (
             select(Budget)
             .options(selectinload(Budget.category))
@@ -51,9 +54,9 @@ class BudgetService:
                 Budget.month == month, Budget.year == (year or datetime.date.today().year)
             )
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return builtins.list(result.scalars().all())
 
-    async def list_for_year(self, year: int) -> list[Budget]:
+    async def list_for_year(self, year: int) -> builtins.list[Budget]:
         """Return all budget entries for every month of the given year."""
         result = await self.session.execute(
             select(Budget)
@@ -61,7 +64,7 @@ class BudgetService:
             .where(Budget.year == year)
             .order_by(Budget.month)
         )
-        return list(result.scalars().all())
+        return builtins.list(result.scalars().all())
 
     async def get(self, budget_id: int) -> Budget | None:
         return await self.session.get(Budget, budget_id, options=[selectinload(Budget.category)])
@@ -118,13 +121,13 @@ class BudgetService:
         result = await self.session.execute(
             select(Budget).where(Budget.category_id == category_id, Budget.year == year)
         )
-        budgets = list(result.scalars().all())
+        budgets = builtins.list(result.scalars().all())
         for b in budgets:
             await self.session.delete(b)
         await self.session.commit()
         return len(budgets)
 
-    async def monthly_summary(self, month: int, year: int) -> list[CategoryBudgetSummary]:
+    async def monthly_summary(self, month: int, year: int) -> builtins.list[CategoryBudgetSummary]:
         """Budget vs actual spending for a single month."""
         import calendar
 
@@ -135,7 +138,7 @@ class BudgetService:
 
     async def range_summary(
         self, start: datetime.date, end: datetime.date
-    ) -> list[CategoryBudgetSummary]:
+    ) -> builtins.list[CategoryBudgetSummary]:
         """Aggregate budget vs actual spending over an arbitrary date range.
 
         Includes:
@@ -187,22 +190,23 @@ class BudgetService:
         }
 
         return sorted(
-            [
-                CategoryBudgetSummary(
-                    category_id=cat_id,
-                    category_name=category_names.get(cat_id)
-                    or all_expense_cats.get(cat_id, "Unknown"),
-                    budget_amount=budget_totals.get(cat_id, Decimal("0")),
-                    actual_amount=actuals.get(cat_id, Decimal("0")),
-                )
-                for cat_id in all_cat_ids
-            ],
+            builtins.list(
+                [
+                    CategoryBudgetSummary(
+                        category_id=cat_id,
+                        category_name=category_names.get(cat_id)
+                        or all_expense_cats.get(cat_id, "Unknown"),
+                        budget_amount=budget_totals.get(cat_id, Decimal("0")),
+                        actual_amount=actuals.get(cat_id, Decimal("0")),
+                    )
+                    for cat_id in all_cat_ids
+                ]
+            ),
             key=lambda s: s.category_name,
         )
 
     async def actuals_by_category_month(self, year: int) -> dict[tuple[int, int], Decimal]:
-        """Return {(category_id, month): actual_amount} for expense transactions in the given year.
-        """
+        """Return {(category_id, month): actual_amount} for expense transactions."""
         result = await self.session.execute(
             select(
                 Transaction.category_id,

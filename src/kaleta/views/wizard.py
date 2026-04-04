@@ -91,8 +91,7 @@ def register() -> None:
         done_counts = [
             t("wizard.setup_institution_count", count=n_institutions),
             t("wizard.setup_account_count", count=n_accounts),
-            t("wizard.setup_categories_count",
-              expense=n_expense_cats, income=n_income_cats),
+            t("wizard.setup_categories_count", expense=n_expense_cats, income=n_income_cats),
             t("wizard.setup_import_count", count=n_transactions),
         ]
 
@@ -105,47 +104,31 @@ def register() -> None:
                 with ui.column().classes("gap-1"):
                     with ui.row().classes("items-center gap-3"):
                         ui.label(t("wizard.title")).classes("text-2xl font-bold")
-                        ui.badge(t("wizard.coming_soon"), color="orange").classes(
-                            "text-xs"
-                        )
-                    ui.label(t("wizard.subtitle")).classes(
-                        "text-sm text-grey-6 max-w-2xl"
-                    )
+                        ui.badge(t("wizard.coming_soon"), color="orange").classes("text-xs")
+                    ui.label(t("wizard.subtitle")).classes("text-sm text-grey-6 max-w-2xl")
 
             # ── Onboarding section ────────────────────────────────────────────
             with ui.card().classes("w-full p-0 overflow-hidden"):
                 # Header
-                with ui.row().classes(
-                    "items-center gap-3 px-5 py-4 bg-teal-7"
-                ):
+                with ui.row().classes("items-center gap-3 px-5 py-4 bg-teal-7"):
                     ui.icon("rocket_launch", size="1.4rem").classes("text-white")
                     with ui.column().classes("gap-0 flex-1"):
                         ui.label(t("wizard.setup_title")).classes(
                             "text-white font-semibold text-base"
                         )
-                        ui.label(t("wizard.setup_subtitle")).classes(
-                            "text-teal-1 text-xs"
-                        )
+                        ui.label(t("wizard.setup_subtitle")).classes("text-teal-1 text-xs")
                     if all_done:
-                        ui.badge(t("wizard.setup_all_done"), color="green").classes(
-                            "text-xs"
-                        )
+                        ui.badge(t("wizard.setup_all_done"), color="green").classes("text-xs")
 
                 # Steps
                 with ui.column().classes("gap-0 w-full"):
-                    for i, (icon, title_key, desc_key, url, hint_key) in enumerate(
-                        _ONBOARDING
-                    ):
+                    for i, (icon, title_key, desc_key, url, hint_key) in enumerate(_ONBOARDING):
                         done = done_flags[i]
                         count_text = done_counts[i]
-                        border = (
-                            "" if i == len(_ONBOARDING) - 1 else "border-b"
-                        )
+                        border = "" if i == len(_ONBOARDING) - 1 else "border-b"
                         bg = "bg-green-1" if done else ""
 
-                        with ui.row().classes(
-                            f"items-center gap-4 px-5 py-4 {border} {bg} w-full"
-                        ):
+                        with ui.row().classes(f"items-center gap-4 px-5 py-4 {border} {bg} w-full"):
                             # Step number / checkmark
                             with ui.element("div").classes(
                                 "flex-shrink-0 w-8 h-8 rounded-full flex items-center"
@@ -158,26 +141,20 @@ def register() -> None:
                                     ui.label(str(i + 1)).classes("text-sm font-bold")
 
                             ui.icon(icon, size="1.5rem").classes(
-                                "flex-shrink-0 "
-                                + ("text-green-7" if done else "text-grey-5")
+                                "flex-shrink-0 " + ("text-green-7" if done else "text-grey-5")
                             )
 
                             with ui.column().classes("gap-0.5 flex-1"):
                                 ui.label(t(title_key)).classes(
-                                    "font-medium text-sm "
-                                    + ("text-green-8" if done else "")
+                                    "font-medium text-sm " + ("text-green-8" if done else "")
                                 )
-                                ui.label(t(desc_key)).classes(
-                                    "text-xs text-grey-6 leading-relaxed"
-                                )
+                                ui.label(t(desc_key)).classes("text-xs text-grey-6 leading-relaxed")
                                 if done:
                                     ui.label(count_text).classes(
                                         "text-xs text-green-7 font-medium mt-0.5"
                                     )
                                 else:
-                                    ui.label(t(hint_key)).classes(
-                                        "text-xs text-amber-7 mt-0.5"
-                                    )
+                                    ui.label(t(hint_key)).classes("text-xs text-amber-7 mt-0.5")
 
                             ui.button(
                                 t("wizard.setup_go") if not done else t("wizard.setup_edit"),
@@ -205,9 +182,7 @@ def register() -> None:
 
                     with ui.card().classes("p-0 overflow-hidden"):
                         # Section header bar
-                        with ui.row().classes(
-                            f"items-center gap-3 px-4 py-3 bg-{color}"
-                        ):
+                        with ui.row().classes(f"items-center gap-3 px-4 py-3 bg-{color}"):
                             ui.icon(sec_icon, size="1.4rem").classes("text-white")
                             ui.label(t(f"wizard.section_{section}")).classes(
                                 "text-white font-semibold text-sm uppercase tracking-wide"
@@ -216,9 +191,7 @@ def register() -> None:
                         with ui.column().classes("gap-0"):
                             for i, (step_icon, step_key) in enumerate(steps):
                                 border = "" if i == len(steps) - 1 else "border-b"
-                                with ui.row().classes(
-                                    f"items-start gap-4 px-4 py-4 {border}"
-                                ):
+                                with ui.row().classes(f"items-start gap-4 px-4 py-4 {border}"):
                                     ui.icon(step_icon, size="1.6rem").classes(
                                         f"text-{color} flex-shrink-0 mt-0.5"
                                     )
@@ -226,12 +199,12 @@ def register() -> None:
                                         ui.label(t(f"wizard.step_{step_key}")).classes(
                                             "font-medium text-sm"
                                         )
-                                        ui.label(
-                                            t(f"wizard.step_{step_key}_desc")
-                                        ).classes("text-xs text-grey-6 leading-relaxed")
-                                        ui.badge(
-                                            t("wizard.coming_soon"), color="grey-4"
-                                        ).classes("text-xs w-fit mt-1").props("outline")
+                                        ui.label(t(f"wizard.step_{step_key}_desc")).classes(
+                                            "text-xs text-grey-6 leading-relaxed"
+                                        )
+                                        ui.badge(t("wizard.coming_soon"), color="grey-4").classes(
+                                            "text-xs w-fit mt-1"
+                                        ).props("outline")
 
             # Footer note
             with ui.row().classes("items-center gap-2 text-grey-5 mt-2"):

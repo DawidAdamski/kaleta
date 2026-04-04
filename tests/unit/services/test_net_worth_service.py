@@ -13,11 +13,11 @@ from kaleta.models.category import CategoryType
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
+from kaleta.schemas.currency_rate import CurrencyRateCreate
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services import AccountService, CategoryService, NetWorthService, TransactionService
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.net_worth_service import AccountSnapshot, MonthlyNetWorth, NetWorthSummary
-from kaleta.schemas.currency_rate import CurrencyRateCreate
 
 TODAY = datetime.date.today()
 
@@ -84,7 +84,6 @@ def svc(session: AsyncSession) -> NetWorthService:
 
 
 class TestAccountSnapshotProperties:
-
     def _snap(self, balance: Decimal) -> AccountSnapshot:
         # In the single-currency (PLN) case balance_in_default == balance
         return AccountSnapshot(
@@ -137,7 +136,6 @@ class TestAccountSnapshotProperties:
 
 
 class TestNetWorthSummaryAggregates:
-
     def _summary(self, balances: list[Decimal]) -> NetWorthSummary:
         accounts = [
             AccountSnapshot(
@@ -232,7 +230,6 @@ class TestNetWorthSummaryAggregates:
 
 
 class TestMonthlyNetWorthLabel:
-
     def test_label_january_2025(self):
         m = MonthlyNetWorth(year=2025, month=1, net_worth=Decimal("0"))
         assert m.label == "Jan 2025"
@@ -255,7 +252,6 @@ class TestMonthlyNetWorthLabel:
 
 
 class TestGetSummaryNoAccounts:
-
     async def test_empty_accounts_list(self, svc: NetWorthService):
         summary = await svc.get_summary()
         assert summary.accounts == []
@@ -304,7 +300,6 @@ class TestGetSummaryNoAccounts:
 
 
 class TestGetSummaryAccountsOnly:
-
     async def test_accounts_sorted_by_name(self, svc: NetWorthService, session: AsyncSession):
         await _make_account(session, name="Zebra", balance=Decimal("100.00"))
         await _make_account(session, name="Apple", balance=Decimal("200.00"))
@@ -342,7 +337,7 @@ class TestGetSummaryAccountsOnly:
     ):
         await _make_account(session, name="Checking", balance=Decimal("2000.00"))
         summary = await svc.get_summary(history_months=13)
-        # No transactions means no monthly changes; all history entries should equal current net worth
+        # No transactions means all history entries should equal current net worth.
         for entry in summary.history:
             assert entry.net_worth == summary.net_worth
 
@@ -367,7 +362,6 @@ class TestGetSummaryAccountsOnly:
 
 
 class TestGetSummaryWithTransactions:
-
     async def test_income_in_current_month_reflected_in_last_history_entry(
         self, svc: NetWorthService, session: AsyncSession
     ):
@@ -478,7 +472,6 @@ class TestGetSummaryWithTransactions:
 
 
 class TestInternalTransfersExcluded:
-
     async def test_internal_transfer_does_not_affect_history(
         self, svc: NetWorthService, session: AsyncSession
     ):
@@ -528,7 +521,6 @@ class TestInternalTransfersExcluded:
 
 
 class TestAccountSnapshotInstitutionName:
-
     async def test_institution_name_is_none_without_institution(
         self, svc: NetWorthService, session: AsyncSession
     ):
@@ -541,8 +533,9 @@ class TestAccountSnapshotInstitutionName:
 
 
 class TestAccountSnapshotCurrency:
-
-    def _snap(self, balance: Decimal, currency: str = "PLN", balance_in_default: Decimal | None = None) -> AccountSnapshot:  # noqa: E501
+    def _snap(
+        self, balance: Decimal, currency: str = "PLN", balance_in_default: Decimal | None = None
+    ) -> AccountSnapshot:  # noqa: E501
         return AccountSnapshot(
             id=1,
             name="Test",
@@ -616,16 +609,17 @@ async def _add_rate(
     on_date: datetime.date | None = None,
 ) -> None:
     svc = CurrencyRateService(session)
-    await svc.create(CurrencyRateCreate(
-        date=on_date or TODAY,
-        from_currency=from_currency,
-        to_currency=to_currency,
-        rate=rate,
-    ))
+    await svc.create(
+        CurrencyRateCreate(
+            date=on_date or TODAY,
+            from_currency=from_currency,
+            to_currency=to_currency,
+            rate=rate,
+        )
+    )
 
 
 class TestGetSummaryMultiCurrency:
-
     async def test_eur_account_converted_via_rate(
         self, svc: NetWorthService, session: AsyncSession
     ):
@@ -665,9 +659,7 @@ class TestGetSummaryMultiCurrency:
         assert snap.balance_in_default == Decimal("50.00")
         assert snap.rate_known is False
 
-    async def test_no_foreign_accounts_no_crash(
-        self, svc: NetWorthService, session: AsyncSession
-    ):
+    async def test_no_foreign_accounts_no_crash(self, svc: NetWorthService, session: AsyncSession):
         """No foreign currency accounts — get_summary() must not raise."""
         await _make_account(session, name="PLN Acc", balance=Decimal("100.00"), currency="PLN")
         summary = await svc.get_summary()
@@ -678,7 +670,10 @@ class TestGetSummaryMultiCurrency:
     ):
         await _make_account(session, name="Euro Asset", balance=Decimal("200.00"), currency="EUR")
         await _make_account(
-            session, name="Euro Credit", balance=Decimal("-50.00"), currency="EUR",
+            session,
+            name="Euro Credit",
+            balance=Decimal("-50.00"),
+            currency="EUR",
             account_type=AccountType.CREDIT,
         )
         await _add_rate(session, "EUR", "PLN", Decimal("4.00"))
@@ -688,9 +683,7 @@ class TestGetSummaryMultiCurrency:
         assert summary.total_liabilities == Decimal("200.00")
         assert summary.net_worth == Decimal("600.00")
 
-    async def test_default_currency_in_summary(
-        self, svc: NetWorthService, session: AsyncSession
-    ):
+    async def test_default_currency_in_summary(self, svc: NetWorthService, session: AsyncSession):
         summary = await svc.get_summary(default_currency="EUR")
         assert summary.default_currency == "EUR"
 

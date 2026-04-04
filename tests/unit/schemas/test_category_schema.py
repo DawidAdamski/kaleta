@@ -21,7 +21,6 @@ XSS_PAYLOADS = [
 
 
 class TestCategoryCreate:
-
     def test_valid_expense(self):
         schema = CategoryCreate(name="Żywność", type=CategoryType.EXPENSE)
         assert schema.name == "Żywność"
@@ -59,7 +58,6 @@ class TestCategoryCreate:
 
 
 class TestCategoryUpdate:
-
     def test_all_fields_optional(self):
         schema = CategoryUpdate()
         assert schema.name is None

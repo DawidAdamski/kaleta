@@ -1,12 +1,12 @@
 """Unit tests for AccountCreate and AccountUpdate Pydantic schemas."""
 
-import pytest
 from decimal import Decimal
+
+import pytest
 from pydantic import ValidationError
 
 from kaleta.models.account import AccountType
 from kaleta.schemas.account import AccountCreate, AccountUpdate
-
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -23,7 +23,7 @@ SQL_PAYLOADS = [
 
 XSS_PAYLOADS = [
     "<script>alert('xss')</script>",
-    'javascript:alert(1)',
+    "javascript:alert(1)",
     '"><img src=x onerror=alert(1)>',
     "<svg onload=alert(1)>",
     "';alert('xss');//",
@@ -32,8 +32,8 @@ XSS_PAYLOADS = [
 
 # ── AccountCreate ─────────────────────────────────────────────────────────────
 
-class TestAccountCreate:
 
+class TestAccountCreate:
     def test_valid_minimal(self):
         schema = AccountCreate(name="PKO Główne")
         assert schema.name == "PKO Główne"
@@ -100,8 +100,8 @@ class TestAccountCreate:
 
 # ── AccountUpdate ─────────────────────────────────────────────────────────────
 
-class TestAccountUpdate:
 
+class TestAccountUpdate:
     def test_all_fields_optional(self):
         schema = AccountUpdate()
         assert schema.name is None
@@ -131,7 +131,6 @@ class TestAccountUpdate:
 
 
 class TestAccountCreateCurrency:
-
     def test_currency_defaults_to_pln(self):
         schema = AccountCreate(name="Test")
         assert schema.currency == "PLN"
@@ -169,7 +168,6 @@ class TestAccountCreateCurrency:
 
 
 class TestAccountUpdateCurrency:
-
     def test_currency_defaults_to_none(self):
         schema = AccountUpdate()
         assert schema.currency is None

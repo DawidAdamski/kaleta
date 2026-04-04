@@ -93,10 +93,7 @@ class NetWorthSummary:
     @property
     def has_unknown_rates(self) -> bool:
         """True if any foreign-currency account has no known exchange rate."""
-        return any(
-            not a.rate_known and a.currency != self.default_currency
-            for a in self.accounts
-        )
+        return any(not a.rate_known and a.currency != self.default_currency for a in self.accounts)
 
 
 class NetWorthService:
@@ -114,9 +111,7 @@ class NetWorthService:
         physical_assets = await self._load_physical_assets()
 
         # Determine which foreign currencies we need rates for
-        foreign_currencies = {
-            a.currency for a in accounts_raw if a.currency != default_currency
-        }
+        foreign_currencies = {a.currency for a in accounts_raw if a.currency != default_currency}
 
         # Load full rate history for batch lookups
         rate_history = await self._rate_svc.load_rates_for_currencies(
@@ -124,9 +119,7 @@ class NetWorthService:
         )
 
         # Build current account snapshots using today's rate
-        accounts = self._apply_rates(
-            accounts_raw, rate_history, today, default_currency
-        )
+        accounts = self._apply_rates(accounts_raw, rate_history, today, default_currency)
 
         history = await self._monthly_history(
             accounts_raw, rate_history, physical_assets, history_months, default_currency
@@ -150,6 +143,7 @@ class NetWorthService:
     ) -> list[AccountSnapshot]:
         snapshots = []
         for a in accounts_raw:
+            rate: Decimal | None
             if a.currency == default_currency:
                 rate = Decimal("1")
                 known = True
@@ -204,9 +198,11 @@ class NetWorthService:
 
         # Current account balances in default currency (using today's rates)
         current_account_total = sum(
-            a.balance * (
+            a.balance
+            * (
                 _nearest_rate(rate_history.get(a.currency, []), today) or Decimal("1")
-                if a.currency != default_currency else Decimal("1")
+                if a.currency != default_currency
+                else Decimal("1")
             )
             for a in accounts_raw
         )

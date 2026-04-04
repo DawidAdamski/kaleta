@@ -15,6 +15,7 @@ LIGHT_SPLIT = "#e0e0e0"
 
 # ── chart_text_color ───────────────────────────────────────────────────────────
 
+
 def test_chart_text_color_dark() -> None:
     assert chart_text_color(True) == DARK_COLOR
 
@@ -24,6 +25,7 @@ def test_chart_text_color_light() -> None:
 
 
 # ── axis_style ────────────────────────────────────────────────────────────────
+
 
 def test_axis_style_dark_returns_light_text() -> None:
     style = axis_style(True)
@@ -49,6 +51,7 @@ def test_axis_style_light_split_line_color() -> None:
 
 # ── apply_dark — no-op when is_dark=False ─────────────────────────────────────
 
+
 def test_apply_dark_noop_when_not_dark() -> None:
     opts: dict = {
         "legend": {"data": ["A"]},
@@ -66,6 +69,7 @@ def test_apply_dark_noop_when_not_dark() -> None:
 
 # ── apply_dark — legend text colour in dark mode ──────────────────────────────
 
+
 def test_apply_dark_sets_legend_text_color() -> None:
     opts: dict = {"legend": {"data": ["Budget", "Actual"]}}
     apply_dark(opts, is_dark=True)
@@ -80,6 +84,7 @@ def test_apply_dark_preserves_existing_legend_keys() -> None:
 
 
 # ── apply_dark — axis label colour in dark mode ───────────────────────────────
+
 
 def test_apply_dark_sets_xaxis_label_color() -> None:
     opts: dict = {"xAxis": {"type": "value"}}
@@ -107,16 +112,16 @@ def test_apply_dark_sets_split_line_color() -> None:
 
 # ── apply_dark — axes given as a list ─────────────────────────────────────────
 
+
 def test_apply_dark_handles_list_of_axes() -> None:
-    opts: dict = {
-        "xAxis": [{"type": "value"}, {"type": "value", "name": "secondary"}]
-    }
+    opts: dict = {"xAxis": [{"type": "value"}, {"type": "value", "name": "secondary"}]}
     apply_dark(opts, is_dark=True)
     for ax in opts["xAxis"]:
         assert ax["axisLabel"]["color"] == DARK_COLOR
 
 
 # ── apply_dark — missing keys handled gracefully ──────────────────────────────
+
 
 def test_apply_dark_no_legend_key_no_error() -> None:
     opts: dict = {"xAxis": {"type": "value"}}
@@ -145,6 +150,7 @@ def test_apply_dark_returns_same_object() -> None:
 
 
 # ── apply_dark — combined legend + axes (realistic chart options) ─────────────
+
 
 def test_apply_dark_full_options_dict() -> None:
     opts: dict = {

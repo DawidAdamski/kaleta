@@ -22,7 +22,6 @@ from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
 from kaleta.services import AccountService, CategoryService, PlannedTransactionService
 
-
 # ── Fixtures & helpers ─────────────────────────────────────────────────────────
 
 
@@ -62,7 +61,6 @@ def _pt(account_id: int, **kwargs) -> PlannedTransactionCreate:
 
 
 class TestPlannedTransactionCreate:
-
     async def test_create_monthly_returns_object_with_id(
         self, svc: PlannedTransactionService, session: AsyncSession
     ):
@@ -73,20 +71,14 @@ class TestPlannedTransactionCreate:
         assert pt.frequency == RecurrenceFrequency.MONTHLY
         assert pt.amount == Decimal("1000.00")
 
-    async def test_create_weekly(
-        self, svc: PlannedTransactionService, session: AsyncSession
-    ):
+    async def test_create_weekly(self, svc: PlannedTransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         pt = await svc.create(_pt(acc_id, name="Groceries", frequency=RecurrenceFrequency.WEEKLY))
         assert pt.frequency == RecurrenceFrequency.WEEKLY
 
-    async def test_create_yearly(
-        self, svc: PlannedTransactionService, session: AsyncSession
-    ):
+    async def test_create_yearly(self, svc: PlannedTransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
-        pt = await svc.create(
-            _pt(acc_id, name="Insurance", frequency=RecurrenceFrequency.YEARLY)
-        )
+        pt = await svc.create(_pt(acc_id, name="Insurance", frequency=RecurrenceFrequency.YEARLY))
         assert pt.frequency == RecurrenceFrequency.YEARLY
 
     async def test_create_with_end_date(
@@ -156,7 +148,6 @@ class TestPlannedTransactionCreate:
 
 
 class TestPlannedTransactionRead:
-
     async def test_get_nonexistent_returns_none(self, svc: PlannedTransactionService):
         assert await svc.get(99999) is None
 
@@ -183,7 +174,6 @@ class TestPlannedTransactionRead:
 
 
 class TestPlannedTransactionToggleActive:
-
     async def test_toggle_active_to_inactive(
         self, svc: PlannedTransactionService, session: AsyncSession
     ):
@@ -221,7 +211,6 @@ class TestPlannedTransactionToggleActive:
 
 
 class TestPlannedTransactionList:
-
     async def test_list_returns_active_and_inactive(
         self, svc: PlannedTransactionService, session: AsyncSession
     ):
@@ -263,13 +252,10 @@ class TestPlannedTransactionList:
 
 
 class TestPlannedTransactionUpdate:
-
     async def test_update_nonexistent_returns_none(self, svc: PlannedTransactionService):
         assert await svc.update(99999, PlannedTransactionUpdate(name="x")) is None
 
-    async def test_update_name(
-        self, svc: PlannedTransactionService, session: AsyncSession
-    ):
+    async def test_update_name(self, svc: PlannedTransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         pt = await svc.create(_pt(acc_id))
         updated = await svc.update(pt.id, PlannedTransactionUpdate(name="New Name"))
@@ -281,10 +267,7 @@ class TestPlannedTransactionUpdate:
 
 
 class TestPlannedTransactionDelete:
-
-    async def test_delete_existing(
-        self, svc: PlannedTransactionService, session: AsyncSession
-    ):
+    async def test_delete_existing(self, svc: PlannedTransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         pt = await svc.create(_pt(acc_id))
         assert await svc.delete(pt.id) is True
@@ -298,7 +281,6 @@ class TestPlannedTransactionDelete:
 
 
 class TestGetOccurrences:
-
     async def test_monthly_generates_multiple_occurrences(
         self, svc: PlannedTransactionService, session: AsyncSession
     ):
@@ -310,9 +292,7 @@ class TestGetOccurrences:
                 start_date=datetime.date(2025, 1, 1),
             )
         )
-        occs = await svc.get_occurrences(
-            datetime.date(2025, 1, 1), datetime.date(2025, 6, 30)
-        )
+        occs = await svc.get_occurrences(datetime.date(2025, 1, 1), datetime.date(2025, 6, 30))
         # Should have occurrences in Feb, Mar, Apr, May, Jun (5) since start=Jan 1
         # and we need dates strictly advancing from start_date into the window
         assert len(occs) >= 2
@@ -322,16 +302,22 @@ class TestGetOccurrences:
     ):
         acc_id = await _make_account(session)
         await svc.create(
-            _pt(acc_id, name="Weekly", frequency=RecurrenceFrequency.WEEKLY,
-                start_date=datetime.date(2025, 1, 1))
+            _pt(
+                acc_id,
+                name="Weekly",
+                frequency=RecurrenceFrequency.WEEKLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
         )
         await svc.create(
-            _pt(acc_id, name="Monthly", frequency=RecurrenceFrequency.MONTHLY,
-                start_date=datetime.date(2025, 1, 1))
+            _pt(
+                acc_id,
+                name="Monthly",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
         )
-        occs = await svc.get_occurrences(
-            datetime.date(2025, 1, 1), datetime.date(2025, 3, 31)
-        )
+        occs = await svc.get_occurrences(datetime.date(2025, 1, 1), datetime.date(2025, 3, 31))
         weekly = [o for o in occs if o.name == "Weekly"]
         monthly = [o for o in occs if o.name == "Monthly"]
         assert len(weekly) > len(monthly)
@@ -348,9 +334,7 @@ class TestGetOccurrences:
                 end_date=datetime.date(2025, 3, 31),
             )
         )
-        occs = await svc.get_occurrences(
-            datetime.date(2025, 1, 1), datetime.date(2025, 12, 31)
-        )
+        occs = await svc.get_occurrences(datetime.date(2025, 1, 1), datetime.date(2025, 12, 31))
         # No occurrence should fall after March 31
         for occ in occs:
             assert occ.date <= datetime.date(2025, 3, 31)
@@ -360,11 +344,8 @@ class TestGetOccurrences:
     ):
         acc_id = await _make_account(session)
         await svc.create(
-            _pt(acc_id, frequency=RecurrenceFrequency.MONTHLY,
-                start_date=datetime.date(2025, 1, 1))
+            _pt(acc_id, frequency=RecurrenceFrequency.MONTHLY, start_date=datetime.date(2025, 1, 1))
         )
-        occs = await svc.get_occurrences(
-            datetime.date(2025, 1, 1), datetime.date(2025, 6, 30)
-        )
+        occs = await svc.get_occurrences(datetime.date(2025, 1, 1), datetime.date(2025, 6, 30))
         dates = [o.date for o in occs]
         assert dates == sorted(dates)

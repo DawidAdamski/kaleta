@@ -4,6 +4,7 @@ Maps scenarios from docs/bdd.md — Feature: Initial Setup Wizard.
 
 The BDD feature describes the "Na start" onboarding section at /wizard.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -21,12 +22,14 @@ _executor = ThreadPoolExecutor(max_workers=1)
 def _run(coro):  # type: ignore[no-untyped-def]
     def _worker():  # type: ignore[no-untyped-def]
         return asyncio.run(coro)
+
     return _executor.submit(_worker).result()
 
 
 # ---------------------------------------------------------------------------
 # Seed helpers (idempotent)
 # ---------------------------------------------------------------------------
+
 
 def seed_institution(name: str) -> int:
     from sqlalchemy import select
@@ -78,37 +81,34 @@ def seed_account(name: str, institution_id: int | None = None) -> int:
 # Scenario: Wizard page loads and shows onboarding section
 # ---------------------------------------------------------------------------
 
+
 def test_wizard_page_loads_with_onboarding_section(page: Page) -> None:
     """Wizard page renders the onboarding card."""
     page.goto(f"{BASE_URL}/wizard")
 
     expect(page.get_by_text("Financial Wizard", exact=True).first).to_be_visible(timeout=5000)
-    expect(
-        page.get_by_text("Getting started — set up your finances")
-    ).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Getting started — set up your finances")).to_be_visible(timeout=5000)
 
 
 # ---------------------------------------------------------------------------
 # Scenario: Wizard shows all four setup step titles
 # ---------------------------------------------------------------------------
 
+
 def test_wizard_shows_all_four_setup_steps(page: Page) -> None:
     """All four onboarding step titles are visible on the wizard page."""
     page.goto(f"{BASE_URL}/wizard")
 
     expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
-    expect(
-        page.get_by_text("Create an account with opening balance")
-    ).to_be_visible(timeout=5000)
-    expect(
-        page.get_by_text("Create expense and income categories")
-    ).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Create an account with opening balance")).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Create expense and income categories")).to_be_visible(timeout=5000)
     expect(page.get_by_text("Import or add transactions")).to_be_visible(timeout=5000)
 
 
 # ---------------------------------------------------------------------------
 # Scenario: Institution step hint shown when no institution exists
 # ---------------------------------------------------------------------------
+
 
 def test_wizard_institution_hint_shown_when_no_institutions(page: Page) -> None:
     """Scenario: Institution step pending hint is visible (not necessarily empty DB)."""
@@ -122,6 +122,7 @@ def test_wizard_institution_hint_shown_when_no_institutions(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Institution step is marked done after adding an institution
 # ---------------------------------------------------------------------------
+
 
 def test_wizard_institution_step_marked_done(page: Page) -> None:
     """Scenario: Wizard marks institution step as done."""
@@ -138,6 +139,7 @@ def test_wizard_institution_step_marked_done(page: Page) -> None:
 # Scenario: Account step marked done after adding an account
 # ---------------------------------------------------------------------------
 
+
 def test_wizard_account_step_marked_done(page: Page) -> None:
     """Wizard marks account step done when at least one account exists."""
     inst_id = seed_institution("mBank Wizard E2E Account")
@@ -152,6 +154,7 @@ def test_wizard_account_step_marked_done(page: Page) -> None:
 # Scenario: Go buttons navigate to correct pages
 # ---------------------------------------------------------------------------
 
+
 def test_wizard_institution_go_button_navigates(page: Page) -> None:
     """Clicking Go/Edit on the institution step navigates to /institutions."""
     page.goto(f"{BASE_URL}/wizard")
@@ -159,9 +162,7 @@ def test_wizard_institution_go_button_navigates(page: Page) -> None:
     # Each onboarding step is a ui.row() (div.row) that contains a label with the
     # step title AND a button. Using `has=` finds the row that *contains* the exact
     # title text, then we click the single button inside that row.
-    row = page.locator("div.row").filter(
-        has=page.get_by_text("Add an institution", exact=True)
-    )
+    row = page.locator("div.row").filter(has=page.get_by_text("Add an institution", exact=True))
     row.get_by_role("button").click()
 
     expect(page).to_have_url(f"{BASE_URL}/institutions", timeout=5000)
@@ -207,6 +208,7 @@ def test_wizard_import_go_button_navigates(page: Page) -> None:
 # Scenario: All-done badge when every step is complete
 # ---------------------------------------------------------------------------
 
+
 def test_wizard_all_done_badge_when_setup_complete(page: Page) -> None:
     """Scenario: All done! badge appears when institution, account, categories, tx all exist."""
     from kaleta.db import AsyncSessionFactory
@@ -222,6 +224,7 @@ def test_wizard_all_done_badge_when_setup_complete(page: Page) -> None:
     async def _seed_cats_and_tx() -> None:
         async with AsyncSessionFactory() as session:
             from sqlalchemy import select
+
             from kaleta.models.category import Category
 
             cat_svc = CategoryService(session)
@@ -229,9 +232,7 @@ def test_wizard_all_done_badge_when_setup_complete(page: Page) -> None:
             async def _get_or_create_cat(name: str, ct: CategoryType) -> int:
                 ex = (
                     await session.execute(
-                        select(Category).where(
-                            Category.name == name, Category.parent_id.is_(None)
-                        )
+                        select(Category).where(Category.name == name, Category.parent_id.is_(None))
                     )
                 ).scalar_one_or_none()
                 if ex:
@@ -239,9 +240,7 @@ def test_wizard_all_done_badge_when_setup_complete(page: Page) -> None:
                 c = await cat_svc.create(CategoryCreate(name=name, type=ct))
                 return c.id
 
-            exp_id = await _get_or_create_cat(
-                "All Done E2E Expense Cat", CategoryType.EXPENSE
-            )
+            exp_id = await _get_or_create_cat("All Done E2E Expense Cat", CategoryType.EXPENSE)
             await _get_or_create_cat("All Done E2E Income Cat", CategoryType.INCOME)
 
             tx_svc = TransactionService(session)

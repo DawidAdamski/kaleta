@@ -15,7 +15,6 @@ def svc(session: AsyncSession) -> CategoryService:
 
 
 class TestCategoryServiceCreate:
-
     async def test_create_expense_category(self, svc: CategoryService):
         cat = await svc.create(CategoryCreate(name="Żywność", type=CategoryType.EXPENSE))
         assert cat.id is not None
@@ -47,7 +46,6 @@ class TestCategoryServiceCreate:
 
 
 class TestCategoryServiceList:
-
     async def test_list_all(self, svc: CategoryService):
         await svc.create(CategoryCreate(name="Food", type=CategoryType.EXPENSE))
         await svc.create(CategoryCreate(name="Salary", type=CategoryType.INCOME))
@@ -74,7 +72,6 @@ class TestCategoryServiceList:
 
 
 class TestCategoryServiceUpdate:
-
     async def test_update_name(self, svc: CategoryService):
         cat = await svc.create(CategoryCreate(name="Old", type=CategoryType.EXPENSE))
         updated = await svc.update(cat.id, CategoryUpdate(name="New"))
@@ -88,7 +85,6 @@ class TestCategoryServiceUpdate:
 
 
 class TestCategoryServiceDelete:
-
     async def test_delete_existing(self, svc: CategoryService):
         cat = await svc.create(CategoryCreate(name="ToDelete", type=CategoryType.EXPENSE))
         assert await svc.delete(cat.id) is True

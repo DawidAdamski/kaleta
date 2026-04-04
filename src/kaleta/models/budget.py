@@ -24,4 +24,7 @@ class Budget(TimestampMixin, Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Budget id={self.id} category_id={self.category_id} {self.month}/{self.year} amount={self.amount}>"
+        return (
+            f"<Budget id={self.id} category_id={self.category_id} "
+            f"{self.month}/{self.year} amount={self.amount}>"
+        )

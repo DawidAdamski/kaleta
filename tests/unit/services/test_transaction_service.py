@@ -21,6 +21,7 @@ TODAY = datetime.date.today()
 
 # ── Fixtures ──────────────────────────────────────────────────────────────────
 
+
 @pytest.fixture
 def svc(session: AsyncSession) -> TransactionService:
     return TransactionService(session)
@@ -55,8 +56,8 @@ def _tx(account_id: int, category_id: int, **kwargs) -> TransactionCreate:
 
 # ── Create ────────────────────────────────────────────────────────────────────
 
-class TestTransactionCreate:
 
+class TestTransactionCreate:
     async def test_create_expense(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
@@ -73,15 +74,17 @@ class TestTransactionCreate:
 
     async def test_create_internal_transfer(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("500.00"),
-            type=TransactionType.TRANSFER,
-            date=TODAY,
-            description="Transfer",
-            is_internal_transfer=True,
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("500.00"),
+                type=TransactionType.TRANSFER,
+                date=TODAY,
+                description="Transfer",
+                is_internal_transfer=True,
+            )
+        )
         assert tx.is_internal_transfer is True
         assert tx.category_id is None
 
@@ -110,13 +113,15 @@ class TestTransactionCreate:
 
 # ── Read ──────────────────────────────────────────────────────────────────────
 
-class TestTransactionRead:
 
+class TestTransactionRead:
     async def test_get_nonexistent_returns_none(self, svc: TransactionService):
         result = await svc.get(99999)
         assert result is None
 
-    async def test_list_returns_most_recent_first(self, svc: TransactionService, session: AsyncSession):
+    async def test_list_returns_most_recent_first(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         old_date = TODAY - datetime.timedelta(days=10)
@@ -138,8 +143,8 @@ class TestTransactionRead:
 
 # ── Update ────────────────────────────────────────────────────────────────────
 
-class TestTransactionUpdate:
 
+class TestTransactionUpdate:
     async def test_update_description(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
@@ -163,8 +168,8 @@ class TestTransactionUpdate:
 
 # ── Delete ────────────────────────────────────────────────────────────────────
 
-class TestTransactionDelete:
 
+class TestTransactionDelete:
     async def test_delete_existing(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
@@ -178,8 +183,8 @@ class TestTransactionDelete:
 
 # ── List filters ───────────────────────────────────────────────────────────────
 
-class TestTransactionListFilters:
 
+class TestTransactionListFilters:
     async def test_filter_by_category_ids(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
@@ -190,7 +195,9 @@ class TestTransactionListFilters:
         assert len(txs) == 1
         assert txs[0].description == "Grocery"
 
-    async def test_filter_by_multiple_category_ids(self, svc: TransactionService, session: AsyncSession):
+    async def test_filter_by_multiple_category_ids(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
@@ -247,31 +254,41 @@ class TestTransactionListFilters:
         exp_cat_id = await _make_category(session, "Food", CategoryType.EXPENSE)
         inc_cat_id = await _make_category(session, "Salary", CategoryType.INCOME)
         await svc.create(_tx(acc_id, exp_cat_id, type=TransactionType.EXPENSE, description="Lunch"))
-        await svc.create(_tx(acc_id, inc_cat_id, type=TransactionType.INCOME, description="Paycheck"))
+        await svc.create(
+            _tx(acc_id, inc_cat_id, type=TransactionType.INCOME, description="Paycheck")
+        )
         txs = await svc.list(tx_types=[TransactionType.EXPENSE])
         assert len(txs) == 1
         assert txs[0].description == "Lunch"
 
-    async def test_filter_by_tx_types_multiple(self, svc: TransactionService, session: AsyncSession):
+    async def test_filter_by_tx_types_multiple(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         exp_cat_id = await _make_category(session, "Food", CategoryType.EXPENSE)
         inc_cat_id = await _make_category(session, "Salary", CategoryType.INCOME)
         await svc.create(_tx(acc_id, exp_cat_id, type=TransactionType.EXPENSE, description="Lunch"))
-        await svc.create(_tx(acc_id, inc_cat_id, type=TransactionType.INCOME, description="Paycheck"))
-        await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("200.00"),
-            type=TransactionType.TRANSFER,
-            date=TODAY,
-            description="Transfer",
-            is_internal_transfer=True,
-        ))
+        await svc.create(
+            _tx(acc_id, inc_cat_id, type=TransactionType.INCOME, description="Paycheck")
+        )
+        await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("200.00"),
+                type=TransactionType.TRANSFER,
+                date=TODAY,
+                description="Transfer",
+                is_internal_transfer=True,
+            )
+        )
         txs = await svc.list(tx_types=[TransactionType.EXPENSE, TransactionType.INCOME])
         descriptions = {t.description for t in txs}
         assert descriptions == {"Lunch", "Paycheck"}
 
-    async def test_filter_by_search_description(self, svc: TransactionService, session: AsyncSession):
+    async def test_filter_by_search_description(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         await svc.create(_tx(acc_id, cat_id, description="Grocery store visit"))
@@ -280,21 +297,27 @@ class TestTransactionListFilters:
         assert len(txs) == 1
         assert txs[0].description == "Grocery store visit"
 
-    async def test_filter_search_is_case_insensitive(self, svc: TransactionService, session: AsyncSession):
+    async def test_filter_search_is_case_insensitive(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         await svc.create(_tx(acc_id, cat_id, description="Coffee shop"))
         txs = await svc.list(search="COFFEE")
         assert len(txs) == 1
 
-    async def test_filter_search_partial_match(self, svc: TransactionService, session: AsyncSession):
+    async def test_filter_search_partial_match(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         await svc.create(_tx(acc_id, cat_id, description="Online subscription renewal"))
         txs = await svc.list(search="subscript")
         assert len(txs) == 1
 
-    async def test_filter_search_no_match_returns_empty(self, svc: TransactionService, session: AsyncSession):
+    async def test_filter_search_no_match_returns_empty(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         await svc.create(_tx(acc_id, cat_id, description="Grocery"))
@@ -321,7 +344,9 @@ class TestTransactionListFilters:
         page3 = await svc.list(limit=1, offset=2)
         assert page3[0].description == "Oldest"
 
-    async def test_combined_filters_account_and_category(self, svc: TransactionService, session: AsyncSession):
+    async def test_combined_filters_account_and_category(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc1_id = await _make_account(session, "Acc1")
         acc2_id = await _make_account(session, "Acc2")
         cat1_id = await _make_category(session, "Food")
@@ -336,8 +361,8 @@ class TestTransactionListFilters:
 
 # ── Count ─────────────────────────────────────────────────────────────────────
 
-class TestTransactionCount:
 
+class TestTransactionCount:
     async def test_count_all(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
@@ -346,7 +371,9 @@ class TestTransactionCount:
         await svc.create(_tx(acc_id, cat_id))
         assert await svc.count() == 2
 
-    async def test_count_filter_by_account_ids(self, svc: TransactionService, session: AsyncSession):
+    async def test_count_filter_by_account_ids(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc1_id = await _make_account(session, "Acc1")
         acc2_id = await _make_account(session, "Acc2")
         cat_id = await _make_category(session)
@@ -356,7 +383,9 @@ class TestTransactionCount:
         assert await svc.count(account_ids=[acc1_id]) == 2
         assert await svc.count(account_ids=[acc2_id]) == 1
 
-    async def test_count_filter_by_category_ids(self, svc: TransactionService, session: AsyncSession):
+    async def test_count_filter_by_category_ids(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
@@ -399,7 +428,9 @@ class TestTransactionCount:
         assert await svc.count(search="store") == 1
         assert await svc.count(search="GROCERY") == 1
 
-    async def test_count_no_match_returns_zero(self, svc: TransactionService, session: AsyncSession):
+    async def test_count_no_match_returns_zero(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         await svc.create(_tx(acc_id, cat_id, description="Lunch"))
@@ -418,63 +449,87 @@ class TestTransactionCount:
 
 # ── Split transactions ─────────────────────────────────────────────────────────
 
-class TestSplitTransactionCreate:
 
-    async def test_create_split_sets_is_split_flag(self, svc: TransactionService, session: AsyncSession):
+class TestSplitTransactionCreate:
+    async def test_create_split_sets_is_split_flag(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("150.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00"), note="Groceries"),
-                TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00"), note="Taxi"),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(
+                        category_id=cat1_id, amount=Decimal("100.00"), note="Groceries"
+                    ),
+                    TransactionSplitCreate(
+                        category_id=cat2_id, amount=Decimal("50.00"), note="Taxi"
+                    ),
+                ],
+            )
+        )
         assert tx.is_split is True
         assert tx.category_id is None
 
-    async def test_create_split_persists_split_rows(self, svc: TransactionService, session: AsyncSession):
+    async def test_create_split_persists_split_rows(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("150.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00"), note="Groceries"),
-                TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00"), note="Taxi"),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(
+                        category_id=cat1_id, amount=Decimal("100.00"), note="Groceries"
+                    ),
+                    TransactionSplitCreate(
+                        category_id=cat2_id, amount=Decimal("50.00"), note="Taxi"
+                    ),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         assert len(fetched.splits) == 2
 
-    async def test_create_split_correct_amounts(self, svc: TransactionService, session: AsyncSession):
+    async def test_create_split_correct_amounts(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("150.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00"), note="Groceries"),
-                TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00"), note="Taxi"),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(
+                        category_id=cat1_id, amount=Decimal("100.00"), note="Groceries"
+                    ),
+                    TransactionSplitCreate(
+                        category_id=cat2_id, amount=Decimal("50.00"), note="Taxi"
+                    ),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         amounts = {s.amount for s in fetched.splits}
@@ -483,92 +538,112 @@ class TestSplitTransactionCreate:
     async def test_create_split_correct_notes(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("100.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00"), note="Special note"),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("100.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(
+                        category_id=cat_id, amount=Decimal("100.00"), note="Special note"
+                    ),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         assert fetched.splits[0].note == "Special note"
 
-    async def test_create_split_correct_category_ids(self, svc: TransactionService, session: AsyncSession):
+    async def test_create_split_correct_category_ids(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("150.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
-                TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         cat_ids = {s.category_id for s in fetched.splits}
         assert cat_ids == {cat1_id, cat2_id}
 
-    async def test_create_split_transaction_id_on_split_rows(self, svc: TransactionService, session: AsyncSession):
+    async def test_create_split_transaction_id_on_split_rows(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("100.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("100.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         assert fetched.splits[0].transaction_id == tx.id
 
-    async def test_create_split_default_note_is_empty_string(self, svc: TransactionService, session: AsyncSession):
+    async def test_create_split_default_note_is_empty_string(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("100.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("100.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         assert fetched.splits[0].note == ""
 
-    async def test_create_single_split_is_allowed(self, svc: TransactionService, session: AsyncSession):
+    async def test_create_single_split_is_allowed(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("75.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("75.00")),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("75.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat_id, amount=Decimal("75.00")),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         assert len(fetched.splits) == 1
@@ -576,29 +651,37 @@ class TestSplitTransactionCreate:
 
 # ── Split transactions — get() eager-loads splits ─────────────────────────────
 
-class TestSplitTransactionGet:
 
-    async def test_get_loads_splits_relationship(self, svc: TransactionService, session: AsyncSession):
+class TestSplitTransactionGet:
+    async def test_get_loads_splits_relationship(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("100.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00"), note="Lunch"),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("100.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(
+                        category_id=cat_id, amount=Decimal("100.00"), note="Lunch"
+                    ),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         # Splits must be accessible without triggering lazy-load errors
         assert len(fetched.splits) == 1
         assert fetched.splits[0].note == "Lunch"
 
-    async def test_get_non_split_has_empty_splits(self, svc: TransactionService, session: AsyncSession):
+    async def test_get_non_split_has_empty_splits(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         tx = await svc.create(_tx(acc_id, cat_id))
@@ -606,20 +689,24 @@ class TestSplitTransactionGet:
         assert fetched is not None
         assert fetched.splits == []
 
-    async def test_get_split_loads_split_category(self, svc: TransactionService, session: AsyncSession):
+    async def test_get_split_loads_split_category(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Groceries")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("100.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("100.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
+                ],
+            )
+        )
         fetched = await svc.get(tx.id)
         assert fetched is not None
         split = fetched.splits[0]
@@ -630,29 +717,35 @@ class TestSplitTransactionGet:
 
 # ── Split transactions — list() eager-loads splits ────────────────────────────
 
-class TestSplitTransactionList:
 
-    async def test_list_includes_splits_for_split_transactions(self, svc: TransactionService, session: AsyncSession):
+class TestSplitTransactionList:
+    async def test_list_includes_splits_for_split_transactions(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat1_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
-        await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("150.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
-                TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
-            ],
-        ))
+        await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
         txs = await svc.list()
         assert len(txs) == 1
         assert len(txs[0].splits) == 2
 
-    async def test_list_non_split_transactions_have_empty_splits(self, svc: TransactionService, session: AsyncSession):
+    async def test_list_non_split_transactions_have_empty_splits(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         await svc.create(_tx(acc_id, cat_id))
@@ -660,45 +753,53 @@ class TestSplitTransactionList:
         assert len(txs) == 1
         assert txs[0].splits == []
 
-    async def test_list_mixed_split_and_normal_transactions(self, svc: TransactionService, session: AsyncSession):
+    async def test_list_mixed_split_and_normal_transactions(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
         cat2_id = await _make_category(session, "Transport")
         # Normal transaction
         await svc.create(_tx(acc_id, cat_id, description="Normal"))
         # Split transaction
-        await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("150.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            description="Split",
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
-                TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
-            ],
-        ))
+        await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                description="Split",
+                splits=[
+                    TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
         txs = await svc.list()
         by_desc = {t.description: t for t in txs}
         assert len(by_desc["Normal"].splits) == 0
         assert len(by_desc["Split"].splits) == 2
 
-    async def test_list_split_loads_split_category(self, svc: TransactionService, session: AsyncSession):
+    async def test_list_split_loads_split_category(
+        self, svc: TransactionService, session: AsyncSession
+    ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Groceries")
-        await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("100.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
-            ],
-        ))
+        await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("100.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
+                ],
+            )
+        )
         txs = await svc.list()
         assert len(txs) == 1
         split = txs[0].splits[0]
@@ -708,24 +809,26 @@ class TestSplitTransactionList:
 
 # ── Split cascades on delete ───────────────────────────────────────────────────
 
-class TestSplitTransactionDelete:
 
+class TestSplitTransactionDelete:
     async def test_delete_split_transaction_removes_splits(
         self, svc: TransactionService, session: AsyncSession
     ):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session, "Food")
-        tx = await svc.create(TransactionCreate(
-            account_id=acc_id,
-            category_id=None,
-            amount=Decimal("100.00"),
-            type=TransactionType.EXPENSE,
-            date=TODAY,
-            is_split=True,
-            splits=[
-                TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
-            ],
-        ))
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("100.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat_id, amount=Decimal("100.00")),
+                ],
+            )
+        )
         tx_id = tx.id
         assert await svc.delete(tx_id) is True
         assert await svc.get(tx_id) is None
@@ -749,7 +852,6 @@ def _transfer_leg(account_id: int, amount: Decimal, **kwargs) -> TransactionCrea
 
 
 class TestCreateTransfer:
-
     async def test_create_transfer_returns_two_transactions(
         self, svc: TransactionService, session: AsyncSession
     ):

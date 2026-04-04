@@ -15,7 +15,7 @@ class AuditLog(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     timestamp: Mapped[datetime.datetime] = mapped_column(
-        DateTime(), nullable=False, default=func.now()
+        DateTime(), nullable=False, default=func.now(), index=True
     )
     operation: Mapped[str] = mapped_column(String(10), nullable=False)  # INSERT UPDATE DELETE
     table_name: Mapped[str] = mapped_column(String(100), nullable=False)

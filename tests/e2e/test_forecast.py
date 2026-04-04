@@ -3,6 +3,7 @@
 Maps scenarios from docs/bdd.md — Feature: Account Balance Forecast.
 Page URL: /forecast
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -20,12 +21,14 @@ _executor = ThreadPoolExecutor(max_workers=1)
 def _run(coro):  # type: ignore[no-untyped-def]
     def _worker():  # type: ignore[no-untyped-def]
         return asyncio.run(coro)
+
     return _executor.submit(_worker).result()
 
 
 # ---------------------------------------------------------------------------
 # Seed helpers (idempotent)
 # ---------------------------------------------------------------------------
+
 
 def seed_account(name: str, currency: str = "PLN") -> int:
     from sqlalchemy import select
@@ -42,9 +45,7 @@ def seed_account(name: str, currency: str = "PLN") -> int:
             ).scalar_one_or_none()
             if existing:
                 return existing.id
-            acc = await AccountService(session).create(
-                AccountCreate(name=name, currency=currency)
-            )
+            acc = await AccountService(session).create(AccountCreate(name=name, currency=currency))
             return acc.id
 
     return _run(_create())
@@ -62,17 +63,13 @@ def seed_category(name: str, cat_type: str = "expense") -> int:
         async with AsyncSessionFactory() as session:
             existing = (
                 await session.execute(
-                    select(Category).where(
-                        Category.name == name, Category.parent_id.is_(None)
-                    )
+                    select(Category).where(Category.name == name, Category.parent_id.is_(None))
                 )
             ).scalar_one_or_none()
             if existing:
                 return existing.id
             ct = CategoryType(cat_type)
-            cat = await CategoryService(session).create(
-                CategoryCreate(name=name, type=ct)
-            )
+            cat = await CategoryService(session).create(CategoryCreate(name=name, type=ct))
             return cat.id
 
     return _run(_create())
@@ -127,6 +124,7 @@ def seed_transactions(account_id: int, category_id: int, n_days: int = 90) -> No
 # Scenario: Forecast page loads and shows controls
 # ---------------------------------------------------------------------------
 
+
 def test_forecast_page_loads(page: Page) -> None:
     """Forecast page renders account selector, horizon selector and Run button."""
     page.goto(f"{BASE_URL}/forecast")
@@ -141,18 +139,20 @@ def test_forecast_page_loads(page: Page) -> None:
 # Scenario: Forecast page shows initial prompt before running
 # ---------------------------------------------------------------------------
 
+
 def test_forecast_page_shows_initial_prompt(page: Page) -> None:
     """Forecast page shows a prompt asking the user to run the forecast."""
     page.goto(f"{BASE_URL}/forecast")
 
-    expect(
-        page.get_by_text("Click 'Run Forecast' to generate predictions.")
-    ).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Click 'Run Forecast' to generate predictions.")).to_be_visible(
+        timeout=5000
+    )
 
 
 # ---------------------------------------------------------------------------
 # Scenario: Run a 30-day forecast for a single account (with sufficient history)
 # ---------------------------------------------------------------------------
+
 
 def test_run_30_day_forecast_single_account(page: Page) -> None:
     """Scenario: Run a 30-day forecast for a single account"""
@@ -184,6 +184,7 @@ def test_run_30_day_forecast_single_account(page: Page) -> None:
 # Scenario: Run a 90-day forecast
 # ---------------------------------------------------------------------------
 
+
 def test_run_90_day_forecast(page: Page) -> None:
     """Scenario: Run a 90-day forecast for a single account"""
     acc_id = seed_account("PKO Forecast 90d E2E")
@@ -213,26 +214,26 @@ def test_run_90_day_forecast(page: Page) -> None:
 # Scenario: Run a forecast for All accounts combined
 # ---------------------------------------------------------------------------
 
+
 def test_run_forecast_all_accounts(page: Page) -> None:
     """Scenario: Run a forecast for all accounts combined"""
     page.goto(f"{BASE_URL}/forecast")
 
     # Default account selection is "All Accounts"
-    expect(
-        page.locator(".q-select").filter(has_text="All Accounts")
-    ).to_be_visible(timeout=5000)
+    expect(page.locator(".q-select").filter(has_text="All Accounts")).to_be_visible(timeout=5000)
 
     page.get_by_role("button", name="Run Forecast").click()
 
     # The initial prompt disappears once the run starts
-    expect(
-        page.get_by_text("Click 'Run Forecast' to generate predictions.")
-    ).not_to_be_visible(timeout=30000)
+    expect(page.get_by_text("Click 'Run Forecast' to generate predictions.")).not_to_be_visible(
+        timeout=30000
+    )
 
 
 # ---------------------------------------------------------------------------
 # Scenario: Warning shown when history is insufficient
 # ---------------------------------------------------------------------------
+
 
 def test_warning_shown_for_insufficient_history(page: Page) -> None:
     """Scenario: Warning shown when history is insufficient"""
@@ -247,6 +248,6 @@ def test_warning_shown_for_insufficient_history(page: Page) -> None:
 
     page.get_by_role("button", name="Run Forecast").click()
 
-    expect(
-        page.get_by_text("Insufficient transaction history for forecasting.")
-    ).to_be_visible(timeout=30000)
+    expect(page.get_by_text("Insufficient transaction history for forecasting.")).to_be_visible(
+        timeout=30000
+    )

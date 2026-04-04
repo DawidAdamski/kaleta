@@ -107,7 +107,9 @@ class ReportService:
                 data[key]["expenses"] = Decimal(str(row.total))
 
         return [
-            MonthCashflow(year=y, month=m, income=data[(y, m)]["income"], expenses=data[(y, m)]["expenses"])
+            MonthCashflow(
+                year=y, month=m, income=data[(y, m)]["income"], expenses=data[(y, m)]["expenses"]
+            )
             for y, m in months
         ]
 

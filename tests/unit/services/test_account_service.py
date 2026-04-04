@@ -23,7 +23,6 @@ def svc(session: AsyncSession) -> AccountService:
 
 
 class TestAccountServiceCreate:
-
     async def test_create_returns_account_with_id(self, svc: AccountService):
         account = await svc.create(AccountCreate(name="Test", type=AccountType.CHECKING))
         assert account.id is not None
@@ -35,9 +34,9 @@ class TestAccountServiceCreate:
         assert account.type == AccountType.CHECKING
 
     async def test_create_preserves_all_fields(self, svc: AccountService):
-        account = await svc.create(AccountCreate(
-            name="Savings", type=AccountType.SAVINGS, balance=Decimal("1234.56")
-        ))
+        account = await svc.create(
+            AccountCreate(name="Savings", type=AccountType.SAVINGS, balance=Decimal("1234.56"))
+        )
         assert account.name == "Savings"
         assert account.type == AccountType.SAVINGS
         assert account.balance == Decimal("1234.56")
@@ -59,7 +58,6 @@ class TestAccountServiceCreate:
 
 
 class TestAccountServiceRead:
-
     async def test_get_nonexistent_returns_none(self, svc: AccountService):
         result = await svc.get(99999)
         assert result is None
@@ -79,7 +77,6 @@ class TestAccountServiceRead:
 
 
 class TestAccountServiceUpdate:
-
     async def test_update_name(self, svc: AccountService):
         account = await svc.create(AccountCreate(name="Old"))
         updated = await svc.update(account.id, AccountUpdate(name="New"))
@@ -98,7 +95,6 @@ class TestAccountServiceUpdate:
 
 
 class TestAccountServiceDelete:
-
     async def test_delete_existing(self, svc: AccountService):
         account = await svc.create(AccountCreate(name="To Delete"))
         result = await svc.delete(account.id)
@@ -111,7 +107,6 @@ class TestAccountServiceDelete:
 
 
 class TestAccountServiceAdjustBalance:
-
     async def test_adjust_balance_positive(self, svc: AccountService):
         account = await svc.create(AccountCreate(name="Test", balance=Decimal("100.00")))
         await svc.adjust_balance(account.id, Decimal("50.00"))

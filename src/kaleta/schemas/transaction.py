@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -86,10 +86,8 @@ class TransactionResponse(TransactionBase):
 
     @model_validator(mode="wrap")
     @classmethod
-    def _set_payee_name(
-        cls, value: Any, handler: Any
-    ) -> TransactionResponse:
-        obj = handler(value)
+    def _set_payee_name(cls, value: Any, handler: Any) -> TransactionResponse:
+        obj = cast(TransactionResponse, handler(value))
         if hasattr(value, "payee") and value.payee is not None:
             obj.payee_name = value.payee.name
         return obj

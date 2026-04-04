@@ -8,6 +8,7 @@ Create Date: 2026-03-09 00:00:00.000000
 from __future__ import annotations
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision = "b0c1d2e3f4a5"
@@ -46,12 +47,8 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["account_id"], ["accounts.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["category_id"], ["categories.id"], ondelete="SET NULL"),
     )
-    op.create_index(
-        "ix_planned_transactions_account_id", "planned_transactions", ["account_id"]
-    )
-    op.create_index(
-        "ix_planned_transactions_start_date", "planned_transactions", ["start_date"]
-    )
+    op.create_index("ix_planned_transactions_account_id", "planned_transactions", ["account_id"])
+    op.create_index("ix_planned_transactions_start_date", "planned_transactions", ["start_date"])
 
 
 def downgrade() -> None:

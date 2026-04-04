@@ -20,7 +20,9 @@ class AccountService:
 
     async def get(self, account_id: int) -> Account | None:
         result = await self.session.execute(
-            select(Account).options(selectinload(Account.institution)).where(Account.id == account_id)
+            select(Account)
+            .options(selectinload(Account.institution))
+            .where(Account.id == account_id)
         )
         return result.scalar_one_or_none()
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from nicegui import app, ui
 
@@ -15,11 +16,20 @@ from kaleta.views.layout import page_layout
 
 def _month_labels() -> list[str]:
     return [
-        t("budget_plan.jan"), t("budget_plan.feb"), t("budget_plan.mar"),
-        t("budget_plan.apr"), t("budget_plan.may"), t("budget_plan.jun"),
-        t("budget_plan.jul"), t("budget_plan.aug"), t("budget_plan.sep"),
-        t("budget_plan.oct"), t("budget_plan.nov"), t("budget_plan.dec"),
+        t("budget_plan.jan"),
+        t("budget_plan.feb"),
+        t("budget_plan.mar"),
+        t("budget_plan.apr"),
+        t("budget_plan.may"),
+        t("budget_plan.jun"),
+        t("budget_plan.jul"),
+        t("budget_plan.aug"),
+        t("budget_plan.sep"),
+        t("budget_plan.oct"),
+        t("budget_plan.nov"),
+        t("budget_plan.dec"),
     ]
+
 
 # Flex-based column styles — month columns grow to fill available width
 _S_CAT = "flex: 0 0 175px; min-width: 0; overflow: hidden"
@@ -57,9 +67,9 @@ def register() -> None:
     @ui.page("/budget-plan")
     async def budget_plan_page() -> None:
         today = datetime.date.today()
-        state: dict = {
+        state: dict[str, Any] = {
             "years": {today.year},
-            "edit_year": today.year,   # year used by edit dialogs (single-year mode)
+            "edit_year": today.year,  # year used by edit dialogs (single-year mode)
             "cat_id": None,
             "month": None,
         }
@@ -72,16 +82,14 @@ def register() -> None:
 
             async def save_cell() -> None:
                 amount = Decimal(str(cell_amount.value or 0))
-                cat_id: int = state["cat_id"]  # type: ignore[assignment]
-                month: int = state["month"]  # type: ignore[assignment]
+                cat_id = int(state["cat_id"])
+                month = int(state["month"])
                 year: int = state["edit_year"]
                 async with AsyncSessionFactory() as session:
                     svc = BudgetService(session)
                     if amount > 0:
                         await svc.upsert(
-                            BudgetCreate(
-                                category_id=cat_id, amount=amount, month=month, year=year
-                            )
+                            BudgetCreate(category_id=cat_id, amount=amount, month=month, year=year)
                         )
                     else:
                         existing = await svc.get_by_category_period(cat_id, month, year)
@@ -93,10 +101,15 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=cell_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_cell).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                save_cell() if e.key == "Enter" and e.action.keydown else
-                cell_dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    save_cell()
+                    if e.key == "Enter" and e.action.keydown
+                    else cell_dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Monthly dialog (fill all 12 months) ────────────────────────────
         with ui.dialog() as monthly_dialog, ui.card().classes("w-72"):
@@ -115,15 +128,13 @@ def register() -> None:
                 if amount <= 0:
                     ui.notify(t("budget_plan.amount_positive"), type="warning")
                     return
-                cat_id: int = state["cat_id"]  # type: ignore[assignment]
+                cat_id = int(state["cat_id"])
                 year: int = state["edit_year"]
                 async with AsyncSessionFactory() as session:
                     svc = BudgetService(session)
                     for m in range(1, 13):
                         await svc.upsert(
-                            BudgetCreate(
-                                category_id=cat_id, amount=amount, month=m, year=year
-                            )
+                            BudgetCreate(category_id=cat_id, amount=amount, month=m, year=year)
                         )
                 ui.notify(t("budget_plan.monthly_set"), type="positive")
                 plan_grid.refresh()
@@ -132,23 +143,30 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=monthly_dialog.close).props("flat")
                 ui.button(t("budget_plan.apply_all"), on_click=save_monthly).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                save_monthly() if e.key == "Enter" and e.action.keydown else
-                monthly_dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    save_monthly()
+                    if e.key == "Enter" and e.action.keydown
+                    else monthly_dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Yearly dialog (spread total evenly) ────────────────────────────
         with ui.dialog() as yearly_dialog, ui.card().classes("w-72"):
             yearly_title = ui.label("").classes("text-base font-bold mb-3")
-            yearly_amount = ui.number(
-                t("budget_plan.yearly_total"), min=0, format="%.2f"
-            ).classes("w-full")
+            yearly_amount = ui.number(t("budget_plan.yearly_total"), min=0, format="%.2f").classes(
+                "w-full"
+            )
             yearly_preview = ui.label("").classes("text-xs text-grey-5 mt-1")
 
             def _update_preview(e: object) -> None:  # noqa: ARG001
                 try:
                     total_val = float(yearly_amount.value or 0)
-                    yearly_preview.set_text(t("budget_plan.per_month_preview", amount=f"{total_val / 12:,.2f}"))
+                    yearly_preview.set_text(
+                        t("budget_plan.per_month_preview", amount=f"{total_val / 12:,.2f}")
+                    )
                 except (TypeError, ZeroDivisionError):
                     yearly_preview.set_text("")
 
@@ -164,15 +182,13 @@ def register() -> None:
                     ui.notify(t("budget_plan.amount_positive"), type="warning")
                     return
                 monthly = (total / 12).quantize(Decimal("0.01"))
-                cat_id: int = state["cat_id"]  # type: ignore[assignment]
+                cat_id = int(state["cat_id"])
                 year: int = state["edit_year"]
                 async with AsyncSessionFactory() as session:
                     svc = BudgetService(session)
                     for m in range(1, 13):
                         await svc.upsert(
-                            BudgetCreate(
-                                category_id=cat_id, amount=monthly, month=m, year=year
-                            )
+                            BudgetCreate(category_id=cat_id, amount=monthly, month=m, year=year)
                         )
                 ui.notify(t("budget_plan.yearly_set", amount=f"{monthly:,.2f}"), type="positive")
                 plan_grid.refresh()
@@ -180,13 +196,18 @@ def register() -> None:
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=yearly_dialog.close).props("flat")
-                ui.button(
-                    t("budget_plan.distribute_evenly"), on_click=save_yearly
-                ).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                save_yearly() if e.key == "Enter" and e.action.keydown else
-                yearly_dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+                ui.button(t("budget_plan.distribute_evenly"), on_click=save_yearly).props(
+                    "color=primary"
+                )
+            ui.keyboard(
+                on_key=lambda e: (
+                    save_yearly()
+                    if e.key == "Enter" and e.action.keydown
+                    else yearly_dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Grid ───────────────────────────────────────────────────────────
         @ui.refreshable
@@ -212,9 +233,7 @@ def register() -> None:
             cell_cls = "text-sm text-center py-1 px-1"
             row_cls = "items-center no-wrap gap-0 border-b"
 
-            def _open_cell(
-                cat_id: int, month: int, cat_name: str, current: Decimal | None
-            ) -> None:
+            def _open_cell(cat_id: int, month: int, cat_name: str, current: Decimal | None) -> None:
                 state["cat_id"] = cat_id
                 state["month"] = month
                 cell_title.set_text(
@@ -229,13 +248,17 @@ def register() -> None:
                 monthly_amount.set_value(round(suggest, 2))
                 monthly_dialog.open()
 
-            def _open_yearly(cat_id: int, cat_name: str, bmap: dict) -> None:
+            def _open_yearly(
+                cat_id: int, cat_name: str, bmap: dict[tuple[int, int], Decimal]
+            ) -> None:
                 state["cat_id"] = cat_id
                 yearly_title.set_text(cat_name)
                 total = sum(bmap.get((cat_id, m), Decimal("0")) for m in range(1, 13))
                 yearly_amount.set_value(float(total))
                 yearly_preview.set_text(
-                    t("budget_plan.per_month_preview", amount=f"{float(total) / 12:,.2f}") if total else ""
+                    t("budget_plan.per_month_preview", amount=f"{float(total) / 12:,.2f}")
+                    if total
+                    else ""
                 )
                 yearly_dialog.open()
 
@@ -265,15 +288,13 @@ def register() -> None:
                     )
                     label_text = f"{amount:,.0f}" if amount else "—"
                     color = (
-                        "text-orange-8" if is_override
-                        else "text-primary" if amount
+                        "text-orange-8"
+                        if is_override
+                        else "text-primary"
+                        if amount
                         else "text-grey-4"
                     )
-                    lbl = (
-                        ui.label(label_text)
-                        .classes(f"{cell_cls} {color}")
-                        .style(_S_MON)
-                    )
+                    lbl = ui.label(label_text).classes(f"{cell_cls} {color}").style(_S_MON)
                     if clickable:
                         lbl.classes("cursor-pointer hover:bg-blue-1 rounded")
                         lbl.on(
@@ -283,32 +304,28 @@ def register() -> None:
                 return cat_total
 
             # ── Table ─────────────────────────────────────────────────────
-            with ui.element("div").classes(
-                "overflow-x-auto w-full rounded-lg border"
-            ), ui.element("div").style(_INNER_MIN):
-
+            with (
+                ui.element("div").classes("overflow-x-auto w-full rounded-lg border"),
+                ui.element("div").style(_INNER_MIN),
+            ):
                 # Header
                 with ui.row().classes(f"{row_cls} {hdr_cls} font-bold"):
-                    ui.label(t("common.category")).classes(
-                        "text-sm font-bold px-3 py-2"
-                    ).style(_S_CAT)
+                    ui.label(t("common.category")).classes("text-sm font-bold px-3 py-2").style(
+                        _S_CAT
+                    )
                     if not is_compare:
-                        ui.label(t("common.month")).classes(
-                            f"{cell_cls} font-bold"
-                        ).style(_S_REC)
+                        ui.label(t("common.month")).classes(f"{cell_cls} font-bold").style(_S_REC)
                     else:
-                        ui.label(t("common.year")).classes(
-                            f"{cell_cls} font-bold"
-                        ).style(_S_REC)
+                        ui.label(t("common.year")).classes(f"{cell_cls} font-bold").style(_S_REC)
                     for m_lbl in _month_labels():
                         ui.label(m_lbl).classes(f"{cell_cls} font-bold").style(_S_MON)
                     ui.label(t("budget_plan.year_total")).classes(
                         "text-sm font-bold px-3 py-2 text-right"
                     ).style(_S_TOT)
                     if not is_compare:
-                        ui.label(t("common.actions")).classes(
-                            "text-sm font-bold px-3 py-2"
-                        ).style(_S_ACT)
+                        ui.label(t("common.actions")).classes("text-sm font-bold px-3 py-2").style(
+                            _S_ACT
+                        )
 
                 # ── Single-year planning mode ──────────────────────────────
                 if not is_compare:
@@ -338,8 +355,10 @@ def register() -> None:
 
                         # ── Plan row ──────────────────────────────────────
                         with ui.row().classes(f"{row_cls} {row_hover}"):
-                            with ui.element("div").style(_S_CAT).classes(
-                                "flex items-center gap-1 py-1 overflow-hidden"
+                            with (
+                                ui.element("div")
+                                .style(_S_CAT)
+                                .classes("flex items-center gap-1 py-1 overflow-hidden")
                             ):
                                 if is_child:
                                     ui.icon("subdirectory_arrow_right").classes(
@@ -375,8 +394,10 @@ def register() -> None:
                                 )
                                 label_text = f"{amount:,.0f}" if amount else "—"
                                 color = (
-                                    "text-orange-8" if is_override
-                                    else "text-primary" if amount
+                                    "text-orange-8"
+                                    if is_override
+                                    else "text-primary"
+                                    if amount
                                     else "text-grey-4"
                                 )
                                 (
@@ -400,9 +421,7 @@ def register() -> None:
                             with ui.row().classes("gap-0 px-1 items-center").style(_S_ACT):
                                 ui.button(
                                     icon="event_note",
-                                    on_click=lambda c=cat, bm=bmap: _open_yearly(
-                                        c.id, c.name, bm
-                                    ),
+                                    on_click=lambda c=cat, bm=bmap: _open_yearly(c.id, c.name, bm),
                                 ).props("flat round dense size=sm color=orange-8").tooltip(
                                     t("budget_plan.set_from_yearly")
                                 )
@@ -430,18 +449,18 @@ def register() -> None:
                                         actual_month_totals[idx] += actual
                                     over = actual and planned and actual > planned
                                     act_color = (
-                                        "text-red-6" if over
-                                        else "text-green-6" if actual
+                                        "text-red-6"
+                                        if over
+                                        else "text-green-6"
+                                        if actual
                                         else "text-grey-4"
                                     )
                                     ui.label(f"{actual:,.0f}" if actual else "—").classes(
                                         f"text-xs text-center py-0 px-1 {act_color}"
                                     ).style(_S_MON)
-                                ui.label(
-                                    f"{actual_total:,.0f}" if actual_total else "—"
-                                ).classes("text-xs text-right px-3 py-0 text-grey-6").style(
-                                    _S_TOT
-                                )
+                                ui.label(f"{actual_total:,.0f}" if actual_total else "—").classes(
+                                    "text-xs text-right px-3 py-0 text-grey-6"
+                                ).style(_S_TOT)
                                 ui.label("").style(_S_ACT)
 
                     # Totals row (plan)
@@ -467,9 +486,9 @@ def register() -> None:
                         ).style(_S_CAT)
                         ui.label("").style(_S_REC)
                         for tot in actual_month_totals:
-                            ui.label(f"{tot:,.0f}" if tot else "—").classes(
-                                f"{cell_cls}"
-                            ).style(_S_MON)
+                            ui.label(f"{tot:,.0f}" if tot else "—").classes(f"{cell_cls}").style(
+                                _S_MON
+                            )
                         ui.label(f"{grand_actual:,.0f}" if grand_actual else "—").classes(
                             "text-sm font-bold text-right px-3 py-2"
                         ).style(_S_TOT)
@@ -486,9 +505,7 @@ def register() -> None:
                         if is_child:
                             cat_label = "   └ " + cat.name
                         with ui.row().classes(f"{row_cls} {sub_bg}"):
-                            ui.label(cat_label).classes(
-                                "text-sm font-semibold px-3 py-1 flex-1"
-                            )
+                            ui.label(cat_label).classes("text-sm font-semibold px-3 py-1 flex-1")
 
                         # One sub-row per year (plan + actual)
                         for y in selected_years:
@@ -526,9 +543,9 @@ def register() -> None:
                                         cat_total += amount
                                     label_text = f"{amount:,.0f}" if amount else "—"
                                     color = "text-primary" if amount else "text-grey-4"
-                                    ui.label(label_text).classes(
-                                        f"{cell_cls} {color}"
-                                    ).style(_S_MON)
+                                    ui.label(label_text).classes(f"{cell_cls} {color}").style(
+                                        _S_MON
+                                    )
 
                                 ui.label(f"{cat_total:,.0f}" if cat_total else "—").classes(
                                     "text-sm text-right px-3 py-1 font-medium"
@@ -550,24 +567,24 @@ def register() -> None:
                                         actual_total += actual
                                     over = actual and planned and actual > planned
                                     act_color = (
-                                        "text-red-6" if over
-                                        else "text-green-6" if actual
+                                        "text-red-6"
+                                        if over
+                                        else "text-green-6"
+                                        if actual
                                         else "text-grey-4"
                                     )
                                     ui.label(f"{actual:,.0f}" if actual else "—").classes(
                                         f"text-xs text-center py-0 px-1 {act_color}"
                                     ).style(_S_MON)
-                                ui.label(
-                                    f"{actual_total:,.0f}" if actual_total else "—"
-                                ).classes("text-xs text-right px-3 py-0 text-grey-6").style(
-                                    _S_TOT
-                                )
+                                ui.label(f"{actual_total:,.0f}" if actual_total else "—").classes(
+                                    "text-xs text-right px-3 py-0 text-grey-6"
+                                ).style(_S_TOT)
 
                     # Totals row per year
                     with ui.row().classes(f"{row_cls} {hdr_cls} font-bold border-t-2"):
-                        ui.label(t("common.total")).classes(
-                            "text-sm font-bold px-3 py-2"
-                        ).style(_S_CAT)
+                        ui.label(t("common.total")).classes("text-sm font-bold px-3 py-2").style(
+                            _S_CAT
+                        )
                         ui.label("").style(_S_REC)
                         # Show grand totals summed across all years (per month column)
                         month_col_totals = [Decimal("0")] * 12

@@ -42,7 +42,6 @@ def _base(**kwargs) -> dict:
 
 
 class TestTransactionCreate:
-
     def test_valid_expense(self):
         schema = TransactionCreate(**_base())
         assert schema.amount == Decimal("100.00")
@@ -128,19 +127,23 @@ class TestTransactionCreate:
             TransactionCreate(**_base(category_id=None, type=TransactionType.INCOME))
 
     def test_transfer_without_category_allowed(self):
-        schema = TransactionCreate(**_base(
-            category_id=None,
-            type=TransactionType.TRANSFER,
-            is_internal_transfer=True,
-        ))
+        schema = TransactionCreate(
+            **_base(
+                category_id=None,
+                type=TransactionType.TRANSFER,
+                is_internal_transfer=True,
+            )
+        )
         assert schema.category_id is None
 
     def test_internal_transfer_with_wrong_type_rejected(self):
         with pytest.raises(ValidationError, match="type"):
-            TransactionCreate(**_base(
-                type=TransactionType.EXPENSE,
-                is_internal_transfer=True,
-            ))
+            TransactionCreate(
+                **_base(
+                    type=TransactionType.EXPENSE,
+                    is_internal_transfer=True,
+                )
+            )
 
     # ── Security ──────────────────────────────────────────────────────────
 
@@ -180,7 +183,6 @@ class TestTransactionCreate:
 
 
 class TestTransactionExchangeRate:
-
     def test_exchange_rate_defaults_to_none(self):
         schema = TransactionCreate(
             account_id=1,
@@ -227,7 +229,6 @@ class TestTransactionExchangeRate:
 
 
 class TestTransactionUpdate:
-
     def test_all_optional(self):
         schema = TransactionUpdate()
         assert schema.amount is None

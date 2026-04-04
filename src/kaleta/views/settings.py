@@ -32,11 +32,7 @@ def register() -> None:
             {a.currency for a in accounts if a.currency != default_currency}
         )
         # All pairs stored in DB that involve the default currency
-        relevant_pairs = [
-            (fc, tc)
-            for (fc, tc) in rate_pairs
-            if tc == default_currency
-        ]
+        relevant_pairs = [(fc, tc) for (fc, tc) in rate_pairs if tc == default_currency]
         # Also add pairs for foreign accounts not yet in DB
         existing_froms = {fc for (fc, _) in relevant_pairs}
         for cur in foreign_currencies:
@@ -91,15 +87,12 @@ def register() -> None:
                     with ui.row().classes("items-center gap-2 mb-1"):
                         ui.icon("swap_horiz", color="primary").classes("text-xl")
                         ui.label(t("settings.exchange_rates")).classes("text-lg font-semibold")
-                    ui.label(t("settings.exchange_rates_hint")).classes(
-                        "text-xs text-grey-6 mb-4"
-                    )
+                    ui.label(t("settings.exchange_rates_hint")).classes("text-xs text-grey-6 mb-4")
 
                     if not relevant_pairs and not foreign_currencies:
-                        ui.label(t("settings.no_foreign_accounts")).classes(
-                            "text-grey-5 text-sm"
-                        )
+                        ui.label(t("settings.no_foreign_accounts")).classes("text-grey-5 text-sm")
                     else:
+
                         @ui.refreshable
                         async def rates_table() -> None:
                             async with AsyncSessionFactory() as s:
@@ -117,14 +110,30 @@ def register() -> None:
                                 )
                             else:
                                 cols = [
-                                    {"name": "date", "label": t("common.date"),
-                                     "field": "date", "align": "left"},
-                                    {"name": "pair", "label": t("settings.rate_pair"),
-                                     "field": "pair", "align": "left"},
-                                    {"name": "rate", "label": t("settings.rate_value"),
-                                     "field": "rate", "align": "right"},
-                                    {"name": "actions", "label": "",
-                                     "field": "id", "align": "right"},
+                                    {
+                                        "name": "date",
+                                        "label": t("common.date"),
+                                        "field": "date",
+                                        "align": "left",
+                                    },
+                                    {
+                                        "name": "pair",
+                                        "label": t("settings.rate_pair"),
+                                        "field": "pair",
+                                        "align": "left",
+                                    },
+                                    {
+                                        "name": "rate",
+                                        "label": t("settings.rate_value"),
+                                        "field": "rate",
+                                        "align": "right",
+                                    },
+                                    {
+                                        "name": "actions",
+                                        "label": "",
+                                        "field": "id",
+                                        "align": "right",
+                                    },
                                 ]
                                 table_rows = [
                                     {
@@ -135,9 +144,11 @@ def register() -> None:
                                     }
                                     for r in all_rows
                                 ]
-                                tbl = ui.table(
-                                    columns=cols, rows=table_rows, row_key="id"
-                                ).classes("w-full").props("flat dense")
+                                tbl = (
+                                    ui.table(columns=cols, rows=table_rows, row_key="id")
+                                    .classes("w-full")
+                                    .props("flat dense")
+                                )
                                 tbl.add_slot(
                                     "body-cell-actions",
                                     """
@@ -167,7 +178,9 @@ def register() -> None:
                         dlg_from = ui.select(
                             fc_options,
                             label=t("settings.rate_from_currency"),
-                            value=foreign_currencies[0] if foreign_currencies else COMMON_CURRENCIES[1],  # noqa: E501
+                            value=foreign_currencies[0]
+                            if foreign_currencies
+                            else COMMON_CURRENCIES[1],  # noqa: E501
                         ).classes("w-full")
                         dlg_rate = ui.number(
                             t("settings.rate_value"),
@@ -175,13 +188,15 @@ def register() -> None:
                             format="%.6f",
                             step=0.01,
                         ).classes("w-full")
-                        dlg_date = ui.input(
-                            t("common.date"),
-                            value=str(datetime.date.today()),
-                        ).props("type=date").classes("w-full")
-                        dlg_also_inverse = ui.checkbox(
-                            t("settings.also_store_inverse"), value=True
+                        dlg_date = (
+                            ui.input(
+                                t("common.date"),
+                                value=str(datetime.date.today()),
+                            )
+                            .props("type=date")
+                            .classes("w-full")
                         )
+                        dlg_also_inverse = ui.checkbox(t("settings.also_store_inverse"), value=True)
 
                         async def _save_rate() -> None:
                             try:
@@ -198,19 +213,23 @@ def register() -> None:
                             fc = dlg_from.value or "EUR"
                             async with AsyncSessionFactory() as s:
                                 svc = CurrencyRateService(s)
-                                await svc.create(CurrencyRateCreate(
-                                    date=on_date,
-                                    from_currency=fc,
-                                    to_currency=default_currency,
-                                    rate=rate_val,
-                                ))
-                                if dlg_also_inverse.value:
-                                    await svc.create(CurrencyRateCreate(
+                                await svc.create(
+                                    CurrencyRateCreate(
                                         date=on_date,
-                                        from_currency=default_currency,
-                                        to_currency=fc,
-                                        rate=Decimal("1") / rate_val,
-                                    ))
+                                        from_currency=fc,
+                                        to_currency=default_currency,
+                                        rate=rate_val,
+                                    )
+                                )
+                                if dlg_also_inverse.value:
+                                    await svc.create(
+                                        CurrencyRateCreate(
+                                            date=on_date,
+                                            from_currency=default_currency,
+                                            to_currency=fc,
+                                            rate=Decimal("1") / rate_val,
+                                        )
+                                    )
                             ui.notify(t("settings.rate_saved"), type="positive")
                             add_dlg.close()
                             rates_table.refresh()
@@ -219,9 +238,9 @@ def register() -> None:
                             ui.button(t("common.cancel"), on_click=add_dlg.close).props("flat")
                             ui.button(t("common.save"), on_click=_save_rate).props("color=primary")
 
-                    ui.button(
-                        t("settings.add_rate"), icon="add", on_click=add_dlg.open
-                    ).props("flat color=primary").classes("mt-3")
+                    ui.button(t("settings.add_rate"), icon="add", on_click=add_dlg.open).props(
+                        "flat color=primary"
+                    ).classes("mt-3")
 
             # ── Backup & Restore ──────────────────────────────────────────────
             with ui.card().classes("p-6 w-full mt-4"):
@@ -241,9 +260,7 @@ def register() -> None:
                 restore_dlg = ui.dialog()
                 with restore_dlg, ui.card().classes("w-[480px]"):
                     ui.label(t("settings.restore_title")).classes("text-lg font-semibold mb-1")
-                    ui.label(t("settings.restore_warning")).classes(
-                        "text-sm text-negative mb-4"
-                    )
+                    ui.label(t("settings.restore_warning")).classes("text-sm text-negative mb-4")
 
                     uploaded_bytes: list[bytes] = []
 
@@ -269,15 +286,11 @@ def register() -> None:
                             async with AsyncSessionFactory() as s:
                                 counts = await BackupService(s).restore(uploaded_bytes[0])
                             total = sum(counts.values())
-                            ui.notify(
-                                t("settings.restore_done", total=total), type="positive"
-                            )
+                            ui.notify(t("settings.restore_done", total=total), type="positive")
                             restore_dlg.close()
                             ui.navigate.reload()
                         except Exception as exc:
-                            ui.notify(
-                                t("settings.restore_error", error=str(exc)), type="negative"
-                            )
+                            ui.notify(t("settings.restore_error", error=str(exc)), type="negative")
                             restore_btn.enable()
 
                     with ui.row().classes("w-full justify-end gap-2 mt-3"):
@@ -341,9 +354,7 @@ def register() -> None:
                     ui.label(t("settings.seed_confirm_title")).classes(
                         "text-base font-semibold mb-1"
                     )
-                    ui.label(t("settings.seed_confirm_body")).classes(
-                        "text-sm text-grey-7 mb-4"
-                    )
+                    ui.label(t("settings.seed_confirm_body")).classes("text-sm text-grey-7 mb-4")
                     with ui.row().classes("w-full justify-end gap-2"):
                         ui.button(t("common.cancel"), on_click=seed_dlg.close).props("flat")
                         ui.button(
@@ -358,13 +369,9 @@ def register() -> None:
                     ui.label(t("settings.clear_confirm_title")).classes(
                         "text-base font-semibold mb-1"
                     )
-                    ui.label(t("settings.clear_confirm_body")).classes(
-                        "text-sm text-negative mb-4"
-                    )
+                    ui.label(t("settings.clear_confirm_body")).classes("text-sm text-negative mb-4")
                     with ui.row().classes("w-full justify-end gap-2"):
-                        ui.button(t("common.cancel"), on_click=clear_data_dlg.close).props(
-                            "flat"
-                        )
+                        ui.button(t("common.cancel"), on_click=clear_data_dlg.close).props("flat")
                         ui.button(
                             t("settings.clear_btn"),
                             icon="delete_forever",
@@ -372,9 +379,9 @@ def register() -> None:
                         ).props("color=negative unelevated")
 
                 with ui.row().classes("gap-3"):
-                    ui.button(
-                        t("settings.seed_btn"), icon="science", on_click=seed_dlg.open
-                    ).props("color=primary")
+                    ui.button(t("settings.seed_btn"), icon="science", on_click=seed_dlg.open).props(
+                        "color=primary"
+                    )
                     ui.button(
                         t("settings.clear_btn"),
                         icon="delete_forever",
@@ -390,9 +397,7 @@ def register() -> None:
                     ui.button(
                         t("audit.clear"), icon="delete_sweep", on_click=lambda: _confirm_clear()
                     ).props("flat dense color=negative size=sm")
-                ui.label(t("audit.hint", n=MAX_AUDIT_ENTRIES)).classes(
-                    "text-xs text-grey-6 mb-4"
-                )
+                ui.label(t("audit.hint", n=MAX_AUDIT_ENTRIES)).classes("text-xs text-grey-6 mb-4")
 
                 async def _do_revert(audit_id: int) -> None:
                     try:
@@ -464,22 +469,18 @@ def register() -> None:
                             row_cls += " opacity-50"
 
                         with ui.row().classes(row_cls):
-                            ui.label(
-                                entry.timestamp.strftime("%Y-%m-%d %H:%M:%S")
-                            ).classes("w-40 text-sm font-mono text-grey-7")
+                            ui.label(entry.timestamp.strftime("%Y-%m-%d %H:%M:%S")).classes(
+                                "w-40 text-sm font-mono text-grey-7"
+                            )
                             ui.badge(op_label, color=color).classes("w-28 text-center")
                             ui.label(entry.table_name).classes("w-36 text-sm")
                             ui.label(
                                 str(entry.record_id) if entry.record_id is not None else "—"
                             ).classes("w-16 text-right text-sm text-grey-6")
-                            ui.label(summary).classes(
-                                "flex-1 text-sm text-grey-7 truncate"
-                            )
+                            ui.label(summary).classes("flex-1 text-sm text-grey-7 truncate")
                             with ui.row().classes("w-24 justify-end"):
                                 if entry.reverted:
-                                    ui.badge(t("audit.reverted"), color="grey").classes(
-                                        "text-xs"
-                                    )
+                                    ui.badge(t("audit.reverted"), color="grey").classes("text-xs")
                                 else:
                                     ui.button(
                                         t("audit.revert"),

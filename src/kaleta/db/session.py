@@ -4,9 +4,11 @@ All modules that import `AsyncSessionFactory` share the same proxy object.
 Calling `AsyncSessionFactory.configure(url)` replaces the internal factory
 without requiring importers to re-import anything.
 """
+
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
@@ -27,7 +29,7 @@ class _SessionProxy:
         self._init(settings.db_url, debug=settings.debug)
 
     def _init(self, url: str, debug: bool = False) -> None:
-        connect_args: dict = {"check_same_thread": False} if "sqlite" in url else {}
+        connect_args: dict[str, Any] = {"check_same_thread": False} if "sqlite" in url else {}
         self._engine = create_async_engine(url, echo=debug, connect_args=connect_args)
         self._factory = async_sessionmaker(
             bind=self._engine,
@@ -49,7 +51,7 @@ class _SessionProxy:
     def __call__(self) -> AsyncSession:
         if self._factory is None:
             raise RuntimeError("Database not configured. Call configure() first.")
-        return self._factory()  # type: ignore[return-value]
+        return self._factory()
 
 
 AsyncSessionFactory: _SessionProxy = _SessionProxy()

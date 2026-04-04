@@ -15,7 +15,6 @@ def _base(**kwargs) -> dict:
 
 
 class TestBudgetCreate:
-
     def test_valid(self):
         schema = BudgetCreate(**_base())
         assert schema.amount == Decimal("500.00")
@@ -94,7 +93,6 @@ class TestBudgetCreate:
 
 
 class TestBudgetUpdate:
-
     def test_all_optional(self):
         schema = BudgetUpdate()
         assert schema.amount is None

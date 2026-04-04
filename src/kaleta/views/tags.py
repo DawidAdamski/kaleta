@@ -14,47 +14,161 @@ _DEFAULT_ICON = "label"
 
 _COMMON_ICONS = [
     # General / labels
-    "label", "tag", "bookmark", "bookmark_border", "star", "star_border",
-    "favorite", "favorite_border", "thumb_up", "check_circle", "flag",
-    "new_releases", "priority_high", "info", "warning", "error", "help",
+    "label",
+    "tag",
+    "bookmark",
+    "bookmark_border",
+    "star",
+    "star_border",
+    "favorite",
+    "favorite_border",
+    "thumb_up",
+    "check_circle",
+    "flag",
+    "new_releases",
+    "priority_high",
+    "info",
+    "warning",
+    "error",
+    "help",
     # Home & lifestyle
-    "home", "house", "apartment", "cottage", "cabin", "bed",
-    "kitchen", "bathroom", "garage", "yard", "local_florist", "park",
+    "home",
+    "house",
+    "apartment",
+    "cottage",
+    "cabin",
+    "bed",
+    "kitchen",
+    "bathroom",
+    "garage",
+    "yard",
+    "local_florist",
+    "park",
     # Work & productivity
-    "work", "business_center", "computer", "laptop", "phone", "devices",
-    "schedule", "event", "calendar_today", "alarm", "task_alt", "description",
-    "folder", "archive", "note", "category", "inbox", "send",
+    "work",
+    "business_center",
+    "computer",
+    "laptop",
+    "phone",
+    "devices",
+    "schedule",
+    "event",
+    "calendar_today",
+    "alarm",
+    "task_alt",
+    "description",
+    "folder",
+    "archive",
+    "note",
+    "category",
+    "inbox",
+    "send",
     # Finance
-    "account_balance", "account_balance_wallet", "credit_card", "savings",
-    "payments", "money", "attach_money", "euro", "paid", "sell",
-    "trending_up", "trending_down", "bar_chart", "pie_chart", "show_chart",
-    "receipt", "receipt_long", "request_quote", "price_check",
+    "account_balance",
+    "account_balance_wallet",
+    "credit_card",
+    "savings",
+    "payments",
+    "money",
+    "attach_money",
+    "euro",
+    "paid",
+    "sell",
+    "trending_up",
+    "trending_down",
+    "bar_chart",
+    "pie_chart",
+    "show_chart",
+    "receipt",
+    "receipt_long",
+    "request_quote",
+    "price_check",
     # Shopping
-    "shopping_cart", "shopping_bag", "local_grocery_store", "store",
-    "local_mall", "redeem", "loyalty", "discount", "local_offer",
+    "shopping_cart",
+    "shopping_bag",
+    "local_grocery_store",
+    "store",
+    "local_mall",
+    "redeem",
+    "loyalty",
+    "discount",
+    "local_offer",
     # Food & drink
-    "restaurant", "local_cafe", "local_bar", "fastfood", "bakery_dining",
-    "lunch_dining", "dinner_dining", "local_pizza", "ramen_dining", "icecream",
+    "restaurant",
+    "local_cafe",
+    "local_bar",
+    "fastfood",
+    "bakery_dining",
+    "lunch_dining",
+    "dinner_dining",
+    "local_pizza",
+    "ramen_dining",
+    "icecream",
     # Transport
-    "directions_car", "local_gas_station", "ev_station", "local_taxi",
-    "directions_bus", "train", "flight", "local_shipping", "two_wheeler",
+    "directions_car",
+    "local_gas_station",
+    "ev_station",
+    "local_taxi",
+    "directions_bus",
+    "train",
+    "flight",
+    "local_shipping",
+    "two_wheeler",
     # Health
-    "medical_services", "health_and_safety", "medication", "spa",
-    "fitness_center", "sports_gymnastics", "self_improvement", "monitor_heart",
+    "medical_services",
+    "health_and_safety",
+    "medication",
+    "spa",
+    "fitness_center",
+    "sports_gymnastics",
+    "self_improvement",
+    "monitor_heart",
     # Education & learning
-    "school", "menu_book", "import_contacts", "science", "psychology",
-    "lightbulb", "emoji_objects", "auto_stories",
+    "school",
+    "menu_book",
+    "import_contacts",
+    "science",
+    "psychology",
+    "lightbulb",
+    "emoji_objects",
+    "auto_stories",
     # Entertainment
-    "movie", "music_note", "headphones", "sports_esports", "sports_soccer",
-    "sports_basketball", "sports_tennis", "casino", "celebration",
+    "movie",
+    "music_note",
+    "headphones",
+    "sports_esports",
+    "sports_soccer",
+    "sports_basketball",
+    "sports_tennis",
+    "casino",
+    "celebration",
     # Travel
-    "hotel", "beach_access", "luggage", "explore", "map", "location_on",
-    "travel_explore", "hiking", "surfing",
+    "hotel",
+    "beach_access",
+    "luggage",
+    "explore",
+    "map",
+    "location_on",
+    "travel_explore",
+    "hiking",
+    "surfing",
     # Family & social
-    "person", "group", "family_restroom", "child_care", "elderly", "pets",
+    "person",
+    "group",
+    "family_restroom",
+    "child_care",
+    "elderly",
+    "pets",
     # Utilities
-    "build", "handyman", "construction", "plumbing", "electrical_services",
-    "water_drop", "eco", "energy_savings_leaf", "recycling",
+    "build",
+    "handyman",
+    "construction",
+    "plumbing",
+    "electrical_services",
+    "water_drop",
+    "eco",
+    "energy_savings_leaf",
+    "recycling",
 ]
 
 
@@ -65,8 +179,8 @@ def register() -> None:
         icon_picker_dialog = ui.dialog()
 
         # ── Add / Edit dialog ─────────────────────────────────────────────────
-        dialog_tag_id: dict = {"value": None}
-        icon_state: dict = {"name": _DEFAULT_ICON, "color": _DEFAULT_COLOR}
+        dialog_tag_id: dict[str, int | None] = {"value": None}
+        icon_state: dict[str, str] = {"name": _DEFAULT_ICON, "color": _DEFAULT_COLOR}
 
         dialog = ui.dialog()
         with dialog, ui.card().classes("w-[520px] gap-3"):
@@ -75,9 +189,7 @@ def register() -> None:
             name_input = ui.input(t("tags.name")).classes("w-full")
 
             with ui.row().classes("w-full items-center gap-2"):
-                icon_input = ui.input(
-                    t("tags.icon_name"), value=_DEFAULT_ICON
-                ).classes("flex-1")
+                icon_input = ui.input(t("tags.icon_name"), value=_DEFAULT_ICON).classes("flex-1")
                 ui.button(
                     icon="grid_view",
                     on_click=icon_picker_dialog.open,
@@ -86,18 +198,18 @@ def register() -> None:
             @ui.refreshable
             def icon_preview_ui() -> None:
                 with ui.row().classes("items-center gap-3 py-1"):
-                    ui.icon(icon_state["name"], size="2rem").style(
-                        f"color: {icon_state['color']}"
-                    )
+                    ui.icon(icon_state["name"], size="2rem").style(f"color: {icon_state['color']}")
                     ui.label(t("tags.preview")).classes("text-sm text-grey-6")
 
             icon_preview_ui()
 
             color_input = ui.color_input(t("tags.color"), value=_DEFAULT_COLOR).classes("w-full")
 
-            desc_input = ui.textarea(
-                t("tags.description"), placeholder=t("tags.description_hint")
-            ).classes("w-full").props("rows=2 autogrow")
+            desc_input = (
+                ui.textarea(t("tags.description"), placeholder=t("tags.description_hint"))
+                .classes("w-full")
+                .props("rows=2 autogrow")
+            )
 
             def _on_icon_change(e: object) -> None:
                 raw = (getattr(e, "value", None) or "").strip()
@@ -139,20 +251,27 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-1"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=_submit).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                _submit() if e.key == "Enter" and e.action.keydown else
-                dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    _submit()
+                    if e.key == "Enter" and e.action.keydown
+                    else dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Icon picker dialog content ─────────────────────────────────────────
-        icon_search_state: dict = {"query": ""}
+        icon_search_state: dict[str, str] = {"query": ""}
 
         with icon_picker_dialog, ui.card().classes("w-[600px] gap-3"):
             ui.label(t("tags.pick_icon")).classes("text-base font-bold")
 
-            icon_search_input = ui.input(
-                t("tags.search_icon"), placeholder="filter…"
-            ).classes("w-full").props("clearable dense")
+            icon_search_input = (
+                ui.input(t("tags.search_icon"), placeholder="filter…")
+                .classes("w-full")
+                .props("clearable dense")
+            )
 
             @ui.refreshable
             def icon_grid_ui() -> None:
@@ -185,7 +304,7 @@ def register() -> None:
             icon_picker_dialog.close()
 
         # ── Delete dialog ─────────────────────────────────────────────────────
-        delete_id: dict = {"value": None}
+        delete_id: dict[str, int | None] = {"value": None}
         delete_dialog = ui.dialog()
         with delete_dialog, ui.card().classes("w-[360px]"):
             delete_label = ui.label("").classes("text-base")
@@ -200,9 +319,9 @@ def register() -> None:
                     delete_dialog.close()
                     tags_grid.refresh()
 
-                ui.button(
-                    t("common.delete"), icon="delete", on_click=_do_delete
-                ).props("color=negative")
+                ui.button(t("common.delete"), icon="delete", on_click=_do_delete).props(
+                    "color=negative"
+                )
 
         # ── Helpers ───────────────────────────────────────────────────────────
         def _open_add() -> None:

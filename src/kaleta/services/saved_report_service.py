@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import builtins
 import datetime
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal, cast
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,8 +21,15 @@ Dimension = Literal["category", "account", "month", "year", "type", "institution
 Metric = Literal["sum", "count", "avg"]
 ChartType = Literal["pie", "donut", "bar", "line", "table"]
 DatePreset = Literal[
-    "all_time", "this_month", "last_month", "this_year", "last_year",
-    "last_30", "last_90", "last_12_months", "custom",
+    "all_time",
+    "this_month",
+    "last_month",
+    "this_year",
+    "last_year",
+    "last_30",
+    "last_90",
+    "last_12_months",
+    "custom",
 ]
 
 _WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -35,12 +43,12 @@ class ReportConfig:
     transaction_types: list[str] = field(default_factory=lambda: ["expense"])
     date_preset: DatePreset = "this_year"
     date_from: str | None = None  # ISO date string
-    date_to: str | None = None    # ISO date string
+    date_to: str | None = None  # ISO date string
     account_ids: list[int] = field(default_factory=list)
     category_ids: list[int] = field(default_factory=list)
     top_n: int | None = 10
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "dimension": self.dimension,
             "metric": self.metric,
@@ -55,7 +63,7 @@ class ReportConfig:
         }
 
     @classmethod
-    def from_dict(cls, d: dict) -> ReportConfig:
+    def from_dict(cls, d: dict[str, Any]) -> ReportConfig:
         return cls(
             dimension=d.get("dimension", "category"),
             metric=d.get("metric", "sum"),
@@ -80,22 +88,19 @@ class ReportResult:
 
 # ── Service ────────────────────────────────────────────────────────────────────
 
+
 class SavedReportService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
-    async def list(self) -> list[SavedReport]:
-        result = await self.session.execute(
-            select(SavedReport).order_by(SavedReport.name)
-        )
-        return list(result.scalars().all())
+    async def list(self) -> builtins.list[SavedReport]:
+        result = await self.session.execute(select(SavedReport).order_by(SavedReport.name))
+        return builtins.list(result.scalars().all())
 
     async def get(self, report_id: int) -> SavedReport | None:
-        result = await self.session.execute(
-            select(SavedReport).where(SavedReport.id == report_id)
-        )
+        result = await self.session.execute(select(SavedReport).where(SavedReport.id == report_id))
         return result.scalar_one_or_none()
 
     async def create(self, data: SavedReportCreate) -> SavedReport:
@@ -129,9 +134,7 @@ class SavedReportService:
                 "transfer": TransactionType.TRANSFER,
             }
             type_clauses = [
-                Transaction.type == _type_map[t]
-                for t in config.transaction_types
-                if t in _type_map
+                Transaction.type == _type_map[t] for t in config.transaction_types if t in _type_map
             ]
             if type_clauses:
                 filters.append(or_(*type_clauses))
@@ -144,6 +147,7 @@ class SavedReportService:
         dim_expr, joins, col_header, is_weekday = self._dimension(config.dimension)
 
         # Metric expression
+        metric_expr: Any
         if config.metric == "sum":
             metric_expr = func.sum(Transaction.amount)
             metric_header = "Total Amount"
@@ -165,7 +169,7 @@ class SavedReportService:
         if config.top_n and config.top_n > 0:
             stmt = stmt.limit(config.top_n)
 
-        rows = (await self.session.execute(stmt)).fetchall()
+        rows = builtins.list((await self.session.execute(stmt)).fetchall())
 
         if is_weekday:
             labels = [_WEEKDAY_NAMES[int(r.label)] if r.label is not None else "?" for r in rows]
@@ -216,7 +220,7 @@ class SavedReportService:
     @staticmethod
     def _dimension(
         dim: Dimension,
-    ) -> tuple[object, list[tuple], str, bool]:
+    ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool]:
         """Return (dim_expr, joins, column_header, is_weekday)."""
         if dim == "category":
             return (
@@ -278,14 +282,14 @@ def build_echart_option(
     result: ReportResult,
     chart_type: ChartType,
     is_dark: bool = False,
-) -> dict:
+) -> dict[str, Any]:
     """Convert a ReportResult into an Apache ECharts option dict."""
     labels = result.labels
     values = result.values
     text_color = "#e5e7eb" if is_dark else "#374151"
     tooltip_bg = "#1f2937" if is_dark else "#ffffff"
 
-    base: dict = {
+    base: dict[str, Any] = {
         "backgroundColor": "transparent",
         "textStyle": {"color": text_color},
         "tooltip": {"backgroundColor": tooltip_bg, "textStyle": {"color": text_color}},
@@ -304,10 +308,7 @@ def build_echart_option(
             {
                 "type": "pie",
                 "radius": radius,
-                "data": [
-                    {"name": lbl, "value": v}
-                    for lbl, v in zip(labels, values, strict=False)
-                ],
+                "data": [{"name": lbl, "value": v} for lbl, v in zip(labels, values, strict=False)],
                 "emphasis": {
                     "itemStyle": {
                         "shadowBlur": 10,
@@ -342,4 +343,4 @@ def build_echart_option(
         return base
 
     # table — return empty; table is rendered as HTML
-    return {}
+    return cast(dict[str, Any], {})

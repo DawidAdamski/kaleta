@@ -15,12 +15,14 @@ T = TypeVar("T")
 
 # ── Database session ──────────────────────────────────────────────────────────
 
+
 async def get_session() -> AsyncGenerator[AsyncSession]:
     async with AsyncSessionFactory() as session:
         yield session
 
 
 # ── Pagination ────────────────────────────────────────────────────────────────
+
 
 class PaginationParams:
     def __init__(

@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any
+
 import uvicorn
 from fastapi import FastAPI
 from fastapi.openapi.docs import get_swagger_ui_html
@@ -9,10 +13,10 @@ from kaleta.api import create_api_router
 from kaleta.config import settings
 
 # Cached OpenAPI spec — generated once from our router tree.
-_openapi_spec: dict | None = None
+_openapi_spec: dict[str, Any] | None = None
 
 
-def _api_spec() -> dict:
+def _api_spec() -> dict[str, Any]:
     global _openapi_spec  # noqa: PLW0603
     if _openapi_spec is None:
         tmp = FastAPI(
@@ -27,6 +31,7 @@ def _api_spec() -> dict:
 
 def _setup_pwa() -> None:
     from kaleta.pwa import setup
+
     setup()
 
 
@@ -41,7 +46,7 @@ def _register_api() -> None:
         )
 
     @nicegui_app.get("/api-docs/openapi.json", include_in_schema=False)
-    async def _openapi_json() -> dict:
+    async def _openapi_json() -> dict[str, Any]:
         return _api_spec()
 
 
@@ -113,7 +118,7 @@ def run_web() -> None:
         host=settings.host,
         port=settings.port,
         title="Kaleta",
-        reload=settings.debug,
+        reload=False,
         show=False,
         storage_secret=settings.secret_key,
     )

@@ -16,30 +16,35 @@ from kaleta.schemas.category import CategoryCreate
 from kaleta.services import AccountService, CategoryService
 from kaleta.services.import_service import ImportService, ParsedRow, _parse_amount, _parse_date
 
-
 # ── _parse_date helper ────────────────────────────────────────────────────────
 
-class TestParseDate:
 
-    @pytest.mark.parametrize("value,expected", [
-        ("2024-01-15",  datetime.date(2024, 1, 15)),
-        ("15.01.2024",  datetime.date(2024, 1, 15)),
-        ("15/01/2024",  datetime.date(2024, 1, 15)),
-        ("01/15/2024",  datetime.date(2024, 1, 15)),
-        ("15-01-2024",  datetime.date(2024, 1, 15)),
-        ("20240115",    datetime.date(2024, 1, 15)),
-        ("  2024-01-15 ", datetime.date(2024, 1, 15)),  # whitespace trimmed
-    ])
+class TestParseDate:
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("2024-01-15", datetime.date(2024, 1, 15)),
+            ("15.01.2024", datetime.date(2024, 1, 15)),
+            ("15/01/2024", datetime.date(2024, 1, 15)),
+            ("01/15/2024", datetime.date(2024, 1, 15)),
+            ("15-01-2024", datetime.date(2024, 1, 15)),
+            ("20240115", datetime.date(2024, 1, 15)),
+            ("  2024-01-15 ", datetime.date(2024, 1, 15)),  # whitespace trimmed
+        ],
+    )
     def test_valid_date_formats(self, value: str, expected: datetime.date):
         assert _parse_date(value) == expected
 
-    @pytest.mark.parametrize("value", [
-        "not-a-date",
-        "32.01.2024",
-        "2024-13-01",
-        "",
-        "'; DROP TABLE transactions; --",
-    ])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "not-a-date",
+            "32.01.2024",
+            "2024-13-01",
+            "",
+            "'; DROP TABLE transactions; --",
+        ],
+    )
     def test_invalid_dates_raise(self, value: str):
         with pytest.raises(ValueError):
             _parse_date(value)
@@ -47,26 +52,32 @@ class TestParseDate:
 
 # ── _parse_amount helper ──────────────────────────────────────────────────────
 
-class TestParseAmount:
 
-    @pytest.mark.parametrize("value,expected", [
-        ("100.00",    Decimal("100.00")),
-        ("-245.50",   Decimal("-245.50")),
-        ("1 234,56",  Decimal("1234.56")),   # PL format with space separator
-        ("1.234,56",  Decimal("1234.56")),   # EU format
-        ("1234,56",   Decimal("1234.56")),   # comma decimal
-        ("100 PLN",   Decimal("100")),        # with currency suffix
-        (" 99.99 ",   Decimal("99.99")),      # whitespace
-    ])
+class TestParseAmount:
+    @pytest.mark.parametrize(
+        "value,expected",
+        [
+            ("100.00", Decimal("100.00")),
+            ("-245.50", Decimal("-245.50")),
+            ("1 234,56", Decimal("1234.56")),  # PL format with space separator
+            ("1.234,56", Decimal("1234.56")),  # EU format
+            ("1234,56", Decimal("1234.56")),  # comma decimal
+            ("100 PLN", Decimal("100")),  # with currency suffix
+            (" 99.99 ", Decimal("99.99")),  # whitespace
+        ],
+    )
     def test_valid_amounts(self, value: str, expected: Decimal):
         assert _parse_amount(value) == expected
 
-    @pytest.mark.parametrize("value", [
-        "not_a_number",
-        "",
-        "free",
-        "'; DROP TABLE--",
-    ])
+    @pytest.mark.parametrize(
+        "value",
+        [
+            "not_a_number",
+            "",
+            "free",
+            "'; DROP TABLE--",
+        ],
+    )
     def test_invalid_amounts_raise(self, value: str):
         with pytest.raises(ValueError):
             _parse_amount(value)
@@ -74,13 +85,13 @@ class TestParseAmount:
 
 # ── ImportService.parse_csv ───────────────────────────────────────────────────
 
+
 def _svc() -> ImportService:
     """ImportService without a DB session — parse_csv is pure (no DB needed)."""
     return ImportService.__new__(ImportService)
 
 
 class TestParseCsv:
-
     def test_basic_semicolon_csv(self):
         csv = "data;kwota;opis\n2024-01-15;-100.00;Biedronka\n2024-01-16;5000.00;Pensja\n"
         result = _svc().parse_csv(csv)
@@ -101,7 +112,11 @@ class TestParseCsv:
         assert len(result.rows) == 1
 
     def test_debit_credit_columns(self):
-        csv = "Date,Debit,Credit,Description\n2024-01-15,200.00,,Expense\n2024-01-16,,5000.00,Income\n"
+        csv = (
+            "Date,Debit,Credit,Description\n"
+            "2024-01-15,200.00,,Expense\n"
+            "2024-01-16,,5000.00,Income\n"
+        )
         result = _svc().parse_csv(csv)
         assert len(result.rows) == 2
         assert result.rows[0].amount == Decimal("-200.00")
@@ -131,8 +146,8 @@ class TestParseCsv:
     def test_invalid_amount_rows_reported_as_errors(self):
         csv = "date,amount,description\n2024-01-15,NOT_A_NUMBER,Bad\n2024-01-16,-50.00,Good\n"
         result = _svc().parse_csv(csv)
-        assert len(result.rows) == 1       # only the good row
-        assert len(result.errors) == 1     # one error reported
+        assert len(result.rows) == 1  # only the good row
+        assert len(result.errors) == 1  # one error reported
 
     def test_empty_amount_rows_skipped(self):
         csv = "date,amount,description\n2024-01-15,,Skipped\n2024-01-16,-50.00,Good\n"
@@ -158,7 +173,11 @@ class TestParseCsv:
 
     def test_csv_formula_injection_stored_as_plain_text(self):
         """Spreadsheet formula injection (=CMD, @SUM) must be stored verbatim."""
-        for formula in ["=CMD('calc.exe')", "@SUM(1+1)*cmd|' /C calc'!A0", "=HYPERLINK('evil.com')"]:
+        for formula in [
+            "=CMD('calc.exe')",
+            "@SUM(1+1)*cmd|' /C calc'!A0",
+            "=HYPERLINK('evil.com')",
+        ]:
             csv = f"date,amount,description\n2024-01-15,-1.00,{formula}\n"
             result = _svc().parse_csv(csv)
             assert len(result.rows) == 1
@@ -229,7 +248,6 @@ async def _make_income_cat(session: AsyncSession) -> int:
 
 
 class TestToTransactionCreatesWithPayees:
-
     async def test_matching_account_digits_yields_transfer(self, session: AsyncSession):
         """A row whose Numer rachunku digits are in known_account_digits → TRANSFER."""
         account_id = await _make_account(session)

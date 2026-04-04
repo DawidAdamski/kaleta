@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
+from typing import Any
 
 from nicegui import ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
 from kaleta.models.account import Account
-from kaleta.models.category import CategoryType
+from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate, TransactionUpdate
 from kaleta.services import AccountService, CategoryService, TagService, TransactionService
@@ -20,7 +21,7 @@ _DEFAULT_PAGE_SIZE = 50
 _KBD_CLS = "text-xs bg-grey-2 border border-grey-4 rounded px-2 py-0.5 font-mono text-grey-7"
 
 
-def _build_cat_opts(cats_list: list) -> dict[int, str]:
+def _build_cat_opts(cats_list: list[Category]) -> dict[int, str]:
     """Build {id: label} dict with hierarchical labels like 'Fuel → Toyota'."""
     cats_by_id = {c.id: c for c in cats_list}
     result: dict[int, str] = {}
@@ -30,18 +31,14 @@ def _build_cat_opts(cats_list: list) -> dict[int, str]:
     )
     for root in roots:
         result[root.id] = root.name
-        children = sorted(
-            [c for c in cats_list if c.parent_id == root.id], key=lambda c: c.name
-        )
+        children = sorted([c for c in cats_list if c.parent_id == root.id], key=lambda c: c.name)
         for child in children:
             result[child.id] = f"{root.name} \u2192 {child.name}"
     return result
 
 
 def _no_data_slot() -> str:
-    return (
-        f'<div class="text-center text-grey-6 py-8">{t("transactions.no_results")}</div>'
-    )
+    return f'<div class="text-center text-grey-6 py-8">{t("transactions.no_results")}</div>'
 
 
 def _category_label(tx: Transaction) -> str:
@@ -93,7 +90,7 @@ def register() -> None:
         selected_tx_ids: list[int] = []
 
         # ── Filter state ──────────────────────────────────────────────────────
-        filters: dict = {
+        filters: dict[str, Any] = {
             "date_from": None,
             "date_to": None,
             "account_ids": [],
@@ -119,7 +116,7 @@ def register() -> None:
                 ]
             )
 
-        def _list_or_none(key: str) -> list | None:
+        def _list_or_none(key: str) -> list[Any] | None:
             return filters[key] if filters[key] else None
 
         # ── Refreshable table ─────────────────────────────────────────────────
@@ -157,7 +154,7 @@ def register() -> None:
             start_n = current_page * page_size + 1
             end_n = min(start_n + page_size - 1, total)
 
-            columns = [
+            columns: list[dict[str, Any]] = [
                 {
                     "name": "date",
                     "label": t("common.date"),
@@ -288,8 +285,8 @@ def register() -> None:
                 "</q-tr>",
             )
 
-            async def _handle_edit(e: object) -> None:
-                await _open_edit_dialog(e.args)  # type: ignore[attr-defined]
+            async def _handle_edit(e: Any) -> None:
+                await _open_edit_dialog(e.args)
 
             tbl.on("edit_tx", _handle_edit)
 
@@ -339,7 +336,7 @@ def register() -> None:
                             icon="chevron_left", on_click=lambda: _go_page(current_page - 1)
                         ).props("flat round dense").bind_enabled_from(
                             {"v": current_page > 0},
-                            "v",  # type: ignore[arg-type]
+                            "v",
                         )
                         ui.label(
                             t("transactions.page", current=current_page + 1, total=total_pages)
@@ -348,7 +345,7 @@ def register() -> None:
                             icon="chevron_right", on_click=lambda: _go_page(current_page + 1)
                         ).props("flat round dense").bind_enabled_from(
                             {"v": current_page < total_pages - 1},
-                            "v",  # type: ignore[arg-type]
+                            "v",
                         )
 
         def _go_page(page: int) -> None:
@@ -376,12 +373,13 @@ def register() -> None:
 
         # ── Add Transaction Dialog ────────────────────────────────────────────
         # Split state (mutable containers so closures can mutate them)
-        split_rows: list[dict] = []
-        is_split: dict = {"value": False}
+        split_rows: list[dict[str, Any]] = []
+        is_split: dict[str, bool] = {"value": False}
 
         # Build {account_id -> Account} map for currency look-ups
         accounts_by_id: dict[int, Account] = {a.id: a for a in accounts}
 
+        amount_input: Any
         dialog = ui.dialog().on("show", lambda: amount_input.run_method("focus"))
         with dialog, ui.card().classes("w-[520px]"):
             ui.label(t("transactions.add")).classes("text-lg font-bold")
@@ -405,14 +403,21 @@ def register() -> None:
                 ).classes("w-full")
 
             # Tab order: amount → description → category → date → split_switch
-            amount_input = ui.number(
-                t("common.amount"), min=0.01, step=0.01
-            ).classes("w-full").props("autofocus")
-            amount_input.on_value_change(lambda _: (split_balance_ui.refresh(), _update_fx()))
+            amount_input = (
+                ui.number(t("common.amount"), min=0.01, step=0.01)
+                .classes("w-full")
+                .props("autofocus")
+            )
 
-            desc_input = ui.input(
-                f"{t('common.description')} ({t('common.optional')})"
-            ).classes("w-full")
+            def _on_amount_change(_: Any) -> None:
+                split_balance_ui.refresh()
+                _update_fx()
+
+            amount_input.on_value_change(_on_amount_change)
+
+            desc_input = ui.input(f"{t('common.description')} ({t('common.optional')})").classes(
+                "w-full"
+            )
 
             # Category (hidden in split mode and transfer mode)
             category_sel = ui.select(expense_cats, label=t("common.category")).classes("w-full")
@@ -421,12 +426,16 @@ def register() -> None:
             date_text = ui.input(t("common.date")).props("type=date").classes("w-full")
             date_text.value = today_str
 
-            add_tag_sel = ui.select(
-                tag_options,
-                label=t("transactions.tags"),
-                multiple=True,
-                value=[],
-            ).classes("w-full").props("use-chips clearable")
+            add_tag_sel = (
+                ui.select(
+                    tag_options,
+                    label=t("transactions.tags"),
+                    multiple=True,
+                    value=[],
+                )
+                .classes("w-full")
+                .props("use-chips clearable")
+            )
 
             # Split switch (hidden in transfer mode)
             split_switch = ui.switch(
@@ -481,13 +490,21 @@ def register() -> None:
                 if dst_amt > 0 and src_amt > 0 and dst_amt != rate_val * src_amt:
                     computed_rate = dst_amt / src_amt
                     fx_info.set_text(
-                        t("transactions.rate_auto",
-                          src=src_cur, rate=f"{computed_rate:.6f}", dst=dst_cur)
+                        t(
+                            "transactions.rate_auto",
+                            src=src_cur,
+                            rate=f"{computed_rate:.6f}",
+                            dst=dst_cur,
+                        )
                     )
                 elif rate_val > 0 and src_amt > 0:
                     fx_info.set_text(
-                        t("transactions.rate_auto",
-                          src=src_cur, rate=f"{rate_val:.6f}", dst=dst_cur)
+                        t(
+                            "transactions.rate_auto",
+                            src=src_cur,
+                            rate=f"{rate_val:.6f}",
+                            dst=dst_cur,
+                        )
                     )
 
             def _on_fx_rate_change() -> None:
@@ -554,7 +571,7 @@ def register() -> None:
                                 value=row["category_id"],
                             ).classes("flex-1 min-w-0 split-cat-select")
 
-                            def _on_cat_change(e, idx=i, _sel=cat_el) -> None:
+                            def _on_cat_change(e: Any, idx: int = i, _sel: Any = cat_el) -> None:
                                 split_rows.__setitem__(
                                     idx, {**split_rows[idx], "category_id": e.value}
                                 )
@@ -581,7 +598,7 @@ def register() -> None:
                             ).classes("w-28")
                             if is_last:
                                 # Intercept Tab on the last row's amount → add new row
-                                amt_el.props('@keydown.tab.prevent="$emit(\'split_tab\')"')
+                                amt_el.props("@keydown.tab.prevent=\"$emit('split_tab')\"")
                                 amt_el.on("split_tab", lambda _: _handle_split_tab())
                             ui.button(
                                 icon="close",
@@ -633,9 +650,7 @@ def register() -> None:
                 raw_date = date_text.value
                 try:
                     parsed_date = (
-                        datetime.date.fromisoformat(raw_date)
-                        if raw_date
-                        else datetime.date.today()
+                        datetime.date.fromisoformat(raw_date) if raw_date else datetime.date.today()
                     )
                 except ValueError:
                     parsed_date = datetime.date.today()
@@ -782,6 +797,7 @@ def register() -> None:
                     "'.split-cat-select .q-field__native, .split-cat-select input');"
                     "if(els.length > 0) els[0].focus();"
                 )
+
             ui.timer(0.05, _do, once=True)
 
         def _focus_last_split_cat() -> None:
@@ -791,6 +807,7 @@ def register() -> None:
                     "'.split-cat-select .q-field__native, .split-cat-select input');"
                     "if(els.length > 0) els[els.length - 1].focus();"
                 )
+
             ui.timer(0.05, _do, once=True)
 
         def _handle_split_tab() -> None:
@@ -838,7 +855,8 @@ def register() -> None:
         dialog.on("hide", lambda: _reset_dialog())
 
         # ── Edit Transaction Dialog ───────────────────────────────────────────
-        edit_tx_id: dict = {"value": None}
+        tag_filter_sel: Any
+        edit_tx_id: dict[str, int | None] = {"value": None}
         edit_dialog = ui.dialog()
         with edit_dialog, ui.card().classes("w-[520px]"):
             ui.label(t("transactions.edit")).classes("text-lg font-bold")
@@ -849,17 +867,15 @@ def register() -> None:
                 value=TransactionType.EXPENSE.value,
             ).classes("w-full")
 
-            edit_account_sel = ui.select(
-                account_options, label=t("common.account")
-            ).classes("w-full")
+            edit_account_sel = ui.select(account_options, label=t("common.account")).classes(
+                "w-full"
+            )
 
-            edit_category_sel = ui.select(
-                expense_cats, label=t("common.category")
-            ).classes("w-full")
+            edit_category_sel = ui.select(expense_cats, label=t("common.category")).classes(
+                "w-full"
+            )
 
-            edit_amount_input = ui.number(
-                t("common.amount"), min=0.01, step=0.01
-            ).classes("w-full")
+            edit_amount_input = ui.number(t("common.amount"), min=0.01, step=0.01).classes("w-full")
 
             edit_desc_input = ui.input(
                 f"{t('common.description')} ({t('common.optional')})"
@@ -867,12 +883,16 @@ def register() -> None:
 
             edit_date_input = ui.input(t("common.date")).props("type=date").classes("w-full")
 
-            edit_tag_sel = ui.select(
-                tag_options,
-                label=t("transactions.tags"),
-                multiple=True,
-                value=[],
-            ).classes("w-full").props("use-chips clearable")
+            edit_tag_sel = (
+                ui.select(
+                    tag_options,
+                    label=t("transactions.tags"),
+                    multiple=True,
+                    value=[],
+                )
+                .classes("w-full")
+                .props("use-chips clearable")
+            )
 
             edit_info = ui.label("").classes("text-sm text-grey-6 italic")
             edit_info.set_visibility(False)
@@ -903,9 +923,7 @@ def register() -> None:
                 raw_date = edit_date_input.value
                 try:
                     parsed_date = (
-                        datetime.date.fromisoformat(raw_date)
-                        if raw_date
-                        else datetime.date.today()
+                        datetime.date.fromisoformat(raw_date) if raw_date else datetime.date.today()
                     )
                 except ValueError:
                     parsed_date = datetime.date.today()
@@ -978,9 +996,9 @@ def register() -> None:
 
             with ui.row().classes("w-full justify-end gap-2 mt-2"):
                 ui.button(t("common.cancel"), on_click=delete_confirm_dialog.close).props("flat")
-                ui.button(
-                    t("common.delete"), icon="delete", on_click=_do_delete_selected
-                ).props("color=negative")
+                ui.button(t("common.delete"), icon="delete", on_click=_do_delete_selected).props(
+                    "color=negative"
+                )
 
         def _confirm_delete_selected() -> None:
             n = len(selected_tx_ids)
@@ -1004,17 +1022,21 @@ def register() -> None:
             n = len(selected_tx_ids)
             if n:
                 with ui.row().classes("w-full items-center gap-2 py-1"):
-                    ui.label(
-                        t("transactions.delete_selected", count=n)
-                    ).classes("text-sm text-grey-8 font-medium")
+                    ui.label(t("transactions.delete_selected", count=n)).classes(
+                        "text-sm text-grey-8 font-medium"
+                    )
                     ui.button(
                         icon="delete",
                         on_click=lambda: _confirm_delete_selected(),
                     ).props("flat round dense color=negative size=sm")
-                    ui.button(
-                        icon="close",
-                        on_click=lambda: (selected_tx_ids.clear(), table_actions_ui.refresh()),
-                    ).props("flat round dense color=grey size=sm")
+
+                    def _clear_selection() -> None:
+                        selected_tx_ids.clear()
+                        table_actions_ui.refresh()
+
+                    ui.button(icon="close", on_click=_clear_selection).props(
+                        "flat round dense color=grey size=sm"
+                    )
 
         # ── Page layout ───────────────────────────────────────────────────────
         with page_layout(t("transactions.title"), wide=True):
@@ -1056,43 +1078,59 @@ def register() -> None:
                         .classes("w-36")
                         .on("update:model-value", lambda e: _set_date_to(e.args))
                     )
-                    account_filter = ui.select(
-                        account_options,
-                        label=t("transactions.accounts"),
-                        multiple=True,
-                        value=[],
-                        on_change=lambda e: _set_list_filter("account_ids", e.value or []),
-                    ).classes("w-48").props("use-chips clearable")
-                    category_filter = ui.select(
-                        all_cats,
-                        label=t("transactions.categories"),
-                        multiple=True,
-                        value=[],
-                        on_change=lambda e: _set_list_filter("category_ids", e.value or []),
-                    ).classes("w-48").props("use-chips clearable")
-                    type_filter = ui.select(
-                        {tx.value: t(f"common.{tx.value}") for tx in TransactionType},
-                        label=t("transactions.types"),
-                        multiple=True,
-                        value=[],
-                        on_change=lambda e: _set_list_filter(
-                            "tx_types",
-                            [TransactionType(v) for v in (e.value or [])],
-                        ),
-                    ).classes("w-40").props("use-chips clearable")
+                    account_filter = (
+                        ui.select(
+                            account_options,
+                            label=t("transactions.accounts"),
+                            multiple=True,
+                            value=[],
+                            on_change=lambda e: _set_list_filter("account_ids", e.value or []),
+                        )
+                        .classes("w-48")
+                        .props("use-chips clearable")
+                    )
+                    category_filter = (
+                        ui.select(
+                            all_cats,
+                            label=t("transactions.categories"),
+                            multiple=True,
+                            value=[],
+                            on_change=lambda e: _set_list_filter("category_ids", e.value or []),
+                        )
+                        .classes("w-48")
+                        .props("use-chips clearable")
+                    )
+                    type_filter = (
+                        ui.select(
+                            {tx.value: t(f"common.{tx.value}") for tx in TransactionType},
+                            label=t("transactions.types"),
+                            multiple=True,
+                            value=[],
+                            on_change=lambda e: _set_list_filter(
+                                "tx_types",
+                                [TransactionType(v) for v in (e.value or [])],
+                            ),
+                        )
+                        .classes("w-40")
+                        .props("use-chips clearable")
+                    )
                     search_input = (
                         ui.input(t("transactions.search_description"))
                         .props("clearable")
                         .classes("w-52")
                         .on("update:model-value", lambda e: _set_filter("search", e.args or ""))
                     )
-                    tag_filter_sel = ui.select(
-                        tag_options,
-                        label=t("transactions.tags"),
-                        multiple=True,
-                        value=[],
-                        on_change=lambda e: _set_list_filter("tag_ids", e.value or []),
-                    ).classes("w-40").props("use-chips clearable")
+                    tag_filter_sel = (
+                        ui.select(
+                            tag_options,
+                            label=t("transactions.tags"),
+                            multiple=True,
+                            value=[],
+                            on_change=lambda e: _set_list_filter("tag_ids", e.value or []),
+                        )
+                        .classes("w-40")
+                        .props("use-chips clearable")
+                    )
                     ui.button(
                         icon="label",
                         on_click=lambda: ui.navigate.to("/tags"),
@@ -1114,7 +1152,7 @@ def register() -> None:
             filters[key] = value
             _apply_filters()
 
-        def _set_list_filter(key: str, value: list) -> None:
+        def _set_list_filter(key: str, value: list[Any]) -> None:
             filters[key] = value
             _apply_filters()
 
@@ -1152,8 +1190,8 @@ def register() -> None:
             transaction_table.refresh()
 
         # ── Keyboard shortcuts: Alt+N = new tx, Page Down/Up = pagination ──
-        def handle_key(e: object) -> None:
-            key_event = e  # type: ignore[assignment]
+        def handle_key(e: Any) -> None:
+            key_event = e
             if not key_event.action.keydown:
                 return
             key = getattr(key_event, "key", None)

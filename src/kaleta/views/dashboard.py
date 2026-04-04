@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from typing import Any
 
 from nicegui import app, ui
 
@@ -18,7 +19,7 @@ def _fmt(amount: Decimal) -> str:
     return f"{amount:,.2f} zł"
 
 
-def _cashflow_chart_options(months: list[MonthCashflow], is_dark: bool = False) -> dict:
+def _cashflow_chart_options(months: list[MonthCashflow], is_dark: bool = False) -> dict[str, Any]:
     _opts = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
         "legend": {

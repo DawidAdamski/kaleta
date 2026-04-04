@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import builtins
 import datetime
+from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,14 +19,14 @@ class TransactionService:
 
     def _base_stmt(
         self,
-        account_ids: list[int] | None = None,
-        category_ids: list[int] | None = None,
+        account_ids: builtins.list[int] | None = None,
+        category_ids: builtins.list[int] | None = None,
         date_from: datetime.date | None = None,
         date_to: datetime.date | None = None,
-        tx_types: list[TransactionType] | None = None,
+        tx_types: builtins.list[TransactionType] | None = None,
         search: str | None = None,
-        tag_ids: list[int] | None = None,
-    ):  # type: ignore[return]
+        tag_ids: builtins.list[int] | None = None,
+    ) -> Any:
         stmt = select(Transaction)
         if account_ids:
             stmt = stmt.where(Transaction.account_id.in_(account_ids))
@@ -44,16 +46,16 @@ class TransactionService:
 
     async def list(
         self,
-        account_ids: list[int] | None = None,
-        category_ids: list[int] | None = None,
+        account_ids: builtins.list[int] | None = None,
+        category_ids: builtins.list[int] | None = None,
         date_from: datetime.date | None = None,
         date_to: datetime.date | None = None,
-        tx_types: list[TransactionType] | None = None,
+        tx_types: builtins.list[TransactionType] | None = None,
         search: str | None = None,
-        tag_ids: list[int] | None = None,
+        tag_ids: builtins.list[int] | None = None,
         limit: int = 50,
         offset: int = 0,
-    ) -> list[Transaction]:
+    ) -> builtins.list[Transaction]:
         stmt = (
             self._base_stmt(
                 account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
@@ -70,17 +72,17 @@ class TransactionService:
             .offset(offset)
         )
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return builtins.list(result.scalars().all())
 
     async def count(
         self,
-        account_ids: list[int] | None = None,
-        category_ids: list[int] | None = None,
+        account_ids: builtins.list[int] | None = None,
+        category_ids: builtins.list[int] | None = None,
         date_from: datetime.date | None = None,
         date_to: datetime.date | None = None,
-        tx_types: list[TransactionType] | None = None,
+        tx_types: builtins.list[TransactionType] | None = None,
         search: str | None = None,
-        tag_ids: list[int] | None = None,
+        tag_ids: builtins.list[int] | None = None,
     ) -> int:
         stmt = self._base_stmt(
             account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
@@ -104,11 +106,11 @@ class TransactionService:
         result = await self.session.execute(stmt)
         return result.scalars().first()
 
-    async def _load_tags(self, tag_ids: list[int]) -> list[Tag]:
+    async def _load_tags(self, tag_ids: builtins.list[int]) -> builtins.list[Tag]:
         if not tag_ids:
             return []
         result = await self.session.execute(select(Tag).where(Tag.id.in_(tag_ids)))
-        return list(result.scalars())
+        return builtins.list(result.scalars())
 
     async def create(self, data: TransactionCreate) -> Transaction:
         transaction = Transaction(**data.model_dump(exclude={"splits", "tag_ids"}))
@@ -127,17 +129,14 @@ class TransactionService:
             raise RuntimeError(f"Transaction id={transaction.id} not found after commit")
         return fetched
 
-    async def create_bulk(self, creates: list[TransactionCreate]) -> int:
+    async def create_bulk(self, creates: builtins.list[TransactionCreate]) -> int:
         """Insert many simple transactions in a single commit (no splits, no tags).
 
         Significantly faster than calling ``create()`` in a loop — intended for CSV
         import where transactions have no splits and no tags.
         Returns the number of inserted rows.
         """
-        objects = [
-            Transaction(**c.model_dump(exclude={"splits", "tag_ids"}))
-            for c in creates
-        ]
+        objects = [Transaction(**c.model_dump(exclude={"splits", "tag_ids"})) for c in creates]
         self.session.add_all(objects)
         await self.session.commit()
         return len(objects)

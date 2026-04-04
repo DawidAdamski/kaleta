@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from nicegui import ui
 
 from kaleta.db import AsyncSessionFactory
@@ -15,8 +17,8 @@ def register() -> None:
     async def payees_page() -> None:
 
         # Mutable state
-        dialog_payee_id: dict = {"value": None}
-        delete_id: dict = {"value": None}
+        dialog_payee_id: dict[str, int | None] = {"value": None}
+        delete_id: dict[str, int | None] = {"value": None}
         selected_ids: list[int] = []
 
         # ── Add / Edit dialog ──────────────────────────────────────────────────
@@ -36,10 +38,14 @@ def register() -> None:
                         phone_input = ui.input(t("payees.phone")).classes("flex-1")
                     email_input = ui.input(t("payees.email")).classes("w-full")
 
-            notes_input = ui.textarea(
-                t("payees.notes"),
-                placeholder=t("payees.notes_hint"),
-            ).classes("w-full").props("rows=3 autogrow")
+            notes_input = (
+                ui.textarea(
+                    t("payees.notes"),
+                    placeholder=t("payees.notes_hint"),
+                )
+                .classes("w-full")
+                .props("rows=3 autogrow")
+            )
 
             async def _submit() -> None:
                 name = (name_input.value or "").strip()
@@ -73,10 +79,15 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-1"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=_submit).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                _submit() if e.key == "Enter" and e.action.keydown else
-                dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    _submit()
+                    if e.key == "Enter" and e.action.keydown
+                    else dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Delete dialog ──────────────────────────────────────────────────────
         delete_dialog = ui.dialog()
@@ -93,20 +104,18 @@ def register() -> None:
                     delete_dialog.close()
                     payees_list.refresh()
 
-                ui.button(
-                    t("common.delete"), icon="delete", on_click=_do_delete
-                ).props("color=negative")
+                ui.button(t("common.delete"), icon="delete", on_click=_do_delete).props(
+                    "color=negative"
+                )
 
         # ── Merge dialog ───────────────────────────────────────────────────────
-        merge_state: dict = {"keep_id": None, "merge_ids": [], "payee_options": {}}
+        merge_state: dict[str, Any] = {"keep_id": None, "merge_ids": [], "payee_options": {}}
 
         merge_dialog = ui.dialog()
         with merge_dialog, ui.card().classes("w-[440px] gap-3"):
             ui.label(t("payees.merge_title")).classes("text-lg font-bold")
             ui.label(t("payees.merge_hint")).classes("text-sm text-grey-6")
-            merge_keep_sel = ui.select(
-                {}, label=t("payees.merge_keep")
-            ).classes("w-full")
+            merge_keep_sel = ui.select({}, label=t("payees.merge_keep")).classes("w-full")
             with ui.row().classes("w-full justify-end gap-2 mt-2"):
                 ui.button(t("common.cancel"), on_click=merge_dialog.close).props("flat")
 
@@ -124,9 +133,9 @@ def register() -> None:
                     payees_list.refresh()
                     selection_bar.refresh()
 
-                ui.button(
-                    t("payees.merge_confirm"), icon="merge", on_click=_do_merge
-                ).props("color=primary")
+                ui.button(t("payees.merge_confirm"), icon="merge", on_click=_do_merge).props(
+                    "color=primary"
+                )
 
         # ── Helpers ────────────────────────────────────────────────────────────
         def _open_add() -> None:
@@ -173,11 +182,12 @@ def register() -> None:
         def selection_bar() -> None:
             if len(selected_ids) >= 2:
                 with ui.row().classes("w-full items-center gap-2 px-1 py-2 bg-blue-50 rounded"):
-                    ui.label(
-                        t("payees.selected_count", count=len(selected_ids))
-                    ).classes("text-sm flex-1")
+                    ui.label(t("payees.selected_count", count=len(selected_ids))).classes(
+                        "text-sm flex-1"
+                    )
                     ui.button(
-                        t("payees.merge"), icon="merge",
+                        t("payees.merge"),
+                        icon="merge",
                         on_click=lambda: _open_merge_from_bar(),
                     ).props("color=primary dense")
 
@@ -185,7 +195,7 @@ def register() -> None:
             # need current payees list — captured via closure from payees_list
             _open_merge(_current_payees["list"])
 
-        _current_payees: dict = {"list": []}
+        _current_payees: dict[str, list[Payee]] = {"list": []}
 
         # ── Payees list ────────────────────────────────────────────────────────
         @ui.refreshable
@@ -199,9 +209,7 @@ def register() -> None:
                 with ui.column().classes("w-full items-center py-20 gap-3 text-grey-5"):
                     ui.icon("person_off", size="4rem")
                     ui.label(t("payees.no_payees")).classes("text-lg")
-                    ui.label(t("payees.no_payees_hint")).classes(
-                        "text-sm text-center max-w-md"
-                    )
+                    ui.label(t("payees.no_payees_hint")).classes("text-sm text-center max-w-md")
                 return
 
             tbl = (
@@ -284,9 +292,9 @@ def register() -> None:
         with page_layout(t("payees.title")):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(t("payees.title")).classes("text-2xl font-bold")
-                ui.button(
-                    t("payees.add"), icon="person_add", on_click=_open_add
-                ).props("color=primary")
+                ui.button(t("payees.add"), icon="person_add", on_click=_open_add).props(
+                    "color=primary"
+                )
 
             selection_bar()
             await payees_list()

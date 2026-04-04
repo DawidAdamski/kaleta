@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 
 from nicegui import ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
+from kaleta.models.category import Category
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
@@ -13,7 +15,7 @@ from kaleta.services import AccountService, CategoryService, PlannedTransactionS
 from kaleta.views.layout import page_layout
 
 
-def _build_cat_opts(cats_list: list) -> dict[int, str]:
+def _build_cat_opts(cats_list: list[Category]) -> dict[int, str]:
     cats_by_id = {c.id: c for c in cats_list}
     result: dict[int, str] = {}
     roots = sorted(
@@ -49,7 +51,7 @@ def register() -> None:
         cat_opts = _build_cat_opts(cats_list)
 
         # ── Shared form state ─────────────────────────────────────────────────
-        edit_id: dict = {"value": None}
+        edit_id: dict[str, int | None] = {"value": None}
 
         freq_opts = {
             RecurrenceFrequency.ONCE: t("planned.freq_once"),
@@ -112,11 +114,13 @@ def register() -> None:
             freq_sel.on_value_change(_on_freq_change)
 
             with ui.row().classes("w-full gap-3"):
-                start_input = ui.date(value=str(datetime.date.today())).classes("flex-1").props(
-                    f'label="{t("planned.start_date")}"'
+                start_input = (
+                    ui.date(value=str(datetime.date.today()))
+                    .classes("flex-1")
+                    .props(f'label="{t("planned.start_date")}"')
                 )
-                end_input = ui.date().classes("flex-1").props(
-                    f'label="{t("planned.end_date")}" clearable'
+                end_input = (
+                    ui.date().classes("flex-1").props(f'label="{t("planned.end_date")}" clearable')
                 )
 
             active_toggle = ui.switch(t("planned.active"), value=True)
@@ -176,13 +180,18 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-1"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=_submit).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                _submit() if e.key == "Enter" and e.action.keydown else
-                dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    _submit()
+                    if e.key == "Enter" and e.action.keydown
+                    else dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Delete dialog ─────────────────────────────────────────────────────
-        del_id: dict = {"value": None}
+        del_id: dict[str, int | None] = {"value": None}
         del_dialog = ui.dialog()
         with del_dialog, ui.card().classes("w-[360px]"):
             del_label = ui.label("").classes("text-base")
@@ -197,9 +206,9 @@ def register() -> None:
                     del_dialog.close()
                     planned_list_ui.refresh()
 
-                ui.button(
-                    t("common.delete"), icon="delete", on_click=_do_delete
-                ).props("color=negative")
+                ui.button(t("common.delete"), icon="delete", on_click=_do_delete).props(
+                    "color=negative"
+                )
 
         # ── Helpers ───────────────────────────────────────────────────────────
         def _open_add() -> None:
@@ -262,7 +271,7 @@ def register() -> None:
                     ui.label(t("planned.no_planned_hint")).classes("text-sm")
                 return
 
-            def _col(name: str, label: str, align: str = "left") -> dict:
+            def _col(name: str, label: str, align: str = "left") -> dict[str, str]:
                 return {"name": name, "label": label, "field": name, "align": align}
 
             columns = [
@@ -303,49 +312,49 @@ def register() -> None:
             tbl.add_slot(
                 "body-cell-type",
                 '<q-td :props="props">'
-                '<q-badge :color="props.row.type === \'income\' ? \'positive\' : '
-                'props.row.type === \'expense\' ? \'negative\' : \'info\'" outline>'
-                '{{ props.row.type }}</q-badge></q-td>',
+                "<q-badge :color=\"props.row.type === 'income' ? 'positive' : "
+                "props.row.type === 'expense' ? 'negative' : 'info'\" outline>"
+                "{{ props.row.type }}</q-badge></q-td>",
             )
             tbl.add_slot(
                 "body-cell-amount",
                 '<q-td :props="props" class="text-right">'
-                '<span :class="props.row.type === \'income\' ? \'text-positive\' : '
-                'props.row.type === \'expense\' ? \'text-negative\' : \'\'">'
-                '{{ props.row.amount }}</span></q-td>',
+                "<span :class=\"props.row.type === 'income' ? 'text-positive' : "
+                "props.row.type === 'expense' ? 'text-negative' : ''\">"
+                "{{ props.row.amount }}</span></q-td>",
             )
             tbl.add_slot(
                 "body-cell-active",
                 '<q-td :props="props" class="text-center">'
-                '<q-icon :name="props.row.is_active ? \'check_circle\' : \'pause_circle\'"'
-                ' :color="props.row.is_active ? \'positive\' : \'grey-5\'" size="1.2rem" /></q-td>',
+                "<q-icon :name=\"props.row.is_active ? 'check_circle' : 'pause_circle'\""
+                " :color=\"props.row.is_active ? 'positive' : 'grey-5'\" size=\"1.2rem\" /></q-td>",
             )
             tbl.add_slot(
                 "body-cell-actions",
                 '<q-td :props="props" auto-width>'
                 '<q-btn flat round dense icon="power_settings_new" size="sm"'
-                ' :color="props.row.is_active ? \'grey-6\' : \'positive\'"'
-                ' @click="$parent.$emit(\'toggle\', props.row.id)" />'
+                " :color=\"props.row.is_active ? 'grey-6' : 'positive'\""
+                " @click=\"$parent.$emit('toggle', props.row.id)\" />"
                 '<q-btn flat round dense icon="edit" size="sm" color="primary"'
-                ' @click="$parent.$emit(\'edit\', props.row.id)" />'
+                " @click=\"$parent.$emit('edit', props.row.id)\" />"
                 '<q-btn flat round dense icon="delete" size="sm" color="negative"'
-                ' @click="$parent.$emit(\'delete\', props.row.id)" /></q-td>',
+                " @click=\"$parent.$emit('delete', props.row.id)\" /></q-td>",
             )
 
             pt_by_id = {pt.id: pt for pt in items}
 
-            async def _handle_toggle(e: object) -> None:
-                pt = pt_by_id.get(getattr(e, "args", None))
+            async def _handle_toggle(e: Any) -> None:
+                pt = pt_by_id.get(int(e.args)) if getattr(e, "args", None) is not None else None
                 if pt:
                     await _toggle(pt)
 
-            def _handle_edit(e: object) -> None:
-                pt = pt_by_id.get(getattr(e, "args", None))
+            def _handle_edit(e: Any) -> None:
+                pt = pt_by_id.get(int(e.args)) if getattr(e, "args", None) is not None else None
                 if pt:
                     _open_edit(pt)
 
-            def _handle_delete(e: object) -> None:
-                pt = pt_by_id.get(getattr(e, "args", None))
+            def _handle_delete(e: Any) -> None:
+                pt = pt_by_id.get(int(e.args)) if getattr(e, "args", None) is not None else None
                 if pt:
                     _open_delete(pt)
 

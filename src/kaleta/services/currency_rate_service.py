@@ -32,20 +32,24 @@ class CurrencyRateService:
         """Record a rate derived from a real transfer (both directions stored)."""
         if from_currency == to_currency:
             return
-        await self.create(CurrencyRateCreate(
-            date=date,
-            from_currency=from_currency,
-            to_currency=to_currency,
-            rate=rate,
-        ))
+        await self.create(
+            CurrencyRateCreate(
+                date=date,
+                from_currency=from_currency,
+                to_currency=to_currency,
+                rate=rate,
+            )
+        )
         # Also store the inverse so look-ups work in both directions
         if rate != Decimal("0"):
-            await self.create(CurrencyRateCreate(
-                date=date,
-                from_currency=to_currency,
-                to_currency=from_currency,
-                rate=Decimal("1") / rate,
-            ))
+            await self.create(
+                CurrencyRateCreate(
+                    date=date,
+                    from_currency=to_currency,
+                    to_currency=from_currency,
+                    rate=Decimal("1") / rate,
+                )
+            )
 
     async def get_rate_on(
         self,
@@ -90,13 +94,9 @@ class CurrencyRateService:
             return Decimal("1") / row_inv.rate
         return None
 
-    async def get_latest_rate(
-        self, from_currency: str, to_currency: str
-    ) -> Decimal | None:
+    async def get_latest_rate(self, from_currency: str, to_currency: str) -> Decimal | None:
         """Return the most recent rate for the given pair regardless of date."""
-        return await self.get_rate_on(
-            datetime.date.today(), from_currency, to_currency
-        )
+        return await self.get_rate_on(datetime.date.today(), from_currency, to_currency)
 
     async def load_rates_for_currencies(
         self,
@@ -142,9 +142,7 @@ class CurrencyRateService:
 
         return history
 
-    async def list_for_pair(
-        self, from_currency: str, to_currency: str
-    ) -> list[CurrencyRate]:
+    async def list_for_pair(self, from_currency: str, to_currency: str) -> list[CurrencyRate]:
         result = await self.session.execute(
             select(CurrencyRate)
             .where(
@@ -163,9 +161,7 @@ class CurrencyRateService:
         return [(r.from_currency, r.to_currency) for r in result.all()]
 
     async def delete(self, rate_id: int) -> bool:
-        result = await self.session.execute(
-            select(CurrencyRate).where(CurrencyRate.id == rate_id)
-        )
+        result = await self.session.execute(select(CurrencyRate).where(CurrencyRate.id == rate_id))
         row = result.scalars().first()
         if row is None:
             return False

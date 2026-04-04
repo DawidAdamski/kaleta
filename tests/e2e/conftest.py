@@ -9,6 +9,7 @@ The conftest configures kaleta's AsyncSessionFactory to connect to the same
 database the running app is using, so seed helpers in test modules write to
 the correct DB.
 """
+
 from __future__ import annotations
 
 import pytest

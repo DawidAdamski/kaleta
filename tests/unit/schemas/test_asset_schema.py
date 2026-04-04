@@ -31,7 +31,6 @@ XSS_PAYLOADS = [
 
 
 class TestAssetTypeEnum:
-
     def test_real_estate_value(self):
         assert AssetType.REAL_ESTATE.value == "real_estate"
 
@@ -53,7 +52,6 @@ class TestAssetTypeEnum:
 
 
 class TestAssetCreate:
-
     def test_valid_minimal(self):
         schema = AssetCreate(name="House")
         assert schema.name == "House"
@@ -157,7 +155,6 @@ class TestAssetCreate:
 
 
 class TestAssetUpdate:
-
     def test_all_fields_optional(self):
         schema = AssetUpdate()
         assert schema.name is None

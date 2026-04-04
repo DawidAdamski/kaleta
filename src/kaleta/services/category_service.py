@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import builtins
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,15 +15,15 @@ class CategoryService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def list(self, type: CategoryType | None = None) -> list[Category]:
+    async def list(self, type: CategoryType | None = None) -> builtins.list[Category]:
         """Return all categories (flat), children eagerly loaded."""
         stmt = select(Category).options(selectinload(Category.children)).order_by(Category.name)
         if type is not None:
             stmt = stmt.where(Category.type == type)
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return builtins.list(result.scalars().all())
 
-    async def list_roots(self, type: CategoryType | None = None) -> list[Category]:
+    async def list_roots(self, type: CategoryType | None = None) -> builtins.list[Category]:
         """Return only top-level categories with children eagerly loaded."""
         stmt = (
             select(Category)
@@ -32,7 +34,7 @@ class CategoryService:
         if type is not None:
             stmt = stmt.where(Category.type == type)
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return builtins.list(result.scalars().all())
 
     async def get(self, category_id: int) -> Category | None:
         result = await self.session.execute(
@@ -55,9 +57,7 @@ class CategoryService:
             raise IntegrityError(
                 statement=None,
                 params=None,
-                orig=Exception(
-                    f"Category name '{data.name}' already exists under the same parent"
-                ),
+                orig=Exception(f"Category name '{data.name}' already exists under the same parent"),
             )
         category = Category(**data.model_dump())
         self.session.add(category)

@@ -1,6 +1,7 @@
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from importlib.metadata import version as _pkg_version
+from typing import Any
 
 from nicegui import app, ui
 
@@ -14,31 +15,43 @@ except Exception:
 
 # Groups: (group_key, [(icon, path, label_key), ...])
 NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
-    ("nav.group_overview", [
-        ("dashboard", "/", "nav.dashboard"),
-        ("account_balance_wallet", "/accounts", "nav.accounts"),
-        ("pie_chart", "/net-worth", "nav.net_worth"),
-        ("assessment", "/reports", "nav.reports"),
-    ]),
-    ("nav.group_manage", [
-        ("receipt_long", "/transactions", "nav.transactions"),
-        ("event_repeat", "/planned", "nav.planned"),
-        ("bar_chart", "/budgets", "nav.budgets"),
-        ("edit_note", "/budget-plan", "nav.budget_plan"),
-        ("upload_file", "/import", "nav.import"),
-    ]),
-    ("nav.group_tools", [
-        ("insights", "/forecast", "nav.forecast"),
-        ("calculate", "/credit-calculator", "nav.credit_calculator"),
-        ("auto_awesome", "/wizard", "nav.wizard"),
-    ]),
-    ("nav.group_setup", [
-        ("account_balance", "/institutions", "nav.institutions"),
-        ("category", "/categories", "nav.categories"),
-        ("label", "/tags", "nav.tags"),
-        ("person_search", "/payees", "nav.payees"),
-        ("settings", "/settings", "nav.settings"),
-    ]),
+    (
+        "nav.group_overview",
+        [
+            ("dashboard", "/", "nav.dashboard"),
+            ("account_balance_wallet", "/accounts", "nav.accounts"),
+            ("pie_chart", "/net-worth", "nav.net_worth"),
+            ("assessment", "/reports", "nav.reports"),
+        ],
+    ),
+    (
+        "nav.group_manage",
+        [
+            ("receipt_long", "/transactions", "nav.transactions"),
+            ("event_repeat", "/planned", "nav.planned"),
+            ("bar_chart", "/budgets", "nav.budgets"),
+            ("edit_note", "/budget-plan", "nav.budget_plan"),
+            ("upload_file", "/import", "nav.import"),
+        ],
+    ),
+    (
+        "nav.group_tools",
+        [
+            ("insights", "/forecast", "nav.forecast"),
+            ("calculate", "/credit-calculator", "nav.credit_calculator"),
+            ("auto_awesome", "/wizard", "nav.wizard"),
+        ],
+    ),
+    (
+        "nav.group_setup",
+        [
+            ("account_balance", "/institutions", "nav.institutions"),
+            ("category", "/categories", "nav.categories"),
+            ("label", "/tags", "nav.tags"),
+            ("person_search", "/payees", "nav.payees"),
+            ("settings", "/settings", "nav.settings"),
+        ],
+    ),
 ]
 
 
@@ -57,6 +70,9 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     is_dark: bool = app.storage.user.get("dark_mode", False)
 
     dark_mode = ui.dark_mode(value=is_dark)
+    drawer: Any
+    toggle_btn: Any
+    close_dialog: Any
 
     def toggle_dark() -> None:
         dark_mode.toggle()
@@ -70,10 +86,14 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         ui.label("Kaleta").classes("text-xl font-bold")
         ui.space()
         ui.label(title).classes("text-sm opacity-80")
-        toggle_btn = ui.button(
-            icon="light_mode" if is_dark else "dark_mode",
-            on_click=toggle_dark,
-        ).props("flat round dense color=white").tooltip(t("common.toggle_dark"))
+        toggle_btn = (
+            ui.button(
+                icon="light_mode" if is_dark else "dark_mode",
+                on_click=toggle_dark,
+            )
+            .props("flat round dense color=white")
+            .tooltip(t("common.toggle_dark"))
+        )
 
         async def _close_db() -> None:
             from kaleta.config.setup_config import clear_db
@@ -132,16 +152,15 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             items_col.set_visibility(not is_col)
 
             # Toggle callback — captures loop vars via default args to avoid closure bug
-            def _make_toggle(gk: str, col: ui.column, ch: ui.icon) -> object:
+            def _make_toggle(gk: str, col: ui.column, ch: ui.icon) -> Callable[[], None]:
                 def _toggle() -> None:
                     stored: dict[str, bool] = dict(app.storage.user.get("nav_collapsed", {}))
                     now_col = not stored.get(gk, False)
                     stored[gk] = now_col
                     app.storage.user["nav_collapsed"] = stored
                     col.set_visibility(not now_col)
-                    ch.props(
-                        f"name={'keyboard_arrow_down' if now_col else 'keyboard_arrow_up'}"
-                    )
+                    ch.props(f"name={'keyboard_arrow_down' if now_col else 'keyboard_arrow_up'}")
+
                 return _toggle
 
             hdr.on("click", _make_toggle(group_key, items_col, chevron))
@@ -182,12 +201,12 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     # On /transactions the page-local handler opens the dialog directly.
     # From any other page we navigate to /transactions?new=1 so the dialog
     # auto-opens on arrival.
-    async def _global_key(e: object) -> None:
-        if not getattr(e, "action", None) or not e.action.keydown:  # type: ignore[attr-defined]
+    async def _global_key(e: Any) -> None:
+        if not getattr(e, "action", None) or not e.action.keydown:
             return
         key = getattr(e, "key", None)
-        no_mod = not getattr(e.modifiers, "ctrl", False) and not getattr(e.modifiers, "alt", False)  # type: ignore[attr-defined]
-        alt_only = getattr(e.modifiers, "alt", False) and not getattr(e.modifiers, "ctrl", False)  # type: ignore[attr-defined]
+        no_mod = not getattr(e.modifiers, "ctrl", False) and not getattr(e.modifiers, "alt", False)
+        alt_only = getattr(e.modifiers, "alt", False) and not getattr(e.modifiers, "ctrl", False)
         if key == "?" and no_mod:
             shortcuts_dialog.open()
         elif key == "n" and alt_only:

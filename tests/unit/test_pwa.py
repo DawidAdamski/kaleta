@@ -7,6 +7,7 @@ Covers:
 - sw.js contains the expected service-worker event listeners and cache identifier
 - _STATIC_DIR resolves to the correct absolute path
 """
+
 from __future__ import annotations
 
 import json
@@ -14,8 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from kaleta.pwa import PWA_HEAD, _STATIC_DIR
-
+from kaleta.pwa import _STATIC_DIR, PWA_HEAD
 
 # ---------------------------------------------------------------------------
 # PWA_HEAD content
@@ -41,10 +41,7 @@ class TestPwaHead:
         assert '<meta name="apple-mobile-web-app-capable" content="yes">' in PWA_HEAD
 
     def test_apple_mobile_web_app_status_bar_style_meta_present(self):
-        assert (
-            '<meta name="apple-mobile-web-app-status-bar-style" content="default">'
-            in PWA_HEAD
-        )
+        assert '<meta name="apple-mobile-web-app-status-bar-style" content="default">' in PWA_HEAD
 
     def test_apple_mobile_web_app_title_meta_present(self):
         assert '<meta name="apple-mobile-web-app-title" content="Kaleta">' in PWA_HEAD
@@ -65,7 +62,7 @@ class TestPwaHead:
 
     def test_head_does_not_start_or_end_with_whitespace(self):
         # .strip() is applied in the module — verify no leading/trailing blank lines
-        assert PWA_HEAD == PWA_HEAD.strip()
+        assert PWA_HEAD.strip() == PWA_HEAD
 
 
 # ---------------------------------------------------------------------------

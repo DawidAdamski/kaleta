@@ -10,7 +10,7 @@ from kaleta.db.base import Base
 from kaleta.models.mixins import TimestampMixin
 
 
-class InstitutionType(str, enum.Enum):
+class InstitutionType(enum.StrEnum):
     BANK = "bank"
     FINTECH = "fintech"
     CREDIT_UNION = "credit_union"
@@ -27,7 +27,7 @@ class Institution(TimestampMixin, Base):
     type: Mapped[InstitutionType] = mapped_column(
         SAEnum(InstitutionType, native_enum=False), nullable=False, default=InstitutionType.BANK
     )
-    color: Mapped[str | None] = mapped_column(String(7), nullable=True)   # hex e.g. #1976d2
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # hex e.g. #1976d2
     website: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
 

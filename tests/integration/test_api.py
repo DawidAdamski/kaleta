@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
@@ -11,10 +10,10 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 from kaleta.api import create_api_router
 from kaleta.api.deps import get_session
 
-
 # ---------------------------------------------------------------------------
 # Fixture
 # ---------------------------------------------------------------------------
+
 
 @pytest_asyncio.fixture
 async def api_client(db_engine):
@@ -38,11 +37,15 @@ async def api_client(db_engine):
 # Accounts
 # ---------------------------------------------------------------------------
 
-ACCOUNT_PAYLOAD = {"name": "Main Checking", "type": "checking", "balance": "100.00", "currency": "PLN"}
+ACCOUNT_PAYLOAD = {
+    "name": "Main Checking",
+    "type": "checking",
+    "balance": "100.00",
+    "currency": "PLN",
+}
 
 
 class TestAccountsApi:
-
     async def test_list_empty(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/accounts/")
         assert resp.status_code == 200
@@ -89,7 +92,6 @@ INSTITUTION_PAYLOAD = {"name": "Test Bank", "type": "bank"}
 
 
 class TestInstitutionsApi:
-
     async def test_list_empty(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/institutions/")
         assert resp.status_code == 200
@@ -122,7 +124,6 @@ CATEGORY_PAYLOAD = {"name": "Food", "type": "expense"}
 
 
 class TestCategoriesApi:
-
     async def test_list_empty(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/categories/")
         assert resp.status_code == 200
@@ -156,8 +157,8 @@ class TestCategoriesApi:
 # Transactions
 # ---------------------------------------------------------------------------
 
-class TestTransactionsApi:
 
+class TestTransactionsApi:
     @pytest_asyncio.fixture
     async def account_id(self, api_client: AsyncClient) -> int:
         resp = await api_client.post("/api/v1/accounts/", json=ACCOUNT_PAYLOAD)
@@ -218,9 +219,7 @@ class TestTransactionsApi:
         for item in body["items"]:
             assert item["account_id"] == account_id
 
-    async def test_get_by_id(
-        self, api_client: AsyncClient, account_id: int, category_id: int
-    ):
+    async def test_get_by_id(self, api_client: AsyncClient, account_id: int, category_id: int):
         created = (
             await api_client.post(
                 "/api/v1/transactions/", json=self._tx_payload(account_id, category_id)
@@ -248,8 +247,8 @@ class TestTransactionsApi:
 # Budgets
 # ---------------------------------------------------------------------------
 
-class TestBudgetsApi:
 
+class TestBudgetsApi:
     @pytest_asyncio.fixture
     async def category_id(self, api_client: AsyncClient) -> int:
         resp = await api_client.post("/api/v1/categories/", json=CATEGORY_PAYLOAD)
@@ -291,9 +290,7 @@ class TestBudgetsApi:
         created = (
             await api_client.post("/api/v1/budgets/", json=self._budget_payload(category_id))
         ).json()
-        resp = await api_client.put(
-            f"/api/v1/budgets/{created['id']}", json={"amount": "750.00"}
-        )
+        resp = await api_client.put(f"/api/v1/budgets/{created['id']}", json={"amount": "750.00"})
         assert resp.status_code == 200
         assert resp.json()["amount"] == "750.00"
 

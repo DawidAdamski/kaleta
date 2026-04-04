@@ -5,13 +5,14 @@ Revises: c4f9e2b1a837
 Create Date: 2026-03-08 00:00:00.000000
 """
 
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 import sqlalchemy as sa
+
 from alembic import op
 
 revision: str = "d7a3e1f2b8c5"
-down_revision: Union[str, Sequence[str], None] = "c4f9e2b1a837"
+down_revision: str | Sequence[str] | None = "c4f9e2b1a837"
 branch_labels = None
 depends_on = None
 

@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import builtins
 import calendar
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -69,20 +71,20 @@ class PlannedTransactionService:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    def _opts(self) -> list:
+    def _opts(self) -> builtins.list[Any]:
         return [
             selectinload(PlannedTransaction.account),
             selectinload(PlannedTransaction.category),
         ]
 
-    async def list(self) -> list[PlannedTransaction]:
+    async def list(self) -> builtins.list[PlannedTransaction]:
         stmt = (
             select(PlannedTransaction)
             .options(*self._opts())
             .order_by(PlannedTransaction.start_date, PlannedTransaction.name)
         )
         result = await self._session.execute(stmt)
-        return list(result.scalars().all())
+        return builtins.list(result.scalars().all())
 
     async def get(self, pt_id: int) -> PlannedTransaction | None:
         stmt = (
@@ -154,7 +156,7 @@ class PlannedTransactionService:
         end_date: datetime.date,
         account_id: int | None = None,
         active_only: bool = True,
-    ) -> list[PlannedOccurrence]:
+    ) -> builtins.list[PlannedOccurrence]:
         """Generate every occurrence of planned transactions in [start_date, end_date]."""
         stmt = select(PlannedTransaction).options(*self._opts())
         if active_only:
@@ -163,9 +165,9 @@ class PlannedTransactionService:
             stmt = stmt.where(PlannedTransaction.account_id == account_id)
 
         result = await self._session.execute(stmt)
-        planned_list = list(result.scalars().all())
+        planned_list = builtins.list(result.scalars().all())
 
-        occurrences: list[PlannedOccurrence] = []
+        occurrences: builtins.list[PlannedOccurrence] = []
         for p in planned_list:
             # Skip plans that ended before our window
             if p.end_date and p.end_date < start_date:

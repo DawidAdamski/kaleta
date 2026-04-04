@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from typing import Any
 
 from nicegui import app, ui
 
@@ -13,7 +14,16 @@ from kaleta.services import AccountService, InstitutionService
 from kaleta.views.layout import page_layout
 
 COMMON_CURRENCIES: list[str] = [
-    "PLN", "EUR", "USD", "GBP", "CHF", "CZK", "HUF", "NOK", "SEK", "DKK",
+    "PLN",
+    "EUR",
+    "USD",
+    "GBP",
+    "CHF",
+    "CZK",
+    "HUF",
+    "NOK",
+    "SEK",
+    "DKK",
 ]
 
 _TYPE_ICONS: dict[str, str] = {
@@ -53,7 +63,7 @@ def register() -> None:
         inst_options.update({i.id: i.name for i in institution_list})
 
         # ── Persistent state ───────────────────────────────────────────────────
-        state: dict = {
+        state: dict[str, Any] = {
             "group_by": app.storage.user.get("accounts_group_by", "type"),
             "selected_id": None,
         }
@@ -78,7 +88,6 @@ def register() -> None:
             account_table.refresh()
 
         with page_layout(t("accounts.title")):
-
             # ── Dialogs (defined first so handlers below can reference them) ──
 
             with ui.dialog() as add_dialog, ui.card().classes("w-[420px]"):
@@ -89,15 +98,21 @@ def register() -> None:
                     label=t("common.type"),
                     value=AccountType.CHECKING.value,
                 ).classes("w-full")
-                add_currency = ui.select(
-                    COMMON_CURRENCIES, label=t("accounts.currency"), value="PLN",
-                ).classes("w-full").tooltip(t("accounts.currency_hint"))
-                add_balance = ui.number(
-                    t("common.balance"), value=0, format="%.2f"
-                ).classes("w-full")
-                add_inst = ui.select(
-                    inst_options, label=t("common.institution"), value=0
-                ).classes("w-full")
+                add_currency = (
+                    ui.select(
+                        COMMON_CURRENCIES,
+                        label=t("accounts.currency"),
+                        value="PLN",
+                    )
+                    .classes("w-full")
+                    .tooltip(t("accounts.currency_hint"))
+                )
+                add_balance = ui.number(t("common.balance"), value=0, format="%.2f").classes(
+                    "w-full"
+                )
+                add_inst = ui.select(inst_options, label=t("common.institution"), value=0).classes(
+                    "w-full"
+                )
 
                 async def save_add() -> None:
                     if not add_name.value or not add_name.value.strip():
@@ -112,10 +127,10 @@ def register() -> None:
                         institution_id=inst_id,
                     )
                     async with AsyncSessionFactory() as session:
-                        acc = await AccountService(session).create(data)
-                        acc = await AccountService(session).get(acc.id)
-                    if acc:
-                        account_list.append(acc)
+                        created_acc = await AccountService(session).create(data)
+                        reloaded_acc = await AccountService(session).get(created_acc.id)
+                    if reloaded_acc:
+                        account_list.append(reloaded_acc)
                     account_table.refresh()
                     ui.notify(t("accounts.created"), type="positive")
                     add_dialog.close()
@@ -123,10 +138,15 @@ def register() -> None:
                 with ui.row().classes("w-full justify-end gap-2 mt-4"):
                     ui.button(t("common.cancel"), on_click=add_dialog.close).props("flat")
                     ui.button(t("common.save"), on_click=save_add).props("color=primary")
-                ui.keyboard(on_key=lambda e: (
-                    save_add() if e.key == "Enter" and e.action.keydown else
-                    add_dialog.close() if e.key == "Escape" and e.action.keydown else None
-                ))
+                ui.keyboard(
+                    on_key=lambda e: (
+                        save_add()
+                        if e.key == "Enter" and e.action.keydown
+                        else add_dialog.close()
+                        if e.key == "Escape" and e.action.keydown
+                        else None
+                    )
+                )
 
             with ui.dialog() as edit_dialog, ui.card().classes("w-[420px]"):
                 ui.label(t("accounts.edit")).classes("text-lg font-bold mb-2")
@@ -135,12 +155,18 @@ def register() -> None:
                     {at.value: _type_labels()[at] for at in AccountType},
                     label=t("common.type"),
                 ).classes("w-full")
-                edit_currency = ui.select(
-                    COMMON_CURRENCIES, label=t("accounts.currency"), value="PLN",
-                ).classes("w-full").tooltip(t("accounts.currency_hint"))
-                edit_inst = ui.select(
-                    inst_options, label=t("common.institution"), value=0
-                ).classes("w-full")
+                edit_currency = (
+                    ui.select(
+                        COMMON_CURRENCIES,
+                        label=t("accounts.currency"),
+                        value="PLN",
+                    )
+                    .classes("w-full")
+                    .tooltip(t("accounts.currency_hint"))
+                )
+                edit_inst = ui.select(inst_options, label=t("common.institution"), value=0).classes(
+                    "w-full"
+                )
 
                 async def save_edit() -> None:
                     aid = state["selected_id"]
@@ -172,10 +198,15 @@ def register() -> None:
                 with ui.row().classes("w-full justify-end gap-2 mt-4"):
                     ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
                     ui.button(t("common.save"), on_click=save_edit).props("color=primary")
-                ui.keyboard(on_key=lambda e: (
-                    save_edit() if e.key == "Enter" and e.action.keydown else
-                    edit_dialog.close() if e.key == "Escape" and e.action.keydown else None
-                ))
+                ui.keyboard(
+                    on_key=lambda e: (
+                        save_edit()
+                        if e.key == "Enter" and e.action.keydown
+                        else edit_dialog.close()
+                        if e.key == "Escape" and e.action.keydown
+                        else None
+                    )
+                )
 
             with ui.dialog() as delete_dialog, ui.card().classes("w-96"):
                 delete_label = ui.label("").classes("text-base mb-4")
@@ -196,9 +227,7 @@ def register() -> None:
 
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
                     ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
-                    ui.button(
-                        t("common.delete"), on_click=confirm_delete
-                    ).props("color=negative")
+                    ui.button(t("common.delete"), on_click=confirm_delete).props("color=negative")
 
             # ── Action handlers (defined after dialogs, before table) ─────────
 
@@ -245,9 +274,9 @@ def register() -> None:
                             )
 
                     group_buttons()
-                    ui.button(
-                        t("accounts.add"), icon="add", on_click=_open_add
-                    ).props("color=primary")
+                    ui.button(t("accounts.add"), icon="add", on_click=_open_add).props(
+                        "color=primary"
+                    )
 
             # ── Account table ─────────────────────────────────────────────────
             @ui.refreshable
@@ -259,10 +288,7 @@ def register() -> None:
                 if by == "institution":
                     inst_by_id: dict[int, str] = {i.id: i.name for i in institution_list}
                     for a in account_list:
-                        key = inst_by_id.get(
-                            a.institution_id or -1,  # type: ignore[arg-type]
-                            t("accounts.no_institution"),
-                        )
+                        key = inst_by_id.get(a.institution_id or -1, t("accounts.no_institution"))
                         groups[key].append(a)
                 else:
                     for a in account_list:
@@ -275,14 +301,11 @@ def register() -> None:
                 for group_name in sorted(groups.keys()):
                     accts = groups[group_name]
                     group_key = f"{by}:{group_name}"
-                    exp = (
-                        ui.expansion(
-                            group_name,
-                            icon=_group_icon(by, group_name, accts),
-                            value=_is_expanded(group_key),
-                        )
-                        .classes("w-full border rounded-lg mb-2")
-                    )
+                    exp = ui.expansion(
+                        group_name,
+                        icon=_group_icon(by, group_name, accts),
+                        value=_is_expanded(group_key),
+                    ).classes("w-full border rounded-lg mb-2")
                     exp.on("after-show", lambda gk=group_key: _set_expanded(gk, True))
                     exp.on("after-hide", lambda gk=group_key: _set_expanded(gk, False))
 
@@ -304,9 +327,9 @@ def register() -> None:
                             with ui.row().classes("w-full px-4 py-2 items-center border-b"):
                                 ui.label(a.name).classes("flex-1 font-medium")
                                 if by == "type":
-                                    ui.label(
-                                        a.institution.name if a.institution else "—"
-                                    ).classes("w-44 text-grey-6 text-sm")
+                                    ui.label(a.institution.name if a.institution else "—").classes(
+                                        "w-44 text-grey-6 text-sm"
+                                    )
                                 else:
                                     ui.label(labels.get(a.type, a.type.value)).classes(
                                         "w-44 text-grey-6 text-sm"

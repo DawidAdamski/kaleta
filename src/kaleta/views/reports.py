@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
 from nicegui import app, ui
 
@@ -11,6 +12,7 @@ from kaleta.schemas.report import SavedReportCreate
 from kaleta.services import AccountService, CategoryService
 from kaleta.services.saved_report_service import (
     ReportConfig,
+    ReportResult,
     SavedReportService,
     build_echart_option,
 )
@@ -19,51 +21,56 @@ from kaleta.views.layout import page_layout
 # ── Field definitions ──────────────────────────────────────────────────────────
 
 _DIMENSIONS = [
-    ("category",    "reports.dim_category",    "category"),
-    ("account",     "reports.dim_account",     "account_balance_wallet"),
-    ("month",       "reports.dim_month",       "calendar_month"),
-    ("year",        "reports.dim_year",        "calendar_today"),
-    ("type",        "reports.dim_type",        "swap_horiz"),
+    ("category", "reports.dim_category", "category"),
+    ("account", "reports.dim_account", "account_balance_wallet"),
+    ("month", "reports.dim_month", "calendar_month"),
+    ("year", "reports.dim_year", "calendar_today"),
+    ("type", "reports.dim_type", "swap_horiz"),
     ("institution", "reports.dim_institution", "account_balance"),
-    ("weekday",     "reports.dim_weekday",     "today"),
+    ("weekday", "reports.dim_weekday", "today"),
 ]
 
 _METRICS = [
-    ("sum",   "reports.metric_sum",   "functions"),
+    ("sum", "reports.metric_sum", "functions"),
     ("count", "reports.metric_count", "tag"),
-    ("avg",   "reports.metric_avg",   "percent"),
+    ("avg", "reports.metric_avg", "percent"),
 ]
 
 _CHART_TYPES = [
-    ("bar",   "bar_chart"),
-    ("line",  "show_chart"),
-    ("pie",   "pie_chart"),
+    ("bar", "bar_chart"),
+    ("line", "show_chart"),
+    ("pie", "pie_chart"),
     ("donut", "donut_large"),
     ("table", "table_chart"),
 ]
 
 _DATE_PRESETS = [
-    ("all_time",      "reports.preset_all"),
-    ("this_month",    "reports.preset_this_month"),
-    ("last_month",    "reports.preset_last_month"),
-    ("this_year",     "reports.preset_this_year"),
-    ("last_year",     "reports.preset_last_year"),
-    ("last_30",       "reports.preset_last_30"),
-    ("last_90",       "reports.preset_last_90"),
-    ("last_12_months","reports.preset_last_12"),
-    ("custom",        "reports.preset_custom"),
+    ("all_time", "reports.preset_all"),
+    ("this_month", "reports.preset_this_month"),
+    ("last_month", "reports.preset_last_month"),
+    ("this_year", "reports.preset_this_year"),
+    ("last_year", "reports.preset_last_year"),
+    ("last_30", "reports.preset_last_30"),
+    ("last_90", "reports.preset_last_90"),
+    ("last_12_months", "reports.preset_last_12"),
+    ("custom", "reports.preset_custom"),
 ]
 
 _TX_TYPES = [
-    ("expense",  "reports.type_expense",  "trending_down",  "negative"),
-    ("income",   "reports.type_income",   "trending_up",    "positive"),
-    ("transfer", "reports.type_transfer", "swap_horiz",     "primary"),
+    ("expense", "reports.type_expense", "trending_down", "negative"),
+    ("income", "reports.type_income", "trending_up", "positive"),
+    ("transfer", "reports.type_transfer", "swap_horiz", "primary"),
 ]
 
 
 def _chart_icon(chart_type: str) -> str:
-    icons = {"bar": "bar_chart", "line": "show_chart", "pie": "pie_chart",
-             "donut": "donut_large", "table": "table_chart"}
+    icons = {
+        "bar": "bar_chart",
+        "line": "show_chart",
+        "pie": "pie_chart",
+        "donut": "donut_large",
+        "table": "table_chart",
+    }
     return icons.get(chart_type, "bar_chart")
 
 
@@ -80,7 +87,7 @@ def register() -> None:
         category_options = {c.id: c.name for c in all_categories}
 
         # ── Builder state ──────────────────────────────────────────────────────
-        state: dict = {
+        state: dict[str, Any] = {
             "dimension": "category",
             "metric": "sum",
             "chart_type": "bar",
@@ -91,9 +98,9 @@ def register() -> None:
             "account_ids": [],
             "category_ids": [],
             "top_n": 10,
-            "dragging": None,       # field key being dragged
-            "dragging_grp": None,   # "dimension" or "metric"
-            "result": None,         # last ReportResult
+            "dragging": None,  # field key being dragged
+            "dragging_grp": None,  # "dimension" or "metric"
+            "result": None,  # last ReportResult
             "running": False,
             "error": None,
         }
@@ -219,20 +226,20 @@ def register() -> None:
                             ui.card().classes("p-2 cursor-pointer hover:shadow-md"),
                             ui.row().classes("items-center gap-1 no-wrap"),
                         ):
-                                ui.icon(icon, color="primary").classes("text-base")
-                                ui.label(r.name).classes("text-sm font-medium")
-                                ui.button(
-                                    icon="play_arrow",
-                                    on_click=lambda rid=r.id: _load(rid),
-                                ).props("flat dense round size=xs color=primary").tooltip(
-                                    t("reports.run")
-                                )
-                                ui.button(
-                                    icon="delete",
-                                    on_click=lambda rid=r.id: _delete(rid),
-                                ).props("flat dense round size=xs color=negative").tooltip(
-                                    t("common.delete")
-                                )
+                            ui.icon(icon, color="primary").classes("text-base")
+                            ui.label(r.name).classes("text-sm font-medium")
+                            ui.button(
+                                icon="play_arrow",
+                                on_click=lambda rid=r.id: _load(rid),
+                            ).props("flat dense round size=xs color=primary").tooltip(
+                                t("reports.run")
+                            )
+                            ui.button(
+                                icon="delete",
+                                on_click=lambda rid=r.id: _delete(rid),
+                            ).props("flat dense round size=xs color=negative").tooltip(
+                                t("common.delete")
+                            )
 
             await saved_section()
 
@@ -242,7 +249,6 @@ def register() -> None:
             ui.label(t("reports.builder_title")).classes("text-lg font-semibold mb-3")
 
             with ui.row().classes("w-full gap-4 items-start"):
-
                 # ──── Left: Palette ────────────────────────────────────────────
                 @ui.refreshable
                 def palette_zone() -> None:
@@ -252,9 +258,8 @@ def register() -> None:
                         )
                         for key, label_key, icon in _DIMENSIONS:
                             is_active = state["dimension"] == key
-                            chip_cls = (
-                                "cursor-grab mb-1 w-full justify-start "
-                                + ("opacity-100" if is_active else "opacity-70 hover:opacity-100")
+                            chip_cls = "cursor-grab mb-1 w-full justify-start " + (
+                                "opacity-100" if is_active else "opacity-70 hover:opacity-100"
                             )
                             with ui.row().classes("w-full"):
                                 chip = (
@@ -279,9 +284,8 @@ def register() -> None:
                         )
                         for key, label_key, icon in _METRICS:
                             is_active = state["metric"] == key
-                            chip_cls = (
-                                "cursor-grab mb-1 w-full justify-start "
-                                + ("opacity-100" if is_active else "opacity-70 hover:opacity-100")
+                            chip_cls = "cursor-grab mb-1 w-full justify-start " + (
+                                "opacity-100" if is_active else "opacity-70 hover:opacity-100"
                             )
                             with ui.row().classes("w-full"):
                                 chip = (
@@ -311,15 +315,16 @@ def register() -> None:
 
                         # ── Drop zones row ─────────────────────────────────────
                         with ui.row().classes("gap-4 mb-4 flex-wrap"):
-
                             # Group By drop zone
                             dz_dim_cls = (
                                 "p-3 rounded-lg border-2 border-dashed min-w-40 cursor-pointer "
                                 "border-primary bg-primary-50"
                             )
-                            with ui.element("div").classes(dz_dim_cls).props(
-                                'ondragover="event.preventDefault()"'
-                            ) as dz_dim:
+                            with (
+                                ui.element("div")
+                                .classes(dz_dim_cls)
+                                .props('ondragover="event.preventDefault()"') as dz_dim
+                            ):
                                 dz_dim.on("drop", _drop_dimension)
                                 ui.label(t("reports.group_by")).classes(hdr_cls)
                                 dim_label = next(
@@ -340,9 +345,11 @@ def register() -> None:
                                 "p-3 rounded-lg border-2 border-dashed min-w-40 cursor-pointer "
                                 "border-secondary bg-secondary-50"
                             )
-                            with ui.element("div").classes(dz_met_cls).props(
-                                'ondragover="event.preventDefault()"'
-                            ) as dz_met:
+                            with (
+                                ui.element("div")
+                                .classes(dz_met_cls)
+                                .props('ondragover="event.preventDefault()"') as dz_met
+                            ):
                                 dz_met.on("drop", _drop_metric)
                                 ui.label(t("reports.measure")).classes(hdr_cls)
                                 met_label = next(
@@ -376,77 +383,77 @@ def register() -> None:
                         exp = ui.expansion(t("reports.filters"), icon="filter_list")
                         exp.classes("w-full mb-4")
                         with exp, ui.element("div").classes("flex flex-col gap-3 pt-2"):
+                            # Transaction types
+                            ui.label(t("reports.tx_types")).classes(hdr_cls)
+                            with ui.row().classes("gap-2"):
+                                for tk, tlk, tic, tcol in _TX_TYPES:
+                                    active = tk in state["transaction_types"]
+                                    ui.button(
+                                        t(tlk),
+                                        icon=tic,
+                                        on_click=lambda k=tk: _toggle_type(k),
+                                    ).props(
+                                        (f"color={tcol}" if active else "outline color=grey-7")
+                                        + " dense rounded"
+                                    )
 
-                                # Transaction types
-                                ui.label(t("reports.tx_types")).classes(hdr_cls)
-                                with ui.row().classes("gap-2"):
-                                    for tk, tlk, tic, tcol in _TX_TYPES:
-                                        active = tk in state["transaction_types"]
-                                        ui.button(
-                                            t(tlk), icon=tic,
-                                            on_click=lambda k=tk: _toggle_type(k),
-                                        ).props(
-                                            (f"color={tcol}" if active else "outline color=grey-7")
-                                            + " dense rounded"
-                                        )
+                            # Date preset
+                            ui.label(t("reports.date_range")).classes(hdr_cls)
+                            preset_opts = {k: t(lk) for k, lk in _DATE_PRESETS}
+                            ui.select(
+                                preset_opts,
+                                value=state["date_preset"],
+                                on_change=lambda e: (
+                                    state.update(date_preset=e.value) or config_zone.refresh()
+                                ),
+                            ).classes("w-56")
+                            if state["date_preset"] == "custom":
+                                with ui.row().classes("gap-3"):
+                                    ui.input(
+                                        t("transactions.date_from"),
+                                        value=state["date_from"],
+                                        on_change=lambda e: state.update(date_from=e.value),
+                                    ).props("type=date").classes("w-44")
+                                    ui.input(
+                                        t("transactions.date_to"),
+                                        value=state["date_to"],
+                                        on_change=lambda e: state.update(date_to=e.value),
+                                    ).props("type=date").classes("w-44")
 
-                                # Date preset
-                                ui.label(t("reports.date_range")).classes(hdr_cls)
-                                preset_opts = {k: t(lk) for k, lk in _DATE_PRESETS}
+                            # Top N
+                            ui.label(t("reports.top_n")).classes(hdr_cls)
+                            ui.number(
+                                t("reports.top_n_hint"),
+                                value=state["top_n"],
+                                min=0,
+                                max=100,
+                                step=5,
+                                on_change=lambda e: state.update(top_n=int(e.value or 0)),
+                            ).classes("w-32").props("dense")
+
+                            # Accounts filter
+                            if account_options:
+                                ui.label(t("reports.filter_accounts")).classes(hdr_cls)
                                 ui.select(
-                                    preset_opts,
-                                    value=state["date_preset"],
-                                    on_change=lambda e: (
-                                        state.update(date_preset=e.value) or config_zone.refresh()
+                                    account_options,
+                                    multiple=True,
+                                    value=state["account_ids"],
+                                    label=t("reports.all_accounts"),
+                                    on_change=lambda e: state.update(account_ids=e.value or []),
+                                ).classes("w-full").props("use-chips")
+
+                            # Categories filter
+                            if category_options:
+                                ui.label(t("reports.filter_categories")).classes(hdr_cls)
+                                ui.select(
+                                    category_options,
+                                    multiple=True,
+                                    value=state["category_ids"],
+                                    label=t("reports.all_categories"),
+                                    on_change=lambda e: state.update(  # noqa: E501
+                                        category_ids=e.value or []
                                     ),
-                                ).classes("w-56")
-                                if state["date_preset"] == "custom":
-                                    with ui.row().classes("gap-3"):
-                                        ui.input(
-                                            t("transactions.date_from"),
-                                            value=state["date_from"],
-                                            on_change=lambda e: state.update(date_from=e.value),
-                                        ).props("type=date").classes("w-44")
-                                        ui.input(
-                                            t("transactions.date_to"),
-                                            value=state["date_to"],
-                                            on_change=lambda e: state.update(date_to=e.value),
-                                        ).props("type=date").classes("w-44")
-
-                                # Top N
-                                ui.label(t("reports.top_n")).classes(hdr_cls)
-                                ui.number(
-                                    t("reports.top_n_hint"),
-                                    value=state["top_n"],
-                                    min=0,
-                                    max=100,
-                                    step=5,
-                                    on_change=lambda e: state.update(top_n=int(e.value or 0)),
-                                ).classes("w-32").props("dense")
-
-                                # Accounts filter
-                                if account_options:
-                                    ui.label(t("reports.filter_accounts")).classes(hdr_cls)
-                                    ui.select(
-                                        account_options,
-                                        multiple=True,
-                                        value=state["account_ids"],
-                                        label=t("reports.all_accounts"),
-                                        on_change=lambda e: state.update(account_ids=e.value or []),
-                                    ).classes("w-full").props("use-chips")
-
-                                # Categories filter
-                                if category_options:
-                                    ui.label(t("reports.filter_categories")).classes(hdr_cls)
-                                    ui.select(
-                                        category_options,
-                                        multiple=True,
-                                        value=state["category_ids"],
-                                        label=t("reports.all_categories"),
-                                        on_change=lambda e: state.update(  # noqa: E501
-                                            category_ids=e.value or []
-                                        ),
-                                    ).classes("w-full").props("use-chips")
+                                ).classes("w-full").props("use-chips")
 
                     def _set_chart(ct: str) -> None:
                         state["chart_type"] = ct
@@ -472,11 +479,12 @@ def register() -> None:
                             placeholder=t("reports.name_placeholder"),
                         ).classes("flex-1 min-w-40")
                         save_name_ref.append(name_inp)
+                        ui.button(t("reports.run"), icon="play_arrow", on_click=_run).props(
+                            "color=primary"
+                        )
                         ui.button(
-                            t("reports.run"), icon="play_arrow", on_click=_run
-                        ).props("color=primary")
-                        ui.button(
-                            t("reports.save"), icon="save",
+                            t("reports.save"),
+                            icon="save",
                             on_click=lambda: _save(name_inp.value or ""),
                         ).props("outline color=primary")
 
@@ -493,10 +501,13 @@ def register() -> None:
                             return
                         result = state["result"]
                         if result is None:
-                            with ui.element("div").classes(
-                                "h-64 flex items-center justify-center text-grey-5 "
-                                "border-2 border-dashed rounded-lg w-full"
-                            ), ui.column().classes("items-center gap-2"):
+                            with (
+                                ui.element("div").classes(
+                                    "h-64 flex items-center justify-center text-grey-5 "
+                                    "border-2 border-dashed rounded-lg w-full"
+                                ),
+                                ui.column().classes("items-center gap-2"),
+                            ):
                                 ui.icon("bar_chart").classes("text-5xl")
                                 ui.label(t("reports.run_to_preview"))
                             return
@@ -515,8 +526,8 @@ def register() -> None:
 
                     chart_zone()
 
-        def _render_table(result: object) -> None:  # type: ignore[type-arg]
-            r = result  # type: ignore[attr-defined]
+        def _render_table(result: ReportResult) -> None:
+            r = result
             cols = [
                 {"name": "label", "label": r.column_header, "field": "label", "align": "left"},
                 {"name": "value", "label": r.metric_header, "field": "value", "align": "right"},

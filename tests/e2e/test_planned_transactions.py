@@ -3,6 +3,7 @@
 Maps scenarios from docs/bdd.md — Feature: Planned and Recurring Transactions.
 Page URL: /planned
 """
+
 from __future__ import annotations
 
 from playwright.sync_api import Page, expect
@@ -15,6 +16,7 @@ BASE_URL = "http://localhost:8080"
 # ---------------------------------------------------------------------------
 # Scenario: Create a monthly recurring expense
 # ---------------------------------------------------------------------------
+
 
 def test_create_monthly_recurring_expense(page: Page) -> None:
     """Scenario: Create a monthly recurring expense"""
@@ -50,6 +52,7 @@ def test_create_monthly_recurring_expense(page: Page) -> None:
 # Scenario: Create a weekly recurring expense
 # ---------------------------------------------------------------------------
 
+
 def test_create_weekly_recurring_expense(page: Page) -> None:
     """Scenario: Create a weekly recurring expense"""
     seed_account("PKO Main Planned Weekly")
@@ -77,6 +80,7 @@ def test_create_weekly_recurring_expense(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Create a yearly recurring expense
 # ---------------------------------------------------------------------------
+
 
 def test_create_yearly_recurring_expense(page: Page) -> None:
     """Scenario: Create a yearly recurring expense"""
@@ -106,6 +110,7 @@ def test_create_yearly_recurring_expense(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Edit a planned transaction amount
 # ---------------------------------------------------------------------------
+
 
 def test_edit_planned_transaction_amount(page: Page) -> None:
     """Scenario: Edit a planned transaction amount"""
@@ -140,6 +145,7 @@ def test_edit_planned_transaction_amount(page: Page) -> None:
 # Scenario: Delete a planned transaction
 # ---------------------------------------------------------------------------
 
+
 def test_delete_planned_transaction(page: Page) -> None:
     """Scenario: Delete a planned transaction"""
     acc_id = seed_account("PKO Main Planned Delete")
@@ -169,6 +175,7 @@ def test_delete_planned_transaction(page: Page) -> None:
 # Scenario: Toggle a planned transaction inactive
 # ---------------------------------------------------------------------------
 
+
 def test_toggle_planned_transaction_inactive(page: Page) -> None:
     """Scenario: Toggle a planned transaction inactive"""
     acc_id = seed_account("PKO Main Planned Toggle")
@@ -193,6 +200,7 @@ def test_toggle_planned_transaction_inactive(page: Page) -> None:
 # Scenario: Re-activate a paused planned transaction
 # ---------------------------------------------------------------------------
 
+
 def test_reactivate_paused_planned_transaction(page: Page) -> None:
     """Scenario: Re-activate a paused planned transaction"""
     acc_id = seed_account("PKO Main Planned Reactivate")
@@ -215,6 +223,7 @@ def test_reactivate_paused_planned_transaction(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Create a recurring transaction with an end date
 # ---------------------------------------------------------------------------
+
 
 def test_create_recurring_transaction_with_end_date(page: Page) -> None:
     """Scenario: Create a recurring transaction with an end date"""
@@ -243,6 +252,7 @@ def test_create_recurring_transaction_with_end_date(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Planned transaction does not appear in transactions without toggle
 # ---------------------------------------------------------------------------
+
 
 def test_planned_not_shown_without_toggle(page: Page) -> None:
     """Scenario: Planned transaction does not appear in transactions without the toggle"""

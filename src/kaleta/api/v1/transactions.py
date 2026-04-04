@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,7 +11,7 @@ from kaleta.models.transaction import TransactionType
 from kaleta.schemas.transaction import TransactionCreate, TransactionResponse, TransactionUpdate
 from kaleta.services.transaction_service import TransactionService
 
-_404 = {404: {"description": "Transaction not found"}}
+_404: dict[int | str, dict[str, Any]] = {404: {"description": "Transaction not found"}}
 
 router = APIRouter(prefix="/transactions", tags=["Transactions"])
 
@@ -39,7 +40,17 @@ async def list_transactions(
     session: AsyncSession = Depends(get_session),
 ) -> PagedResponse[TransactionResponse]:
     svc = TransactionService(session)
-    filters = dict(
+    items = await svc.list(
+        account_ids=account_ids or None,
+        category_ids=category_ids or None,
+        date_from=date_from,
+        date_to=date_to,
+        tx_types=tx_types or None,
+        search=search,
+        limit=pagination.page_size,
+        offset=pagination.offset,
+    )
+    total = await svc.count(
         account_ids=account_ids or None,
         category_ids=category_ids or None,
         date_from=date_from,
@@ -47,8 +58,6 @@ async def list_transactions(
         tx_types=tx_types or None,
         search=search,
     )
-    items = await svc.list(**filters, limit=pagination.page_size, offset=pagination.offset)
-    total = await svc.count(**filters)
     return PagedResponse.build(items, total, pagination)  # type: ignore[arg-type]
 
 
@@ -113,9 +122,7 @@ async def update_transaction(
     return updated  # type: ignore[return-value]
 
 
-@router.delete(
-    "/{transaction_id}", status_code=204, summary="Delete a transaction", responses=_404
-)
+@router.delete("/{transaction_id}", status_code=204, summary="Delete a transaction", responses=_404)
 async def delete_transaction(
     transaction_id: int,
     session: AsyncSession = Depends(get_session),

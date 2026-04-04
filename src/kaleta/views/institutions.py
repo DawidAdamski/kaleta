@@ -2,7 +2,7 @@ from nicegui import ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.institution import InstitutionType
+from kaleta.models.institution import Institution, InstitutionType
 from kaleta.schemas.institution import InstitutionCreate, InstitutionUpdate
 from kaleta.services import InstitutionService
 from kaleta.views.layout import page_layout
@@ -39,9 +39,9 @@ def register() -> None:
         with page_layout(t("institutions.title")):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(t("institutions.title")).classes("text-2xl font-bold")
-                ui.button(
-                    t("institutions.add"), icon="add", on_click=lambda: _open_add()
-                ).props("color=primary")
+                ui.button(t("institutions.add"), icon="add", on_click=lambda: _open_add()).props(
+                    "color=primary"
+                )
 
             @ui.refreshable
             def institution_cards() -> None:
@@ -68,9 +68,9 @@ def register() -> None:
                             if inst.website:
                                 ui.label(inst.website).classes("text-xs text-blue-6 truncate")
                             with ui.row().classes("w-full justify-end gap-1 mt-1"):
-                                ui.button(
-                                    icon="edit", on_click=lambda i=inst: _open_edit(i)
-                                ).props("flat round dense color=primary size=sm")
+                                ui.button(icon="edit", on_click=lambda i=inst: _open_edit(i)).props(
+                                    "flat round dense color=primary size=sm"
+                                )
                                 ui.button(
                                     icon="delete", on_click=lambda i=inst: _open_delete(i)
                                 ).props("flat round dense color=negative size=sm")
@@ -101,15 +101,16 @@ def register() -> None:
 
                 add_color.on_value_change(lambda _: _add_sync_swatch())
 
-                with ui.button(icon="colorize").props("flat round dense").tooltip(
-                    t("institutions.pick_color")
+                def _pick_add_color(e: object) -> None:
+                    add_color.set_value(e.color)  # type: ignore[attr-defined]
+                    _add_sync_swatch()
+
+                with (
+                    ui.button(icon="colorize")
+                    .props("flat round dense")
+                    .tooltip(t("institutions.pick_color"))
                 ):
-                    ui.color_picker(
-                        on_pick=lambda e: (
-                            add_color.set_value(e.color),
-                            _add_sync_swatch(),
-                        )
-                    )
+                    ui.color_picker(on_pick=_pick_add_color)
 
             add_website = ui.input(t("institutions.website")).classes("w-full")
             add_desc = ui.textarea(t("common.description")).classes("w-full").props("rows=2")
@@ -135,10 +136,15 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=add_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_add).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                save_add() if e.key == "Enter" and e.action.keydown else
-                add_dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    save_add()
+                    if e.key == "Enter" and e.action.keydown
+                    else add_dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Edit dialog ───────────────────────────────────────────────────────
         with ui.dialog() as edit_dialog, ui.card().classes("w-[480px]"):
@@ -158,15 +164,16 @@ def register() -> None:
 
                 edit_color.on_value_change(lambda _: _edit_sync_swatch())
 
-                with ui.button(icon="colorize").props("flat round dense").tooltip(
-                    t("institutions.pick_color")
+                def _pick_edit_color(e: object) -> None:
+                    edit_color.set_value(e.color)  # type: ignore[attr-defined]
+                    _edit_sync_swatch()
+
+                with (
+                    ui.button(icon="colorize")
+                    .props("flat round dense")
+                    .tooltip(t("institutions.pick_color"))
                 ):
-                    ui.color_picker(
-                        on_pick=lambda e: (
-                            edit_color.set_value(e.color),
-                            _edit_sync_swatch(),
-                        )
-                    )
+                    ui.color_picker(on_pick=_pick_edit_color)
 
             edit_website = ui.input(t("institutions.website")).classes("w-full")
             edit_desc = ui.textarea(t("common.description")).classes("w-full").props("rows=2")
@@ -199,10 +206,15 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_edit).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                save_edit() if e.key == "Enter" and e.action.keydown else
-                edit_dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    save_edit()
+                    if e.key == "Enter" and e.action.keydown
+                    else edit_dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         # ── Delete dialog ─────────────────────────────────────────────────────
         with ui.dialog() as delete_dialog, ui.card().classes("w-96"):
@@ -235,19 +247,17 @@ def register() -> None:
             add_desc.set_value("")
             add_dialog.open()
 
-        def _open_edit(inst: object) -> None:
-            selected_id[0] = inst.id  # type: ignore[attr-defined]
-            edit_name.set_value(inst.name)  # type: ignore[attr-defined]
-            edit_type.set_value(inst.type.value)  # type: ignore[attr-defined]
-            edit_color.set_value(inst.color or "#1976d2")  # type: ignore[attr-defined]
-            edit_website.set_value(inst.website or "")  # type: ignore[attr-defined]
-            edit_desc.set_value(inst.description or "")  # type: ignore[attr-defined]
+        def _open_edit(inst: Institution) -> None:
+            selected_id[0] = inst.id
+            edit_name.set_value(inst.name)
+            edit_type.set_value(inst.type.value)
+            edit_color.set_value(inst.color or "#1976d2")
+            edit_website.set_value(inst.website or "")
+            edit_desc.set_value(inst.description or "")
             _edit_sync_swatch()
             edit_dialog.open()
 
-        def _open_delete(inst: object) -> None:
-            selected_id[0] = inst.id  # type: ignore[attr-defined]
-            delete_label.set_text(
-                t("institutions.delete_confirm", name=inst.name)  # type: ignore[attr-defined]
-            )
+        def _open_delete(inst: Institution) -> None:
+            selected_id[0] = inst.id
+            delete_label.set_text(t("institutions.delete_confirm", name=inst.name))
             delete_dialog.open()

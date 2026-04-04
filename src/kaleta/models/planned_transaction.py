@@ -38,7 +38,7 @@ class PlannedTransaction(TimestampMixin, Base):
         SAEnum(TransactionType, native_enum=False), nullable=False
     )
     account_id: Mapped[int] = mapped_column(
-        ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
+        ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False, index=True
     )
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
@@ -50,14 +50,14 @@ class PlannedTransaction(TimestampMixin, Base):
         SAEnum(RecurrenceFrequency, native_enum=False), nullable=False
     )
     interval: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
-    start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
+    start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False, index=True)
     end_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
-    account: Mapped[Account] = relationship("Account")  # type: ignore[name-defined]  # noqa: F821
-    category: Mapped[Category | None] = relationship("Category")  # type: ignore[name-defined]  # noqa: F821
+    account: Mapped[Account] = relationship("Account")
+    category: Mapped[Category | None] = relationship("Category")
 
     def __repr__(self) -> str:
         return f"<PlannedTransaction id={self.id} name={self.name!r} freq={self.frequency}>"

@@ -17,13 +17,14 @@ from kaleta.schemas.transaction import TransactionCreate
 
 # ── mBank preprocessor ───────────────────────────────────────────────────────
 
+
 @dataclass
 class MBankFileMetadata:
     client_name: str
     account_type: str
     currency: str
-    account_number: str          # raw, e.g. "55 1140 2004 0000 3302 7888 6836"
-    account_number_digits: str   # digits only, e.g. "55114020040000330278886836"
+    account_number: str  # raw, e.g. "55 1140 2004 0000 3302 7888 6836"
+    account_number_digits: str  # digits only, e.g. "55114020040000330278886836"
     date_from: datetime.date | None
     date_to: datetime.date | None
 
@@ -50,7 +51,9 @@ class MBankPreprocessor:
     @staticmethod
     def extract_metadata(content: str) -> MBankFileMetadata:
         lines = content.splitlines()
-        get = lambda key: MBankPreprocessor._value_after_key(lines, key)  # noqa: E731
+
+        def get(key: str) -> str:
+            return MBankPreprocessor._value_after_key(lines, key)
 
         account_number_raw = get("#Numer rachunku")
         digits = re.sub(r"\D", "", account_number_raw)
@@ -85,11 +88,9 @@ class MBankPreprocessor:
         lines = content.splitlines()
         for i, line in enumerate(lines):
             if "#Data" in line and "#Kwota" in line:
-                clean_header = ";".join(
-                    col.lstrip("#").strip() for col in line.split(";")
-                )
+                clean_header = ";".join(col.lstrip("#").strip() for col in line.split(";"))
                 data_lines = [clean_header]
-                for body_line in lines[i + 1:]:
+                for body_line in lines[i + 1 :]:
                     stripped = body_line.strip()
                     if not stripped or stripped.startswith("Niniejszy dokument"):
                         break
@@ -103,7 +104,6 @@ class MBankPreprocessor:
         return "#Numer rachunku" in content or "#Rodzaj rachunku" in content
 
 
-
 def _build_mbank_description(raw: dict[str, str]) -> str:
     """Build a human-readable description from mBank CSV row fields.
 
@@ -113,15 +113,16 @@ def _build_mbank_description(raw: dict[str, str]) -> str:
     3. ``Tytuł``                     (card purchase — payee name is in the title)
     4. ``Opis operacji``             (fallback — generic operation type only)
     """
+
     def _clean(val: str) -> str:
         text = re.sub(r"\s{2,}", " ", val).strip()
         # mBank appends " DATA TRANSAKCJI: YYYY-MM-DD" to card-purchase titles;
         # the date is already stored separately so we strip it here.
         return re.sub(r"\s+DATA TRANSAKCJI:\s*\d{4}-\d{2}-\d{2}$", "", text).strip()
 
-    opis  = _clean(raw.get("Opis operacji",   ""))
-    tytul = _clean(raw.get("Tytuł",           ""))
-    payee = _clean(raw.get("Nadawca/Odbiorca",""))
+    opis = _clean(raw.get("Opis operacji", ""))
+    tytul = _clean(raw.get("Tytuł", ""))
+    payee = _clean(raw.get("Nadawca/Odbiorca", ""))
 
     if payee and tytul:
         return f"{payee} — {tytul}"
@@ -131,15 +132,16 @@ def _build_mbank_description(raw: dict[str, str]) -> str:
         return tytul
     return opis
 
+
 # ── Date format auto-detection ───────────────────────────────────────────────
 
 _DATE_FORMATS = [
-    "%Y-%m-%d",   # ISO: 2024-03-15
-    "%d.%m.%Y",   # PL / EU: 15.03.2024
-    "%d/%m/%Y",   # 15/03/2024
-    "%m/%d/%Y",   # US: 03/15/2024
-    "%d-%m-%Y",   # 15-03-2024
-    "%Y%m%d",     # compact: 20240315
+    "%Y-%m-%d",  # ISO: 2024-03-15
+    "%d.%m.%Y",  # PL / EU: 15.03.2024
+    "%d/%m/%Y",  # 15/03/2024
+    "%m/%d/%Y",  # US: 03/15/2024
+    "%d-%m-%Y",  # 15-03-2024
+    "%Y%m%d",  # compact: 20240315
 ]
 
 
@@ -172,11 +174,11 @@ def _parse_amount(value: str) -> Decimal:
 
 # ── Column name aliases ──────────────────────────────────────────────────────
 
-_DATE_ALIASES    = {"date", "data", "data transakcji", "data operacji", "transaction date"}
-_AMOUNT_ALIASES  = {"amount", "kwota", "wartość", "value", "transaction amount", "kwota operacji"}
-_DESC_ALIASES    = {"description", "opis", "tytuł", "title", "tytul", "opis operacji", "details"}
-_DEBIT_ALIASES   = {"debit", "wydatki", "obciążenie", "wypłata"}
-_CREDIT_ALIASES  = {"credit", "przychody", "uznanie", "wpłata"}
+_DATE_ALIASES = {"date", "data", "data transakcji", "data operacji", "transaction date"}
+_AMOUNT_ALIASES = {"amount", "kwota", "wartość", "value", "transaction amount", "kwota operacji"}
+_DESC_ALIASES = {"description", "opis", "tytuł", "title", "tytul", "opis operacji", "details"}
+_DEBIT_ALIASES = {"debit", "wydatki", "obciążenie", "wypłata"}
+_CREDIT_ALIASES = {"credit", "przychody", "uznanie", "wpłata"}
 
 
 def _norm(name: str) -> str:
@@ -192,10 +194,11 @@ def _detect_column(headers: list[str], aliases: set[str]) -> int | None:
 
 # ── Result types ─────────────────────────────────────────────────────────────
 
+
 @dataclass
 class ParsedRow:
     date: datetime.date
-    amount: Decimal          # positive = income, negative = expense
+    amount: Decimal  # positive = income, negative = expense
     description: str
     raw: dict[str, str]
 
@@ -208,6 +211,7 @@ class ImportResult:
 
 
 # ── CSV parser ───────────────────────────────────────────────────────────────
+
 
 class ImportService:
     def __init__(self, session: AsyncSession) -> None:
@@ -235,10 +239,10 @@ class ImportService:
             return result
 
         headers = list(reader.fieldnames)
-        date_col   = _detect_column(headers, _DATE_ALIASES)
+        date_col = _detect_column(headers, _DATE_ALIASES)
         amount_col = _detect_column(headers, _AMOUNT_ALIASES)
-        desc_col   = _detect_column(headers, _DESC_ALIASES)
-        debit_col  = _detect_column(headers, _DEBIT_ALIASES)
+        desc_col = _detect_column(headers, _DESC_ALIASES)
+        debit_col = _detect_column(headers, _DEBIT_ALIASES)
         credit_col = _detect_column(headers, _CREDIT_ALIASES)
 
         if date_col is None:
@@ -248,10 +252,10 @@ class ImportService:
             result.errors.append(f"Cannot find an amount/debit/credit column. Headers: {headers}")
             return result
 
-        date_key   = headers[date_col]
+        date_key = headers[date_col]
         amount_key = headers[amount_col] if amount_col is not None else None
-        desc_key   = headers[desc_col]   if desc_col  is not None else None
-        debit_key  = headers[debit_col]  if debit_col  is not None else None
+        desc_key = headers[desc_col] if desc_col is not None else None
+        debit_key = headers[debit_col] if debit_col is not None else None
         credit_key = headers[credit_col] if credit_col is not None else None
 
         for line_no, row in enumerate(reader, start=2):
@@ -266,9 +270,9 @@ class ImportService:
                     amount = _parse_amount(raw_amount)
                 else:
                     # Separate debit/credit columns
-                    raw_debit  = row.get(debit_key  or "", "").strip() if debit_key  else ""
+                    raw_debit = row.get(debit_key or "", "").strip() if debit_key else ""
                     raw_credit = row.get(credit_key or "", "").strip() if credit_key else ""
-                    debit  = _parse_amount(raw_debit)  if raw_debit  else Decimal("0")
+                    debit = _parse_amount(raw_debit) if raw_debit else Decimal("0")
                     credit = _parse_amount(raw_credit) if raw_credit else Decimal("0")
                     amount = credit - debit  # positive = income
 
@@ -294,17 +298,20 @@ class ImportService:
         for row in rows:
             tx_type = TransactionType.INCOME if row.amount >= 0 else TransactionType.EXPENSE
             cat_id = (
-                default_income_category_id if tx_type == TransactionType.INCOME
+                default_income_category_id
+                if tx_type == TransactionType.INCOME
                 else default_expense_category_id
             )
-            creates.append(TransactionCreate(
-                account_id=account_id,
-                category_id=cat_id,
-                amount=abs(row.amount),
-                type=tx_type,
-                date=row.date,
-                description=row.description,
-            ))
+            creates.append(
+                TransactionCreate(
+                    account_id=account_id,
+                    category_id=cat_id,
+                    amount=abs(row.amount),
+                    type=tx_type,
+                    date=row.date,
+                    description=row.description,
+                )
+            )
         return creates
 
     async def to_transaction_creates_with_payees(
@@ -341,31 +348,36 @@ class ImportService:
             counterparty_raw = row.raw.get("Numer rachunku", "").strip()
             counterparty_digits = re.sub(r"\D", "", counterparty_raw)
             if counterparty_digits and counterparty_digits in known:
-                creates.append(TransactionCreate(
-                    account_id=account_id,
-                    category_id=None,
-                    payee_id=payee_id,
-                    amount=abs(row.amount),
-                    type=TransactionType.TRANSFER,
-                    date=row.date,
-                    description=description,
-                    is_internal_transfer=True,
-                ))
+                creates.append(
+                    TransactionCreate(
+                        account_id=account_id,
+                        category_id=None,
+                        payee_id=payee_id,
+                        amount=abs(row.amount),
+                        type=TransactionType.TRANSFER,
+                        date=row.date,
+                        description=description,
+                        is_internal_transfer=True,
+                    )
+                )
             else:
                 tx_type = TransactionType.INCOME if row.amount >= 0 else TransactionType.EXPENSE
                 cat_id = (
-                    default_income_category_id if tx_type == TransactionType.INCOME
+                    default_income_category_id
+                    if tx_type == TransactionType.INCOME
                     else default_expense_category_id
                 )
-                creates.append(TransactionCreate(
-                    account_id=account_id,
-                    category_id=cat_id,
-                    payee_id=payee_id,
-                    amount=abs(row.amount),
-                    type=tx_type,
-                    date=row.date,
-                    description=description,
-                ))
+                creates.append(
+                    TransactionCreate(
+                        account_id=account_id,
+                        category_id=cat_id,
+                        payee_id=payee_id,
+                        amount=abs(row.amount),
+                        type=tx_type,
+                        date=row.date,
+                        description=description,
+                    )
+                )
         return creates
 
     # ── Duplicate detection ───────────────────────────────────────────────────
@@ -450,7 +462,7 @@ class ImportService:
         for i, tx_a in enumerate(candidates):
             if tx_a.id in linked_ids:
                 continue
-            for tx_b in candidates[i + 1:]:
+            for tx_b in candidates[i + 1 :]:
                 if tx_b.id in linked_ids:
                     continue
                 if tx_a.account_id == tx_b.account_id:

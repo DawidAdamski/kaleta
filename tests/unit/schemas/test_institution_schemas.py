@@ -8,7 +8,6 @@ from pydantic import ValidationError
 from kaleta.models.institution import InstitutionType
 from kaleta.schemas.institution import InstitutionCreate, InstitutionUpdate
 
-
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
 SQL_PAYLOADS = [
@@ -31,8 +30,8 @@ XSS_PAYLOADS = [
 
 # ── InstitutionCreate ──────────────────────────────────────────────────────────
 
-class TestInstitutionCreate:
 
+class TestInstitutionCreate:
     def test_valid_minimal(self):
         schema = InstitutionCreate(name="PKO Bank Polski")
         assert schema.name == "PKO Bank Polski"
@@ -131,8 +130,8 @@ class TestInstitutionCreate:
 
 # ── InstitutionUpdate ──────────────────────────────────────────────────────────
 
-class TestInstitutionUpdate:
 
+class TestInstitutionUpdate:
     def test_all_fields_optional(self):
         schema = InstitutionUpdate()
         assert schema.name is None

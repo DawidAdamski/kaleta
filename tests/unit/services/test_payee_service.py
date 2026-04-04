@@ -72,7 +72,6 @@ def svc(session: AsyncSession) -> PayeeService:
 
 
 class TestPayeeCreate:
-
     async def test_create_returns_payee_with_id(self, svc: PayeeService):
         payee = await svc.create(PayeeCreate(name="Biedronka"))
         assert payee.id is not None
@@ -142,7 +141,6 @@ class TestPayeeCreate:
 
 
 class TestPayeeRead:
-
     async def test_get_returns_correct_payee(self, svc: PayeeService):
         payee = await svc.create(PayeeCreate(name="Żabka"))
         fetched = await svc.get(payee.id)
@@ -162,7 +160,6 @@ class TestPayeeRead:
 
 
 class TestPayeeUpdate:
-
     async def test_update_name(self, svc: PayeeService):
         payee = await svc.create(PayeeCreate(name="Old Name"))
         updated = await svc.update(payee.id, PayeeUpdate(name="New Name"))
@@ -218,7 +215,6 @@ class TestPayeeUpdate:
 
 
 class TestPayeeDelete:
-
     async def test_delete_existing(self, svc: PayeeService):
         payee = await svc.create(PayeeCreate(name="ToDelete"))
         assert await svc.delete(payee.id) is True
@@ -232,7 +228,6 @@ class TestPayeeDelete:
 
 
 class TestPayeeMerge:
-
     async def test_merge_reassigns_transactions_to_keep(self, session: AsyncSession):
         """Transactions that belonged to merged payees must point to keep_id afterwards."""
         payee_svc = PayeeService(session)
@@ -358,7 +353,6 @@ class TestPayeeMerge:
 
 
 class TestPayeeListWithCounts:
-
     async def test_returns_tuples_of_payee_and_count(self, session: AsyncSession):
         payee_svc = PayeeService(session)
         await _make_payee(session, "Alpha")
@@ -393,7 +387,7 @@ class TestPayeeListWithCounts:
         assert counts["EmptyPayee"] == 0
 
     async def test_multiple_payees_independent_counts(self, session: AsyncSession):
-        """Each payee's count is independent — transactions assigned to one don't count for another."""
+        """Each payee's count is independent from transactions assigned to another."""
         payee_svc = PayeeService(session)
         account_id = await _make_account(session)
         cat_id = await _make_category(session)

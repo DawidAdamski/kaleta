@@ -38,7 +38,6 @@ def svc(session: AsyncSession) -> AssetService:
 
 
 class TestAssetServiceCreate:
-
     async def test_create_returns_asset_with_id(self, svc: AssetService):
         asset = await svc.create(AssetCreate(name="House"))
         assert asset.id is not None
@@ -113,7 +112,6 @@ class TestAssetServiceCreate:
 
 
 class TestAssetServiceRead:
-
     async def test_get_nonexistent_returns_none(self, svc: AssetService):
         assert await svc.get(99999) is None
 
@@ -153,7 +151,6 @@ class TestAssetServiceRead:
 
 
 class TestAssetServiceUpdate:
-
     async def test_update_name(self, svc: AssetService):
         asset = await svc.create(AssetCreate(name="Old Name"))
         updated = await svc.update(asset.id, AssetUpdate(name="New Name"))
@@ -192,9 +189,7 @@ class TestAssetServiceUpdate:
 
     async def test_update_purchase_date(self, svc: AssetService):
         asset = await svc.create(AssetCreate(name="House"))
-        updated = await svc.update(
-            asset.id, AssetUpdate(purchase_date=datetime.date(2020, 1, 10))
-        )
+        updated = await svc.update(asset.id, AssetUpdate(purchase_date=datetime.date(2020, 1, 10)))
         assert updated is not None
         assert updated.purchase_date == datetime.date(2020, 1, 10)
 
@@ -210,7 +205,6 @@ class TestAssetServiceUpdate:
 
 
 class TestAssetServiceDelete:
-
     async def test_delete_existing(self, svc: AssetService):
         asset = await svc.create(AssetCreate(name="To Delete"))
         assert await svc.delete(asset.id) is True
@@ -240,16 +234,12 @@ class TestNetWorthSummaryPhysicalAssets:
     """Tests that NetWorthService correctly loads assets and that
     NetWorthSummary.total_assets includes physical asset values."""
 
-    async def test_physical_assets_empty_when_no_assets(
-        self, session: AsyncSession
-    ):
+    async def test_physical_assets_empty_when_no_assets(self, session: AsyncSession):
         svc = NetWorthService(session)
         summary = await svc.get_summary()
         assert summary.physical_assets == []
 
-    async def test_total_physical_assets_zero_when_no_assets(
-        self, session: AsyncSession
-    ):
+    async def test_total_physical_assets_zero_when_no_assets(self, session: AsyncSession):
         svc = NetWorthService(session)
         summary = await svc.get_summary()
         assert summary.total_physical_assets == Decimal("0")
@@ -261,9 +251,7 @@ class TestNetWorthSummaryPhysicalAssets:
         summary = await svc.get_summary()
         assert summary.total_assets == Decimal("0")
 
-    async def test_physical_assets_populated_after_create(
-        self, session: AsyncSession
-    ):
+    async def test_physical_assets_populated_after_create(self, session: AsyncSession):
         asset_svc = AssetService(session)
         await asset_svc.create(
             AssetCreate(name="House", type=AssetType.REAL_ESTATE, value=Decimal("300000.00"))
@@ -276,9 +264,7 @@ class TestNetWorthSummaryPhysicalAssets:
         assert snap.type == "real_estate"
         assert snap.value == Decimal("300000.00")
 
-    async def test_total_physical_assets_sums_values(
-        self, session: AsyncSession
-    ):
+    async def test_total_physical_assets_sums_values(self, session: AsyncSession):
         asset_svc = AssetService(session)
         await asset_svc.create(
             AssetCreate(name="House", type=AssetType.REAL_ESTATE, value=Decimal("300000.00"))
@@ -290,9 +276,7 @@ class TestNetWorthSummaryPhysicalAssets:
         summary = await nw_svc.get_summary()
         assert summary.total_physical_assets == Decimal("320000.00")
 
-    async def test_total_assets_includes_physical_asset_value(
-        self, session: AsyncSession
-    ):
+    async def test_total_assets_includes_physical_asset_value(self, session: AsyncSession):
         asset_svc = AssetService(session)
         await asset_svc.create(
             AssetCreate(name="Apartment", type=AssetType.REAL_ESTATE, value=Decimal("150000.00"))
@@ -302,9 +286,7 @@ class TestNetWorthSummaryPhysicalAssets:
         # No bank accounts — total_assets equals physical assets only
         assert summary.total_assets == Decimal("150000.00")
 
-    async def test_physical_assets_sorted_by_name(
-        self, session: AsyncSession
-    ):
+    async def test_physical_assets_sorted_by_name(self, session: AsyncSession):
         asset_svc = AssetService(session)
         await asset_svc.create(AssetCreate(name="Zebra", value=Decimal("1.00")))
         await asset_svc.create(AssetCreate(name="Alpha", value=Decimal("2.00")))
@@ -313,9 +295,7 @@ class TestNetWorthSummaryPhysicalAssets:
         names = [a.name for a in summary.physical_assets]
         assert names == sorted(names)
 
-    async def test_physical_asset_snapshot_fields(
-        self, session: AsyncSession
-    ):
+    async def test_physical_asset_snapshot_fields(self, session: AsyncSession):
         asset_svc = AssetService(session)
         asset = await asset_svc.create(
             AssetCreate(
@@ -339,7 +319,6 @@ class TestNetWorthSummaryPhysicalAssets:
 
 
 class TestPhysicalAssetSnapshot:
-
     def test_snapshot_fields(self):
         snap = PhysicalAssetSnapshot(
             id=1,

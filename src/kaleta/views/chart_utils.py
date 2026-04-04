@@ -1,12 +1,15 @@
 """Shared chart helpers — dark mode text colour overrides for ECharts."""
+
 from __future__ import annotations
+
+from typing import Any
 
 
 def chart_text_color(is_dark: bool) -> str:
     return "#e0e0e0" if is_dark else "#333333"
 
 
-def axis_style(is_dark: bool) -> dict:
+def axis_style(is_dark: bool) -> dict[str, dict[str, Any]]:
     """Common axis / legend style overrides for dark mode."""
     color = chart_text_color(is_dark)
     split_color = "#444444" if is_dark else "#e0e0e0"
@@ -17,7 +20,7 @@ def axis_style(is_dark: bool) -> dict:
     }
 
 
-def apply_dark(options: dict, is_dark: bool) -> dict:
+def apply_dark(options: dict[str, Any], is_dark: bool) -> dict[str, Any]:
     """Inject dark-mode-aware text colours into an ECharts options dict in-place."""
     if not is_dark:
         return options

@@ -12,15 +12,18 @@ def register() -> None:
     @ui.page("/categories")
     async def categories_page() -> None:
 
-        edit_state: dict = {"id": None}
-        delete_state: dict = {"id": None}
+        edit_state: dict[str, int | None] = {"id": None}
+        delete_state: dict[str, int | None] = {"id": None}
 
         # ── Add dialog ────────────────────────────────────────────────────
         with ui.dialog() as add_dialog, ui.card().classes("w-96"):
             ui.label(t("categories.add")).classes("text-lg font-bold mb-2")
             add_name = ui.input(f"{t('common.name')} *").classes("w-full")
             add_type = ui.select(
-                {CategoryType.EXPENSE.value: t("common.expense"), CategoryType.INCOME.value: t("common.income")},
+                {
+                    CategoryType.EXPENSE.value: t("common.expense"),
+                    CategoryType.INCOME.value: t("common.income"),
+                },
                 label=t("common.type"),
                 value=CategoryType.EXPENSE.value,
             ).classes("w-full")
@@ -31,7 +34,7 @@ def register() -> None:
             async def _load_add_parents(cat_type: str) -> None:
                 async with AsyncSessionFactory() as session:
                     roots = await CategoryService(session).list_roots(type=CategoryType(cat_type))
-                options: dict = {0: t("categories.none_parent")}
+                options: dict[int, str] = {0: t("categories.none_parent")}
                 options.update({c.id: c.name for c in roots})
                 add_parent.set_options(options, value=0)
 
@@ -58,10 +61,15 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=add_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_add).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                save_add() if e.key == "Enter" and e.action.keydown else
-                add_dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    save_add()
+                    if e.key == "Enter" and e.action.keydown
+                    else add_dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         async def open_add_dialog(
             preset_type: CategoryType = CategoryType.EXPENSE,
@@ -79,7 +87,10 @@ def register() -> None:
             ui.label(t("categories.edit")).classes("text-lg font-bold mb-2")
             edit_name = ui.input(f"{t('common.name')} *").classes("w-full")
             edit_type = ui.select(
-                {CategoryType.EXPENSE.value: t("common.expense"), CategoryType.INCOME.value: t("common.income")},
+                {
+                    CategoryType.EXPENSE.value: t("common.expense"),
+                    CategoryType.INCOME.value: t("common.income"),
+                },
                 label=t("common.type"),
             ).classes("w-full")
             edit_parent = ui.select(
@@ -87,6 +98,9 @@ def register() -> None:
             ).classes("w-full")
 
             async def save_edit() -> None:
+                category_id = edit_state["id"]
+                if category_id is None:
+                    return
                 if not edit_name.value.strip():
                     ui.notify(t("categories.name_required"), type="negative")
                     return
@@ -97,7 +111,7 @@ def register() -> None:
                     parent_id=parent_id,
                 )
                 async with AsyncSessionFactory() as session:
-                    await CategoryService(session).update(edit_state["id"], data)
+                    await CategoryService(session).update(category_id, data)
                 ui.notify(t("categories.updated"), type="positive")
                 edit_dialog.close()
                 category_list.refresh()
@@ -105,10 +119,15 @@ def register() -> None:
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
                 ui.button(t("common.save"), on_click=save_edit).props("color=primary")
-            ui.keyboard(on_key=lambda e: (
-                save_edit() if e.key == "Enter" and e.action.keydown else
-                edit_dialog.close() if e.key == "Escape" and e.action.keydown else None
-            ))
+            ui.keyboard(
+                on_key=lambda e: (
+                    save_edit()
+                    if e.key == "Enter" and e.action.keydown
+                    else edit_dialog.close()
+                    if e.key == "Escape" and e.action.keydown
+                    else None
+                )
+            )
 
         async def open_edit_dialog(
             cat: Category, cat_type: CategoryType, parent_id: int | None
@@ -118,7 +137,7 @@ def register() -> None:
             edit_type.set_value(cat_type.value)
             async with AsyncSessionFactory() as session:
                 roots = await CategoryService(session).list_roots(type=cat_type)
-            options: dict = {0: t("categories.none_parent")}
+            options: dict[int, str] = {0: t("categories.none_parent")}
             options.update({c.id: c.name for c in roots if c.id != cat.id})
             edit_parent.set_options(options, value=parent_id or 0)
             edit_dialog.open()
@@ -129,8 +148,11 @@ def register() -> None:
             delete_label = ui.label("").classes("text-sm mb-4")
 
             async def confirm_delete() -> None:
+                category_id = delete_state["id"]
+                if category_id is None:
+                    return
                 async with AsyncSessionFactory() as session:
-                    await CategoryService(session).delete(delete_state["id"])
+                    await CategoryService(session).delete(category_id)
                 ui.notify(t("categories.deleted"), type="positive")
                 delete_dialog.close()
                 category_list.refresh()
@@ -142,7 +164,7 @@ def register() -> None:
         def open_delete_dialog(cat: Category, has_children: bool) -> None:
             delete_state["id"] = cat.id
             suffix = f" {t('categories.delete_subcategory_warning')}" if has_children else ""
-            delete_label.set_text(f'{t("categories.delete_confirm", name=cat.name)}{suffix}')
+            delete_label.set_text(f"{t('categories.delete_confirm', name=cat.name)}{suffix}")
             delete_dialog.open()
 
         # ── Refreshable tree list ─────────────────────────────────────────

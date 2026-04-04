@@ -3,6 +3,7 @@
 Maps scenarios from docs/bdd.md — Feature: Annual Budget Planning.
 Page URL: /budget-plan
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -22,12 +23,14 @@ _executor = ThreadPoolExecutor(max_workers=1)
 def _run(coro):  # type: ignore[no-untyped-def]
     def _worker():  # type: ignore[no-untyped-def]
         return asyncio.run(coro)
+
     return _executor.submit(_worker).result()
 
 
 # ---------------------------------------------------------------------------
 # Seed helpers (idempotent)
 # ---------------------------------------------------------------------------
+
 
 def seed_category(name: str, cat_type: str = "expense") -> int:
     from sqlalchemy import select
@@ -41,9 +44,7 @@ def seed_category(name: str, cat_type: str = "expense") -> int:
         async with AsyncSessionFactory() as session:
             existing = (
                 await session.execute(
-                    select(Category).where(
-                        Category.name == name, Category.parent_id.is_(None)
-                    )
+                    select(Category).where(Category.name == name, Category.parent_id.is_(None))
                 )
             ).scalar_one_or_none()
             if existing:
@@ -80,6 +81,7 @@ def seed_budget(category_id: int, amount: float, month: int, year: int) -> int:
 # Scenario: Budget Plan page loads
 # ---------------------------------------------------------------------------
 
+
 def test_budget_plan_page_loads(page: Page) -> None:
     """Budget Plan page renders the grid with month column headers."""
     page.goto(f"{BASE_URL}/budget-plan")
@@ -95,6 +97,7 @@ def test_budget_plan_page_loads(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Budget plan grid shows Planned and Actual column groups
 # ---------------------------------------------------------------------------
+
 
 def test_budget_plan_page_shows_planned_and_actual_columns(page: Page) -> None:
     """Budget Plan grid renders Planned and Actual column groups."""
@@ -116,6 +119,7 @@ def test_budget_plan_page_shows_planned_and_actual_columns(page: Page) -> None:
 # Scenario: A seeded expense category appears in the budget grid
 # ---------------------------------------------------------------------------
 
+
 def test_seeded_category_appears_in_budget_grid(page: Page) -> None:
     """A seeded expense category appears as a row in the budget plan grid."""
     seed_category("Food Budget Grid E2E")
@@ -127,6 +131,7 @@ def test_seeded_category_appears_in_budget_grid(page: Page) -> None:
 # ---------------------------------------------------------------------------
 # Scenario: Budget totals reflect seeded budget entries
 # ---------------------------------------------------------------------------
+
 
 def test_budget_totals_reflect_seeded_entries(page: Page) -> None:
     """Scenario: Budget totals update when a cell is changed.
@@ -148,9 +153,10 @@ def test_budget_totals_reflect_seeded_entries(page: Page) -> None:
 # Scenario: Set all 12 months at once via the Monthly dialog
 # ---------------------------------------------------------------------------
 
+
 def test_set_uniform_amount_for_all_months(page: Page) -> None:
     """Scenario: Set the same amount for all 12 months at once"""
-    cat_id = seed_category("Transport Budget Plan E2E")
+    seed_category("Transport Budget Plan E2E")
 
     page.goto(f"{BASE_URL}/budget-plan")
     expect(page.get_by_text("Transport Budget Plan E2E")).to_be_visible(timeout=5000)
@@ -189,6 +195,7 @@ def test_set_uniform_amount_for_all_months(page: Page) -> None:
 # Scenario: Navigate to previous year shows a year label
 # ---------------------------------------------------------------------------
 
+
 def test_navigate_to_previous_year_shows_year_label(page: Page) -> None:
     """Scenario: Navigate to a previous year — page shows the year."""
     page.goto(f"{BASE_URL}/budget-plan")
@@ -199,9 +206,10 @@ def test_navigate_to_previous_year_shows_year_label(page: Page) -> None:
 # Scenario: Amount-positive guard — zero amount triggers warning notification
 # ---------------------------------------------------------------------------
 
+
 def test_zero_budget_amount_triggers_warning(page: Page) -> None:
     """Scenario: Cannot enter a zero/negative budget amount."""
-    cat_id = seed_category("Food Zero Budget E2E")
+    seed_category("Food Zero Budget E2E")
 
     page.goto(f"{BASE_URL}/budget-plan")
     expect(page.get_by_text("Food Zero Budget E2E")).to_be_visible(timeout=5000)

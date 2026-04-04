@@ -1,23 +1,25 @@
 from __future__ import annotations
 
+import contextlib
 import json
 from pathlib import Path
+from typing import Any, cast
 
 _LOCALES_DIR = Path(__file__).parent / "locales"
-_cache: dict[str, dict] = {}
+_cache: dict[str, dict[str, Any]] = {}
 
 
-def _load(lang: str) -> dict:
+def _load(lang: str) -> dict[str, Any]:
     if lang not in _cache:
         path = _LOCALES_DIR / f"{lang}.json"
         if not path.exists():
             path = _LOCALES_DIR / "en.json"
         with open(path, encoding="utf-8") as f:
-            _cache[lang] = json.load(f)
+            _cache[lang] = cast(dict[str, Any], json.load(f))
     return _cache[lang]
 
 
-def _resolve(data: dict, parts: list[str]) -> str | None:
+def _resolve(data: dict[str, Any], parts: list[str]) -> str | None:
     node: object = data
     for part in parts:
         if isinstance(node, dict) and part in node:
@@ -49,10 +51,8 @@ def available_languages() -> dict[str, str]:
     """Return {code: native_name} for all locale files found."""
     result: dict[str, str] = {}
     for path in sorted(_LOCALES_DIR.glob("*.json")):
-        try:
+        with contextlib.suppress(OSError, json.JSONDecodeError):
             with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             result[path.stem] = data.get("_language_name", path.stem)
-        except Exception:
-            pass
     return result

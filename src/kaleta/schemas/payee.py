@@ -33,7 +33,9 @@ class PayeeUpdate(BaseModel):
 
 class PayeeMerge(BaseModel):
     keep_id: int = Field(..., description="ID of the payee to keep")
-    merge_ids: list[int] = Field(..., min_length=1, description="IDs of payees to merge into keep_id")
+    merge_ids: list[int] = Field(
+        ..., min_length=1, description="IDs of payees to merge into keep_id"
+    )
 
 
 class PayeeResponse(PayeeBase):
