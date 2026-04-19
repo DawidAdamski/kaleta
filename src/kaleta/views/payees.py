@@ -10,6 +10,7 @@ from kaleta.models.payee import Payee
 from kaleta.schemas.payee import PayeeCreate, PayeeUpdate
 from kaleta.services import PayeeService
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import BODY_MUTED, DIALOG_TITLE, PAGE_TITLE, TABLE_SURFACE
 
 
 def register() -> None:
@@ -24,7 +25,7 @@ def register() -> None:
         # ── Add / Edit dialog ──────────────────────────────────────────────────
         dialog = ui.dialog()
         with dialog, ui.card().classes("w-[520px] gap-3"):
-            dialog_title = ui.label("").classes("text-lg font-bold")
+            dialog_title = ui.label("").classes(DIALOG_TITLE)
             name_input = ui.input(t("payees.name")).classes("w-full").props("autofocus")
 
             with ui.expansion(t("payees.contact_details"), icon="contact_page").classes("w-full"):  # noqa: SIM117
@@ -113,8 +114,8 @@ def register() -> None:
 
         merge_dialog = ui.dialog()
         with merge_dialog, ui.card().classes("w-[440px] gap-3"):
-            ui.label(t("payees.merge_title")).classes("text-lg font-bold")
-            ui.label(t("payees.merge_hint")).classes("text-sm text-grey-6")
+            ui.label(t("payees.merge_title")).classes(DIALOG_TITLE)
+            ui.label(t("payees.merge_hint")).classes(BODY_MUTED)
             merge_keep_sel = ui.select({}, label=t("payees.merge_keep")).classes("w-full")
             with ui.row().classes("w-full justify-end gap-2 mt-2"):
                 ui.button(t("common.cancel"), on_click=merge_dialog.close).props("flat")
@@ -181,7 +182,9 @@ def register() -> None:
         @ui.refreshable
         def selection_bar() -> None:
             if len(selected_ids) >= 2:
-                with ui.row().classes("w-full items-center gap-2 px-1 py-2 bg-blue-50 rounded"):
+                with ui.row().classes(
+                    "k-selection-bar w-full items-center gap-2 px-1 py-2 bg-blue-50 rounded"
+                ):
                     ui.label(t("payees.selected_count", count=len(selected_ids))).classes(
                         "text-sm flex-1"
                     )
@@ -206,7 +209,7 @@ def register() -> None:
             _current_payees["list"] = all_payees
 
             if not all_payees:
-                with ui.column().classes("w-full items-center py-20 gap-3 text-grey-5"):
+                with ui.column().classes("w-full items-center py-20 gap-3 text-slate-400"):
                     ui.icon("person_off", size="4rem")
                     ui.label(t("payees.no_payees")).classes("text-lg")
                     ui.label(t("payees.no_payees_hint")).classes("text-sm text-center max-w-md")
@@ -252,7 +255,7 @@ def register() -> None:
                     ],
                     row_key="id",
                 )
-                .classes("w-full")
+                .classes(TABLE_SURFACE)
                 .props("flat bordered selection=multiple")
             )
 
@@ -291,7 +294,7 @@ def register() -> None:
         # ── Page ───────────────────────────────────────────────────────────────
         with page_layout(t("payees.title")):
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label(t("payees.title")).classes("text-2xl font-bold")
+                ui.label(t("payees.title")).classes(PAGE_TITLE)
                 ui.button(t("payees.add"), icon="person_add", on_click=_open_add).props(
                     "color=primary"
                 )

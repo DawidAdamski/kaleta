@@ -15,6 +15,7 @@ from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import AccountService, CategoryService, TagService, TransactionService
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import PAGE_TITLE, TABLE_SURFACE, TOOLBAR_CARD
 
 _PAGE_SIZES = [25, 50, 100, 200]
 _DEFAULT_PAGE_SIZE = 50
@@ -246,7 +247,7 @@ def register() -> None:
 
             tbl = (
                 ui.table(columns=columns, rows=rows, row_key="id")
-                .classes("w-full")
+                .classes(TABLE_SURFACE)
                 .style("min-width: 1100px; table-layout: fixed")
             )
             tbl.props("selection=multiple")
@@ -1042,7 +1043,7 @@ def register() -> None:
         with page_layout(t("transactions.title"), wide=True):
             # Header row
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label(t("transactions.title")).classes("text-2xl font-bold")
+                ui.label(t("transactions.title")).classes(PAGE_TITLE)
                 with ui.row().classes("gap-2 items-center"):
                     ui.label("Alt+N").classes(_KBD_CLS)
                     ui.button(
@@ -1052,10 +1053,12 @@ def register() -> None:
                     ).props("color=primary")
 
             # Filter card
-            with ui.card().classes("w-full p-4"):
+            with ui.card().classes(TOOLBAR_CARD):
                 with ui.row().classes("w-full items-center gap-2 flex-wrap"):
-                    ui.icon("filter_list").classes("text-grey-6")
-                    ui.label(t("transactions.filters")).classes("font-medium")
+                    ui.icon("filter_list").classes("k-muted text-slate-500")
+                    ui.label(t("transactions.filters")).classes(
+                        "text-sm font-semibold uppercase tracking-[0.14em] text-slate-500"
+                    )
                     badge_label = ui.badge("0", color="primary").classes("ml-1")
                     badge_label.set_visibility(False)
                     ui.space()

@@ -7,6 +7,16 @@ from nicegui import app, ui
 
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
+from kaleta.views.theme import (
+    DARK_CSS,
+    DRAWER,
+    HEADER,
+    NAV_GROUP,
+    NAV_GROUP_ROW,
+    NAV_ITEM,
+    PAGE_CONTAINER,
+    PAGE_SHELL,
+)
 
 try:
     _APP_VERSION = f"v{_pkg_version('kaleta')}"
@@ -61,6 +71,7 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     from kaleta.config.setup_config import is_configured
 
     ui.add_head_html(PWA_HEAD)
+    ui.add_head_html(f"<style>{DARK_CSS}</style>")
 
     if not is_configured():
         ui.navigate.to("/setup")
@@ -68,10 +79,12 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         return
 
     is_dark: bool = app.storage.user.get("dark_mode", False)
+    is_mini: bool = app.storage.user.get("sidebar_mini", False)
 
     dark_mode = ui.dark_mode(value=is_dark)
     drawer: Any
     toggle_btn: Any
+    mini_btn: Any
     close_dialog: Any
 
     def toggle_dark() -> None:
@@ -79,19 +92,38 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         app.storage.user["dark_mode"] = dark_mode.value
         toggle_btn.props(f"icon={'light_mode' if dark_mode.value else 'dark_mode'}")
 
-    with ui.header().classes("bg-primary text-white items-center px-4 gap-4"):
+    def toggle_mini() -> None:
+        new_mini = not app.storage.user.get("sidebar_mini", False)
+        app.storage.user["sidebar_mini"] = new_mini
+        if new_mini:
+            drawer.props("mini mini-to-overlay")
+        else:
+            drawer.props(remove="mini mini-to-overlay")
+        mini_btn.props(f"icon={'chevron_right' if new_mini else 'chevron_left'}")
+
+    ui.query("body").classes(PAGE_SHELL)
+
+    with ui.header().classes(f"{HEADER} items-center px-4 gap-4 h-16"):
         ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(
-            "flat round dense color=white"
+            "flat round dense color=primary"
         )
-        ui.label("Kaleta").classes("text-xl font-bold")
+        mini_btn = (
+            ui.button(
+                icon="chevron_right" if is_mini else "chevron_left",
+                on_click=toggle_mini,
+            )
+            .props("flat round dense color=primary")
+            .tooltip(t("common.toggle_sidebar"))
+        )
+        ui.label("Kaleta").classes("text-xl font-bold tracking-tight text-primary")
         ui.space()
-        ui.label(title).classes("text-sm opacity-80")
+        ui.label(title).classes("text-sm text-slate-500")
         toggle_btn = (
             ui.button(
                 icon="light_mode" if is_dark else "dark_mode",
                 on_click=toggle_dark,
             )
-            .props("flat round dense color=white")
+            .props("flat round dense color=primary")
             .tooltip(t("common.toggle_dark"))
         )
 
@@ -117,9 +149,11 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         ui.button(
             icon="eject",
             on_click=close_dialog.open,
-        ).props("flat round dense color=white").tooltip(t("common.close_db"))
+        ).props("flat round dense color=primary").tooltip(t("common.close_db"))
 
-    with ui.left_drawer(value=True).classes("pt-2") as drawer:
+    with ui.left_drawer(value=True).classes(DRAWER) as drawer:
+        if is_mini:
+            drawer.props("mini mini-to-overlay")
         # Collapse state persisted per user across page loads
         nav_collapsed: dict[str, bool] = dict(app.storage.user.get("nav_collapsed", {}))
 
@@ -127,23 +161,16 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             is_col = nav_collapsed.get(group_key, False)
 
             # Clickable group header
-            with ui.row().classes(
-                "items-center px-3 pt-2 pb-1 mx-1 rounded-lg cursor-pointer select-none"
-                " hover:bg-grey-2"
-            ) as hdr:
-                ui.label(t(group_key)).classes(
-                    "text-xs text-grey-5 uppercase tracking-wider font-medium flex-1"
-                )
+            with ui.row().classes(NAV_GROUP_ROW) as hdr:
+                ui.label(t(group_key)).classes(NAV_GROUP)
                 chevron = ui.icon(
                     "keyboard_arrow_down" if is_col else "keyboard_arrow_up", size="xs"
-                ).classes("text-grey-4")
+                ).classes("text-slate-400")
 
             # Items container — hidden when collapsed
             with ui.column().classes("w-full gap-0") as items_col:
                 for icon, path, key in items:
-                    with ui.item(on_click=lambda p=path: ui.navigate.to(p)).classes(
-                        "rounded-lg mx-2 mb-0.5 cursor-pointer hover:bg-grey-3"
-                    ):
+                    with ui.item(on_click=lambda p=path: ui.navigate.to(p)).classes(NAV_ITEM):
                         with ui.item_section().props("avatar"):
                             ui.icon(icon).classes("text-primary")
                         with ui.item_section():
@@ -165,17 +192,15 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
 
             hdr.on("click", _make_toggle(group_key, items_col, chevron))
 
-        ui.separator().classes("mx-4 my-2")
-        with ui.item(on_click=lambda: ui.navigate.to("/api-docs", new_tab=True)).classes(
-            "rounded-lg mx-2 mb-1 cursor-pointer hover:bg-grey-3"
-        ):
+        ui.separator().classes("mx-4 my-2 opacity-60")
+        with ui.item(on_click=lambda: ui.navigate.to("/api-docs", new_tab=True)).classes(NAV_ITEM):
             with ui.item_section().props("avatar"):
                 ui.icon("api").classes("text-secondary")
             with ui.item_section():
                 ui.item_label(t("nav.api_docs"))
 
         ui.space()
-        ui.label(_APP_VERSION).classes("text-xs text-grey-4 text-center pb-3 w-full")
+        ui.label(_APP_VERSION).classes("k-app-version text-xs text-grey-4 text-center pb-3 w-full")
 
     # ── Keyboard shortcuts help dialog (press ?) ──────────────────────────
     with ui.dialog() as shortcuts_dialog, ui.card().classes("w-[480px] gap-3"):
@@ -217,5 +242,5 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     ui.keyboard(on_key=_global_key, active=True)
 
     width_cls = "max-w-screen-2xl" if wide else "max-w-7xl"
-    with ui.column().classes(f"w-full {width_cls} mx-auto p-6 gap-4"):
+    with ui.column().classes(f"{PAGE_CONTAINER} {width_cls}"):
         yield

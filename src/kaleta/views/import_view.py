@@ -141,7 +141,7 @@ def register() -> None:
                 file_status = ui.label("").classes("text-sm text-green-700")
 
                 # mBank metadata banner — hidden until mBank file is loaded
-                meta_card = ui.card().classes("w-full bg-blue-50")
+                meta_card = ui.card().classes("k-info-banner w-full bg-blue-50")
                 meta_card.set_visibility(False)
                 with meta_card:
                     meta_grid = ui.grid(columns=2).classes("w-full gap-x-6 gap-y-1")

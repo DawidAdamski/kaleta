@@ -275,3 +275,48 @@ kaleta/
 - **Decision**: Add a `tests/e2e/` layer using pytest-playwright. Tests run against a live Kaleta instance (default `http://localhost:8080`). The Gherkin-style scenarios driving the suite are documented in `docs/bdd.md`.
 - **Rationale**: Unit and integration tests cover service logic and schema validation in isolation but cannot catch regressions in UI flow, page routing, or NiceGUI component wiring. Playwright-based e2e tests exercise the full stack from the browser, covering the same user journeys described in the BDD scenarios.
 - **Consequence**: The app must be running before the e2e suite executes. Browsers must be installed once with `uv run playwright install chromium`. E2e tests are kept in a separate directory so they are not picked up by the default `uv run pytest` invocation (which targets unit/integration). The `tests/e2e/conftest.py` provides the `base_url` session fixture.
+
+## UI Colour Schema
+
+All UI tokens live in `src/kaleta/views/theme.py`. Dark mode is driven by NiceGUI's `ui.dark_mode()` (Quasar plugin), which adds the `dark` class to the `<html>` element — matching the Tailwind `dark:` variant strategy.
+
+### Rules
+
+**Do NOT use bare Quasar palette classes** (`bg-grey-1`, `border-grey-2`, `text-grey-7`, etc.) for structural chrome or text — they are fixed values that don't adapt in dark mode.  
+**DO use Tailwind colour classes with explicit `dark:` variants**.
+
+| Role | Light | Dark |
+|---|---|---|
+| Page background | `bg-slate-50` | `dark:bg-slate-950` |
+| Card / surface | `bg-white/80` | `dark:bg-slate-900/70` |
+| Card border | `border-slate-200/70` | `dark:border-slate-800` |
+| Row hover | `hover:bg-slate-50` | `dark:hover:bg-slate-800/50` |
+| Row divider | `border-slate-200` | `dark:border-slate-700` |
+| Primary text | `text-slate-900` | `dark:text-slate-100` |
+| Secondary / muted text | `text-slate-500` | `dark:text-slate-400` |
+| Table header text | `text-slate-500` | `dark:text-slate-400` |
+| Table cell text | `text-slate-800` | `dark:text-slate-200` |
+| Subcategory label | `text-slate-700` | `dark:text-slate-200` |
+| Highlight banner (blue) | `bg-blue-50` | `dark:bg-blue-900/40` |
+| Info card (blue) | `bg-blue-50` | `dark:bg-blue-900/30` |
+
+### Shared tokens (theme.py)
+
+| Token | Purpose |
+|---|---|
+| `SECTION_CARD` | White card with border and shadow; adapts to dark |
+| `TOOLBAR_CARD` | Compact version of SECTION_CARD for filter bars |
+| `TABLE_SURFACE` | Applied to every `ui.table`; transparent bg + typed text colours |
+| `BODY_MUTED` | Muted body copy; slate-500/slate-400 |
+| `SECTION_TITLE` | Small all-caps label for section headers |
+| `SECTION_HEADING` | Larger heading inside a card |
+| `DIALOG_TITLE` | Bold title inside dialogs |
+| `PAGE_TITLE` | Page-level h1 |
+
+### Guidelines
+
+- **All `ui.table` widgets must use `TABLE_SURFACE`** — it provides dark-mode cell text colours. Do not use plain `w-full` without TABLE_SURFACE.
+- **Dialogs** created with `ui.dialog()` / `ui.card()` inherit Quasar's dark theme automatically. Do not set `bg-white` on dialog cards.
+- **Info banners** with background colour must carry `dark:` variants (e.g. `bg-blue-50 dark:bg-blue-900/40`).
+- **ECharts** do not auto-adapt to Quasar dark mode — always pass `is_dark` from `app.storage.user.get("dark_mode", False)` and apply via `views/chart_utils.py:apply_dark()`.
+- **Semantic colours** (income = green, expense = red, transfer = blue) should use Tailwind classes (`text-green-600`, `text-red-600`) or Quasar colour props (`color="positive"`, `color="negative"`). Do not hard-code hex in CSS unless inside an ECharts series definition.

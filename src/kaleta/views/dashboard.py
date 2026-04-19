@@ -13,6 +13,15 @@ from kaleta.services.forecast_service import ForecastService
 from kaleta.services.report_service import MonthCashflow
 from kaleta.views.chart_utils import apply_dark
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import (
+    BODY_MUTED,
+    PAGE_TITLE,
+    SECTION_CARD,
+    SECTION_HEADING,
+    SECTION_TITLE,
+    TABLE_SURFACE,
+    kpi_card_classes,
+)
 
 
 def _fmt(amount: Decimal) -> str:
@@ -80,7 +89,7 @@ def register() -> None:
         pred_30 = forecast_result.predicted_balance_30d
 
         with page_layout(t("dashboard.title")):
-            ui.label(t("dashboard.title")).classes("text-2xl font-bold")
+            ui.label(t("dashboard.title")).classes(PAGE_TITLE)
 
             # ── KPI cards ────────────────────────────────────────────────────
             with ui.row().classes("w-full gap-4 flex-wrap"):
@@ -104,21 +113,24 @@ def register() -> None:
                     )
 
             # ── Cashflow chart ───────────────────────────────────────────────
-            with ui.card().classes("w-full"):
-                ui.label(t("dashboard.cashflow_chart")).classes("text-lg font-semibold mb-2")
+            with ui.card().classes(SECTION_CARD):
+                ui.label(t("dashboard.cashflow_chart")).classes(SECTION_TITLE)
+                ui.label(t("dashboard.month_net")).classes(f"{SECTION_HEADING} mb-4")
                 ui.echart(_cashflow_chart_options(cashflow, is_dark)).classes("w-full h-72")
 
             # ── Recent transactions ──────────────────────────────────────────
-            with ui.card().classes("w-full"):
-                with ui.row().classes("w-full items-center justify-between mb-2"):
-                    ui.label(t("dashboard.recent_transactions")).classes("text-lg font-semibold")
+            with ui.card().classes(SECTION_CARD):
+                with ui.row().classes("w-full items-center justify-between mb-4"):
+                    with ui.column().classes("gap-1"):
+                        ui.label(t("dashboard.recent_transactions")).classes(SECTION_TITLE)
+                        ui.label(t("dashboard.view_all")).classes(SECTION_HEADING)
                     ui.button(
                         t("dashboard.view_all"),
                         on_click=lambda: ui.navigate.to("/transactions"),
                     ).props("flat dense")
 
                 if not recent:
-                    ui.label(t("dashboard.no_transactions")).classes("text-grey-6")
+                    ui.label(t("dashboard.no_transactions")).classes(BODY_MUTED)
                 else:
                     columns = [
                         {
@@ -166,12 +178,16 @@ def register() -> None:
                         }
                         for tx in recent
                     ]
-                    ui.table(columns=columns, rows=rows).classes("w-full").props("dense flat")
+                    ui.table(columns=columns, rows=rows).classes(TABLE_SURFACE).props("dense flat")
 
 
 def _kpi(title: str, value: str, icon: str, icon_color: str, extra_cls: str = "") -> None:
-    with ui.card().classes("flex-1 min-w-44"), ui.row().classes("items-center gap-3 w-full"):
-        ui.icon(icon, size="2.2rem").classes(f"text-{icon_color}")
+    with ui.card().classes(kpi_card_classes()), ui.row().classes("items-center gap-4 w-full"):
+        with ui.element("div").classes(
+            f"h-11 w-11 rounded-2xl bg-{icon_color.split('-')[0]}-500/10 "
+            f"text-{icon_color.split('-')[0]}-600 flex items-center justify-center"
+        ):
+            ui.icon(icon, size="1.8rem")
         with ui.column().classes("gap-0"):
-            ui.label(title).classes("text-xs text-grey-6 uppercase tracking-wide")
-            ui.label(value).classes(f"text-xl font-bold {extra_cls}")
+            ui.label(title).classes(SECTION_TITLE)
+            ui.label(value).classes(f"text-2xl font-semibold tracking-tight {extra_cls}")

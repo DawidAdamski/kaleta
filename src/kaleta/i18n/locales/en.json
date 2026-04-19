@@ -43,6 +43,7 @@
     "institution": "Institution",
     "none": "None",
     "toggle_dark": "Toggle dark mode",
+    "toggle_sidebar": "Collapse / expand sidebar",
     "no_data": "No data",
     "actions": "Actions",
     "close": "Close",

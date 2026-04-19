@@ -14,6 +14,7 @@ from kaleta.schemas.budget import BudgetCreate
 from kaleta.services import BudgetService, CategoryService
 from kaleta.views.chart_utils import apply_dark
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING, TABLE_SURFACE
 
 # ── Range helpers ──────────────────────────────────────────────────────────────
 
@@ -151,19 +152,19 @@ def register() -> None:
                 summaries = await BudgetService(session).range_summary(start, end)
 
             if summaries:
-                with ui.card().classes("w-full"):
-                    ui.label(t("budgets.vs_actual")).classes("text-lg font-semibold mb-2")
+                with ui.card().classes(SECTION_CARD):
+                    ui.label(t("budgets.vs_actual")).classes(f"{SECTION_HEADING} mb-4")
                     chart_height = max(300, len(summaries) * 48)
                     ui.echart(_budget_chart_options(summaries, is_dark)).classes("w-full").style(
                         f"height:{chart_height}px"
                     )
             else:
-                with ui.card().classes("w-full"):
-                    ui.label(t("budgets.no_budgets")).classes("text-grey-6 py-4")
+                with ui.card().classes(SECTION_CARD):
+                    ui.label(t("budgets.no_budgets")).classes(f"{BODY_MUTED} py-4")
 
             if summaries:
-                with ui.card().classes("w-full"):
-                    ui.label(t("common.description")).classes("text-lg font-semibold mb-2")
+                with ui.card().classes(SECTION_CARD):
+                    ui.label(t("common.description")).classes(f"{SECTION_HEADING} mb-4")
                     columns = [
                         {
                             "name": "category",
@@ -206,8 +207,8 @@ def register() -> None:
                         }
                         for s in summaries
                     ]
-                    table = (
-                        ui.table(columns=columns, rows=rows).classes("w-full").props("flat dense")
+                    table = ui.table(columns=columns, rows=rows).classes(TABLE_SURFACE).props(
+                        "flat dense"
                     )
                     table.add_slot(
                         "body-cell-pct",
@@ -267,7 +268,7 @@ def register() -> None:
                     "mt-2"
                 )
             else:
-                ui.label(t("budgets.all_budgeted")).classes("text-grey-6 text-sm")
+                ui.label(t("budgets.all_budgeted")).classes(BODY_MUTED)
 
             if month_summaries:
                 ui.separator().classes("my-3")
@@ -303,7 +304,7 @@ def register() -> None:
             ui.label(t("budgets.edit")).classes("text-lg font-bold")
             ui.label(
                 t("budgets.period_label", month=f"{today.month:02d}", year=str(today.year))
-            ).classes("text-sm text-grey-6 mb-2")
+            ).classes(f"{BODY_MUTED} mb-2")
             await dialog_content()
             with ui.row().classes("w-full justify-end mt-4"):
                 ui.button(t("common.close"), on_click=edit_dialog.close).props("flat")
@@ -315,12 +316,10 @@ def register() -> None:
         # ── Page layout ────────────────────────────────────────────────────
         with page_layout(t("budgets.title")):
             with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
-                ui.label(t("budgets.title")).classes("text-2xl font-bold")
+                ui.label(t("budgets.title")).classes(PAGE_TITLE)
 
                 with ui.row().classes("items-center gap-3"):
-                    range_date_label = ui.label(_range_label("this_month")).classes(
-                        "text-sm text-grey-6"
-                    )
+                    range_date_label = ui.label(_range_label("this_month")).classes(BODY_MUTED)
 
                     def on_range_change(e: Any) -> None:
                         current_range["key"] = e.value

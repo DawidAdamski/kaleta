@@ -6,6 +6,7 @@ from kaleta.models.category import Category, CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryUpdate
 from kaleta.services import CategoryService
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import BODY_MUTED, DIALOG_TITLE, PAGE_TITLE, SECTION_CARD
 
 
 def register() -> None:
@@ -17,7 +18,7 @@ def register() -> None:
 
         # ── Add dialog ────────────────────────────────────────────────────
         with ui.dialog() as add_dialog, ui.card().classes("w-96"):
-            ui.label(t("categories.add")).classes("text-lg font-bold mb-2")
+            ui.label(t("categories.add")).classes(f"{DIALOG_TITLE} mb-2")
             add_name = ui.input(f"{t('common.name')} *").classes("w-full")
             add_type = ui.select(
                 {
@@ -84,7 +85,7 @@ def register() -> None:
 
         # ── Edit dialog ───────────────────────────────────────────────────
         with ui.dialog() as edit_dialog, ui.card().classes("w-96"):
-            ui.label(t("categories.edit")).classes("text-lg font-bold mb-2")
+            ui.label(t("categories.edit")).classes(f"{DIALOG_TITLE} mb-2")
             edit_name = ui.input(f"{t('common.name')} *").classes("w-full")
             edit_type = ui.select(
                 {
@@ -144,7 +145,7 @@ def register() -> None:
 
         # ── Delete dialog ─────────────────────────────────────────────────
         with ui.dialog() as delete_dialog, ui.card().classes("w-80"):
-            ui.label(t("common.delete")).classes("text-lg font-bold mb-2")
+            ui.label(t("common.delete")).classes(f"{DIALOG_TITLE} mb-2")
             delete_label = ui.label("").classes("text-sm mb-4")
 
             async def confirm_delete() -> None:
@@ -182,11 +183,11 @@ def register() -> None:
                 icon = "trending_up" if is_income else "trending_down"
                 label = t("categories.income_type") if is_income else t("categories.expense")
 
-                with ui.card().classes("w-full p-0 overflow-hidden"):
+                with ui.card().classes(f"{SECTION_CARD} p-0 overflow-hidden"):
                     # Header row
                     with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
                         ui.icon(icon, color=color).classes("text-xl")
-                        ui.label(label).classes("text-lg font-semibold flex-1")
+                        ui.label(label).classes("text-lg font-semibold text-primary flex-1")
                         ui.badge(str(total), color=color)
                         ui.button(
                             icon="add",
@@ -196,9 +197,7 @@ def register() -> None:
                         )
 
                     if not roots:
-                        ui.label(t("categories.no_categories")).classes(
-                            "text-grey-5 text-sm px-4 py-3"
-                        )
+                        ui.label(t("categories.no_categories")).classes(f"{BODY_MUTED} px-4 py-3")
                         return
 
                     # Tree rows
@@ -206,10 +205,10 @@ def register() -> None:
                         for parent in sorted(roots, key=lambda c: c.name):
                             # Parent row
                             with ui.row().classes(
-                                "items-center w-full px-4 py-2 gap-2"
-                                " hover:bg-grey-1 border-b border-grey-2"
+                                "k-cat-row items-center w-full px-4 py-2 gap-2"
+                                " hover:bg-slate-50 border-b border-slate-200"
                             ):
-                                ui.icon("folder_open").classes("text-grey-5")
+                                ui.icon("folder_open").classes("text-primary/70")
                                 ui.label(parent.name).classes("flex-1 font-medium")
                                 if not parent.children:
                                     # Only show "add child" on parents without children limit
@@ -238,13 +237,15 @@ def register() -> None:
                             # Child rows
                             for child in sorted(parent.children, key=lambda c: c.name):
                                 with ui.row().classes(
-                                    "items-center w-full pl-10 pr-4 py-1 gap-2"
-                                    " hover:bg-grey-1 border-b border-grey-2"
+                                    "k-cat-row items-center w-full pl-10 pr-4 py-1 gap-2"
+                                    " hover:bg-slate-50 border-b border-slate-200"
                                 ):
                                     ui.icon("subdirectory_arrow_right").classes(
-                                        "text-grey-4 text-sm"
+                                        "text-slate-400 text-sm"
                                     )
-                                    ui.label(child.name).classes("flex-1 text-grey-8")
+                                    ui.label(child.name).classes(
+                                        "k-subcat-label flex-1 text-slate-700"
+                                    )
                                     ui.button(
                                         icon="edit",
                                         on_click=lambda c=child, gt=group_type: open_edit_dialog(
@@ -262,7 +263,7 @@ def register() -> None:
         # ── Page layout ───────────────────────────────────────────────────
         with page_layout(t("categories.title")):
             with ui.row().classes("w-full items-center justify-between"):
-                ui.label(t("categories.title")).classes("text-2xl font-bold")
+                ui.label(t("categories.title")).classes(PAGE_TITLE)
                 ui.button(
                     t("categories.add"), icon="add", on_click=lambda: open_add_dialog()
                 ).props("color=primary")

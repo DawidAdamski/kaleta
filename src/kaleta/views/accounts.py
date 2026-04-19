@@ -12,6 +12,7 @@ from kaleta.models.institution import Institution
 from kaleta.schemas.account import AccountCreate, AccountUpdate
 from kaleta.services import AccountService, InstitutionService
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD
 
 COMMON_CURRENCIES: list[str] = [
     "PLN",
@@ -253,10 +254,10 @@ def register() -> None:
                 delete_dialog.open()
 
             # ── Header ────────────────────────────────────────────────────────
-            with ui.row().classes("w-full items-center justify-between"):
-                ui.label(t("accounts.title")).classes("text-2xl font-bold")
+            with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
+                ui.label(t("accounts.title")).classes(PAGE_TITLE)
                 with ui.row().classes("gap-2 items-center"):
-                    ui.label(t("accounts.group_by")).classes("text-sm text-grey-6")
+                    ui.label(t("accounts.group_by")).classes(BODY_MUTED)
 
                     @ui.refreshable
                     def group_buttons() -> None:
@@ -295,7 +296,7 @@ def register() -> None:
                         groups[labels.get(a.type, a.type.value)].append(a)
 
                 if not groups:
-                    ui.label(t("accounts.no_accounts")).classes("text-grey-6 mt-8")
+                    ui.label(t("accounts.no_accounts")).classes(f"{BODY_MUTED} mt-8")
                     return
 
                 for group_name in sorted(groups.keys()):
@@ -305,7 +306,7 @@ def register() -> None:
                         group_name,
                         icon=_group_icon(by, group_name, accts),
                         value=_is_expanded(group_key),
-                    ).classes("w-full border rounded-lg mb-2")
+                    ).classes(f"{SECTION_CARD} mb-2")
                     exp.on("after-show", lambda gk=group_key: _set_expanded(gk, True))
                     exp.on("after-hide", lambda gk=group_key: _set_expanded(gk, False))
 

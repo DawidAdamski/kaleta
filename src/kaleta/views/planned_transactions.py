@@ -13,6 +13,7 @@ from kaleta.models.transaction import TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
 from kaleta.services import AccountService, CategoryService, PlannedTransactionService
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import TABLE_SURFACE
 
 
 def _build_cat_opts(cats_list: list[Category]) -> dict[int, str]:
@@ -306,7 +307,7 @@ def register() -> None:
                 for pt in items
             ]
 
-            tbl = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full")
+            tbl = ui.table(columns=columns, rows=rows, row_key="id").classes(TABLE_SURFACE)
             tbl.props("flat")
 
             tbl.add_slot(

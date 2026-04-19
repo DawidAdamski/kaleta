@@ -17,6 +17,7 @@ from kaleta.services.saved_report_service import (
     build_echart_option,
 )
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import TABLE_SURFACE
 
 # ── Field definitions ──────────────────────────────────────────────────────────
 
@@ -536,4 +537,4 @@ def register() -> None:
                 {"label": lbl, "value": f"{v:,.2f}"}
                 for lbl, v in zip(r.labels, r.values, strict=False)
             ]
-            ui.table(columns=cols, rows=rows).classes("w-full").props("flat dense")
+            ui.table(columns=cols, rows=rows).classes(TABLE_SURFACE).props("flat dense")
