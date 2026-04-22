@@ -23,6 +23,7 @@ from kaleta.models.asset import Asset, AssetType
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.institution import Institution, InstitutionType
+from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionType
 
 fake = Faker("pl_PL")
@@ -137,6 +138,19 @@ async def seed() -> None:
         session.add_all(accounts)
         await session.flush()
         checking, savings, cash, credit = accounts
+
+        # ── Canonical tags (mirrors b9d4e2c8a1f5 migration) ──────────────────
+        session.add_all([
+            Tag(name="Transfer",     icon="swap_horiz"),
+            Tag(name="Card",         icon="credit_card"),
+            Tag(name="Cash",         icon="payments"),
+            Tag(name="Online",       icon="language"),
+            Tag(name="Subscription", icon="autorenew"),
+            Tag(name="Refundable",   icon="assignment_return"),
+            Tag(name="Business",     icon="work"),
+            Tag(name="Recurring",    icon="event_repeat"),
+        ])
+        await session.flush()
 
         # ── Categories ────────────────────────────────────────────────────────
         expense_cats = [Category(name=n, type=CategoryType.EXPENSE) for n in EXPENSE_CATEGORIES]

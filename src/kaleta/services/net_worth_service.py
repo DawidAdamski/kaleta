@@ -13,6 +13,17 @@ from kaleta.models.asset import Asset
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.currency_rate_service import CurrencyRateService
 
+# Account-type → asset/liability bucket. See plan net-worth-layout-refresh.
+_LIABILITY_TYPES: frozenset[AccountType] = frozenset({AccountType.CREDIT})
+
+
+def is_liability_kind(account_type: AccountType) -> bool:
+    return account_type in _LIABILITY_TYPES
+
+
+def is_asset_kind(account_type: AccountType) -> bool:
+    return account_type not in _LIABILITY_TYPES
+
 
 @dataclass
 class AccountSnapshot:
@@ -28,15 +39,21 @@ class AccountSnapshot:
 
     @property
     def is_asset(self) -> bool:
-        return self.balance_in_default >= 0
+        """Kind-based classification: checking/savings/cash → asset, credit → liability.
+
+        Overdrawn asset-kind accounts (e.g. checking with negative balance) still
+        count as assets — the negative value is reflected in the Assets total.
+        """
+        return is_asset_kind(self.type)
 
     @property
     def asset_value(self) -> Decimal:
-        return self.balance_in_default if self.balance_in_default > 0 else Decimal("0")
+        return self.balance_in_default if self.is_asset else Decimal("0")
 
     @property
     def liability_value(self) -> Decimal:
-        return -self.balance_in_default if self.balance_in_default < 0 else Decimal("0")
+        """Liabilities are displayed as positive numbers (the amount owed)."""
+        return -self.balance_in_default if not self.is_asset else Decimal("0")
 
 
 @dataclass
@@ -44,6 +61,8 @@ class MonthlyNetWorth:
     year: int
     month: int
     net_worth: Decimal
+    total_assets: Decimal = Decimal("0")
+    total_liabilities: Decimal = Decimal("0")
 
     @property
     def label(self) -> str:
@@ -89,6 +108,33 @@ class NetWorthSummary:
         if self.prev_month_net_worth is None:
             return None
         return self.net_worth - self.prev_month_net_worth
+
+    @property
+    def delta_30d(self) -> Decimal | None:
+        """Net worth change vs ~30 days ago (approximated as one history step back).
+
+        Returns None when history has fewer than 2 entries.
+        """
+        if len(self.history) < 2:
+            return None
+        return self.net_worth - self.history[-2].net_worth
+
+    @property
+    def delta_ytd(self) -> Decimal | None:
+        """Net worth change since the start of the current year.
+
+        Uses the first history entry in the current year as the baseline. Returns
+        None when no entry from the current year exists (besides the current month).
+        """
+        today = datetime.date.today()
+        # Find the earliest entry in the current year.
+        for entry in self.history:
+            if entry.year == today.year:
+                if entry.year == today.year and entry.month == today.month:
+                    # Only the current month's entry exists in-year — no baseline.
+                    return None
+                return self.net_worth - entry.net_worth
+        return None
 
     @property
     def has_unknown_rates(self) -> bool:
@@ -193,24 +239,35 @@ class NetWorthService:
         months: int,
         default_currency: str,
     ) -> list[MonthlyNetWorth]:
+        """Walk each account backwards month-by-month, classifying by kind.
+
+        Gives us a per-month split of total_assets vs total_liabilities so the
+        trend chart can stack them. Physical assets are treated as constant
+        (we don't track their historical value for now).
+        """
         today = datetime.date.today()
         physical_total = sum((a.value for a in physical_assets), Decimal("0"))
 
-        # Current account balances in default currency (using today's rates)
-        current_account_total = sum(
-            a.balance
-            * (
-                _nearest_rate(rate_history.get(a.currency, []), today) or Decimal("1")
-                if a.currency != default_currency
-                else Decimal("1")
-            )
-            for a in accounts_raw
-        )
-        current_net_worth = current_account_total + physical_total
+        # Per-account running balance in default currency — starts at current balance.
+        balances: dict[int, Decimal] = {}
+        kinds: dict[int, AccountType] = {}
+        for a in accounts_raw:
+            if a.currency == default_currency:
+                rate = Decimal("1")
+            else:
+                rate = _nearest_rate(rate_history.get(a.currency, []), today) or Decimal("1")
+            balances[a.id] = a.balance * rate
+            kinds[a.id] = a.type
 
-        # Monthly net income/expense (excluding internal transfers)
+        # Per-account monthly signed delta from real transactions.
+        #   INCOME  : +amount
+        #   EXPENSE : -amount
+        # Internal transfers are excluded — paired legs cancel at the aggregate
+        # level, so for net-worth history (where we sum across all accounts) the
+        # simpler exclusion keeps results correct without needing to pair legs.
         result = await self.session.execute(
             select(
+                Transaction.account_id,
                 func.strftime("%Y", Transaction.date).label("year"),
                 func.strftime("%m", Transaction.date).label("month"),
                 Transaction.type,
@@ -220,23 +277,44 @@ class NetWorthService:
                 Transaction.is_internal_transfer == False,  # noqa: E712
                 Transaction.type.in_([TransactionType.INCOME, TransactionType.EXPENSE]),
             )
-            .group_by("year", "month", Transaction.type)
+            .group_by(Transaction.account_id, "year", "month", Transaction.type)
         )
 
-        monthly_net: dict[tuple[int, int], Decimal] = {}
+        per_account_delta: dict[tuple[int, int, int], Decimal] = {}
         for row in result:
-            key = (int(row.year), int(row.month))
-            delta = row.total if row.type == TransactionType.INCOME else -row.total
-            monthly_net[key] = monthly_net.get(key, Decimal("0")) + delta
+            signed = row.total if row.type == TransactionType.INCOME else -row.total
+            key = (row.account_id, int(row.year), int(row.month))
+            per_account_delta[key] = per_account_delta.get(key, Decimal("0")) + signed
 
-        # Walk backwards, using the rate valid at each month's end date
         snapshots: list[MonthlyNetWorth] = []
-        running = current_net_worth
         for i in range(months):
             total = today.year * 12 + today.month - 1 - i
             y, m = total // 12, total % 12 + 1
-            snapshots.insert(0, MonthlyNetWorth(year=y, month=m, net_worth=running))
-            running -= monthly_net.get((y, m), Decimal("0"))
+
+            assets_total = physical_total
+            liabilities_total = Decimal("0")
+            for acc_id, bal in balances.items():
+                if is_liability_kind(kinds[acc_id]):
+                    liabilities_total += -bal  # liabilities display as positive
+                else:
+                    assets_total += bal
+
+            net = assets_total - liabilities_total
+            snapshots.insert(
+                0,
+                MonthlyNetWorth(
+                    year=y,
+                    month=m,
+                    net_worth=net,
+                    total_assets=assets_total,
+                    total_liabilities=liabilities_total,
+                ),
+            )
+
+            # Roll each account back by subtracting its delta for this month.
+            for acc_id in balances:
+                delta = per_account_delta.get((acc_id, y, m), Decimal("0"))
+                balances[acc_id] -= delta
 
         return snapshots
 

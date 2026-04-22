@@ -1,6 +1,16 @@
 # Product
 
-This is the starting section for Kaleta's product documentation.
+Product documentation for Kaleta — vision, domain concepts, and
+per-module design intent.
+
+## Current documents
+
+- [Roadmap & Backlog](../roadmap.md) — cross-module backlog captured
+  from product brainstorming.
+- [Dashboard as Command Center](dashboard.md) — customizable, widget-
+  based dashboard model.
+- [Financial Wizard (Assistant Model)](financial-wizard.md) — six
+  wizard sections and the assistant philosophy.
 
 ## Scope
 
@@ -11,11 +21,12 @@ This section should eventually include:
 - product terminology and glossary
 - UX decisions for budgets, transactions, plans, and net worth
 
-## Suggested Structure
+## Suggested future documents
 
-- `budzety.md`
-- `transakcje.md`
-- `plany.md`
-- `majatek.md`
+- `transactions.md`
+- `budgets.md` (covers the post-rename merged Budgets view)
+- `payment-calendar.md`
+- `net-worth.md`
 - `import.md`
-- `raporty.md`
+- `reports.md`
+- `credit-and-loans.md`

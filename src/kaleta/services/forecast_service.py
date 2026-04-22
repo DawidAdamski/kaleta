@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 import datetime
+import enum
 import logging
 from dataclasses import dataclass, field
 from functools import partial
@@ -52,6 +54,86 @@ class ForecastResult:
         target = datetime.date.today() + datetime.timedelta(days=30)
         candidates = [p for p in self.forecast if p.date >= target]
         return candidates[0].value if candidates else None
+
+
+class ForecastPreset(enum.StrEnum):
+    """Which band of the Prophet forecast interval to treat as the expected path."""
+
+    CONSERVATIVE = "conservative"  # worst-case lean — closer to yhat_lower
+    BASELINE = "baseline"  # Prophet's point estimate (yhat)
+    OPTIMISTIC = "optimistic"  # best-case lean — closer to yhat_upper
+
+
+# How strongly each preset pulls the central `value` toward the nearer band.
+# 0 = pure yhat, 1 = pure band.
+_PRESET_BLEND = {
+    ForecastPreset.CONSERVATIVE: 0.5,
+    ForecastPreset.BASELINE: 0.0,
+    ForecastPreset.OPTIMISTIC: 0.5,
+}
+
+
+@dataclass
+class ScenarioShift:
+    """One-off cash event to overlay on the forecast ('what-if').
+
+    Positive amounts add to balance (windfall, raise), negative subtract
+    (big purchase, emergency). The shift is applied cumulatively from
+    `date` onward so downstream points reflect it too.
+    """
+
+    label: str
+    date: datetime.date
+    amount: float
+
+
+def apply_preset(result: ForecastResult, preset: ForecastPreset) -> ForecastResult:
+    """Return a copy of `result` with forecast `value` shifted by preset blend.
+
+    Baseline is a pass-through. Conservative / Optimistic blend toward the
+    lower / upper prediction interval respectively. Historical points and
+    the intervals themselves are left untouched.
+    """
+    if preset is ForecastPreset.BASELINE:
+        return result
+
+    weight = _PRESET_BLEND[preset]
+    out = copy.deepcopy(result)
+    for p in out.points:
+        if not p.is_forecast:
+            continue
+        band = p.lower if preset is ForecastPreset.CONSERVATIVE else p.upper
+        p.value = round(p.value + weight * (band - p.value), 2)
+    return out
+
+
+def apply_scenarios(
+    result: ForecastResult,
+    shifts: list[ScenarioShift],
+) -> ForecastResult:
+    """Return a copy of `result` with cumulative scenario deltas applied.
+
+    Each shift alters `value`, `lower`, and `upper` for every forecast point
+    on or after its date. Shifts stack.
+    """
+    if not shifts:
+        return result
+
+    out = copy.deepcopy(result)
+    deltas: dict[datetime.date, float] = {}
+    for s in shifts:
+        deltas[s.date] = deltas.get(s.date, 0.0) + s.amount
+
+    cumulative = 0.0
+    for p in out.points:
+        if not p.is_forecast:
+            continue
+        cumulative += deltas.get(p.date, 0.0)
+        if cumulative:
+            p.value = round(p.value + cumulative, 2)
+            p.lower = round(p.lower + cumulative, 2)
+            p.upper = round(p.upper + cumulative, 2)
+    return out
 
 
 class ForecastService:

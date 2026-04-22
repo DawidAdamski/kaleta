@@ -13,8 +13,9 @@ from kaleta.models.category import CategoryType
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
+from kaleta.schemas.tag import TagCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate, TransactionUpdate
-from kaleta.services import AccountService, CategoryService, TransactionService
+from kaleta.services import AccountService, CategoryService, TagService, TransactionService
 
 TODAY = datetime.date.today()
 
@@ -179,6 +180,141 @@ class TestTransactionDelete:
 
     async def test_delete_nonexistent(self, svc: TransactionService):
         assert await svc.delete(99999) is False
+
+
+# ── Tags ──────────────────────────────────────────────────────────────────────
+#
+# Regression coverage for the MissingGreenlet bug: assigning ``transaction.tags``
+# after flush in async context used to trigger a lazy-load of the (empty)
+# existing collection and blow up. These tests exercise every variant of the
+# create/update tag flow so that regression cannot return silently.
+
+
+async def _make_tag(session: AsyncSession, name: str) -> int:
+    tag = await TagService(session).create(TagCreate(name=name))
+    return tag.id
+
+
+class TestTransactionTags:
+    async def test_create_without_tag_ids_does_not_attach_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id))
+        assert tx.tags == []
+
+    async def test_create_with_empty_tag_ids_does_not_attach_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[]))
+        assert tx.tags == []
+
+    async def test_create_with_single_tag(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tag_id = await _make_tag(session, "Business")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[tag_id]))
+        assert [t.name for t in tx.tags] == ["Business"]
+
+    async def test_create_with_multiple_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        t1 = await _make_tag(session, "Business")
+        t2 = await _make_tag(session, "Recurring")
+        t3 = await _make_tag(session, "Card")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[t1, t2, t3]))
+        assert {t.name for t in tx.tags} == {"Business", "Recurring", "Card"}
+
+    async def test_create_with_unknown_tag_id_skips_it(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        real_tag = await _make_tag(session, "Business")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[real_tag, 99_999]))
+        assert [t.name for t in tx.tags] == ["Business"]
+
+    async def test_create_persists_tag_association_to_db(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tag_id = await _make_tag(session, "Business")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[tag_id]))
+        # Fetch a fresh copy — proves the link row is in transaction_tags.
+        fetched = await svc.get(tx.id)
+        assert fetched is not None
+        assert [t.id for t in fetched.tags] == [tag_id]
+
+    async def test_update_adds_tags_to_tagless_transaction(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id))
+        tag_id = await _make_tag(session, "Business")
+        updated = await svc.update(tx.id, TransactionUpdate(tag_ids=[tag_id]))
+        assert updated is not None
+        assert [t.name for t in updated.tags] == ["Business"]
+
+    async def test_update_replaces_existing_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        old = await _make_tag(session, "Business")
+        new = await _make_tag(session, "Recurring")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[old]))
+        updated = await svc.update(tx.id, TransactionUpdate(tag_ids=[new]))
+        assert updated is not None
+        assert [t.name for t in updated.tags] == ["Recurring"]
+
+    async def test_update_to_empty_list_clears_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tag_id = await _make_tag(session, "Business")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[tag_id]))
+        updated = await svc.update(tx.id, TransactionUpdate(tag_ids=[]))
+        assert updated is not None
+        assert updated.tags == []
+
+    async def test_update_without_tag_ids_leaves_tags_untouched(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tag_id = await _make_tag(session, "Business")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[tag_id]))
+        updated = await svc.update(tx.id, TransactionUpdate(description="Renamed"))
+        assert updated is not None
+        assert [t.name for t in updated.tags] == ["Business"]
+        assert updated.description == "Renamed"
+
+    async def test_created_transaction_tags_are_eagerly_loaded(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Accessing ``.tags`` on the returned instance must not trigger IO.
+
+        If tags weren't eager-loaded on the post-commit fetch, iterating
+        ``.tags`` outside the session's greenlet would raise MissingGreenlet.
+        """
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tag_id = await _make_tag(session, "Business")
+        tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[tag_id]))
+        # Touch the collection — if not eager-loaded, this would try to IO
+        # synchronously and raise MissingGreenlet.
+        names = [t.name for t in tx.tags]
+        assert names == ["Business"]
 
 
 # ── List filters ───────────────────────────────────────────────────────────────

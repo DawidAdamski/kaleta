@@ -30,6 +30,7 @@ class Institution(TimestampMixin, Base):
     color: Mapped[str | None] = mapped_column(String(7), nullable=True)  # hex e.g. #1976d2
     website: Mapped[str | None] = mapped_column(String(200), nullable=True)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    logo_path: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     accounts: Mapped[list[Account]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Account", back_populates="institution"

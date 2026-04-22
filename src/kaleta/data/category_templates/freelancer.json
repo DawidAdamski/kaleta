@@ -1,0 +1,21 @@
+{
+  "key": "freelancer",
+  "income": [
+    "Client Invoices",
+    "Retainers",
+    "Royalties",
+    "Personal Income"
+  ],
+  "expense": [
+    "Business — Software",
+    "Business — Hardware",
+    "Business — Taxes",
+    "Business — Coworking",
+    "Business — Travel",
+    "Personal — Rent",
+    "Personal — Food",
+    "Personal — Transport",
+    "Personal — Health",
+    "Personal — Leisure"
+  ]
+}

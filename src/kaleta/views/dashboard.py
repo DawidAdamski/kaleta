@@ -1,193 +1,136 @@
-from __future__ import annotations
+"""Dashboard Command Center.
 
-from decimal import Decimal
-from typing import Any
+Renders a user-configurable grid of widgets. The widget catalog lives in
+``dashboard_widgets.py``; the dashboard's only job is layout + the
+"Customize" entry point. The ordered list of enabled widget IDs is
+persisted in ``app.storage.user["dashboard_widgets"]``.
+"""
+
+from __future__ import annotations
 
 from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.transaction import TransactionType
-from kaleta.services import ReportService
-from kaleta.services.forecast_service import ForecastService
-from kaleta.services.report_service import MonthCashflow
-from kaleta.views.chart_utils import apply_dark
-from kaleta.views.layout import page_layout
-from kaleta.views.theme import (
-    BODY_MUTED,
-    PAGE_TITLE,
-    SECTION_CARD,
-    SECTION_HEADING,
-    SECTION_TITLE,
-    TABLE_SURFACE,
-    kpi_card_classes,
+from kaleta.views.dashboard_widgets import (
+    DEFAULT_WIDGETS,
+    WIDGETS,
+    Widget,
+    resolve_user_widgets,
 )
-
-
-def _fmt(amount: Decimal) -> str:
-    return f"{amount:,.2f} zł"
-
-
-def _cashflow_chart_options(months: list[MonthCashflow], is_dark: bool = False) -> dict[str, Any]:
-    _opts = {
-        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-        "legend": {
-            "data": [t("common.income"), t("common.expense"), t("dashboard.net")],
-            "bottom": 0,
-        },
-        "grid": {"left": "3%", "right": "4%", "bottom": "12%", "containLabel": True},
-        "xAxis": {
-            "type": "category",
-            "data": [m.label for m in months],
-        },
-        "yAxis": {"type": "value", "axisLabel": {"formatter": "{value} zł"}},
-        "series": [
-            {
-                "name": t("common.income"),
-                "type": "bar",
-                "stack": "cashflow",
-                "data": [float(m.income) for m in months],
-                "itemStyle": {"color": "#4caf50"},
-            },
-            {
-                "name": t("common.expense"),
-                "type": "bar",
-                "stack": "cashflow",
-                "data": [-float(m.expenses) for m in months],
-                "itemStyle": {"color": "#ef5350"},
-            },
-            {
-                "name": t("dashboard.net"),
-                "type": "line",
-                "data": [float(m.net) for m in months],
-                "itemStyle": {"color": "#1976d2"},
-                "lineStyle": {"width": 2},
-                "symbol": "circle",
-                "symbolSize": 6,
-            },
-        ],
-    }
-    return apply_dark(_opts, is_dark)
+from kaleta.views.layout import page_layout
+from kaleta.views.theme import PAGE_TITLE
 
 
 def register() -> None:
     @ui.page("/")
     async def dashboard() -> None:
         is_dark: bool = app.storage.user.get("dark_mode", False)
-        async with AsyncSessionFactory() as session:
-            svc = ReportService(session)
-            total_balance = await svc.total_balance()
-            income, expenses = await svc.current_month_summary()
-            cashflow = await svc.cashflow_last_n_months(6)
-            recent = await svc.recent_transactions(10)
-            forecast_result = await ForecastService(session).forecast_account(
-                account_id=None, horizon_days=30
-            )
-
-        net = income - expenses
-        net_color = "text-green-700" if net >= 0 else "text-red-700"
-        pred_30 = forecast_result.predicted_balance_30d
+        order = resolve_user_widgets(app.storage.user.get("dashboard_widgets"))
 
         with page_layout(t("dashboard.title")):
-            ui.label(t("dashboard.title")).classes(PAGE_TITLE)
+            with ui.row().classes("w-full items-center justify-between mb-2"):
+                ui.label(t("dashboard.title")).classes(PAGE_TITLE)
+                ui.button(
+                    t("dashboard_widgets.customize"),
+                    icon="tune",
+                    on_click=lambda: _open_customize_dialog(order),
+                ).props("flat color=primary")
 
-            # ── KPI cards ────────────────────────────────────────────────────
-            with ui.row().classes("w-full gap-4 flex-wrap"):
-                _kpi(t("dashboard.total_balance"), _fmt(total_balance), "account_balance", "blue-7")
-                _kpi(t("dashboard.month_income"), _fmt(income), "trending_up", "green-7")
-                _kpi(t("dashboard.month_expenses"), _fmt(expenses), "trending_down", "red-7")
-                _kpi(
-                    t("dashboard.month_net"),
-                    _fmt(net),
-                    "swap_vert",
-                    "orange-7",
-                    extra_cls=net_color,
-                )
-                if pred_30 is not None:
-                    pred_color = "green-7" if pred_30 >= float(total_balance) else "red-7"
-                    _kpi(
-                        t("dashboard.balance_30"),
-                        f"{pred_30:,.2f} zł",
-                        "insights",
-                        pred_color,
-                    )
+            async with AsyncSessionFactory() as session:
+                kpis = [WIDGETS[w] for w in order if WIDGETS[w].size == "kpi"]
+                halves = [WIDGETS[w] for w in order if WIDGETS[w].size == "half"]
+                fulls = [WIDGETS[w] for w in order if WIDGETS[w].size == "full"]
 
-            # ── Cashflow chart ───────────────────────────────────────────────
-            with ui.card().classes(SECTION_CARD):
-                ui.label(t("dashboard.cashflow_chart")).classes(SECTION_TITLE)
-                ui.label(t("dashboard.month_net")).classes(f"{SECTION_HEADING} mb-4")
-                ui.echart(_cashflow_chart_options(cashflow, is_dark)).classes("w-full h-72")
+                if kpis:
+                    with ui.row().classes("w-full gap-4 flex-wrap"):
+                        for w in kpis:
+                            await w.render(session, is_dark)
 
-            # ── Recent transactions ──────────────────────────────────────────
-            with ui.card().classes(SECTION_CARD):
-                with ui.row().classes("w-full items-center justify-between mb-4"):
-                    with ui.column().classes("gap-1"):
-                        ui.label(t("dashboard.recent_transactions")).classes(SECTION_TITLE)
-                        ui.label(t("dashboard.view_all")).classes(SECTION_HEADING)
-                    ui.button(
-                        t("dashboard.view_all"),
-                        on_click=lambda: ui.navigate.to("/transactions"),
-                    ).props("flat dense")
+                if halves:
+                    with ui.grid(columns=2).classes("w-full gap-4 md:grid-cols-2"):
+                        for w in halves:
+                            await w.render(session, is_dark)
 
-                if not recent:
-                    ui.label(t("dashboard.no_transactions")).classes(BODY_MUTED)
-                else:
-                    columns = [
-                        {
-                            "name": "date",
-                            "label": t("common.date"),
-                            "field": "date",
-                            "align": "left",
-                        },
-                        {
-                            "name": "account",
-                            "label": t("common.account"),
-                            "field": "account",
-                            "align": "left",
-                        },
-                        {
-                            "name": "desc",
-                            "label": t("common.description"),
-                            "field": "desc",
-                            "align": "left",
-                        },
-                        {
-                            "name": "category",
-                            "label": t("common.category"),
-                            "field": "category",
-                            "align": "left",
-                        },
-                        {
-                            "name": "amount",
-                            "label": t("common.amount"),
-                            "field": "amount",
-                            "align": "right",
-                        },
-                    ]
-                    rows = [
-                        {
-                            "date": str(tx.date),
-                            "account": tx.account.name if tx.account else "—",
-                            "desc": (tx.description or "—")[:45],
-                            "category": tx.category.name if tx.category else "—",
-                            "amount": (
-                                f"+{tx.amount:,.2f}"
-                                if tx.type == TransactionType.INCOME
-                                else f"-{tx.amount:,.2f}"
-                            ),
-                        }
-                        for tx in recent
-                    ]
-                    ui.table(columns=columns, rows=rows).classes(TABLE_SURFACE).props("dense flat")
+                for w in fulls:
+                    await w.render(session, is_dark)
 
 
-def _kpi(title: str, value: str, icon: str, icon_color: str, extra_cls: str = "") -> None:
-    with ui.card().classes(kpi_card_classes()), ui.row().classes("items-center gap-4 w-full"):
-        with ui.element("div").classes(
-            f"h-11 w-11 rounded-2xl bg-{icon_color.split('-')[0]}-500/10 "
-            f"text-{icon_color.split('-')[0]}-600 flex items-center justify-center"
-        ):
-            ui.icon(icon, size="1.8rem")
-        with ui.column().classes("gap-0"):
-            ui.label(title).classes(SECTION_TITLE)
-            ui.label(value).classes(f"text-2xl font-semibold tracking-tight {extra_cls}")
+def _open_customize_dialog(current_order: list[str]) -> None:
+    """Dialog for enabling, disabling, and reordering dashboard widgets."""
+    # Working list (ordered) we mutate as the user interacts.
+    order: list[str] = list(current_order)
+    # Widgets not currently in the order are "disabled" — list them after.
+    disabled = [wid for wid in WIDGETS if wid not in order]
+    working = order + disabled  # render every widget, tick enabled ones
+    enabled: dict[str, bool] = {wid: (wid in order) for wid in working}
+
+    with ui.dialog() as dialog, ui.card().classes("min-w-96 max-w-xl"):
+        ui.label(t("dashboard_widgets.customize_title")).classes(
+            "text-lg font-semibold"
+        )
+        ui.label(t("dashboard_widgets.customize_hint")).classes(
+            "text-xs text-grey-6 mb-2"
+        )
+
+        list_container = ui.column().classes("w-full gap-1 max-h-96 overflow-y-auto")
+
+        def _swap(i: int, j: int) -> None:
+            if 0 <= i < len(working) and 0 <= j < len(working):
+                working[i], working[j] = working[j], working[i]
+                _render_list()
+
+        def _toggle(widget_id: str, value: bool) -> None:
+            enabled[widget_id] = value
+
+        def _render_list() -> None:
+            list_container.clear()
+            with list_container:
+                for i, wid in enumerate(working):
+                    w: Widget = WIDGETS[wid]
+                    with ui.row().classes(
+                        "w-full items-center gap-2 p-2 rounded border border-slate-200/60"
+                    ):
+                        cb = ui.checkbox(value=enabled[wid])
+                        cb.on_value_change(
+                            lambda e, _wid=wid: _toggle(_wid, bool(e.value))
+                        )
+                        ui.icon(w.icon).classes("text-primary")
+                        ui.label(t(w.title_key)).classes("flex-1 text-sm")
+                        ui.badge(w.size).props("color=grey-6").classes("text-xs")
+                        ui.button(icon="arrow_upward").props(
+                            "flat dense round size=sm"
+                        ).on_click(lambda _, _i=i: _swap(_i, _i - 1))
+                        ui.button(icon="arrow_downward").props(
+                            "flat dense round size=sm"
+                        ).on_click(lambda _, _i=i: _swap(_i, _i + 1))
+
+        _render_list()
+
+        def _save() -> None:
+            final = [wid for wid in working if enabled.get(wid)]
+            if not final:
+                ui.notify(t("dashboard_widgets.min_one"), color="negative")
+                return
+            app.storage.user["dashboard_widgets"] = final
+            ui.notify(t("dashboard_widgets.saved"), color="positive")
+            dialog.close()
+            ui.navigate.to("/")
+
+        def _reset() -> None:
+            app.storage.user["dashboard_widgets"] = list(DEFAULT_WIDGETS)
+            ui.notify(t("dashboard_widgets.reset_done"), color="positive")
+            dialog.close()
+            ui.navigate.to("/")
+
+        with ui.row().classes("w-full justify-between items-center mt-3"):
+            ui.button(
+                t("dashboard_widgets.reset"), icon="restart_alt", on_click=_reset
+            ).props("flat color=grey-7")
+            with ui.row().classes("gap-2"):
+                ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+                ui.button(
+                    t("common.save"), icon="check", on_click=_save
+                ).props("color=primary")
+
+    dialog.open()

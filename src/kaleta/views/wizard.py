@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from nicegui import ui
+from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
 from kaleta.services import AccountService, CategoryService, TransactionService
 from kaleta.services.institution_service import InstitutionService
+from kaleta.services.wizard_mentor_service import MentorSuggestion, WizardMentorService
 from kaleta.views.layout import page_layout
 
 # (icon, step_key, section)  — section groups them visually
@@ -13,6 +14,11 @@ _STEPS: list[tuple[str, str, str]] = [
     # Monthly readiness
     ("event_available", "next_month", "monthly"),
     ("search", "unplanned", "monthly"),
+    # Subscriptions
+    ("autorenew", "sub_tracker", "subscriptions"),
+    ("notifications_active", "sub_renewals", "subscriptions"),
+    ("cancel", "sub_audit", "subscriptions"),
+    ("trending_up", "sub_cost_trends", "subscriptions"),
     # Safety & reserve funds
     ("local_fire_department", "emergency", "funds"),
     ("build_circle", "irregular", "funds"),
@@ -26,6 +32,7 @@ _STEPS: list[tuple[str, str, str]] = [
 
 _SECTION_ICONS = {
     "monthly": "calendar_month",
+    "subscriptions": "subscriptions",
     "funds": "savings",
     "income": "account_balance_wallet",
     "budget": "bar_chart",
@@ -33,6 +40,7 @@ _SECTION_ICONS = {
 
 _SECTION_COLORS = {
     "monthly": "blue-6",
+    "subscriptions": "indigo-7",
     "funds": "green-7",
     "income": "orange-7",
     "budget": "purple-7",
@@ -81,6 +89,7 @@ def register() -> None:
             n_expense_cats = sum(1 for c in categories if c.type.value == "expense")
             n_income_cats = sum(1 for c in categories if c.type.value == "income")
             n_transactions = await TransactionService(session).count()
+            mentor_suggestions = await WizardMentorService(session).suggestions()
 
         done_flags = [
             n_institutions > 0,
@@ -108,9 +117,15 @@ def register() -> None:
                     ui.label(t("wizard.subtitle")).classes("text-sm text-grey-6 max-w-2xl")
 
             # ── Onboarding section ────────────────────────────────────────────
+            # Collapsible: default open while incomplete, default closed once all done.
+            # Per-user override persisted in app.storage.user.
+            onboarding_open: bool = app.storage.user.get("wizard_onboarding_open", not all_done)
+
             with ui.card().classes("w-full p-0 overflow-hidden"):
-                # Header
-                with ui.row().classes("items-center gap-3 px-5 py-4 bg-teal-7"):
+                # Clickable header → toggles the steps column below.
+                with ui.row().classes(
+                    "items-center gap-3 px-5 py-4 bg-teal-7 cursor-pointer select-none"
+                ) as onboarding_header:
                     ui.icon("rocket_launch", size="1.4rem").classes("text-white")
                     with ui.column().classes("gap-0 flex-1"):
                         ui.label(t("wizard.setup_title")).classes(
@@ -119,9 +134,26 @@ def register() -> None:
                         ui.label(t("wizard.setup_subtitle")).classes("text-teal-1 text-xs")
                     if all_done:
                         ui.badge(t("wizard.setup_all_done"), color="green").classes("text-xs")
+                    chevron = ui.icon(
+                        "keyboard_arrow_up" if onboarding_open else "keyboard_arrow_down",
+                        size="1.6rem",
+                    ).classes("text-white")
 
-                # Steps
-                with ui.column().classes("gap-0 w-full"):
+                # Steps (collapsed away when onboarding_open is False)
+                steps_col = ui.column().classes("gap-0 w-full")
+                steps_col.set_visibility(onboarding_open)
+
+                def _toggle_onboarding() -> None:
+                    new_open = not app.storage.user.get("wizard_onboarding_open", not all_done)
+                    app.storage.user["wizard_onboarding_open"] = new_open
+                    steps_col.set_visibility(new_open)
+                    chevron.props(
+                        "name=" + ("keyboard_arrow_up" if new_open else "keyboard_arrow_down")
+                    )
+
+                onboarding_header.on("click", _toggle_onboarding)
+
+                with steps_col:
                     for i, (icon, title_key, desc_key, url, hint_key) in enumerate(_ONBOARDING):
                         done = done_flags[i]
                         count_text = done_counts[i]
@@ -166,13 +198,72 @@ def register() -> None:
                                 else "color=grey-4 flat size=sm"
                             ).classes("flex-shrink-0")
 
+            # ── Mentor (post-setup) ───────────────────────────────────────────
+            if all_done:
+                dismissed: set[str] = set(app.storage.user.get("wizard_mentor_dismissed", []))
+                visible = [s for s in mentor_suggestions if s.key not in dismissed]
+
+                mentor_card = ui.card().classes("w-full p-0 overflow-hidden")
+                with mentor_card:
+                    mentor_slot = ui.column().classes("w-full gap-0")
+
+                def _dismiss(key: str) -> None:
+                    dismissed.add(key)
+                    app.storage.user["wizard_mentor_dismissed"] = list(dismissed)
+                    visible[:] = [s for s in visible if s.key != key]
+                    _render_mentor()
+
+                def _render_mentor() -> None:
+                    mentor_slot.clear()
+                    with mentor_slot:
+                        if not visible:
+                            with ui.row().classes("items-center gap-3 px-5 py-4 bg-grey-1 w-full"):
+                                ui.icon("check_circle", size="1.4rem").classes("text-green-7")
+                                ui.label(t("wizard.mentor_all_quiet")).classes(
+                                    "text-sm text-grey-7"
+                                )
+                            return
+
+                        suggestion: MentorSuggestion = visible[0]
+                        with ui.row().classes("items-center gap-3 px-5 py-3 bg-indigo-1 w-full"):
+                            ui.icon("lightbulb", size="1.2rem").classes("text-indigo-7")
+                            ui.label(t("wizard.mentor_heading")).classes(
+                                "text-indigo-8 font-semibold text-sm uppercase tracking-wide"
+                            )
+                        with ui.row().classes("items-start gap-4 px-5 py-4 w-full"):
+                            ui.icon(suggestion.icon, size="1.8rem").classes(
+                                "text-indigo-7 flex-shrink-0 mt-1"
+                            )
+                            with ui.column().classes("gap-1 flex-1"):
+                                ui.label(t(suggestion.title_key, **suggestion.params)).classes(
+                                    "font-semibold text-base"
+                                )
+                                ui.label(t(suggestion.body_key, **suggestion.params)).classes(
+                                    "text-sm text-grey-7 leading-relaxed"
+                                )
+                                with ui.row().classes("gap-2 mt-2"):
+                                    ui.button(
+                                        t(suggestion.cta_key, **suggestion.params),
+                                        icon="arrow_forward",
+                                        on_click=lambda u=suggestion.cta_url: ui.navigate.to(u),
+                                    ).props("color=primary unelevated size=sm")
+                                    ui.button(
+                                        t("wizard.mentor_dismiss"),
+                                        icon="close",
+                                        on_click=lambda k=suggestion.key: _dismiss(k),
+                                    ).props("flat size=sm").tooltip(
+                                        t("wizard.mentor_dismiss_tooltip")
+                                    )
+
+                _render_mentor()
+
             # ── Planning sections (coming soon) ───────────────────────────────
             # Group steps by section
             sections: dict[str, list[tuple[str, str]]] = {}
             for icon, step_key, section in _STEPS:
                 sections.setdefault(section, []).append((icon, step_key))
 
-            section_order = ["monthly", "funds", "income", "budget"]
+            section_order = ["monthly", "subscriptions", "funds", "income", "budget"]
 
             with ui.grid(columns=2).classes("w-full gap-4"):
                 for section in section_order:

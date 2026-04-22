@@ -5,6 +5,7 @@ from kaleta.i18n import t
 from kaleta.models.category import Category, CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryUpdate
 from kaleta.services import CategoryService
+from kaleta.services.category_service import TemplatePreview
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, DIALOG_TITLE, PAGE_TITLE, SECTION_CARD
 
@@ -260,12 +261,103 @@ def register() -> None:
             _render_group(income_roots, CategoryType.INCOME)
             _render_group(expense_roots, CategoryType.EXPENSE)
 
+        # ── Template picker + preview ─────────────────────────────────────
+        template_state: dict[str, TemplatePreview | None] = {"preview": None}
+
+        with ui.dialog() as template_preview_dialog, ui.card().classes("w-[460px]"):
+            preview_title = ui.label("").classes(f"{DIALOG_TITLE} mb-2")
+            preview_summary = ui.label("").classes("text-sm mb-3")
+            preview_list = ui.column().classes("gap-0 max-h-64 overflow-auto w-full")
+            preview_skipped = ui.label("").classes(f"{BODY_MUTED} text-xs mt-2")
+
+            async def _apply_preview() -> None:
+                preview = template_state["preview"]
+                if preview is None:
+                    return
+                async with AsyncSessionFactory() as session:
+                    created = await CategoryService(session).apply_template(preview.key)
+                ui.notify(
+                    t("categories.template_applied", count=created),
+                    type="positive",
+                )
+                template_preview_dialog.close()
+                category_list.refresh()
+
+            with ui.row().classes("w-full justify-end gap-2 mt-4"):
+                ui.button(t("common.cancel"), on_click=template_preview_dialog.close).props("flat")
+                apply_btn = ui.button(
+                    t("categories.template_apply"), on_click=_apply_preview
+                ).props("color=primary")
+
+        def _render_preview(preview: TemplatePreview) -> None:
+            template_state["preview"] = preview
+            name = t(f"categories.template_name_{preview.key}")
+            preview_title.set_text(t("categories.template_preview_title", name=name))
+            if preview.total_to_add == 0:
+                preview_summary.set_text(t("categories.template_nothing_to_add"))
+                apply_btn.props("disable")
+            else:
+                preview_summary.set_text(
+                    t("categories.template_will_add", count=preview.total_to_add)
+                )
+                apply_btn.props(remove="disable")
+            preview_list.clear()
+            with preview_list:
+                for name in preview.to_add_income:
+                    with ui.row().classes("items-center gap-2 py-1"):
+                        ui.icon("trending_up", color="green").classes("text-sm")
+                        ui.label(name).classes("text-sm")
+                for name in preview.to_add_expense:
+                    with ui.row().classes("items-center gap-2 py-1"):
+                        ui.icon("trending_down", color="red").classes("text-sm")
+                        ui.label(name).classes("text-sm")
+            skipped_all = preview.skipped_income + preview.skipped_expense
+            if skipped_all:
+                preview_skipped.set_text(
+                    t("categories.template_skipped", names=", ".join(skipped_all))
+                )
+            else:
+                preview_skipped.set_text("")
+
+        async def _open_template_preview(key: str) -> None:
+            async with AsyncSessionFactory() as session:
+                preview = await CategoryService(session).preview_template(key)
+            _render_preview(preview)
+            template_preview_dialog.open()
+
+        with ui.dialog() as template_picker_dialog, ui.card().classes("w-[420px]"):
+            ui.label(t("categories.template_picker_title")).classes(f"{DIALOG_TITLE} mb-2")
+            with ui.column().classes("gap-2 w-full"):
+                for tmpl_key in CategoryService.list_templates():
+
+                    async def _pick(k: str = tmpl_key) -> None:
+                        template_picker_dialog.close()
+                        await _open_template_preview(k)
+
+                    with ui.card().classes(
+                        "w-full cursor-pointer hover:bg-slate-50 p-3 border"
+                    ).on("click", _pick):
+                        ui.label(t(f"categories.template_name_{tmpl_key}")).classes(
+                            "font-medium text-primary"
+                        )
+                        ui.label(t(f"categories.template_desc_{tmpl_key}")).classes(
+                            f"{BODY_MUTED} text-xs"
+                        )
+            with ui.row().classes("w-full justify-end mt-3"):
+                ui.button(t("common.cancel"), on_click=template_picker_dialog.close).props("flat")
+
         # ── Page layout ───────────────────────────────────────────────────
         with page_layout(t("categories.title")):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(t("categories.title")).classes(PAGE_TITLE)
-                ui.button(
-                    t("categories.add"), icon="add", on_click=lambda: open_add_dialog()
-                ).props("color=primary")
+                with ui.row().classes("gap-2"):
+                    ui.button(
+                        t("categories.load_template"),
+                        icon="library_add",
+                        on_click=template_picker_dialog.open,
+                    ).props("outline color=primary")
+                    ui.button(
+                        t("categories.add"), icon="add", on_click=lambda: open_add_dialog()
+                    ).props("color=primary")
 
             await category_list()

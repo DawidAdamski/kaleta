@@ -26,7 +26,15 @@ from kaleta.services import (
     PlannedTransactionService,
     TransactionService,
 )
-from kaleta.services.forecast_service import ForecastService
+from kaleta.services.forecast_service import (
+    ForecastPoint,
+    ForecastPreset,
+    ForecastResult,
+    ForecastService,
+    ScenarioShift,
+    apply_preset,
+    apply_scenarios,
+)
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -275,3 +283,130 @@ class TestForecastWithPlannedTransactions:
                 break
 
         assert adjusted_any, "Expected at least one forecast point to be adjusted by planned tx"
+
+
+# ── Pure-function helpers: apply_preset / apply_scenarios ──────────────────────
+
+
+def _sample_result() -> ForecastResult:
+    """Two historical points + three forecast points with a wide interval."""
+    today = datetime.date(2025, 6, 1)
+    return ForecastResult(
+        account_name="Main",
+        points=[
+            ForecastPoint(
+                date=today - datetime.timedelta(days=2),
+                value=1000.0, lower=1000.0, upper=1000.0, is_forecast=False,
+            ),
+            ForecastPoint(
+                date=today - datetime.timedelta(days=1),
+                value=1000.0, lower=1000.0, upper=1000.0, is_forecast=False,
+            ),
+            ForecastPoint(
+                date=today, value=1100.0, lower=900.0, upper=1300.0, is_forecast=True,
+            ),
+            ForecastPoint(
+                date=today + datetime.timedelta(days=1),
+                value=1200.0, lower=1000.0, upper=1400.0, is_forecast=True,
+            ),
+            ForecastPoint(
+                date=today + datetime.timedelta(days=2),
+                value=1300.0, lower=1100.0, upper=1500.0, is_forecast=True,
+            ),
+        ],
+    )
+
+
+class TestApplyPreset:
+    def test_baseline_is_passthrough(self) -> None:
+        orig = _sample_result()
+        out = apply_preset(orig, ForecastPreset.BASELINE)
+        assert out is orig
+        assert [p.value for p in out.forecast] == [1100.0, 1200.0, 1300.0]
+
+    def test_conservative_blends_toward_lower(self) -> None:
+        out = apply_preset(_sample_result(), ForecastPreset.CONSERVATIVE)
+        # 50% blend toward lower band: (1100+900)/2=1000, (1200+1000)/2=1100,...
+        assert [p.value for p in out.forecast] == [1000.0, 1100.0, 1200.0]
+
+    def test_optimistic_blends_toward_upper(self) -> None:
+        out = apply_preset(_sample_result(), ForecastPreset.OPTIMISTIC)
+        # 50% blend toward upper band: (1100+1300)/2=1200, (1200+1400)/2=1300,...
+        assert [p.value for p in out.forecast] == [1200.0, 1300.0, 1400.0]
+
+    def test_leaves_historical_untouched(self) -> None:
+        orig = _sample_result()
+        out = apply_preset(orig, ForecastPreset.CONSERVATIVE)
+        assert [p.value for p in out.historical] == [1000.0, 1000.0]
+
+    def test_does_not_mutate_input(self) -> None:
+        orig = _sample_result()
+        before = [p.value for p in orig.forecast]
+        apply_preset(orig, ForecastPreset.CONSERVATIVE)
+        assert [p.value for p in orig.forecast] == before
+
+
+class TestApplyScenarios:
+    def test_empty_shift_list_is_passthrough(self) -> None:
+        orig = _sample_result()
+        assert apply_scenarios(orig, []) is orig
+
+    def test_single_shift_affects_that_date_and_after(self) -> None:
+        today = datetime.date(2025, 6, 1)
+        out = apply_scenarios(
+            _sample_result(),
+            [ScenarioShift(label="windfall", date=today + datetime.timedelta(days=1),
+                           amount=500.0)],
+        )
+        vals = [p.value for p in out.forecast]
+        # First forecast point (today) is before the shift → unchanged.
+        # Next two (+1, +2) should be +500.
+        assert vals == [1100.0, 1700.0, 1800.0]
+
+    def test_shifts_stack_cumulatively(self) -> None:
+        today = datetime.date(2025, 6, 1)
+        out = apply_scenarios(
+            _sample_result(),
+            [
+                ScenarioShift(label="raise", date=today, amount=100.0),
+                ScenarioShift(
+                    label="purchase", date=today + datetime.timedelta(days=2),
+                    amount=-50.0,
+                ),
+            ],
+        )
+        vals = [p.value for p in out.forecast]
+        # Day 0: +100. Day 1: still +100. Day 2: +100 - 50 = +50.
+        assert vals == [1200.0, 1300.0, 1350.0]
+
+    def test_shift_moves_interval_too(self) -> None:
+        today = datetime.date(2025, 6, 1)
+        out = apply_scenarios(
+            _sample_result(),
+            [ScenarioShift(label="x", date=today, amount=200.0)],
+        )
+        first = out.forecast[0]
+        assert first.value == 1300.0
+        assert first.lower == 1100.0
+        assert first.upper == 1500.0
+
+    def test_past_dated_shift_is_ignored(self) -> None:
+        today = datetime.date(2025, 6, 1)
+        out = apply_scenarios(
+            _sample_result(),
+            [ScenarioShift(label="x", date=today - datetime.timedelta(days=5),
+                           amount=999.0)],
+        )
+        # Shift is before the first forecast point, so no forecast point picks
+        # it up — cumulative stays at 0. Historical is not mutated either.
+        assert [p.value for p in out.forecast] == [1100.0, 1200.0, 1300.0]
+        assert [p.value for p in out.historical] == [1000.0, 1000.0]
+
+    def test_does_not_mutate_input(self) -> None:
+        orig = _sample_result()
+        before = [p.value for p in orig.forecast]
+        apply_scenarios(
+            orig,
+            [ScenarioShift(label="x", date=orig.forecast[0].date, amount=50.0)],
+        )
+        assert [p.value for p in orig.forecast] == before

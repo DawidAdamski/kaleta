@@ -113,14 +113,19 @@ class TransactionService:
         return builtins.list(result.scalars())
 
     async def create(self, data: TransactionCreate) -> Transaction:
-        transaction = Transaction(**data.model_dump(exclude={"splits", "tag_ids"}))
+        # Load tags up-front so we can pass them to the constructor — assigning
+        # to ``.tags`` post-insert would trigger a lazy-load of the (empty)
+        # collection in sync context and raise MissingGreenlet.
+        tags = await self._load_tags(data.tag_ids) if data.tag_ids else []
+        transaction = Transaction(
+            **data.model_dump(exclude={"splits", "tag_ids"}),
+            tags=tags,
+        )
         self.session.add(transaction)
         await self.session.flush()
         for split_data in data.splits:
             split = TransactionSplit(transaction_id=transaction.id, **split_data.model_dump())
             self.session.add(split)
-        if data.tag_ids:
-            transaction.tags = await self._load_tags(data.tag_ids)
         await self.session.commit()
         # Re-fetch with eager-loaded relationships so the response serializer
         # never hits a lazy relationship outside of an async context.

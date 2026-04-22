@@ -1,20 +1,13 @@
-from nicegui import ui
+from nicegui import events, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
 from kaleta.models.institution import Institution, InstitutionType
 from kaleta.schemas.institution import InstitutionCreate, InstitutionUpdate
 from kaleta.services import InstitutionService
+from kaleta.services.institution_logo_service import delete_logo, save_logo
+from kaleta.views.institution_avatar import institution_avatar
 from kaleta.views.layout import page_layout
-
-_TYPE_ICONS: dict[str, str] = {
-    InstitutionType.BANK: "account_balance",
-    InstitutionType.FINTECH: "phone_iphone",
-    InstitutionType.CREDIT_UNION: "groups",
-    InstitutionType.BROKER: "show_chart",
-    InstitutionType.INSURANCE: "health_and_safety",
-    InstitutionType.OTHER: "business",
-}
 
 
 def _type_labels() -> dict[str, str]:
@@ -35,6 +28,8 @@ def register() -> None:
             institution_list = await InstitutionService(session).list()
 
         selected_id: list[int | None] = [None]
+        add_logo_path: list[str | None] = [None]
+        edit_logo_path: list[str | None] = [None]
 
         with page_layout(t("institutions.title")):
             with ui.row().classes("w-full items-center justify-between"):
@@ -51,11 +46,9 @@ def register() -> None:
                     return
                 with ui.grid(columns=3).classes("w-full gap-4"):
                     for inst in institution_list:
-                        color = inst.color or "#1976d2"
-                        icon = _TYPE_ICONS.get(inst.type, "business")
                         with ui.card().classes("p-4 gap-2"):
                             with ui.row().classes("items-center gap-3 w-full"):
-                                ui.icon(icon).style(f"color: {color}; font-size: 2rem;")
+                                institution_avatar(inst, size=40)
                                 with ui.column().classes("gap-0 flex-1 min-w-0"):
                                     ui.label(inst.name).classes("font-bold text-base truncate")
                                     ui.label(labels.get(inst.type, inst.type)).classes(
@@ -115,6 +108,45 @@ def register() -> None:
             add_website = ui.input(t("institutions.website")).classes("w-full")
             add_desc = ui.textarea(t("common.description")).classes("w-full").props("rows=2")
 
+            with ui.row().classes("items-center gap-2 w-full"):
+                add_logo_preview = (
+                    ui.image("")
+                    .classes("rounded-lg bg-white")
+                    .style(
+                        "width:40px;height:40px;object-fit:contain;border:1px solid rgba(0,0,0,0.1)"
+                    )
+                )
+                add_logo_preview.visible = False
+
+                def _add_upload(e: events.UploadEventArguments) -> None:
+                    try:
+                        url = save_logo(e.name, e.content.read())  # type: ignore[attr-defined]
+                    except ValueError:
+                        ui.notify(t("institutions.logo_invalid_format"), type="negative")
+                        return
+                    if add_logo_path[0]:
+                        delete_logo(add_logo_path[0])
+                    add_logo_path[0] = url
+                    add_logo_preview.set_source(url)
+                    add_logo_preview.visible = True
+
+                def _add_remove_logo() -> None:
+                    if add_logo_path[0]:
+                        delete_logo(add_logo_path[0])
+                    add_logo_path[0] = None
+                    add_logo_preview.set_source("")
+                    add_logo_preview.visible = False
+
+                ui.upload(
+                    label=t("institutions.upload_logo"),
+                    on_upload=_add_upload,
+                    auto_upload=True,
+                    max_files=1,
+                ).props("accept=image/* flat dense").classes("flex-1")
+                ui.button(icon="close", on_click=_add_remove_logo).props(
+                    "flat round dense color=negative"
+                ).tooltip(t("institutions.remove_logo"))
+
             async def save_add() -> None:
                 if not add_name.value or not add_name.value.strip():
                     ui.notify(t("institutions.name_required"), type="negative")
@@ -125,6 +157,7 @@ def register() -> None:
                     color=add_color.value.strip() or None,
                     website=add_website.value.strip() or None,
                     description=add_desc.value.strip() or None,
+                    logo_path=add_logo_path[0],
                 )
                 async with AsyncSessionFactory() as session:
                     inst = await InstitutionService(session).create(data)
@@ -178,6 +211,45 @@ def register() -> None:
             edit_website = ui.input(t("institutions.website")).classes("w-full")
             edit_desc = ui.textarea(t("common.description")).classes("w-full").props("rows=2")
 
+            with ui.row().classes("items-center gap-2 w-full"):
+                edit_logo_preview = (
+                    ui.image("")
+                    .classes("rounded-lg bg-white")
+                    .style(
+                        "width:40px;height:40px;object-fit:contain;border:1px solid rgba(0,0,0,0.1)"
+                    )
+                )
+                edit_logo_preview.visible = False
+
+                def _edit_upload(e: events.UploadEventArguments) -> None:
+                    try:
+                        url = save_logo(e.name, e.content.read())  # type: ignore[attr-defined]
+                    except ValueError:
+                        ui.notify(t("institutions.logo_invalid_format"), type="negative")
+                        return
+                    if edit_logo_path[0]:
+                        delete_logo(edit_logo_path[0])
+                    edit_logo_path[0] = url
+                    edit_logo_preview.set_source(url)
+                    edit_logo_preview.visible = True
+
+                def _edit_remove_logo() -> None:
+                    if edit_logo_path[0]:
+                        delete_logo(edit_logo_path[0])
+                    edit_logo_path[0] = None
+                    edit_logo_preview.set_source("")
+                    edit_logo_preview.visible = False
+
+                ui.upload(
+                    label=t("institutions.upload_logo"),
+                    on_upload=_edit_upload,
+                    auto_upload=True,
+                    max_files=1,
+                ).props("accept=image/* flat dense").classes("flex-1")
+                ui.button(icon="close", on_click=_edit_remove_logo).props(
+                    "flat round dense color=negative"
+                ).tooltip(t("institutions.remove_logo"))
+
             async def save_edit() -> None:
                 iid = selected_id[0]
                 if iid is None:
@@ -191,6 +263,7 @@ def register() -> None:
                     color=edit_color.value.strip() or None,
                     website=edit_website.value.strip() or None,
                     description=edit_desc.value.strip() or None,
+                    logo_path=edit_logo_path[0],
                 )
                 async with AsyncSessionFactory() as session:
                     updated = await InstitutionService(session).update(iid, data)
@@ -245,6 +318,9 @@ def register() -> None:
             _add_sync_swatch()
             add_website.set_value("")
             add_desc.set_value("")
+            add_logo_path[0] = None
+            add_logo_preview.set_source("")
+            add_logo_preview.visible = False
             add_dialog.open()
 
         def _open_edit(inst: Institution) -> None:
@@ -255,6 +331,13 @@ def register() -> None:
             edit_website.set_value(inst.website or "")
             edit_desc.set_value(inst.description or "")
             _edit_sync_swatch()
+            edit_logo_path[0] = inst.logo_path
+            if inst.logo_path:
+                edit_logo_preview.set_source(inst.logo_path)
+                edit_logo_preview.visible = True
+            else:
+                edit_logo_preview.set_source("")
+                edit_logo_preview.visible = False
             edit_dialog.open()
 
         def _open_delete(inst: Institution) -> None:

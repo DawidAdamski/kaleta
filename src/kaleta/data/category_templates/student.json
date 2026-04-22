@@ -1,0 +1,17 @@
+{
+  "key": "student",
+  "income": [
+    "Stipend",
+    "Side Job",
+    "Gifts"
+  ],
+  "expense": [
+    "Rent & Dorm",
+    "Food",
+    "Books & Courses",
+    "Transit",
+    "Leisure",
+    "Subscriptions",
+    "Health"
+  ]
+}

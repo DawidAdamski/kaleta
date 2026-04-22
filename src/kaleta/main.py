@@ -77,6 +77,7 @@ def _register_views() -> None:
         payees,
         planned_transactions,
         reports,
+        reports_canned,
         settings,
         setup,
         tags,
@@ -97,6 +98,7 @@ def _register_views() -> None:
     forecast.register()
     planned_transactions.register()
     reports.register()
+    reports_canned.register()
     net_worth.register()
     credit_calculator.register()
     tags.register()

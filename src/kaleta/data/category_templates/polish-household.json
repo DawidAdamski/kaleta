@@ -1,0 +1,23 @@
+{
+  "key": "polish-household",
+  "income": [
+    "Wynagrodzenie",
+    "Premia",
+    "Zwroty",
+    "Inne przychody"
+  ],
+  "expense": [
+    "Żywność",
+    "Mieszkanie & Czynsz",
+    "Media (prąd, gaz, woda)",
+    "Transport",
+    "Paliwo",
+    "Zdrowie & Apteka",
+    "Edukacja",
+    "Rozrywka",
+    "Odzież & Obuwie",
+    "Subskrypcje",
+    "Wakacje & Podróże",
+    "Inne wydatki"
+  ]
+}

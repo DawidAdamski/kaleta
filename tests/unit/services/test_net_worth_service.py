@@ -84,51 +84,68 @@ def svc(session: AsyncSession) -> NetWorthService:
 
 
 class TestAccountSnapshotProperties:
-    def _snap(self, balance: Decimal) -> AccountSnapshot:
+    """Classification is kind-based: checking/savings/cash → asset, credit → liability."""
+
+    def _snap(
+        self,
+        balance: Decimal,
+        account_type: AccountType = AccountType.CHECKING,
+    ) -> AccountSnapshot:
         # In the single-currency (PLN) case balance_in_default == balance
         return AccountSnapshot(
             id=1,
             name="Test",
-            type=AccountType.CHECKING,
+            type=account_type,
             institution_name=None,
             balance=balance,
             balance_in_default=balance,
         )
 
-    def test_is_asset_true_for_positive_balance(self):
-        snap = self._snap(Decimal("500.00"))
+    def test_is_asset_true_for_checking(self):
+        snap = self._snap(Decimal("500.00"), AccountType.CHECKING)
         assert snap.is_asset is True
 
-    def test_is_asset_true_for_zero_balance(self):
-        snap = self._snap(Decimal("0.00"))
+    def test_is_asset_true_for_savings(self):
+        snap = self._snap(Decimal("500.00"), AccountType.SAVINGS)
         assert snap.is_asset is True
 
-    def test_is_asset_false_for_negative_balance(self):
-        snap = self._snap(Decimal("-100.00"))
+    def test_is_asset_true_for_cash(self):
+        snap = self._snap(Decimal("500.00"), AccountType.CASH)
+        assert snap.is_asset is True
+
+    def test_is_asset_true_even_when_checking_is_overdrawn(self):
+        # Kind-based classification ignores sign.
+        snap = self._snap(Decimal("-100.00"), AccountType.CHECKING)
+        assert snap.is_asset is True
+
+    def test_is_asset_false_for_credit(self):
+        snap = self._snap(Decimal("-100.00"), AccountType.CREDIT)
         assert snap.is_asset is False
 
-    def test_asset_value_equals_balance_when_positive(self):
-        snap = self._snap(Decimal("1234.56"))
+    def test_asset_value_equals_balance_for_asset_kind(self):
+        snap = self._snap(Decimal("1234.56"), AccountType.SAVINGS)
         assert snap.asset_value == Decimal("1234.56")
 
-    def test_asset_value_is_zero_when_negative(self):
-        snap = self._snap(Decimal("-50.00"))
+    def test_asset_value_zero_for_liability_kind(self):
+        snap = self._snap(Decimal("-500.00"), AccountType.CREDIT)
         assert snap.asset_value == Decimal("0")
 
-    def test_asset_value_is_zero_when_balance_is_zero(self):
-        snap = self._snap(Decimal("0.00"))
-        assert snap.asset_value == Decimal("0")
+    def test_asset_value_includes_overdrawn_balance(self):
+        # Overdrawn checking is still an asset-kind account; its (negative)
+        # balance contributes to the assets total.
+        snap = self._snap(Decimal("-50.00"), AccountType.CHECKING)
+        assert snap.asset_value == Decimal("-50.00")
 
-    def test_liability_value_is_abs_balance_when_negative(self):
-        snap = self._snap(Decimal("-300.00"))
+    def test_liability_value_is_abs_balance_for_credit(self):
+        snap = self._snap(Decimal("-300.00"), AccountType.CREDIT)
         assert snap.liability_value == Decimal("300.00")
 
-    def test_liability_value_is_zero_when_positive(self):
-        snap = self._snap(Decimal("200.00"))
+    def test_liability_value_zero_for_asset_kind(self):
+        snap = self._snap(Decimal("-300.00"), AccountType.CHECKING)
         assert snap.liability_value == Decimal("0")
 
-    def test_liability_value_is_zero_when_balance_is_zero(self):
-        snap = self._snap(Decimal("0.00"))
+    def test_liability_value_zero_when_credit_balance_is_zero(self):
+        snap = self._snap(Decimal("0.00"), AccountType.CREDIT)
         assert snap.liability_value == Decimal("0")
 
 
@@ -136,53 +153,92 @@ class TestAccountSnapshotProperties:
 
 
 class TestNetWorthSummaryAggregates:
-    def _summary(self, balances: list[Decimal]) -> NetWorthSummary:
+    def _summary(
+        self,
+        accounts_spec: list[tuple[Decimal, AccountType]],
+    ) -> NetWorthSummary:
         accounts = [
             AccountSnapshot(
                 id=i,
                 name=f"Acc{i}",
-                type=AccountType.CHECKING,
+                type=t,
                 institution_name=None,
                 balance=b,
                 balance_in_default=b,
             )
-            for i, b in enumerate(balances, start=1)
+            for i, (b, t) in enumerate(accounts_spec, start=1)
         ]
         history = [MonthlyNetWorth(year=2025, month=1, net_worth=Decimal("0"))]
         return NetWorthSummary(
             accounts=accounts, physical_assets=[], history=history, prev_month_net_worth=None
         )
 
-    def test_total_assets_sums_only_positive(self):
-        summary = self._summary([Decimal("1000.00"), Decimal("-200.00"), Decimal("500.00")])
+    def test_total_assets_sums_asset_kind_balances(self):
+        # Kind-based: all asset-kind accounts contribute (including negatives).
+        summary = self._summary(
+            [
+                (Decimal("1000.00"), AccountType.CHECKING),
+                (Decimal("-200.00"), AccountType.CREDIT),
+                (Decimal("500.00"), AccountType.SAVINGS),
+            ]
+        )
         assert summary.total_assets == Decimal("1500.00")
 
-    def test_total_liabilities_sums_abs_of_negatives(self):
-        summary = self._summary([Decimal("1000.00"), Decimal("-200.00"), Decimal("-50.00")])
+    def test_total_liabilities_sums_credit_balances_as_positive(self):
+        summary = self._summary(
+            [
+                (Decimal("1000.00"), AccountType.CHECKING),
+                (Decimal("-200.00"), AccountType.CREDIT),
+                (Decimal("-50.00"), AccountType.CREDIT),
+            ]
+        )
         assert summary.total_liabilities == Decimal("250.00")
 
     def test_net_worth_equals_assets_minus_liabilities(self):
-        summary = self._summary([Decimal("1000.00"), Decimal("-300.00")])
+        summary = self._summary(
+            [
+                (Decimal("1000.00"), AccountType.CHECKING),
+                (Decimal("-300.00"), AccountType.CREDIT),
+            ]
+        )
         assert summary.net_worth == Decimal("700.00")
 
-    def test_total_assets_zero_when_all_negative(self):
-        summary = self._summary([Decimal("-100.00"), Decimal("-50.00")])
-        assert summary.total_assets == Decimal("0")
-
-    def test_total_liabilities_zero_when_all_positive(self):
-        summary = self._summary([Decimal("100.00"), Decimal("50.00")])
+    def test_total_liabilities_zero_when_no_credit_accounts(self):
+        summary = self._summary(
+            [
+                (Decimal("100.00"), AccountType.CHECKING),
+                (Decimal("50.00"), AccountType.SAVINGS),
+            ]
+        )
         assert summary.total_liabilities == Decimal("0")
 
     def test_net_worth_equals_balance_when_single_positive_account(self):
-        summary = self._summary([Decimal("5000.00")])
+        summary = self._summary([(Decimal("5000.00"), AccountType.CHECKING)])
         assert summary.net_worth == Decimal("5000.00")
 
     def test_net_worth_negative_when_liabilities_exceed_assets(self):
-        summary = self._summary([Decimal("200.00"), Decimal("-800.00")])
+        summary = self._summary(
+            [
+                (Decimal("200.00"), AccountType.CHECKING),
+                (Decimal("-800.00"), AccountType.CREDIT),
+            ]
+        )
         assert summary.net_worth == Decimal("-600.00")
 
+    def test_overdrawn_checking_counts_negatively_toward_assets(self):
+        # An overdrawn asset-kind account reduces total_assets; it is not
+        # reclassified as a liability.
+        summary = self._summary(
+            [
+                (Decimal("-100.00"), AccountType.CHECKING),
+                (Decimal("-50.00"), AccountType.CHECKING),
+            ]
+        )
+        assert summary.total_assets == Decimal("-150.00")
+        assert summary.total_liabilities == Decimal("0")
+
     def test_monthly_change_none_when_prev_month_is_none(self):
-        summary = self._summary([Decimal("500.00")])
+        summary = self._summary([(Decimal("500.00"), AccountType.CHECKING)])
         assert summary.monthly_change is None
 
     def test_monthly_change_positive(self):
@@ -308,19 +364,23 @@ class TestGetSummaryAccountsOnly:
         names = [a.name for a in summary.accounts]
         assert names == sorted(names)
 
-    async def test_total_assets_reflects_positive_balances(
+    async def test_total_assets_reflects_asset_kind_accounts(
         self, svc: NetWorthService, session: AsyncSession
     ):
         await _make_account(session, name="Savings", balance=Decimal("5000.00"))
-        await _make_account(session, name="Credit", balance=Decimal("-1000.00"))
+        await _make_account(
+            session, name="Credit", balance=Decimal("-1000.00"), account_type=AccountType.CREDIT
+        )
         summary = await svc.get_summary()
         assert summary.total_assets == Decimal("5000.00")
 
-    async def test_total_liabilities_reflects_negative_balances(
+    async def test_total_liabilities_reflects_credit_accounts(
         self, svc: NetWorthService, session: AsyncSession
     ):
         await _make_account(session, name="Savings", balance=Decimal("5000.00"))
-        await _make_account(session, name="Credit", balance=Decimal("-1000.00"))
+        await _make_account(
+            session, name="Credit", balance=Decimal("-1000.00"), account_type=AccountType.CREDIT
+        )
         summary = await svc.get_summary()
         assert summary.total_liabilities == Decimal("1000.00")
 
@@ -328,7 +388,9 @@ class TestGetSummaryAccountsOnly:
         self, svc: NetWorthService, session: AsyncSession
     ):
         await _make_account(session, name="Savings", balance=Decimal("5000.00"))
-        await _make_account(session, name="Credit", balance=Decimal("-1000.00"))
+        await _make_account(
+            session, name="Credit", balance=Decimal("-1000.00"), account_type=AccountType.CREDIT
+        )
         summary = await svc.get_summary()
         assert summary.net_worth == Decimal("4000.00")
 
@@ -348,9 +410,11 @@ class TestGetSummaryAccountsOnly:
         summary = await svc.get_summary(history_months=13)
         assert summary.monthly_change == Decimal("0")
 
-    async def test_zero_balance_accounts_not_counted_as_asset_or_liability(
+    async def test_zero_balance_account_contributes_nothing(
         self, svc: NetWorthService, session: AsyncSession
     ):
+        # A zero-balance checking still sits in the assets column (kind-based),
+        # but contributes 0 to the total.
         await _make_account(session, name="Empty", balance=Decimal("0.00"))
         summary = await svc.get_summary()
         assert summary.total_assets == Decimal("0")
@@ -555,9 +619,9 @@ class TestAccountSnapshotCurrency:
         snap = self._snap(Decimal("100.00"), currency="EUR", balance_in_default=Decimal("425.00"))
         assert snap.balance_in_default == Decimal("425.00")
 
-    def test_is_asset_uses_balance_in_default_not_raw_balance(self):
-        # Raw balance is negative in EUR but balance_in_default is positive (shouldn't happen
-        # in practice — but the property must use balance_in_default)
+    def test_is_asset_by_kind_regardless_of_currency(self):
+        # Kind-based classification ignores balance sign/currency — a CHECKING
+        # account is always an asset.
         snap = AccountSnapshot(
             id=1,
             name="Test",
@@ -569,15 +633,15 @@ class TestAccountSnapshotCurrency:
         )
         assert snap.is_asset is True
 
-    def test_is_asset_false_when_balance_in_default_negative(self):
+    def test_is_asset_false_for_credit_kind(self):
         snap = AccountSnapshot(
             id=1,
-            name="Test",
-            type=AccountType.CHECKING,
+            name="Credit EUR",
+            type=AccountType.CREDIT,
             institution_name=None,
-            balance=Decimal("10.00"),
+            balance=Decimal("-100.00"),
             currency="EUR",
-            balance_in_default=Decimal("-5.00"),
+            balance_in_default=Decimal("-425.00"),
         )
         assert snap.is_asset is False
 
@@ -707,3 +771,101 @@ class TestGetSummaryMultiCurrency:
         summary = await svc.get_summary(default_currency="PLN")
         snap = summary.accounts[0]
         assert abs(snap.balance_in_default - Decimal("425.00")) < Decimal("0.01")
+
+
+# ── Deltas (30d, YTD) and per-month asset/liability split ────────────────────
+
+
+class TestDeltas:
+    async def test_delta_30d_none_when_history_has_one_entry(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        await _make_account(session, balance=Decimal("1000.00"))
+        summary = await svc.get_summary(history_months=1)
+        assert summary.delta_30d is None
+
+    async def test_delta_30d_zero_when_no_transactions(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        await _make_account(session, balance=Decimal("1000.00"))
+        summary = await svc.get_summary(history_months=2)
+        assert summary.delta_30d == Decimal("0")
+
+    async def test_delta_30d_reflects_current_month_income(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session, balance=Decimal("1500.00"))
+        cat_id = await _make_category(session)
+        await _make_transaction(
+            session, acc_id, cat_id, Decimal("500.00"), TransactionType.INCOME, date=TODAY
+        )
+        summary = await svc.get_summary(history_months=2)
+        # current = 1500, history[-2] = 1000, delta = +500
+        assert summary.delta_30d == Decimal("500.00")
+
+    async def test_delta_ytd_none_when_only_current_month_in_history(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        await _make_account(session, balance=Decimal("1000.00"))
+        summary = await svc.get_summary(history_months=1)
+        assert summary.delta_ytd is None
+
+    async def test_delta_ytd_computes_from_january_baseline(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        """YTD delta uses the first history entry in the current year as baseline."""
+        await _make_account(session, balance=Decimal("2000.00"))
+        # 13 months of history covers last Jan through this month; history[0]
+        # will typically be prior year, and there WILL be a Jan-of-this-year entry.
+        summary = await svc.get_summary(history_months=13)
+        # With no transactions, net worth is constant → YTD delta = 0.
+        assert summary.delta_ytd == Decimal("0")
+
+
+class TestMonthlySplit:
+    async def test_monthly_history_includes_total_assets_and_liabilities(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        await _make_account(session, name="Checking", balance=Decimal("3000.00"))
+        await _make_account(
+            session, name="Card", balance=Decimal("-500.00"), account_type=AccountType.CREDIT
+        )
+        summary = await svc.get_summary(history_months=3)
+        for entry in summary.history:
+            # With no transactions, assets/liabilities are constant.
+            assert entry.total_assets == Decimal("3000.00")
+            assert entry.total_liabilities == Decimal("500.00")
+            assert entry.net_worth == Decimal("2500.00")
+
+    async def test_monthly_history_rolls_back_per_account(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        """Income on the checking side raises current assets; history[-2] shows pre-income state."""
+        acc_id = await _make_account(session, balance=Decimal("1500.00"))
+        cat_id = await _make_category(session)
+        await _make_transaction(
+            session, acc_id, cat_id, Decimal("500.00"), TransactionType.INCOME, date=TODAY
+        )
+        summary = await svc.get_summary(history_months=2)
+        assert summary.history[-1].total_assets == Decimal("1500.00")
+        assert summary.history[-2].total_assets == Decimal("1000.00")
+
+    async def test_monthly_history_liabilities_tracked_separately(
+        self, svc: NetWorthService, session: AsyncSession
+    ):
+        """Payments against a credit card should not inflate the assets line."""
+        credit_id = await _make_account(
+            session, balance=Decimal("-200.00"), account_type=AccountType.CREDIT, name="Card"
+        )
+        cat_id = await _make_category(session, cat_type=CategoryType.EXPENSE)
+        # Add an expense on the credit card this month → balance was worse in the past.
+        # Amount=300 expense means account was +300 last month → -500 before the expense.
+        await _make_transaction(
+            session, credit_id, cat_id, Decimal("300.00"), TransactionType.EXPENSE, date=TODAY
+        )
+        summary = await svc.get_summary(history_months=2)
+        # Current: -200 balance → liabilities 200. Prior month: -200 + 300 = +100
+        # balance, so liabilities were -100 (i.e. the card was in credit). The
+        # liability_value is -balance, so it's -100 historically.
+        assert summary.history[-1].total_liabilities == Decimal("200.00")
+        assert summary.history[-2].total_liabilities == Decimal("-100.00")

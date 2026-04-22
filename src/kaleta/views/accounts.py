@@ -11,6 +11,7 @@ from kaleta.models.account import Account, AccountType
 from kaleta.models.institution import Institution
 from kaleta.schemas.account import AccountCreate, AccountUpdate
 from kaleta.services import AccountService, InstitutionService
+from kaleta.views.institution_avatar import institution_avatar
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD
 
@@ -82,10 +83,11 @@ def register() -> None:
                 _collapsed.add(gk)
             app.storage.user["accounts_collapsed"] = list(_collapsed)
 
-        def _set_group(by: str) -> None:
+        def _set_group(by: str | None) -> None:
+            if by not in ("type", "institution"):
+                return
             state["group_by"] = by
             app.storage.user["accounts_group_by"] = by
-            group_buttons.refresh()
             account_table.refresh()
 
         with page_layout(t("accounts.title")):
@@ -258,23 +260,14 @@ def register() -> None:
                 ui.label(t("accounts.title")).classes(PAGE_TITLE)
                 with ui.row().classes("gap-2 items-center"):
                     ui.label(t("accounts.group_by")).classes(BODY_MUTED)
-
-                    @ui.refreshable
-                    def group_buttons() -> None:
-                        for key, label in [
-                            ("type", t("accounts.group_type")),
-                            ("institution", t("accounts.group_institution")),
-                        ]:
-                            active = state["group_by"] == key
-                            ui.button(
-                                label,
-                                on_click=lambda k=key: _set_group(k),
-                            ).props(
-                                ("color=primary" if active else "outline color=primary")
-                                + " dense rounded"
-                            )
-
-                    group_buttons()
+                    ui.toggle(
+                        {
+                            "type": t("accounts.group_type"),
+                            "institution": t("accounts.group_institution"),
+                        },
+                        value=state["group_by"],
+                        on_change=lambda e: _set_group(e.value),
+                    ).props("color=primary dense unelevated no-caps")
                     ui.button(t("accounts.add"), icon="add", on_click=_open_add).props(
                         "color=primary"
                     )
@@ -326,7 +319,9 @@ def register() -> None:
                         # Account rows — Python buttons, no JS event emission
                         for a in accts:
                             with ui.row().classes("w-full px-4 py-2 items-center border-b"):
-                                ui.label(a.name).classes("flex-1 font-medium")
+                                with ui.row().classes("flex-1 items-center gap-2 min-w-0"):
+                                    institution_avatar(a.institution, size=24)
+                                    ui.label(a.name).classes("font-medium truncate")
                                 if by == "type":
                                     ui.label(a.institution.name if a.institution else "—").classes(
                                         "w-44 text-grey-6 text-sm"

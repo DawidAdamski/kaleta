@@ -13,7 +13,7 @@ from kaleta.models.transaction import TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
 from kaleta.services import AccountService, CategoryService, PlannedTransactionService
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import TABLE_SURFACE
+from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, TABLE_SURFACE
 
 
 def _build_cat_opts(cats_list: list[Category]) -> dict[int, str]:
@@ -320,8 +320,8 @@ def register() -> None:
             tbl.add_slot(
                 "body-cell-amount",
                 '<q-td :props="props" class="text-right">'
-                "<span :class=\"props.row.type === 'income' ? 'text-positive' : "
-                "props.row.type === 'expense' ? 'text-negative' : ''\">"
+                f"<span :class=\"props.row.type === 'income' ? '{AMOUNT_INCOME}' : "
+                f"props.row.type === 'expense' ? '{AMOUNT_EXPENSE}' : '{AMOUNT_NEUTRAL}'\">"
                 "{{ props.row.amount }}</span></q-td>",
             )
             tbl.add_slot(

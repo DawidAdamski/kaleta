@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import builtins
+import json
+from dataclasses import dataclass
+from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -9,6 +12,21 @@ from sqlalchemy.orm import selectinload
 
 from kaleta.models.category import Category, CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryUpdate
+
+_TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "category_templates"
+
+
+@dataclass(slots=True)
+class TemplatePreview:
+    key: str
+    to_add_income: builtins.list[str]
+    to_add_expense: builtins.list[str]
+    skipped_income: builtins.list[str]
+    skipped_expense: builtins.list[str]
+
+    @property
+    def total_to_add(self) -> int:
+        return len(self.to_add_income) + len(self.to_add_expense)
 
 
 class CategoryService:
@@ -86,3 +104,69 @@ class CategoryService:
         await self.session.delete(category)
         await self.session.commit()
         return True
+
+    @staticmethod
+    def list_templates() -> builtins.list[str]:
+        """Return available template keys (JSON filenames without extension)."""
+        if not _TEMPLATE_DIR.is_dir():
+            return []
+        return sorted(p.stem for p in _TEMPLATE_DIR.glob("*.json"))
+
+    @staticmethod
+    def _load_template(key: str) -> dict[str, builtins.list[str]]:
+        path = _TEMPLATE_DIR / f"{key}.json"
+        if not path.is_file():
+            raise FileNotFoundError(f"Category template not found: {key}")
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            "income": [str(n) for n in data.get("income", [])],
+            "expense": [str(n) for n in data.get("expense", [])],
+        }
+
+    async def preview_template(self, key: str) -> TemplatePreview:
+        """Return the diff between a template and the current category set.
+
+        Names collide by (lower-case name, type) scoped to root level.
+        """
+        tmpl = self._load_template(key)
+        existing = await self.list()
+        existing_income = {
+            c.name.lower()
+            for c in existing
+            if c.type == CategoryType.INCOME and c.parent_id is None
+        }
+        existing_expense = {
+            c.name.lower()
+            for c in existing
+            if c.type == CategoryType.EXPENSE and c.parent_id is None
+        }
+
+        to_add_income = [n for n in tmpl["income"] if n.lower() not in existing_income]
+        to_add_expense = [n for n in tmpl["expense"] if n.lower() not in existing_expense]
+        skipped_income = [n for n in tmpl["income"] if n.lower() in existing_income]
+        skipped_expense = [n for n in tmpl["expense"] if n.lower() in existing_expense]
+
+        return TemplatePreview(
+            key=key,
+            to_add_income=to_add_income,
+            to_add_expense=to_add_expense,
+            skipped_income=skipped_income,
+            skipped_expense=skipped_expense,
+        )
+
+    async def apply_template(self, key: str) -> int:
+        """Insert any missing template entries as root-level categories.
+
+        Returns the number of categories created.
+        """
+        preview = await self.preview_template(key)
+        created = 0
+        for name in preview.to_add_income:
+            self.session.add(Category(name=name, type=CategoryType.INCOME))
+            created += 1
+        for name in preview.to_add_expense:
+            self.session.add(Category(name=name, type=CategoryType.EXPENSE))
+            created += 1
+        if created:
+            await self.session.commit()
+        return created

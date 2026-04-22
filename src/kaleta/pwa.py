@@ -28,7 +28,10 @@ PWA_HEAD = """
 
 def setup() -> None:
     """Register static files and PWA endpoints with the NiceGUI/FastAPI app."""
+    from kaleta.services.institution_logo_service import LOGO_URL_PREFIX, ensure_dir
+
     nicegui_app.add_static_files("/static", str(_STATIC_DIR))
+    nicegui_app.add_static_files(LOGO_URL_PREFIX, str(ensure_dir()))
 
     @nicegui_app.get("/manifest.json", include_in_schema=False)
     async def _manifest() -> Response:

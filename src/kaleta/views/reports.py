@@ -76,7 +76,7 @@ def _chart_icon(chart_type: str) -> str:
 
 
 def register() -> None:
-    @ui.page("/reports")
+    @ui.page("/reports/builder")
     async def reports_page() -> None:
         is_dark: bool = app.storage.user.get("dark_mode", False)
 

@@ -19,6 +19,9 @@ nav:
   - Home: index.md
   - Product:
       - Overview: product/index.md
+      - Dashboard: product/dashboard.md
+      - Financial Wizard: product/financial-wizard.md
+  - Roadmap: roadmap.md
   - Walkthrough:
       - Overview: walkthrough/index.md
   - Technical:

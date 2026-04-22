@@ -42,40 +42,58 @@ def _fmt(amount: Decimal, currency: str = "PLN") -> str:
     return f"{amount:,.2f} {currency}"
 
 
-def _summary_card(
-    label: str, amount: Decimal, color: str, currency: str = "PLN", change: Decimal | None = None
-) -> None:
-    with ui.card().classes("flex-1 p-5 min-w-48"):
-        ui.label(label).classes("text-sm text-grey-6 uppercase tracking-wide mb-1")
-        ui.label(_fmt(amount, currency)).classes(f"text-2xl font-bold text-{color}")
-        if change is not None:
-            ch_sign = "+" if change >= 0 else ""
-            ch_color = "positive" if change >= 0 else "negative"
-            ui.label(f"{ch_sign}{_fmt(change, currency)} {t('net_worth.vs_last_month')}").classes(
-                f"text-xs text-{ch_color} mt-1"
-            )
+def _delta_pill(label: str, delta: Decimal | None, currency: str) -> None:
+    """Renders a 'label: ±value' pill with an arrow indicating direction."""
+    with ui.row().classes("items-center gap-1"):
+        ui.label(label).classes("text-xs text-grey-6 uppercase tracking-wide")
+        if delta is None:
+            ui.label("—").classes("text-sm text-grey-5")
+            return
+        icon = "arrow_upward" if delta >= 0 else "arrow_downward"
+        color = "positive" if delta >= 0 else "negative"
+        sign = "+" if delta >= 0 else ""
+        ui.icon(icon).classes(f"text-{color} text-sm")
+        ui.label(f"{sign}{_fmt(delta, currency)}").classes(f"text-sm font-medium text-{color}")
+
+
+def _header_strip(summary: NetWorthSummary, currency: str) -> None:
+    """Top-of-page net-worth headline with 30d + YTD delta pills."""
+    color = "primary" if summary.net_worth >= 0 else "negative"
+    with (
+        ui.card().classes("w-full p-6"),
+        ui.column().classes("w-full items-center gap-2"),
+    ):
+        ui.label(t("net_worth.net_worth")).classes(
+            "text-sm text-grey-6 uppercase tracking-wide"
+        )
+        ui.label(_fmt(summary.net_worth, currency)).classes(f"text-4xl font-bold text-{color}")
+        with ui.row().classes("gap-6 mt-1 flex-wrap justify-center"):
+            _delta_pill(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)
+            _delta_pill(t("net_worth.vs_start_of_year"), summary.delta_ytd, currency)
 
 
 def _chart(summary: NetWorthSummary, dark: bool) -> None:
+    """Stacked area of assets vs liabilities over time.
+
+    Liabilities are plotted as positive values stacked on top of assets so the
+    top of the combined area reads as (assets + liabilities) — while the
+    net-worth value in the header remains the difference. The intent is to
+    convey the *size* of both sides at a glance.
+    """
     labels = [s.label for s in summary.history]
-    # Values in thousands so Y-axis can use the "{value}k" template (no JS function needed)
-    values_k = [round(float(s.net_worth) / 1000, 1) for s in summary.history]
-    positive = summary.net_worth >= 0
-    line_color = "#2e7d32" if positive else "#c62828"
-    area_color = "#4caf50" if positive else "#ef5350"
+    assets_k = [round(float(s.total_assets) / 1000, 1) for s in summary.history]
+    liabilities_k = [round(float(s.total_liabilities) / 1000, 1) for s in summary.history]
     text_color = "#e0e0e0" if dark else "#555555"
 
     ui.echart(
         {
-            "tooltip": {
-                "trigger": "axis",
-                "formatter": (
-                    "function(p) { var v=p[0].value*1000;"
-                    "return p[0].name + '<br/><b>' + v.toLocaleString('pl-PL',"
-                    "{minimumFractionDigits:2}) + ' PLN</b>'; }"
-                ),
+            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+            "legend": {
+                "data": [t("net_worth.assets"), t("net_worth.liabilities")],
+                "textStyle": {"color": text_color},
+                "top": 0,
             },
-            "grid": {"left": "10%", "right": "4%", "top": "8%", "bottom": "18%"},
+            "grid": {"left": "10%", "right": "4%", "top": "12%", "bottom": "18%"},
             "xAxis": {
                 "type": "category",
                 "data": labels,
@@ -91,16 +109,29 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
             },
             "series": [
                 {
-                    "name": t("net_worth.net_worth"),
+                    "name": t("net_worth.assets"),
                     "type": "line",
-                    "data": values_k,
+                    "stack": "total",
+                    "data": assets_k,
                     "smooth": True,
                     "symbol": "circle",
-                    "symbolSize": 5,
-                    "lineStyle": {"color": line_color, "width": 2},
-                    "itemStyle": {"color": line_color},
-                    "areaStyle": {"color": area_color, "opacity": 0.15},
-                }
+                    "symbolSize": 4,
+                    "lineStyle": {"color": "#2e7d32", "width": 2},
+                    "itemStyle": {"color": "#2e7d32"},
+                    "areaStyle": {"color": "#4caf50", "opacity": 0.35},
+                },
+                {
+                    "name": t("net_worth.liabilities"),
+                    "type": "line",
+                    "stack": "total",
+                    "data": liabilities_k,
+                    "smooth": True,
+                    "symbol": "circle",
+                    "symbolSize": 4,
+                    "lineStyle": {"color": "#c62828", "width": 2},
+                    "itemStyle": {"color": "#c62828"},
+                    "areaStyle": {"color": "#ef5350", "opacity": 0.35},
+                },
             ],
         }
     ).classes("w-full h-64")
@@ -109,7 +140,8 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
 def _account_table(
     accounts: list[AccountSnapshot], assets: bool, default_currency: str = "PLN"
 ) -> None:
-    filtered = [a for a in accounts if a.is_asset == assets or (not assets and not a.is_asset)]
+    filtered = [a for a in accounts if a.is_asset == assets]
+    filtered.sort(key=lambda a: abs(a.balance_in_default), reverse=True)
     if not filtered:
         ui.label(t("common.none")).classes("text-grey-5 text-sm px-4 py-2")
         return
@@ -139,7 +171,7 @@ def _account_table(
         }
         for a in filtered
     ]
-    ui.table(columns=columns, rows=rows, row_key="name").classes("w-full").props("flat")
+    ui.table(columns=columns, rows=rows, row_key="name").classes("w-full").props("flat wrap-cells")
 
 
 def _physical_assets_section(summary: NetWorthSummary) -> None:
@@ -339,61 +371,8 @@ def register() -> None:
             )
 
         with page_layout(t("net_worth.title")):
-            with ui.row().classes("w-full items-center justify-between"):
-                ui.label(t("net_worth.title")).classes("text-2xl font-bold")
-
-            # ── Summary cards ─────────────────────────────────────────────────
-            with ui.row().classes("w-full gap-4 flex-wrap"):
-                _summary_card(
-                    t("net_worth.total_assets"),
-                    summary.total_assets,
-                    "positive",
-                    currency=default_currency,
-                )
-                _summary_card(
-                    t("net_worth.total_liabilities"),
-                    summary.total_liabilities,
-                    "negative",
-                    currency=default_currency,
-                )
-                _summary_card(
-                    t("net_worth.net_worth"),
-                    summary.net_worth,
-                    "primary" if summary.net_worth >= 0 else "negative",
-                    currency=default_currency,
-                    change=summary.monthly_change,
-                )
-
-            # ── History chart ─────────────────────────────────────────────────
-            with ui.card().classes("w-full"):
-                with ui.row().classes("items-center px-4 pt-4 pb-2"):
-                    ui.icon("show_chart").classes("text-primary text-xl")
-                    ui.label(t("net_worth.history")).classes("text-lg font-semibold ml-2")
-                _chart(summary, dark)
-
-            # ── Account breakdown ─────────────────────────────────────────────
-            with ui.row().classes("w-full gap-4 flex-wrap"):
-                # Assets
-                with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
-                    with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
-                        ui.icon("trending_up", color="positive").classes("text-xl")
-                        ui.label(t("net_worth.assets")).classes("text-lg font-semibold flex-1")
-                        ui.label(_fmt(summary.total_assets, default_currency)).classes(
-                            "font-bold text-positive text-sm"
-                        )
-                    _account_table(summary.accounts, assets=True, default_currency=default_currency)
-
-                # Liabilities
-                with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
-                    with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
-                        ui.icon("trending_down", color="negative").classes("text-xl")
-                        ui.label(t("net_worth.liabilities")).classes("text-lg font-semibold flex-1")
-                        ui.label(_fmt(summary.total_liabilities, default_currency)).classes(
-                            "font-bold text-negative text-sm"
-                        )
-                    _account_table(
-                        summary.accounts, assets=False, default_currency=default_currency
-                    )
+            # ── Header strip: big net-worth number + delta pills ──────────────
+            _header_strip(summary, default_currency)
 
             # ── Physical assets ───────────────────────────────────────────────
             with ui.card().classes("w-full p-0 overflow-hidden"):
@@ -404,3 +383,34 @@ def register() -> None:
                         "font-bold text-primary text-sm"
                     )
                 _physical_assets_section(summary)
+
+            # ── Stacked trend chart ───────────────────────────────────────────
+            with ui.card().classes("w-full"):
+                with ui.row().classes("items-center px-4 pt-4 pb-2"):
+                    ui.icon("show_chart").classes("text-primary text-xl")
+                    ui.label(t("net_worth.history")).classes("text-lg font-semibold ml-2")
+                _chart(summary, dark)
+
+            # ── Assets / Liabilities two-column split ─────────────────────────
+            with ui.row().classes("w-full gap-4 flex-wrap"):
+                # Assets (left)
+                with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
+                    with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
+                        ui.icon("trending_up", color="positive").classes("text-xl")
+                        ui.label(t("net_worth.assets")).classes("text-lg font-semibold flex-1")
+                        ui.label(_fmt(summary.total_assets, default_currency)).classes(
+                            "font-bold text-positive text-sm"
+                        )
+                    _account_table(summary.accounts, assets=True, default_currency=default_currency)
+
+                # Liabilities (right)
+                with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
+                    with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
+                        ui.icon("trending_down", color="negative").classes("text-xl")
+                        ui.label(t("net_worth.liabilities")).classes("text-lg font-semibold flex-1")
+                        ui.label(_fmt(summary.total_liabilities, default_currency)).classes(
+                            "font-bold text-negative text-sm"
+                        )
+                    _account_table(
+                        summary.accounts, assets=False, default_currency=default_currency
+                    )

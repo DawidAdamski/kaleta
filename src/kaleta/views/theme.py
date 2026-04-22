@@ -1,5 +1,25 @@
 from __future__ import annotations
 
+# Semantic colour tokens for transaction amounts.
+# text-green-7 / text-red-7 already have dark-mode overrides in DARK_CSS.
+AMOUNT_INCOME = "text-green-7"
+AMOUNT_EXPENSE = "text-red-7"
+AMOUNT_NEUTRAL = "text-grey-7"
+
+
+def amount_class(tx_type: str) -> str:
+    """Return the colour class for an amount cell given its transaction type.
+
+    Accepts the raw string value from `TransactionType` ("income", "expense",
+    "transfer") so it can be used both in Python and in Vue slot templates.
+    """
+    if tx_type == "income":
+        return AMOUNT_INCOME
+    if tx_type == "expense":
+        return AMOUNT_EXPENSE
+    return AMOUNT_NEUTRAL
+
+
 PAGE_SHELL = "bg-slate-50"
 PAGE_CONTAINER = "w-full mx-auto p-6 md:p-8 gap-6"
 

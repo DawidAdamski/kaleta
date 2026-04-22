@@ -79,7 +79,11 @@ def _before_flush(session: Session, flush_ctx: UOWTransaction, instances: Any) -
         insp = sa_inspect(obj)
         old: dict[str, Any] = {}
         new: dict[str, Any] = {}
-        for attr in insp.attrs:
+        # Only audit column-mapped attributes. Iterating ``insp.attrs`` would
+        # also include relationships (e.g. ``Transaction.tags``) whose history
+        # values are ORM instances that can't be JSON-serialised.
+        for col_attr in insp.mapper.column_attrs:
+            attr = insp.attrs[col_attr.key]
             hist = attr.history
             if not hist.has_changes():
                 continue

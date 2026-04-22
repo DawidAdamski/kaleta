@@ -1,0 +1,18 @@
+{
+  "key": "single-person",
+  "income": [
+    "Salary",
+    "Freelance",
+    "Refunds"
+  ],
+  "expense": [
+    "Rent",
+    "Groceries",
+    "Eating Out",
+    "Transit",
+    "Utilities",
+    "Health",
+    "Leisure",
+    "Subscriptions"
+  ]
+}

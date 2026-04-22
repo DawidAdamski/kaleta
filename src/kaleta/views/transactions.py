@@ -15,7 +15,14 @@ from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import AccountService, CategoryService, TagService, TransactionService
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import PAGE_TITLE, TABLE_SURFACE, TOOLBAR_CARD
+from kaleta.views.theme import (
+    AMOUNT_EXPENSE,
+    AMOUNT_INCOME,
+    AMOUNT_NEUTRAL,
+    PAGE_TITLE,
+    TABLE_SURFACE,
+    TOOLBAR_CARD,
+)
 
 _PAGE_SIZES = [25, 50, 100, 200]
 _DEFAULT_PAGE_SIZE = 50
@@ -272,7 +279,10 @@ def register() -> None:
                 '<q-td key="description" :props="props">{{ props.row.description }}</q-td>'
                 '<q-td key="category" :props="props">{{ props.row.category }}</q-td>'
                 '<q-td key="type" :props="props">{{ props.row.type }}</q-td>'
-                '<q-td key="amount" :props="props" class="text-right">{{ props.row.amount }}</q-td>'
+                '<q-td key="amount" :props="props" class="text-right">'
+                f"<span :class=\"props.row.type === 'income' ? '{AMOUNT_INCOME}' : "
+                f"props.row.type === 'expense' ? '{AMOUNT_EXPENSE}' : '{AMOUNT_NEUTRAL}'\">"
+                "{{ props.row.amount }}</span></q-td>"
                 '<q-td key="tags" :props="props">'
                 '<q-chip v-for="tag in props.row.tags_data" :key="tag.id"'
                 ' :icon="tag.icon" dense outline'
