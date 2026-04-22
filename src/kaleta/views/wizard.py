@@ -46,6 +46,14 @@ _SECTION_COLORS = {
     "budget": "purple-7",
 }
 
+# Steps that link out to a working page — everything else shows "Coming soon".
+_STEP_ROUTES: dict[str, str] = {
+    "budget_builder": "/wizard/budget-builder",
+    "emergency": "/wizard/safety-funds",
+    "irregular": "/wizard/safety-funds",
+    "vacation": "/wizard/safety-funds",
+}
+
 # (icon, title_key, desc_key, url, done_hint_key)
 _ONBOARDING: list[tuple[str, str, str, str, str]] = [
     (
@@ -282,7 +290,7 @@ def register() -> None:
                         with ui.column().classes("gap-0"):
                             for i, (step_icon, step_key) in enumerate(steps):
                                 border = "" if i == len(steps) - 1 else "border-b"
-                                is_live = step_key == "budget_builder"
+                                route = _STEP_ROUTES.get(step_key)
                                 with ui.row().classes(f"items-start gap-4 px-4 py-4 {border}"):
                                     ui.icon(step_icon, size="1.6rem").classes(
                                         f"text-{color} flex-shrink-0 mt-0.5"
@@ -294,17 +302,15 @@ def register() -> None:
                                         ui.label(t(f"wizard.step_{step_key}_desc")).classes(
                                             "text-xs text-grey-6 leading-relaxed"
                                         )
-                                        if not is_live:
+                                        if route is None:
                                             ui.badge(
                                                 t("wizard.coming_soon"), color="grey-4"
                                             ).classes("text-xs w-fit mt-1").props("outline")
-                                    if is_live:
+                                    if route is not None:
                                         ui.button(
                                             t("wizard.open"),
                                             icon="arrow_forward",
-                                            on_click=lambda: ui.navigate.to(
-                                                "/wizard/budget-builder"
-                                            ),
+                                            on_click=lambda r=route: ui.navigate.to(r),
                                         ).props("color=primary unelevated size=sm").classes(
                                             "flex-shrink-0"
                                         )

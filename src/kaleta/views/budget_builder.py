@@ -316,10 +316,22 @@ def register() -> None:
 
             with (
                 ui.card().classes(SECTION_CARD),
-                ui.row().classes("w-full items-center gap-3"),
+                ui.row().classes("w-full items-center justify-between gap-3"),
             ):
-                ui.icon("info", size="1.2rem").classes("text-slate-400")
-                ui.label(t("budget_builder.reserves_deferred")).classes(BODY_MUTED)
+                with ui.row().classes("items-center gap-3"):
+                    ui.icon("savings", size="1.4rem").classes("text-primary")
+                    with ui.column().classes("gap-0"):
+                        ui.label(t("budget_builder.reserves_heading")).classes(
+                            "font-semibold"
+                        )
+                        ui.label(t("budget_builder.reserves_link_body")).classes(
+                            BODY_MUTED
+                        )
+                ui.button(
+                    t("budget_builder.reserves_open"),
+                    icon="arrow_forward",
+                    on_click=lambda: ui.navigate.to("/wizard/safety-funds"),
+                ).props("flat color=primary")
 
             # ── Apply flow with diff dialog ──────────────────────────────
             with ui.dialog() as diff_dialog, ui.card().classes("w-[560px] gap-2"):

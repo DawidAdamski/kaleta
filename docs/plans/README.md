@@ -99,7 +99,7 @@ The subagent:
 | [reports-library](archive/reports-library.md) | archived | Reports |
 | [settings-expansion](settings-expansion.md) | draft | Settings |
 | [dedupe-suggestions](dedupe-suggestions.md) | draft | Cross-cutting |
-| [wizard-safety-funds](wizard-safety-funds.md) | draft | Wizard → Safety funds |
+| [wizard-safety-funds](archive/wizard-safety-funds.md) | archived | Wizard → Safety funds |
 | [wizard-personal-loans](wizard-personal-loans.md) | draft | Wizard → Personal loans |
 
 ### Large

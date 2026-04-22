@@ -80,6 +80,7 @@ def _register_views() -> None:
         planned_transactions,
         reports,
         reports_canned,
+        safety_funds,
         settings,
         setup,
         tags,
@@ -103,6 +104,7 @@ def _register_views() -> None:
     payment_calendar.register()
     reports.register()
     reports_canned.register()
+    safety_funds.register()
     net_worth.register()
     credit_calculator.register()
     tags.register()

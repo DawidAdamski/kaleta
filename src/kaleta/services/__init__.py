@@ -10,6 +10,7 @@ from kaleta.services.net_worth_service import NetWorthService
 from kaleta.services.payee_service import PayeeService
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.report_service import ReportService
+from kaleta.services.reserve_fund_service import ReserveFundService
 from kaleta.services.saved_report_service import SavedReportService
 from kaleta.services.tag_service import TagService
 from kaleta.services.transaction_service import TransactionService
@@ -29,6 +30,7 @@ __all__ = [
     "PayeeService",
     "PlannedTransactionService",
     "ReportService",
+    "ReserveFundService",
     "TagService",
     "TransactionService",
     "YearlyPlanService",
