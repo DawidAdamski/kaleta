@@ -3,7 +3,8 @@ plan_id: accounts-group-by-switch
 title: Accounts "Group by" as toggle switch
 area: accounts
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#accounts
 ---
 
@@ -50,3 +51,16 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/views/accounts.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json

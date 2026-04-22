@@ -80,9 +80,9 @@ The subagent:
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [accounts-group-by-switch](accounts-group-by-switch.md) | draft | Accounts |
+| [accounts-group-by-switch](archive/accounts-group-by-switch.md) | archived | Accounts |
 | [transactions-colored-amounts](archive/transactions-colored-amounts.md) | archived | Transactions + cross-cutting colours |
-| [tags-seed-list](tags-seed-list.md) | draft | Tags |
+| [tags-seed-list](archive/tags-seed-list.md) | archived | Tags |
 | [categories-templates](archive/categories-templates.md) | archived | Categories |
 | [institutions-logos](archive/institutions-logos.md) | archived | Institutions |
 | [wizard-getting-started-mentor](archive/wizard-getting-started-mentor.md) | archived | Wizard → Getting Started |

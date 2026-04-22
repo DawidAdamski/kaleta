@@ -3,7 +3,8 @@ plan_id: tags-seed-list
 title: Seed tags on first run
 area: tags
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#tags
 ---
 
@@ -66,3 +67,22 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- alembic/versions/b9d4e2c8a1f5_seed_canonical_tags.py
+- scripts/seed.py
+
+**Notes:** Seeding shipped as an idempotent Alembic migration
+(`b9d4e2c8a1f5_seed_canonical_tags.py`) rather than the
+`scripts/seed.py`-only approach sketched in the plan. The 8 canonical
+tags (Transfer, Card, Cash, Online, Subscription, Refundable,
+Business, Recurring) are inserted on any fresh DB via `alembic upgrade
+head`; `scripts/seed.py` mirrors the same list for the demo seed.
