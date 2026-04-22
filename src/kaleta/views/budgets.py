@@ -15,7 +15,14 @@ from kaleta.services import BudgetService, CategoryService
 from kaleta.services.budget_service import CategoryRealization, RealizationStatus
 from kaleta.views.chart_utils import apply_dark
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING, TABLE_SURFACE
+from kaleta.views.theme import (
+    AMOUNT_EXPENSE,
+    BODY_MUTED,
+    PAGE_TITLE,
+    SECTION_CARD,
+    SECTION_HEADING,
+    TABLE_SURFACE,
+)
 
 # ── Range helpers ──────────────────────────────────────────────────────────────
 
@@ -164,13 +171,9 @@ def _render_realization_row(r: CategoryRealization) -> None:
             ui.label(r.category_name).classes("text-sm font-medium truncate")
             if r.parent_name:
                 ui.label(r.parent_name).classes("text-xs text-slate-500")
-        ui.label(f"{r.planned:,.2f}").classes(
-            "flex-1 text-sm text-right tabular-nums text-slate-700"
-        )
-        ui.label(f"{r.actual:,.2f}").classes(
-            "flex-1 text-sm text-right tabular-nums text-slate-900 font-medium"
-        )
-        remaining_cls = "text-red-6" if r.remaining < 0 else "text-slate-700"
+        ui.label(f"{r.planned:,.2f}").classes("flex-1 text-sm text-right tabular-nums")
+        ui.label(f"{r.actual:,.2f}").classes("flex-1 text-sm text-right tabular-nums font-medium")
+        remaining_cls = AMOUNT_EXPENSE if r.remaining < 0 else ""
         ui.label(f"{r.remaining:,.2f}").classes(
             f"flex-1 text-sm text-right tabular-nums {remaining_cls}"
         )
