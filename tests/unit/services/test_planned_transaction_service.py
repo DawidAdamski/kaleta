@@ -349,3 +349,202 @@ class TestGetOccurrences:
         occs = await svc.get_occurrences(datetime.date(2025, 1, 1), datetime.date(2025, 6, 30))
         dates = [o.date for o in occs]
         assert dates == sorted(dates)
+
+
+# ── Payment Calendar grid ──────────────────────────────────────────────────────
+
+
+class TestGridForMonth:
+    async def test_empty_month_returns_no_days(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(_pt(acc_id, start_date=datetime.date(2030, 1, 1)))
+        grid = await svc.grid_for_month(2025, 6)
+        assert grid.year == 2025 and grid.month == 6
+        assert grid.days == {}
+        assert grid.overdue == []
+
+    async def test_single_once_occurrence_populates_one_day(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 6, 10),
+                amount=Decimal("1500.00"),
+                type=TransactionType.EXPENSE,
+            )
+        )
+        grid = await svc.grid_for_month(2025, 6)
+        day = grid.days[datetime.date(2025, 6, 10)]
+        assert day.outflow == Decimal("1500.00")
+        assert day.inflow == Decimal("0")
+        assert day.net == Decimal("-1500.00")
+        assert len(day.occurrences) == 1
+
+    async def test_multiple_plans_same_day_aggregate(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        d = datetime.date(2025, 6, 15)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Salary",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=d,
+                amount=Decimal("5000"),
+                type=TransactionType.INCOME,
+            )
+        )
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=d,
+                amount=Decimal("1500"),
+                type=TransactionType.EXPENSE,
+            )
+        )
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Internet",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=d,
+                amount=Decimal("100"),
+                type=TransactionType.EXPENSE,
+            )
+        )
+        grid = await svc.grid_for_month(2025, 6)
+        cell = grid.days[d]
+        assert cell.inflow == Decimal("5000")
+        assert cell.outflow == Decimal("1600")
+        assert cell.net == Decimal("3400")
+        assert len(cell.occurrences) == 3
+
+    async def test_monthly_recurrence_hits_month(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        grid = await svc.grid_for_month(2025, 6)
+        assert datetime.date(2025, 6, 1) in grid.days
+
+    async def test_overdue_bucket_picks_up_prior_month(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Missed Bill",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 5, 20),
+                amount=Decimal("200"),
+                type=TransactionType.EXPENSE,
+            )
+        )
+        grid = await svc.grid_for_month(2025, 6, overdue_window_days=30)
+        assert any(o.name == "Missed Bill" for o in grid.overdue)
+        assert grid.days == {}
+
+    async def test_overdue_window_respected(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Ancient",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 1, 10),
+                type=TransactionType.EXPENSE,
+            )
+        )
+        grid = await svc.grid_for_month(2025, 6, overdue_window_days=30)
+        assert grid.overdue == []
+
+    async def test_active_only_excludes_paused(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        paused = await svc.create(
+            _pt(
+                acc_id,
+                name="Paused",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 6, 10),
+            )
+        )
+        await svc.toggle_active(paused.id)
+        grid = await svc.grid_for_month(2025, 6, active_only=True)
+        assert grid.days == {}
+        grid_all = await svc.grid_for_month(2025, 6, active_only=False)
+        assert datetime.date(2025, 6, 10) in grid_all.days
+
+    async def test_account_filter(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        a1 = await _make_account(session, name="A1")
+        a2 = await _make_account(session, name="A2")
+        await svc.create(
+            _pt(
+                a1,
+                name="On A1",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 6, 5),
+            )
+        )
+        await svc.create(
+            _pt(
+                a2,
+                name="On A2",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 6, 5),
+            )
+        )
+        grid = await svc.grid_for_month(2025, 6, account_id=a1)
+        cell = grid.days[datetime.date(2025, 6, 5)]
+        assert [o.name for o in cell.occurrences] == ["On A1"]
+
+    async def test_totals_across_month(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Salary",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 6, 1),
+                amount=Decimal("5000"),
+                type=TransactionType.INCOME,
+            )
+        )
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 6, 5),
+                amount=Decimal("1500"),
+                type=TransactionType.EXPENSE,
+            )
+        )
+        grid = await svc.grid_for_month(2025, 6)
+        assert grid.total_inflow() == Decimal("5000")
+        assert grid.total_outflow() == Decimal("1500")
+        assert grid.total_net() == Decimal("3500")

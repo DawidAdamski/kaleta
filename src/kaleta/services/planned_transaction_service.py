@@ -64,6 +64,45 @@ class PlannedOccurrence:
     category_name: str | None
 
 
+@dataclass
+class DayAggregate:
+    """Per-day totals used by the Payment Calendar grid cell."""
+
+    date: datetime.date
+    inflow: Decimal
+    outflow: Decimal
+    occurrences: builtins.list[PlannedOccurrence]
+
+    @property
+    def net(self) -> Decimal:
+        return self.inflow - self.outflow
+
+
+@dataclass
+class MonthGrid:
+    """Calendar data for a single month plus a bucket of overdue items.
+
+    Only days that have at least one occurrence are present in ``days``.
+    ``overdue`` holds occurrences whose date fell in the trailing lookback
+    window (default 30 days before the first of the month) — they are
+    surfaced as a "needs attention" bucket in the calendar sidebar.
+    """
+
+    year: int
+    month: int
+    days: dict[datetime.date, DayAggregate]
+    overdue: builtins.list[PlannedOccurrence]
+
+    def total_inflow(self) -> Decimal:
+        return sum((d.inflow for d in self.days.values()), Decimal("0"))
+
+    def total_outflow(self) -> Decimal:
+        return sum((d.outflow for d in self.days.values()), Decimal("0"))
+
+    def total_net(self) -> Decimal:
+        return self.total_inflow() - self.total_outflow()
+
+
 # ── Service ───────────────────────────────────────────────────────────────────
 
 
@@ -198,6 +237,64 @@ class PlannedTransactionService:
 
         occurrences.sort(key=lambda o: o.date)
         return occurrences
+
+    async def grid_for_month(
+        self,
+        year: int,
+        month: int,
+        *,
+        account_id: int | None = None,
+        active_only: bool = True,
+        overdue_window_days: int = 30,
+    ) -> MonthGrid:
+        """Return per-day aggregates for the month plus overdue bucket.
+
+        Overdue items are occurrences whose date falls within
+        ``[month_start - overdue_window_days, month_start)``. A future
+        reconciliation flow (not in this version) will narrow this to
+        un-reconciled items only.
+        """
+        first = datetime.date(year, month, 1)
+        last_day = calendar.monthrange(year, month)[1]
+        last = datetime.date(year, month, last_day)
+
+        occurrences = await self.get_occurrences(
+            first,
+            last,
+            account_id=account_id,
+            active_only=active_only,
+        )
+
+        days: dict[datetime.date, DayAggregate] = {}
+        for occ in occurrences:
+            cell = days.get(occ.date)
+            if cell is None:
+                cell = DayAggregate(
+                    date=occ.date,
+                    inflow=Decimal("0"),
+                    outflow=Decimal("0"),
+                    occurrences=[],
+                )
+                days[occ.date] = cell
+            amt = abs(occ.amount)
+            if occ.type == TransactionType.INCOME:
+                cell.inflow += amt
+            elif occ.type == TransactionType.EXPENSE:
+                cell.outflow += amt
+            cell.occurrences.append(occ)
+
+        overdue_start = first - datetime.timedelta(days=overdue_window_days)
+        overdue_end = first - datetime.timedelta(days=1)
+        overdue: builtins.list[PlannedOccurrence] = []
+        if overdue_end >= overdue_start:
+            overdue = await self.get_occurrences(
+                overdue_start,
+                overdue_end,
+                account_id=account_id,
+                active_only=active_only,
+            )
+
+        return MonthGrid(year=year, month=month, days=days, overdue=overdue)
 
     def _make_occurrence(self, d: datetime.date, p: PlannedTransaction) -> PlannedOccurrence:
         return PlannedOccurrence(

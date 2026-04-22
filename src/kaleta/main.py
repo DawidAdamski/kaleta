@@ -75,6 +75,7 @@ def _register_views() -> None:
         institutions,
         net_worth,
         payees,
+        payment_calendar,
         planned_transactions,
         reports,
         reports_canned,
@@ -97,6 +98,7 @@ def _register_views() -> None:
     import_view.register()
     forecast.register()
     planned_transactions.register()
+    payment_calendar.register()
     reports.register()
     reports_canned.register()
     net_worth.register()

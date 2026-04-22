@@ -38,7 +38,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
         "nav.group_manage",
         [
             ("receipt_long", "/transactions", "nav.transactions"),
-            ("event_repeat", "/planned", "nav.planned"),
+            ("calendar_month", "/payment-calendar", "nav.payment_calendar"),
             ("bar_chart", "/budgets", "nav.budgets"),
             ("edit_note", "/budget-plan", "nav.budget_plan"),
             ("upload_file", "/import", "nav.import"),
