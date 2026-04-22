@@ -3,7 +3,8 @@ plan_id: budgets-rename-and-payment-calendar
 title: Budgets rename + new Payment Calendar view
 area: budgets
 effort: large
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#budgets
 ---
 
@@ -71,3 +72,24 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2a70bf8` | Dawid | 2026-04-22 | feat(calendar): add Payment Calendar month-grid view |
+
+**Files changed:**
+- src/kaleta/services/planned_transaction_service.py (added `grid_for_month`, `DayAggregate`, `MonthGrid`)
+- src/kaleta/views/payment_calendar.py (new)
+- src/kaleta/main.py
+- src/kaleta/views/layout.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- tests/unit/services/test_planned_transaction_service.py (9 new tests, 35 total)
+
+**What shipped:** Month-grid at `/payment-calendar` with a KPI row (inflow / outflow / net / overdue), Mon–Sun grid with per-day inflow/outflow badges, today highlight, prev/next/Today navigation, quick-add dialog pre-filled with the selected day, right-side day drawer listing occurrences with an Add-on-this-day shortcut, and overdue items (prior 30 days) pinned in the drawer. Nav updated to `calendar_month` → `/payment-calendar`; the `/planned` flat table is still reachable via a "List view" button.
+
+**Partial coverage:** Drag-to-reschedule is **deferred** to a future follow-up plan. The plan called for drag-to-move on the calendar cell; we shipped the calendar without this interaction to keep scope tight (user-approved tradeoff).
