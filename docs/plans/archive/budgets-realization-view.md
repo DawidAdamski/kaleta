@@ -3,7 +3,8 @@ plan_id: budgets-realization-view
 title: Budgets — realization view (plan vs actual)
 area: budgets
 effort: medium
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#budgets
 ---
 
@@ -57,3 +58,23 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5986c84` | Dawid | 2026-04-22 | feat(budgets): add Realization tab (plan vs actual + pacing) |
+
+**Files changed:**
+- src/kaleta/services/budget_service.py (added `realization_for_month`, `CategoryRealization`, `RealizationStatus`)
+- src/kaleta/schemas/budget.py (added `BudgetRealizationRow`)
+- src/kaleta/views/budgets.py (Overview/Realization tabs, Realization panel)
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- tests/unit/services/test_budget_service.py (10 new tests, 34 total)
+
+**What shipped:** Realization tab on `/budgets` with per-category row (planned/actual/remaining/used%/status). Month+year pickers default to current month. Flat / By-parent group toggle. Status chips use over → negative, warning → amber-7, on_track → positive. Rows sorted worst-pace first. "Month is X% elapsed" hint shown in the section header.
+
+**Partial coverage:** The plan listed three group options — "by Category / by Group / Flat". We shipped **Flat + By-parent** only, because the rows are already per-category so a third "by Category" option would duplicate Flat. User-approved scope call.

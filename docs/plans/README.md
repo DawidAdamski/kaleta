@@ -93,7 +93,7 @@ The subagent:
 |---|---|---|
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
-| [budgets-realization-view](budgets-realization-view.md) | draft | Budgets |
+| [budgets-realization-view](archive/budgets-realization-view.md) | archived | Budgets |
 | [import-multi-file-queue](import-multi-file-queue.md) | draft | Import |
 | [forecast-model-presets](archive/forecast-model-presets.md) | archived | Forecast |
 | [reports-library](archive/reports-library.md) | archived | Reports |
