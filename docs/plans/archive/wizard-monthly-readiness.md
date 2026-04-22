@@ -85,7 +85,7 @@ Out of scope:
 
 | SHA | Author | Date | Message |
 |---|---|---|---|
-| `TBD` | Dawid | 2026-04-23 | feat(wizard): Monthly Readiness — 4-stage close & allocate flow |
+| `5024884` | Dawid | 2026-04-23 | feat(wizard): Monthly Readiness — 4-stage close & allocate flow |
 
 **Files changed:**
 - `src/kaleta/models/monthly_readiness.py` (new, single row per `(year, month)` with 4 stage booleans + `ready_at` + `seen_planned_ids` JSON)
