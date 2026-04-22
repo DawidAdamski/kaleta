@@ -3,7 +3,8 @@ plan_id: wizard-getting-started-mentor
 title: Getting Started — expand into contextual mentor
 area: wizard
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../product/financial-wizard.md#1-getting-started
 ---
 
@@ -65,3 +66,20 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/services/wizard_mentor_service.py
+- src/kaleta/views/wizard.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- tests/unit/services/test_wizard_mentor_service.py
+
+**Notes:** Landed as `wizard_mentor_service.py` (rule engine) instead of the proposed `wizard_service.py` name; wizard view integrates the mentor in the onboarding card. Unit tests cover the rule engine.

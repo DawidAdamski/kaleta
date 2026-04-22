@@ -3,7 +3,8 @@ plan_id: transactions-colored-amounts
 title: Transactions — coloured amounts + global colour tokens
 area: transactions
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 
@@ -61,3 +62,19 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/views/theme.py
+- src/kaleta/views/transactions.py
+- src/kaleta/views/planned_transactions.py
+- src/kaleta/views/dashboard.py
+
+**Notes:** Shared amount-colour helpers landed in `theme.py`; Transactions, Planned Transactions, and Dashboard recent-tx rendering were migrated to the shared tokens.

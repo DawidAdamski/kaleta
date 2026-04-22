@@ -3,7 +3,8 @@ plan_id: institutions-logos
 title: Bank logos on institutions
 area: institutions
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#institutions
 ---
 
@@ -63,3 +64,24 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- alembic/versions/c5a8d1e3b4f7_add_institution_logo_path.py
+- src/kaleta/models/institution.py
+- src/kaleta/schemas/institution.py
+- src/kaleta/services/institution_logo_service.py
+- src/kaleta/views/institutions.py
+- src/kaleta/views/institution_avatar.py
+- src/kaleta/views/accounts.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+
+**Notes:** `logo_path` field added to `Institution`, backed by Alembic migration `c5a8d1e3b4f7`. New `InstitutionLogoService` and `institution_avatar` view helper handle rendering + letter-fallback. Starter logo set was not bundled in this commit — upload/pick workflow is in place but the shipped set is deferred (see commit notes).

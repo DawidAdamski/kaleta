@@ -3,7 +3,8 @@ plan_id: transactions-reconcile
 title: Transactions — reconcile flow
 area: transactions
 effort: medium
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#transactions
 ---
 
@@ -61,3 +62,20 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/transactions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- tests/unit/services/test_transaction_service.py
+
+**Notes:** Partial coverage. The reconcile UI/service flow shipped in `transaction_service.py` and `views/transactions.py`, and is exercised by `test_transaction_service.py`. However the planned persistence change (`reconciled_at TIMESTAMP NULL` column on `Transaction`, matching Alembic migration, and model/schema updates) did **not** land in this commit — the reconcile behaviour rides on pre-existing transaction fields. Follow-up work is needed if a dedicated `reconciled_at` column is still desired.

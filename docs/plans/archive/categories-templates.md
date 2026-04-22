@@ -3,7 +3,8 @@ plan_id: categories-templates
 title: Category tree templates
 area: categories
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#categories
 ---
 
@@ -63,3 +64,23 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/data/category_templates/polish-household.json
+- src/kaleta/data/category_templates/freelancer.json
+- src/kaleta/data/category_templates/single-person.json
+- src/kaleta/data/category_templates/student.json
+- src/kaleta/services/category_service.py
+- src/kaleta/views/categories.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+
+**Notes:** All 4 proposed templates shipped (polish-household, freelancer, single-person, student). `CategoryService` gained template-loading with merge-by-name semantics; categories view got the "Load template" action.

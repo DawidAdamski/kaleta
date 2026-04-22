@@ -3,7 +3,8 @@ plan_id: forecast-model-presets
 title: Forecast — model presets + scenario toggles
 area: forecast
 effort: medium
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#forecast
 ---
 
@@ -61,3 +62,20 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/services/forecast_service.py
+- src/kaleta/views/forecast.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- tests/unit/services/test_forecast_service.py
+
+**Notes:** Shipped as `ForecastPreset` StrEnum (conservative/baseline/optimistic) + pure `apply_preset` helper, plus `ScenarioShift` dataclass with stacked deltas via `apply_scenarios`. Forecast view gained preset toggle, scenario chips + add-dialog, and a baseline reference line. 11 unit tests exhaustively cover both pure helpers. Schema changes landed inside `forecast_service.py` rather than a separate `schemas/forecast.py` file.

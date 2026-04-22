@@ -3,7 +3,8 @@ plan_id: dashboard-command-center
 title: Dashboard — Command Center (pinned + extended widgets)
 area: dashboard
 effort: large
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../product/dashboard.md
 ---
 
@@ -77,3 +78,19 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/views/dashboard.py
+- src/kaleta/views/dashboard_widgets.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+
+**Notes:** Shipped as a single widget-driven page (16 widgets grouped by size kpi/half/full) with a Customize dialog; layout persists in `app.storage.user`. Dashboard service and separate widgets package from the plan were collapsed into `dashboard_widgets.py`; zone split (pinned vs. extended) was replaced by size-bucket grouping.

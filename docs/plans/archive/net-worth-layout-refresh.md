@@ -3,7 +3,8 @@ plan_id: net-worth-layout-refresh
 title: Net Worth — layout refresh + asset/liability split
 area: net-worth
 effort: medium
-status: draft
+status: archived
+archived_at: 2026-04-22
 roadmap_ref: ../roadmap.md#net-worth
 ---
 
@@ -59,3 +60,20 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-22.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4317f40` | Dawid | 2026-04-22 | feat: dashboard command center, reports library, forecast presets, and plan-driven features |
+
+**Files changed:**
+- src/kaleta/views/net_worth.py
+- src/kaleta/services/net_worth_service.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- tests/unit/services/test_net_worth_service.py
+
+**Notes:** Layout refresh delivered with expanded service coverage (asset/liability rollups + deltas). Unit tests in `test_net_worth_service.py` cover the new aggregation methods.

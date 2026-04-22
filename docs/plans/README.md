@@ -81,22 +81,22 @@ The subagent:
 | Plan | Status | Roadmap ref |
 |---|---|---|
 | [accounts-group-by-switch](accounts-group-by-switch.md) | draft | Accounts |
-| [transactions-colored-amounts](transactions-colored-amounts.md) | draft | Transactions + cross-cutting colours |
+| [transactions-colored-amounts](archive/transactions-colored-amounts.md) | archived | Transactions + cross-cutting colours |
 | [tags-seed-list](tags-seed-list.md) | draft | Tags |
-| [categories-templates](categories-templates.md) | draft | Categories |
-| [institutions-logos](institutions-logos.md) | draft | Institutions |
-| [wizard-getting-started-mentor](wizard-getting-started-mentor.md) | draft | Wizard → Getting Started |
+| [categories-templates](archive/categories-templates.md) | archived | Categories |
+| [institutions-logos](archive/institutions-logos.md) | archived | Institutions |
+| [wizard-getting-started-mentor](archive/wizard-getting-started-mentor.md) | archived | Wizard → Getting Started |
 
 ### Medium
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [net-worth-layout-refresh](net-worth-layout-refresh.md) | draft | Net Worth |
-| [transactions-reconcile](transactions-reconcile.md) | draft | Transactions |
+| [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
+| [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
 | [budgets-realization-view](budgets-realization-view.md) | draft | Budgets |
 | [import-multi-file-queue](import-multi-file-queue.md) | draft | Import |
-| [forecast-model-presets](forecast-model-presets.md) | draft | Forecast |
-| [reports-library](reports-library.md) | draft | Reports |
+| [forecast-model-presets](archive/forecast-model-presets.md) | archived | Forecast |
+| [reports-library](archive/reports-library.md) | archived | Reports |
 | [settings-expansion](settings-expansion.md) | draft | Settings |
 | [dedupe-suggestions](dedupe-suggestions.md) | draft | Cross-cutting |
 | [wizard-safety-funds](wizard-safety-funds.md) | draft | Wizard → Safety funds |
@@ -106,7 +106,7 @@ The subagent:
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [dashboard-command-center](dashboard-command-center.md) | draft | Dashboard |
+| [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |
 | [budgets-rename-and-payment-calendar](budgets-rename-and-payment-calendar.md) | draft | Budgets + new Payment Calendar |
 | [credit-first-class](credit-first-class.md) | draft | Credit |
 | [wizard-monthly-readiness](wizard-monthly-readiness.md) | draft | Wizard → Monthly Readiness |
