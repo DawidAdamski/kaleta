@@ -84,7 +84,7 @@ Out of scope:
 
 | SHA | Author | Date | Message |
 |---|---|---|---|
-| `TBD` | Dawid | 2026-04-22 | feat(wizard): Budget Builder — yearly plan with apply + diff |
+| `b0d9208` | Dawid | 2026-04-22 | feat(wizard): Budget Builder — yearly plan with apply + diff |
 
 **Files changed:**
 - `src/kaleta/models/yearly_plan.py` (new — single-row-per-year JSON blob per the v1 open-question answer)
