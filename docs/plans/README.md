@@ -109,6 +109,6 @@ The subagent:
 | [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |
 | [budgets-rename-and-payment-calendar](archive/budgets-rename-and-payment-calendar.md) | archived | Budgets + new Payment Calendar |
 | [credit-first-class](credit-first-class.md) | draft | Credit |
-| [wizard-monthly-readiness](wizard-monthly-readiness.md) | draft | Wizard → Monthly Readiness |
+| [wizard-monthly-readiness](archive/wizard-monthly-readiness.md) | archived | Wizard → Monthly Readiness |
 | [wizard-subscriptions](wizard-subscriptions.md) | draft | Wizard → Subscriptions |
 | [wizard-budget-builder](archive/wizard-budget-builder.md) | archived | Wizard → Budget Builder |

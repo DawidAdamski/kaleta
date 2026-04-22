@@ -52,6 +52,7 @@ _STEP_ROUTES: dict[str, str] = {
     "emergency": "/wizard/safety-funds",
     "irregular": "/wizard/safety-funds",
     "vacation": "/wizard/safety-funds",
+    "next_month": "/wizard/monthly-readiness",
 }
 
 # (icon, title_key, desc_key, url, done_hint_key)

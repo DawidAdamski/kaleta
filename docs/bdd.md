@@ -1129,6 +1129,67 @@ Feature: Initial Setup Wizard
 
 ---
 
+## Feature: Monthly Readiness
+
+```gherkin
+Feature: Monthly Readiness
+  As a user
+  I want a quick checklist at the turn of the month
+  So that I close the previous month and set the next one up for success
+
+  Scenario: Open Monthly Readiness from the Financial Wizard
+    Given I completed initial setup
+    And I am on the Financial Wizard page
+    When I click "Open" on the "Next month check" step
+    Then I land on the Monthly Readiness page
+    And I see four stages — Close last month, Confirm income, Allocate this month, Acknowledge upcoming bills
+
+  Scenario: Stage 1 — Close last month with no uncategorised transactions
+    Given every transaction in last month has a category
+    And I am on the Monthly Readiness page
+    Then stage 1 shows "0 transactions still need a category"
+    When I click "Mark closed" on stage 1
+    Then stage 1 is marked as done
+
+  Scenario: Stage 1 — Close last month flags uncategorised transactions
+    Given there are 3 uncategorised expense transactions in last month
+    And I am on the Monthly Readiness page
+    Then stage 1 shows "3 transactions still need a category"
+    And I can click "Review transactions" to jump to the Transactions page
+
+  Scenario: Stage 2 — Confirm income compares expected vs actual
+    Given there is an active monthly income planned transaction "Salary" of 5000
+    And an actual income transaction of 5000 has landed this month
+    And I am on the Monthly Readiness page
+    Then stage 2 lists "Salary" with expected 5000 and actual 5000
+    When I click "Confirm income" on stage 2
+    Then stage 2 is marked as done
+
+  Scenario: Stage 3 — Allocate this month copies budgets forward
+    Given the previous month has budgets set for categories "Food" and "Rent"
+    And the current month has a budget set for "Food" but not "Rent"
+    And I am on the Monthly Readiness page
+    Then stage 3 shows "1 new, 1 already set"
+    When I click "Copy budgets forward"
+    Then the current month has budgets for both "Food" and "Rent"
+    And the existing "Food" budget is preserved
+
+  Scenario: Stage 4 — Acknowledge upcoming bills
+    Given there is an active monthly expense "Rent" of 2000 due this month
+    And I am on the Monthly Readiness page
+    Then stage 4 lists "Rent" as an unchecked upcoming bill
+    When I check the "Rent" checkbox
+    Then the "seen" state persists across page reloads
+
+  Scenario: All four stages complete marks the month ready
+    Given I have completed stages 1, 2, 3, and 4
+    And I am on the Monthly Readiness page
+    Then I see "You're ready for the month"
+    And the header badge reads "4 / 4 stages done"
+```
+
+---
+
 ## Notes for test implementation
 
 - Tests live in `tests/e2e/`

@@ -6,6 +6,7 @@ from kaleta.services.budget_service import BudgetService
 from kaleta.services.category_service import CategoryService
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.institution_service import InstitutionService
+from kaleta.services.monthly_readiness_service import MonthlyReadinessService
 from kaleta.services.net_worth_service import NetWorthService
 from kaleta.services.payee_service import PayeeService
 from kaleta.services.planned_transaction_service import PlannedTransactionService
@@ -26,6 +27,7 @@ __all__ = [
     "CategoryService",
     "CurrencyRateService",
     "InstitutionService",
+    "MonthlyReadinessService",
     "NetWorthService",
     "PayeeService",
     "PlannedTransactionService",

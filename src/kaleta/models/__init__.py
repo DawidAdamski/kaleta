@@ -3,6 +3,7 @@ from kaleta.models.asset import Asset, AssetType
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
+from kaleta.models.monthly_readiness import MonthlyReadiness
 from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.report import SavedReport
@@ -20,6 +21,7 @@ __all__ = [
     "Budget",
     "Category",
     "CategoryType",
+    "MonthlyReadiness",
     "PlannedTransaction",
     "RecurrenceFrequency",
     "ReserveFund",

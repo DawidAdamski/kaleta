@@ -173,6 +173,54 @@ class BudgetService:
         await self.session.commit()
         return len(merged)
 
+    async def list_for_month(self, year: int, month: int) -> builtins.list[Budget]:
+        """Return all budget entries for a single (year, month)."""
+        result = await self.session.execute(
+            select(Budget)
+            .options(selectinload(Budget.category))
+            .where(Budget.year == year, Budget.month == month)
+            .order_by(Budget.category_id)
+        )
+        return builtins.list(result.scalars().all())
+
+    async def copy_forward(
+        self,
+        from_year: int,
+        from_month: int,
+        to_year: int,
+        to_month: int,
+        *,
+        overwrite: bool = False,
+    ) -> int:
+        """Copy every budget row from one month into the next.
+
+        When ``overwrite`` is False (default), categories that already have
+        a budget for ``(to_year, to_month)`` keep their existing amount —
+        matches the "Allocate *new* month" intent. Returns the number of
+        rows actually written (created or updated).
+        """
+        src = await self.list_for_month(from_year, from_month)
+        if not src:
+            return 0
+
+        existing = await self.list_for_month(to_year, to_month)
+        existing_cats = {b.category_id for b in existing}
+
+        written = 0
+        for src_row in src:
+            if src_row.category_id in existing_cats and not overwrite:
+                continue
+            await self.upsert(
+                BudgetCreate(
+                    category_id=src_row.category_id,
+                    amount=src_row.amount,
+                    month=to_month,
+                    year=to_year,
+                )
+            )
+            written += 1
+        return written
+
     async def update(self, budget_id: int, data: BudgetUpdate) -> Budget | None:
         budget = await self.get(budget_id)
         if budget is None:
