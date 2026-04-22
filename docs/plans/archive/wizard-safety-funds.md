@@ -69,7 +69,7 @@ Out of scope:
 
 | SHA | Author | Date | Message |
 |---|---|---|---|
-| `TBD` | Dawid | 2026-04-22 | feat(wizard): Safety & Reserve Funds — track coverage |
+| `df5c174` | Dawid | 2026-04-22 | feat(wizard): Safety & Reserve Funds — track coverage |
 
 **Files changed:**
 - `src/kaleta/models/reserve_fund.py` (new — `ReserveFund` with `kind` and `backing_mode` str-enums)
