@@ -8,6 +8,7 @@ from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFreq
 from kaleta.models.report import SavedReport
 from kaleta.models.tag import Tag, transaction_tags
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
+from kaleta.models.yearly_plan import YearlyPlan
 
 __all__ = [
     "Account",
@@ -27,4 +28,5 @@ __all__ = [
     "Transaction",
     "TransactionSplit",
     "TransactionType",
+    "YearlyPlan",
 ]

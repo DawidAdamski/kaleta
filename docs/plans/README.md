@@ -111,4 +111,4 @@ The subagent:
 | [credit-first-class](credit-first-class.md) | draft | Credit |
 | [wizard-monthly-readiness](wizard-monthly-readiness.md) | draft | Wizard → Monthly Readiness |
 | [wizard-subscriptions](wizard-subscriptions.md) | draft | Wizard → Subscriptions |
-| [wizard-budget-builder](wizard-budget-builder.md) | draft | Wizard → Budget Builder |
+| [wizard-budget-builder](archive/wizard-budget-builder.md) | archived | Wizard → Budget Builder |

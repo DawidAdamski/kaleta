@@ -65,6 +65,7 @@ def _preload_config() -> None:
 def _register_views() -> None:
     from kaleta.views import (
         accounts,
+        budget_builder,
         budget_plan,
         budgets,
         categories,
@@ -95,6 +96,7 @@ def _register_views() -> None:
     categories.register()
     budgets.register()
     budget_plan.register()
+    budget_builder.register()
     import_view.register()
     forecast.register()
     planned_transactions.register()

@@ -137,6 +137,42 @@ class BudgetService:
             return existing
         return await self.create(data)
 
+    async def bulk_upsert(self, entries: builtins.list[BudgetCreate]) -> int:
+        """Create-or-update many Budget rows in a single transaction.
+
+        Returns the number of rows written. Entries are keyed by
+        (category_id, month, year); duplicates in the input sum together.
+        """
+        if not entries:
+            return 0
+
+        # Sum duplicates coming from multiple lines targeting the same
+        # (category, month, year) triplet — callers may produce them.
+        merged: dict[tuple[int, int, int], Decimal] = {}
+        for e in entries:
+            k = (e.category_id, e.month, e.year)
+            merged[k] = merged.get(k, Decimal("0")) + e.amount
+
+        year = next(iter(merged))[2]
+        existing_rows = await self.session.execute(
+            select(Budget).where(Budget.year == year)
+        )
+        existing_map: dict[tuple[int, int, int], Budget] = {
+            (b.category_id, b.month, b.year): b for b in existing_rows.scalars().all()
+        }
+
+        for key, amount in merged.items():
+            row = existing_map.get(key)
+            if row is not None:
+                row.amount = amount
+            else:
+                cat_id, month, yr = key
+                self.session.add(
+                    Budget(category_id=cat_id, amount=amount, month=month, year=yr)
+                )
+        await self.session.commit()
+        return len(merged)
+
     async def update(self, budget_id: int, data: BudgetUpdate) -> Budget | None:
         budget = await self.get(budget_id)
         if budget is None:

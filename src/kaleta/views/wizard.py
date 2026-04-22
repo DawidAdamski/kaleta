@@ -282,6 +282,7 @@ def register() -> None:
                         with ui.column().classes("gap-0"):
                             for i, (step_icon, step_key) in enumerate(steps):
                                 border = "" if i == len(steps) - 1 else "border-b"
+                                is_live = step_key == "budget_builder"
                                 with ui.row().classes(f"items-start gap-4 px-4 py-4 {border}"):
                                     ui.icon(step_icon, size="1.6rem").classes(
                                         f"text-{color} flex-shrink-0 mt-0.5"
@@ -293,9 +294,20 @@ def register() -> None:
                                         ui.label(t(f"wizard.step_{step_key}_desc")).classes(
                                             "text-xs text-grey-6 leading-relaxed"
                                         )
-                                        ui.badge(t("wizard.coming_soon"), color="grey-4").classes(
-                                            "text-xs w-fit mt-1"
-                                        ).props("outline")
+                                        if not is_live:
+                                            ui.badge(
+                                                t("wizard.coming_soon"), color="grey-4"
+                                            ).classes("text-xs w-fit mt-1").props("outline")
+                                    if is_live:
+                                        ui.button(
+                                            t("wizard.open"),
+                                            icon="arrow_forward",
+                                            on_click=lambda: ui.navigate.to(
+                                                "/wizard/budget-builder"
+                                            ),
+                                        ).props("color=primary unelevated size=sm").classes(
+                                            "flex-shrink-0"
+                                        )
 
             # Footer note
             with ui.row().classes("items-center gap-2 text-grey-5 mt-2"):
