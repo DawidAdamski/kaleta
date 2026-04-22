@@ -12,6 +12,7 @@ from kaleta.i18n import t
 from kaleta.models.category import CategoryType
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.services import BudgetService, CategoryService
+from kaleta.services.budget_service import CategoryRealization, RealizationStatus
 from kaleta.views.chart_utils import apply_dark
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING, TABLE_SURFACE
@@ -132,6 +133,90 @@ def _budget_chart_options(summaries: list[Any], is_dark: bool = False) -> dict[s
         ],
     }
     return apply_dark(_opts, is_dark)
+
+
+# ── Realization rendering helpers ─────────────────────────────────────────────
+
+_STATUS_COLOUR: dict[RealizationStatus, str] = {
+    RealizationStatus.ON_TRACK: "positive",
+    RealizationStatus.WARNING: "amber-7",
+    RealizationStatus.OVER: "negative",
+}
+
+_STATUS_LABEL_KEY: dict[RealizationStatus, str] = {
+    RealizationStatus.ON_TRACK: "budgets.realization.status_on_track",
+    RealizationStatus.WARNING: "budgets.realization.status_warning",
+    RealizationStatus.OVER: "budgets.realization.status_over",
+}
+
+
+def _fmt_pct(value: float) -> str:
+    if value == float("inf"):
+        return "∞"
+    return f"{value:.0f}%"
+
+
+def _render_realization_row(r: CategoryRealization) -> None:
+    with ui.row().classes(
+        "w-full items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
+    ):
+        with ui.column().classes("flex-[2] min-w-0 gap-0"):
+            ui.label(r.category_name).classes("text-sm font-medium truncate")
+            if r.parent_name:
+                ui.label(r.parent_name).classes("text-xs text-slate-500")
+        ui.label(f"{r.planned:,.2f}").classes(
+            "flex-1 text-sm text-right tabular-nums text-slate-700"
+        )
+        ui.label(f"{r.actual:,.2f}").classes(
+            "flex-1 text-sm text-right tabular-nums text-slate-900 font-medium"
+        )
+        remaining_cls = "text-red-6" if r.remaining < 0 else "text-slate-700"
+        ui.label(f"{r.remaining:,.2f}").classes(
+            f"flex-1 text-sm text-right tabular-nums {remaining_cls}"
+        )
+        ui.label(_fmt_pct(r.used_pct)).classes("flex-1 text-sm text-right tabular-nums")
+        ui.badge(
+            t(_STATUS_LABEL_KEY[r.status]),
+            color=_STATUS_COLOUR[r.status],
+        ).props("outline").classes("w-24 justify-center")
+
+
+def _render_realization_header() -> None:
+    with ui.row().classes(
+        "w-full items-center gap-3 px-3 text-[11px] uppercase "
+        "tracking-[0.08em] text-slate-500 font-semibold"
+    ):
+        ui.label(t("budgets.realization.col_category")).classes("flex-[2]")
+        ui.label(t("budgets.realization.col_planned")).classes("flex-1 text-right")
+        ui.label(t("budgets.realization.col_actual")).classes("flex-1 text-right")
+        ui.label(t("budgets.realization.col_remaining")).classes("flex-1 text-right")
+        ui.label(t("budgets.realization.col_used_pct")).classes("flex-1 text-right")
+        ui.label(t("budgets.realization.col_status")).classes("w-24 text-center")
+
+
+def _render_realization_flat(rows: list[CategoryRealization]) -> None:
+    _render_realization_header()
+    ui.separator().classes("my-1 opacity-40")
+    for r in rows:
+        _render_realization_row(r)
+
+
+def _render_realization_grouped(rows: list[CategoryRealization]) -> None:
+    groups: dict[str, list[CategoryRealization]] = {}
+    for r in rows:
+        key = r.parent_name or r.category_name
+        groups.setdefault(key, []).append(r)
+
+    _render_realization_header()
+    ui.separator().classes("my-1 opacity-40")
+    for group_name, group_rows in groups.items():
+        with ui.row().classes("w-full items-center gap-2 mt-3"):
+            ui.icon("folder", size="xs").classes("text-slate-400")
+            ui.label(group_name).classes(
+                "text-xs uppercase tracking-[0.12em] text-slate-500 font-semibold"
+            )
+        for r in group_rows:
+            _render_realization_row(r)
 
 
 # ── Page ───────────────────────────────────────────────────────────────────────
@@ -313,30 +398,114 @@ def register() -> None:
             dialog_content.refresh()
             edit_dialog.open()
 
+        # ── Realization state + helpers ────────────────────────────────────
+        realization_state: dict[str, Any] = {
+            "year": today.year,
+            "month": today.month,
+            "group": "flat",
+        }
+
+        @ui.refreshable
+        async def realization_content() -> None:
+            year = realization_state["year"]
+            month = realization_state["month"]
+            group = realization_state["group"]
+            async with AsyncSessionFactory() as session:
+                rows = await BudgetService(session).realization_for_month(year, month)
+
+            if not rows:
+                with ui.card().classes(SECTION_CARD):
+                    ui.label(t("budgets.realization.no_rows")).classes(f"{BODY_MUTED} py-2")
+                    ui.button(
+                        t("budgets.realization.create_budget"),
+                        icon="add",
+                        on_click=open_edit_dialog,
+                    ).props("color=primary unelevated").classes("mt-2")
+                return
+
+            elapsed = rows[0].elapsed_pct  # same for every row in the month
+            with ui.card().classes(SECTION_CARD):
+                with ui.row().classes("w-full items-center justify-between gap-3 mb-3"):
+                    ui.label(t("budgets.realization.title")).classes(SECTION_HEADING)
+                    ui.label(
+                        t("budgets.realization.elapsed_hint", pct=f"{elapsed:.0f}")
+                    ).classes(BODY_MUTED)
+
+                if group == "by_parent":
+                    _render_realization_grouped(rows)
+                else:
+                    _render_realization_flat(rows)
+
         # ── Page layout ────────────────────────────────────────────────────
-        with page_layout(t("budgets.title")):
+        with page_layout(t("budgets.title"), wide=True):
             with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
                 ui.label(t("budgets.title")).classes(PAGE_TITLE)
+                ui.button(
+                    t("budgets.edit"),
+                    icon="edit",
+                    on_click=open_edit_dialog,
+                ).props("color=primary")
 
-                with ui.row().classes("items-center gap-3"):
-                    range_date_label = ui.label(_range_label("this_month")).classes(BODY_MUTED)
+            with ui.tabs().classes("w-full") as tabs:
+                overview_tab = ui.tab(t("budgets.tab_overview"), icon="bar_chart")
+                realization_tab = ui.tab(t("budgets.tab_realization"), icon="track_changes")
 
-                    def on_range_change(e: Any) -> None:
-                        current_range["key"] = e.value
-                        range_date_label.set_text(_range_label(e.value))
-                        budget_content.refresh()
+            with ui.tab_panels(tabs, value=overview_tab).classes("w-full bg-transparent"):
+                with ui.tab_panel(overview_tab):
+                    with ui.row().classes("w-full items-center gap-3 flex-wrap mb-2"):
+                        range_date_label = ui.label(_range_label("this_month")).classes(BODY_MUTED)
 
-                    ui.select(
-                        options=_range_options(),
-                        value="this_month",
-                        label=t("budgets.period"),
-                        on_change=on_range_change,
-                    ).classes("w-44")
+                        def on_range_change(e: Any) -> None:
+                            current_range["key"] = e.value
+                            range_date_label.set_text(_range_label(e.value))
+                            budget_content.refresh()
 
-                    ui.button(
-                        t("budgets.edit"),
-                        icon="edit",
-                        on_click=open_edit_dialog,
-                    ).props("color=primary")
+                        ui.select(
+                            options=_range_options(),
+                            value="this_month",
+                            label=t("budgets.period"),
+                            on_change=on_range_change,
+                        ).classes("w-44")
 
-            await budget_content()
+                    await budget_content()
+
+                with ui.tab_panel(realization_tab):
+                    with ui.row().classes("w-full items-center gap-3 flex-wrap mb-2"):
+                        month_opts = {
+                            i: t(f"payment_calendar.month_{i}") for i in range(1, 13)
+                        }
+                        year_opts = {y: str(y) for y in range(today.year - 2, today.year + 3)}
+
+                        def on_month_change(e: Any) -> None:
+                            realization_state["month"] = int(e.value)
+                            realization_content.refresh()
+
+                        def on_year_change(e: Any) -> None:
+                            realization_state["year"] = int(e.value)
+                            realization_content.refresh()
+
+                        def on_group_change(e: Any) -> None:
+                            realization_state["group"] = e.value
+                            realization_content.refresh()
+
+                        ui.select(
+                            options=month_opts,
+                            value=today.month,
+                            on_change=on_month_change,
+                        ).classes("w-40").props("dense outlined")
+                        ui.select(
+                            options=year_opts,
+                            value=today.year,
+                            on_change=on_year_change,
+                        ).classes("w-28").props("dense outlined")
+                        ui.space()
+                        ui.toggle(
+                            {
+                                "flat": t("budgets.realization.group_flat"),
+                                "by_parent": t("budgets.realization.group_by_parent"),
+                            },
+                            value="flat",
+                            on_change=on_group_change,
+                        ).props("dense unelevated")
+
+                    await realization_content()

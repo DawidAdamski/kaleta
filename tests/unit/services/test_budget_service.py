@@ -392,3 +392,180 @@ class TestListFiltered:
     async def test_list_filtered_empty_when_no_match(self, svc: BudgetService):
         result = await svc.list(month=7, year=2099)
         assert result == []
+
+
+# ── realization_for_month ─────────────────────────────────────────────────────
+
+
+class TestRealizationForMonth:
+    async def test_empty_month_returns_empty_list(self, svc: BudgetService):
+        result = await svc.realization_for_month(2025, 6)
+        assert result == []
+
+    async def test_on_track_row_current_month(self, svc: BudgetService, session: AsyncSession):
+        cat_id = await _make_category(session, name="Food")
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=cat_id, amount=Decimal("1000.00"), month=4, year=2026)
+        )
+        # 15 / 30 = 50% elapsed, spent 300 / 1000 = 30% used → on-track
+        await _make_expense(session, acc_id, cat_id, Decimal("300.00"), datetime.date(2026, 4, 10))
+
+        result = await svc.realization_for_month(
+            2026, 4, today=datetime.date(2026, 4, 15)
+        )
+        assert len(result) == 1
+        row = result[0]
+        assert row.category_name == "Food"
+        assert row.planned == Decimal("1000.00")
+        assert row.actual == Decimal("300.00")
+        assert row.remaining == Decimal("700.00")
+        assert row.elapsed_pct == pytest.approx(50.0)
+        assert row.used_pct == pytest.approx(30.0)
+        assert row.status.value == "on_track"
+
+    async def test_warning_row(self, svc: BudgetService, session: AsyncSession):
+        cat_id = await _make_category(session, name="Dining")
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=cat_id, amount=Decimal("1000.00"), month=4, year=2026)
+        )
+        # 30% elapsed, used 80% → well over elapsed+5, still under 100 → warning
+        await _make_expense(session, acc_id, cat_id, Decimal("800.00"), datetime.date(2026, 4, 5))
+
+        result = await svc.realization_for_month(
+            2026, 4, today=datetime.date(2026, 4, 9)
+        )
+        assert len(result) == 1
+        assert result[0].status.value == "warning"
+
+    async def test_over_row(self, svc: BudgetService, session: AsyncSession):
+        cat_id = await _make_category(session, name="Shopping")
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=cat_id, amount=Decimal("500.00"), month=4, year=2026)
+        )
+        await _make_expense(session, acc_id, cat_id, Decimal("750.00"), datetime.date(2026, 4, 3))
+
+        result = await svc.realization_for_month(
+            2026, 4, today=datetime.date(2026, 4, 15)
+        )
+        assert len(result) == 1
+        row = result[0]
+        assert row.status.value == "over"
+        assert row.used_pct == pytest.approx(150.0)
+        assert row.remaining == Decimal("-250.00")
+
+    async def test_past_month_elapsed_is_100(self, svc: BudgetService, session: AsyncSession):
+        cat_id = await _make_category(session)
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=cat_id, amount=Decimal("500.00"), month=2, year=2026)
+        )
+        await _make_expense(session, acc_id, cat_id, Decimal("400.00"), datetime.date(2026, 2, 10))
+
+        result = await svc.realization_for_month(
+            2026, 2, today=datetime.date(2026, 4, 15)
+        )
+        assert result[0].elapsed_pct == pytest.approx(100.0)
+        # used 80% < elapsed 100% + 5 → on_track (finished under budget)
+        assert result[0].status.value == "on_track"
+
+    async def test_future_month_elapsed_is_0(self, svc: BudgetService, session: AsyncSession):
+        cat_id = await _make_category(session)
+        await svc.create(
+            BudgetCreate(category_id=cat_id, amount=Decimal("500.00"), month=8, year=2026)
+        )
+
+        result = await svc.realization_for_month(
+            2026, 8, today=datetime.date(2026, 4, 15)
+        )
+        assert result[0].elapsed_pct == pytest.approx(0.0)
+        assert result[0].used_pct == pytest.approx(0.0)
+        assert result[0].status.value == "on_track"
+
+    async def test_rows_sorted_worst_first(self, svc: BudgetService, session: AsyncSession):
+        food = await _make_category(session, name="Food")
+        dining = await _make_category(session, name="Dining")
+        shopping = await _make_category(session, name="Shopping")
+        acc_id = await _make_account(session)
+
+        await svc.create(
+            BudgetCreate(category_id=food, amount=Decimal("1000.00"), month=4, year=2026)
+        )
+        await svc.create(
+            BudgetCreate(category_id=dining, amount=Decimal("1000.00"), month=4, year=2026)
+        )
+        await svc.create(
+            BudgetCreate(category_id=shopping, amount=Decimal("1000.00"), month=4, year=2026)
+        )
+
+        # Food: on-track (300), Dining: warning (800), Shopping: over (1200)
+        d = datetime.date(2026, 4, 5)
+        await _make_expense(session, acc_id, food, Decimal("300.00"), d)
+        await _make_expense(session, acc_id, dining, Decimal("800.00"), d)
+        await _make_expense(session, acc_id, shopping, Decimal("1200.00"), d)
+
+        result = await svc.realization_for_month(
+            2026, 4, today=datetime.date(2026, 4, 15)
+        )
+        names = [r.category_name for r in result]
+        assert names == ["Shopping", "Dining", "Food"]
+
+    async def test_unbudgeted_spending_appears_with_planned_zero(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        """Expense in a category with no budget entry still surfaces — used_pct = inf → over."""
+        cat_id = await _make_category(session, name="Surprises")
+        acc_id = await _make_account(session)
+        await _make_expense(session, acc_id, cat_id, Decimal("50.00"), datetime.date(2026, 4, 10))
+
+        result = await svc.realization_for_month(
+            2026, 4, today=datetime.date(2026, 4, 15)
+        )
+        assert len(result) == 1
+        assert result[0].planned == Decimal("0")
+        assert result[0].actual == Decimal("50.00")
+        assert result[0].status.value == "over"
+
+    async def test_parent_name_populated_when_category_has_parent(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        parent = await CategoryService(session).create(
+            CategoryCreate(name="Living", type=CategoryType.EXPENSE)
+        )
+        child = await CategoryService(session).create(
+            CategoryCreate(name="Rent", type=CategoryType.EXPENSE, parent_id=parent.id)
+        )
+        await svc.create(
+            BudgetCreate(category_id=child.id, amount=Decimal("2000.00"), month=4, year=2026)
+        )
+
+        result = await svc.realization_for_month(
+            2026, 4, today=datetime.date(2026, 4, 15)
+        )
+        assert len(result) == 1
+        assert result[0].category_name == "Rent"
+        assert result[0].parent_id == parent.id
+        assert result[0].parent_name == "Living"
+
+    async def test_internal_transfers_excluded(self, svc: BudgetService, session: AsyncSession):
+        cat_id = await _make_category(session)
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=cat_id, amount=Decimal("1000.00"), month=4, year=2026)
+        )
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=cat_id,
+                amount=Decimal("500.00"),
+                type=TransactionType.TRANSFER,
+                date=datetime.date(2026, 4, 10),
+                is_internal_transfer=True,
+            )
+        )
+        result = await svc.realization_for_month(
+            2026, 4, today=datetime.date(2026, 4, 15)
+        )
+        assert result[0].actual == Decimal("0")

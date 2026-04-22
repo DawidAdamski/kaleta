@@ -401,7 +401,28 @@
     "edit_existing": "Edit existing budgets",
     "period": "Period",
     "period_label": "Period: {month}/{year}",
-    "vs_actual": "Budget vs Actual"
+    "vs_actual": "Budget vs Actual",
+    "tab_overview": "Overview",
+    "tab_realization": "Realization",
+    "realization": {
+      "title": "Realization",
+      "subtitle": "How each budgeted category is tracking this month.",
+      "group_flat": "Flat",
+      "group_by_parent": "By parent",
+      "no_rows": "No budgeted categories for this month. Create a budget first.",
+      "create_budget": "Create a budget",
+      "col_category": "Category",
+      "col_planned": "Planned",
+      "col_actual": "Actual",
+      "col_remaining": "Remaining",
+      "col_used_pct": "Used",
+      "col_elapsed_pct": "Elapsed",
+      "col_status": "Status",
+      "status_on_track": "On track",
+      "status_warning": "Warning",
+      "status_over": "Over",
+      "elapsed_hint": "Month is {pct}% elapsed"
+    }
   },
   "budget_plan": {
     "title": "Budget Plan",

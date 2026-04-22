@@ -401,7 +401,28 @@
     "edit_existing": "Edytuj istniejące budżety",
     "period": "Okres",
     "period_label": "Okres: {month}/{year}",
-    "vs_actual": "Budżet vs Wykonanie"
+    "vs_actual": "Budżet vs Wykonanie",
+    "tab_overview": "Przegląd",
+    "tab_realization": "Realizacja",
+    "realization": {
+      "title": "Realizacja",
+      "subtitle": "Jak każda kategoria z budżetem wygląda w tym miesiącu.",
+      "group_flat": "Płasko",
+      "group_by_parent": "Wg rodzica",
+      "no_rows": "Brak kategorii z budżetem na ten miesiąc. Najpierw utwórz budżet.",
+      "create_budget": "Utwórz budżet",
+      "col_category": "Kategoria",
+      "col_planned": "Plan",
+      "col_actual": "Wykonano",
+      "col_remaining": "Pozostało",
+      "col_used_pct": "Wykorzystano",
+      "col_elapsed_pct": "Upłynęło",
+      "col_status": "Status",
+      "status_on_track": "Na plan",
+      "status_warning": "Uwaga",
+      "status_over": "Przekroczono",
+      "elapsed_hint": "Miesiąc upłynął w {pct}%"
+    }
   },
   "budget_plan": {
     "title": "Plan budżetu",

@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import builtins
+import calendar
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
+from enum import Enum
 
 from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +15,14 @@ from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
+
+REALIZATION_WARNING_THRESHOLD_PCT: float = 5.0
+
+
+class RealizationStatus(str, Enum):  # noqa: UP042
+    ON_TRACK = "on_track"
+    WARNING = "warning"
+    OVER = "over"
 
 
 @dataclass
@@ -35,6 +45,35 @@ class CategoryBudgetSummary:
     @property
     def over_budget(self) -> bool:
         return self.actual_amount > self.budget_amount
+
+
+@dataclass
+class CategoryRealization:
+    category_id: int
+    category_name: str
+    parent_id: int | None
+    parent_name: str | None
+    planned: Decimal
+    actual: Decimal
+    elapsed_pct: float
+    used_pct: float
+
+    @property
+    def remaining(self) -> Decimal:
+        return self.planned - self.actual
+
+    @property
+    def status(self) -> RealizationStatus:
+        if self.used_pct > 100:
+            return RealizationStatus.OVER
+        if self.used_pct > self.elapsed_pct + REALIZATION_WARNING_THRESHOLD_PCT:
+            return RealizationStatus.WARNING
+        return RealizationStatus.ON_TRACK
+
+    @property
+    def pace_delta(self) -> float:
+        """used_pct minus elapsed_pct — positive means ahead of pace (worse)."""
+        return self.used_pct - self.elapsed_pct
 
 
 class BudgetService:
@@ -129,12 +168,112 @@ class BudgetService:
 
     async def monthly_summary(self, month: int, year: int) -> builtins.list[CategoryBudgetSummary]:
         """Budget vs actual spending for a single month."""
-        import calendar
-
         last_day = calendar.monthrange(year, month)[1]
         start = datetime.date(year, month, 1)
         end = datetime.date(year, month, last_day)
         return await self.range_summary(start, end)
+
+    async def realization_for_month(
+        self,
+        year: int,
+        month: int,
+        *,
+        today: datetime.date | None = None,
+    ) -> builtins.list[CategoryRealization]:
+        """Per-category realization (plan vs actual + pacing) for a single month.
+
+        Rows are returned for every expense category that has either a budget
+        entry in the month or actual spending in it. Sorted worst-pace first
+        (over-budget → warning → on-track; within each bucket, higher
+        pace_delta first).
+        """
+        if today is None:
+            today = datetime.date.today()
+
+        last_day = calendar.monthrange(year, month)[1]
+        month_start = datetime.date(year, month, 1)
+        month_end = datetime.date(year, month, last_day)
+
+        if today < month_start:
+            elapsed_pct = 0.0
+        elif today > month_end:
+            elapsed_pct = 100.0
+        else:
+            elapsed_pct = (today.day / last_day) * 100.0
+
+        budget_rows = await self.session.execute(
+            select(Budget)
+            .options(selectinload(Budget.category).selectinload(Category.parent))
+            .where(Budget.month == month, Budget.year == year)
+        )
+        budgets = builtins.list(budget_rows.scalars().all())
+        planned: dict[int, Decimal] = {b.category_id: b.amount for b in budgets}
+
+        parent_lookup: dict[int, tuple[int | None, str | None, str]] = {
+            b.category_id: (
+                b.category.parent_id,
+                b.category.parent.name if b.category.parent else None,
+                b.category.name,
+            )
+            for b in budgets
+        }
+
+        actuals_rows = await self.session.execute(
+            select(Transaction.category_id, func.sum(Transaction.amount).label("total"))
+            .where(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.date >= month_start,
+                Transaction.date <= month_end,
+                Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.category_id.isnot(None),
+            )
+            .group_by(Transaction.category_id)
+        )
+        actuals: dict[int, Decimal] = {row.category_id: row.total for row in actuals_rows}
+
+        missing_ids = [cid for cid in actuals if cid not in parent_lookup]
+        if missing_ids:
+            cats_result = await self.session.execute(
+                select(Category)
+                .options(selectinload(Category.parent))
+                .where(Category.id.in_(missing_ids), Category.type == CategoryType.EXPENSE)
+            )
+            for cat in cats_result.scalars().all():
+                parent_lookup[cat.id] = (
+                    cat.parent_id,
+                    cat.parent.name if cat.parent else None,
+                    cat.name,
+                )
+
+        rows: builtins.list[CategoryRealization] = []
+        for cat_id, (parent_id, parent_name, name) in parent_lookup.items():
+            planned_amt = planned.get(cat_id, Decimal("0"))
+            actual_amt = actuals.get(cat_id, Decimal("0"))
+            used_pct = (
+                float(actual_amt / planned_amt * 100) if planned_amt > 0 else (
+                    float("inf") if actual_amt > 0 else 0.0
+                )
+            )
+            rows.append(
+                CategoryRealization(
+                    category_id=cat_id,
+                    category_name=name,
+                    parent_id=parent_id,
+                    parent_name=parent_name,
+                    planned=planned_amt,
+                    actual=actual_amt,
+                    elapsed_pct=elapsed_pct,
+                    used_pct=used_pct,
+                )
+            )
+
+        status_order = {
+            RealizationStatus.OVER: 0,
+            RealizationStatus.WARNING: 1,
+            RealizationStatus.ON_TRACK: 2,
+        }
+        rows.sort(key=lambda r: (status_order[r.status], -r.pace_delta, r.category_name))
+        return rows
 
     async def range_summary(
         self, start: datetime.date, end: datetime.date

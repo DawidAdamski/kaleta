@@ -33,3 +33,18 @@ class BudgetResponse(BudgetBase):
     id: int
     created_at: datetime
     updated_at: datetime
+
+
+class BudgetRealizationRow(BaseModel):
+    """Serialisable form of a CategoryRealization row."""
+
+    category_id: int
+    category_name: str
+    parent_id: int | None = None
+    parent_name: str | None = None
+    planned: Decimal
+    actual: Decimal
+    remaining: Decimal
+    elapsed_pct: float
+    used_pct: float
+    status: str
