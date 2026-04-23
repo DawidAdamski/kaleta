@@ -3,7 +3,8 @@ plan_id: subscriptions-notes
 title: Subscriptions — free-text notes per subscription
 area: wizard
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-23
 roadmap_ref: ../product/financial-wizard.md#3-subscriptions
 ---
 
@@ -88,3 +89,35 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `9b6b082` | Dawid | 2026-04-23 | feat(subscriptions): free-text notes per subscription |
+
+**Files changed:**
+- `alembic/versions/b6d9c5a2f8e3_add_subscription_notes.py`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `src/kaleta/models/subscription.py`
+- `src/kaleta/schemas/subscription.py`
+- `src/kaleta/views/subscriptions.py`
+
+**What shipped:**
+- `notes: TEXT NULL` column on subscriptions; batch migration works on SQLite dev DB and user's adamscy.db.
+- Pydantic `Field` with `max_length=4000` caps pathological input without blocking realistic notes.
+- Add/Edit dialog gains a multiline `ui.textarea` with `rows=3 autogrow` below the URL field; pre-filled on edit, normalised to `None` on empty-string save.
+- Row renderer adds a `_sub_row_notes` helper that injects a `sticky_note_2` icon + preview (80 chars max, linebreaks collapsed to spaces) under the subtitle when `sub.notes` is truthy. Clicking the preview toggles to the full note with `whitespace-pre-line` so multi-line content keeps its layout.
+- Click-to-toggle is skipped when the note fits in the preview (<=80 chars AND no linebreaks) — no meaningless affordance.
+- Rows without notes render unchanged — zero vertical cost when absent.
+- Verified live: saved a note through the Edit dialog on the dev DB, row showed the truncated preview with ellipsis, click expanded to the full text, delete cleared the record.
+
+**Partial coverage / deferred:**
+- **Markdown rendering** — notes render as plain text only; no links, bold, lists. The URL field already exists for cancellation URLs.
+- **Attachments** — out of scope per plan.
+- **Search across notes** — future cross-cutting search plan.
+- **Collapsed-preview length** — fixed at 80 chars per plan's Open question #2 default; tune later if too tight/loose.
+- **Known Quasar quirk** — `ui.textarea`'s reactive binding only fires on keystroke-level input events, not on one-shot DOM value replacement (Playwright `.fill()`). Real user typing works; automated E2E needs `press_sequentially` or `slowly=True` if future scenario tests are written. Not a bug, but flagged for future test authors.
