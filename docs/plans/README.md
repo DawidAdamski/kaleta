@@ -86,7 +86,7 @@ The subagent:
 | [categories-templates](archive/categories-templates.md) | archived | Categories |
 | [institutions-logos](archive/institutions-logos.md) | archived | Institutions |
 | [wizard-getting-started-mentor](archive/wizard-getting-started-mentor.md) | archived | Wizard → Getting Started |
-| [safety-funds-months-bar](safety-funds-months-bar.md) | draft | Wizard → Safety funds |
+| [safety-funds-months-bar](archive/safety-funds-months-bar.md) | archived | Wizard → Safety funds |
 | [subscriptions-notes](subscriptions-notes.md) | draft | Wizard → Subscriptions |
 
 ### Medium

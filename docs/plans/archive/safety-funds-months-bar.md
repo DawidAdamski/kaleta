@@ -3,7 +3,8 @@ plan_id: safety-funds-months-bar
 title: Safety funds — months-as-ticks progress bar
 area: wizard
 effort: small
-status: draft
+status: archived
+archived_at: 2026-04-23
 roadmap_ref: ../product/financial-wizard.md#4-safety--reserve-funds
 ---
 
@@ -112,3 +113,28 @@ Out of scope:
 
 ## Implementation notes
 _Filled in as work progresses._
+
+## Implementation
+
+Landed on 2026-04-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2e5d783` | Dawid | 2026-04-23 | feat(safety-funds): months-as-ticks emergency bar |
+
+**Files changed:**
+- `src/kaleta/views/safety_funds.py`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+
+**What shipped:**
+- **Tick-marked progress bar** for emergency funds with `emergency_multiplier >= 2`: the `ui.linear_progress` is wrapped in a relative container and `multiplier - 1` absolutely-positioned 1px-wide divs overlay the track at `(i / multiplier) × 100%`. Ticks use `bg-white/30` so they read in both light and dark themes.
+- **Survival-months footer** replaces the old trailing-spend line whenever `multiplier >= 1 AND target_amount > 0`: `"You will survive X / N months"` where `X = balance ÷ (target ÷ multiplier)` quantized to 1 decimal. Polish: `"Wystarczy na X / N miesięcy"`.
+- **One input drives both** — the multiplier subdivides the bar and feeds the footer math. Removes the prior contradiction where % progress tracked PLN target while months tracked trailing spending.
+- **Verified in browser** on the live dev DB: a 60k/×6 fund at 41,698.58 shows 5 ticks + `You will survive 4.2 / 6 months` (41698.58 ÷ 10000 = 4.17 ≈ 4.2 ✓).
+
+**Partial coverage / deferred:**
+- **Reached vs unreached tick styling** — all ticks same colour; milestone emphasis deferred (plan's Open question #4 default).
+- **Surplus marker when balance > target** — no dedicated marker shipped; bar still caps at 100% and the survival text correctly shows `X / N` where X > N. Plain progress bar can't show overflow without a custom element.
+- **Trailing-spend line kept as legacy fallback** — for rows where `multiplier IS NULL` OR `target_amount = 0`, the code still shows the old `months_of_coverage` / `months_of_coverage_goal` line. Not a contradiction anymore since those are mutually exclusive code paths, but a future cleanup could drop `_trailing_monthly_expense` entirely once all real emergency funds have a multiplier.
+- **No unit tests** for the survival-months math — it's a trivial view-side pure calculation (balance ÷ (target ÷ multiplier)) with no service-layer change. Plan's Open question #2 chose view-side intentionally.
