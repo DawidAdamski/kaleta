@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import builtins
 import datetime
+import re
 from collections import defaultdict
 from decimal import Decimal
 
@@ -145,17 +146,22 @@ class SubscriptionService:
         ref = today or datetime.date.today()
         window_start = ref - datetime.timedelta(days=DETECTOR_WINDOW_DAYS)
 
-        # Existing subscriptions exclude their payees from candidate scan.
+        # Existing subscriptions block their payees/names from candidates.
         existing = await self.session.execute(
-            select(Subscription.payee_id).where(
-                Subscription.payee_id.is_not(None),
+            select(Subscription.payee_id, Subscription.name).where(
                 Subscription.status != SubscriptionStatus.CANCELLED,
             )
         )
-        tracked_payee_ids = {row[0] for row in existing.all() if row[0] is not None}
+        tracked_payee_ids: set[int] = set()
+        tracked_merchant_keys: set[str] = set()
+        for payee_id, name in existing.all():
+            if payee_id is not None:
+                tracked_payee_ids.add(payee_id)
+            if name:
+                tracked_merchant_keys.add(_merchant_key_from_description(name))
 
-        # Pull non-transfer expense transactions that have a payee set.
-        result = await self.session.execute(
+        # ── PASS 1: rows with a Payee ──────────────────────────────────────
+        payee_rows = await self.session.execute(
             select(Transaction, Payee)
             .join(Payee, Transaction.payee_id == Payee.id)
             .where(
@@ -166,43 +172,52 @@ class SubscriptionService:
             )
             .order_by(Transaction.date)
         )
-        rows = result.all()
-
-        # Group by (payee_id, amount-bucket). Amount-bucket = amount rounded
-        # to 2 dp, merged with neighbours within AMOUNT_TOLERANCE_PCT.
-        groups: dict[tuple[int, str], list[Transaction]] = defaultdict(list)
+        pass1_groups: dict[tuple[int, str], list[Transaction]] = defaultdict(list)
         payee_names: dict[int, str] = {}
-        for tx, payee in rows:
+        for tx, payee in payee_rows.all():
             if payee.id in tracked_payee_ids:
                 continue
-            # Use magnitude only — expenses store as positive, but be robust
-            magnitude = abs(tx.amount)
-            bucket = _amount_bucket(magnitude)
-            groups[(payee.id, bucket)].append(tx)
+            bucket = _amount_bucket(abs(tx.amount))
+            pass1_groups[(payee.id, bucket)].append(tx)
             payee_names[payee.id] = payee.name
 
         candidates: list[DetectorCandidate] = []
-        for (payee_id, _bucket), txs in groups.items():
-            if len(txs) < MIN_OCCURRENCES:
-                continue
-            dates = sorted(tx.date for tx in txs)
-            cadence = _infer_cadence(dates)
-            if cadence is None:
-                continue
-            amount_median = _median([abs(tx.amount) for tx in txs])
-            next_expected = dates[-1] + datetime.timedelta(days=cadence)
-            candidates.append(
-                DetectorCandidate(
-                    payee_id=payee_id,
-                    payee_name=payee_names[payee_id],
-                    amount=amount_median,
-                    cadence_days=cadence,
-                    occurrences=len(txs),
-                    first_seen_at=dates[0],
-                    last_seen_at=dates[-1],
-                    next_expected_at=next_expected,
-                )
+        for (payee_id, _bucket), txs in pass1_groups.items():
+            candidate = _candidate_from_group(
+                txs, name=payee_names[payee_id], payee_id=payee_id
             )
+            if candidate is not None:
+                candidates.append(candidate)
+
+        # ── PASS 2: rows without a Payee — group by description-key ────────
+        # Many imported rows (HBO, Disney Plus, APPLE.COM/BILL, AMAZON.PL)
+        # never get a Payee row created for them, so pass 1 misses them.
+        orphan_rows = await self.session.execute(
+            select(Transaction)
+            .where(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.payee_id.is_(None),
+                Transaction.date >= window_start,
+                Transaction.date <= ref,
+            )
+            .order_by(Transaction.date)
+        )
+        pass2_groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
+        for tx in orphan_rows.scalars().all():
+            key = _merchant_key_from_description(tx.description)
+            if not key:
+                continue
+            if key in tracked_merchant_keys:
+                continue
+            bucket = _amount_bucket(abs(tx.amount))
+            pass2_groups[(key, bucket)].append(tx)
+
+        for (merchant_key, _bucket), txs in pass2_groups.items():
+            candidate = _candidate_from_group(txs, name=merchant_key, payee_id=None)
+            if candidate is not None:
+                candidates.append(candidate)
+
         candidates.sort(key=lambda c: c.amount, reverse=True)
         return candidates
 
@@ -281,6 +296,49 @@ def _amount_bucket(amount: Decimal) -> str:
     """Rough bucket for grouping amounts. Tight buckets → merged later."""
     # Round to the nearest 1 PLN; the ±5 % tolerance absorbs fine-grain drift.
     return str(int(round(float(amount))))
+
+
+# Strip a trailing location/detail suffix so rows for the same service cluster.
+# Tuned from live mBank data: "APPLE.COM/BILL /APPLE.COM/", "HBO Europe S.R.O
+# /Prague", "Disney Plus /Hoofddorp", "GOOGLE *YouTube Vid/g.co/helpp".
+_MERCHANT_KEY_MAX_LEN = 40
+
+
+def _merchant_key_from_description(desc: str | None) -> str:
+    """Normalise a transaction description to a stable merchant-key.
+
+    Keeps the first ``/``-delimited segment (service name before location),
+    uppercases, collapses whitespace, and caps length. Returns ``""`` when
+    nothing usable remains.
+    """
+    if not desc:
+        return ""
+    first = desc.split("/", 1)[0]
+    first = re.sub(r"\s+", " ", first).strip().upper()
+    return first[:_MERCHANT_KEY_MAX_LEN]
+
+
+def _candidate_from_group(
+    txs: builtins.list[Transaction], *, name: str, payee_id: int | None
+) -> DetectorCandidate | None:
+    """Return a DetectorCandidate if the tx group is a plausible subscription."""
+    if len(txs) < MIN_OCCURRENCES:
+        return None
+    dates = sorted(tx.date for tx in txs)
+    cadence = _infer_cadence(dates)
+    if cadence is None:
+        return None
+    amount_median = _median([abs(tx.amount) for tx in txs])
+    return DetectorCandidate(
+        payee_id=payee_id,
+        payee_name=name,
+        amount=amount_median,
+        cadence_days=cadence,
+        occurrences=len(txs),
+        first_seen_at=dates[0],
+        last_seen_at=dates[-1],
+        next_expected_at=dates[-1] + datetime.timedelta(days=cadence),
+    )
 
 
 def _median(values: builtins.list[Decimal]) -> Decimal:

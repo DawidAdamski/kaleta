@@ -46,9 +46,10 @@ async def _add_expense(
     *,
     account_id: int,
     category_id: int,
-    payee_id: int,
+    payee_id: int | None,
     amount: Decimal,
     date: datetime.date,
+    description: str | None = None,
 ) -> None:
     tx = Transaction(
         account_id=account_id,
@@ -57,7 +58,7 @@ async def _add_expense(
         type=TransactionType.EXPENSE,
         amount=amount,
         date=date,
-        description=f"exp-{date}",
+        description=description or f"exp-{date}",
         is_internal_transfer=False,
     )
     session.add(tx)
@@ -305,6 +306,91 @@ class TestDetector:
         )
         svc = SubscriptionService(session)
         candidates = await svc.detect_candidates(today=datetime.date(2026, 4, 1))
+        assert candidates == []
+
+    async def test_detects_description_based_monthly(
+        self, session: AsyncSession
+    ):
+        """Rows with payee_id=None but recurring same-description charge."""
+        acc, cat = await _seed_setup(session)
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2, 3):
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=cat,
+                payee_id=None,
+                amount=Decimal("24.90"),
+                date=today - datetime.timedelta(days=30 * months_back),
+                description="HBO Europe S.R.O /Prague",
+            )
+        svc = SubscriptionService(session)
+        candidates = await svc.detect_candidates(today=today)
+        assert len(candidates) == 1
+        c = candidates[0]
+        assert c.payee_id is None
+        # Merchant key drops the " /Prague" suffix
+        assert c.payee_name == "HBO EUROPE S.R.O"
+        assert c.cadence_days == 30
+        assert c.occurrences == 4
+
+    async def test_detects_description_based_yearly(
+        self, session: AsyncSession
+    ):
+        acc, cat = await _seed_setup(session)
+        today = datetime.date(2026, 4, 1)
+        # Yearly: two 49.99 charges ~365 days apart.
+        await _add_expense(
+            session,
+            account_id=acc,
+            category_id=cat,
+            payee_id=None,
+            amount=Decimal("49.99"),
+            date=today - datetime.timedelta(days=365),
+            description="APPLE.COM/BILL /APPLE.COM/",
+        )
+        await _add_expense(
+            session,
+            account_id=acc,
+            category_id=cat,
+            payee_id=None,
+            amount=Decimal("49.99"),
+            date=today - datetime.timedelta(days=1),
+            description="APPLE.COM/BILL /APPLE.COM/",
+        )
+        svc = SubscriptionService(session)
+        candidates = await svc.detect_candidates(today=today)
+        assert len(candidates) == 1
+        assert candidates[0].payee_name == "APPLE.COM"
+        assert candidates[0].cadence_days == 365
+
+    async def test_description_based_excluded_by_tracked_name(
+        self, session: AsyncSession
+    ):
+        """If a subscription already exists with a matching merchant-key name,
+        the detector must not re-surface it from description scan."""
+        acc, cat = await _seed_setup(session)
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2):
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=cat,
+                payee_id=None,
+                amount=Decimal("28.99"),
+                date=today - datetime.timedelta(days=30 * months_back),
+                description="Disney Plus /Hoofddorp",
+            )
+        svc = SubscriptionService(session)
+        # Pre-existing subscription with same merchant-key name
+        await svc.create(
+            SubscriptionCreate(
+                name="DISNEY PLUS",
+                amount=Decimal("28.99"),
+                cadence_days=30,
+            )
+        )
+        candidates = await svc.detect_candidates(today=today)
         assert candidates == []
 
     async def test_create_from_candidate_tracks_it(self, session: AsyncSession):
