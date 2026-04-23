@@ -17,6 +17,7 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Cash flow forecasting with Prophet (30–90 day horizon), per-account or combined multi-account, with confidence interval and zero-balance alert
 - Planned and recurring transactions (weekly/monthly/yearly) with active/inactive toggle; visible as upcoming items in the transactions view and included in the forecast
 - Credit calculator — loan amortization for consumer loans, car loans, and mortgages; equal vs decreasing installments; monthly overpayment and lump-sum simulation
+- Credit module — manage real credit cards and loans: utilization tracking (green/amber/red), minimum payment, next-due date, status chip; loans include full amortisation schedule; dashboard widget shows all card utilization at a glance
 - Annual budget planning grid — per-category monthly targets across a full year, budget-vs-actual overlay, year-over-year comparison
 - Initial setup wizard — guided onboarding with zero-based budget assignment; "Finish Setup" requires every opening-balance zloty to be assigned
 - Settings — tabbed page (General, Appearance, Features, Data, History, About) with configurable locale, theme, detector look-back windows, backup/restore, and audit log; all preferences stored in server-side session storage

@@ -553,6 +553,47 @@ async def _net_worth_trend(session: AsyncSession, is_dark: bool) -> None:
         ui.echart(apply_dark(opts, is_dark)).classes("w-full h-64")
 
 
+# ── Credit utilization ────────────────────────────────────────────────────────
+
+
+@_register(
+    "credit_utilization",
+    "dashboard_widgets.credit_utilization",
+    "credit_card",
+    "half",
+)
+async def _credit_utilization(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+    from kaleta.services import CreditService
+
+    cards = await CreditService(session).list_cards()
+    with _section_card(
+        t("dashboard_widgets.credit_utilization"),
+        subtitle=t("dashboard_widgets.credit_utilization_sub"),
+    ):
+        if not cards:
+            ui.label(t("dashboard_widgets.credit_utilization_empty")).classes(
+                f"{BODY_MUTED} mt-2"
+            )
+            return
+        for card in cards:
+            pct = float(card.utilization_pct)
+            pct_clamped = min(pct, 1.0)
+            if pct >= 0.7:
+                colour = "negative"
+            elif pct >= 0.3:
+                colour = "amber-7"
+            else:
+                colour = "positive"
+            with ui.row().classes("w-full items-center gap-3 py-1"):
+                ui.label(card.account_name).classes("flex-1 text-sm font-medium")
+                ui.label(f"{int(round(pct * 100))}%").classes(
+                    f"text-sm font-bold text-{colour} w-12 text-right"
+                )
+            ui.linear_progress(
+                value=pct_clamped, size="6px", show_value=False, color=colour
+            ).classes("w-full")
+
+
 # ── Default layout ────────────────────────────────────────────────────────────
 
 

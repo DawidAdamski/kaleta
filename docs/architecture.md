@@ -67,6 +67,7 @@ kaleta/
 │   │   ├── asset.py         # Asset model + AssetType enum
 │   │   ├── payee.py         # Payee model (name UNIQUE)
 │   │   ├── planned_transaction.py  # PlannedTransaction model (frequency, end_date, occurrences)
+│   │   ├── credit.py        # CreditCardProfile + LoanProfile (one-per-account, FK → accounts.id CASCADE)
 │   │   └── mixins.py        # TimestampMixin
 │   ├── schemas/             # Pydantic schemas (request/response)
 │   │   ├── account.py
@@ -75,7 +76,8 @@ kaleta/
 │   │   ├── category.py
 │   │   ├── institution.py
 │   │   ├── asset.py
-│   │   └── planned_transaction.py
+│   │   ├── planned_transaction.py
+│   │   └── credit.py        # CardView (utilization, min-payment, next-due, status chip) + LoanView (remaining balance, amortisation schedule)
 │   ├── services/            # Business logic
 │   │   ├── account_service.py
 │   │   ├── transaction_service.py
@@ -90,7 +92,8 @@ kaleta/
 │   │   ├── payee_service.py # Payee CRUD + merge() + find_or_create()
 │   │   ├── subscription_service.py  # detect_candidates(window_days=...) — skips Subscriptions-tree transactions; create_from_candidate re-categorises history; subscription_transactions_grouped(window_days=90)
 │   │   ├── dedupe_service.py        # duplicate_transactions(window_days=...) — configurable scan window
-│   │   └── planned_transaction_service.py  # grid_for_month(..., overdue_window_days=...) — configurable overdue look-back
+│   │   ├── planned_transaction_service.py  # grid_for_month(..., overdue_window_days=...) — configurable overdue look-back
+│   │   └── credit_service.py        # CreditService: card CRUD + loan CRUD; pure helpers: compute_monthly_payment, amortisation_schedule, compute_min_payment, next_due_date
 │   ├── controllers/         # Route handlers, orchestration
 │   ├── api/                 # REST API endpoints (v1/)
 │   └── views/               # NiceGUI UI pages
@@ -107,6 +110,7 @@ kaleta/
 │       ├── net_worth.py     # Net Worth summary page (/net-worth)
 │       ├── planned_transactions.py  # Planned/recurring transactions page (/planned)
 │       ├── credit_calculator.py     # Loan amortization calculator (/credit-calculator)
+│       ├── credit.py                # Credit module (/credit): two tabs — Credit Cards and Loans; "New card"/"New loan" dialogs atomically create Account + profile
 │       ├── budget_plan.py           # Annual budget planning grid (/budget-plan)
 │       ├── setup.py                 # First-run database setup page (/setup)
 │       ├── settings.py              # Settings page (/settings) — 6 tabs; module docstring lists all app.storage.user keys
@@ -304,6 +308,11 @@ kaleta/
 - **Decision**: One `Category` row carries `is_subscriptions_root = True`. That row and its direct children (flat tree, v1) are the authoritative definition of "what is a subscription charge". `CategoryService` exposes `get_subscriptions_root`, `list_subscription_children`, `subscription_category_ids`, and `ensure_subscriptions_root_and_children`. The migration `a4e9b2f1c6d8_add_subscriptions_root_category.py` idempotently creates the root "Subscriptions" + three children (Monthly / Yearly / Other) on existing DBs; `scripts/seed.py` creates the Polish equivalents (Subskrypcje / Miesięczne / Roczne / Inne) for fresh seeds.
 - **Rationale**: Storing "is this a subscription?" as a model flag on `Transaction` or `Subscription` would require maintaining a separate classification list in sync with categories. Using an existing category subtree avoids duplication: once a transaction sits under the Subscriptions root, it is by definition a subscription charge — no secondary flag needed.
 - **Consequence**: `SubscriptionService.detect_candidates` skips transactions already under the Subscriptions tree (they are already categorised). Tracking a candidate via `create_from_candidate(..., sub_category_id=...)` re-categorises all window-matching historical transactions (same payee or merchant-key + same amount bucket) to the chosen sub-category. The panel's "By category" card calls `subscription_transactions_grouped(window_days=90)` to show sub-category → merchant aggregations for the last 90 days. Multi-level nesting is deferred; only the root + direct children are used in v1.
+
+### ADR-029: Credit Card and Loan Profiles as Separate Tables Extending Account
+- **Decision**: `CreditCardProfile` and `LoanProfile` are standalone tables (`credit_card_profiles`, `loan_profiles`), each with a one-to-one FK to `accounts.id` (CASCADE delete, one profile per account). Credit accounts use `type=CREDIT` with a **negative** balance convention (money owed is stored negative; views normalise to positive "amount owed" for display). Rich credit fields live in the profile tables rather than on `accounts`.
+- **Rationale**: Stuffing credit-specific columns (APR, credit limit, billing cycle, loan term, amortisation type, etc.) directly onto `Account` would bloat the table and add nullable columns that are meaningless for non-credit accounts. A separate profile preserves a clean `Account` schema while allowing credit-specific queries to operate on a dedicated table. Reusing `Account` for the balance ledger avoids duplicating transaction, transfer, and multi-currency machinery.
+- **Consequence**: Migration `c7e9b3f1a2d5_add_credit_and_loan_profiles.py`. `CreditService` provides card CRUD (`create_card`, `update_card`, `get_card_by_account`, `list_cards`) and loan CRUD (`create_loan`, `update_loan`, `get_loan_by_account`, `list_loans`, `amortisation`). Pure helpers (`compute_monthly_payment`, `amortisation_schedule`, `compute_min_payment`, `next_due_date`) contain no ORM dependency. Utilization thresholds: green < 30 %, amber < 70 %, red ≥ 70 %. Minimum payment = max(2 % × balance, 30 PLN), capped at balance. Amortisation uses the standard fixed-rate annuity formula; the last row absorbs rounding so `Σ principal_paid == principal` exactly. Status chips: on-time / due-soon (≤ 5 days) / overdue. Variable-rate loans and mid-life APR changes are out of scope.
 
 ## UI Colour Schema
 

@@ -3,6 +3,7 @@ from kaleta.models.asset import Asset, AssetType
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
+from kaleta.models.credit import CreditCardProfile, LoanProfile
 from kaleta.models.dismissed_candidate import DismissedCandidate
 from kaleta.models.monthly_readiness import MonthlyReadiness
 from kaleta.models.payee import Payee
@@ -31,7 +32,9 @@ __all__ = [
     "Category",
     "CategoryType",
     "Counterparty",
+    "CreditCardProfile",
     "DismissedCandidate",
+    "LoanProfile",
     "MonthlyReadiness",
     "PlannedTransaction",
     "RecurrenceFrequency",
