@@ -72,6 +72,7 @@ def _register_views() -> None:
         credit_calculator,
         dashboard,
         forecast,
+        housekeeping,
         import_view,
         institutions,
         monthly_readiness,
@@ -111,6 +112,7 @@ def _register_views() -> None:
     monthly_readiness.register()
     net_worth.register()
     credit_calculator.register()
+    housekeeping.register()
     tags.register()
     wizard.register()
     settings.register()

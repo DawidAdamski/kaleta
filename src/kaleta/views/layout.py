@@ -50,6 +50,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
             ("insights", "/forecast", "nav.forecast"),
             ("calculate", "/credit-calculator", "nav.credit_calculator"),
             ("auto_awesome", "/wizard", "nav.wizard"),
+            ("cleaning_services", "/housekeeping", "nav.housekeeping"),
         ],
     ),
     (
