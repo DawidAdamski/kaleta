@@ -164,6 +164,11 @@ def register() -> None:
                     .props("dense outlined")
                     .classes("w-full")
                 )
+                notes_in = (
+                    ui.textarea(label=t("subscriptions.field_notes"))
+                    .props("dense outlined rows=3 autogrow")
+                    .classes("w-full")
+                )
                 auto_renew_cb = ui.checkbox(t("subscriptions.field_auto_renew"), value=True)
 
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
@@ -197,6 +202,7 @@ def register() -> None:
                 if category_in is not None:
                     category_in.set_value(None)
                 url_in.set_value("")
+                notes_in.set_value("")
                 auto_renew_cb.set_value(True)
                 fund_dialog.open()
 
@@ -215,6 +221,7 @@ def register() -> None:
                 if category_in is not None:
                     category_in.set_value(sub.category_id)
                 url_in.set_value(sub.url or "")
+                notes_in.set_value(sub.notes or "")
                 auto_renew_cb.set_value(sub.auto_renew)
                 fund_dialog.open()
 
@@ -240,6 +247,7 @@ def register() -> None:
                         else None
                     )
                     url = (url_in.value or "").strip() or None
+                    notes = (notes_in.value or "").strip() or None
                     category_id = (
                         int(category_in.value)
                         if category_in is not None and category_in.value
@@ -262,6 +270,7 @@ def register() -> None:
                                 category_id=category_id,
                                 url=url,
                                 auto_renew=bool(auto_renew_cb.value),
+                                notes=notes,
                             )
                         )
                     else:
@@ -276,6 +285,7 @@ def register() -> None:
                                 category_id=category_id,
                                 url=url,
                                 auto_renew=bool(auto_renew_cb.value),
+                                notes=notes,
                             ),
                         )
                 fund_dialog.close()
@@ -447,6 +457,7 @@ def _render_sub_row(
         with ui.column().classes("flex-1 gap-0"):
             ui.label(sub.name).classes("text-sm font-medium")
             _sub_row_subtitle(sub)
+            _sub_row_notes(sub)
         ui.chip(t(f"subscriptions.status_{sub.status.value}"), color=colour).props(
             "dense outline"
         )
@@ -494,3 +505,45 @@ def _sub_row_subtitle(sub: SubscriptionResponse) -> None:
     elif sub.next_expected_at:
         parts.append(_fmt_date(sub.next_expected_at))
     ui.label(" · ".join(parts)).classes("text-xs text-slate-500")
+
+
+_NOTE_PREVIEW_CHARS = 80
+
+
+def _sub_row_notes(sub: SubscriptionResponse) -> None:
+    """Inline note block under the subtitle — collapsed preview expands on click."""
+    if not sub.notes:
+        return
+    notes = sub.notes
+    # Collapse multi-line notes into a single line for the preview view only.
+    preview_source = notes.replace("\n", " ").strip()
+    is_truncated = len(preview_source) > _NOTE_PREVIEW_CHARS
+    preview_text = (
+        preview_source[:_NOTE_PREVIEW_CHARS].rstrip() + "…"
+        if is_truncated
+        else preview_source
+    )
+    can_toggle = is_truncated or "\n" in notes
+
+    preview_row = ui.row().classes(
+        "items-center gap-1 mt-0.5" + (" cursor-pointer" if can_toggle else "")
+    )
+    with preview_row:
+        ui.icon("sticky_note_2", size="0.9rem").classes("text-slate-500")
+        ui.label(preview_text).classes("text-xs text-slate-500")
+
+    full_row = ui.row().classes("items-start gap-1 mt-0.5 cursor-pointer")
+    full_row.set_visibility(False)
+    with full_row:
+        ui.icon("sticky_note_2", size="0.9rem").classes("text-slate-500 mt-0.5")
+        ui.label(notes).classes(
+            "text-xs text-slate-500 whitespace-pre-line leading-snug"
+        )
+
+    if can_toggle:
+        def _toggle(_e: object = None) -> None:
+            preview_row.set_visibility(not preview_row.visible)
+            full_row.set_visibility(not full_row.visible)
+
+        preview_row.on("click", _toggle)
+        full_row.on("click", _toggle)

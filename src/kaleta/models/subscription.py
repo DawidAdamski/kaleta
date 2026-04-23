@@ -4,7 +4,7 @@ import datetime
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -51,6 +51,7 @@ class Subscription(TimestampMixin, Base):
     cancelled_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     auto_renew: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     def __repr__(self) -> str:
         return (

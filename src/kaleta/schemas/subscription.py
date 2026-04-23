@@ -20,6 +20,7 @@ class SubscriptionBase(BaseModel):
     next_expected_at: datetime.date | None = None
     url: str | None = Field(default=None, max_length=500)
     auto_renew: bool = True
+    notes: str | None = Field(default=None, max_length=4000)
 
 
 class SubscriptionCreate(SubscriptionBase):
@@ -38,6 +39,7 @@ class SubscriptionUpdate(BaseModel):
     next_expected_at: datetime.date | None = None
     url: str | None = Field(default=None, max_length=500)
     auto_renew: bool | None = None
+    notes: str | None = Field(default=None, max_length=4000)
     status: SubscriptionStatus | None = None
     muted_until: datetime.date | None = None
     cancelled_at: datetime.date | None = None
