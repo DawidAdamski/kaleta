@@ -111,7 +111,7 @@ The subagent:
 |---|---|---|
 | [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |
 | [budgets-rename-and-payment-calendar](archive/budgets-rename-and-payment-calendar.md) | archived | Budgets + new Payment Calendar |
-| [credit-first-class](credit-first-class.md) | draft | Credit |
+| [credit-first-class](archive/credit-first-class.md) | archived | Credit |
 | [wizard-monthly-readiness](archive/wizard-monthly-readiness.md) | archived | Wizard → Monthly Readiness |
 | [wizard-subscriptions](archive/wizard-subscriptions.md) | archived | Wizard → Subscriptions |
 | [wizard-budget-builder](archive/wizard-budget-builder.md) | archived | Wizard → Budget Builder |
