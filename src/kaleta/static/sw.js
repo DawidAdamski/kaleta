@@ -1,4 +1,4 @@
-const CACHE_NAME = 'kaleta-v1';
+const CACHE_NAME = 'kaleta-v2';
 
 // Assets to pre-cache on install (app shell)
 const PRECACHE = ['/'];

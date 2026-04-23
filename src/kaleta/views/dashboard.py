@@ -28,10 +28,7 @@ from kaleta.views.dashboard_widgets import (
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import PAGE_TITLE
 
-_SORTABLE_CDN = (
-    '<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.2/'
-    'Sortable.min.js"></script>'
-)
+_SORTABLE_SCRIPT = '<script src="/static/vendor/sortable.min.js"></script>'
 
 _EDIT_MODE_STYLE = """
 <style>
@@ -72,6 +69,12 @@ _INIT_JS = """
 <script>
 window.__kaletaInitDashSortable = function() {
   const groups = ['kpi', 'half', 'full'];
+  if (typeof Sortable === 'undefined') {
+    // SortableJS script hasn't loaded yet; retry once it does.
+    console.warn('[dashboard] Sortable not ready, retrying in 150ms');
+    setTimeout(window.__kaletaInitDashSortable, 150);
+    return;
+  }
   groups.forEach(size => {
     const container = document.getElementById('dash-' + size);
     if (!container) return;
@@ -80,7 +83,6 @@ window.__kaletaInitDashSortable = function() {
       container.__sortable = null;
     }
     if (!document.body.classList.contains('dash-editing')) return;
-    if (typeof Sortable === 'undefined') return;
     container.__sortable = new Sortable(container, {
       draggable: '.dash-widget-wrap',
       animation: 150,
@@ -90,6 +92,8 @@ window.__kaletaInitDashSortable = function() {
       onEnd: () => window.__kaletaPostDashOrder(),
     });
   });
+  console.debug('[dashboard] Sortable initialised, editing =',
+    document.body.classList.contains('dash-editing'));
 };
 window.__kaletaPostDashOrder = function() {
   const collect = size => Array.from(
@@ -100,7 +104,7 @@ window.__kaletaPostDashOrder = function() {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload),
-  }).catch(() => {});
+  }).catch(err => console.warn('[dashboard] POST order failed', err));
 };
 window.__kaletaToggleDashEdit = function() {
   const on = document.body.classList.toggle('dash-editing');
@@ -108,6 +112,7 @@ window.__kaletaToggleDashEdit = function() {
   if (btn) btn.innerText = on
     ? (btn.dataset.labelDone || 'Done')
     : (btn.dataset.labelEdit || 'Edit layout');
+  console.debug('[dashboard] toggled edit mode, now =', on);
   window.__kaletaInitDashSortable();
 };
 window.__kaletaDashKbdMove = function(evt) {
@@ -186,7 +191,7 @@ def register() -> None:
         is_dark: bool = app.storage.user.get("dark_mode", False)
         order = resolve_user_widgets(app.storage.user.get("dashboard_widgets"))
 
-        ui.add_head_html(_SORTABLE_CDN)
+        ui.add_head_html(_SORTABLE_SCRIPT)
         ui.add_head_html(_EDIT_MODE_STYLE)
         ui.add_head_html(_INIT_JS)
 
