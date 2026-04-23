@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import datetime
 import enum
 from decimal import Decimal
 
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import ForeignKey, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
@@ -53,6 +54,8 @@ class ReserveFund(TimestampMixin, Base):
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
     emergency_multiplier: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
     def __repr__(self) -> str:
         return f"<ReserveFund id={self.id} kind={self.kind} name={self.name!r}>"

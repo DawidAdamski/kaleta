@@ -323,6 +323,7 @@
     "subtitle": "Śledź pokrycie funduszu awaryjnego, wydatków nieregularnych i oszczędności wakacyjnych.",
     "add": "Dodaj fundusz",
     "dialog_title": "Nowy fundusz rezerwowy",
+    "dialog_edit_title": "Edytuj fundusz rezerwowy",
     "kind": "Typ funduszu",
     "kind_emergency": "Fundusz awaryjny",
     "kind_irregular": "Wydatki nieregularne",
@@ -340,7 +341,19 @@
     "empty_body": "Dodaj pierwszy fundusz, aby zacząć śledzić pokrycie.",
     "backed_by": "Źródło: {account}",
     "months_of_coverage": "{months} miesięcy wydatków",
-    "saved": "Fundusz zapisany."
+    "saved": "Fundusz zapisany.",
+    "edit": "Edytuj",
+    "delete": "Usuń",
+    "archive": "Archiwizuj",
+    "unarchive": "Przywróć",
+    "confirm_delete_title": "Usunąć fundusz?",
+    "confirm_delete_body": "„{name}” zostanie trwale usunięty. Tej operacji nie można cofnąć — rozważ archiwizację zamiast usunięcia.",
+    "confirm_delete_confirm": "Usuń",
+    "deleted": "Fundusz usunięty.",
+    "archived_msg": "Fundusz zarchiwizowany.",
+    "unarchived_msg": "Fundusz przywrócony.",
+    "archived_section_heading": "Zarchiwizowane fundusze",
+    "archived_section_body": "Fundusze, które wycofałeś. Możesz je przywrócić w każdej chwili."
   },
   "monthly_readiness": {
     "title": "Gotowość miesięczna",

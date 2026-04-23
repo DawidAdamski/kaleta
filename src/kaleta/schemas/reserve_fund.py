@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -41,6 +42,7 @@ class ReserveFundUpdate(BaseModel):
     """All fields optional — PATCH semantics."""
 
     name: str | None = Field(default=None, min_length=1, max_length=100)
+    kind: ReserveFundKind | None = None
     target_amount: Decimal | None = Field(default=None, ge=Decimal("0"), decimal_places=2)
     backing_mode: ReserveFundBackingMode | None = None
     backing_account_id: int | None = None
@@ -52,6 +54,8 @@ class ReserveFundResponse(ReserveFundBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    is_archived: bool = False
+    archived_at: datetime.datetime | None = None
 
 
 class ReserveFundWithProgress(ReserveFundResponse):

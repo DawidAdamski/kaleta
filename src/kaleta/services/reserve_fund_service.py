@@ -43,15 +43,14 @@ class ReserveFundService:
         return fund
 
     async def get(self, fund_id: int) -> ReserveFund | None:
-        result = await self.session.execute(
-            select(ReserveFund).where(ReserveFund.id == fund_id)
-        )
+        result = await self.session.execute(select(ReserveFund).where(ReserveFund.id == fund_id))
         return result.scalar_one_or_none()
 
-    async def list(self) -> builtins.list[ReserveFund]:
-        result = await self.session.execute(
-            select(ReserveFund).order_by(ReserveFund.id)
-        )
+    async def list(self, *, include_archived: bool = False) -> builtins.list[ReserveFund]:
+        stmt = select(ReserveFund).order_by(ReserveFund.id)
+        if not include_archived:
+            stmt = stmt.where(ReserveFund.is_archived == False)  # noqa: E712
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
     async def update(self, fund_id: int, payload: ReserveFundUpdate) -> ReserveFund | None:
@@ -65,6 +64,26 @@ class ReserveFundService:
         await self.session.refresh(fund)
         return fund
 
+    async def archive(self, fund_id: int) -> ReserveFund | None:
+        fund = await self.get(fund_id)
+        if fund is None:
+            return None
+        fund.is_archived = True
+        fund.archived_at = datetime.datetime.now(datetime.UTC).replace(tzinfo=None)
+        await self.session.commit()
+        await self.session.refresh(fund)
+        return fund
+
+    async def unarchive(self, fund_id: int) -> ReserveFund | None:
+        fund = await self.get(fund_id)
+        if fund is None:
+            return None
+        fund.is_archived = False
+        fund.archived_at = None
+        await self.session.commit()
+        await self.session.refresh(fund)
+        return fund
+
     async def delete(self, fund_id: int) -> bool:
         fund = await self.get(fund_id)
         if fund is None:
@@ -74,15 +93,11 @@ class ReserveFundService:
         return True
 
     async def _account_balance(self, account_id: int) -> Decimal:
-        result = await self.session.execute(
-            select(Account.balance).where(Account.id == account_id)
-        )
+        result = await self.session.execute(select(Account.balance).where(Account.id == account_id))
         bal = result.scalar_one_or_none()
         return bal if bal is not None else Decimal("0.00")
 
-    async def _trailing_monthly_expense(
-        self, *, today: datetime.date | None = None
-    ) -> Decimal:
+    async def _trailing_monthly_expense(self, *, today: datetime.date | None = None) -> Decimal:
         """Average monthly expense over the trailing 90-day window.
 
         Only non-transfer expense transactions count. Returns Decimal("0")
@@ -133,6 +148,8 @@ class ReserveFundService:
                 "backing_account_id": fund.backing_account_id,
                 "backing_category_id": fund.backing_category_id,
                 "emergency_multiplier": fund.emergency_multiplier,
+                "is_archived": fund.is_archived,
+                "archived_at": fund.archived_at,
                 "current_balance": balance,
                 "progress_pct": pct,
                 "months_of_coverage": months_of_coverage,
@@ -140,9 +157,9 @@ class ReserveFundService:
         )
 
     async def list_with_progress(
-        self, *, today: datetime.date | None = None
+        self, *, today: datetime.date | None = None, include_archived: bool = False
     ) -> builtins.list[ReserveFundWithProgress]:
-        funds = await self.list()
+        funds = await self.list(include_archived=include_archived)
         return [await self.with_progress(f, today=today) for f in funds]
 
 

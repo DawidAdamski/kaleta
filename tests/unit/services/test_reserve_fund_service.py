@@ -216,3 +216,68 @@ class TestProgress:
             ReserveFundKind.EMERGENCY,
             ReserveFundKind.VACATION,
         }
+
+
+# ── Archive ───────────────────────────────────────────────────────────────────
+
+
+class TestArchive:
+    async def test_archive_sets_flag_and_timestamp(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("0"))
+        fund = await _make_fund(session, account_id=acc)
+        svc = ReserveFundService(session)
+        archived = await svc.archive(fund.id)
+        assert archived is not None
+        assert archived.is_archived is True
+        assert archived.archived_at is not None
+
+    async def test_archive_missing_returns_none(self, session: AsyncSession):
+        assert await ReserveFundService(session).archive(999) is None
+
+    async def test_unarchive_clears_flag(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("0"))
+        fund = await _make_fund(session, account_id=acc)
+        svc = ReserveFundService(session)
+        await svc.archive(fund.id)
+        restored = await svc.unarchive(fund.id)
+        assert restored is not None
+        assert restored.is_archived is False
+        assert restored.archived_at is None
+
+    async def test_list_hides_archived_by_default(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("0"))
+        fund_a = await _make_fund(session, account_id=acc, kind=ReserveFundKind.EMERGENCY)
+        await _make_fund(session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None)
+        svc = ReserveFundService(session)
+        await svc.archive(fund_a.id)
+        active = await svc.list()
+        assert len(active) == 1
+        assert active[0].kind == ReserveFundKind.VACATION
+
+    async def test_list_include_archived_returns_all(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("0"))
+        fund_a = await _make_fund(session, account_id=acc, kind=ReserveFundKind.EMERGENCY)
+        await _make_fund(session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None)
+        svc = ReserveFundService(session)
+        await svc.archive(fund_a.id)
+        everything = await svc.list(include_archived=True)
+        assert len(everything) == 2
+
+    async def test_list_with_progress_respects_archive_flag(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("100"))
+        fund_a = await _make_fund(session, account_id=acc, kind=ReserveFundKind.EMERGENCY)
+        await _make_fund(session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None)
+        svc = ReserveFundService(session)
+        await svc.archive(fund_a.id)
+        assert len(await svc.list_with_progress()) == 1
+        assert len(await svc.list_with_progress(include_archived=True)) == 2
+
+    async def test_update_kind_reclassifies_fund(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("0"))
+        fund = await _make_fund(
+            session, account_id=acc, kind=ReserveFundKind.IRREGULAR, multiplier=None
+        )
+        svc = ReserveFundService(session)
+        updated = await svc.update(fund.id, ReserveFundUpdate(kind=ReserveFundKind.VACATION))
+        assert updated is not None
+        assert updated.kind == ReserveFundKind.VACATION

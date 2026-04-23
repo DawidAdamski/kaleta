@@ -323,6 +323,7 @@
     "subtitle": "Track coverage for your emergency fund, irregular expenses, and vacation savings.",
     "add": "Add fund",
     "dialog_title": "New reserve fund",
+    "dialog_edit_title": "Edit reserve fund",
     "kind": "Fund type",
     "kind_emergency": "Emergency fund",
     "kind_irregular": "Irregular expenses",
@@ -340,7 +341,19 @@
     "empty_body": "Add your first fund to start tracking coverage.",
     "backed_by": "Backed by {account}",
     "months_of_coverage": "{months} months of expenses",
-    "saved": "Fund saved."
+    "saved": "Fund saved.",
+    "edit": "Edit",
+    "delete": "Delete",
+    "archive": "Archive",
+    "unarchive": "Unarchive",
+    "confirm_delete_title": "Delete fund?",
+    "confirm_delete_body": "\"{name}\" will be removed permanently. This cannot be undone — consider archiving instead.",
+    "confirm_delete_confirm": "Delete",
+    "deleted": "Fund deleted.",
+    "archived_msg": "Fund archived.",
+    "unarchived_msg": "Fund restored.",
+    "archived_section_heading": "Archived funds",
+    "archived_section_body": "Funds you've retired. Restore any time."
   },
   "monthly_readiness": {
     "title": "Monthly Readiness",
