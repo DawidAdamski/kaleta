@@ -113,3 +113,4 @@ The subagent:
 | [wizard-monthly-readiness](archive/wizard-monthly-readiness.md) | archived | Wizard → Monthly Readiness |
 | [wizard-subscriptions](wizard-subscriptions.md) | draft | Wizard → Subscriptions |
 | [wizard-budget-builder](archive/wizard-budget-builder.md) | archived | Wizard → Budget Builder |
+| [wizard-cross-panel-data](wizard-cross-panel-data.md) | draft | Wizard → cross-panel data flow |
