@@ -362,13 +362,54 @@ def _render_fund_card(
                     on_click=lambda _e, f=fund: on_delete(f),
                 ).props("flat dense round color=negative").tooltip(t("safety_funds.delete"))
 
-        ui.linear_progress(value=pct_clamped, size="8px", show_value=False, color=colour).classes(
-            "w-full mt-3"
+        # Progress bar — for emergency funds with a multiplier >= 2 we overlay
+        # tick marks so each segment represents one "month of survival money"
+        # (= target ÷ multiplier). For all other funds it's a plain bar.
+        show_ticks = (
+            fund.kind == ReserveFundKind.EMERGENCY
+            and fund.emergency_multiplier is not None
+            and fund.emergency_multiplier >= 2
         )
+        if show_ticks:
+            with ui.element("div").classes("relative w-full mt-3"):
+                ui.linear_progress(
+                    value=pct_clamped, size="8px", show_value=False, color=colour
+                ).classes("w-full")
+                # Absolutely positioned 1px-wide tick lines over the track.
+                # mypy/narrowing: the show_ticks guard ensures multiplier is int.
+                multiplier = fund.emergency_multiplier or 0
+                for i in range(1, multiplier):
+                    pct = int(round(i * 100 / multiplier))
+                    ui.element("div").classes(
+                        "absolute top-0 bottom-0 w-px bg-white/30"
+                    ).style(f"left: {pct}%;")
+        else:
+            ui.linear_progress(
+                value=pct_clamped, size="8px", show_value=False, color=colour
+            ).classes("w-full mt-3")
 
         with ui.row().classes("w-full items-center justify-between mt-2 text-xs"):
             ui.label(t("safety_funds.backed_by", account=account_name)).classes(BODY_MUTED)
-            if fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None:
+            # Survival-months footer: only for emergency funds with a multiplier
+            # and a non-zero target (required for the per-chunk math).
+            if (
+                fund.kind == ReserveFundKind.EMERGENCY
+                and fund.emergency_multiplier is not None
+                and fund.emergency_multiplier >= 1
+                and fund.target_amount > 0
+            ):
+                chunk = fund.target_amount / Decimal(fund.emergency_multiplier)
+                survived = (fund.current_balance / chunk).quantize(Decimal("0.1"))
+                ui.label(
+                    t(
+                        "safety_funds.survival_months",
+                        months=f"{survived:.1f}",
+                        goal=fund.emergency_multiplier,
+                    )
+                ).classes(BODY_MUTED)
+            elif fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None:
+                # Legacy fallback: emergency fund without a multiplier still
+                # gets the old trailing-spend line so the card isn't empty.
                 months_txt = f"{fund.months_of_coverage:.1f}"
                 if fund.emergency_multiplier is not None:
                     label_text = t(

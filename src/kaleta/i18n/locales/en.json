@@ -342,6 +342,7 @@
     "backed_by": "Backed by {account}",
     "months_of_coverage": "{months} months of expenses",
     "months_of_coverage_goal": "{months} / {goal} months of expenses",
+    "survival_months": "You will survive {months} / {goal} months",
     "saved": "Fund saved.",
     "edit": "Edit",
     "delete": "Delete",

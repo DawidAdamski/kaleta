@@ -342,6 +342,7 @@
     "backed_by": "Źródło: {account}",
     "months_of_coverage": "{months} miesięcy wydatków",
     "months_of_coverage_goal": "{months} / {goal} miesięcy wydatków",
+    "survival_months": "Wystarczy na {months} / {goal} miesięcy",
     "saved": "Fundusz zapisany.",
     "edit": "Edytuj",
     "delete": "Usuń",
