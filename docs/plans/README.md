@@ -80,6 +80,10 @@ The subagent:
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft | Dashboard |
+| [dashboard-chart-fluid-height](dashboard-chart-fluid-height.md) | draft | Dashboard |
+| [transactions-notes-field](transactions-notes-field.md) | draft | Transactions |
+| [wizard-action-items-widget](wizard-action-items-widget.md) | draft | Wizard |
 | [accounts-group-by-switch](archive/accounts-group-by-switch.md) | archived | Accounts |
 | [transactions-colored-amounts](archive/transactions-colored-amounts.md) | archived | Transactions + cross-cutting colours |
 | [tags-seed-list](archive/tags-seed-list.md) | archived | Tags |
@@ -95,6 +99,9 @@ The subagent:
 |---|---|---|
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](dashboard-widget-resize.md) | draft | Dashboard |
+| [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
+| [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
+| [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
 | [budgets-realization-view](archive/budgets-realization-view.md) | archived | Budgets |
@@ -111,6 +118,8 @@ The subagent:
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
+| [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
 | [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |
 | [budgets-rename-and-payment-calendar](archive/budgets-rename-and-payment-calendar.md) | archived | Budgets + new Payment Calendar |
 | [credit-first-class](archive/credit-first-class.md) | archived | Credit |
