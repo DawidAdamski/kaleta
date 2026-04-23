@@ -9,13 +9,21 @@ from nicegui import ui
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
 from kaleta.models.category import CategoryType
+from kaleta.schemas.wizard_projections import (
+    BudgetBuilderProjection,
+    PulledRow,
+)
 from kaleta.schemas.yearly_plan import (
     FixedLine,
     IncomeLine,
     VariableLine,
     YearlyPlanPayload,
 )
-from kaleta.services import CategoryService, YearlyPlanService
+from kaleta.services import (
+    CategoryService,
+    WizardProjectionService,
+    YearlyPlanService,
+)
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
 
@@ -33,6 +41,11 @@ def register() -> None:
         async with AsyncSessionFactory() as session:
             payload = await YearlyPlanService(session).get_payload(current_year)
             expense_cats = await CategoryService(session).list(type=CategoryType.EXPENSE)
+            projection: BudgetBuilderProjection = (
+                await WizardProjectionService(session).get_budget_builder_sources(
+                    current_year
+                )
+            )
 
         cat_opts: dict[int, str] = {c.id: c.name for c in expense_cats}
 
@@ -70,11 +83,14 @@ def register() -> None:
             def _render_income() -> None:
                 income_col.clear()
                 with income_col:
+                    _render_pulled_rows(projection.income)
+                    if projection.income:
+                        ui.separator().classes("my-1")
                     if not state["income"]:
                         ui.label(t("budget_builder.income_empty")).classes(f"{BODY_MUTED} py-2")
                     for idx, line in enumerate(state["income"]):
                         _render_income_row(idx, line)
-                    _render_yearly_total(state["income"])
+                    _render_yearly_total_combined(state["income"], projection.income)
 
             def _render_income_row(idx: int, line: IncomeLine) -> None:
                 with ui.row().classes("w-full items-center gap-2"):
@@ -127,11 +143,14 @@ def register() -> None:
             def _render_fixed() -> None:
                 fixed_col.clear()
                 with fixed_col:
+                    _render_pulled_rows(projection.fixed)
+                    if projection.fixed:
+                        ui.separator().classes("my-1")
                     if not state["fixed"]:
                         ui.label(t("budget_builder.fixed_empty")).classes(f"{BODY_MUTED} py-2")
                     for idx, line in enumerate(state["fixed"]):
                         _render_fixed_row(idx, line)
-                    _render_yearly_total(state["fixed"])
+                    _render_yearly_total_combined(state["fixed"], projection.fixed)
 
             def _render_fixed_row(idx: int, line: FixedLine) -> None:
                 with ui.row().classes("w-full items-center gap-2"):
@@ -200,11 +219,14 @@ def register() -> None:
             def _render_variable() -> None:
                 variable_col.clear()
                 with variable_col:
+                    _render_pulled_rows(projection.variable)
+                    if projection.variable:
+                        ui.separator().classes("my-1")
                     if not state["variable"]:
                         ui.label(t("budget_builder.variable_empty")).classes(f"{BODY_MUTED} py-2")
                     for idx, line in enumerate(state["variable"]):
                         _render_variable_row(idx, line)
-                    _render_yearly_total(state["variable"])
+                    _render_yearly_total_combined(state["variable"], projection.variable)
 
             def _render_variable_row(idx: int, line: VariableLine) -> None:
                 with ui.row().classes("w-full items-center gap-2"):
@@ -280,6 +302,64 @@ def register() -> None:
                         t("budget_builder.section_total", amount=_fmt(total))
                     ).classes(f"{BODY_MUTED} text-sm font-semibold")
 
+            def _render_yearly_total_combined(
+                lines: list[Any], pulled: list[PulledRow]
+            ) -> None:
+                typed = sum((ln.amount for ln in lines), Decimal("0"))
+                pulled_yearly = sum(
+                    (r.amount * Decimal("12") for r in pulled), Decimal("0")
+                )
+                grand = typed + pulled_yearly
+                with ui.column().classes("w-full items-end gap-0"):
+                    if pulled_yearly > 0:
+                        ui.label(
+                            t(
+                                "budget_builder.pulled_subtotal",
+                                amount=_fmt(pulled_yearly),
+                            )
+                        ).classes(f"{BODY_MUTED} text-xs")
+                    ui.label(
+                        t("budget_builder.section_total", amount=_fmt(grand))
+                    ).classes(f"{BODY_MUTED} text-sm font-semibold")
+
+            def _render_pulled_rows(rows: list[PulledRow]) -> None:
+                """Render read-only pulled rows with a lock badge + cross-link."""
+                if not rows:
+                    return
+                ui.label(t("budget_builder.pulled_heading")).classes(
+                    "text-xs uppercase tracking-wide text-slate-500 mt-1"
+                )
+                for row in rows:
+                    yearly = row.amount * Decimal("12")
+                    with ui.row().classes(
+                        "w-full items-center gap-2 py-1 opacity-75"
+                    ):
+                        ui.icon("lock_outline", size="0.9rem").classes(
+                            "text-slate-500"
+                        )
+                        ui.badge(
+                            t(f"budget_builder.source_{row.source_kind}"),
+                            color="grey-6",
+                        ).props("dense outline")
+                        ui.label(row.label).classes("flex-1 text-sm")
+                        ui.label(
+                            t(
+                                "budget_builder.pulled_monthly",
+                                amount=_fmt(row.amount),
+                                cadence=row.cadence,
+                            )
+                        ).classes("text-xs text-slate-500 w-40 text-right")
+                        ui.label(_fmt(yearly)).classes(
+                            "w-24 text-right text-sm"
+                        )
+                        if row.href:
+                            ui.button(
+                                icon="open_in_new",
+                                on_click=lambda _e, h=row.href: ui.navigate.to(h),
+                            ).props(
+                                "flat dense round size=sm color=primary"
+                            ).tooltip(t("budget_builder.pulled_edit"))
+
             # ── Section cards ────────────────────────────────────────────
             with ui.card().classes(SECTION_CARD):
                 with ui.row().classes("w-full items-center justify-between"):
@@ -314,24 +394,27 @@ def register() -> None:
                 ui.label(t("budget_builder.section_variable_hint")).classes(BODY_MUTED)
                 variable_col = ui.column().classes("w-full gap-2 mt-2")
 
-            with (
-                ui.card().classes(SECTION_CARD),
-                ui.row().classes("w-full items-center justify-between gap-3"),
-            ):
-                with ui.row().classes("items-center gap-3"):
-                    ui.icon("savings", size="1.4rem").classes("text-primary")
-                    with ui.column().classes("gap-0"):
+            # ── Reserves section ─────────────────────────────────────────
+            with ui.card().classes(SECTION_CARD):
+                with ui.row().classes("w-full items-center justify-between"):
+                    with ui.row().classes("items-center gap-3"):
+                        ui.icon("savings", size="1.4rem").classes("text-primary")
                         ui.label(t("budget_builder.reserves_heading")).classes(
-                            "font-semibold"
+                            SECTION_HEADING
                         )
-                        ui.label(t("budget_builder.reserves_link_body")).classes(
-                            BODY_MUTED
-                        )
-                ui.button(
-                    t("budget_builder.reserves_open"),
-                    icon="arrow_forward",
-                    on_click=lambda: ui.navigate.to("/wizard/safety-funds"),
-                ).props("flat color=primary")
+                    ui.button(
+                        t("budget_builder.reserves_open"),
+                        icon="arrow_forward",
+                        on_click=lambda: ui.navigate.to("/wizard/safety-funds"),
+                    ).props("flat color=primary")
+                ui.label(t("budget_builder.reserves_link_body")).classes(BODY_MUTED)
+                if projection.reserves:
+                    _render_pulled_rows(projection.reserves)
+                    _render_yearly_total_combined([], projection.reserves)
+                else:
+                    ui.label(t("budget_builder.reserves_empty")).classes(
+                        f"{BODY_MUTED} mt-2"
+                    )
 
             # ── Apply flow with diff dialog ──────────────────────────────
             with ui.dialog() as diff_dialog, ui.card().classes("w-[560px] gap-2"):

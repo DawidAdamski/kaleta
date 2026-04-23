@@ -324,7 +324,16 @@
     "default_variable_name": "New expense",
     "reserves_heading": "Reserve funds",
     "reserves_link_body": "Track emergency, irregular and vacation funds in one place.",
-    "reserves_open": "Open Safety Funds"
+    "reserves_open": "Open Safety Funds",
+    "reserves_empty": "No active reserve funds. Create one on the Safety Funds page to see it here.",
+    "pulled_heading": "From other panels",
+    "pulled_subtotal": "From other panels: {amount}",
+    "pulled_monthly": "{amount} / {cadence}",
+    "pulled_edit": "Edit in source panel",
+    "source_subscription": "Subscription",
+    "source_planned": "Planned",
+    "source_reserve": "Reserve",
+    "source_loan": "Loan"
   },
   "safety_funds": {
     "title": "Safety & Reserve Funds",
@@ -870,6 +879,7 @@
     "day_header": "{date}",
     "day_items": "Items for this day",
     "day_empty": "Nothing planned for this day.",
+    "subscription_charges": "Subscription charges",
     "day_empty_totals": "No planned activity.",
     "overdue_title": "Overdue (last 30 days)",
     "overdue_count": "Overdue",

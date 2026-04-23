@@ -324,7 +324,16 @@
     "default_variable_name": "Nowy wydatek",
     "reserves_heading": "Fundusze rezerwowe",
     "reserves_link_body": "Śledź fundusz awaryjny, wydatki nieregularne i wakacyjny w jednym miejscu.",
-    "reserves_open": "Otwórz Fundusze bezpieczeństwa"
+    "reserves_open": "Otwórz Fundusze bezpieczeństwa",
+    "reserves_empty": "Brak aktywnych funduszy. Utwórz w Funduszach bezpieczeństwa, aby zobaczyć tutaj.",
+    "pulled_heading": "Z innych panelów",
+    "pulled_subtotal": "Z innych panelów: {amount}",
+    "pulled_monthly": "{amount} / {cadence}",
+    "pulled_edit": "Edytuj w panelu źródłowym",
+    "source_subscription": "Subskrypcja",
+    "source_planned": "Planowana",
+    "source_reserve": "Rezerwa",
+    "source_loan": "Pożyczka"
   },
   "safety_funds": {
     "title": "Fundusze bezpieczeństwa i rezerwowe",
@@ -870,6 +879,7 @@
     "day_header": "{date}",
     "day_items": "Pozycje dla tego dnia",
     "day_empty": "Brak zaplanowanych pozycji na ten dzień.",
+    "subscription_charges": "Opłaty subskrypcji",
     "day_empty_totals": "Brak zaplanowanej aktywności.",
     "overdue_title": "Zaległe (ostatnie 30 dni)",
     "overdue_count": "Zaległe",

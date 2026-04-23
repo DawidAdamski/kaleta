@@ -24,7 +24,13 @@ from kaleta.models.category import Category
 from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
-from kaleta.services import AccountService, CategoryService, PlannedTransactionService
+from kaleta.schemas.wizard_projections import SubscriptionCharge
+from kaleta.services import (
+    AccountService,
+    CategoryService,
+    PlannedTransactionService,
+    WizardProjectionService,
+)
 from kaleta.services.planned_transaction_service import (
     DayAggregate,
     MonthGrid,
@@ -80,6 +86,8 @@ def register() -> None:
             "year": today.year,
             "month": today.month,
             "selected": today,
+            # dict[date, list[SubscriptionCharge]] — populated on refresh.
+            "subs_by_day": {},
         }
 
         async with AsyncSessionFactory() as session:
@@ -206,6 +214,18 @@ def register() -> None:
                     f"{amt_cls} text-sm font-semibold"
                 )
 
+        def _render_subscription_row(ch: SubscriptionCharge) -> None:
+            with ui.row().classes(
+                "w-full items-center justify-between p-2 rounded-lg "
+                "border border-slate-200/60"
+            ):
+                with ui.row().classes("items-center gap-2 flex-1"):
+                    ui.icon("subscriptions", size="1rem").classes("text-primary")
+                    ui.label(ch.name).classes("text-sm font-medium")
+                ui.label(f"-{_fmt(ch.amount)}").classes(
+                    f"{AMOUNT_EXPENSE} text-sm font-semibold"
+                )
+
         def _open_day(
             date: datetime.date,
             cell: DayAggregate | None,
@@ -221,6 +241,8 @@ def register() -> None:
                 )
             else:
                 day_totals.set_text(t("payment_calendar.day_empty_totals"))
+
+            subs_for_day = state["subs_by_day"].get(date, [])
 
             day_content.clear()
             with day_content:
@@ -238,10 +260,18 @@ def register() -> None:
                 if cell and cell.occurrences:
                     for occ in cell.occurrences:
                         _render_occurrence_row(occ)
-                else:
+                elif not subs_for_day:
                     ui.label(t("payment_calendar.day_empty")).classes(
                         "text-sm text-slate-500 italic"
                     )
+
+                if subs_for_day:
+                    ui.separator().classes("my-2")
+                    ui.label(t("payment_calendar.subscription_charges")).classes(
+                        "text-xs font-semibold uppercase tracking-wide text-slate-500"
+                    )
+                    for ch in subs_for_day:
+                        _render_subscription_row(ch)
             day_add_btn.set_text(
                 t("payment_calendar.add_for_day_short", date=date.isoformat())
             )
@@ -295,6 +325,9 @@ def register() -> None:
             async def _refresh() -> None:
                 y, m = state["year"], state["month"]
                 month_label.set_text(_month_label(y, m))
+                last_day = calendar.monthrange(y, m)[1]
+                first = datetime.date(y, m, 1)
+                last = datetime.date(y, m, last_day)
                 async with AsyncSessionFactory() as session:
                     overdue_days = int(
                         app.storage.user.get("payment_calendar_overdue_days", 0) or 0
@@ -302,6 +335,14 @@ def register() -> None:
                     grid = await PlannedTransactionService(session).grid_for_month(
                         y, m, overdue_window_days=overdue_days
                     )
+                    # Project subscription renewals onto this month.
+                    sub_sources = await WizardProjectionService(
+                        session
+                    ).get_payment_calendar_sources(first, last)
+                subs_by_day: dict[datetime.date, list[SubscriptionCharge]] = {}
+                for ch in sub_sources.subscription_charges:
+                    subs_by_day.setdefault(ch.date, []).append(ch)
+                state["subs_by_day"] = subs_by_day
 
                 kpi_in.set_text(
                     f"{t('payment_calendar.month_in')}: +{_fmt(grid.total_inflow())}"
@@ -379,23 +420,30 @@ def register() -> None:
                     "click",
                     lambda _e=None, d=date, c=cell, ov=overdue: _open_day(d, c, ov),
                 )
+                subs_for_day = state["subs_by_day"].get(date, [])
+                subs_outflow = sum(
+                    (s.amount for s in subs_for_day), Decimal("0")
+                )
+                total_count = (len(cell.occurrences) if cell else 0) + len(subs_for_day)
+                combined_outflow = (cell.outflow if cell else Decimal("0")) + subs_outflow
+
                 with col:
                     with ui.row().classes("w-full items-center justify-between"):
                         ui.label(str(date.day)).classes(
                             "text-base font-bold "
                             + ("text-primary" if is_today else "text-slate-700")
                         )
-                        if cell and cell.occurrences:
-                            ui.badge(str(len(cell.occurrences))).props(
+                        if total_count > 0:
+                            ui.badge(str(total_count)).props(
                                 "color=primary rounded"
                             ).classes("text-xs font-semibold")
-                    if cell:
-                        if cell.inflow > 0:
+                    if cell or subs_for_day:
+                        if cell and cell.inflow > 0:
                             ui.label(f"+{_fmt(cell.inflow)}").classes(
                                 f"{AMOUNT_INCOME} text-sm font-bold leading-tight"
                             )
-                        if cell.outflow > 0:
-                            ui.label(f"-{_fmt(cell.outflow)}").classes(
+                        if combined_outflow > 0:
+                            ui.label(f"-{_fmt(combined_outflow)}").classes(
                                 f"{AMOUNT_EXPENSE} text-sm font-bold leading-tight"
                             )
 

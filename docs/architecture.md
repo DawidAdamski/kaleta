@@ -77,7 +77,8 @@ kaleta/
 │   │   ├── institution.py
 │   │   ├── asset.py
 │   │   ├── planned_transaction.py
-│   │   └── credit.py        # CardView (utilization, min-payment, next-due, status chip) + LoanView (remaining balance, amortisation schedule)
+│   │   ├── credit.py        # CardView (utilization, min-payment, next-due, status chip) + LoanView (remaining balance, amortisation schedule)
+│   │   └── wizard_projections.py  # PulledRow, BudgetBuilderProjection, PaymentCalendarProjection, SubscriptionCharge
 │   ├── services/            # Business logic
 │   │   ├── account_service.py
 │   │   ├── transaction_service.py
@@ -93,7 +94,8 @@ kaleta/
 │   │   ├── subscription_service.py  # detect_candidates(window_days=...) — skips Subscriptions-tree transactions; create_from_candidate re-categorises history; subscription_transactions_grouped(window_days=90)
 │   │   ├── dedupe_service.py        # duplicate_transactions(window_days=...) — configurable scan window
 │   │   ├── planned_transaction_service.py  # grid_for_month(..., overdue_window_days=...) — configurable overdue look-back
-│   │   └── credit_service.py        # CreditService: card CRUD + loan CRUD; pure helpers: compute_monthly_payment, amortisation_schedule, compute_min_payment, next_due_date
+│   │   ├── credit_service.py        # CreditService: card CRUD + loan CRUD; pure helpers: compute_monthly_payment, amortisation_schedule, compute_min_payment, next_due_date
+│   │   └── wizard_projection_service.py  # WizardProjectionService: get_budget_builder_sources(year), get_payment_calendar_sources(start, end) — read-only cross-panel projections
 │   ├── controllers/         # Route handlers, orchestration
 │   ├── api/                 # REST API endpoints (v1/)
 │   └── views/               # NiceGUI UI pages
@@ -313,6 +315,11 @@ kaleta/
 - **Decision**: `CreditCardProfile` and `LoanProfile` are standalone tables (`credit_card_profiles`, `loan_profiles`), each with a one-to-one FK to `accounts.id` (CASCADE delete, one profile per account). Credit accounts use `type=CREDIT` with a **negative** balance convention (money owed is stored negative; views normalise to positive "amount owed" for display). Rich credit fields live in the profile tables rather than on `accounts`.
 - **Rationale**: Stuffing credit-specific columns (APR, credit limit, billing cycle, loan term, amortisation type, etc.) directly onto `Account` would bloat the table and add nullable columns that are meaningless for non-credit accounts. A separate profile preserves a clean `Account` schema while allowing credit-specific queries to operate on a dedicated table. Reusing `Account` for the balance ledger avoids duplicating transaction, transfer, and multi-currency machinery.
 - **Consequence**: Migration `c7e9b3f1a2d5_add_credit_and_loan_profiles.py`. `CreditService` provides card CRUD (`create_card`, `update_card`, `get_card_by_account`, `list_cards`) and loan CRUD (`create_loan`, `update_loan`, `get_loan_by_account`, `list_loans`, `amortisation`). Pure helpers (`compute_monthly_payment`, `amortisation_schedule`, `compute_min_payment`, `next_due_date`) contain no ORM dependency. Utilization thresholds: green < 30 %, amber < 70 %, red ≥ 70 %. Minimum payment = max(2 % × balance, 30 PLN), capped at balance. Amortisation uses the standard fixed-rate annuity formula; the last row absorbs rounding so `Σ principal_paid == principal` exactly. Status chips: on-time / due-soon (≤ 5 days) / overdue. Variable-rate loans and mid-life APR changes are out of scope.
+
+### ADR-030: Read-Only Cross-Panel Projection Layer
+- **Decision**: Introduce `WizardProjectionService` as a dedicated read-only service that normalises data from other wizard panels (planned transactions, subscriptions, loans, reserve funds) into monthly-equivalent projections. Budget Builder (`/wizard/budget-builder`) and Payment Calendar (`/payment-calendar`) consume these projections to surface "pulled" rows from sibling panels without storing them locally. Cross-links redirect users to the source panel for edits.
+- **Rationale**: Each wizard panel already owns its data; duplicating that data into a second panel's storage would create synchronisation drift. A pure read layer avoids duplication: the projection is recomputed at render time from the authoritative source, so no sync is needed. Keeping the service stateless (no writes) means it carries no migration cost and is trivially testable in isolation.
+- **Consequence**: `WizardProjectionService.get_budget_builder_sources(year)` returns a `BudgetBuilderProjection` (income, fixed, variable, reserves); `get_payment_calendar_sources(start, end)` returns a `PaymentCalendarProjection` (subscription_charges). Monthly-equivalent rules: subscriptions = `amount × 30 / cadence_days`; planned transactions use a frequency→multiplier table divided by interval; reserve funds use `target ÷ multiplier` (emergency) or `target ÷ 12`; loans use `LoanProfile.monthly_payment` directly. Yearly totals = pulled monthly × 12. Already-saved `YearlyPlan` snapshots are unaffected — they stay as-written; the projection is not back-filled. Pulled rows render as read-only in the UI (lock icon + source badge).
 
 ## UI Colour Schema
 

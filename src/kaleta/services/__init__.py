@@ -19,6 +19,7 @@ from kaleta.services.saved_report_service import SavedReportService
 from kaleta.services.subscription_service import SubscriptionService
 from kaleta.services.tag_service import TagService
 from kaleta.services.transaction_service import TransactionService
+from kaleta.services.wizard_projection_service import WizardProjectionService
 from kaleta.services.yearly_plan_service import YearlyPlanService
 
 __all__ = [
@@ -43,5 +44,6 @@ __all__ = [
     "SubscriptionService",
     "TagService",
     "TransactionService",
+    "WizardProjectionService",
     "YearlyPlanService",
 ]
