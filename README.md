@@ -19,6 +19,7 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Credit calculator — loan amortization for consumer loans, car loans, and mortgages; equal vs decreasing installments; monthly overpayment and lump-sum simulation
 - Annual budget planning grid — per-category monthly targets across a full year, budget-vs-actual overlay, year-over-year comparison
 - Initial setup wizard — guided onboarding with zero-based budget assignment; "Finish Setup" requires every opening-balance zloty to be assigned
+- Settings — tabbed page (General, Appearance, Features, Data, History, About) with configurable locale, theme, detector look-back windows, backup/restore, and audit log; all preferences stored in server-side session storage
 - Installable as a Progressive Web App (PWA) on mobile and desktop
 - REST API for integrations
 - SQLite (default) or PostgreSQL

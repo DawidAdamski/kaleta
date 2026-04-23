@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from nicegui import ui
+from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
@@ -30,7 +30,10 @@ def register() -> None:
     async def housekeeping_page() -> None:
         async with AsyncSessionFactory() as session:
             svc = DedupeService(session)
-            tx_groups = await svc.duplicate_transactions()
+            dup_window_days = int(
+                app.storage.user.get("housekeeping_duplicate_days", 0) or 0
+            ) or None
+            tx_groups = await svc.duplicate_transactions(window_days=dup_window_days)
             payee_groups = await svc.similar_payees()
             category_groups = await svc.redundant_categories()
 

@@ -88,7 +88,9 @@ kaleta/
 │   │   ├── asset_service.py
 │   │   ├── net_worth_service.py
 │   │   ├── payee_service.py # Payee CRUD + merge() + find_or_create()
-│   │   └── planned_transaction_service.py  # Planned/recurring transaction CRUD
+│   │   ├── subscription_service.py  # detect_candidates(window_days=...) — configurable look-back
+│   │   ├── dedupe_service.py        # duplicate_transactions(window_days=...) — configurable scan window
+│   │   └── planned_transaction_service.py  # grid_for_month(..., overdue_window_days=...) — configurable overdue look-back
 │   ├── controllers/         # Route handlers, orchestration
 │   ├── api/                 # REST API endpoints (v1/)
 │   └── views/               # NiceGUI UI pages
@@ -107,6 +109,7 @@ kaleta/
 │       ├── credit_calculator.py     # Loan amortization calculator (/credit-calculator)
 │       ├── budget_plan.py           # Annual budget planning grid (/budget-plan)
 │       ├── setup.py                 # First-run database setup page (/setup)
+│       ├── settings.py              # Settings page (/settings) — 6 tabs; module docstring lists all app.storage.user keys
 │       └── wizard.py                # Onboarding wizard (/wizard)
 ├── tests/
 │   ├── conftest.py          # In-memory SQLite async fixtures
@@ -178,14 +181,30 @@ kaleta/
   Prophet is CPU-bound; runs in a thread pool via `asyncio.run_in_executor` to avoid
   blocking the async event loop.
 
-### ADR-009: Dark Mode via app.storage.user
-- **Decision**: Store dark mode preference server-side in `app.storage.user`.
+### ADR-009: Per-User Settings via app.storage.user
+- **Decision**: Store all per-user preferences server-side in `app.storage.user`.
 - **Rationale**: `app.storage.browser` (cookie-based) is not available synchronously
   on page render in NiceGUI. `app.storage.user` is server-side per-session and
   available immediately, making it reliable for per-page layout decisions.
-- **Consequence**: Dark mode persists within a session but resets on server restart.
+- **Consequence**: Preferences persist within a session but reset on server restart.
   ECharts charts have explicit colour overrides via `views/chart_utils.py:apply_dark()`
-  since ECharts does not auto-adapt to Quasar's dark mode.
+  since ECharts does not auto-adapt to Quasar's dark mode. All persisted keys are
+  enumerated in the `views/settings.py` module docstring:
+
+  | Key | Values / Type | Default |
+  |-----|---------------|---------|
+  | `language` | `"en"` \| `"pl"` | `"en"` |
+  | `currency` | ISO 4217 code | `"PLN"` |
+  | `date_format` | `"iso"` \| `"eu"` \| `"us"` | `"iso"` |
+  | `week_start` | `"monday"` \| `"sunday"` | `"monday"` |
+  | `dark_mode` | `bool` | `False` |
+  | `sidebar_mini` | `bool` | `False` |
+  | `nav_collapsed` | `dict[str, bool]` | `{}` |
+  | `wizard_onboarding_open` | `bool` | `True` |
+  | `wizard_mentor_dismissed` | `list[str]` | `[]` |
+  | `subscriptions_detector_days` | `int` | `730` |
+  | `housekeeping_duplicate_days` | `int` | `365` |
+  | `payment_calendar_overdue_days` | `int` | `30` |
 
 ### ADR-010: Budget Range Aggregation
 - **Decision**: `BudgetService.range_summary(start, end)` aggregates budget rows
@@ -270,6 +289,11 @@ kaleta/
 - **Decision**: Add a `/wizard` view (`views/wizard.py`) that guides new users through sequential steps: institution → accounts with opening balances → categories → zero-based budget assignment. The "Finish Setup" button is disabled until the unassigned amount equals zero. A separate `/setup` view (`views/setup.py`) handles first-run database configuration (local vs cloud).
 - **Rationale**: An empty database provides no orientation. The wizard ensures every user begins with a valid institution, at least one account, a category structure, and a fully assigned budget — the minimum viable state for the app to be useful. Enforcing zero-based assignment at setup establishes the budgeting discipline the app is built around.
 - **Consequence**: A `setup_complete` flag (stored in `app.storage.user` or a settings row) gates the redirect: an empty database sends the user to `/wizard`; a completed setup sends them to the dashboard. Wizard state (which steps are complete) persists so users can resume after an interruption. The "load suggested categories" action inserts a predefined Polish-language category set. Opening balances entered in the accounts step are recorded as initial-balance transactions on the respective accounts.
+
+### ADR-027: Settings Page with Tabbed Layout and User-Configurable Service Parameters
+- **Decision**: Restructure `/settings` (`views/settings.py`) into 6 tabs — General, Appearance, Features, Data, History, About — and thread user-configurable window parameters into the services that previously used hard-coded defaults.
+- **Rationale**: A flat settings page becomes unwieldy once the number of knobs exceeds a handful. Tabs group concerns naturally: locale/format knobs belong in General; theme knobs in Appearance; detector look-back windows in Features; backup/restore/wipe in Data; the audit log in History; and build metadata in About. Passing `window_days` arguments at the call site (rather than reading `app.storage.user` inside a service) keeps services storage-agnostic and independently testable.
+- **Consequence**: `SubscriptionService.detect_candidates(window_days=...)`, `DedupeService.duplicate_transactions(window_days=...)`, and `PlannedTransactionService.grid_for_month(..., overdue_window_days=...)` each accept an explicit window parameter; callers read the value from `app.storage.user` and pass it in. The Wipe-DB action requires the user to type `DELETE` to confirm. The Reset Getting Started button clears `wizard_mentor_dismissed` and sets `wizard_onboarding_open = True`.
 
 ### ADR-021: BDD/E2E Test Layer with pytest-playwright
 - **Decision**: Add a `tests/e2e/` layer using pytest-playwright. Tests run against a live Kaleta instance (default `http://localhost:8080`). The Gherkin-style scenarios driving the suite are documented in `docs/bdd.md`.

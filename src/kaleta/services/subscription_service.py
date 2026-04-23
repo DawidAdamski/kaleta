@@ -144,10 +144,14 @@ class SubscriptionService:
     # ── Detector ──────────────────────────────────────────────────────────
 
     async def detect_candidates(
-        self, *, today: datetime.date | None = None
+        self,
+        *,
+        today: datetime.date | None = None,
+        window_days: int | None = None,
     ) -> builtins.list[DetectorCandidate]:
         ref = today or datetime.date.today()
-        window_start = ref - datetime.timedelta(days=DETECTOR_WINDOW_DAYS)
+        effective_window = window_days if window_days and window_days > 0 else DETECTOR_WINDOW_DAYS
+        window_start = ref - datetime.timedelta(days=effective_window)
 
         # Existing subscriptions block their payees/names from candidates.
         existing = await self.session.execute(

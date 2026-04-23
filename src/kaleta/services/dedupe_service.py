@@ -95,16 +95,24 @@ class DedupeService:
     # ── Duplicate transactions ────────────────────────────────────────────
 
     async def duplicate_transactions(
-        self, *, today: datetime.date | None = None
+        self,
+        *,
+        today: datetime.date | None = None,
+        window_days: int | None = None,
     ) -> builtins.list[TxGroup]:
         """Find transactions with the same account, amount, near-same date, similar desc.
 
-        Scans only the last ``DUPLICATE_TX_SCAN_DAYS`` days — older duplicates
-        are rarely worth merging and make the O(n²) clustering step slow on
-        large histories.
+        Scans only the last ``window_days`` days (or ``DUPLICATE_TX_SCAN_DAYS``
+        when omitted) — older duplicates are rarely worth merging and make the
+        O(n²) clustering step slow on large histories.
         """
         ref = today or datetime.date.today()
-        window_start = ref - datetime.timedelta(days=DUPLICATE_TX_SCAN_DAYS)
+        effective_window = (
+            window_days
+            if window_days and window_days > 0
+            else DUPLICATE_TX_SCAN_DAYS
+        )
+        window_start = ref - datetime.timedelta(days=effective_window)
         # Fetch lightweight rows within the scan window.
         result = await self.session.execute(
             select(

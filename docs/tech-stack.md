@@ -35,7 +35,7 @@ Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
 
 | Feature             | Implementation                                              |
 |---------------------|-------------------------------------------------------------|
-| Dark mode           | `ui.dark_mode()` + `app.storage.user` for session persistence |
+| Dark mode           | `ui.dark_mode()` + `app.storage.user` (server-side per-session storage) for session persistence |
 | Chart dark mode     | `views/chart_utils.py:apply_dark()` injects ECharts text colours |
 | Budget period picker | 10 presets (This Month → Last 5 Years), `ui.refreshable` content |
 | Categories CRUD     | Grouped by Income / Expense, inline edit & delete dialogs  |
@@ -55,6 +55,7 @@ Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
 | Account balance forecast | `/forecast`: Prophet-based forecast per account or combined multi-account selection; configurable horizon; "include planned transactions" toggle; shaded confidence interval; zero-balance crossing alert; insufficient-history warning when fewer than 90 data points |
 | Annual budget planning | `/budget-plan`: 12-column × N-category grid for a selected year; inline cell editing; "set uniform amount" and "copy previous month" bulk actions; "Budget vs Actual" toggle overlays real spending; year-over-year comparison; negative values rejected at schema level |
 | Setup wizard        | `/wizard`: onboarding steps (institution → accounts with opening balances → categories → zero-based budget assignment); "Finish Setup" disabled until unassigned amount = 0; "load suggested categories" inserts a predefined set; wizard progress persists across sessions; fresh empty database redirects here automatically. `/setup` (separate) handles first-run database configuration |
+| Settings            | `/settings`: 6 tabs — General (language, currency, date format, week start), Appearance (theme, sidebar default), Features (reset Getting Started; detector look-back windows for Subscriptions, Housekeeping, Payment Calendar), Data (backup/restore, seed, wipe — requires typing `DELETE`; exchange rates), History (audit log), About (version, env, links). All knobs persist in `app.storage.user`. |
 
 ## Development Tools
 

@@ -4,7 +4,7 @@ import datetime
 from decimal import Decimal
 from typing import Any
 
-from nicegui import ui
+from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
@@ -65,7 +65,10 @@ def register() -> None:
             svc = SubscriptionService(session)
             subs = await svc.list()
             totals = await svc.totals()
-            candidates = await svc.detect_candidates()
+            detector_days = int(
+                app.storage.user.get("subscriptions_detector_days", 0) or 0
+            ) or None
+            candidates = await svc.detect_candidates(window_days=detector_days)
             renewals = await svc.upcoming_renewals(days=30)
             expense_cats = await CategoryService(session).list(type=CategoryType.EXPENSE)
 

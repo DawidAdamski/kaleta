@@ -16,7 +16,7 @@ import datetime
 from decimal import Decimal
 from typing import Any
 
-from nicegui import ui
+from nicegui import app, ui
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
@@ -296,7 +296,12 @@ def register() -> None:
                 y, m = state["year"], state["month"]
                 month_label.set_text(_month_label(y, m))
                 async with AsyncSessionFactory() as session:
-                    grid = await PlannedTransactionService(session).grid_for_month(y, m)
+                    overdue_days = int(
+                        app.storage.user.get("payment_calendar_overdue_days", 0) or 0
+                    ) or 30
+                    grid = await PlannedTransactionService(session).grid_for_month(
+                        y, m, overdue_window_days=overdue_days
+                    )
 
                 kpi_in.set_text(
                     f"{t('payment_calendar.month_in')}: +{_fmt(grid.total_inflow())}"
