@@ -6,6 +6,13 @@ from kaleta.models.category import Category, CategoryType
 from kaleta.models.dismissed_candidate import DismissedCandidate
 from kaleta.models.monthly_readiness import MonthlyReadiness
 from kaleta.models.payee import Payee
+from kaleta.models.personal_loan import (
+    Counterparty,
+    LoanDirection,
+    LoanStatus,
+    PersonalLoan,
+    PersonalLoanRepayment,
+)
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.report import SavedReport
 from kaleta.models.reserve_fund import ReserveFund, ReserveFundBackingMode, ReserveFundKind
@@ -23,6 +30,7 @@ __all__ = [
     "Budget",
     "Category",
     "CategoryType",
+    "Counterparty",
     "DismissedCandidate",
     "MonthlyReadiness",
     "PlannedTransaction",
@@ -30,8 +38,12 @@ __all__ = [
     "ReserveFund",
     "ReserveFundBackingMode",
     "ReserveFundKind",
+    "LoanDirection",
+    "LoanStatus",
     "SavedReport",
     "Payee",
+    "PersonalLoan",
+    "PersonalLoanRepayment",
     "Subscription",
     "SubscriptionStatus",
     "Tag",

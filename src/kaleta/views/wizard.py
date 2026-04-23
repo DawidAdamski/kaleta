@@ -28,6 +28,8 @@ _STEPS: list[tuple[str, str, str]] = [
     # Budget builder
     ("checklist", "budget_builder", "budget"),
     ("science", "scenarios", "budget"),
+    # Personal loans
+    ("handshake", "personal_loans", "loans"),
 ]
 
 _SECTION_ICONS = {
@@ -36,6 +38,7 @@ _SECTION_ICONS = {
     "funds": "savings",
     "income": "account_balance_wallet",
     "budget": "bar_chart",
+    "loans": "handshake",
 }
 
 _SECTION_COLORS = {
@@ -44,6 +47,7 @@ _SECTION_COLORS = {
     "funds": "green-7",
     "income": "orange-7",
     "budget": "purple-7",
+    "loans": "cyan-7",
 }
 
 # Steps that link out to a working page — everything else shows "Coming soon".
@@ -57,6 +61,7 @@ _STEP_ROUTES: dict[str, str] = {
     "sub_renewals": "/wizard/subscriptions",
     "sub_audit": "/wizard/subscriptions",
     "sub_cost_trends": "/wizard/subscriptions",
+    "personal_loans": "/wizard/personal-loans",
 }
 
 # (icon, title_key, desc_key, url, done_hint_key)

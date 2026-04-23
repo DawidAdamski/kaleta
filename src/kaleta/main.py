@@ -79,6 +79,7 @@ def _register_views() -> None:
         net_worth,
         payees,
         payment_calendar,
+        personal_loans,
         planned_transactions,
         reports,
         reports_canned,
@@ -109,6 +110,7 @@ def _register_views() -> None:
     reports_canned.register()
     safety_funds.register()
     subscriptions.register()
+    personal_loans.register()
     monthly_readiness.register()
     net_worth.register()
     credit_calculator.register()
