@@ -371,17 +371,22 @@ def _render_fund_card(
             and fund.emergency_multiplier >= 2
         )
         if show_ticks:
-            with ui.element("div").classes("relative w-full mt-3"):
+            # Slightly taller container so ticks stick out above and below the
+            # 8px track — that way a single hard edge reads against green,
+            # amber, red fills and the unfilled grey rail alike.
+            with ui.element("div").classes("relative w-full mt-3 h-4 flex items-center"):
                 ui.linear_progress(
                     value=pct_clamped, size="8px", show_value=False, color=colour
                 ).classes("w-full")
-                # Absolutely positioned 1px-wide tick lines over the track.
-                # mypy/narrowing: the show_ticks guard ensures multiplier is int.
+                # Full-height dark ticks with a 2px width and a faint white
+                # shadow. mypy/narrowing: show_ticks guard ensures multiplier.
                 multiplier = fund.emergency_multiplier or 0
                 for i in range(1, multiplier):
                     pct = int(round(i * 100 / multiplier))
                     ui.element("div").classes(
-                        "absolute top-0 bottom-0 w-px bg-white/30"
+                        "absolute top-0 bottom-0 w-0.5 bg-slate-900/70 "
+                        "[box-shadow:0_0_0_1px_rgba(255,255,255,0.35)] "
+                        "-translate-x-1/2"
                     ).style(f"left: {pct}%;")
         else:
             ui.linear_progress(
