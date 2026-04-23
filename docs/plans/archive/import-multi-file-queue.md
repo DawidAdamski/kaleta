@@ -3,7 +3,8 @@ plan_id: import-multi-file-queue
 title: Import — multi-file queue
 area: import
 effort: medium
-status: draft
+status: archived
+archived_at: 2026-04-23
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -55,3 +56,31 @@ Out of scope:
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2c25f1f` | Dawid | 2026-04-23 | feat(import): multi-file queue with per-file mapping and Import all |
+
+**Files changed:**
+- src/kaleta/views/import_view.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+
+**What shipped:**
+- Multi-file drop (`multiple=True, max_files=20`) with per-file `QueuedFile` dataclass holding profile, parsed rows, metadata, settings, status, and result counts.
+- Queue panel with per-file status chips (pending / ready / importing / done / failed), theme-aware left-border highlight on the active file, and a remove button.
+- All existing sections (profile / settings / preview / transfer detect) now bind to the active file; switching focus repaints from stored state — "draft mapping" is preserved implicitly.
+- Settings inheritance: same-mBank-account-digits → full inherit; same-profile → categories + skip-dupes inherit.
+- Import All runs the queue sequentially, stamps status per file, and renders a summary card with per-file rows and totals (imported / skipped / failed).
+- mBank auto-match on upload still works per file; currency-mismatch blocking still enforced.
+
+**Partial coverage / deferred:**
+- Queue is in-memory only — tab reload loses it (matches plan's v1 open-question answer).
+- Parallel import workers deferred; sequential import suffices for v1.
+- ZIP expansion not added.
+- No automated E2E scenario yet (manual browser verification only).
+- Per-file transfer-detect button is shown but runs the global detector — a tighter per-file scope would need service changes.
