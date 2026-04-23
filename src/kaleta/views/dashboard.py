@@ -36,19 +36,12 @@ _SORTABLE_CDN = (
 _EDIT_MODE_STYLE = """
 <style>
   .dash-widget-wrap { position: relative; }
-  /* The drag handle is an invisible, full-card overlay while editing so
-     the user can grab anywhere on the card. The visible drag icon sits
-     in the top-right corner of the overlay. Outside edit mode the
-     overlay is hidden and doesn't intercept clicks. */
-  .dash-widget-wrap .dash-drag-handle {
-    position: absolute; inset: 0; z-index: 5;
-    display: none;
-    cursor: grab;
-    border-radius: 10px;
-  }
-  .dash-widget-wrap .dash-drag-handle:active { cursor: grabbing; }
+  /* Decorative drag icon in the top-right corner. Hidden outside edit
+     mode. Does not itself receive pointer events — the whole card is
+     the drag surface, and SortableJS listens on the card container. */
   .dash-widget-wrap .dash-drag-handle-icon {
-    position: absolute; top: 6px; right: 6px;
+    position: absolute; top: 6px; right: 6px; z-index: 5;
+    display: none;
     padding: 2px 4px;
     border-radius: 6px;
     color: #64748b;
@@ -59,8 +52,10 @@ _EDIT_MODE_STYLE = """
     outline: 1px dashed rgba(100,116,139,0.45);
     outline-offset: 4px;
     border-radius: 10px;
+    cursor: grab;
   }
-  body.dash-editing .dash-widget-wrap .dash-drag-handle {
+  body.dash-editing .dash-widget-wrap:active { cursor: grabbing; }
+  body.dash-editing .dash-widget-wrap .dash-drag-handle-icon {
     display: block;
   }
   body.dash-editing .dash-widget-wrap:focus-visible {
@@ -88,7 +83,6 @@ window.__kaletaInitDashSortable = function() {
     if (typeof Sortable === 'undefined') return;
     container.__sortable = new Sortable(container, {
       draggable: '.dash-widget-wrap',
-      handle: '.dash-drag-handle',
       animation: 150,
       group: 'dash-' + size,
       ghostClass: 'sortable-ghost',
@@ -265,11 +259,8 @@ async def _render_wrapped(
     with ui.element("div").props(
         f'data-widget-id="{widget.id}" data-size="{widget.size}" tabindex="0"'
     ).classes("dash-widget-wrap"):
-        with (
-            ui.element("div")
-            .classes("dash-drag-handle")
-            .props(f'title="{t("dashboard_widgets.drag_hint")}"'),
-            ui.element("div").classes("dash-drag-handle-icon"),
+        with ui.element("div").classes("dash-drag-handle-icon").props(
+            f'title="{t("dashboard_widgets.drag_hint")}"'
         ):
             ui.icon("drag_indicator")
         await widget.render(session, is_dark)
