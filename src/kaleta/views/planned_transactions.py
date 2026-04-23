@@ -367,6 +367,14 @@ def register() -> None:
         with page_layout(t("planned.title")):
             with ui.row().classes("w-full items-center justify-between"):
                 ui.label(t("planned.title")).classes("text-2xl font-bold")
-                ui.button(t("planned.add"), icon="add", on_click=_open_add).props("color=primary")
+                with ui.row().classes("items-center gap-2"):
+                    ui.button(
+                        t("planned.calendar_view"),
+                        icon="calendar_month",
+                        on_click=lambda: ui.navigate.to("/payment-calendar"),
+                    ).props("flat color=primary")
+                    ui.button(
+                        t("planned.add"), icon="add", on_click=_open_add
+                    ).props("color=primary")
 
             await planned_list_ui()

@@ -802,6 +802,7 @@
   "planned": {
     "title": "Planowane transakcje",
     "add": "Dodaj planowaną",
+    "calendar_view": "Widok kalendarza",
     "edit": "Edytuj planowaną",
     "name": "Nazwa",
     "frequency": "Częstotliwość",

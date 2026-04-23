@@ -377,21 +377,21 @@ def register() -> None:
                 with col:
                     with ui.row().classes("w-full items-center justify-between"):
                         ui.label(str(date.day)).classes(
-                            "text-sm font-semibold "
+                            "text-base font-bold "
                             + ("text-primary" if is_today else "text-slate-700")
                         )
                         if cell and cell.occurrences:
                             ui.badge(str(len(cell.occurrences))).props(
-                                "color=primary outline rounded"
-                            ).classes("text-[10px]")
+                                "color=primary rounded"
+                            ).classes("text-xs font-semibold")
                     if cell:
                         if cell.inflow > 0:
                             ui.label(f"+{_fmt(cell.inflow)}").classes(
-                                f"{AMOUNT_INCOME} text-[11px] font-semibold"
+                                f"{AMOUNT_INCOME} text-sm font-bold leading-tight"
                             )
                         if cell.outflow > 0:
                             ui.label(f"-{_fmt(cell.outflow)}").classes(
-                                f"{AMOUNT_EXPENSE} text-[11px] font-semibold"
+                                f"{AMOUNT_EXPENSE} text-sm font-bold leading-tight"
                             )
 
             def _shift_month(delta: int) -> None:
