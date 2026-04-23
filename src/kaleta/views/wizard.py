@@ -281,7 +281,7 @@ def register() -> None:
             for icon, step_key, section in _STEPS:
                 sections.setdefault(section, []).append((icon, step_key))
 
-            section_order = ["monthly", "subscriptions", "funds", "income", "budget"]
+            section_order = ["monthly", "subscriptions", "funds", "income", "budget", "loans"]
 
             with ui.grid(columns=2).classes("w-full gap-4"):
                 for section in section_order:
