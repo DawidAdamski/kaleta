@@ -1,161 +1,182 @@
 ---
 plan_id: dashboard-widget-resize
-title: Dashboard — Resize widgets between size groups
+title: Dashboard — Grid-based widget resize and any-to-any reorder
 area: dashboard
 effort: medium
 status: draft
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
-# Dashboard — Resize widgets between size groups
+# Dashboard — Grid-based widget resize and any-to-any reorder
 
 ## Intent
 
-Today each dashboard widget has a fixed size declared in the widget
-catalog (`kpi | half | full`). A user who prefers, say, a bigger Top
-Merchants card cannot promote it from `half` to `full`; a user who
-wants Predicted 30-day Balance as a compact tile cannot shrink the
-chart into a `kpi`. The size is the author's guess, not the user's
-preference.
+Today the dashboard renders widgets in three size-segregated containers
+(KPI row, half grid, full stack). Edit mode lets users drag within each
+container, but cross-size reorder is blocked and widgets can't be
+resized at all — `net_worth_trend` is stuck small; `cashflow_chart`
+can't shrink to half-width. The user wants both:
 
-This plan adds per-user widget sizing on top of the existing Edit
-mode. In edit mode a widget carries a resize affordance next to the
-drag handle; clicking it cycles the widget through the sizes the
-widget author has declared as supported. The override persists in
-`app.storage.user` alongside the order. Rendering switches the widget
-to the correct size group at page load; the widget's own render
-function is expected to adapt to its current size (most do already).
+1. Swap *any* widget with *any* widget regardless of current size.
+2. Resize a widget — e.g. promote a small KPI tile into a
+   `2×2` square, or stretch a chart from `4×2` to `4×3`.
+
+Treat those as one mechanism: **a formal cell grid**. Every widget
+occupies a rectangle `(cols, rows)` in a 4-column CSS grid. Dragging
+into a different part of the grid reorders; clicking a resize button
+cycles through the widget's declared `allowed_sizes`. Both gestures
+post the new layout to the server, which persists it per user.
 
 ## Scope
 
-- **Widget catalog gains `allowed_sizes: tuple[WidgetSize, ...]`** —
-  defaults to `(widget.size,)` for backwards compatibility, so any
-  widget not explicitly opted-in stays fixed-size.
-- **Initial coverage** — opt in the widgets that clearly read well at
-  multiple sizes:
-  - `predicted_30d` → `(kpi, half)`
-  - `net_worth` → `(kpi, half)`
-  - `savings_rate_kpi` → `(kpi, half)`
-  - `budget_variance_month` → `(half, full)`
-  - `top_merchants` → `(half, full)`
-  - `upcoming_planned` → `(half, full)`
-  - `largest_transactions` → `(half, full)`
-  - `cashflow_chart` → `(half, full)`
-  - `savings_rate_trend` → `(half, full)`
-  - `net_worth_trend` → `(half, full)`
-  - Others stay fixed at their declared size.
-- **Per-widget size override** stored in
-  `app.storage.user["dashboard_sizes"]: dict[str, WidgetSize]`. When a
-  widget ID is absent from this dict, the default
-  `widget.size` applies.
-- **Resize button in edit mode** next to the drag handle. Click cycles
-  through `allowed_sizes` in order. A tooltip names the current/next
-  size. No drag-to-resize (too finicky in a 3-container layout).
-- **Persistence endpoint** — new FastAPI POST `/_dashboard/size` that
-  accepts `{widget_id, size}`, validates membership in `allowed_sizes`,
-  writes to `app.storage.user["dashboard_sizes"]`. Returns 400 if the
-  widget ID is unknown or the target size is not allowed.
-- **Render-time routing** — when building the three size-group lists,
-  a widget's effective size is
-  `user_overrides.get(wid, WIDGETS[wid].size)`, and it is placed into
-  the matching container.
-- **Order safety on resize** — when a widget is resized, it leaves its
-  previous group's order and joins the new group's end. The flat
-  `dashboard_widgets` list is updated so membership and order stay
-  consistent.
-- **Widget-side size awareness** — each widget's render function
-  accepts an optional `size: WidgetSize` argument (default = declared
-  size). Widgets that support multiple sizes branch on it; fixed-size
-  widgets ignore it. Migrated via a default-argument approach so
-  existing renders don't change signature semantically.
-- **Reset** — the Customize dialog's Reset button clears both
-  `dashboard_widgets` and `dashboard_sizes`.
+- **Unified 4-column CSS grid** replaces the KPI row / half grid /
+  full stack. `grid-template-columns: repeat(4, 1fr)` at desktop
+  width; rows auto-size (`grid-auto-rows: minmax(120px, auto)` or
+  similar). On narrow viewports the columns collapse (media query) —
+  keep the responsive fallback simple.
+- **Each widget wrap gets `grid-column: span C; grid-row: span R`**
+  where `(C, R)` is the widget's current effective size.
+- **Widget catalog upgrade** — `Widget` gains:
+  - `default_size: tuple[int, int]` (cols, rows).
+  - `allowed_sizes: tuple[tuple[int, int], ...]` — the cycle list.
+    Must include `default_size`. Single-entry = fixed size (no resize
+    button rendered).
+  - `render(session, is_dark, cols, rows)` — render functions gain
+    two new args. Widgets can ignore them (most already size to the
+    container) or branch on them.
+- **Default sizes** per the agreed mapping:
+  | Widget id                                                                           | default | allowed               |
+  |-------------------------------------------------------------------------------------|---------|-----------------------|
+  | `total_balance`, `month_income`, `month_expenses`, `month_net`, `net_worth`, `predicted_30d`, `savings_rate_kpi` | `2×1`   | `1×1, 2×1`            |
+  | `budget_variance_month`, `top_merchants`, `ytd_summary`, `upcoming_planned`, `largest_transactions` | `2×2`   | `2×2, 4×2`            |
+  | `cashflow_chart`, `savings_rate_trend`, `net_worth_trend`                           | `4×2`   | `2×2, 4×2, 4×3`       |
+  | `quick_actions`                                                                     | `4×1`   | `4×1, 4×2`            |
+  | `recent_transactions`                                                               | `4×2`   | `4×2, 4×3`            |
+- **Storage** — new key `app.storage.user["dashboard_layout"]`:
+  `list[{"id": str, "cols": int, "rows": int}]` in render order. The
+  legacy `dashboard_widgets: list[str]` is kept for one release as a
+  migration source: if `dashboard_layout` is missing but
+  `dashboard_widgets` exists, the server upgrades it by mapping each
+  widget id to its `default_size`.
+- **Single SortableJS instance** on the unified grid. Drag any card
+  to any slot; SortableJS reorders DOM, the onEnd handler posts the
+  new layout. No size-group filtering (the grid takes all sizes).
+- **Resize button** in edit mode — small circular icon next to the
+  drag-indicator icon. Tooltip names the next size. Click cycles
+  through `allowed_sizes` (wraps around). Updates `grid-column-span`
+  and `grid-row-span` in-place, then posts. Hidden when
+  `len(allowed_sizes) == 1`.
+- **Persistence endpoint** — `POST /_dashboard/layout`, Pydantic
+  `_LayoutPayload` model, validates:
+  - Every id exists in `WIDGETS`.
+  - Every `(cols, rows)` is in the widget's `allowed_sizes`.
+  - Duplicates collapsed to first occurrence.
+  - Empty → falls back to stored.
+- **Customize dialog** — unchanged except for one tweak: the
+  existing Reset button now clears `dashboard_layout` in addition to
+  `dashboard_widgets`. Checkboxes still toggle enable/disable — a
+  disabled widget is absent from the layout; re-enabling appends it
+  at `default_size`.
 
 Out of scope:
-- **Free-form grid** with arbitrary x/y/w/h coordinates.
-- **Drag-to-resize** via a corner handle.
-- **Dynamic grid columns** beyond the existing KPI-row / half-grid /
-  full-stack layout.
-- **Resizing within an ECharts/Plotly chart** (they already size to
-  container width, nothing to do).
-- **Per-widget settings beyond size** (date range, colour, etc.) —
-  future plan.
+- **Drag-to-resize** (grab a corner, stretch). The click-to-cycle
+  approach is simpler and matches the discrete `allowed_sizes` list.
+- **Arbitrary (cols, rows)** outside `allowed_sizes`. The catalog
+  author decides which shapes each widget supports.
+- **Mobile drag UX tuning** — SortableJS touch support works; no
+  extra polish for small screens.
+- **Per-widget settings** (date range, colour, etc.) — future plan.
+- **Packing algorithm for holes in the grid** — CSS grid flows
+  widgets in order; if a widget doesn't fit in the remaining slots
+  on a row, it starts the next row. No automatic hole-filling
+  (`grid-auto-flow: dense` is a nice-to-have, decide when testing).
 
 ## Acceptance criteria
 
-- With default config, a dashboard renders exactly as before (no
-  override applied). `dashboard_sizes` stays empty in storage.
-- Enter Edit mode, click the resize button on `top_merchants` (half →
-  full). After the click:
-  - Storage contains `dashboard_sizes["top_merchants"] == "full"`.
-  - `dashboard_widgets` still contains `top_merchants` but its position
-    is at the end of the full-size order.
-  - Reloading the page renders `top_merchants` in the full-size stack.
-- Clicking resize on a widget whose `allowed_sizes` is a single entry
-  is a no-op (button is disabled or the click does nothing).
-- Posting a disallowed size to `/_dashboard/size` returns HTTP 400 and
-  leaves storage unchanged.
-- `Reset to default` in Customize clears both
-  `dashboard_widgets` and `dashboard_sizes`.
-- Widgets that declare a single `allowed_sizes` render at their old
-  fixed size with no visual regression.
-- Existing unit tests pass; new tests cover
-  `_apply_size_override(order, sizes) -> (kpi, half, full)` and
-  `_cycle_size(current, allowed)`.
-- Keyboard reorder (Alt+↑/↓) still works after a widget has been
-  resized into a new group.
+- With default config, a dashboard renders into a single 4-column
+  grid; no visible regression vs. today beyond the new layout.
+  `dashboard_layout` is absent from storage; the server renders from
+  defaults (or migrated `dashboard_widgets`).
+- Enter Edit mode, drag `total_balance` onto `cashflow_chart`'s
+  position. Both widgets swap; `total_balance` keeps its `2×1` size,
+  `cashflow_chart` keeps its `4×2` size. Reload shows the new order.
+- In Edit mode, clicking the resize button on `top_merchants`
+  (default `2×2`) cycles to `4×2`; another click wraps back to `2×2`.
+  Storage contains the updated `(cols, rows)` after each click.
+- Posting a disallowed size to `/_dashboard/layout` returns HTTP 400
+  and storage stays unchanged.
+- Widgets with a single `allowed_sizes` entry don't render a resize
+  button.
+- Legacy users whose storage holds only `dashboard_widgets` see the
+  dashboard render correctly on first load; after the first edit,
+  storage is upgraded to `dashboard_layout`.
+- `tests/unit/views/test_dashboard_layout.py` covers
+  `_validate_layout(payload, stored)`, `_cycle_size`, and migration
+  from legacy `dashboard_widgets`.
+- Existing unit tests for `_merge_order` are removed along with the
+  old endpoint.
+- Keyboard reorder (Alt+↑/↓) still works in the unified grid.
 
 ## Touchpoints
 
 - `src/kaleta/views/dashboard_widgets.py`:
-  - `Widget` dataclass: add `allowed_sizes: tuple[WidgetSize, ...]`
-    with a default (`lambda size: (size,)`) via `__post_init__` or
-    `field(default_factory=...)`.
-  - `_register` gets an optional `allowed_sizes` argument.
-  - Opt in the widgets listed in Scope.
-  - `RenderFn` signature grows an optional `size: WidgetSize`
-    parameter. Existing widgets accept it and ignore it.
+  - Extend `Widget` dataclass with `default_size` and `allowed_sizes`.
+  - Update `_register` to accept both. Apply the default-sizes table.
+  - Broaden `RenderFn` signature: `(session, is_dark, cols, rows)`.
+    Existing render functions accept and ignore the new args.
+  - Drop `WidgetSize = Literal["kpi", "half", "full"]` in favour of
+    `WidgetSize = tuple[int, int]`.
 - `src/kaleta/views/dashboard.py`:
-  - New helpers `_effective_size(wid, sizes)`,
-    `_group_widgets(order, sizes)`, `_cycle_size(current, allowed)`.
-  - Render loop switches to grouping by *effective* size.
-  - Each `_render_wrapped` call passes the effective size to
-    `widget.render`.
-  - New resize button in the edit-mode overlay (same corner as drag
-    handle or stacked).
-  - `_register_size_endpoint()` for `/_dashboard/size`.
+  - Single `ui.element("div")` as the grid container
+    (`id="dash-grid"`), replace the three containers.
+  - Per-widget wrap sets `grid-column: span C; grid-row: span R` via
+    inline style or CSS variable.
+  - New resize button in `_render_wrapped` (hidden when only one
+    allowed size).
+  - Replace `_merge_order` with `_validate_layout` that takes a list
+    of `{id, cols, rows}` dicts and returns a cleaned list.
+  - Replace `/_dashboard/order` with `/_dashboard/layout`. Migration
+    shim reads legacy storage on first load.
+  - Update `_INIT_JS` to bind one Sortable to `#dash-grid` and one
+    resize-cycle helper.
 - `src/kaleta/i18n/locales/{en,pl}.json`:
-  - `resize_widget`, `resize_to_kpi`, `resize_to_half`,
-    `resize_to_full`, `resize_unavailable`.
-- `tests/unit/views/test_dashboard_order.py` (extend) or new file
-  `test_dashboard_size.py`:
-  - Cycle-size logic, size-override grouping, invalid-size rejection.
-- `docs/architecture.md` — amend ADR-031 or add ADR-032 covering the
-  size-override store and the resize cycle pattern.
+  - New keys: `resize_widget`, `resize_next_size` (tooltip with
+    {cols}×{rows}), `layout_updated`.
+  - Reword `edit_banner` slightly to mention resize.
+- `tests/unit/views/`:
+  - Replace `test_dashboard_order.py` with `test_dashboard_layout.py`.
+  - Cases: flatten preserves order; unknown ids stripped; sizes not
+    in `allowed_sizes` rejected; legacy migration from
+    `dashboard_widgets`; empty payload falls back to stored.
+- `docs/architecture.md`:
+  - Update ADR-031 or supersede with ADR-032 describing the grid
+    layout and the storage key migration.
 
 ## Open questions
 
-1. **Cycle order vs. dropdown?** A single button that cycles feels
-   fast for 2-entry `allowed_sizes` but awkward for 3-entry. Default:
-   **cycle button**; if any widget ever declares all three sizes,
-   revisit with a small popup menu.
-2. **Resize UI placement** — same corner as drag handle (stacked), or
-   opposite corner? Default: **stacked top-right**; the drag handle
-   goes slightly lower, the resize button above it. Test visually.
-3. **Should a fixed-size widget show a disabled button, or no button
-   at all?** Default: **no button** — keeps the card visually quiet
-   for the majority case.
-4. **Cross-size drag-and-drop** — with resize available, should we
-   also relax the Sortable group isolation so users can drag a widget
-   into a different size group (implicitly resizing it)? Default:
-   **no** — keeps two concerns separated; drag = reorder, click = resize.
-5. **What if a widget's `allowed_sizes` shrinks in a future release
-   (author removes a size)?** A stored override pointing to the
-   removed size should silently fall back to `widget.size`.
-   Default: **yes, fall back silently**; no migration.
-6. **Should the default `allowed_sizes` include the existing
-   `widget.size`?** Default: **yes** — any opt-in must also list the
-   default size, otherwise an override only blocks the default.
+1. **Grid row height** — fixed `minmax(120px, auto)` is probably
+   fine; a 2-row chart becomes `240px+` tall and scales proportional
+   to width. Default: **`minmax(120px, auto)` with 16px row gap**.
+2. **`grid-auto-flow: dense`?** Fills holes greedily but can swap
+   widget order unexpectedly. Default: **no, strict source order**,
+   so what the user drags is what they see.
+3. **Narrow-viewport fallback** — at < 768px collapse to 2 columns,
+   at < 480px to 1 column. Widgets keep their declared
+   `cols` but get clamped to the viewport width via
+   `min(cols, grid-column-count)`. Default: **yes, two breakpoints**.
+4. **Cycle order** — widgets with 3 allowed sizes
+   (`cashflow_chart`: `2×2, 4×2, 4×3`): cycle grows through the list,
+   wrapping. Default: **forward cycle**, no backward shortcut.
+5. **Disabled-widget re-enable size** — when user checks a widget
+   back on in Customize, what size does it render at? Default:
+   **`default_size`**.
+6. **Keep the legacy `/_dashboard/order` endpoint for one release?**
+   Default: **no, remove it** — no external API clients rely on it
+   (it's internal).
+7. **Should the resize button also move the widget to the end of the
+   grid to make room?** Default: **no** — resize is in-place. If the
+   new size doesn't fit on the current row, CSS grid flows it to the
+   next row automatically.
 
 ## Implementation notes
 

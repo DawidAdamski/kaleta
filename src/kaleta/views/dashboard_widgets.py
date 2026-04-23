@@ -1,24 +1,30 @@
 """Dashboard Command Center — widget catalog.
 
 Each widget is a small, self-contained async function that reads its own
-data slice (via the services layer) and renders a card. Widgets are grouped
-by `size` so the dashboard can lay them out coherently:
+data slice (via the services layer) and renders a card. Widgets are laid
+out in a unified 4-column CSS grid; each widget declares a
+``default_size`` as ``(cols, rows)`` and an ``allowed_sizes`` tuple the
+user can cycle through via the resize button in edit mode.
 
-* ``kpi``   — narrow card, rendered in a single `flex-wrap` row at the top.
-* ``half``  — half-width card, rendered in a responsive 2-column grid.
-* ``full``  — full-width card, stacked below.
+Examples:
 
-Users pick which widgets they want and in what order via the Customize
-dialog; the selection is persisted in ``app.storage.user["dashboard_widgets"]``.
+* ``(1, 1)`` — single grid cell (tiny KPI).
+* ``(2, 1)`` — rectangle of two cells (standard KPI).
+* ``(2, 2)`` — half-width square (medium card).
+* ``(4, 2)`` — full-width chart.
+* ``(4, 3)`` — extra-tall full-width chart.
+
+Users pick which widgets they want via the Customize dialog; order and
+per-widget sizing are persisted in ``app.storage.user["dashboard_layout"]``.
 """
 
 from __future__ import annotations
 
 import datetime
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
-from typing import Any, Literal
+from typing import Any
 
 from nicegui import ui
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -43,7 +49,7 @@ from kaleta.views.theme import (
     kpi_card_classes,
 )
 
-WidgetSize = Literal["kpi", "half", "full"]
+WidgetSize = tuple[int, int]  # (cols, rows) in the 4-column dashboard grid
 
 RenderFn = Callable[[AsyncSession, bool], Awaitable[None]]
 
@@ -53,8 +59,9 @@ class Widget:
     id: str
     title_key: str
     icon: str
-    size: WidgetSize
-    render: RenderFn
+    default_size: WidgetSize
+    allowed_sizes: tuple[WidgetSize, ...]
+    render: RenderFn = field(repr=False)
 
 
 WIDGETS: dict[str, Widget] = {}
@@ -64,14 +71,35 @@ def _register(
     widget_id: str,
     title_key: str,
     icon: str,
-    size: WidgetSize,
+    default_size: WidgetSize,
+    allowed_sizes: tuple[WidgetSize, ...] | None = None,
 ) -> Callable[[RenderFn], RenderFn]:
+    sizes = allowed_sizes or (default_size,)
+    if default_size not in sizes:
+        raise ValueError(
+            f"{widget_id}: default_size {default_size} not in allowed_sizes {sizes}"
+        )
+
     def wrap(fn: RenderFn) -> RenderFn:
         WIDGETS[widget_id] = Widget(
-            id=widget_id, title_key=title_key, icon=icon, size=size, render=fn
+            id=widget_id,
+            title_key=title_key,
+            icon=icon,
+            default_size=default_size,
+            allowed_sizes=sizes,
+            render=fn,
         )
         return fn
     return wrap
+
+
+def cycle_size(current: WidgetSize, allowed: tuple[WidgetSize, ...]) -> WidgetSize:
+    """Return the next allowed size after `current`, wrapping around."""
+    try:
+        idx = allowed.index(current)
+    except ValueError:
+        return allowed[0]
+    return allowed[(idx + 1) % len(allowed)]
 
 
 # ── Shared helpers ────────────────────────────────────────────────────────────
@@ -111,19 +139,37 @@ def _section_card(title: str, *, subtitle: str | None = None) -> Any:
 # ── KPI widgets ───────────────────────────────────────────────────────────────
 
 
-@_register("total_balance", "dashboard_widgets.total_balance", "account_balance", "kpi")
+@_register(
+    "total_balance",
+    "dashboard_widgets.total_balance",
+    "account_balance",
+    (2, 1),
+    ((1, 1), (2, 1)),
+)
 async def _total_balance(session: AsyncSession, is_dark: bool) -> None:
     total = await ReportService(session).total_balance()
     _kpi_card(t("dashboard.total_balance"), _fmt(total), "account_balance", "blue-7")
 
 
-@_register("month_income", "dashboard_widgets.month_income", "trending_up", "kpi")
+@_register(
+    "month_income",
+    "dashboard_widgets.month_income",
+    "trending_up",
+    (2, 1),
+    ((1, 1), (2, 1)),
+)
 async def _month_income(session: AsyncSession, is_dark: bool) -> None:
     income, _ = await ReportService(session).current_month_summary()
     _kpi_card(t("dashboard.month_income"), _fmt(income), "trending_up", "green-7")
 
 
-@_register("month_expenses", "dashboard_widgets.month_expenses", "trending_down", "kpi")
+@_register(
+    "month_expenses",
+    "dashboard_widgets.month_expenses",
+    "trending_down",
+    (2, 1),
+    ((1, 1), (2, 1)),
+)
 async def _month_expenses(session: AsyncSession, is_dark: bool) -> None:
     _, expenses = await ReportService(session).current_month_summary()
     _kpi_card(
@@ -131,7 +177,13 @@ async def _month_expenses(session: AsyncSession, is_dark: bool) -> None:
     )
 
 
-@_register("month_net", "dashboard_widgets.month_net", "swap_vert", "kpi")
+@_register(
+    "month_net",
+    "dashboard_widgets.month_net",
+    "swap_vert",
+    (2, 1),
+    ((1, 1), (2, 1)),
+)
 async def _month_net(session: AsyncSession, is_dark: bool) -> None:
     income, expenses = await ReportService(session).current_month_summary()
     net = income - expenses
@@ -141,7 +193,13 @@ async def _month_net(session: AsyncSession, is_dark: bool) -> None:
     )
 
 
-@_register("predicted_30d", "dashboard_widgets.predicted_30d", "insights", "kpi")
+@_register(
+    "predicted_30d",
+    "dashboard_widgets.predicted_30d",
+    "insights",
+    (2, 1),
+    ((1, 1), (2, 1)),
+)
 async def _predicted_30d(session: AsyncSession, is_dark: bool) -> None:
     total = await ReportService(session).total_balance()
     result = await ForecastService(session).forecast_account(
@@ -155,7 +213,13 @@ async def _predicted_30d(session: AsyncSession, is_dark: bool) -> None:
     _kpi_card(t("dashboard.balance_30"), _fmt(pred), "insights", color)
 
 
-@_register("net_worth", "dashboard_widgets.net_worth", "account_balance_wallet", "kpi")
+@_register(
+    "net_worth",
+    "dashboard_widgets.net_worth",
+    "account_balance_wallet",
+    (2, 1),
+    ((1, 1), (2, 1)),
+)
 async def _net_worth(session: AsyncSession, is_dark: bool) -> None:
     summary = await NetWorthService(session).get_summary(history_months=2)
     _kpi_card(
@@ -166,7 +230,13 @@ async def _net_worth(session: AsyncSession, is_dark: bool) -> None:
     )
 
 
-@_register("savings_rate_kpi", "dashboard_widgets.savings_rate_kpi", "savings", "kpi")
+@_register(
+    "savings_rate_kpi",
+    "dashboard_widgets.savings_rate_kpi",
+    "savings",
+    (2, 1),
+    ((1, 1), (2, 1)),
+)
 async def _savings_rate_kpi(session: AsyncSession, is_dark: bool) -> None:
     points = await ReportService(session).savings_rate(months=1)
     latest = points[0] if points else None
@@ -179,7 +249,13 @@ async def _savings_rate_kpi(session: AsyncSession, is_dark: bool) -> None:
 # ── Half-width widgets ────────────────────────────────────────────────────────
 
 
-@_register("cashflow_chart", "dashboard_widgets.cashflow_chart", "bar_chart", "full")
+@_register(
+    "cashflow_chart",
+    "dashboard_widgets.cashflow_chart",
+    "bar_chart",
+    (4, 2),
+    ((2, 2), (4, 2), (4, 3)),
+)
 async def _cashflow_chart(session: AsyncSession, is_dark: bool) -> None:
     months = await ReportService(session).cashflow_last_n_months(6)
     with _section_card(
@@ -233,7 +309,8 @@ def _build_cashflow_chart(
     "savings_rate_trend",
     "dashboard_widgets.savings_rate_trend",
     "show_chart",
-    "half",
+    (4, 2),
+    ((2, 2), (4, 2), (4, 3)),
 )
 async def _savings_rate_trend(session: AsyncSession, is_dark: bool) -> None:
     points = await ReportService(session).savings_rate(months=6)
@@ -266,7 +343,8 @@ async def _savings_rate_trend(session: AsyncSession, is_dark: bool) -> None:
     "budget_variance_month",
     "dashboard_widgets.budget_variance_month",
     "rule",
-    "half",
+    (2, 2),
+    ((2, 2), (4, 2)),
 )
 async def _budget_variance_month(session: AsyncSession, is_dark: bool) -> None:
     today = datetime.date.today()
@@ -294,7 +372,13 @@ async def _budget_variance_month(session: AsyncSession, is_dark: bool) -> None:
                     ).classes("text-sm text-red-600 font-medium")
 
 
-@_register("top_merchants", "dashboard_widgets.top_merchants", "store", "half")
+@_register(
+    "top_merchants",
+    "dashboard_widgets.top_merchants",
+    "store",
+    (2, 2),
+    ((2, 2), (4, 2)),
+)
 async def _top_merchants(session: AsyncSession, is_dark: bool) -> None:
     today = datetime.date.today()
     start = today - datetime.timedelta(days=30)
@@ -313,7 +397,13 @@ async def _top_merchants(session: AsyncSession, is_dark: bool) -> None:
                     ui.label(_fmt(m.amount)).classes("text-sm font-medium")
 
 
-@_register("ytd_summary", "dashboard_widgets.ytd_summary", "calendar_today", "half")
+@_register(
+    "ytd_summary",
+    "dashboard_widgets.ytd_summary",
+    "calendar_today",
+    (2, 2),
+    ((2, 2), (4, 2)),
+)
 async def _ytd_summary(session: AsyncSession, is_dark: bool) -> None:
     rep = await ReportService(session).ytd_summary()
     with _section_card(
@@ -338,7 +428,8 @@ def _mini_stat(label: str, value: str, color: str) -> None:
     "upcoming_planned",
     "dashboard_widgets.upcoming_planned",
     "event_upcoming",
-    "half",
+    (2, 2),
+    ((2, 2), (4, 2)),
 )
 async def _upcoming_planned(session: AsyncSession, is_dark: bool) -> None:
     today = datetime.date.today()
@@ -371,7 +462,8 @@ async def _upcoming_planned(session: AsyncSession, is_dark: bool) -> None:
     "largest_transactions",
     "dashboard_widgets.largest_transactions",
     "format_list_numbered",
-    "half",
+    (2, 2),
+    ((2, 2), (4, 2)),
 )
 async def _largest_transactions(session: AsyncSession, is_dark: bool) -> None:
     rows = await ReportService(session).largest_transactions(
@@ -402,7 +494,13 @@ async def _largest_transactions(session: AsyncSession, is_dark: bool) -> None:
 # ── Full-width widgets ────────────────────────────────────────────────────────
 
 
-@_register("quick_actions", "dashboard_widgets.quick_actions", "bolt", "full")
+@_register(
+    "quick_actions",
+    "dashboard_widgets.quick_actions",
+    "bolt",
+    (4, 1),
+    ((4, 1), (4, 2)),
+)
 async def _quick_actions(session: AsyncSession, is_dark: bool) -> None:
     with _section_card(
         t("dashboard_widgets.quick_actions"),
@@ -432,7 +530,8 @@ def _quick_btn(icon: str, label: str, route: str) -> None:
     "recent_transactions",
     "dashboard_widgets.recent_transactions",
     "receipt_long",
-    "full",
+    (4, 2),
+    ((4, 2), (4, 3)),
 )
 async def _recent_transactions(session: AsyncSession, is_dark: bool) -> None:
     recent = await ReportService(session).recent_transactions(10)
@@ -512,7 +611,8 @@ async def _recent_transactions(session: AsyncSession, is_dark: bool) -> None:
     "net_worth_trend",
     "dashboard_widgets.net_worth_trend",
     "trending_up",
-    "full",
+    (4, 2),
+    ((2, 2), (4, 2), (4, 3)),
 )
 async def _net_worth_trend(session: AsyncSession, is_dark: bool) -> None:
     summary = await NetWorthService(session).get_summary(history_months=12)
@@ -560,7 +660,8 @@ async def _net_worth_trend(session: AsyncSession, is_dark: bool) -> None:
     "credit_utilization",
     "dashboard_widgets.credit_utilization",
     "credit_card",
-    "half",
+    (2, 2),
+    ((2, 2), (4, 2)),
 )
 async def _credit_utilization(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     from kaleta.services import CreditService
@@ -618,8 +719,74 @@ DEFAULT_WIDGETS: list[str] = [
 ]
 
 
+class LayoutEntry(dict[str, Any]):
+    """Plain-dict view of a single layout row: ``{id, cols, rows}``.
+
+    Using a dict (not a TypedDict or dataclass) keeps JSON round-tripping
+    trivial with FastAPI bodies and app.storage.user.
+    """
+
+
+def default_layout() -> list[dict[str, Any]]:
+    """Fresh layout: every default widget at its declared default size."""
+    return [
+        {"id": wid, "cols": WIDGETS[wid].default_size[0], "rows": WIDGETS[wid].default_size[1]}
+        for wid in DEFAULT_WIDGETS
+        if wid in WIDGETS
+    ]
+
+
+def resolve_user_layout(
+    stored_layout: Any, legacy_widgets: Any = None
+) -> list[dict[str, Any]]:
+    """Return a cleaned layout list, migrating from legacy order if needed.
+
+    Validation rules per entry:
+    - ``id`` must exist in ``WIDGETS``
+    - ``(cols, rows)`` must be in the widget's ``allowed_sizes`` —
+      otherwise fall back to ``default_size``
+    - Duplicates (same id seen twice) collapsed to the first occurrence
+    """
+    if isinstance(stored_layout, list) and stored_layout:
+        cleaned: list[dict[str, Any]] = []
+        seen: set[str] = set()
+        for entry in stored_layout:
+            if not isinstance(entry, dict):
+                continue
+            wid = entry.get("id")
+            if not isinstance(wid, str) or wid not in WIDGETS or wid in seen:
+                continue
+            w = WIDGETS[wid]
+            cols = entry.get("cols")
+            rows = entry.get("rows")
+            size = (cols, rows) if isinstance(cols, int) and isinstance(rows, int) else None
+            if size not in w.allowed_sizes:
+                size = w.default_size
+            cleaned.append({"id": wid, "cols": size[0], "rows": size[1]})
+            seen.add(wid)
+        if cleaned:
+            return cleaned
+
+    # Legacy migration: storage has only the id list from the previous release.
+    if isinstance(legacy_widgets, list) and legacy_widgets:
+        migrated: list[dict[str, Any]] = []
+        seen_legacy: set[str] = set()
+        for wid in legacy_widgets:
+            if not isinstance(wid, str) or wid not in WIDGETS or wid in seen_legacy:
+                continue
+            w = WIDGETS[wid]
+            migrated.append(
+                {"id": wid, "cols": w.default_size[0], "rows": w.default_size[1]}
+            )
+            seen_legacy.add(wid)
+        if migrated:
+            return migrated
+
+    return default_layout()
+
+
+# Kept for backward compatibility with older callers; delegates to the new API.
 def resolve_user_widgets(stored: Any) -> list[str]:
-    """Validate user-stored widget order, fall back to defaults when missing."""
     if not isinstance(stored, list) or not stored:
         return list(DEFAULT_WIDGETS)
     cleaned = [w for w in stored if isinstance(w, str) and w in WIDGETS]

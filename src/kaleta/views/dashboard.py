@@ -1,17 +1,23 @@
 """Dashboard Command Center.
 
-Renders a user-configurable grid of widgets. The widget catalog lives in
-``dashboard_widgets.py``; the dashboard's only job is layout + the
-"Edit layout" / "Customize" entry points. The ordered list of enabled
-widget IDs is persisted in ``app.storage.user["dashboard_widgets"]``.
+Renders a unified 4-column CSS grid of widgets. The widget catalog lives
+in ``dashboard_widgets.py``; every widget declares a ``default_size``
+and ``allowed_sizes`` as ``(cols, rows)`` tuples. The dashboard:
 
-Reordering happens via drag-and-drop (SortableJS) inside an Edit mode
-toggle. Each widget card carries a ``data-widget-id`` and ``data-size``
-attribute so the client can pull the new order from the DOM and POST it
-back to the server.
+* Places each widget with ``grid-column: span C; grid-row: span R``.
+* Runs a single SortableJS instance on the grid so the user can drag
+  any card onto any slot.
+* Renders a resize button (in edit mode) that cycles a widget through
+  its ``allowed_sizes`` in place.
+
+The full layout — widget order *and* per-widget size — is persisted in
+``app.storage.user["dashboard_layout"]`` as a list of
+``{id, cols, rows}`` dicts.
 """
 
 from __future__ import annotations
+
+from typing import Any
 
 from nicegui import app, ui
 from pydantic import BaseModel
@@ -23,88 +29,142 @@ from kaleta.views.dashboard_widgets import (
     DEFAULT_WIDGETS,
     WIDGETS,
     Widget,
-    resolve_user_widgets,
+    default_layout,
+    resolve_user_layout,
 )
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import PAGE_TITLE
 
+_GRID_COLUMNS = 4
+
 _SORTABLE_SCRIPT = '<script src="/static/vendor/sortable.min.js"></script>'
 
-_EDIT_MODE_STYLE = """
+_EDIT_MODE_STYLE = f"""
 <style>
-  .dash-widget-wrap { position: relative; }
-  /* Decorative drag icon in the top-right corner. Hidden outside edit
-     mode. Does not itself receive pointer events — the whole card is
-     the drag surface, and SortableJS listens on the card container. */
-  .dash-widget-wrap .dash-drag-handle-icon {
-    position: absolute; top: 6px; right: 6px; z-index: 5;
+  #dash-grid {{
+    display: grid;
+    grid-template-columns: repeat({_GRID_COLUMNS}, minmax(0, 1fr));
+    grid-auto-rows: minmax(120px, auto);
+    gap: 16px;
+    width: 100%;
+  }}
+  @media (max-width: 768px) {{
+    #dash-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }}
+    .dash-widget-wrap {{
+      grid-column: span min(var(--cols), 2) !important;
+    }}
+  }}
+  @media (max-width: 480px) {{
+    #dash-grid {{ grid-template-columns: 1fr; }}
+    .dash-widget-wrap {{ grid-column: span 1 !important; }}
+  }}
+  .dash-widget-wrap {{
+    position: relative;
+    grid-column: span var(--cols);
+    grid-row: span var(--rows);
+    min-height: 0;
+  }}
+  .dash-widget-wrap > :not(.dash-drag-handle-icon):not(.dash-resize-btn) {{
+    height: 100%;
+  }}
+  .dash-widget-wrap .dash-drag-handle-icon,
+  .dash-widget-wrap .dash-resize-btn {{
+    position: absolute; top: 6px; z-index: 5;
     display: none;
     padding: 2px 4px;
     border-radius: 6px;
     color: #64748b;
     background: rgba(148,163,184,0.14);
+  }}
+  .dash-widget-wrap .dash-drag-handle-icon {{
+    right: 6px;
     pointer-events: none;
-  }
-  body.dash-editing .dash-widget-wrap {
+  }}
+  .dash-widget-wrap .dash-resize-btn {{
+    right: 36px;
+    cursor: pointer;
+  }}
+  .dash-widget-wrap .dash-resize-btn:hover {{
+    background: rgba(148,163,184,0.28);
+  }}
+  body.dash-editing .dash-widget-wrap {{
     outline: 1px dashed rgba(100,116,139,0.45);
     outline-offset: 4px;
     border-radius: 10px;
     cursor: grab;
-  }
-  body.dash-editing .dash-widget-wrap:active { cursor: grabbing; }
-  body.dash-editing .dash-widget-wrap .dash-drag-handle-icon {
+  }}
+  body.dash-editing .dash-widget-wrap:active {{ cursor: grabbing; }}
+  body.dash-editing .dash-widget-wrap .dash-drag-handle-icon,
+  body.dash-editing .dash-widget-wrap .dash-resize-btn {{
     display: block;
-  }
-  body.dash-editing .dash-widget-wrap:focus-visible {
+  }}
+  body.dash-editing .dash-widget-wrap:focus-visible {{
     outline: 2px solid rgb(59,130,246);
-  }
-  .dash-edit-banner { display: none; }
-  body.dash-editing .dash-edit-banner { display: flex; }
-  .sortable-ghost { opacity: 0.3; }
-  .sortable-chosen { cursor: grabbing; }
+  }}
+  .dash-edit-banner {{ display: none; }}
+  body.dash-editing .dash-edit-banner {{ display: flex; }}
+  .sortable-ghost {{ opacity: 0.3; }}
+  .sortable-chosen {{ cursor: grabbing; }}
 </style>
 """
 
 _INIT_JS = """
 <script>
 window.__kaletaInitDashSortable = function() {
-  const groups = ['kpi', 'half', 'full'];
   if (typeof Sortable === 'undefined') {
-    // SortableJS script hasn't loaded yet; retry once it does.
     console.warn('[dashboard] Sortable not ready, retrying in 150ms');
     setTimeout(window.__kaletaInitDashSortable, 150);
     return;
   }
-  groups.forEach(size => {
-    const container = document.getElementById('dash-' + size);
-    if (!container) return;
-    if (container.__sortable) {
-      container.__sortable.destroy();
-      container.__sortable = null;
-    }
-    if (!document.body.classList.contains('dash-editing')) return;
-    container.__sortable = new Sortable(container, {
-      draggable: '.dash-widget-wrap',
-      animation: 150,
-      group: 'dash-' + size,
-      ghostClass: 'sortable-ghost',
-      chosenClass: 'sortable-chosen',
-      onEnd: () => window.__kaletaPostDashOrder(),
-    });
+  const container = document.getElementById('dash-grid');
+  if (!container) return;
+  if (container.__sortable) {
+    container.__sortable.destroy();
+    container.__sortable = null;
+  }
+  if (!document.body.classList.contains('dash-editing')) return;
+  container.__sortable = new Sortable(container, {
+    draggable: '.dash-widget-wrap',
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    chosenClass: 'sortable-chosen',
+    onEnd: () => window.__kaletaPostDashLayout(),
   });
   console.debug('[dashboard] Sortable initialised, editing =',
     document.body.classList.contains('dash-editing'));
 };
-window.__kaletaPostDashOrder = function() {
-  const collect = size => Array.from(
-    document.querySelectorAll('#dash-' + size + ' [data-widget-id]')
-  ).map(e => e.dataset.widgetId);
-  const payload = {kpi: collect('kpi'), half: collect('half'), full: collect('full')};
-  fetch('/_dashboard/order', {
+window.__kaletaPostDashLayout = function() {
+  const entries = Array.from(
+    document.querySelectorAll('#dash-grid [data-widget-id]')
+  ).map(e => ({
+    id: e.dataset.widgetId,
+    cols: parseInt(e.dataset.cols, 10) || 1,
+    rows: parseInt(e.dataset.rows, 10) || 1,
+  }));
+  fetch('/_dashboard/layout', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(payload),
-  }).catch(err => console.warn('[dashboard] POST order failed', err));
+    body: JSON.stringify({entries}),
+  }).catch(err => console.warn('[dashboard] POST layout failed', err));
+};
+window.__kaletaCycleDashSize = function(widgetId) {
+  const wrap = document.querySelector(
+    '#dash-grid [data-widget-id="' + widgetId + '"]'
+  );
+  if (!wrap) return;
+  const allowed = JSON.parse(wrap.dataset.allowedSizes || '[]');
+  if (allowed.length < 2) return;
+  const current = [
+    parseInt(wrap.dataset.cols, 10) || 1,
+    parseInt(wrap.dataset.rows, 10) || 1,
+  ];
+  const idx = allowed.findIndex(s => s[0] === current[0] && s[1] === current[1]);
+  const next = allowed[(idx + 1) % allowed.length];
+  wrap.dataset.cols = String(next[0]);
+  wrap.dataset.rows = String(next[1]);
+  wrap.style.setProperty('--cols', String(next[0]));
+  wrap.style.setProperty('--rows', String(next[1]));
+  window.__kaletaPostDashLayout();
 };
 window.__kaletaToggleDashEdit = function() {
   const on = document.body.classList.toggle('dash-editing');
@@ -134,62 +194,78 @@ window.__kaletaDashKbdMove = function(evt) {
     parent.insertBefore(wrap.nextElementSibling, wrap);
   }
   wrap.focus();
-  window.__kaletaPostDashOrder();
+  window.__kaletaPostDashLayout();
 };
 document.addEventListener('keydown', window.__kaletaDashKbdMove);
 </script>
 """
 
 
-def _merge_order(
-    payload: dict[str, list[str]], stored: list[str]
-) -> list[str]:
-    """Flatten per-size groups into a single ordered list.
+class _LayoutEntry(BaseModel):
+    id: str
+    cols: int
+    rows: int
 
-    Only widget IDs that (a) exist in WIDGETS and (b) were already enabled
-    (i.e. present in ``stored``) and (c) have a size matching the group
-    they're posted under are kept. Falls back to ``stored`` if the merge
-    would produce an empty result.
+
+class _LayoutPayload(BaseModel):
+    entries: list[_LayoutEntry] = []
+
+
+def _validate_layout(
+    entries: list[dict[str, Any]], stored: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Return a cleaned layout list.
+
+    Rules:
+    - each ``id`` must exist in WIDGETS
+    - ``(cols, rows)`` must be in the widget's ``allowed_sizes``
+    - duplicates collapsed to first occurrence
+    - empty result falls back to ``stored``
     """
-    stored_set = set(stored)
-    merged: list[str] = []
-    for size in ("kpi", "half", "full"):
-        for wid in payload.get(size, []):
-            if not isinstance(wid, str):
-                continue
-            w = WIDGETS.get(wid)
-            if w is None or w.size != size:
-                continue
-            if wid in stored_set and wid not in merged:
-                merged.append(wid)
-    return merged or list(stored)
+    cleaned: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for entry in entries:
+        wid = entry.get("id")
+        if not isinstance(wid, str) or wid not in WIDGETS or wid in seen:
+            continue
+        w = WIDGETS[wid]
+        cols = entry.get("cols")
+        rows = entry.get("rows")
+        if not isinstance(cols, int) or not isinstance(rows, int):
+            continue
+        if (cols, rows) not in w.allowed_sizes:
+            continue
+        cleaned.append({"id": wid, "cols": cols, "rows": rows})
+        seen.add(wid)
+    return cleaned or list(stored)
 
 
-class _OrderPayload(BaseModel):
-    kpi: list[str] = []
-    half: list[str] = []
-    full: list[str] = []
-
-
-def _register_order_endpoint() -> None:
+def _register_layout_endpoint() -> None:
     from nicegui import app as nicegui_app
 
-    @nicegui_app.post("/_dashboard/order", include_in_schema=False)
-    async def _save_order(payload: _OrderPayload) -> dict[str, str]:
-        stored = resolve_user_widgets(app.storage.user.get("dashboard_widgets"))
-        app.storage.user["dashboard_widgets"] = _merge_order(
-            payload.model_dump(), stored
+    @nicegui_app.post("/_dashboard/layout", include_in_schema=False)
+    async def _save_layout(payload: _LayoutPayload) -> dict[str, str]:
+        stored = resolve_user_layout(
+            app.storage.user.get("dashboard_layout"),
+            app.storage.user.get("dashboard_widgets"),
         )
+        new_layout = _validate_layout(
+            [e.model_dump() for e in payload.entries], stored
+        )
+        app.storage.user["dashboard_layout"] = new_layout
         return {"status": "ok"}
 
 
 def register() -> None:
-    _register_order_endpoint()
+    _register_layout_endpoint()
 
     @ui.page("/")
     async def dashboard() -> None:
         is_dark: bool = app.storage.user.get("dark_mode", False)
-        order = resolve_user_widgets(app.storage.user.get("dashboard_widgets"))
+        layout = resolve_user_layout(
+            app.storage.user.get("dashboard_layout"),
+            app.storage.user.get("dashboard_widgets"),
+        )
 
         ui.add_head_html(_SORTABLE_SCRIPT)
         ui.add_head_html(_EDIT_MODE_STYLE)
@@ -213,7 +289,7 @@ def register() -> None:
                     ui.button(
                         t("dashboard_widgets.customize"),
                         icon="tune",
-                        on_click=lambda: _open_customize_dialog(order),
+                        on_click=lambda: _open_customize_dialog(layout),
                     ).props("flat color=primary")
 
             with ui.row().classes(
@@ -225,33 +301,20 @@ def register() -> None:
                 ui.label(t("dashboard_widgets.edit_banner"))
 
             async with AsyncSessionFactory() as session:
-                kpis = [WIDGETS[w] for w in order if WIDGETS[w].size == "kpi"]
-                halves = [WIDGETS[w] for w in order if WIDGETS[w].size == "half"]
-                fulls = [WIDGETS[w] for w in order if WIDGETS[w].size == "full"]
-
-                with ui.row().props('id="dash-kpi"').classes(
-                    "w-full gap-4 flex-wrap"
-                ):
-                    for w in kpis:
-                        await _render_wrapped(w, session, is_dark)
-                    if not kpis:
-                        _render_empty_placeholder("kpi")
-
-                with ui.grid(columns=2).props('id="dash-half"').classes(
-                    "w-full gap-4 md:grid-cols-2"
-                ):
-                    for w in halves:
-                        await _render_wrapped(w, session, is_dark)
-                    if not halves:
-                        _render_empty_placeholder("half")
-
-                with ui.column().props('id="dash-full"').classes(
-                    "w-full gap-4"
-                ):
-                    for w in fulls:
-                        await _render_wrapped(w, session, is_dark)
-                    if not fulls:
-                        _render_empty_placeholder("full")
+                with ui.element("div").props('id="dash-grid"'):
+                    for entry in layout:
+                        wid = entry["id"]
+                        if wid not in WIDGETS:
+                            continue
+                        await _render_wrapped(
+                            WIDGETS[wid],
+                            session,
+                            is_dark,
+                            entry["cols"],
+                            entry["rows"],
+                        )
+                    if not layout:
+                        _render_empty_placeholder()
 
             ui.run_javascript(
                 "window.__kaletaInitDashSortable && window.__kaletaInitDashSortable()"
@@ -259,37 +322,52 @@ def register() -> None:
 
 
 async def _render_wrapped(
-    widget: Widget, session: AsyncSession, is_dark: bool
+    widget: Widget,
+    session: AsyncSession,
+    is_dark: bool,
+    cols: int,
+    rows: int,
 ) -> None:
+    import json
+
+    allowed_json = json.dumps([list(s) for s in widget.allowed_sizes])
     with ui.element("div").props(
-        f'data-widget-id="{widget.id}" data-size="{widget.size}" tabindex="0"'
-    ).classes("dash-widget-wrap"):
+        f'data-widget-id="{widget.id}" '
+        f'data-cols="{cols}" data-rows="{rows}" '
+        f"data-allowed-sizes='{allowed_json}' "
+        f'tabindex="0"'
+    ).classes("dash-widget-wrap").style(f"--cols: {cols}; --rows: {rows}"):
         with ui.element("div").classes("dash-drag-handle-icon").props(
             f'title="{t("dashboard_widgets.drag_hint")}"'
         ):
             ui.icon("drag_indicator")
+        if len(widget.allowed_sizes) > 1:
+            with ui.element("div").classes("dash-resize-btn").props(
+                f'title="{t("dashboard_widgets.resize_widget")}" '
+                f"onclick=\"window.__kaletaCycleDashSize('{widget.id}')\""
+            ):
+                ui.icon("aspect_ratio")
         await widget.render(session, is_dark)
 
 
-def _render_empty_placeholder(size: str) -> None:
+def _render_empty_placeholder() -> None:
     with ui.element("div").classes(
-        "dash-edit-banner w-full p-4 text-center text-sm "
+        "w-full p-4 text-center text-sm "
         "text-slate-500 border border-dashed border-slate-300 rounded"
-    ):
+    ).style(f"grid-column: 1 / span {_GRID_COLUMNS}"):
         ui.label(t("dashboard_widgets.empty_size_group"))
-    _ = size
 
 
-def _open_customize_dialog(current_order: list[str]) -> None:
+def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
     """Dialog for enabling and disabling dashboard widgets.
 
-    Reordering happens via Edit mode on the dashboard itself; this dialog
-    only manages which widgets are shown.
+    Reordering and resizing happen via Edit mode on the dashboard itself;
+    this dialog only manages which widgets are shown.
     """
-    order: list[str] = list(current_order)
-    disabled = [wid for wid in WIDGETS if wid not in order]
-    working = order + disabled
-    enabled: dict[str, bool] = {wid: (wid in order) for wid in working}
+    enabled_ids = [e["id"] for e in current_layout]
+    disabled = [wid for wid in WIDGETS if wid not in enabled_ids]
+    working = enabled_ids + disabled
+    enabled: dict[str, bool] = {wid: (wid in enabled_ids) for wid in working}
 
     with ui.dialog() as dialog, ui.card().classes("min-w-96 max-w-xl"):
         ui.label(t("dashboard_widgets.customize_title")).classes(
@@ -316,20 +394,37 @@ def _open_customize_dialog(current_order: list[str]) -> None:
                     )
                     ui.icon(w.icon).classes("text-primary")
                     ui.label(t(w.title_key)).classes("flex-1 text-sm")
-                    ui.badge(w.size).props("color=grey-6").classes("text-xs")
+                    badge_text = f"{w.default_size[0]}×{w.default_size[1]}"
+                    ui.badge(badge_text).props("color=grey-6").classes("text-xs")
 
         def _save() -> None:
-            final = [wid for wid in working if enabled.get(wid)]
-            if not final:
+            existing = {e["id"]: e for e in current_layout}
+            new_layout: list[dict[str, Any]] = []
+            for wid in working:
+                if not enabled.get(wid):
+                    continue
+                if wid in existing:
+                    new_layout.append(existing[wid])
+                else:
+                    w = WIDGETS[wid]
+                    new_layout.append(
+                        {
+                            "id": wid,
+                            "cols": w.default_size[0],
+                            "rows": w.default_size[1],
+                        }
+                    )
+            if not new_layout:
                 ui.notify(t("dashboard_widgets.min_one"), color="negative")
                 return
-            app.storage.user["dashboard_widgets"] = final
+            app.storage.user["dashboard_layout"] = new_layout
             ui.notify(t("dashboard_widgets.saved"), color="positive")
             dialog.close()
             ui.navigate.to("/")
 
         def _reset() -> None:
-            app.storage.user["dashboard_widgets"] = list(DEFAULT_WIDGETS)
+            app.storage.user["dashboard_layout"] = default_layout()
+            app.storage.user.pop("dashboard_widgets", None)
             ui.notify(t("dashboard_widgets.reset_done"), color="positive")
             dialog.close()
             ui.navigate.to("/")
@@ -345,3 +440,6 @@ def _open_customize_dialog(current_order: list[str]) -> None:
                 ).props("color=primary")
 
     dialog.open()
+
+
+__all__ = ["DEFAULT_WIDGETS", "register"]
