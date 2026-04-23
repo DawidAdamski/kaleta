@@ -3,7 +3,8 @@ plan_id: dashboard-edit-mode-drag
 title: Dashboard — Edit mode with drag-and-drop reorder
 area: dashboard
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-04-23
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
@@ -171,3 +172,37 @@ Out of scope:
 ## Implementation notes
 
 _Filled in as work progresses._
+
+## Implementation
+
+Landed on 2026-04-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5f58bf7` | Dawid | 2026-04-23 | feat(dashboard): Edit mode with drag-and-drop reorder |
+
+**Files changed:**
+- `src/kaleta/views/dashboard.py` (rewritten)
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `tests/unit/views/test_dashboard_order.py` (new — 8 unit tests for `_merge_order`)
+- `docs/plans/dashboard-edit-mode-drag.md`
+- `docs/plans/README.md`
+
+**What shipped:**
+- Edit mode toggle button (`Edit layout` / `Done`) in the dashboard header, next to the existing Customize button.
+- SortableJS 1.15.2 (CDN) wired to three containers `dash-kpi` / `dash-half` / `dash-full`; each widget wrapped in `div.dash-widget-wrap` with `data-widget-id` + `data-size`.
+- Three isolated sortable groups — cross-size drags rejected by design, matching the KPI / half / full layout truth.
+- `FastAPI POST /_dashboard/order` registered on `nicegui_app` with a Pydantic `_OrderPayload`; `_merge_order()` helper strips unknown IDs, size mismatches, disabled widgets, and duplicates, falling back to stored order if merge would empty.
+- `Alt+↑` / `Alt+↓` on a focused card: DOM reorder + same POST, using `document.activeElement` fallback for synthetic events.
+- Customize dialog retains checkboxes + Reset + Save; per-row arrow-up / arrow-down buttons removed; hint reworded to point users at Edit layout for reordering.
+- Edit mode never persists — always starts locked on page load.
+
+**Deferred / out of scope (resolved open questions):**
+- No "banner persists across reload" — edit mode starts off on every page load (Q2 resolved: no).
+- No widget resizing (half ↔ full) in edit mode (out of scope from the start).
+- No free-form grid (x/y coordinates, custom widths).
+- No cross-device sync — storage stays per-browser-session.
+- Touch drag works via SortableJS but was not specifically tuned for mobile (Q6 carried forward as-is).
+
+**Notes:** A separate docs-writer commit (ADR-031 entry, tech-stack client-side JS row, README bullet) was planned after `5f58bf7` but had not landed at archive time. The feature itself is complete and fully covered by `5f58bf7`.

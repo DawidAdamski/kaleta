@@ -59,6 +59,13 @@ Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
 | Settings            | `/settings`: 6 tabs — General (language, currency, date format, week start), Appearance (theme, sidebar default), Features (reset Getting Started; detector look-back windows for Subscriptions, Housekeeping, Payment Calendar), Data (backup/restore, seed, wipe — requires typing `DELETE`; exchange rates), History (audit log), About (version, env, links). All knobs persist in `app.storage.user`. |
 | Subscriptions panel | `/wizard/subscriptions`: "By category" card groups the last 90 days of charges under the Subscriptions category tree (root identified by `is_subscriptions_root=True`, v1 = flat root + direct children). Detector surfaces only un-categorised recurrences (transactions already in the tree are skipped). Confirming a candidate prompts for a sub-category and re-categorises all window-matching historical transactions (same payee or merchant-key + same amount bucket). "Manage categories" button links to `/categories`. |
 | Cross-panel projections | `WizardProjectionService` computes read-only monthly-equivalent projections of each wizard panel's data. Budget Builder (`/wizard/budget-builder`) renders pulled rows (lock icon + source badge + cross-link) under Income / Fixed / Variable and lists reserve funds from the projection. Payment Calendar (`/payment-calendar`) merges subscription charges into day bubbles (count + outflow) and surfaces them in the day drawer with a subscription icon. Pulled rows are never stored on the consumer side; they are recomputed at render time from the source panel's authoritative data. |
+| Dashboard Edit mode     | "Edit layout / Done" toggle on the dashboard header flips an editing state (body-class toggle, no Python round-trip). SortableJS drag-and-drop is wired to three size-isolated containers (`dash-kpi`, `dash-half`, `dash-full`); cross-size drops are rejected. Alt+↑/↓ keyboard reorder within a size group. Drop and keyboard moves POST to `/_dashboard/order`; order is merged by `_merge_order()` and written to `app.storage.user["dashboard_widgets"]`. Edit mode is not persisted — always starts locked on page load. Customize dialog retains checkboxes/Reset/Save; per-row arrows removed. |
+
+## Client-side JS Dependencies
+
+| Library    | Version | Licence | How loaded          | Purpose                                      |
+|------------|---------|---------|---------------------|----------------------------------------------|
+| SortableJS | 1.15.2  | MIT     | jsDelivr CDN (head) | Drag-and-drop widget reorder on the dashboard |
 
 ## Development Tools
 

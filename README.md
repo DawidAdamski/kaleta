@@ -23,6 +23,7 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Settings — tabbed page (General, Appearance, Features, Data, History, About) with configurable locale, theme, detector look-back windows, backup/restore, and audit log; all preferences stored in server-side session storage
 - Subscriptions panel — category-tree-as-source-of-truth model: the "Subscriptions" root category (flagged by `is_subscriptions_root`) and its children define what counts as a subscription; detector surfaces only un-categorised recurrences; confirming a candidate re-categorises matching historical transactions to the chosen sub-category; "By category" view shows 90-day spend per sub-category
 - Cross-panel projections — Budget Builder and Payment Calendar consume read-only monthly-equivalent projections of sibling panels' data (planned transactions, subscriptions, loans, reserve funds) via `WizardProjectionService`; pulled rows display with a lock icon and a cross-link to the source panel; no data is duplicated or stored on the consumer side
+- Dashboard Edit mode — "Edit layout / Done" toggle enables SortableJS drag-and-drop reorder across three size-isolated widget groups (KPI, half, full); Alt+↑/↓ keyboard reorder also supported; order persists in server-side session storage
 - Installable as a Progressive Web App (PWA) on mobile and desktop
 - REST API for integrations
 - SQLite (default) or PostgreSQL
