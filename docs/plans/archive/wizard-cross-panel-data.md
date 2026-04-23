@@ -3,7 +3,8 @@ plan_id: wizard-cross-panel-data
 title: Wizard — cross-panel data flow
 area: wizard
 effort: large
-status: draft
+status: archived
+archived_at: 2026-04-23
 roadmap_ref: ../product/financial-wizard.md
 ---
 
@@ -172,6 +173,45 @@ Source of truth → where it surfaces:
 
 ## Implementation notes
 _Filled in as work progresses._
+
+## Implementation
+
+Landed on 2026-04-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `827be94` | Dawid | 2026-04-23 | feat(wizard): cross-panel projection layer |
+
+**Files changed:**
+- `src/kaleta/services/wizard_projection_service.py` (new)
+- `src/kaleta/services/__init__.py`
+- `src/kaleta/schemas/wizard_projections.py` (new — PulledRow, BudgetBuilderProjection, PaymentCalendarProjection, SubscriptionCharge)
+- `src/kaleta/views/budget_builder.py`
+- `src/kaleta/views/payment_calendar.py`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `tests/unit/services/test_wizard_projection_service.py` (19 tests)
+- `docs/architecture.md`
+- `docs/tech-stack.md`
+- `README.md`
+
+**What shipped:**
+- **WizardProjectionService** with two methods: `get_budget_builder_sources(year)` returning a `BudgetBuilderProjection` and `get_payment_calendar_sources(start, end)` returning a `PaymentCalendarProjection`. Pure aggregation over existing services — zero mutation.
+- **PulledRow** schema carries `source_kind` ("subscription" | "planned" | "reserve" | "loan"), `source_id`, `label`, monthly `amount`, a human-readable `cadence` tag, and an optional `href` for the cross-link.
+- **Budget Builder** now pulls: Income from active planned transactions with type INCOME; Fixed from active subscriptions, loans (LoanProfile.monthly_payment), and active planned expenses (non-transfer, not ONCE) sorted subscription → loan → planned; Reserves from non-archived reserve funds, monthly contribution derived as `target ÷ multiplier` for emergency funds (honours the safety-funds-months-bar chunk rule) or `target ÷ 12` otherwise. Each pulled row renders with a lock icon, source badge, cadence tooltip, a monthly / yearly amount pair, and a cross-link button. A "From other panels: X" subtotal sits above the yearly grand total.
+- **Payment Calendar** projects subscription charges onto the viewed month: day bubbles combine planned and subscription counts/outflows; the drawer shows a "Subscription charges" section under the normal "Items for this day" block.
+- **Monthly-equivalent conversion helpers** (`_monthly_from_subscription`, `_monthly_from_planned`, `_monthly_from_reserve`) live at module level so tests cover them pure.
+- **19 unit tests** — Netflix monthly vs Amazon Prime yearly conversion, YEARLY planned ÷ 12, BIWEEKLY with interval 2, ONCE → zero (skipped), emergency multiplier vs vacation target/12, service returns empty on empty DB, ordering is deterministic subscription-first, cancelled subscriptions excluded, archived reserves excluded, payment calendar window walking.
+- **Browser-verified**: Budget Builder renders Fixed rows from real planned transactions with correct monthly/yearly totals; Reserve funds show derived monthly contributions.
+
+**Partial coverage / deferred:**
+- **Monthly Readiness integration** — Stage 3 Reserves group and Stage 4 Subscription-merge were in scope but not shipped. The service surface supports them; the Readiness view would need a `_render_pulled_rows` pass. Flagged as next small follow-up.
+- **Variable section pulled rows** — planned ONCE expenses are explicitly skipped (no recurring rate), so Variable's pulled list is empty in v1. Add an alternative projection field if one-off budget reminders are wanted.
+- **Deduplication** (Open Question #3) — not implemented; if a user typed "Netflix 50 PLN" in Fixed and later created a Subscription for it, both rows are visible. Plan's v1 decision was explicit: leave both visible.
+- **Breakage detection** — already-saved YearlyPlans are not recomputed when a source disappears (plan's out-of-scope).
+- **Per-call caching** — each page load hits 4 services; fine in practice on tiny tables. Add a short cache if latency shows up.
+- **Personal-loan cross-link target** — routes to `/credit` rather than a deep-link to the specific loan row (Credit view has no per-row permalinks yet).
+- **Subscription-charge rendering in the calendar** uses the monthly cadence projected forward from `first_seen_at`; irregular timing captured in Transactions is not reflected.
 
 ## Sequencing recommendation
 
