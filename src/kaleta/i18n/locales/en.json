@@ -370,6 +370,8 @@
     "detector_cadence_yearly": "Yearly",
     "detector_occurrences": "{count} charges · last {date}",
     "detector_confirm": "Track",
+    "detector_dismiss": "Not a subscription",
+    "dismissed_msg": "Hidden from the detector.",
     "renewals_heading": "Upcoming renewals (next 30 days)",
     "renewals_empty": "No renewals due in the next 30 days.",
     "renewals_days_away": "in {days} days",

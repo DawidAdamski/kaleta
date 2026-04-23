@@ -11,6 +11,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.models.dismissed_candidate import DismissedCandidate
 from kaleta.models.payee import Payee
 from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import Transaction, TransactionType
@@ -23,7 +24,9 @@ from kaleta.schemas.subscription import (
 )
 
 # Detector tuning ─ start conservative, revisit after dogfood.
-DETECTOR_WINDOW_DAYS = 365  # look-back window
+# Window = 24 months so yearly subs that last charged up to ~18 mo ago still
+# match (need 2 occurrences for a yearly = one in month 0, one ~12 mo later).
+DETECTOR_WINDOW_DAYS = 730
 CADENCE_MONTHLY_DAYS = 30
 CADENCE_YEARLY_DAYS = 365
 CADENCE_MONTHLY_TOLERANCE = 5  # ± days (roomier than plan's 3 to absorb weekends)
@@ -160,6 +163,22 @@ class SubscriptionService:
             if name:
                 tracked_merchant_keys.add(_merchant_key_from_description(name))
 
+        # Dismissed patterns — user previously clicked "not a subscription".
+        dismissed_result = await self.session.execute(
+            select(
+                DismissedCandidate.payee_id,
+                DismissedCandidate.merchant_key,
+                DismissedCandidate.amount_bucket,
+            )
+        )
+        dismissed_by_payee: set[tuple[int, str]] = set()
+        dismissed_by_key: set[tuple[str, str]] = set()
+        for d_payee_id, d_merchant_key, d_bucket in dismissed_result.all():
+            if d_payee_id is not None:
+                dismissed_by_payee.add((d_payee_id, d_bucket))
+            elif d_merchant_key is not None:
+                dismissed_by_key.add((d_merchant_key, d_bucket))
+
         # ── PASS 1: rows with a Payee ──────────────────────────────────────
         payee_rows = await self.session.execute(
             select(Transaction, Payee)
@@ -178,6 +197,8 @@ class SubscriptionService:
             if payee.id in tracked_payee_ids:
                 continue
             bucket = _amount_bucket(abs(tx.amount))
+            if (payee.id, bucket) in dismissed_by_payee:
+                continue
             pass1_groups[(payee.id, bucket)].append(tx)
             payee_names[payee.id] = payee.name
 
@@ -211,6 +232,8 @@ class SubscriptionService:
             if key in tracked_merchant_keys:
                 continue
             bucket = _amount_bucket(abs(tx.amount))
+            if (key, bucket) in dismissed_by_key:
+                continue
             pass2_groups[(key, bucket)].append(tx)
 
         for (merchant_key, _bucket), txs in pass2_groups.items():
@@ -220,6 +243,47 @@ class SubscriptionService:
 
         candidates.sort(key=lambda c: c.amount, reverse=True)
         return candidates
+
+    async def dismiss_candidate(self, candidate: DetectorCandidate) -> None:
+        """Persist a 'not a subscription' decision so it doesn't resurface."""
+        bucket = _amount_bucket(candidate.amount)
+        merchant_key = (
+            None if candidate.payee_id is not None else candidate.payee_name
+        )
+        existing = await self.session.execute(
+            select(DismissedCandidate).where(
+                DismissedCandidate.payee_id == candidate.payee_id,
+                DismissedCandidate.merchant_key == merchant_key,
+                DismissedCandidate.amount_bucket == bucket,
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            return
+        self.session.add(
+            DismissedCandidate(
+                payee_id=candidate.payee_id,
+                merchant_key=merchant_key,
+                amount_bucket=bucket,
+            )
+        )
+        await self.session.commit()
+
+    async def list_dismissed(self) -> builtins.list[DismissedCandidate]:
+        result = await self.session.execute(
+            select(DismissedCandidate).order_by(DismissedCandidate.id)
+        )
+        return list(result.scalars().all())
+
+    async def undismiss(self, dismissed_id: int) -> bool:
+        result = await self.session.execute(
+            select(DismissedCandidate).where(DismissedCandidate.id == dismissed_id)
+        )
+        row = result.scalar_one_or_none()
+        if row is None:
+            return False
+        await self.session.delete(row)
+        await self.session.commit()
+        return True
 
     async def create_from_candidate(
         self, candidate: DetectorCandidate

@@ -421,6 +421,87 @@ class TestDetector:
 # ── Renewals ─────────────────────────────────────────────────────────────────
 
 
+class TestDismiss:
+    async def test_dismiss_hides_payee_candidate(self, session: AsyncSession):
+        acc, cat = await _seed_setup(session)
+        payee = await _add_payee(session, "Tax")
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2):
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=cat,
+                payee_id=payee.id,
+                amount=Decimal("5"),
+                date=today - datetime.timedelta(days=30 * months_back),
+            )
+        svc = SubscriptionService(session)
+        candidates = await svc.detect_candidates(today=today)
+        assert len(candidates) == 1
+        await svc.dismiss_candidate(candidates[0])
+        assert await svc.detect_candidates(today=today) == []
+
+    async def test_dismiss_hides_description_candidate(
+        self, session: AsyncSession
+    ):
+        acc, cat = await _seed_setup(session)
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2):
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=cat,
+                payee_id=None,
+                amount=Decimal("5"),
+                date=today - datetime.timedelta(days=30 * months_back),
+                description="INTERNAL TRANSFER /X",
+            )
+        svc = SubscriptionService(session)
+        candidates = await svc.detect_candidates(today=today)
+        assert len(candidates) == 1
+        await svc.dismiss_candidate(candidates[0])
+        assert await svc.detect_candidates(today=today) == []
+
+    async def test_dismiss_is_idempotent(self, session: AsyncSession):
+        acc, cat = await _seed_setup(session)
+        payee = await _add_payee(session, "Tax")
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2):
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=cat,
+                payee_id=payee.id,
+                amount=Decimal("5"),
+                date=today - datetime.timedelta(days=30 * months_back),
+            )
+        svc = SubscriptionService(session)
+        cands = await svc.detect_candidates(today=today)
+        await svc.dismiss_candidate(cands[0])
+        await svc.dismiss_candidate(cands[0])  # second call must not raise
+        assert len(await svc.list_dismissed()) == 1
+
+    async def test_undismiss_restores_candidate(self, session: AsyncSession):
+        acc, cat = await _seed_setup(session)
+        payee = await _add_payee(session, "Tax")
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2):
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=cat,
+                payee_id=payee.id,
+                amount=Decimal("5"),
+                date=today - datetime.timedelta(days=30 * months_back),
+            )
+        svc = SubscriptionService(session)
+        cand = (await svc.detect_candidates(today=today))[0]
+        await svc.dismiss_candidate(cand)
+        [dismissed] = await svc.list_dismissed()
+        assert await svc.undismiss(dismissed.id) is True
+        assert len(await svc.detect_candidates(today=today)) == 1
+
+
 class TestRenewals:
     async def test_upcoming_within_30_days(self, session: AsyncSession):
         svc = SubscriptionService(session)

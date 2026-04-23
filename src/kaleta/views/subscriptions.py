@@ -310,6 +310,12 @@ def register() -> None:
                 )
                 ui.navigate.reload()
 
+            async def _dismiss_candidate(cand: DetectorCandidate) -> None:
+                async with AsyncSessionFactory() as s:
+                    await SubscriptionService(s).dismiss_candidate(cand)
+                ui.notify(t("subscriptions.dismissed_msg"), type="info")
+                ui.navigate.reload()
+
             async def _mute(sub_id: int) -> None:
                 async with AsyncSessionFactory() as s:
                     await SubscriptionService(s).mute_one_cycle(sub_id)
@@ -344,7 +350,9 @@ def register() -> None:
                     )
                 else:
                     for cand in candidates:
-                        _render_candidate_row(cand, _confirm_candidate)
+                        _render_candidate_row(
+                            cand, _confirm_candidate, _dismiss_candidate
+                        )
 
             # ── Renewals section ─────────────────────────────────────────
             with ui.card().classes(SECTION_CARD):
@@ -377,7 +385,7 @@ def register() -> None:
 
 
 def _render_candidate_row(
-    cand: DetectorCandidate, on_confirm: Any
+    cand: DetectorCandidate, on_confirm: Any, on_dismiss: Any
 ) -> None:
     with ui.row().classes("w-full items-center gap-3 py-2"):
         ui.icon("autorenew", size="1.3rem").classes("text-primary")
@@ -399,6 +407,12 @@ def _render_candidate_row(
             icon="check",
             on_click=lambda _e, c=cand: on_confirm(c),
         ).props("color=primary unelevated size=sm")
+        ui.button(
+            icon="close",
+            on_click=lambda _e, c=cand: on_dismiss(c),
+        ).props("flat dense round color=grey-7").tooltip(
+            t("subscriptions.detector_dismiss")
+        )
 
 
 def _render_renewal_row(r: RenewalRow) -> None:

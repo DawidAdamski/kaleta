@@ -370,6 +370,8 @@
     "detector_cadence_yearly": "Roczna",
     "detector_occurrences": "{count} opłat · ostatnia {date}",
     "detector_confirm": "Śledź",
+    "detector_dismiss": "To nie subskrypcja",
+    "dismissed_msg": "Ukryto z detektora.",
     "renewals_heading": "Najbliższe odnowienia (30 dni)",
     "renewals_empty": "Brak odnowień w ciągu najbliższych 30 dni.",
     "renewals_days_away": "za {days} dni",
