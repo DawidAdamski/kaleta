@@ -99,7 +99,7 @@ The subagent:
 | [import-multi-file-queue](archive/import-multi-file-queue.md) | archived | Import |
 | [forecast-model-presets](archive/forecast-model-presets.md) | archived | Forecast |
 | [reports-library](archive/reports-library.md) | archived | Reports |
-| [settings-expansion](settings-expansion.md) | draft | Settings |
+| [settings-expansion](archive/settings-expansion.md) | archived | Settings |
 | [dedupe-suggestions](archive/dedupe-suggestions.md) | archived | Cross-cutting |
 | [wizard-safety-funds](archive/wizard-safety-funds.md) | archived | Wizard → Safety funds |
 | [wizard-personal-loans](archive/wizard-personal-loans.md) | archived | Wizard → Personal loans |
