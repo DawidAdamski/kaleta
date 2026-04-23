@@ -94,6 +94,7 @@ The subagent:
 | Plan | Status | Roadmap ref |
 |---|---|---|
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
+| [dashboard-widget-resize](dashboard-widget-resize.md) | draft | Dashboard |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
 | [budgets-realization-view](archive/budgets-realization-view.md) | archived | Budgets |

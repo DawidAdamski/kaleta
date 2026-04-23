@@ -50,6 +50,15 @@ _EDIT_MODE_STYLE = """
     outline: 1px dashed rgba(100,116,139,0.45);
     outline-offset: 4px;
     border-radius: 10px;
+    cursor: grab;
+  }
+  body.dash-editing .dash-widget-wrap:active { cursor: grabbing; }
+  /* Block all pointer events inside a card while editing so clicks on
+     inner buttons/links don't swallow the drag. The handle itself stays
+     interactive because it sits above this layer. */
+  body.dash-editing .dash-widget-wrap > *:not(.dash-drag-handle) {
+    pointer-events: none;
+    user-select: none;
   }
   body.dash-editing .dash-widget-wrap .dash-drag-handle {
     opacity: 1; pointer-events: auto;
@@ -78,7 +87,7 @@ window.__kaletaInitDashSortable = function() {
     if (!document.body.classList.contains('dash-editing')) return;
     if (typeof Sortable === 'undefined') return;
     container.__sortable = new Sortable(container, {
-      handle: '.dash-drag-handle',
+      draggable: '.dash-widget-wrap',
       animation: 150,
       group: 'dash-' + size,
       ghostClass: 'sortable-ghost',
