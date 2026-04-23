@@ -341,6 +341,7 @@
     "empty_body": "Add your first fund to start tracking coverage.",
     "backed_by": "Backed by {account}",
     "months_of_coverage": "{months} months of expenses",
+    "months_of_coverage_goal": "{months} / {goal} months of expenses",
     "saved": "Fund saved.",
     "edit": "Edit",
     "delete": "Delete",

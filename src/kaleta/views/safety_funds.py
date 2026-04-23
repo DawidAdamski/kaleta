@@ -369,12 +369,19 @@ def _render_fund_card(
         with ui.row().classes("w-full items-center justify-between mt-2 text-xs"):
             ui.label(t("safety_funds.backed_by", account=account_name)).classes(BODY_MUTED)
             if fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None:
-                ui.label(
-                    t(
-                        "safety_funds.months_of_coverage",
-                        months=f"{fund.months_of_coverage:.1f}",
+                months_txt = f"{fund.months_of_coverage:.1f}"
+                if fund.emergency_multiplier is not None:
+                    label_text = t(
+                        "safety_funds.months_of_coverage_goal",
+                        months=months_txt,
+                        goal=fund.emergency_multiplier,
                     )
-                ).classes(BODY_MUTED)
+                else:
+                    label_text = t(
+                        "safety_funds.months_of_coverage",
+                        months=months_txt,
+                    )
+                ui.label(label_text).classes(BODY_MUTED)
 
 
 def _render_archived_card(

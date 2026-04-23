@@ -341,6 +341,7 @@
     "empty_body": "Dodaj pierwszy fundusz, aby zacząć śledzić pokrycie.",
     "backed_by": "Źródło: {account}",
     "months_of_coverage": "{months} miesięcy wydatków",
+    "months_of_coverage_goal": "{months} / {goal} miesięcy wydatków",
     "saved": "Fundusz zapisany.",
     "edit": "Edytuj",
     "delete": "Usuń",
