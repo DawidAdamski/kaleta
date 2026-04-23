@@ -92,7 +92,12 @@
   "dashboard_widgets": {
     "customize": "Customize",
     "customize_title": "Customize Dashboard",
-    "customize_hint": "Toggle widgets on/off and reorder them with the arrows.",
+    "customize_hint": "Toggle widgets on or off. Use Edit layout to reorder.",
+    "edit_layout": "Edit layout",
+    "done_editing": "Done",
+    "edit_banner": "Editing layout — drag cards to reorder. Click Done when finished.",
+    "drag_hint": "Drag to reorder",
+    "empty_size_group": "No widgets here. Open Customize to add one.",
     "reset": "Reset to default",
     "reset_done": "Dashboard reset to defaults.",
     "saved": "Dashboard updated.",

@@ -92,7 +92,12 @@
   "dashboard_widgets": {
     "customize": "Personalizuj",
     "customize_title": "Personalizuj pulpit",
-    "customize_hint": "Włącz/wyłącz widżety i zmień kolejność strzałkami.",
+    "customize_hint": "Włącz lub wyłącz widżety. Użyj „Edytuj układ”, aby zmienić kolejność.",
+    "edit_layout": "Edytuj układ",
+    "done_editing": "Gotowe",
+    "edit_banner": "Edytujesz układ — przeciągaj karty, aby zmienić kolejność. Kliknij „Gotowe”, gdy skończysz.",
+    "drag_hint": "Przeciągnij, aby zmienić kolejność",
+    "empty_size_group": "Brak widżetów. Otwórz Personalizuj, aby dodać.",
     "reset": "Przywróć domyślne",
     "reset_done": "Pulpit przywrócony do ustawień domyślnych.",
     "saved": "Pulpit zaktualizowany.",
