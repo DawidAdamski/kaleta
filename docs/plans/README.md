@@ -111,6 +111,6 @@ The subagent:
 | [budgets-rename-and-payment-calendar](archive/budgets-rename-and-payment-calendar.md) | archived | Budgets + new Payment Calendar |
 | [credit-first-class](credit-first-class.md) | draft | Credit |
 | [wizard-monthly-readiness](archive/wizard-monthly-readiness.md) | archived | Wizard → Monthly Readiness |
-| [wizard-subscriptions](wizard-subscriptions.md) | draft | Wizard → Subscriptions |
+| [wizard-subscriptions](archive/wizard-subscriptions.md) | archived | Wizard → Subscriptions |
 | [wizard-budget-builder](archive/wizard-budget-builder.md) | archived | Wizard → Budget Builder |
 | [wizard-cross-panel-data](wizard-cross-panel-data.md) | draft | Wizard → cross-panel data flow |
