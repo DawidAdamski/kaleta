@@ -18,6 +18,7 @@ from kaleta.schemas.subscription import (
     SubscriptionUpdate,
 )
 from kaleta.services import CategoryService, SubscriptionService
+from kaleta.services.subscription_service import SubscriptionCategoryGroup
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -62,6 +63,9 @@ def register() -> None:
     @ui.page("/wizard/subscriptions")
     async def subscriptions_page() -> None:
         async with AsyncSessionFactory() as session:
+            cat_svc = CategoryService(session)
+            # Make sure the Subscriptions tree exists — it's the source of truth now.
+            await cat_svc.ensure_subscriptions_root_and_children()
             svc = SubscriptionService(session)
             subs = await svc.list()
             totals = await svc.totals()
@@ -70,10 +74,18 @@ def register() -> None:
             ) or None
             candidates = await svc.detect_candidates(window_days=detector_days)
             renewals = await svc.upcoming_renewals(days=30)
-            expense_cats = await CategoryService(session).list(type=CategoryType.EXPENSE)
+            by_category = await svc.subscription_transactions_grouped()
+            expense_cats = await cat_svc.list(type=CategoryType.EXPENSE)
+            sub_children = await cat_svc.list_subscription_children()
+            sub_root = await cat_svc.get_subscriptions_root()
 
         sub_responses = [SubscriptionResponse.model_validate(s) for s in subs]
         category_opts: dict[int, str] = {c.id: c.name for c in expense_cats}
+        # Sub-category picker options: the root (acts as "Uncategorised sub")
+        # plus each direct child by name.
+        sub_category_opts: dict[int, str] = {
+            child.id: child.name for child in sub_children
+        }
 
         with page_layout(t("subscriptions.title"), wide=True):
             # ── Header ───────────────────────────────────────────────────
@@ -314,7 +326,74 @@ def register() -> None:
 
             confirm_delete_btn.on_click(_confirm_delete)
 
-            async def _confirm_candidate(cand: DetectorCandidate) -> None:
+            # ── Confirm-candidate sub-category picker dialog ─────────────
+            pending_candidate: dict[str, DetectorCandidate | None] = {"cand": None}
+
+            with ui.dialog() as confirm_dialog, ui.card().classes("w-[480px] gap-3"):
+                ui.label(t("subscriptions.confirm_title")).classes(
+                    "text-lg font-bold"
+                )
+                confirm_body = ui.label("").classes(BODY_MUTED)
+                # Default to the first child of the Subscriptions root so the
+                # user doesn't have to pick; they can still change it.
+                default_sub_cat = (
+                    next(iter(sub_category_opts)) if sub_category_opts else None
+                )
+                sub_cat_select = (
+                    ui.select(
+                        options=sub_category_opts,
+                        label=t("subscriptions.confirm_sub_category"),
+                        value=default_sub_cat,
+                    )
+                    .props("dense outlined")
+                    .classes("w-full")
+                )
+                ui.label(t("subscriptions.confirm_hint")).classes(BODY_MUTED)
+                with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                    ui.button(
+                        t("common.cancel"), on_click=confirm_dialog.close
+                    ).props("flat")
+                    confirm_track_btn = ui.button(
+                        t("subscriptions.detector_confirm"), icon="check"
+                    ).props("color=primary unelevated")
+
+            async def _do_track() -> None:
+                cand = pending_candidate["cand"]
+                if cand is None:
+                    return
+                sub_cat_id = (
+                    int(sub_cat_select.value)
+                    if sub_cat_select.value is not None
+                    else None
+                )
+                async with AsyncSessionFactory() as s:
+                    await SubscriptionService(s).create_from_candidate(
+                        cand,
+                        sub_category_id=sub_cat_id,
+                        window_days=detector_days,
+                    )
+                confirm_dialog.close()
+                ui.notify(
+                    t("subscriptions.tracked", name=cand.payee_name),
+                    type="positive",
+                )
+                ui.navigate.reload()
+
+            confirm_track_btn.on_click(_do_track)
+
+            def _confirm_candidate(cand: DetectorCandidate) -> None:
+                pending_candidate["cand"] = cand
+                confirm_body.set_text(
+                    t("subscriptions.confirm_body", name=cand.payee_name)
+                )
+                if not sub_category_opts:
+                    # No subscription children exist (fresh install with the
+                    # migration not yet reseeded) — fall back to silent track.
+                    _silent_track(cand)
+                    return
+                confirm_dialog.open()
+
+            async def _silent_track_async(cand: DetectorCandidate) -> None:
                 async with AsyncSessionFactory() as s:
                     await SubscriptionService(s).create_from_candidate(cand)
                 ui.notify(
@@ -322,6 +401,11 @@ def register() -> None:
                     type="positive",
                 )
                 ui.navigate.reload()
+
+            def _silent_track(cand: DetectorCandidate) -> None:
+                import asyncio
+
+                asyncio.create_task(_silent_track_async(cand))
 
             async def _dismiss_candidate(cand: DetectorCandidate) -> None:
                 async with AsyncSessionFactory() as s:
@@ -347,11 +431,37 @@ def register() -> None:
                 ui.notify(t("subscriptions.reactivated"), type="positive")
                 ui.navigate.reload()
 
-            # ── Add button (top-right of header) ─────────────────────────
-            with ui.row().classes("w-full justify-end"):
+            # ── Add + Manage categories buttons (top-right) ───────────────
+            with ui.row().classes("w-full justify-end gap-2"):
+                ui.button(
+                    t("subscriptions.manage_categories"),
+                    icon="category",
+                    on_click=lambda: ui.navigate.to("/categories"),
+                ).props("flat color=primary size=sm")
                 ui.button(
                     t("subscriptions.add"), icon="add", on_click=_open_add_dialog
                 ).props("color=primary unelevated size=sm")
+
+            # ── By-category section (primary view) ───────────────────────
+            with ui.card().classes(SECTION_CARD):
+                with ui.row().classes("items-center justify-between w-full"):
+                    with ui.column().classes("gap-0"):
+                        ui.label(t("subscriptions.by_category_heading")).classes(
+                            SECTION_HEADING
+                        )
+                        ui.label(t("subscriptions.by_category_hint")).classes(BODY_MUTED)
+                    if sub_root is not None:
+                        ui.label(
+                            t("subscriptions.by_category_root", name=sub_root.name)
+                        ).classes("text-xs text-slate-500")
+
+                if not by_category:
+                    ui.label(t("subscriptions.by_category_empty")).classes(
+                        f"{BODY_MUTED} mt-2"
+                    )
+                else:
+                    for group in by_category:
+                        _render_category_group(group)
 
             # ── Detector section ─────────────────────────────────────────
             with ui.card().classes(SECTION_CARD):
@@ -395,6 +505,28 @@ def register() -> None:
                             on_reactivate=_reactivate,
                             on_delete=_open_delete_dialog,
                         )
+
+
+def _render_category_group(group: SubscriptionCategoryGroup) -> None:
+    """One collapsible block per Subscriptions-tree child category."""
+    monthly_total = sum(
+        (row.total_spent for row in group.merchants), Decimal("0")
+    )
+    heading = t(
+        "subscriptions.by_category_group",
+        name=group.category_name,
+        total=f"{monthly_total:,.2f}",
+    )
+    with ui.expansion(heading, icon="subscriptions").classes("w-full").props("dense"):
+        for row in group.merchants:
+            with ui.row().classes("w-full items-center gap-3 py-1"):
+                ui.label(row.label).classes("flex-1 text-sm")
+                ui.label(
+                    t("subscriptions.by_category_charges", count=row.charges)
+                ).classes("text-xs text-slate-500 w-28 text-right")
+                ui.label(f"{row.total_spent:,.2f}").classes(
+                    f"{AMOUNT_EXPENSE} w-28 text-right text-sm"
+                )
 
 
 def _render_candidate_row(

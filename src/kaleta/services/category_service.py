@@ -105,6 +105,75 @@ class CategoryService:
         await self.session.commit()
         return True
 
+    # ── Subscriptions-tree helpers ────────────────────────────────────────
+
+    async def get_subscriptions_root(self) -> Category | None:
+        """Return the single root category flagged as the Subscriptions tree."""
+        result = await self.session.execute(
+            select(Category)
+            .options(selectinload(Category.children))
+            .where(Category.is_subscriptions_root.is_(True))
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
+
+    async def list_subscription_children(self) -> builtins.list[Category]:
+        """Direct children of the Subscriptions root, ordered by name.
+
+        Returns an empty list if the root doesn't exist yet.
+        """
+        root = await self.get_subscriptions_root()
+        if root is None:
+            return []
+        result = await self.session.execute(
+            select(Category)
+            .where(Category.parent_id == root.id)
+            .order_by(Category.name)
+        )
+        return builtins.list(result.scalars().all())
+
+    async def subscription_category_ids(self) -> set[int]:
+        """Return the id set: root + every direct child. Used as a membership test."""
+        root = await self.get_subscriptions_root()
+        if root is None:
+            return set()
+        ids = {root.id}
+        result = await self.session.execute(
+            select(Category.id).where(Category.parent_id == root.id)
+        )
+        ids.update(result.scalars().all())
+        return ids
+
+    async def ensure_subscriptions_root_and_children(
+        self, child_names: builtins.list[str] | None = None
+    ) -> Category:
+        """Create the Subscriptions root + default children if missing.
+
+        Idempotent — safe to call from seeds. Returns the root.
+        """
+        root = await self.get_subscriptions_root()
+        if root is None:
+            root = Category(
+                name="Subscriptions",
+                type=CategoryType.EXPENSE,
+                is_subscriptions_root=True,
+            )
+            self.session.add(root)
+            await self.session.commit()
+            await self.session.refresh(root)
+        defaults = child_names if child_names is not None else ["Monthly", "Yearly", "Other"]
+        existing = await self.list_subscription_children()
+        existing_names = {c.name for c in existing}
+        for name in defaults:
+            if name not in existing_names:
+                self.session.add(
+                    Category(
+                        name=name, type=CategoryType.EXPENSE, parent_id=root.id
+                    )
+                )
+        await self.session.commit()
+        return await self.get(root.id)  # type: ignore[return-value]
+
     @staticmethod
     def list_templates() -> builtins.list[str]:
         """Return available template keys (JSON filenames without extension)."""

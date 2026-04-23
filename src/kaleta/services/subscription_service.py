@@ -6,11 +6,13 @@ import builtins
 import datetime
 import re
 from collections import defaultdict
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.models.category import Category
 from kaleta.models.dismissed_candidate import DismissedCandidate
 from kaleta.models.payee import Payee
 from kaleta.models.subscription import Subscription, SubscriptionStatus
@@ -33,6 +35,23 @@ CADENCE_MONTHLY_TOLERANCE = 5  # ± days (roomier than plan's 3 to absorb weeken
 CADENCE_YEARLY_TOLERANCE = 21
 AMOUNT_TOLERANCE_PCT = Decimal("0.05")  # ±5 %
 MIN_OCCURRENCES = 2  # need at least 2 charges to call something recurring
+
+
+# ── By-category view shapes ──────────────────────────────────────────────────
+
+
+@dataclass
+class SubscriptionMerchantRow:
+    label: str
+    total_spent: Decimal
+    charges: int
+
+
+@dataclass(frozen=True)
+class SubscriptionCategoryGroup:
+    category_id: int
+    category_name: str
+    merchants: tuple[SubscriptionMerchantRow, ...] = field(default_factory=tuple)
 
 
 class SubscriptionService:
@@ -153,6 +172,11 @@ class SubscriptionService:
         effective_window = window_days if window_days and window_days > 0 else DETECTOR_WINDOW_DAYS
         window_start = ref - datetime.timedelta(days=effective_window)
 
+        # Transactions already under the Subscriptions tree are considered
+        # tracked — skip them. This narrows the detector to "help me
+        # categorise un-categorised recurring charges".
+        sub_cat_ids = await self._subscription_category_ids()
+
         # Existing subscriptions block their payees/names from candidates.
         existing = await self.session.execute(
             select(Subscription.payee_id, Subscription.name).where(
@@ -184,7 +208,7 @@ class SubscriptionService:
                 dismissed_by_key.add((d_merchant_key, d_bucket))
 
         # ── PASS 1: rows with a Payee ──────────────────────────────────────
-        payee_rows = await self.session.execute(
+        stmt1 = (
             select(Transaction, Payee)
             .join(Payee, Transaction.payee_id == Payee.id)
             .where(
@@ -195,6 +219,12 @@ class SubscriptionService:
             )
             .order_by(Transaction.date)
         )
+        if sub_cat_ids:
+            stmt1 = stmt1.where(
+                Transaction.category_id.is_(None)
+                | Transaction.category_id.not_in(sub_cat_ids)
+            )
+        payee_rows = await self.session.execute(stmt1)
         pass1_groups: dict[tuple[int, str], list[Transaction]] = defaultdict(list)
         payee_names: dict[int, str] = {}
         for tx, payee in payee_rows.all():
@@ -217,7 +247,7 @@ class SubscriptionService:
         # ── PASS 2: rows without a Payee — group by description-key ────────
         # Many imported rows (HBO, Disney Plus, APPLE.COM/BILL, AMAZON.PL)
         # never get a Payee row created for them, so pass 1 misses them.
-        orphan_rows = await self.session.execute(
+        stmt2 = (
             select(Transaction)
             .where(
                 Transaction.type == TransactionType.EXPENSE,
@@ -228,6 +258,12 @@ class SubscriptionService:
             )
             .order_by(Transaction.date)
         )
+        if sub_cat_ids:
+            stmt2 = stmt2.where(
+                Transaction.category_id.is_(None)
+                | Transaction.category_id.not_in(sub_cat_ids)
+            )
+        orphan_rows = await self.session.execute(stmt2)
         pass2_groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
         for tx in orphan_rows.scalars().all():
             key = _merchant_key_from_description(tx.description)
@@ -290,14 +326,19 @@ class SubscriptionService:
         return True
 
     async def create_from_candidate(
-        self, candidate: DetectorCandidate
+        self,
+        candidate: DetectorCandidate,
+        *,
+        sub_category_id: int | None = None,
+        window_days: int | None = None,
+        today: datetime.date | None = None,
     ) -> Subscription:
         # The candidate's next_expected_at is "last seen + cadence". If that's
         # already in the past (irregular history, detector ran today), keep
         # walking forward so the new subscription shows up in Upcoming Renewals.
         next_expected = candidate.next_expected_at
-        today = datetime.date.today()
-        while next_expected <= today:
+        ref_today = today or datetime.date.today()
+        while next_expected <= ref_today:
             next_expected = next_expected + datetime.timedelta(
                 days=candidate.cadence_days
             )
@@ -306,10 +347,163 @@ class SubscriptionService:
             amount=candidate.amount,
             cadence_days=candidate.cadence_days,
             payee_id=candidate.payee_id,
+            category_id=sub_category_id,
             first_seen_at=candidate.first_seen_at,
             next_expected_at=next_expected,
         )
-        return await self.create(payload)
+        sub = await self.create(payload)
+        # Optionally re-categorise the historical charges that match this
+        # candidate so the By-category view shows them immediately.
+        if sub_category_id is not None:
+            await self._recategorise_matching(
+                candidate=candidate,
+                sub_category_id=sub_category_id,
+                window_days=window_days,
+                today=ref_today,
+            )
+        return sub
+
+    async def _recategorise_matching(
+        self,
+        *,
+        candidate: DetectorCandidate,
+        sub_category_id: int,
+        window_days: int | None,
+        today: datetime.date,
+    ) -> int:
+        """Update every matching tx inside the detector window to the given category.
+
+        Matching = same payee_id (when set) or same description merchant-key,
+        AND same amount bucket, AND non-transfer expense.
+        Returns the number of rows touched.
+        """
+        effective = window_days if window_days and window_days > 0 else DETECTOR_WINDOW_DAYS
+        window_start = today - datetime.timedelta(days=effective)
+        target_bucket = _amount_bucket(candidate.amount)
+
+        stmt = select(Transaction).where(
+            Transaction.type == TransactionType.EXPENSE,
+            Transaction.is_internal_transfer == False,  # noqa: E712
+            Transaction.date >= window_start,
+            Transaction.date <= today,
+        )
+        if candidate.payee_id is not None:
+            stmt = stmt.where(Transaction.payee_id == candidate.payee_id)
+        else:
+            stmt = stmt.where(Transaction.payee_id.is_(None))
+        result = await self.session.execute(stmt)
+        touched = 0
+        for tx in result.scalars().all():
+            if _amount_bucket(abs(tx.amount)) != target_bucket:
+                continue
+            if (
+                candidate.payee_id is None
+                and _merchant_key_from_description(tx.description)
+                != candidate.payee_name
+            ):
+                # Description-based candidate whose merchant-key doesn't match.
+                continue
+            tx.category_id = sub_category_id
+            touched += 1
+        await self.session.commit()
+        return touched
+
+    async def _subscription_category_ids(self) -> set[int]:
+        """Return the id set: Subscriptions root + every direct child."""
+        root_result = await self.session.execute(
+            select(Category.id).where(Category.is_subscriptions_root.is_(True))
+        )
+        root_id = root_result.scalar_one_or_none()
+        if root_id is None:
+            return set()
+        ids = {root_id}
+        children_result = await self.session.execute(
+            select(Category.id).where(Category.parent_id == root_id)
+        )
+        ids.update(children_result.scalars().all())
+        return ids
+
+    async def subscription_transactions_grouped(
+        self, *, today: datetime.date | None = None, window_days: int = 90
+    ) -> builtins.list[SubscriptionCategoryGroup]:
+        """Return recent (last ``window_days``) transactions under the
+        Subscriptions tree, grouped by child category + merchant.
+        """
+        ref = today or datetime.date.today()
+        window_start = ref - datetime.timedelta(days=window_days)
+        sub_cat_ids = await self._subscription_category_ids()
+        if not sub_cat_ids:
+            return []
+
+        # Fetch child categories to name the groups.
+        root_result = await self.session.execute(
+            select(Category.id).where(Category.is_subscriptions_root.is_(True))
+        )
+        root_id = root_result.scalar_one()
+        cats_result = await self.session.execute(
+            select(Category).where(Category.parent_id == root_id).order_by(Category.name)
+        )
+        children = list(cats_result.scalars().all())
+        by_cat: dict[int, builtins.list[SubscriptionMerchantRow]] = defaultdict(list)
+        merchant_state: dict[
+            tuple[int, str], SubscriptionMerchantRow
+        ] = {}
+
+        tx_result = await self.session.execute(
+            select(Transaction, Payee)
+            .outerjoin(Payee, Transaction.payee_id == Payee.id)
+            .where(
+                Transaction.category_id.in_(sub_cat_ids),
+                Transaction.date >= window_start,
+                Transaction.date <= ref,
+            )
+            .order_by(Transaction.date)
+        )
+        for tx, payee in tx_result.all():
+            if tx.category_id is None:
+                continue
+            label = (
+                payee.name
+                if payee is not None
+                else _merchant_key_from_description(tx.description) or "—"
+            )
+            amt = abs(tx.amount)
+            key = (tx.category_id, label)
+            row = merchant_state.get(key)
+            if row is None:
+                row = SubscriptionMerchantRow(
+                    label=label, total_spent=Decimal("0"), charges=0
+                )
+                merchant_state[key] = row
+                by_cat[tx.category_id].append(row)
+            row.total_spent += amt
+            row.charges += 1
+
+        groups: builtins.list[SubscriptionCategoryGroup] = []
+        for cat in children:
+            merchants = by_cat.get(cat.id, [])
+            if not merchants:
+                continue
+            merchants.sort(key=lambda r: r.total_spent, reverse=True)
+            groups.append(
+                SubscriptionCategoryGroup(
+                    category_id=cat.id,
+                    category_name=cat.name,
+                    merchants=tuple(merchants),
+                )
+            )
+        # Include a pseudo-group for tx filed at the root itself.
+        root_merchants = by_cat.get(root_id, [])
+        if root_merchants:
+            root_merchants.sort(key=lambda r: r.total_spent, reverse=True)
+            groups.append(
+                SubscriptionCategoryGroup(
+                    category_id=root_id,
+                    category_name="Subscriptions",
+                    merchants=tuple(root_merchants),
+                )
+            )
+        return groups
 
     # ── Renewals ──────────────────────────────────────────────────────────
 

@@ -62,7 +62,7 @@ kaleta/
 │   │   ├── account.py
 │   │   ├── transaction.py   # Transaction + TransactionSplit models
 │   │   ├── budget.py
-│   │   ├── category.py      # UNIQUE(name, parent_id) constraint
+│   │   ├── category.py      # UNIQUE(name, parent_id) constraint; is_subscriptions_root flag
 │   │   ├── institution.py   # Institution model + InstitutionType enum
 │   │   ├── asset.py         # Asset model + AssetType enum
 │   │   ├── payee.py         # Payee model (name UNIQUE)
@@ -88,7 +88,7 @@ kaleta/
 │   │   ├── asset_service.py
 │   │   ├── net_worth_service.py
 │   │   ├── payee_service.py # Payee CRUD + merge() + find_or_create()
-│   │   ├── subscription_service.py  # detect_candidates(window_days=...) — configurable look-back
+│   │   ├── subscription_service.py  # detect_candidates(window_days=...) — skips Subscriptions-tree transactions; create_from_candidate re-categorises history; subscription_transactions_grouped(window_days=90)
 │   │   ├── dedupe_service.py        # duplicate_transactions(window_days=...) — configurable scan window
 │   │   └── planned_transaction_service.py  # grid_for_month(..., overdue_window_days=...) — configurable overdue look-back
 │   ├── controllers/         # Route handlers, orchestration
@@ -299,6 +299,11 @@ kaleta/
 - **Decision**: Add a `tests/e2e/` layer using pytest-playwright. Tests run against a live Kaleta instance (default `http://localhost:8080`). The Gherkin-style scenarios driving the suite are documented in `docs/bdd.md`.
 - **Rationale**: Unit and integration tests cover service logic and schema validation in isolation but cannot catch regressions in UI flow, page routing, or NiceGUI component wiring. Playwright-based e2e tests exercise the full stack from the browser, covering the same user journeys described in the BDD scenarios.
 - **Consequence**: The app must be running before the e2e suite executes. Browsers must be installed once with `uv run playwright install chromium`. E2e tests are kept in a separate directory so they are not picked up by the default `uv run pytest` invocation (which targets unit/integration). The `tests/e2e/conftest.py` provides the `base_url` session fixture.
+
+### ADR-028: Subscriptions Category Tree as Source of Truth
+- **Decision**: One `Category` row carries `is_subscriptions_root = True`. That row and its direct children (flat tree, v1) are the authoritative definition of "what is a subscription charge". `CategoryService` exposes `get_subscriptions_root`, `list_subscription_children`, `subscription_category_ids`, and `ensure_subscriptions_root_and_children`. The migration `a4e9b2f1c6d8_add_subscriptions_root_category.py` idempotently creates the root "Subscriptions" + three children (Monthly / Yearly / Other) on existing DBs; `scripts/seed.py` creates the Polish equivalents (Subskrypcje / Miesięczne / Roczne / Inne) for fresh seeds.
+- **Rationale**: Storing "is this a subscription?" as a model flag on `Transaction` or `Subscription` would require maintaining a separate classification list in sync with categories. Using an existing category subtree avoids duplication: once a transaction sits under the Subscriptions root, it is by definition a subscription charge — no secondary flag needed.
+- **Consequence**: `SubscriptionService.detect_candidates` skips transactions already under the Subscriptions tree (they are already categorised). Tracking a candidate via `create_from_candidate(..., sub_category_id=...)` re-categorises all window-matching historical transactions (same payee or merchant-key + same amount bucket) to the chosen sub-category. The panel's "By category" card calls `subscription_transactions_grouped(window_days=90)` to show sub-category → merchant aggregations for the last 90 days. Multi-level nesting is deferred; only the root + direct children are used in v1.
 
 ## UI Colour Schema
 

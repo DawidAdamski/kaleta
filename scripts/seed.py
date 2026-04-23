@@ -155,7 +155,21 @@ async def seed() -> None:
         # ── Categories ────────────────────────────────────────────────────────
         expense_cats = [Category(name=n, type=CategoryType.EXPENSE) for n in EXPENSE_CATEGORIES]
         income_cats  = [Category(name=n, type=CategoryType.INCOME)  for n in INCOME_CATEGORIES]
-        session.add_all(expense_cats + income_cats)
+        # Subscriptions tree (root + three starter children). The root is
+        # flagged so the Subscriptions panel recognises its descendants as
+        # tracked charges.
+        subscriptions_root = Category(
+            name="Subskrypcje",
+            type=CategoryType.EXPENSE,
+            is_subscriptions_root=True,
+        )
+        session.add_all(expense_cats + income_cats + [subscriptions_root])
+        await session.flush()
+        session.add_all([
+            Category(name="Miesięczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
+            Category(name="Roczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
+            Category(name="Inne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
+        ])
         await session.flush()
 
         cat_by_name = {c.name: c for c in expense_cats + income_cats}

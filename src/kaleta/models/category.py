@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import enum
 
+from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
-from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
@@ -27,6 +27,12 @@ class Category(TimestampMixin, Base):
     parent_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL", name="fk_categories_parent_id"),
         nullable=True,
+    )
+    # Marks the single root category whose descendants are "subscriptions".
+    # The Subscriptions panel treats every transaction under this tree as a
+    # tracked recurring charge — the category tree is the source of truth.
+    is_subscriptions_root: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
     )
 
     parent: Mapped[Category | None] = relationship(

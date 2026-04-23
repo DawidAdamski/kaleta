@@ -20,6 +20,7 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Annual budget planning grid — per-category monthly targets across a full year, budget-vs-actual overlay, year-over-year comparison
 - Initial setup wizard — guided onboarding with zero-based budget assignment; "Finish Setup" requires every opening-balance zloty to be assigned
 - Settings — tabbed page (General, Appearance, Features, Data, History, About) with configurable locale, theme, detector look-back windows, backup/restore, and audit log; all preferences stored in server-side session storage
+- Subscriptions panel — category-tree-as-source-of-truth model: the "Subscriptions" root category (flagged by `is_subscriptions_root`) and its children define what counts as a subscription; detector surfaces only un-categorised recurrences; confirming a candidate re-categorises matching historical transactions to the chosen sub-category; "By category" view shows 90-day spend per sub-category
 - Installable as a Progressive Web App (PWA) on mobile and desktop
 - REST API for integrations
 - SQLite (default) or PostgreSQL

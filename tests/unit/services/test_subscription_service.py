@@ -541,3 +541,119 @@ class TestRenewals:
         await svc.cancel(sub.id, today=today)
         upcoming = await svc.upcoming_renewals(today=today)
         assert upcoming == []
+
+
+# ── Category-driven subscription flow ────────────────────────────────────────
+
+
+class TestCategoryDriven:
+    async def test_detector_excludes_tx_under_subscriptions_tree(
+        self, session: AsyncSession
+    ):
+        acc, _ = await _seed_setup(session)
+        from kaleta.services import CategoryService
+
+        cat_svc = CategoryService(session)
+        await cat_svc.ensure_subscriptions_root_and_children()
+        children = await cat_svc.list_subscription_children()
+        monthly_cat = next(c for c in children if c.name == "Monthly")
+
+        payee = await _add_payee(session, "Netflix")
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2, 3):
+            tx_date = today - datetime.timedelta(days=30 * months_back)
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=monthly_cat.id,
+                payee_id=payee.id,
+                amount=Decimal("49.99"),
+                date=tx_date,
+                description=f"netflix-{months_back}",
+            )
+        svc = SubscriptionService(session)
+        candidates = await svc.detect_candidates(today=today)
+        # Transactions are under the Subscriptions tree already — not a candidate.
+        assert candidates == []
+
+    async def test_create_from_candidate_recategorises_history(
+        self, session: AsyncSession
+    ):
+        acc, cat = await _seed_setup(session)
+        from kaleta.services import CategoryService
+
+        cat_svc = CategoryService(session)
+        await cat_svc.ensure_subscriptions_root_and_children()
+        children = await cat_svc.list_subscription_children()
+        monthly_cat = next(c for c in children if c.name == "Monthly")
+
+        payee = await _add_payee(session, "Spotify")
+        today = datetime.date(2026, 4, 1)
+        for months_back in (0, 1, 2):
+            await _add_expense(
+                session,
+                account_id=acc,
+                category_id=cat,
+                payee_id=payee.id,
+                amount=Decimal("19.99"),
+                date=today - datetime.timedelta(days=30 * months_back),
+                description=f"spotify-{months_back}",
+            )
+        svc = SubscriptionService(session)
+        candidates = await svc.detect_candidates(today=today)
+        assert len(candidates) == 1
+        sub = await svc.create_from_candidate(
+            candidates[0], sub_category_id=monthly_cat.id, today=today
+        )
+        assert sub.category_id == monthly_cat.id
+        # Historical tx should now sit under the Monthly sub-category.
+        from sqlalchemy import select
+
+        from kaleta.models.transaction import Transaction
+
+        result = await session.execute(
+            select(Transaction.category_id).where(Transaction.payee_id == payee.id)
+        )
+        categories_after = {row[0] for row in result.all()}
+        assert categories_after == {monthly_cat.id}
+
+    async def test_subscription_transactions_grouped(
+        self, session: AsyncSession
+    ):
+        acc, _ = await _seed_setup(session)
+        from kaleta.services import CategoryService
+
+        cat_svc = CategoryService(session)
+        await cat_svc.ensure_subscriptions_root_and_children()
+        children = await cat_svc.list_subscription_children()
+        monthly_cat = next(c for c in children if c.name == "Monthly")
+        yearly_cat = next(c for c in children if c.name == "Yearly")
+
+        netflix = await _add_payee(session, "Netflix")
+        disney = await _add_payee(session, "Disney Plus")
+        today = datetime.date(2026, 4, 20)
+        await _add_expense(
+            session,
+            account_id=acc,
+            category_id=monthly_cat.id,
+            payee_id=netflix.id,
+            amount=Decimal("49.99"),
+            date=today - datetime.timedelta(days=5),
+            description="netflix",
+        )
+        await _add_expense(
+            session,
+            account_id=acc,
+            category_id=yearly_cat.id,
+            payee_id=disney.id,
+            amount=Decimal("229.90"),
+            date=today - datetime.timedelta(days=10),
+            description="disney",
+        )
+        svc = SubscriptionService(session)
+        groups = await svc.subscription_transactions_grouped(today=today)
+        names = {g.category_name for g in groups}
+        assert names == {"Monthly", "Yearly"}
+        monthly_group = next(g for g in groups if g.category_name == "Monthly")
+        assert monthly_group.merchants[0].label == "Netflix"
+        assert monthly_group.merchants[0].total_spent == Decimal("49.99")
