@@ -8,6 +8,7 @@ from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.report import SavedReport
 from kaleta.models.reserve_fund import ReserveFund, ReserveFundBackingMode, ReserveFundKind
+from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.tag import Tag, transaction_tags
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
 from kaleta.models.yearly_plan import YearlyPlan
@@ -29,6 +30,8 @@ __all__ = [
     "ReserveFundKind",
     "SavedReport",
     "Payee",
+    "Subscription",
+    "SubscriptionStatus",
     "Tag",
     "transaction_tags",
     "Transaction",

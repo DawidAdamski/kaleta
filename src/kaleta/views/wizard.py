@@ -53,6 +53,10 @@ _STEP_ROUTES: dict[str, str] = {
     "irregular": "/wizard/safety-funds",
     "vacation": "/wizard/safety-funds",
     "next_month": "/wizard/monthly-readiness",
+    "sub_tracker": "/wizard/subscriptions",
+    "sub_renewals": "/wizard/subscriptions",
+    "sub_audit": "/wizard/subscriptions",
+    "sub_cost_trends": "/wizard/subscriptions",
 }
 
 # (icon, title_key, desc_key, url, done_hint_key)

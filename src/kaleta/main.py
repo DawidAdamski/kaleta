@@ -84,6 +84,7 @@ def _register_views() -> None:
         safety_funds,
         settings,
         setup,
+        subscriptions,
         tags,
         transactions,
         wizard,
@@ -106,6 +107,7 @@ def _register_views() -> None:
     reports.register()
     reports_canned.register()
     safety_funds.register()
+    subscriptions.register()
     monthly_readiness.register()
     net_worth.register()
     credit_calculator.register()
