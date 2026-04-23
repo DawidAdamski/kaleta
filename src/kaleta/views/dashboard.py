@@ -36,32 +36,32 @@ _SORTABLE_CDN = (
 _EDIT_MODE_STYLE = """
 <style>
   .dash-widget-wrap { position: relative; }
+  /* The drag handle is an invisible, full-card overlay while editing so
+     the user can grab anywhere on the card. The visible drag icon sits
+     in the top-right corner of the overlay. Outside edit mode the
+     overlay is hidden and doesn't intercept clicks. */
   .dash-widget-wrap .dash-drag-handle {
-    position: absolute; top: 6px; right: 6px; z-index: 5;
-    opacity: 0; pointer-events: none; transition: opacity 120ms ease;
+    position: absolute; inset: 0; z-index: 5;
+    display: none;
     cursor: grab;
-    border-radius: 6px;
-    padding: 2px 4px;
-    color: #64748b;
-    background: rgba(148,163,184,0.14);
+    border-radius: 10px;
   }
   .dash-widget-wrap .dash-drag-handle:active { cursor: grabbing; }
+  .dash-widget-wrap .dash-drag-handle-icon {
+    position: absolute; top: 6px; right: 6px;
+    padding: 2px 4px;
+    border-radius: 6px;
+    color: #64748b;
+    background: rgba(148,163,184,0.14);
+    pointer-events: none;
+  }
   body.dash-editing .dash-widget-wrap {
     outline: 1px dashed rgba(100,116,139,0.45);
     outline-offset: 4px;
     border-radius: 10px;
-    cursor: grab;
-  }
-  body.dash-editing .dash-widget-wrap:active { cursor: grabbing; }
-  /* Block all pointer events inside a card while editing so clicks on
-     inner buttons/links don't swallow the drag. The handle itself stays
-     interactive because it sits above this layer. */
-  body.dash-editing .dash-widget-wrap > *:not(.dash-drag-handle) {
-    pointer-events: none;
-    user-select: none;
   }
   body.dash-editing .dash-widget-wrap .dash-drag-handle {
-    opacity: 1; pointer-events: auto;
+    display: block;
   }
   body.dash-editing .dash-widget-wrap:focus-visible {
     outline: 2px solid rgb(59,130,246);
@@ -88,6 +88,7 @@ window.__kaletaInitDashSortable = function() {
     if (typeof Sortable === 'undefined') return;
     container.__sortable = new Sortable(container, {
       draggable: '.dash-widget-wrap',
+      handle: '.dash-drag-handle',
       animation: 150,
       group: 'dash-' + size,
       ghostClass: 'sortable-ghost',
@@ -264,10 +265,13 @@ async def _render_wrapped(
     with ui.element("div").props(
         f'data-widget-id="{widget.id}" data-size="{widget.size}" tabindex="0"'
     ).classes("dash-widget-wrap"):
-        with ui.element("div").classes("dash-drag-handle"):
-            ui.icon("drag_indicator").props(
-                f'title="{t("dashboard_widgets.drag_hint")}"'
-            )
+        with (
+            ui.element("div")
+            .classes("dash-drag-handle")
+            .props(f'title="{t("dashboard_widgets.drag_hint")}"'),
+            ui.element("div").classes("dash-drag-handle-icon"),
+        ):
+            ui.icon("drag_indicator")
         await widget.render(session, is_dark)
 
 
