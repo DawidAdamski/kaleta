@@ -100,7 +100,7 @@ The subagent:
 | [forecast-model-presets](archive/forecast-model-presets.md) | archived | Forecast |
 | [reports-library](archive/reports-library.md) | archived | Reports |
 | [settings-expansion](settings-expansion.md) | draft | Settings |
-| [dedupe-suggestions](dedupe-suggestions.md) | draft | Cross-cutting |
+| [dedupe-suggestions](archive/dedupe-suggestions.md) | archived | Cross-cutting |
 | [wizard-safety-funds](archive/wizard-safety-funds.md) | archived | Wizard → Safety funds |
 | [wizard-personal-loans](wizard-personal-loans.md) | draft | Wizard → Personal loans |
 | [subscriptions-category-driven](subscriptions-category-driven.md) | draft | Wizard → Subscriptions |
