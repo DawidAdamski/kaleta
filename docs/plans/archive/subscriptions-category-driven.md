@@ -3,7 +3,8 @@ plan_id: subscriptions-category-driven
 title: Subscriptions — categories as source of truth
 area: wizard
 effort: medium
-status: draft
+status: archived
+archived_at: 2026-04-23
 roadmap_ref: ../product/financial-wizard.md#3-subscriptions
 ---
 
@@ -140,3 +141,43 @@ gatekeeper.
 ## Implementation notes
 
 _(filled as work progresses)_
+
+## Implementation
+
+Landed on 2026-04-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `0062940` | Dawid | 2026-04-23 | feat(subscriptions): category tree as source of truth |
+
+**Files changed:**
+- `src/kaleta/models/category.py`
+- `alembic/versions/a4e9b2f1c6d8_add_subscriptions_root_category.py`
+- `src/kaleta/services/category_service.py`
+- `src/kaleta/services/subscription_service.py`
+- `src/kaleta/views/subscriptions.py`
+- `src/kaleta/i18n/locales/en.json`
+- `src/kaleta/i18n/locales/pl.json`
+- `scripts/seed.py`
+- `tests/unit/services/test_subscription_service.py`
+- `docs/architecture.md`
+- `docs/tech-stack.md`
+- `README.md`
+
+**What shipped:**
+- `categories.is_subscriptions_root` flag — single root identifies the tree. Migration is idempotent; won't duplicate seed on re-apply.
+- Three `CategoryService` helpers exposing the tree + an `ensure_*` bootstrap the view calls on load so first-time users never hit an empty-tree state.
+- Detector narrowing — transactions whose `category_id` lies under the root (root + direct children) are skipped in both pass 1 (Payee) and pass 2 (description-merchant). Un-categorised recurring charges still surface.
+- Re-categorisation on Track — when the user confirms a candidate with a sub-category, matching historical tx (same payee OR same description merchant-key + same amount bucket) inside the detector window are updated to the picked category. The Subscription row also gets the same `category_id` so the row and the tx agree.
+- `subscription_transactions_grouped(window_days=90)` — builds the By-category view: group per child category, merchant rows sorted by total spend descending. Window bumped to 90 days so older charges surfaced by Track still show up in the panel.
+- View layout: header + Manage categories button + Add subscription, By-category card at top (empty-state when no matching tx in the 90-day window), then Detector, Renewals, All subscriptions as before.
+- Track dialog: pre-select first child; body explains "we'll also file the matching historical charges under it".
+- Verified live on user DB: clicking Track → Monthly on MAREK OLSZEWSKI 12.67 → remaining 2 in-window charges were re-categorised and appeared as `Monthly · 25.34` in the By-category card.
+
+**Partial coverage / deferred:**
+- Multi-level trees (`Subscriptions > Streaming > Netflix`) — v1 is flat per plan Open question #2.
+- Auto-categorisation of new tx by merchant — out of scope per plan; handled by a future tagging-rules plan.
+- Migrating existing (pre-shipped) Subscription rows to the tree — fresh subscriptions get a `category_id`; legacy rows stay with `category_id=None` and aren't auto-surfaced in the By-category card. A one-click "apply my current sub's category to its historical charges" follow-up would close this gap.
+- Tag-based legacy grouping (`subscription` tag from the seeds plan) — ignored per plan.
+- Seed: initial tx-level `category_id` under the root isn't populated by `scripts/seed.py` — new demo-data installs show an empty By-category card until the user uses the Track flow or manually categorises.
+- Orphan pseudo-group for tx filed at the root itself — included in the grouped result, rendered as "Subscriptions · total" but expected to be rare.

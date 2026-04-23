@@ -103,7 +103,7 @@ The subagent:
 | [dedupe-suggestions](archive/dedupe-suggestions.md) | archived | Cross-cutting |
 | [wizard-safety-funds](archive/wizard-safety-funds.md) | archived | Wizard → Safety funds |
 | [wizard-personal-loans](archive/wizard-personal-loans.md) | archived | Wizard → Personal loans |
-| [subscriptions-category-driven](subscriptions-category-driven.md) | draft | Wizard → Subscriptions |
+| [subscriptions-category-driven](archive/subscriptions-category-driven.md) | archived | Wizard → Subscriptions |
 
 ### Large
 
