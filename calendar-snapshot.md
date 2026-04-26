@@ -1,0 +1,157 @@
+- generic [active] [ref=e3]:
+  - banner [ref=e4]:
+    - button [ref=e5] [cursor=pointer]:
+      - img [ref=e7]: menu
+    - button [ref=e8] [cursor=pointer]:
+      - img [ref=e10]: chevron_left
+    - generic [ref=e11]: Kaleta
+    - generic [ref=e12]: Payment Calendar
+    - button [ref=e13] [cursor=pointer]:
+      - img [ref=e15]: light_mode
+    - button [ref=e16] [cursor=pointer]:
+      - img [ref=e18]: eject
+  - complementary [ref=e19]:
+    - generic [ref=e20]:
+      - generic [ref=e21] [cursor=pointer]:
+        - generic [ref=e22]: Overview
+        - generic [ref=e23]: keyboard_arrow_up
+      - generic [ref=e24]:
+        - listitem [ref=e25] [cursor=pointer]:
+          - generic [ref=e27]: dashboard
+          - generic [ref=e29]: Dashboard
+        - listitem [ref=e30] [cursor=pointer]:
+          - generic [ref=e32]: account_balance_wallet
+          - generic [ref=e34]: Accounts
+        - listitem [ref=e35] [cursor=pointer]:
+          - generic [ref=e37]: pie_chart
+          - generic [ref=e39]: Net Worth
+        - listitem [ref=e40] [cursor=pointer]:
+          - generic [ref=e42]: assessment
+          - generic [ref=e44]: Reports
+      - generic [ref=e45] [cursor=pointer]:
+        - generic [ref=e46]: Manage
+        - generic [ref=e47]: keyboard_arrow_up
+      - generic [ref=e48]:
+        - listitem [ref=e49] [cursor=pointer]:
+          - generic [ref=e51]: receipt_long
+          - generic [ref=e53]: Transactions
+        - listitem [ref=e54] [cursor=pointer]:
+          - generic [ref=e56]: calendar_month
+          - generic [ref=e58]: Payment Calendar
+        - listitem [ref=e59] [cursor=pointer]:
+          - generic [ref=e61]: bar_chart
+          - generic [ref=e63]: Budgets
+        - listitem [ref=e64] [cursor=pointer]:
+          - generic [ref=e66]: edit_note
+          - generic [ref=e68]: Budget Plan
+        - listitem [ref=e69] [cursor=pointer]:
+          - generic [ref=e71]: upload_file
+          - generic [ref=e73]: Import
+      - generic [ref=e74] [cursor=pointer]:
+        - generic [ref=e75]: Tools
+        - generic [ref=e76]: keyboard_arrow_up
+      - generic [ref=e77]:
+        - listitem [ref=e78] [cursor=pointer]:
+          - generic [ref=e80]: insights
+          - generic [ref=e82]: Forecast
+        - listitem [ref=e83] [cursor=pointer]:
+          - generic [ref=e85]: calculate
+          - generic [ref=e87]: Credit Calculator
+        - listitem [ref=e88] [cursor=pointer]:
+          - generic [ref=e90]: auto_awesome
+          - generic [ref=e92]: Financial Wizard
+      - generic [ref=e93] [cursor=pointer]:
+        - generic [ref=e94]: Setup
+        - generic [ref=e95]: keyboard_arrow_up
+      - generic [ref=e96]:
+        - listitem [ref=e97] [cursor=pointer]:
+          - generic [ref=e99]: account_balance
+          - generic [ref=e101]: Institutions
+        - listitem [ref=e102] [cursor=pointer]:
+          - generic [ref=e104]: category
+          - generic [ref=e106]: Categories
+        - listitem [ref=e107] [cursor=pointer]:
+          - generic [ref=e109]: label
+          - generic [ref=e111]: Tags
+        - listitem [ref=e112] [cursor=pointer]:
+          - generic [ref=e114]: person_search
+          - generic [ref=e116]: Payees
+        - listitem [ref=e117] [cursor=pointer]:
+          - generic [ref=e119]: settings
+          - generic [ref=e121]: Settings
+      - separator [ref=e122]
+      - listitem [ref=e123] [cursor=pointer]:
+        - generic [ref=e125]: api
+        - generic [ref=e127]: API Docs
+      - generic [ref=e128]: v0.1.0
+  - main [ref=e130]:
+    - generic [ref=e132]:
+      - generic [ref=e133]:
+        - generic [ref=e134]: Payment Calendar
+        - generic [ref=e135]:
+          - button [ref=e136] [cursor=pointer]:
+            - img [ref=e138]: chevron_left
+          - generic [ref=e139]: April 2026
+          - button [ref=e140] [cursor=pointer]:
+            - img [ref=e142]: chevron_right
+          - button "Today" [ref=e143] [cursor=pointer]:
+            - generic [ref=e144]:
+              - img [ref=e145]: today
+              - generic [ref=e146]: Today
+          - button "List view" [ref=e147] [cursor=pointer]:
+            - generic [ref=e148]:
+              - img [ref=e149]: list
+              - generic [ref=e150]: List view
+      - generic [ref=e151]:
+        - generic [ref=e152]: "Inflow: +0.00"
+        - generic [ref=e153]: "Outflow: -12,833.00"
+        - generic [ref=e154]: "Net: -12,833.00"
+        - generic [ref=e155]: "Overdue: 0"
+      - generic [ref=e156]:
+        - generic [ref=e157]:
+          - generic [ref=e158]: Mon
+          - generic [ref=e159]: Tue
+          - generic [ref=e160]: Wed
+          - generic [ref=e161]: Thu
+          - generic [ref=e162]: Fri
+          - generic [ref=e163]: Sat
+          - generic [ref=e164]: Sun
+        - generic [ref=e165]:
+          - generic [ref=e170] [cursor=pointer]: "1"
+          - generic [ref=e173] [cursor=pointer]: "2"
+          - generic [ref=e176] [cursor=pointer]: "3"
+          - generic [ref=e179] [cursor=pointer]: "4"
+          - generic [ref=e182] [cursor=pointer]: "5"
+          - generic [ref=e185] [cursor=pointer]: "6"
+          - generic [ref=e188] [cursor=pointer]: "7"
+          - generic [ref=e191] [cursor=pointer]: "8"
+          - generic [ref=e194] [cursor=pointer]: "9"
+          - generic [ref=e197] [cursor=pointer]: "10"
+          - generic [ref=e200] [cursor=pointer]: "11"
+          - generic [ref=e203] [cursor=pointer]: "12"
+          - generic [ref=e206] [cursor=pointer]: "13"
+          - generic [ref=e209] [cursor=pointer]: "14"
+          - generic [ref=e212] [cursor=pointer]: "15"
+          - generic [ref=e215] [cursor=pointer]: "16"
+          - generic [ref=e218] [cursor=pointer]: "17"
+          - generic [ref=e221] [cursor=pointer]: "18"
+          - generic [ref=e222] [cursor=pointer]:
+            - generic [ref=e223]:
+              - generic [ref=e224]: "19"
+              - status [ref=e225]: "19"
+            - generic [ref=e226]: "-11,633.00"
+          - generic [ref=e229] [cursor=pointer]: "20"
+          - generic [ref=e232] [cursor=pointer]: "21"
+          - generic [ref=e235] [cursor=pointer]: "22"
+          - generic [ref=e238] [cursor=pointer]: "23"
+          - generic [ref=e241] [cursor=pointer]: "24"
+          - generic [ref=e244] [cursor=pointer]: "25"
+          - generic [ref=e245] [cursor=pointer]:
+            - generic [ref=e246]:
+              - generic [ref=e247]: "26"
+              - status [ref=e248]: "4"
+            - generic [ref=e249]: "-1,200.00"
+          - generic [ref=e252] [cursor=pointer]: "27"
+          - generic [ref=e255] [cursor=pointer]: "28"
+          - generic [ref=e258] [cursor=pointer]: "29"
+          - generic [ref=e261] [cursor=pointer]: "30"

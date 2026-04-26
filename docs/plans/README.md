@@ -84,6 +84,10 @@ The subagent:
 | [dashboard-chart-fluid-height](dashboard-chart-fluid-height.md) | draft | Dashboard |
 | [transactions-notes-field](transactions-notes-field.md) | draft | Transactions |
 | [wizard-action-items-widget](wizard-action-items-widget.md) | draft | Wizard |
+| [seed-payees-tags-coverage](seed-payees-tags-coverage.md) | draft | Seed |
+| [seed-payment-calendar](seed-payment-calendar.md) | draft | Payment Calendar |
+| [credit-dark-mode-color-fix](credit-dark-mode-color-fix.md) | draft | Credit |
+| [settings-panel-color-fix](settings-panel-color-fix.md) | draft | Settings |
 | [accounts-group-by-switch](archive/accounts-group-by-switch.md) | archived | Accounts |
 | [transactions-colored-amounts](archive/transactions-colored-amounts.md) | archived | Transactions + cross-cutting colours |
 | [tags-seed-list](archive/tags-seed-list.md) | archived | Tags |
@@ -102,6 +106,10 @@ The subagent:
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
+| [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |
+| [transactions-upcoming-planned](transactions-upcoming-planned.md) | draft | Transactions |
+| [ux-audit-feature-categorization](ux-audit-feature-categorization.md) | draft | UX / IA |
+| [setup-zero-config-bootstrap](setup-zero-config-bootstrap.md) | draft | Setup |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
 | [budgets-realization-view](archive/budgets-realization-view.md) | archived | Budgets |
