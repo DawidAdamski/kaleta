@@ -39,6 +39,12 @@ class BackupService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
+    @staticmethod
+    def export_filename() -> str:
+        """Return a timestamped ZIP filename for backup downloads."""
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return f"kaleta_backup_{timestamp}.zip"
+
     async def export(self) -> bytes:
         """Dump every table to JSON and package as a ZIP archive."""
         buf = io.BytesIO()

@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.currency_rate import CurrencyRate
-from kaleta.schemas.currency_rate import CurrencyRateCreate
+from kaleta.schemas.currency_rate import CurrencyRateCreate, CurrencyRateResponse
 
 
 class CurrencyRateService:
@@ -141,6 +141,53 @@ class CurrencyRateService:
                 history[cur].sort(key=lambda x: x[0])
 
         return history
+
+    @staticmethod
+    def build_relevant_pairs(
+        default_currency: str,
+        account_currencies: set[str],
+        existing_pairs: list[tuple[str, str]],
+    ) -> list[tuple[str, str]]:
+        """Build FX pairs needed for accounts whose currency differs from the default."""
+        foreign_currencies = sorted(c for c in account_currencies if c != default_currency)
+        relevant_pairs = [(fc, tc) for (fc, tc) in existing_pairs if tc == default_currency]
+        existing_froms = {fc for (fc, _) in relevant_pairs}
+        for currency in foreign_currencies:
+            if currency not in existing_froms:
+                relevant_pairs.append((currency, default_currency))
+        return relevant_pairs
+
+    async def list_recent_for_pairs(
+        self,
+        pairs: list[tuple[str, str]],
+        *,
+        per_pair: int = 5,
+    ) -> list[CurrencyRateResponse]:
+        """Return recent rate rows for each pair, sorted newest-first overall."""
+        all_rows: list[CurrencyRate] = []
+        for from_currency, to_currency in pairs:
+            rows = await self.list_for_pair(from_currency, to_currency)
+            all_rows.extend(rows[:per_pair])
+        all_rows.sort(key=lambda row: row.date, reverse=True)
+        return [CurrencyRateResponse.model_validate(row) for row in all_rows]
+
+    async def create_with_inverse(
+        self,
+        data: CurrencyRateCreate,
+        *,
+        also_inverse: bool = True,
+    ) -> None:
+        """Insert a rate and optionally its inverse for bidirectional lookups."""
+        await self.create(data)
+        if also_inverse:
+            await self.create(
+                CurrencyRateCreate(
+                    date=data.date,
+                    from_currency=data.to_currency,
+                    to_currency=data.from_currency,
+                    rate=Decimal("1") / data.rate,
+                )
+            )
 
     async def list_for_pair(self, from_currency: str, to_currency: str) -> list[CurrencyRate]:
         result = await self.session.execute(
