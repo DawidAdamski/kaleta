@@ -35,7 +35,7 @@ async def list_transactions(
     tx_types: list[TransactionType] = Query(
         default=[], alias="type", description="Filter by transaction types"
     ),
-    search: str | None = Query(None, description="Search in description"),
+    search: str | None = Query(None, max_length=200, description="Search in description"),
     pagination: PaginationParams = Depends(),
     session: AsyncSession = Depends(get_session),
 ) -> PagedResponse[TransactionResponse]:

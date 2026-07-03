@@ -1,5 +1,10 @@
 """Shared pytest fixtures for all tests."""
 
+import os
+
+# Allow default secret key during test runs (see kaleta.config.settings).
+os.environ.setdefault("KALETA_DEBUG", "true")
+
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 

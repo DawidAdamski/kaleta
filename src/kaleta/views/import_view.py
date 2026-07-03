@@ -185,6 +185,7 @@ def register() -> None:
                         auto_upload=True,
                         multiple=True,
                         max_files=20,
+                        max_file_size=50 * 1024 * 1024,
                     )
                     .props("accept=.csv flat bordered")
                     .classes("w-full mt-2")

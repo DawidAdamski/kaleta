@@ -171,13 +171,11 @@ def test_run_30_day_forecast_single_account(page: Page) -> None:
     page.get_by_role("button", name="Run Forecast").click()
 
     # Prophet can take time; accept either KPI result or insufficient warning
-    kpi = page.get_by_text("Current Balance")
-    insufficient = page.get_by_text("Insufficient transaction history for forecasting.")
-
-    try:
-        expect(kpi).to_be_visible(timeout=30000)
-    except Exception:
-        expect(insufficient).to_be_visible(timeout=5000)
+    expect(
+        page.get_by_text("Current Balance").or_(
+            page.get_by_text("Insufficient transaction history for forecasting.")
+        )
+    ).to_be_visible(timeout=60000)
 
 
 # ---------------------------------------------------------------------------

@@ -76,6 +76,20 @@ The subagent:
 
 ## Plans index
 
+### Q3 2026 — Stabilisation & debt (execute in this order)
+
+| # | Plan | Status | Depends on |
+|---|---|---|---|
+| 1 | [q3-test-safety-net](q3-test-safety-net.md) | draft | — |
+| 2 | [q3-views-refactor](q3-views-refactor.md) | draft | 1 (e2e green first) |
+| 3 | [q3-auth-single-user](q3-auth-single-user.md) | draft | 1 (updates API tests) |
+| 4 | [q3-forecast-optional-prophet](q3-forecast-optional-prophet.md) | draft | — (parallel-safe) |
+| 5 | [q3-engineering-hygiene](q3-engineering-hygiene.md) | draft | CI after 1; exceptions parallel-safe |
+| 6 | [q3-spec-enforcement](q3-spec-enforcement.md) | draft | CI from 5; import-linter ignores burned down by 2 |
+
+See [roadmap → Q3 2026](../roadmap.md#q3-2026-jul-sep-stabilisation--debt)
+and ADR-032 in [architecture.md](../architecture.md).
+
 ### Quick wins (small)
 
 | Plan | Status | Roadmap ref |

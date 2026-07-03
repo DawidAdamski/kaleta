@@ -9,15 +9,16 @@ authors = [
     { name = "Dawid" },
 ]
 dependencies = [
-    "nicegui>=3.9.0",
+    "nicegui>=3.14.0",
     "sqlalchemy>=2.0",
     "alembic>=1.13",
-    "pydantic>=2.0",
-    "pydantic-settings>=2.0",
+    "pydantic>=2.13",
+    "pydantic-settings>=2.14.2",
     "uvicorn>=0.42.0",
     "aiosqlite>=0.20",
+    "greenlet>=3.5",
     "prophet>=1.1",
-    "fastapi>=0.135.2",
+    "fastapi>=0.139.0",
 ]
 
 [project.optional-dependencies]
@@ -36,6 +37,7 @@ dev = [
     "faker>=40.11.1",
     "bandit>=1.7",
     "coverage>=7.13.5",
+    "import-linter>=2.13",
 ]
 docs = [
     "mkdocs>=1.6",
@@ -70,3 +72,121 @@ strict = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+
+[tool.importlinter]
+root_package = "kaleta"
+include_external_packages = true
+
+[[tool.importlinter.contracts]]
+id = "layers"
+name = "Layered architecture (views → services → models)"
+type = "layers"
+layers = [
+    "kaleta.views",
+    "kaleta.api",
+    "kaleta.pwa",
+    "kaleta.services",
+    "kaleta.schemas",
+    "kaleta.i18n",
+    "kaleta.models",
+    "kaleta.db",
+    "kaleta.config",
+]
+ignore_imports = [
+    # db.audit registers AuditLog in Base.metadata at import time.
+    "kaleta.db.audit -> kaleta.models.audit_log",
+]
+
+[[tool.importlinter.contracts]]
+id = "views-no-data-access"
+name = "Views must not import models, db, or sqlalchemy directly"
+type = "forbidden"
+source_modules = ["kaleta.views"]
+forbidden_modules = ["kaleta.models", "kaleta.db", "sqlalchemy"]
+allow_indirect_imports = true
+ignore_imports = [
+    # Existing view-layer violations; burn down via q3-views-refactor.
+    "kaleta.views.accounts -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.accounts -> kaleta.models.account",  # TODO(q3-views-refactor)
+    "kaleta.views.accounts -> kaleta.models.institution",  # TODO(q3-views-refactor)
+    "kaleta.views.budget_builder -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.budget_builder -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.budget_plan -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.budget_plan -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.budgets -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.budgets -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.categories -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.categories -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.credit -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.credit -> kaleta.models.account",  # TODO(q3-views-refactor)
+    "kaleta.views.credit -> kaleta.models.credit",  # TODO(q3-views-refactor)
+    "kaleta.views.dashboard -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.dashboard -> sqlalchemy",  # TODO(q3-views-refactor)
+    "kaleta.views.dashboard_widgets -> kaleta.models.transaction",  # TODO(q3-views-refactor)
+    "kaleta.views.dashboard_widgets -> sqlalchemy",  # TODO(q3-views-refactor)
+    "kaleta.views.forecast -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.housekeeping -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.import_view -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.import_view -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.institution_avatar -> kaleta.models.institution",  # TODO(q3-views-refactor)
+    "kaleta.views.institutions -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.institutions -> kaleta.models.institution",  # TODO(q3-views-refactor)
+    "kaleta.views.layout -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.monthly_readiness -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.net_worth -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.net_worth -> kaleta.models.account",  # TODO(q3-views-refactor)
+    "kaleta.views.net_worth -> kaleta.models.asset",  # TODO(q3-views-refactor)
+    "kaleta.views.payees -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.payees -> kaleta.models.payee",  # TODO(q3-views-refactor)
+    "kaleta.views.payment_calendar -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.payment_calendar -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.payment_calendar -> kaleta.models.planned_transaction",  # TODO(q3-views-refactor)
+    "kaleta.views.payment_calendar -> kaleta.models.transaction",  # TODO(q3-views-refactor)
+    "kaleta.views.personal_loans -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.personal_loans -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.personal_loans -> kaleta.models.personal_loan",  # TODO(q3-views-refactor)
+    "kaleta.views.planned_transactions -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.planned_transactions -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.planned_transactions -> kaleta.models.planned_transaction",  # TODO(q3-views-refactor)
+    "kaleta.views.planned_transactions -> kaleta.models.transaction",  # TODO(q3-views-refactor)
+    "kaleta.views.reports -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.reports -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.reports_canned -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.reports_canned -> kaleta.models.transaction",  # TODO(q3-views-refactor)
+    "kaleta.views.safety_funds -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.safety_funds -> kaleta.models.reserve_fund",  # TODO(q3-views-refactor)
+    "kaleta.views.settings -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.settings -> kaleta.models.audit_log",  # TODO(q3-views-refactor)
+    "kaleta.views.settings -> kaleta.models.currency_rate",  # TODO(q3-views-refactor)
+    "kaleta.views.setup -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.subscriptions -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.subscriptions -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.subscriptions -> kaleta.models.subscription",  # TODO(q3-views-refactor)
+    "kaleta.views.tags -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.tags -> kaleta.models.tag",  # TODO(q3-views-refactor)
+    "kaleta.views.transactions -> kaleta.db",  # TODO(q3-views-refactor)
+    "kaleta.views.transactions -> kaleta.models.account",  # TODO(q3-views-refactor)
+    "kaleta.views.transactions -> kaleta.models.category",  # TODO(q3-views-refactor)
+    "kaleta.views.transactions -> kaleta.models.transaction",  # TODO(q3-views-refactor)
+    "kaleta.views.wizard -> kaleta.db",  # TODO(q3-views-refactor)
+]
+
+[[tool.importlinter.contracts]]
+id = "services-no-ui"
+name = "Services must not import views or nicegui"
+type = "forbidden"
+source_modules = ["kaleta.services"]
+forbidden_modules = ["kaleta.views", "nicegui"]
+
+[[tool.importlinter.contracts]]
+id = "api-no-views"
+name = "API must not import views"
+type = "forbidden"
+source_modules = ["kaleta.api"]
+forbidden_modules = ["kaleta.views"]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.9.4",
+    "import-linter>=2.13",
+]

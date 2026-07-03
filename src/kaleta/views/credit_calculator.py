@@ -157,7 +157,7 @@ def register() -> None:
                     rate_in = ui.number(
                         t("credit_calculator.annual_rate"),
                         value=state["rate"],
-                        min=0.01,
+                        min=0,
                         max=50,
                         step=0.1,
                         format="%.2f",

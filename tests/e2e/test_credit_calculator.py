@@ -173,8 +173,7 @@ def test_zero_rate_shows_valid_params_message(page: Page) -> None:
     """Scenario: Interest rate must be positive — zero triggers error hint."""
     page.goto(f"{BASE_URL}/credit-calculator")
 
-    # NiceGUI number field enforces min=0.01 so we must set it to 0 via JS or
-    # verify the guard message. Fill in valid amount and term, only zero the rate.
+    # Field allows 0; validation message shown on Calculate when rate <= 0.
     _fill_number(page, "Loan Amount (PLN)", "100000")
     _fill_number(page, "Annual Interest Rate (%)", "0.00")
     _fill_number(page, "Term (months)", "24")

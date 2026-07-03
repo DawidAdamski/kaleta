@@ -19,6 +19,13 @@ BASE_URL = "http://localhost:8080"
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
+def _ensure_onboarding_expanded(page: Page) -> None:
+    """Expand the collapsible onboarding card when steps are hidden (e.g. all done)."""
+    if not page.get_by_text("Add an institution").is_visible():
+        page.get_by_text("Getting started — set up your finances", exact=True).click()
+        expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
+
+
 def _run(coro):  # type: ignore[no-untyped-def]
     def _worker():  # type: ignore[no-untyped-def]
         return asyncio.run(coro)
@@ -98,6 +105,7 @@ def test_wizard_page_loads_with_onboarding_section(page: Page) -> None:
 def test_wizard_shows_all_four_setup_steps(page: Page) -> None:
     """All four onboarding step titles are visible on the wizard page."""
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
     expect(page.get_by_text("Create an account with opening balance")).to_be_visible(timeout=5000)
@@ -113,10 +121,12 @@ def test_wizard_shows_all_four_setup_steps(page: Page) -> None:
 def test_wizard_institution_hint_shown_when_no_institutions(page: Page) -> None:
     """Scenario: Institution step pending hint is visible (not necessarily empty DB)."""
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     # Either the hint text OR the count text will be visible depending on DB state.
-    # We assert at least one step's content is rendered.
-    expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
+    hint = page.get_by_text("You can't add an account without an institution.")
+    count = page.get_by_text("institutions.", exact=False)
+    expect(hint.or_(count).first).to_be_visible(timeout=5000)
 
 
 # ---------------------------------------------------------------------------
@@ -129,6 +139,7 @@ def test_wizard_institution_step_marked_done(page: Page) -> None:
     seed_institution("PKO BP Wizard E2E Test")
 
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     # When at least one institution exists the count label is shown.
     # It reads "You have N institutions."
@@ -146,6 +157,7 @@ def test_wizard_account_step_marked_done(page: Page) -> None:
     seed_account("Wizard E2E Account", institution_id=inst_id)
 
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     expect(page.get_by_text("accounts.", exact=False).first).to_be_visible(timeout=5000)
 
@@ -158,6 +170,7 @@ def test_wizard_account_step_marked_done(page: Page) -> None:
 def test_wizard_institution_go_button_navigates(page: Page) -> None:
     """Clicking Go/Edit on the institution step navigates to /institutions."""
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     # Each onboarding step is a ui.row() (div.row) that contains a label with the
     # step title AND a button. Using `has=` finds the row that *contains* the exact
@@ -171,6 +184,7 @@ def test_wizard_institution_go_button_navigates(page: Page) -> None:
 def test_wizard_account_go_button_navigates(page: Page) -> None:
     """Clicking Go/Edit on the accounts step navigates to /accounts."""
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     row = page.locator("div.row").filter(
         has=page.get_by_text("Create an account with opening balance", exact=True)
@@ -183,6 +197,7 @@ def test_wizard_account_go_button_navigates(page: Page) -> None:
 def test_wizard_categories_go_button_navigates(page: Page) -> None:
     """Clicking Go/Edit on the categories step navigates to /categories."""
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     row = page.locator("div.row").filter(
         has=page.get_by_text("Create expense and income categories", exact=True)
@@ -195,6 +210,7 @@ def test_wizard_categories_go_button_navigates(page: Page) -> None:
 def test_wizard_import_go_button_navigates(page: Page) -> None:
     """Clicking Go/Edit on the import step navigates to /import."""
     page.goto(f"{BASE_URL}/wizard")
+    _ensure_onboarding_expanded(page)
 
     row = page.locator("div.row").filter(
         has=page.get_by_text("Import or add transactions", exact=True)

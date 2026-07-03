@@ -542,6 +542,7 @@ async def _render_data_tab(
                 label=t("settings.restore_select_file"),
                 on_upload=_on_upload,
                 auto_upload=True,
+                max_file_size=100 * 1024 * 1024,
             ).props("accept=.zip flat bordered").classes("w-full mb-2")
 
             async def _do_restore() -> None:
