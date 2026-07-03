@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
+import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
@@ -19,6 +20,14 @@ from kaleta.services import (
     AccountService,
     CategoryService,
     SubscriptionService,
+)
+from kaleta.services.subscription_service import (
+    SubscriptionCategoryGroup,
+    SubscriptionFormError,
+    SubscriptionMerchantRow,
+    build_notes_preview,
+    category_group_monthly_total,
+    parse_subscription_form,
 )
 
 
@@ -621,3 +630,60 @@ class TestCategoryDriven:
         monthly_group = next(g for g in groups if g.category_name == "Monthly")
         assert monthly_group.merchants[0].label == "Netflix"
         assert monthly_group.merchants[0].total_spent == Decimal("49.99")
+
+
+class TestSubscriptionViewHelpers:
+    def test_build_notes_preview_truncates_long_single_line(self) -> None:
+        preview = build_notes_preview("x" * 100)
+        assert preview.can_toggle is True
+        assert preview.preview_text.endswith("…")
+        assert len(preview.preview_text) <= 81
+
+    def test_build_notes_preview_keeps_short_notes(self) -> None:
+        preview = build_notes_preview("Short note")
+        assert preview.can_toggle is False
+        assert preview.preview_text == "Short note"
+
+    def test_category_group_monthly_total(self) -> None:
+        group = SubscriptionCategoryGroup(
+            category_id=1,
+            category_name="Streaming",
+            merchants=(
+                SubscriptionMerchantRow(label="A", total_spent=Decimal("10.00"), charges=1),
+                SubscriptionMerchantRow(label="B", total_spent=Decimal("5.50"), charges=2),
+            ),
+        )
+        assert category_group_monthly_total(group) == Decimal("15.50")
+
+    def test_parse_subscription_form_rejects_empty_name(self) -> None:
+        with pytest.raises(SubscriptionFormError, match="Name required"):
+            parse_subscription_form(
+                name="  ",
+                amount_value=10,
+                cadence_value=30,
+                first_seen_value="",
+                next_expected_value="",
+                category_id_value=None,
+                url_value="",
+                notes_value="",
+                auto_renew=True,
+            )
+
+    def test_parse_subscription_form_builds_payload(self) -> None:
+        payload = parse_subscription_form(
+            name=" Netflix ",
+            amount_value="49.99",
+            cadence_value=30,
+            first_seen_value="2024-01-01",
+            next_expected_value="2024-02-01",
+            category_id_value=3,
+            url_value="https://example.com",
+            notes_value=" family plan ",
+            auto_renew=False,
+        )
+        assert payload.name == "Netflix"
+        assert payload.amount == Decimal("49.99")
+        assert payload.category_id == 3
+        assert payload.url == "https://example.com"
+        assert payload.notes == "family plan"
+        assert payload.auto_renew is False

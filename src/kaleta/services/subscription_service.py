@@ -54,6 +54,87 @@ class SubscriptionCategoryGroup:
     merchants: tuple[SubscriptionMerchantRow, ...] = field(default_factory=tuple)
 
 
+NOTE_PREVIEW_CHARS = 80
+
+
+@dataclass(frozen=True)
+class NotesPreview:
+    preview_text: str
+    full_text: str
+    can_toggle: bool
+
+
+class SubscriptionFormError(Exception):
+    """Raised when subscription form fields fail validation."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def build_notes_preview(notes: str, *, max_chars: int = NOTE_PREVIEW_CHARS) -> NotesPreview:
+    """Collapse multi-line notes into a preview line with optional expand."""
+    preview_source = notes.replace("\n", " ").strip()
+    is_truncated = len(preview_source) > max_chars
+    preview_text = preview_source[:max_chars].rstrip() + "…" if is_truncated else preview_source
+    can_toggle = is_truncated or "\n" in notes
+    return NotesPreview(preview_text=preview_text, full_text=notes, can_toggle=can_toggle)
+
+
+def category_group_monthly_total(group: SubscriptionCategoryGroup) -> Decimal:
+    return sum((row.total_spent for row in group.merchants), Decimal("0"))
+
+
+def parse_subscription_form(
+    *,
+    name: str,
+    amount_value: object,
+    cadence_value: object,
+    first_seen_value: str,
+    next_expected_value: str,
+    category_id_value: object | None,
+    url_value: str,
+    notes_value: str,
+    auto_renew: bool,
+) -> SubscriptionCreate:
+    """Parse dialog fields into a ``SubscriptionCreate`` payload."""
+    name_stripped = (name or "").strip()
+    if not name_stripped:
+        raise SubscriptionFormError("Name required")
+    try:
+        amount = Decimal(str(amount_value or 0))
+    except (ValueError, TypeError) as exc:
+        raise SubscriptionFormError(str(exc)) from exc
+    if amount <= 0:
+        raise SubscriptionFormError("Amount must be > 0")
+    try:
+        cadence = int(str(cadence_value or 30))
+        first_seen = datetime.date.fromisoformat(first_seen_value) if first_seen_value else None
+        next_expected = (
+            datetime.date.fromisoformat(next_expected_value) if next_expected_value else None
+        )
+        category_id = (
+            int(str(category_id_value))
+            if category_id_value is not None and category_id_value != ""
+            else None
+        )
+    except (ValueError, TypeError) as exc:
+        raise SubscriptionFormError(str(exc)) from exc
+    url = (url_value or "").strip() or None
+    notes = (notes_value or "").strip() or None
+    return SubscriptionCreate(
+        name=name_stripped,
+        amount=amount,
+        cadence_days=cadence,
+        first_seen_at=first_seen,
+        next_expected_at=next_expected,
+        category_id=category_id,
+        url=url,
+        auto_renew=auto_renew,
+        notes=notes,
+    )
+
+
 class SubscriptionService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
