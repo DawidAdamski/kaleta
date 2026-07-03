@@ -14,7 +14,24 @@ from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.services import AccountService, CategoryService
-from kaleta.services.import_service import ImportService, ParsedRow, _parse_amount, _parse_date
+from kaleta.services.import_service import (
+    ImportReadinessCheck,
+    ImportService,
+    MBankFileMetadata,
+    ParsedRow,
+    QueueSettingsSnapshot,
+    _parse_amount,
+    _parse_date,
+    auto_decode,
+    build_known_account_digits,
+    build_preview_table_rows,
+    classify_row_preview_type,
+    count_row_types,
+    currency_mismatch_warning,
+    inherit_queue_settings,
+    is_counterparty_transfer,
+    validate_import_readiness,
+)
 
 # ── _parse_date helper ────────────────────────────────────────────────────────
 
@@ -435,3 +452,205 @@ class TestToTransactionCreatesWithPayees:
             [], account_id=account_id, known_account_digits={"123456"}
         )
         assert creates == []
+
+
+# ── auto_decode ───────────────────────────────────────────────────────────────
+
+
+class TestAutoDecode:
+    def test_utf8_csv(self):
+        assert auto_decode(b"data,kwota\n") == "data,kwota\n"
+
+    def test_utf8_bom(self):
+        assert auto_decode(b"\xef\xbb\xbfdate,amount\n") == "date,amount\n"
+
+    def test_fallback_replace_on_unknown_bytes(self):
+        raw = b"\xff\xfeabc"
+        decoded = auto_decode(raw)
+        assert "abc" in decoded
+
+
+# ── preview classification ───────────────────────────────────────────────────
+
+
+class TestPreviewClassification:
+    def test_counterparty_transfer_detected(self):
+        row = _parsed_row(counterparty_account="55 1140 2004 0000 3302 7888 6836", amount="-10.00")
+        known = {"55114020040000330278886836"}
+        assert is_counterparty_transfer(row, known) is True
+        assert classify_row_preview_type(row, known) == "transfer"
+
+    def test_negative_amount_is_expense_without_match(self):
+        row = _parsed_row(counterparty_account="", amount="-10.00")
+        assert classify_row_preview_type(row, set()) == "expense"
+
+    def test_positive_amount_is_income_without_match(self):
+        row = _parsed_row(counterparty_account="", amount="10.00")
+        assert classify_row_preview_type(row, set()) == "income"
+
+    def test_count_row_types(self):
+        rows = [
+            _parsed_row(counterparty_account="55 1140 2004 0000 3302 7888 6836", amount="-1.00"),
+            _parsed_row(counterparty_account="", amount="-2.00"),
+            _parsed_row(counterparty_account="", amount="3.00"),
+        ]
+        counts = count_row_types(rows, {"55114020040000330278886836"})
+        assert counts.transfer == 1
+        assert counts.expense == 1
+        assert counts.income == 1
+
+    def test_build_preview_table_rows_limits_and_formats(self):
+        rows = [_parsed_row(amount="-12.50", description="Long " * 20)]
+        preview = build_preview_table_rows(rows, set(), limit=1)
+        assert len(preview) == 1
+        assert preview[0]["amount"] == "-12.50"
+        assert preview[0]["type"] == "expense"
+        assert len(preview[0]["description"]) == 70
+
+
+class TestKnownAccountDigits:
+    def test_build_known_account_digits_strips_non_digits(self):
+        digits = build_known_account_digits(["55 1140 2004", None, ""])
+        assert digits == {"5511402004"}
+
+
+# ── parse_queued_file ─────────────────────────────────────────────────────────
+
+
+class TestParseQueuedFile:
+    def test_generic_csv_parses_rows(self):
+        csv = "date,amount,description\n2024-01-15,-50.00,Coffee\n"
+        result = _svc().parse_queued_file(csv, "generic")
+        assert result.ok is True
+        assert result.profile == "generic"
+        assert len(result.rows) == 1
+
+    def test_empty_generic_csv_fails(self):
+        csv = "date,amount,description\n"
+        result = _svc().parse_queued_file(csv, "generic")
+        assert result.ok is False
+        assert result.error_key == "import.no_rows"
+
+    def test_auto_detects_mbank_profile(self):
+        csv = (
+            "#Numer rachunku;\n"
+            "55 1140 2004 0000 3302 7888 6836;\n"
+            "#Rodzaj rachunku;\n"
+            "Osobisty;\n"
+            "#Waluta;\n"
+            "PLN;\n"
+            "#Data;#Kwota;#Opis operacji\n"
+            "2024-01-15;-10.00;Shop\n"
+        )
+        result = _svc().parse_queued_file(csv, "generic")
+        assert result.profile == "mbank"
+        if result.ok:
+            assert result.metadata is not None
+
+
+# ── queue settings inheritance ────────────────────────────────────────────────
+
+
+class TestInheritQueueSettings:
+    def _meta(self, digits: str) -> MBankFileMetadata:
+        return MBankFileMetadata(
+            client_name="Jan",
+            account_type="Osobisty",
+            currency="PLN",
+            account_number=digits,
+            account_number_digits=digits,
+            date_from=None,
+            date_to=None,
+        )
+
+    def test_inherits_mbank_account_match(self):
+        prior = QueueSettingsSnapshot(
+            file_id="a",
+            profile="mbank",
+            metadata=self._meta("55114020040000330278886836"),
+            target_account_id=1,
+            expense_cat_id=2,
+            income_cat_id=3,
+            skip_duplicates=False,
+        )
+        current = QueueSettingsSnapshot(
+            file_id="b",
+            profile="mbank",
+            metadata=self._meta("55114020040000330278886836"),
+        )
+        assert inherit_queue_settings(current, [prior, current]) is True
+        assert current.target_account_id == 1
+        assert current.expense_cat_id == 2
+        assert current.skip_duplicates is False
+
+    def test_inherits_same_profile_categories(self):
+        prior = QueueSettingsSnapshot(
+            file_id="a",
+            profile="generic",
+            expense_cat_id=10,
+            income_cat_id=11,
+        )
+        current = QueueSettingsSnapshot(file_id="b", profile="generic")
+        assert inherit_queue_settings(current, [prior, current]) is True
+        assert current.expense_cat_id == 10
+        assert current.income_cat_id == 11
+
+
+# ── import readiness validation ───────────────────────────────────────────────
+
+
+class TestValidateImportReadiness:
+    def test_missing_account(self):
+        key, params = validate_import_readiness(
+            ImportReadinessCheck(
+                target_account_id=None,
+                expense_cat_id=1,
+                income_cat_id=2,
+                profile="generic",
+                metadata=None,
+                account_currency="PLN",
+            )
+        )
+        assert key == "import.select_account_hint"
+
+    def test_currency_mismatch_blocks_mbank(self):
+        meta = MBankFileMetadata(
+            client_name="Jan",
+            account_type="Osobisty",
+            currency="EUR",
+            account_number="123",
+            account_number_digits="123",
+            date_from=None,
+            date_to=None,
+        )
+        key, params = validate_import_readiness(
+            ImportReadinessCheck(
+                target_account_id=1,
+                expense_cat_id=2,
+                income_cat_id=3,
+                profile="mbank",
+                metadata=meta,
+                account_currency="PLN",
+            )
+        )
+        assert key == "import.currency_mismatch_block"
+        assert params["file"] == "EUR"
+
+    def test_valid_readiness_returns_none(self):
+        key, _ = validate_import_readiness(
+            ImportReadinessCheck(
+                target_account_id=1,
+                expense_cat_id=2,
+                income_cat_id=3,
+                profile="generic",
+                metadata=None,
+                account_currency="PLN",
+            )
+        )
+        assert key is None
+
+
+class TestCurrencyMismatchWarning:
+    def test_detects_mismatch_case_insensitive(self):
+        assert currency_mismatch_warning(file_currency="eur", account_currency="PLN") is True
+        assert currency_mismatch_warning(file_currency="PLN", account_currency="PLN") is False

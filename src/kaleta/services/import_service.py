@@ -6,14 +6,192 @@ import csv
 import datetime
 import io
 import re
+from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate
+
+# ── File decoding ────────────────────────────────────────────────────────────
+
+
+def auto_decode(raw: bytes) -> str:
+    """Decode uploaded CSV bytes, trying common Polish/EU encodings first."""
+    for enc in ("utf-8-sig", "utf-8", "cp1250", "iso-8859-2"):
+        try:
+            return raw.decode(enc)
+        except UnicodeDecodeError:
+            continue
+    return raw.decode("utf-8", errors="replace")
+
+
+def digits_only(value: str) -> str:
+    """Strip non-digit characters from an account number string."""
+    return re.sub(r"\D", "", value)
+
+
+def build_known_account_digits(external_numbers: Iterable[str | None]) -> set[str]:
+    """Collect normalised account digits from stored external account numbers."""
+    return {digits_only(num) for num in external_numbers if num}
+
+
+def is_counterparty_transfer(row: ParsedRow, known_digits: set[str]) -> bool:
+    """Return True when an mBank row's counterparty matches a known own account."""
+    counterparty = digits_only(row.raw.get("Numer rachunku", ""))
+    return bool(counterparty and counterparty in known_digits)
+
+
+def classify_row_preview_type(row: ParsedRow, known_digits: set[str]) -> str:
+    """Classify a parsed row for import preview (transfer / income / expense)."""
+    if is_counterparty_transfer(row, known_digits):
+        return "transfer"
+    return "income" if row.amount >= 0 else "expense"
+
+
+@dataclass
+class RowTypeCounts:
+    expense: int = 0
+    income: int = 0
+    transfer: int = 0
+
+
+def count_row_types(rows: list[ParsedRow], known_digits: set[str]) -> RowTypeCounts:
+    """Count preview row types for stats chips."""
+    counts = RowTypeCounts()
+    for row in rows:
+        row_type = classify_row_preview_type(row, known_digits)
+        if row_type == "transfer":
+            counts.transfer += 1
+        elif row_type == "income":
+            counts.income += 1
+        else:
+            counts.expense += 1
+    return counts
+
+
+def build_preview_table_rows(
+    rows: list[ParsedRow],
+    known_digits: set[str],
+    *,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Build ``ui.table`` row dicts for the import preview."""
+    preview: list[dict[str, Any]] = []
+    for i, row in enumerate(rows[:limit]):
+        row_type = classify_row_preview_type(row, known_digits)
+        amount_text = f"{'+' if row.amount >= 0 else ''}{row.amount:,.2f}"
+        preview.append(
+            {
+                "idx": i,
+                "date": str(row.date),
+                "amount": amount_text,
+                "description": row.description[:70],
+                "type": row_type,
+            }
+        )
+    return preview
+
+
+@dataclass
+class ParseQueuedFileResult:
+    profile: str
+    rows: list[ParsedRow] = field(default_factory=list)
+    errors: list[str] = field(default_factory=list)
+    metadata: MBankFileMetadata | None = None
+    ok: bool = False
+    error_key: str | None = None
+    error_params: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class QueueSettingsSnapshot:
+    file_id: str
+    profile: str
+    metadata: MBankFileMetadata | None = None
+    target_account_id: int | None = None
+    expense_cat_id: int | None = None
+    income_cat_id: int | None = None
+    skip_duplicates: bool = True
+
+
+def inherit_queue_settings(
+    current: QueueSettingsSnapshot,
+    queue: list[QueueSettingsSnapshot],
+) -> bool:
+    """Copy settings from a prior queued file when profiles or accounts match."""
+    if current.profile == "mbank" and current.metadata and current.metadata.account_number_digits:
+        for prior in reversed(queue):
+            if prior.file_id == current.file_id:
+                continue
+            if (
+                prior.profile == "mbank"
+                and prior.metadata
+                and prior.metadata.account_number_digits == current.metadata.account_number_digits
+                and prior.target_account_id is not None
+            ):
+                current.target_account_id = prior.target_account_id
+                current.expense_cat_id = prior.expense_cat_id
+                current.income_cat_id = prior.income_cat_id
+                current.skip_duplicates = prior.skip_duplicates
+                return True
+
+    for prior in reversed(queue):
+        if prior.file_id == current.file_id:
+            continue
+        if prior.profile == current.profile and (prior.expense_cat_id or prior.income_cat_id):
+            if current.expense_cat_id is None:
+                current.expense_cat_id = prior.expense_cat_id
+            if current.income_cat_id is None:
+                current.income_cat_id = prior.income_cat_id
+            current.skip_duplicates = prior.skip_duplicates
+            return True
+    return False
+
+
+@dataclass
+class ImportReadinessCheck:
+    target_account_id: int | None
+    expense_cat_id: int | None
+    income_cat_id: int | None
+    profile: str
+    metadata: MBankFileMetadata | None
+    account_currency: str | None
+
+
+def validate_import_readiness(
+    check: ImportReadinessCheck,
+) -> tuple[str | None, dict[str, Any]]:
+    """Return ``(i18n_key, params)`` when import must be blocked, else ``(None, {})``."""
+    if check.target_account_id is None:
+        return "import.select_account_hint", {}
+    if check.expense_cat_id is None:
+        return "import.select_expense_cat_hint", {}
+    if check.income_cat_id is None:
+        return "import.select_income_cat_hint", {}
+    if check.profile == "mbank" and check.metadata and check.metadata.currency:
+        file_currency = check.metadata.currency.upper()
+        account_currency = (check.account_currency or "").upper()
+        if account_currency and file_currency != account_currency:
+            return (
+                "import.currency_mismatch_block",
+                {"file": check.metadata.currency, "account": check.account_currency},
+            )
+    return None, {}
+
+
+def currency_mismatch_warning(
+    *,
+    file_currency: str,
+    account_currency: str,
+) -> bool:
+    """Return True when mBank file currency differs from the target account."""
+    return file_currency.upper() != account_currency.upper()
+
 
 # ── mBank preprocessor ───────────────────────────────────────────────────────
 
@@ -216,6 +394,59 @@ class ImportResult:
 class ImportService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    def parse_queued_file(self, content: str, profile: str) -> ParseQueuedFileResult:
+        """Parse queued CSV content, auto-detecting mBank when profile is generic."""
+        resolved_profile = profile
+        if profile == "generic" and MBankPreprocessor.is_mbank_file(content):
+            resolved_profile = "mbank"
+
+        if resolved_profile == "mbank":
+            if not MBankPreprocessor.is_mbank_file(content):
+                return ParseQueuedFileResult(
+                    profile=resolved_profile,
+                    error_key="import.not_mbank_file",
+                )
+            data_section = MBankPreprocessor.extract_data_section(content)
+            if data_section is None:
+                return ParseQueuedFileResult(
+                    profile=resolved_profile,
+                    error_key="import.no_data_section",
+                )
+            metadata = MBankPreprocessor.extract_metadata(content)
+            result = self.parse_csv(data_section, delimiter=";")
+            if not result.rows:
+                return ParseQueuedFileResult(
+                    profile=resolved_profile,
+                    rows=result.rows,
+                    errors=result.errors,
+                    metadata=metadata,
+                    error_key="import.no_rows",
+                    error_params={"skipped": result.skipped},
+                )
+            return ParseQueuedFileResult(
+                profile=resolved_profile,
+                rows=result.rows,
+                errors=result.errors,
+                metadata=metadata,
+                ok=True,
+            )
+
+        result = self.parse_csv(content)
+        if not result.rows:
+            return ParseQueuedFileResult(
+                profile=resolved_profile,
+                rows=result.rows,
+                errors=result.errors,
+                error_key="import.no_rows",
+                error_params={"skipped": result.skipped},
+            )
+        return ParseQueuedFileResult(
+            profile=resolved_profile,
+            rows=result.rows,
+            errors=result.errors,
+            ok=True,
+        )
 
     def parse_csv(self, content: str, *, delimiter: str = "") -> ImportResult:
         """Parse CSV content into ParsedRow objects.
