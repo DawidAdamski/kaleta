@@ -17,6 +17,52 @@ from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 
 REALIZATION_WARNING_THRESHOLD_PCT: float = 5.0
+MONTHS_PER_YEAR = 12
+
+
+def budgets_to_map(budgets: builtins.list[Budget]) -> dict[tuple[int, int], Decimal]:
+    """Return ``{(category_id, month): amount}`` from budget rows."""
+    return {(b.category_id, b.month): b.amount for b in budgets}
+
+
+def uniform_monthly_amount(
+    budget_map: dict[tuple[int, int], Decimal], category_id: int
+) -> Decimal | None:
+    """Return the uniform monthly amount when all 12 months match, else ``None``."""
+    amounts = [budget_map.get((category_id, month)) for month in range(1, MONTHS_PER_YEAR + 1)]
+    if all(amount is not None for amount in amounts) and len(set(amounts)) == 1:
+        return amounts[0]
+    return None
+
+
+def category_yearly_total(budget_map: dict[tuple[int, int], Decimal], category_id: int) -> Decimal:
+    """Sum planned amounts for a category across all months in the map."""
+    return sum(
+        (
+            budget_map.get((category_id, month), Decimal("0"))
+            for month in range(1, MONTHS_PER_YEAR + 1)
+        ),
+        Decimal("0"),
+    )
+
+
+def per_month_from_yearly_total(total: Decimal) -> Decimal:
+    """Spread a yearly total evenly across 12 months (rounded to cents)."""
+    return (total / MONTHS_PER_YEAR).quantize(Decimal("0.01"))
+
+
+def month_planned_totals(
+    budget_map: dict[tuple[int, int], Decimal],
+    category_ids: builtins.list[int],
+) -> tuple[Decimal, ...]:
+    """Return 12 month-column planned totals for the given categories."""
+    totals = [Decimal("0")] * MONTHS_PER_YEAR
+    for category_id in category_ids:
+        for idx, month in enumerate(range(1, MONTHS_PER_YEAR + 1)):
+            amount = budget_map.get((category_id, month))
+            if amount:
+                totals[idx] += amount
+    return tuple(totals)
 
 
 class RealizationStatus(str, Enum):  # noqa: UP042
@@ -74,6 +120,190 @@ class CategoryRealization:
     def pace_delta(self) -> float:
         """used_pct minus elapsed_pct — positive means ahead of pace (worse)."""
         return self.used_pct - self.elapsed_pct
+
+
+@dataclass(frozen=True, slots=True)
+class PlanMonthCell:
+    month: int
+    planned: Decimal | None
+    actual: Decimal | None
+    is_override: bool
+    is_over_budget: bool
+
+
+@dataclass(frozen=True, slots=True)
+class PlanCategoryRow:
+    category_id: int
+    name: str
+    parent_id: int | None
+    is_child: bool
+    uniform_monthly: Decimal | None
+    has_any_plan: bool
+    has_any_actual: bool
+    months: tuple[PlanMonthCell, ...]
+    total_planned: Decimal
+    total_actual: Decimal
+
+    @property
+    def show_actual_row(self) -> bool:
+        return self.has_any_actual or self.has_any_plan or self.uniform_monthly is not None
+
+
+@dataclass(frozen=True, slots=True)
+class YearPlanSlice:
+    year: int
+    budget_map: dict[tuple[int, int], Decimal]
+    rows: tuple[PlanCategoryRow, ...]
+    month_planned_totals: tuple[Decimal, ...]
+    month_actual_totals: tuple[Decimal, ...]
+    grand_planned: Decimal
+    grand_actual: Decimal
+
+
+@dataclass(frozen=True, slots=True)
+class AnnualPlanGrid:
+    years: tuple[int, ...]
+    is_compare: bool
+    slices: tuple[YearPlanSlice, ...]
+    compare_month_totals: tuple[Decimal, ...] | None
+    compare_grand_total: Decimal | None
+
+
+def build_category_plan_row(
+    *,
+    category_id: int,
+    name: str,
+    parent_id: int | None,
+    is_child: bool,
+    budget_map: dict[tuple[int, int], Decimal],
+    actual_map: dict[tuple[int, int], Decimal],
+) -> PlanCategoryRow:
+    """Build one category's annual plan row with budget-vs-actual overlay metadata."""
+    uniform_monthly = uniform_monthly_amount(budget_map, category_id)
+    has_any_plan = any(
+        budget_map.get((category_id, month)) for month in range(1, MONTHS_PER_YEAR + 1)
+    )
+    has_any_actual = any(
+        actual_map.get((category_id, month)) for month in range(1, MONTHS_PER_YEAR + 1)
+    )
+
+    months: list[PlanMonthCell] = []
+    total_planned = Decimal("0")
+    total_actual = Decimal("0")
+    for month in range(1, MONTHS_PER_YEAR + 1):
+        planned = budget_map.get((category_id, month))
+        actual = actual_map.get((category_id, month))
+        if planned:
+            total_planned += planned
+        if actual:
+            total_actual += actual
+        is_override = (
+            planned is not None and uniform_monthly is not None and planned != uniform_monthly
+        )
+        is_over = bool(actual and planned and actual > planned)
+        months.append(
+            PlanMonthCell(
+                month=month,
+                planned=planned,
+                actual=actual,
+                is_override=is_override,
+                is_over_budget=is_over,
+            )
+        )
+
+    return PlanCategoryRow(
+        category_id=category_id,
+        name=name,
+        parent_id=parent_id,
+        is_child=is_child,
+        uniform_monthly=uniform_monthly,
+        has_any_plan=has_any_plan,
+        has_any_actual=has_any_actual,
+        months=tuple(months),
+        total_planned=total_planned,
+        total_actual=total_actual,
+    )
+
+
+def build_year_plan_slice(
+    *,
+    year: int,
+    sorted_categories: builtins.list[Category],
+    budget_map: dict[tuple[int, int], Decimal],
+    actual_map: dict[tuple[int, int], Decimal],
+) -> YearPlanSlice:
+    """Build annual grid data for one year."""
+    rows = tuple(
+        build_category_plan_row(
+            category_id=category.id,
+            name=category.name,
+            parent_id=category.parent_id,
+            is_child=category.parent_id is not None,
+            budget_map=budget_map,
+            actual_map=actual_map,
+        )
+        for category in sorted_categories
+    )
+    category_ids = [category.id for category in sorted_categories]
+    month_planned = month_planned_totals(budget_map, category_ids)
+    month_actual = tuple(
+        sum((row.months[idx].actual or Decimal("0") for row in rows), Decimal("0"))
+        for idx in range(MONTHS_PER_YEAR)
+    )
+    return YearPlanSlice(
+        year=year,
+        budget_map=budget_map,
+        rows=rows,
+        month_planned_totals=month_planned,
+        month_actual_totals=month_actual,
+        grand_planned=sum(month_planned, Decimal("0")),
+        grand_actual=sum(month_actual, Decimal("0")),
+    )
+
+
+def build_annual_plan_grid(
+    years: builtins.list[int],
+    sorted_categories: builtins.list[Category],
+    budget_maps: dict[int, dict[tuple[int, int], Decimal]],
+    actual_maps: dict[int, dict[tuple[int, int], Decimal]],
+) -> AnnualPlanGrid:
+    """Build annual planning grid projections for one or more years (YoY compare)."""
+    selected_years = tuple(sorted(years))
+    is_compare = len(selected_years) > 1
+    slices = tuple(
+        build_year_plan_slice(
+            year=year,
+            sorted_categories=sorted_categories,
+            budget_map=budget_maps[year],
+            actual_map=actual_maps[year],
+        )
+        for year in selected_years
+    )
+
+    compare_month_totals: tuple[Decimal, ...] | None = None
+    compare_grand_total: Decimal | None = None
+    if is_compare:
+        compare_month_totals = month_planned_totals(
+            budget_maps[selected_years[0]],
+            [category.id for category in sorted_categories],
+        )
+        for year in selected_years[1:]:
+            year_totals = month_planned_totals(
+                budget_maps[year],
+                [category.id for category in sorted_categories],
+            )
+            compare_month_totals = tuple(
+                compare_month_totals[idx] + year_totals[idx] for idx in range(MONTHS_PER_YEAR)
+            )
+        compare_grand_total = sum((slice_.grand_planned for slice_ in slices), Decimal("0"))
+
+    return AnnualPlanGrid(
+        years=selected_years,
+        is_compare=is_compare,
+        slices=slices,
+        compare_month_totals=compare_month_totals,
+        compare_grand_total=compare_grand_total,
+    )
 
 
 class BudgetService:
@@ -442,3 +672,17 @@ class BudgetService:
             .group_by(Transaction.category_id, extract("month", Transaction.date))
         )
         return {(int(row.category_id), int(row.month)): row.total for row in result}
+
+    async def load_annual_plan_grid(self, years: builtins.list[int]) -> AnnualPlanGrid:
+        """Load expense categories and build annual plan grid for the given years."""
+        from kaleta.services.category_service import CategoryService
+
+        categories = await CategoryService(self.session).list(type=CategoryType.EXPENSE)
+        sorted_categories = CategoryService.sort_with_children(categories)
+        budget_maps: dict[int, dict[tuple[int, int], Decimal]] = {}
+        actual_maps: dict[int, dict[tuple[int, int], Decimal]] = {}
+        for year in years:
+            budgets = await self.list_for_year(year)
+            budget_maps[year] = budgets_to_map(budgets)
+            actual_maps[year] = await self.actuals_by_category_month(year)
+        return build_annual_plan_grid(years, sorted_categories, budget_maps, actual_maps)

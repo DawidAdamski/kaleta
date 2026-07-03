@@ -16,6 +16,12 @@ from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services import AccountService, BudgetService, CategoryService, TransactionService
+from kaleta.services.budget_service import (
+    build_category_plan_row,
+    category_yearly_total,
+    per_month_from_yearly_total,
+    uniform_monthly_amount,
+)
 
 # ── Fixtures & helpers ─────────────────────────────────────────────────────────
 
@@ -551,3 +557,105 @@ class TestRealizationForMonth:
         )
         result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 15))
         assert result[0].actual == Decimal("0")
+
+
+# ── annual plan grid helpers ──────────────────────────────────────────────────
+
+
+class TestUniformMonthlyAmount:
+    def test_returns_amount_when_all_months_match(self) -> None:
+        budget_map = {(1, month): Decimal("100.00") for month in range(1, 13)}
+        assert uniform_monthly_amount(budget_map, 1) == Decimal("100.00")
+
+    def test_returns_none_when_months_differ(self) -> None:
+        budget_map = {(1, month): Decimal("100.00") for month in range(1, 13)}
+        budget_map[(1, 2)] = Decimal("200.00")
+        assert uniform_monthly_amount(budget_map, 1) is None
+
+    def test_returns_none_when_any_month_missing(self) -> None:
+        budget_map = {(1, 1): Decimal("100.00")}
+        assert uniform_monthly_amount(budget_map, 1) is None
+
+
+class TestCategoryYearlyTotal:
+    def test_sums_all_months(self) -> None:
+        budget_map = {
+            (3, 1): Decimal("10.00"),
+            (3, 6): Decimal("20.00"),
+            (3, 12): Decimal("30.00"),
+        }
+        assert category_yearly_total(budget_map, 3) == Decimal("60.00")
+
+
+class TestPerMonthFromYearlyTotal:
+    def test_divides_and_rounds(self) -> None:
+        assert per_month_from_yearly_total(Decimal("1200.00")) == Decimal("100.00")
+        assert per_month_from_yearly_total(Decimal("1000.00")) == Decimal("83.33")
+
+
+class TestBuildCategoryPlanRow:
+    def test_marks_over_budget_when_actual_exceeds_planned(self) -> None:
+        budget_map = {(5, month): Decimal("100.00") for month in range(1, 13)}
+        budget_map[(5, 7)] = Decimal("150.00")
+        actual_map = {(5, 7): Decimal("160.00")}
+
+        row = build_category_plan_row(
+            category_id=5,
+            name="Food",
+            parent_id=None,
+            is_child=False,
+            budget_map=budget_map,
+            actual_map=actual_map,
+        )
+
+        assert row.uniform_monthly is None
+        assert row.has_any_plan is True
+        assert row.months[6].is_override is False
+        assert row.months[6].is_over_budget is True
+        assert row.total_planned == Decimal("1250.00")
+        assert row.total_actual == Decimal("160.00")
+
+
+class TestBuildAnnualPlanGrid:
+    async def test_single_year_totals(self, session: AsyncSession) -> None:
+        parent = await CategoryService(session).create(
+            CategoryCreate(name="Living", type=CategoryType.EXPENSE)
+        )
+        child = await CategoryService(session).create(
+            CategoryCreate(name="Rent", type=CategoryType.EXPENSE, parent_id=parent.id)
+        )
+        svc = BudgetService(session)
+        await svc.upsert(
+            BudgetCreate(category_id=child.id, amount=Decimal("1000.00"), month=1, year=2025)
+        )
+        await svc.upsert(
+            BudgetCreate(category_id=child.id, amount=Decimal("1000.00"), month=2, year=2025)
+        )
+
+        grid = await svc.load_annual_plan_grid([2025])
+
+        assert grid.is_compare is False
+        assert len(grid.slices) == 1
+        slice_ = grid.slices[0]
+        assert slice_.grand_planned == Decimal("2000.00")
+        assert len(slice_.rows) == 2
+        assert slice_.rows[0].name == "Living"
+        assert slice_.rows[1].name == "Rent"
+        assert slice_.rows[1].is_child is True
+
+    async def test_compare_mode_aggregates_month_columns(self, session: AsyncSession) -> None:
+        cat_id = await _make_category(session, name="Food")
+        svc = BudgetService(session)
+        await svc.upsert(
+            BudgetCreate(category_id=cat_id, amount=Decimal("100.00"), month=3, year=2024)
+        )
+        await svc.upsert(
+            BudgetCreate(category_id=cat_id, amount=Decimal("50.00"), month=3, year=2025)
+        )
+
+        grid = await svc.load_annual_plan_grid([2024, 2025])
+
+        assert grid.is_compare is True
+        assert grid.compare_month_totals is not None
+        assert grid.compare_month_totals[2] == Decimal("150.00")
+        assert grid.compare_grand_total == Decimal("150.00")

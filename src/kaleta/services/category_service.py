@@ -106,6 +106,20 @@ class CategoryService:
         return True
 
     @staticmethod
+    def sort_with_children(categories: builtins.list[Category]) -> builtins.list[Category]:
+        """Return categories sorted so each parent is immediately followed by its children."""
+        children_by_parent: dict[int, list[Category]] = {}
+        for category in categories:
+            if category.parent_id:
+                children_by_parent.setdefault(category.parent_id, []).append(category)
+        result: builtins.list[Category] = []
+        for parent in sorted((c for c in categories if c.parent_id is None), key=lambda c: c.name):
+            result.append(parent)
+            for child in sorted(children_by_parent.get(parent.id, []), key=lambda c: c.name):
+                result.append(child)
+        return result
+
+    @staticmethod
     def build_option_labels(categories: builtins.list[Category]) -> dict[int, str]:
         """Build ``{id: label}`` with hierarchical labels like ``Fuel → Toyota``."""
         cats_by_id = {c.id: c for c in categories}
