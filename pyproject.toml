@@ -149,8 +149,6 @@ ignore_imports = [
     "kaleta.views.planned_transactions -> kaleta.models.category",  # TODO(q3-views-refactor)
     "kaleta.views.planned_transactions -> kaleta.models.planned_transaction",  # TODO(q3-views-refactor)
     "kaleta.views.planned_transactions -> kaleta.models.transaction",  # TODO(q3-views-refactor)
-    "kaleta.views.reports -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.reports -> kaleta.models.category",  # TODO(q3-views-refactor)
     "kaleta.views.safety_funds -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.safety_funds -> kaleta.models.reserve_fund",  # TODO(q3-views-refactor)
     "kaleta.views.settings -> kaleta.db",  # TODO(q3-views-refactor)

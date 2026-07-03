@@ -68,8 +68,78 @@ components.
   elements vs small classes? (Suggest: functions; classes only where
   the component holds refreshable state.)
 - Does `dashboard_widgets.py` split per-widget (one file each) or by
-  size group?
+  size group? **Resolved:** per-widget modules under `views/dashboard_widgets/`,
+  with KPI/half/full size metadata in `registry.py`; layout persistence in
+  `layout.py`.
 
 ## Implementation notes
 
-(filled in as work progresses)
+### dashboard_widgets (2026-07-04)
+
+- Split `dashboard_widgets.py` (766 LOC) into `views/dashboard_widgets/` package:
+  one module per widget, shared `registry.py` (Widget type, `register`, `WIDGETS`,
+  `DEFAULT_WIDGETS`, `cycle_size`), `helpers.py` (card/chart UI helpers),
+  `layout.py` (`default_layout`, `resolve_user_layout`, legacy migration).
+- Removed sqlalchemy imports from views; widgets use `AsyncSession` via
+  `TYPE_CHECKING` and `TransactionType` from `kaleta.schemas.transaction`.
+- Removed `pyproject.toml` lint-import ignores for `dashboard_widgets`.
+
+### import_view (2026-07-04)
+
+- Split `import_view.py` (800 LOC) into `views/import_view/` package: thin
+  `page.py` (wiring) + one module per wizard section.
+- Moved inline logic to `import_service.py`: `auto_decode`, `parse_queued_file`,
+  preview row classification, queue settings inheritance, import readiness
+  validation. Unit tests in `test_import_service.py`.
+- Views now use `with_session` (no `kaleta.db` / model imports); category
+  pickers use `CategoryService.build_option_labels`.
+- Reused `amount_label.amount_body_cell_slot` for preview amounts and
+  `empty_state.table_no_data_slot` for empty queue.
+- Removed `pyproject.toml` lint-import ignores for `import_view`.
+
+### settings (2026-07-04)
+
+- Split `settings.py` (785 LOC) into `views/settings/` package: thin
+  `page.py` + one module per tab (General, Appearance, Features, Data,
+  History, About).
+- Moved inline logic to services: `AuditService.list_for_display` /
+  `changed_field_names`, `CurrencyRateService.build_relevant_pairs` /
+  `list_recent_for_pairs` / `create_with_inverse`, `BackupService.export_filename`.
+  Unit tests in `test_settings_services.py`.
+- Views now use `with_session` (no `kaleta.db` / model imports).
+- Removed `pyproject.toml` lint-import ignores for `settings`.
+
+### budget_plan (2026-07-04)
+
+- Split `budget_plan.py` (690 LOC) into `views/budget_plan/` package: thin
+  `page.py` (wiring) + `grid.py`, `dialogs.py`, `toolbar.py`, `constants.py`,
+  `helpers.py`.
+- Moved inline grid computation to `budget_service.py`: `uniform_monthly_amount`,
+  `build_category_plan_row`, `build_annual_plan_grid`, `load_annual_plan_grid`.
+  `CategoryService.sort_with_children` for hierarchical category ordering.
+  Unit tests in `test_budget_service.py`.
+- Views now use `with_session` (no `kaleta.db` / model imports).
+- Removed `pyproject.toml` lint-import ignores for `budget_plan`.
+
+### subscriptions (2026-07-04)
+
+- Split `subscriptions.py` (626 LOC) into `views/subscriptions/` package: thin
+  `page.py` (wiring) + `dialogs.py`, `rows.py`, `helpers.py`, `constants.py`.
+- Moved inline logic to `subscription_service.py`: `build_notes_preview`,
+  `category_group_monthly_total`, `parse_subscription_form`. Unit tests in
+  `test_subscription_service.py`.
+- Views now use `with_session` (no `kaleta.db` / model imports); category
+  pickers use `CategoryService.build_option_labels`; amounts use `amount_label`.
+- Removed `pyproject.toml` lint-import ignores for `subscriptions`.
+
+### reports (2026-07-04)
+
+- Split `reports.py` (541 LOC) into `views/reports/` package: thin `page.py`
+  (wiring) + `saved_section.py`, `palette.py`, `config_zone.py`, `chart_zone.py`,
+  `constants.py`.
+- Moved inline logic to `saved_report_service.py`: `chart_type_icon`,
+  `report_config_from_builder_state`, `build_report_table_data`. Unit tests in
+  `test_saved_report_service.py`.
+- Views now use `with_session` (no `kaleta.db` / model imports); category
+  pickers use `CategoryService.build_option_labels`.
+- Removed `pyproject.toml` lint-import ignores for `reports`.

@@ -86,6 +86,63 @@ class ReportResult:
     metric_header: str  # e.g. "Total Amount", "Count"
 
 
+@dataclass(frozen=True)
+class ReportTableData:
+    columns: list[dict[str, str]]
+    rows: list[dict[str, str]]
+
+
+_CHART_TYPE_ICONS: dict[str, str] = {
+    "bar": "bar_chart",
+    "line": "show_chart",
+    "pie": "pie_chart",
+    "donut": "donut_large",
+    "table": "table_chart",
+}
+
+
+def chart_type_icon(chart_type: str) -> str:
+    return _CHART_TYPE_ICONS.get(chart_type, "bar_chart")
+
+
+def report_config_from_builder_state(state: dict[str, Any]) -> ReportConfig:
+    """Build a ``ReportConfig`` from the report builder UI state dict."""
+    return ReportConfig(
+        dimension=state["dimension"],
+        metric=state["metric"],
+        chart_type=state["chart_type"],
+        transaction_types=state["transaction_types"],
+        date_preset=state["date_preset"],
+        date_from=state["date_from"] or None,
+        date_to=state["date_to"] or None,
+        account_ids=state["account_ids"],
+        category_ids=state["category_ids"],
+        top_n=int(state["top_n"] or 0) or None,
+    )
+
+
+def build_report_table_data(result: ReportResult) -> ReportTableData:
+    columns = [
+        {
+            "name": "label",
+            "label": result.column_header,
+            "field": "label",
+            "align": "left",
+        },
+        {
+            "name": "value",
+            "label": result.metric_header,
+            "field": "value",
+            "align": "right",
+        },
+    ]
+    rows = [
+        {"label": lbl, "value": f"{v:,.2f}"}
+        for lbl, v in zip(result.labels, result.values, strict=False)
+    ]
+    return ReportTableData(columns=columns, rows=rows)
+
+
 # ── Service ────────────────────────────────────────────────────────────────────
 
 
