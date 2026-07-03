@@ -143,3 +143,36 @@ components.
 - Views now use `with_session` (no `kaleta.db` / model imports); category
   pickers use `CategoryService.build_option_labels`.
 - Removed `pyproject.toml` lint-import ignores for `reports`.
+
+### personal_loans (2026-07-04)
+
+- Split `personal_loans.py` (540 LOC) into `views/personal_loans/` package: thin
+  `page.py` (wiring) + `dialogs.py`, `rows.py`, `helpers.py`.
+- Moved inline logic to `personal_loan_service.py`: `compute_remaining`,
+  `parse_loan_form`, `parse_repayment_form`. Unit tests in
+  `test_personal_loan_service.py`.
+- Views now use `with_session` (no `kaleta.db` / model imports); category
+  pickers use `CategoryService.build_option_labels`; amounts use `amount_label`.
+- Removed `pyproject.toml` lint-import ignores for `personal_loans`.
+
+### budgets (2026-07-04)
+
+- Split `budgets.py` (514 LOC) into `views/budgets/` package: thin `page.py`
+  (wiring) + `overview.py`, `realization.py`, `dialogs.py`, `chart.py`,
+  `helpers.py`, `constants.py`.
+- Moved inline logic to `budget_service.py`: `date_range_for_key`,
+  `format_date_range_label`. Unit tests in `test_budget_service.py` and
+  `test_budget_range.py`.
+- Views now use `with_session` (no `kaleta.db` / model imports); category
+  pickers use `CategoryService.build_option_labels`.
+- Removed `pyproject.toml` lint-import ignores for `budgets`.
+
+### Exit criteria — LOC cap (2026-07-04)
+
+Verified with `wc -l src/kaleta/views/**/*.py` after the final split:
+
+- **Result: PASS** — no file under `src/kaleta/views/` exceeds 500 LOC.
+- Largest files: `budget_builder.py` (480), `credit.py` (466), `safety_funds.py`
+  (465), `credit_calculator.py` (462), `forecast.py` (460).
+- Previously over-cap files now split: `personal_loans` (max module 319 LOC),
+  `budgets` (max module 149 LOC).
