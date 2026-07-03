@@ -5,6 +5,7 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -23,6 +24,12 @@ from kaleta.schemas.personal_loan import (
     RepaymentCreate,
 )
 from kaleta.services import AccountService, PersonalLoanService
+from kaleta.services.personal_loan_service import (
+    PersonalLoanFormError,
+    compute_remaining,
+    parse_loan_form,
+    parse_repayment_form,
+)
 
 
 async def _make_counterparty(session: AsyncSession, name: str) -> int:
@@ -229,9 +236,6 @@ class TestRepayments:
         assert types[Decimal("25.00")] == TransactionType.EXPENSE
 
 
-# ── Totals ───────────────────────────────────────────────────────────────────
-
-
 class TestTotals:
     async def test_totals_split_by_direction(self, session: AsyncSession):
         cp1 = await _make_counterparty(session, "Marek")
@@ -271,3 +275,66 @@ class TestTotals:
         assert t.they_owe_you == Decimal("0.00")
         assert t.settled_count == 1
         assert t.outstanding_count == 0
+
+
+class TestFormParsing:
+    def test_compute_remaining(self):
+        assert compute_remaining(Decimal("500"), [Decimal("100"), Decimal("200")]) == Decimal(
+            "200.00"
+        )
+
+    def test_parse_loan_form_valid(self):
+        cp, direction, principal, currency, opened, due, notes = parse_loan_form(
+            counterparty="Marek",
+            direction_value=LoanDirection.OUTGOING.value,
+            principal_value=1000,
+            currency_value="pln",
+            opened_value="2026-04-01",
+            due_value="2026-12-31",
+            notes_value="  hello  ",
+        )
+        assert cp == "Marek"
+        assert direction == LoanDirection.OUTGOING
+        assert principal == Decimal("1000")
+        assert currency == "PLN"
+        assert opened == datetime.date(2026, 4, 1)
+        assert due == datetime.date(2026, 12, 31)
+        assert notes == "hello"
+
+    def test_parse_loan_form_rejects_empty_counterparty(self):
+        with pytest.raises(PersonalLoanFormError, match="Counterparty"):
+            parse_loan_form(
+                counterparty="  ",
+                direction_value=LoanDirection.OUTGOING.value,
+                principal_value=100,
+                currency_value="PLN",
+                opened_value="2026-04-01",
+                due_value="",
+                notes_value="",
+            )
+
+    def test_parse_repayment_form_valid(self):
+        payload = parse_repayment_form(
+            amount_value=50,
+            date_value="2026-04-15",
+            link_account_value=3,
+            link_category_value=7,
+            note_value="partial",
+        )
+        assert payload.amount == Decimal("50")
+        assert payload.date == datetime.date(2026, 4, 15)
+        assert payload.link_account_id == 3
+        assert payload.link_category_id == 7
+        assert payload.note == "partial"
+
+    def test_parse_repayment_form_none_link_account(self):
+        payload = parse_repayment_form(
+            amount_value=25,
+            date_value="2026-04-15",
+            link_account_value=0,
+            link_category_value=None,
+            note_value="",
+        )
+        assert payload.link_account_id is None
+        assert payload.link_category_id is None
+        assert payload.note is None

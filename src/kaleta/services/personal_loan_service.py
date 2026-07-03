@@ -185,7 +185,7 @@ class PersonalLoanService:
         self.session.add(repayment)
 
         # Auto-flip status if the remaining balance hits 0 or below.
-        remaining = _compute_remaining(
+        remaining = compute_remaining(
             loan.principal, [r.amount for r in loan.repayments] + [payload.amount]
         )
         if remaining <= Decimal("0"):
@@ -214,7 +214,7 @@ class PersonalLoanService:
         # Re-evaluate status with the remaining repayments.
         loan = await self.get_loan(loan_id)
         if loan is not None:
-            remaining = _compute_remaining(loan.principal, [rep.amount for rep in loan.repayments])
+            remaining = compute_remaining(loan.principal, [rep.amount for rep in loan.repayments])
             loan.status = (
                 LoanStatus.SETTLED
                 if remaining <= Decimal("0") and loan.repayments
@@ -238,7 +238,7 @@ class PersonalLoanService:
                 settled += 1
                 continue
             outstanding += 1
-            remaining = _compute_remaining(loan.principal, [r.amount for r in loan.repayments])
+            remaining = compute_remaining(loan.principal, [r.amount for r in loan.repayments])
             if remaining <= Decimal("0"):
                 continue
             if loan.direction == LoanDirection.OUTGOING:
@@ -256,9 +256,84 @@ class PersonalLoanService:
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _compute_remaining(principal: Decimal, repayments: builtins.list[Decimal]) -> Decimal:
+class PersonalLoanFormError(Exception):
+    """Raised when personal-loan dialog fields fail validation."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def compute_remaining(principal: Decimal, repayments: builtins.list[Decimal]) -> Decimal:
     total_repaid = sum(repayments, Decimal("0"))
     return (principal - total_repaid).quantize(Decimal("0.01"))
 
 
-__all__ = ["PersonalLoanService"]
+def parse_loan_form(
+    *,
+    counterparty: str,
+    direction_value: str,
+    principal_value: object,
+    currency_value: str,
+    opened_value: str,
+    due_value: str,
+    notes_value: str,
+) -> tuple[str, LoanDirection, Decimal, str, datetime.date, datetime.date | None, str | None]:
+    """Parse loan dialog fields into validated create/update payload parts."""
+    cp_name = (counterparty or "").strip()
+    if not cp_name:
+        raise PersonalLoanFormError("Counterparty required")
+    try:
+        principal = Decimal(str(principal_value or 0))
+        if principal <= 0:
+            raise PersonalLoanFormError("Amount must be > 0")
+        opened_at = datetime.date.fromisoformat(opened_value or datetime.date.today().isoformat())
+        due_at = datetime.date.fromisoformat(due_value) if due_value else None
+        currency = (currency_value or "PLN").strip().upper()[:3] or "PLN"
+        direction = LoanDirection(direction_value)
+        notes = (notes_value or "").strip() or None
+    except (ValueError, TypeError) as exc:
+        raise PersonalLoanFormError(str(exc)) from exc
+    return cp_name, direction, principal, currency, opened_at, due_at, notes
+
+
+def parse_repayment_form(
+    *,
+    amount_value: object,
+    date_value: str,
+    link_account_value: object | None,
+    link_category_value: object | None,
+    note_value: str,
+) -> RepaymentCreate:
+    """Parse repayment dialog fields into a ``RepaymentCreate`` payload."""
+    try:
+        amount = Decimal(str(amount_value or 0))
+        if amount <= 0:
+            raise PersonalLoanFormError("Amount must be > 0")
+        rep_date = datetime.date.fromisoformat(date_value or datetime.date.today().isoformat())
+        link_acc_raw = link_account_value
+        link_acc = (
+            int(str(link_acc_raw))
+            if link_acc_raw is not None and int(str(link_acc_raw)) != 0
+            else None
+        )
+        link_cat = int(str(link_category_value)) if link_category_value is not None else None
+        note = (note_value or "").strip() or None
+    except (ValueError, TypeError) as exc:
+        raise PersonalLoanFormError(str(exc)) from exc
+    return RepaymentCreate(
+        amount=amount,
+        date=rep_date,
+        note=note,
+        link_account_id=link_acc,
+        link_category_id=link_cat,
+    )
+
+
+__all__ = [
+    "PersonalLoanFormError",
+    "PersonalLoanService",
+    "compute_remaining",
+    "parse_loan_form",
+    "parse_repayment_form",
+]

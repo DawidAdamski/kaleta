@@ -108,6 +108,8 @@ __all__ = [
     "CounterpartyCreate",
     "CounterpartyResponse",
     "CounterpartyUpdate",
+    "LoanDirection",
+    "LoanStatus",
     "LoanTotals",
     "PersonalLoanCreate",
     "PersonalLoanResponse",
