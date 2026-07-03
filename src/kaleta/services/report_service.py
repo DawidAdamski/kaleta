@@ -200,6 +200,18 @@ class YoYComparison:
     rows: list[YoYRow]  # one per month, 1..12
     basis: str  # "expense" or "income"
 
+    @property
+    def total_this_year(self) -> Decimal:
+        return sum((r.this_year for r in self.rows), Decimal("0"))
+
+    @property
+    def total_last_year(self) -> Decimal:
+        return sum((r.last_year for r in self.rows), Decimal("0"))
+
+    @property
+    def total_delta(self) -> Decimal:
+        return self.total_this_year - self.total_last_year
+
 
 @dataclass
 class YTDSummary:
@@ -241,6 +253,11 @@ class SpendingByCategory:
     def total(self) -> Decimal:
         return sum((r.amount for r in self.rows), Decimal("0"))
 
+    def share_pct(self, amount: Decimal) -> Decimal:
+        """Return category amount as a percentage of total spend (0–100)."""
+        divisor = self.total if self.total > 0 else Decimal("1")
+        return (amount / divisor) * Decimal("100")
+
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -248,11 +265,7 @@ class SpendingByCategory:
 def _month_bounds(year: int, month: int) -> tuple[datetime.date, datetime.date]:
     """Return [start, end) for the given calendar month."""
     start = datetime.date(year, month, 1)
-    end = (
-        datetime.date(year + 1, 1, 1)
-        if month == 12
-        else datetime.date(year, month + 1, 1)
-    )
+    end = datetime.date(year + 1, 1, 1) if month == 12 else datetime.date(year, month + 1, 1)
     return start, end
 
 
@@ -262,6 +275,14 @@ def _month_bounds(year: int, month: int) -> tuple[datetime.date, datetime.date]:
 class ReportService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    @staticmethod
+    def average_savings_rate_pct(points: list[SavingsRatePoint]) -> Decimal:
+        """Mean savings rate across months; months without income count as 0%."""
+        if not points:
+            return Decimal("0")
+        total = sum((p.rate_pct or Decimal("0") for p in points), start=Decimal("0"))
+        return total / len(points)
 
     # ── Legacy helpers (used by Dashboard) ───────────────────────────────────
 
@@ -437,10 +458,7 @@ class ReportService:
         """Flat ranking of expense categories between [start, end)."""
         rows = await self._sum_by_category(start, end, only_type=TransactionType.EXPENSE)
         ranked = sorted(
-            (
-                CategoryAmount(category=r.name or "—", amount=Decimal(str(r.total)))
-                for r in rows
-            ),
+            (CategoryAmount(category=r.name or "—", amount=Decimal(str(r.total))) for r in rows),
             key=lambda c: c.amount,
             reverse=True,
         )
@@ -523,11 +541,7 @@ class ReportService:
         y = year or today.year
         start = datetime.date(y, 1, 1)
         # End is today (inclusive) for the current year, Jan 1 next year for past years.
-        end = (
-            today + datetime.timedelta(days=1)
-            if y == today.year
-            else datetime.date(y + 1, 1, 1)
-        )
+        end = today + datetime.timedelta(days=1) if y == today.year else datetime.date(y + 1, 1, 1)
 
         totals = await self.session.execute(
             select(Transaction.type, func.sum(Transaction.amount).label("total"))

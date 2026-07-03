@@ -411,9 +411,7 @@ class TestRealizationForMonth:
         # 15 / 30 = 50% elapsed, spent 300 / 1000 = 30% used → on-track
         await _make_expense(session, acc_id, cat_id, Decimal("300.00"), datetime.date(2026, 4, 10))
 
-        result = await svc.realization_for_month(
-            2026, 4, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 15))
         assert len(result) == 1
         row = result[0]
         assert row.category_name == "Food"
@@ -433,9 +431,7 @@ class TestRealizationForMonth:
         # 30% elapsed, used 80% → well over elapsed+5, still under 100 → warning
         await _make_expense(session, acc_id, cat_id, Decimal("800.00"), datetime.date(2026, 4, 5))
 
-        result = await svc.realization_for_month(
-            2026, 4, today=datetime.date(2026, 4, 9)
-        )
+        result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 9))
         assert len(result) == 1
         assert result[0].status.value == "warning"
 
@@ -447,9 +443,7 @@ class TestRealizationForMonth:
         )
         await _make_expense(session, acc_id, cat_id, Decimal("750.00"), datetime.date(2026, 4, 3))
 
-        result = await svc.realization_for_month(
-            2026, 4, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 15))
         assert len(result) == 1
         row = result[0]
         assert row.status.value == "over"
@@ -464,9 +458,7 @@ class TestRealizationForMonth:
         )
         await _make_expense(session, acc_id, cat_id, Decimal("400.00"), datetime.date(2026, 2, 10))
 
-        result = await svc.realization_for_month(
-            2026, 2, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 2, today=datetime.date(2026, 4, 15))
         assert result[0].elapsed_pct == pytest.approx(100.0)
         # used 80% < elapsed 100% + 5 → on_track (finished under budget)
         assert result[0].status.value == "on_track"
@@ -477,9 +469,7 @@ class TestRealizationForMonth:
             BudgetCreate(category_id=cat_id, amount=Decimal("500.00"), month=8, year=2026)
         )
 
-        result = await svc.realization_for_month(
-            2026, 8, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 8, today=datetime.date(2026, 4, 15))
         assert result[0].elapsed_pct == pytest.approx(0.0)
         assert result[0].used_pct == pytest.approx(0.0)
         assert result[0].status.value == "on_track"
@@ -506,9 +496,7 @@ class TestRealizationForMonth:
         await _make_expense(session, acc_id, dining, Decimal("800.00"), d)
         await _make_expense(session, acc_id, shopping, Decimal("1200.00"), d)
 
-        result = await svc.realization_for_month(
-            2026, 4, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 15))
         names = [r.category_name for r in result]
         assert names == ["Shopping", "Dining", "Food"]
 
@@ -520,9 +508,7 @@ class TestRealizationForMonth:
         acc_id = await _make_account(session)
         await _make_expense(session, acc_id, cat_id, Decimal("50.00"), datetime.date(2026, 4, 10))
 
-        result = await svc.realization_for_month(
-            2026, 4, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 15))
         assert len(result) == 1
         assert result[0].planned == Decimal("0")
         assert result[0].actual == Decimal("50.00")
@@ -541,9 +527,7 @@ class TestRealizationForMonth:
             BudgetCreate(category_id=child.id, amount=Decimal("2000.00"), month=4, year=2026)
         )
 
-        result = await svc.realization_for_month(
-            2026, 4, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 15))
         assert len(result) == 1
         assert result[0].category_name == "Rent"
         assert result[0].parent_id == parent.id
@@ -565,7 +549,5 @@ class TestRealizationForMonth:
                 is_internal_transfer=True,
             )
         )
-        result = await svc.realization_for_month(
-            2026, 4, today=datetime.date(2026, 4, 15)
-        )
+        result = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 15))
         assert result[0].actual == Decimal("0")

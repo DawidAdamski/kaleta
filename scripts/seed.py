@@ -33,42 +33,59 @@ YEARS = 6
 MONTHS = YEARS * 12  # 72 months
 
 EXPENSE_CATEGORIES = [
-    "Żywność", "Restauracje & Kawiarnie", "Transport", "Paliwo",
-    "Mieszkanie & Czynsz", "Media (prąd, gaz, woda)", "Zdrowie & Apteka",
-    "Rozrywka", "Odzież & Obuwie", "Elektronika", "Sport & Fitness",
-    "Edukacja", "Subskrypcje", "Wakacje & Podróże", "Inne wydatki",
+    "Żywność",
+    "Restauracje & Kawiarnie",
+    "Transport",
+    "Paliwo",
+    "Mieszkanie & Czynsz",
+    "Media (prąd, gaz, woda)",
+    "Zdrowie & Apteka",
+    "Rozrywka",
+    "Odzież & Obuwie",
+    "Elektronika",
+    "Sport & Fitness",
+    "Edukacja",
+    "Subskrypcje",
+    "Wakacje & Podróże",
+    "Inne wydatki",
 ]
 INCOME_CATEGORIES = ["Wynagrodzenie", "Freelance", "Zwroty", "Inne przychody"]
 
 # Categories that get a monthly budget entry
 BUDGETED_CATEGORIES = [
-    "Żywność", "Mieszkanie & Czynsz", "Transport", "Media (prąd, gaz, woda)",
-    "Zdrowie & Apteka", "Rozrywka", "Subskrypcje", "Odzież & Obuwie",
+    "Żywność",
+    "Mieszkanie & Czynsz",
+    "Transport",
+    "Media (prąd, gaz, woda)",
+    "Zdrowie & Apteka",
+    "Rozrywka",
+    "Subskrypcje",
+    "Odzież & Obuwie",
 ]
 
 # Base monthly budget amounts (today's values; older months scale down for inflation)
 BASE_BUDGETS: dict[str, Decimal] = {
-    "Żywność":               Decimal("1400.00"),
-    "Mieszkanie & Czynsz":   Decimal("2400.00"),
-    "Transport":             Decimal("350.00"),
+    "Żywność": Decimal("1400.00"),
+    "Mieszkanie & Czynsz": Decimal("2400.00"),
+    "Transport": Decimal("350.00"),
     "Media (prąd, gaz, woda)": Decimal("280.00"),
-    "Zdrowie & Apteka":      Decimal("200.00"),
-    "Rozrywka":              Decimal("300.00"),
-    "Subskrypcje":           Decimal("120.00"),
-    "Odzież & Obuwie":       Decimal("250.00"),
+    "Zdrowie & Apteka": Decimal("200.00"),
+    "Rozrywka": Decimal("300.00"),
+    "Subskrypcje": Decimal("120.00"),
+    "Odzież & Obuwie": Decimal("250.00"),
 }
 
 # Seasonal spending multipliers per month (1-12)
 SEASONAL: dict[int, float] = {
-    1: 0.75,   # post-holiday savings
+    1: 0.75,  # post-holiday savings
     2: 0.85,
     3: 0.90,
     4: 0.95,
     5: 1.00,
     6: 1.05,
-    7: 1.25,   # summer vacation
-    8: 1.30,   # summer vacation peak
-    9: 1.05,   # back to school
+    7: 1.25,  # summer vacation
+    8: 1.30,  # summer vacation peak
+    9: 1.05,  # back to school
     10: 0.95,
     11: 1.10,  # pre-Christmas shopping
     12: 1.50,  # Christmas
@@ -130,31 +147,52 @@ async def seed() -> None:
 
         # ── Accounts ──────────────────────────────────────────────────────────
         accounts = [
-            Account(name="PKO Konto Główne",     type=AccountType.CHECKING, balance=Decimal("0.00"), institution_id=pko.id),
-            Account(name="mBank Oszczędności",   type=AccountType.SAVINGS,  balance=Decimal("0.00"), institution_id=mbank.id),
-            Account(name="Gotówka",              type=AccountType.CASH,     balance=Decimal("0.00")),
-            Account(name="Karta Kredytowa Visa", type=AccountType.CREDIT,   balance=Decimal("0.00"), institution_id=revolut.id),
+            Account(
+                name="PKO Konto Główne",
+                type=AccountType.CHECKING,
+                balance=Decimal("0.00"),
+                institution_id=pko.id,
+            ),
+            Account(
+                name="mBank Oszczędności",
+                type=AccountType.SAVINGS,
+                balance=Decimal("0.00"),
+                institution_id=mbank.id,
+            ),
+            Account(
+                name="Gotówka",
+                type=AccountType.CASH,
+                balance=Decimal("0.00"),
+            ),
+            Account(
+                name="Karta Kredytowa Visa",
+                type=AccountType.CREDIT,
+                balance=Decimal("0.00"),
+                institution_id=revolut.id,
+            ),
         ]
         session.add_all(accounts)
         await session.flush()
         checking, savings, cash, credit = accounts
 
         # ── Canonical tags (mirrors b9d4e2c8a1f5 migration) ──────────────────
-        session.add_all([
-            Tag(name="Transfer",     icon="swap_horiz"),
-            Tag(name="Card",         icon="credit_card"),
-            Tag(name="Cash",         icon="payments"),
-            Tag(name="Online",       icon="language"),
-            Tag(name="Subscription", icon="autorenew"),
-            Tag(name="Refundable",   icon="assignment_return"),
-            Tag(name="Business",     icon="work"),
-            Tag(name="Recurring",    icon="event_repeat"),
-        ])
+        session.add_all(
+            [
+                Tag(name="Transfer", icon="swap_horiz"),
+                Tag(name="Card", icon="credit_card"),
+                Tag(name="Cash", icon="payments"),
+                Tag(name="Online", icon="language"),
+                Tag(name="Subscription", icon="autorenew"),
+                Tag(name="Refundable", icon="assignment_return"),
+                Tag(name="Business", icon="work"),
+                Tag(name="Recurring", icon="event_repeat"),
+            ]
+        )
         await session.flush()
 
         # ── Categories ────────────────────────────────────────────────────────
         expense_cats = [Category(name=n, type=CategoryType.EXPENSE) for n in EXPENSE_CATEGORIES]
-        income_cats  = [Category(name=n, type=CategoryType.INCOME)  for n in INCOME_CATEGORIES]
+        income_cats = [Category(name=n, type=CategoryType.INCOME) for n in INCOME_CATEGORIES]
         # Subscriptions tree (root + three starter children). The root is
         # flagged so the Subscriptions panel recognises its descendants as
         # tracked charges.
@@ -165,18 +203,22 @@ async def seed() -> None:
         )
         session.add_all(expense_cats + income_cats + [subscriptions_root])
         await session.flush()
-        session.add_all([
-            Category(name="Miesięczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
-            Category(name="Roczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
-            Category(name="Inne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
-        ])
+        session.add_all(
+            [
+                Category(
+                    name="Miesięczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id
+                ),
+                Category(name="Roczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
+                Category(name="Inne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
+            ]
+        )
         await session.flush()
 
         cat_by_name = {c.name: c for c in expense_cats + income_cats}
-        salary_cat   = cat_by_name["Wynagrodzenie"]
+        salary_cat = cat_by_name["Wynagrodzenie"]
         freelance_cat = cat_by_name["Freelance"]
-        zwroty_cat   = cat_by_name["Zwroty"]
-        rent_cat     = cat_by_name["Mieszkanie & Czynsz"]
+        zwroty_cat = cat_by_name["Zwroty"]
+        rent_cat = cat_by_name["Mieszkanie & Czynsz"]
 
         # ── Transactions ──────────────────────────────────────────────────────
         today = datetime.date.today()
@@ -198,21 +240,29 @@ async def seed() -> None:
             inf = inflation_factor(m)
 
             # ── Salary ────────────────────────────────────────────────────────
-            add_tx(Transaction(
-                account_id=checking.id, category_id=salary_cat.id,
-                amount=salary_for_month(m), type=TransactionType.INCOME,
-                date=datetime.date(year, month, 1),
-                description=f"Wynagrodzenie {month:02d}/{year}",
-            ))
+            add_tx(
+                Transaction(
+                    account_id=checking.id,
+                    category_id=salary_cat.id,
+                    amount=salary_for_month(m),
+                    type=TransactionType.INCOME,
+                    date=datetime.date(year, month, 1),
+                    description=f"Wynagrodzenie {month:02d}/{year}",
+                )
+            )
 
             # ── Rent ──────────────────────────────────────────────────────────
             rent_amount = Decimal(str(round(float(BASE_BUDGETS["Mieszkanie & Czynsz"]) * inf, 2)))
-            add_tx(Transaction(
-                account_id=checking.id, category_id=rent_cat.id,
-                amount=rent_amount, type=TransactionType.EXPENSE,
-                date=datetime.date(year, month, 5),
-                description="Czynsz za mieszkanie",
-            ))
+            add_tx(
+                Transaction(
+                    account_id=checking.id,
+                    category_id=rent_cat.id,
+                    amount=rent_amount,
+                    type=TransactionType.EXPENSE,
+                    date=datetime.date(year, month, 5),
+                    description="Czynsz za mieszkanie",
+                )
+            )
 
             # ── Random expenses (seasonal) ────────────────────────────────────
             n_expenses = random.randint(12, 22)
@@ -221,87 +271,111 @@ async def seed() -> None:
                 base_amount = random.uniform(8, 600)
                 amount = Decimal(str(round(base_amount * seasonal * inf, 2)))
                 account = random.choice([checking, cash, credit])
-                add_tx(Transaction(
-                    account_id=account.id, category_id=cat.id,
-                    amount=amount, type=TransactionType.EXPENSE,
-                    date=datetime.date(year, month, random.randint(1, 28)),
-                    description=fake.catch_phrase(),
-                ))
+                add_tx(
+                    Transaction(
+                        account_id=account.id,
+                        category_id=cat.id,
+                        amount=amount,
+                        type=TransactionType.EXPENSE,
+                        date=datetime.date(year, month, random.randint(1, 28)),
+                        description=fake.catch_phrase(),
+                    )
+                )
 
             # ── Big annual purchases (vacation Jul/Aug, electronics Nov/Dec) ──
             if month in (7, 8) and random.random() < 0.6:
                 vacation_cat = cat_by_name["Wakacje & Podróże"]
-                add_tx(Transaction(
-                    account_id=checking.id, category_id=vacation_cat.id,
-                    amount=Decimal(str(round(random.uniform(1500, 5000) * inf, 2))),
-                    type=TransactionType.EXPENSE,
-                    date=datetime.date(year, month, random.randint(1, 20)),
-                    description=fake.city() + " — wakacje",
-                ))
+                add_tx(
+                    Transaction(
+                        account_id=checking.id,
+                        category_id=vacation_cat.id,
+                        amount=Decimal(str(round(random.uniform(1500, 5000) * inf, 2))),
+                        type=TransactionType.EXPENSE,
+                        date=datetime.date(year, month, random.randint(1, 20)),
+                        description=fake.city() + " — wakacje",
+                    )
+                )
 
             if month == 12 and random.random() < 0.5:
                 electronics_cat = cat_by_name["Elektronika"]
-                add_tx(Transaction(
-                    account_id=credit.id, category_id=electronics_cat.id,
-                    amount=Decimal(str(round(random.uniform(800, 3500) * inf, 2))),
-                    type=TransactionType.EXPENSE,
-                    date=datetime.date(year, month, random.randint(10, 23)),
-                    description="Prezenty świąteczne / elektronika",
-                ))
+                add_tx(
+                    Transaction(
+                        account_id=credit.id,
+                        category_id=electronics_cat.id,
+                        amount=Decimal(str(round(random.uniform(800, 3500) * inf, 2))),
+                        type=TransactionType.EXPENSE,
+                        date=datetime.date(year, month, random.randint(10, 23)),
+                        description="Prezenty świąteczne / elektronika",
+                    )
+                )
 
             # ── Occasional freelance ───────────────────────────────────────────
             if random.random() < 0.35:
-                add_tx(Transaction(
-                    account_id=checking.id, category_id=freelance_cat.id,
-                    amount=Decimal(str(round(random.uniform(400, 4000) * inf, 2))),
-                    type=TransactionType.INCOME,
-                    date=datetime.date(year, month, random.randint(10, 25)),
-                    description="Faktura freelance",
-                ))
+                add_tx(
+                    Transaction(
+                        account_id=checking.id,
+                        category_id=freelance_cat.id,
+                        amount=Decimal(str(round(random.uniform(400, 4000) * inf, 2))),
+                        type=TransactionType.INCOME,
+                        date=datetime.date(year, month, random.randint(10, 25)),
+                        description="Faktura freelance",
+                    )
+                )
 
             # ── Occasional refund ─────────────────────────────────────────────
             if random.random() < 0.15:
-                add_tx(Transaction(
-                    account_id=checking.id, category_id=zwroty_cat.id,
-                    amount=Decimal(str(round(random.uniform(20, 300) * inf, 2))),
-                    type=TransactionType.INCOME,
-                    date=datetime.date(year, month, random.randint(1, 28)),
-                    description="Zwrot / reklamacja",
-                ))
+                add_tx(
+                    Transaction(
+                        account_id=checking.id,
+                        category_id=zwroty_cat.id,
+                        amount=Decimal(str(round(random.uniform(20, 300) * inf, 2))),
+                        type=TransactionType.INCOME,
+                        date=datetime.date(year, month, random.randint(1, 28)),
+                        description="Zwrot / reklamacja",
+                    )
+                )
 
             # ── Internal transfer: checking → savings ─────────────────────────
             t_amount = Decimal(str(round(random.uniform(300, 1500) * inf, 2)))
-            t_date   = datetime.date(year, month, 15)
+            t_date = datetime.date(year, month, 15)
             t_out = Transaction(
-                account_id=checking.id, category_id=None,
-                amount=t_amount, type=TransactionType.TRANSFER,
-                date=t_date, description=f"Przelew własny → oszczędności {month:02d}/{year}",
+                account_id=checking.id,
+                category_id=None,
+                amount=t_amount,
+                type=TransactionType.TRANSFER,
+                date=t_date,
+                description=f"Przelew własny → oszczędności {month:02d}/{year}",
                 is_internal_transfer=True,
             )
             t_in = Transaction(
-                account_id=savings.id, category_id=None,
-                amount=t_amount, type=TransactionType.TRANSFER,
-                date=t_date, description=f"Przelew własny ← konto główne {month:02d}/{year}",
+                account_id=savings.id,
+                category_id=None,
+                amount=t_amount,
+                type=TransactionType.TRANSFER,
+                date=t_date,
+                description=f"Przelew własny ← konto główne {month:02d}/{year}",
                 is_internal_transfer=True,
             )
             session.add(t_out)
             session.add(t_in)
             await session.flush()
             t_out.linked_transaction_id = t_in.id
-            t_in.linked_transaction_id  = t_out.id
+            t_in.linked_transaction_id = t_out.id
             balance_delta[checking.id] -= t_amount
-            balance_delta[savings.id]  += t_amount
+            balance_delta[savings.id] += t_amount
 
             # ── Monthly budgets ───────────────────────────────────────────────
             for cat_name in BUDGETED_CATEGORIES:
                 base = BASE_BUDGETS[cat_name]
                 amount = Decimal(str(round(float(base) * inf, 2)))
-                all_budgets.append(Budget(
-                    category_id=cat_by_name[cat_name].id,
-                    amount=amount,
-                    month=month,
-                    year=year,
-                ))
+                all_budgets.append(
+                    Budget(
+                        category_id=cat_by_name[cat_name].id,
+                        amount=amount,
+                        month=month,
+                        year=year,
+                    )
+                )
 
         session.add_all(all_tx)
         session.add_all(all_budgets)

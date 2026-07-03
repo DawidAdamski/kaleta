@@ -212,18 +212,14 @@ class TestTransactionTags:
         tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[]))
         assert tx.tags == []
 
-    async def test_create_with_single_tag(
-        self, svc: TransactionService, session: AsyncSession
-    ):
+    async def test_create_with_single_tag(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         tag_id = await _make_tag(session, "Business")
         tx = await svc.create(_tx(acc_id, cat_id, tag_ids=[tag_id]))
         assert [t.name for t in tx.tags] == ["Business"]
 
-    async def test_create_with_multiple_tags(
-        self, svc: TransactionService, session: AsyncSession
-    ):
+    async def test_create_with_multiple_tags(self, svc: TransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         cat_id = await _make_category(session)
         t1 = await _make_tag(session, "Business")
@@ -1114,3 +1110,51 @@ class TestCreateTransfer:
         assert fetched_in is not None
         assert fetched_out.linked_transaction_id == tx_in.id
         assert fetched_in.linked_transaction_id == tx_out.id
+
+
+# ── Display helpers (views refactor) ──────────────────────────────────────────
+
+
+class TestTransactionDisplayHelpers:
+    def test_format_signed_amount_income(self):
+        assert (
+            TransactionService.format_signed_amount(Decimal("1234.5"), TransactionType.INCOME)
+            == "+1,234.50"
+        )
+
+    def test_format_signed_amount_expense(self):
+        assert (
+            TransactionService.format_signed_amount(Decimal("-99.00"), TransactionType.EXPENSE)
+            == "-99.00"
+        )
+
+    def test_group_separator_label_none(self):
+        assert TransactionService.group_separator_label(TODAY, None, "none") == ""
+
+    def test_group_separator_label_week_changes(self):
+        d1 = TODAY - datetime.timedelta(days=14)
+        d2 = TODAY
+        assert TransactionService.group_separator_label(d2, None, "week")
+        assert TransactionService.group_separator_label(d2, d1, "week") != ""
+
+    def test_group_separator_label_month_changes(self):
+        d1 = datetime.date(2025, 1, 15)
+        d2 = datetime.date(2025, 2, 1)
+        assert TransactionService.group_separator_label(d2, None, "month") == "February 2025"
+        assert TransactionService.group_separator_label(d2, d1, "month") == "February 2025"
+
+    def test_split_balance_balanced(self):
+        balanced, remaining = TransactionService.split_balance(
+            Decimal("100.00"),
+            [Decimal("60.00"), Decimal("40.00")],
+        )
+        assert balanced is True
+        assert remaining == Decimal("0")
+
+    def test_split_balance_unbalanced(self):
+        balanced, remaining = TransactionService.split_balance(
+            Decimal("100.00"),
+            [Decimal("30.00")],
+        )
+        assert balanced is False
+        assert remaining == Decimal("70.00")

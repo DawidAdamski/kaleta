@@ -31,9 +31,7 @@ class Category(TimestampMixin, Base):
     # Marks the single root category whose descendants are "subscriptions".
     # The Subscriptions panel treats every transaction under this tree as a
     # tracked recurring charge — the category tree is the source of truth.
-    is_subscriptions_root: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False
-    )
+    is_subscriptions_root: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
     parent: Mapped[Category | None] = relationship(
         "Category", back_populates="children", remote_side="Category.id", foreign_keys=[parent_id]

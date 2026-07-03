@@ -334,9 +334,11 @@ def register() -> None:
                         template_picker_dialog.close()
                         await _open_template_preview(k)
 
-                    with ui.card().classes(
-                        "w-full cursor-pointer hover:bg-slate-50 p-3 border"
-                    ).on("click", _pick):
+                    with (
+                        ui.card()
+                        .classes("w-full cursor-pointer hover:bg-slate-50 p-3 border")
+                        .on("click", _pick)
+                    ):
                         ui.label(t(f"categories.template_name_{tmpl_key}")).classes(
                             "font-medium text-primary"
                         )

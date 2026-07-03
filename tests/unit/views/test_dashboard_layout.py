@@ -18,19 +18,13 @@ from kaleta.views.dashboard_widgets import (
 
 
 def _pick_by_default_size(cols: int, rows: int, limit: int = 1) -> list[str]:
-    return [
-        wid
-        for wid, w in WIDGETS.items()
-        if w.default_size == (cols, rows)
-    ][:limit]
+    return [wid for wid, w in WIDGETS.items() if w.default_size == (cols, rows)][:limit]
 
 
 class TestValidateLayout:
     def test_clean_payload_preserves_order(self) -> None:
         picked = _pick_by_default_size(2, 1, 3)
-        payload: list[dict[str, Any]] = [
-            {"id": wid, "cols": 2, "rows": 1} for wid in picked
-        ]
+        payload: list[dict[str, Any]] = [{"id": wid, "cols": 2, "rows": 1} for wid in picked]
         stored = default_layout()
 
         result = _validate_layout(payload, stored)

@@ -296,22 +296,38 @@ def _sample_result() -> ForecastResult:
         points=[
             ForecastPoint(
                 date=today - datetime.timedelta(days=2),
-                value=1000.0, lower=1000.0, upper=1000.0, is_forecast=False,
+                value=1000.0,
+                lower=1000.0,
+                upper=1000.0,
+                is_forecast=False,
             ),
             ForecastPoint(
                 date=today - datetime.timedelta(days=1),
-                value=1000.0, lower=1000.0, upper=1000.0, is_forecast=False,
+                value=1000.0,
+                lower=1000.0,
+                upper=1000.0,
+                is_forecast=False,
             ),
             ForecastPoint(
-                date=today, value=1100.0, lower=900.0, upper=1300.0, is_forecast=True,
+                date=today,
+                value=1100.0,
+                lower=900.0,
+                upper=1300.0,
+                is_forecast=True,
             ),
             ForecastPoint(
                 date=today + datetime.timedelta(days=1),
-                value=1200.0, lower=1000.0, upper=1400.0, is_forecast=True,
+                value=1200.0,
+                lower=1000.0,
+                upper=1400.0,
+                is_forecast=True,
             ),
             ForecastPoint(
                 date=today + datetime.timedelta(days=2),
-                value=1300.0, lower=1100.0, upper=1500.0, is_forecast=True,
+                value=1300.0,
+                lower=1100.0,
+                upper=1500.0,
+                is_forecast=True,
             ),
         ],
     )
@@ -355,8 +371,11 @@ class TestApplyScenarios:
         today = datetime.date(2025, 6, 1)
         out = apply_scenarios(
             _sample_result(),
-            [ScenarioShift(label="windfall", date=today + datetime.timedelta(days=1),
-                           amount=500.0)],
+            [
+                ScenarioShift(
+                    label="windfall", date=today + datetime.timedelta(days=1), amount=500.0
+                )
+            ],
         )
         vals = [p.value for p in out.forecast]
         # First forecast point (today) is before the shift → unchanged.
@@ -370,7 +389,8 @@ class TestApplyScenarios:
             [
                 ScenarioShift(label="raise", date=today, amount=100.0),
                 ScenarioShift(
-                    label="purchase", date=today + datetime.timedelta(days=2),
+                    label="purchase",
+                    date=today + datetime.timedelta(days=2),
                     amount=-50.0,
                 ),
             ],
@@ -394,8 +414,7 @@ class TestApplyScenarios:
         today = datetime.date(2025, 6, 1)
         out = apply_scenarios(
             _sample_result(),
-            [ScenarioShift(label="x", date=today - datetime.timedelta(days=5),
-                           amount=999.0)],
+            [ScenarioShift(label="x", date=today - datetime.timedelta(days=5), amount=999.0)],
         )
         # Shift is before the first forecast point, so no forecast point picks
         # it up — cumulative stays at 0. Historical is not mutated either.

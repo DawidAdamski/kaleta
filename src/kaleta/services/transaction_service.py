@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import builtins
 import datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import func, select
@@ -189,3 +190,85 @@ class TransactionService:
         await self.session.delete(transaction)
         await self.session.commit()
         return True
+
+    @staticmethod
+    def category_display_label(transaction: Transaction) -> str:
+        if transaction.is_split and transaction.splits:
+            names = [s.category.name for s in transaction.splits if s.category]
+            return f"(Split: {', '.join(names)})" if names else "(Split)"
+        return transaction.category.name if transaction.category else "—"
+
+    @staticmethod
+    def group_separator_label(
+        tx_date: datetime.date,
+        prev_date: datetime.date | None,
+        grouping: str,
+    ) -> str:
+        if grouping == "none":
+            return ""
+        if grouping == "week":
+            year, week, _ = tx_date.isocalendar()
+            label = f"W{week:02d} {year}"
+            if prev_date is None:
+                return label
+            py, pw, _ = prev_date.isocalendar()
+            return label if (year, week) != (py, pw) else ""
+        label = tx_date.strftime("%B %Y")
+        if prev_date is None:
+            return label
+        return label if (tx_date.year, tx_date.month) != (prev_date.year, prev_date.month) else ""
+
+    @staticmethod
+    def format_signed_amount(amount: Decimal, tx_type: TransactionType) -> str:
+        if tx_type == TransactionType.INCOME:
+            return f"+{abs(amount):,.2f}"
+        return f"-{abs(amount):,.2f}"
+
+    @staticmethod
+    def split_balance(
+        main_amount: Decimal, split_amounts: builtins.list[Decimal]
+    ) -> tuple[bool, Decimal]:
+        total_split = sum(split_amounts, start=Decimal("0"))
+        remaining = main_amount - total_split
+        return remaining == Decimal("0"), remaining
+
+    @staticmethod
+    def build_table_row(
+        transaction: Transaction,
+        prev_transaction: Transaction | None,
+        grouping: str,
+    ) -> dict[str, Any]:
+        prev_date = prev_transaction.date if prev_transaction else None
+        return {
+            "id": transaction.id,
+            "date": str(transaction.date),
+            "account": transaction.account.name if transaction.account else "—",
+            "description": (transaction.description or "—")[:55],
+            "category": TransactionService.category_display_label(transaction),
+            "type": transaction.type.value,
+            "amount": TransactionService.format_signed_amount(transaction.amount, transaction.type),
+            "tags": "",
+            "tags_data": [
+                {
+                    "id": tg.id,
+                    "name": tg.name,
+                    "color": tg.color or "#9E9E9E",
+                    "icon": tg.icon or "label",
+                }
+                for tg in transaction.tags
+            ],
+            "sep_label": TransactionService.group_separator_label(
+                transaction.date, prev_date, grouping
+            ),
+        }
+
+    @staticmethod
+    def build_table_rows(
+        transactions: builtins.list[Transaction],
+        grouping: str,
+    ) -> builtins.list[dict[str, Any]]:
+        rows: builtins.list[dict[str, Any]] = []
+        for i, tx in enumerate(transactions):
+            prev_tx = transactions[i - 1] if i > 0 else None
+            rows.append(TransactionService.build_table_row(tx, prev_tx, grouping))
+        return rows

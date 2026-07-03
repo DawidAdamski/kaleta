@@ -11,7 +11,6 @@ from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
-from kaleta.models.subscription import SubscriptionStatus
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
@@ -56,17 +55,13 @@ class TestMonthlyHelpers:
     def test_monthly_from_subscription_monthly(self):
         from kaleta.models.subscription import Subscription
 
-        sub = Subscription(
-            name="Netflix", amount=Decimal("49.99"), cadence_days=30
-        )
+        sub = Subscription(name="Netflix", amount=Decimal("49.99"), cadence_days=30)
         assert _monthly_from_subscription(sub) == Decimal("49.99")
 
     def test_monthly_from_subscription_yearly(self):
         from kaleta.models.subscription import Subscription
 
-        sub = Subscription(
-            name="Amazon Prime", amount=Decimal("365.00"), cadence_days=365
-        )
+        sub = Subscription(name="Amazon Prime", amount=Decimal("365.00"), cadence_days=365)
         # 365 × 30 / 365 = 30/mo.
         assert _monthly_from_subscription(sub) == Decimal("30.00")
 
@@ -149,9 +144,7 @@ class TestBudgetBuilderProjection:
         assert result.fixed == []
         assert result.reserves == []
 
-    async def test_planned_income_lands_in_income(
-        self, session: AsyncSession
-    ):
+    async def test_planned_income_lands_in_income(self, session: AsyncSession):
         acc = await _make_account(session, "Main")
         await PlannedTransactionService(session).create(
             PlannedTransactionCreate(
@@ -184,9 +177,7 @@ class TestBudgetBuilderProjection:
         assert result.fixed[0].source_kind == "subscription"
         assert result.fixed[0].amount == Decimal("49.99")
 
-    async def test_yearly_subscription_amortised_to_monthly(
-        self, session: AsyncSession
-    ):
+    async def test_yearly_subscription_amortised_to_monthly(self, session: AsyncSession):
         await SubscriptionService(session).create(
             SubscriptionCreate(
                 name="Amazon Prime",
@@ -299,9 +290,7 @@ class TestBudgetBuilderProjection:
 
 
 class TestPaymentCalendarProjection:
-    async def test_monthly_subscription_occurs_within_window(
-        self, session: AsyncSession
-    ):
+    async def test_monthly_subscription_occurs_within_window(self, session: AsyncSession):
         await SubscriptionService(session).create(
             SubscriptionCreate(
                 name="Netflix",
@@ -312,9 +301,7 @@ class TestPaymentCalendarProjection:
         )
         start = datetime.date(2026, 4, 1)
         end = datetime.date(2026, 4, 30)
-        result = await WizardProjectionService(session).get_payment_calendar_sources(
-            start, end
-        )
+        result = await WizardProjectionService(session).get_payment_calendar_sources(start, end)
         # The monthly schedule from 2026-01-05 walks 05 Jan → 04 Feb → 06 Mar
         # → 05 Apr → 05 May (outside). Only 2026-04-05 falls inside.
         assert len(result.subscription_charges) == 1
@@ -328,9 +315,7 @@ class TestPaymentCalendarProjection:
         )
         assert result.subscription_charges == []
 
-    async def test_cancelled_subscription_not_projected(
-        self, session: AsyncSession
-    ):
+    async def test_cancelled_subscription_not_projected(self, session: AsyncSession):
         svc = SubscriptionService(session)
         sub = await svc.create(
             SubscriptionCreate(

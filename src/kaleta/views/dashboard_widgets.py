@@ -76,9 +76,7 @@ def _register(
 ) -> Callable[[RenderFn], RenderFn]:
     sizes = allowed_sizes or (default_size,)
     if default_size not in sizes:
-        raise ValueError(
-            f"{widget_id}: default_size {default_size} not in allowed_sizes {sizes}"
-        )
+        raise ValueError(f"{widget_id}: default_size {default_size} not in allowed_sizes {sizes}")
 
     def wrap(fn: RenderFn) -> RenderFn:
         WIDGETS[widget_id] = Widget(
@@ -90,6 +88,7 @@ def _register(
             render=fn,
         )
         return fn
+
     return wrap
 
 
@@ -109,12 +108,8 @@ def _fmt(amount: Decimal | float | int) -> str:
     return f"{float(amount):,.2f} zł"
 
 
-def _kpi_card(
-    title: str, value: str, icon: str, icon_color: str, extra_cls: str = ""
-) -> None:
-    with ui.card().classes(kpi_card_classes()), ui.row().classes(
-        "items-center gap-4 w-full"
-    ):
+def _kpi_card(title: str, value: str, icon: str, icon_color: str, extra_cls: str = "") -> None:
+    with ui.card().classes(kpi_card_classes()), ui.row().classes("items-center gap-4 w-full"):
         with ui.element("div").classes(
             f"h-11 w-11 rounded-2xl bg-{icon_color.split('-')[0]}-500/10 "
             f"text-{icon_color.split('-')[0]}-600 flex items-center justify-center"
@@ -122,9 +117,7 @@ def _kpi_card(
             ui.icon(icon, size="1.8rem")
         with ui.column().classes("gap-0"):
             ui.label(title).classes(SECTION_TITLE)
-            ui.label(value).classes(
-                f"text-2xl font-semibold tracking-tight {extra_cls}"
-            )
+            ui.label(value).classes(f"text-2xl font-semibold tracking-tight {extra_cls}")
 
 
 def _section_card(title: str, *, subtitle: str | None = None) -> Any:
@@ -172,9 +165,7 @@ async def _month_income(session: AsyncSession, is_dark: bool) -> None:
 )
 async def _month_expenses(session: AsyncSession, is_dark: bool) -> None:
     _, expenses = await ReportService(session).current_month_summary()
-    _kpi_card(
-        t("dashboard.month_expenses"), _fmt(expenses), "trending_down", "red-7"
-    )
+    _kpi_card(t("dashboard.month_expenses"), _fmt(expenses), "trending_down", "red-7")
 
 
 @_register(
@@ -188,9 +179,7 @@ async def _month_net(session: AsyncSession, is_dark: bool) -> None:
     income, expenses = await ReportService(session).current_month_summary()
     net = income - expenses
     color_cls = "text-green-700" if net >= 0 else "text-red-700"
-    _kpi_card(
-        t("dashboard.month_net"), _fmt(net), "swap_vert", "orange-7", extra_cls=color_cls
-    )
+    _kpi_card(t("dashboard.month_net"), _fmt(net), "swap_vert", "orange-7", extra_cls=color_cls)
 
 
 @_register(
@@ -202,9 +191,7 @@ async def _month_net(session: AsyncSession, is_dark: bool) -> None:
 )
 async def _predicted_30d(session: AsyncSession, is_dark: bool) -> None:
     total = await ReportService(session).total_balance()
-    result = await ForecastService(session).forecast_account(
-        account_id=None, horizon_days=30
-    )
+    result = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
     pred = result.predicted_balance_30d
     if pred is None:
         _kpi_card(t("dashboard.balance_30"), "—", "insights", "grey-6")
@@ -258,15 +245,11 @@ async def _savings_rate_kpi(session: AsyncSession, is_dark: bool) -> None:
 )
 async def _cashflow_chart(session: AsyncSession, is_dark: bool) -> None:
     months = await ReportService(session).cashflow_last_n_months(6)
-    with _section_card(
-        t("dashboard.cashflow_chart"), subtitle=t("dashboard_widgets.cashflow_sub")
-    ):
+    with _section_card(t("dashboard.cashflow_chart"), subtitle=t("dashboard_widgets.cashflow_sub")):
         ui.echart(_build_cashflow_chart(months, is_dark)).classes("w-full h-72")
 
 
-def _build_cashflow_chart(
-    months: list[MonthCashflow], is_dark: bool
-) -> dict[str, Any]:
+def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[str, Any]:
     opts: dict[str, Any] = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
         "legend": {
@@ -367,9 +350,9 @@ async def _budget_variance_month(session: AsyncSession, is_dark: bool) -> None:
                 pct_txt = "—" if pct is None else f"{float(pct):.0f}%"
                 with ui.row().classes("w-full items-center justify-between"):
                     ui.label(row.category).classes("text-sm")
-                    ui.label(
-                        f"{_fmt(row.actual)} / {_fmt(row.planned)} ({pct_txt})"
-                    ).classes("text-sm text-red-600 font-medium")
+                    ui.label(f"{_fmt(row.actual)} / {_fmt(row.planned)} ({pct_txt})").classes(
+                        "text-sm text-red-600 font-medium"
+                    )
 
 
 @_register(
@@ -406,10 +389,13 @@ async def _top_merchants(session: AsyncSession, is_dark: bool) -> None:
 )
 async def _ytd_summary(session: AsyncSession, is_dark: bool) -> None:
     rep = await ReportService(session).ytd_summary()
-    with _section_card(
-        t("dashboard_widgets.ytd_summary"),
-        subtitle=t("dashboard_widgets.ytd_summary_sub"),
-    ), ui.row().classes("w-full gap-4 flex-wrap mt-1"):
+    with (
+        _section_card(
+            t("dashboard_widgets.ytd_summary"),
+            subtitle=t("dashboard_widgets.ytd_summary_sub"),
+        ),
+        ui.row().classes("w-full gap-4 flex-wrap mt-1"),
+    ):
         _mini_stat(t("reports_lib.ytd_income"), _fmt(rep.income), "green-7")
         _mini_stat(t("reports_lib.ytd_expenses"), _fmt(rep.expenses), "red-7")
         _mini_stat(t("reports_lib.ytd_net"), _fmt(rep.net), "blue-7")
@@ -480,15 +466,9 @@ async def _largest_transactions(session: AsyncSession, is_dark: bool) -> None:
             for r in rows:
                 with ui.row().classes("w-full items-center justify-between"):
                     with ui.column().classes("gap-0"):
-                        ui.label(r.description or r.category).classes(
-                            "text-sm truncate"
-                        )
-                        ui.label(f"{r.date} · {r.category}").classes(
-                            "text-xs text-grey-6"
-                        )
-                    ui.label(_fmt(r.amount)).classes(
-                        f"text-sm font-medium {AMOUNT_EXPENSE}"
-                    )
+                        ui.label(r.description or r.category).classes("text-sm truncate")
+                        ui.label(f"{r.date} · {r.category}").classes("text-xs text-grey-6")
+                    ui.label(_fmt(r.amount)).classes(f"text-sm font-medium {AMOUNT_EXPENSE}")
 
 
 # ── Full-width widgets ────────────────────────────────────────────────────────
@@ -502,14 +482,15 @@ async def _largest_transactions(session: AsyncSession, is_dark: bool) -> None:
     ((4, 1), (4, 2)),
 )
 async def _quick_actions(session: AsyncSession, is_dark: bool) -> None:
-    with _section_card(
-        t("dashboard_widgets.quick_actions"),
-        subtitle=t("dashboard_widgets.quick_actions_sub"),
-    ), ui.row().classes("w-full gap-2 flex-wrap"):
+    with (
+        _section_card(
+            t("dashboard_widgets.quick_actions"),
+            subtitle=t("dashboard_widgets.quick_actions_sub"),
+        ),
+        ui.row().classes("w-full gap-2 flex-wrap"),
+    ):
         _quick_btn("add", t("dashboard_widgets.qa_add_tx"), "/transactions")
-        _quick_btn(
-            "insights", t("dashboard_widgets.qa_forecast"), "/forecast"
-        )
+        _quick_btn("insights", t("dashboard_widgets.qa_forecast"), "/forecast")
         _quick_btn("assessment", t("dashboard_widgets.qa_reports"), "/reports")
         _quick_btn(
             "account_balance_wallet",
@@ -539,9 +520,7 @@ async def _recent_transactions(session: AsyncSession, is_dark: bool) -> None:
         with ui.row().classes("w-full items-center justify-between mb-3"):
             with ui.column().classes("gap-1"):
                 ui.label(t("dashboard.recent_transactions")).classes(SECTION_TITLE)
-                ui.label(t("dashboard_widgets.recent_transactions_sub")).classes(
-                    SECTION_HEADING
-                )
+                ui.label(t("dashboard_widgets.recent_transactions_sub")).classes(SECTION_HEADING)
             ui.button(
                 t("dashboard.view_all"),
                 icon="arrow_forward",
@@ -594,9 +573,7 @@ async def _recent_transactions(session: AsyncSession, is_dark: bool) -> None:
             }
             for tx in recent
         ]
-        tbl = ui.table(columns=columns, rows=rows).classes(TABLE_SURFACE).props(
-            "dense flat"
-        )
+        tbl = ui.table(columns=columns, rows=rows).classes(TABLE_SURFACE).props("dense flat")
         tbl.add_slot(
             "body-cell-amount",
             '<q-td :props="props" class="text-right">'
@@ -672,9 +649,7 @@ async def _credit_utilization(session: AsyncSession, is_dark: bool) -> None:  # 
         subtitle=t("dashboard_widgets.credit_utilization_sub"),
     ):
         if not cards:
-            ui.label(t("dashboard_widgets.credit_utilization_empty")).classes(
-                f"{BODY_MUTED} mt-2"
-            )
+            ui.label(t("dashboard_widgets.credit_utilization_empty")).classes(f"{BODY_MUTED} mt-2")
             return
         for card in cards:
             pct = float(card.utilization_pct)
@@ -736,9 +711,7 @@ def default_layout() -> list[dict[str, Any]]:
     ]
 
 
-def resolve_user_layout(
-    stored_layout: Any, legacy_widgets: Any = None
-) -> list[dict[str, Any]]:
+def resolve_user_layout(stored_layout: Any, legacy_widgets: Any = None) -> list[dict[str, Any]]:
     """Return a cleaned layout list, migrating from legacy order if needed.
 
     Validation rules per entry:
@@ -775,9 +748,7 @@ def resolve_user_layout(
             if not isinstance(wid, str) or wid not in WIDGETS or wid in seen_legacy:
                 continue
             w = WIDGETS[wid]
-            migrated.append(
-                {"id": wid, "cols": w.default_size[0], "rows": w.default_size[1]}
-            )
+            migrated.append({"id": wid, "cols": w.default_size[0], "rows": w.default_size[1]})
             seen_legacy.add(wid)
         if migrated:
             return migrated

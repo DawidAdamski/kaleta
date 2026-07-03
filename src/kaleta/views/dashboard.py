@@ -249,9 +249,7 @@ def _register_layout_endpoint() -> None:
             app.storage.user.get("dashboard_layout"),
             app.storage.user.get("dashboard_widgets"),
         )
-        new_layout = _validate_layout(
-            [e.model_dump() for e in payload.entries], stored
-        )
+        new_layout = _validate_layout([e.model_dump() for e in payload.entries], stored)
         app.storage.user["dashboard_layout"] = new_layout
         return {"status": "ok"}
 
@@ -276,9 +274,7 @@ def register() -> None:
                 ui.label(t("dashboard.title")).classes(PAGE_TITLE)
                 with ui.row().classes("items-center gap-2"):
                     with ui.button(
-                        on_click=lambda: ui.run_javascript(
-                            "window.__kaletaToggleDashEdit()"
-                        )
+                        on_click=lambda: ui.run_javascript("window.__kaletaToggleDashEdit()")
                     ).props("flat color=primary"):
                         ui.icon("drag_indicator")
                         ui.label(t("dashboard_widgets.edit_layout")).props(
@@ -331,30 +327,45 @@ async def _render_wrapped(
     import json
 
     allowed_json = json.dumps([list(s) for s in widget.allowed_sizes])
-    with ui.element("div").props(
-        f'data-widget-id="{widget.id}" '
-        f'data-cols="{cols}" data-rows="{rows}" '
-        f"data-allowed-sizes='{allowed_json}' "
-        f'tabindex="0"'
-    ).classes("dash-widget-wrap").style(f"--cols: {cols}; --rows: {rows}"):
-        with ui.element("div").classes("dash-drag-handle-icon").props(
-            f'title="{t("dashboard_widgets.drag_hint")}"'
+    with (
+        ui.element("div")
+        .props(
+            f'data-widget-id="{widget.id}" '
+            f'data-cols="{cols}" data-rows="{rows}" '
+            f"data-allowed-sizes='{allowed_json}' "
+            f'tabindex="0"'
+        )
+        .classes("dash-widget-wrap")
+        .style(f"--cols: {cols}; --rows: {rows}")
+    ):
+        with (
+            ui.element("div")
+            .classes("dash-drag-handle-icon")
+            .props(f'title="{t("dashboard_widgets.drag_hint")}"')
         ):
             ui.icon("drag_indicator")
         if len(widget.allowed_sizes) > 1:
-            with ui.element("div").classes("dash-resize-btn").props(
-                f'title="{t("dashboard_widgets.resize_widget")}" '
-                f"onclick=\"window.__kaletaCycleDashSize('{widget.id}')\""
+            with (
+                ui.element("div")
+                .classes("dash-resize-btn")
+                .props(
+                    f'title="{t("dashboard_widgets.resize_widget")}" '
+                    f"onclick=\"window.__kaletaCycleDashSize('{widget.id}')\""
+                )
             ):
                 ui.icon("aspect_ratio")
         await widget.render(session, is_dark)
 
 
 def _render_empty_placeholder() -> None:
-    with ui.element("div").classes(
-        "w-full p-4 text-center text-sm "
-        "text-slate-500 border border-dashed border-slate-300 rounded"
-    ).style(f"grid-column: 1 / span {_GRID_COLUMNS}"):
+    with (
+        ui.element("div")
+        .classes(
+            "w-full p-4 text-center text-sm "
+            "text-slate-500 border border-dashed border-slate-300 rounded"
+        )
+        .style(f"grid-column: 1 / span {_GRID_COLUMNS}")
+    ):
         ui.label(t("dashboard_widgets.empty_size_group"))
 
 
@@ -370,12 +381,8 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
     enabled: dict[str, bool] = {wid: (wid in enabled_ids) for wid in working}
 
     with ui.dialog() as dialog, ui.card().classes("min-w-96 max-w-xl"):
-        ui.label(t("dashboard_widgets.customize_title")).classes(
-            "text-lg font-semibold"
-        )
-        ui.label(t("dashboard_widgets.customize_hint")).classes(
-            "text-xs text-grey-6 mb-2"
-        )
+        ui.label(t("dashboard_widgets.customize_title")).classes("text-lg font-semibold")
+        ui.label(t("dashboard_widgets.customize_hint")).classes("text-xs text-grey-6 mb-2")
 
         list_container = ui.column().classes("w-full gap-1 max-h-96 overflow-y-auto")
 
@@ -389,9 +396,7 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
                     "w-full items-center gap-2 p-2 rounded border border-slate-200/60"
                 ):
                     cb = ui.checkbox(value=enabled[wid])
-                    cb.on_value_change(
-                        lambda e, _wid=wid: _toggle(_wid, bool(e.value))
-                    )
+                    cb.on_value_change(lambda e, _wid=wid: _toggle(_wid, bool(e.value)))
                     ui.icon(w.icon).classes("text-primary")
                     ui.label(t(w.title_key)).classes("flex-1 text-sm")
                     badge_text = f"{w.default_size[0]}×{w.default_size[1]}"
@@ -430,14 +435,12 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
             ui.navigate.to("/")
 
         with ui.row().classes("w-full justify-between items-center mt-3"):
-            ui.button(
-                t("dashboard_widgets.reset"), icon="restart_alt", on_click=_reset
-            ).props("flat color=grey-7")
+            ui.button(t("dashboard_widgets.reset"), icon="restart_alt", on_click=_reset).props(
+                "flat color=grey-7"
+            )
             with ui.row().classes("gap-2"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
-                ui.button(
-                    t("common.save"), icon="check", on_click=_save
-                ).props("color=primary")
+                ui.button(t("common.save"), icon="check", on_click=_save).props("color=primary")
 
     dialog.open()
 

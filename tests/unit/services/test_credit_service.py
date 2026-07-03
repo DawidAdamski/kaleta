@@ -38,9 +38,7 @@ async def _make_account(
 class TestPureHelpers:
     def test_compute_monthly_payment_zero_apr(self):
         # No interest → principal / term.
-        assert compute_monthly_payment(Decimal("1200"), Decimal("0"), 12) == Decimal(
-            "100.00"
-        )
+        assert compute_monthly_payment(Decimal("1200"), Decimal("0"), 12) == Decimal("100.00")
 
     def test_compute_monthly_payment_standard(self):
         # 10 000 at 12% p.a. over 24 months — Excel PMT gives 470.73.
@@ -56,15 +54,11 @@ class TestPureHelpers:
             apr=Decimal("9.99"),
             term_months=12,
             start_date=datetime.date(2026, 1, 1),
-            monthly_payment=compute_monthly_payment(
-                Decimal("5000"), Decimal("9.99"), 12
-            ),
+            monthly_payment=compute_monthly_payment(Decimal("5000"), Decimal("9.99"), 12),
         )
         schedule = amortisation_schedule(loan)
         assert len(schedule) == 12
-        total_principal = sum(
-            (row.principal_paid for row in schedule), Decimal("0")
-        )
+        total_principal = sum((row.principal_paid for row in schedule), Decimal("0"))
         assert total_principal == Decimal("5000.00")
         assert schedule[-1].remaining_principal == Decimal("0.00")
 
@@ -93,19 +87,13 @@ class TestPureHelpers:
 
     def test_next_due_date_this_month(self):
         # 25th is later this month → stay in-month.
-        assert next_due_date(25, datetime.date(2026, 4, 10)) == datetime.date(
-            2026, 4, 25
-        )
+        assert next_due_date(25, datetime.date(2026, 4, 10)) == datetime.date(2026, 4, 25)
 
     def test_next_due_date_rolls_to_next_month(self):
-        assert next_due_date(5, datetime.date(2026, 4, 10)) == datetime.date(
-            2026, 5, 5
-        )
+        assert next_due_date(5, datetime.date(2026, 4, 10)) == datetime.date(2026, 5, 5)
 
     def test_next_due_date_rolls_across_year(self):
-        assert next_due_date(10, datetime.date(2026, 12, 20)) == datetime.date(
-            2027, 1, 10
-        )
+        assert next_due_date(10, datetime.date(2026, 12, 20)) == datetime.date(2027, 1, 10)
 
 
 # ── Card service flow ────────────────────────────────────────────────────────
@@ -159,9 +147,7 @@ class TestCardsService:
 
 
 class TestLoansService:
-    async def test_create_loan_persists_monthly_payment(
-        self, session: AsyncSession
-    ):
+    async def test_create_loan_persists_monthly_payment(self, session: AsyncSession):
         acc = await _make_account(session, "Mortgage")
         svc = CreditService(session)
         loan = await svc.create_loan(
@@ -175,9 +161,7 @@ class TestLoansService:
         )
         assert loan.monthly_payment == Decimal("470.73")
 
-    async def test_list_loans_includes_remaining_balance(
-        self, session: AsyncSession
-    ):
+    async def test_list_loans_includes_remaining_balance(self, session: AsyncSession):
         acc = await _make_account(session, "Mortgage")
         svc = CreditService(session)
         await svc.create_loan(
@@ -191,11 +175,11 @@ class TestLoansService:
         )
         loans = await svc.list_loans()
         assert len(loans) == 1
-        l = loans[0]
-        assert l.principal == Decimal("10000.00")
-        assert l.monthly_payment == Decimal("1000.00")
+        loan = loans[0]
+        assert loan.principal == Decimal("10000.00")
+        assert loan.monthly_payment == Decimal("1000.00")
         # Remaining balance is bounded by principal and ≥ 0.
-        assert Decimal("0") <= l.remaining_balance <= l.principal
+        assert Decimal("0") <= loan.remaining_balance <= loan.principal
 
     async def test_amortisation_via_service(self, session: AsyncSession):
         acc = await _make_account(session, "Mortgage")
@@ -211,6 +195,4 @@ class TestLoansService:
         )
         schedule = await svc.amortisation(acc)
         assert len(schedule) == 12
-        assert sum(
-            (r.principal_paid for r in schedule), Decimal("0")
-        ) == Decimal("1200.00")
+        assert sum((r.principal_paid for r in schedule), Decimal("0")) == Decimal("1200.00")

@@ -495,9 +495,7 @@ class TestGridForMonth:
         grid_all = await svc.grid_for_month(2025, 6, active_only=False)
         assert datetime.date(2025, 6, 10) in grid_all.days
 
-    async def test_account_filter(
-        self, svc: PlannedTransactionService, session: AsyncSession
-    ):
+    async def test_account_filter(self, svc: PlannedTransactionService, session: AsyncSession):
         a1 = await _make_account(session, name="A1")
         a2 = await _make_account(session, name="A2")
         await svc.create(
@@ -520,9 +518,7 @@ class TestGridForMonth:
         cell = grid.days[datetime.date(2025, 6, 5)]
         assert [o.name for o in cell.occurrences] == ["On A1"]
 
-    async def test_totals_across_month(
-        self, svc: PlannedTransactionService, session: AsyncSession
-    ):
+    async def test_totals_across_month(self, svc: PlannedTransactionService, session: AsyncSession):
         acc_id = await _make_account(session)
         await svc.create(
             _pt(

@@ -100,9 +100,7 @@ async def test_uncategorised_rule_ignores_transfers(
 async def test_no_budget_rule_fires_when_expense_cats_exist_no_budget(
     svc: WizardMentorService, session: AsyncSession
 ) -> None:
-    await CategoryService(session).create(
-        CategoryCreate(name="Food", type=CategoryType.EXPENSE)
-    )
+    await CategoryService(session).create(CategoryCreate(name="Food", type=CategoryType.EXPENSE))
 
     keys = {s.key for s in await svc.suggestions()}
     assert "no_budget" in keys
@@ -131,9 +129,7 @@ async def test_missing_logos_rule_silent_when_all_have_logo(
     svc: WizardMentorService, session: AsyncSession
 ) -> None:
     await InstitutionService(session).create(
-        InstitutionCreate(
-            name="mBank", type=InstitutionType.BANK, logo_path="/logos/foo.png"
-        )
+        InstitutionCreate(name="mBank", type=InstitutionType.BANK, logo_path="/logos/foo.png")
     )
 
     keys = {s.key for s in await svc.suggestions()}
@@ -143,9 +139,7 @@ async def test_missing_logos_rule_silent_when_all_have_logo(
 async def test_suggestions_are_mentor_suggestion_instances(
     svc: WizardMentorService, session: AsyncSession
 ) -> None:
-    await CategoryService(session).create(
-        CategoryCreate(name="Food", type=CategoryType.EXPENSE)
-    )
+    await CategoryService(session).create(CategoryCreate(name="Food", type=CategoryType.EXPENSE))
     suggestions = await svc.suggestions()
     assert suggestions, "expected at least one suggestion"
     assert all(isinstance(s, MentorSuggestion) for s in suggestions)

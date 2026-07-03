@@ -197,9 +197,9 @@ def register() -> None:
             with ui.card().classes("w-full"):
                 with ui.row().classes("w-full items-center justify-between mb-2"):
                     ui.label(t("import.queue_section")).classes("text-lg font-semibold")
-                    import_all_btn = ui.button(
-                        t("import.import_all"), icon="upload"
-                    ).props("color=primary unelevated")
+                    import_all_btn = ui.button(t("import.import_all"), icon="upload").props(
+                        "color=primary unelevated"
+                    )
                 ui.label(t("import.queue_active_hint")).classes("text-xs text-grey-6 mb-2")
                 queue_container = ui.column().classes("w-full gap-1")
 
@@ -439,9 +439,7 @@ def register() -> None:
                 for prior in reversed(state["queue"]):
                     if prior.id == f.id:
                         continue
-                    if prior.profile == f.profile and (
-                        prior.expense_cat_id or prior.income_cat_id
-                    ):
+                    if prior.profile == f.profile and (prior.expense_cat_id or prior.income_cat_id):
                         if f.expense_cat_id is None:
                             f.expense_cat_id = prior.expense_cat_id
                         if f.income_cat_id is None:
@@ -458,9 +456,7 @@ def register() -> None:
                 if not digits:
                     return False
                 async with AsyncSessionFactory() as session:
-                    matched = await AccountService(session).find_by_external_number(
-                        digits[-10:]
-                    )
+                    matched = await AccountService(session).find_by_external_number(digits[-10:])
                 if matched and matched.id in account_options:
                     f.target_account_id = matched.id
                     return True
@@ -473,11 +469,7 @@ def register() -> None:
                 # Profile button highlight
                 for k, btn in profile_btns.items():
                     is_active = f is not None and f.profile == k
-                    btn.props(
-                        "color=primary unelevated"
-                        if is_active
-                        else "color=grey-4 flat"
-                    )
+                    btn.props("color=primary unelevated" if is_active else "color=grey-4 flat")
 
                 if f is None:
                     meta_card.set_visibility(False)
@@ -581,13 +573,10 @@ def register() -> None:
                 is_active = f.id == state["active_id"]
                 # Theme-aware highlight: left border + subtle ring on active.
                 # Works in both light and dark themes without washing out text.
-                classes = (
-                    "w-full items-center gap-3 p-2 rounded cursor-pointer border-l-4 "
-                    + ("border-primary" if is_active else "border-transparent")
+                classes = "w-full items-center gap-3 p-2 rounded cursor-pointer border-l-4 " + (
+                    "border-primary" if is_active else "border-transparent"
                 )
-                with ui.row().classes(classes).on(
-                    "click", lambda _e, fid=f.id: _set_active(fid)
-                ):
+                with ui.row().classes(classes).on("click", lambda _e, fid=f.id: _set_active(fid)):
                     colour = _STATUS_COLOR.get(f.status, "grey-6")
                     ui.icon(
                         "check_circle"
@@ -613,9 +602,7 @@ def register() -> None:
             def _queue_row_subtitle(f: QueuedFile) -> None:
                 parts: list[str] = []
                 if f.status == "done":
-                    parts.append(
-                        t("import.done", count=f.imported_count)
-                    )
+                    parts.append(t("import.done", count=f.imported_count))
                     if f.skipped_dupes:
                         parts.append(t("import.skipped_dupes", count=f.skipped_dupes))
                 elif f.status == "failed":
@@ -635,9 +622,7 @@ def register() -> None:
             def _remove_file(file_id: str) -> None:
                 state["queue"] = [q for q in state["queue"] if q.id != file_id]
                 if state["active_id"] == file_id:
-                    state["active_id"] = (
-                        state["queue"][0].id if state["queue"] else None
-                    )
+                    state["active_id"] = state["queue"][0].id if state["queue"] else None
                 _render_queue()
                 _repaint_active()
 
@@ -681,9 +666,7 @@ def register() -> None:
                 if f.income_cat_id is None:
                     return t("import.select_income_cat_hint")
                 if f.profile == "mbank" and f.metadata and f.metadata.currency:
-                    acc = next(
-                        (a for a in accounts if a.id == f.target_account_id), None
-                    )
+                    acc = next((a for a in accounts if a.id == f.target_account_id), None)
                     if acc and acc.currency.upper() != f.metadata.currency.upper():
                         return t(
                             "import.currency_mismatch_block",

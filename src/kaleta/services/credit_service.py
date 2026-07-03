@@ -127,12 +127,8 @@ class CreditService:
         await self.session.refresh(profile)
         return profile
 
-    async def update_loan(
-        self, profile_id: int, payload: LoanProfileUpdate
-    ) -> LoanProfile | None:
-        result = await self.session.execute(
-            select(LoanProfile).where(LoanProfile.id == profile_id)
-        )
+    async def update_loan(self, profile_id: int, payload: LoanProfileUpdate) -> LoanProfile | None:
+        result = await self.session.execute(select(LoanProfile).where(LoanProfile.id == profile_id))
         profile = result.scalar_one_or_none()
         if profile is None:
             return None
@@ -201,9 +197,7 @@ class CreditService:
 # ── Pure helpers (exported so tests can exercise them without a session) ─────
 
 
-def compute_monthly_payment(
-    principal: Decimal, apr: Decimal, term_months: int
-) -> Decimal:
+def compute_monthly_payment(principal: Decimal, apr: Decimal, term_months: int) -> Decimal:
     """Standard fixed-rate annuity: P * r / (1 - (1+r)^-n).
 
     APR is given as a percentage (e.g. 12.50 = 12.5%). Returns a 2-dp Decimal.
@@ -211,9 +205,7 @@ def compute_monthly_payment(
     if term_months <= 0:
         return Decimal("0.00")
     if apr <= 0:
-        return (principal / Decimal(term_months)).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        return (principal / Decimal(term_months)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     monthly_rate = apr / Decimal("100") / Decimal("12")
     factor = (Decimal("1") + monthly_rate) ** term_months
     payment = principal * monthly_rate * factor / (factor - Decimal("1"))
@@ -229,27 +221,19 @@ def amortisation_schedule(profile: LoanProfile) -> builtins.list[AmortisationRow
     monthly_rate = profile.apr / Decimal("100") / Decimal("12")
     payment = profile.monthly_payment
     for month_idx in range(1, profile.term_months + 1):
-        interest = (remaining * monthly_rate).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+        interest = (remaining * monthly_rate).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         principal_paid = payment - interest
         if month_idx == profile.term_months:
             # Absorb rounding residue into the last principal payment.
             principal_paid = remaining
-            interest = (payment - principal_paid).quantize(
-                Decimal("0.01"), rounding=ROUND_HALF_UP
-            )
-        remaining = (remaining - principal_paid).quantize(
-            Decimal("0.01"), rounding=ROUND_HALF_UP
-        )
+            interest = (payment - principal_paid).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        remaining = (remaining - principal_paid).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
         rows.append(
             AmortisationRow(
                 month=month_idx,
                 date=_add_months(profile.start_date, month_idx - 1),
                 payment=payment,
-                principal_paid=principal_paid.quantize(
-                    Decimal("0.01"), rounding=ROUND_HALF_UP
-                ),
+                principal_paid=principal_paid.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
                 interest_paid=interest,
                 remaining_principal=max(remaining, Decimal("0")),
             )
@@ -257,9 +241,7 @@ def amortisation_schedule(profile: LoanProfile) -> builtins.list[AmortisationRow
     return rows
 
 
-def compute_min_payment(
-    *, balance: Decimal, pct: Decimal, floor: Decimal
-) -> Decimal:
+def compute_min_payment(*, balance: Decimal, pct: Decimal, floor: Decimal) -> Decimal:
     """Minimum payment = max(pct × balance, floor), capped at the balance."""
     if balance <= 0:
         return Decimal("0.00")
@@ -283,9 +265,7 @@ def _compute_utilization(balance_owed: Decimal, limit: Decimal) -> Decimal:
     return (balance_owed / limit).quantize(Decimal("0.0001"))
 
 
-def _card_status(
-    balance_owed: Decimal, due: datetime.date, today: datetime.date
-) -> CreditStatus:
+def _card_status(balance_owed: Decimal, due: datetime.date, today: datetime.date) -> CreditStatus:
     if balance_owed <= 0:
         return CreditStatus.ON_TIME
     if today > due + datetime.timedelta(days=GRACE_DAYS):
@@ -301,9 +281,7 @@ def _loan_next_due(profile: LoanProfile, today: datetime.date) -> datetime.date:
     return next_due_date(profile.start_date.day, today)
 
 
-def _loan_status(
-    profile: LoanProfile, months_elapsed: int, today: datetime.date
-) -> CreditStatus:
+def _loan_status(profile: LoanProfile, months_elapsed: int, today: datetime.date) -> CreditStatus:
     if months_elapsed >= profile.term_months:
         return CreditStatus.ON_TIME  # already paid off per schedule
     due = _loan_next_due(profile, today)

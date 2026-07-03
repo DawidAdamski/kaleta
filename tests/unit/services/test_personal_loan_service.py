@@ -96,23 +96,21 @@ class TestLoanCrud:
         )
         assert await svc.delete_loan(loan_id) is True
         remaining_reps = (
-            await session.execute(
-                select(PersonalLoanRepayment).where(
-                    PersonalLoanRepayment.loan_id == loan_id
+            (
+                await session.execute(
+                    select(PersonalLoanRepayment).where(PersonalLoanRepayment.loan_id == loan_id)
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert remaining_reps == []
 
-    async def test_delete_keeps_linked_transactions(
-        self, session: AsyncSession
-    ):
+    async def test_delete_keeps_linked_transactions(self, session: AsyncSession):
         cp = await _make_counterparty(session, "Marek")
         # Account for the optional linked transaction.
         acc = await AccountService(session).create(
-            AccountCreate(
-                name="Main", type=AccountType.CHECKING, balance=Decimal("0")
-            )
+            AccountCreate(name="Main", type=AccountType.CHECKING, balance=Decimal("0"))
         )
         loan_id = await _make_loan(session, counterparty_id=cp)
         svc = PersonalLoanService(session)
@@ -125,9 +123,7 @@ class TestLoanCrud:
             ),
         )
         # Transaction was created.
-        tx_count_before = (
-            (await session.execute(select(Transaction))).scalars().all()
-        )
+        tx_count_before = (await session.execute(select(Transaction))).scalars().all()
         assert len(tx_count_before) == 1
         linked_tx = tx_count_before[0]
         await svc.delete_loan(loan_id)
@@ -145,13 +141,9 @@ class TestLoanCrud:
 
 
 class TestRepayments:
-    async def test_partial_repayment_keeps_outstanding(
-        self, session: AsyncSession
-    ):
+    async def test_partial_repayment_keeps_outstanding(self, session: AsyncSession):
         cp = await _make_counterparty(session, "Marek")
-        loan_id = await _make_loan(
-            session, counterparty_id=cp, principal=Decimal("500")
-        )
+        loan_id = await _make_loan(session, counterparty_id=cp, principal=Decimal("500"))
         svc = PersonalLoanService(session)
         await svc.record_repayment(
             loan_id,
@@ -167,9 +159,7 @@ class TestRepayments:
 
     async def test_full_repayment_settles(self, session: AsyncSession):
         cp = await _make_counterparty(session, "Marek")
-        loan_id = await _make_loan(
-            session, counterparty_id=cp, principal=Decimal("500")
-        )
+        loan_id = await _make_loan(session, counterparty_id=cp, principal=Decimal("500"))
         svc = PersonalLoanService(session)
         await svc.record_repayment(
             loan_id,
@@ -192,15 +182,11 @@ class TestRepayments:
 
     async def test_delete_repayment_unsettles(self, session: AsyncSession):
         cp = await _make_counterparty(session, "Marek")
-        loan_id = await _make_loan(
-            session, counterparty_id=cp, principal=Decimal("500")
-        )
+        loan_id = await _make_loan(session, counterparty_id=cp, principal=Decimal("500"))
         svc = PersonalLoanService(session)
         rep = await svc.record_repayment(
             loan_id,
-            RepaymentCreate(
-                amount=Decimal("500"), date=datetime.date(2026, 4, 10)
-            ),
+            RepaymentCreate(amount=Decimal("500"), date=datetime.date(2026, 4, 10)),
         )
         assert rep is not None
         assert (await svc.get_loan(loan_id)).status == LoanStatus.SETTLED  # type: ignore[union-attr]
@@ -210,19 +196,13 @@ class TestRepayments:
         assert loan is not None
         assert loan.status == LoanStatus.OUTSTANDING
 
-    async def test_linked_transaction_created_with_correct_type(
-        self, session: AsyncSession
-    ):
+    async def test_linked_transaction_created_with_correct_type(self, session: AsyncSession):
         cp = await _make_counterparty(session, "Marek")
         acc = await AccountService(session).create(
-            AccountCreate(
-                name="Main", type=AccountType.CHECKING, balance=Decimal("0")
-            )
+            AccountCreate(name="Main", type=AccountType.CHECKING, balance=Decimal("0"))
         )
         # OUTGOING loan (they owe me) + repayment → INCOME tx.
-        out_loan = await _make_loan(
-            session, counterparty_id=cp, direction=LoanDirection.OUTGOING
-        )
+        out_loan = await _make_loan(session, counterparty_id=cp, direction=LoanDirection.OUTGOING)
         svc = PersonalLoanService(session)
         await svc.record_repayment(
             out_loan,
@@ -234,9 +214,7 @@ class TestRepayments:
         )
         # INCOMING loan (I owe them) + repayment → EXPENSE tx.
         cp2 = await _make_counterparty(session, "Alice")
-        in_loan = await _make_loan(
-            session, counterparty_id=cp2, direction=LoanDirection.INCOMING
-        )
+        in_loan = await _make_loan(session, counterparty_id=cp2, direction=LoanDirection.INCOMING)
         await svc.record_repayment(
             in_loan,
             RepaymentCreate(
@@ -287,9 +265,7 @@ class TestTotals:
         svc = PersonalLoanService(session)
         await svc.record_repayment(
             loan_id,
-            RepaymentCreate(
-                amount=Decimal("200"), date=datetime.date(2026, 4, 15)
-            ),
+            RepaymentCreate(amount=Decimal("200"), date=datetime.date(2026, 4, 15)),
         )
         t = await svc.totals()
         assert t.they_owe_you == Decimal("0.00")

@@ -94,9 +94,7 @@ class TestCrud:
     async def test_list_returns_all(self, session: AsyncSession):
         acc = await _make_account(session, Decimal("0"))
         await _make_fund(session, account_id=acc, kind=ReserveFundKind.EMERGENCY)
-        await _make_fund(
-            session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None
-        )
+        await _make_fund(session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None)
         funds = await ReserveFundService(session).list()
         assert len(funds) == 2
 
@@ -130,7 +128,10 @@ class TestProgress:
     async def test_zero_target_yields_zero_pct(self, session: AsyncSession):
         acc = await _make_account(session, Decimal("500"))
         fund = await _make_fund(
-            session, account_id=acc, target=Decimal("0"), kind=ReserveFundKind.VACATION,
+            session,
+            account_id=acc,
+            target=Decimal("0"),
+            kind=ReserveFundKind.VACATION,
             multiplier=None,
         )
         svc = ReserveFundService(session)
@@ -141,8 +142,11 @@ class TestProgress:
     async def test_progress_pct_tracks_balance(self, session: AsyncSession):
         acc = await _make_account(session, Decimal("2500"))
         fund = await _make_fund(
-            session, account_id=acc, target=Decimal("10000"),
-            kind=ReserveFundKind.VACATION, multiplier=None,
+            session,
+            account_id=acc,
+            target=Decimal("10000"),
+            kind=ReserveFundKind.VACATION,
+            multiplier=None,
         )
         svc = ReserveFundService(session)
         p = await svc.with_progress(fund)
@@ -152,8 +156,11 @@ class TestProgress:
     async def test_balance_can_exceed_target(self, session: AsyncSession):
         acc = await _make_account(session, Decimal("15000"))
         fund = await _make_fund(
-            session, account_id=acc, target=Decimal("10000"),
-            kind=ReserveFundKind.VACATION, multiplier=None,
+            session,
+            account_id=acc,
+            target=Decimal("10000"),
+            kind=ReserveFundKind.VACATION,
+            multiplier=None,
         )
         p = await ReserveFundService(session).with_progress(fund)
         assert p.progress_pct == Decimal("1.50")
@@ -164,15 +171,14 @@ class TestProgress:
         p = await ReserveFundService(session).with_progress(fund)
         assert p.months_of_coverage is None
 
-    async def test_months_of_coverage_uses_trailing_90_days(
-        self, session: AsyncSession
-    ):
+    async def test_months_of_coverage_uses_trailing_90_days(self, session: AsyncSession):
         # Savings: 9,000 PLN. Expenses over last 90d: 9,000 → monthly avg = 3,000 → 3 months.
         acc = await _make_account(session, Decimal("9000"))
         # Seed an expense category + transactions
         from kaleta.models.category import CategoryType
         from kaleta.schemas.category import CategoryCreate
         from kaleta.services import CategoryService
+
         cat = await CategoryService(session).create(
             CategoryCreate(name="Food", type=CategoryType.EXPENSE)
         )
@@ -207,9 +213,7 @@ class TestProgress:
     async def test_list_with_progress_iterates_all(self, session: AsyncSession):
         acc = await _make_account(session, Decimal("100"))
         await _make_fund(session, account_id=acc, kind=ReserveFundKind.EMERGENCY)
-        await _make_fund(
-            session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None
-        )
+        await _make_fund(session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None)
         items = await ReserveFundService(session).list_with_progress()
         assert len(items) == 2
         assert {i.kind for i in items} == {

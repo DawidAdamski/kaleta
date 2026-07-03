@@ -69,9 +69,7 @@ def register() -> None:
             svc = SubscriptionService(session)
             subs = await svc.list()
             totals = await svc.totals()
-            detector_days = int(
-                app.storage.user.get("subscriptions_detector_days", 0) or 0
-            ) or None
+            detector_days = int(app.storage.user.get("subscriptions_detector_days", 0) or 0) or None
             candidates = await svc.detect_candidates(window_days=detector_days)
             renewals = await svc.upcoming_renewals(days=30)
             by_category = await svc.subscription_transactions_grouped()
@@ -83,9 +81,7 @@ def register() -> None:
         category_opts: dict[int, str] = {c.id: c.name for c in expense_cats}
         # Sub-category picker options: the root (acts as "Uncategorised sub")
         # plus each direct child by name.
-        sub_category_opts: dict[int, str] = {
-            child.id: child.name for child in sub_children
-        }
+        sub_category_opts: dict[int, str] = {child.id: child.name for child in sub_children}
 
         with page_layout(t("subscriptions.title"), wide=True):
             # ── Header ───────────────────────────────────────────────────
@@ -188,19 +184,15 @@ def register() -> None:
 
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
                     ui.button(t("common.cancel"), on_click=fund_dialog.close).props("flat")
-                    save_btn = ui.button(
-                        t("common.save"), icon="check"
-                    ).props("color=primary unelevated")
+                    save_btn = ui.button(t("common.save"), icon="check").props(
+                        "color=primary unelevated"
+                    )
 
             with ui.dialog() as delete_dialog, ui.card().classes("w-[440px] gap-3"):
-                ui.label(t("subscriptions.confirm_delete_title")).classes(
-                    "text-lg font-bold"
-                )
+                ui.label(t("subscriptions.confirm_delete_title")).classes("text-lg font-bold")
                 delete_body = ui.label("").classes(BODY_MUTED)
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                    ui.button(t("common.cancel"), on_click=delete_dialog.close).props(
-                        "flat"
-                    )
+                    ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
                     confirm_delete_btn = ui.button(
                         t("subscriptions.confirm_delete_confirm"), icon="delete"
                     ).props("color=negative unelevated")
@@ -227,9 +219,7 @@ def register() -> None:
                 name_in.set_value(sub.name)
                 amount_in.set_value(float(sub.amount))
                 cadence_in.set_value(sub.cadence_days)
-                first_seen_in.set_value(
-                    sub.first_seen_at.isoformat() if sub.first_seen_at else ""
-                )
+                first_seen_in.set_value(sub.first_seen_at.isoformat() if sub.first_seen_at else "")
                 next_expected_in.set_value(
                     sub.next_expected_at.isoformat() if sub.next_expected_at else ""
                 )
@@ -312,9 +302,7 @@ def register() -> None:
             def _open_delete_dialog(sub: SubscriptionResponse) -> None:
                 pending_delete["id"] = sub.id
                 pending_delete["name"] = sub.name
-                delete_body.set_text(
-                    t("subscriptions.confirm_delete_body", name=sub.name)
-                )
+                delete_body.set_text(t("subscriptions.confirm_delete_body", name=sub.name))
                 delete_dialog.open()
 
             async def _confirm_delete() -> None:
@@ -330,15 +318,11 @@ def register() -> None:
             pending_candidate: dict[str, DetectorCandidate | None] = {"cand": None}
 
             with ui.dialog() as confirm_dialog, ui.card().classes("w-[480px] gap-3"):
-                ui.label(t("subscriptions.confirm_title")).classes(
-                    "text-lg font-bold"
-                )
+                ui.label(t("subscriptions.confirm_title")).classes("text-lg font-bold")
                 confirm_body = ui.label("").classes(BODY_MUTED)
                 # Default to the first child of the Subscriptions root so the
                 # user doesn't have to pick; they can still change it.
-                default_sub_cat = (
-                    next(iter(sub_category_opts)) if sub_category_opts else None
-                )
+                default_sub_cat = next(iter(sub_category_opts)) if sub_category_opts else None
                 sub_cat_select = (
                     ui.select(
                         options=sub_category_opts,
@@ -350,9 +334,7 @@ def register() -> None:
                 )
                 ui.label(t("subscriptions.confirm_hint")).classes(BODY_MUTED)
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                    ui.button(
-                        t("common.cancel"), on_click=confirm_dialog.close
-                    ).props("flat")
+                    ui.button(t("common.cancel"), on_click=confirm_dialog.close).props("flat")
                     confirm_track_btn = ui.button(
                         t("subscriptions.detector_confirm"), icon="check"
                     ).props("color=primary unelevated")
@@ -361,11 +343,7 @@ def register() -> None:
                 cand = pending_candidate["cand"]
                 if cand is None:
                     return
-                sub_cat_id = (
-                    int(sub_cat_select.value)
-                    if sub_cat_select.value is not None
-                    else None
-                )
+                sub_cat_id = int(sub_cat_select.value) if sub_cat_select.value is not None else None
                 async with AsyncSessionFactory() as s:
                     await SubscriptionService(s).create_from_candidate(
                         cand,
@@ -383,9 +361,7 @@ def register() -> None:
 
             def _confirm_candidate(cand: DetectorCandidate) -> None:
                 pending_candidate["cand"] = cand
-                confirm_body.set_text(
-                    t("subscriptions.confirm_body", name=cand.payee_name)
-                )
+                confirm_body.set_text(t("subscriptions.confirm_body", name=cand.payee_name))
                 if not sub_category_opts:
                     # No subscription children exist (fresh install with the
                     # migration not yet reseeded) — fall back to silent track.
@@ -438,27 +414,23 @@ def register() -> None:
                     icon="category",
                     on_click=lambda: ui.navigate.to("/categories"),
                 ).props("flat color=primary size=sm")
-                ui.button(
-                    t("subscriptions.add"), icon="add", on_click=_open_add_dialog
-                ).props("color=primary unelevated size=sm")
+                ui.button(t("subscriptions.add"), icon="add", on_click=_open_add_dialog).props(
+                    "color=primary unelevated size=sm"
+                )
 
             # ── By-category section (primary view) ───────────────────────
             with ui.card().classes(SECTION_CARD):
                 with ui.row().classes("items-center justify-between w-full"):
                     with ui.column().classes("gap-0"):
-                        ui.label(t("subscriptions.by_category_heading")).classes(
-                            SECTION_HEADING
-                        )
+                        ui.label(t("subscriptions.by_category_heading")).classes(SECTION_HEADING)
                         ui.label(t("subscriptions.by_category_hint")).classes(BODY_MUTED)
                     if sub_root is not None:
-                        ui.label(
-                            t("subscriptions.by_category_root", name=sub_root.name)
-                        ).classes("text-xs text-slate-500")
+                        ui.label(t("subscriptions.by_category_root", name=sub_root.name)).classes(
+                            "text-xs text-slate-500"
+                        )
 
                 if not by_category:
-                    ui.label(t("subscriptions.by_category_empty")).classes(
-                        f"{BODY_MUTED} mt-2"
-                    )
+                    ui.label(t("subscriptions.by_category_empty")).classes(f"{BODY_MUTED} mt-2")
                 else:
                     for group in by_category:
                         _render_category_group(group)
@@ -468,22 +440,16 @@ def register() -> None:
                 ui.label(t("subscriptions.detector_heading")).classes(SECTION_HEADING)
                 ui.label(t("subscriptions.detector_hint")).classes(BODY_MUTED)
                 if not candidates:
-                    ui.label(t("subscriptions.detector_empty")).classes(
-                        f"{BODY_MUTED} mt-2"
-                    )
+                    ui.label(t("subscriptions.detector_empty")).classes(f"{BODY_MUTED} mt-2")
                 else:
                     for cand in candidates:
-                        _render_candidate_row(
-                            cand, _confirm_candidate, _dismiss_candidate
-                        )
+                        _render_candidate_row(cand, _confirm_candidate, _dismiss_candidate)
 
             # ── Renewals section ─────────────────────────────────────────
             with ui.card().classes(SECTION_CARD):
                 ui.label(t("subscriptions.renewals_heading")).classes(SECTION_HEADING)
                 if not renewals:
-                    ui.label(t("subscriptions.renewals_empty")).classes(
-                        f"{BODY_MUTED} mt-2"
-                    )
+                    ui.label(t("subscriptions.renewals_empty")).classes(f"{BODY_MUTED} mt-2")
                 else:
                     for r in renewals:
                         _render_renewal_row(r)
@@ -492,9 +458,7 @@ def register() -> None:
             with ui.card().classes(SECTION_CARD):
                 ui.label(t("subscriptions.active_heading")).classes(SECTION_HEADING)
                 if not sub_responses:
-                    ui.label(t("subscriptions.active_empty")).classes(
-                        f"{BODY_MUTED} mt-2"
-                    )
+                    ui.label(t("subscriptions.active_empty")).classes(f"{BODY_MUTED} mt-2")
                 else:
                     for sub in sub_responses:
                         _render_sub_row(
@@ -509,9 +473,7 @@ def register() -> None:
 
 def _render_category_group(group: SubscriptionCategoryGroup) -> None:
     """One collapsible block per Subscriptions-tree child category."""
-    monthly_total = sum(
-        (row.total_spent for row in group.merchants), Decimal("0")
-    )
+    monthly_total = sum((row.total_spent for row in group.merchants), Decimal("0"))
     heading = t(
         "subscriptions.by_category_group",
         name=group.category_name,
@@ -521,17 +483,15 @@ def _render_category_group(group: SubscriptionCategoryGroup) -> None:
         for row in group.merchants:
             with ui.row().classes("w-full items-center gap-3 py-1"):
                 ui.label(row.label).classes("flex-1 text-sm")
-                ui.label(
-                    t("subscriptions.by_category_charges", count=row.charges)
-                ).classes("text-xs text-slate-500 w-28 text-right")
+                ui.label(t("subscriptions.by_category_charges", count=row.charges)).classes(
+                    "text-xs text-slate-500 w-28 text-right"
+                )
                 ui.label(f"{row.total_spent:,.2f}").classes(
                     f"{AMOUNT_EXPENSE} w-28 text-right text-sm"
                 )
 
 
-def _render_candidate_row(
-    cand: DetectorCandidate, on_confirm: Any, on_dismiss: Any
-) -> None:
+def _render_candidate_row(cand: DetectorCandidate, on_confirm: Any, on_dismiss: Any) -> None:
     with ui.row().classes("w-full items-center gap-3 py-2"):
         ui.icon("autorenew", size="1.3rem").classes("text-primary")
         with ui.column().classes("flex-1 gap-0"):
@@ -555,18 +515,14 @@ def _render_candidate_row(
         ui.button(
             icon="close",
             on_click=lambda _e, c=cand: on_dismiss(c),
-        ).props("flat dense round color=grey-7").tooltip(
-            t("subscriptions.detector_dismiss")
-        )
+        ).props("flat dense round color=grey-7").tooltip(t("subscriptions.detector_dismiss"))
 
 
 def _render_renewal_row(r: RenewalRow) -> None:
     with ui.row().classes("w-full items-center gap-3 py-1"):
         ui.label(_fmt_date(r.expected_at)).classes("w-24 text-xs text-slate-500")
         ui.label(r.name).classes("flex-1 text-sm")
-        ui.label(_days_away_label(r.days_away)).classes(
-            "text-xs text-slate-500 w-28 text-right"
-        )
+        ui.label(_days_away_label(r.days_away)).classes("text-xs text-slate-500 w-28 text-right")
         ui.label(_fmt(r.amount)).classes(f"{AMOUNT_EXPENSE} w-24 text-right text-sm")
 
 
@@ -593,9 +549,7 @@ def _render_sub_row(
             ui.label(sub.name).classes("text-sm font-medium")
             _sub_row_subtitle(sub)
             _sub_row_notes(sub)
-        ui.chip(t(f"subscriptions.status_{sub.status.value}"), color=colour).props(
-            "dense outline"
-        )
+        ui.chip(t(f"subscriptions.status_{sub.status.value}"), color=colour).props("dense outline")
         ui.label(_fmt(sub.amount)).classes(f"{AMOUNT_EXPENSE} w-24 text-right text-sm")
         # Actions
         ui.button(icon="edit", on_click=lambda _e, s=sub: on_edit(s)).props(
@@ -605,28 +559,20 @@ def _render_sub_row(
             ui.button(
                 icon="volume_off",
                 on_click=lambda _e, sid=sub.id: on_mute(sid),
-            ).props("flat dense round color=grey-7").tooltip(
-                t("subscriptions.action_mute")
-            )
+            ).props("flat dense round color=grey-7").tooltip(t("subscriptions.action_mute"))
             ui.button(
                 icon="cancel",
                 on_click=lambda _e, sid=sub.id: on_cancel(sid),
-            ).props("flat dense round color=amber-7").tooltip(
-                t("subscriptions.action_cancel")
-            )
+            ).props("flat dense round color=amber-7").tooltip(t("subscriptions.action_cancel"))
         elif is_cancelled or sub.status == SubscriptionStatus.MUTED:
             ui.button(
                 icon="refresh",
                 on_click=lambda _e, sid=sub.id: on_reactivate(sid),
-            ).props("flat dense round color=primary").tooltip(
-                t("subscriptions.action_reactivate")
-            )
+            ).props("flat dense round color=primary").tooltip(t("subscriptions.action_reactivate"))
         ui.button(
             icon="delete",
             on_click=lambda _e, s=sub: on_delete(s),
-        ).props("flat dense round color=negative").tooltip(
-            t("subscriptions.action_delete")
-        )
+        ).props("flat dense round color=negative").tooltip(t("subscriptions.action_delete"))
 
 
 def _sub_row_subtitle(sub: SubscriptionResponse) -> None:
@@ -634,9 +580,7 @@ def _sub_row_subtitle(sub: SubscriptionResponse) -> None:
     if sub.status == SubscriptionStatus.MUTED and sub.muted_until:
         parts.append(t("subscriptions.muted_until", date=_fmt_date(sub.muted_until)))
     elif sub.status == SubscriptionStatus.CANCELLED and sub.cancelled_at:
-        parts.append(
-            t("subscriptions.cancelled_on", date=_fmt_date(sub.cancelled_at))
-        )
+        parts.append(t("subscriptions.cancelled_on", date=_fmt_date(sub.cancelled_at)))
     elif sub.next_expected_at:
         parts.append(_fmt_date(sub.next_expected_at))
     ui.label(" · ".join(parts)).classes("text-xs text-slate-500")
@@ -654,9 +598,7 @@ def _sub_row_notes(sub: SubscriptionResponse) -> None:
     preview_source = notes.replace("\n", " ").strip()
     is_truncated = len(preview_source) > _NOTE_PREVIEW_CHARS
     preview_text = (
-        preview_source[:_NOTE_PREVIEW_CHARS].rstrip() + "…"
-        if is_truncated
-        else preview_source
+        preview_source[:_NOTE_PREVIEW_CHARS].rstrip() + "…" if is_truncated else preview_source
     )
     can_toggle = is_truncated or "\n" in notes
 
@@ -671,11 +613,10 @@ def _sub_row_notes(sub: SubscriptionResponse) -> None:
     full_row.set_visibility(False)
     with full_row:
         ui.icon("sticky_note_2", size="0.9rem").classes("text-slate-500 mt-0.5")
-        ui.label(notes).classes(
-            "text-xs text-slate-500 whitespace-pre-line leading-snug"
-        )
+        ui.label(notes).classes("text-xs text-slate-500 whitespace-pre-line leading-snug")
 
     if can_toggle:
+
         def _toggle(_e: object = None) -> None:
             preview_row.set_visibility(not preview_row.visible)
             full_row.set_visibility(not full_row.visible)

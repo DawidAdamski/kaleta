@@ -154,9 +154,7 @@ class BudgetService:
             merged[k] = merged.get(k, Decimal("0")) + e.amount
 
         year = next(iter(merged))[2]
-        existing_rows = await self.session.execute(
-            select(Budget).where(Budget.year == year)
-        )
+        existing_rows = await self.session.execute(select(Budget).where(Budget.year == year))
         existing_map: dict[tuple[int, int, int], Budget] = {
             (b.category_id, b.month, b.year): b for b in existing_rows.scalars().all()
         }
@@ -167,9 +165,7 @@ class BudgetService:
                 row.amount = amount
             else:
                 cat_id, month, yr = key
-                self.session.add(
-                    Budget(category_id=cat_id, amount=amount, month=month, year=yr)
-                )
+                self.session.add(Budget(category_id=cat_id, amount=amount, month=month, year=yr))
         await self.session.commit()
         return len(merged)
 
@@ -334,9 +330,9 @@ class BudgetService:
             planned_amt = planned.get(cat_id, Decimal("0"))
             actual_amt = actuals.get(cat_id, Decimal("0"))
             used_pct = (
-                float(actual_amt / planned_amt * 100) if planned_amt > 0 else (
-                    float("inf") if actual_amt > 0 else 0.0
-                )
+                float(actual_amt / planned_amt * 100)
+                if planned_amt > 0
+                else (float("inf") if actual_amt > 0 else 0.0)
             )
             rows.append(
                 CategoryRealization(

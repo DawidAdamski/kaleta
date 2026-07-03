@@ -48,9 +48,7 @@ class TestCopyForward:
     async def test_copies_missing_months(self, session: AsyncSession):
         cat = await _seed_category(session, "Food")
         bsvc = BudgetService(session)
-        await bsvc.create(
-            BudgetCreate(category_id=cat, amount=Decimal("500"), month=1, year=2026)
-        )
+        await bsvc.create(BudgetCreate(category_id=cat, amount=Decimal("500"), month=1, year=2026))
         written = await bsvc.copy_forward(2026, 1, 2026, 2)
         assert written == 1
         rows = await bsvc.list_for_month(2026, 2)
@@ -60,12 +58,8 @@ class TestCopyForward:
     async def test_skips_existing_without_overwrite(self, session: AsyncSession):
         cat = await _seed_category(session, "Food")
         bsvc = BudgetService(session)
-        await bsvc.create(
-            BudgetCreate(category_id=cat, amount=Decimal("500"), month=1, year=2026)
-        )
-        await bsvc.create(
-            BudgetCreate(category_id=cat, amount=Decimal("999"), month=2, year=2026)
-        )
+        await bsvc.create(BudgetCreate(category_id=cat, amount=Decimal("500"), month=1, year=2026))
+        await bsvc.create(BudgetCreate(category_id=cat, amount=Decimal("999"), month=2, year=2026))
         written = await bsvc.copy_forward(2026, 1, 2026, 2)
         assert written == 0
         rows = await bsvc.list_for_month(2026, 2)
@@ -74,12 +68,8 @@ class TestCopyForward:
     async def test_overwrite_replaces_existing(self, session: AsyncSession):
         cat = await _seed_category(session, "Food")
         bsvc = BudgetService(session)
-        await bsvc.create(
-            BudgetCreate(category_id=cat, amount=Decimal("500"), month=1, year=2026)
-        )
-        await bsvc.create(
-            BudgetCreate(category_id=cat, amount=Decimal("999"), month=2, year=2026)
-        )
+        await bsvc.create(BudgetCreate(category_id=cat, amount=Decimal("500"), month=1, year=2026))
+        await bsvc.create(BudgetCreate(category_id=cat, amount=Decimal("999"), month=2, year=2026))
         written = await bsvc.copy_forward(2026, 1, 2026, 2, overwrite=True)
         assert written == 1
         rows = await bsvc.list_for_month(2026, 2)
@@ -91,9 +81,7 @@ class TestCopyForward:
     async def test_december_to_january_crosses_year(self, session: AsyncSession):
         cat = await _seed_category(session, "Food")
         bsvc = BudgetService(session)
-        await bsvc.create(
-            BudgetCreate(category_id=cat, amount=Decimal("123"), month=12, year=2025)
-        )
+        await bsvc.create(BudgetCreate(category_id=cat, amount=Decimal("123"), month=12, year=2025))
         written = await bsvc.copy_forward(2025, 12, 2026, 1)
         assert written == 1
         rows = await bsvc.list_for_month(2026, 1)
@@ -197,9 +185,7 @@ class TestStage1:
         assert s1.last_month == 3
         assert s1.uncategorised_count == 2
 
-    async def test_january_rolls_to_december_previous_year(
-        self, session: AsyncSession
-    ):
+    async def test_january_rolls_to_december_previous_year(self, session: AsyncSession):
         svc = MonthlyReadinessService(session)
         s1 = await svc.stage_1(2026, 1)
         assert s1.last_year == 2025
@@ -212,9 +198,7 @@ class TestStage2:
         s2 = await svc.stage_2(2026, 4)
         assert s2.rows == []
 
-    async def test_recurring_income_compared_against_actuals(
-        self, session: AsyncSession
-    ):
+    async def test_recurring_income_compared_against_actuals(self, session: AsyncSession):
         acc = await _seed_account(session)
         cat_income = await _seed_category(session, "Salary", CategoryType.INCOME)
         await PlannedTransactionService(session).create(

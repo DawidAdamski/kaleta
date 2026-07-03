@@ -19,9 +19,7 @@ class MonthlyReadiness(TimestampMixin, Base):
     """
 
     __tablename__ = "monthly_readiness"
-    __table_args__ = (
-        UniqueConstraint("year", "month", name="uq_monthly_readiness_year_month"),
-    )
+    __table_args__ = (UniqueConstraint("year", "month", name="uq_monthly_readiness_year_month"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     year: Mapped[int] = mapped_column(Integer, nullable=False)

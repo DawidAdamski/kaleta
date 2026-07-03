@@ -72,9 +72,7 @@ class MonthlyReadinessService:
         await self.session.refresh(row)
         return row
 
-    async def set_seen(
-        self, year: int, month: int, planned_id: int, *, seen: bool
-    ) -> list[int]:
+    async def set_seen(self, year: int, month: int, planned_id: int, *, seen: bool) -> list[int]:
         row = await self.get_or_create(year, month)
         ids = set(json.loads(row.seen_planned_ids))
         if seen:
@@ -121,17 +119,13 @@ class MonthlyReadinessService:
 
         # Actual income: sum Transactions of type=INCOME in window, grouped
         # by planned-transaction link (description match as a naive fallback).
-        actual_stmt = select(
-            func.coalesce(func.sum(Transaction.amount), 0)
-        ).where(
+        actual_stmt = select(func.coalesce(func.sum(Transaction.amount), 0)).where(
             Transaction.type == TransactionType.INCOME,
             Transaction.date >= start,
             Transaction.date <= end,
             Transaction.is_internal_transfer == False,  # noqa: E712
         )
-        actual_total = (await self.session.execute(actual_stmt)).scalar_one() or Decimal(
-            "0"
-        )
+        actual_total = (await self.session.execute(actual_stmt)).scalar_one() or Decimal("0")
         # Distribute actual total proportionally by expected share — simple
         # v1 approximation; a future pass will match by description or a
         # dedicated foreign key.

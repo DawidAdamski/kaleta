@@ -245,16 +245,18 @@ class TestSimilarPayees:
         svc = DedupeService(session)
         merged = await svc.merge_payees(keeper_id=keeper.id, other_ids=[dupe.id])
         assert merged == 1
-        remaining = (
-            await session.execute(select(Payee.id))
-        ).scalars().all()
+        remaining = (await session.execute(select(Payee.id))).scalars().all()
         assert dupe.id not in remaining
         # Transaction was reassigned.
         reassigned = (
-            await session.execute(
-                select(Transaction.payee_id).where(Transaction.payee_id == keeper.id)
+            (
+                await session.execute(
+                    select(Transaction.payee_id).where(Transaction.payee_id == keeper.id)
+                )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         assert reassigned == [keeper.id]
 
 
@@ -284,20 +286,14 @@ class TestRedundantCategories:
         victim_id = await _make_category(session, "FOOD")
         # Keeper has a budget for April 2026.
         await BudgetService(session).upsert(
-            BudgetCreate(
-                category_id=keeper_id, month=4, year=2026, amount=Decimal("500")
-            )
+            BudgetCreate(category_id=keeper_id, month=4, year=2026, amount=Decimal("500"))
         )
         # Victim has budgets for April (conflict, must be dropped) + May (move).
         await BudgetService(session).upsert(
-            BudgetCreate(
-                category_id=victim_id, month=4, year=2026, amount=Decimal("300")
-            )
+            BudgetCreate(category_id=victim_id, month=4, year=2026, amount=Decimal("300"))
         )
         await BudgetService(session).upsert(
-            BudgetCreate(
-                category_id=victim_id, month=5, year=2026, amount=Decimal("400")
-            )
+            BudgetCreate(category_id=victim_id, month=5, year=2026, amount=Decimal("400"))
         )
         # A transaction pointed at the victim.
         await _make_tx(
@@ -313,9 +309,7 @@ class TestRedundantCategories:
         )
         assert merged == 1
         # Victim gone.
-        cat_ids = (
-            (await session.execute(select(Category.id))).scalars().all()
-        )
+        cat_ids = (await session.execute(select(Category.id))).scalars().all()
         assert victim_id not in cat_ids
         # Keeper's April budget is still 500 (victim's 300 was dropped).
         budgets = await BudgetService(session).list()
@@ -324,7 +318,5 @@ class TestRedundantCategories:
         assert len(april) == 1 and april[0].amount == Decimal("500")
         assert len(may) == 1 and may[0].amount == Decimal("400")
         # Transaction was reassigned.
-        tx_cats = (
-            await session.execute(select(Transaction.category_id))
-        ).scalars().all()
+        tx_cats = (await session.execute(select(Transaction.category_id))).scalars().all()
         assert all(c == keeper_id for c in tx_cats if c is not None)

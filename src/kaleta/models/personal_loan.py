@@ -58,9 +58,7 @@ class PersonalLoan(TimestampMixin, Base):
     direction: Mapped[LoanDirection] = mapped_column(
         SAEnum(LoanDirection, native_enum=False), nullable=False
     )
-    principal: Mapped[Decimal] = mapped_column(
-        Numeric(precision=15, scale=2), nullable=False
-    )
+    principal: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="PLN")
     opened_at: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     due_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
@@ -72,9 +70,7 @@ class PersonalLoan(TimestampMixin, Base):
     )
     settled_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
-    counterparty: Mapped[Counterparty] = relationship(
-        "Counterparty", back_populates="loans"
-    )
+    counterparty: Mapped[Counterparty] = relationship("Counterparty", back_populates="loans")
     repayments: Mapped[list[PersonalLoanRepayment]] = relationship(
         "PersonalLoanRepayment",
         back_populates="loan",
@@ -98,9 +94,7 @@ class PersonalLoanRepayment(TimestampMixin, Base):
     loan_id: Mapped[int] = mapped_column(
         ForeignKey("personal_loans.id", ondelete="CASCADE"), nullable=False
     )
-    amount: Mapped[Decimal] = mapped_column(
-        Numeric(precision=15, scale=2), nullable=False
-    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Optional link to a real Transaction — filled when the user opted to

@@ -142,11 +142,7 @@ def _render_stage_1(data: Stage1CloseLastMonth, done: bool, state: dict[str, int
                 btn_label,
                 icon="check" if not done else "undo",
                 on_click=_toggle,
-            ).props(
-                "color=primary unelevated size=sm"
-                if not done
-                else "flat color=grey-7 size=sm"
-            )
+            ).props("color=primary unelevated size=sm" if not done else "flat color=grey-7 size=sm")
 
 
 def _render_stage_2(data: Stage2ConfirmIncome, done: bool, state: dict[str, int]) -> None:
@@ -179,11 +175,7 @@ def _render_stage_2(data: Stage2ConfirmIncome, done: bool, state: dict[str, int]
                 btn_label,
                 icon="check" if not done else "undo",
                 on_click=_toggle,
-            ).props(
-                "color=primary unelevated size=sm"
-                if not done
-                else "flat color=grey-7 size=sm"
-            )
+            ).props("color=primary unelevated size=sm" if not done else "flat color=grey-7 size=sm")
 
 
 def _render_stage_3(data: Stage3AllocateNewMonth, done: bool, state: dict[str, int]) -> None:
@@ -233,11 +225,7 @@ def _render_stage_3(data: Stage3AllocateNewMonth, done: bool, state: dict[str, i
                 btn_label,
                 icon="check" if not done else "undo",
                 on_click=_toggle,
-            ).props(
-                "flat color=grey-7 size=sm"
-                if done
-                else "flat color=primary size=sm"
-            )
+            ).props("flat color=grey-7 size=sm" if done else "flat color=primary size=sm")
 
 
 def _render_stage_4(
@@ -266,20 +254,14 @@ def _render_stage_4(
                 btn_label,
                 icon="check" if not done else "undo",
                 on_click=_toggle,
-            ).props(
-                "color=primary unelevated size=sm"
-                if not done
-                else "flat color=grey-7 size=sm"
-            )
+            ).props("color=primary unelevated size=sm" if not done else "flat color=grey-7 size=sm")
 
 
 def _render_stage_4_row(r: Stage4PlannedRow, state: dict[str, int]) -> None:
     with ui.row().classes("w-full items-center gap-3"):
         cb = ui.checkbox(value=r.seen).props("dense")
 
-        async def _on_change(
-            _e: object, pid: int = r.planned_id, ctrl: ui.checkbox = cb
-        ) -> None:
+        async def _on_change(_e: object, pid: int = r.planned_id, ctrl: ui.checkbox = cb) -> None:
             async with AsyncSessionFactory() as session:
                 await MonthlyReadinessService(session).set_seen(
                     state["year"], state["month"], pid, seen=bool(ctrl.value)

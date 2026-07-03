@@ -16,9 +16,7 @@ class CreditCardProfileBase(BaseModel):
     min_payment_pct: Decimal = Field(
         default=Decimal("0.02"), ge=Decimal("0"), le=Decimal("1"), decimal_places=4
     )
-    min_payment_floor: Decimal = Field(
-        default=Decimal("30.00"), ge=Decimal("0"), decimal_places=2
-    )
+    min_payment_floor: Decimal = Field(default=Decimal("30.00"), ge=Decimal("0"), decimal_places=2)
     apr: Decimal = Field(default=Decimal("0.00"), ge=Decimal("0"), decimal_places=2)
 
 
@@ -27,17 +25,13 @@ class CreditCardProfileCreate(CreditCardProfileBase):
 
 
 class CreditCardProfileUpdate(BaseModel):
-    credit_limit: Decimal | None = Field(
-        default=None, gt=Decimal("0"), decimal_places=2
-    )
+    credit_limit: Decimal | None = Field(default=None, gt=Decimal("0"), decimal_places=2)
     statement_day: int | None = Field(default=None, ge=1, le=28)
     payment_due_day: int | None = Field(default=None, ge=1, le=28)
     min_payment_pct: Decimal | None = Field(
         default=None, ge=Decimal("0"), le=Decimal("1"), decimal_places=4
     )
-    min_payment_floor: Decimal | None = Field(
-        default=None, ge=Decimal("0"), decimal_places=2
-    )
+    min_payment_floor: Decimal | None = Field(default=None, ge=Decimal("0"), decimal_places=2)
     apr: Decimal | None = Field(default=None, ge=Decimal("0"), decimal_places=2)
 
 

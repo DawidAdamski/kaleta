@@ -30,9 +30,7 @@ def _forecast_chart(
     fore = [(str(p.date), p.value) for p in result.forecast]
     upper = [(str(p.date), p.upper) for p in result.forecast]
     lower = [(str(p.date), p.lower) for p in result.forecast]
-    base_fore = (
-        [(str(p.date), p.value) for p in baseline.forecast] if baseline else []
-    )
+    base_fore = [(str(p.date), p.value) for p in baseline.forecast] if baseline else []
 
     legend_data = [
         t("forecast.actual"),
@@ -140,17 +138,15 @@ def register() -> None:
                 ForecastPreset.BASELINE.value: t("forecast.preset_baseline"),
                 ForecastPreset.OPTIMISTIC.value: t("forecast.preset_optimistic"),
             }
-            saved_preset = app.storage.user.get(
-                "forecast_preset", ForecastPreset.BASELINE.value
-            )
+            saved_preset = app.storage.user.get("forecast_preset", ForecastPreset.BASELINE.value)
             if saved_preset not in preset_options:
                 saved_preset = ForecastPreset.BASELINE.value
 
             # User scenario list — each element: {label, date (ISO), amount}.
             raw_scenarios = app.storage.user.get("forecast_scenarios", [])
-            scenarios: list[dict[str, Any]] = list(raw_scenarios) if isinstance(
-                raw_scenarios, list
-            ) else []
+            scenarios: list[dict[str, Any]] = (
+                list(raw_scenarios) if isinstance(raw_scenarios, list) else []
+            )
 
             # Controls
             with ui.card().classes("w-full"):
@@ -167,12 +163,10 @@ def register() -> None:
                         label=t("forecast.horizon"),
                         value=60,
                     ).classes("min-w-36")
-                    preset_toggle = ui.toggle(
-                        preset_options, value=saved_preset
-                    ).props("color=primary")
-                    run_btn = ui.button(t("forecast.run"), icon="insights").props(
+                    preset_toggle = ui.toggle(preset_options, value=saved_preset).props(
                         "color=primary"
                     )
+                    run_btn = ui.button(t("forecast.run"), icon="insights").props("color=primary")
 
                 def _persist_preset() -> None:
                     app.storage.user["forecast_preset"] = preset_toggle.value
@@ -181,18 +175,14 @@ def register() -> None:
 
                 # Scenario chips + add control.
                 ui.separator().classes("my-3")
-                ui.label(t("forecast.scenarios_title")).classes(
-                    "text-sm text-grey-6 mb-1"
-                )
+                ui.label(t("forecast.scenarios_title")).classes("text-sm text-grey-6 mb-1")
                 scenario_row = ui.row().classes("items-center gap-2 flex-wrap")
 
                 def _render_scenarios() -> None:
                     scenario_row.clear()
                     with scenario_row:
                         if not scenarios:
-                            ui.label(t("forecast.scenarios_empty")).classes(
-                                "text-xs text-grey-5"
-                            )
+                            ui.label(t("forecast.scenarios_empty")).classes("text-xs text-grey-5")
                         for idx, s in enumerate(scenarios):
                             amt = float(s.get("amount", 0))
                             sign = "+" if amt >= 0 else ""
@@ -221,15 +211,13 @@ def register() -> None:
                 def _open_add_scenario_dialog() -> None:
                     today_iso = datetime.date.today().isoformat()
                     with ui.dialog() as dialog, ui.card():
-                        ui.label(t("forecast.scenario_add")).classes(
-                            "text-lg font-semibold"
+                        ui.label(t("forecast.scenario_add")).classes("text-lg font-semibold")
+                        label_input = ui.input(t("forecast.scenario_label")).classes("w-full")
+                        date_input = (
+                            ui.input(t("common.date"), value=today_iso)
+                            .props("type=date")
+                            .classes("w-full")
                         )
-                        label_input = ui.input(t("forecast.scenario_label")).classes(
-                            "w-full"
-                        )
-                        date_input = ui.input(
-                            t("common.date"), value=today_iso
-                        ).props('type=date').classes("w-full")
                         amount_input = ui.number(
                             t("forecast.scenario_amount"),
                             value=0,
@@ -241,17 +229,13 @@ def register() -> None:
                             raw_date = (date_input.value or "").strip()
                             raw_amt = amount_input.value
                             if not label or not raw_date or raw_amt in (None, ""):
-                                ui.notify(
-                                    t("forecast.scenario_incomplete"), color="negative"
-                                )
+                                ui.notify(t("forecast.scenario_incomplete"), color="negative")
                                 return
                             try:
                                 datetime.date.fromisoformat(raw_date)
                                 amt_float = float(raw_amt)
                             except (TypeError, ValueError):
-                                ui.notify(
-                                    t("forecast.scenario_incomplete"), color="negative"
-                                )
+                                ui.notify(t("forecast.scenario_incomplete"), color="negative")
                                 return
                             scenarios.append(
                                 {"label": label, "date": raw_date, "amount": amt_float}
@@ -261,12 +245,10 @@ def register() -> None:
                             dialog.close()
 
                         with ui.row().classes("justify-end gap-2 w-full mt-2"):
-                            ui.button(t("common.cancel"), on_click=dialog.close).props(
-                                "flat"
+                            ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+                            ui.button(t("common.save"), icon="check", on_click=_save).props(
+                                "color=primary"
                             )
-                            ui.button(
-                                t("common.save"), icon="check", on_click=_save
-                            ).props("color=primary")
                     dialog.open()
 
                 _render_scenarios()
@@ -313,9 +295,7 @@ def register() -> None:
                 preset = ForecastPreset(preset_toggle.value or ForecastPreset.BASELINE.value)
                 result = apply_scenarios(apply_preset(raw, preset), shifts)
                 baseline = (
-                    apply_scenarios(raw, shifts)
-                    if preset is not ForecastPreset.BASELINE
-                    else None
+                    apply_scenarios(raw, shifts) if preset is not ForecastPreset.BASELINE else None
                 )
 
                 status.set_text(
@@ -366,9 +346,9 @@ def register() -> None:
                         ui.label(
                             t("forecast.chart_title_account", account=result.account_name)
                         ).classes("text-lg font-semibold mb-2")
-                        ui.echart(
-                            _forecast_chart(result, is_dark, baseline=baseline)
-                        ).classes("w-full h-96")
+                        ui.echart(_forecast_chart(result, is_dark, baseline=baseline)).classes(
+                            "w-full h-96"
+                        )
 
                     with ui.card().classes("w-full"):
                         ui.label(t("forecast.upcoming_14")).classes("text-lg font-semibold mb-2")

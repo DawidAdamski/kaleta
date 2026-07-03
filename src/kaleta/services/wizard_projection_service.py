@@ -59,9 +59,9 @@ def _monthly_from_subscription(sub: Subscription) -> Decimal:
     """amount × 30 / cadence_days so yearly subs amortise to monthly."""
     if sub.cadence_days <= 0:
         return abs(sub.amount)
-    return (
-        abs(sub.amount) * Decimal("30") / Decimal(sub.cadence_days)
-    ).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return (abs(sub.amount) * Decimal("30") / Decimal(sub.cadence_days)).quantize(
+        Decimal("0.01"), rounding=ROUND_HALF_UP
+    )
 
 
 def _monthly_from_reserve(fund: ReserveFund) -> Decimal:
@@ -82,9 +82,7 @@ def _monthly_from_reserve(fund: ReserveFund) -> Decimal:
         return (target / Decimal(fund.emergency_multiplier)).quantize(
             Decimal("0.01"), rounding=ROUND_HALF_UP
         )
-    return (target / Decimal("12")).quantize(
-        Decimal("0.01"), rounding=ROUND_HALF_UP
-    )
+    return (target / Decimal("12")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
 def _frequency_label(pt: PlannedTransaction) -> str:
@@ -105,9 +103,7 @@ class WizardProjectionService:
 
     # ── Budget Builder ────────────────────────────────────────────────────
 
-    async def get_budget_builder_sources(
-        self, year: int
-    ) -> BudgetBuilderProjection:
+    async def get_budget_builder_sources(self, year: int) -> BudgetBuilderProjection:
         """Rows every Budget Builder section should pull in for the given year."""
         projection = BudgetBuilderProjection()
 
@@ -140,9 +136,7 @@ class WizardProjectionService:
 
         # Active subscriptions — always Fixed.
         subs_result = await self.session.execute(
-            select(Subscription).where(
-                Subscription.status == SubscriptionStatus.ACTIVE
-            )
+            select(Subscription).where(Subscription.status == SubscriptionStatus.ACTIVE)
         )
         for sub in subs_result.scalars().all():
             monthly = _monthly_from_subscription(sub)
@@ -198,9 +192,7 @@ class WizardProjectionService:
         projection.income.sort(key=lambda r: (r.label.lower(), r.source_id))
         projection.fixed.sort(
             key=lambda r: (
-                {"subscription": 0, "loan": 1, "planned": 2, "reserve": 3}.get(
-                    r.source_kind, 9
-                ),
+                {"subscription": 0, "loan": 1, "planned": 2, "reserve": 3}.get(r.source_kind, 9),
                 r.label.lower(),
                 r.source_id,
             )
@@ -218,9 +210,7 @@ class WizardProjectionService:
             return PaymentCalendarProjection()
 
         subs_result = await self.session.execute(
-            select(Subscription).where(
-                Subscription.status == SubscriptionStatus.ACTIVE
-            )
+            select(Subscription).where(Subscription.status == SubscriptionStatus.ACTIVE)
         )
         charges: list[SubscriptionCharge] = []
         for sub in subs_result.scalars().all():

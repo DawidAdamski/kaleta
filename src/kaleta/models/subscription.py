@@ -36,9 +36,7 @@ class Subscription(TimestampMixin, Base):
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
-    amount: Mapped[Decimal] = mapped_column(
-        Numeric(precision=15, scale=2), nullable=False
-    )
+    amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     cadence_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     first_seen_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     next_expected_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)

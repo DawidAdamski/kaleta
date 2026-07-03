@@ -30,9 +30,9 @@ def register() -> None:
     async def housekeeping_page() -> None:
         async with AsyncSessionFactory() as session:
             svc = DedupeService(session)
-            dup_window_days = int(
-                app.storage.user.get("housekeeping_duplicate_days", 0) or 0
-            ) or None
+            dup_window_days = (
+                int(app.storage.user.get("housekeeping_duplicate_days", 0) or 0) or None
+            )
             tx_groups = await svc.duplicate_transactions(window_days=dup_window_days)
             payee_groups = await svc.similar_payees()
             category_groups = await svc.redundant_categories()
@@ -47,14 +47,10 @@ def register() -> None:
             pending: dict[str, Any] = {"action": None, "count": 0}
 
             with ui.dialog() as confirm_dialog, ui.card().classes("w-[440px] gap-3"):
-                ui.label(t("housekeeping.merge_confirm_title")).classes(
-                    "text-lg font-bold"
-                )
+                ui.label(t("housekeeping.merge_confirm_title")).classes("text-lg font-bold")
                 confirm_body = ui.label("").classes(BODY_MUTED)
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                    ui.button(t("common.cancel"), on_click=confirm_dialog.close).props(
-                        "flat"
-                    )
+                    ui.button(t("common.cancel"), on_click=confirm_dialog.close).props("flat")
                     confirm_btn = ui.button(
                         t("housekeeping.merge_confirm_confirm"), icon="merge_type"
                     ).props("color=negative unelevated")
@@ -72,9 +68,7 @@ def register() -> None:
             def _ask_confirm(count: int, action: Any) -> None:
                 pending["action"] = action
                 pending["count"] = count
-                confirm_body.set_text(
-                    t("housekeeping.merge_confirm_body", count=count)
-                )
+                confirm_body.set_text(t("housekeeping.merge_confirm_body", count=count))
                 confirm_dialog.open()
 
             # ── Duplicate transactions ───────────────────────────────────
@@ -94,9 +88,7 @@ def _section_header(title_key: str, hint_key: str, count: int) -> None:
     with ui.row().classes("w-full items-center gap-3"):
         ui.label(t(title_key)).classes(SECTION_HEADING)
         if count > 0:
-            ui.badge(t("housekeeping.group_count", count=count)).props(
-                "color=amber-7 rounded"
-            )
+            ui.badge(t("housekeeping.group_count", count=count)).props("color=amber-7 rounded")
     ui.label(t(hint_key)).classes(BODY_MUTED)
 
 
@@ -108,9 +100,7 @@ def _render_tx_section(groups: list[TxGroup], ask_confirm: Any) -> None:
             len(groups),
         )
         if not groups:
-            ui.label(t("housekeeping.transactions_empty")).classes(
-                f"{BODY_MUTED} mt-2"
-            )
+            ui.label(t("housekeeping.transactions_empty")).classes(f"{BODY_MUTED} mt-2")
             return
         for g in groups:
             _render_tx_group(g, ask_confirm)
@@ -138,9 +128,7 @@ def _render_category_section(groups: list[CategoryGroup], ask_confirm: Any) -> N
             len(groups),
         )
         if not groups:
-            ui.label(t("housekeeping.categories_empty")).classes(
-                f"{BODY_MUTED} mt-2"
-            )
+            ui.label(t("housekeeping.categories_empty")).classes(f"{BODY_MUTED} mt-2")
             return
         for g in groups:
             _render_category_group(g, ask_confirm)
@@ -157,17 +145,13 @@ def _render_tx_group(group: TxGroup, ask_confirm: Any) -> None:
         for item in group.items
     }
 
-    with ui.element("div").classes(
-        "w-full mt-3 p-3 rounded border border-slate-200/30"
-    ):
+    with ui.element("div").classes("w-full mt-3 p-3 rounded border border-slate-200/30"):
         for item in group.items:
             with ui.row().classes("w-full items-center gap-3 py-1"):
                 ui.label(str(item.date)).classes("w-24 text-xs text-slate-500")
                 ui.label(item.description[:60] or "—").classes("flex-1 text-sm")
                 amount_cls = AMOUNT_INCOME if item.amount >= 0 else AMOUNT_EXPENSE
-                ui.label(f"{item.amount:,.2f}").classes(
-                    f"{amount_cls} w-24 text-right text-sm"
-                )
+                ui.label(f"{item.amount:,.2f}").classes(f"{amount_cls} w-24 text-right text-sm")
                 ui.label(f"#{item.id}").classes("w-16 text-xs text-slate-500 text-right")
 
         with ui.row().classes("w-full items-center gap-3 mt-2"):
@@ -194,9 +178,7 @@ def _render_tx_group(group: TxGroup, ask_confirm: Any) -> None:
                     deleted = await DedupeService(s).merge_transactions(
                         keeper_id=keeper_id, other_ids=other_ids
                     )
-                ui.notify(
-                    t("housekeeping.merged_tx", count=deleted), type="positive"
-                )
+                ui.notify(t("housekeeping.merged_tx", count=deleted), type="positive")
 
             delete_count = len(group.items) - 1
             ui.button(
@@ -214,15 +196,13 @@ def _render_payee_group(group: PayeeGroup, ask_confirm: Any) -> None:
         item.id: f"{item.name} ({item.transaction_count})" for item in group.items
     }
 
-    with ui.element("div").classes(
-        "w-full mt-3 p-3 rounded border border-slate-200/30"
-    ):
+    with ui.element("div").classes("w-full mt-3 p-3 rounded border border-slate-200/30"):
         for item in group.items:
             with ui.row().classes("w-full items-center gap-3 py-1"):
                 ui.label(item.name).classes("flex-1 text-sm")
-                ui.label(
-                    t("housekeeping.transaction_count", count=item.transaction_count)
-                ).classes("text-xs text-slate-500 w-32 text-right")
+                ui.label(t("housekeeping.transaction_count", count=item.transaction_count)).classes(
+                    "text-xs text-slate-500 w-32 text-right"
+                )
 
         with ui.row().classes("w-full items-center gap-3 mt-2"):
             keeper_sel = (
@@ -248,9 +228,7 @@ def _render_payee_group(group: PayeeGroup, ask_confirm: Any) -> None:
                     merged = await DedupeService(s).merge_payees(
                         keeper_id=keeper_id, other_ids=other_ids
                     )
-                ui.notify(
-                    t("housekeeping.merged_payees", count=merged), type="positive"
-                )
+                ui.notify(t("housekeeping.merged_payees", count=merged), type="positive")
 
             delete_count = len(group.items) - 1
             ui.button(
@@ -267,15 +245,13 @@ def _render_category_group(group: CategoryGroup, ask_confirm: Any) -> None:
         item.id: f"{item.name} ({item.transaction_count})" for item in group.items
     }
 
-    with ui.element("div").classes(
-        "w-full mt-3 p-3 rounded border border-slate-200/30"
-    ):
+    with ui.element("div").classes("w-full mt-3 p-3 rounded border border-slate-200/30"):
         for item in group.items:
             with ui.row().classes("w-full items-center gap-3 py-1"):
                 ui.label(item.name).classes("flex-1 text-sm")
-                ui.label(
-                    t("housekeeping.transaction_count", count=item.transaction_count)
-                ).classes("text-xs text-slate-500 w-32 text-right")
+                ui.label(t("housekeeping.transaction_count", count=item.transaction_count)).classes(
+                    "text-xs text-slate-500 w-32 text-right"
+                )
 
         with ui.row().classes("w-full items-center gap-3 mt-2"):
             keeper_sel = (

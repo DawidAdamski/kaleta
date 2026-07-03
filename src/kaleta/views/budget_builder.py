@@ -41,11 +41,9 @@ def register() -> None:
         async with AsyncSessionFactory() as session:
             payload = await YearlyPlanService(session).get_payload(current_year)
             expense_cats = await CategoryService(session).list(type=CategoryType.EXPENSE)
-            projection: BudgetBuilderProjection = (
-                await WizardProjectionService(session).get_budget_builder_sources(
-                    current_year
-                )
-            )
+            projection: BudgetBuilderProjection = await WizardProjectionService(
+                session
+            ).get_budget_builder_sources(current_year)
 
         cat_opts: dict[int, str] = {c.id: c.name for c in expense_cats}
 
@@ -298,17 +296,13 @@ def register() -> None:
             def _render_yearly_total(lines: list[Any]) -> None:
                 total = sum((ln.amount for ln in lines), Decimal("0"))
                 with ui.row().classes("w-full justify-end"):
-                    ui.label(
-                        t("budget_builder.section_total", amount=_fmt(total))
-                    ).classes(f"{BODY_MUTED} text-sm font-semibold")
+                    ui.label(t("budget_builder.section_total", amount=_fmt(total))).classes(
+                        f"{BODY_MUTED} text-sm font-semibold"
+                    )
 
-            def _render_yearly_total_combined(
-                lines: list[Any], pulled: list[PulledRow]
-            ) -> None:
+            def _render_yearly_total_combined(lines: list[Any], pulled: list[PulledRow]) -> None:
                 typed = sum((ln.amount for ln in lines), Decimal("0"))
-                pulled_yearly = sum(
-                    (r.amount * Decimal("12") for r in pulled), Decimal("0")
-                )
+                pulled_yearly = sum((r.amount * Decimal("12") for r in pulled), Decimal("0"))
                 grand = typed + pulled_yearly
                 with ui.column().classes("w-full items-end gap-0"):
                     if pulled_yearly > 0:
@@ -318,9 +312,9 @@ def register() -> None:
                                 amount=_fmt(pulled_yearly),
                             )
                         ).classes(f"{BODY_MUTED} text-xs")
-                    ui.label(
-                        t("budget_builder.section_total", amount=_fmt(grand))
-                    ).classes(f"{BODY_MUTED} text-sm font-semibold")
+                    ui.label(t("budget_builder.section_total", amount=_fmt(grand))).classes(
+                        f"{BODY_MUTED} text-sm font-semibold"
+                    )
 
             def _render_pulled_rows(rows: list[PulledRow]) -> None:
                 """Render read-only pulled rows with a lock badge + cross-link."""
@@ -331,12 +325,8 @@ def register() -> None:
                 )
                 for row in rows:
                     yearly = row.amount * Decimal("12")
-                    with ui.row().classes(
-                        "w-full items-center gap-2 py-1 opacity-75"
-                    ):
-                        ui.icon("lock_outline", size="0.9rem").classes(
-                            "text-slate-500"
-                        )
+                    with ui.row().classes("w-full items-center gap-2 py-1 opacity-75"):
+                        ui.icon("lock_outline", size="0.9rem").classes("text-slate-500")
                         ui.badge(
                             t(f"budget_builder.source_{row.source_kind}"),
                             color="grey-6",
@@ -349,16 +339,14 @@ def register() -> None:
                                 cadence=row.cadence,
                             )
                         ).classes("text-xs text-slate-500 w-40 text-right")
-                        ui.label(_fmt(yearly)).classes(
-                            "w-24 text-right text-sm"
-                        )
+                        ui.label(_fmt(yearly)).classes("w-24 text-right text-sm")
                         if row.href:
                             ui.button(
                                 icon="open_in_new",
                                 on_click=lambda _e, h=row.href: ui.navigate.to(h),
-                            ).props(
-                                "flat dense round size=sm color=primary"
-                            ).tooltip(t("budget_builder.pulled_edit"))
+                            ).props("flat dense round size=sm color=primary").tooltip(
+                                t("budget_builder.pulled_edit")
+                            )
 
             # ── Section cards ────────────────────────────────────────────
             with ui.card().classes(SECTION_CARD):
@@ -399,9 +387,7 @@ def register() -> None:
                 with ui.row().classes("w-full items-center justify-between"):
                     with ui.row().classes("items-center gap-3"):
                         ui.icon("savings", size="1.4rem").classes("text-primary")
-                        ui.label(t("budget_builder.reserves_heading")).classes(
-                            SECTION_HEADING
-                        )
+                        ui.label(t("budget_builder.reserves_heading")).classes(SECTION_HEADING)
                     ui.button(
                         t("budget_builder.reserves_open"),
                         icon="arrow_forward",
@@ -412,9 +398,7 @@ def register() -> None:
                     _render_pulled_rows(projection.reserves)
                     _render_yearly_total_combined([], projection.reserves)
                 else:
-                    ui.label(t("budget_builder.reserves_empty")).classes(
-                        f"{BODY_MUTED} mt-2"
-                    )
+                    ui.label(t("budget_builder.reserves_empty")).classes(f"{BODY_MUTED} mt-2")
 
             # ── Apply flow with diff dialog ──────────────────────────────
             with ui.dialog() as diff_dialog, ui.card().classes("w-[560px] gap-2"):

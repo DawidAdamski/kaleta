@@ -295,8 +295,10 @@ def register() -> None:
                         }
                         for s in summaries
                     ]
-                    table = ui.table(columns=columns, rows=rows).classes(TABLE_SURFACE).props(
-                        "flat dense"
+                    table = (
+                        ui.table(columns=columns, rows=rows)
+                        .classes(TABLE_SURFACE)
+                        .props("flat dense")
                     )
                     table.add_slot(
                         "body-cell-pct",
@@ -430,9 +432,9 @@ def register() -> None:
             with ui.card().classes(SECTION_CARD):
                 with ui.row().classes("w-full items-center justify-between gap-3 mb-3"):
                     ui.label(t("budgets.realization.title")).classes(SECTION_HEADING)
-                    ui.label(
-                        t("budgets.realization.elapsed_hint", pct=f"{elapsed:.0f}")
-                    ).classes(BODY_MUTED)
+                    ui.label(t("budgets.realization.elapsed_hint", pct=f"{elapsed:.0f}")).classes(
+                        BODY_MUTED
+                    )
 
                 if group == "by_parent":
                     _render_realization_grouped(rows)
@@ -474,9 +476,7 @@ def register() -> None:
 
                 with ui.tab_panel(realization_tab):
                     with ui.row().classes("w-full items-center gap-3 flex-wrap mb-2"):
-                        month_opts = {
-                            i: t(f"payment_calendar.month_{i}") for i in range(1, 13)
-                        }
+                        month_opts = {i: t(f"payment_calendar.month_{i}") for i in range(1, 13)}
                         year_opts = {y: str(y) for y in range(today.year - 2, today.year + 3)}
 
                         def on_month_change(e: Any) -> None:

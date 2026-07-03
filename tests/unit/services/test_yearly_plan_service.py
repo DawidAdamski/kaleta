@@ -2,19 +2,15 @@
 
 from __future__ import annotations
 
-import datetime
 from decimal import Decimal
 
-import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
-from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.schemas.category import CategoryCreate
-from kaleta.schemas.transaction import TransactionCreate
 from kaleta.schemas.yearly_plan import (
     FixedLine,
     IncomeLine,
@@ -25,7 +21,6 @@ from kaleta.services import (
     AccountService,
     BudgetService,
     CategoryService,
-    TransactionService,
     YearlyPlanService,
 )
 from kaleta.services.yearly_plan_service import _split_yearly_to_months
@@ -39,7 +34,9 @@ async def _make_category(
 
 
 async def _make_account(session: AsyncSession) -> int:
-    a = await AccountService(session).create(AccountCreate(name="Checking", type=AccountType.CHECKING))
+    a = await AccountService(session).create(
+        AccountCreate(name="Checking", type=AccountType.CHECKING)
+    )
     return a.id
 
 
@@ -156,9 +153,7 @@ class TestUpsertAndGet:
         payload = YearlyPlanPayload(
             year=2026,
             income_lines=[IncomeLine(name="Salary", amount=Decimal("120000.00"))],
-            variable_lines=[
-                VariableLine(name="Food", amount=Decimal("1200.50"), category_id=cat)
-            ],
+            variable_lines=[VariableLine(name="Food", amount=Decimal("1200.50"), category_id=cat)],
         )
         await svc.upsert(payload)
         roundtrip = await svc.get_payload(2026)
@@ -173,17 +168,13 @@ class TestUpsertAndGet:
         await svc.upsert(
             YearlyPlanPayload(
                 year=2026,
-                variable_lines=[
-                    VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)
-                ],
+                variable_lines=[VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)],
             )
         )
         await svc.upsert(
             YearlyPlanPayload(
                 year=2026,
-                variable_lines=[
-                    VariableLine(name="Food", amount=Decimal("2400"), category_id=cat)
-                ],
+                variable_lines=[VariableLine(name="Food", amount=Decimal("2400"), category_id=cat)],
             )
         )
         rt = await svc.get_payload(2026)
@@ -199,9 +190,7 @@ class TestApply:
         svc = YearlyPlanService(session)
         payload = YearlyPlanPayload(
             year=2026,
-            variable_lines=[
-                VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)
-            ],
+            variable_lines=[VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)],
         )
         written = await svc.apply(payload)
         assert written == 12
@@ -214,9 +203,7 @@ class TestApply:
         svc = YearlyPlanService(session)
         payload = YearlyPlanPayload(
             year=2026,
-            variable_lines=[
-                VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)
-            ],
+            variable_lines=[VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)],
         )
         await svc.apply(payload)
         # Raise envelope and re-apply
@@ -259,9 +246,7 @@ class TestDiff:
         diff = await svc.diff(
             YearlyPlanPayload(
                 year=2026,
-                variable_lines=[
-                    VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)
-                ],
+                variable_lines=[VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)],
             )
         )
         assert len(diff.added) == 12
@@ -274,18 +259,14 @@ class TestDiff:
         # Pre-populate Budget rows that match a 1200/yr variable line exactly.
         for m in range(1, 13):
             await bsvc.create(
-                BudgetCreate(
-                    category_id=cat, amount=Decimal("100.00"), month=m, year=2026
-                )
+                BudgetCreate(category_id=cat, amount=Decimal("100.00"), month=m, year=2026)
             )
 
         svc = YearlyPlanService(session)
         diff = await svc.diff(
             YearlyPlanPayload(
                 year=2026,
-                variable_lines=[
-                    VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)
-                ],
+                variable_lines=[VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)],
             )
         )
         assert diff.added == []
@@ -303,9 +284,7 @@ class TestDiff:
         diff = await svc.diff(
             YearlyPlanPayload(
                 year=2026,
-                variable_lines=[
-                    VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)
-                ],
+                variable_lines=[VariableLine(name="Food", amount=Decimal("1200"), category_id=cat)],
             )
         )
         # 11 months new + 1 updated (month 6: 50 → 100)
@@ -324,7 +303,8 @@ class TestBulkUpsert:
         cat = await _make_category(session, "Food")
         entries = [
             BudgetCreate(category_id=cat, amount=Decimal("100"), month=1, year=2026),
-            BudgetCreate(category_id=cat, amount=Decimal("50"), month=1, year=2026),  # duplicate key
+            BudgetCreate(category_id=cat, amount=Decimal("50"), month=1, year=2026),
+            # duplicate key
             BudgetCreate(category_id=cat, amount=Decimal("200"), month=2, year=2026),
         ]
         written = await BudgetService(session).bulk_upsert(entries)

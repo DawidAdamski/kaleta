@@ -63,9 +63,7 @@ def _header_strip(summary: NetWorthSummary, currency: str) -> None:
         ui.card().classes("w-full p-6"),
         ui.column().classes("w-full items-center gap-2"),
     ):
-        ui.label(t("net_worth.net_worth")).classes(
-            "text-sm text-grey-6 uppercase tracking-wide"
-        )
+        ui.label(t("net_worth.net_worth")).classes("text-sm text-grey-6 uppercase tracking-wide")
         ui.label(_fmt(summary.net_worth, currency)).classes(f"text-4xl font-bold text-{color}")
         with ui.row().classes("gap-6 mt-1 flex-wrap justify-center"):
             _delta_pill(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)

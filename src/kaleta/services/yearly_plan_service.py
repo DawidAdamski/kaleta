@@ -52,9 +52,7 @@ class YearlyPlanService:
         self.session = session
 
     async def get(self, year: int) -> YearlyPlan | None:
-        result = await self.session.execute(
-            select(YearlyPlan).where(YearlyPlan.year == year)
-        )
+        result = await self.session.execute(select(YearlyPlan).where(YearlyPlan.year == year))
         return result.scalar_one_or_none()
 
     async def get_payload(self, year: int) -> YearlyPlanPayload:

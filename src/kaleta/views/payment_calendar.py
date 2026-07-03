@@ -102,9 +102,7 @@ def register() -> None:
             ui.label(t("payment_calendar.quick_add_title")).classes("text-lg font-bold")
             q_name = ui.input(t("planned.name")).classes("w-full")
             with ui.row().classes("w-full gap-3"):
-                q_account = ui.select(
-                    account_opts, label=t("common.account")
-                ).classes("flex-1")
+                q_account = ui.select(account_opts, label=t("common.account")).classes("flex-1")
                 q_type = ui.select(
                     {
                         TransactionType.EXPENSE: t("common.expense"),
@@ -115,9 +113,9 @@ def register() -> None:
                     value=TransactionType.EXPENSE,
                 ).classes("flex-1")
             with ui.row().classes("w-full gap-3"):
-                q_amount = ui.number(
-                    t("common.amount"), min=0.01, step=0.01, precision=2
-                ).classes("flex-1")
+                q_amount = ui.number(t("common.amount"), min=0.01, step=0.01, precision=2).classes(
+                    "flex-1"
+                )
                 q_category = ui.select(
                     cat_opts, label=t("common.category"), clearable=True
                 ).classes("flex-1")
@@ -163,9 +161,9 @@ def register() -> None:
 
             with ui.row().classes("w-full justify-end gap-2 mt-1"):
                 ui.button(t("common.cancel"), on_click=quick_dialog.close).props("flat")
-                ui.button(
-                    t("common.save"), icon="check", on_click=_quick_submit
-                ).props("color=primary")
+                ui.button(t("common.save"), icon="check", on_click=_quick_submit).props(
+                    "color=primary"
+                )
 
         def _open_quick_add(date: datetime.date) -> None:
             state["selected"] = date
@@ -193,15 +191,12 @@ def register() -> None:
                     on_click=lambda: _open_quick_add(state["selected"]),
                 ).props("color=primary")
 
-        def _render_occurrence_row(
-            occ: PlannedOccurrence, *, muted: bool = False
-        ) -> None:
+        def _render_occurrence_row(occ: PlannedOccurrence, *, muted: bool = False) -> None:
             is_income = occ.type == TransactionType.INCOME
             amt_cls = AMOUNT_INCOME if is_income else AMOUNT_EXPENSE
             sign = "+" if is_income else "-"
-            row_cls = (
-                "w-full items-center justify-between p-2 rounded-lg border "
-                + ("border-slate-200/60 opacity-70" if muted else "border-slate-200/60")
+            row_cls = "w-full items-center justify-between p-2 rounded-lg border " + (
+                "border-slate-200/60 opacity-70" if muted else "border-slate-200/60"
             )
             with ui.row().classes(row_cls):
                 with ui.column().classes("gap-0 flex-1"):
@@ -216,15 +211,12 @@ def register() -> None:
 
         def _render_subscription_row(ch: SubscriptionCharge) -> None:
             with ui.row().classes(
-                "w-full items-center justify-between p-2 rounded-lg "
-                "border border-slate-200/60"
+                "w-full items-center justify-between p-2 rounded-lg border border-slate-200/60"
             ):
                 with ui.row().classes("items-center gap-2 flex-1"):
                     ui.icon("subscriptions", size="1rem").classes("text-primary")
                     ui.label(ch.name).classes("text-sm font-medium")
-                ui.label(f"-{_fmt(ch.amount)}").classes(
-                    f"{AMOUNT_EXPENSE} text-sm font-semibold"
-                )
+                ui.label(f"-{_fmt(ch.amount)}").classes(f"{AMOUNT_EXPENSE} text-sm font-semibold")
 
         def _open_day(
             date: datetime.date,
@@ -272,9 +264,7 @@ def register() -> None:
                     )
                     for ch in subs_for_day:
                         _render_subscription_row(ch)
-            day_add_btn.set_text(
-                t("payment_calendar.add_for_day_short", date=date.isoformat())
-            )
+            day_add_btn.set_text(t("payment_calendar.add_for_day_short", date=date.isoformat()))
             day_dialog.open()
 
         # ── Main layout ──────────────────────────────────────────────────────
@@ -329,9 +319,9 @@ def register() -> None:
                 first = datetime.date(y, m, 1)
                 last = datetime.date(y, m, last_day)
                 async with AsyncSessionFactory() as session:
-                    overdue_days = int(
-                        app.storage.user.get("payment_calendar_overdue_days", 0) or 0
-                    ) or 30
+                    overdue_days = (
+                        int(app.storage.user.get("payment_calendar_overdue_days", 0) or 0) or 30
+                    )
                     grid = await PlannedTransactionService(session).grid_for_month(
                         y, m, overdue_window_days=overdue_days
                     )
@@ -344,18 +334,12 @@ def register() -> None:
                     subs_by_day.setdefault(ch.date, []).append(ch)
                 state["subs_by_day"] = subs_by_day
 
-                kpi_in.set_text(
-                    f"{t('payment_calendar.month_in')}: +{_fmt(grid.total_inflow())}"
-                )
+                kpi_in.set_text(f"{t('payment_calendar.month_in')}: +{_fmt(grid.total_inflow())}")
                 kpi_out.set_text(
                     f"{t('payment_calendar.month_out')}: -{_fmt(grid.total_outflow())}"
                 )
-                kpi_net.set_text(
-                    f"{t('payment_calendar.month_net')}: {_fmt(grid.total_net())}"
-                )
-                kpi_overdue.set_text(
-                    f"{t('payment_calendar.overdue_count')}: {len(grid.overdue)}"
-                )
+                kpi_net.set_text(f"{t('payment_calendar.month_net')}: {_fmt(grid.total_net())}")
+                kpi_overdue.set_text(f"{t('payment_calendar.overdue_count')}: {len(grid.overdue)}")
 
                 _draw_grid(grid)
 
@@ -407,9 +391,7 @@ def register() -> None:
                 is_today: bool,
             ) -> None:
                 border_cls = (
-                    "border-primary ring-1 ring-primary/40"
-                    if is_today
-                    else "border-slate-200/70"
+                    "border-primary ring-1 ring-primary/40" if is_today else "border-slate-200/70"
                 )
                 col = ui.column().classes(
                     "min-h-20 p-2 rounded-lg border "
@@ -421,9 +403,7 @@ def register() -> None:
                     lambda _e=None, d=date, c=cell, ov=overdue: _open_day(d, c, ov),
                 )
                 subs_for_day = state["subs_by_day"].get(date, [])
-                subs_outflow = sum(
-                    (s.amount for s in subs_for_day), Decimal("0")
-                )
+                subs_outflow = sum((s.amount for s in subs_for_day), Decimal("0"))
                 total_count = (len(cell.occurrences) if cell else 0) + len(subs_for_day)
                 combined_outflow = (cell.outflow if cell else Decimal("0")) + subs_outflow
 
@@ -434,9 +414,9 @@ def register() -> None:
                             + ("text-primary" if is_today else "text-slate-700")
                         )
                         if total_count > 0:
-                            ui.badge(str(total_count)).props(
-                                "color=primary rounded"
-                            ).classes("text-xs font-semibold")
+                            ui.badge(str(total_count)).props("color=primary rounded").classes(
+                                "text-xs font-semibold"
+                            )
                     if cell or subs_for_day:
                         if cell and cell.inflow > 0:
                             ui.label(f"+{_fmt(cell.inflow)}").classes(

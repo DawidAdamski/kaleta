@@ -88,9 +88,7 @@ class TestCrud:
     async def test_list_filters_by_status(self, session: AsyncSession):
         svc = SubscriptionService(session)
         a = await svc.create(
-            SubscriptionCreate(
-                name="Spotify", amount=Decimal("19.99"), cadence_days=30
-            )
+            SubscriptionCreate(name="Spotify", amount=Decimal("19.99"), cadence_days=30)
         )
         b = await svc.create(
             SubscriptionCreate(name="iCloud", amount=Decimal("4.99"), cadence_days=30)
@@ -105,9 +103,7 @@ class TestCrud:
 
     async def test_update_patches_fields(self, session: AsyncSession):
         svc = SubscriptionService(session)
-        sub = await svc.create(
-            SubscriptionCreate(name="X", amount=Decimal("10"), cadence_days=30)
-        )
+        sub = await svc.create(SubscriptionCreate(name="X", amount=Decimal("10"), cadence_days=30))
         updated = await svc.update(sub.id, SubscriptionUpdate(amount=Decimal("12.50")))
         assert updated is not None
         assert updated.amount == Decimal("12.50")
@@ -119,9 +115,7 @@ class TestCrud:
 
     async def test_delete_removes(self, session: AsyncSession):
         svc = SubscriptionService(session)
-        sub = await svc.create(
-            SubscriptionCreate(name="X", amount=Decimal("10"), cadence_days=30)
-        )
+        sub = await svc.create(SubscriptionCreate(name="X", amount=Decimal("10"), cadence_days=30))
         assert await svc.delete(sub.id) is True
         assert await svc.get(sub.id) is None
 
@@ -185,12 +179,8 @@ class TestTransitions:
 class TestTotals:
     async def test_totals_sum_only_active(self, session: AsyncSession):
         svc = SubscriptionService(session)
-        await svc.create(
-            SubscriptionCreate(name="A", amount=Decimal("30"), cadence_days=30)
-        )
-        await svc.create(
-            SubscriptionCreate(name="B", amount=Decimal("60"), cadence_days=30)
-        )
+        await svc.create(SubscriptionCreate(name="A", amount=Decimal("30"), cadence_days=30))
+        await svc.create(SubscriptionCreate(name="B", amount=Decimal("60"), cadence_days=30))
         cancelled = await svc.create(
             SubscriptionCreate(name="C", amount=Decimal("50"), cadence_days=30)
         )
@@ -202,13 +192,9 @@ class TestTotals:
         assert t.monthly_total == Decimal("90.00")
         assert t.yearly_total == Decimal("1080.00")
 
-    async def test_yearly_sub_normalises_to_thirty_over_cadence(
-        self, session: AsyncSession
-    ):
+    async def test_yearly_sub_normalises_to_thirty_over_cadence(self, session: AsyncSession):
         svc = SubscriptionService(session)
-        await svc.create(
-            SubscriptionCreate(name="Y", amount=Decimal("365"), cadence_days=365)
-        )
+        await svc.create(SubscriptionCreate(name="Y", amount=Decimal("365"), cadence_days=365))
         t = await svc.totals()
         # 365 × 30 / 365 = 30/mo
         assert t.monthly_total == Decimal("30.00")
@@ -308,9 +294,7 @@ class TestDetector:
         candidates = await svc.detect_candidates(today=datetime.date(2026, 4, 1))
         assert candidates == []
 
-    async def test_detects_description_based_monthly(
-        self, session: AsyncSession
-    ):
+    async def test_detects_description_based_monthly(self, session: AsyncSession):
         """Rows with payee_id=None but recurring same-description charge."""
         acc, cat = await _seed_setup(session)
         today = datetime.date(2026, 4, 1)
@@ -334,9 +318,7 @@ class TestDetector:
         assert c.cadence_days == 30
         assert c.occurrences == 4
 
-    async def test_detects_description_based_yearly(
-        self, session: AsyncSession
-    ):
+    async def test_detects_description_based_yearly(self, session: AsyncSession):
         acc, cat = await _seed_setup(session)
         today = datetime.date(2026, 4, 1)
         # Yearly: two 49.99 charges ~365 days apart.
@@ -364,9 +346,7 @@ class TestDetector:
         assert candidates[0].payee_name == "APPLE.COM"
         assert candidates[0].cadence_days == 365
 
-    async def test_description_based_excluded_by_tracked_name(
-        self, session: AsyncSession
-    ):
+    async def test_description_based_excluded_by_tracked_name(self, session: AsyncSession):
         """If a subscription already exists with a matching merchant-key name,
         the detector must not re-surface it from description scan."""
         acc, cat = await _seed_setup(session)
@@ -441,9 +421,7 @@ class TestDismiss:
         await svc.dismiss_candidate(candidates[0])
         assert await svc.detect_candidates(today=today) == []
 
-    async def test_dismiss_hides_description_candidate(
-        self, session: AsyncSession
-    ):
+    async def test_dismiss_hides_description_candidate(self, session: AsyncSession):
         acc, cat = await _seed_setup(session)
         today = datetime.date(2026, 4, 1)
         for months_back in (0, 1, 2):
@@ -506,16 +484,8 @@ class TestRenewals:
     async def test_upcoming_within_30_days(self, session: AsyncSession):
         svc = SubscriptionService(session)
         today = datetime.date(2026, 4, 1)
-        a = await svc.create(
-            SubscriptionCreate(
-                name="Soon", amount=Decimal("10"), cadence_days=30
-            )
-        )
-        b = await svc.create(
-            SubscriptionCreate(
-                name="Far", amount=Decimal("10"), cadence_days=30
-            )
-        )
+        a = await svc.create(SubscriptionCreate(name="Soon", amount=Decimal("10"), cadence_days=30))
+        b = await svc.create(SubscriptionCreate(name="Far", amount=Decimal("10"), cadence_days=30))
         await svc.update(
             a.id, SubscriptionUpdate(next_expected_at=today + datetime.timedelta(days=7))
         )
@@ -547,9 +517,7 @@ class TestRenewals:
 
 
 class TestCategoryDriven:
-    async def test_detector_excludes_tx_under_subscriptions_tree(
-        self, session: AsyncSession
-    ):
+    async def test_detector_excludes_tx_under_subscriptions_tree(self, session: AsyncSession):
         acc, _ = await _seed_setup(session)
         from kaleta.services import CategoryService
 
@@ -576,9 +544,7 @@ class TestCategoryDriven:
         # Transactions are under the Subscriptions tree already — not a candidate.
         assert candidates == []
 
-    async def test_create_from_candidate_recategorises_history(
-        self, session: AsyncSession
-    ):
+    async def test_create_from_candidate_recategorises_history(self, session: AsyncSession):
         acc, cat = await _seed_setup(session)
         from kaleta.services import CategoryService
 
@@ -617,9 +583,7 @@ class TestCategoryDriven:
         categories_after = {row[0] for row in result.all()}
         assert categories_after == {monthly_cat.id}
 
-    async def test_subscription_transactions_grouped(
-        self, session: AsyncSession
-    ):
+    async def test_subscription_transactions_grouped(self, session: AsyncSession):
         acc, _ = await _seed_setup(session)
         from kaleta.services import CategoryService
 

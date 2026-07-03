@@ -61,9 +61,7 @@ class SubscriptionService:
     # ── CRUD ──────────────────────────────────────────────────────────────
 
     async def get(self, sub_id: int) -> Subscription | None:
-        result = await self.session.execute(
-            select(Subscription).where(Subscription.id == sub_id)
-        )
+        result = await self.session.execute(select(Subscription).where(Subscription.id == sub_id))
         return result.scalar_one_or_none()
 
     async def list(
@@ -84,9 +82,7 @@ class SubscriptionService:
             category_id=payload.category_id,
             first_seen_at=payload.first_seen_at,
             next_expected_at=payload.next_expected_at
-            or _project_next_expected(
-                payload.first_seen_at, payload.cadence_days
-            ),
+            or _project_next_expected(payload.first_seen_at, payload.cadence_days),
             url=payload.url,
             auto_renew=payload.auto_renew,
             status=SubscriptionStatus.ACTIVE,
@@ -96,9 +92,7 @@ class SubscriptionService:
         await self.session.refresh(sub)
         return sub
 
-    async def update(
-        self, sub_id: int, payload: SubscriptionUpdate
-    ) -> Subscription | None:
+    async def update(self, sub_id: int, payload: SubscriptionUpdate) -> Subscription | None:
         sub = await self.get(sub_id)
         if sub is None:
             return None
@@ -153,9 +147,7 @@ class SubscriptionService:
         sub.muted_until = None
         sub.cancelled_at = None
         if sub.first_seen_at:
-            sub.next_expected_at = _project_next_expected(
-                sub.first_seen_at, sub.cadence_days
-            )
+            sub.next_expected_at = _project_next_expected(sub.first_seen_at, sub.cadence_days)
         await self.session.commit()
         await self.session.refresh(sub)
         return sub
@@ -221,8 +213,7 @@ class SubscriptionService:
         )
         if sub_cat_ids:
             stmt1 = stmt1.where(
-                Transaction.category_id.is_(None)
-                | Transaction.category_id.not_in(sub_cat_ids)
+                Transaction.category_id.is_(None) | Transaction.category_id.not_in(sub_cat_ids)
             )
         payee_rows = await self.session.execute(stmt1)
         pass1_groups: dict[tuple[int, str], list[Transaction]] = defaultdict(list)
@@ -238,9 +229,7 @@ class SubscriptionService:
 
         candidates: list[DetectorCandidate] = []
         for (payee_id, _bucket), txs in pass1_groups.items():
-            candidate = _candidate_from_group(
-                txs, name=payee_names[payee_id], payee_id=payee_id
-            )
+            candidate = _candidate_from_group(txs, name=payee_names[payee_id], payee_id=payee_id)
             if candidate is not None:
                 candidates.append(candidate)
 
@@ -260,8 +249,7 @@ class SubscriptionService:
         )
         if sub_cat_ids:
             stmt2 = stmt2.where(
-                Transaction.category_id.is_(None)
-                | Transaction.category_id.not_in(sub_cat_ids)
+                Transaction.category_id.is_(None) | Transaction.category_id.not_in(sub_cat_ids)
             )
         orphan_rows = await self.session.execute(stmt2)
         pass2_groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
@@ -287,9 +275,7 @@ class SubscriptionService:
     async def dismiss_candidate(self, candidate: DetectorCandidate) -> None:
         """Persist a 'not a subscription' decision so it doesn't resurface."""
         bucket = _amount_bucket(candidate.amount)
-        merchant_key = (
-            None if candidate.payee_id is not None else candidate.payee_name
-        )
+        merchant_key = None if candidate.payee_id is not None else candidate.payee_name
         existing = await self.session.execute(
             select(DismissedCandidate).where(
                 DismissedCandidate.payee_id == candidate.payee_id,
@@ -339,9 +325,7 @@ class SubscriptionService:
         next_expected = candidate.next_expected_at
         ref_today = today or datetime.date.today()
         while next_expected <= ref_today:
-            next_expected = next_expected + datetime.timedelta(
-                days=candidate.cadence_days
-            )
+            next_expected = next_expected + datetime.timedelta(days=candidate.cadence_days)
         payload = SubscriptionCreate(
             name=candidate.payee_name,
             amount=candidate.amount,
@@ -398,8 +382,7 @@ class SubscriptionService:
                 continue
             if (
                 candidate.payee_id is None
-                and _merchant_key_from_description(tx.description)
-                != candidate.payee_name
+                and _merchant_key_from_description(tx.description) != candidate.payee_name
             ):
                 # Description-based candidate whose merchant-key doesn't match.
                 continue
@@ -445,9 +428,7 @@ class SubscriptionService:
         )
         children = list(cats_result.scalars().all())
         by_cat: dict[int, builtins.list[SubscriptionMerchantRow]] = defaultdict(list)
-        merchant_state: dict[
-            tuple[int, str], SubscriptionMerchantRow
-        ] = {}
+        merchant_state: dict[tuple[int, str], SubscriptionMerchantRow] = {}
 
         tx_result = await self.session.execute(
             select(Transaction, Payee)
@@ -471,9 +452,7 @@ class SubscriptionService:
             key = (tx.category_id, label)
             row = merchant_state.get(key)
             if row is None:
-                row = SubscriptionMerchantRow(
-                    label=label, total_spent=Decimal("0"), charges=0
-                )
+                row = SubscriptionMerchantRow(label=label, total_spent=Decimal("0"), charges=0)
                 merchant_state[key] = row
                 by_cat[tx.category_id].append(row)
             row.total_spent += amt

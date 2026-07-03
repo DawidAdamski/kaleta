@@ -21,8 +21,15 @@ from kaleta.services import (
     BudgetService,
     CategoryService,
     PayeeService,
-    ReportService,
     TransactionService,
+)
+from kaleta.services.report_service import (
+    CategoryAmount,
+    ReportService,
+    SavingsRatePoint,
+    SpendingByCategory,
+    YoYComparison,
+    YoYRow,
 )
 
 # ── Fixtures & helpers ─────────────────────────────────────────────────────────
@@ -94,16 +101,28 @@ class TestIncomeStatement:
 
         d = datetime.date(2025, 6, 15)
         await _make_tx(
-            session, account_id=acc, category_id=salary, amount=Decimal("5000"),
-            tx_type=TransactionType.INCOME, date=d,
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("5000"),
+            tx_type=TransactionType.INCOME,
+            date=d,
         )
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("400"),
-            tx_type=TransactionType.EXPENSE, date=d,
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("400"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
         )
         await _make_tx(
-            session, account_id=acc, category_id=rent, amount=Decimal("1500"),
-            tx_type=TransactionType.EXPENSE, date=d,
+            session,
+            account_id=acc,
+            category_id=rent,
+            amount=Decimal("1500"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
         )
 
         stmt = await svc.income_statement(2025, 6)
@@ -114,14 +133,16 @@ class TestIncomeStatement:
         assert {c.category for c in stmt.income_by_category} == {"Salary"}
         assert {c.category for c in stmt.expense_by_category} == {"Food", "Rent"}
 
-    async def test_ignores_other_months(
-        self, svc: ReportService, session: AsyncSession
-    ) -> None:
+    async def test_ignores_other_months(self, svc: ReportService, session: AsyncSession) -> None:
         acc = await _make_account(session)
         cat = await _make_category(session, "Food")
         await _make_tx(
-            session, account_id=acc, category_id=cat, amount=Decimal("100"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2025, 5, 30),
+            session,
+            account_id=acc,
+            category_id=cat,
+            amount=Decimal("100"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2025, 5, 30),
         )
         stmt = await svc.income_statement(2025, 6)
         assert stmt.total_expenses == Decimal("0")
@@ -131,8 +152,12 @@ class TestIncomeStatement:
     ) -> None:
         acc = await _make_account(session)
         await _make_tx(
-            session, account_id=acc, category_id=None, amount=Decimal("500"),
-            tx_type=TransactionType.TRANSFER, date=datetime.date(2025, 6, 1),
+            session,
+            account_id=acc,
+            category_id=None,
+            amount=Decimal("500"),
+            tx_type=TransactionType.TRANSFER,
+            date=datetime.date(2025, 6, 1),
             is_internal_transfer=True,
         )
         stmt = await svc.income_statement(2025, 6)
@@ -152,12 +177,20 @@ class TestCashFlowStatement:
         food = await _make_category(session, "Food", CategoryType.EXPENSE)
         d = datetime.date(2025, 6, 10)
         await _make_tx(
-            session, account_id=acc, category_id=salary, amount=Decimal("3000"),
-            tx_type=TransactionType.INCOME, date=d,
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("3000"),
+            tx_type=TransactionType.INCOME,
+            date=d,
         )
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("1000"),
-            tx_type=TransactionType.EXPENSE, date=d,
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("1000"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
         )
         cfs = await svc.cash_flow_statement(2025, 6)
         assert cfs.total_inflows == Decimal("3000")
@@ -180,13 +213,21 @@ class TestBudgetVariance:
         )
         # Food: spent 600 / 500 → over budget
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("600"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2025, 6, 5),
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("600"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2025, 6, 5),
         )
         # Fun: spent 100 with no plan → unbudgeted
         await _make_tx(
-            session, account_id=acc, category_id=fun, amount=Decimal("100"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2025, 6, 6),
+            session,
+            account_id=acc,
+            category_id=fun,
+            amount=Decimal("100"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2025, 6, 6),
         )
 
         rep = await svc.budget_variance(2025, 6)
@@ -207,8 +248,12 @@ class TestBudgetVariance:
         acc = await _make_account(session)
         cat = await _make_category(session, "Fun")
         await _make_tx(
-            session, account_id=acc, category_id=cat, amount=Decimal("50"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2025, 6, 1),
+            session,
+            account_id=acc,
+            category_id=cat,
+            amount=Decimal("50"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2025, 6, 1),
         )
         rep = await svc.budget_variance(2025, 6)
         assert rep.rows[0].variance_pct is None
@@ -218,9 +263,7 @@ class TestBudgetVariance:
 
 
 class TestSavingsRate:
-    async def test_rate_computed_per_month(
-        self, svc: ReportService, session: AsyncSession
-    ) -> None:
+    async def test_rate_computed_per_month(self, svc: ReportService, session: AsyncSession) -> None:
         acc = await _make_account(session)
         salary = await _make_category(session, "Salary", CategoryType.INCOME)
         food = await _make_category(session, "Food")
@@ -228,12 +271,20 @@ class TestSavingsRate:
         today = datetime.date.today()
         # Same-month income 1000, expenses 400 → 60% rate.
         await _make_tx(
-            session, account_id=acc, category_id=salary, amount=Decimal("1000"),
-            tx_type=TransactionType.INCOME, date=today.replace(day=1),
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("1000"),
+            tx_type=TransactionType.INCOME,
+            date=today.replace(day=1),
         )
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("400"),
-            tx_type=TransactionType.EXPENSE, date=today.replace(day=1),
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("400"),
+            tx_type=TransactionType.EXPENSE,
+            date=today.replace(day=1),
         )
         points = await svc.savings_rate(months=1)
         assert len(points) == 1
@@ -263,20 +314,30 @@ class TestSpendingByCategory:
         salary = await _make_category(session, "Salary", CategoryType.INCOME)
         d = datetime.date(2025, 6, 10)
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("200"),
-            tx_type=TransactionType.EXPENSE, date=d,
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("200"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
         )
         await _make_tx(
-            session, account_id=acc, category_id=rent, amount=Decimal("1500"),
-            tx_type=TransactionType.EXPENSE, date=d,
+            session,
+            account_id=acc,
+            category_id=rent,
+            amount=Decimal("1500"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
         )
         await _make_tx(
-            session, account_id=acc, category_id=salary, amount=Decimal("5000"),
-            tx_type=TransactionType.INCOME, date=d,
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("5000"),
+            tx_type=TransactionType.INCOME,
+            date=d,
         )
-        rep = await svc.spending_by_category(
-            datetime.date(2025, 6, 1), datetime.date(2025, 7, 1)
-        )
+        rep = await svc.spending_by_category(datetime.date(2025, 6, 1), datetime.date(2025, 7, 1))
         assert [r.category for r in rep.rows] == ["Rent", "Food"]
         assert rep.total == Decimal("1700")
 
@@ -294,20 +355,33 @@ class TestTopMerchants:
         lidl = await _make_payee(session, "Lidl")
         d = datetime.date(2025, 6, 1)
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("50"),
-            tx_type=TransactionType.EXPENSE, date=d, payee_id=biedronka,
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("50"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
+            payee_id=biedronka,
         )
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("75"),
-            tx_type=TransactionType.EXPENSE, date=d, payee_id=biedronka,
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("75"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
+            payee_id=biedronka,
         )
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("200"),
-            tx_type=TransactionType.EXPENSE, date=d, payee_id=lidl,
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("200"),
+            tx_type=TransactionType.EXPENSE,
+            date=d,
+            payee_id=lidl,
         )
-        merchants = await svc.top_merchants(
-            datetime.date(2025, 6, 1), datetime.date(2025, 7, 1)
-        )
+        merchants = await svc.top_merchants(datetime.date(2025, 6, 1), datetime.date(2025, 7, 1))
         assert [m.name for m in merchants] == ["Lidl", "Biedronka"]
         assert merchants[0].amount == Decimal("200")
         assert merchants[0].count == 1
@@ -325,12 +399,20 @@ class TestYoYComparison:
         acc = await _make_account(session)
         food = await _make_category(session, "Food")
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("100"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2024, 3, 5),
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("100"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2024, 3, 5),
         )
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("150"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2025, 3, 5),
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("150"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2025, 3, 5),
         )
         rep = await svc.yoy_comparison(2025)
         assert rep.year == 2025
@@ -355,16 +437,28 @@ class TestYTDSummary:
         food = await _make_category(session, "Food")
         rent = await _make_category(session, "Rent")
         await _make_tx(
-            session, account_id=acc, category_id=salary, amount=Decimal("20000"),
-            tx_type=TransactionType.INCOME, date=datetime.date(2024, 3, 1),
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("20000"),
+            tx_type=TransactionType.INCOME,
+            date=datetime.date(2024, 3, 1),
         )
         await _make_tx(
-            session, account_id=acc, category_id=food, amount=Decimal("2000"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2024, 6, 1),
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("2000"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2024, 6, 1),
         )
         await _make_tx(
-            session, account_id=acc, category_id=rent, amount=Decimal("8000"),
-            tx_type=TransactionType.EXPENSE, date=datetime.date(2024, 6, 1),
+            session,
+            account_id=acc,
+            category_id=rent,
+            amount=Decimal("8000"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2024, 6, 1),
         )
         rep = await svc.ytd_summary(2024)
         assert rep.income == Decimal("20000")
@@ -386,29 +480,83 @@ class TestLargestTransactions:
         today = datetime.date.today()
         for amt in [10, 500, 300, 50]:
             await _make_tx(
-                session, account_id=acc, category_id=cat, amount=Decimal(amt),
-                tx_type=TransactionType.EXPENSE, date=today,
+                session,
+                account_id=acc,
+                category_id=cat,
+                amount=Decimal(amt),
+                tx_type=TransactionType.EXPENSE,
+                date=today,
             )
         rows = await svc.largest_transactions(days=7, limit=3)
         assert [r.amount for r in rows] == [Decimal("500"), Decimal("300"), Decimal("50")]
 
-    async def test_filters_by_type(
-        self, svc: ReportService, session: AsyncSession
-    ) -> None:
+    async def test_filters_by_type(self, svc: ReportService, session: AsyncSession) -> None:
         acc = await _make_account(session)
         inc = await _make_category(session, "Salary", CategoryType.INCOME)
         exp = await _make_category(session, "Food")
         today = datetime.date.today()
         await _make_tx(
-            session, account_id=acc, category_id=inc, amount=Decimal("1000"),
-            tx_type=TransactionType.INCOME, date=today,
+            session,
+            account_id=acc,
+            category_id=inc,
+            amount=Decimal("1000"),
+            tx_type=TransactionType.INCOME,
+            date=today,
         )
         await _make_tx(
-            session, account_id=acc, category_id=exp, amount=Decimal("500"),
-            tx_type=TransactionType.EXPENSE, date=today,
+            session,
+            account_id=acc,
+            category_id=exp,
+            amount=Decimal("500"),
+            tx_type=TransactionType.EXPENSE,
+            date=today,
         )
-        rows = await svc.largest_transactions(
-            days=7, limit=10, tx_type=TransactionType.EXPENSE
-        )
+        rows = await svc.largest_transactions(days=7, limit=10, tx_type=TransactionType.EXPENSE)
         assert len(rows) == 1
         assert rows[0].type == TransactionType.EXPENSE
+
+
+class TestReportDisplayHelpers:
+    def test_average_savings_rate_pct_empty(self) -> None:
+        assert ReportService.average_savings_rate_pct([]) == Decimal("0")
+
+    def test_average_savings_rate_pct_with_none_rates(self) -> None:
+        points = [
+            SavingsRatePoint(2026, 1, Decimal("0"), Decimal("100")),
+            SavingsRatePoint(2026, 2, Decimal("1000"), Decimal("800")),
+        ]
+        # month 1: no income -> 0%; month 2: 20% -> avg 10%
+        assert ReportService.average_savings_rate_pct(points) == Decimal("10")
+
+    def test_spending_by_category_share_pct(self) -> None:
+        rep = SpendingByCategory(
+            start=datetime.date(2026, 1, 1),
+            end=datetime.date(2026, 1, 31),
+            rows=[
+                CategoryAmount("Food", Decimal("75")),
+                CategoryAmount("Transport", Decimal("25")),
+            ],
+        )
+        assert rep.share_pct(Decimal("75")) == Decimal("75")
+        assert rep.total == Decimal("100")
+
+    def test_spending_by_category_share_pct_zero_total(self) -> None:
+        rep = SpendingByCategory(
+            start=datetime.date(2026, 1, 1),
+            end=datetime.date(2026, 1, 31),
+            rows=[],
+        )
+        assert rep.share_pct(Decimal("50")) == Decimal("5000")
+
+    def test_yoy_comparison_totals(self) -> None:
+        rep = YoYComparison(
+            year=2026,
+            basis="expense",
+            rows=[
+                YoYRow(1, Decimal("100"), Decimal("80")),
+                YoYRow(2, Decimal("200"), Decimal("150")),
+            ],
+        )
+        assert rep.total_this_year == Decimal("300")
+        assert rep.total_last_year == Decimal("230")
+        assert rep.total_delta == Decimal("70")

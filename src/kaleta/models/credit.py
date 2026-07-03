@@ -19,17 +19,13 @@ class CreditCardProfile(TimestampMixin, Base):
     """
 
     __tablename__ = "credit_card_profiles"
-    __table_args__ = (
-        UniqueConstraint("account_id", name="uq_credit_card_account"),
-    )
+    __table_args__ = (UniqueConstraint("account_id", name="uq_credit_card_account"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
     )
-    credit_limit: Mapped[Decimal] = mapped_column(
-        Numeric(precision=15, scale=2), nullable=False
-    )
+    credit_limit: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     statement_day: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     payment_due_day: Mapped[int] = mapped_column(Integer, nullable=False, default=25)
     min_payment_pct: Mapped[Decimal] = mapped_column(
@@ -65,17 +61,11 @@ class LoanProfile(TimestampMixin, Base):
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id", ondelete="CASCADE"), nullable=False
     )
-    principal: Mapped[Decimal] = mapped_column(
-        Numeric(precision=15, scale=2), nullable=False
-    )
-    apr: Mapped[Decimal] = mapped_column(
-        Numeric(precision=5, scale=2), nullable=False
-    )
+    principal: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
+    apr: Mapped[Decimal] = mapped_column(Numeric(precision=5, scale=2), nullable=False)
     term_months: Mapped[int] = mapped_column(Integer, nullable=False)
     start_date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    monthly_payment: Mapped[Decimal] = mapped_column(
-        Numeric(precision=15, scale=2), nullable=False
-    )
+    monthly_payment: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
 
     def __repr__(self) -> str:
         return (

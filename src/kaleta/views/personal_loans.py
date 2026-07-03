@@ -52,12 +52,8 @@ def register() -> None:
             counterparties = await svc.list_counterparties()
             totals = await svc.totals()
             accounts = await AccountService(session).list()
-            expense_cats = await CategoryService(session).list(
-                type=CategoryType.EXPENSE
-            )
-            income_cats = await CategoryService(session).list(
-                type=CategoryType.INCOME
-            )
+            expense_cats = await CategoryService(session).list(type=CategoryType.EXPENSE)
+            income_cats = await CategoryService(session).list(type=CategoryType.INCOME)
 
         counterparty_opts: dict[int, str] = {c.id: c.name for c in counterparties}
         account_opts: dict[int, str] = {a.id: a.name for a in accounts}
@@ -90,28 +86,22 @@ def register() -> None:
             editing_state: dict[str, int | None] = {"id": None}
 
             with ui.dialog() as loan_dialog, ui.card().classes("w-[520px] gap-3"):
-                loan_dialog_title = ui.label(
-                    t("personal_loans.dialog_title_new")
-                ).classes("text-lg font-bold")
+                loan_dialog_title = ui.label(t("personal_loans.dialog_title_new")).classes(
+                    "text-lg font-bold"
+                )
 
                 counterparty_in = (
                     ui.input(label=t("personal_loans.field_counterparty"))
                     .props("dense outlined")
                     .classes("w-full")
                 )
-                ui.label(t("personal_loans.field_counterparty_hint")).classes(
-                    BODY_MUTED
-                )
+                ui.label(t("personal_loans.field_counterparty_hint")).classes(BODY_MUTED)
 
                 direction_in = (
                     ui.select(
                         options={
-                            LoanDirection.OUTGOING.value: t(
-                                "personal_loans.direction_outgoing"
-                            ),
-                            LoanDirection.INCOMING.value: t(
-                                "personal_loans.direction_incoming"
-                            ),
+                            LoanDirection.OUTGOING.value: t("personal_loans.direction_outgoing"),
+                            LoanDirection.INCOMING.value: t("personal_loans.direction_incoming"),
                         },
                         label=t("personal_loans.field_direction"),
                         value=LoanDirection.OUTGOING.value,
@@ -159,20 +149,16 @@ def register() -> None:
                 )
 
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                    ui.button(t("common.cancel"), on_click=loan_dialog.close).props(
-                        "flat"
+                    ui.button(t("common.cancel"), on_click=loan_dialog.close).props("flat")
+                    loan_save_btn = ui.button(t("common.save"), icon="check").props(
+                        "color=primary unelevated"
                     )
-                    loan_save_btn = ui.button(
-                        t("common.save"), icon="check"
-                    ).props("color=primary unelevated")
 
             # ── Repayment dialog ──────────────────────────────────────────
             repayment_state: dict[str, int | None] = {"loan_id": None}
 
             with ui.dialog() as rep_dialog, ui.card().classes("w-[520px] gap-3"):
-                ui.label(t("personal_loans.repayment_dialog_title")).classes(
-                    "text-lg font-bold"
-                )
+                ui.label(t("personal_loans.repayment_dialog_title")).classes("text-lg font-bold")
                 with ui.row().classes("w-full gap-2"):
                     rep_amount = (
                         ui.number(
@@ -206,9 +192,7 @@ def register() -> None:
                     .props("dense outlined")
                     .classes("w-full")
                 )
-                ui.label(t("personal_loans.repayment_field_link_hint")).classes(
-                    BODY_MUTED
-                )
+                ui.label(t("personal_loans.repayment_field_link_hint")).classes(BODY_MUTED)
                 rep_link_category = (
                     ui.select(
                         options={**expense_cat_opts, **income_cat_opts},
@@ -219,25 +203,19 @@ def register() -> None:
                     .classes("w-full")
                 )
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                    ui.button(t("common.cancel"), on_click=rep_dialog.close).props(
-                        "flat"
+                    ui.button(t("common.cancel"), on_click=rep_dialog.close).props("flat")
+                    rep_save_btn = ui.button(t("common.save"), icon="check").props(
+                        "color=primary unelevated"
                     )
-                    rep_save_btn = ui.button(
-                        t("common.save"), icon="check"
-                    ).props("color=primary unelevated")
 
             # ── Delete-confirm dialog ─────────────────────────────────────
             pending_delete: dict[str, int] = {"id": 0}
 
             with ui.dialog() as delete_dialog, ui.card().classes("w-[440px] gap-3"):
-                ui.label(t("personal_loans.confirm_delete_title")).classes(
-                    "text-lg font-bold"
-                )
+                ui.label(t("personal_loans.confirm_delete_title")).classes("text-lg font-bold")
                 ui.label(t("personal_loans.confirm_delete_body")).classes(BODY_MUTED)
                 with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                    ui.button(t("common.cancel"), on_click=delete_dialog.close).props(
-                        "flat"
-                    )
+                    ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
                     confirm_delete_btn = ui.button(
                         t("personal_loans.confirm_delete_confirm"), icon="delete"
                     ).props("color=negative unelevated")
@@ -281,11 +259,7 @@ def register() -> None:
                     opened_at = datetime.date.fromisoformat(
                         opened_in.value or datetime.date.today().isoformat()
                     )
-                    due_at = (
-                        datetime.date.fromisoformat(due_in.value)
-                        if due_in.value
-                        else None
-                    )
+                    due_at = datetime.date.fromisoformat(due_in.value) if due_in.value else None
                     currency = (currency_in.value or "PLN").strip().upper()[:3] or "PLN"
                     direction = LoanDirection(direction_in.value)
                     notes = (notes_in.value or "").strip() or None
@@ -402,9 +376,9 @@ def register() -> None:
 
             # ── Top-right Add button ─────────────────────────────────────
             with ui.row().classes("w-full justify-end"):
-                ui.button(
-                    t("personal_loans.add"), icon="add", on_click=_open_add_loan
-                ).props("color=primary unelevated size=sm")
+                ui.button(t("personal_loans.add"), icon="add", on_click=_open_add_loan).props(
+                    "color=primary unelevated size=sm"
+                )
 
             # ── List rendering ───────────────────────────────────────────
             outstanding = [ln for ln in loans if ln.status == LoanStatus.OUTSTANDING]
@@ -417,9 +391,7 @@ def register() -> None:
             if outstanding:
                 with ui.card().classes(SECTION_CARD):
                     with ui.row().classes("items-center gap-2"):
-                        ui.label(t("personal_loans.section_outstanding")).classes(
-                            SECTION_HEADING
-                        )
+                        ui.label(t("personal_loans.section_outstanding")).classes(SECTION_HEADING)
                         ui.badge(
                             t(
                                 "personal_loans.outstanding_count",
@@ -438,9 +410,7 @@ def register() -> None:
             if settled:
                 with ui.card().classes(SECTION_CARD):
                     with ui.row().classes("items-center gap-2"):
-                        ui.label(t("personal_loans.section_settled")).classes(
-                            SECTION_HEADING
-                        )
+                        ui.label(t("personal_loans.section_settled")).classes(SECTION_HEADING)
                         ui.badge(
                             t(
                                 "personal_loans.settled_count",
@@ -506,11 +476,9 @@ def _render_loan_row(
                             currency=loan.currency,
                         )
                     ).classes("text-xs text-slate-500")
-            ui.button(
-                icon="edit", on_click=lambda _e, ll=loan: on_edit(ll)
-            ).props("flat dense round color=grey-7").tooltip(
-                t("personal_loans.action_edit")
-            )
+            ui.button(icon="edit", on_click=lambda _e, ll=loan: on_edit(ll)).props(
+                "flat dense round color=grey-7"
+            ).tooltip(t("personal_loans.action_edit"))
             if not is_settled:
                 ui.button(
                     icon="payments",
@@ -521,9 +489,7 @@ def _render_loan_row(
             ui.button(
                 icon="delete",
                 on_click=lambda _e, lid=loan.id: on_delete(lid),
-            ).props("flat dense round color=negative").tooltip(
-                t("personal_loans.action_delete")
-            )
+            ).props("flat dense round color=negative").tooltip(t("personal_loans.action_delete"))
 
         # Repayments list (always visible so the user sees the audit trail).
         if loan.repayments:
@@ -533,9 +499,7 @@ def _render_loan_row(
                 )
                 for r in loan.repayments:
                     with ui.row().classes("w-full items-center gap-3 py-1"):
-                        ui.label(_fmt_date(r.date)).classes(
-                            "w-24 text-xs text-slate-500"
-                        )
+                        ui.label(_fmt_date(r.date)).classes("w-24 text-xs text-slate-500")
                         if r.note:
                             ui.label(r.note).classes("flex-1 text-sm")
                         else:
@@ -547,9 +511,7 @@ def _render_loan_row(
                                     id=r.linked_transaction_id,
                                 )
                             ).props("color=grey-6 outline rounded")
-                        ui.label(
-                            f"-{_fmt(r.amount)} {loan.currency}"
-                        ).classes(
+                        ui.label(f"-{_fmt(r.amount)} {loan.currency}").classes(
                             f"{AMOUNT_EXPENSE if is_outgoing else AMOUNT_INCOME} "
                             "w-28 text-right text-sm"
                         )

@@ -41,21 +41,15 @@ class PersonalLoanService:
     # ── Counterparty CRUD ─────────────────────────────────────────────────
 
     async def list_counterparties(self) -> builtins.list[Counterparty]:
-        result = await self.session.execute(
-            select(Counterparty).order_by(Counterparty.name)
-        )
+        result = await self.session.execute(select(Counterparty).order_by(Counterparty.name))
         return list(result.scalars().all())
 
     async def get_counterparty(self, cp_id: int) -> Counterparty | None:
-        result = await self.session.execute(
-            select(Counterparty).where(Counterparty.id == cp_id)
-        )
+        result = await self.session.execute(select(Counterparty).where(Counterparty.id == cp_id))
         return result.scalar_one_or_none()
 
     async def get_counterparty_by_name(self, name: str) -> Counterparty | None:
-        result = await self.session.execute(
-            select(Counterparty).where(Counterparty.name == name)
-        )
+        result = await self.session.execute(select(Counterparty).where(Counterparty.name == name))
         return result.scalar_one_or_none()
 
     async def upsert_counterparty(self, name: str) -> Counterparty:
@@ -69,9 +63,7 @@ class PersonalLoanService:
         await self.session.refresh(cp)
         return cp
 
-    async def create_counterparty(
-        self, payload: CounterpartyCreate
-    ) -> Counterparty:
+    async def create_counterparty(self, payload: CounterpartyCreate) -> Counterparty:
         cp = Counterparty(name=payload.name, notes=payload.notes)
         self.session.add(cp)
         await self.session.commit()
@@ -103,9 +95,7 @@ class PersonalLoanService:
         )
         return result.scalar_one_or_none()
 
-    async def list_loans(
-        self, *, status: LoanStatus | None = None
-    ) -> builtins.list[PersonalLoan]:
+    async def list_loans(self, *, status: LoanStatus | None = None) -> builtins.list[PersonalLoan]:
         stmt = (
             select(PersonalLoan)
             .options(
@@ -134,9 +124,7 @@ class PersonalLoanService:
         await self.session.commit()
         return await self.get_loan(loan.id)  # type: ignore[return-value]
 
-    async def update_loan(
-        self, loan_id: int, payload: PersonalLoanUpdate
-    ) -> PersonalLoan | None:
+    async def update_loan(self, loan_id: int, payload: PersonalLoanUpdate) -> PersonalLoan | None:
         loan = await self.get_loan(loan_id)
         if loan is None:
             return None
@@ -215,9 +203,7 @@ class PersonalLoanService:
 
     async def delete_repayment(self, repayment_id: int) -> bool:
         result = await self.session.execute(
-            select(PersonalLoanRepayment).where(
-                PersonalLoanRepayment.id == repayment_id
-            )
+            select(PersonalLoanRepayment).where(PersonalLoanRepayment.id == repayment_id)
         )
         r = result.scalar_one_or_none()
         if r is None:
@@ -228,9 +214,7 @@ class PersonalLoanService:
         # Re-evaluate status with the remaining repayments.
         loan = await self.get_loan(loan_id)
         if loan is not None:
-            remaining = _compute_remaining(
-                loan.principal, [rep.amount for rep in loan.repayments]
-            )
+            remaining = _compute_remaining(loan.principal, [rep.amount for rep in loan.repayments])
             loan.status = (
                 LoanStatus.SETTLED
                 if remaining <= Decimal("0") and loan.repayments
@@ -254,9 +238,7 @@ class PersonalLoanService:
                 settled += 1
                 continue
             outstanding += 1
-            remaining = _compute_remaining(
-                loan.principal, [r.amount for r in loan.repayments]
-            )
+            remaining = _compute_remaining(loan.principal, [r.amount for r in loan.repayments])
             if remaining <= Decimal("0"):
                 continue
             if loan.direction == LoanDirection.OUTGOING:
@@ -274,9 +256,7 @@ class PersonalLoanService:
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _compute_remaining(
-    principal: Decimal, repayments: builtins.list[Decimal]
-) -> Decimal:
+def _compute_remaining(principal: Decimal, repayments: builtins.list[Decimal]) -> Decimal:
     total_repaid = sum(repayments, Decimal("0"))
     return (principal - total_repaid).quantize(Decimal("0.01"))
 

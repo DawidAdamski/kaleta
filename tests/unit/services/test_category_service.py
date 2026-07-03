@@ -71,6 +71,23 @@ class TestCategoryServiceList:
         assert cats == []
 
 
+class TestCategoryServiceBuildOptionLabels:
+    async def test_hierarchical_labels(self, svc: CategoryService):
+        root = await svc.create(CategoryCreate(name="Fuel", type=CategoryType.EXPENSE))
+        child = await svc.create(
+            CategoryCreate(name="Toyota", type=CategoryType.EXPENSE, parent_id=root.id)
+        )
+        cats = await svc.list()
+        labels = CategoryService.build_option_labels(cats)
+        assert labels[root.id] == "Fuel"
+        assert labels[child.id] == "Fuel \u2192 Toyota"
+
+    async def test_orphan_child_treated_as_root(self, svc: CategoryService):
+        lone = await svc.create(CategoryCreate(name="Orphan", type=CategoryType.EXPENSE))
+        labels = CategoryService.build_option_labels([lone])
+        assert labels[lone.id] == "Orphan"
+
+
 class TestCategoryServiceUpdate:
     async def test_update_name(self, svc: CategoryService):
         cat = await svc.create(CategoryCreate(name="Old", type=CategoryType.EXPENSE))

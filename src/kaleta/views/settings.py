@@ -83,12 +83,8 @@ def register() -> None:
                     "features", label=t("settings.tab_features"), icon="toggle_on"
                 )
                 data_tab = ui.tab("data", label=t("settings.tab_data"), icon="storage")
-                history_tab = ui.tab(
-                    "history", label=t("settings.tab_history"), icon="history"
-                )
-                about_tab = ui.tab(
-                    "about", label=t("settings.tab_about"), icon="info"
-                )
+                history_tab = ui.tab("history", label=t("settings.tab_history"), icon="history")
+                about_tab = ui.tab("about", label=t("settings.tab_about"), icon="info")
 
             with ui.tab_panels(tabs, value=general_tab).classes("w-full"):
                 with ui.tab_panel(general_tab):
@@ -267,9 +263,7 @@ def _render_features_tab() -> None:
         with ui.card().classes("p-6 w-full"):
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("subscriptions", color="primary").classes("text-xl")
-                ui.label(t("settings.subscriptions_title")).classes(
-                    "text-lg font-semibold"
-                )
+                ui.label(t("settings.subscriptions_title")).classes("text-lg font-semibold")
             ui.label(t("settings.subscriptions_hint")).classes("text-xs text-grey-6 mb-4")
 
             current_sub_days: int = int(
@@ -284,18 +278,14 @@ def _render_features_tab() -> None:
                 min=30,
                 max=1825,
                 step=30,
-                on_change=lambda e: _set_key(
-                    "subscriptions_detector_days", int(e.value or 0)
-                ),
+                on_change=lambda e: _set_key("subscriptions_detector_days", int(e.value or 0)),
             ).classes("max-w-60")
 
         # ── Housekeeping duplicate-scan window ────────────────────────
         with ui.card().classes("p-6 w-full"):
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("cleaning_services", color="primary").classes("text-xl")
-                ui.label(t("settings.housekeeping_title")).classes(
-                    "text-lg font-semibold"
-                )
+                ui.label(t("settings.housekeeping_title")).classes("text-lg font-semibold")
             ui.label(t("settings.housekeeping_hint")).classes("text-xs text-grey-6 mb-4")
 
             current_hk_days: int = int(
@@ -310,21 +300,15 @@ def _render_features_tab() -> None:
                 min=30,
                 max=1825,
                 step=30,
-                on_change=lambda e: _set_key(
-                    "housekeeping_duplicate_days", int(e.value or 0)
-                ),
+                on_change=lambda e: _set_key("housekeeping_duplicate_days", int(e.value or 0)),
             ).classes("max-w-60")
 
         # ── Payment Calendar overdue window ───────────────────────────
         with ui.card().classes("p-6 w-full"):
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("calendar_month", color="primary").classes("text-xl")
-                ui.label(t("settings.payment_calendar_title")).classes(
-                    "text-lg font-semibold"
-                )
-            ui.label(t("settings.payment_calendar_hint")).classes(
-                "text-xs text-grey-6 mb-4"
-            )
+                ui.label(t("settings.payment_calendar_title")).classes("text-lg font-semibold")
+            ui.label(t("settings.payment_calendar_hint")).classes("text-xs text-grey-6 mb-4")
 
             current_pc_days: int = int(
                 app.storage.user.get(
@@ -338,9 +322,7 @@ def _render_features_tab() -> None:
                 min=1,
                 max=180,
                 step=1,
-                on_change=lambda e: _set_key(
-                    "payment_calendar_overdue_days", int(e.value or 0)
-                ),
+                on_change=lambda e: _set_key("payment_calendar_overdue_days", int(e.value or 0)),
             ).classes("max-w-60")
 
 
@@ -375,9 +357,7 @@ async def _render_data_tab(
                 all_rows.sort(key=lambda r: r.date, reverse=True)
 
                 if not all_rows:
-                    ui.label(t("settings.no_rates_yet")).classes(
-                        "text-grey-5 text-sm mb-3"
-                    )
+                    ui.label(t("settings.no_rates_yet")).classes("text-grey-5 text-sm mb-3")
                 else:
                     date_col_label = t("common.date")
                     pair_col_label = t("settings.rate_pair")
@@ -563,18 +543,18 @@ async def _render_data_tab(
 
             with ui.row().classes("w-full justify-end gap-2 mt-3"):
                 ui.button(t("common.cancel"), on_click=restore_dlg.close).props("flat")
-                restore_btn = ui.button(
-                    t("settings.restore_confirm"), on_click=_do_restore
-                ).props("color=negative")
+                restore_btn = ui.button(t("settings.restore_confirm"), on_click=_do_restore).props(
+                    "color=negative"
+                )
                 restore_btn.disable()
 
         with ui.row().classes("gap-3"):
-            ui.button(
-                t("settings.backup_export"), icon="download", on_click=_do_export
-            ).props("color=primary")
-            ui.button(
-                t("settings.backup_restore"), icon="upload", on_click=restore_dlg.open
-            ).props("outline color=negative")
+            ui.button(t("settings.backup_export"), icon="download", on_click=_do_export).props(
+                "color=primary"
+            )
+            ui.button(t("settings.backup_restore"), icon="upload", on_click=restore_dlg.open).props(
+                "outline color=negative"
+            )
 
     # Demo data + Wipe
     with ui.card().classes("p-6 w-full mt-4"):
@@ -619,9 +599,7 @@ async def _render_data_tab(
 
         seed_dlg = ui.dialog()
         with seed_dlg, ui.card().classes("w-96"):
-            ui.label(t("settings.seed_confirm_title")).classes(
-                "text-base font-semibold mb-1"
-            )
+            ui.label(t("settings.seed_confirm_title")).classes("text-base font-semibold mb-1")
             ui.label(t("settings.seed_confirm_body")).classes("text-sm text-grey-7 mb-4")
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button(t("common.cancel"), on_click=seed_dlg.close).props("flat")
@@ -633,17 +611,11 @@ async def _render_data_tab(
 
         clear_data_dlg = ui.dialog()
         with clear_data_dlg, ui.card().classes("w-96"):
-            ui.label(t("settings.clear_confirm_title")).classes(
-                "text-base font-semibold mb-1"
-            )
+            ui.label(t("settings.clear_confirm_title")).classes("text-base font-semibold mb-1")
             ui.label(t("settings.clear_confirm_body")).classes("text-sm text-negative mb-4")
-            wipe_input = ui.input(label=t("settings.clear_confirm_typebox")).classes(
-                "w-full mb-2"
-            )
+            wipe_input = ui.input(label=t("settings.clear_confirm_typebox")).classes("w-full mb-2")
             with ui.row().classes("w-full justify-end gap-2"):
-                ui.button(t("common.cancel"), on_click=clear_data_dlg.close).props(
-                    "flat"
-                )
+                ui.button(t("common.cancel"), on_click=clear_data_dlg.close).props("flat")
                 ui.button(
                     t("settings.clear_btn"),
                     icon="delete_forever",
@@ -714,9 +686,7 @@ async def _render_history_tab() -> None:
                 ui.label(t("audit.empty")).classes("text-grey-5 text-sm")
                 return
 
-            with ui.row().classes(
-                "w-full px-2 py-1 text-xs text-grey-6 font-medium border-b"
-            ):
+            with ui.row().classes("w-full px-2 py-1 text-xs text-grey-6 font-medium border-b"):
                 ui.label(t("audit.timestamp")).classes("w-40")
                 ui.label(t("audit.operation")).classes("w-28")
                 ui.label(t("audit.table")).classes("w-36")
@@ -751,9 +721,9 @@ async def _render_history_tab() -> None:
                     )
                     ui.badge(op_label, color=color).classes("w-28 text-center")
                     ui.label(entry.table_name).classes("w-36 text-sm")
-                    ui.label(
-                        str(entry.record_id) if entry.record_id is not None else "—"
-                    ).classes("w-16 text-right text-sm text-grey-6")
+                    ui.label(str(entry.record_id) if entry.record_id is not None else "—").classes(
+                        "w-16 text-right text-sm text-grey-6"
+                    )
                     ui.label(summary).classes("flex-1 text-sm text-grey-7 truncate")
                     with ui.row().classes("w-24 justify-end"):
                         if entry.reverted:

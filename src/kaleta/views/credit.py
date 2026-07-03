@@ -67,12 +67,8 @@ def register() -> None:
 
             # ── Tabs: Cards | Loans ──────────────────────────────────────
             with ui.tabs().classes("w-full") as tabs:
-                cards_tab = ui.tab(
-                    "cards", label=t("credit.tab_cards"), icon="credit_card"
-                )
-                loans_tab = ui.tab(
-                    "loans", label=t("credit.tab_loans"), icon="account_balance"
-                )
+                cards_tab = ui.tab("cards", label=t("credit.tab_cards"), icon="credit_card")
+                loans_tab = ui.tab("loans", label=t("credit.tab_loans"), icon="account_balance")
 
             with ui.tab_panels(tabs, value=cards_tab).classes("w-full"):
                 with ui.tab_panel(cards_tab):
@@ -92,9 +88,7 @@ async def _render_cards_tab(cards: list[CardView]) -> None:
         name_in = ui.input(label=t("credit.field_name")).props("dense outlined").classes("w-full")
         with ui.row().classes("w-full gap-2"):
             limit_in = (
-                ui.number(
-                    label=t("credit.field_credit_limit"), value=0, min=0, format="%.2f"
-                )
+                ui.number(label=t("credit.field_credit_limit"), value=0, min=0, format="%.2f")
                 .props("dense outlined")
                 .classes("flex-1")
             )
@@ -156,9 +150,9 @@ async def _render_cards_tab(cards: list[CardView]) -> None:
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
             ui.button(t("common.cancel"), on_click=add_card_dialog.close).props("flat")
-            save_card_btn = ui.button(
-                t("common.save"), icon="check"
-            ).props("color=primary unelevated")
+            save_card_btn = ui.button(t("common.save"), icon="check").props(
+                "color=primary unelevated"
+            )
 
     async def _save_card() -> None:
         try:
@@ -239,16 +233,12 @@ def _render_card(card: CardView) -> None:
                     ).classes(BODY_MUTED)
             with ui.column().classes("items-end gap-0"):
                 pct_label = int(round(float(card.utilization_pct) * 100))
-                ui.label(f"{pct_label}%").classes(
-                    f"text-lg font-bold text-{colour}"
-                )
-                ui.label(t("credit.card_utilization")).classes(
-                    "text-xs text-slate-500"
-                )
+                ui.label(f"{pct_label}%").classes(f"text-lg font-bold text-{colour}")
+                ui.label(t("credit.card_utilization")).classes("text-xs text-slate-500")
 
-        ui.linear_progress(
-            value=pct_clamped, size="8px", show_value=False, color=colour
-        ).classes("w-full mt-3")
+        ui.linear_progress(value=pct_clamped, size="8px", show_value=False, color=colour).classes(
+            "w-full mt-3"
+        )
 
         with ui.row().classes("w-full items-center justify-between mt-3"):
             with ui.column().classes("gap-0"):
@@ -260,12 +250,12 @@ def _render_card(card: CardView) -> None:
                 ui.label(t("credit.min_payment_label")).classes(
                     "text-xs text-slate-500 uppercase tracking-wide"
                 )
-                ui.label(
-                    f"{_fmt(card.min_payment)} {card.currency}"
-                ).classes(f"{AMOUNT_EXPENSE} text-sm font-semibold")
-            ui.chip(
-                t(f"credit.status_{card.status.value}"), color=status_colour
-            ).props("dense outline")
+                ui.label(f"{_fmt(card.min_payment)} {card.currency}").classes(
+                    f"{AMOUNT_EXPENSE} text-sm font-semibold"
+                )
+            ui.chip(t(f"credit.status_{card.status.value}"), color=status_colour).props(
+                "dense outline"
+            )
 
 
 # ── Loans tab ────────────────────────────────────────────────────────────────
@@ -275,21 +265,15 @@ async def _render_loans_tab(loans: list[LoanView]) -> None:
     # ── Add-loan dialog ──────────────────────────────────────────────────
     with ui.dialog() as add_loan_dialog, ui.card().classes("w-[520px] gap-3"):
         ui.label(t("credit.new_loan_title")).classes("text-lg font-bold")
-        l_name_in = (
-            ui.input(label=t("credit.field_name")).props("dense outlined").classes("w-full")
-        )
+        l_name_in = ui.input(label=t("credit.field_name")).props("dense outlined").classes("w-full")
         with ui.row().classes("w-full gap-2"):
             l_principal_in = (
-                ui.number(
-                    label=t("credit.field_principal"), value=0, min=0, format="%.2f"
-                )
+                ui.number(label=t("credit.field_principal"), value=0, min=0, format="%.2f")
                 .props("dense outlined")
                 .classes("flex-1")
             )
             l_apr_in = (
-                ui.number(
-                    label=t("credit.field_apr"), value=0, min=0, max=100, format="%.2f"
-                )
+                ui.number(label=t("credit.field_apr"), value=0, min=0, max=100, format="%.2f")
                 .props("dense outlined")
                 .classes("flex-1")
             )
@@ -313,9 +297,9 @@ async def _render_loans_tab(loans: list[LoanView]) -> None:
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
             ui.button(t("common.cancel"), on_click=add_loan_dialog.close).props("flat")
-            save_loan_btn = ui.button(
-                t("common.save"), icon="check"
-            ).props("color=primary unelevated")
+            save_loan_btn = ui.button(t("common.save"), icon="check").props(
+                "color=primary unelevated"
+            )
 
     async def _save_loan() -> None:
         try:
@@ -377,11 +361,7 @@ async def _render_loans_tab(loans: list[LoanView]) -> None:
 
 def _render_loan(loan: LoanView) -> None:
     status_colour = _STATUS_COLOR[loan.status]
-    pct_clamped = (
-        float(loan.months_elapsed / loan.term_months)
-        if loan.term_months > 0
-        else 0.0
-    )
+    pct_clamped = float(loan.months_elapsed / loan.term_months) if loan.term_months > 0 else 0.0
 
     with ui.card().classes(SECTION_CARD):
         with ui.row().classes("w-full items-center justify-between gap-3"):
@@ -435,9 +415,9 @@ def _render_loan(loan: LoanView) -> None:
                         total=loan.term_months,
                     )
                 ).classes("text-sm font-semibold")
-            ui.chip(
-                t(f"credit.status_{loan.status.value}"), color=status_colour
-            ).props("dense outline")
+            ui.chip(t(f"credit.status_{loan.status.value}"), color=status_colour).props(
+                "dense outline"
+            )
 
         # Amortisation expansion — first 6 rows preview.
         from kaleta.models.credit import LoanProfile
@@ -451,21 +431,19 @@ def _render_loan(loan: LoanView) -> None:
             monthly_payment=loan.monthly_payment,
         )
         schedule = amortisation_schedule(dummy)
-        with ui.expansion(t("credit.loan_schedule"), icon="list_alt").classes(
-            "w-full mt-3"
-        ).props("dense"):
+        with (
+            ui.expansion(t("credit.loan_schedule"), icon="list_alt")
+            .classes("w-full mt-3")
+            .props("dense")
+        ):
             _render_schedule_preview(schedule, currency=loan.currency)
 
 
-def _render_schedule_preview(
-    schedule: list[Any], *, currency: str, preview_rows: int = 6
-) -> None:
+def _render_schedule_preview(schedule: list[Any], *, currency: str, preview_rows: int = 6) -> None:
     if not schedule:
         return
     # Header row
-    with ui.row().classes(
-        "w-full px-2 py-1 text-xs text-slate-500 font-medium border-b"
-    ):
+    with ui.row().classes("w-full px-2 py-1 text-xs text-slate-500 font-medium border-b"):
         ui.label(t("credit.sched_month")).classes("w-16")
         ui.label(t("credit.sched_date")).classes("w-28")
         ui.label(t("credit.sched_payment")).classes("flex-1 text-right")
@@ -473,24 +451,16 @@ def _render_schedule_preview(
         ui.label(t("credit.sched_interest")).classes("flex-1 text-right")
         ui.label(t("credit.sched_remaining")).classes("flex-1 text-right")
 
-    rows_to_show = schedule[: preview_rows]
+    rows_to_show = schedule[:preview_rows]
     for row in rows_to_show:
         with ui.row().classes("w-full px-2 py-1 border-b border-slate-200/20"):
             ui.label(str(row.month)).classes("w-16 text-sm text-slate-500")
             ui.label(_fmt_date(row.date)).classes("w-28 text-sm")
-            ui.label(f"{_fmt(row.payment)} {currency}").classes(
-                "flex-1 text-right text-sm"
-            )
-            ui.label(_fmt(row.principal_paid)).classes(
-                "flex-1 text-right text-sm"
-            )
-            ui.label(_fmt(row.interest_paid)).classes(
-                "flex-1 text-right text-sm text-slate-500"
-            )
-            ui.label(_fmt(row.remaining_principal)).classes(
-                "flex-1 text-right text-sm"
-            )
+            ui.label(f"{_fmt(row.payment)} {currency}").classes("flex-1 text-right text-sm")
+            ui.label(_fmt(row.principal_paid)).classes("flex-1 text-right text-sm")
+            ui.label(_fmt(row.interest_paid)).classes("flex-1 text-right text-sm text-slate-500")
+            ui.label(_fmt(row.remaining_principal)).classes("flex-1 text-right text-sm")
     if len(schedule) > preview_rows:
-        ui.label(
-            t("credit.sched_and_more", count=len(schedule) - preview_rows)
-        ).classes(f"{BODY_MUTED} text-xs px-2 py-1")
+        ui.label(t("credit.sched_and_more", count=len(schedule) - preview_rows)).classes(
+            f"{BODY_MUTED} text-xs px-2 py-1"
+        )

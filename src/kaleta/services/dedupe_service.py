@@ -108,9 +108,7 @@ class DedupeService:
         """
         ref = today or datetime.date.today()
         effective_window = (
-            window_days
-            if window_days and window_days > 0
-            else DUPLICATE_TX_SCAN_DAYS
+            window_days if window_days and window_days > 0 else DUPLICATE_TX_SCAN_DAYS
         )
         window_start = ref - datetime.timedelta(days=effective_window)
         # Fetch lightweight rows within the scan window.
@@ -171,9 +169,7 @@ class DedupeService:
                     groups.append(TxGroup(items=tuple(cluster)))
         return groups
 
-    async def merge_transactions(
-        self, *, keeper_id: int, other_ids: builtins.list[int]
-    ) -> int:
+    async def merge_transactions(self, *, keeper_id: int, other_ids: builtins.list[int]) -> int:
         """Delete the non-keeper duplicates. Returns number deleted."""
         deletable = [oid for oid in other_ids if oid != keeper_id]
         if not deletable:
@@ -193,13 +189,9 @@ class DedupeService:
         """Find payees whose names collide on normalisation or close Levenshtein."""
         # Counts per payee_id for display + keeper-suggestion.
         count_result = await self.session.execute(
-            select(
-                Transaction.payee_id, func.count(Transaction.id)
-            ).group_by(Transaction.payee_id)
+            select(Transaction.payee_id, func.count(Transaction.id)).group_by(Transaction.payee_id)
         )
-        counts: dict[int, int] = {
-            pid: cnt for pid, cnt in count_result.all() if pid is not None
-        }
+        counts: dict[int, int] = {pid: cnt for pid, cnt in count_result.all() if pid is not None}
 
         payees_result = await self.session.execute(select(Payee).order_by(Payee.name))
         payees = list(payees_result.scalars().all())
@@ -225,9 +217,7 @@ class DedupeService:
         # Pass 2: Levenshtein pairs among the remainder. Pre-normalise once
         # and skip the inner normalise calls — avoids O(n²) diacritics work.
         remaining = [p for p in payees if p.id not in used]
-        norm_cache: list[tuple[Payee, str]] = [
-            (p, _normalise_name(p.name)) for p in remaining
-        ]
+        norm_cache: list[tuple[Payee, str]] = [(p, _normalise_name(p.name)) for p in remaining]
         norm_cache = [(p, n) for p, n in norm_cache if len(n) >= 3]
         visited: set[int] = set()
         for i, (a, na) in enumerate(norm_cache):
@@ -245,18 +235,14 @@ class DedupeService:
                 groups.append(_make_payee_group(cluster, counts))
         return groups
 
-    async def merge_payees(
-        self, *, keeper_id: int, other_ids: builtins.list[int]
-    ) -> int:
+    async def merge_payees(self, *, keeper_id: int, other_ids: builtins.list[int]) -> int:
         """Reassign every FK reference to keeper, delete the other payees."""
         victims = [oid for oid in other_ids if oid != keeper_id]
         if not victims:
             return 0
         # Reassign Transaction.payee_id
         await self.session.execute(
-            update(Transaction)
-            .where(Transaction.payee_id.in_(victims))
-            .values(payee_id=keeper_id)
+            update(Transaction).where(Transaction.payee_id.in_(victims)).values(payee_id=keeper_id)
         )
         # Reassign Subscription.payee_id
         await self.session.execute(
@@ -265,9 +251,7 @@ class DedupeService:
             .values(payee_id=keeper_id)
         )
         # Delete the victim payees. DismissedCandidate.payee_id → CASCADE.
-        result = await self.session.execute(
-            select(Payee).where(Payee.id.in_(victims))
-        )
+        result = await self.session.execute(select(Payee).where(Payee.id.in_(victims)))
         for p in result.scalars().all():
             await self.session.delete(p)
         await self.session.commit()
@@ -278,13 +262,11 @@ class DedupeService:
     async def redundant_categories(self) -> builtins.list[CategoryGroup]:
         """Categories whose normalised names collide with another category."""
         count_result = await self.session.execute(
-            select(
-                Transaction.category_id, func.count(Transaction.id)
-            ).group_by(Transaction.category_id)
+            select(Transaction.category_id, func.count(Transaction.id)).group_by(
+                Transaction.category_id
+            )
         )
-        counts: dict[int, int] = {
-            cid: cnt for cid, cnt in count_result.all() if cid is not None
-        }
+        counts: dict[int, int] = {cid: cnt for cid, cnt in count_result.all() if cid is not None}
 
         cats_result = await self.session.execute(select(Category).order_by(Category.name))
         cats = list(cats_result.scalars().all())
@@ -315,9 +297,7 @@ class DedupeService:
             groups.append(CategoryGroup(items=items))
         return groups
 
-    async def merge_categories(
-        self, *, keeper_id: int, other_ids: builtins.list[int]
-    ) -> int:
+    async def merge_categories(self, *, keeper_id: int, other_ids: builtins.list[int]) -> int:
         """Reassign every FK reference to keeper, delete the other categories.
 
         Budget rows pointing at victims with a period conflict against the
@@ -333,9 +313,7 @@ class DedupeService:
         keeper_periods_result = await self.session.execute(
             select(Budget.month, Budget.year).where(Budget.category_id == keeper_id)
         )
-        keeper_periods: set[tuple[int, int]] = {
-            (m, y) for m, y in keeper_periods_result.all()
-        }
+        keeper_periods: set[tuple[int, int]] = {(m, y) for m, y in keeper_periods_result.all()}
         victim_budgets_result = await self.session.execute(
             select(Budget).where(Budget.category_id.in_(victims))
         )
@@ -374,9 +352,7 @@ class DedupeService:
         )
         # Re-parent any child categories pointing at a victim.
         await self.session.execute(
-            update(Category)
-            .where(Category.parent_id.in_(victims))
-            .values(parent_id=keeper_id)
+            update(Category).where(Category.parent_id.in_(victims)).values(parent_id=keeper_id)
         )
 
         cats_to_delete_result = await self.session.execute(
@@ -459,14 +435,9 @@ def _norm_levenshtein_close(na: str, nb: str) -> bool:
     return _levenshtein(na, nb) <= threshold
 
 
-def _make_payee_group(
-    bucket: builtins.list[Payee], counts: dict[int, int]
-) -> PayeeGroup:
+def _make_payee_group(bucket: builtins.list[Payee], counts: dict[int, int]) -> PayeeGroup:
     items = tuple(
-        PayeeGroupItem(
-            id=p.id, name=p.name, transaction_count=counts.get(p.id, 0)
-        )
-        for p in bucket
+        PayeeGroupItem(id=p.id, name=p.name, transaction_count=counts.get(p.id, 0)) for p in bucket
     )
     return PayeeGroup(items=items)
 

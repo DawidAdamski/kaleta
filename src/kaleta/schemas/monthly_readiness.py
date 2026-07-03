@@ -22,12 +22,7 @@ class MonthlyReadinessResponse(BaseModel):
 
     @property
     def is_ready(self) -> bool:
-        return (
-            self.stage_1_done
-            and self.stage_2_done
-            and self.stage_3_done
-            and self.stage_4_done
-        )
+        return self.stage_1_done and self.stage_2_done and self.stage_3_done and self.stage_4_done
 
 
 class Stage1CloseLastMonth(BaseModel):

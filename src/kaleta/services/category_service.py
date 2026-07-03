@@ -105,6 +105,25 @@ class CategoryService:
         await self.session.commit()
         return True
 
+    @staticmethod
+    def build_option_labels(categories: builtins.list[Category]) -> dict[int, str]:
+        """Build ``{id: label}`` with hierarchical labels like ``Fuel → Toyota``."""
+        cats_by_id = {c.id: c for c in categories}
+        result: dict[int, str] = {}
+        roots = sorted(
+            [c for c in categories if c.parent_id is None or c.parent_id not in cats_by_id],
+            key=lambda c: c.name,
+        )
+        for root in roots:
+            result[root.id] = root.name
+            children = sorted(
+                [c for c in categories if c.parent_id == root.id],
+                key=lambda c: c.name,
+            )
+            for child in children:
+                result[child.id] = f"{root.name} \u2192 {child.name}"
+        return result
+
     # ── Subscriptions-tree helpers ────────────────────────────────────────
 
     async def get_subscriptions_root(self) -> Category | None:
@@ -126,9 +145,7 @@ class CategoryService:
         if root is None:
             return []
         result = await self.session.execute(
-            select(Category)
-            .where(Category.parent_id == root.id)
-            .order_by(Category.name)
+            select(Category).where(Category.parent_id == root.id).order_by(Category.name)
         )
         return builtins.list(result.scalars().all())
 
@@ -166,11 +183,7 @@ class CategoryService:
         existing_names = {c.name for c in existing}
         for name in defaults:
             if name not in existing_names:
-                self.session.add(
-                    Category(
-                        name=name, type=CategoryType.EXPENSE, parent_id=root.id
-                    )
-                )
+                self.session.add(Category(name=name, type=CategoryType.EXPENSE, parent_id=root.id))
         await self.session.commit()
         return await self.get(root.id)  # type: ignore[return-value]
 

@@ -151,8 +151,6 @@ ignore_imports = [
     "kaleta.views.planned_transactions -> kaleta.models.transaction",  # TODO(q3-views-refactor)
     "kaleta.views.reports -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.reports -> kaleta.models.category",  # TODO(q3-views-refactor)
-    "kaleta.views.reports_canned -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.reports_canned -> kaleta.models.transaction",  # TODO(q3-views-refactor)
     "kaleta.views.safety_funds -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.safety_funds -> kaleta.models.reserve_fund",  # TODO(q3-views-refactor)
     "kaleta.views.settings -> kaleta.db",  # TODO(q3-views-refactor)
@@ -164,10 +162,6 @@ ignore_imports = [
     "kaleta.views.subscriptions -> kaleta.models.subscription",  # TODO(q3-views-refactor)
     "kaleta.views.tags -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.tags -> kaleta.models.tag",  # TODO(q3-views-refactor)
-    "kaleta.views.transactions -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.transactions -> kaleta.models.account",  # TODO(q3-views-refactor)
-    "kaleta.views.transactions -> kaleta.models.category",  # TODO(q3-views-refactor)
-    "kaleta.views.transactions -> kaleta.models.transaction",  # TODO(q3-views-refactor)
     "kaleta.views.wizard -> kaleta.db",  # TODO(q3-views-refactor)
 ]
 

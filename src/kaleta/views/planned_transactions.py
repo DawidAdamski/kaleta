@@ -373,8 +373,8 @@ def register() -> None:
                         icon="calendar_month",
                         on_click=lambda: ui.navigate.to("/payment-calendar"),
                     ).props("flat color=primary")
-                    ui.button(
-                        t("planned.add"), icon="add", on_click=_open_add
-                    ).props("color=primary")
+                    ui.button(t("planned.add"), icon="add", on_click=_open_add).props(
+                        "color=primary"
+                    )
 
             await planned_list_ui()

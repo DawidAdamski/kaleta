@@ -55,8 +55,7 @@ def upgrade() -> None:
         # Fallback for drivers that don't expose lastrowid.
         root_row = conn.execute(
             sa.text(
-                "SELECT id FROM categories "
-                "WHERE is_subscriptions_root = 1 ORDER BY id DESC LIMIT 1"
+                "SELECT id FROM categories WHERE is_subscriptions_root = 1 ORDER BY id DESC LIMIT 1"
             )
         ).fetchone()
         if root_row is None:

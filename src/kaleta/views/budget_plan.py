@@ -667,10 +667,14 @@ def register() -> None:
 
             with ui.row().classes("w-full items-center gap-2 flex-wrap"):
                 ui.label(t("budget_plan.copy_forward_into")).classes("text-sm text-grey-6")
-                month_select = ui.select(
-                    options=month_opts,
-                    value=default_target,
-                ).props("dense outlined").classes("w-40")
+                month_select = (
+                    ui.select(
+                        options=month_opts,
+                        value=default_target,
+                    )
+                    .props("dense outlined")
+                    .classes("w-40")
+                )
 
                 def _on_month(e: Any) -> None:
                     copy_state["target_month"] = int(e.args) if e.args else default_target

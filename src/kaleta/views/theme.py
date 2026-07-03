@@ -27,8 +27,7 @@ HEADER = "bg-white/90 text-slate-900 border-b border-slate-200/70"
 DRAWER = "bg-white/95 border-r border-slate-200/70 pt-3"
 
 NAV_GROUP = (
-    "k-nav-group text-[11px] text-slate-500 uppercase "
-    "tracking-[0.14em] font-semibold flex-1"
+    "k-nav-group text-[11px] text-slate-500 uppercase tracking-[0.14em] font-semibold flex-1"
 )
 NAV_GROUP_ROW = (
     "k-nav-row items-center h-9 px-3 mx-2 rounded-xl cursor-pointer "
@@ -39,12 +38,8 @@ NAV_ITEM = (
 )
 
 PAGE_TITLE = "text-3xl font-semibold tracking-tight text-primary"
-SECTION_CARD = (
-    "k-surface w-full rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-sm"
-)
-TOOLBAR_CARD = (
-    "k-surface w-full rounded-2xl border border-slate-200/70 bg-white/80 p-3 shadow-sm"
-)
+SECTION_CARD = "k-surface w-full rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-sm"
+TOOLBAR_CARD = "k-surface w-full rounded-2xl border border-slate-200/70 bg-white/80 p-3 shadow-sm"
 SECTION_TITLE = "k-muted text-sm font-semibold uppercase tracking-[0.14em] text-slate-500"
 SECTION_HEADING = "text-lg font-semibold text-primary"
 DIALOG_TITLE = "text-lg font-bold text-primary"
@@ -319,8 +314,7 @@ body.body--dark{background-color:rgb(15,23,42);color-scheme:dark}
 
 def kpi_card_classes() -> str:
     return (
-        "k-surface flex-1 min-w-52 rounded-2xl border border-slate-200/70 "
-        "bg-white/80 p-5 shadow-sm"
+        "k-surface flex-1 min-w-52 rounded-2xl border border-slate-200/70 bg-white/80 p-5 shadow-sm"
     )
 
 
