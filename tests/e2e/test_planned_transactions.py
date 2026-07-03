@@ -10,7 +10,6 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import seed_account, seed_category, seed_planned_transaction
 
-BASE_URL = "http://localhost:8080"
 
 
 # ---------------------------------------------------------------------------
@@ -18,12 +17,12 @@ BASE_URL = "http://localhost:8080"
 # ---------------------------------------------------------------------------
 
 
-def test_create_monthly_recurring_expense(page: Page) -> None:
+def test_create_monthly_recurring_expense(page: Page, base_url: str) -> None:
     """Scenario: Create a monthly recurring expense"""
     seed_account("PKO Main Planned Monthly")
-    seed_category("Subscriptions")
+    seed_category("Subscriptions Planned E2E")
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     page.get_by_role("button", name="Add Planned").click()
 
     dialog = page.get_by_role("dialog")
@@ -53,11 +52,11 @@ def test_create_monthly_recurring_expense(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_create_weekly_recurring_expense(page: Page) -> None:
+def test_create_weekly_recurring_expense(page: Page, base_url: str) -> None:
     """Scenario: Create a weekly recurring expense"""
     seed_account("PKO Main Planned Weekly")
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     page.get_by_role("button", name="Add Planned").click()
 
     dialog = page.get_by_role("dialog")
@@ -82,12 +81,12 @@ def test_create_weekly_recurring_expense(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_create_yearly_recurring_expense(page: Page) -> None:
+def test_create_yearly_recurring_expense(page: Page, base_url: str) -> None:
     """Scenario: Create a yearly recurring expense"""
     seed_account("PKO Main Planned Yearly")
     seed_category("Insurance")
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     page.get_by_role("button", name="Add Planned").click()
 
     dialog = page.get_by_role("dialog")
@@ -112,7 +111,7 @@ def test_create_yearly_recurring_expense(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_edit_planned_transaction_amount(page: Page) -> None:
+def test_edit_planned_transaction_amount(page: Page, base_url: str) -> None:
     """Scenario: Edit a planned transaction amount"""
     acc_id = seed_account("PKO Main Planned Edit")
     cat_id = seed_category("Subs Edit")
@@ -123,7 +122,7 @@ def test_edit_planned_transaction_amount(page: Page) -> None:
         category_id=cat_id,
     )
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     expect(page.get_by_text("Netflix Edit Test")).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Netflix Edit Test")
@@ -146,7 +145,7 @@ def test_edit_planned_transaction_amount(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_delete_planned_transaction(page: Page) -> None:
+def test_delete_planned_transaction(page: Page, base_url: str) -> None:
     """Scenario: Delete a planned transaction"""
     acc_id = seed_account("PKO Main Planned Delete")
     seed_planned_transaction(
@@ -155,7 +154,7 @@ def test_delete_planned_transaction(page: Page) -> None:
         account_id=acc_id,
     )
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     expect(page.get_by_text("Old subscription Delete Test")).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Old subscription Delete Test")
@@ -176,7 +175,7 @@ def test_delete_planned_transaction(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_toggle_planned_transaction_inactive(page: Page) -> None:
+def test_toggle_planned_transaction_inactive(page: Page, base_url: str) -> None:
     """Scenario: Toggle a planned transaction inactive"""
     acc_id = seed_account("PKO Main Planned Toggle")
     seed_planned_transaction(
@@ -186,7 +185,7 @@ def test_toggle_planned_transaction_inactive(page: Page) -> None:
         is_active=True,
     )
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     expect(page.get_by_text("Netflix Toggle Test")).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Netflix Toggle Test")
@@ -201,7 +200,7 @@ def test_toggle_planned_transaction_inactive(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_reactivate_paused_planned_transaction(page: Page) -> None:
+def test_reactivate_paused_planned_transaction(page: Page, base_url: str) -> None:
     """Scenario: Re-activate a paused planned transaction"""
     acc_id = seed_account("PKO Main Planned Reactivate")
     seed_planned_transaction(
@@ -211,7 +210,7 @@ def test_reactivate_paused_planned_transaction(page: Page) -> None:
         is_active=False,
     )
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     expect(page.get_by_text("Netflix Reactivate Test")).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Netflix Reactivate Test")
@@ -225,11 +224,11 @@ def test_reactivate_paused_planned_transaction(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_create_recurring_transaction_with_end_date(page: Page) -> None:
+def test_create_recurring_transaction_with_end_date(page: Page, base_url: str) -> None:
     """Scenario: Create a recurring transaction with an end date"""
     seed_account("PKO Main Planned EndDate")
 
-    page.goto(f"{BASE_URL}/planned")
+    page.goto(f"{base_url}/planned")
     page.get_by_role("button", name="Add Planned").click()
 
     dialog = page.get_by_role("dialog")
@@ -254,7 +253,7 @@ def test_create_recurring_transaction_with_end_date(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_planned_not_shown_without_toggle(page: Page) -> None:
+def test_planned_not_shown_without_toggle(page: Page, base_url: str) -> None:
     """Scenario: Planned transaction does not appear in transactions without the toggle"""
     acc_id = seed_account("PKO Main Planned NoToggle")
     seed_planned_transaction(
@@ -264,6 +263,6 @@ def test_planned_not_shown_without_toggle(page: Page) -> None:
         is_active=True,
     )
 
-    page.goto(f"{BASE_URL}/transactions")
+    page.goto(f"{base_url}/transactions")
     # Without the Show Planned toggle, planned items are not shown as real transactions
     expect(page.get_by_text("Netflix NoToggle Test")).not_to_be_visible(timeout=3000)

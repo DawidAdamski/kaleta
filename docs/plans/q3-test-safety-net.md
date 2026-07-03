@@ -39,8 +39,8 @@ This plan builds the net **before** the refactor jumps.
 
 - `uv run pytest tests/integration/` green, covers all `api/v1` routes
   (assert via `--cov=src/kaleta/api` ≥ 90 % lines).
-- `uv run pytest tests/e2e/` green against a locally running app with
-  seeded DB; the 5 scenarios map 1:1 to named scenarios in
+- `uv run pytest tests/e2e/` green; the suite launches its own ephemeral app
+  on port 8081 (no manual server, no writes to the developer's `kaleta.db`).
   `docs/bdd.md` (reference the Gherkin headings in docstrings).
 - Suites are independent: unit/integration need no running server.
 - No flaky waits — e2e uses Playwright auto-waiting/locators, no
@@ -61,4 +61,27 @@ This plan builds the net **before** the refactor jumps.
 
 ## Implementation notes
 
-(filled in as work progresses)
+- **E2e isolation (2026-07):** `tests/e2e/conftest.py` starts a subprocess Kaleta
+  on port **8081** with ephemeral SQLite + isolated `HOME`. Alembic runs before
+  startup. Override with `KALETA_E2E_BASE_URL` for debugging. Subprocess stdout is
+  tee'd to a session log; the last 50 lines are attached to failed test reports.
+- **Root cause of bulk e2e failures (2026-07):** Not Prophet blocking the async
+  event loop — `ForecastService` already calls Prophet via
+  `asyncio.run_in_executor`. Failures were:
+  1. `seed_planned_transaction` called `asyncio.run()` from pytest-playwright's
+     sync tests (running event loop) → `RuntimeError` / server 500s.
+  2. Alembic migration seeds a root category named **Subscriptions**; the planned-
+     transactions e2e test tried to create the same name → `IntegrityError` 500.
+  3. When forecast e2e tests were included in a long suite run, heavy per-test
+     seeding (90 API posts) plus multi-second Prophet CPU work on a single-worker
+     server increased latency enough for unrelated seed HTTP calls to hit the
+     default 10s client timeout — a capacity symptom, not missing `run_in_executor`.
+  4. Full-suite UI failures on import/transfer verification: earlier tests seed
+     hundreds of transactions; the transactions table is paginated, so rows from
+     later tests were not on page 1. Fixed by filtering via the description search
+     box instead of assuming first-page visibility.
+- **Fixes applied:** `seed_planned_transaction` runs async HTTP in a worker thread;
+  planned-transactions e2e uses a unique category name; import/transfer tests search
+  by description. No seed client timeout increase.
+- **Verification (2026-07-03):** `uv run pytest tests/e2e/ -q` — 43 passed twice in a
+  row (~59s each); `kaleta.db` SHA-256 unchanged; slowest test 21.6s (forecast).

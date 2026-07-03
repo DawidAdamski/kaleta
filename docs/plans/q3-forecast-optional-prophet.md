@@ -63,4 +63,9 @@ should degrade gracefully, not crash, when Prophet is absent.
 
 ## Implementation notes
 
-(filled in as work progresses)
+- **E2e failure investigation (2026-07-03):** Bulk timeouts were *not* caused by
+  Prophet blocking the async event loop. `ForecastService._forecast_prophet` already
+  offloads CPU work via `asyncio.run_in_executor` (see `forecast_service.py`). The
+  real issues were test-side (`asyncio.run` inside Playwright's loop), migration
+  category name collision, suite load latency, and paginated transaction tables —
+  documented in `q3-test-safety-net.md`. No additional `run_in_executor` change needed.

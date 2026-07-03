@@ -6,75 +6,14 @@ Page URL: /budget-plan
 
 from __future__ import annotations
 
-import asyncio
 import datetime
-from concurrent.futures import ThreadPoolExecutor
-from decimal import Decimal
 
 from playwright.sync_api import Page, expect
 
-BASE_URL = "http://localhost:8080"
+from tests.e2e.seed_helpers import seed_budget, seed_category
+
 CURRENT_YEAR = datetime.date.today().year
 CURRENT_MONTH = datetime.date.today().month
-
-_executor = ThreadPoolExecutor(max_workers=1)
-
-
-def _run(coro):  # type: ignore[no-untyped-def]
-    def _worker():  # type: ignore[no-untyped-def]
-        return asyncio.run(coro)
-
-    return _executor.submit(_worker).result()
-
-
-# ---------------------------------------------------------------------------
-# Seed helpers (idempotent)
-# ---------------------------------------------------------------------------
-
-
-def seed_category(name: str, cat_type: str = "expense") -> int:
-    from sqlalchemy import select
-
-    from kaleta.db import AsyncSessionFactory
-    from kaleta.models.category import Category, CategoryType
-    from kaleta.schemas.category import CategoryCreate
-    from kaleta.services import CategoryService
-
-    async def _create() -> int:
-        async with AsyncSessionFactory() as session:
-            existing = (
-                await session.execute(
-                    select(Category).where(Category.name == name, Category.parent_id.is_(None))
-                )
-            ).scalar_one_or_none()
-            if existing:
-                return existing.id
-            ct = CategoryType(cat_type)
-            cat = await CategoryService(session).create(CategoryCreate(name=name, type=ct))
-            return cat.id
-
-    return _run(_create())
-
-
-def seed_budget(category_id: int, amount: float, month: int, year: int) -> int:
-    from kaleta.db import AsyncSessionFactory
-    from kaleta.schemas.budget import BudgetCreate
-    from kaleta.services import BudgetService
-
-    async def _create() -> int:
-        async with AsyncSessionFactory() as session:
-            svc = BudgetService(session)
-            b = await svc.upsert(
-                BudgetCreate(
-                    category_id=category_id,
-                    amount=Decimal(str(amount)),
-                    month=month,
-                    year=year,
-                )
-            )
-            return b.id
-
-    return _run(_create())
 
 
 # ---------------------------------------------------------------------------
@@ -82,9 +21,9 @@ def seed_budget(category_id: int, amount: float, month: int, year: int) -> int:
 # ---------------------------------------------------------------------------
 
 
-def test_budget_plan_page_loads(page: Page) -> None:
+def test_budget_plan_page_loads(page: Page, base_url: str) -> None:
     """Budget Plan page renders the grid with month column headers."""
-    page.goto(f"{BASE_URL}/budget-plan")
+    page.goto(f"{base_url}/budget-plan")
 
     # Use exact=True to avoid strict-mode violation from multiple "Budget Plan" texts
     expect(page.get_by_role("main").get_by_text("Budget Plan", exact=True)).to_be_visible(
@@ -99,13 +38,13 @@ def test_budget_plan_page_loads(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_budget_plan_page_shows_planned_and_actual_columns(page: Page) -> None:
+def test_budget_plan_page_shows_planned_and_actual_columns(page: Page, base_url: str) -> None:
     """Budget Plan grid renders Planned and Actual column groups."""
     cat_id = seed_category("Food Plan ActualCol")
     # Seed a budget entry so the actual row appears
     seed_budget(cat_id, 100, CURRENT_MONTH, CURRENT_YEAR)
 
-    page.goto(f"{BASE_URL}/budget-plan")
+    page.goto(f"{base_url}/budget-plan")
     expect(page.get_by_role("main").get_by_text("Budget Plan", exact=True)).to_be_visible(
         timeout=5000
     )
@@ -120,11 +59,11 @@ def test_budget_plan_page_shows_planned_and_actual_columns(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_seeded_category_appears_in_budget_grid(page: Page) -> None:
+def test_seeded_category_appears_in_budget_grid(page: Page, base_url: str) -> None:
     """A seeded expense category appears as a row in the budget plan grid."""
     seed_category("Food Budget Grid E2E")
 
-    page.goto(f"{BASE_URL}/budget-plan")
+    page.goto(f"{base_url}/budget-plan")
     expect(page.get_by_text("Food Budget Grid E2E")).to_be_visible(timeout=5000)
 
 
@@ -133,7 +72,7 @@ def test_seeded_category_appears_in_budget_grid(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_budget_totals_reflect_seeded_entries(page: Page) -> None:
+def test_budget_totals_reflect_seeded_entries(page: Page, base_url: str) -> None:
     """Scenario: Budget totals update when a cell is changed.
 
     Seeds 800 for all 12 months for CURRENT_YEAR and asserts yearly total is 9,600.
@@ -142,7 +81,7 @@ def test_budget_totals_reflect_seeded_entries(page: Page) -> None:
     for m in range(1, 13):
         seed_budget(cat_id, 800, m, CURRENT_YEAR)
 
-    page.goto(f"{BASE_URL}/budget-plan")
+    page.goto(f"{base_url}/budget-plan")
     expect(page.get_by_text("Food Totals Update E2E")).to_be_visible(timeout=5000)
 
     # Yearly total for this category should be 9,600
@@ -154,11 +93,11 @@ def test_budget_totals_reflect_seeded_entries(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_set_uniform_amount_for_all_months(page: Page) -> None:
+def test_set_uniform_amount_for_all_months(page: Page, base_url: str) -> None:
     """Scenario: Set the same amount for all 12 months at once"""
     seed_category("Transport Budget Plan E2E")
 
-    page.goto(f"{BASE_URL}/budget-plan")
+    page.goto(f"{base_url}/budget-plan")
     expect(page.get_by_text("Transport Budget Plan E2E")).to_be_visible(timeout=5000)
 
     # Each category row has a "Monthly" column (the recurring-amount cell) that
@@ -196,9 +135,9 @@ def test_set_uniform_amount_for_all_months(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_navigate_to_previous_year_shows_year_label(page: Page) -> None:
+def test_navigate_to_previous_year_shows_year_label(page: Page, base_url: str) -> None:
     """Scenario: Navigate to a previous year — page shows the year."""
-    page.goto(f"{BASE_URL}/budget-plan")
+    page.goto(f"{base_url}/budget-plan")
     expect(page.get_by_text(str(CURRENT_YEAR)).first).to_be_visible(timeout=5000)
 
 
@@ -207,11 +146,11 @@ def test_navigate_to_previous_year_shows_year_label(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_zero_budget_amount_triggers_warning(page: Page) -> None:
+def test_zero_budget_amount_triggers_warning(page: Page, base_url: str) -> None:
     """Scenario: Cannot enter a zero/negative budget amount."""
     seed_category("Food Zero Budget E2E")
 
-    page.goto(f"{BASE_URL}/budget-plan")
+    page.goto(f"{base_url}/budget-plan")
     expect(page.get_by_text("Food Zero Budget E2E")).to_be_visible(timeout=5000)
 
     food_rows = page.locator(".q-row, [class*='row']").filter(has_text="Food Zero Budget E2E")

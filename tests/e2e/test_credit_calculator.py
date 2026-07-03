@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-BASE_URL = "http://localhost:8080"
 
 
 def _fill_number(page: Page, label: str, value: str) -> None:
@@ -27,9 +26,9 @@ def _fill_number(page: Page, label: str, value: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_calculate_consumer_loan_equal_installments(page: Page) -> None:
+def test_calculate_consumer_loan_equal_installments(page: Page, base_url: str) -> None:
     """Scenario: Calculate a standard consumer loan with equal installments"""
-    page.goto(f"{BASE_URL}/credit-calculator")
+    page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
     page.get_by_role("option", name="Equal installments (annuity)").click()
@@ -50,9 +49,9 @@ def test_calculate_consumer_loan_equal_installments(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_calculate_car_loan_equal_installments_with_schedule(page: Page) -> None:
+def test_calculate_car_loan_equal_installments_with_schedule(page: Page, base_url: str) -> None:
     """Scenario: Calculate a car loan with equal installments"""
-    page.goto(f"{BASE_URL}/credit-calculator")
+    page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
     page.get_by_role("option", name="Equal installments (annuity)").click()
@@ -74,9 +73,9 @@ def test_calculate_car_loan_equal_installments_with_schedule(page: Page) -> None
 # ---------------------------------------------------------------------------
 
 
-def test_calculate_mortgage_equal_installments(page: Page) -> None:
+def test_calculate_mortgage_equal_installments(page: Page, base_url: str) -> None:
     """Scenario: Calculate a mortgage with equal installments"""
-    page.goto(f"{BASE_URL}/credit-calculator")
+    page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
     page.get_by_role("option", name="Equal installments (annuity)").click()
@@ -97,9 +96,9 @@ def test_calculate_mortgage_equal_installments(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_compare_equal_vs_decreasing_installments(page: Page) -> None:
+def test_compare_equal_vs_decreasing_installments(page: Page, base_url: str) -> None:
     """Scenario: Compare equal vs decreasing installments"""
-    page.goto(f"{BASE_URL}/credit-calculator")
+    page.goto(f"{base_url}/credit-calculator")
 
     _fill_number(page, "Loan Amount (PLN)", "100000")
     _fill_number(page, "Annual Interest Rate (%)", "8.0")
@@ -130,9 +129,9 @@ def test_compare_equal_vs_decreasing_installments(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_simulate_overpayment_shortens_loan_term(page: Page) -> None:
+def test_simulate_overpayment_shortens_loan_term(page: Page, base_url: str) -> None:
     """Scenario: Simulate overpayment to shorten loan term"""
-    page.goto(f"{BASE_URL}/credit-calculator")
+    page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
     page.get_by_role("option", name="Equal installments (annuity)").click()
@@ -152,9 +151,9 @@ def test_simulate_overpayment_shortens_loan_term(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_page_shows_results_with_valid_defaults(page: Page) -> None:
+def test_page_shows_results_with_valid_defaults(page: Page, base_url: str) -> None:
     """Page loads with pre-filled defaults and can calculate without error."""
-    page.goto(f"{BASE_URL}/credit-calculator")
+    page.goto(f"{base_url}/credit-calculator")
 
     # Default values: 300k PLN, 7.5%, 360 months
     page.get_by_role("button", name="Calculate").click()
@@ -169,9 +168,9 @@ def test_page_shows_results_with_valid_defaults(page: Page) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_zero_rate_shows_valid_params_message(page: Page) -> None:
+def test_zero_rate_shows_valid_params_message(page: Page, base_url: str) -> None:
     """Scenario: Interest rate must be positive — zero triggers error hint."""
-    page.goto(f"{BASE_URL}/credit-calculator")
+    page.goto(f"{base_url}/credit-calculator")
 
     # Field allows 0; validation message shown on Calculate when rate <= 0.
     _fill_number(page, "Loan Amount (PLN)", "100000")
