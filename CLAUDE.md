@@ -140,6 +140,12 @@ Every task, no exceptions:
    unrelated files, or drive-by refactors go in a separate commit (or
    are reported for the user to commit separately) — never mixed into
    the task's diff.
+10. **Satisfy contracts by design, not by type erosion.** Never
+    replace a real type with `Any`, an enum with a bare string, or a
+    typed API with a looser one to get past import-linter or mypy.
+    Typing-only imports go under `if TYPE_CHECKING:`
+    (import-linter excludes them); enums/schemas may be imported from
+    `kaleta.schemas` in any layer above it.
 
 ## Available Subagents
 

@@ -1305,6 +1305,42 @@ Feature: Monthly Readiness
 
 ---
 
+## Feature: Settings — Data safety
+
+```gherkin
+Feature: Settings — Data safety
+  As a user
+  I want destructive data actions to require explicit confirmation
+  So that I cannot accidentally wipe or lose my financial records
+
+  KAL-SET-013 @automated
+  Scenario: Wipe requires typing DELETE — wrong text keeps the action disabled
+    Given I am on the Settings page, Data tab
+    When I open the "Clear all data" confirmation dialog
+    Then the confirm wipe button is disabled
+    When I type "delete" in the confirmation field
+    Then the confirm wipe button remains disabled
+    And my existing accounts and transactions are unchanged
+
+  KAL-SET-014 @manual
+  Scenario: Backup export produces a downloadable file
+    Given I have at least one account with transactions
+    And I am on the Settings page, Data tab
+    When I click "Export backup"
+    Then a ZIP file download starts
+    And the filename matches the pattern "kaleta_backup_*.zip"
+
+  KAL-SET-015 @manual
+  Scenario: Restore from a backup file restores accounts and transactions
+    Given I exported a backup containing accounts and transactions
+    And I cleared all data from the database
+    And I am on the Settings page, Data tab
+    When I upload the backup ZIP and confirm restore
+    Then my accounts and transactions from the backup are present again
+```
+
+---
+
 ## Notes for test implementation
 
 - Tests live in `tests/e2e/`

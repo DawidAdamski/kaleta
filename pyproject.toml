@@ -76,6 +76,7 @@ asyncio_mode = "auto"
 [tool.importlinter]
 root_package = "kaleta"
 include_external_packages = true
+exclude_type_checking_imports = true
 
 [[tool.importlinter.contracts]]
 id = "layers"
@@ -111,8 +112,6 @@ ignore_imports = [
     "kaleta.views.accounts -> kaleta.models.institution",  # TODO(q3-views-refactor)
     "kaleta.views.budget_builder -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.budget_builder -> kaleta.models.category",  # TODO(q3-views-refactor)
-    "kaleta.views.budget_plan -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.budget_plan -> kaleta.models.category",  # TODO(q3-views-refactor)
     "kaleta.views.budgets -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.budgets -> kaleta.models.category",  # TODO(q3-views-refactor)
     "kaleta.views.categories -> kaleta.db",  # TODO(q3-views-refactor)
@@ -122,12 +121,8 @@ ignore_imports = [
     "kaleta.views.credit -> kaleta.models.credit",  # TODO(q3-views-refactor)
     "kaleta.views.dashboard -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.dashboard -> sqlalchemy",  # TODO(q3-views-refactor)
-    "kaleta.views.dashboard_widgets -> kaleta.models.transaction",  # TODO(q3-views-refactor)
-    "kaleta.views.dashboard_widgets -> sqlalchemy",  # TODO(q3-views-refactor)
     "kaleta.views.forecast -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.housekeeping -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.import_view -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.import_view -> kaleta.models.category",  # TODO(q3-views-refactor)
     "kaleta.views.institution_avatar -> kaleta.models.institution",  # TODO(q3-views-refactor)
     "kaleta.views.institutions -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.institutions -> kaleta.models.institution",  # TODO(q3-views-refactor)
@@ -151,9 +146,6 @@ ignore_imports = [
     "kaleta.views.planned_transactions -> kaleta.models.transaction",  # TODO(q3-views-refactor)
     "kaleta.views.safety_funds -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.safety_funds -> kaleta.models.reserve_fund",  # TODO(q3-views-refactor)
-    "kaleta.views.settings -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.settings -> kaleta.models.audit_log",  # TODO(q3-views-refactor)
-    "kaleta.views.settings -> kaleta.models.currency_rate",  # TODO(q3-views-refactor)
     "kaleta.views.setup -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.tags -> kaleta.db",  # TODO(q3-views-refactor)
     "kaleta.views.tags -> kaleta.models.tag",  # TODO(q3-views-refactor)
