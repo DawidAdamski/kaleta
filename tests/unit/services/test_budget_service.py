@@ -19,6 +19,8 @@ from kaleta.services import AccountService, BudgetService, CategoryService, Tran
 from kaleta.services.budget_service import (
     build_category_plan_row,
     category_yearly_total,
+    date_range_for_key,
+    format_date_range_label,
     per_month_from_yearly_total,
     uniform_monthly_amount,
 )
@@ -659,3 +661,21 @@ class TestBuildAnnualPlanGrid:
         assert grid.compare_month_totals is not None
         assert grid.compare_month_totals[2] == Decimal("150.00")
         assert grid.compare_grand_total == Decimal("150.00")
+
+
+class TestDateRangeHelpers:
+    def test_this_month_range(self):
+        today = datetime.date(2026, 7, 15)
+        start, end = date_range_for_key("this_month", today=today)
+        assert start == datetime.date(2026, 7, 1)
+        assert end == datetime.date(2026, 7, 31)
+
+    def test_last_30_days_range(self):
+        today = datetime.date(2026, 7, 15)
+        start, end = date_range_for_key("last_30_days", today=today)
+        assert start == datetime.date(2026, 6, 15)
+        assert end == today
+
+    def test_format_date_range_label(self):
+        label = format_date_range_label("this_month", today=datetime.date(2026, 7, 15))
+        assert label == "01 Jul 2026 – 31 Jul 2026"

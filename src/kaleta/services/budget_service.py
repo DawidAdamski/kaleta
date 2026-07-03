@@ -20,6 +20,69 @@ REALIZATION_WARNING_THRESHOLD_PCT: float = 5.0
 MONTHS_PER_YEAR = 12
 
 
+def date_range_for_key(
+    key: str, *, today: datetime.date | None = None
+) -> tuple[datetime.date, datetime.date]:
+    """Return inclusive start/end dates for a preset range key."""
+    ref = today or datetime.date.today()
+
+    if key == "this_month":
+        last_day = calendar.monthrange(ref.year, ref.month)[1]
+        return datetime.date(ref.year, ref.month, 1), datetime.date(ref.year, ref.month, last_day)
+
+    if key == "last_month":
+        first_this = datetime.date(ref.year, ref.month, 1)
+        end = first_this - datetime.timedelta(days=1)
+        last_day = calendar.monthrange(end.year, end.month)[1]
+        return datetime.date(end.year, end.month, 1), datetime.date(end.year, end.month, last_day)
+
+    if key == "this_quarter":
+        q_start_month = ((ref.month - 1) // 3) * 3 + 1
+        q_end_month = q_start_month + 2
+        last_day = calendar.monthrange(ref.year, q_end_month)[1]
+        return datetime.date(ref.year, q_start_month, 1), datetime.date(
+            ref.year, q_end_month, last_day
+        )
+
+    if key == "last_quarter":
+        q_start_month = ((ref.month - 1) // 3) * 3 + 1
+        if q_start_month == 1:
+            return datetime.date(ref.year - 1, 10, 1), datetime.date(ref.year - 1, 12, 31)
+        prev_end_month = q_start_month - 1
+        prev_start_month = prev_end_month - 2
+        last_day = calendar.monthrange(ref.year, prev_end_month)[1]
+        return datetime.date(ref.year, prev_start_month, 1), datetime.date(
+            ref.year, prev_end_month, last_day
+        )
+
+    if key == "this_year":
+        return datetime.date(ref.year, 1, 1), datetime.date(ref.year, 12, 31)
+
+    if key == "last_year":
+        return datetime.date(ref.year - 1, 1, 1), datetime.date(ref.year - 1, 12, 31)
+
+    if key == "last_30_days":
+        return ref - datetime.timedelta(days=30), ref
+
+    if key == "last_60_days":
+        return ref - datetime.timedelta(days=60), ref
+
+    if key == "last_90_days":
+        return ref - datetime.timedelta(days=90), ref
+
+    if key == "last_5_years":
+        return datetime.date(ref.year - 5, ref.month, ref.day), ref
+
+    last_day = calendar.monthrange(ref.year, ref.month)[1]
+    return datetime.date(ref.year, ref.month, 1), datetime.date(ref.year, ref.month, last_day)
+
+
+def format_date_range_label(key: str, *, today: datetime.date | None = None) -> str:
+    """Human-readable label for a preset range key."""
+    start, end = date_range_for_key(key, today=today)
+    return f"{start.strftime('%d %b %Y')} – {end.strftime('%d %b %Y')}"
+
+
 def budgets_to_map(budgets: builtins.list[Budget]) -> dict[tuple[int, int], Decimal]:
     """Return ``{(category_id, month): amount}`` from budget rows."""
     return {(b.category_id, b.month): b.amount for b in budgets}
