@@ -29,6 +29,7 @@ class TestListCategories:
 
 class TestCreateCategory:
     async def test_create_returns_201_with_schema_fields(self, api_client: AsyncClient):
+        """Covers: KAL-CAT-001"""
         resp = await api_client.post("/api/v1/categories/", json=CATEGORY_PAYLOAD)
         assert resp.status_code == 201
         body = resp.json()
@@ -63,6 +64,7 @@ class TestGetCategory:
 
 class TestUpdateCategory:
     async def test_update_returns_200(self, api_client: AsyncClient):
+        """Covers: KAL-CAT-003"""
         created = await create_category(api_client)
         resp = await api_client.put(
             f"/api/v1/categories/{created['id']}", json={"name": "Groceries"}
@@ -83,6 +85,7 @@ class TestUpdateCategory:
 
 class TestDeleteCategory:
     async def test_delete_returns_204(self, api_client: AsyncClient):
+        """Covers: KAL-CAT-007"""
         created = await create_category(api_client)
         resp = await api_client.delete(f"/api/v1/categories/{created['id']}")
         assert resp.status_code == 204

@@ -23,6 +23,7 @@ class TestListTransactions:
         assert len(body["items"]) >= 1
 
     async def test_list_filter_by_account(self, api_client: AsyncClient):
+        """Covers: KAL-TXN-005"""
         account = await create_account(api_client)
         category = await create_category(api_client)
         await api_client.post(
@@ -41,6 +42,7 @@ class TestListTransactions:
 
 class TestCreateTransaction:
     async def test_create_returns_201_with_schema_fields(self, api_client: AsyncClient):
+        """Covers: KAL-TXN-001"""
         account = await create_account(api_client)
         category = await create_category(api_client)
         payload = transaction_payload(account["id"], category["id"])

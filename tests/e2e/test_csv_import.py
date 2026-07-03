@@ -1,5 +1,7 @@
 """E2E tests for Feature: mBank CSV Import (generic CSV path).
 
+Covers: KAL-CSV-001
+
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
 """
@@ -25,7 +27,7 @@ def _account_option(name: str, currency: str = "PLN") -> str:
 
 
 def test_csv_import_with_account_mapping(page: Page, base_url: str) -> None:
-    """Scenario: Successful import of an mBank file
+    """Covers: KAL-CSV-001
 
     Uses the repo-root ``test_import.csv`` (generic CSV profile) with explicit
     target-account and default category mapping per q3-test-safety-net.

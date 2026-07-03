@@ -31,6 +31,7 @@ class TestListBudgets:
 
 class TestCreateBudget:
     async def test_create_returns_201_with_schema_fields(self, api_client: AsyncClient):
+        """Covers: KAL-BUD-001"""
         category = await create_category(api_client)
         payload = budget_payload(category["id"])
         resp = await api_client.post("/api/v1/budgets/", json=payload)
@@ -45,6 +46,7 @@ class TestCreateBudget:
         assert "updated_at" in body
 
     async def test_create_zero_amount_returns_422(self, api_client: AsyncClient):
+        """Covers: KAL-BUD-010"""
         category = await create_category(api_client)
         resp = await api_client.post(
             "/api/v1/budgets/",
@@ -75,6 +77,7 @@ class TestGetBudget:
 
 class TestUpdateBudget:
     async def test_update_returns_200(self, api_client: AsyncClient):
+        """Covers: KAL-BUD-005"""
         category = await create_category(api_client)
         created = (
             await api_client.post("/api/v1/budgets/", json=budget_payload(category["id"]))

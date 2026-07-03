@@ -3,7 +3,7 @@ plan_id: q3-test-safety-net
 title: Test safety net — API integration + e2e for critical flows
 area: testing
 effort: large
-status: draft
+status: archived
 roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
@@ -85,3 +85,46 @@ This plan builds the net **before** the refactor jumps.
   by description. No seed client timeout increase.
 - **Verification (2026-07-03):** `uv run pytest tests/e2e/ -q` — 43 passed twice in a
   row (~59s each); `kaleta.db` SHA-256 unchanged; slowest test 21.6s (forecast).
+
+## Implementation
+
+Landed on 2026-07-03.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1796ac1` | Dawid | 2026-07-03 | docs: Q3 roadmap, plans, ADR-032 |
+| `ed42fca` | Dawid | 2026-07-03 | test(e2e): ephemeral isolated instance + root-cause fixes |
+
+**Files changed:**
+- `tests/integration/conftest.py` (new — in-memory SQLite session fixture)
+- `tests/integration/test_accounts.py`, `test_budgets.py`, `test_categories.py`,
+  `test_institutions.py`, `test_payees.py`, `test_transactions.py` (new — per-router
+  coverage; replaced monolithic `test_api.py`)
+- `tests/e2e/conftest.py` (ephemeral subprocess on port 8081, server log capture)
+- `tests/e2e/seed_helpers.py` (API-based seeds; thread-safe planned-transaction seed)
+- `tests/e2e/test_transactions.py`, `test_csv_import.py`, `test_budget_vs_actual.py`,
+  `test_transfer_detection.py` (new — five BDD flows)
+- `tests/e2e/fixtures/mbank_transfer.csv` (transfer-detection fixture)
+- `tests/e2e/test_setup_wizard.py`, `test_forecast.py`, `test_planned_transactions.py`,
+  `test_budget_plan.py`, `test_credit_calculator.py` (refactored for isolation)
+- `.github/workflows/ci.yml` (workflow scaffold — full CI wiring deferred to
+  `q3-engineering-hygiene`)
+
+**What shipped:**
+- API integration tests for all six `api/v1/` routers: happy path, validation errors,
+  and not-found cases; fresh in-memory SQLite per test via `tests/integration/conftest.py`.
+- Playwright e2e for the five highest-risk `docs/bdd.md` flows: add/edit/split
+  transaction, CSV import, budget vs actual, setup wizard, mBank transfer detection.
+- E2e suite spawns its own Kaleta instance (port 8081, ephemeral DB, isolated `HOME`);
+  developer `kaleta.db` is never mutated.
+- Dedicated API seed helpers (`tests/e2e/seed_helpers.py`) instead of `scripts/seed.py`.
+- `login()` stub deferred to `q3-auth-single-user`.
+
+**Resolved open questions:**
+- E2e seeds via dedicated API helpers in `seed_helpers.py` (not `scripts/seed.py`).
+- Auth/login stub deferred to `q3-auth-single-user`.
+
+**Deferred / out of scope:**
+- CI wiring on every PR (`q3-engineering-hygiene`).
+- View unit tests and coverage targets.
+- `make` targets — suites run via documented `uv run pytest` commands.

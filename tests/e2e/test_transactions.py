@@ -1,5 +1,7 @@
 """E2E tests for Feature: Manual Transaction Entry.
 
+Covers: KAL-TXN-001
+
 Maps the q3-test-safety-net flow: add, edit, and split a transaction.
 Page URL: /transactions
 """
@@ -23,11 +25,11 @@ def _select_option(page: Page, dialog: Page, select_index: int, option: str) -> 
 
 
 def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
-    """Scenario: Add an expense transaction
+    """Covers: KAL-TXN-001
 
-    Exercises the full manual-entry flow from docs/bdd.md — add an expense,
-    edit its description and amount, then create a split transaction across
-    two categories (split UI; no separate BDD scenario).
+    Exercises the full manual-entry flow — add an expense, edit its
+    description and amount, then create a split transaction across two
+    categories (split UI; no separate BDD scenario).
     """
     account_name = "PKO Main Tx E2E"
     food_cat = "Food Tx E2E"

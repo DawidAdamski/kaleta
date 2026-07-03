@@ -14,6 +14,7 @@ Feature: Institution Management
   I want to manage financial institutions
   So that I can organise my accounts by the bank or provider they belong to
 
+  KAL-INS-001 @automated
   Scenario: Add a new institution
     Given I am on the Institutions page
     When I click "Add Institution"
@@ -22,6 +23,7 @@ Feature: Institution Management
     And I click "Save"
     Then I see "PKO Bank Polski" in the institutions list
 
+  KAL-INS-002 @manual
   Scenario: Add an institution with optional fields
     Given I am on the Institutions page
     When I click "Add Institution"
@@ -33,6 +35,7 @@ Feature: Institution Management
     And I click "Save"
     Then I see "mBank" in the institutions list
 
+  KAL-INS-003 @automated
   Scenario: Edit an existing institution
     Given there is an institution "PKO Bank Polski"
     And I am on the Institutions page
@@ -42,6 +45,7 @@ Feature: Institution Management
     Then I see "PKO BP" in the institutions list
     And I do not see "PKO Bank Polski"
 
+  KAL-INS-004 @automated
   Scenario: Delete an institution with no linked accounts
     Given there is an institution "Old Bank" with no accounts
     And I am on the Institutions page
@@ -49,6 +53,7 @@ Feature: Institution Management
     And I confirm deletion
     Then "Old Bank" is no longer in the institutions list
 
+  KAL-INS-005 @manual
   Scenario: Delete an institution that has linked accounts
     Given there is an institution "PKO BP" with at least one linked account
     And I am on the Institutions page
@@ -57,6 +62,7 @@ Feature: Institution Management
     Then "PKO BP" is no longer in the institutions list
     And the previously linked accounts still exist without an institution reference
 
+  KAL-INS-006 @automated
   Scenario: Cannot add an institution without a name
     Given I am on the Institutions page
     When I click "Add Institution"
@@ -65,6 +71,7 @@ Feature: Institution Management
     Then I see a validation error
     And no institution is created
 
+  KAL-INS-007 @manual
   Scenario: Cannot add two institutions with the same name
     Given there is an institution "mBank"
     And I am on the Institutions page
@@ -72,6 +79,7 @@ Feature: Institution Management
     Then I see a duplicate name error
     And only one "mBank" entry exists in the list
 
+  KAL-INS-008 @manual
   Scenario: Institution type defaults to Bank
     Given I am on the Institutions page
     When I click "Add Institution"
@@ -88,6 +96,7 @@ Feature: Account Management
   I want to manage my bank accounts
   So that I can track money across multiple accounts
 
+  KAL-ACC-001 @automated
   Scenario: Add a new account
     Given I am on the Accounts page
     When I click "Add Account"
@@ -96,6 +105,7 @@ Feature: Account Management
     And I click "Save"
     Then I see "PKO Main" in the accounts list
 
+  KAL-ACC-002 @automated
   Scenario: Edit an existing account
     Given there is an account "PKO Main"
     And I am on the Accounts page
@@ -105,6 +115,7 @@ Feature: Account Management
     Then I see "PKO Personal" in the accounts list
     And I do not see "PKO Main"
 
+  KAL-ACC-003 @automated
   Scenario: Delete an account
     Given there is an account "Old Account"
     And I am on the Accounts page
@@ -112,6 +123,7 @@ Feature: Account Management
     And I confirm deletion
     Then I do not see "Old Account" in the accounts list
 
+  KAL-ACC-004 @automated
   Scenario: Cannot add account without a name
     Given I am on the Accounts page
     When I click "Add Account"
@@ -131,6 +143,7 @@ Feature: Category Management
   I want to organise transactions into categories
   So that I can analyse my spending
 
+  KAL-CAT-001 @automated
   Scenario: Add a root expense category
     Given I am on the Categories page
     When I click "Add Category" in the Expense section
@@ -138,6 +151,7 @@ Feature: Category Management
     And I click "Save"
     Then I see "Food" in the expense categories list
 
+  KAL-CAT-002 @manual
   Scenario: Add a subcategory under an existing parent
     Given there is an expense category "Food"
     And I am on the Categories page
@@ -147,6 +161,7 @@ Feature: Category Management
     And I click "Save"
     Then I see "Food → Groceries" in the expense categories list
 
+  KAL-CAT-003 @automated
   Scenario: Edit a category name
     Given there is an expense category "Food"
     And I am on the Categories page
@@ -156,6 +171,7 @@ Feature: Category Management
     Then I see "Groceries & Food" in the expense categories list
     And I do not see "Food" as a root category
 
+  KAL-CAT-004 @manual
   Scenario: Edit a category moves it to a different parent
     Given there is an expense category "Food"
     And there is an expense category "Shopping"
@@ -168,6 +184,7 @@ Feature: Category Management
     And I do not see "Food → Groceries"
     And all transactions previously in "Food → Groceries" are now in "Shopping → Groceries"
 
+  KAL-CAT-005 @manual
   Scenario: Promote a subcategory to root
     Given there is an expense category "Food"
     And there is a subcategory "Groceries" under "Food"
@@ -178,6 +195,7 @@ Feature: Category Management
     Then I see "Groceries" as a root expense category
     And all transactions previously in "Food → Groceries" remain linked to "Groceries"
 
+  KAL-CAT-006 @manual
   Scenario: Delete a leaf category with no transactions
     Given there is an expense category "Food"
     And there is a subcategory "Snacks" under "Food" with no transactions
@@ -186,6 +204,7 @@ Feature: Category Management
     And I confirm deletion
     Then "Snacks" is no longer in the categories list
 
+  KAL-CAT-007 @automated
   Scenario: Delete a category that has transactions
     Given there is an expense category "Food" with linked transactions
     And I am on the Categories page
@@ -194,6 +213,7 @@ Feature: Category Management
     Then "Food" is no longer in the categories list
     And the previously linked transactions still exist with no category
 
+  KAL-CAT-008 @manual
   Scenario: Delete a parent category also removes its children
     Given there is an expense category "Food"
     And there is a subcategory "Groceries" under "Food"
@@ -203,6 +223,7 @@ Feature: Category Management
     Then "Food" is no longer in the categories list
     And "Groceries" is no longer in the categories list
 
+  KAL-CAT-009 @manual
   Scenario: Two subcategories with the same name under different parents
     Given there is an expense category "Food"
     And there is an expense category "Transport"
@@ -212,6 +233,7 @@ Feature: Category Management
     Then I see "Food → Other" in the categories list
     And I see "Transport → Other" in the categories list
 
+  KAL-CAT-010 @manual
   Scenario: Cannot add two root categories with the same name
     Given there is an expense category "Food"
     And I am on the Categories page
@@ -229,6 +251,7 @@ Feature: Manual Transaction Entry
   I want to add transactions manually
   So that I can record cash purchases and other off-bank activity
 
+  KAL-TXN-001 @automated
   Scenario: Add an expense transaction
     Given there is an account "PKO Main"
     And there is an expense category "Food"
@@ -241,6 +264,7 @@ Feature: Manual Transaction Entry
     And I click "Save"
     Then I see a transaction for "45.50" with description "Supermarket" in the list
 
+  KAL-TXN-002 @manual
   Scenario: Add an income transaction
     Given there is an account "PKO Main"
     And there is an income category "Salary"
@@ -252,6 +276,7 @@ Feature: Manual Transaction Entry
     And I click "Save"
     Then I see a transaction for "+5,000.00" in the list
 
+  KAL-TXN-003 @manual
   Scenario: Add a transfer between two accounts
     Given there is an account "PKO Main"
     And there is an account "mBank Savings"
@@ -264,6 +289,7 @@ Feature: Manual Transaction Entry
     And I click "Save"
     Then I see a transfer transaction for "1,000.00" in the list
 
+  KAL-TXN-004 @manual
   Scenario: Transaction requires an amount
     Given there is an account "PKO Main"
     And I am on the Transactions page
@@ -273,6 +299,7 @@ Feature: Manual Transaction Entry
     Then I see a validation error
     And no transaction is created
 
+  KAL-TXN-005 @automated
   Scenario: Filter transactions by account
     Given there are transactions on accounts "PKO Main" and "mBank Savings"
     And I am on the Transactions page
@@ -290,6 +317,7 @@ Feature: Transaction Pagination and Grouping
   I want to control how many transactions I see and group them by time
   So that I can navigate large datasets efficiently
 
+  KAL-PAG-001 @manual
   Scenario: Change page size
     Given there are 60 transactions in the database
     And I am on the Transactions page
@@ -297,18 +325,21 @@ Feature: Transaction Pagination and Grouping
     Then I see exactly 25 transaction rows
     And the pagination shows "Page 1 / 3"
 
+  KAL-PAG-002 @manual
   Scenario: Group transactions by month
     Given there are transactions from different months
     And I am on the Transactions page
     When I select "Month" in the grouping toggle
     Then I see month separator rows between groups of transactions
 
+  KAL-PAG-003 @manual
   Scenario: Group transactions by week
     Given there are transactions from different weeks
     And I am on the Transactions page
     When I select "Week" in the grouping toggle
     Then I see week separator rows (e.g. "W12 2025") between groups
 
+  KAL-PAG-004 @manual
   Scenario: Navigate to next page
     Given there are 60 transactions
     And I am on the Transactions page with page size 25
@@ -327,6 +358,7 @@ Feature: mBank CSV Import
   I want to import transactions from an mBank CSV export
   So that I do not have to enter them manually
 
+  KAL-CSV-001 @automated
   Scenario: Successful import of an mBank file
     Given there is an account "mBank PLN"
     And there is an expense category "Other Expenses"
@@ -342,6 +374,7 @@ Feature: mBank CSV Import
     Then I see a success message with the count of imported transactions
     And the transactions appear on the Transactions page
 
+  KAL-CSV-002 @manual
   Scenario: Duplicate transactions are skipped when the option is checked
     Given I have already imported an mBank CSV file
     And I am on the Import page
@@ -350,6 +383,7 @@ Feature: mBank CSV Import
     And I click "Import"
     Then I see a message showing 0 new and N skipped transactions
 
+  KAL-CSV-003 @manual
   Scenario: Import blocked when file currency differs from account currency
     Given there is a PLN account "mBank PLN"
     And I am on the Import page
@@ -359,6 +393,7 @@ Feature: mBank CSV Import
     Then I see an error message about currency mismatch
     And no transactions are imported
 
+  KAL-CSV-004 @automated
   Scenario: Transfers to registered accounts are detected automatically
     Given there is an account "mBank PLN" with external number "55114020040000330278886836"
     And there is an account "mBank Savings" with external number "12114020040000330299991234"
@@ -377,6 +412,7 @@ Feature: Tag Management
   I want to create, edit, and remove tags
   So that I can label transactions with cross-cutting topics (e.g. "vacation", "business")
 
+  KAL-TAG-001 @manual
   Scenario: Add a tag
     Given I am on the Tags page
     When I click "Add Tag"
@@ -385,6 +421,7 @@ Feature: Tag Management
     And I click "Save"
     Then I see "Vacation" in the tags list
 
+  KAL-TAG-002 @manual
   Scenario: Add a tag with all optional fields
     Given I am on the Tags page
     When I click "Add Tag"
@@ -395,6 +432,7 @@ Feature: Tag Management
     And I click "Save"
     Then I see "Business" in the tags list with the correct colour and icon
 
+  KAL-TAG-003 @manual
   Scenario: Edit a tag name
     Given there is a tag "Vacation"
     And I am on the Tags page
@@ -404,6 +442,7 @@ Feature: Tag Management
     Then I see "Holiday" in the tags list
     And I do not see "Vacation"
 
+  KAL-TAG-004 @manual
   Scenario: Edit tag colour and description
     Given there is a tag "Business"
     And I am on the Tags page
@@ -413,6 +452,7 @@ Feature: Tag Management
     And I click "Save"
     Then the tag "Business" shows the updated colour and description
 
+  KAL-TAG-005 @manual
   Scenario: Delete a tag
     Given there is a tag "OldTag"
     And I am on the Tags page
@@ -420,6 +460,7 @@ Feature: Tag Management
     And I confirm deletion
     Then "OldTag" is no longer in the tags list
 
+  KAL-TAG-006 @manual
   Scenario: Deleting a tag does not delete linked transactions
     Given there is a tag "Vacation"
     And there are transactions tagged with "Vacation"
@@ -429,6 +470,7 @@ Feature: Tag Management
     Then "Vacation" is no longer in the tags list
     And the previously tagged transactions still exist without that tag
 
+  KAL-TAG-007 @manual
   Scenario: Cannot add two tags with the same name
     Given there is a tag "Vacation"
     And I am on the Tags page
@@ -436,6 +478,7 @@ Feature: Tag Management
     Then I see a duplicate name error
     And only one "Vacation" entry exists in the list
 
+  KAL-TAG-008 @manual
   Scenario: Cannot add a tag without a name
     Given I am on the Tags page
     When I click "Add Tag"
@@ -455,6 +498,7 @@ Feature: Payee Management
   I want to manage payees with full contact details and merge duplicates
   So that I can keep my payee list clean and enriched with useful information
 
+  KAL-PAY-001 @automated
   Scenario: Add a payee with name only
     Given I am on the Payees page
     When I click "Add Payee"
@@ -462,6 +506,7 @@ Feature: Payee Management
     And I click "Save"
     Then I see "Biedronka" in the payees list
 
+  KAL-PAY-002 @manual
   Scenario: Add a payee with all contact fields
     Given I am on the Payees page
     When I click "Add Payee"
@@ -478,6 +523,7 @@ Feature: Payee Management
     When I open the detail view for "ORLEN SA"
     Then I see all the filled-in contact fields
 
+  KAL-PAY-003 @automated
   Scenario: Edit a payee name
     Given there is a payee "BIEDRONKA SP Z OO"
     And I am on the Payees page
@@ -486,6 +532,7 @@ Feature: Payee Management
     And I click "Save"
     Then I see "Biedronka" in the payees list
 
+  KAL-PAY-004 @manual
   Scenario: Edit payee contact details
     Given there is a payee "Biedronka" with no contact details
     And I am on the Payees page
@@ -496,6 +543,7 @@ Feature: Payee Management
     And I click "Save"
     Then the payee "Biedronka" shows the updated address and website
 
+  KAL-PAY-005 @automated
   Scenario: Delete a payee
     Given there is a payee "OLD PAYEE"
     And I am on the Payees page
@@ -503,6 +551,7 @@ Feature: Payee Management
     And I confirm deletion
     Then "OLD PAYEE" is no longer in the payees list
 
+  KAL-PAY-006 @manual
   Scenario: Deleting a payee does not delete linked transactions
     Given there is a payee "Biedronka" with linked transactions
     And I am on the Payees page
@@ -511,6 +560,7 @@ Feature: Payee Management
     Then "Biedronka" is no longer in the payees list
     And the previously linked transactions still exist with no payee
 
+  KAL-PAY-007 @automated
   Scenario: Merge duplicate payees
     Given there are payees "ORLEN SA" and "ORLEN STACJA 401"
     And both have linked transactions
@@ -522,6 +572,7 @@ Feature: Payee Management
     Then only "ORLEN SA" remains in the payees list
     And all transactions previously linked to "ORLEN STACJA 401" are now linked to "ORLEN SA"
 
+  KAL-PAY-008 @manual
   Scenario: Merge three payees into one
     Given there are payees "ORLEN SA", "ORLEN STACJA 401", and "ORLEN STACJA 999"
     And all three have linked transactions
@@ -533,6 +584,7 @@ Feature: Payee Management
     Then only "ORLEN SA" remains in the payees list
     And all transactions from the merged payees are linked to "ORLEN SA"
 
+  KAL-PAY-009 @automated
   Scenario: Cannot add a payee without a name
     Given I am on the Payees page
     When I click "Add Payee"
@@ -541,6 +593,7 @@ Feature: Payee Management
     Then I see a validation error
     And no payee is created
 
+  KAL-PAY-010 @manual
   Scenario: Cannot add two payees with the same name
     Given there is a payee "Biedronka"
     And I am on the Payees page
@@ -559,6 +612,7 @@ Feature: Onboarding Wizard
   I want to be guided through initial setup
   So that I can start tracking finances quickly
 
+  KAL-ONB-001 @automated
   Scenario: Wizard shows incomplete steps for a fresh database
     Given the database is empty
     And I am on the Financial Wizard page
@@ -568,6 +622,7 @@ Feature: Onboarding Wizard
     And step "Set up categories" is marked as pending
     And step "Import or add transactions" is marked as pending
 
+  KAL-ONB-002 @automated
   Scenario: Wizard marks steps as done as data is added
     Given I have added an institution and an account
     And I am on the Financial Wizard page
@@ -588,6 +643,7 @@ Feature: Planned and Recurring Transactions
 
   # --- Creating planned transactions ---
 
+  KAL-PLN-001 @automated
   Scenario: Create a monthly recurring expense
     Given there is an account "PKO Main"
     And there is an expense category "Subscriptions"
@@ -604,6 +660,7 @@ Feature: Planned and Recurring Transactions
     Then I see "Netflix" in the planned transactions list
     And it is marked as recurring monthly
 
+  KAL-PLN-002 @automated
   Scenario: Create a weekly recurring expense
     Given there is an account "PKO Main"
     And there is an expense category "Food"
@@ -616,6 +673,7 @@ Feature: Planned and Recurring Transactions
     And I click "Save"
     Then I see "Weekly groceries" recurring weekly in the planned transactions list
 
+  KAL-PLN-003 @automated
   Scenario: Create a yearly recurring expense
     Given there is an account "PKO Main"
     And there is an expense category "Insurance"
@@ -628,6 +686,7 @@ Feature: Planned and Recurring Transactions
     And I click "Save"
     Then I see "Car insurance" recurring yearly in the planned transactions list
 
+  KAL-PLN-004 @manual
   Scenario: Create a monthly income with fixed number of occurrences
     Given there is an account "PKO Main"
     And there is an income category "Salary"
@@ -643,6 +702,7 @@ Feature: Planned and Recurring Transactions
     Then I see "Freelance contract" in the planned transactions list
     And it shows "6 remaining occurrences"
 
+  KAL-PLN-005 @automated
   Scenario: Create a recurring transaction with an end date
     Given there is an account "PKO Main"
     And I am on the Planned Transactions page
@@ -656,6 +716,7 @@ Feature: Planned and Recurring Transactions
     Then I see "Gym membership" in the planned transactions list
     And it shows end date "2025-12-31"
 
+  KAL-PLN-006 @manual
   Scenario: Create a recurring transfer between accounts
     Given there is an account "PKO Main"
     And there is an account "mBank Savings"
@@ -673,6 +734,7 @@ Feature: Planned and Recurring Transactions
 
   # --- Managing planned transactions ---
 
+  KAL-PLN-007 @automated
   Scenario: Toggle a planned transaction inactive
     Given there is an active planned transaction "Netflix"
     And I am on the Planned Transactions page
@@ -680,12 +742,14 @@ Feature: Planned and Recurring Transactions
     Then "Netflix" is marked as inactive
     And it no longer contributes to the forecast
 
+  KAL-PLN-008 @automated
   Scenario: Re-activate a paused planned transaction
     Given there is an inactive planned transaction "Netflix"
     And I am on the Planned Transactions page
     When I click the toggle button for "Netflix"
     Then "Netflix" is marked as active again
 
+  KAL-PLN-009 @automated
   Scenario: Edit a planned transaction amount
     Given there is an active planned transaction "Netflix" with amount 49
     And I am on the Planned Transactions page
@@ -694,6 +758,7 @@ Feature: Planned and Recurring Transactions
     And I click "Save"
     Then "Netflix" shows amount "59" in the planned transactions list
 
+  KAL-PLN-010 @automated
   Scenario: Delete a planned transaction
     Given there is a planned transaction "Old subscription"
     And I am on the Planned Transactions page
@@ -703,6 +768,7 @@ Feature: Planned and Recurring Transactions
 
   # --- Visibility in transactions ---
 
+  KAL-PLN-011 @manual
   Scenario: Planned transactions appear as upcoming in the Transactions page
     Given there is an active planned monthly transaction "Netflix" starting next month
     And I am on the Transactions page
@@ -710,6 +776,7 @@ Feature: Planned and Recurring Transactions
     Then I see "Netflix" displayed as an upcoming transaction for next month
     And it is visually distinct from recorded transactions
 
+  KAL-PLN-012 @automated
   Scenario: Planned transaction does not appear in transactions without the toggle
     Given there is an active planned transaction "Netflix"
     And I am on the Transactions page
@@ -718,6 +785,7 @@ Feature: Planned and Recurring Transactions
 
   # --- Forecast integration ---
 
+  KAL-PLN-013 @manual
   Scenario: Planned transactions are included in forecast when toggled on
     Given there is an account "PKO Main"
     And there is an active planned monthly income "Salary" of 5000
@@ -727,6 +795,7 @@ Feature: Planned and Recurring Transactions
     And I click "Run forecast"
     Then the forecast chart shows expected monthly salary inflows
 
+  KAL-PLN-014 @manual
   Scenario: Forecast without planned transactions ignores them
     Given there is an active planned monthly income "Salary" of 5000
     And I am on the Forecast page
@@ -747,6 +816,7 @@ Feature: Credit Calculator
 
   # --- Loan types ---
 
+  KAL-CRD-001 @automated
   Scenario: Calculate a standard consumer loan with equal installments
     Given I am on the Credit Calculator page
     When I select loan type "Consumer Loan"
@@ -759,6 +829,7 @@ Feature: Credit Calculator
     And I see total interest paid
     And I see total repayment amount
 
+  KAL-CRD-002 @automated
   Scenario: Calculate a car loan with equal installments
     Given I am on the Credit Calculator page
     When I select loan type "Car Loan"
@@ -771,6 +842,7 @@ Feature: Credit Calculator
     And I see the amortization schedule table
     And each row shows payment number, installment, principal, interest, and remaining balance
 
+  KAL-CRD-003 @automated
   Scenario: Calculate a mortgage with equal installments
     Given I am on the Credit Calculator page
     When I select loan type "Mortgage"
@@ -785,6 +857,7 @@ Feature: Credit Calculator
 
   # --- Installment type comparison ---
 
+  KAL-CRD-004 @automated
   Scenario: Compare equal vs decreasing installments
     Given I am on the Credit Calculator page
     When I fill in loan details: amount "100000", rate "8.0", term "120" months
@@ -797,6 +870,7 @@ Feature: Credit Calculator
 
   # --- Overpayment simulation ---
 
+  KAL-CRD-005 @automated
   Scenario: Simulate overpayment to shorten loan term
     Given I have calculated a mortgage: 500000 PLN, 6.5%, 360 months, equal installments
     When I enter an extra monthly payment of "500" in the overpayment field
@@ -805,6 +879,7 @@ Feature: Credit Calculator
     And I see how many months are saved
     And I see total interest saved
 
+  KAL-CRD-006 @manual
   Scenario: Simulate a one-off lump-sum overpayment
     Given I have calculated a consumer loan
     When I enter a one-off overpayment of "10000" at month "12"
@@ -814,6 +889,7 @@ Feature: Credit Calculator
 
   # --- Validation ---
 
+  KAL-CRD-007 @manual
   Scenario: Cannot calculate without required fields
     Given I am on the Credit Calculator page
     When I leave "Loan Amount" empty
@@ -821,6 +897,7 @@ Feature: Credit Calculator
     Then I see a validation error on "Loan Amount"
     And no result is shown
 
+  KAL-CRD-008 @automated
   Scenario: Interest rate must be positive
     Given I am on the Credit Calculator page
     When I fill in "Annual Interest Rate" with "0"
@@ -840,6 +917,7 @@ Feature: Account Balance Forecast
 
   # --- Single-account forecast ---
 
+  KAL-FCT-001 @automated
   Scenario: Run a 30-day forecast for a single account
     Given there is an account "PKO Main" with at least 90 days of transaction history
     And I am on the Forecast page
@@ -850,6 +928,7 @@ Feature: Account Balance Forecast
     And the predicted balance for day 30 is displayed
     And a shaded confidence interval surrounds the prediction
 
+  KAL-FCT-002 @automated
   Scenario: Run a 90-day forecast for a single account
     Given there is an account "PKO Main" with sufficient history
     And I am on the Forecast page
@@ -860,6 +939,7 @@ Feature: Account Balance Forecast
 
   # --- Multi-account forecast ---
 
+  KAL-FCT-003 @automated
   Scenario: Run a forecast for all accounts combined
     Given there are accounts "PKO Main", "mBank Savings", and "Cash"
     And I am on the Forecast page
@@ -869,6 +949,7 @@ Feature: Account Balance Forecast
     Then the forecast chart shows the combined balance of all three accounts
     And individual account lines are shown as secondary series
 
+  KAL-FCT-004 @manual
   Scenario: Run a forecast for a selected subset of accounts
     Given there are accounts "PKO Main", "mBank Savings", and "Cash"
     And I am on the Forecast page
@@ -878,6 +959,7 @@ Feature: Account Balance Forecast
 
   # --- Planned transaction toggle ---
 
+  KAL-FCT-005 @manual
   Scenario: Forecast includes planned transactions when toggled on
     Given there is an account "PKO Main" with history
     And there is an active planned monthly expense "Rent" of 2000
@@ -888,6 +970,7 @@ Feature: Account Balance Forecast
     Then monthly rent deductions are visible as markers on the forecast chart
     And the predicted balance reflects the recurring expense
 
+  KAL-FCT-006 @manual
   Scenario: Forecast ignores planned transactions when toggled off
     Given there is an account "PKO Main" with history
     And there is an active planned monthly expense "Rent" of 2000
@@ -900,6 +983,7 @@ Feature: Account Balance Forecast
 
   # --- Edge cases ---
 
+  KAL-FCT-007 @automated
   Scenario: Warning shown when history is insufficient
     Given there is an account "New Account" with only 7 days of transactions
     And I am on the Forecast page
@@ -908,6 +992,7 @@ Feature: Account Balance Forecast
     Then I see a warning "Insufficient history for a reliable forecast"
     And no chart is displayed
 
+  KAL-FCT-008 @manual
   Scenario: Forecast shows balance reaching zero alert
     Given there is an account "PKO Main" with a low balance and regular expenses
     And I am on the Forecast page
@@ -929,6 +1014,7 @@ Feature: Annual Budget Planning
 
   # --- Setting up budgets ---
 
+  KAL-BUD-001 @automated
   Scenario: Set a monthly budget for a single category
     Given there is an expense category "Food"
     And I am on the Budget Plan page for the current year
@@ -937,6 +1023,7 @@ Feature: Annual Budget Planning
     And I confirm the entry
     Then the cell shows "800" PLN for "Food" in that month
 
+  KAL-BUD-002 @automated
   Scenario: Set the same amount for all 12 months at once
     Given there is an expense category "Transport"
     And I am on the Budget Plan page
@@ -946,6 +1033,7 @@ Feature: Annual Budget Planning
     Then all 12 month columns for "Transport" show "300"
     And the annual total for "Transport" shows "3600"
 
+  KAL-BUD-003 @manual
   Scenario: Set different amounts for each month manually
     Given there is an expense category "Holidays"
     And I am on the Budget Plan page
@@ -953,12 +1041,14 @@ Feature: Annual Budget Planning
     And I leave all other months as 0
     Then the annual total for "Holidays" shows "6000"
 
+  KAL-BUD-004 @manual
   Scenario: Copy previous month budget to current month
     Given there is an expense category "Food" with a budget set in January
     And I am on the Budget Plan page showing February
     When I click "Copy from previous month" for February
     Then all categories in February show the same values as January
 
+  KAL-BUD-005 @automated
   Scenario: Budget totals update when a cell is changed
     Given "Food" has a monthly budget of "800" for all months
     And I am on the Budget Plan page
@@ -967,6 +1057,7 @@ Feature: Annual Budget Planning
 
   # --- Viewing execution ---
 
+  KAL-BUD-006 @automated
   Scenario: See actual spending vs budget for the current month
     Given there are transactions in the current month
     And budget targets are set for the current month
@@ -976,6 +1067,7 @@ Feature: Annual Budget Planning
     And over-budget categories are highlighted in red
     And under-budget categories are highlighted in green
 
+  KAL-BUD-007 @manual
   Scenario: View execution percentage per category
     Given there are budgets and transactions for the current month
     And I am on the Budget Plan page in "Budget vs Actual" mode
@@ -983,18 +1075,21 @@ Feature: Annual Budget Planning
 
   # --- Navigating years and months ---
 
+  KAL-BUD-008 @manual
   Scenario: Navigate to a previous year
     Given I am on the Budget Plan page showing the current year
     When I click the previous year button
     Then the page shows the budget grid for the previous year
     And the year label updates accordingly
 
+  KAL-BUD-009 @manual
   Scenario: Navigate to a future year to plan ahead
     Given I am on the Budget Plan page
     When I click the next year button
     Then the page shows an empty or pre-filled grid for next year
     And I can enter budgets for each month
 
+  KAL-BUD-010 @automated
   Scenario: Compare current year to previous year
     Given there are budgets set for both the current year and the previous year
     And I am on the Budget Plan page for the current year
@@ -1004,6 +1099,7 @@ Feature: Annual Budget Planning
 
   # --- Validation ---
 
+  KAL-BUD-011 @manual
   Scenario: Cannot enter a negative budget amount
     Given I am on the Budget Plan page
     When I enter "-100" in a budget cell
@@ -1024,6 +1120,7 @@ Feature: Initial Setup Wizard
 
   # --- Wizard entry ---
 
+  KAL-SET-001 @manual
   Scenario: Fresh installation redirects to Setup wizard
     Given the database is empty
     When I open the application
@@ -1031,6 +1128,7 @@ Feature: Initial Setup Wizard
     And I see a welcome message explaining the zero-based budgeting approach
     And I see the list of setup steps to complete
 
+  KAL-SET-002 @manual
   Scenario: Returning user skips wizard if setup is complete
     Given the setup wizard has been completed
     When I open the application
@@ -1039,6 +1137,7 @@ Feature: Initial Setup Wizard
 
   # --- Step 1: Add first institution ---
 
+  KAL-SET-003 @manual
   Scenario: Wizard step 1 — add an institution
     Given I am on the Setup wizard at step "Institution"
     When I fill in "Name" with "PKO Bank Polski"
@@ -1049,6 +1148,7 @@ Feature: Initial Setup Wizard
 
   # --- Step 2: Add accounts with opening balances ---
 
+  KAL-SET-004 @manual
   Scenario: Wizard step 2 — add an account with opening balance
     Given I am on the Setup wizard at step "Accounts"
     When I click "Add Account"
@@ -1058,6 +1158,7 @@ Feature: Initial Setup Wizard
     And I click "Save"
     Then "PKO Main" appears in the accounts list with opening balance "5000 PLN"
 
+  KAL-SET-005 @manual
   Scenario: Wizard step 2 — add multiple accounts
     Given I am on the Setup wizard at step "Accounts"
     When I add account "PKO Main" with opening balance "5000"
@@ -1070,6 +1171,7 @@ Feature: Initial Setup Wizard
 
   # --- Step 3: Set up categories ---
 
+  KAL-SET-006 @manual
   Scenario: Wizard step 3 — set up expense categories
     Given I am on the Setup wizard at step "Categories"
     When I add expense categories "Food", "Transport", "Housing", "Entertainment"
@@ -1078,6 +1180,7 @@ Feature: Initial Setup Wizard
     Then the categories are saved
     And I advance to step "Budget"
 
+  KAL-SET-007 @manual
   Scenario: Wizard step 3 — use suggested default categories
     Given I am on the Setup wizard at step "Categories"
     When I click "Load suggested categories"
@@ -1086,6 +1189,7 @@ Feature: Initial Setup Wizard
 
   # --- Step 4: Assign all money to budget (zero-based) ---
 
+  KAL-SET-008 @manual
   Scenario: Wizard step 4 — assign all opening balance to budget categories
     Given I am on the Setup wizard at step "Budget"
     And the total unassigned funds are "25300 PLN"
@@ -1096,6 +1200,7 @@ Feature: Initial Setup Wizard
     And a "Every zloty is assigned" confirmation is displayed
     And I can click "Finish Setup"
 
+  KAL-SET-009 @manual
   Scenario: Wizard step 4 — cannot finish with unassigned money
     Given I am on the Setup wizard at step "Budget"
     And the total unassigned funds are "25300 PLN"
@@ -1104,6 +1209,7 @@ Feature: Initial Setup Wizard
     And the "Finish Setup" button is disabled
     And I see a message "5,300.00 PLN still needs to be assigned"
 
+  KAL-SET-010 @manual
   Scenario: Wizard step 4 — cannot over-assign more than available funds
     Given the total unassigned funds are "25300 PLN"
     And I am on the Setup wizard at step "Budget"
@@ -1112,6 +1218,7 @@ Feature: Initial Setup Wizard
 
   # --- Finishing setup ---
 
+  KAL-SET-011 @manual
   Scenario: Completing all steps marks setup as done
     Given I have completed all wizard steps
     When I click "Finish Setup"
@@ -1119,6 +1226,7 @@ Feature: Initial Setup Wizard
     And the dashboard shows my accounts with balances
     And the budget overview reflects my initial assignments
 
+  KAL-SET-012 @manual
   Scenario: Resume incomplete setup from wizard page
     Given I completed steps "Institution" and "Accounts" but not "Categories"
     When I navigate to the Setup page
@@ -1137,6 +1245,7 @@ Feature: Monthly Readiness
   I want a quick checklist at the turn of the month
   So that I close the previous month and set the next one up for success
 
+  KAL-RDY-001 @manual
   Scenario: Open Monthly Readiness from the Financial Wizard
     Given I completed initial setup
     And I am on the Financial Wizard page
@@ -1144,6 +1253,7 @@ Feature: Monthly Readiness
     Then I land on the Monthly Readiness page
     And I see four stages — Close last month, Confirm income, Allocate this month, Acknowledge upcoming bills
 
+  KAL-RDY-002 @manual
   Scenario: Stage 1 — Close last month with no uncategorised transactions
     Given every transaction in last month has a category
     And I am on the Monthly Readiness page
@@ -1151,12 +1261,14 @@ Feature: Monthly Readiness
     When I click "Mark closed" on stage 1
     Then stage 1 is marked as done
 
+  KAL-RDY-003 @manual
   Scenario: Stage 1 — Close last month flags uncategorised transactions
     Given there are 3 uncategorised expense transactions in last month
     And I am on the Monthly Readiness page
     Then stage 1 shows "3 transactions still need a category"
     And I can click "Review transactions" to jump to the Transactions page
 
+  KAL-RDY-004 @manual
   Scenario: Stage 2 — Confirm income compares expected vs actual
     Given there is an active monthly income planned transaction "Salary" of 5000
     And an actual income transaction of 5000 has landed this month
@@ -1165,6 +1277,7 @@ Feature: Monthly Readiness
     When I click "Confirm income" on stage 2
     Then stage 2 is marked as done
 
+  KAL-RDY-005 @manual
   Scenario: Stage 3 — Allocate this month copies budgets forward
     Given the previous month has budgets set for categories "Food" and "Rent"
     And the current month has a budget set for "Food" but not "Rent"
@@ -1174,6 +1287,7 @@ Feature: Monthly Readiness
     Then the current month has budgets for both "Food" and "Rent"
     And the existing "Food" budget is preserved
 
+  KAL-RDY-006 @manual
   Scenario: Stage 4 — Acknowledge upcoming bills
     Given there is an active monthly expense "Rent" of 2000 due this month
     And I am on the Monthly Readiness page
@@ -1181,6 +1295,7 @@ Feature: Monthly Readiness
     When I check the "Rent" checkbox
     Then the "seen" state persists across page reloads
 
+  KAL-RDY-007 @manual
   Scenario: All four stages complete marks the month ready
     Given I have completed stages 1, 2, 3, and 4
     And I am on the Monthly Readiness page

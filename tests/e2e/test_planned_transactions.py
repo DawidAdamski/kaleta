@@ -18,7 +18,7 @@ from tests.e2e.seed_helpers import seed_account, seed_category, seed_planned_tra
 
 
 def test_create_monthly_recurring_expense(page: Page, base_url: str) -> None:
-    """Scenario: Create a monthly recurring expense"""
+    """Covers: KAL-PLN-001"""
     seed_account("PKO Main Planned Monthly")
     seed_category("Subscriptions Planned E2E")
 
@@ -53,7 +53,7 @@ def test_create_monthly_recurring_expense(page: Page, base_url: str) -> None:
 
 
 def test_create_weekly_recurring_expense(page: Page, base_url: str) -> None:
-    """Scenario: Create a weekly recurring expense"""
+    """Covers: KAL-PLN-002"""
     seed_account("PKO Main Planned Weekly")
 
     page.goto(f"{base_url}/planned")
@@ -82,7 +82,7 @@ def test_create_weekly_recurring_expense(page: Page, base_url: str) -> None:
 
 
 def test_create_yearly_recurring_expense(page: Page, base_url: str) -> None:
-    """Scenario: Create a yearly recurring expense"""
+    """Covers: KAL-PLN-003"""
     seed_account("PKO Main Planned Yearly")
     seed_category("Insurance")
 
@@ -112,7 +112,7 @@ def test_create_yearly_recurring_expense(page: Page, base_url: str) -> None:
 
 
 def test_edit_planned_transaction_amount(page: Page, base_url: str) -> None:
-    """Scenario: Edit a planned transaction amount"""
+    """Covers: KAL-PLN-009"""
     acc_id = seed_account("PKO Main Planned Edit")
     cat_id = seed_category("Subs Edit")
     seed_planned_transaction(
@@ -146,7 +146,7 @@ def test_edit_planned_transaction_amount(page: Page, base_url: str) -> None:
 
 
 def test_delete_planned_transaction(page: Page, base_url: str) -> None:
-    """Scenario: Delete a planned transaction"""
+    """Covers: KAL-PLN-010"""
     acc_id = seed_account("PKO Main Planned Delete")
     seed_planned_transaction(
         name="Old subscription Delete Test",
@@ -176,7 +176,7 @@ def test_delete_planned_transaction(page: Page, base_url: str) -> None:
 
 
 def test_toggle_planned_transaction_inactive(page: Page, base_url: str) -> None:
-    """Scenario: Toggle a planned transaction inactive"""
+    """Covers: KAL-PLN-007"""
     acc_id = seed_account("PKO Main Planned Toggle")
     seed_planned_transaction(
         name="Netflix Toggle Test",
@@ -201,7 +201,7 @@ def test_toggle_planned_transaction_inactive(page: Page, base_url: str) -> None:
 
 
 def test_reactivate_paused_planned_transaction(page: Page, base_url: str) -> None:
-    """Scenario: Re-activate a paused planned transaction"""
+    """Covers: KAL-PLN-008"""
     acc_id = seed_account("PKO Main Planned Reactivate")
     seed_planned_transaction(
         name="Netflix Reactivate Test",
@@ -225,7 +225,7 @@ def test_reactivate_paused_planned_transaction(page: Page, base_url: str) -> Non
 
 
 def test_create_recurring_transaction_with_end_date(page: Page, base_url: str) -> None:
-    """Scenario: Create a recurring transaction with an end date"""
+    """Covers: KAL-PLN-005"""
     seed_account("PKO Main Planned EndDate")
 
     page.goto(f"{base_url}/planned")
@@ -254,7 +254,7 @@ def test_create_recurring_transaction_with_end_date(page: Page, base_url: str) -
 
 
 def test_planned_not_shown_without_toggle(page: Page, base_url: str) -> None:
-    """Scenario: Planned transaction does not appear in transactions without the toggle"""
+    """Covers: KAL-PLN-012"""
     acc_id = seed_account("PKO Main Planned NoToggle")
     seed_planned_transaction(
         name="Netflix NoToggle Test",

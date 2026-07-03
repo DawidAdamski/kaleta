@@ -27,7 +27,7 @@ def _fill_number(page: Page, label: str, value: str) -> None:
 
 
 def test_calculate_consumer_loan_equal_installments(page: Page, base_url: str) -> None:
-    """Scenario: Calculate a standard consumer loan with equal installments"""
+    """Covers: KAL-CRD-001"""
     page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
@@ -50,7 +50,7 @@ def test_calculate_consumer_loan_equal_installments(page: Page, base_url: str) -
 
 
 def test_calculate_car_loan_equal_installments_with_schedule(page: Page, base_url: str) -> None:
-    """Scenario: Calculate a car loan with equal installments"""
+    """Covers: KAL-CRD-002"""
     page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
@@ -74,7 +74,7 @@ def test_calculate_car_loan_equal_installments_with_schedule(page: Page, base_ur
 
 
 def test_calculate_mortgage_equal_installments(page: Page, base_url: str) -> None:
-    """Scenario: Calculate a mortgage with equal installments"""
+    """Covers: KAL-CRD-003"""
     page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
@@ -97,7 +97,7 @@ def test_calculate_mortgage_equal_installments(page: Page, base_url: str) -> Non
 
 
 def test_compare_equal_vs_decreasing_installments(page: Page, base_url: str) -> None:
-    """Scenario: Compare equal vs decreasing installments"""
+    """Covers: KAL-CRD-004"""
     page.goto(f"{base_url}/credit-calculator")
 
     _fill_number(page, "Loan Amount (PLN)", "100000")
@@ -130,7 +130,7 @@ def test_compare_equal_vs_decreasing_installments(page: Page, base_url: str) -> 
 
 
 def test_simulate_overpayment_shortens_loan_term(page: Page, base_url: str) -> None:
-    """Scenario: Simulate overpayment to shorten loan term"""
+    """Covers: KAL-CRD-005"""
     page.goto(f"{base_url}/credit-calculator")
 
     page.locator(".q-select").filter(has_text="Payment Type").click()
@@ -169,7 +169,7 @@ def test_page_shows_results_with_valid_defaults(page: Page, base_url: str) -> No
 
 
 def test_zero_rate_shows_valid_params_message(page: Page, base_url: str) -> None:
-    """Scenario: Interest rate must be positive — zero triggers error hint."""
+    """Covers: KAL-CRD-008"""
     page.goto(f"{base_url}/credit-calculator")
 
     # Field allows 0; validation message shown on Calculate when rate <= 0.

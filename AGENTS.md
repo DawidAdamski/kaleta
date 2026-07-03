@@ -102,8 +102,44 @@ KALETA_DEBUG=false
 ## Key Documents
 - `docs/architecture.md` — Architecture Decision Records
 - `docs/tech-stack.md` — Technology choices and config reference
-- `docs/bdd.md` — BDD scenarios in Gherkin for all major features
+- `docs/bdd.md` — BDD scenarios in Gherkin, tagged `KAL-<AREA>-<NNN>` + `@automated`/`@manual`
+- `docs/roadmap.md` — quarterly roadmap (open-core direction)
+- `docs/plans/` — one plan per unit of work; see `docs/plans/README.md` for lifecycle
 - `README.md` — Project overview and quick start
+
+## Working Agreement (Definition of Done)
+
+Every task, no exceptions:
+
+1. **Scope comes from a plan.** If the task references a file in
+   `docs/plans/`, implement ONLY what that plan (or the named section)
+   covers. "Not in scope" sections are binding. If work outside scope
+   seems necessary, STOP and explain instead of doing it.
+2. **Verify before claiming done.** Run `./scripts/verify.sh` and
+   include its full output in your final report. A task with failing
+   verification is not done — report it as blocked with the error.
+3. **No silent production changes.** Test-only tasks must not modify
+   `src/` except explicitly justified minimal hooks; call out every
+   production file you touch and why.
+4. **No green-washing.** Never add `skip`/`xfail`, loosen an
+   assertion, raise a timeout, or add an `ignore_imports` entry to
+   make checks pass without explaining the root cause first.
+5. **New behaviour = new scenario.** If you add user-facing behaviour,
+   add/update the `KAL-` scenario in `docs/bdd.md` (tag `@automated`
+   only when a test covers it) and reference it in test docstrings
+   (`Covers: KAL-XXX-NNN`).
+6. **Architecture contracts are law.** `lint-imports` failures mean
+   your design is wrong, not that the contract needs another ignore.
+   The `TODO(q3-views-refactor)` ignore list may only shrink.
+7. **Record decisions.** Non-obvious findings and resolved open
+   questions go into the plan's `## Implementation notes`.
+8. **E2e is mandatory for view changes.** Any change under
+   `src/kaleta/views/` requires `./scripts/verify.sh --e2e`, not the
+   short gate.
+9. **Keep diffs single-purpose.** Repo-wide formatting, lint fixes in
+   unrelated files, or drive-by refactors go in a separate commit (or
+   are reported for the user to commit separately) — never mixed into
+   the task's diff.
 
 ## Available Subagents
 

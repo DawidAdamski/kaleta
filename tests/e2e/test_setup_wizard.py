@@ -51,7 +51,7 @@ def test_wizard_page_loads_with_onboarding_section(page: Page, base_url: str) ->
 
 
 def test_wizard_shows_all_four_setup_steps(page: Page, base_url: str) -> None:
-    """All four onboarding step titles are visible on the wizard page."""
+    """Covers: KAL-ONB-001"""
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
@@ -67,7 +67,7 @@ def test_wizard_shows_all_four_setup_steps(page: Page, base_url: str) -> None:
 
 
 def test_wizard_institution_hint_shown_when_no_institutions(page: Page, base_url: str) -> None:
-    """Scenario: Institution step pending hint is visible (not necessarily empty DB)."""
+    """Covers: KAL-ONB-001"""
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
@@ -83,7 +83,7 @@ def test_wizard_institution_hint_shown_when_no_institutions(page: Page, base_url
 
 
 def test_wizard_institution_step_marked_done(page: Page, base_url: str) -> None:
-    """Scenario: Wizard marks institution step as done."""
+    """Covers: KAL-ONB-002"""
     seed_institution("PKO BP Wizard E2E Test")
 
     page.goto(f"{base_url}/wizard")
@@ -100,7 +100,7 @@ def test_wizard_institution_step_marked_done(page: Page, base_url: str) -> None:
 
 
 def test_wizard_account_step_marked_done(page: Page, base_url: str) -> None:
-    """Wizard marks account step done when at least one account exists."""
+    """Covers: KAL-ONB-002"""
     inst_id = seed_institution("mBank Wizard E2E Account")
     seed_account("Wizard E2E Account", institution_id=inst_id)
 
@@ -174,9 +174,8 @@ def test_wizard_import_go_button_navigates(page: Page, base_url: str) -> None:
 
 
 def test_wizard_all_done_badge_when_setup_complete(page: Page, base_url: str) -> None:
-    """Scenario: Completing all steps marks setup as done
+    """Covers: KAL-ONB-002
 
-    Maps to docs/bdd.md — Feature: Initial Setup Wizard (Finish Setup gate).
     The live app surfaces an "All done!" badge on /wizard once all onboarding steps
     are satisfied (institution, account, categories, transactions).
     """

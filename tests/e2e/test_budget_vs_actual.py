@@ -1,5 +1,7 @@
 """E2E tests for Feature: Annual Budget Planning — budget vs actual view.
 
+Covers: KAL-BUD-006
+
 Maps the q3-test-safety-net budget execution flow.
 Page URL: /budget-plan
 """
@@ -19,7 +21,7 @@ CURRENT_MONTH_LABEL = _MONTH_LABELS[CURRENT_MONTH - 1]
 
 
 def test_budget_vs_actual_shows_planned_and_spent(page: Page, base_url: str) -> None:
-    """Scenario: See actual spending vs budget for the current month"""
+    """Covers: KAL-BUD-006"""
     category_name = "Food Budget Actual E2E"
     account_name = "PKO Budget Actual E2E"
     tx_description = "Groceries Budget Actual E2E"

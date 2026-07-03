@@ -1,5 +1,7 @@
 """E2E tests for Feature: mBank CSV Import — transfer detection.
 
+Covers: KAL-CSV-004
+
 Maps internal transfer detection between two registered accounts.
 Page URL: /import (preview) and /transactions (verification)
 """
@@ -34,7 +36,7 @@ def _select_import_option(page: Page, label: str, option: str) -> None:
 
 
 def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str) -> None:
-    """Scenario: Transfers to registered accounts are detected automatically"""
+    """Covers: KAL-CSV-004"""
     expense_cat = "Other Expenses Transfer E2E"
     income_cat = "Other Income Transfer E2E"
 

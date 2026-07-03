@@ -73,7 +73,7 @@ def test_seeded_category_appears_in_budget_grid(page: Page, base_url: str) -> No
 
 
 def test_budget_totals_reflect_seeded_entries(page: Page, base_url: str) -> None:
-    """Scenario: Budget totals update when a cell is changed.
+    """Covers: KAL-BUD-005
 
     Seeds 800 for all 12 months for CURRENT_YEAR and asserts yearly total is 9,600.
     """
@@ -94,7 +94,7 @@ def test_budget_totals_reflect_seeded_entries(page: Page, base_url: str) -> None
 
 
 def test_set_uniform_amount_for_all_months(page: Page, base_url: str) -> None:
-    """Scenario: Set the same amount for all 12 months at once"""
+    """Covers: KAL-BUD-002"""
     seed_category("Transport Budget Plan E2E")
 
     page.goto(f"{base_url}/budget-plan")
@@ -147,7 +147,7 @@ def test_navigate_to_previous_year_shows_year_label(page: Page, base_url: str) -
 
 
 def test_zero_budget_amount_triggers_warning(page: Page, base_url: str) -> None:
-    """Scenario: Cannot enter a zero/negative budget amount."""
+    """Covers: KAL-BUD-010"""
     seed_category("Food Zero Budget E2E")
 
     page.goto(f"{base_url}/budget-plan")

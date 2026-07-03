@@ -23,6 +23,7 @@ class TestListPayees:
 
 class TestCreatePayee:
     async def test_create_returns_201_with_schema_fields(self, api_client: AsyncClient):
+        """Covers: KAL-PAY-001"""
         resp = await api_client.post("/api/v1/payees/", json=PAYEE_PAYLOAD)
         assert resp.status_code == 201
         body = resp.json()
@@ -32,6 +33,7 @@ class TestCreatePayee:
         assert "updated_at" in body
 
     async def test_create_missing_name_returns_422(self, api_client: AsyncClient):
+        """Covers: KAL-PAY-009"""
         resp = await api_client.post("/api/v1/payees/", json={})
         assert resp.status_code == 422
 
@@ -55,6 +57,7 @@ class TestGetPayee:
 
 class TestUpdatePayee:
     async def test_update_returns_200(self, api_client: AsyncClient):
+        """Covers: KAL-PAY-003"""
         created = await create_payee(api_client)
         resp = await api_client.put(
             f"/api/v1/payees/{created['id']}", json={"name": "Updated Payee"}
@@ -75,6 +78,7 @@ class TestUpdatePayee:
 
 class TestDeletePayee:
     async def test_delete_returns_204(self, api_client: AsyncClient):
+        """Covers: KAL-PAY-005"""
         created = await create_payee(api_client)
         resp = await api_client.delete(f"/api/v1/payees/{created['id']}")
         assert resp.status_code == 204
@@ -92,6 +96,7 @@ class TestDeletePayee:
 
 class TestMergePayees:
     async def test_merge_returns_deleted_count(self, api_client: AsyncClient):
+        """Covers: KAL-PAY-007"""
         keep = await create_payee(api_client, name="Keep")
         merge_a = await create_payee(api_client, name="Merge A")
         merge_b = await create_payee(api_client, name="Merge B")

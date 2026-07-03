@@ -80,7 +80,7 @@ The subagent:
 
 | # | Plan | Status | Depends on |
 |---|---|---|---|
-| 1 | [q3-test-safety-net](q3-test-safety-net.md) | draft | — |
+| 1 | [q3-test-safety-net](archive/q3-test-safety-net.md) | archived | — |
 | 2 | [q3-views-refactor](q3-views-refactor.md) | draft | 1 (e2e green first) |
 | 3 | [q3-auth-single-user](q3-auth-single-user.md) | draft | 1 (updates API tests) |
 | 4 | [q3-forecast-optional-prophet](q3-forecast-optional-prophet.md) | draft | — (parallel-safe) |

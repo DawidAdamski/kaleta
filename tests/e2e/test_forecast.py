@@ -46,7 +46,7 @@ def test_forecast_page_shows_initial_prompt(page: Page, base_url: str) -> None:
 
 
 def test_run_30_day_forecast_single_account(page: Page, base_url: str) -> None:
-    """Scenario: Run a 30-day forecast for a single account"""
+    """Covers: KAL-FCT-001"""
     acc_id = seed_account("PKO Forecast 30d E2E")
     cat_id = seed_category("Forecast Expense 30d E2E")
     seed_many_transactions(acc_id, cat_id, n_days=90)
@@ -75,7 +75,7 @@ def test_run_30_day_forecast_single_account(page: Page, base_url: str) -> None:
 
 
 def test_run_90_day_forecast(page: Page, base_url: str) -> None:
-    """Scenario: Run a 90-day forecast for a single account"""
+    """Covers: KAL-FCT-002"""
     acc_id = seed_account("PKO Forecast 90d E2E")
     cat_id = seed_category("Forecast Expense 90d E2E")
     seed_many_transactions(acc_id, cat_id, n_days=90)
@@ -105,7 +105,7 @@ def test_run_90_day_forecast(page: Page, base_url: str) -> None:
 
 
 def test_run_forecast_all_accounts(page: Page, base_url: str) -> None:
-    """Scenario: Run a forecast for all accounts combined"""
+    """Covers: KAL-FCT-003"""
     page.goto(f"{base_url}/forecast")
 
     # Default account selection is "All Accounts"
@@ -125,7 +125,7 @@ def test_run_forecast_all_accounts(page: Page, base_url: str) -> None:
 
 
 def test_warning_shown_for_insufficient_history(page: Page, base_url: str) -> None:
-    """Scenario: Warning shown when history is insufficient"""
+    """Covers: KAL-FCT-007"""
     acc_id = seed_account("New Acct Forecast Insuf E2E")
     cat_id = seed_category("Forecast Insuf Cat E2E")
     seed_many_transactions(acc_id, cat_id, n_days=7)
