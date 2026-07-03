@@ -10,7 +10,6 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import seed_account, seed_category, seed_many_transactions
 
-
 # ---------------------------------------------------------------------------
 # Scenario: Forecast page loads and shows controls
 # ---------------------------------------------------------------------------

@@ -13,7 +13,6 @@ from __future__ import annotations
 from playwright.sync_api import Page, expect
 
 
-
 def _fill_number(page: Page, label: str, value: str) -> None:
     """Select-all then type into a NiceGUI number field."""
     field = page.get_by_label(label)

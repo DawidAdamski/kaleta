@@ -10,8 +10,6 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import seed_account, seed_category, seed_planned_transaction
 
-
-
 # ---------------------------------------------------------------------------
 # Scenario: Create a monthly recurring expense
 # ---------------------------------------------------------------------------

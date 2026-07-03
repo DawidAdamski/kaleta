@@ -69,9 +69,9 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     search.click(click_count=3)
     search.fill("Jan Kowalski — Transfer E2E")
 
-    transfer_row = page.locator(".q-table tbody tr").filter(
-        has_text="Jan Kowalski — Transfer E2E"
-    ).first
+    transfer_row = (
+        page.locator(".q-table tbody tr").filter(has_text="Jan Kowalski — Transfer E2E").first
+    )
     expect(transfer_row).to_be_visible(timeout=5000)
     expect(transfer_row.get_by_role("cell", name="transfer", exact=True)).to_be_visible(
         timeout=5000

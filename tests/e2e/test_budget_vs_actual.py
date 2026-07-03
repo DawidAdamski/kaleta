@@ -44,9 +44,9 @@ def test_budget_vs_actual_shows_planned_and_spent(page: Page, base_url: str) -> 
     category_row = page.locator("div").filter(has_text=category_name).first
     expect(category_row.get_by_text(f"{planned:,.0f}").first).to_be_visible(timeout=5000)
 
-    actual_row = page.locator("div").filter(has_text="Actual").filter(
-        has_text=f"{spent:,.0f}"
-    ).first
+    actual_row = (
+        page.locator("div").filter(has_text="Actual").filter(has_text=f"{spent:,.0f}").first
+    )
     expect(actual_row).to_be_visible(timeout=5000)
 
     if spent <= planned:

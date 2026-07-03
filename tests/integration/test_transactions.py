@@ -121,9 +121,7 @@ class TestUpdateTransaction:
         assert resp.status_code == 422
 
     async def test_update_nonexistent_returns_404(self, api_client: AsyncClient):
-        resp = await api_client.put(
-            "/api/v1/transactions/999", json={"description": "ghost"}
-        )
+        resp = await api_client.put("/api/v1/transactions/999", json={"description": "ghost"})
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Transaction not found"
 
