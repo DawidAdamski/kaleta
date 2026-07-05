@@ -4,11 +4,9 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.payee import Payee
-from kaleta.schemas.payee import PayeeCreate, PayeeUpdate
-from kaleta.services import PayeeService
+from kaleta.schemas.payee import PayeeCreate, PayeeResponse, PayeeUpdate
+from kaleta.services import PayeeService, with_session
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, DIALOG_TITLE, PAGE_TITLE, TABLE_SURFACE
 
@@ -63,7 +61,8 @@ def register() -> None:
                     phone=(phone_input.value or "").strip() or None,
                     notes=(notes_input.value or "").strip() or None,
                 )
-                async with AsyncSessionFactory() as session:
+
+                async def _save(session: Any) -> None:
                     svc = PayeeService(session)
                     if dialog_payee_id["value"] is None:
                         await svc.create(payload)
@@ -74,6 +73,8 @@ def register() -> None:
                             PayeeUpdate(**payload.model_dump()),
                         )
                         ui.notify(t("payees.updated"), type="positive")
+
+                await with_session(_save)
                 dialog.close()
                 payees_list.refresh()
 
@@ -98,9 +99,13 @@ def register() -> None:
                 ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
 
                 async def _do_delete() -> None:
-                    if delete_id["value"] is not None:
-                        async with AsyncSessionFactory() as session:
-                            await PayeeService(session).delete(delete_id["value"])
+                    pid = delete_id["value"]
+                    if pid is not None:
+
+                        async def _delete(session: Any) -> None:
+                            await PayeeService(session).delete(pid)
+
+                        await with_session(_delete)
                     ui.notify(t("payees.deleted"), type="positive")
                     delete_dialog.close()
                     payees_list.refresh()
@@ -126,8 +131,11 @@ def register() -> None:
                         ui.notify(t("payees.merge_keep_required"), type="negative")
                         return
                     merge_ids = [i for i in merge_state["merge_ids"] if i != keep]
-                    async with AsyncSessionFactory() as session:
+
+                    async def _merge(session: Any) -> None:
                         await PayeeService(session).merge(keep, merge_ids)
+
+                    await with_session(_merge)
                     ui.notify(t("payees.merged"), type="positive")
                     selected_ids.clear()
                     merge_dialog.close()
@@ -152,7 +160,7 @@ def register() -> None:
             notes_input.set_value("")
             dialog.open()
 
-        def _open_edit(payee: Payee) -> None:
+        def _open_edit(payee: PayeeResponse) -> None:
             dialog_payee_id["value"] = payee.id
             dialog_title.set_text(t("payees.edit"))
             name_input.set_value(payee.name)
@@ -165,12 +173,12 @@ def register() -> None:
             notes_input.set_value(payee.notes or "")
             dialog.open()
 
-        def _open_delete(payee: Payee) -> None:
+        def _open_delete(payee: PayeeResponse) -> None:
             delete_id["value"] = payee.id
             delete_label.set_text(t("payees.delete_confirm", name=payee.name))
             delete_dialog.open()
 
-        def _open_merge(all_payees: list[Payee]) -> None:
+        def _open_merge(all_payees: list[PayeeResponse]) -> None:
             opts = {p.id: p.name for p in all_payees if p.id in selected_ids}
             merge_state["merge_ids"] = list(selected_ids)
             merge_state["payee_options"] = opts
@@ -198,13 +206,16 @@ def register() -> None:
             # need current payees list — captured via closure from payees_list
             _open_merge(_current_payees["list"])
 
-        _current_payees: dict[str, list[Payee]] = {"list": []}
+        _current_payees: dict[str, list[PayeeResponse]] = {"list": []}
 
         # ── Payees list ────────────────────────────────────────────────────────
         @ui.refreshable
         async def payees_list() -> None:
-            async with AsyncSessionFactory() as session:
+            async def _load(session: Any) -> list[tuple[PayeeResponse, int]]:
                 rows_with_counts = await PayeeService(session).list_with_counts()
+                return [(PayeeResponse.model_validate(p), cnt) for p, cnt in rows_with_counts]
+
+            rows_with_counts = await with_session(_load)
             all_payees = [p for p, _ in rows_with_counts]
             _current_payees["list"] = all_payees
 

@@ -3,10 +3,10 @@ from __future__ import annotations
 import calendar
 import datetime
 from decimal import Decimal
+from typing import Any
 
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
 from kaleta.schemas.monthly_readiness import (
     Stage1CloseLastMonth,
@@ -15,7 +15,7 @@ from kaleta.schemas.monthly_readiness import (
     Stage4AcknowledgeBills,
     Stage4PlannedRow,
 )
-from kaleta.services import MonthlyReadinessService
+from kaleta.services import MonthlyReadinessService, with_session
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -41,13 +41,16 @@ def register() -> None:
         today = datetime.date.today()
         state = {"year": today.year, "month": today.month}
 
-        async with AsyncSessionFactory() as session:
+        async def _load(session: Any) -> tuple[Any, Any, Any, Any, Any]:
             svc = MonthlyReadinessService(session)
             row = await svc.get_or_create(state["year"], state["month"])
             stage_1 = await svc.stage_1(state["year"], state["month"])
             stage_2 = await svc.stage_2(state["year"], state["month"])
             stage_3 = await svc.stage_3(state["year"], state["month"])
             stage_4 = await svc.stage_4(state["year"], state["month"])
+            return row, stage_1, stage_2, stage_3, stage_4
+
+        row, stage_1, stage_2, stage_3, stage_4 = await with_session(_load)
 
         stages_done = {
             1: row.stage_1_done,
@@ -107,8 +110,10 @@ def _stage_header(num: int, title_key: str, done: bool) -> None:
 
 
 async def _mark_stage(year: int, month: int, stage: int, done: bool = True) -> None:
-    async with AsyncSessionFactory() as session:
+    async def _do(session: Any) -> None:
         await MonthlyReadinessService(session).mark_stage(year, month, stage, done=done)
+
+    await with_session(_do)
 
 
 def _render_stage_1(data: Stage1CloseLastMonth, done: bool, state: dict[str, int]) -> None:
@@ -194,10 +199,12 @@ def _render_stage_3(data: Stage3AllocateNewMonth, done: bool, state: dict[str, i
             if data.new_count > 0 and not done:
 
                 async def _apply() -> None:
-                    async with AsyncSessionFactory() as session:
-                        written = await MonthlyReadinessService(session).apply_stage_3(
+                    async def _copy(session: Any) -> int:
+                        return await MonthlyReadinessService(session).apply_stage_3(
                             state["year"], state["month"]
                         )
+
+                    written = await with_session(_copy)
                     ui.notify(
                         t("monthly_readiness.stage_3_applied", count=written),
                         type="positive",
@@ -262,10 +269,12 @@ def _render_stage_4_row(r: Stage4PlannedRow, state: dict[str, int]) -> None:
         cb = ui.checkbox(value=r.seen).props("dense")
 
         async def _on_change(_e: object, pid: int = r.planned_id, ctrl: ui.checkbox = cb) -> None:
-            async with AsyncSessionFactory() as session:
+            async def _set_seen(session: Any) -> None:
                 await MonthlyReadinessService(session).set_seen(
                     state["year"], state["month"], pid, seen=bool(ctrl.value)
                 )
+
+            await with_session(_set_seen)
 
         cb.on("update:model-value", _on_change)
         ui.label(r.date.strftime("%d.%m")).classes("w-16 text-xs text-slate-500")

@@ -5,15 +5,15 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
 from kaleta.schemas.reserve_fund import (
+    ReserveFundBackingMode,
     ReserveFundCreate,
+    ReserveFundKind,
     ReserveFundUpdate,
     ReserveFundWithProgress,
 )
-from kaleta.services import AccountService, ReserveFundService
+from kaleta.services import AccountService, ReserveFundService, with_session
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     BODY_MUTED,
@@ -45,14 +45,19 @@ def _progress_color(pct: Decimal) -> str:
 def register() -> None:
     @ui.page("/wizard/safety-funds")
     async def safety_funds_page() -> None:
-        async with AsyncSessionFactory() as session:
+        async def _load(
+            session: Any,
+        ) -> tuple[dict[int, str], list[ReserveFundWithProgress], list[ReserveFundWithProgress]]:
             accounts = await AccountService(session).list()
             svc = ReserveFundService(session)
             active_funds = await svc.list_with_progress(include_archived=False)
             all_funds = await svc.list_with_progress(include_archived=True)
+            account_opts = {a.id: a.name for a in accounts}
+            return account_opts, active_funds, all_funds
+
+        account_opts, active_funds, all_funds = await with_session(_load)
 
         archived_funds = [f for f in all_funds if f.is_archived]
-        account_opts: dict[int, str] = {a.id: a.name for a in accounts}
 
         with page_layout(t("safety_funds.title"), wide=True):
             # ── Header ───────────────────────────────────────────────────
@@ -172,8 +177,8 @@ def register() -> None:
                     ui.notify(str(exc), type="negative")
                     return
 
-                async with AsyncSessionFactory() as s:
-                    fund_svc = ReserveFundService(s)
+                async def _save(session: Any) -> None:
+                    fund_svc = ReserveFundService(session)
                     if editing_state["id"] is None:
                         try:
                             payload = ReserveFundCreate(
@@ -199,6 +204,8 @@ def register() -> None:
                                 emergency_multiplier=multiplier,
                             ),
                         )
+
+                await with_session(_save)
                 fund_dialog.close()
                 ui.notify(t("safety_funds.saved"), type="positive")
                 ui.navigate.reload()
@@ -252,8 +259,11 @@ def register() -> None:
 
             async def _confirm_delete() -> None:
                 fund_id = int(pending_delete["id"])
-                async with AsyncSessionFactory() as s:
-                    await ReserveFundService(s).delete(fund_id)
+
+                async def _delete(session: Any) -> None:
+                    await ReserveFundService(session).delete(fund_id)
+
+                await with_session(_delete)
                 delete_dialog.close()
                 ui.notify(t("safety_funds.deleted"), type="positive")
                 ui.navigate.reload()
@@ -267,14 +277,18 @@ def register() -> None:
                 delete_dialog.open()
 
             async def _archive_fund(fund_id: int) -> None:
-                async with AsyncSessionFactory() as s:
-                    await ReserveFundService(s).archive(fund_id)
+                async def _archive(session: Any) -> None:
+                    await ReserveFundService(session).archive(fund_id)
+
+                await with_session(_archive)
                 ui.notify(t("safety_funds.archived_msg"), type="positive")
                 ui.navigate.reload()
 
             async def _unarchive_fund(fund_id: int) -> None:
-                async with AsyncSessionFactory() as s:
-                    await ReserveFundService(s).unarchive(fund_id)
+                async def _unarchive(session: Any) -> None:
+                    await ReserveFundService(session).unarchive(fund_id)
+
+                await with_session(_unarchive)
                 ui.notify(t("safety_funds.unarchived_msg"), type="positive")
                 ui.navigate.reload()
 

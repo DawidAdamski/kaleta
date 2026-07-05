@@ -7,6 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from kaleta.models.asset import AssetType
 
+__all__ = [
+    "AssetType",
+    "AssetCreate",
+    "AssetUpdate",
+    "AssetResponse",
+]
+
 
 class AssetBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)

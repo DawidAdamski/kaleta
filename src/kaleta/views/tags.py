@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+from typing import Any
+
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.tag import Tag
-from kaleta.schemas.tag import TagCreate, TagUpdate
-from kaleta.services import TagService
+from kaleta.schemas.tag import TagCreate, TagResponse, TagUpdate
+from kaleta.services import TagService, with_session
 from kaleta.views.layout import page_layout
 
 _DEFAULT_COLOR = "#42A5F5"
@@ -237,7 +237,8 @@ def register() -> None:
                     icon=(icon_input.value or "").strip() or None,
                     description=(desc_input.value or "").strip() or None,
                 )
-                async with AsyncSessionFactory() as session:
+
+                async def _save(session: Any) -> None:
                     svc = TagService(session)
                     if dialog_tag_id["value"] is None:
                         await svc.create(payload)
@@ -245,6 +246,8 @@ def register() -> None:
                     else:
                         await svc.update(dialog_tag_id["value"], TagUpdate(**payload.model_dump()))
                         ui.notify(t("tags.updated"), type="positive")
+
+                await with_session(_save)
                 dialog.close()
                 tags_grid.refresh()
 
@@ -312,9 +315,13 @@ def register() -> None:
                 ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
 
                 async def _do_delete() -> None:
-                    if delete_id["value"] is not None:
-                        async with AsyncSessionFactory() as session:
-                            await TagService(session).delete(delete_id["value"])
+                    tid = delete_id["value"]
+                    if tid is not None:
+
+                        async def _delete(session: Any) -> None:
+                            await TagService(session).delete(tid)
+
+                        await with_session(_delete)
                     ui.notify(t("tags.deleted"), type="positive")
                     delete_dialog.close()
                     tags_grid.refresh()
@@ -336,7 +343,7 @@ def register() -> None:
             icon_preview_ui.refresh()
             dialog.open()
 
-        def _open_edit(tag: Tag) -> None:
+        def _open_edit(tag: TagResponse) -> None:
             dialog_tag_id["value"] = tag.id
             icon_state["name"] = tag.icon or _DEFAULT_ICON
             icon_state["color"] = tag.color or _DEFAULT_COLOR
@@ -348,7 +355,7 @@ def register() -> None:
             icon_preview_ui.refresh()
             dialog.open()
 
-        def _open_delete(tag: Tag) -> None:
+        def _open_delete(tag: TagResponse) -> None:
             delete_id["value"] = tag.id
             delete_label.set_text(t("tags.delete_confirm", name=tag.name))
             delete_dialog.open()
@@ -356,8 +363,11 @@ def register() -> None:
         # ── Tags grid ─────────────────────────────────────────────────────────
         @ui.refreshable
         async def tags_grid() -> None:
-            async with AsyncSessionFactory() as session:
+            async def _load(session: Any) -> list[TagResponse]:
                 all_tags = await TagService(session).list()
+                return [TagResponse.model_validate(tag) for tag in all_tags]
+
+            all_tags = await with_session(_load)
 
             if not all_tags:
                 with ui.column().classes("w-full items-center py-20 gap-3 text-grey-5"):

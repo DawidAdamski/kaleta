@@ -5,30 +5,17 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.category import Category
-from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
-from kaleta.models.transaction import TransactionType
-from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
-from kaleta.services import AccountService, CategoryService, PlannedTransactionService
+from kaleta.schemas.planned_transaction import (
+    PlannedTransactionCreate,
+    PlannedTransactionResponse,
+    PlannedTransactionUpdate,
+    RecurrenceFrequency,
+)
+from kaleta.schemas.transaction import TransactionType
+from kaleta.services import AccountService, CategoryService, PlannedTransactionService, with_session
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, TABLE_SURFACE
-
-
-def _build_cat_opts(cats_list: list[Category]) -> dict[int, str]:
-    cats_by_id = {c.id: c for c in cats_list}
-    result: dict[int, str] = {}
-    roots = sorted(
-        [c for c in cats_list if c.parent_id is None or c.parent_id not in cats_by_id],
-        key=lambda c: c.name,
-    )
-    for root in roots:
-        result[root.id] = root.name
-        children = sorted([c for c in cats_list if c.parent_id == root.id], key=lambda c: c.name)
-        for child in children:
-            result[child.id] = f"{root.name} \u2192 {child.name}"
-    return result
 
 
 def _freq_label(freq: RecurrenceFrequency, interval: int) -> str:
@@ -44,12 +31,15 @@ def _type_color(tx_type: TransactionType) -> str:
 def register() -> None:
     @ui.page("/planned")
     async def planned_page() -> None:
-        async with AsyncSessionFactory() as session:
+        async def _load_refs(session: Any) -> tuple[dict[int, str], dict[int, str]]:
             accounts = await AccountService(session).list()
             cats_list = await CategoryService(session).list()
+            return (
+                {a.id: a.name for a in accounts},
+                CategoryService.build_option_labels(cats_list),
+            )
 
-        account_opts: dict[int, str] = {a.id: a.name for a in accounts}
-        cat_opts = _build_cat_opts(cats_list)
+        account_opts, cat_opts = await with_session(_load_refs)
 
         # ── Shared form state ─────────────────────────────────────────────────
         edit_id: dict[str, int | None] = {"value": None}
@@ -163,7 +153,7 @@ def register() -> None:
                     is_active=active_toggle.value,
                 )
 
-                async with AsyncSessionFactory() as session:
+                async def _save(session: Any) -> None:
                     svc = PlannedTransactionService(session)
                     if edit_id["value"] is None:
                         await svc.create(payload)
@@ -174,6 +164,8 @@ def register() -> None:
                             PlannedTransactionUpdate(**payload.model_dump()),
                         )
                         ui.notify(t("planned.updated"), type="positive")
+
+                await with_session(_save)
 
                 dialog.close()
                 planned_list_ui.refresh()
@@ -200,9 +192,13 @@ def register() -> None:
                 ui.button(t("common.cancel"), on_click=del_dialog.close).props("flat")
 
                 async def _do_delete() -> None:
-                    if del_id["value"] is not None:
-                        async with AsyncSessionFactory() as session:
-                            await PlannedTransactionService(session).delete(del_id["value"])
+                    pid = del_id["value"]
+                    if pid is not None:
+
+                        async def _delete(session: Any) -> None:
+                            await PlannedTransactionService(session).delete(pid)
+
+                        await with_session(_delete)
                     ui.notify(t("planned.deleted"), type="positive")
                     del_dialog.close()
                     planned_list_ui.refresh()
@@ -229,7 +225,7 @@ def register() -> None:
             active_toggle.set_value(True)
             dialog.open()
 
-        def _open_edit(pt: PlannedTransaction) -> None:
+        def _open_edit(pt: PlannedTransactionResponse) -> None:
             edit_id["value"] = pt.id
             dialog_title.set_text(t("planned.edit"))
             name_input.set_value(pt.name)
@@ -246,26 +242,37 @@ def register() -> None:
             active_toggle.set_value(pt.is_active)
             dialog.open()
 
-        def _open_delete(pt: PlannedTransaction) -> None:
+        def _open_delete(pt: PlannedTransactionResponse) -> None:
             del_id["value"] = pt.id
             del_label.set_text(t("planned.delete_confirm", name=pt.name))
             del_dialog.open()
 
-        async def _toggle(pt: PlannedTransaction) -> None:
-            async with AsyncSessionFactory() as session:
+        async def _toggle(pt: PlannedTransactionResponse) -> None:
+            async def _do_toggle(session: Any) -> None:
                 await PlannedTransactionService(session).toggle_active(pt.id)
+
+            await with_session(_do_toggle)
             planned_list_ui.refresh()
 
         # ── Planned list ──────────────────────────────────────────────────────
         @ui.refreshable
         async def planned_list_ui() -> None:
-            async with AsyncSessionFactory() as session:
+            async def _load(session: Any) -> list[dict[str, Any]]:
                 svc = PlannedTransactionService(session)
                 items = await svc.list()
-                # Compute next occurrences while session is open
-                next_dates = {pt.id: svc.next_occurrence(pt) for pt in items}
+                return [
+                    {
+                        "pt": PlannedTransactionResponse.model_validate(pt),
+                        "account_name": pt.account.name if pt.account else "—",
+                        "category_name": pt.category.name if pt.category else "—",
+                        "next": svc.next_occurrence(pt),
+                    }
+                    for pt in items
+                ]
 
-            if not items:
+            rows_data = await with_session(_load)
+
+            if not rows_data:
                 with ui.column().classes("w-full items-center py-20 gap-3 text-grey-5"):
                     ui.icon("event_repeat", size="4rem")
                     ui.label(t("planned.no_planned")).classes("text-lg")
@@ -289,22 +296,22 @@ def register() -> None:
 
             rows = [
                 {
-                    "id": pt.id,
-                    "name": pt.name,
-                    "account": pt.account.name if pt.account else "—",
-                    "category": pt.category.name if pt.category else "—",
-                    "type": pt.type.value,
+                    "id": row["pt"].id,
+                    "name": row["pt"].name,
+                    "account": row["account_name"],
+                    "category": row["category_name"],
+                    "type": row["pt"].type.value,
                     "amount": (
-                        f"+{abs(pt.amount):,.2f}"
-                        if pt.type == TransactionType.INCOME
-                        else f"-{abs(pt.amount):,.2f}"
+                        f"+{abs(row['pt'].amount):,.2f}"
+                        if row["pt"].type == TransactionType.INCOME
+                        else f"-{abs(row['pt'].amount):,.2f}"
                     ),
-                    "freq": _freq_label(pt.frequency, pt.interval),
-                    "next": str(next_dates[pt.id]) if next_dates[pt.id] else "—",
-                    "active": pt.is_active,
-                    "is_active": pt.is_active,
+                    "freq": _freq_label(row["pt"].frequency, row["pt"].interval),
+                    "next": str(row["next"]) if row["next"] else "—",
+                    "active": row["pt"].is_active,
+                    "is_active": row["pt"].is_active,
                 }
-                for pt in items
+                for row in rows_data
             ]
 
             tbl = ui.table(columns=columns, rows=rows, row_key="id").classes(TABLE_SURFACE)
@@ -342,7 +349,7 @@ def register() -> None:
                 " @click=\"$parent.$emit('delete', props.row.id)\" /></q-td>",
             )
 
-            pt_by_id = {pt.id: pt for pt in items}
+            pt_by_id = {row["pt"].id: row["pt"] for row in rows_data}
 
             async def _handle_toggle(e: Any) -> None:
                 pt = pt_by_id.get(int(e.args)) if getattr(e, "args", None) is not None else None

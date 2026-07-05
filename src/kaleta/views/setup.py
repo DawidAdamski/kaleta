@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from collections.abc import Callable
 from pathlib import Path
 
@@ -11,6 +10,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
+from kaleta.services import activate_database
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -19,37 +19,11 @@ def _sqlite_url(file_path: str) -> str:
     return f"sqlite+aiosqlite:///{file_path}"
 
 
-async def _run_migrations(db_url: str) -> None:
-    """Run Alembic migrations in a thread-pool executor (synchronous Alembic API)."""
-    from alembic.config import Config
-
-    from alembic import command
-
-    alembic_ini = Path(__file__).parents[3] / "alembic.ini"
-
-    def _upgrade() -> None:
-        os.environ["KALETA_MIGRATE_URL"] = db_url
-        try:
-            cfg = Config(str(alembic_ini))
-            command.upgrade(cfg, "head")
-        finally:
-            os.environ.pop("KALETA_MIGRATE_URL", None)
-
-    await asyncio.get_event_loop().run_in_executor(None, _upgrade)
-
-
 async def _activate_db(db_url: str, name: str, spinner: ui.spinner, status: ui.label) -> None:
     """Run migrations → configure proxy → save config → navigate home."""
-    from kaleta.config import settings
-    from kaleta.config.setup_config import save_db
-    from kaleta.db import configure_database
-
     try:
         status.set_text(t("setup.migrating"))
-        await _run_migrations(db_url)
-
-        configure_database(db_url, debug=settings.debug)
-        save_db(db_url, name=name)
+        await activate_database(db_url, name=name)
 
         status.set_text(t("setup.success"))
         await asyncio.sleep(0.6)

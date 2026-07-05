@@ -105,31 +105,6 @@ type = "forbidden"
 source_modules = ["kaleta.views"]
 forbidden_modules = ["kaleta.models", "kaleta.db", "sqlalchemy"]
 allow_indirect_imports = true
-ignore_imports = [
-    # Existing view-layer violations; burn down via q3-views-refactor.
-    "kaleta.views.budget_builder -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.budget_builder -> kaleta.models.category",  # TODO(q3-views-refactor)
-    "kaleta.views.monthly_readiness -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.net_worth -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.net_worth -> kaleta.models.account",  # TODO(q3-views-refactor)
-    "kaleta.views.net_worth -> kaleta.models.asset",  # TODO(q3-views-refactor)
-    "kaleta.views.payees -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.payees -> kaleta.models.payee",  # TODO(q3-views-refactor)
-    "kaleta.views.payment_calendar -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.payment_calendar -> kaleta.models.category",  # TODO(q3-views-refactor)
-    "kaleta.views.payment_calendar -> kaleta.models.planned_transaction",  # TODO(q3-views-refactor)
-    "kaleta.views.payment_calendar -> kaleta.models.transaction",  # TODO(q3-views-refactor)
-    "kaleta.views.planned_transactions -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.planned_transactions -> kaleta.models.category",  # TODO(q3-views-refactor)
-    "kaleta.views.planned_transactions -> kaleta.models.planned_transaction",  # TODO(q3-views-refactor)
-    "kaleta.views.planned_transactions -> kaleta.models.transaction",  # TODO(q3-views-refactor)
-    "kaleta.views.safety_funds -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.safety_funds -> kaleta.models.reserve_fund",  # TODO(q3-views-refactor)
-    "kaleta.views.setup -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.tags -> kaleta.db",  # TODO(q3-views-refactor)
-    "kaleta.views.tags -> kaleta.models.tag",  # TODO(q3-views-refactor)
-    "kaleta.views.wizard -> kaleta.db",  # TODO(q3-views-refactor)
-]
 
 [[tool.importlinter.contracts]]
 id = "services-no-ui"

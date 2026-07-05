@@ -18,18 +18,16 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.category import Category
-from kaleta.models.planned_transaction import RecurrenceFrequency
-from kaleta.models.transaction import TransactionType
-from kaleta.schemas.planned_transaction import PlannedTransactionCreate
+from kaleta.schemas.planned_transaction import PlannedTransactionCreate, RecurrenceFrequency
+from kaleta.schemas.transaction import TransactionType
 from kaleta.schemas.wizard_projections import SubscriptionCharge
 from kaleta.services import (
     AccountService,
     CategoryService,
     PlannedTransactionService,
     WizardProjectionService,
+    with_session,
 )
 from kaleta.services.planned_transaction_service import (
     DayAggregate,
@@ -50,21 +48,6 @@ _WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
 
 def _fmt(amount: Decimal) -> str:
     return f"{amount:,.2f}"
-
-
-def _build_cat_opts(cats_list: list[Category]) -> dict[int, str]:
-    cats_by_id = {c.id: c for c in cats_list}
-    result: dict[int, str] = {}
-    roots = sorted(
-        [c for c in cats_list if c.parent_id is None or c.parent_id not in cats_by_id],
-        key=lambda c: c.name,
-    )
-    for root in roots:
-        result[root.id] = root.name
-        children = sorted([c for c in cats_list if c.parent_id == root.id], key=lambda c: c.name)
-        for child in children:
-            result[child.id] = f"{root.name} \u2192 {child.name}"
-    return result
 
 
 def _add_months(d: datetime.date, months: int) -> datetime.date:
@@ -90,11 +73,15 @@ def register() -> None:
             "subs_by_day": {},
         }
 
-        async with AsyncSessionFactory() as session:
+        async def _load_refs(session: Any) -> tuple[dict[int, str], dict[int, str]]:
             accounts = await AccountService(session).list()
             cats_list = await CategoryService(session).list()
-        account_opts: dict[int, str] = {a.id: a.name for a in accounts}
-        cat_opts = _build_cat_opts(cats_list)
+            return (
+                {a.id: a.name for a in accounts},
+                CategoryService.build_option_labels(cats_list),
+            )
+
+        account_opts, cat_opts = await with_session(_load_refs)
 
         # ── Quick-add dialog ─────────────────────────────────────────────────
         quick_dialog = ui.dialog()
@@ -153,8 +140,11 @@ def register() -> None:
                     start_date=state["selected"],
                     is_active=True,
                 )
-                async with AsyncSessionFactory() as session:
+
+                async def _create(session: Any) -> None:
                     await PlannedTransactionService(session).create(payload)
+
+                await with_session(_create)
                 ui.notify(t("planned.created"), type="positive")
                 quick_dialog.close()
                 await _refresh()
@@ -318,17 +308,20 @@ def register() -> None:
                 last_day = calendar.monthrange(y, m)[1]
                 first = datetime.date(y, m, 1)
                 last = datetime.date(y, m, last_day)
-                async with AsyncSessionFactory() as session:
+
+                async def _load_grid(session: Any) -> tuple[MonthGrid, Any]:
                     overdue_days = (
                         int(app.storage.user.get("payment_calendar_overdue_days", 0) or 0) or 30
                     )
                     grid = await PlannedTransactionService(session).grid_for_month(
                         y, m, overdue_window_days=overdue_days
                     )
-                    # Project subscription renewals onto this month.
                     sub_sources = await WizardProjectionService(
                         session
                     ).get_payment_calendar_sources(first, last)
+                    return grid, sub_sources
+
+                grid, sub_sources = await with_session(_load_grid)
                 subs_by_day: dict[datetime.date, list[SubscriptionCharge]] = {}
                 for ch in sub_sources.subscription_charges:
                     subs_by_day.setdefault(ch.date, []).append(ch)

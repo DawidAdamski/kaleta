@@ -6,9 +6,8 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.category import CategoryType
+from kaleta.schemas.category import CategoryType
 from kaleta.schemas.wizard_projections import (
     BudgetBuilderProjection,
     PulledRow,
@@ -23,6 +22,7 @@ from kaleta.services import (
     CategoryService,
     WizardProjectionService,
     YearlyPlanService,
+    with_session,
 )
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
@@ -38,14 +38,16 @@ def register() -> None:
         today = datetime.date.today()
         current_year = today.year
 
-        async with AsyncSessionFactory() as session:
+        async def _load_page(session: Any) -> tuple[Any, dict[int, str], BudgetBuilderProjection]:
             payload = await YearlyPlanService(session).get_payload(current_year)
             expense_cats = await CategoryService(session).list(type=CategoryType.EXPENSE)
-            projection: BudgetBuilderProjection = await WizardProjectionService(
-                session
-            ).get_budget_builder_sources(current_year)
+            projection = await WizardProjectionService(session).get_budget_builder_sources(
+                current_year
+            )
+            cat_opts = CategoryService.build_option_labels(expense_cats)
+            return payload, cat_opts, projection
 
-        cat_opts: dict[int, str] = {c.id: c.name for c in expense_cats}
+        payload, cat_opts, projection = await with_session(_load_page)
 
         # Local mutable state — always in sync with the form inputs
         state: dict[str, Any] = {
@@ -413,8 +415,11 @@ def register() -> None:
 
             async def _on_apply() -> None:
                 payload_now = _current_payload()
-                async with AsyncSessionFactory() as s:
-                    diff = await YearlyPlanService(s).diff(payload_now)
+
+                async def _diff(session: Any) -> Any:
+                    return await YearlyPlanService(session).diff(payload_now)
+
+                diff = await with_session(_diff)
 
                 total_touched = len(diff.added) + len(diff.updated)
                 if total_touched == 0 and diff.unchanged_count > 0:
@@ -455,8 +460,10 @@ def register() -> None:
                             ).classes("text-sm")
 
                 async def _confirm() -> None:
-                    async with AsyncSessionFactory() as s2:
-                        await YearlyPlanService(s2).apply(payload_now)
+                    async def _apply(session: Any) -> None:
+                        await YearlyPlanService(session).apply(payload_now)
+
+                    await with_session(_apply)
                     diff_dialog.close()
                     ui.notify(t("budget_builder.applied"), type="positive")
 

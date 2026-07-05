@@ -5,15 +5,12 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.account import AccountType
-from kaleta.models.asset import AssetType
-from kaleta.schemas.asset import AssetCreate, AssetUpdate
-from kaleta.services.asset_service import AssetService
+from kaleta.schemas.account import AccountType
+from kaleta.schemas.asset import AssetCreate, AssetType, AssetUpdate
+from kaleta.services import AssetService, NetWorthService, with_session
 from kaleta.services.net_worth_service import (
     AccountSnapshot,
-    NetWorthService,
     NetWorthSummary,
     PhysicalAssetSnapshot,
 )
@@ -239,8 +236,8 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
         add_desc = ui.input(t("net_worth.asset_note")).classes("w-full")
 
         async def _add_save() -> None:
-            async with AsyncSessionFactory() as session:
-                asset = await AssetService(session).create(
+            async def _create(session: Any) -> Any:
+                return await AssetService(session).create(
                     AssetCreate(
                         name=add_name.value or "",
                         type=AssetType(add_type.value),
@@ -248,6 +245,8 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
                         description=add_desc.value or "",
                     )
                 )
+
+            asset = await with_session(_create)
             summary.physical_assets.append(
                 PhysicalAssetSnapshot(
                     id=asset.id,
@@ -285,8 +284,9 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
 
         async def _edit_save() -> None:
             snap: PhysicalAssetSnapshot = editing["snapshot"]
-            async with AsyncSessionFactory() as session:
-                updated = await AssetService(session).update(
+
+            async def _update(session: Any) -> Any:
+                return await AssetService(session).update(
                     editing["id"],
                     AssetUpdate(
                         name=edit_name.value or snap.name,
@@ -295,6 +295,8 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
                         description=edit_desc.value,
                     ),
                 )
+
+            updated = await with_session(_update)
             if updated:
                 snap.name = updated.name
                 snap.type = updated.type.value
@@ -314,8 +316,10 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
         ui.label(t("net_worth.cannot_undo")).classes("text-sm text-grey-6 mt-1")
 
         async def _del_confirm() -> None:
-            async with AsyncSessionFactory() as session:
+            async def _delete(session: Any) -> None:
                 await AssetService(session).delete(editing["id"])
+
+            await with_session(_delete)
             summary.physical_assets[:] = [
                 a for a in summary.physical_assets if a.id != editing["id"]
             ]
@@ -362,11 +366,13 @@ def register() -> None:
         dark: bool = app.storage.user.get("dark_mode", False)
         default_currency: str = app.storage.user.get("currency", "PLN")
 
-        async with AsyncSessionFactory() as session:
-            summary = await NetWorthService(session).get_summary(
+        async def _load_summary(session: Any) -> NetWorthSummary:
+            return await NetWorthService(session).get_summary(
                 history_months=13,
                 default_currency=default_currency,
             )
+
+        summary = await with_session(_load_summary)
 
         with page_layout(t("net_worth.title")):
             # ── Header strip: big net-worth number + delta pills ──────────────

@@ -1,11 +1,18 @@
 from __future__ import annotations
 
+from typing import Any
+
 from nicegui import app, ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.services import AccountService, CategoryService, TransactionService
-from kaleta.services.institution_service import InstitutionService
+from kaleta.schemas.category import CategoryType
+from kaleta.services import (
+    AccountService,
+    CategoryService,
+    InstitutionService,
+    TransactionService,
+    with_session,
+)
 from kaleta.services.wizard_mentor_service import MentorSuggestion, WizardMentorService
 from kaleta.views.layout import page_layout
 
@@ -100,14 +107,31 @@ _ONBOARDING: list[tuple[str, str, str, str, str]] = [
 def register() -> None:
     @ui.page("/wizard")
     async def wizard_page() -> None:
-        async with AsyncSessionFactory() as session:
+        async def _load(session: Any) -> tuple[int, int, int, int, int, list[MentorSuggestion]]:
             n_institutions = len(await InstitutionService(session).list())
             n_accounts = len(await AccountService(session).list())
             categories = await CategoryService(session).list()
-            n_expense_cats = sum(1 for c in categories if c.type.value == "expense")
-            n_income_cats = sum(1 for c in categories if c.type.value == "income")
+            n_expense_cats = sum(1 for c in categories if c.type == CategoryType.EXPENSE)
+            n_income_cats = sum(1 for c in categories if c.type == CategoryType.INCOME)
             n_transactions = await TransactionService(session).count()
             mentor_suggestions = await WizardMentorService(session).suggestions()
+            return (
+                n_institutions,
+                n_accounts,
+                n_expense_cats,
+                n_income_cats,
+                n_transactions,
+                mentor_suggestions,
+            )
+
+        (
+            n_institutions,
+            n_accounts,
+            n_expense_cats,
+            n_income_cats,
+            n_transactions,
+            mentor_suggestions,
+        ) = await with_session(_load)
 
         done_flags = [
             n_institutions > 0,

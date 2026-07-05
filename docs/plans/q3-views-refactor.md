@@ -178,6 +178,19 @@ components.
   constructing `LoanProfile` in the view.
 - Removed 18 `pyproject.toml` lint-import ignores for the above modules.
 
+### views burn-down part 2 (2026-07-05)
+
+- Converted `budget_builder`, `monthly_readiness`, `net_worth`, `payees`,
+  `payment_calendar`, `planned_transactions`, `safety_funds`, `setup`, `tags`,
+  `wizard` to the established pattern: `with_session`, schema responses/enums,
+  `CategoryService.build_option_labels` where applicable.
+- Moved first-run DB activation (`run_migrations`, `configure_database`,
+  `save_db`) to `kaleta.services.setup_service.activate_database`.
+- Re-exported `AssetType`, `ReserveFundKind`, `ReserveFundBackingMode` from
+  schema modules for view-layer enum imports.
+- Removed all remaining `pyproject.toml` `ignore_imports` entries from the
+  `views-no-data-access` contract (list deleted entirely).
+
 ### Exit criteria — LOC cap (2026-07-04)
 
 Verified with `wc -l src/kaleta/views/**/*.py` after the final split:
@@ -187,3 +200,15 @@ Verified with `wc -l src/kaleta/views/**/*.py` after the final split:
   (465), `credit_calculator.py` (462), `forecast.py` (460).
 - Previously over-cap files now split: `personal_loans` (max module 319 LOC),
   `budgets` (max module 149 LOC).
+
+### Exit criteria — zero direct data access in views (2026-07-05)
+
+Verified with `lint-imports` (`views-no-data-access` contract, no
+`ignore_imports`) and `rg 'from kaleta\.(db|models)|AsyncSessionFactory'
+src/kaleta/views/`:
+
+- **Result: PASS** — no view module imports `kaleta.db`, `kaleta.models`, or
+  `sqlalchemy` directly; session scope goes through `with_session` /
+  `activate_database` (setup).
+- **Both exit criteria pass:** LOC cap (≤500 per file) and zero direct data
+  access in views.
