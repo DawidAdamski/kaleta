@@ -10,7 +10,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 from kaleta.models.transaction import TransactionType
 
 if TYPE_CHECKING:
@@ -28,7 +28,7 @@ class RecurrenceFrequency(str, enum.Enum):  # noqa: UP042
     YEARLY = "yearly"
 
 
-class PlannedTransaction(TimestampMixin, Base):
+class PlannedTransaction(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "planned_transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)

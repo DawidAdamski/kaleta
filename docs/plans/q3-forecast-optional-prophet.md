@@ -3,7 +3,7 @@ plan_id: q3-forecast-optional-prophet
 title: Make Prophet optional — forecast extra + lightweight fallback
 area: forecast
 effort: medium
-status: draft
+status: done
 roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
@@ -55,11 +55,13 @@ should degrade gracefully, not crash, when Prophet is absent.
 
 ## Open questions
 
-- Fallback algorithm: seasonal-naive (repeat weekly pattern) vs
+- ~~Fallback algorithm: seasonal-naive (repeat weekly pattern) vs
   rolling 30-day mean with trend? Pick whichever scores better on the
-  seed dataset — record the comparison in implementation notes.
-- Does the forecast cache key need a `model=naive|prophet` component
-  so switching installs doesn't serve stale curves? (Likely yes.)
+  seed dataset — record the comparison in implementation notes.~~
+  **Resolved:** seasonal-naive (see Implementation notes).
+- ~~Does the forecast cache key need a `model=naive|prophet` component
+  so switching installs doesn't serve stale curves? (Likely yes.)~~
+  **Resolved:** yes — `_ForecastCacheKey.model` added.
 
 ## Implementation notes
 
@@ -69,3 +71,13 @@ should degrade gracefully, not crash, when Prophet is absent.
   real issues were test-side (`asyncio.run` inside Playwright's loop), migration
   category name collision, suite load latency, and paginated transaction tables —
   documented in `q3-test-safety-net.md`. No additional `run_in_executor` change needed.
+  Both `ProphetForecaster` and `NaiveForecaster` keep this pattern via
+  `ForecastService.forecast_account`.
+- **Fallback benchmark (2026-07-05):** `scripts/benchmark_forecast_fallback.py` on
+  five seed-like synthetic series (365-day history, 30-day holdout). Seasonal-naive
+  (weekly same-weekday delta average): **MAE 291.85, RMSE 357.39**. Rolling 30-day
+  mean with linear trend: **MAE 1,757.47, RMSE 2,385.65**. Seasonal-naive wins —
+  shipped as `NaiveForecaster`.
+- **Forecast cache:** in-memory cache keyed by
+  `(account_id, horizon_days, history_days, model)` where `model` is `prophet` or
+  `naive`, so switching installs does not serve stale curves.

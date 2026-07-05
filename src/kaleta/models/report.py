@@ -4,10 +4,10 @@ from sqlalchemy import String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
-class SavedReport(TimestampMixin, Base):
+class SavedReport(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "saved_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)

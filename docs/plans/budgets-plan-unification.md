@@ -5,6 +5,7 @@ area: budgets
 effort: large
 roadmap_ref: ../roadmap.md#budgets-current-budgets-view
 status: draft
+deferred_to: q4-2026
 ---
 
 # Budgets + Budget Plan — unify under a single Budgets page

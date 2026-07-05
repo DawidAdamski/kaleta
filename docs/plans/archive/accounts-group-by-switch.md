@@ -5,7 +5,7 @@ area: accounts
 effort: small
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#accounts
+roadmap_ref: ../../roadmap.md#accounts
 ---
 
 # Accounts "Group by" as toggle switch

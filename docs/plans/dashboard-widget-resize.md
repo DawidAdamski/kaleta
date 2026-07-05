@@ -4,6 +4,7 @@ title: Dashboard — Grid-based widget resize and any-to-any reorder
 area: dashboard
 effort: medium
 status: draft
+deferred_to: q4-2026
 roadmap_ref: ../roadmap.md#dashboard
 ---
 

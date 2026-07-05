@@ -14,6 +14,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ImportError_
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate
 
@@ -330,7 +331,7 @@ def _parse_date(value: str) -> datetime.date:
             return datetime.datetime.strptime(value, fmt).date()
         except ValueError:
             continue
-    raise ValueError(f"Cannot parse date: {value!r}")
+    raise ImportError_(f"Cannot parse date: {value!r}")
 
 
 def _parse_amount(value: str) -> Decimal:
@@ -347,7 +348,7 @@ def _parse_amount(value: str) -> Decimal:
     try:
         return Decimal(cleaned)
     except InvalidOperation as exc:
-        raise ValueError(f"Cannot parse amount: {value!r}") from exc
+        raise ImportError_(f"Cannot parse amount: {value!r}") from exc
 
 
 # ── Column name aliases ──────────────────────────────────────────────────────
@@ -512,7 +513,7 @@ class ImportService:
                     ParsedRow(date=date, amount=amount, description=description, raw=dict(row))
                 )
 
-            except (ValueError, KeyError) as exc:
+            except (ImportError_, KeyError) as exc:
                 result.errors.append(f"Row {line_no}: {exc}")
 
         return result

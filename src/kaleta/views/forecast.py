@@ -15,6 +15,7 @@ from kaleta.services.forecast_service import (
     apply_preset,
     apply_scenarios,
 )
+from kaleta.services.forecasters import is_prophet_available
 from kaleta.views.chart_utils import apply_dark
 from kaleta.views.layout import page_layout
 
@@ -136,6 +137,19 @@ def register() -> None:
         with page_layout(t("forecast.title")):
             ui.label(t("forecast.chart_title")).classes("text-2xl font-bold")
 
+            prophet_available = is_prophet_available()
+            if not prophet_available:
+                with ui.row().classes(
+                    "w-full items-center gap-2 mt-2 px-3 py-2 rounded bg-amber-1 text-amber-10"
+                ):
+                    ui.icon("info", size="sm")
+                    ui.label(t("forecast.fallback_banner")).classes("text-sm")
+                    ui.link(
+                        t("forecast.fallback_docs_link"),
+                        "https://github.com/DawidAdamski/kaleta#optional-forecasting",
+                        new_tab=True,
+                    ).classes("text-sm")
+
             preset_options: dict[str, str] = {
                 ForecastPreset.CONSERVATIVE.value: t("forecast.preset_conservative"),
                 ForecastPreset.BASELINE.value: t("forecast.preset_baseline"),
@@ -166,15 +180,19 @@ def register() -> None:
                         label=t("forecast.horizon"),
                         value=60,
                     ).classes("min-w-36")
-                    preset_toggle = ui.toggle(preset_options, value=saved_preset).props(
-                        "color=primary"
-                    )
+                    preset_toggle = None
+                    if prophet_available:
+                        preset_toggle = ui.toggle(preset_options, value=saved_preset).props(
+                            "color=primary"
+                        )
                     run_btn = ui.button(t("forecast.run"), icon="insights").props("color=primary")
 
-                def _persist_preset() -> None:
-                    app.storage.user["forecast_preset"] = preset_toggle.value
+                if preset_toggle is not None:
 
-                preset_toggle.on_value_change(lambda _: _persist_preset())
+                    def _persist_preset() -> None:
+                        app.storage.user["forecast_preset"] = preset_toggle.value
+
+                    preset_toggle.on_value_change(lambda _: _persist_preset())
 
                 # Scenario chips + add control.
                 ui.separator().classes("my-3")
@@ -264,7 +282,11 @@ def register() -> None:
             async def run_forecast() -> None:
                 chart_container.clear()
                 kpi_row.clear()
-                status.set_text(t("forecast.running"))
+                status.set_text(
+                    t("forecast.running_prophet")
+                    if prophet_available
+                    else t("forecast.running_naive")
+                )
                 run_btn.props("loading")
 
                 chosen = account_sel.value
@@ -297,10 +319,17 @@ def register() -> None:
                     except (TypeError, ValueError):
                         continue
 
-                preset = ForecastPreset(preset_toggle.value or ForecastPreset.BASELINE.value)
+                preset_value = (
+                    preset_toggle.value
+                    if preset_toggle is not None
+                    else ForecastPreset.BASELINE.value
+                )
+                preset = ForecastPreset(preset_value or ForecastPreset.BASELINE.value)
                 result = apply_scenarios(apply_preset(raw, preset), shifts)
                 baseline = (
-                    apply_scenarios(raw, shifts) if preset is not ForecastPreset.BASELINE else None
+                    apply_scenarios(raw, shifts)
+                    if prophet_available and preset is not ForecastPreset.BASELINE
+                    else None
                 )
 
                 status.set_text(

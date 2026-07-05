@@ -5,7 +5,7 @@ area: institutions
 effort: small
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#institutions
+roadmap_ref: ../../roadmap.md#institutions
 ---
 
 # Bank logos on institutions

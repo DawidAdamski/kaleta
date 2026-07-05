@@ -8,6 +8,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.db.base import Base
+from kaleta.exceptions import NotFoundError
 from kaleta.models.audit_log import MAX_AUDIT_ENTRIES, AuditLog
 
 
@@ -79,7 +80,7 @@ class AuditService:
 
         table = Base.metadata.tables.get(entry.table_name)
         if table is None:
-            raise ValueError(f"Unknown table: {entry.table_name!r}")
+            raise NotFoundError(f"Unknown table: {entry.table_name!r}")
 
         if entry.operation == "INSERT":
             # Revert: delete the record that was inserted

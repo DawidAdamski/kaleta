@@ -5,7 +5,7 @@ area: transactions
 effort: medium
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#transactions
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Transactions — reconcile flow

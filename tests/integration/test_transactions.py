@@ -82,7 +82,7 @@ class TestGetTransaction:
     async def test_get_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/transactions/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Transaction not found"
+        assert resp.json()["error"]["message"] == "Transaction not found"
 
     async def test_get_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/transactions/not-an-id")
@@ -123,7 +123,7 @@ class TestUpdateTransaction:
     async def test_update_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.put("/api/v1/transactions/999", json={"description": "ghost"})
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Transaction not found"
+        assert resp.json()["error"]["message"] == "Transaction not found"
 
 
 class TestDeleteTransaction:
@@ -143,7 +143,7 @@ class TestDeleteTransaction:
     async def test_delete_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/transactions/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Transaction not found"
+        assert resp.json()["error"]["message"] == "Transaction not found"
 
     async def test_delete_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/transactions/not-an-id")

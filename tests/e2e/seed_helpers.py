@@ -16,11 +16,14 @@ API_BASE = "http://127.0.0.1:8081/api/v1"
 _client = httpx.Client(timeout=10.0)
 
 
-def configure(base_url: str, *, db_url: str | None = None) -> None:
+def configure(base_url: str, *, db_url: str | None = None, api_token: str | None = None) -> None:
     """Point helpers at the active e2e Kaleta instance."""
     global API_BASE, _client
     API_BASE = f"{base_url.rstrip('/')}/api/v1"
-    _client = httpx.Client(timeout=10.0, base_url=base_url.rstrip("/"))
+    headers: dict[str, str] = {}
+    if api_token:
+        headers["Authorization"] = f"Bearer {api_token}"
+    _client = httpx.Client(timeout=10.0, base_url=base_url.rstrip("/"), headers=headers)
 
     if db_url is not None:
         from kaleta.db import configure_database

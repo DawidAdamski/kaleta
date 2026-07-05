@@ -1,4 +1,5 @@
 from kaleta.models.account import Account, AccountType
+from kaleta.models.api_token import ApiToken
 from kaleta.models.asset import Asset, AssetType
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.budget import Budget
@@ -20,11 +21,13 @@ from kaleta.models.reserve_fund import ReserveFund, ReserveFundBackingMode, Rese
 from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.tag import Tag, transaction_tags
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
+from kaleta.models.user import User
 from kaleta.models.yearly_plan import YearlyPlan
 
 __all__ = [
     "Account",
     "AccountType",
+    "ApiToken",
     "Asset",
     "AssetType",
     "AuditLog",
@@ -54,5 +57,6 @@ __all__ = [
     "Transaction",
     "TransactionSplit",
     "TransactionType",
+    "User",
     "YearlyPlan",
 ]

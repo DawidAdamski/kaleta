@@ -1,6 +1,9 @@
 services:
   kaleta:
-    build: .
+    build:
+      context: .
+      dockerfile: Containerfile.full
+    image: kaleta:full
     ports:
       - "8080:8080"
     environment:

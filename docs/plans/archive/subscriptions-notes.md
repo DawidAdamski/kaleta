@@ -5,7 +5,7 @@ area: wizard
 effort: small
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../product/financial-wizard.md#3-subscriptions
+roadmap_ref: ../../product/financial-wizard.md#3-subscriptions
 ---
 
 # Subscriptions — free-text notes per subscription

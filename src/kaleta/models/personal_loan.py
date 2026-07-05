@@ -9,7 +9,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
 class LoanDirection(enum.StrEnum):
@@ -28,7 +28,7 @@ class LoanStatus(enum.StrEnum):
     SETTLED = "settled"
 
 
-class Counterparty(TimestampMixin, Base):
+class Counterparty(TimestampMixin, UserOwnedMixin, Base):
     """A person on the other end of a personal loan. Reused across loans."""
 
     __tablename__ = "counterparties"
@@ -46,7 +46,7 @@ class Counterparty(TimestampMixin, Base):
         return f"<Counterparty id={self.id} name={self.name!r}>"
 
 
-class PersonalLoan(TimestampMixin, Base):
+class PersonalLoan(TimestampMixin, UserOwnedMixin, Base):
     """Money lent to or borrowed from a counterparty outside the bank ledger."""
 
     __tablename__ = "personal_loans"

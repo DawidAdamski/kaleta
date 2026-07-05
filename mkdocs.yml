@@ -15,6 +15,13 @@ theme:
     - navigation.top
     - search.highlight
 
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.superfences
+  - toc:
+      permalink: true
+
 nav:
   - Home: index.md
   - Product:
@@ -26,5 +33,38 @@ nav:
       - Overview: walkthrough/index.md
   - Technical:
       - Architecture: architecture.md
+      - Architecture Decision Records:
+          - "ADR-001: NiceGUI as UI Framework": adr/001-nicegui-as-ui-framework.md
+          - "ADR-002: SQLAlchemy 2.0 with Dual Database Support": adr/002-sqlalchemy-20-with-dual-database-support.md
+          - "ADR-003: MVC + Service Layer Separation": adr/003-mvc-service-layer-separation.md
+          - "ADR-004: Pydantic for Validation & Settings": adr/004-pydantic-for-validation-settings.md
+          - "ADR-005: REST API Available by Default": adr/005-rest-api-available-by-default.md
+          - "ADR-006: Docker/Podman Deployment": adr/006-dockerpodman-deployment.md
+          - "ADR-007: uv as Package Manager": adr/007-uv-as-package-manager.md
+          - "ADR-008: Prophet for Financial Forecasting": adr/008-prophet-for-financial-forecasting.md
+          - "ADR-009: Per-User Settings via app.storage.user": adr/009-per-user-settings-via-appstorageuser.md
+          - "ADR-010: Budget Range Aggregation": adr/010-budget-range-aggregation.md
+          - "ADR-011: Institution as Optional Account Grouping Entity": adr/011-institution-as-optional-account-grouping-entity.md
+          - "ADR-012: Split Transactions (GnuCash-style)": adr/012-split-transactions-gnucash-style.md
+          - "ADR-013: Service-Level Filtering and Pagination for Transactions": adr/013-service-level-filtering-and-pagination-for-transactions.md
+          - "ADR-014: Net Worth as a Computed View with No Dedicated Model": adr/014-net-worth-as-a-computed-view-with-no-dedicated-model.md
+          - "ADR-015: Physical Assets as a Separate Model from Bank Accounts": adr/015-physical-assets-as-a-separate-model-from-bank-accounts.md
+          - "ADR-016: Multi-Currency Accounts and Cross-Currency Transfers": adr/016-multi-currency-accounts-and-cross-currency-transfers.md
+          - "ADR-017: Progressive Web App (PWA) Support": adr/017-progressive-web-app-pwa-support.md
+          - "ADR-018: Category Uniqueness Scoped to Parent": adr/018-category-uniqueness-scoped-to-parent.md
+          - "ADR-019: Payee as a First-Class Entity with Merge Support": adr/019-payee-as-a-first-class-entity-with-merge-support.md
+          - "ADR-020: Transfer Detection via Counterparty Account Number Matching": adr/020-transfer-detection-via-counterparty-account-number-matching.md
+          - "ADR-021: BDD/E2E Test Layer with pytest-playwright": adr/021-bdde2e-test-layer-with-pytest-playwright.md
+          - "ADR-022: Planned/Recurring Transactions as a First-Class Model": adr/022-plannedrecurring-transactions-as-a-first-class-model.md
+          - "ADR-023: Credit Calculator as a Stateless Pure-Python Service": adr/023-credit-calculator-as-a-stateless-pure-python-service.md
+          - "ADR-024: Account Balance Forecast View Replaces Implicit Forecast Page": adr/024-account-balance-forecast-view-replaces-implicit-forecast-pag.md
+          - "ADR-025: Annual Budget Planning Grid with Year Navigation": adr/025-annual-budget-planning-grid-with-year-navigation.md
+          - "ADR-026: Initial Setup Wizard with Zero-Based Budget Enforcement": adr/026-initial-setup-wizard-with-zero-based-budget-enforcement.md
+          - "ADR-027: Settings Page with Tabbed Layout and User-Configurable Service Parameters": adr/027-settings-page-with-tabbed-layout-and-user-configurable-servi.md
+          - "ADR-028: Subscriptions Category Tree as Source of Truth": adr/028-subscriptions-category-tree-as-source-of-truth.md
+          - "ADR-029: Credit Card and Loan Profiles as Separate Tables Extending Account": adr/029-credit-card-and-loan-profiles-as-separate-tables-extending-a.md
+          - "ADR-030: Read-Only Cross-Panel Projection Layer": adr/030-read-only-cross-panel-projection-layer.md
+          - "ADR-031: SortableJS Drag-and-Drop for Dashboard Widget Reorder": adr/031-sortablejs-drag-and-drop-for-dashboard-widget-reorder.md
+          - "ADR-032: Retire the Controller Layer — Views Call Services Directly": adr/032-retire-the-controller-layer-views-call-services-directly.md
       - Tech Stack: tech-stack.md
       - BDD Scenarios: bdd.md

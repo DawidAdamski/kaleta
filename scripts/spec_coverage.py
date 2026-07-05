@@ -14,8 +14,8 @@ ROOT = Path(__file__).resolve().parents[1]
 BDD_MD = ROOT / "docs" / "bdd.md"
 TEST_DIRS = (ROOT / "tests" / "e2e", ROOT / "tests" / "integration")
 
-SCENARIO_ID = re.compile(r"KAL-[A-Z]{3}-\d{3}")
-TAG_LINE = re.compile(r"^\s*(KAL-[A-Z]{3}-\d{3})\s+@(automated|manual)\s*$")
+SCENARIO_ID = re.compile(r"KAL-[A-Z]{3,4}-\d{3}")
+TAG_LINE = re.compile(r"^\s*(KAL-[A-Z]{3,4}-\d{3})\s+@(automated|manual)\s*$")
 FEATURE_HEADER = re.compile(r"^## Feature:\s*(.+)$")
 COVERS_LINE = re.compile(r"^\s*Covers:\s*(.+)$", re.MULTILINE)
 

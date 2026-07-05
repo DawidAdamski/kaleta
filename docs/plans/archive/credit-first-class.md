@@ -5,7 +5,7 @@ area: credit
 effort: large
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../roadmap.md#credit
+roadmap_ref: ../../roadmap.md#credit
 ---
 
 # Credit — first-class module

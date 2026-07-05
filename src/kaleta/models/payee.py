@@ -4,10 +4,10 @@ from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
-class Payee(TimestampMixin, Base):
+class Payee(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "payees"
 
     id: Mapped[int] = mapped_column(primary_key=True)

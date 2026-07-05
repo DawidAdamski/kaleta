@@ -5,7 +5,7 @@ area: forecast
 effort: medium
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#forecast
+roadmap_ref: ../../roadmap.md#forecast
 ---
 
 # Forecast — model presets + scenario toggles

@@ -14,7 +14,7 @@ Track transactions, create budgets, import bank CSV exports, and forecast your c
 - Internal transfer detection between accounts
 - Multi-currency accounts with per-account ISO currency codes; cross-currency transfer entry with exchange rate panel; net worth and all totals converted to a configurable default currency
 - Net worth tracking with 13-month history chart, asset/liability breakdown, and physical asset management (real estate, vehicles, valuables)
-- Cash flow forecasting with Prophet (30–90 day horizon), per-account or combined multi-account, with confidence interval and zero-balance alert
+- Cash flow forecasting (30–90 day horizon), per-account or combined multi-account, with confidence interval and zero-balance alert; Prophet-based when the optional `forecast` extra is installed, otherwise a lightweight seasonal-naive fallback
 - Planned and recurring transactions (weekly/monthly/yearly) with active/inactive toggle; visible as upcoming items in the transactions view and included in the forecast
 - Credit calculator — loan amortization for consumer loans, car loans, and mortgages; equal vs decreasing installments; monthly overpayment and lump-sum simulation
 - Credit module — manage real credit cards and loans: utilization tracking (green/amber/red), minimum payment, next-due date, status chip; loans include full amortisation schedule; dashboard widget shows all card utilization at a glance
@@ -48,6 +48,26 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 ```
 
+For Prophet-based forecasting (adds ~300 MB including cmdstan):
+
+```bash
+uv sync --extra forecast
+```
+
+### Optional forecasting {#optional-forecasting}
+
+Prophet is an **optional extra**, not a core dependency. Without it the app
+starts normally and the Forecast page uses a lightweight seasonal-naive
+projection with a banner explaining the fallback.
+
+```bash
+uv sync --extra forecast   # install Prophet + cmdstan
+```
+
+Docker ships two images: `kaleta:slim` (default `Containerfile`, no Prophet)
+and `kaleta:full` (`Containerfile.full`, includes the forecast extra).
+Docker Compose uses the full image by default for existing users.
+
 ### 2. Run database migrations
 
 ```bash
@@ -70,6 +90,8 @@ uv run kaleta
 
 Open your browser at **http://localhost:8080**
 
+On first launch you will choose a database location, then **create a username and password** before any financial data pages load. Use those credentials to sign in on later visits.
+
 ---
 
 ## Running Modes
@@ -89,16 +111,18 @@ Set via the `KALETA_MODE` environment variable:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `KALETA_DB_URL` | `sqlite:///kaleta.db` | Database connection URL |
-| `KALETA_HOST` | `0.0.0.0` | Host to bind to |
+| `KALETA_HOST` | `127.0.0.1` | Host to bind to (`0.0.0.0` in Docker Compose) |
 | `KALETA_PORT` | `8080` | Port to listen on |
 | `KALETA_MODE` | `web` | Runtime mode (`web` / `app` / `api`) |
-| `KALETA_SECRET_KEY` | `change-me` | Secret key for sessions |
-| `KALETA_DEBUG` | `false` | Enable debug mode |
+| `KALETA_SECRET_KEY` | `change-me-in-production` | Secret key for sessions (required outside debug) |
+| `KALETA_DEBUG` | `false` | Enable debug mode (allows default secret key) |
+| `KALETA_API_TOKEN` | _(unset)_ | Optional bootstrap bearer token for `KALETA_MODE=api` |
 
 Create a `.env` file in the project root to override defaults:
 
 ```env
 KALETA_DB_URL=sqlite:///kaleta.db
+KALETA_HOST=127.0.0.1
 KALETA_PORT=8080
 KALETA_SECRET_KEY=your-secret-key-here
 ```
@@ -108,8 +132,12 @@ KALETA_SECRET_KEY=your-secret-key-here
 ## Docker
 
 ```bash
-# Using Docker Compose
+# Full image (Prophet forecasting) — default in docker-compose
 docker compose up
+
+# Slim image (no Prophet, ~300 MB smaller)
+docker build -f Containerfile -t kaleta:slim .
+docker run -p 8080:8080 kaleta:slim
 
 # Or using Podman
 podman-compose up
@@ -121,7 +149,7 @@ podman-compose up
 
 ```bash
 # Install with dev dependencies
-uv sync --extra dev
+uv sync --group dev
 
 # Run unit and integration tests
 uv run pytest
@@ -138,6 +166,10 @@ uv run ruff format .
 
 # Type checking
 uv run mypy src/
+
+# Full Definition-of-Done gate (requires `uv sync --group dev` first)
+./scripts/verify.sh
+# Add --e2e when changing views under src/kaleta/views/
 
 # Create a new migration after model changes
 uv run alembic revision --autogenerate -m "description"

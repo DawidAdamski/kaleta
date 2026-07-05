@@ -14,14 +14,9 @@ and category management.
 │         (Browser / Mobile / API Consumer)        │
 └──────────┬──────────────────┬────────────────────┘
            │                  │
-    ┌──────▼──────┐   ┌──────▼──────┐
-    │  NiceGUI    │   │  REST API   │
-    │  (Views)    │   │  (FastAPI)  │
-    └──────┬──────┘   └──────┬──────┘
-           │                  │
     ┌──────▼──────────────────▼──────┐
-    │        Controllers             │
-    │   (Request handling, routing)  │
+    │   Views (NiceGUI) + REST API   │
+    │      (pages / api/v1 routes)   │
     └──────────────┬─────────────────┘
                    │
     ┌──────────────▼─────────────────┐
@@ -96,7 +91,6 @@ kaleta/
 │   │   ├── planned_transaction_service.py  # grid_for_month(..., overdue_window_days=...) — configurable overdue look-back
 │   │   ├── credit_service.py        # CreditService: card CRUD + loan CRUD; pure helpers: compute_monthly_payment, amortisation_schedule, compute_min_payment, next_due_date
 │   │   └── wizard_projection_service.py  # WizardProjectionService: get_budget_builder_sources(year), get_payment_calendar_sources(start, end) — read-only cross-panel projections
-│   ├── controllers/         # Route handlers, orchestration
 │   ├── api/                 # REST API endpoints (v1/)
 │   └── views/               # NiceGUI UI pages
 │       ├── layout.py        # Shared layout, nav, dark mode toggle
@@ -137,201 +131,46 @@ kaleta/
 └── README.md
 ```
 
-## Key Architecture Decisions
+## Architecture Decision Records
 
-### ADR-001: NiceGUI as UI Framework
-- **Decision**: Use NiceGUI for the web frontend.
-- **Rationale**: Python-native, builds on FastAPI/Starlette, supports both web and
-  desktop (app) mode, no need for separate JS frontend.
-- **Consequence**: API layer comes "for free" since NiceGUI wraps FastAPI.
+Full ADR text lives in [`adr/`](adr/) — one file per decision. The
+index below is in numeric order (021, 030, and 031 were recorded
+out of sequence in the original monolithic document).
 
-### ADR-002: SQLAlchemy 2.0 with Dual Database Support
-- **Decision**: Use SQLAlchemy ORM with SQLite as default, PostgreSQL as optional.
-- **Rationale**: SQLAlchemy's dialect system makes swapping backends trivial.
-  SQLite is zero-config for personal use. PostgreSQL for multi-user / production.
-- **Consequence**: Must avoid SQLite-incompatible features in models (e.g., array types).
-  Use Alembic with `render_as_batch=True` for migrations that work across both backends.
-  Enum columns use `SAEnum(..., native_enum=False)` for SQLite compatibility.
-
-### ADR-003: MVC + Service Layer Separation
-- **Decision**: Strict separation between Models, Views, Controllers, and Services.
-- **Rationale**: Clean separation of concerns enables independent testing, reuse
-  of business logic across UI and API, and easier future changes.
-- **Consequence**: Slightly more files/boilerplate, but much better maintainability.
-
-### ADR-004: Pydantic for Validation & Settings
-- **Decision**: Use Pydantic v2 for request/response schemas and app configuration.
-- **Rationale**: Type-safe validation, serialization, and env-based settings.
-  Integrates natively with FastAPI (and thus NiceGUI).
-
-### ADR-005: REST API Available by Default
-- **Decision**: Expose a REST API alongside the UI.
-- **Rationale**: Enables external integrations, mobile apps, automation scripts,
-  and headless usage. Since NiceGUI uses FastAPI, API routes are easy to add.
-
-### ADR-006: Docker/Podman Deployment
-- **Decision**: Provide container-first deployment with Docker and Podman support.
-- **Rationale**: Consistent environment, easy self-hosting, works on any platform.
-
-### ADR-007: uv as Package Manager
-- **Decision**: Use `uv` for dependency management and project tooling.
-- **Rationale**: Fast, modern Python package manager. Handles venv creation,
-  dependency resolution, and script running.
-
-### ADR-008: Prophet for Financial Forecasting
-- **Decision**: Use Meta's Prophet library for time-series forecasting.
-- **Rationale**: Prophet handles seasonality, holidays, and missing data well — making
-  it a natural fit for forecasting monthly expenses, income trends, and budget projections.
-  Simple API with Pydantic-friendly outputs.
-- **Consequence**: Forecasting logic lives in `services/forecast_service.py`.
-  Prophet is CPU-bound; runs in a thread pool via `asyncio.run_in_executor` to avoid
-  blocking the async event loop.
-
-### ADR-009: Per-User Settings via app.storage.user
-- **Decision**: Store all per-user preferences server-side in `app.storage.user`.
-- **Rationale**: `app.storage.browser` (cookie-based) is not available synchronously
-  on page render in NiceGUI. `app.storage.user` is server-side per-session and
-  available immediately, making it reliable for per-page layout decisions.
-- **Consequence**: Preferences persist within a session but reset on server restart.
-  ECharts charts have explicit colour overrides via `views/chart_utils.py:apply_dark()`
-  since ECharts does not auto-adapt to Quasar's dark mode. All persisted keys are
-  enumerated in the `views/settings.py` module docstring:
-
-  | Key | Values / Type | Default |
-  |-----|---------------|---------|
-  | `language` | `"en"` \| `"pl"` | `"en"` |
-  | `currency` | ISO 4217 code | `"PLN"` |
-  | `date_format` | `"iso"` \| `"eu"` \| `"us"` | `"iso"` |
-  | `week_start` | `"monday"` \| `"sunday"` | `"monday"` |
-  | `dark_mode` | `bool` | `False` |
-  | `sidebar_mini` | `bool` | `False` |
-  | `nav_collapsed` | `dict[str, bool]` | `{}` |
-  | `wizard_onboarding_open` | `bool` | `True` |
-  | `wizard_mentor_dismissed` | `list[str]` | `[]` |
-  | `subscriptions_detector_days` | `int` | `730` |
-  | `housekeeping_duplicate_days` | `int` | `365` |
-  | `payment_calendar_overdue_days` | `int` | `30` |
-  | `dashboard_widgets` | `dict[str, list[str]]` | `{}` |
-
-### ADR-010: Budget Range Aggregation
-- **Decision**: `BudgetService.range_summary(start, end)` aggregates budget rows
-  across multiple months using a scalar month key (`year * 12 + month`).
-- **Rationale**: Budgets are stored per-month. To display multi-month ranges
-  (quarter, year, last N days), budget amounts must be summed across all months that
-  fall within the range, while actuals are filtered by exact transaction dates.
-- **Consequence**: The UI period selector supports 10 presets (This Month → Last 5 Years).
-  `monthly_summary()` now delegates to `range_summary()` to avoid duplication.
-
-### ADR-011: Institution as Optional Account Grouping Entity
-- **Decision**: Introduce an `Institution` model that accounts optionally reference via a nullable `institution_id` FK with `ON DELETE SET NULL`.
-- **Rationale**: Users hold accounts at multiple financial institutions (banks, fintechs, brokers, etc.). Grouping accounts by institution is a natural mental model and a frequently needed view. Making the relationship optional preserves backwards compatibility — existing accounts require no migration data entry.
-- **Consequence**: `Account` gains `institution_id` (nullable) and an `institution` relationship. Deleting an institution unlinks its accounts rather than cascading deletion. The accounts view gains a toggle to group by Type or by Institution. `InstitutionService` provides full CRUD with eager-loading via `selectinload` for the accounts relationship. `InstitutionType` uses `SAEnum(..., native_enum=False)` for SQLite compatibility, consistent with the rest of the codebase.
-
-### ADR-012: Split Transactions (GnuCash-style)
-- **Decision**: Add a `TransactionSplit` child model. A `Transaction` with `is_split=True` carries one or more `TransactionSplit` rows that each hold a `category_id`, `amount`, and optional `note`. The parent transaction's category is unused when splits are present.
-- **Rationale**: Single-category transactions cannot represent real-world receipts that span multiple budget categories (e.g., a supermarket run covering groceries, household, and personal care). GnuCash's split model is the established pattern for this.
-- **Consequence**: `Transaction` gains `is_split: bool` and a `splits` relationship. `TransactionSplitCreate` validates that splits are present when `is_split=True`. `TransactionService.create()` uses `flush()` to obtain the transaction `id` before writing split rows. `get()` and `list()` eager-load splits with their category. The Alembic migration is `c4f9e2b1a837_add_transaction_splits.py`. The add-transaction dialog in the UI toggles split mode with a balance indicator and a Fill Last button.
-
-### ADR-013: Service-Level Filtering and Pagination for Transactions
-- **Decision**: `TransactionService.list()` accepts `account_ids`, `category_ids`, `tx_types`, `date_from`, `date_to`, `search`, `offset`, and `limit` (default 50). A companion `TransactionService.count()` method accepts the same filter parameters and returns the total matching row count.
-- **Rationale**: Returning all transactions in one query is impractical as history grows. Placing filter and pagination logic in the service keeps controllers and views thin and makes the same capability available to both the UI and the REST API. Providing a separate `count()` method avoids fetching full rows just for pagination metadata.
-- **Consequence**: Multiple values within the same filter field use OR logic; different filter fields combine with AND. The transactions UI exposes a filter panel (date range, multi-select accounts/categories/types, description search) and a pagination control that shows total count.
-
-### ADR-014: Net Worth as a Computed View with No Dedicated Model
-- **Decision**: Net worth data is computed entirely at query time by `NetWorthService.get_summary()`. No `NetWorth` or `Snapshot` ORM model is added. Historical monthly values are reconstructed by walking backwards from current account balances, subtracting each month's net income/expense (internal transfers excluded).
-- **Rationale**: Storing pre-computed snapshots would require either a background job or hook into every transaction write to stay consistent. For a personal-scale dataset the retrospective reconstruction from existing `Account` and `Transaction` data is fast enough and eliminates a synchronisation concern entirely.
-- **Consequence**: `NetWorthService` depends only on existing models and produces three pure-Python dataclasses (`AccountSnapshot`, `MonthlyNetWorth`, `NetWorthSummary`) — no new migration is required. Account classification (asset vs. liability) is derived from balance sign: positive balance = asset, negative balance = liability. The view at `/net-worth` renders summary cards, a 13-month ECharts line+area chart coloured by sign, and a side-by-side account breakdown table.
-
-### ADR-015: Physical Assets as a Separate Model from Bank Accounts
-- **Decision**: Introduce a standalone `Asset` model (table `assets`) for physical, non-liquid assets such as real estate, vehicles, and valuables. Physical assets are not represented as `Account` rows.
-- **Rationale**: Bank accounts have transaction history, balances derived from ledger entries, and institution relationships. Physical assets have none of these: their value is a single user-supplied figure, optionally paired with a purchase date and purchase price for gain/loss context. Forcing them into the `Account` model would require nullable columns for transaction-irrelevant fields and special-casing throughout the transaction, import, and budget logic. A dedicated model keeps both concepts clean.
-- **Consequence**: `Asset` has fields `name`, `type` (`AssetType`: `REAL_ESTATE`, `VEHICLE`, `VALUABLES`, `OTHER`), `value` (Decimal), `description`, `purchase_date` (optional), and `purchase_price` (optional). `AssetType` uses `SAEnum(..., native_enum=False)` for SQLite compatibility. `AssetService` provides full CRUD (`list`, `get`, `create`, `update`, `delete`). `NetWorthService.get_summary()` loads physical assets via `_load_physical_assets()` and exposes them as `PhysicalAssetSnapshot` dataclasses inside `NetWorthSummary`. `total_assets` includes `total_physical_assets`; the monthly history reconstruction adds the physical asset total to the running net worth baseline. The net worth page gains an Add/Edit/Delete CRUD section for physical assets. The migration is `alembic/versions/d7a3e1f2b8c5_add_assets.py`.
-
-### ADR-016: Multi-Currency Accounts and Cross-Currency Transfers
-- **Decision**: Each `Account` carries a `currency` field (3-char ISO 4217 code, `VARCHAR(3) NOT NULL DEFAULT 'PLN'`). Each `Transaction` carries a nullable `exchange_rate` field (`NUMERIC(15,6)`), storing dest_currency per 1 src_currency for cross-currency transfers. `TransactionService.create_transfer(outgoing, incoming)` atomically creates both legs with linked IDs. `NetWorthService.get_summary(rates, default_currency)` accepts a `rates` dict (`currency → Decimal`) and converts all account balances to the user's default currency before aggregation.
-- **Rationale**: Users holding accounts in multiple currencies need balances and net worth totals expressed in a single reporting currency. Storing the exchange rate on the transaction preserves the historical rate at the time of transfer, which would otherwise be lost if only a rates table were kept. Atomically creating both transfer legs in one service call prevents orphaned half-transfers.
-- **Consequence**: The migration `alembic/versions/a1b2c3d4e5f6_add_currency_and_exchange_rate.py` adds `accounts.currency` and `transactions.exchange_rate`. The Settings page exposes a default currency selector and per-currency manual rate editor. The Accounts add/edit dialog includes a currency selector. The Transactions page shows a "To Account" selector when Transfer type is chosen, and an exchange rate panel for cross-currency transfers (enter rate OR source+destination amounts; the remaining field auto-calculates). The Net Worth page displays each foreign-currency account row with native balance alongside the converted balance, and all summary totals in the default currency.
-
-### ADR-017: Progressive Web App (PWA) Support
-- **Decision**: Add PWA support via `src/kaleta/pwa.py`, which registers `/manifest.json`, `/sw.js`, and `/static` endpoints on the NiceGUI/FastAPI app. `PWA_HEAD` (meta tags + service worker registration script) is injected via `ui.add_head_html()` in every page. `pwa.setup()` runs in `main.py` before views register, for both `web` and `app` modes.
-- **Rationale**: PWA support allows Kaleta to be installed on mobile and desktop as a standalone app without a separate native build. The service worker uses cache-first for static assets and network-first for navigation; API calls bypass the cache entirely to keep financial data fresh.
-- **Consequence**: Static files live in `src/kaleta/static/` (manifest, service worker, SVG icon). The `pwa` module owns all PWA-related routes and keeps them out of `main.py` and individual views.
-
-### ADR-018: Category Uniqueness Scoped to Parent
-- **Decision**: Replace the `UNIQUE(name)` constraint on `categories` with `UNIQUE(name, parent_id)` (`uq_categories_name_parent`).
-- **Rationale**: The previous global uniqueness constraint prevented the same category name from appearing under different parent categories (e.g., "Other" under both "Food" and "Transport"). Scoping uniqueness to `(name, parent_id)` reflects how users actually organise hierarchical categories, where name collisions across different parents are valid and expected.
-- **Consequence**: The migration is `alembic/versions/e3f4a5b6c7d8_categories_unique_name_parent.py`. Two top-level categories (both with `parent_id = NULL`) that share a name remain disallowed, since NULL = NULL in this context uses the constraint's composite key behaviour.
-
-### ADR-019: Payee as a First-Class Entity with Merge Support
-- **Decision**: Introduce a `Payee` model (`payees` table, `name UNIQUE`) and a `PayeeService` with full CRUD, `find_or_create()`, and `merge(keep_id, merge_ids)`. Transactions gain a nullable `payee_id` FK. During mBank CSV import, `ImportService.to_transaction_creates_with_payees()` resolves payee names via `find_or_create()`.
-- **Rationale**: Payee names in bank exports are often inconsistent (truncated, all-caps, with bank reference suffixes). A deduplicated `Payee` entity allows users to merge duplicates into a canonical record, after which all historical transactions automatically reflect the merged payee. Separating payee identity from transaction descriptions enables cleaner reporting and future rule-based auto-categorisation.
-- **Consequence**: `PayeeService.merge()` bulk-reassigns transactions from the merged payees to the kept payee using a single `UPDATE` statement, then deletes the redundant rows. `find_or_create()` uses `flush()` rather than `commit()` so that the caller owns the transaction boundary. The migration is `alembic/versions/d2e3f4a5b6c7_add_payees.py`.
-
-### ADR-020: Transfer Detection via Counterparty Account Number Matching
-- **Decision**: During mBank CSV import, `ImportService.to_transaction_creates_with_payees()` marks a row as `TRANSFER` (with `is_internal_transfer=True`) only when the row's `Numer rachunku` field (digits-only) appears in the caller-supplied `known_account_digits` set — the digit-normalised `external_account_number` values of the user's own accounts.
-- **Rationale**: Generic heuristics (description keyword matching, amount pairing) produce false positives. Matching against the literal counterparty account number is deterministic and requires no fuzzy logic. Using a `known_account_digits` parameter keeps the import service stateless with respect to account data; the caller queries and passes the set.
-- **Consequence**: Rows whose counterparty account is not in `known_account_digits` are classified as normal income/expense. After import, `ImportService.detect_and_link_transfers()` can pair unlinked `TRANSFER` legs across accounts (same amount ± tolerance, dates within `max_days_apart`) and write `linked_transaction_id` on both rows.
-
-### ADR-022: Planned/Recurring Transactions as a First-Class Model
-- **Decision**: Introduce a `PlannedTransaction` model that stores name, type (income/expense/transfer), amount, account(s), optional category, frequency (`WEEKLY`, `MONTHLY`, `YEARLY`), start date, optional end date, optional occurrence limit, and an `is_active` flag.
-- **Rationale**: Recurring cash flows (subscriptions, salaries, rent) are predictable and should be modelled explicitly rather than inferred from historical data. An explicit model allows the forecast service to inject future occurrences into the Prophet series and the transactions view to surface them as upcoming items before they are recorded.
-- **Consequence**: `PlannedTransactionService` provides full CRUD and an `active_occurrences_between(start, end)` method used by both the transactions view (show-planned toggle) and `ForecastService`. Transfer-type planned transactions reference both a source and destination account. Inactive planned transactions are excluded from the forecast and from the upcoming transactions overlay. The view lives at `/planned`.
-
-### ADR-023: Credit Calculator as a Stateless Pure-Python Service
-- **Decision**: The credit calculator (`/credit-calculator`) performs all amortization math in `CreditService` without persisting any data to the database.
-- **Rationale**: Loan amortization is a deterministic calculation: given principal, rate, term, and installment type, the full schedule can be derived on the fly. Storing schedules would require invalidation logic whenever inputs change. A stateless service keeps the feature simple.
-- **Consequence**: Amortization logic lives directly in `views/credit_calculator.py` or a co-located helper, with no ORM dependency. Equal and decreasing installment schedules each return a list of dataclasses (period, installment, principal, interest, remaining balance). Overpayment variants accept an extra monthly amount or a one-off lump sum at a given period. The view renders results in an ECharts chart and a scrollable amortization table. No migration is required.
-
-### ADR-024: Account Balance Forecast View Replaces Implicit Forecast Page
-- **Decision**: Rename and expand the existing forecast view to a dedicated `/forecast` page that accepts per-account or multi-account selection, a configurable horizon, and a "include planned transactions" toggle. A zero-balance alert is shown when the predicted balance crosses zero within the horizon.
-- **Rationale**: The original forecast was a single-account, fixed-horizon summary. Users need to combine accounts, tune the horizon, and understand interactions with planned transactions. The zero-balance alert is a high-value early-warning signal that requires no extra data.
-- **Consequence**: `ForecastService` gains a `forecast_balance(account_ids, horizon_days, include_planned)` method that queries daily balance series for the selected accounts, optionally prepends planned-transaction occurrences, and runs Prophet in a thread pool. Individual account series are returned as secondary chart lines alongside the combined total. If Prophet receives fewer than 90 data points it returns a warning rather than a chart.
-
-### ADR-025: Annual Budget Planning Grid with Year Navigation
-- **Decision**: Add a `/budget-plan` view that displays a 12-column (month) × N-row (category) grid for a selected year. Each cell holds a budget target. A "Budget vs Actual" toggle overlays actual spending from `TransactionService`. Year-over-year comparison shows the previous year's values alongside the current year.
-- **Rationale**: The existing budgets page covers period summaries but does not support planning an entire year at once or comparing years. A spreadsheet-style grid matches how users plan annual budgets and makes bulk entry (uniform amount, copy previous month) practical.
-- **Consequence**: Budget targets are stored in the existing `Budget` model (one row per category per month). `BudgetService` already stores per-month rows; the new view reads and writes them in bulk. The "set uniform amount" and "copy previous month" actions are view-level conveniences that write multiple budget rows in a single service call. Negative budget values are rejected at the schema level.
-
-### ADR-026: Initial Setup Wizard with Zero-Based Budget Enforcement
-- **Decision**: Add a `/wizard` view (`views/wizard.py`) that guides new users through sequential steps: institution → accounts with opening balances → categories → zero-based budget assignment. The "Finish Setup" button is disabled until the unassigned amount equals zero. A separate `/setup` view (`views/setup.py`) handles first-run database configuration (local vs cloud).
-- **Rationale**: An empty database provides no orientation. The wizard ensures every user begins with a valid institution, at least one account, a category structure, and a fully assigned budget — the minimum viable state for the app to be useful. Enforcing zero-based assignment at setup establishes the budgeting discipline the app is built around.
-- **Consequence**: A `setup_complete` flag (stored in `app.storage.user` or a settings row) gates the redirect: an empty database sends the user to `/wizard`; a completed setup sends them to the dashboard. Wizard state (which steps are complete) persists so users can resume after an interruption. The "load suggested categories" action inserts a predefined Polish-language category set. Opening balances entered in the accounts step are recorded as initial-balance transactions on the respective accounts.
-
-### ADR-027: Settings Page with Tabbed Layout and User-Configurable Service Parameters
-- **Decision**: Restructure `/settings` (`views/settings.py`) into 6 tabs — General, Appearance, Features, Data, History, About — and thread user-configurable window parameters into the services that previously used hard-coded defaults.
-- **Rationale**: A flat settings page becomes unwieldy once the number of knobs exceeds a handful. Tabs group concerns naturally: locale/format knobs belong in General; theme knobs in Appearance; detector look-back windows in Features; backup/restore/wipe in Data; the audit log in History; and build metadata in About. Passing `window_days` arguments at the call site (rather than reading `app.storage.user` inside a service) keeps services storage-agnostic and independently testable.
-- **Consequence**: `SubscriptionService.detect_candidates(window_days=...)`, `DedupeService.duplicate_transactions(window_days=...)`, and `PlannedTransactionService.grid_for_month(..., overdue_window_days=...)` each accept an explicit window parameter; callers read the value from `app.storage.user` and pass it in. The Wipe-DB action requires the user to type `DELETE` to confirm. The Reset Getting Started button clears `wizard_mentor_dismissed` and sets `wizard_onboarding_open = True`.
-
-### ADR-021: BDD/E2E Test Layer with pytest-playwright
-- **Decision**: Add a `tests/e2e/` layer using pytest-playwright. Tests run against a live Kaleta instance (default `http://localhost:8080`). The Gherkin-style scenarios driving the suite are documented in `docs/bdd.md`.
-- **Rationale**: Unit and integration tests cover service logic and schema validation in isolation but cannot catch regressions in UI flow, page routing, or NiceGUI component wiring. Playwright-based e2e tests exercise the full stack from the browser, covering the same user journeys described in the BDD scenarios.
-- **Consequence**: The app must be running before the e2e suite executes. Browsers must be installed once with `uv run playwright install chromium`. E2e tests are kept in a separate directory so they are not picked up by the default `uv run pytest` invocation (which targets unit/integration). The `tests/e2e/conftest.py` provides the `base_url` session fixture.
-
-### ADR-028: Subscriptions Category Tree as Source of Truth
-- **Decision**: One `Category` row carries `is_subscriptions_root = True`. That row and its direct children (flat tree, v1) are the authoritative definition of "what is a subscription charge". `CategoryService` exposes `get_subscriptions_root`, `list_subscription_children`, `subscription_category_ids`, and `ensure_subscriptions_root_and_children`. The migration `a4e9b2f1c6d8_add_subscriptions_root_category.py` idempotently creates the root "Subscriptions" + three children (Monthly / Yearly / Other) on existing DBs; `scripts/seed.py` creates the Polish equivalents (Subskrypcje / Miesięczne / Roczne / Inne) for fresh seeds.
-- **Rationale**: Storing "is this a subscription?" as a model flag on `Transaction` or `Subscription` would require maintaining a separate classification list in sync with categories. Using an existing category subtree avoids duplication: once a transaction sits under the Subscriptions root, it is by definition a subscription charge — no secondary flag needed.
-- **Consequence**: `SubscriptionService.detect_candidates` skips transactions already under the Subscriptions tree (they are already categorised). Tracking a candidate via `create_from_candidate(..., sub_category_id=...)` re-categorises all window-matching historical transactions (same payee or merchant-key + same amount bucket) to the chosen sub-category. The panel's "By category" card calls `subscription_transactions_grouped(window_days=90)` to show sub-category → merchant aggregations for the last 90 days. Multi-level nesting is deferred; only the root + direct children are used in v1.
-
-### ADR-029: Credit Card and Loan Profiles as Separate Tables Extending Account
-- **Decision**: `CreditCardProfile` and `LoanProfile` are standalone tables (`credit_card_profiles`, `loan_profiles`), each with a one-to-one FK to `accounts.id` (CASCADE delete, one profile per account). Credit accounts use `type=CREDIT` with a **negative** balance convention (money owed is stored negative; views normalise to positive "amount owed" for display). Rich credit fields live in the profile tables rather than on `accounts`.
-- **Rationale**: Stuffing credit-specific columns (APR, credit limit, billing cycle, loan term, amortisation type, etc.) directly onto `Account` would bloat the table and add nullable columns that are meaningless for non-credit accounts. A separate profile preserves a clean `Account` schema while allowing credit-specific queries to operate on a dedicated table. Reusing `Account` for the balance ledger avoids duplicating transaction, transfer, and multi-currency machinery.
-- **Consequence**: Migration `c7e9b3f1a2d5_add_credit_and_loan_profiles.py`. `CreditService` provides card CRUD (`create_card`, `update_card`, `get_card_by_account`, `list_cards`) and loan CRUD (`create_loan`, `update_loan`, `get_loan_by_account`, `list_loans`, `amortisation`). Pure helpers (`compute_monthly_payment`, `amortisation_schedule`, `compute_min_payment`, `next_due_date`) contain no ORM dependency. Utilization thresholds: green < 30 %, amber < 70 %, red ≥ 70 %. Minimum payment = max(2 % × balance, 30 PLN), capped at balance. Amortisation uses the standard fixed-rate annuity formula; the last row absorbs rounding so `Σ principal_paid == principal` exactly. Status chips: on-time / due-soon (≤ 5 days) / overdue. Variable-rate loans and mid-life APR changes are out of scope.
-
-### ADR-031: SortableJS Drag-and-Drop for Dashboard Widget Reorder
-- **Decision**: Dashboard widget reorder uses SortableJS (loaded from jsDelivr CDN at page init) wired to three fixed DOM containers (`dash-kpi`, `dash-half`, `dash-full`). Each widget is wrapped in a `div.dash-widget-wrap` carrying `data-widget-id` and `data-size` attributes. Drop events POST `{kpi: [...], half: [...], full: [...]}` to `/_dashboard/order`, a FastAPI endpoint registered via `nicegui_app.post` and hidden from OpenAPI. The endpoint parses the payload with a Pydantic model `_OrderPayload`, runs `_merge_order(payload, stored)` to strip unknown IDs, size mismatches, disabled widgets, and duplicates, then writes the merged order to `app.storage.user["dashboard_widgets"]`. A header toggle button flips Edit mode; state is not persisted (page load always starts locked). Alt+↑/↓ on a focused widget card moves it within its size group via the same POST. The Customize dialog retains checkboxes and Reset/Save but drops per-row arrows; its hint now reads "Toggle widgets on or off. Use Edit layout to reorder."
-- **Rationale**: Per-row arrow buttons required 9+ clicks to move a widget bottom-to-top and were silently broken for cross-size moves because widgets render in three size-segregated containers. SortableJS drag-and-drop is a standard browser-native interaction pattern that matches user expectations. Three isolated Sortable groups (one per size) enforce the invariant that widgets cannot change size via drag, which mirrors the render layout — no extra validation needed server-side beyond the size-mismatch strip in `_merge_order`. A FastAPI POST (rather than a `ui.run_javascript` callback) keeps the persistence path in Python, gives a typed Pydantic payload, and is trivially testable; `_merge_order` is covered by 8 unit tests in `tests/unit/views/test_dashboard_order.py`. Loading SortableJS from CDN avoids bundling a JS build step. Edit mode is toggled entirely in the browser via a body-class flip with no Python round-trip, keeping the UI snappy.
-- **Consequence**: `dashboard_widgets` in `app.storage.user` now stores an ordered list per size group. The `/_dashboard/order` endpoint is internal infrastructure (excluded from the public OpenAPI schema). Alt+↑/↓ keyboard reorder uses `document.activeElement` to identify the focused widget, falling back gracefully when no widget has focus. `tests/unit/views/` gains a new `test_dashboard_order.py` file.
-
-### ADR-030: Read-Only Cross-Panel Projection Layer
-- **Decision**: Introduce `WizardProjectionService` as a dedicated read-only service that normalises data from other wizard panels (planned transactions, subscriptions, loans, reserve funds) into monthly-equivalent projections. Budget Builder (`/wizard/budget-builder`) and Payment Calendar (`/payment-calendar`) consume these projections to surface "pulled" rows from sibling panels without storing them locally. Cross-links redirect users to the source panel for edits.
-- **Rationale**: Each wizard panel already owns its data; duplicating that data into a second panel's storage would create synchronisation drift. A pure read layer avoids duplication: the projection is recomputed at render time from the authoritative source, so no sync is needed. Keeping the service stateless (no writes) means it carries no migration cost and is trivially testable in isolation.
-- **Consequence**: `WizardProjectionService.get_budget_builder_sources(year)` returns a `BudgetBuilderProjection` (income, fixed, variable, reserves); `get_payment_calendar_sources(start, end)` returns a `PaymentCalendarProjection` (subscription_charges). Monthly-equivalent rules: subscriptions = `amount × 30 / cadence_days`; planned transactions use a frequency→multiplier table divided by interval; reserve funds use `target ÷ multiplier` (emergency) or `target ÷ 12`; loans use `LoanProfile.monthly_payment` directly. Yearly totals = pulled monthly × 12. Already-saved `YearlyPlan` snapshots are unaffected — they stay as-written; the projection is not back-filled. Pulled rows render as read-only in the UI (lock icon + source badge).
-
-### ADR-032: Retire the Controller Layer — Views Call Services Directly
-
-- **Decision**: Remove the empty `src/kaleta/controllers/` package and drop the controller layer from the declared architecture. The canonical pattern is: **NiceGUI views → services** and **API routes (`api/v1/`) → services**. `CLAUDE.md`, `AGENTS.md`, and the architecture diagram in this document are updated to match. No new intermediary layer is introduced.
-- **Rationale**: The controllers package remained empty across 75 commits and ~26k LOC of delivered features — empirical proof the layer is not needed. In NiceGUI, a page function already fulfils the controller role: it binds UI events, calls services, and maps results to components. For REST, FastAPI routers in `api/v1/` are the controllers. Adding a third layer would duplicate orchestration without separating any real concern. The actual discipline worth enforcing is that **business logic lives in services, never in views** — that is guarded by the views-refactor plan (shared components, ≤500 LOC per view file) and by unit-testing services in isolation, not by an empty package.
-- **Consequence**: `src/kaleta/controllers/` is deleted. The architecture diagram becomes `Views (NiceGUI) + API (FastAPI) → Services → Models/Schemas → DB`. The naming convention `*Controller` is retired. Any future need for shared orchestration between a view and an API route is met by promoting that logic into the service layer (or a dedicated service), not by resurrecting controllers.
+| ADR | Title | Status |
+|-----|-------|--------|
+| [001](adr/001-nicegui-as-ui-framework.md) | NiceGUI as UI Framework | accepted |
+| [002](adr/002-sqlalchemy-20-with-dual-database-support.md) | SQLAlchemy 2.0 with Dual Database Support | accepted |
+| [003](adr/003-mvc-service-layer-separation.md) | MVC + Service Layer Separation | accepted |
+| [004](adr/004-pydantic-for-validation-settings.md) | Pydantic for Validation & Settings | accepted |
+| [005](adr/005-rest-api-available-by-default.md) | REST API Available by Default | accepted |
+| [006](adr/006-dockerpodman-deployment.md) | Docker/Podman Deployment | accepted |
+| [007](adr/007-uv-as-package-manager.md) | uv as Package Manager | accepted |
+| [008](adr/008-prophet-for-financial-forecasting.md) | Prophet for Financial Forecasting | accepted |
+| [009](adr/009-per-user-settings-via-appstorageuser.md) | Per-User Settings via app.storage.user | accepted |
+| [010](adr/010-budget-range-aggregation.md) | Budget Range Aggregation | accepted |
+| [011](adr/011-institution-as-optional-account-grouping-entity.md) | Institution as Optional Account Grouping Entity | accepted |
+| [012](adr/012-split-transactions-gnucash-style.md) | Split Transactions (GnuCash-style) | accepted |
+| [013](adr/013-service-level-filtering-and-pagination-for-transactions.md) | Service-Level Filtering and Pagination for Transactions | accepted |
+| [014](adr/014-net-worth-as-a-computed-view-with-no-dedicated-model.md) | Net Worth as a Computed View with No Dedicated Model | accepted |
+| [015](adr/015-physical-assets-as-a-separate-model-from-bank-accounts.md) | Physical Assets as a Separate Model from Bank Accounts | accepted |
+| [016](adr/016-multi-currency-accounts-and-cross-currency-transfers.md) | Multi-Currency Accounts and Cross-Currency Transfers | accepted |
+| [017](adr/017-progressive-web-app-pwa-support.md) | Progressive Web App (PWA) Support | accepted |
+| [018](adr/018-category-uniqueness-scoped-to-parent.md) | Category Uniqueness Scoped to Parent | accepted |
+| [019](adr/019-payee-as-a-first-class-entity-with-merge-support.md) | Payee as a First-Class Entity with Merge Support | accepted |
+| [020](adr/020-transfer-detection-via-counterparty-account-number-matching.md) | Transfer Detection via Counterparty Account Number Matching | accepted |
+| [021](adr/021-bdde2e-test-layer-with-pytest-playwright.md) | BDD/E2E Test Layer with pytest-playwright | accepted |
+| [022](adr/022-plannedrecurring-transactions-as-a-first-class-model.md) | Planned/Recurring Transactions as a First-Class Model | accepted |
+| [023](adr/023-credit-calculator-as-a-stateless-pure-python-service.md) | Credit Calculator as a Stateless Pure-Python Service | accepted |
+| [024](adr/024-account-balance-forecast-view-replaces-implicit-forecast-pag.md) | Account Balance Forecast View Replaces Implicit Forecast Page | accepted |
+| [025](adr/025-annual-budget-planning-grid-with-year-navigation.md) | Annual Budget Planning Grid with Year Navigation | accepted |
+| [026](adr/026-initial-setup-wizard-with-zero-based-budget-enforcement.md) | Initial Setup Wizard with Zero-Based Budget Enforcement | accepted |
+| [027](adr/027-settings-page-with-tabbed-layout-and-user-configurable-servi.md) | Settings Page with Tabbed Layout and User-Configurable Service Parameters | accepted |
+| [028](adr/028-subscriptions-category-tree-as-source-of-truth.md) | Subscriptions Category Tree as Source of Truth | accepted |
+| [029](adr/029-credit-card-and-loan-profiles-as-separate-tables-extending-a.md) | Credit Card and Loan Profiles as Separate Tables Extending Account | accepted |
+| [030](adr/030-read-only-cross-panel-projection-layer.md) | Read-Only Cross-Panel Projection Layer | accepted |
+| [031](adr/031-sortablejs-drag-and-drop-for-dashboard-widget-reorder.md) | SortableJS Drag-and-Drop for Dashboard Widget Reorder | accepted |
+| [032](adr/032-retire-the-controller-layer-views-call-services-directly.md) | Retire the Controller Layer — Views Call Services Directly | accepted |
 
 ## UI Colour Schema
 

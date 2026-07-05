@@ -7,7 +7,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 from kaleta.models.tag import transaction_tags
 
 
@@ -17,7 +17,7 @@ class TransactionType(str, enum.Enum):  # noqa: UP042
     TRANSFER = "transfer"
 
 
-class Transaction(TimestampMixin, Base):
+class Transaction(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)

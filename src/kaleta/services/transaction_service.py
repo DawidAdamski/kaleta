@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.exceptions import KaletaError
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
 from kaleta.schemas.transaction import TransactionCreate, TransactionUpdate
@@ -132,7 +133,7 @@ class TransactionService:
         # never hits a lazy relationship outside of an async context.
         fetched = await self.get(transaction.id)
         if fetched is None:
-            raise RuntimeError(f"Transaction id={transaction.id} not found after commit")
+            raise KaletaError(f"Transaction id={transaction.id} not found after commit")
         return fetched
 
     async def create_bulk(self, creates: builtins.list[TransactionCreate]) -> int:
@@ -167,7 +168,7 @@ class TransactionService:
         fetched_out = await self.get(tx_out.id)
         fetched_in = await self.get(tx_in.id)
         if fetched_out is None or fetched_in is None:
-            raise RuntimeError("Transfer legs not found after commit")
+            raise KaletaError("Transfer legs not found after commit")
         return fetched_out, fetched_in
 
     async def update(self, transaction_id: int, data: TransactionUpdate) -> Transaction | None:

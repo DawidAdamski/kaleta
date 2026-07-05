@@ -5,7 +5,7 @@ area: import
 effort: medium
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../roadmap.md#import
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — multi-file queue

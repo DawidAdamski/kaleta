@@ -5,6 +5,7 @@ area: wizard
 effort: small
 roadmap_ref: ../product/financial-wizard.md#shared-wizard-patterns
 status: draft
+deferred_to: q4-2026
 ---
 
 # Dashboard — Wizard action-items widget

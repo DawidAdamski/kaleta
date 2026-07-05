@@ -1,9 +1,11 @@
 # Roadmap
 
-Updated 2026-07-03. Replaces the 2026-04-20 backlog, which has been
-almost fully delivered (see [`plans/archive/`](plans/archive/) — 27
-shipped plans). Format: current quarter in detail, next quarter
-sketched, longer-term as directions.
+Updated 2026-07-05. Replaces the 2026-04-20 backlog. Format: current
+quarter in detail, next quarter sketched, longer-term as directions.
+
+**Status: Q3 delivered in full (2026-07-05), ahead of schedule.** All
+five workstreams shipped — see the Q3 section below and
+[`plans/archive/`](plans/archive/). Q4 is now the active quarter.
 
 ## Strategic direction: open-core
 
@@ -29,10 +31,21 @@ Standing principles carried over from the previous roadmap:
 
 ---
 
-## Q3 2026 (Jul–Sep): Stabilisation & debt
+## Q3 2026 (Jul–Sep): Stabilisation & debt {#q3-2026-jul-sep-stabilisation--debt}
 
 Theme: **make the codebase honest, tested, and secure enough to open.**
-New features are on hold except where they fall out of refactoring.
+
+> **DELIVERED 2026-07-05.** All five workstreams complete:
+> views refactor (8 packages split, zero direct data access in views,
+> import-linter contract with no exceptions), test safety net
+> (84 API integration tests, 50 e2e on an ephemeral isolated
+> instance), single-user auth (sessions, route guard, API bearer
+> tokens, secure defaults), Prophet as optional extra (`kaleta:slim`
+> 524 MB vs `kaleta:full` 973 MB, seasonal-naive fallback), and
+> hygiene + spec enforcement (exception hierarchy, logging, CI,
+> BDD↔test coverage gate, doc link-checker, 32 ADRs split out).
+> Plans archived in [`plans/archive/`](plans/archive/). The section
+> below is kept as the historical spec.
 
 ### 1. Views refactor — kill the god-objects
 
@@ -107,21 +120,50 @@ import with no fallback.
 
 ---
 
-## Q4 2026 (Oct–Dec): Open-source launch — sketch
+## Q4 2026: Open-source launch {#q4-2026-open-source-launch}
 
-- **Licence decision** (ADR): permissive core + enterprise modules
-  (Baserow-style) vs. sustainable-use licence (n8n-style). Decide
-  before the repo is public; relicensing later is painful.
-- Public-repo readiness: CONTRIBUTING, SECURITY.md, issue templates,
-  code of conduct, publish the mkdocs site, hosted demo instance with
-  seed data.
-- First-run experience for strangers: zero-config bootstrap
-  (`setup-zero-config-bootstrap` draft), English-first i18n audit,
-  category/tag templates on first run.
-- Resume feature work from the draft backlog, interleaved ~50/50 with
-  remaining debt.
-- Groundwork for the paid tier: feature-flag mechanism separating
-  core from commercial modules (flags only — no AI features yet).
+Active quarter (started early — Q3 delivered 2026-07-05). Theme:
+**a stranger can find, install, trust, and contribute to Kaleta.**
+Order matters: the licence gates everything public.
+
+### 1. Licence decision (first, blocking)
+
+ADR + `LICENSE` file: AGPL-3.0 core + CLA + proprietary licence for
+commercial modules (recommended) vs. sustainable-use (n8n-style).
+Consult a lawyer before the repo goes public; relicensing later is
+painful. CLA tooling (e.g. CLA-assistant) ready before the first
+external PR.
+
+### 2. Public-repo readiness
+
+- CONTRIBUTING.md (workflow: plans, Working Agreement, verify.sh),
+  SECURITY.md, issue/PR templates, code of conduct.
+- History audit before flipping to public: secrets scan on full git
+  history, `kaleta.db`/backup files out of the repo and .gitignored.
+- Publish the mkdocs site; hosted demo instance with seed data.
+- Housekeeping carried over from Q3: consolidate the duplicated dev
+  dependency definitions (optional-dependencies `dev` vs
+  dependency-group `dev`) into one; verify.sh fails fast with a hint
+  when dev tools are missing.
+
+### 3. First-run experience for strangers
+
+- Zero-config bootstrap (`setup-zero-config-bootstrap` draft).
+- English-first i18n audit; category/tag templates offered on first
+  run.
+
+### 4. Feature work resumes
+
+Deferred drafts (tagged `deferred_to: q4-2026`), interleaved ~50/50
+with remaining polish: payees identities automerge, transactions QoL
+(notes, payee autocomplete, upcoming planned), import per-file
+mapping memory, dashboard polish, wizard reminders and action-items
+widget, budgets plan unification, UX audit.
+
+### 5. Paid-tier groundwork
+
+Feature-flag mechanism separating core from commercial modules
+(flags only — no AI features this quarter).
 
 ## 2027 directions
 
@@ -148,3 +190,91 @@ coverage (`seed-*`), colour fixes (`*-color-fix`), UX audit
 (`ux-audit-feature-categorization`), wizard extras
 (`wizard-action-items-widget`, `wizard-reminders`,
 `budgets-plan-unification`).
+
+### Plan `roadmap_ref` anchors {#plan-roadmap-ref-anchors}
+
+Stable heading IDs for cross-links from [`plans/`](plans/). Each entry
+maps draft or shipped work to a roadmap area.
+
+| Anchor | Area |
+|---|---|
+| [Dashboard](#dashboard) | Dashboard widgets and layout |
+| [Transactions](#transactions) | Ledger, payees, planned items |
+| [Import](#import) | CSV import and mapping |
+| [Settings](#settings) | Preferences, data, audit |
+| [Setup](#setup) | First-run bootstrap |
+| [Seed](#seed) | Demo / dev seed data |
+| [Payment Calendar](#payment-calendar) | Recurring payment schedule |
+| [Accounts](#accounts) | Account CRUD and grouping |
+| [Budgets](#budgets) | Budget views and planning |
+| [Budgets (current view)](#budgets-current-budgets-view) | Realization + plan tabs |
+| [Categories](#categories) | Category tree |
+| [Credit](#credit) | Cards, loans, calculator |
+| [Forecast](#forecast) | Balance projection |
+| [Institutions](#institutions) | Bank / broker grouping |
+| [Net Worth](#net-worth) | Assets and liabilities summary |
+| [Reports](#reports) | Canned and custom reports |
+| [Tags](#tags) | Transaction tags |
+| [UX](#ux) | Information architecture audits |
+| [Cross-cutting principles](#cross-cutting-principles) | Colours, dedupe philosophy |
+| [Auto dedupe suggestions](#cross-cutting-automatic-deduplication-suggestions) | Payee/category merge proposals |
+
+#### Dashboard {#dashboard}
+Dashboard polish and widget work (see backlog paragraph above).
+
+#### Transactions {#transactions}
+Transaction QoL: notes, payee autocomplete, upcoming planned overlay.
+
+#### Import {#import}
+CSV import mapping memory and multi-file queue.
+
+#### Settings {#settings}
+Settings tabs, week start, debug seed, panel styling.
+
+#### Setup {#setup}
+Zero-config bootstrap for first-time strangers.
+
+#### Seed {#seed}
+Seed script coverage for payees, tags, payment calendar.
+
+#### Payment Calendar {#payment-calendar}
+Planned/recurring payment schedule in the wizard.
+
+#### Accounts {#accounts}
+Account views, grouping, institution assignment.
+
+#### Budgets {#budgets}
+Budget realization, annual plan, unification.
+
+#### Budgets (current view) {#budgets-current-budgets-view}
+The `/budgets` Realization + Plan tab experience.
+
+#### Categories {#categories}
+Category templates and tree management.
+
+#### Credit {#credit}
+Credit cards, loans, calculator, dark-mode styling.
+
+#### Forecast {#forecast}
+Prophet / fallback balance forecasting.
+
+#### Institutions {#institutions}
+Institution CRUD and logos.
+
+#### Net Worth {#net-worth}
+Net worth layout and physical assets.
+
+#### Reports {#reports}
+Canned reports library.
+
+#### Tags {#tags}
+Tag seed list and transaction tagging.
+
+#### UX {#ux}
+Feature categorization and IA audits.
+
+#### Cross-cutting principles {#cross-cutting-principles}
+Semantic colours, YNAB-style budgeting, dedupe philosophy.
+
+#### Auto dedupe suggestions {#cross-cutting-automatic-deduplication-suggestions}
+Automatic payee and identity merge proposals.

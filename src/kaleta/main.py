@@ -10,7 +10,9 @@ from nicegui import app as nicegui_app
 from nicegui import ui
 
 from kaleta.api import create_api_router
+from kaleta.api.errors import register_error_handlers
 from kaleta.config import settings
+from kaleta.logging_config import RequestLoggingMiddleware, configure_logging
 
 # Cached OpenAPI spec — generated once from our router tree.
 _openapi_spec: dict[str, Any] | None = None
@@ -36,6 +38,7 @@ def _setup_pwa() -> None:
 
 
 def _register_api() -> None:
+    register_error_handlers(nicegui_app)
     nicegui_app.include_router(create_api_router())
 
     @nicegui_app.get("/api-docs", response_class=HTMLResponse, include_in_schema=False)
@@ -62,6 +65,12 @@ def _preload_config() -> None:
         configure_database(db_url, debug=app_settings.debug)
 
 
+def _register_auth() -> None:
+    from kaleta.auth import register_auth_middleware
+
+    register_auth_middleware()
+
+
 def _register_views() -> None:
     from kaleta.views import (
         accounts,
@@ -69,6 +78,7 @@ def _register_views() -> None:
         budget_plan,
         budgets,
         categories,
+        create_account,
         credit,
         credit_calculator,
         dashboard,
@@ -76,6 +86,7 @@ def _register_views() -> None:
         housekeeping,
         import_view,
         institutions,
+        login,
         monthly_readiness,
         net_worth,
         payees,
@@ -85,6 +96,7 @@ def _register_views() -> None:
         reports,
         reports_canned,
         safety_funds,
+        secure_app,
         settings,
         setup,
         subscriptions,
@@ -94,6 +106,9 @@ def _register_views() -> None:
     )
 
     setup.register()
+    login.register()
+    create_account.register()
+    secure_app.register()
     dashboard.register()
     transactions.register()
     accounts.register()
@@ -124,13 +139,16 @@ def _register_views() -> None:
 
 def create_api() -> FastAPI:
     api = FastAPI(title="Kaleta API", version="0.1.0")
+    register_error_handlers(api)
     return api
 
 
 def run_web() -> None:
+    configure_logging()
     _preload_config()
     _setup_pwa()
     _register_api()
+    _register_auth()
     _register_views()
     ui.run(
         host=settings.host,
@@ -143,9 +161,11 @@ def run_web() -> None:
 
 
 def run_app() -> None:
+    configure_logging()
     _preload_config()
     _setup_pwa()
     _register_api()
+    _register_auth()
     _register_views()
     ui.run(
         host=settings.host,
@@ -158,7 +178,10 @@ def run_app() -> None:
 
 
 def run_api() -> None:
+    configure_logging()
+    _preload_config()
     api = create_api()
+    api.add_middleware(RequestLoggingMiddleware)
     api.include_router(create_api_router())
     uvicorn.run(api, host=settings.host, port=settings.port)
 

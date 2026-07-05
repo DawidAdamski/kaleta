@@ -5,7 +5,7 @@ area: categories
 effort: small
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#categories
+roadmap_ref: ../../roadmap.md#categories
 ---
 
 # Category tree templates

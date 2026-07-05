@@ -5,7 +5,7 @@ area: transactions
 effort: small
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Transactions — coloured amounts + global colour tokens

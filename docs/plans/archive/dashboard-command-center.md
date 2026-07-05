@@ -5,7 +5,7 @@ area: dashboard
 effort: large
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../product/dashboard.md
+roadmap_ref: ../../product/dashboard.md
 ---
 
 # Dashboard — Command Center

@@ -8,7 +8,7 @@ from sqlalchemy import ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
 class AccountType(enum.StrEnum):
@@ -18,7 +18,7 @@ class AccountType(enum.StrEnum):
     CREDIT = "credit"
 
 
-class Account(TimestampMixin, Base):
+class Account(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "accounts"
 
     id: Mapped[int] = mapped_column(primary_key=True)

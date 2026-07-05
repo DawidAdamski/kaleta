@@ -8,11 +8,12 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="KALETA_", env_file=".env", extra="ignore")
 
     db_url: str = "sqlite+aiosqlite:///kaleta.db"
-    host: str = "0.0.0.0"  # nosec B104 — intentional for Docker/container deployment
+    host: str = "127.0.0.1"
     port: int = 8080
     mode: str = "web"  # web | app | api
     secret_key: str = _INSECURE_KEY
     debug: bool = False
+    api_token: str | None = None
 
     @model_validator(mode="after")
     def _validate_secret_key(self) -> "Settings":

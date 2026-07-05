@@ -88,7 +88,7 @@ enhanced app features).
 (new taxonomy under categories or separate `SubscriptionGroup`
 table), URL field on a per-payee or per-subscription record.
 
-### 4. Safety & Reserve Funds
+### 4. Safety & Reserve Funds {#4-safety--reserve-funds}
 
 Four related goals, configurable per user:
 
@@ -130,7 +130,7 @@ Annual budget construction, complementing Monthly Readiness.
 - **Relationship with Monthly Readiness:** Budget Builder creates;
   Monthly Readiness verifies & adjusts.
 
-### 6. Personal Loans Register
+### 6. Personal Loans Register {#6-personal-loans}
 
 Track money lent to / borrowed from people (not banks).
 

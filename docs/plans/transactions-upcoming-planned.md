@@ -5,6 +5,7 @@ area: transactions
 effort: medium
 roadmap_ref: ../roadmap.md#transactions
 status: draft
+deferred_to: q4-2026
 ---
 
 # Transactions — show upcoming planned items (next N days)

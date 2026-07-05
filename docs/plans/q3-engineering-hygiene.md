@@ -66,4 +66,13 @@ mapping helper), `main.py`, `.github/workflows/ci.yml` (new),
 
 ## Implementation notes
 
-(filled in as work progresses)
+- Exception hierarchy in `src/kaleta/exceptions.py`; handlers in
+  `kaleta.api.errors` and `kaleta.views.error_handling`.
+- All services migrated off bare `ValueError`/`RuntimeError`.
+- API envelope unified to `{"error": {"code", "message"}}` including auth 401.
+- `KALETA_API_TOKEN`: minimum 16 chars, constant-time compare via
+  `secrets.compare_digest`.
+- Logging: `configure_logging()` in `main.py`, request middleware in API mode,
+  Prophet fallback warning in `forecasters`.
+- Cosmetic drafts folded into archived `q3-views-refactor`; feature drafts
+  tagged `deferred_to: q4-2026`.

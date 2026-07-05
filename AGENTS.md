@@ -63,6 +63,19 @@ docs/                    # Architecture ADRs, tech stack, product docs
 - All database operations go through services, never directly in views/controllers
 - Keep SQLite compatibility — avoid PostgreSQL-only features in models
 
+### Domain errors and logging
+- Services raise typed exceptions from `kaleta.exceptions` (`ValidationError`,
+  `NotFoundError`, `ConflictError`, `ImportError_`, `ForecastUnavailableError`) —
+  never bare `ValueError` / `RuntimeError`.
+- Views catch `KaletaError` and call `views.error_handling.notify_kaleta_error`
+  (negative toast). Do not branch on exception type in views unless the UX
+  differs (e.g. inline field error vs toast).
+- API routes rely on `kaleta.api.errors.register_error_handlers`; all error
+  responses use `{"error": {"code", "message"}}`.
+- Use `logging.getLogger(__name__)` per module; configure via
+  `kaleta.logging_config.configure_logging()` (honours `KALETA_DEBUG`). No
+  `print()` in `src/`.
+
 ### Naming
 - Files: `snake_case.py`
 - Classes: `PascalCase`
@@ -74,7 +87,7 @@ docs/                    # Architecture ADRs, tech stack, product docs
 ## Commands
 ```bash
 uv sync                      # Install dependencies
-uv sync --extra dev          # Install with dev tools
+uv sync --group dev          # Install with dev tools
 uv sync --extra postgres     # Install with PostgreSQL driver
 uv run kaleta                # Run the app (web mode)
 uv run pytest                # Run tests
@@ -115,9 +128,10 @@ Every task, no exceptions:
    `docs/plans/`, implement ONLY what that plan (or the named section)
    covers. "Not in scope" sections are binding. If work outside scope
    seems necessary, STOP and explain instead of doing it.
-2. **Verify before claiming done.** Run `./scripts/verify.sh` and
-   include its full output in your final report. A task with failing
-   verification is not done — report it as blocked with the error.
+2. **Verify before claiming done.** Run `./scripts/verify.sh` (requires
+   `uv sync --group dev` first) and include its full output in your final
+   report. A task with failing verification is not done — report it as
+   blocked with the error.
 3. **No silent production changes.** Test-only tasks must not modify
    `src/` except explicitly justified minimal hooks; call out every
    production file you touch and why.

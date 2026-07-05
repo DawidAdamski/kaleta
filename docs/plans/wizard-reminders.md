@@ -5,6 +5,7 @@ area: wizard
 effort: large
 roadmap_ref: ../product/financial-wizard.md#shared-wizard-patterns
 status: draft
+deferred_to: q4-2026
 ---
 
 # Wizard — notifications and reminders across all sections

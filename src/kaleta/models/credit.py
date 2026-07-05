@@ -7,10 +7,10 @@ from sqlalchemy import Date, ForeignKey, Integer, Numeric, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
-class CreditCardProfile(TimestampMixin, Base):
+class CreditCardProfile(TimestampMixin, UserOwnedMixin, Base):
     """Credit-card-specific settings attached to an Account of type CREDIT.
 
     One card per Account. Statement-day and payment-due-day are day-of-month
@@ -45,7 +45,7 @@ class CreditCardProfile(TimestampMixin, Base):
         )
 
 
-class LoanProfile(TimestampMixin, Base):
+class LoanProfile(TimestampMixin, UserOwnedMixin, Base):
     """Amortising loan profile attached to an Account (usually type CREDIT).
 
     Stored fields are the loan's *contract* values — the current balance lives

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 from nicegui import ui
 
@@ -21,13 +22,25 @@ def _sqlite_url(file_path: str) -> str:
 
 async def _activate_db(db_url: str, name: str, spinner: ui.spinner, status: ui.label) -> None:
     """Run migrations → configure proxy → save config → navigate home."""
+    from kaleta.services import AuthService, with_session
+
     try:
         status.set_text(t("setup.migrating"))
         await activate_database(db_url, name=name)
 
         status.set_text(t("setup.success"))
         await asyncio.sleep(0.6)
-        ui.navigate.to("/")
+
+        async def _next_path(session: Any) -> str:
+            state = await AuthService(session).auth_state()
+            if state == "no_user":
+                return "/create-account"
+            if state == "placeholder":
+                return "/secure-app"
+            return "/"
+
+        target = await with_session(_next_path)
+        ui.navigate.to(target)
     except Exception as exc:
         spinner.set_visibility(False)
         ui.notify(f"{t('setup.error')}: {exc}", type="negative")

@@ -5,7 +5,7 @@ area: wizard
 effort: small
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../product/financial-wizard.md#4-safety--reserve-funds
+roadmap_ref: ../../product/financial-wizard.md#4-safety--reserve-funds
 ---
 
 # Safety funds — months-as-ticks progress bar

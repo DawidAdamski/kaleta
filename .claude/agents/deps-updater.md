@@ -67,13 +67,13 @@ uv pip show <package>
 To update a specific package to latest:
 ```bash
 uv add <package>@latest              # updates pyproject.toml constraint
-uv sync --extra dev                  # resolves and updates uv.lock
+uv sync --group dev                  # resolves and updates uv.lock
 ```
 
 To update dev dependencies:
 ```bash
 uv add --dev <package>@latest
-uv sync --extra dev
+uv sync --group dev
 ```
 
 After updating, always run:

@@ -4,10 +4,10 @@ from sqlalchemy import ForeignKey, Integer, Numeric, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
-class Budget(TimestampMixin, Base):
+class Budget(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "budgets"
     __table_args__ = (
         UniqueConstraint("category_id", "month", "year", name="uq_budget_category_period"),

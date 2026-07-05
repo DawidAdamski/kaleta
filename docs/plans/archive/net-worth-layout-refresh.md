@@ -5,7 +5,7 @@ area: net-worth
 effort: medium
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#net-worth
+roadmap_ref: ../../roadmap.md#net-worth
 ---
 
 # Net Worth — layout refresh + asset/liability split

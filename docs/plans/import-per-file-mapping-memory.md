@@ -5,6 +5,7 @@ area: import
 effort: medium
 roadmap_ref: ../roadmap.md#import
 status: draft
+deferred_to: q4-2026
 ---
 
 # Import — per-file mapping with filename-based memory

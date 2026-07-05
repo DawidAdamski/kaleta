@@ -45,6 +45,26 @@ Bullet list — what this plan covers and explicitly what it does not.
 ## Acceptance criteria
 Testable outcomes. Reference BDD scenarios if available.
 
+Write criteria as **executable commands** wherever possible — one
+backtick-wrapped command per bullet. The `plan-archiver` runs these
+before archiving; archive is blocked on failure.
+
+```markdown
+## Acceptance criteria
+
+- `uv run pytest tests/unit/services/test_foo.py -q`
+- `grep -c "KAL-TXN" docs/bdd.md | grep -qE '^[1-9]'`
+- `uv run python scripts/spec_coverage.py`
+
+Prose-only checks (visual review, UX judgement) must start with
+`[manual]` — the archiver skips them:
+
+- `[manual]` Dialog uses theme tokens in dark mode.
+```
+
+Supported command forms: `uv run …`, `./scripts/…`, `grep …`,
+`test …`, `python …`. Do not embed commands in prose paragraphs.
+
 ## Touchpoints
 Files, models, services, i18n keys, migrations likely to change.
 
@@ -81,27 +101,27 @@ The subagent:
 | # | Plan | Status | Depends on |
 |---|---|---|---|
 | 1 | [q3-test-safety-net](archive/q3-test-safety-net.md) | archived | — |
-| 2 | [q3-views-refactor](q3-views-refactor.md) | draft | 1 (e2e green first) |
+| 2 | [q3-views-refactor](archive/q3-views-refactor.md) | archived | 1 (e2e green first) |
 | 3 | [q3-auth-single-user](q3-auth-single-user.md) | draft | 1 (updates API tests) |
-| 4 | [q3-forecast-optional-prophet](q3-forecast-optional-prophet.md) | draft | — (parallel-safe) |
+| 4 | [q3-forecast-optional-prophet](q3-forecast-optional-prophet.md) | done | — (parallel-safe) |
 | 5 | [q3-engineering-hygiene](q3-engineering-hygiene.md) | draft | CI after 1; exceptions parallel-safe |
 | 6 | [q3-spec-enforcement](q3-spec-enforcement.md) | draft | CI from 5; import-linter ignores burned down by 2 |
 
 See [roadmap → Q3 2026](../roadmap.md#q3-2026-jul-sep-stabilisation--debt)
-and ADR-032 in [architecture.md](../architecture.md).
+and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directly.md).
 
 ### Quick wins (small)
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft | Dashboard |
-| [dashboard-chart-fluid-height](dashboard-chart-fluid-height.md) | draft | Dashboard |
-| [transactions-notes-field](transactions-notes-field.md) | draft | Transactions |
-| [wizard-action-items-widget](wizard-action-items-widget.md) | draft | Wizard |
-| [seed-payees-tags-coverage](seed-payees-tags-coverage.md) | draft | Seed |
-| [seed-payment-calendar](seed-payment-calendar.md) | draft | Payment Calendar |
-| [credit-dark-mode-color-fix](credit-dark-mode-color-fix.md) | draft | Credit |
-| [settings-panel-color-fix](settings-panel-color-fix.md) | draft | Settings |
+| [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft (Q4) | Dashboard |
+| [transactions-notes-field](transactions-notes-field.md) | draft (Q4) | Transactions |
+| [wizard-action-items-widget](wizard-action-items-widget.md) | draft (Q4) | Wizard |
+| [seed-payees-tags-coverage](seed-payees-tags-coverage.md) | draft (Q4) | Seed |
+| [seed-payment-calendar](seed-payment-calendar.md) | draft (Q4) | Payment Calendar |
+| [settings-panel-color-fix](archive/settings-panel-color-fix.md) | archived | Settings — folded into views-refactor |
+| [credit-dark-mode-color-fix](archive/credit-dark-mode-color-fix.md) | archived | Credit — folded into views-refactor |
+| [dashboard-chart-fluid-height](archive/dashboard-chart-fluid-height.md) | archived | Dashboard — folded into views-refactor |
 | [accounts-group-by-switch](archive/accounts-group-by-switch.md) | archived | Accounts |
 | [transactions-colored-amounts](archive/transactions-colored-amounts.md) | archived | Transactions + cross-cutting colours |
 | [tags-seed-list](archive/tags-seed-list.md) | archived | Tags |
@@ -116,7 +136,7 @@ and ADR-032 in [architecture.md](../architecture.md).
 | Plan | Status | Roadmap ref |
 |---|---|---|
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
-| [dashboard-widget-resize](dashboard-widget-resize.md) | draft | Dashboard |
+| [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |

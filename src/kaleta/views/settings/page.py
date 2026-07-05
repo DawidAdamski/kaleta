@@ -15,6 +15,7 @@ from kaleta.views.settings.data_tab import render_data_tab
 from kaleta.views.settings.features_tab import render_features_tab
 from kaleta.views.settings.general_tab import render_general_tab
 from kaleta.views.settings.history_tab import render_history_tab
+from kaleta.views.settings.security_tab import render_security_tab
 
 
 async def settings_page() -> None:
@@ -45,6 +46,7 @@ async def settings_page() -> None:
             )
             features_tab = ui.tab("features", label=t("settings.tab_features"), icon="toggle_on")
             data_tab = ui.tab("data", label=t("settings.tab_data"), icon="storage")
+            security_tab = ui.tab("security", label=t("settings.tab_security"), icon="security")
             history_tab = ui.tab("history", label=t("settings.tab_history"), icon="history")
             about_tab = ui.tab("about", label=t("settings.tab_about"), icon="info")
 
@@ -61,6 +63,8 @@ async def settings_page() -> None:
                     foreign_currencies=foreign_currencies,
                     relevant_pairs=relevant_pairs,
                 )
+            with ui.tab_panel(security_tab):
+                await render_security_tab()
             with ui.tab_panel(history_tab):
                 await render_history_tab()
             with ui.tab_panel(about_tab):

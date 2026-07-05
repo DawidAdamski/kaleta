@@ -5,7 +5,7 @@ area: wizard
 effort: small
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../product/financial-wizard.md#1-getting-started
+roadmap_ref: ../../product/financial-wizard.md#1-getting-started
 ---
 
 # Getting Started — expand into contextual mentor

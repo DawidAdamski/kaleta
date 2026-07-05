@@ -9,7 +9,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
 class SubscriptionStatus(enum.StrEnum):
@@ -18,7 +18,7 @@ class SubscriptionStatus(enum.StrEnum):
     CANCELLED = "cancelled"
 
 
-class Subscription(TimestampMixin, Base):
+class Subscription(TimestampMixin, UserOwnedMixin, Base):
     """A recurring paid service the user wants to track.
 
     Links to a payee when one exists; otherwise ``name`` is the

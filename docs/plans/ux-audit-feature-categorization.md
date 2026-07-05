@@ -5,6 +5,7 @@ area: ux
 effort: medium
 roadmap_ref: ../roadmap.md#ux
 status: draft
+deferred_to: q4-2026
 ---
 
 # UX audit — feature categorisation in nav and settings

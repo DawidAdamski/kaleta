@@ -55,7 +55,7 @@ class TestGetCategory:
     async def test_get_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/categories/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Category not found"
+        assert resp.json()["error"]["message"] == "Category not found"
 
     async def test_get_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/categories/not-an-id")
@@ -80,7 +80,7 @@ class TestUpdateCategory:
     async def test_update_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.put("/api/v1/categories/999", json={"name": "Ghost"})
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Category not found"
+        assert resp.json()["error"]["message"] == "Category not found"
 
 
 class TestDeleteCategory:
@@ -94,7 +94,7 @@ class TestDeleteCategory:
     async def test_delete_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/categories/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Category not found"
+        assert resp.json()["error"]["message"] == "Category not found"
 
     async def test_delete_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/categories/not-an-id")

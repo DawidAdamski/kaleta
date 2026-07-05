@@ -47,6 +47,21 @@ If the invoker is vague, ask one clarifying question and stop.
      note in the implementation section.
    - If good overlap: continue silently.
 
+3b. **Run executable acceptance criteria.**
+   Read `## Acceptance criteria` in the plan. Extract every bullet
+   whose text is a single backtick-wrapped shell command (e.g.
+   `` `uv run pytest tests/unit/ -q` ``). Skip bullets that contain
+   `[manual]` or are prose without a command.
+   For each command:
+   ```bash
+   cd <repo-root> && <command>
+   ```
+   Record stdout/stderr and exit code. If **any** command exits
+   non-zero: **STOP — do not archive.** Report which command failed
+   and its output; let the invoker fix the implementation first.
+   If the section has no executable commands, note "No executable
+   acceptance criteria" and continue.
+
 4. **Collect commit metadata.** For each commit:
    ```bash
    git show -s --format="%h|%an|%ad|%s" --date=short <sha>
@@ -73,9 +88,20 @@ If the invoker is vague, ask one clarifying question and stop.
    - src/kaleta/i18n/locales/en.json
    - src/kaleta/i18n/locales/pl.json
 
+   **Acceptance criteria run** (step 3b):
+
+   | Command | Exit |
+   |---|---|
+   | `uv run pytest tests/unit/ -q` | 0 |
+   | `uv run python scripts/spec_coverage.py` | 0 |
+
    **Notes:** (only if something is worth preserving — partial
    coverage, follow-up items, migration caveats)
    ```
+
+   Include the acceptance-criteria table whenever step 3b ran at
+   least one command. Omit the table only when the section had no
+   executable commands.
 
 6. **Flip the status field** in frontmatter:
    `status: ready-to-archive` → `status: archived`

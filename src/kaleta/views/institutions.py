@@ -2,6 +2,7 @@ from typing import Any
 
 from nicegui import events, ui
 
+from kaleta.exceptions import ValidationError
 from kaleta.i18n import t
 from kaleta.schemas.institution import (
     InstitutionCreate,
@@ -129,7 +130,7 @@ def register() -> None:
                 def _add_upload(e: events.UploadEventArguments) -> None:
                     try:
                         url = save_logo(e.name, e.content.read())  # type: ignore[attr-defined]
-                    except ValueError:
+                    except ValidationError:
                         ui.notify(t("institutions.logo_invalid_format"), type="negative")
                         return
                     if add_logo_path[0]:
@@ -235,7 +236,7 @@ def register() -> None:
                 def _edit_upload(e: events.UploadEventArguments) -> None:
                     try:
                         url = save_logo(e.name, e.content.read())  # type: ignore[attr-defined]
-                    except ValueError:
+                    except ValidationError:
                         ui.notify(t("institutions.logo_invalid_format"), type="negative")
                         return
                     if edit_logo_path[0]:

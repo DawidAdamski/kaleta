@@ -68,7 +68,7 @@ class TestGetBudget:
     async def test_get_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/budgets/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Budget entry not found"
+        assert resp.json()["error"]["message"] == "Budget entry not found"
 
     async def test_get_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/budgets/not-an-id")
@@ -97,7 +97,7 @@ class TestUpdateBudget:
     async def test_update_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.put("/api/v1/budgets/999", json={"amount": "100.00"})
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Budget entry not found"
+        assert resp.json()["error"]["message"] == "Budget entry not found"
 
 
 class TestDeleteBudget:
@@ -113,7 +113,7 @@ class TestDeleteBudget:
     async def test_delete_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/budgets/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Budget entry not found"
+        assert resp.json()["error"]["message"] == "Budget entry not found"
 
     async def test_delete_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/budgets/not-an-id")

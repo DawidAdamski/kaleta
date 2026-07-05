@@ -5,7 +5,7 @@ area: wizard
 effort: large
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../product/financial-wizard.md
+roadmap_ref: ../../product/financial-wizard.md
 ---
 
 # Wizard — cross-panel data flow

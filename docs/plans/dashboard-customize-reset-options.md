@@ -5,6 +5,7 @@ area: dashboard
 effort: small
 roadmap_ref: ../roadmap.md#dashboard
 status: draft
+deferred_to: q4-2026
 ---
 
 # Dashboard — Split Reset into "Reset layout" and "Reset widgets"

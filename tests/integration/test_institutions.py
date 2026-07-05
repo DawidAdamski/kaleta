@@ -49,7 +49,7 @@ class TestGetInstitution:
     async def test_get_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/institutions/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Institution not found"
+        assert resp.json()["error"]["message"] == "Institution not found"
 
     async def test_get_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/institutions/not-an-id")
@@ -74,7 +74,7 @@ class TestUpdateInstitution:
     async def test_update_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.put("/api/v1/institutions/999", json={"name": "Ghost"})
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Institution not found"
+        assert resp.json()["error"]["message"] == "Institution not found"
 
 
 class TestDeleteInstitution:
@@ -88,7 +88,7 @@ class TestDeleteInstitution:
     async def test_delete_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/institutions/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Institution not found"
+        assert resp.json()["error"]["message"] == "Institution not found"
 
     async def test_delete_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/institutions/not-an-id")

@@ -5,7 +5,7 @@ area: budgets
 effort: large
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#budgets
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Budgets rename + new Payment Calendar view

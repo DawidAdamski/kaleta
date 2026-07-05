@@ -11,6 +11,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from kaleta.api import create_api_router
 from kaleta.api.deps import get_session
+from kaleta.api.errors import register_error_handlers
+from kaleta.services.api_token_service import ApiTokenService
+from kaleta.services.auth_service import AuthService
 
 ACCOUNT_PAYLOAD: dict[str, Any] = {
     "name": "Main Checking",
@@ -27,9 +30,55 @@ PAYEE_PAYLOAD: dict[str, Any] = {"name": "Grocery Store"}
 
 
 @pytest_asyncio.fixture
-async def api_client(db_engine):
+async def api_user(db_engine):
+    """Single user row required for API bearer authentication."""
+    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with factory() as session:
+        user = await AuthService(session).create_user("api-test", "test-password")
+        return user
+
+
+@pytest_asyncio.fixture
+async def api_bearer_token(db_engine, api_user):
+    """Raw bearer token for integration API calls."""
+    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    async with factory() as session:
+        _token, raw = await ApiTokenService(session).create_token(
+            user_id=api_user.id,
+            label="integration-test",
+        )
+        return raw
+
+
+@pytest_asyncio.fixture
+async def api_client(db_engine, api_bearer_token):
     """AsyncClient wired to a fresh FastAPI app that uses the test DB engine."""
     app = FastAPI()
+    register_error_handlers(app)
+    app.include_router(create_api_router())
+
+    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+
+    async def override_session():
+        async with factory() as s:
+            yield s
+
+    app.dependency_overrides[get_session] = override_session
+
+    headers = {"Authorization": f"Bearer {api_bearer_token}"}
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers=headers,
+    ) as client:
+        yield client
+
+
+@pytest_asyncio.fixture
+async def api_client_unauth(db_engine):
+    """API client without authentication headers."""
+    app = FastAPI()
+    register_error_handlers(app)
     app.include_router(create_api_router())
 
     factory = async_sessionmaker(db_engine, expire_on_commit=False)

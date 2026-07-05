@@ -1,9 +1,9 @@
 """Unit tests for CategoryService — uses in-memory SQLite."""
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ConflictError
 from kaleta.models.category import CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryUpdate
 from kaleta.services import CategoryService
@@ -27,7 +27,7 @@ class TestCategoryServiceCreate:
 
     async def test_duplicate_name_raises(self, svc: CategoryService):
         await svc.create(CategoryCreate(name="Duplicate", type=CategoryType.EXPENSE))
-        with pytest.raises(IntegrityError):
+        with pytest.raises(ConflictError):
             await svc.create(CategoryCreate(name="Duplicate", type=CategoryType.INCOME))
 
     async def test_sql_injection_name_stored_verbatim(self, svc: CategoryService):

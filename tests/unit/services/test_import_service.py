@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ImportError_
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.transaction import TransactionType
@@ -63,7 +64,7 @@ class TestParseDate:
         ],
     )
     def test_invalid_dates_raise(self, value: str):
-        with pytest.raises(ValueError):
+        with pytest.raises(ImportError_):
             _parse_date(value)
 
 
@@ -96,7 +97,7 @@ class TestParseAmount:
         ],
     )
     def test_invalid_amounts_raise(self, value: str):
-        with pytest.raises(ValueError):
+        with pytest.raises(ImportError_):
             _parse_amount(value)
 
 

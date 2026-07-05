@@ -5,6 +5,7 @@ area: setup
 effort: medium
 roadmap_ref: ../roadmap.md#setup
 status: draft
+deferred_to: q4-2026
 ---
 
 # Setup — zero-config first-run for new users

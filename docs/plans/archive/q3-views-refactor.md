@@ -3,8 +3,8 @@ plan_id: q3-views-refactor
 title: Views refactor — split god-objects, shared components, retire controllers
 area: views
 effort: large
-status: draft
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Views refactor — split god-objects, shared components, retire controllers
@@ -212,3 +212,62 @@ src/kaleta/views/`:
   `activate_database` (setup).
 - **Both exit criteria pass:** LOC cap (≤500 per file) and zero direct data
   access in views.
+
+## Implementation
+
+Landed 2026-07-04 — 2026-07-05 (`af86520`..`7b219b7`).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `af86520` | Dawid (Ani) | 2026-07-04 | refactor(views): transactions package + shared components |
+| `234cb32` | Dawid (Ani) | 2026-07-04 | refactor(views): reports_canned package |
+| `7b8b77e` | Dawid (Ani) | 2026-07-04 | refactor(views): split subscriptions into package with service helpers |
+| `04dec62` | Dawid (Ani) | 2026-07-04 | refactor(views): split reports builder into package with service helpers |
+| `9382d41` | Dawid (Ani) | 2026-07-04 | refactor(views): import_view package |
+| `2006374` | Dawid (Ani) | 2026-07-04 | refactor(views): settings package |
+| `451ea63` | Dawid (Ani) | 2026-07-04 | refactor(views): dashboard_widgets per-widget package |
+| `03f5fc1` | Dawid (Ani) | 2026-07-04 | refactor(views): budget_plan package |
+| `3eb2d61` | Dawid (Ani) | 2026-07-04 | chore: working agreement rules 8-10, verify e2e auto-gate, bdd data-safety |
+| `c71705b` | Dawid (Ani) | 2026-07-04 | Split personal_loans view into package modules. |
+| `ea92d8d` | Dawid (Ani) | 2026-07-04 | Split budgets view into package modules. |
+| `26c7ee3` | Dawid (Ani) | 2026-07-04 | Document personal_loans and budgets splits plus LOC exit criteria. |
+| `0cc377c` | Dawid (Ani) | 2026-07-05 | refactor(views): burn down import-linter ignores for nine small views |
+| `7b219b7` | Dawid (Ani) | 2026-07-05 | refactor(views): complete burn-down — with_session for remaining ten views |
+
+**Aggregate:** 165 files changed, +11 483 / −5 763 lines (`af86520^..7b219b7`).
+
+**What shipped:**
+- Shared `views/components/` package: `transaction_table`, `amount_label`,
+  `filter_bar`, `empty_state`.
+- God-object splits into thin page modules + section packages for
+  `transactions`, `reports_canned`, `subscriptions`, `reports`, `import_view`,
+  `settings`, `dashboard_widgets`, `budget_plan`, `personal_loans`, `budgets`.
+- Inline view logic moved to services with unit tests (`import_service`,
+  `subscription_service`, `saved_report_service`, `personal_loan_service`,
+  `budget_service`, settings helpers).
+- `with_session` / schema enums pattern rolled out to all remaining single-file
+  views; `setup_service.activate_database` for first-run DB wiring.
+- `views-no-data-access` import-linter contract enforced with zero
+  `ignore_imports` entries.
+- `src/kaleta/controllers/` removed (ADR-032); e2e suite green after each
+  landing commit (`./scripts/verify.sh --e2e`).
+
+**Resolved open questions:**
+- Component API: plain functions; `@ui.refreshable` classes only where state
+  must be held across re-renders.
+- `dashboard_widgets`: per-widget modules under `views/dashboard_widgets/`.
+
+**Deferred / partial:**
+- `amount_label` adopted in split views and transaction tables; some older
+  views still use `theme.AMOUNT_*` constants directly — follow-up hygiene if
+  strict single-source colouring is required.
+- Architecture diagram in `docs/architecture.md` still lists `controllers/` in
+  the tree sketch (ADR-032 body is current).
+- Cosmetic polish drafts folded here (not separate plans): settings panel
+  surface tokens (`settings-panel-color-fix`), credit dark-mode contrast
+  (`credit-dark-mode-color-fix`), dashboard chart fluid height
+  (`dashboard-chart-fluid-height`). Pick up opportunistically during view
+  touch-ups or a dedicated Q4 polish pass.
+
+**Verification (2026-07-05):** `./scripts/verify.sh --e2e` — VERIFY OK (1245 unit/
+integration, 44 e2e); import-linter `views-no-data-access` KEPT with no ignores.

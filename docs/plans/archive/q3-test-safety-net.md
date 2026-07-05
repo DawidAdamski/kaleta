@@ -4,7 +4,7 @@ title: Test safety net — API integration + e2e for critical flows
 area: testing
 effort: large
 status: archived
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Test safety net — API integration + e2e for critical flows

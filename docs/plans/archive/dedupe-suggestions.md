@@ -5,7 +5,7 @@ area: cross-cutting
 effort: medium
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Cross-cutting — duplicate suggestions surface

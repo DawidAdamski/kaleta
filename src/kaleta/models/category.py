@@ -7,7 +7,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
 class CategoryType(str, enum.Enum):  # noqa: UP042
@@ -15,7 +15,7 @@ class CategoryType(str, enum.Enum):  # noqa: UP042
     EXPENSE = "expense"
 
 
-class Category(TimestampMixin, Base):
+class Category(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "categories"
     __table_args__ = (UniqueConstraint("name", "parent_id", name="uq_categories_name_parent"),)
 

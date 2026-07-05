@@ -1,6 +1,8 @@
 from kaleta.services.account_service import AccountService
+from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.asset_service import AssetService
 from kaleta.services.audit_service import AuditService
+from kaleta.services.auth_service import AuthService
 from kaleta.services.backup_service import BackupService
 from kaleta.services.budget_service import BudgetService
 from kaleta.services.category_service import CategoryService
@@ -29,7 +31,9 @@ __all__ = [
     "dispose_sessions",
     "with_session",
     "AccountService",
+    "ApiTokenService",
     "AuditService",
+    "AuthService",
     "BackupService",
     "SavedReportService",
     "AssetService",

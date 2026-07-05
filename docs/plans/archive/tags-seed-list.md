@@ -5,7 +5,7 @@ area: tags
 effort: small
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#tags
+roadmap_ref: ../../roadmap.md#tags
 ---
 
 # Seed tags on first run

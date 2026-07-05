@@ -129,6 +129,27 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             .tooltip(t("common.toggle_dark"))
         )
 
+        session_username: str = app.storage.user.get("username", "")
+
+        async def _logout() -> None:
+            from kaleta.auth.session import logout_session
+            from kaleta.services import AuthService, with_session
+
+            name = session_username or None
+
+            async def _record(session: Any) -> None:
+                await AuthService(session).record_logout(username=name)
+
+            await with_session(_record)
+            logout_session()
+            ui.navigate.to("/login")
+
+        account_btn = ui.button(icon="account_circle").props("flat round dense color=primary")
+        with account_btn, ui.menu():
+            if session_username:
+                ui.menu_item(session_username).props("disable")
+            ui.menu_item(t("auth.logout"), on_click=_logout).props("icon=logout")
+
         async def _close_db() -> None:
             from kaleta.config.setup_config import clear_db
             from kaleta.services import dispose_sessions

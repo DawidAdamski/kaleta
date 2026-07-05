@@ -5,7 +5,7 @@ area: dashboard
 effort: medium
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../roadmap.md#dashboard
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Dashboard — Edit mode with drag-and-drop reorder

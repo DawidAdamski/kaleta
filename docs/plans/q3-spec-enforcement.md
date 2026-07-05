@@ -121,4 +121,16 @@ plan-archiver agent definition (`.claude/` or `.ai/`), `docs/adr/`
 
 ## Implementation notes
 
-(filled in as work progresses)
+- Sections 1–2 (import-linter, BDD coverage) were done before this
+  tranche.
+- **Section 3:** Plan template in `docs/plans/README.md` now requires
+  backtick-wrapped shell commands in acceptance criteria; `[manual]`
+  prefix for prose checks. `plan-archiver` runs commands before archive
+  and records results in `## Implementation`.
+- **Section 4:** `scripts/check_doc_links.py` validates markdown links,
+  `roadmap_ref` frontmatter, and heading anchors in `docs/`, `README.md`,
+  `CLAUDE.md`. CI lint job + `verify.sh`. Fixed archived plan relative
+  paths and added stable `roadmap_ref` anchors to `docs/roadmap.md`.
+- **Section 5:** 32 ADRs split to `docs/adr/NNN-slug.md`; index table
+  in `architecture.md`; mkdocs nav updated; diagram aligned with
+  ADR-032 (no controller layer).

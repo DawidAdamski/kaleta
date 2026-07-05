@@ -13,6 +13,8 @@ import contextlib
 import uuid
 from pathlib import Path
 
+from kaleta.exceptions import ValidationError
+
 LOGOS_DIR: Path = Path.home() / ".kaleta" / "logos"
 LOGO_URL_PREFIX = "/logos"
 ALLOWED_SUFFIXES = {".svg", ".png", ".jpg", ".jpeg", ".webp"}
@@ -27,7 +29,7 @@ def save_logo(filename: str, content: bytes) -> str:
     """Write *content* under a unique name; return the ``/logos/<name>`` URL."""
     suffix = Path(filename).suffix.lower()
     if suffix not in ALLOWED_SUFFIXES:
-        raise ValueError(f"Unsupported logo format: {suffix}")
+        raise ValidationError(f"Unsupported logo format: {suffix}")
     ensure_dir()
     safe_name = f"{uuid.uuid4().hex}{suffix}"
     (LOGOS_DIR / safe_name).write_bytes(content)

@@ -11,6 +11,8 @@ from typing import Any, cast
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
+
 _BACKUP_VERSION = "1"
 
 # Order matters: export order respects FK dependencies (parents before children).
@@ -74,15 +76,15 @@ class BackupService:
         """Replace all data with the contents of a backup ZIP.
 
         Returns a mapping of table name → number of rows restored.
-        Raises ValueError for invalid/incompatible backups.
+        Raises ValidationError for invalid/incompatible backups.
         """
         with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
             names = zf.namelist()
             if "metadata.json" not in names:
-                raise ValueError("Invalid backup: missing metadata.json")
+                raise ValidationError("Invalid backup: missing metadata.json")
             meta = json.loads(zf.read("metadata.json"))
             if str(meta.get("version")) != _BACKUP_VERSION:
-                raise ValueError(
+                raise ValidationError(
                     f"Unsupported backup version: {meta.get('version')} "
                     f"(expected {_BACKUP_VERSION})"
                 )

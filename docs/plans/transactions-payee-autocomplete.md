@@ -5,6 +5,7 @@ area: transactions
 effort: medium
 roadmap_ref: ../roadmap.md#transactions
 status: draft
+deferred_to: q4-2026
 ---
 
 # Transactions — payee autocomplete and auto-fill on create

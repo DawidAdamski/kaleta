@@ -4,7 +4,7 @@ from sqlalchemy import Column, ForeignKey, Integer, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 # Association table — no ORM class, just a plain Table
 transaction_tags = Table(
@@ -25,7 +25,7 @@ transaction_tags = Table(
 )
 
 
-class Tag(TimestampMixin, Base):
+class Tag(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "tags"
 
     id: Mapped[int] = mapped_column(primary_key=True)

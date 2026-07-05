@@ -48,7 +48,7 @@ class TestGetPayee:
     async def test_get_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/payees/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Payee not found"
+        assert resp.json()["error"]["message"] == "Payee not found"
 
     async def test_get_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/payees/not-an-id")
@@ -73,7 +73,7 @@ class TestUpdatePayee:
     async def test_update_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.put("/api/v1/payees/999", json={"name": "Ghost"})
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Payee not found"
+        assert resp.json()["error"]["message"] == "Payee not found"
 
 
 class TestDeletePayee:
@@ -87,7 +87,7 @@ class TestDeletePayee:
     async def test_delete_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/payees/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Payee not found"
+        assert resp.json()["error"]["message"] == "Payee not found"
 
     async def test_delete_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/payees/not-an-id")
@@ -123,4 +123,4 @@ class TestMergePayees:
             "/api/v1/payees/merge", json={"keep_id": 999, "merge_ids": [other["id"]]}
         )
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Payee not found"
+        assert resp.json()["error"]["message"] == "Payee not found"

@@ -9,7 +9,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
 class ReserveFundKind(enum.StrEnum):
@@ -23,7 +23,7 @@ class ReserveFundBackingMode(enum.StrEnum):
     ENVELOPE = "envelope"
 
 
-class ReserveFund(TimestampMixin, Base):
+class ReserveFund(TimestampMixin, UserOwnedMixin, Base):
     """A dedicated reserve fund the user tracks progress against.
 
     Backing mode declares where the current balance comes from:

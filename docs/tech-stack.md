@@ -18,8 +18,18 @@
 
 | Component        | Technology  | Purpose                                                       |
 |------------------|-------------|---------------------------------------------------------------|
-| Forecasting      | Prophet     | 30–60 day cash flow forecasting with seasonality & CI band    |
+| Forecasting      | Prophet (optional `forecast` extra) or seasonal-naive fallback | 30–90 day cash flow forecasting with confidence band |
 | Charts           | ECharts     | Budget vs actual, cash flow, forecast charts via `ui.echart` |
+
+Install Prophet for advanced forecasting:
+
+```bash
+uv sync --extra forecast
+```
+
+Without the extra, the Forecast page uses a lightweight seasonal-naive projection
+(same result schema: yhat / lower / upper) and shows an informational banner.
+Both backends run CPU work in a thread pool via `asyncio.run_in_executor`.
 
 ## Database
 
@@ -53,7 +63,7 @@ Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
 | Planned transactions | `/planned`: recurring income/expense/transfer with weekly/monthly/yearly frequency; optional end date or occurrence limit; active/inactive toggle; `PlannedTransactionService.active_occurrences_between()` used by transactions view (show-planned toggle) and forecast |
 | Credit calculator   | `/credit-calculator`: stateless loan amortization for consumer loans, car loans, mortgages; equal vs decreasing installments; monthly overpayment or one-off lump-sum simulation; ECharts chart + amortization schedule table; no DB writes |
 | Credit module       | `/credit`: two tabs — Credit Cards and Loans. "New card" / "New loan" dialogs atomically create an `Account` (`type=CREDIT`) + the matching profile row. Cards show utilization bar (green < 30 %, amber < 70 %, red ≥ 70 %), min-payment (max(2 % × balance, 30 PLN) capped at balance), next-due date, and on-time / due-soon / overdue status chip. Loans show remaining balance and full amortisation schedule. Dashboard `credit_utilization` widget lists all card utilization bars (half-width card). |
-| Account balance forecast | `/forecast`: Prophet-based forecast per account or combined multi-account selection; configurable horizon; "include planned transactions" toggle; shaded confidence interval; zero-balance crossing alert; insufficient-history warning when fewer than 90 data points |
+| Account balance forecast | `/forecast`: Prophet when the `forecast` extra is installed, otherwise seasonal-naive fallback; per account or combined multi-account; configurable horizon; shaded confidence interval; model presets (Prophet only); what-if scenarios; planned-transaction overlay; insufficient-history warning when fewer than 14 distinct days |
 | Annual budget planning | `/budget-plan`: 12-column × N-category grid for a selected year; inline cell editing; "set uniform amount" and "copy previous month" bulk actions; "Budget vs Actual" toggle overlays real spending; year-over-year comparison; negative values rejected at schema level |
 | Setup wizard        | `/wizard`: onboarding steps (institution → accounts with opening balances → categories → zero-based budget assignment); "Finish Setup" disabled until unassigned amount = 0; "load suggested categories" inserts a predefined set; wizard progress persists across sessions; fresh empty database redirects here automatically. `/setup` (separate) handles first-run database configuration |
 | Settings            | `/settings`: 6 tabs — General (language, currency, date format, week start), Appearance (theme, sidebar default), Features (reset Getting Started; detector look-back windows for Subscriptions, Housekeeping, Payment Calendar), Data (backup/restore, seed, wipe — requires typing `DELETE`; exchange rates), History (audit log), About (version, env, links). All knobs persist in `app.storage.user`. |
@@ -68,6 +78,9 @@ Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
 | SortableJS | 1.15.2  | MIT     | jsDelivr CDN (head) | Drag-and-drop widget reorder on the dashboard |
 
 ## Development Tools
+
+Install dev tools with `uv sync --group dev` (not an optional extra). Run the full
+DoD gate with `./scripts/verify.sh` (add `--e2e` when views change).
 
 | Tool         | Purpose                              |
 |--------------|--------------------------------------|
@@ -110,9 +123,10 @@ Set via `KALETA_MODE` environment variable:
 
 ```
 KALETA_DB_URL=sqlite:///kaleta.db     # Database connection string
-KALETA_HOST=0.0.0.0                   # Bind address
+KALETA_HOST=127.0.0.1                   # Bind address (Docker Compose sets 0.0.0.0)
 KALETA_PORT=8080                      # Bind port
 KALETA_MODE=web                       # web | app | api
-KALETA_SECRET_KEY=...                 # Session/auth secret (required for browser storage)
-KALETA_DEBUG=false                    # Debug mode / hot reload
+KALETA_SECRET_KEY=...                 # Session/auth secret (required outside debug)
+KALETA_DEBUG=false                    # Debug mode; allows placeholder secret key
+KALETA_API_TOKEN=...                  # Optional bootstrap bearer for headless API mode
 ```

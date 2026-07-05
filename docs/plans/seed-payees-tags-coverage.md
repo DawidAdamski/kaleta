@@ -5,6 +5,7 @@ area: seed
 effort: small
 roadmap_ref: ../roadmap.md#seed
 status: draft
+deferred_to: q4-2026
 ---
 
 # Seed — payees and tags coverage in example data

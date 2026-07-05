@@ -9,7 +9,7 @@ from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
-from kaleta.models.mixins import TimestampMixin
+from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
 class AssetType(str, enum.Enum):  # noqa: UP042
@@ -19,7 +19,7 @@ class AssetType(str, enum.Enum):  # noqa: UP042
     OTHER = "other"
 
 
-class Asset(TimestampMixin, Base):
+class Asset(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "assets"
 
     id: Mapped[int] = mapped_column(primary_key=True)

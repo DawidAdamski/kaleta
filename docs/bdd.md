@@ -1000,6 +1000,17 @@ Feature: Account Balance Forecast
     And the predicted balance crosses zero within the forecast horizon
     Then the chart highlights the date the balance is predicted to reach zero
     And I see a warning "Balance may reach zero on [date]"
+
+  KAL-FCT-009 @manual
+  Scenario: Fallback projection when Prophet is not installed
+    Given Kaleta is installed without the optional forecast extra
+    And I am on the Forecast page
+    Then I see a banner "Advanced forecasting (Prophet) not installed — using simple projection"
+    And a link to install instructions is visible
+    And the Prophet-only preset selector is hidden
+    When I click "Run Forecast"
+    Then I see a chart with historical balance and a predicted balance line
+    And a shaded confidence interval surrounds the prediction
 ```
 
 ---
@@ -1337,6 +1348,61 @@ Feature: Settings — Data safety
     And I am on the Settings page, Data tab
     When I upload the backup ZIP and confirm restore
     Then my accounts and transactions from the backup are present again
+```
+
+---
+
+## Feature: Authentication
+
+```gherkin
+Feature: Single-user authentication
+  As the Kaleta owner
+  I want to sign in with a password
+  So that only I can access my financial data
+
+  KAL-AUTH-001 @automated
+  Scenario: Successful login redirects to the dashboard
+    Given a Kaleta user exists with username "e2e" and a known password
+    And I am on the login page
+    When I enter the correct username and password and submit
+    Then I am redirected away from the login page
+    And I can see the dashboard
+
+  KAL-AUTH-002 @automated
+  Scenario: Wrong password shows a generic error
+    Given a Kaleta user exists with username "e2e" and a known password
+    And I am on the login page
+    When I enter the correct username and a wrong password and submit
+    Then I remain on the login page
+    And I see a generic invalid-credentials message
+
+  KAL-AUTH-003 @automated
+  Scenario: Unauthenticated deep link redirects to login
+    Given I am not signed in
+    When I open "/transactions" directly
+    Then I am redirected to the login page
+    And the redirect preserves the originally requested path
+
+  KAL-AUTH-004 @automated
+  Scenario: Unauthenticated setup page on a configured install redirects to login
+    Given a database is already configured
+    And I am not signed in
+    When I open "/setup" directly
+    Then I am redirected to the login page
+    And the redirect preserves the originally requested path
+
+  KAL-AUTH-005 @automated
+  Scenario: API returns 401 JSON without a bearer token
+    Given I am not signed in
+    When I request "/api/v1/accounts/" without credentials
+    Then the response status is 401
+    And the JSON body reports unauthorized
+
+  KAL-AUTH-006 @automated
+  Scenario: API returns 200 with a valid bearer token
+    Given a valid API bearer token exists
+    When I request "/api/v1/accounts/" with the bearer token
+    Then the response status is 200
 ```
 
 ---

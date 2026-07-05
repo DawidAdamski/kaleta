@@ -5,7 +5,7 @@ area: wizard
 effort: medium
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../product/financial-wizard.md#6-personal-loans
+roadmap_ref: ../../product/financial-wizard.md#6-personal-loans
 ---
 
 # Wizard — Personal loans tracker

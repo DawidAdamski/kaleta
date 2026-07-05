@@ -6,10 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.exceptions import ConflictError, KaletaError, NotFoundError
 from kaleta.models.category import Category, CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryUpdate
 
@@ -72,11 +72,7 @@ class CategoryService:
             stmt = stmt.where(Category.parent_id == data.parent_id)
         existing = await self.session.execute(stmt)
         if existing.scalar_one_or_none() is not None:
-            raise IntegrityError(
-                statement=None,
-                params=None,
-                orig=Exception(f"Category name '{data.name}' already exists under the same parent"),
-            )
+            raise ConflictError(f"Category name '{data.name}' already exists under the same parent")
         category = Category(**data.model_dump())
         self.session.add(category)
         await self.session.commit()
@@ -84,7 +80,7 @@ class CategoryService:
         # hits a lazy relationship outside of an async context.
         fetched = await self.get(category.id)
         if fetched is None:
-            raise RuntimeError(f"Category id={category.id} not found after commit")
+            raise KaletaError(f"Category id={category.id} not found after commit")
         return fetched
 
     async def update(self, category_id: int, data: CategoryUpdate) -> Category | None:
@@ -212,7 +208,7 @@ class CategoryService:
     def _load_template(key: str) -> dict[str, builtins.list[str]]:
         path = _TEMPLATE_DIR / f"{key}.json"
         if not path.is_file():
-            raise FileNotFoundError(f"Category template not found: {key}")
+            raise NotFoundError(f"Category template not found: {key}")
         data = json.loads(path.read_text(encoding="utf-8"))
         return {
             "income": [str(n) for n in data.get("income", [])],

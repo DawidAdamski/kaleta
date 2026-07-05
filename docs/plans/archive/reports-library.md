@@ -5,7 +5,7 @@ area: reports
 effort: medium
 status: archived
 archived_at: 2026-04-22
-roadmap_ref: ../roadmap.md#reports
+roadmap_ref: ../../roadmap.md#reports
 ---
 
 # Reports — library of canned reports

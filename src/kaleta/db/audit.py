@@ -23,6 +23,7 @@ from typing import Any
 
 from sqlalchemy import event
 from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, UOWTransaction
 
 from kaleta.db.base import Base
@@ -148,3 +149,44 @@ def _after_rollback(session: Session) -> None:
     session.info.pop("_audit_inserts", None)
     session.info.pop("_audit_updates", None)
     session.info.pop("_audit_deletes", None)
+
+
+async def record_auth_event(
+    session: AsyncSession,
+    *,
+    event: str,
+    username: str | None = None,
+    success: bool,
+) -> None:
+    """Write a login/logout audit row (not tied to ORM DML)."""
+    payload = json.dumps({"event": event, "username": username, "success": success})
+    session.add(
+        AuditLog(
+            operation="AUTH",
+            table_name="session",
+            record_id=None,
+            old_data=None,
+            new_data=payload,
+        )
+    )
+    await session.commit()
+
+
+async def record_token_event(
+    session: AsyncSession,
+    *,
+    event: str,
+    label: str,
+) -> None:
+    """Write an API token create/revoke audit row."""
+    payload = json.dumps({"event": event, "label": label})
+    session.add(
+        AuditLog(
+            operation="AUTH",
+            table_name="api_token",
+            record_id=None,
+            old_data=None,
+            new_data=payload,
+        )
+    )
+    await session.commit()

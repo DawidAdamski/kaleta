@@ -8,6 +8,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.category import Category
 from kaleta.models.monthly_readiness import MonthlyReadiness
 from kaleta.models.transaction import Transaction, TransactionType
@@ -60,7 +61,7 @@ class MonthlyReadinessService:
         self, year: int, month: int, stage: int, *, done: bool = True
     ) -> MonthlyReadiness:
         if stage not in (1, 2, 3, 4):
-            raise ValueError(f"stage must be 1..4, got {stage}")
+            raise ValidationError(f"stage must be 1..4, got {stage}")
         row = await self.get_or_create(year, month)
         setattr(row, f"stage_{stage}_done", done)
         if row.stage_1_done and row.stage_2_done and row.stage_3_done and row.stage_4_done:

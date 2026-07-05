@@ -5,7 +5,7 @@ area: wizard
 effort: medium
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../product/financial-wizard.md#3-subscriptions
+roadmap_ref: ../../product/financial-wizard.md#3-subscriptions
 ---
 
 # Subscriptions — categories as source of truth

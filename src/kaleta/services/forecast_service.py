@@ -1,4 +1,4 @@
-"""Prophet-based cashflow and balance forecasting service."""
+"""Cashflow and balance forecasting service."""
 
 from __future__ import annotations
 
@@ -16,13 +16,30 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import Account
 from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.services.forecasters import active_forecaster_model, get_forecaster
 
 if TYPE_CHECKING:
     from kaleta.services.planned_transaction_service import PlannedOccurrence
 
-# Suppress noisy Stan / Prophet output
-logging.getLogger("prophet").setLevel(logging.WARNING)
-logging.getLogger("cmdstanpy").setLevel(logging.WARNING)
+logger = logging.getLogger(__name__)
+
+ForecastRow = tuple[datetime.date, float, float, float]
+
+
+@dataclass(frozen=True)
+class _ForecastCacheKey:
+    account_id: int | None
+    horizon_days: int
+    history_days: int
+    model: str
+
+
+_forecast_cache: dict[_ForecastCacheKey, list[ForecastRow]] = {}
+
+
+def clear_forecast_cache() -> None:
+    """Clear the in-memory forecast cache (used in tests)."""
+    _forecast_cache.clear()
 
 
 @dataclass
@@ -40,6 +57,7 @@ class ForecastResult:
     points: list[ForecastPoint]
     insufficient_data: bool = False
     planned_occurrences: list[PlannedOccurrence] = field(default_factory=list)
+    forecaster_model: str = "prophet"
 
     @property
     def historical(self) -> list[ForecastPoint]:
@@ -57,11 +75,11 @@ class ForecastResult:
 
 
 class ForecastPreset(enum.StrEnum):
-    """Which band of the Prophet forecast interval to treat as the expected path."""
+    """Which band of the forecast interval to treat as the expected path."""
 
-    CONSERVATIVE = "conservative"  # worst-case lean — closer to yhat_lower
-    BASELINE = "baseline"  # Prophet's point estimate (yhat)
-    OPTIMISTIC = "optimistic"  # best-case lean — closer to yhat_upper
+    CONSERVATIVE = "conservative"  # worst-case lean — closer to lower band
+    BASELINE = "baseline"  # point estimate (yhat)
+    OPTIMISTIC = "optimistic"  # best-case lean — closer to upper band
 
 
 # How strongly each preset pulls the central `value` toward the nearer band.
@@ -179,7 +197,12 @@ class ForecastService:
         rows = result.all()
 
         if not rows:
-            return ForecastResult(account_name=account_name, points=[], insufficient_data=True)
+            return ForecastResult(
+                account_name=account_name,
+                points=[],
+                insufficient_data=True,
+                forecaster_model=active_forecaster_model(),
+            )
 
         # Build daily net: income positive, expense negative
         daily: dict[datetime.date, float] = {}
@@ -195,7 +218,12 @@ class ForecastService:
                 daily[d] = daily.get(d, 0.0) - float(row.total)
 
         if len(daily) < 14:
-            return ForecastResult(account_name=account_name, points=[], insufficient_data=True)
+            return ForecastResult(
+                account_name=account_name,
+                points=[],
+                insufficient_data=True,
+                forecaster_model=active_forecaster_model(),
+            )
 
         # Get current balance as starting point
         if account_id is not None:
@@ -208,7 +236,6 @@ class ForecastService:
 
         # Build cumulative balance series (working backwards from current balance)
         sorted_days = sorted(daily.keys())
-        # Running sum from oldest to newest, anchored at current_balance at last day
         cumulative_from_start = 0.0
         running: dict[datetime.date, float] = {}
         for d in sorted_days:
@@ -220,14 +247,26 @@ class ForecastService:
         for d in sorted_days:
             running[d] += offset
 
-        # ── Run Prophet in thread pool ────────────────────────────────────────
-        prophet_result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            partial(_run_prophet, running, horizon_days),
-        )
+        # ── Run forecaster in thread pool (Prophet or naive fallback) ────────
+        model = active_forecaster_model()
+        cache_key = _ForecastCacheKey(account_id, horizon_days, history_days, model)
+        forecaster_result = _forecast_cache.get(cache_key)
+        if forecaster_result is None:
+            forecaster = get_forecaster()
+            forecaster_result = await asyncio.get_event_loop().run_in_executor(
+                None,
+                partial(forecaster.run, running, horizon_days),
+            )
+            if forecaster_result is not None:
+                _forecast_cache[cache_key] = forecaster_result
 
-        if prophet_result is None:
-            return ForecastResult(account_name=account_name, points=[], insufficient_data=True)
+        if forecaster_result is None:
+            return ForecastResult(
+                account_name=account_name,
+                points=[],
+                insufficient_data=True,
+                forecaster_model=model,
+            )
 
         history_dates = set(sorted_days)
         points = [
@@ -238,7 +277,7 @@ class ForecastService:
                 upper=round(upper, 2),
                 is_forecast=row_date not in history_dates,
             )
-            for row_date, yhat, lower, upper in prophet_result
+            for row_date, yhat, lower, upper in forecaster_result
         ]
 
         # ── Overlay planned transactions on the forecast ──────────────────────
@@ -252,14 +291,12 @@ class ForecastService:
         )
 
         if planned_occs:
-            # Build daily delta map from planned transactions
             delta_by_date: dict[datetime.date, float] = {}
             for occ in planned_occs:
                 amt = float(occ.amount)
                 delta = amt if occ.type == TransactionType.INCOME else -amt
                 delta_by_date[occ.date] = delta_by_date.get(occ.date, 0.0) + delta
 
-            # Apply cumulative adjustment to forecast points (in chronological order)
             cumulative = 0.0
             for point in points:
                 if point.is_forecast:
@@ -272,39 +309,5 @@ class ForecastService:
             account_name=account_name,
             points=points,
             planned_occurrences=planned_occs,
+            forecaster_model=model,
         )
-
-
-def _run_prophet(
-    running: dict[datetime.date, float],
-    horizon_days: int,
-) -> list[tuple[datetime.date, float, float, float]] | None:
-    """Synchronous Prophet fit + predict (runs in thread pool)."""
-    try:
-        import pandas as pd  # type: ignore[import-untyped]
-        from prophet import Prophet  # type: ignore[import-untyped]
-
-        df = pd.DataFrame([{"ds": d, "y": v} for d, v in sorted(running.items())])
-
-        model = Prophet(
-            yearly_seasonality=True,
-            weekly_seasonality=True,
-            daily_seasonality=False,
-            interval_width=0.80,
-        )
-        model.fit(df)
-
-        future = model.make_future_dataframe(periods=horizon_days, freq="D")
-        forecast = model.predict(future)
-
-        return [
-            (
-                row["ds"].date(),
-                row["yhat"],
-                row["yhat_lower"],
-                row["yhat_upper"],
-            )
-            for _, row in forecast.iterrows()
-        ]
-    except Exception:
-        return None

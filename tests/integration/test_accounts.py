@@ -53,7 +53,7 @@ class TestGetAccount:
     async def test_get_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/accounts/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Account not found"
+        assert resp.json()["error"]["message"] == "Account not found"
 
     async def test_get_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.get("/api/v1/accounts/not-an-id")
@@ -78,7 +78,7 @@ class TestUpdateAccount:
     async def test_update_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.put("/api/v1/accounts/999", json={"name": "Ghost"})
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Account not found"
+        assert resp.json()["error"]["message"] == "Account not found"
 
 
 class TestDeleteAccount:
@@ -92,7 +92,7 @@ class TestDeleteAccount:
     async def test_delete_nonexistent_returns_404(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/accounts/999")
         assert resp.status_code == 404
-        assert resp.json()["detail"] == "Account not found"
+        assert resp.json()["error"]["message"] == "Account not found"
 
     async def test_delete_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/accounts/not-an-id")

@@ -5,7 +5,7 @@ area: settings
 effort: medium
 status: archived
 archived_at: 2026-04-23
-roadmap_ref: ../roadmap.md#settings
+roadmap_ref: ../../roadmap.md#settings
 ---
 
 # Settings — structured sections and missing knobs
