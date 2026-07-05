@@ -43,9 +43,9 @@ def _fmt(amount: Decimal, currency: str = "PLN") -> str:
 def _delta_pill(label: str, delta: Decimal | None, currency: str) -> None:
     """Renders a 'label: ±value' pill with an arrow indicating direction."""
     with ui.row().classes("items-center gap-1"):
-        ui.label(label).classes("text-xs text-grey-6 uppercase tracking-wide")
+        ui.label(label).classes("text-xs text-slate-500 uppercase tracking-wide")
         if delta is None:
-            ui.label("—").classes("text-sm text-grey-5")
+            ui.label("—").classes("text-sm text-slate-400")
             return
         icon = "arrow_upward" if delta >= 0 else "arrow_downward"
         color = "positive" if delta >= 0 else "negative"
@@ -61,7 +61,7 @@ def _header_strip(summary: NetWorthSummary, currency: str) -> None:
         ui.card().classes("w-full p-6"),
         ui.column().classes("w-full items-center gap-2"),
     ):
-        ui.label(t("net_worth.net_worth")).classes("text-sm text-grey-6 uppercase tracking-wide")
+        ui.label(t("net_worth.net_worth")).classes("text-sm text-slate-500 uppercase tracking-wide")
         ui.label(_fmt(summary.net_worth, currency)).classes(f"text-4xl font-bold text-{color}")
         with ui.row().classes("gap-6 mt-1 flex-wrap justify-center"):
             _delta_pill(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)
@@ -139,7 +139,7 @@ def _account_table(
     filtered = [a for a in accounts if a.is_asset == assets]
     filtered.sort(key=lambda a: abs(a.balance_in_default), reverse=True)
     if not filtered:
-        ui.label(t("common.none")).classes("text-grey-5 text-sm px-4 py-2")
+        ui.label(t("common.none")).classes("text-slate-400 text-sm px-4 py-2")
         return
 
     columns = [
@@ -179,7 +179,7 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
     @ui.refreshable
     def assets_ui() -> None:
         if not summary.physical_assets:
-            ui.label(t("net_worth.no_assets")).classes("text-grey-5 text-sm px-4 py-2")
+            ui.label(t("net_worth.no_assets")).classes("text-slate-400 text-sm px-4 py-2")
             return
 
         asset_type_labels = _asset_type_label()
@@ -314,7 +314,7 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
     del_dlg = ui.dialog()
     with del_dlg, ui.card().classes("w-80"):
         del_label = ui.label("").classes("text-lg font-semibold")
-        ui.label(t("net_worth.cannot_undo")).classes("text-sm text-grey-6 mt-1")
+        ui.label(t("net_worth.cannot_undo")).classes("text-sm text-slate-500 mt-1")
 
         async def _del_confirm() -> None:
             async def _delete(session: Any) -> None:

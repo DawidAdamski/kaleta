@@ -239,6 +239,15 @@ Feature: Category Management
     And I am on the Categories page
     When I try to add another expense category named "Food" without a parent
     Then I see a duplicate name error
+
+  KAL-CAT-011 @automated
+  Scenario: Categories page renders the subscription category tree
+    Given the database includes the Subscriptions root with subcategories
+    When I open the Categories page
+    Then I see "Subscriptions" in the expense categories list
+    And I see "Monthly" as a subcategory under "Subscriptions"
+    And I see "Yearly" as a subcategory under "Subscriptions"
+    And I see "Other" as a subcategory under "Subscriptions"
 ```
 
 ---

@@ -157,7 +157,7 @@ def register() -> None:
                     with ui.row().classes("items-center gap-3"):
                         ui.label(t("wizard.title")).classes("text-2xl font-bold")
                         ui.badge(t("wizard.coming_soon"), color="orange").classes("text-xs")
-                    ui.label(t("wizard.subtitle")).classes("text-sm text-grey-6 max-w-2xl")
+                    ui.label(t("wizard.subtitle")).classes("text-sm text-slate-500 max-w-2xl")
 
             # ── Onboarding section ────────────────────────────────────────────
             # Collapsible: default open while incomplete, default closed once all done.
@@ -208,7 +208,11 @@ def register() -> None:
                             with ui.element("div").classes(
                                 "flex-shrink-0 w-8 h-8 rounded-full flex items-center"
                                 " justify-center text-sm font-bold "
-                                + ("bg-green-6 text-white" if done else "bg-grey-3 text-grey-6")
+                                + (
+                                    "bg-green-6 text-white"
+                                    if done
+                                    else "bg-slate-200 text-slate-500"
+                                )
                             ):
                                 if done:
                                     ui.icon("check", size="1.1rem").classes("text-white")
@@ -216,14 +220,16 @@ def register() -> None:
                                     ui.label(str(i + 1)).classes("text-sm font-bold")
 
                             ui.icon(icon, size="1.5rem").classes(
-                                "flex-shrink-0 " + ("text-green-7" if done else "text-grey-5")
+                                "flex-shrink-0 " + ("text-green-7" if done else "text-slate-400")
                             )
 
                             with ui.column().classes("gap-0.5 flex-1"):
                                 ui.label(t(title_key)).classes(
                                     "font-medium text-sm " + ("text-green-8" if done else "")
                                 )
-                                ui.label(t(desc_key)).classes("text-xs text-grey-6 leading-relaxed")
+                                ui.label(t(desc_key)).classes(
+                                    "text-xs text-slate-500 leading-relaxed"
+                                )
                                 if done:
                                     ui.label(count_text).classes(
                                         "text-xs text-green-7 font-medium mt-0.5"
@@ -260,10 +266,12 @@ def register() -> None:
                     mentor_slot.clear()
                     with mentor_slot:
                         if not visible:
-                            with ui.row().classes("items-center gap-3 px-5 py-4 bg-grey-1 w-full"):
+                            with ui.row().classes(
+                                "items-center gap-3 px-5 py-4 bg-slate-50 w-full"
+                            ):
                                 ui.icon("check_circle", size="1.4rem").classes("text-green-7")
                                 ui.label(t("wizard.mentor_all_quiet")).classes(
-                                    "text-sm text-grey-7"
+                                    "text-sm text-slate-600"
                                 )
                             return
 
@@ -282,7 +290,7 @@ def register() -> None:
                                     "font-semibold text-base"
                                 )
                                 ui.label(t(suggestion.body_key, **suggestion.params)).classes(
-                                    "text-sm text-grey-7 leading-relaxed"
+                                    "text-sm text-slate-600 leading-relaxed"
                                 )
                                 with ui.row().classes("gap-2 mt-2"):
                                     ui.button(
@@ -335,7 +343,7 @@ def register() -> None:
                                             "font-medium text-sm"
                                         )
                                         ui.label(t(f"wizard.step_{step_key}_desc")).classes(
-                                            "text-xs text-grey-6 leading-relaxed"
+                                            "text-xs text-slate-500 leading-relaxed"
                                         )
                                         if route is None:
                                             ui.badge(
@@ -351,6 +359,6 @@ def register() -> None:
                                         )
 
             # Footer note
-            with ui.row().classes("items-center gap-2 text-grey-5 mt-2"):
+            with ui.row().classes("items-center gap-2 text-slate-400 mt-2"):
                 ui.icon("info_outline", size="1.1rem")
                 ui.label(t("wizard.cta_note")).classes("text-xs")

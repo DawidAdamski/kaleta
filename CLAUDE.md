@@ -101,7 +101,7 @@ Set via `KALETA_MODE` environment variable:
 
 ## Environment Variables
 ```
-KALETA_DB_URL=sqlite:///kaleta.db
+KALETA_DB_URL=sqlite+aiosqlite:///kaleta.db
 KALETA_HOST=0.0.0.0
 KALETA_PORT=8080
 KALETA_MODE=web

@@ -24,6 +24,6 @@ def render_step_indicator() -> None:
                     "text-xs font-bold rounded-full w-6 h-6 flex items-center "
                     "justify-center bg-primary text-white"
                 )
-                ui.label(step_label).classes("text-sm text-grey-7 font-medium")
+                ui.label(step_label).classes("text-sm text-slate-600 font-medium")
             if i < len(steps) - 1:
-                ui.label("→").classes("text-grey-4 mx-2 text-sm")
+                ui.label("→").classes("text-slate-400 mx-2 text-sm")

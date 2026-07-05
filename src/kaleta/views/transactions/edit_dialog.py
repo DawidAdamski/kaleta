@@ -65,7 +65,7 @@ def build_edit_dialog(
             .props("use-chips clearable")
         )
 
-        edit_info = ui.label("").classes("text-sm text-grey-6 italic")
+        edit_info = ui.label("").classes("text-sm text-slate-500 italic")
         edit_info.set_visibility(False)
 
         def _on_edit_type_change() -> None:

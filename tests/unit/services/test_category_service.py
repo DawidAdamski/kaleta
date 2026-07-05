@@ -2,11 +2,11 @@
 """Unit tests for CategoryService — uses in-memory SQLite."""
 
 import pytest
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from kaleta.exceptions import ConflictError
 from kaleta.models.category import CategoryType
-from kaleta.schemas.category import CategoryCreate, CategoryUpdate
+from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
 from kaleta.services import CategoryService
 
 
@@ -110,3 +110,40 @@ class TestCategoryServiceDelete:
 
     async def test_delete_nonexistent(self, svc: CategoryService):
         assert await svc.delete(99999) is False
+
+
+class TestCategoryServiceListTree:
+    async def test_list_tree_subscriptions_without_session_io(self, db_engine) -> None:
+        """Covers: KAL-CAT-011 / MissingGreenlet regression on /categories.
+
+        ``CategoryResponse`` nests ``children`` recursively. Validating a root
+        whose direct children still have unloaded ``.children`` collections
+        triggers a sync lazy-load and raises ``MissingGreenlet`` in async SQLAlchemy.
+        ``list_tree`` must return fully materialised DTOs before the session closes.
+        """
+        factory = async_sessionmaker(db_engine, expire_on_commit=False)
+        async with factory() as session:
+            svc = CategoryService(session)
+            await svc.ensure_subscriptions_root_and_children()
+            expense_tree = await svc.list_tree(type=CategoryType.EXPENSE)
+
+        subs = next(r for r in expense_tree if r.name == "Subscriptions")
+        assert len(subs.children) == 3
+        assert {c.name for c in subs.children} == {"Monthly", "Other", "Yearly"}
+        for child in subs.children:
+            assert child.children == []
+            assert isinstance(child, CategoryResponse)
+
+    async def test_list_roots_model_validate_succeeds_with_tree_load(self, db_engine) -> None:
+        """Depth-2 eager load on ``list_roots`` makes ``model_validate`` safe in-session."""
+        factory = async_sessionmaker(db_engine, expire_on_commit=False)
+        async with factory() as session:
+            svc = CategoryService(session)
+            await svc.ensure_subscriptions_root_and_children()
+            roots = await svc.list_roots(type=CategoryType.EXPENSE)
+            responses = [CategoryResponse.model_validate(c) for c in roots]
+
+        subs = next(r for r in responses if r.name == "Subscriptions")
+        assert len(subs.children) == 3
+        for child in subs.children:
+            assert child.children == []

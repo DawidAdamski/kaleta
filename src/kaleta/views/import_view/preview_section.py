@@ -50,7 +50,7 @@ def build_preview_section() -> PreviewSection:
     card.set_visibility(False)
     with card:
         ui.label(t("import.preview_section")).classes("text-lg font-semibold mb-1")
-        ui.label(t("import.preview_hint")).classes("text-xs text-grey-6 mb-2")
+        ui.label(t("import.preview_hint")).classes("text-xs text-slate-500 mb-2")
         stats_row = ui.row().classes("gap-3 mb-3")
         preview_table = (
             ui.table(

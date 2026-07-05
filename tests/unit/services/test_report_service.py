@@ -561,3 +561,111 @@ class TestReportDisplayHelpers:
         assert rep.total_this_year == Decimal("300")
         assert rep.total_last_year == Decimal("230")
         assert rep.total_delta == Decimal("70")
+
+
+class TestKpiDeltas:
+    async def test_balance_delta_vs_days_ago(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        acc = await _make_account(session)
+        food = await _make_category(session, "Food")
+        today = datetime.date.today()
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("100"),
+            tx_type=TransactionType.EXPENSE,
+            date=today,
+        )
+        delta = await svc.balance_delta_vs_days_ago(30)
+        assert delta.absolute == Decimal("-100")
+        assert delta.reference_date == today - datetime.timedelta(days=30)
+
+    async def test_month_net_delta(self, svc: ReportService, session: AsyncSession) -> None:
+        acc = await _make_account(session)
+        salary = await _make_category(session, "Salary", CategoryType.INCOME)
+        food = await _make_category(session, "Food")
+        today = datetime.date.today()
+
+        if today.month == 1:
+            prev_year, prev_month = today.year - 1, 12
+        else:
+            prev_year, prev_month = today.year, today.month - 1
+
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("1000"),
+            tx_type=TransactionType.INCOME,
+            date=datetime.date(prev_year, prev_month, 10),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("2000"),
+            tx_type=TransactionType.INCOME,
+            date=datetime.date(today.year, today.month, 10),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("500"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(today.year, today.month, 11),
+        )
+
+        delta = await svc.month_net_delta()
+        assert delta.absolute == Decimal("500")
+        assert delta.reference_year == prev_year
+        assert delta.reference_month == prev_month
+
+    async def test_savings_rate_delta(self, svc: ReportService, session: AsyncSession) -> None:
+        acc = await _make_account(session)
+        salary = await _make_category(session, "Salary", CategoryType.INCOME)
+        food = await _make_category(session, "Food")
+        today = datetime.date.today()
+
+        if today.month == 1:
+            prev_year, prev_month = today.year - 1, 12
+        else:
+            prev_year, prev_month = today.year, today.month - 1
+
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("1000"),
+            tx_type=TransactionType.INCOME,
+            date=datetime.date(prev_year, prev_month, 5),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("400"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(prev_year, prev_month, 6),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("1000"),
+            tx_type=TransactionType.INCOME,
+            date=datetime.date(today.year, today.month, 5),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("200"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(today.year, today.month, 6),
+        )
+
+        delta = await svc.savings_rate_delta()
+        assert delta.rate_points == Decimal("20.0")

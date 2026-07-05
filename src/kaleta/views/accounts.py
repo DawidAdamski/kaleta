@@ -326,7 +326,7 @@ def register() -> None:
                     with exp:
                         # Column headers
                         with ui.row().classes(
-                            "w-full px-4 py-1 text-xs text-grey-6 font-medium border-b"
+                            "w-full px-4 py-1 text-xs text-slate-500 font-medium border-b"
                         ):
                             ui.label(t("common.name")).classes("flex-1")
                             if by == "type":
@@ -349,11 +349,11 @@ def register() -> None:
                                     ui.label(a.name).classes("font-medium truncate")
                                 if by == "type":
                                     ui.label(inst.name if inst else "—").classes(
-                                        "w-44 text-grey-6 text-sm"
+                                        "w-44 text-slate-500 text-sm"
                                     )
                                 else:
                                     ui.label(labels.get(a.type, a.type.value)).classes(
-                                        "w-44 text-grey-6 text-sm"
+                                        "w-44 text-slate-500 text-sm"
                                     )
                                 ui.label(f"{a.balance:,.2f} {a.currency}").classes(
                                     "w-44 text-right font-mono text-sm pr-2"

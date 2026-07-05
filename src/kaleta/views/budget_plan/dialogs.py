@@ -36,7 +36,7 @@ class EditDialogs:
             self.cell_amount = ui.number(t("budgets.amount_pln"), min=0, format="%.2f").classes(
                 "w-full"
             )
-            ui.label(t("budget_plan.set_zero_hint")).classes("text-xs text-grey-5 mt-1")
+            ui.label(t("budget_plan.set_zero_hint")).classes("text-xs text-slate-400 mt-1")
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):
                 ui.button(t("common.cancel"), on_click=self.cell_dialog.close).props("flat")
@@ -53,7 +53,7 @@ class EditDialogs:
 
         with ui.dialog() as self.monthly_dialog, ui.card().classes("w-72"):
             self.monthly_title = ui.label("").classes("text-base font-bold mb-1")
-            ui.label(t("budget_plan.set_all_hint")).classes("text-xs text-grey-5 mb-3")
+            ui.label(t("budget_plan.set_all_hint")).classes("text-xs text-slate-400 mb-3")
             self.monthly_amount = ui.number(
                 t("budget_plan.monthly_amount_pln"), min=0, format="%.2f"
             ).classes("w-full")
@@ -78,7 +78,7 @@ class EditDialogs:
             self.yearly_amount = ui.number(
                 t("budget_plan.yearly_total"), min=0, format="%.2f"
             ).classes("w-full")
-            self.yearly_preview = ui.label("").classes("text-xs text-grey-5 mt-1")
+            self.yearly_preview = ui.label("").classes("text-xs text-slate-400 mt-1")
             self.yearly_amount.on_value_change(self._update_yearly_preview)
 
             with ui.row().classes("w-full justify-end gap-2 mt-4"):

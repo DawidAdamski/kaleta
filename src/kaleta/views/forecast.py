@@ -197,14 +197,16 @@ def register() -> None:
 
                 # Scenario chips + add control.
                 ui.separator().classes("my-3")
-                ui.label(t("forecast.scenarios_title")).classes("text-sm text-grey-6 mb-1")
+                ui.label(t("forecast.scenarios_title")).classes("text-sm text-slate-500 mb-1")
                 scenario_row = ui.row().classes("items-center gap-2 flex-wrap")
 
                 def _render_scenarios() -> None:
                     scenario_row.clear()
                     with scenario_row:
                         if not scenarios:
-                            ui.label(t("forecast.scenarios_empty")).classes("text-xs text-grey-5")
+                            ui.label(t("forecast.scenarios_empty")).classes(
+                                "text-xs text-slate-400"
+                            )
                         for idx, s in enumerate(scenarios):
                             amt = float(s.get("amount", 0))
                             sign = "+" if amt >= 0 else ""
@@ -276,7 +278,7 @@ def register() -> None:
                 _render_scenarios()
 
             # Output area
-            status = ui.label(t("forecast.click_run")).classes("text-grey-6 text-sm")
+            status = ui.label(t("forecast.click_run")).classes("text-slate-500 text-sm")
             chart_container = ui.column().classes("w-full")
             kpi_row = ui.row().classes("w-full gap-4 flex-wrap")
 
@@ -491,5 +493,5 @@ def _kpi(parent: ui.row, title: str, value: str, icon: str, icon_color: str) -> 
     with parent, ui.card().classes("flex-1 min-w-44"), ui.row().classes("items-center gap-3"):
         ui.icon(icon, size="2rem").classes(f"text-{icon_color}")
         with ui.column().classes("gap-0"):
-            ui.label(title).classes("text-xs text-grey-6 uppercase tracking-wide")
+            ui.label(title).classes("text-xs text-slate-500 uppercase tracking-wide")
             ui.label(value).classes("text-xl font-bold")

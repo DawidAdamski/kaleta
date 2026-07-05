@@ -21,7 +21,7 @@ def build_palette_zone(
     def palette_zone() -> None:
         with ui.card().classes("p-4 w-60 flex-shrink-0"):
             ui.label(t("reports.dimensions")).classes(
-                "text-xs font-bold text-grey-6 uppercase tracking-wide mb-2"
+                "text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"
             )
             for key, label_key, icon in DIMENSIONS:
                 is_active = state["dimension"] == key
@@ -44,7 +44,7 @@ def build_palette_zone(
 
             ui.separator().classes("my-3")
             ui.label(t("reports.measures")).classes(
-                "text-xs font-bold text-grey-6 uppercase tracking-wide mb-2"
+                "text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"
             )
             for key, label_key, icon in METRICS:
                 is_active = state["metric"] == key

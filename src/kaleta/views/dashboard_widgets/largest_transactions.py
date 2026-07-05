@@ -43,5 +43,5 @@ async def render_largest_transactions(session: AsyncSession, is_dark: bool) -> N
                 with ui.row().classes("w-full items-center justify-between"):
                     with ui.column().classes("gap-0"):
                         ui.label(r.description or r.category).classes("text-sm truncate")
-                        ui.label(f"{r.date} · {r.category}").classes("text-xs text-grey-6")
+                        ui.label(f"{r.date} · {r.category}").classes("text-xs text-slate-500")
                     ui.label(fmt_amount(r.amount)).classes(f"text-sm font-medium {expense_cls}")

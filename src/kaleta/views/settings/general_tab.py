@@ -33,7 +33,7 @@ def render_general_tab() -> None:
                 value=current_lang,
                 on_change=lambda e: _set_language(e.value),
             ).classes("w-full")
-            ui.label(t("settings.language_hint")).classes("text-xs text-grey-6 mt-2")
+            ui.label(t("settings.language_hint")).classes("text-xs text-slate-500 mt-2")
 
         with ui.card().classes("p-6 min-w-72 w-80"):
             with ui.row().classes("items-center gap-2 mb-4"):
@@ -52,7 +52,7 @@ def render_general_tab() -> None:
                 value=default_currency,
                 on_change=lambda e: _set_currency(e.value),
             ).classes("w-full")
-            ui.label(t("settings.currency_hint")).classes("text-xs text-grey-6 mt-2")
+            ui.label(t("settings.currency_hint")).classes("text-xs text-slate-500 mt-2")
 
         with ui.card().classes("p-6 min-w-72 w-80"):
             with ui.row().classes("items-center gap-2 mb-4"):
@@ -76,7 +76,7 @@ def render_general_tab() -> None:
                 value=current_fmt,
                 on_change=lambda e: set_user_key("date_format", e.value),
             ).classes("w-full")
-            ui.label(t("settings.date_format_hint")).classes("text-xs text-grey-6 mt-2")
+            ui.label(t("settings.date_format_hint")).classes("text-xs text-slate-500 mt-2")
 
         with ui.card().classes("p-6 min-w-72 w-80"):
             with ui.row().classes("items-center gap-2 mb-4"):
@@ -93,4 +93,4 @@ def render_general_tab() -> None:
                 value=current_ws,
                 on_change=lambda e: set_user_key("week_start", e.value),
             ).classes("w-full")
-            ui.label(t("settings.week_start_hint")).classes("text-xs text-grey-6 mt-2")
+            ui.label(t("settings.week_start_hint")).classes("text-xs text-slate-500 mt-2")

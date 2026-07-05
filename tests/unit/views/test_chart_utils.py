@@ -8,10 +8,10 @@ from __future__ import annotations
 
 from kaleta.views.chart_utils import apply_dark, axis_style, chart_text_color
 
-DARK_COLOR = "#e0e0e0"
-LIGHT_COLOR = "#333333"
-DARK_SPLIT = "#444444"
-LIGHT_SPLIT = "#e0e0e0"
+DARK_COLOR = "#94a3b8"
+LIGHT_COLOR = "#64748b"
+DARK_SPLIT = "#1e293b"
+LIGHT_SPLIT = "#e2e8f0"
 
 
 # ── chart_text_color ───────────────────────────────────────────────────────────
@@ -59,13 +59,13 @@ def test_apply_dark_noop_when_not_dark() -> None:
         "xAxis": {"type": "value"},
         "yAxis": {"type": "category"},
     }
-    original_legend = opts["legend"].copy()
     result = apply_dark(opts, is_dark=False)
-    # Returns the same object unchanged
+    # Returns the same object (mutated in-place)
     assert result is opts
-    assert result["legend"] == original_legend
-    # No textStyle injected
-    assert "textStyle" not in result["legend"]
+    # Light-mode text colour is injected
+    assert result["legend"]["textStyle"]["color"] == LIGHT_COLOR
+    assert result["xAxis"]["axisLabel"]["color"] == LIGHT_COLOR
+    assert result["yAxis"]["axisLabel"]["color"] == LIGHT_COLOR
 
 
 # ── apply_dark — legend text colour in dark mode ──────────────────────────────
@@ -102,7 +102,7 @@ def test_apply_dark_sets_yaxis_label_color() -> None:
 def test_apply_dark_sets_xaxis_line_color() -> None:
     opts: dict = {"xAxis": {"type": "value"}}
     apply_dark(opts, is_dark=True)
-    assert opts["xAxis"]["axisLine"]["lineStyle"]["color"] == DARK_COLOR
+    assert opts["xAxis"]["axisLine"]["lineStyle"]["color"] == DARK_SPLIT
 
 
 def test_apply_dark_sets_split_line_color() -> None:

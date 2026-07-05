@@ -22,7 +22,9 @@ class UploadSection:
 def build_upload_section() -> UploadSection:
     with ui.card().classes("w-full"):
         ui.label(t("import.upload_section")).classes("text-lg font-semibold mb-1")
-        hint_label = ui.label(t("import.upload_hint_generic")).classes("text-sm text-grey-6 mb-3")
+        hint_label = ui.label(t("import.upload_hint_generic")).classes(
+            "text-sm text-slate-500 mb-3"
+        )
         upload_widget = (
             ui.upload(
                 label=t("import.drop_hint_generic"),

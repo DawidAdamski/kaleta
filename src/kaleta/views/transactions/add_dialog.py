@@ -108,7 +108,7 @@ def build_add_dialog(
                 dest_amount_input = ui.number(
                     t("transactions.dest_amount", currency="?"), min=0.01, format="%.2f"
                 ).classes("flex-1")
-            fx_info = ui.label("").classes("text-xs text-grey-6")
+            fx_info = ui.label("").classes("text-xs text-slate-500")
 
         def _src_currency() -> str:
             src_id = account_sel.value

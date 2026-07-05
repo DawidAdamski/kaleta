@@ -16,7 +16,7 @@ def register() -> None:
     async def reports_landing() -> None:
         with page_layout(t("reports_lib.title")):
             ui.label(t("reports_lib.title")).classes(PAGE_TITLE)
-            ui.label(t("reports_lib.intro")).classes("text-sm text-grey-6 -mt-2 mb-4")
+            ui.label(t("reports_lib.intro")).classes("text-sm text-slate-500 -mt-2 mb-4")
 
             with ui.row().classes("w-full gap-4 flex-wrap"):
                 for slug, title_key, desc_key, icon, colour in REPORTS:
@@ -27,7 +27,7 @@ def register() -> None:
                             ui.icon(icon, color=colour).classes("text-3xl")
                             with ui.column().classes("gap-1 flex-1 min-w-0"):
                                 ui.label(t(title_key)).classes("text-base font-semibold")
-                                ui.label(t(desc_key)).classes("text-xs text-grey-6 leading-snug")
+                                ui.label(t(desc_key)).classes("text-xs text-slate-500 leading-snug")
                         card.on(
                             "click",
                             lambda s=slug: ui.navigate.to(f"/reports/{s}"),
@@ -36,7 +36,7 @@ def register() -> None:
             ui.separator().classes("my-4")
             with ui.row().classes("items-center gap-2"):
                 ui.icon("build", color="grey-6")
-                ui.label(t("reports_lib.advanced_builder_hint")).classes("text-sm text-grey-6")
+                ui.label(t("reports_lib.advanced_builder_hint")).classes("text-sm text-slate-500")
                 ui.button(
                     t("reports_lib.open_builder"),
                     icon="open_in_new",

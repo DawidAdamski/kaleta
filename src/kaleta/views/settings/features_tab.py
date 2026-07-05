@@ -20,7 +20,7 @@ def render_features_tab() -> None:
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("auto_awesome", color="primary").classes("text-xl")
                 ui.label(t("settings.wizard_title")).classes("text-lg font-semibold")
-            ui.label(t("settings.wizard_hint")).classes("text-xs text-grey-6 mb-4")
+            ui.label(t("settings.wizard_hint")).classes("text-xs text-slate-500 mb-4")
 
             def _reset_getting_started() -> None:
                 app.storage.user["wizard_mentor_dismissed"] = []
@@ -37,7 +37,7 @@ def render_features_tab() -> None:
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("subscriptions", color="primary").classes("text-xl")
                 ui.label(t("settings.subscriptions_title")).classes("text-lg font-semibold")
-            ui.label(t("settings.subscriptions_hint")).classes("text-xs text-grey-6 mb-4")
+            ui.label(t("settings.subscriptions_hint")).classes("text-xs text-slate-500 mb-4")
 
             current_sub_days: int = int(
                 app.storage.user.get(
@@ -58,7 +58,7 @@ def render_features_tab() -> None:
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("cleaning_services", color="primary").classes("text-xl")
                 ui.label(t("settings.housekeeping_title")).classes("text-lg font-semibold")
-            ui.label(t("settings.housekeeping_hint")).classes("text-xs text-grey-6 mb-4")
+            ui.label(t("settings.housekeeping_hint")).classes("text-xs text-slate-500 mb-4")
 
             current_hk_days: int = int(
                 app.storage.user.get(
@@ -79,7 +79,7 @@ def render_features_tab() -> None:
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("calendar_month", color="primary").classes("text-xl")
                 ui.label(t("settings.payment_calendar_title")).classes("text-lg font-semibold")
-            ui.label(t("settings.payment_calendar_hint")).classes("text-xs text-grey-6 mb-4")
+            ui.label(t("settings.payment_calendar_hint")).classes("text-xs text-slate-500 mb-4")
 
             current_pc_days: int = int(
                 app.storage.user.get(

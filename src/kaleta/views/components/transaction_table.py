@@ -85,9 +85,9 @@ def transaction_columns() -> list[dict[str, Any]]:
 
 def _body_slot(colspan: int) -> str:
     return (
-        '<tr v-if="props.row.sep_label" class="bg-grey-1">'
+        '<tr v-if="props.row.sep_label" class="bg-slate-50">'
         f'<td colspan="{colspan}" style="font-weight:500;border-bottom:1px solid #e0e0e0"'
-        ' class="text-caption text-grey-7 q-px-md q-py-xs">'
+        ' class="text-caption text-slate-600 q-px-md q-py-xs">'
         "{{ props.row.sep_label }}"
         "</td>"
         "</tr>"
@@ -152,7 +152,7 @@ def render_pagination_bar(
     start_n = current_page * page_size + 1
     end_n = min(start_n + page_size - 1, total)
 
-    with ui.row().classes("w-full items-center justify-between px-2 pt-2 text-sm text-grey-7"):
+    with ui.row().classes("w-full items-center justify-between px-2 pt-2 text-sm text-slate-600"):
         if total == 0:
             pagination_empty_label()
         else:
@@ -160,7 +160,7 @@ def render_pagination_bar(
 
         with ui.row().classes("gap-3 items-center"):
             with ui.row().classes("gap-1 items-center"):
-                ui.label(t("transactions.grouping")).classes("text-xs text-grey-6")
+                ui.label(t("transactions.grouping")).classes("text-xs text-slate-500")
                 ui.toggle(
                     {
                         "none": t("transactions.group_none"),

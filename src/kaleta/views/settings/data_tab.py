@@ -26,10 +26,10 @@ async def render_data_tab(
         with ui.row().classes("items-center gap-2 mb-1"):
             ui.icon("swap_horiz", color="primary").classes("text-xl")
             ui.label(t("settings.exchange_rates")).classes("text-lg font-semibold")
-        ui.label(t("settings.exchange_rates_hint")).classes("text-xs text-grey-6 mb-4")
+        ui.label(t("settings.exchange_rates_hint")).classes("text-xs text-slate-500 mb-4")
 
         if not relevant_pairs and not foreign_currencies:
-            ui.label(t("settings.no_foreign_accounts")).classes("text-grey-5 text-sm")
+            ui.label(t("settings.no_foreign_accounts")).classes("text-slate-400 text-sm")
         else:
 
             @ui.refreshable
@@ -40,7 +40,7 @@ async def render_data_tab(
                 all_rows = await with_session(_load_rates)
 
                 if not all_rows:
-                    ui.label(t("settings.no_rates_yet")).classes("text-grey-5 text-sm mb-3")
+                    ui.label(t("settings.no_rates_yet")).classes("text-slate-400 text-sm mb-3")
                 else:
                     cols = [
                         {
@@ -170,7 +170,7 @@ async def render_data_tab(
         with ui.row().classes("items-center gap-2 mb-1"):
             ui.icon("backup", color="primary").classes("text-xl")
             ui.label(t("settings.backup_title")).classes("text-lg font-semibold")
-        ui.label(t("settings.backup_hint")).classes("text-xs text-grey-6 mb-4")
+        ui.label(t("settings.backup_hint")).classes("text-xs text-slate-500 mb-4")
 
         async def _do_export() -> None:
             async def _export(session: Any) -> bytes:
@@ -239,7 +239,7 @@ async def render_data_tab(
         with ui.row().classes("items-center gap-2 mb-1"):
             ui.icon("science", color="primary").classes("text-xl")
             ui.label(t("settings.data_title")).classes("text-lg font-semibold")
-        ui.label(t("settings.data_hint")).classes("text-xs text-grey-6 mb-4")
+        ui.label(t("settings.data_hint")).classes("text-xs text-slate-500 mb-4")
 
         async def _do_seed() -> None:
             seed_dlg.close()
@@ -284,7 +284,7 @@ async def render_data_tab(
         seed_dlg = ui.dialog()
         with seed_dlg, ui.card().classes("w-96"):
             ui.label(t("settings.seed_confirm_title")).classes("text-base font-semibold mb-1")
-            ui.label(t("settings.seed_confirm_body")).classes("text-sm text-grey-7 mb-4")
+            ui.label(t("settings.seed_confirm_body")).classes("text-sm text-slate-600 mb-4")
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button(t("common.cancel"), on_click=seed_dlg.close).props("flat")
                 ui.button(

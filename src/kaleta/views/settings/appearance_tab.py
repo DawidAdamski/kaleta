@@ -28,7 +28,7 @@ def render_appearance_tab() -> None:
                 value=is_dark,
                 on_change=lambda e: _set_theme(bool(e.value)),
             ).classes("w-full")
-            ui.label(t("settings.theme_hint")).classes("text-xs text-grey-6 mt-2")
+            ui.label(t("settings.theme_hint")).classes("text-xs text-slate-500 mt-2")
 
         with ui.card().classes("p-6 min-w-72 w-80"):
             with ui.row().classes("items-center gap-2 mb-4"):
@@ -44,4 +44,4 @@ def render_appearance_tab() -> None:
                 value=is_mini,
                 on_change=lambda e: set_user_key("sidebar_mini", bool(e.value)),
             ).classes("w-full")
-            ui.label(t("settings.sidebar_hint")).classes("text-xs text-grey-6 mt-2")
+            ui.label(t("settings.sidebar_hint")).classes("text-xs text-slate-500 mt-2")

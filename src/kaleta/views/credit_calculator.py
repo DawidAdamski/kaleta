@@ -174,7 +174,7 @@ def register() -> None:
 
                     ui.separator().classes("my-3")
                     ui.label(t("credit_calculator.overpayment")).classes(
-                        "text-sm font-semibold text-grey-7"
+                        "text-sm font-semibold text-slate-600"
                     )
                     extra_in = ui.number(
                         t("credit_calculator.extra_payment"),
@@ -208,7 +208,7 @@ def register() -> None:
 
                         if p <= 0 or r <= 0 or m <= 0:
                             ui.label(t("credit_calculator.valid_params")).classes(
-                                "text-grey-5 mt-4"
+                                "text-slate-400 mt-4"
                             )
                             return
 
@@ -228,14 +228,14 @@ def register() -> None:
                                     first_pay = schedule[0]["payment"] if schedule else 0.0
                                     last_pay = schedule[-1]["payment"] if schedule else 0.0
                                     ui.label(t("credit_calculator.first_last_payment")).classes(
-                                        "text-xs text-grey-6 uppercase tracking-wide"
+                                        "text-xs text-slate-500 uppercase tracking-wide"
                                     )
                                     ui.label(f"{_fmt(first_pay)} → {_fmt(last_pay)}").classes(
                                         "text-base font-bold text-primary mt-1"
                                     )
                                 else:
                                     ui.label(t("credit_calculator.monthly_payment")).classes(
-                                        "text-xs text-grey-6 uppercase tracking-wide"
+                                        "text-xs text-slate-500 uppercase tracking-wide"
                                     )
                                     ui.label(_fmt(monthly)).classes(
                                         "text-xl font-bold text-primary mt-1"
@@ -243,7 +243,7 @@ def register() -> None:
 
                             with ui.card().classes("flex-1 min-w-36 p-4"):
                                 ui.label(t("credit_calculator.total_interest")).classes(
-                                    "text-xs text-grey-6 uppercase tracking-wide"
+                                    "text-xs text-slate-500 uppercase tracking-wide"
                                 )
                                 ui.label(_fmt(total_interest)).classes(
                                     "text-xl font-bold text-negative mt-1"
@@ -251,13 +251,13 @@ def register() -> None:
 
                             with ui.card().classes("flex-1 min-w-36 p-4"):
                                 ui.label(t("credit_calculator.total_cost")).classes(
-                                    "text-xs text-grey-6 uppercase tracking-wide"
+                                    "text-xs text-slate-500 uppercase tracking-wide"
                                 )
                                 ui.label(_fmt(total_cost)).classes("text-xl font-bold mt-1")
 
                             with ui.card().classes("flex-1 min-w-36 p-4"):
                                 ui.label(t("credit_calculator.loan_term")).classes(
-                                    "text-xs text-grey-6 uppercase tracking-wide"
+                                    "text-xs text-slate-500 uppercase tracking-wide"
                                 )
                                 actual_months = len(schedule)
                                 years, rem = divmod(actual_months, 12)
@@ -294,7 +294,7 @@ def register() -> None:
                                             amount=_fmt(interest_saved),
                                             time=saved_str,
                                         )
-                                    ).classes("text-sm text-grey-7")
+                                    ).classes("text-sm text-slate-600")
 
                         # ── Balance chart ──────────────────────────────────────
                         with ui.card().classes("w-full"):

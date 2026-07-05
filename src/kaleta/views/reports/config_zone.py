@@ -24,7 +24,7 @@ def build_config_zone(
 ) -> Any:
     @ui.refreshable
     def config_zone() -> None:
-        hdr_cls = "text-xs font-bold text-grey-6 uppercase tracking-wide mb-2"
+        hdr_cls = "text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"
 
         with ui.row().classes("gap-4 mb-4 flex-wrap"):
             dz_dim_cls = (
@@ -49,7 +49,7 @@ def build_config_zone(
                 with ui.row().classes("items-center gap-1"):
                     ui.icon(dim_icon, color="primary")
                     ui.label(dim_label).classes("font-semibold text-primary")
-                ui.label(t("reports.drop_here")).classes("text-xs text-grey-5 mt-1")
+                ui.label(t("reports.drop_here")).classes("text-xs text-slate-400 mt-1")
 
             dz_met_cls = (
                 "p-3 rounded-lg border-2 border-dashed min-w-40 cursor-pointer "
@@ -73,7 +73,7 @@ def build_config_zone(
                 with ui.row().classes("items-center gap-1"):
                     ui.icon(met_icon, color="secondary")
                     ui.label(met_label).classes("font-semibold text-secondary")
-                ui.label(t("reports.drop_here")).classes("text-xs text-grey-5 mt-1")
+                ui.label(t("reports.drop_here")).classes("text-xs text-slate-400 mt-1")
 
         with ui.row().classes("items-center gap-2 mb-4 flex-wrap"):
             ui.label(t("reports.chart_type")).classes(hdr_cls + " my-0")

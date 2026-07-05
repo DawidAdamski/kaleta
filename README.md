@@ -7,7 +7,7 @@
 finance app. Track transactions, build budgets, import bank CSV exports, and
 forecast cash flow — from a browser, desktop window, or headless API.
 
-![Kaleta dashboard (dark mode)](docs/images/dashboard-dark.png)
+![Kaleta dashboard (dark mode)](docs/design/dashboard-target.png)
 
 ## Quick start
 

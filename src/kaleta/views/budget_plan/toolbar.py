@@ -39,7 +39,7 @@ def render_toolbar(
     with ui.row().classes("w-full items-center gap-3 flex-wrap"):
         ui.label(t("budget_plan.title")).classes("text-2xl font-bold")
         ui.space()
-        ui.label(t("budget_plan.years_label")).classes("text-sm text-grey-6")
+        ui.label(t("budget_plan.years_label")).classes("text-sm text-slate-500")
 
         @ui.refreshable
         def year_chips() -> None:
@@ -52,7 +52,7 @@ def render_toolbar(
 
         year_chips()
 
-    ui.label(t("budget_plan.help_text")).classes("text-sm text-grey-6")
+    ui.label(t("budget_plan.help_text")).classes("text-sm text-slate-500")
 
     default_target = max(today.month, 2)
     copy_state: dict[str, Any] = {"target_month": default_target}
@@ -79,7 +79,7 @@ def render_toolbar(
         on_copy_done()
 
     with ui.row().classes("w-full items-center gap-2 flex-wrap"):
-        ui.label(t("budget_plan.copy_forward_into")).classes("text-sm text-grey-6")
+        ui.label(t("budget_plan.copy_forward_into")).classes("text-sm text-slate-500")
         month_select = (
             ui.select(
                 options=month_options(),

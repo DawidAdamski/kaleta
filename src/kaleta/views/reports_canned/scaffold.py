@@ -15,11 +15,11 @@ from kaleta.views.theme import PAGE_TITLE
 
 def report_header(title: str, description: str) -> None:
     ui.label(title).classes(PAGE_TITLE)
-    ui.label(description).classes("text-sm text-grey-6 -mt-2 mb-2")
+    ui.label(description).classes("text-sm text-slate-500 -mt-2 mb-2")
 
 
 def loading_label() -> None:
-    ui.label(t("common.loading")).classes("text-grey-5")
+    ui.label(t("common.loading")).classes("text-slate-400")
 
 
 def month_controls(state: dict[str, Any], on_change: Any) -> None:
@@ -46,7 +46,7 @@ def kpi(title: str, value: str, icon: str, icon_color: str) -> None:
     with ui.card().classes("flex-1 min-w-44 p-4"), ui.row().classes("items-center gap-3"):
         ui.icon(icon, size="2rem").classes(f"text-{icon_color}")
         with ui.column().classes("gap-0"):
-            ui.label(title).classes("text-xs text-grey-6 uppercase tracking-wide")
+            ui.label(title).classes("text-xs text-slate-500 uppercase tracking-wide")
             ui.label(value).classes("text-xl font-bold")
 
 
@@ -56,7 +56,7 @@ def render_category_table(title: str, rows_data: list[Any], colour: str) -> None
             ui.icon("label", color=colour).classes("text-xl")
             ui.label(title).classes("text-base font-semibold flex-1")
         if not rows_data:
-            ui.label(t("common.none")).classes("text-grey-5 text-sm px-4 py-2")
+            ui.label(t("common.none")).classes("text-slate-400 text-sm px-4 py-2")
             return
         cols = [
             {

@@ -9,6 +9,7 @@ from typing import Any, Literal, cast
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.sql_compat import date_weekday, date_year, date_year_month
 from kaleta.models.account import Account
 from kaleta.models.category import Category
 from kaleta.models.institution import Institution
@@ -306,14 +307,14 @@ class SavedReportService:
             )
         if dim == "month":
             return (
-                func.strftime("%Y-%m", Transaction.date),
+                date_year_month(Transaction.date),
                 [],
                 "Month",
                 False,
             )
         if dim == "year":
             return (
-                func.strftime("%Y", Transaction.date),
+                date_year(Transaction.date),
                 [],
                 "Year",
                 False,
@@ -327,7 +328,7 @@ class SavedReportService:
             )
         if dim == "weekday":
             return (
-                func.strftime("%w", Transaction.date),
+                date_weekday(Transaction.date),
                 [],
                 "Weekday",
                 True,

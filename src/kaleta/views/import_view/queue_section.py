@@ -84,7 +84,7 @@ class QueueSection:
         elif queued_file.status_msg:
             parts.append(queued_file.status_msg)
         if parts:
-            ui.label(" · ".join(parts)).classes("text-xs text-grey-6")
+            ui.label(" · ".join(parts)).classes("text-xs text-slate-500")
 
 
 def build_queue_section() -> QueueSection:
@@ -94,6 +94,6 @@ def build_queue_section() -> QueueSection:
             import_all_btn = ui.button(t("import.import_all"), icon="upload").props(
                 "color=primary unelevated"
             )
-        ui.label(t("import.queue_active_hint")).classes("text-xs text-grey-6 mb-2")
+        ui.label(t("import.queue_active_hint")).classes("text-xs text-slate-500 mb-2")
         container = ui.column().classes("w-full gap-1")
     return QueueSection(container=container, import_all_btn=import_all_btn)

@@ -50,7 +50,7 @@ async def render_upcoming_planned(session: AsyncSession, is_dark: bool) -> None:
                 with ui.row().classes("w-full items-center justify-between"):
                     with ui.column().classes("gap-0"):
                         ui.label(occ.name).classes("text-sm")
-                        ui.label(str(occ.date)).classes("text-xs text-grey-6")
+                        ui.label(str(occ.date)).classes("text-xs text-slate-500")
                     ui.label(f"{format_signed_amount(occ.amount, tx_type)} zł").classes(
                         f"text-sm font-medium {amount_cls}"
                     )

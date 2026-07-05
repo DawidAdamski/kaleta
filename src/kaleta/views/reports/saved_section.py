@@ -27,7 +27,7 @@ def build_saved_section(
         reports = await with_session(_list)
         if not reports:
             return
-        ui.label(t("reports.saved")).classes("text-sm font-semibold text-grey-6 mt-4 mb-2")
+        ui.label(t("reports.saved")).classes("text-sm font-semibold text-slate-500 mt-4 mb-2")
         with ui.row().classes("gap-2 flex-wrap mb-2"):
             for report in reports:
                 cfg_dict = json.loads(report.config)

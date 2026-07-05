@@ -9,12 +9,24 @@ from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.interfaces import LoaderOption
 
 from kaleta.exceptions import ConflictError, KaletaError, NotFoundError
 from kaleta.models.category import Category, CategoryType
-from kaleta.schemas.category import CategoryCreate, CategoryUpdate
+from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "category_templates"
+
+# Maximum category nesting depth supported by the UI (root → child).
+_CATEGORY_TREE_DEPTH = 2
+
+
+def _category_tree_load_options(depth: int = _CATEGORY_TREE_DEPTH) -> LoaderOption:
+    """Eager-load nested ``children`` up to *depth* levels for safe DTO conversion."""
+    loader = selectinload(Category.children)
+    for _ in range(depth - 1):
+        loader = loader.selectinload(Category.children)
+    return loader
 
 
 @dataclass(slots=True)
@@ -36,7 +48,7 @@ class CategoryService:
 
     async def list(self, type: CategoryType | None = None) -> builtins.list[Category]:
         """Return all categories (flat), children eagerly loaded."""
-        stmt = select(Category).options(selectinload(Category.children)).order_by(Category.name)
+        stmt = select(Category).options(_category_tree_load_options()).order_by(Category.name)
         if type is not None:
             stmt = stmt.where(Category.type == type)
         result = await self.session.execute(stmt)
@@ -46,7 +58,7 @@ class CategoryService:
         """Return only top-level categories with children eagerly loaded."""
         stmt = (
             select(Category)
-            .options(selectinload(Category.children))
+            .options(_category_tree_load_options())
             .where(Category.parent_id.is_(None))
             .order_by(Category.name)
         )
@@ -55,10 +67,15 @@ class CategoryService:
         result = await self.session.execute(stmt)
         return builtins.list(result.scalars().all())
 
+    async def list_tree(self, type: CategoryType | None = None) -> builtins.list[CategoryResponse]:
+        """Return root categories as response DTOs with nested children fully loaded."""
+        roots = await self.list_roots(type=type)
+        return [CategoryResponse.model_validate(r) for r in roots]
+
     async def get(self, category_id: int) -> Category | None:
         result = await self.session.execute(
             select(Category)
-            .options(selectinload(Category.children))
+            .options(_category_tree_load_options())
             .where(Category.id == category_id)
         )
         return result.scalar_one_or_none()
@@ -141,7 +158,7 @@ class CategoryService:
         """Return the single root category flagged as the Subscriptions tree."""
         result = await self.session.execute(
             select(Category)
-            .options(selectinload(Category.children))
+            .options(_category_tree_load_options())
             .where(Category.is_subscriptions_root.is_(True))
             .limit(1)
         )

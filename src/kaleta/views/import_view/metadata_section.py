@@ -35,7 +35,7 @@ class MetadataSection:
                 ),
                 (t("import.detected_tx_count"), str(row_count)),
             ]:
-                ui.label(label).classes("text-xs text-grey-6 font-medium")
+                ui.label(label).classes("text-xs text-slate-500 font-medium")
                 ui.label(value).classes("text-sm")
         self.card.set_visibility(True)
 

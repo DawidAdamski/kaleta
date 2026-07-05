@@ -36,8 +36,7 @@ def register() -> None:
 
             async def _load_add_parents(cat_type: str) -> None:
                 async def _load(session: Any) -> list[CategoryResponse]:
-                    roots = await CategoryService(session).list_roots(type=CategoryType(cat_type))
-                    return [CategoryResponse.model_validate(c) for c in roots]
+                    return await CategoryService(session).list_tree(type=CategoryType(cat_type))
 
                 roots = await with_session(_load)
                 options: dict[int, str] = {0: t("categories.none_parent")}
@@ -149,8 +148,7 @@ def register() -> None:
             edit_type.set_value(cat_type.value)
 
             async def _load(session: Any) -> list[CategoryResponse]:
-                roots = await CategoryService(session).list_roots(type=cat_type)
-                return [CategoryResponse.model_validate(c) for c in roots]
+                return await CategoryService(session).list_tree(type=cat_type)
 
             roots = await with_session(_load)
             options: dict[int, str] = {0: t("categories.none_parent")}
@@ -193,12 +191,9 @@ def register() -> None:
                 session: Any,
             ) -> tuple[list[CategoryResponse], list[CategoryResponse]]:
                 svc = CategoryService(session)
-                income = await svc.list_roots(type=CategoryType.INCOME)
-                expense = await svc.list_roots(type=CategoryType.EXPENSE)
-                return (
-                    [CategoryResponse.model_validate(c) for c in income],
-                    [CategoryResponse.model_validate(c) for c in expense],
-                )
+                income = await svc.list_tree(type=CategoryType.INCOME)
+                expense = await svc.list_tree(type=CategoryType.EXPENSE)
+                return income, expense
 
             income_roots, expense_roots = await with_session(_load)
 

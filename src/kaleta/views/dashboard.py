@@ -387,7 +387,7 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
 
     with ui.dialog() as dialog, ui.card().classes("min-w-96 max-w-xl"):
         ui.label(t("dashboard_widgets.customize_title")).classes("text-lg font-semibold")
-        ui.label(t("dashboard_widgets.customize_hint")).classes("text-xs text-grey-6 mb-2")
+        ui.label(t("dashboard_widgets.customize_hint")).classes("text-xs text-slate-500 mb-2")
 
         list_container = ui.column().classes("w-full gap-1 max-h-96 overflow-y-auto")
 

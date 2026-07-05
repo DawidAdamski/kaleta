@@ -25,6 +25,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.db.sql_compat import date_month, date_year
 from kaleta.models.account import Account
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category
@@ -172,6 +173,22 @@ class SavingsRatePoint:
 
 
 @dataclass
+class KpiPeriodDelta:
+    """Change from a reference period to the current KPI value."""
+
+    absolute: Decimal | None
+    percent: Decimal | None = None
+    rate_points: Decimal | None = None
+    reference_date: datetime.date | None = None
+    reference_year: int | None = None
+    reference_month: int | None = None
+
+    @property
+    def available(self) -> bool:
+        return self.absolute is not None or self.rate_points is not None
+
+
+@dataclass
 class MerchantSpend:
     name: str
     amount: Decimal
@@ -292,9 +309,44 @@ class ReportService:
         val = result.scalar()
         return Decimal(str(val)) if val else Decimal("0.00")
 
-    async def current_month_summary(self) -> tuple[Decimal, Decimal]:
+    async def _net_flow_since(self, since: datetime.date) -> Decimal:
+        """Net balance change from non-transfer txs strictly after *since*."""
+        result = await self.session.execute(
+            select(Transaction.type, func.sum(Transaction.amount).label("total"))
+            .where(
+                Transaction.date > since,
+                Transaction.is_internal_transfer == False,  # noqa: E712
+            )
+            .group_by(Transaction.type)
+        )
+        net = Decimal("0")
+        for row in result:
+            if row.type == TransactionType.INCOME:
+                net += Decimal(str(row.total))
+            elif row.type == TransactionType.EXPENSE:
+                net -= Decimal(str(row.total))
+        return net
+
+    async def balance_delta_vs_days_ago(self, days: int = 30) -> KpiPeriodDelta:
+        """Compare current aggregate balance to the balance *days* ago."""
         today = datetime.date.today()
-        start, end = _month_bounds(today.year, today.month)
+        ref = today - datetime.timedelta(days=days)
+        current = await self.total_balance()
+        prior = current - await self._net_flow_since(ref)
+        if prior == Decimal("0") and current == Decimal("0"):
+            return KpiPeriodDelta(
+                absolute=None,
+                percent=None,
+                reference_date=ref,
+            )
+        absolute = current - prior
+        pct: Decimal | None = None
+        if prior != Decimal("0"):
+            pct = (absolute / abs(prior)) * Decimal("100")
+        return KpiPeriodDelta(absolute=absolute, percent=pct, reference_date=ref)
+
+    async def _month_summary(self, year: int, month: int) -> tuple[Decimal, Decimal]:
+        start, end = _month_bounds(year, month)
         result = await self.session.execute(
             select(Transaction.type, func.sum(Transaction.amount).label("total"))
             .where(
@@ -313,6 +365,69 @@ class ReportService:
                 expenses = Decimal(str(row.total))
         return income, expenses
 
+    async def current_month_summary(self) -> tuple[Decimal, Decimal]:
+        today = datetime.date.today()
+        return await self._month_summary(today.year, today.month)
+
+    async def month_net_delta(self) -> KpiPeriodDelta:
+        """Current calendar month net vs the previous month."""
+        today = datetime.date.today()
+        cur_income, cur_expenses = await self._month_summary(today.year, today.month)
+        current_net = cur_income - cur_expenses
+
+        if today.month == 1:
+            ref_year, ref_month = today.year - 1, 12
+        else:
+            ref_year, ref_month = today.year, today.month - 1
+
+        prev_income, prev_expenses = await self._month_summary(ref_year, ref_month)
+        prior_net = prev_income - prev_expenses
+
+        absolute = current_net - prior_net
+        pct: Decimal | None = None
+        if prior_net != Decimal("0"):
+            pct = (absolute / abs(prior_net)) * Decimal("100")
+
+        return KpiPeriodDelta(
+            absolute=absolute,
+            percent=pct,
+            reference_year=ref_year,
+            reference_month=ref_month,
+        )
+
+    async def savings_rate_delta(self) -> KpiPeriodDelta:
+        """Current month savings rate vs previous month (percentage points)."""
+        today = datetime.date.today()
+        cur_income, cur_expenses = await self._month_summary(today.year, today.month)
+        current_rate: Decimal | None
+        if cur_income <= 0:
+            current_rate = None
+        else:
+            current_rate = ((cur_income - cur_expenses) / cur_income) * Decimal("100")
+
+        if today.month == 1:
+            ref_year, ref_month = today.year - 1, 12
+        else:
+            ref_year, ref_month = today.year, today.month - 1
+
+        prev_income, prev_expenses = await self._month_summary(ref_year, ref_month)
+        prior_rate: Decimal | None
+        if prev_income <= 0:
+            prior_rate = None
+        else:
+            prior_rate = ((prev_income - prev_expenses) / prev_income) * Decimal("100")
+
+        rate_points: Decimal | None = None
+        if current_rate is not None and prior_rate is not None:
+            rate_points = current_rate - prior_rate
+
+        return KpiPeriodDelta(
+            absolute=None,
+            rate_points=rate_points,
+            reference_year=ref_year,
+            reference_month=ref_month,
+        )
+
     async def cashflow_last_n_months(self, n: int = 6) -> list[MonthCashflow]:
         today = datetime.date.today()
         months: list[tuple[int, int]] = []
@@ -328,8 +443,8 @@ class ReportService:
 
         result = await self.session.execute(
             select(
-                func.strftime("%Y", Transaction.date).label("year"),
-                func.strftime("%m", Transaction.date).label("month"),
+                date_year(Transaction.date),
+                date_month(Transaction.date),
                 Transaction.type,
                 func.sum(Transaction.amount).label("total"),
             )
@@ -509,8 +624,8 @@ class ReportService:
 
         result = await self.session.execute(
             select(
-                func.strftime("%Y", Transaction.date).label("yr"),
-                func.strftime("%m", Transaction.date).label("mo"),
+                date_year(Transaction.date, label="yr"),
+                date_month(Transaction.date, label="mo"),
                 func.sum(Transaction.amount).label("total"),
             )
             .where(

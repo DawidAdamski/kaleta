@@ -14,9 +14,7 @@ from kaleta.views.components.amount_label import amount_css_class
 
 def render_realization_row(row: CategoryRealization) -> None:
     remaining_cls = amount_css_class("expense") if row.remaining < 0 else ""
-    with ui.row().classes(
-        "w-full items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800"
-    ):
+    with ui.row().classes("w-full items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50"):
         with ui.column().classes("flex-[2] min-w-0 gap-0"):
             ui.label(row.category_name).classes("text-sm font-medium truncate")
             if row.parent_name:

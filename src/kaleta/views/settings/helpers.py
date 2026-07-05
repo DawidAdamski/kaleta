@@ -16,5 +16,5 @@ def set_user_key(key: str, value: object) -> None:
 
 def about_row(label: str, value: str) -> None:
     with ui.row().classes("w-full items-center gap-3"):
-        ui.label(label).classes("text-sm text-grey-6 w-32")
+        ui.label(label).classes("text-sm text-slate-500 w-32")
         ui.label(value).classes("text-sm font-mono")

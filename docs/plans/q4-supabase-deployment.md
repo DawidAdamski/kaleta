@@ -92,4 +92,34 @@ anything, Supabase Auth/Storage/Edge (only their Postgres is used).
 
 ## Implementation notes
 
-(filled in as work progresses)
+### Section 1 — CI postgres matrix (2026-07-05)
+
+**CI:** Added `postgres` job to `.github/workflows/ci.yml` — `postgres:16`
+service, `uv sync --group dev --extra postgres`, `alembic upgrade head`, then
+unit + integration suites with `KALETA_DB_URL=postgresql+asyncpg://…`.
+
+**Test fixtures:** `tests/conftest.py` detects `KALETA_DB_URL` starting with
+`postgresql`, truncates all tables once (clears Alembic seed rows), then wraps
+each test in a rolled-back connection with savepoints so service-layer commits
+stay isolated. `make_session_factory()` exported for integration fixtures.
+
+**Migrations fixed for Postgres (forward edits only):**
+- `e3f4a5b6c7d8` — SQLite table-rebuild replaced with
+  `drop_constraint`/`create_unique_constraint` on PostgreSQL.
+- `a4e9b2f1c6d8` — `RETURNING id` instead of `lastrowid`; boolean literals
+  via bound params; `IS TRUE` for boolean checks.
+
+**Application fixes:**
+- `kaleta/db/sql_compat.py` — `extract()` / dialect-specific compilers
+  replace SQLite-only `func.strftime()` in net-worth, report, and saved-report
+  services.
+- `MonthlyReadiness.ready_at` model column aligned to
+  `DateTime(timezone=True)` (migration already had TZ; Postgres rejected
+  aware datetimes against naive column metadata).
+
+**Local validation:** `alembic upgrade head` green on fresh Postgres 16;
+1266/1266 postgres-backed unit+integration tests pass (excluding 14 pre-existing
+`test_chart_utils.py` failures unrelated to DB).
+
+**Not touched (other plan sections):** Supabase docs, demo flag, hosting, demo
+reset, UI banner.

@@ -52,7 +52,7 @@ def register() -> None:
             def institution_cards() -> None:
                 labels = _type_labels()
                 if not institution_list:
-                    ui.label(t("institutions.no_institutions")).classes("text-grey-6 mt-8")
+                    ui.label(t("institutions.no_institutions")).classes("text-slate-500 mt-8")
                     return
                 with ui.grid(columns=3).classes("w-full gap-4"):
                     for inst in institution_list:
@@ -62,11 +62,11 @@ def register() -> None:
                                 with ui.column().classes("gap-0 flex-1 min-w-0"):
                                     ui.label(inst.name).classes("font-bold text-base truncate")
                                     ui.label(labels.get(inst.type, inst.type)).classes(
-                                        "text-xs text-grey-6"
+                                        "text-xs text-slate-500"
                                     )
                             if inst.description:
                                 ui.label(inst.description).classes(
-                                    "text-sm text-grey-7 line-clamp-2"
+                                    "text-sm text-slate-600 line-clamp-2"
                                 )
                             if inst.website:
                                 ui.label(inst.website).classes("text-xs text-blue-6 truncate")

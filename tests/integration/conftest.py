@@ -8,13 +8,13 @@ from typing import Any
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from kaleta.api import create_api_router
 from kaleta.api.deps import get_session
 from kaleta.api.errors import register_error_handlers
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.auth_service import AuthService
+from tests.conftest import make_session_factory
 
 ACCOUNT_PAYLOAD: dict[str, Any] = {
     "name": "Main Checking",
@@ -33,7 +33,7 @@ PAYEE_PAYLOAD: dict[str, Any] = {"name": "Grocery Store"}
 @pytest_asyncio.fixture
 async def api_user(db_engine):
     """Single user row required for API bearer authentication."""
-    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    factory = make_session_factory(db_engine)
     async with factory() as session:
         user = await AuthService(session).create_user("api-test", "test-password")
         return user
@@ -42,7 +42,7 @@ async def api_user(db_engine):
 @pytest_asyncio.fixture
 async def api_bearer_token(db_engine, api_user):
     """Raw bearer token for integration API calls."""
-    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    factory = make_session_factory(db_engine)
     async with factory() as session:
         _token, raw = await ApiTokenService(session).create_token(
             user_id=api_user.id,
@@ -58,7 +58,7 @@ async def api_client(db_engine, api_bearer_token):
     register_error_handlers(app)
     app.include_router(create_api_router())
 
-    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    factory = make_session_factory(db_engine)
 
     async def override_session():
         async with factory() as s:
@@ -82,7 +82,7 @@ async def api_client_unauth(db_engine):
     register_error_handlers(app)
     app.include_router(create_api_router())
 
-    factory = async_sessionmaker(db_engine, expire_on_commit=False)
+    factory = make_session_factory(db_engine)
 
     async def override_session():
         async with factory() as s:

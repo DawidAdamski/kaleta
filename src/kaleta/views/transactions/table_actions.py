@@ -25,7 +25,7 @@ def render_table_actions(
         if n:
             with ui.row().classes("w-full items-center gap-2 py-1"):
                 ui.label(t("transactions.delete_selected", count=n)).classes(
-                    "text-sm text-grey-8 font-medium"
+                    "text-sm text-slate-600 font-medium"
                 )
                 ui.button(icon="delete", on_click=on_delete).props(
                     "flat round dense color=negative size=sm"

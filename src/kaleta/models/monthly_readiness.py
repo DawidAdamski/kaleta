@@ -30,7 +30,9 @@ class MonthlyReadiness(TimestampMixin, Base):
     stage_3_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     stage_4_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     seen_planned_ids: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
-    ready_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    ready_at: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     def __repr__(self) -> str:
         return f"<MonthlyReadiness year={self.year} month={self.month}>"

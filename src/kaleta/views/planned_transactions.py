@@ -86,7 +86,7 @@ def register() -> None:
             )
 
             ui.separator()
-            ui.label(t("planned.recurrence")).classes("text-sm font-semibold text-grey-7")
+            ui.label(t("planned.recurrence")).classes("text-sm font-semibold text-slate-600")
 
             with ui.row().classes("w-full gap-3 items-end"):
                 freq_sel = ui.select(
@@ -274,7 +274,7 @@ def register() -> None:
             rows_data = await with_session(_load)
 
             if not rows_data:
-                with ui.column().classes("w-full items-center py-20 gap-3 text-grey-5"):
+                with ui.column().classes("w-full items-center py-20 gap-3 text-slate-400"):
                     ui.icon("event_repeat", size="4rem")
                     ui.label(t("planned.no_planned")).classes("text-lg")
                     ui.label(t("planned.no_planned_hint")).classes("text-sm")

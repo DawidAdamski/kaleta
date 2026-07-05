@@ -67,7 +67,7 @@ def _make_picker(
 
     with ui.dialog() as dialog, ui.card().classes("w-full max-w-xl p-0 overflow-hidden"):
         # Header: current path
-        cwd_label = ui.label("").classes("text-xs font-mono px-4 py-2 bg-grey-2 w-full truncate")
+        cwd_label = ui.label("").classes("text-xs font-mono px-4 py-2 bg-slate-100 w-full truncate")
 
         # Scrollable file list
         with ui.scroll_area().classes("w-full h-72"):
@@ -93,11 +93,11 @@ def _make_picker(
             if cwd != cwd.parent:
                 with (
                     ui.row()
-                    .classes("items-center gap-2 px-4 py-2 w-full cursor-pointer hover:bg-grey-1")
+                    .classes("items-center gap-2 px-4 py-2 w-full cursor-pointer hover:bg-slate-50")
                     .on("click", lambda: _go_up())
                 ):
-                    ui.icon("arrow_upward", size="1.2rem").classes("text-grey-5")
-                    ui.label("..").classes("text-sm text-grey-6")
+                    ui.icon("arrow_upward", size="1.2rem").classes("text-slate-400")
+                    ui.label("..").classes("text-sm text-slate-500")
 
             try:
                 entries = sorted(
@@ -115,7 +115,7 @@ def _make_picker(
                     with (
                         ui.row()
                         .classes(
-                            "items-center gap-2 px-4 py-2 w-full cursor-pointer hover:bg-grey-1"
+                            "items-center gap-2 px-4 py-2 w-full cursor-pointer hover:bg-slate-50"
                         )
                         .on("click", lambda p=p: _enter(p))
                     ):
@@ -160,24 +160,24 @@ def _render_recent() -> None:
 
     recent = get_recent()
     if not recent:
-        ui.label(t("setup.no_recent")).classes("text-sm text-grey-5 py-6 text-center w-full")
+        ui.label(t("setup.no_recent")).classes("text-sm text-slate-400 py-6 text-center w-full")
         return
 
     for entry in recent:
         row = ui.row().classes(
-            "w-full items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-grey-2"
+            "w-full items-center gap-3 px-3 py-2 rounded-lg cursor-pointer hover:bg-slate-100"
         )
         with row:
             ui.icon("storage", size="1.4rem").classes("text-primary")
             with ui.column().classes("flex-1 gap-0"):
                 ui.label(entry.get("name") or entry["url"]).classes("font-medium text-sm")
-                ui.label(entry["url"]).classes("text-xs text-grey-5")
-            ui.icon("chevron_right").classes("text-grey-4")
+                ui.label(entry["url"]).classes("text-xs text-slate-400")
+            ui.icon("chevron_right").classes("text-slate-400")
 
         # async handler keeps NiceGUI client context
         async def _handle_pick(e: dict[str, str] = entry) -> None:
             spinner = ui.spinner(size="sm")
-            status = ui.label("").classes("text-sm text-grey-6")
+            status = ui.label("").classes("text-sm text-slate-500")
             await _activate_db(e["url"], name=e.get("name", ""), spinner=spinner, status=status)
 
         row.on("click", _handle_pick)
@@ -196,7 +196,7 @@ def register() -> None:  # noqa: PLR0915
                 ui.icon("account_balance_wallet", size="3rem").classes("text-primary")
                 ui.label("Kaleta").classes("text-4xl font-bold")
 
-            ui.label(t("setup.welcome")).classes("text-lg text-grey-6 text-center max-w-lg")
+            ui.label(t("setup.welcome")).classes("text-lg text-slate-500 text-center max-w-lg")
 
             # ── Step 1: Local vs Cloud ──
             with ui.column().classes("w-full max-w-2xl gap-4") as step_choose:
@@ -213,16 +213,16 @@ def register() -> None:  # noqa: PLR0915
                     ):
                         ui.icon("storage", size="3rem").classes("text-primary")
                         ui.label(t("setup.local_title")).classes("text-lg font-semibold")
-                        ui.label(t("setup.local_desc")).classes("text-sm text-grey-6")
+                        ui.label(t("setup.local_desc")).classes("text-sm text-slate-500")
                         ui.badge(t("setup.recommended"), color="primary").classes("mt-2")
 
                     with (
                         ui.card().classes("flex-1 p-6 opacity-60"),
                         ui.column().classes("items-center gap-3 text-center"),
                     ):
-                        ui.icon("cloud", size="3rem").classes("text-grey-5")
+                        ui.icon("cloud", size="3rem").classes("text-slate-400")
                         ui.label(t("setup.cloud_title")).classes("text-lg font-semibold")
-                        ui.label(t("setup.cloud_desc")).classes("text-sm text-grey-6")
+                        ui.label(t("setup.cloud_desc")).classes("text-sm text-slate-500")
                         ui.badge(t("setup.coming_soon"), color="grey").classes("mt-2")
 
             # ── Step 2: Local options ──
@@ -245,7 +245,7 @@ def register() -> None:  # noqa: PLR0915
                     with ui.tab_panel("new"):  # noqa: SIM117
                         with ui.card().classes("w-full p-6"):
                             with ui.column().classes("w-full gap-4"):
-                                ui.label(t("setup.new_desc")).classes("text-sm text-grey-6")
+                                ui.label(t("setup.new_desc")).classes("text-sm text-slate-500")
 
                                 new_name = ui.input(
                                     t("setup.db_name"),
@@ -268,7 +268,7 @@ def register() -> None:  # noqa: PLR0915
                                 with ui.row().classes("items-center gap-2"):
                                     new_spinner = ui.spinner(size="sm")
                                     new_spinner.set_visibility(False)
-                                    new_status = ui.label("").classes("text-sm text-grey-6")
+                                    new_status = ui.label("").classes("text-sm text-slate-500")
 
                                 async def _handle_create() -> None:
                                     name = new_name.value.strip() or "kaleta"
@@ -294,7 +294,7 @@ def register() -> None:  # noqa: PLR0915
                     with ui.tab_panel("open"):  # noqa: SIM117
                         with ui.card().classes("w-full p-6"):
                             with ui.column().classes("w-full gap-4"):
-                                ui.label(t("setup.open_desc")).classes("text-sm text-grey-6")
+                                ui.label(t("setup.open_desc")).classes("text-sm text-slate-500")
 
                                 with ui.row().classes("w-full items-center gap-1"):
                                     open_path = ui.input(
@@ -310,7 +310,7 @@ def register() -> None:  # noqa: PLR0915
                                 with ui.row().classes("items-center gap-2"):
                                     open_spinner = ui.spinner(size="sm")
                                     open_spinner.set_visibility(False)
-                                    open_status = ui.label("").classes("text-sm text-grey-6")
+                                    open_status = ui.label("").classes("text-sm text-slate-500")
 
                                 async def _handle_open() -> None:
                                     path = open_path.value.strip()

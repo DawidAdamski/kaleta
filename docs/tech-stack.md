@@ -122,7 +122,7 @@ Set via `KALETA_MODE` environment variable:
 ## Environment Configuration
 
 ```
-KALETA_DB_URL=sqlite:///kaleta.db     # Database connection string
+KALETA_DB_URL=sqlite+aiosqlite:///kaleta.db  # Database connection string
 KALETA_HOST=127.0.0.1                   # Bind address (Docker Compose sets 0.0.0.0)
 KALETA_PORT=8080                      # Bind port
 KALETA_MODE=web                       # web | app | api

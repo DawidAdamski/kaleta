@@ -200,7 +200,7 @@ def register() -> None:
             def icon_preview_ui() -> None:
                 with ui.row().classes("items-center gap-3 py-1"):
                     ui.icon(icon_state["name"], size="2rem").style(f"color: {icon_state['color']}")
-                    ui.label(t("tags.preview")).classes("text-sm text-grey-6")
+                    ui.label(t("tags.preview")).classes("text-sm text-slate-500")
 
             icon_preview_ui()
 
@@ -371,7 +371,7 @@ def register() -> None:
             all_tags = await with_session(_load)
 
             if not all_tags:
-                with ui.column().classes("w-full items-center py-20 gap-3 text-grey-5"):
+                with ui.column().classes("w-full items-center py-20 gap-3 text-slate-400"):
                     ui.icon("label_off", size="4rem")
                     ui.label(t("tags.no_tags")).classes("text-lg")
                     ui.label(t("tags.no_tags_hint")).classes("text-sm")
@@ -389,14 +389,14 @@ def register() -> None:
                                 ui.label(tag.name).classes("text-base font-bold flex-1")
                             if tag.description:
                                 ui.label(tag.description).classes(
-                                    "text-sm text-grey-6 leading-snug"
+                                    "text-sm text-slate-500 leading-snug"
                                 )
                             with ui.row().classes("items-center gap-2 mt-1"):
                                 ui.element("div").style(
                                     f"width:12px;height:12px;border-radius:50%;"
                                     f"background:{color};flex-shrink:0"
                                 )
-                                ui.label(color).classes("text-xs text-grey-5 font-mono flex-1")
+                                ui.label(color).classes("text-xs text-slate-400 font-mono flex-1")
                                 ui.button(
                                     icon="edit",
                                     on_click=lambda tg=tag: _open_edit(tg),

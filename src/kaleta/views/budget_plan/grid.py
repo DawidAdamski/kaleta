@@ -48,9 +48,9 @@ def build_plan_grid(
 
         grid = await with_session(_load)
 
-        hdr_cls = "bg-grey-9 text-grey-1" if is_dark else "bg-grey-2 text-grey-9"
-        row_hover = "hover:bg-grey-9" if is_dark else "hover:bg-grey-1"
-        sub_bg = "bg-grey-8" if is_dark else "bg-grey-1"
+        hdr_cls = "bg-slate-600 text-slate-50" if is_dark else "bg-slate-100 text-slate-900"
+        row_hover = "hover:bg-slate-700" if is_dark else "hover:bg-slate-50"
+        sub_bg = "bg-slate-700" if is_dark else "bg-slate-50"
         cell_cls = "text-sm text-center py-1 px-1"
         row_cls = "items-center no-wrap gap-0 border-b"
 
@@ -130,11 +130,11 @@ def _render_single_year_grid(
     is_dark: bool,
     clear_category: Callable[[int], Awaitable[None]],
 ) -> None:
-    act_bg = "bg-grey-8" if is_dark else "bg-grey-1"
+    act_bg = "bg-slate-700" if is_dark else "bg-slate-50"
 
     for row in slice_.rows:
         rec_text, rec_color = recurring_display(row)
-        name_suffix = " text-grey-6 pl-7" if row.is_child else " font-medium"
+        name_suffix = " text-slate-500 pl-7" if row.is_child else " font-medium"
         name_cls = "text-sm px-3 py-2 truncate" + name_suffix
 
         with ui.row().classes(f"{row_cls} {row_hover}"):
@@ -145,7 +145,7 @@ def _render_single_year_grid(
             ):
                 if row.is_child:
                     ui.icon("subdirectory_arrow_right").classes(
-                        "text-grey-5 ml-2 text-sm flex-shrink-0"
+                        "text-slate-400 ml-2 text-sm flex-shrink-0"
                     )
                 ui.label(row.name).classes(name_cls).style(
                     "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
@@ -206,7 +206,7 @@ def _render_single_year_grid(
         if row.show_actual_row:
             with ui.row().classes(f"items-center no-wrap gap-0 {act_bg}"):
                 ui.label(t("budget_plan.actual")).classes(
-                    "text-xs text-grey-5 italic px-3 py-0"
+                    "text-xs text-slate-400 italic px-3 py-0"
                 ).style(S_CAT)
                 ui.label("").style(S_REC)
                 for cell in row.months:
@@ -215,7 +215,7 @@ def _render_single_year_grid(
                         f"text-xs text-center py-0 px-1 {act_color}"
                     ).style(S_MON)
                 ui.label(format_amount(row.total_actual or None)).classes(
-                    "text-xs text-right px-3 py-0 text-grey-6"
+                    "text-xs text-right px-3 py-0 text-slate-500"
                 ).style(S_TOT)
                 ui.label("").style(S_ACT)
 
@@ -250,7 +250,7 @@ def _render_compare_grid(
     row_cls: str,
     is_dark: bool,
 ) -> None:
-    act_bg = "bg-grey-8" if is_dark else "bg-grey-1"
+    act_bg = "bg-slate-700" if is_dark else "bg-slate-50"
     first_slice = grid.slices[0]
 
     for row in first_slice.rows:
@@ -265,12 +265,12 @@ def _render_compare_grid(
             rec_text, rec_color = recurring_display(year_row)
 
             with ui.row().classes(f"{row_cls} {row_hover}"):
-                ui.label(str(slice_.year)).classes("text-xs text-grey-6 px-3 py-1 font-mono").style(
-                    S_CAT
-                )
+                ui.label(str(slice_.year)).classes(
+                    "text-xs text-slate-500 px-3 py-1 font-mono"
+                ).style(S_CAT)
                 ui.label(rec_text).classes(f"{cell_cls} font-medium {rec_color}").style(S_REC)
                 for cell in year_row.months:
-                    color = "text-primary" if cell.planned else "text-grey-4"
+                    color = "text-primary" if cell.planned else "text-slate-400"
                     ui.label(format_amount(cell.planned)).classes(f"{cell_cls} {color}").style(
                         S_MON
                     )
@@ -280,7 +280,7 @@ def _render_compare_grid(
 
             with ui.row().classes(f"items-center no-wrap gap-0 {act_bg}"):
                 ui.label(f"{slice_.year} {t('budget_plan.actual')}").classes(
-                    "text-xs text-grey-5 italic px-3 py-0"
+                    "text-xs text-slate-400 italic px-3 py-0"
                 ).style(S_CAT)
                 ui.label("").style(S_REC)
                 for cell in year_row.months:
@@ -289,7 +289,7 @@ def _render_compare_grid(
                         f"text-xs text-center py-0 px-1 {act_color}"
                     ).style(S_MON)
                 ui.label(format_amount(year_row.total_actual or None)).classes(
-                    "text-xs text-right px-3 py-0 text-grey-6"
+                    "text-xs text-right px-3 py-0 text-slate-500"
                 ).style(S_TOT)
 
     with ui.row().classes(f"{row_cls} {hdr_cls} font-bold border-t-2"):

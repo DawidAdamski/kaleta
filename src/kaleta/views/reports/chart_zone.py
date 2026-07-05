@@ -27,7 +27,7 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
         if result is None:
             with (
                 ui.element("div").classes(
-                    "h-64 flex items-center justify-center text-grey-5 "
+                    "h-64 flex items-center justify-center text-slate-400 "
                     "border-2 border-dashed rounded-lg w-full"
                 ),
                 ui.column().classes("items-center gap-2"),
@@ -36,7 +36,7 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
                 ui.label(t("reports.run_to_preview"))
             return
         if not result.labels:
-            ui.label(t("reports.no_data")).classes("text-grey-5 text-center py-8 w-full")
+            ui.label(t("reports.no_data")).classes("text-slate-400 text-center py-8 w-full")
             return
 
         chart_type = state["chart_type"]

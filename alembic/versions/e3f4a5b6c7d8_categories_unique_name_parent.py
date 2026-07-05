@@ -18,10 +18,19 @@ depends_on = None
 _COLS = "id, name, type, parent_id, created_at, updated_at"
 
 
-def upgrade() -> None:
+def _upgrade_postgresql() -> None:
+    op.drop_constraint("categories_name_key", "categories", type_="unique")
+    op.create_unique_constraint("uq_categories_name_parent", "categories", ["name", "parent_id"])
+
+
+def _downgrade_postgresql() -> None:
+    op.drop_constraint("uq_categories_name_parent", "categories", type_="unique")
+    op.create_unique_constraint("categories_name_key", "categories", ["name"])
+
+
+def _upgrade_sqlite() -> None:
     # SQLite cannot drop individual constraints; rebuild the table without the
     # old unnamed UNIQUE(name) and with the new UNIQUE(name, parent_id) instead.
-    # Use explicit column names so the INSERT works regardless of original column order.
     op.execute("""
         CREATE TABLE categories_new (
             id INTEGER NOT NULL,
@@ -41,7 +50,7 @@ def upgrade() -> None:
     op.execute("ALTER TABLE categories_new RENAME TO categories")
 
 
-def downgrade() -> None:
+def _downgrade_sqlite() -> None:
     op.execute("""
         CREATE TABLE categories_new (
             id INTEGER NOT NULL,
@@ -58,3 +67,17 @@ def downgrade() -> None:
     op.execute(f"INSERT INTO categories_new ({_COLS}) SELECT {_COLS} FROM categories")
     op.execute("DROP TABLE categories")
     op.execute("ALTER TABLE categories_new RENAME TO categories")
+
+
+def upgrade() -> None:
+    if op.get_bind().dialect.name == "postgresql":
+        _upgrade_postgresql()
+        return
+    _upgrade_sqlite()
+
+
+def downgrade() -> None:
+    if op.get_bind().dialect.name == "postgresql":
+        _downgrade_postgresql()
+        return
+    _downgrade_sqlite()

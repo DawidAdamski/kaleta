@@ -30,7 +30,7 @@ def build_transfer_section(
     card.set_visibility(False)
     with card:
         ui.label(t("import.transfer_section")).classes("text-lg font-semibold mb-1")
-        ui.label(t("import.transfer_hint")).classes("text-sm text-grey-6 mb-3")
+        ui.label(t("import.transfer_hint")).classes("text-sm text-slate-500 mb-3")
         result_label = ui.label("").classes("text-sm text-green-700")
         ui.button(
             t("import.detect_transfers"),

@@ -14,7 +14,7 @@ def recurring_display(row: PlanCategoryRow) -> tuple[str, str]:
         return f"{row.uniform_monthly:,.0f}", "text-primary"
     if row.has_any_plan:
         return "~", "text-orange-8"
-    return "—", "text-grey-4"
+    return "—", "text-slate-400"
 
 
 def format_amount(amount: Decimal | None) -> str:
@@ -26,7 +26,7 @@ def plan_cell_color(amount: Decimal | None, is_override: bool) -> str:
         return "text-orange-8"
     if amount:
         return "text-primary"
-    return "text-grey-4"
+    return "text-slate-400"
 
 
 def actual_cell_color(actual: Decimal | None, is_over: bool) -> str:
@@ -34,4 +34,4 @@ def actual_cell_color(actual: Decimal | None, is_over: bool) -> str:
         return "text-red-6"
     if actual:
         return "text-green-6"
-    return "text-grey-4"
+    return "text-slate-400"

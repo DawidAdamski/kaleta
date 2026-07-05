@@ -89,7 +89,7 @@ def build_split_editor(
                         on_click=lambda r=remaining: _fill_last(r),
                     ).props("flat dense size=sm color=primary")
             else:
-                ui.label(t("transactions.enter_total")).classes("text-sm text-grey-5")
+                ui.label(t("transactions.enter_total")).classes("text-sm text-slate-400")
             ui.button(
                 t("transactions.add_split"),
                 icon="add",

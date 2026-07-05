@@ -9,14 +9,15 @@ from nicegui import app, ui
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
 from kaleta.views.theme import (
-    DARK_CSS,
     DRAWER,
     HEADER,
     NAV_GROUP,
     NAV_GROUP_ROW,
     NAV_ITEM,
+    NAV_ITEM_ACTIVE,
     PAGE_CONTAINER,
     PAGE_SHELL,
+    theme_css,
 )
 
 try:
@@ -74,7 +75,7 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     from kaleta.config.setup_config import is_configured
 
     ui.add_head_html(PWA_HEAD)
-    ui.add_head_html(f"<style>{DARK_CSS}</style>")
+    ui.add_head_html(f"<style>{theme_css()}</style>")
 
     if not is_configured():
         ui.navigate.to("/setup")
@@ -105,6 +106,13 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         mini_btn.props(f"icon={'chevron_right' if new_mini else 'chevron_left'}")
 
     ui.query("body").classes(PAGE_SHELL)
+
+    current_path = ui.context.client.request.url.path if ui.context.client else "/"
+
+    def _nav_active(nav_path: str) -> bool:
+        if nav_path == "/":
+            return current_path == "/"
+        return current_path == nav_path or current_path.startswith(f"{nav_path}/")
 
     with ui.header().classes(f"{HEADER} items-center px-4 gap-4 h-16"):
         ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(
@@ -194,9 +202,11 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             # Items container — hidden when collapsed
             with ui.column().classes("w-full gap-0") as items_col:
                 for icon, path, key in items:
-                    with ui.item(on_click=lambda p=path: ui.navigate.to(p)).classes(NAV_ITEM):
+                    active = _nav_active(path)
+                    item_cls = f"{NAV_ITEM} {NAV_ITEM_ACTIVE if active else ''}".strip()
+                    with ui.item(on_click=lambda p=path: ui.navigate.to(p)).classes(item_cls):
                         with ui.item_section().props("avatar"):
-                            ui.icon(icon).classes("text-primary")
+                            ui.icon(icon)
                         with ui.item_section():
                             ui.item_label(t(key))
 
@@ -224,19 +234,21 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
                 ui.item_label(t("nav.api_docs"))
 
         ui.space()
-        ui.label(_APP_VERSION).classes("k-app-version text-xs text-grey-4 text-center pb-3 w-full")
+        ui.label(_APP_VERSION).classes(
+            "k-app-version text-xs text-slate-400 text-center pb-3 w-full"
+        )
 
     # ── Keyboard shortcuts help dialog (press ?) ──────────────────────────
     with ui.dialog() as shortcuts_dialog, ui.card().classes("w-[480px] gap-3"):
         ui.label(t("common.shortcuts_help")).classes("text-lg font-bold")
-        ui.label(t("common.shortcuts_global")).classes("text-sm font-semibold text-grey-6 mt-2")
+        ui.label(t("common.shortcuts_global")).classes("text-sm font-semibold text-slate-500 mt-2")
         with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
             ui.label("Alt+N").classes("font-mono text-sm text-primary font-bold")
             ui.label(t("common.shortcut_new_tx")).classes("text-sm")
             ui.label("?").classes("font-mono text-sm text-primary font-bold")
             ui.label(t("common.shortcut_open_help")).classes("text-sm")
         ui.label(t("common.shortcuts_transactions")).classes(
-            "text-sm font-semibold text-grey-6 mt-3"
+            "text-sm font-semibold text-slate-500 mt-3"
         )
         with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
             ui.label("Enter").classes("font-mono text-sm text-primary font-bold")

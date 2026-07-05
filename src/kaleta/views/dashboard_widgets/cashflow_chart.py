@@ -13,7 +13,12 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.services.report_service import MonthCashflow
-from kaleta.views.chart_utils import apply_dark
+from kaleta.views.chart_utils import (
+    CHART_EXPENSE,
+    CHART_INCOME,
+    CHART_NET_LINE,
+    apply_dark,
+)
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
 
@@ -34,20 +39,20 @@ def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[st
                 "type": "bar",
                 "stack": "cashflow",
                 "data": [float(m.income) for m in months],
-                "itemStyle": {"color": "#4caf50"},
+                "itemStyle": {"color": CHART_INCOME},
             },
             {
                 "name": t("common.expense"),
                 "type": "bar",
                 "stack": "cashflow",
                 "data": [-float(m.expenses) for m in months],
-                "itemStyle": {"color": "#ef5350"},
+                "itemStyle": {"color": CHART_EXPENSE},
             },
             {
                 "name": t("dashboard.net"),
                 "type": "line",
                 "data": [float(m.net) for m in months],
-                "itemStyle": {"color": "#1976d2"},
+                "itemStyle": {"color": CHART_NET_LINE},
                 "lineStyle": {"width": 2},
                 "symbol": "circle",
                 "symbolSize": 6,

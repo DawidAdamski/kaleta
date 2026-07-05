@@ -16,7 +16,7 @@ from kaleta.services import ApiTokenService, with_session
 async def render_security_tab() -> None:
     user_id = app.storage.user.get(SESSION_USER_ID)
     if user_id is None:
-        ui.label(t("settings.security_login_required")).classes("text-grey-6")
+        ui.label(t("settings.security_login_required")).classes("text-slate-500")
         return
 
     token_dialog = ui.dialog()
@@ -24,7 +24,7 @@ async def render_security_tab() -> None:
 
     with token_dialog, ui.card().classes("p-6 w-full max-w-lg"):
         ui.label(t("settings.security_token_created_title")).classes("text-lg font-semibold mb-2")
-        ui.label(t("settings.security_token_created_hint")).classes("text-sm text-grey-6 mb-4")
+        ui.label(t("settings.security_token_created_hint")).classes("text-sm text-slate-500 mb-4")
         token_field = (
             ui.input(
                 label=t("settings.security_token_value"),
@@ -47,7 +47,7 @@ async def render_security_tab() -> None:
         with ui.row().classes("items-center gap-2 mb-1"):
             ui.icon("vpn_key", color="primary").classes("text-xl")
             ui.label(t("settings.security_api_tokens")).classes("text-lg font-semibold")
-        ui.label(t("settings.security_api_tokens_hint")).classes("text-xs text-grey-6 mb-4")
+        ui.label(t("settings.security_api_tokens_hint")).classes("text-xs text-slate-500 mb-4")
 
         label_input = ui.input(
             label=t("settings.security_token_label"),
@@ -96,7 +96,7 @@ async def render_security_tab() -> None:
 
             tokens = await with_session(_load)
             if not tokens:
-                ui.label(t("settings.security_no_tokens")).classes("text-grey-5 text-sm")
+                ui.label(t("settings.security_no_tokens")).classes("text-slate-400 text-sm")
                 return
 
             cols = [

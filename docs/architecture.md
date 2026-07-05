@@ -175,45 +175,45 @@ out of sequence in the original monolithic document).
 
 ## UI Colour Schema
 
-All UI tokens live in `src/kaleta/views/theme.py`. Dark mode is driven by NiceGUI's `ui.dark_mode()` (Quasar plugin), which adds the `dark` class to the `<html>` element — matching the Tailwind `dark:` variant strategy.
+All UI tokens live in `src/kaleta/views/theme.py`. Typography uses self-hosted
+**Inter** (`static/fonts/inter-var.woff2`, SIL OFL). Dark mode is driven by
+NiceGUI's `ui.dark_mode()` (Quasar plugin), which adds `body--dark` to
+`<body>`; overrides are in `DARK_CSS` (loaded via `theme_css()`).
 
 ### Rules
 
-**Do NOT use bare Quasar palette classes** (`bg-grey-1`, `border-grey-2`, `text-grey-7`, etc.) for structural chrome or text — they are fixed values that don't adapt in dark mode.  
-**DO use Tailwind colour classes with explicit `dark:` variants**.
+**Do NOT use bare Quasar palette classes** (`bg-grey-1`, `text-grey-7`, etc.) for
+structural chrome or text.
 
-| Role | Light | Dark |
+**DO use Tailwind slate/teal tokens** or shared constants from `theme.py`.
+
+| Role | Light | Dark (`.body--dark`) |
 |---|---|---|
-| Page background | `bg-slate-50` | `dark:bg-slate-950` |
-| Card / surface | `bg-white/80` | `dark:bg-slate-900/70` |
-| Card border | `border-slate-200/70` | `dark:border-slate-800` |
-| Row hover | `hover:bg-slate-50` | `dark:hover:bg-slate-800/50` |
-| Row divider | `border-slate-200` | `dark:border-slate-700` |
-| Primary text | `text-slate-900` | `dark:text-slate-100` |
-| Secondary / muted text | `text-slate-500` | `dark:text-slate-400` |
-| Table header text | `text-slate-500` | `dark:text-slate-400` |
-| Table cell text | `text-slate-800` | `dark:text-slate-200` |
-| Subcategory label | `text-slate-700` | `dark:text-slate-200` |
-| Highlight banner (blue) | `bg-blue-50` | `dark:bg-blue-900/40` |
-| Info card (blue) | `bg-blue-50` | `dark:bg-blue-900/30` |
+| Page background | `bg-slate-50` | `rgb(10, 14, 23)` |
+| Card / surface | `bg-white/80`, `rounded-xl`, no shadow | `rgb(21, 25, 34)` |
+| Card border | `border-slate-200/70` | `rgb(36, 42, 54)` |
+| Brand / primary accent | `--q-primary: #0d9488` (teal-600) | `--q-primary: #14b8a6` (teal-500) |
+| Nav active item | teal left bar + tint | teal left bar + `rgba(20,184,166,.1)` |
+| Secondary / muted text | `text-slate-500` | `rgb(148, 163, 184)` |
+| KPI trend (positive) | `text-teal-600` | `rgb(94, 234, 212)` |
+| Income / expense amounts | `text-green-7` / `text-red-7` | boosted in `DARK_CSS` |
 
 ### Shared tokens (theme.py)
 
 | Token | Purpose |
 |---|---|
-| `SECTION_CARD` | White card with border and shadow; adapts to dark |
-| `TOOLBAR_CARD` | Compact version of SECTION_CARD for filter bars |
-| `TABLE_SURFACE` | Applied to every `ui.table`; transparent bg + typed text colours |
-| `BODY_MUTED` | Muted body copy; slate-500/slate-400 |
-| `SECTION_TITLE` | Small all-caps label for section headers |
-| `SECTION_HEADING` | Larger heading inside a card |
-| `DIALOG_TITLE` | Bold title inside dialogs |
-| `PAGE_TITLE` | Page-level h1 |
+| `SECTION_CARD` | Flat card panel; adapts to dark via `.k-surface` |
+| `TOOLBAR_CARD` | Compact version of SECTION_CARD |
+| `TABLE_SURFACE` | Applied to every `ui.table` |
+| `KPI_VALUE` / `KPI_TREND_*` | KPI card typography and trend colours |
+| `NAV_ITEM_ACTIVE` | Active sidebar route highlight |
+| `theme_css()` | Inter font + Quasar brand + `DARK_CSS` |
 
 ### Guidelines
 
-- **All `ui.table` widgets must use `TABLE_SURFACE`** — it provides dark-mode cell text colours. Do not use plain `w-full` without TABLE_SURFACE.
-- **Dialogs** created with `ui.dialog()` / `ui.card()` inherit Quasar's dark theme automatically. Do not set `bg-white` on dialog cards.
-- **Info banners** with background colour must carry `dark:` variants (e.g. `bg-blue-50 dark:bg-blue-900/40`).
-- **ECharts** do not auto-adapt to Quasar dark mode — always pass `is_dark` from `app.storage.user.get("dark_mode", False)` and apply via `views/chart_utils.py:apply_dark()`.
-- **Semantic colours** (income = green, expense = red, transfer = blue) should use Tailwind classes (`text-green-600`, `text-red-600`) or Quasar colour props (`color="positive"`, `color="negative"`). Do not hard-code hex in CSS unless inside an ECharts series definition.
+- **Brand teal (`text-primary`, `color=primary`) is not income green** — amounts
+  use `amount_class()` / semantic green-red tokens.
+- **ECharts** series colours live in `views/chart_utils.py` (`CHART_TEAL`, etc.);
+  always pass `is_dark` and call `apply_dark()`.
+- **KPI trend rows** use `KpiPeriodDelta` from `ReportService` and
+  `format_kpi_trend()` in `dashboard_widgets/helpers.py`.

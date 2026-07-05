@@ -1,0 +1,57 @@
+name: PR review (Claude)
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+
+concurrency:
+  group: pr-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  claude-review:
+    # Skip drafts; skip PRs labelled 'no-ai-review' (escape hatch).
+    if: >
+      !github.event.pull_request.draft &&
+      !contains(github.event.pull_request.labels.*.name, 'no-ai-review')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Claude review against plan + checklist
+        uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            You are the code reviewer for this repository. You did NOT
+            write this code — review it adversarially but fairly.
+
+            Process:
+            1. Read docs/review-checklist.md — it is your rubric.
+            2. Read the PR description. Identify the referenced plan
+               file in docs/plans/. If none is referenced and the
+               change is non-trivial, request changes on that basis.
+            3. Read the plan (scope, "Not in scope", acceptance
+               criteria, implementation notes) and AGENTS.md
+               (Working Agreement).
+            4. Review the full diff of this PR against the checklist.
+            5. Post ONE review comment in the checklist's output
+               format: verdict first (approve / request changes),
+               then findings grouped by checklist section, each with
+               file:line references. Be concise; skip sections with
+               no findings.
+
+            Hard rules: absence of acceptance-criteria output in the
+            PR description is request-changes. New skip/xfail, new
+            ignore_imports entries, or type erosion (Any for real
+            types, enum→str) is request-changes. Do not comment on
+            style that ruff/mypy already enforce.
+          claude_args: |
+            --allowedTools "Bash(git diff:*),Bash(git log:*),Read,Grep,Glob"

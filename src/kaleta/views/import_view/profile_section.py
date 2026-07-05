@@ -27,7 +27,7 @@ def build_profile_section(
 ) -> ProfileSection:
     with ui.card().classes("w-full"):
         ui.label(t("import.profile_label")).classes(
-            "text-sm text-grey-6 font-medium uppercase tracking-wide mb-3"
+            "text-sm text-slate-500 font-medium uppercase tracking-wide mb-3"
         )
         buttons: dict[str, ui.button] = {}
         with ui.row().classes("gap-3 flex-wrap"):

@@ -36,40 +36,59 @@ def upgrade() -> None:
     # 2) Idempotent seed: only run if no root with is_subscriptions_root=1 exists.
     conn = op.get_bind()
     existing = conn.execute(
-        sa.text("SELECT id FROM categories WHERE is_subscriptions_root = 1 LIMIT 1")
+        sa.text("SELECT id FROM categories WHERE is_subscriptions_root IS TRUE LIMIT 1")
     ).fetchone()
     if existing is not None:
         return
 
     # Insert the root. Use parameter binding for safety.
-    result = conn.execute(
-        sa.text(
-            "INSERT INTO categories "
-            "(name, type, parent_id, is_subscriptions_root, created_at, updated_at) "
-            "VALUES (:name, :type, NULL, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
-        ),
-        {"name": SUBSCRIPTIONS_ROOT_NAME, "type": "EXPENSE"},
-    )
-    root_id = result.lastrowid
-    if root_id is None:
-        # Fallback for drivers that don't expose lastrowid.
+    dialect = conn.dialect.name
+    if dialect == "postgresql":
         root_row = conn.execute(
             sa.text(
-                "SELECT id FROM categories WHERE is_subscriptions_root = 1 ORDER BY id DESC LIMIT 1"
-            )
-        ).fetchone()
-        if root_row is None:
-            return
+                "INSERT INTO categories "
+                "(name, type, parent_id, is_subscriptions_root, created_at, updated_at) "
+                "VALUES (:name, :type, NULL, true, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) "
+                "RETURNING id"
+            ),
+            {"name": SUBSCRIPTIONS_ROOT_NAME, "type": "EXPENSE"},
+        ).one()
         root_id = root_row[0]
+    else:
+        result = conn.execute(
+            sa.text(
+                "INSERT INTO categories "
+                "(name, type, parent_id, is_subscriptions_root, created_at, updated_at) "
+                "VALUES (:name, :type, NULL, 1, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+            ),
+            {"name": SUBSCRIPTIONS_ROOT_NAME, "type": "EXPENSE"},
+        )
+        root_id = result.lastrowid
+        if root_id is None:
+            # Fallback for drivers that don't expose lastrowid.
+            root_row = conn.execute(
+                sa.text(
+                    "SELECT id FROM categories WHERE is_subscriptions_root = 1 "
+                    "ORDER BY id DESC LIMIT 1"
+                )
+            ).fetchone()
+            if root_row is None:
+                return
+            root_id = root_row[0]
 
     for child_name in SUBSCRIPTIONS_CHILDREN:
         conn.execute(
             sa.text(
                 "INSERT INTO categories "
                 "(name, type, parent_id, is_subscriptions_root, created_at, updated_at) "
-                "VALUES (:name, :type, :parent_id, 0, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
+                "VALUES (:name, :type, :parent_id, :is_root, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"
             ),
-            {"name": child_name, "type": "EXPENSE", "parent_id": root_id},
+            {
+                "name": child_name,
+                "type": "EXPENSE",
+                "parent_id": root_id,
+                "is_root": False,
+            },
         )
 
 

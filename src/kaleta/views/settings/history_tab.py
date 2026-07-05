@@ -41,7 +41,7 @@ async def render_history_tab() -> None:
                 icon="delete_sweep",
                 on_click=clear_dlg.open,
             ).props("flat dense color=negative size=sm")
-        ui.label(t("audit.hint", n=AuditService.MAX_ENTRIES)).classes("text-xs text-grey-6 mb-4")
+        ui.label(t("audit.hint", n=AuditService.MAX_ENTRIES)).classes("text-xs text-slate-500 mb-4")
 
         async def _do_revert(audit_id: int) -> None:
             try:
@@ -80,10 +80,10 @@ async def render_history_tab() -> None:
             entries = await with_session(_load)
 
             if not entries:
-                ui.label(t("audit.empty")).classes("text-grey-5 text-sm")
+                ui.label(t("audit.empty")).classes("text-slate-400 text-sm")
                 return
 
-            with ui.row().classes("w-full px-2 py-1 text-xs text-grey-6 font-medium border-b"):
+            with ui.row().classes("w-full px-2 py-1 text-xs text-slate-500 font-medium border-b"):
                 ui.label(t("audit.timestamp")).classes("w-40")
                 ui.label(t("audit.operation")).classes("w-28")
                 ui.label(t("audit.table")).classes("w-36")
@@ -102,14 +102,14 @@ async def render_history_tab() -> None:
 
                 with ui.row().classes(row_cls):
                     ui.label(entry.timestamp.strftime("%Y-%m-%d %H:%M:%S")).classes(
-                        "w-40 text-sm font-mono text-grey-7"
+                        "w-40 text-sm font-mono text-slate-600"
                     )
                     ui.badge(op_label, color=color).classes("w-28 text-center")
                     ui.label(entry.table_name).classes("w-36 text-sm")
                     ui.label(str(entry.record_id) if entry.record_id is not None else "—").classes(
-                        "w-16 text-right text-sm text-grey-6"
+                        "w-16 text-right text-sm text-slate-500"
                     )
-                    ui.label(summary).classes("flex-1 text-sm text-grey-7 truncate")
+                    ui.label(summary).classes("flex-1 text-sm text-slate-600 truncate")
                     with ui.row().classes("w-24 justify-end"):
                         if entry.reverted:
                             ui.badge(t("audit.reverted"), color="grey").classes("text-xs")

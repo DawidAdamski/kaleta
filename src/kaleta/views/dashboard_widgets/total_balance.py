@@ -22,5 +22,13 @@ from kaleta.views.dashboard_widgets.registry import register
     ((1, 1), (2, 1)),
 )
 async def render_total_balance(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
-    total = await ReportService(session).total_balance()
-    kpi_card(t("dashboard.total_balance"), fmt_amount(total), "account_balance", "blue-7")
+    svc = ReportService(session)
+    total = await svc.total_balance()
+    delta = await svc.balance_delta_vs_days_ago(30)
+    kpi_card(
+        t("dashboard.total_balance"),
+        fmt_amount(total),
+        "account_balance",
+        "teal-6",
+        delta=delta,
+    )
