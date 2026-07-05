@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

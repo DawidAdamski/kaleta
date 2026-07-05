@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Verify relative markdown links and heading anchors resolve."""
 
 from __future__ import annotations
@@ -11,7 +12,12 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS_DIR = ROOT / "docs"
-EXTRA_FILES = (ROOT / "README.md", ROOT / "CLAUDE.md")
+EXTRA_FILES = (
+    ROOT / "README.md",
+    ROOT / "CLAUDE.md",
+    ROOT / "CONTRIBUTING.md",
+    ROOT / "SECURITY.md",
+)
 
 MARKDOWN_LINK = re.compile(r"(?<!!)\[([^\]]*)\]\(([^)]+)\)")
 FRONTMATTER_ROADMAP = re.compile(r"^roadmap_ref:\s*(.+)$", re.MULTILINE)

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Parsed-row preview table and type stats."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Settings — Data safety.
 
 Covers: KAL-SET-013

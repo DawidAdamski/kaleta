@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Personal loans — track money lent to / borrowed from other people.
 
 The loan lives outside the bank ledger by default. Recording a repayment can

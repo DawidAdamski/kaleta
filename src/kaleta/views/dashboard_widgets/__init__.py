@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dashboard Command Center — widget catalog.
 
 Each widget is a small, self-contained async function that reads its own

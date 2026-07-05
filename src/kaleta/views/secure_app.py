@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Upgrade the migration placeholder user to real credentials."""
 
 from __future__ import annotations

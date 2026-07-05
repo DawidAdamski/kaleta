@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from kaleta.services.account_service import AccountService
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.asset_service import AssetService

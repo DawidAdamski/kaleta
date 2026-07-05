@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """File-storage for institution logos.
 
 Uploaded logos live at ``~/.kaleta/logos/`` and are served at ``/logos/`` via

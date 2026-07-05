@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Rule-engine for the Getting Started mentor.
 
 Evaluates the current app state against a small set of deterministic rules

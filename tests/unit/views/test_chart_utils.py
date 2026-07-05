@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for apply_dark() and related helpers in kaleta.views.chart_utils.
 
 All functions are pure (no DB, no NiceGUI runtime) so plain def tests are used.

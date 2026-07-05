@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from kaleta.schemas.account import AccountCreate, AccountResponse, AccountUpdate
 from kaleta.schemas.budget import BudgetCreate, BudgetResponse, BudgetUpdate
 from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate

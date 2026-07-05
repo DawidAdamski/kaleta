@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for AccountCreate and AccountUpdate Pydantic schemas."""
 
 from decimal import Decimal

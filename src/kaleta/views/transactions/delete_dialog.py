@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Delete confirmation dialog for selected transactions."""
 
 from __future__ import annotations

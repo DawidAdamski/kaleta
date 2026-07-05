@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Login page — username + password against the single app user."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Bank profile selector for the active queued file."""
 
 from __future__ import annotations

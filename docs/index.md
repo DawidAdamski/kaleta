@@ -7,6 +7,7 @@ walkthrough of the app's key workflows.
 
 ## Sections
 
+- [Getting started](getting-started.md) - install, configure, and develop Kaleta
 - [Product](product/index.md) - product features and behavior
 - [Walkthrough](walkthrough/index.md) - step-by-step user guide
 - [Architecture](architecture.md) - technical architecture

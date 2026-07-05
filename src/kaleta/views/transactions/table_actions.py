@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Bulk-selection actions bar for the transactions table."""
 
 from __future__ import annotations

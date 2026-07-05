@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Session scope helper for UI callers that must not import kaleta.db directly."""
 
 from __future__ import annotations

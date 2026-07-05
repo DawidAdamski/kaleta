@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Wizard step indicator for the import page."""
 
 from __future__ import annotations

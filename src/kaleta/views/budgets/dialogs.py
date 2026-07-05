@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Budget edit dialog for the current month."""
 
 from __future__ import annotations

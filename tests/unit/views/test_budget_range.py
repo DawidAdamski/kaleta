@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for date_range_for_key() in kaleta.services.budget_service.
 
 All 10 RANGE_OPTIONS keys are tested for correct start/end date boundaries.

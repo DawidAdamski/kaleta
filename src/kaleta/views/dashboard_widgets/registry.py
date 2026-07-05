@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Widget catalog — types, registration, and default widget order."""
 
 from __future__ import annotations

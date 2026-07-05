@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dimension and metric palette for the report builder."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CSV export and amount formatting for canned reports."""
 
 from __future__ import annotations

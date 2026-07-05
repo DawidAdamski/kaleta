@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dashboard layout persistence — order, sizing, and legacy migration."""
 
 from __future__ import annotations

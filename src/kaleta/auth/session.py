@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Server-side session state stored in NiceGUI ``app.storage.user``."""
 
 from __future__ import annotations

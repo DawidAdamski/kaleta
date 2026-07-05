@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Year-over-year comparison report."""
 
 from __future__ import annotations

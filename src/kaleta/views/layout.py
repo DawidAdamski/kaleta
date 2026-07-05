@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from importlib.metadata import version as _pkg_version

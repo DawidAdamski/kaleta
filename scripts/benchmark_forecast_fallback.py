@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Benchmark seasonal-naive vs rolling-30-day-mean on seed-like balance series.
 
 Run:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: mBank CSV Import (generic CSV path).
 
 Covers: KAL-CSV-001

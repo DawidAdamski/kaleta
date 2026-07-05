@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Report library catalog — slug, i18n keys, icon, colour."""
 
 from __future__ import annotations

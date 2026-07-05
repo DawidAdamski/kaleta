@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unified import view — generic CSV and bank-specific profiles."""
 
 from __future__ import annotations

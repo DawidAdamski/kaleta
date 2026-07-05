@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for TransactionCreate and TransactionUpdate Pydantic schemas."""
 
 from __future__ import annotations

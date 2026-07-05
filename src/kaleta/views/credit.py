@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Credit module — dedicated view for cards and loans."""
 
 from __future__ import annotations

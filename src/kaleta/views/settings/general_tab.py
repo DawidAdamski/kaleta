@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Settings — General tab (language, currency, date format, week start)."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration tests for /api/v1/budgets."""
 
 from __future__ import annotations

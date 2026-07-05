@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Dashboard Command Center.
 
 Renders a unified 4-column CSS grid of widgets. The widget catalog lives

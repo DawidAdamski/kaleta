@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Budget overview tab — chart and summary table."""
 
 from __future__ import annotations

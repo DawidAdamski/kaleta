@@ -96,6 +96,15 @@ The subagent:
 
 ## Plans index
 
+### Q4 2026 — Open-source launch (execute in this order)
+
+| # | Plan | Status | Depends on |
+|---|---|---|---|
+| 1 | [q4-licence-and-cla](q4-licence-and-cla.md) | done | — |
+| 2 | [q4-public-repo-readiness](q4-public-repo-readiness.md) | draft | 1 (CONTRIBUTING references CLA) |
+| 3 | [q4-supabase-deployment](q4-supabase-deployment.md) | draft | — (CI postgres part parallel-safe) |
+| 4 | [q4-dashboard-design-refresh](q4-dashboard-design-refresh.md) | draft | — (after categories bug is fixed) |
+
 ### Q3 2026 — Stabilisation & debt (execute in this order)
 
 | # | Plan | Status | Depends on |

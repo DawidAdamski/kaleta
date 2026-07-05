@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Reusable filter toolbar for account/category/date-range/description filters."""
 
 from __future__ import annotations

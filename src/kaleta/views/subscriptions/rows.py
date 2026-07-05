@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Subscription list row renderers."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Route guard for NiceGUI UI pages."""
 
 from __future__ import annotations

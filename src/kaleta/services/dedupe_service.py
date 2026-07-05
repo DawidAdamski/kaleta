@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Housekeeping detector + merge flows for duplicate rows.
 
 Three detectors find near-duplicates the user may want to merge:

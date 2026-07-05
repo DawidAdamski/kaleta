@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Budget plan edit dialogs — single cell, fill-all-months, yearly spread."""
 
 from __future__ import annotations

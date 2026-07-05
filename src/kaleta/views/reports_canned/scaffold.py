@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared layout widgets for canned report pages."""
 
 from __future__ import annotations

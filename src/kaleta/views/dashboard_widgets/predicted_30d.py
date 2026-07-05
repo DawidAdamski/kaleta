@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Predicted 30-day balance KPI widget."""
 
 from __future__ import annotations

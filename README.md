@@ -1,217 +1,35 @@
 # Kaleta
 
-**Kaleta** (Polish: *leather money pouch*) is a personal budget and finance management application.
+[![CI](https://github.com/DawidAdamski/kaleta/actions/workflows/ci.yml/badge.svg)](https://github.com/DawidAdamski/kaleta/actions/workflows/ci.yml)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
-Track transactions, create budgets, import bank CSV exports, and forecast your cash flow — all from a self-hosted web app or desktop window.
+**Kaleta** (Polish: *leather money pouch*) is a self-hosted personal budget and
+finance app. Track transactions, build budgets, import bank CSV exports, and
+forecast cash flow — from a browser, desktop window, or headless API.
 
-## Features
+![Kaleta dashboard (dark mode)](docs/images/dashboard-dark.png)
 
-- Transaction tracking with categories and accounts
-- Split transactions across multiple categories (GnuCash-style)
-- Transaction filtering by account, category, type, date range, and description
-- Budget creation and monitoring (budget vs. actual charts)
-- CSV import with auto-detection of Polish bank formats
-- Internal transfer detection between accounts
-- Multi-currency accounts with per-account ISO currency codes; cross-currency transfer entry with exchange rate panel; net worth and all totals converted to a configurable default currency
-- Net worth tracking with 13-month history chart, asset/liability breakdown, and physical asset management (real estate, vehicles, valuables)
-- Cash flow forecasting (30–90 day horizon), per-account or combined multi-account, with confidence interval and zero-balance alert; Prophet-based when the optional `forecast` extra is installed, otherwise a lightweight seasonal-naive fallback
-- Planned and recurring transactions (weekly/monthly/yearly) with active/inactive toggle; visible as upcoming items in the transactions view and included in the forecast
-- Credit calculator — loan amortization for consumer loans, car loans, and mortgages; equal vs decreasing installments; monthly overpayment and lump-sum simulation
-- Credit module — manage real credit cards and loans: utilization tracking (green/amber/red), minimum payment, next-due date, status chip; loans include full amortisation schedule; dashboard widget shows all card utilization at a glance
-- Annual budget planning grid — per-category monthly targets across a full year, budget-vs-actual overlay, year-over-year comparison
-- Initial setup wizard — guided onboarding with zero-based budget assignment; "Finish Setup" requires every opening-balance zloty to be assigned
-- Settings — tabbed page (General, Appearance, Features, Data, History, About) with configurable locale, theme, detector look-back windows, backup/restore, and audit log; all preferences stored in server-side session storage
-- Subscriptions panel — category-tree-as-source-of-truth model: the "Subscriptions" root category (flagged by `is_subscriptions_root`) and its children define what counts as a subscription; detector surfaces only un-categorised recurrences; confirming a candidate re-categorises matching historical transactions to the chosen sub-category; "By category" view shows 90-day spend per sub-category
-- Cross-panel projections — Budget Builder and Payment Calendar consume read-only monthly-equivalent projections of sibling panels' data (planned transactions, subscriptions, loans, reserve funds) via `WizardProjectionService`; pulled rows display with a lock icon and a cross-link to the source panel; no data is duplicated or stored on the consumer side
-- Dashboard Edit mode — "Edit layout / Done" toggle enables SortableJS drag-and-drop reorder across three size-isolated widget groups (KPI, half, full); Alt+↑/↓ keyboard reorder also supported; order persists in server-side session storage
-- Installable as a Progressive Web App (PWA) on mobile and desktop
-- REST API for integrations
-- SQLite (default) or PostgreSQL
+## Quick start
 
----
-
-## Quick Start
-
-### Prerequisites
-
-- Python 3.13+
-- [uv](https://docs.astral.sh/uv/) package manager
+Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-# Install uv (if not already installed)
-curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync && uv run alembic upgrade head && uv run kaleta
 ```
 
-### 1. Install dependencies
-
-```bash
-uv sync
-```
-
-For Prophet-based forecasting (adds ~300 MB including cmdstan):
-
-```bash
-uv sync --extra forecast
-```
-
-### Optional forecasting {#optional-forecasting}
-
-Prophet is an **optional extra**, not a core dependency. Without it the app
-starts normally and the Forecast page uses a lightweight seasonal-naive
-projection with a banner explaining the fallback.
-
-```bash
-uv sync --extra forecast   # install Prophet + cmdstan
-```
-
-Docker ships two images: `kaleta:slim` (default `Containerfile`, no Prophet)
-and `kaleta:full` (`Containerfile.full`, includes the forecast extra).
-Docker Compose uses the full image by default for existing users.
-
-### 2. Run database migrations
-
-```bash
-uv run alembic upgrade head
-```
-
-### 3. (Optional) Load seed data
-
-Populates the database with realistic Polish demo data (4 accounts, 19 categories, ~240 transactions, 8 budgets):
-
-```bash
-uv run python scripts/seed.py
-```
-
-### 4. Start the application
-
-```bash
-uv run kaleta
-```
-
-Open your browser at **http://localhost:8080**
-
-On first launch you will choose a database location, then **create a username and password** before any financial data pages load. Use those credentials to sign in on later visits.
-
----
-
-## Running Modes
-
-Set via the `KALETA_MODE` environment variable:
-
-| Mode | Command | Description |
-|------|---------|-------------|
-| `web` (default) | `uv run kaleta` | Browser-accessible web app |
-| `app` | `KALETA_MODE=app uv run kaleta` | NiceGUI desktop window |
-| `api` | `KALETA_MODE=api uv run kaleta` | Headless REST API only |
-
----
-
-## Environment Variables
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `KALETA_DB_URL` | `sqlite:///kaleta.db` | Database connection URL |
-| `KALETA_HOST` | `127.0.0.1` | Host to bind to (`0.0.0.0` in Docker Compose) |
-| `KALETA_PORT` | `8080` | Port to listen on |
-| `KALETA_MODE` | `web` | Runtime mode (`web` / `app` / `api`) |
-| `KALETA_SECRET_KEY` | `change-me-in-production` | Secret key for sessions (required outside debug) |
-| `KALETA_DEBUG` | `false` | Enable debug mode (allows default secret key) |
-| `KALETA_API_TOKEN` | _(unset)_ | Optional bootstrap bearer token for `KALETA_MODE=api` |
-
-Create a `.env` file in the project root to override defaults:
-
-```env
-KALETA_DB_URL=sqlite:///kaleta.db
-KALETA_HOST=127.0.0.1
-KALETA_PORT=8080
-KALETA_SECRET_KEY=your-secret-key-here
-```
-
----
-
-## Docker
-
-```bash
-# Full image (Prophet forecasting) — default in docker-compose
-docker compose up
-
-# Slim image (no Prophet, ~300 MB smaller)
-docker build -f Containerfile -t kaleta:slim .
-docker run -p 8080:8080 kaleta:slim
-
-# Or using Podman
-podman-compose up
-```
-
----
-
-## Development
-
-```bash
-# Install with dev dependencies
-uv sync --group dev
-
-# Run unit and integration tests
-uv run pytest
-
-# Install Playwright browsers (once)
-uv run playwright install chromium
-
-# Run e2e tests (requires a running app instance)
-uv run pytest tests/e2e/
-
-# Lint and format
-uv run ruff check .
-uv run ruff format .
-
-# Type checking
-uv run mypy src/
-
-# Full Definition-of-Done gate (requires `uv sync --group dev` first)
-./scripts/verify.sh
-# Add --e2e when changing views under src/kaleta/views/
-
-# Create a new migration after model changes
-uv run alembic revision --autogenerate -m "description"
-uv run alembic upgrade head
-```
-
----
-
-## Project Structure
-
-```
-src/kaleta/
-├── main.py          # Entrypoint
-├── pwa.py           # PWA setup: manifest, service worker, static routes
-├── static/          # Static assets (manifest.json, sw.js, icons/)
-├── config/          # Settings via pydantic-settings
-├── db/              # Engine, session factory, base model
-├── models/          # SQLAlchemy ORM models
-├── schemas/         # Pydantic request/response schemas
-├── services/        # Business logic
-├── controllers/     # Route handlers
-├── api/             # REST API (versioned under api/v1/)
-└── views/           # NiceGUI UI pages
-scripts/
-└── seed.py          # Demo data generator (Faker, Polish locale)
-tests/
-├── unit/
-│   ├── schemas/     # Pydantic validation tests
-│   ├── services/    # Service layer tests
-│   └── security/    # SQL injection, XSS, input security tests
-├── integration/
-└── e2e/             # Playwright browser tests (requires live app)
-```
-
----
+Open **http://localhost:8080**, create your account on first launch, then sign
+in. Optional demo data: `uv run python scripts/seed.py`.
 
 ## Documentation
 
-- [Architecture](docs/architecture.md) — Architecture decisions and patterns
-- [Tech Stack](docs/tech-stack.md) — Technology choices and configuration
-- [BDD Scenarios](docs/bdd.md) — Gherkin scenarios for e2e tests
+- [Documentation site](https://dawidadamski.github.io/kaleta/) — product guides, architecture, roadmap
+- [Getting started](docs/getting-started.md) — Docker, environment variables, development setup
+- [Contributing](CONTRIBUTING.md) — how we work and open a PR
+- [Security](SECURITY.md) — report vulnerabilities privately
 
 ## License
 
-MIT
+The Kaleta core is licensed under [AGPL-3.0-or-later](LICENSE). External
+contributors sign the [Contributor License Agreement](docs/cla.md) before their
+first pull request is merged. See [ADR-033](docs/adr/033-agpl-core-with-cla.md)
+for the open-core model.

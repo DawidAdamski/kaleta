@@ -24,6 +24,7 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  - Getting started: getting-started.md
   - Product:
       - Overview: product/index.md
       - Dashboard: product/dashboard.md
@@ -66,5 +67,6 @@ nav:
           - "ADR-030: Read-Only Cross-Panel Projection Layer": adr/030-read-only-cross-panel-projection-layer.md
           - "ADR-031: SortableJS Drag-and-Drop for Dashboard Widget Reorder": adr/031-sortablejs-drag-and-drop-for-dashboard-widget-reorder.md
           - "ADR-032: Retire the Controller Layer — Views Call Services Directly": adr/032-retire-the-controller-layer-views-call-services-directly.md
+          - "ADR-033: AGPL-3.0 Core with CLA and Proprietary Commercial Tier": adr/033-agpl-core-with-cla.md
       - Tech Stack: tech-stack.md
       - BDD Scenarios: bdd.md

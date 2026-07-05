@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Post-import summary for the multi-file queue."""
 
 from __future__ import annotations

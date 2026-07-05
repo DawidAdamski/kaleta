@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Personal loan list row renderers."""
 
 from __future__ import annotations

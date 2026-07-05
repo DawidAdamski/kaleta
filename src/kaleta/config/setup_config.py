@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Persistent user configuration for database selection.
 
 Stored at ~/.kaleta/config.json — survives app restarts.

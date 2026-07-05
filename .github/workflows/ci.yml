@@ -41,6 +41,9 @@ jobs:
       - name: Doc link checker
         run: uv run python scripts/check_doc_links.py
 
+      - name: SPDX headers
+        run: uv run python scripts/check_spdx_headers.py
+
   test:
     runs-on: ubuntu-latest
     steps:

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Transactions list page — wiring, filters, table, and dialogs."""
 
 from __future__ import annotations

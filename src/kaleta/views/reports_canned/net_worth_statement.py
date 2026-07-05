@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Net worth statement — summary with link to full net-worth page."""
 
 from __future__ import annotations

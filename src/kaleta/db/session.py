@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Database session factory — supports runtime reconfiguration via proxy pattern.
 
 All modules that import `AsyncSessionFactory` share the same proxy object.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for the dashboard layout helpers.
 
 Covers ``_validate_layout`` and ``cycle_size`` plus the legacy-migration

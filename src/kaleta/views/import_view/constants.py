@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Import view constants — bank profiles and queue status colours."""
 
 from __future__ import annotations

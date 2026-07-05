@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Manual Transaction Entry.
 
 Covers: KAL-TXN-001

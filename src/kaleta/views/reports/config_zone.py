@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Report builder configuration panel — drop zones and filters."""
 
 from __future__ import annotations

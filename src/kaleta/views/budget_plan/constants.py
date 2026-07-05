@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Budget plan view constants — column styles and month labels."""
 
 from __future__ import annotations

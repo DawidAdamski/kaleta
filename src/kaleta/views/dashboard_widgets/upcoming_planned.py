@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Upcoming planned transactions widget."""
 
 from __future__ import annotations

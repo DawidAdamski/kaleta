@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from kaleta.db import audit as _audit  # noqa: F401 — registers session event listeners
 from kaleta.db.base import Base, engine
 from kaleta.db.session import AsyncSessionFactory, get_session

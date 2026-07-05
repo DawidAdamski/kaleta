@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CSV upload drop zone for the import wizard."""
 
 from __future__ import annotations

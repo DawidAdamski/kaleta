@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Budget vs actual chart options."""
 
 from __future__ import annotations

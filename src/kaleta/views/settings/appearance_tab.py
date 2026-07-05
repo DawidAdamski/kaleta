@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Settings — Appearance tab (theme, sidebar)."""
 
 from __future__ import annotations

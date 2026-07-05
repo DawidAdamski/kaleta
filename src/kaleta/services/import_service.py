@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """CSV import and internal transfer detection service."""
 
 from __future__ import annotations

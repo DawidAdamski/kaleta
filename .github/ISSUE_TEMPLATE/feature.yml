@@ -1,0 +1,51 @@
+name: Feature request
+description: Suggest an improvement or new capability
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement. Check the [roadmap](https://dawidadamski.github.io/kaleta/roadmap/) and [existing issues](https://github.com/DawidAdamski/kaleta/issues) first.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What user need does this address? Who benefits?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work?
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Other approaches you thought about.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - dashboard
+        - transactions
+        - budgets
+        - import
+        - wizard / financial planning
+        - reports
+        - API
+        - infrastructure / packaging
+        - other
+    validations:
+      required: true

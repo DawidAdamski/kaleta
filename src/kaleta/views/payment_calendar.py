@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Payment Calendar — month-grid view of planned transactions.
 
 Each cell shows the day's inflow/outflow totals. Clicking a cell opens a

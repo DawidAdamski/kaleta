@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Cross-panel projection layer.
 
 Each wizard panel has a rich UI rooted in its own service. This aggregator

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Split-transaction row editor inside the add-transaction dialog."""
 
 from __future__ import annotations

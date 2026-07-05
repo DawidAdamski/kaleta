@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Prophet-based forecaster — lazy-imports the optional dependency."""
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ class ProphetForecaster:
     ) -> list[ForecastRow] | None:
         try:
             import pandas as pd  # type: ignore[import-untyped]
-            from prophet import Prophet  # type: ignore[import-untyped]
+            from prophet import Prophet  # type: ignore[import-not-found]
         except ImportError:
             return None
 

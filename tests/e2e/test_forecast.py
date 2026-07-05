@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Account Balance Forecast.
 
 Maps scenarios from docs/bdd.md — Feature: Account Balance Forecast.

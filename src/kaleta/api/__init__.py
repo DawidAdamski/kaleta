@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 from fastapi import APIRouter
 
 from kaleta.api.v1 import v1_router

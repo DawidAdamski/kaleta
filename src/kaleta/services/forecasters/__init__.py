@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Forecast model backends — Prophet (optional) or lightweight naive fallback."""
 
 from __future__ import annotations

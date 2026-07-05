@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Per-file import settings (account, categories, duplicate skip)."""
 
 from __future__ import annotations

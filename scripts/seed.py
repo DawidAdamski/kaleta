@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Seed the database with 6 years of realistic fake data using Faker.
 
 Run:

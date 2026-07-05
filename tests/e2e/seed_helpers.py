@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared seed helpers for e2e tests.
 
 All helpers write to the isolated e2e database via the ephemeral app's REST

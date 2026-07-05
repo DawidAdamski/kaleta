@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Credit cards and loans — utilization, amortisation, status computation."""
 
 from __future__ import annotations

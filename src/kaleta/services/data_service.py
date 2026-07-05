@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """DataService — clear all data and/or seed with realistic example data.
 
 Used by the Settings page for the "Populate with example data" and

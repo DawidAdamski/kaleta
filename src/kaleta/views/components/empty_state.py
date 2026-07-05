@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Empty-state helpers for tables and lists."""
 
 from __future__ import annotations

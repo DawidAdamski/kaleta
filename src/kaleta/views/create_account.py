@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """First-run account creation when the database has no user row."""
 
 from __future__ import annotations

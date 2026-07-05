@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Add transaction dialog with split and cross-currency transfer support."""
 
 from __future__ import annotations

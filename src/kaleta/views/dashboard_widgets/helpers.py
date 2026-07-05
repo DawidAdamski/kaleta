@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared rendering helpers for dashboard widgets."""
 
 from __future__ import annotations

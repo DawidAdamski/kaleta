@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Budget variance month widget."""
 
 from __future__ import annotations

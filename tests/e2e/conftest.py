@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Playwright e2e test configuration.
 
 Default: pytest launches an isolated Kaleta instance (ephemeral SQLite DB on

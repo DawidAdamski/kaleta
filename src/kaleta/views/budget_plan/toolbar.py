@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Budget plan toolbar — year chips and copy-from-previous-month."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Saved reports strip at the top of the builder."""
 
 from __future__ import annotations

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Annual Budget Planning — budget vs actual view.
 
 Covers: KAL-BUD-006

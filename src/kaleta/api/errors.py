@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Shared API error envelope and exception handlers."""
 
 from __future__ import annotations

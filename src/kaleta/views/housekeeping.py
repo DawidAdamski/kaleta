@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """Housekeeping page — surface duplicate candidates and offer one-click merge."""
 
 from __future__ import annotations

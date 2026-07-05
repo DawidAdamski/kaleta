@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
 """First-run setup page — lets the user choose a local or cloud database."""
 
 from __future__ import annotations

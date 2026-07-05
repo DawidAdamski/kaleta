@@ -38,6 +38,8 @@ echo "==> spec coverage (BDD <-> tests)"
 uv run python scripts/spec_coverage.py
 echo "==> doc link checker"
 uv run python scripts/check_doc_links.py
+echo "==> SPDX headers (AGPL-3.0-or-later)"
+uv run python scripts/check_spdx_headers.py
 
 # E2e: explicit via --e2e, or FORCED when views/ changed (Working Agreement rule 8).
 RUN_E2E="${1:-}"
