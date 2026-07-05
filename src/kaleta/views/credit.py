@@ -8,19 +8,17 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.account import AccountType
-from kaleta.schemas.account import AccountCreate
+from kaleta.schemas.account import AccountCreate, AccountType
 from kaleta.schemas.credit import (
+    AmortisationRow,
     CardView,
     CreditCardProfileCreate,
     CreditStatus,
     LoanProfileCreate,
     LoanView,
 )
-from kaleta.services import AccountService, CreditService
-from kaleta.services.credit_service import amortisation_schedule
+from kaleta.services import AccountService, CreditService, with_session
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -55,10 +53,11 @@ def _utilization_color(pct: Decimal) -> str:
 def register() -> None:
     @ui.page("/credit")
     async def credit_page() -> None:
-        async with AsyncSessionFactory() as session:
+        async def _load(session: Any) -> tuple[list[CardView], list[LoanView]]:
             svc = CreditService(session)
-            cards = await svc.list_cards()
-            loans = await svc.list_loans()
+            return await svc.list_cards(), await svc.list_loans()
+
+        cards, loans = await with_session(_load)
 
         with page_layout(t("credit.title"), wide=True):
             with ui.column().classes("gap-1"):
@@ -154,47 +153,48 @@ async def _render_cards_tab(cards: list[CardView]) -> None:
                 "color=primary unelevated"
             )
 
-    async def _save_card() -> None:
-        try:
-            name = (name_in.value or "").strip()
-            if not name:
-                ui.notify(t("credit.err_name_required"), type="warning")
+        async def _save_card() -> None:
+            try:
+                name = (name_in.value or "").strip()
+                if not name:
+                    ui.notify(t("credit.err_name_required"), type="warning")
+                    return
+                limit = Decimal(str(limit_in.value or 0))
+                if limit <= 0:
+                    ui.notify(t("credit.err_limit_required"), type="warning")
+                    return
+                balance = Decimal(str(balance_in.value or 0))
+                apr = Decimal(str(apr_in.value or 0))
+                floor = Decimal(str(floor_in.value or 0))
+            except (ValueError, TypeError) as exc:
+                ui.notify(str(exc), type="negative")
                 return
-            limit = Decimal(str(limit_in.value or 0))
-            if limit <= 0:
-                ui.notify(t("credit.err_limit_required"), type="warning")
-                return
-            balance = Decimal(str(balance_in.value or 0))
-            apr = Decimal(str(apr_in.value or 0))
-            floor = Decimal(str(floor_in.value or 0))
-        except (ValueError, TypeError) as exc:
-            ui.notify(str(exc), type="negative")
-            return
 
-        async with AsyncSessionFactory() as s:
-            # Account stores the balance as *negative* when money is owed.
-            account = await AccountService(s).create(
-                AccountCreate(
-                    name=name,
-                    type=AccountType.CREDIT,
-                    balance=-balance,
+            async def _persist(session: Any) -> None:
+                account = await AccountService(session).create(
+                    AccountCreate(
+                        name=name,
+                        type=AccountType.CREDIT,
+                        balance=-balance,
+                    )
                 )
-            )
-            await CreditService(s).create_card(
-                CreditCardProfileCreate(
-                    account_id=account.id,
-                    credit_limit=limit,
-                    statement_day=int(statement_day_in.value or 1),
-                    payment_due_day=int(due_day_in.value or 25),
-                    apr=apr,
-                    min_payment_floor=floor,
+                await CreditService(session).create_card(
+                    CreditCardProfileCreate(
+                        account_id=account.id,
+                        credit_limit=limit,
+                        statement_day=int(statement_day_in.value or 1),
+                        payment_due_day=int(due_day_in.value or 25),
+                        apr=apr,
+                        min_payment_floor=floor,
+                    )
                 )
-            )
-        add_card_dialog.close()
-        ui.notify(t("credit.card_saved"), type="positive")
-        ui.navigate.reload()
 
-    save_card_btn.on_click(_save_card)
+            await with_session(_persist)
+            add_card_dialog.close()
+            ui.notify(t("credit.card_saved"), type="positive")
+            ui.navigate.reload()
+
+        save_card_btn.on_click(_save_card)
 
     with ui.row().classes("w-full justify-end"):
         ui.button(
@@ -320,15 +320,15 @@ async def _render_loans_tab(loans: list[LoanView]) -> None:
             ui.notify(str(exc), type="negative")
             return
 
-        async with AsyncSessionFactory() as s:
-            account = await AccountService(s).create(
+        async def _persist(session: Any) -> None:
+            account = await AccountService(session).create(
                 AccountCreate(
                     name=name,
                     type=AccountType.CREDIT,
                     balance=-principal,
                 )
             )
-            await CreditService(s).create_loan(
+            await CreditService(session).create_loan(
                 LoanProfileCreate(
                     account_id=account.id,
                     principal=principal,
@@ -337,6 +337,8 @@ async def _render_loans_tab(loans: list[LoanView]) -> None:
                     start_date=start,
                 )
             )
+
+        await with_session(_persist)
         add_loan_dialog.close()
         ui.notify(t("credit.loan_saved"), type="positive")
         ui.navigate.reload()
@@ -356,10 +358,13 @@ async def _render_loans_tab(loans: list[LoanView]) -> None:
         return
 
     for ln in loans:
-        _render_loan(ln)
+        await _render_loan(ln)
 
 
-def _render_loan(loan: LoanView) -> None:
+async def _render_loan(loan: LoanView) -> None:
+    schedule = await with_session(
+        lambda session: CreditService(session).amortisation(loan.account_id)
+    )
     status_colour = _STATUS_COLOR[loan.status]
     pct_clamped = float(loan.months_elapsed / loan.term_months) if loan.term_months > 0 else 0.0
 
@@ -420,17 +425,6 @@ def _render_loan(loan: LoanView) -> None:
             )
 
         # Amortisation expansion — first 6 rows preview.
-        from kaleta.models.credit import LoanProfile
-
-        dummy = LoanProfile(
-            account_id=loan.account_id,
-            principal=loan.principal,
-            apr=loan.apr,
-            term_months=loan.term_months,
-            start_date=loan.start_date,
-            monthly_payment=loan.monthly_payment,
-        )
-        schedule = amortisation_schedule(dummy)
         with (
             ui.expansion(t("credit.loan_schedule"), icon="list_alt")
             .classes("w-full mt-3")
@@ -439,7 +433,9 @@ def _render_loan(loan: LoanView) -> None:
             _render_schedule_preview(schedule, currency=loan.currency)
 
 
-def _render_schedule_preview(schedule: list[Any], *, currency: str, preview_rows: int = 6) -> None:
+def _render_schedule_preview(
+    schedule: list[AmortisationRow], *, currency: str, preview_rows: int = 6
+) -> None:
     if not schedule:
         return
     # Header row

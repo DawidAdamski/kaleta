@@ -6,6 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from kaleta.models.category import CategoryType
 
+__all__ = [
+    "CategoryType",
+    "CategoryBase",
+    "CategoryCreate",
+    "CategoryUpdate",
+    "CategoryResponse",
+]
+
 
 class CategoryBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)

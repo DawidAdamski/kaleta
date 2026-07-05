@@ -6,6 +6,14 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from kaleta.models.institution import InstitutionType
 
+__all__ = [
+    "InstitutionType",
+    "InstitutionBase",
+    "InstitutionCreate",
+    "InstitutionUpdate",
+    "InstitutionResponse",
+]
+
 
 class InstitutionBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)

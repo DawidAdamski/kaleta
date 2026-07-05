@@ -1,10 +1,15 @@
+from typing import Any
+
 from nicegui import events, ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.institution import Institution, InstitutionType
-from kaleta.schemas.institution import InstitutionCreate, InstitutionUpdate
-from kaleta.services import InstitutionService
+from kaleta.schemas.institution import (
+    InstitutionCreate,
+    InstitutionResponse,
+    InstitutionType,
+    InstitutionUpdate,
+)
+from kaleta.services import InstitutionService, with_session
 from kaleta.services.institution_logo_service import delete_logo, save_logo
 from kaleta.views.institution_avatar import institution_avatar
 from kaleta.views.layout import page_layout
@@ -24,8 +29,11 @@ def _type_labels() -> dict[str, str]:
 def register() -> None:
     @ui.page("/institutions")
     async def institutions_page() -> None:
-        async with AsyncSessionFactory() as session:
-            institution_list = await InstitutionService(session).list()
+        async def _load(session: Any) -> list[InstitutionResponse]:
+            institutions = await InstitutionService(session).list()
+            return [InstitutionResponse.model_validate(i) for i in institutions]
+
+        institution_list = await with_session(_load)
 
         selected_id: list[int | None] = [None]
         add_logo_path: list[str | None] = [None]
@@ -159,9 +167,12 @@ def register() -> None:
                     description=add_desc.value.strip() or None,
                     logo_path=add_logo_path[0],
                 )
-                async with AsyncSessionFactory() as session:
+
+                async def _persist(session: Any) -> InstitutionResponse:
                     inst = await InstitutionService(session).create(data)
-                institution_list.append(inst)
+                    return InstitutionResponse.model_validate(inst)
+
+                institution_list.append(await with_session(_persist))
                 institution_cards.refresh()
                 ui.notify(t("institutions.created"), type="positive")
                 add_dialog.close()
@@ -265,8 +276,12 @@ def register() -> None:
                     description=edit_desc.value.strip() or None,
                     logo_path=edit_logo_path[0],
                 )
-                async with AsyncSessionFactory() as session:
+
+                async def _persist(session: Any) -> InstitutionResponse | None:
                     updated = await InstitutionService(session).update(iid, data)
+                    return InstitutionResponse.model_validate(updated) if updated else None
+
+                updated = await with_session(_persist)
                 if updated:
                     for idx, inst in enumerate(institution_list):
                         if inst.id == iid:
@@ -297,8 +312,11 @@ def register() -> None:
                 iid = selected_id[0]
                 if iid is None:
                     return
-                async with AsyncSessionFactory() as session:
+
+                async def _delete(session: Any) -> None:
                     await InstitutionService(session).delete(iid)
+
+                await with_session(_delete)
                 for inst in institution_list:
                     if inst.id == iid:
                         institution_list.remove(inst)
@@ -323,7 +341,7 @@ def register() -> None:
             add_logo_preview.visible = False
             add_dialog.open()
 
-        def _open_edit(inst: Institution) -> None:
+        def _open_edit(inst: InstitutionResponse) -> None:
             selected_id[0] = inst.id
             edit_name.set_value(inst.name)
             edit_type.set_value(inst.type.value)
@@ -340,7 +358,7 @@ def register() -> None:
                 edit_logo_preview.visible = False
             edit_dialog.open()
 
-        def _open_delete(inst: Institution) -> None:
+        def _open_delete(inst: InstitutionResponse) -> None:
             selected_id[0] = inst.id
             delete_label.set_text(t("institutions.delete_confirm", name=inst.name))
             delete_dialog.open()

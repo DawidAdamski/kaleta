@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from nicegui import ui
 
-from kaleta.models.institution import Institution
+from kaleta.schemas.institution import InstitutionResponse
 
 _DEFAULT_COLOR = "#64748b"  # slate-500
 
 
-def institution_avatar(inst: Institution | None, size: int = 32) -> None:
+def institution_avatar(inst: InstitutionResponse | None, size: int = 32) -> None:
     """Render the avatar for *inst* at *size* pixels.
 
     - If ``inst.logo_path`` is set, render it as an image.

@@ -167,6 +167,17 @@ components.
   pickers use `CategoryService.build_option_labels`.
 - Removed `pyproject.toml` lint-import ignores for `budgets`.
 
+### views burn-down part 1 (2026-07-05)
+
+- Converted `accounts`, `categories`, `credit`, `dashboard`, `forecast`,
+  `housekeeping`, `institution_avatar`, `institutions`, `layout` to the
+  established pattern: `with_session`, schema responses/enums, `TYPE_CHECKING`
+  for sqlalchemy typing-only imports.
+- Added `dispose_sessions()` to `kaleta.services.session` for layout close-db.
+- Credit loan schedule preview uses `CreditService.amortisation` instead of
+  constructing `LoanProfile` in the view.
+- Removed 18 `pyproject.toml` lint-import ignores for the above modules.
+
 ### Exit criteria — LOC cap (2026-07-04)
 
 Verified with `wc -l src/kaleta/views/**/*.py` after the final split:

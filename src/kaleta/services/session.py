@@ -13,3 +13,8 @@ async def with_session[T](fn: Callable[[AsyncSession], Awaitable[T]]) -> T:
     """Open a DB session, invoke ``fn(session)``, and return its result."""
     async with AsyncSessionFactory() as session:
         return await fn(session)
+
+
+async def dispose_sessions() -> None:
+    """Close the shared engine and connection pool (e.g. when switching databases)."""
+    await AsyncSessionFactory.dispose()

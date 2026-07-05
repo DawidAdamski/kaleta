@@ -5,12 +5,10 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.account import Account, AccountType
-from kaleta.models.institution import Institution
-from kaleta.schemas.account import AccountCreate, AccountUpdate
-from kaleta.services import AccountService, InstitutionService
+from kaleta.schemas.account import AccountCreate, AccountResponse, AccountType, AccountUpdate
+from kaleta.schemas.institution import InstitutionResponse
+from kaleta.services import AccountService, InstitutionService, with_session
 from kaleta.views.institution_avatar import institution_avatar
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD
@@ -45,7 +43,7 @@ def _type_labels() -> dict[str, str]:
     }
 
 
-def _group_icon(by: str, name: str, accts: list[Account]) -> str:
+def _group_icon(by: str, name: str, accts: list[AccountResponse]) -> str:
     labels = _type_labels()
     if by == "type":
         rev = {v: k for k, v in labels.items()}
@@ -57,14 +55,21 @@ def _group_icon(by: str, name: str, accts: list[Account]) -> str:
 def register() -> None:
     @ui.page("/accounts")
     async def accounts_page() -> None:
-        async with AsyncSessionFactory() as session:
-            account_list: list[Account] = await AccountService(session).list()
-            institution_list: list[Institution] = await InstitutionService(session).list()
+        async def _load_page(
+            session: Any,
+        ) -> tuple[list[AccountResponse], list[InstitutionResponse]]:
+            accounts = await AccountService(session).list()
+            institutions = await InstitutionService(session).list()
+            return (
+                [AccountResponse.model_validate(a) for a in accounts],
+                [InstitutionResponse.model_validate(i) for i in institutions],
+            )
+
+        account_list, institution_list = await with_session(_load_page)
+        institutions_by_id: dict[int, InstitutionResponse] = {i.id: i for i in institution_list}
 
         inst_options: dict[int, str] = {0: t("common.none")}
         inst_options.update({i.id: i.name for i in institution_list})
-
-        # ── Persistent state ───────────────────────────────────────────────────
         state: dict[str, Any] = {
             "group_by": app.storage.user.get("accounts_group_by", "type"),
             "selected_id": None,
@@ -129,9 +134,13 @@ def register() -> None:
                         currency=add_currency.value or "PLN",
                         institution_id=inst_id,
                     )
-                    async with AsyncSessionFactory() as session:
-                        created_acc = await AccountService(session).create(data)
-                        reloaded_acc = await AccountService(session).get(created_acc.id)
+
+                    async def _persist(session: Any) -> AccountResponse | None:
+                        created = await AccountService(session).create(data)
+                        reloaded = await AccountService(session).get(created.id)
+                        return AccountResponse.model_validate(reloaded) if reloaded else None
+
+                    reloaded_acc = await with_session(_persist)
                     if reloaded_acc:
                         account_list.append(reloaded_acc)
                     account_table.refresh()
@@ -185,10 +194,15 @@ def register() -> None:
                         currency=edit_currency.value or "PLN",
                         institution_id=inst_id,
                     )
-                    async with AsyncSessionFactory() as session:
-                        updated = await AccountService(session).update(aid, data)
-                        if updated:
-                            updated = await AccountService(session).get(aid)
+
+                    async def _persist(session: Any) -> AccountResponse | None:
+                        updated_row = await AccountService(session).update(aid, data)
+                        if updated_row is None:
+                            return None
+                        reloaded = await AccountService(session).get(aid)
+                        return AccountResponse.model_validate(reloaded) if reloaded else None
+
+                    updated = await with_session(_persist)
                     if updated:
                         for idx, a in enumerate(account_list):
                             if a.id == aid:
@@ -218,8 +232,11 @@ def register() -> None:
                     aid = state["selected_id"]
                     if aid is None:
                         return
-                    async with AsyncSessionFactory() as session:
+
+                    async def _delete(session: Any) -> None:
                         await AccountService(session).delete(aid)
+
+                    await with_session(_delete)
                     for a in account_list:
                         if a.id == aid:
                             account_list.remove(a)
@@ -242,7 +259,7 @@ def register() -> None:
                 add_inst.set_value(0)
                 add_dialog.open()
 
-            def _open_edit(a: Account) -> None:
+            def _open_edit(a: AccountResponse) -> None:
                 state["selected_id"] = a.id
                 edit_name.set_value(a.name)
                 edit_type.set_value(a.type.value)
@@ -250,7 +267,7 @@ def register() -> None:
                 edit_inst.set_value(a.institution_id or 0)
                 edit_dialog.open()
 
-            def _open_delete(a: Account) -> None:
+            def _open_delete(a: AccountResponse) -> None:
                 state["selected_id"] = a.id
                 delete_label.set_text(t("accounts.delete_confirm", name=a.name))
                 delete_dialog.open()
@@ -278,11 +295,13 @@ def register() -> None:
                 labels = _type_labels()
                 by = state["group_by"]
 
-                groups: dict[str, list[Account]] = defaultdict(list)
+                groups: dict[str, list[AccountResponse]] = defaultdict(list)
                 if by == "institution":
-                    inst_by_id: dict[int, str] = {i.id: i.name for i in institution_list}
+                    inst_name_by_id: dict[int, str] = {i.id: i.name for i in institution_list}
                     for a in account_list:
-                        key = inst_by_id.get(a.institution_id or -1, t("accounts.no_institution"))
+                        key = inst_name_by_id.get(
+                            a.institution_id or -1, t("accounts.no_institution")
+                        )
                         groups[key].append(a)
                 else:
                     for a in account_list:
@@ -318,12 +337,17 @@ def register() -> None:
 
                         # Account rows — Python buttons, no JS event emission
                         for a in accts:
+                            inst = (
+                                institutions_by_id.get(a.institution_id)
+                                if a.institution_id
+                                else None
+                            )
                             with ui.row().classes("w-full px-4 py-2 items-center border-b"):
                                 with ui.row().classes("flex-1 items-center gap-2 min-w-0"):
-                                    institution_avatar(a.institution, size=24)
+                                    institution_avatar(inst, size=24)
                                     ui.label(a.name).classes("font-medium truncate")
                                 if by == "type":
-                                    ui.label(a.institution.name if a.institution else "—").classes(
+                                    ui.label(inst.name if inst else "—").classes(
                                         "w-44 text-grey-6 text-sm"
                                     )
                                 else:

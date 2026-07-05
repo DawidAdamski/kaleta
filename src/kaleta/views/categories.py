@@ -1,10 +1,10 @@
+from typing import Any
+
 from nicegui import ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
-from kaleta.models.category import Category, CategoryType
-from kaleta.schemas.category import CategoryCreate, CategoryUpdate
-from kaleta.services import CategoryService
+from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryType, CategoryUpdate
+from kaleta.services import CategoryService, with_session
 from kaleta.services.category_service import TemplatePreview
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, DIALOG_TITLE, PAGE_TITLE, SECTION_CARD
@@ -34,8 +34,11 @@ def register() -> None:
             ).classes("w-full")
 
             async def _load_add_parents(cat_type: str) -> None:
-                async with AsyncSessionFactory() as session:
+                async def _load(session: Any) -> list[CategoryResponse]:
                     roots = await CategoryService(session).list_roots(type=CategoryType(cat_type))
+                    return [CategoryResponse.model_validate(c) for c in roots]
+
+                roots = await with_session(_load)
                 options: dict[int, str] = {0: t("categories.none_parent")}
                 options.update({c.id: c.name for c in roots})
                 add_parent.set_options(options, value=0)
@@ -52,8 +55,11 @@ def register() -> None:
                     type=CategoryType(add_type.value),
                     parent_id=parent_id,
                 )
-                async with AsyncSessionFactory() as session:
+
+                async def _persist(session: Any) -> None:
                     await CategoryService(session).create(data)
+
+                await with_session(_persist)
                 ui.notify(t("categories.created"), type="positive")
                 add_name.set_value("")
                 add_parent.set_value(0)
@@ -112,8 +118,11 @@ def register() -> None:
                     type=CategoryType(edit_type.value),
                     parent_id=parent_id,
                 )
-                async with AsyncSessionFactory() as session:
+
+                async def _persist(session: Any) -> None:
                     await CategoryService(session).update(category_id, data)
+
+                await with_session(_persist)
                 ui.notify(t("categories.updated"), type="positive")
                 edit_dialog.close()
                 category_list.refresh()
@@ -132,13 +141,17 @@ def register() -> None:
             )
 
         async def open_edit_dialog(
-            cat: Category, cat_type: CategoryType, parent_id: int | None
+            cat: CategoryResponse, cat_type: CategoryType, parent_id: int | None
         ) -> None:
             edit_state["id"] = cat.id
             edit_name.set_value(cat.name)
             edit_type.set_value(cat_type.value)
-            async with AsyncSessionFactory() as session:
+
+            async def _load(session: Any) -> list[CategoryResponse]:
                 roots = await CategoryService(session).list_roots(type=cat_type)
+                return [CategoryResponse.model_validate(c) for c in roots]
+
+            roots = await with_session(_load)
             options: dict[int, str] = {0: t("categories.none_parent")}
             options.update({c.id: c.name for c in roots if c.id != cat.id})
             edit_parent.set_options(options, value=parent_id or 0)
@@ -153,8 +166,11 @@ def register() -> None:
                 category_id = delete_state["id"]
                 if category_id is None:
                     return
-                async with AsyncSessionFactory() as session:
+
+                async def _delete(session: Any) -> None:
                     await CategoryService(session).delete(category_id)
+
+                await with_session(_delete)
                 ui.notify(t("categories.deleted"), type="positive")
                 delete_dialog.close()
                 category_list.refresh()
@@ -163,7 +179,7 @@ def register() -> None:
                 ui.button(t("common.cancel"), on_click=delete_dialog.close).props("flat")
                 ui.button(t("common.delete"), on_click=confirm_delete).props("color=negative")
 
-        def open_delete_dialog(cat: Category, has_children: bool) -> None:
+        def open_delete_dialog(cat: CategoryResponse, has_children: bool) -> None:
             delete_state["id"] = cat.id
             suffix = f" {t('categories.delete_subcategory_warning')}" if has_children else ""
             delete_label.set_text(f"{t('categories.delete_confirm', name=cat.name)}{suffix}")
@@ -172,12 +188,20 @@ def register() -> None:
         # ── Refreshable tree list ─────────────────────────────────────────
         @ui.refreshable
         async def category_list() -> None:
-            async with AsyncSessionFactory() as session:
+            async def _load(
+                session: Any,
+            ) -> tuple[list[CategoryResponse], list[CategoryResponse]]:
                 svc = CategoryService(session)
-                income_roots = await svc.list_roots(type=CategoryType.INCOME)
-                expense_roots = await svc.list_roots(type=CategoryType.EXPENSE)
+                income = await svc.list_roots(type=CategoryType.INCOME)
+                expense = await svc.list_roots(type=CategoryType.EXPENSE)
+                return (
+                    [CategoryResponse.model_validate(c) for c in income],
+                    [CategoryResponse.model_validate(c) for c in expense],
+                )
 
-            def _render_group(roots: list[Category], group_type: CategoryType) -> None:
+            income_roots, expense_roots = await with_session(_load)
+
+            def _render_group(roots: list[CategoryResponse], group_type: CategoryType) -> None:
                 total = sum(1 + len(r.children) for r in roots)
                 is_income = group_type == CategoryType.INCOME
                 color = "green" if is_income else "red"
@@ -274,8 +298,11 @@ def register() -> None:
                 preview = template_state["preview"]
                 if preview is None:
                     return
-                async with AsyncSessionFactory() as session:
-                    created = await CategoryService(session).apply_template(preview.key)
+
+                async def _apply(session: Any) -> int:
+                    return await CategoryService(session).apply_template(preview.key)
+
+                created = await with_session(_apply)
                 ui.notify(
                     t("categories.template_applied", count=created),
                     type="positive",
@@ -320,8 +347,9 @@ def register() -> None:
                 preview_skipped.set_text("")
 
         async def _open_template_preview(key: str) -> None:
-            async with AsyncSessionFactory() as session:
-                preview = await CategoryService(session).preview_template(key)
+            preview = await with_session(
+                lambda session: CategoryService(session).preview_template(key)
+            )
             _render_preview(preview)
             template_preview_dialog.open()
 

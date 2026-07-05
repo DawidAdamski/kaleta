@@ -17,14 +17,16 @@ The full layout — widget order *and* per-widget size — is persisted in
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
 from pydantic import BaseModel
-from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.db import AsyncSessionFactory
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 from kaleta.i18n import t
+from kaleta.services import with_session
 from kaleta.views.dashboard_widgets import (
     DEFAULT_WIDGETS,
     WIDGETS,
@@ -296,7 +298,7 @@ def register() -> None:
                 ui.icon("info")
                 ui.label(t("dashboard_widgets.edit_banner"))
 
-            async with AsyncSessionFactory() as session:
+            async def _render_grid(session: AsyncSession) -> None:
                 with ui.element("div").props('id="dash-grid"'):
                     for entry in layout:
                         wid = entry["id"]
@@ -311,6 +313,8 @@ def register() -> None:
                         )
                     if not layout:
                         _render_empty_placeholder()
+
+            await with_session(_render_grid)
 
             ui.run_javascript(
                 "window.__kaletaInitDashSortable && window.__kaletaInitDashSortable()"

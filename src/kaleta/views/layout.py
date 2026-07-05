@@ -131,11 +131,11 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
 
         async def _close_db() -> None:
             from kaleta.config.setup_config import clear_db
-            from kaleta.db import AsyncSessionFactory
+            from kaleta.services import dispose_sessions
 
             close_dialog.close()
             clear_db()
-            await AsyncSessionFactory.dispose()
+            await dispose_sessions()
             ui.navigate.to("/setup")
 
         with ui.dialog() as close_dialog, ui.card():

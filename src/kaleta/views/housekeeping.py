@@ -6,11 +6,10 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
+from kaleta.services import DedupeService, with_session
 from kaleta.services.dedupe_service import (
     CategoryGroup,
-    DedupeService,
     PayeeGroup,
     TxGroup,
 )
@@ -28,14 +27,19 @@ from kaleta.views.theme import (
 def register() -> None:
     @ui.page("/housekeeping")
     async def housekeeping_page() -> None:
-        async with AsyncSessionFactory() as session:
+        dup_window_days = int(app.storage.user.get("housekeeping_duplicate_days", 0) or 0) or None
+
+        async def _load(
+            session: Any,
+        ) -> tuple[list[TxGroup], list[PayeeGroup], list[CategoryGroup]]:
             svc = DedupeService(session)
-            dup_window_days = (
-                int(app.storage.user.get("housekeeping_duplicate_days", 0) or 0) or None
+            return (
+                await svc.duplicate_transactions(window_days=dup_window_days),
+                await svc.similar_payees(),
+                await svc.redundant_categories(),
             )
-            tx_groups = await svc.duplicate_transactions(window_days=dup_window_days)
-            payee_groups = await svc.similar_payees()
-            category_groups = await svc.redundant_categories()
+
+        tx_groups, payee_groups, category_groups = await with_session(_load)
 
         with page_layout(t("housekeeping.title"), wide=True):
             # ── Header ───────────────────────────────────────────────────
@@ -174,10 +178,13 @@ def _render_tx_group(group: TxGroup, ask_confirm: Any) -> None:
             async def _merge() -> None:
                 keeper_id = keeper_holder["id"]
                 other_ids = [item.id for item in group.items if item.id != keeper_id]
-                async with AsyncSessionFactory() as s:
-                    deleted = await DedupeService(s).merge_transactions(
+
+                async def _run(session: Any) -> int:
+                    return await DedupeService(session).merge_transactions(
                         keeper_id=keeper_id, other_ids=other_ids
                     )
+
+                deleted = await with_session(_run)
                 ui.notify(t("housekeeping.merged_tx", count=deleted), type="positive")
 
             delete_count = len(group.items) - 1
@@ -224,10 +231,13 @@ def _render_payee_group(group: PayeeGroup, ask_confirm: Any) -> None:
             async def _merge() -> None:
                 keeper_id = keeper_holder["id"]
                 other_ids = [item.id for item in group.items if item.id != keeper_id]
-                async with AsyncSessionFactory() as s:
-                    merged = await DedupeService(s).merge_payees(
+
+                async def _run(session: Any) -> int:
+                    return await DedupeService(session).merge_payees(
                         keeper_id=keeper_id, other_ids=other_ids
                     )
+
+                merged = await with_session(_run)
                 ui.notify(t("housekeeping.merged_payees", count=merged), type="positive")
 
             delete_count = len(group.items) - 1
@@ -273,10 +283,13 @@ def _render_category_group(group: CategoryGroup, ask_confirm: Any) -> None:
             async def _merge() -> None:
                 keeper_id = keeper_holder["id"]
                 other_ids = [item.id for item in group.items if item.id != keeper_id]
-                async with AsyncSessionFactory() as s:
-                    merged = await DedupeService(s).merge_categories(
+
+                async def _run(session: Any) -> int:
+                    return await DedupeService(session).merge_categories(
                         keeper_id=keeper_id, other_ids=other_ids
                     )
+
+                merged = await with_session(_run)
                 ui.notify(
                     t("housekeeping.merged_categories", count=merged),
                     type="positive",

@@ -5,8 +5,8 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
+from kaleta.services import with_session
 from kaleta.services.forecast_service import (
     ForecastPreset,
     ForecastResult,
@@ -124,11 +124,14 @@ def register() -> None:
     @ui.page("/forecast")
     async def forecast_page() -> None:
         is_dark: bool = app.storage.user.get("dark_mode", False)
-        async with AsyncSessionFactory() as session:
-            accounts = await ForecastService(session).available_accounts()
 
-        account_options: dict[int | str, str] = {"all": t("forecast.all_accounts")}
-        account_options.update({a.id: a.name for a in accounts})
+        async def _load_accounts(session: Any) -> dict[int | str, str]:
+            accounts = await ForecastService(session).available_accounts()
+            options: dict[int | str, str] = {"all": t("forecast.all_accounts")}
+            options.update({a.id: a.name for a in accounts})
+            return options
+
+        account_options = await with_session(_load_accounts)
 
         with page_layout(t("forecast.title")):
             ui.label(t("forecast.chart_title")).classes("text-2xl font-bold")
@@ -268,10 +271,12 @@ def register() -> None:
                 acct_id = None if chosen == "all" else int(chosen)
                 horizon = int(horizon_sel.value)
 
-                async with AsyncSessionFactory() as session:
-                    raw = await ForecastService(session).forecast_account(
+                async def _run_forecast(session: Any) -> Any:
+                    return await ForecastService(session).forecast_account(
                         account_id=acct_id, horizon_days=horizon
                     )
+
+                raw = await with_session(_run_forecast)
 
                 run_btn.props(remove="loading")
 
