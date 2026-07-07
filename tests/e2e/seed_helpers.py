@@ -67,6 +67,13 @@ def seed_category(name: str, cat_type: str = "expense", parent_id: int | None = 
     return resp.json()["id"]
 
 
+def seed_payee(name: str) -> int:
+    """Create a payee; return its ID."""
+    resp = _client.post(f"{API_BASE}/payees/", json={"name": name})
+    resp.raise_for_status()
+    return resp.json()["id"]
+
+
 def seed_transaction(
     account_id: int,
     category_id: int,
@@ -74,9 +81,10 @@ def seed_transaction(
     tx_type: str = "expense",
     date: datetime.date | None = None,
     description: str = "seed",
+    payee_id: int | None = None,
 ) -> int:
     """Create a single transaction; returns its ID."""
-    body = {
+    body: dict[str, Any] = {
         "account_id": account_id,
         "category_id": category_id,
         "amount": str(amount),
@@ -84,6 +92,8 @@ def seed_transaction(
         "date": str(date or datetime.date.today()),
         "description": description,
     }
+    if payee_id is not None:
+        body["payee_id"] = payee_id
     resp = _client.post(f"{API_BASE}/transactions/", json=body)
     resp.raise_for_status()
     return resp.json()["id"]
@@ -185,3 +195,136 @@ def seed_planned_transaction(
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         return executor.submit(_worker).result()
+
+
+def _run_async_worker(coro_factory):  # noqa: ANN001
+    """Run an async coroutine factory in a worker thread (pytest-playwright safe)."""
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    def _worker() -> Any:
+        return asyncio.run(coro_factory())
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(_worker).result()
+
+
+def seed_subscription(
+    name: str,
+    amount: float,
+    cadence_days: int = 30,
+    *,
+    payee_id: int | None = None,
+) -> int:
+    """Create a subscription via the service layer; return its ID."""
+    from decimal import Decimal
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.schemas.subscription import SubscriptionCreate
+    from kaleta.services import SubscriptionService
+
+    async def _create() -> int:
+        async with AsyncSessionFactory() as session:
+            sub = await SubscriptionService(session).create(
+                SubscriptionCreate(
+                    name=name,
+                    amount=Decimal(str(amount)),
+                    cadence_days=cadence_days,
+                    payee_id=payee_id,
+                    first_seen_at=datetime.date.today(),
+                )
+            )
+            return sub.id
+
+    return _run_async_worker(_create)
+
+
+def seed_recurring_payee_charges(
+    account_id: int,
+    category_id: int,
+    payee_name: str,
+    amount: float,
+    *,
+    months: int = 3,
+    interval_days: int = 30,
+) -> int:
+    """Seed a payee with recurring monthly-like charges for the subscription detector."""
+    payee_id = seed_payee(payee_name)
+    today = datetime.date.today()
+    for i in range(months):
+        tx_date = today - datetime.timedelta(days=interval_days * i)
+        seed_transaction(
+            account_id,
+            category_id,
+            amount,
+            date=tx_date,
+            description=f"{payee_name} charge",
+            payee_id=payee_id,
+        )
+    return payee_id
+
+
+def seed_personal_loan(
+    counterparty: str,
+    principal: float,
+    *,
+    direction: str = "outgoing",
+    opened_at: datetime.date | None = None,
+) -> int:
+    """Create a personal loan via the service layer; return its ID."""
+    from decimal import Decimal
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.personal_loan import LoanDirection
+    from kaleta.schemas.personal_loan import PersonalLoanCreate
+    from kaleta.services import PersonalLoanService
+
+    async def _create() -> int:
+        async with AsyncSessionFactory() as session:
+            svc = PersonalLoanService(session)
+            cp = await svc.upsert_counterparty(counterparty)
+            loan = await svc.create_loan(
+                PersonalLoanCreate(
+                    counterparty_id=cp.id,
+                    direction=LoanDirection(direction),
+                    principal=Decimal(str(principal)),
+                    currency="PLN",
+                    opened_at=opened_at or datetime.date.today(),
+                )
+            )
+            return loan.id
+
+    return _run_async_worker(_create)
+
+
+def seed_reserve_fund(
+    name: str,
+    target_amount: float,
+    backing_account_id: int,
+    *,
+    kind: str = "emergency",
+    emergency_multiplier: int | None = 3,
+) -> int:
+    """Create a reserve fund via the service layer; return its ID."""
+    from decimal import Decimal
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
+    from kaleta.schemas.reserve_fund import ReserveFundCreate
+    from kaleta.services import ReserveFundService
+
+    async def _create() -> int:
+        async with AsyncSessionFactory() as session:
+            fund = await ReserveFundService(session).create(
+                ReserveFundCreate(
+                    name=name,
+                    kind=ReserveFundKind(kind),
+                    target_amount=Decimal(str(target_amount)),
+                    backing_mode=ReserveFundBackingMode.ACCOUNT,
+                    backing_account_id=backing_account_id,
+                    emergency_multiplier=emergency_multiplier,
+                )
+            )
+            return fund.id
+
+    return _run_async_worker(_create)

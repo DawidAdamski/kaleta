@@ -202,6 +202,9 @@ Every task, no exceptions:
     Typing-only imports go under `if TYPE_CHECKING:`
     (import-linter excludes them); enums/schemas may be imported from
     `kaleta.schemas` in any layer above it.
+11. **Verification tests use BDD literals.** In verification tests,
+    expected values must be literals taken from the BDD scenario — never
+    computed by calling the service under test.
 
 ## Available Subagents
 
