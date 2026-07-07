@@ -16,7 +16,7 @@ BDD_MD = ROOT / "docs" / "bdd.md"
 TEST_DIRS = (ROOT / "tests" / "e2e", ROOT / "tests" / "integration")
 
 SCENARIO_ID = re.compile(r"KAL-[A-Z]{3,4}-\d{3}")
-TAG_LINE = re.compile(r"^\s*(KAL-[A-Z]{3,4}-\d{3})\s+@(automated|manual)\s*$")
+TAG_LINE = re.compile(r"^\s*(KAL-[A-Z]{3,4}-\d{3})\s+@(automated|manual|planned)\s*$")
 FEATURE_HEADER = re.compile(r"^## Feature:\s*(.+)$")
 COVERS_LINE = re.compile(r"^\s*Covers:\s*(.+)$", re.MULTILINE)
 
@@ -118,14 +118,15 @@ def print_summary(scenarios: dict[str, Scenario], covered: set[str]) -> None:
     for scenario in scenarios.values():
         by_feature[scenario.feature].append(scenario)
 
-    headers = ("Feature", "Automated", "Manual", "Covered", "Uncovered auto")
-    rows: list[tuple[str, str, str, str, str]] = []
-    totals = [0, 0, 0, 0]
+    headers = ("Feature", "Automated", "Manual", "Planned", "Covered", "Uncovered auto")
+    rows: list[tuple[str, str, str, str, str, str]] = []
+    totals = [0, 0, 0, 0, 0]
 
     for feature in sorted(by_feature):
         items = sorted(by_feature[feature], key=lambda s: s.scenario_id)
         automated = [s for s in items if s.tag == "automated"]
         manual = [s for s in items if s.tag == "manual"]
+        planned = [s for s in items if s.tag == "planned"]
         covered_auto = [s for s in automated if s.scenario_id in covered]
         uncovered_auto = len(automated) - len(covered_auto)
         rows.append(
@@ -133,14 +134,16 @@ def print_summary(scenarios: dict[str, Scenario], covered: set[str]) -> None:
                 feature,
                 str(len(automated)),
                 str(len(manual)),
+                str(len(planned)),
                 str(len(covered_auto)),
                 str(uncovered_auto),
             )
         )
         totals[0] += len(automated)
         totals[1] += len(manual)
-        totals[2] += len(covered_auto)
-        totals[3] += uncovered_auto
+        totals[2] += len(planned)
+        totals[3] += len(covered_auto)
+        totals[4] += uncovered_auto
 
     widths = [len(h) for h in headers]
     for row in rows:
@@ -164,6 +167,7 @@ def print_summary(scenarios: dict[str, Scenario], covered: set[str]) -> None:
                 str(totals[1]),
                 str(totals[2]),
                 str(totals[3]),
+                str(totals[4]),
             )
         )
     )
