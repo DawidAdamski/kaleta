@@ -10,7 +10,11 @@ import pytest
 from pydantic import ValidationError
 
 from kaleta.models.transaction import TransactionType
-from kaleta.schemas.transaction import TransactionCreate, TransactionUpdate
+from kaleta.schemas.transaction import (
+    TransactionCreate,
+    TransactionSplitCreate,
+    TransactionUpdate,
+)
 
 SQL_PAYLOADS = [
     "'; DROP TABLE transactions; --",
@@ -146,6 +150,37 @@ class TestTransactionCreate:
                 )
             )
 
+    def test_split_unbalanced_rejected(self):
+        """Covers: KAL-SPL-002"""
+        with pytest.raises(ValidationError, match=r"\+14\.50 remaining"):
+            TransactionCreate(
+                account_id=1,
+                category_id=None,
+                amount=Decimal("214.50"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=1, amount=Decimal("180.00")),
+                    TransactionSplitCreate(category_id=2, amount=Decimal("20.00")),
+                ],
+            )
+
+    def test_split_balanced_accepted(self):
+        schema = TransactionCreate(
+            account_id=1,
+            category_id=None,
+            amount=Decimal("214.50"),
+            type=TransactionType.EXPENSE,
+            date=TODAY,
+            is_split=True,
+            splits=[
+                TransactionSplitCreate(category_id=1, amount=Decimal("180.00")),
+                TransactionSplitCreate(category_id=2, amount=Decimal("34.50")),
+            ],
+        )
+        assert schema.amount == Decimal("214.50")
+
     # ── Security ──────────────────────────────────────────────────────────
 
     @pytest.mark.parametrize("payload", SQL_PAYLOADS)
@@ -249,6 +284,21 @@ class TestTransactionUpdate:
     def test_description_too_long_rejected(self):
         with pytest.raises(ValidationError):
             TransactionUpdate(description="x" * 501)
+
+    def test_splits_optional_on_update(self):
+        schema = TransactionUpdate()
+        assert schema.splits is None
+        assert schema.is_split is None
+
+    def test_splits_replace_payload_accepted(self):
+        schema = TransactionUpdate(
+            splits=[
+                TransactionSplitCreate(category_id=1, amount=Decimal("60.00")),
+                TransactionSplitCreate(category_id=2, amount=Decimal("40.00")),
+            ],
+            is_split=True,
+        )
+        assert len(schema.splits) == 2
 
     @pytest.mark.parametrize("payload", SQL_PAYLOADS)
     def test_sql_injection_in_update(self, payload: str):

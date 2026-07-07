@@ -22,8 +22,13 @@ def build_split_editor(
     expense_cats: dict[int, str],
     amount_input: Any,
     split_container: Any,
+    on_balance_change: Callable[[], None] | None = None,
 ) -> tuple[Any, Any, Callable[[], None]]:
     """Wire split-row UI inside ``split_container``; return refresh callables."""
+
+    def _notify_balance_change() -> None:
+        if on_balance_change is not None:
+            on_balance_change()
 
     @ui.refreshable
     def split_rows_ui() -> None:
@@ -50,15 +55,18 @@ def build_split_editor(
                         idx, {**split_rows[idx], "note": e.value}
                     ),
                 ).classes("w-28")
+
+                def _on_split_amount_change(e: Any, idx: int = i) -> None:
+                    split_rows.__setitem__(idx, {**split_rows[idx], "amount": e.value})
+                    split_balance_ui.refresh()
+                    _notify_balance_change()
+
                 amt_el = ui.number(
                     t("common.amount"),
                     value=row["amount"],
                     min=0.01,
                     step=0.01,
-                    on_change=lambda e, idx=i: (
-                        split_rows.__setitem__(idx, {**split_rows[idx], "amount": e.value}),
-                        split_balance_ui.refresh(),
-                    ),
+                    on_change=_on_split_amount_change,
                 ).classes("w-28")
                 if is_last:
                     amt_el.props("@keydown.tab.prevent=\"$emit('split_tab')\"")
@@ -116,29 +124,33 @@ def build_split_editor(
 
         ui.timer(0.05, _do, once=True)
 
-    def _handle_split_tab() -> None:
-        split_rows.append({"category_id": None, "amount": None, "note": ""})
-        split_rows_ui.refresh()
-        split_balance_ui.refresh()
-        _focus_last_split_cat()
-
-    async def _add_split() -> None:
-        split_rows.append({"category_id": None, "amount": None, "note": ""})
-        split_rows_ui.refresh()
-        split_balance_ui.refresh()
-        await ui.run_javascript(
-            "var d=document.querySelector('.q-dialog .q-card');if(d) d.scrollTop=d.scrollHeight;"
-        )
-
     def _remove_split(idx: int) -> None:
         split_rows.pop(idx)
         split_rows_ui.refresh()
         split_balance_ui.refresh()
+        _notify_balance_change()
 
     def _fill_last(remaining: Decimal) -> None:
         if split_rows:
             split_rows[-1] = {**split_rows[-1], "amount": float(remaining)}
         split_balance_ui.refresh()
+        _notify_balance_change()
+
+    async def _add_split() -> None:
+        split_rows.append({"category_id": None, "amount": None, "note": ""})
+        split_rows_ui.refresh()
+        split_balance_ui.refresh()
+        _notify_balance_change()
+        await ui.run_javascript(
+            "var d=document.querySelector('.q-dialog .q-card');if(d) d.scrollTop=d.scrollHeight;"
+        )
+
+    def _handle_split_tab() -> None:
+        split_rows.append({"category_id": None, "amount": None, "note": ""})
+        split_rows_ui.refresh()
+        split_balance_ui.refresh()
+        _notify_balance_change()
+        _focus_last_split_cat()
 
     with split_container:
         split_rows_ui()

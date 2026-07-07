@@ -26,11 +26,11 @@ def _select_option(page: Page, dialog: Page, select_index: int, option: str) -> 
 
 
 def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
-    """Covers: KAL-TXN-001
+    """Covers: KAL-TXN-001, KAL-SPL-001, KAL-SPL-004
 
     Exercises the full manual-entry flow — add an expense, edit its
     description and amount, then create a split transaction across two
-    categories (split UI; no separate BDD scenario).
+    categories and edit the saved split lines.
     """
     account_name = "PKO Main Tx E2E"
     food_cat = "Food Tx E2E"
@@ -99,6 +99,28 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     dialog.get_by_role("button", name="Fill last").click()
 
     dialog.get_by_role("button", name="Save").click()
+
+    expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("(Split:", exact=False).first).to_be_visible(timeout=5000)
+
+    # ── Edit split ────────────────────────────────────────────────────────
+    split_row = page.locator(".q-table tbody tr").filter(has_text="Split Grocery Tx E2E")
+    split_row.get_by_role("button").first.click()
+
+    split_edit_dialog = page.get_by_role("dialog")
+    expect(split_edit_dialog.get_by_text("Edit Transaction", exact=True)).to_be_visible(
+        timeout=5000
+    )
+
+    split_amount_fields = split_edit_dialog.locator(".split-cat-select").locator(
+        "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
+    )
+    split_amount_fields.nth(0).click(click_count=3)
+    split_amount_fields.nth(0).fill("70")
+    split_amount_fields.nth(1).click(click_count=3)
+    split_amount_fields.nth(1).fill("30")
+    split_edit_dialog.get_by_role("button", name="Save").click()
 
     expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)

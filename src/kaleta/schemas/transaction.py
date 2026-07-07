@@ -65,6 +65,12 @@ class TransactionCreate(TransactionBase):
                     raise ValueError("Split transactions must have at least one split.")
                 if self.category_id is not None:
                     raise ValueError("Split transactions must not set a top-level category.")
+                split_total = sum((s.amount for s in self.splits), start=Decimal("0"))
+                if split_total != self.amount:
+                    remaining = self.amount - split_total
+                    raise ValueError(
+                        f"Split amounts must sum to {self.amount}; {remaining:+.2f} remaining."
+                    )
             else:
                 if self.category_id is None:
                     raise ValueError(
@@ -82,8 +88,10 @@ class TransactionUpdate(BaseModel):
     date: datetime.date | None = None
     description: str | None = Field(default=None, max_length=500)
     is_internal_transfer: bool | None = None
+    is_split: bool | None = None
     linked_transaction_id: int | None = None
     tag_ids: list[int] | None = None
+    splits: list[TransactionSplitCreate] | None = None
 
 
 class TransactionResponse(TransactionBase):

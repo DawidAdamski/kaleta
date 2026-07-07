@@ -72,7 +72,8 @@ async def list_transactions(
         "- `type=transfer` is required when `is_internal_transfer=true`.\n"
         "- `income` and `expense` transactions require a `category_id`, unless `is_split=true`.\n"
         "- Split transactions (`is_split=true`) must not set a top-level `category_id` "
-        "and must include at least one entry in `splits`.\n"
+        "and must include at least one entry in `splits` whose amounts sum exactly to "
+        "`amount`.\n"
         "- `exchange_rate` is only relevant for cross-currency internal transfers "
         "(destination currency units per 1 source currency unit).\n"
         "- `tag_ids` must reference existing tag IDs.\n"
@@ -107,7 +108,9 @@ async def get_transaction(
     response_model=TransactionResponse,
     summary="Update a transaction",
     description=(
-        "Partially updates a transaction. Only fields included in the request body are changed."
+        "Partially updates a transaction. Only fields included in the request body are changed. "
+        "When `splits` is provided, all existing split rows are replaced. Split line amounts "
+        "must sum to the transaction `amount` (updated amount when `amount` is included)."
     ),
     responses=_404,
 )
