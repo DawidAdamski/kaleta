@@ -21,8 +21,6 @@ It handles budgeting, transactions, financial planning, savings, and investments
 ```
 Views (NiceGUI) + API (FastAPI)
         ↓
-   Controllers (orchestration)
-        ↓
    Services (business logic)
         ↓
    Models (SQLAlchemy) + Schemas (Pydantic)
@@ -39,7 +37,6 @@ src/kaleta/
 ├── models/              # SQLAlchemy ORM models
 ├── schemas/             # Pydantic request/response schemas
 ├── services/            # Business logic (no HTTP concerns)
-├── controllers/         # Route handlers, ties services to views/API
 ├── api/                 # REST API routes (versioned under api/v1/)
 └── views/               # NiceGUI UI pages
 tests/
@@ -57,10 +54,10 @@ docs/                    # Architecture ADRs, tech stack, product docs
 - pytest for testing
 
 ### Patterns
-- Services contain business logic; controllers are thin
+- Services contain business logic; views and API routes stay thin
 - Pydantic schemas are separate from SQLAlchemy models (never use ORM models in API responses)
 - Use dependency injection for database sessions
-- All database operations go through services, never directly in views/controllers
+- All database operations go through services, never directly in views or API routes
 - Keep SQLite compatibility — avoid PostgreSQL-only features in models
 
 ### Domain errors and logging
@@ -82,7 +79,6 @@ docs/                    # Architecture ADRs, tech stack, product docs
 - Models: singular noun (`Transaction`, `Budget`, `Account`)
 - Schemas: suffixed with purpose (`TransactionCreate`, `TransactionResponse`)
 - Services: suffixed with `Service` (`TransactionService`)
-- Controllers: suffixed with `Controller` (`TransactionController`)
 
 ## Commands
 ```bash
@@ -104,7 +100,7 @@ Set via `KALETA_MODE` environment variable:
 
 ## Environment Variables
 ```
-KALETA_DB_URL=sqlite:///kaleta.db
+KALETA_DB_URL=sqlite+aiosqlite:///kaleta.db
 KALETA_HOST=0.0.0.0
 KALETA_PORT=8080
 KALETA_MODE=web
@@ -113,12 +109,40 @@ KALETA_DEBUG=false
 ```
 
 ## Key Documents
-- `docs/architecture.md` — Architecture Decision Records
+- `docs/architecture.md` — Architecture overview and ADR index
+- `docs/adr/` — Architecture Decision Records (one file per ADR)
 - `docs/tech-stack.md` — Technology choices and config reference
 - `docs/bdd.md` — BDD scenarios in Gherkin, tagged `KAL-<AREA>-<NNN>` + `@automated`/`@manual`
 - `docs/roadmap.md` — quarterly roadmap (open-core direction)
 - `docs/plans/` — one plan per unit of work; see `docs/plans/README.md` for lifecycle
 - `README.md` — Project overview and quick start
+
+## Feature delivery cycle
+
+Every feature — human or agent — follows the same closed loop. **Do not
+start implementation without step 1; do not mark work done without step 4.**
+
+```
+GitHub issue (@planned) → plan in docs/plans/ → branch → PR → BDD retag → archive plan
+```
+
+1. **Plan first.** Before writing feature code, have an active plan in
+   `docs/plans/` (create one from the template in `docs/plans/README.md`
+   if missing). Set `status: in-progress` when you start. The plan is the
+   scope contract — see Working Agreement §1.
+2. **One issue = one branch = one PR.** Pick up exactly one GitHub issue
+   (or one plan when no issue exists yet). Create a dedicated branch from
+   `main`. Open one PR that closes that issue. Do not mix unrelated
+   features, plans, or issues in the same branch — triage and review
+   depend on this 1:1:1 mapping.
+3. **Implement and verify.** Follow the Working Agreement below;
+   `./scripts/verify.sh` (with `--e2e` when views change) must pass.
+4. **Retag BDD.** Before the PR is ready to merge, update every affected
+   `KAL-*` scenario in `docs/bdd.md`: `@planned` → `@automated` (when a
+   test covers it) or `@manual` (when verified by hand). Add or update
+   tests with `Covers: KAL-*` docstrings. `scripts/spec_coverage.py`
+   must stay green.
+5. **Archive the plan.** After merge, hand the plan to `plan-archiver`.
 
 ## Working Agreement (Definition of Done)
 
