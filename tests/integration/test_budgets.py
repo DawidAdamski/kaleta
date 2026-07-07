@@ -15,6 +15,7 @@ class TestListBudgets:
         assert resp.json() == []
 
     async def test_list_filter_by_year_and_month(self, api_client: AsyncClient):
+        """Covers: KAL-API-002"""
         category = await create_category(api_client)
         await api_client.post("/api/v1/budgets/", json=budget_payload(category["id"]))
         resp = await api_client.get("/api/v1/budgets/?year=2026&month=1")

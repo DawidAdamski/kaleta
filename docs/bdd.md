@@ -648,7 +648,7 @@ Feature: Payee Identities
     Then all transactions of both payees point to "Lidl"
     And the duplicate payees are gone
 
-  KAL-PID-003 @planned
+  KAL-PID-003 @automated
   Scenario: Top payees report
     Given transactions across several payees exist
     When I open the "Top payees" report
@@ -1390,7 +1390,7 @@ Feature: Subscriptions Panel
   I want a single panel of all my subscriptions
   So that I know what I pay for, how often, and what it sums to
 
-  KAL-SUB-001 @planned
+  KAL-SUB-001 @automated
   Scenario: Subscriptions are listed with cadence and price
     Given subscriptions "Netflix 49.99 monthly" and "Domain 120.00 yearly" exist
     When I open the Subscriptions panel
@@ -1402,7 +1402,7 @@ Feature: Subscriptions Panel
     When I open the Subscriptions panel
     Then the total shows 59.99 per month (120.00 / 12 = 10.00 included)
 
-  KAL-SUB-003 @planned
+  KAL-SUB-003 @automated
   Scenario: Add a subscription from a detected recurring payment
     Given a detected recurring payment "Spotify 23.99 monthly"
     When I choose "Track as subscription" on it
@@ -1584,7 +1584,7 @@ Feature: Reserve Funds
   I want my emergency cash and security fund tracked against targets
   So that I always know whether my safety nets are intact
 
-  KAL-FND-001 @planned
+  KAL-FND-001 @automated
   Scenario: Track emergency cash at home
     Given a cash account "Emergency cash" marked as a reserve with target 3000.00
     When I open the Reserves panel
@@ -1832,13 +1832,13 @@ Feature: Debt Tracking
     When I record lending 400.00 to "Marek" linked to yesterday's transfer
     Then "Marek" shows an outstanding balance of 400.00
 
-  KAL-DBT-002 @planned
+  KAL-DBT-002 @automated
   Scenario: Panel shows balance per person
     Given "Marek" owes 400.00 and I owe "Ania" 150.00
     When I open the Debts panel
     Then I see +400.00 for "Marek" and -150.00 for "Ania"
 
-  KAL-DBT-003 @planned
+  KAL-DBT-003 @automated
   Scenario: Repayment reduces the balance
     Given "Marek" owes 400.00
     When I link an incoming 250.00 transaction as his repayment
@@ -2016,19 +2016,19 @@ Feature: Public API
   I want a documented REST API covering core resources
   So that I can automate and integrate Kaleta with my own tools
 
-  KAL-API-001 @planned
+  KAL-API-001 @automated
   Scenario: Create a transaction via the API
     Given a valid API bearer token
     When I POST a transaction to /api/v1/transactions
     Then the response is 201 and the transaction appears in the UI
 
-  KAL-API-002 @planned
+  KAL-API-002 @automated
   Scenario: Read budgets via the API
     Given a valid API bearer token and budgets for the current month
     When I GET /api/v1/budgets for the current month
     Then the response contains the per-category planned amounts
 
-  KAL-API-003 @planned
+  KAL-API-003 @automated
   Scenario: API schema is discoverable
     Given a running instance
     When I open the OpenAPI documentation endpoint
