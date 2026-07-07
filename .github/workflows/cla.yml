@@ -29,7 +29,7 @@ jobs:
           path-to-document: >-
             https://github.com/${{ github.repository }}/blob/main/docs/cla.md
           branch: cla-signatures
-          allowlist: bot*,dependabot[bot],github-actions[bot]
+          allowlist: DawidAdamski,bot*,dependabot[bot],github-actions[bot]
           custom-notsigned-prcomment: >-
             Thank you for your contribution to Kaleta! Before we can merge this
             pull request, please read and sign our
