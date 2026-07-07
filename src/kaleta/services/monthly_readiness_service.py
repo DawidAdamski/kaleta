@@ -6,13 +6,13 @@ import datetime
 import json
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ValidationError
 from kaleta.models.category import Category
 from kaleta.models.monthly_readiness import MonthlyReadiness
-from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
 from kaleta.schemas.monthly_readiness import (
     Stage1CloseLastMonth,
     Stage2ConfirmIncome,
@@ -93,8 +93,20 @@ class MonthlyReadinessService:
         stmt = select(func.count(Transaction.id)).where(
             Transaction.date >= start,
             Transaction.date <= end,
-            Transaction.category_id.is_(None),
             Transaction.type != TransactionType.TRANSFER,
+            or_(
+                and_(
+                    Transaction.category_id.is_(None),
+                    Transaction.is_split == False,  # noqa: E712
+                ),
+                and_(
+                    Transaction.is_split == True,  # noqa: E712
+                    exists().where(
+                        TransactionSplit.transaction_id == Transaction.id,
+                        TransactionSplit.category_id.is_(None),
+                    ),
+                ),
+            ),
         )
         count = (await self.session.execute(stmt)).scalar_one()
         return Stage1CloseLastMonth(

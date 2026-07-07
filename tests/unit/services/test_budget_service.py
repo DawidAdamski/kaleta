@@ -15,7 +15,7 @@ from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 from kaleta.schemas.category import CategoryCreate
-from kaleta.schemas.transaction import TransactionCreate
+from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import AccountService, BudgetService, CategoryService, TransactionService
 from kaleta.services.budget_service import (
     build_category_plan_row,
@@ -680,3 +680,69 @@ class TestDateRangeHelpers:
     def test_format_date_range_label(self):
         label = format_date_range_label("this_month", today=datetime.date(2026, 7, 15))
         assert label == "01 Jul 2026 – 31 Jul 2026"
+
+
+# ── Split-aware aggregation (KAL-SPL-003) ─────────────────────────────────────
+
+
+class TestSplitAwareAggregation:
+    async def test_range_summary_attributes_split_lines_to_categories(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-003"""
+        groceries_id = await _make_category(session, "Groceries")
+        alcohol_id = await _make_category(session, "Alcohol")
+        acc_id = await _make_account(session)
+
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=acc_id,
+                amount=Decimal("214.50"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2025, 6, 15),
+                description="Lidl",
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=groceries_id, amount=Decimal("180.00")),
+                    TransactionSplitCreate(category_id=alcohol_id, amount=Decimal("34.50")),
+                ],
+            )
+        )
+
+        result = await svc.range_summary(datetime.date(2025, 6, 1), datetime.date(2025, 6, 30))
+        by_cat = {row.category_id: row.actual_amount for row in result}
+
+        assert by_cat[groceries_id] == Decimal("180.00")
+        assert by_cat[alcohol_id] == Decimal("34.50")
+
+    async def test_realization_for_month_uses_split_line_amounts(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-003"""
+        groceries_id = await _make_category(session, "Groceries")
+        alcohol_id = await _make_category(session, "Alcohol")
+        acc_id = await _make_account(session)
+
+        await svc.create(
+            BudgetCreate(category_id=alcohol_id, amount=Decimal("100.00"), month=6, year=2025)
+        )
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=acc_id,
+                amount=Decimal("214.50"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2025, 6, 10),
+                description="Lidl",
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=groceries_id, amount=Decimal("180.00")),
+                    TransactionSplitCreate(category_id=alcohol_id, amount=Decimal("34.50")),
+                ],
+            )
+        )
+
+        rows = await svc.realization_for_month(2025, 6, today=datetime.date(2025, 6, 30))
+        by_cat = {row.category_id: row.actual for row in rows}
+
+        assert by_cat.get(groceries_id) == Decimal("180.00")
+        assert by_cat.get(alcohol_id) == Decimal("34.50")

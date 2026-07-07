@@ -17,7 +17,7 @@ from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
-from kaleta.schemas.transaction import TransactionCreate
+from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import (
     AccountService,
     BudgetService,
@@ -191,6 +191,28 @@ class TestStage1:
         s1 = await svc.stage_1(2026, 1)
         assert s1.last_year == 2025
         assert s1.last_month == 12
+
+    async def test_fully_categorised_split_not_counted(self, session: AsyncSession):
+        """Covers: KAL-SPL-003"""
+        acc = await _seed_account(session)
+        groceries = await _seed_category(session, "Groceries")
+        alcohol = await _seed_category(session, "Alcohol")
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=acc,
+                amount=Decimal("214.50"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2026, 3, 10),
+                description="Lidl split",
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=groceries, amount=Decimal("180.00")),
+                    TransactionSplitCreate(category_id=alcohol, amount=Decimal("34.50")),
+                ],
+            )
+        )
+        s1 = await MonthlyReadinessService(session).stage_1(2026, 4)
+        assert s1.uncategorised_count == 0
 
 
 class TestStage2:

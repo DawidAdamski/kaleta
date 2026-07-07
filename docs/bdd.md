@@ -785,7 +785,7 @@ Feature: Transaction Splits
     Then I see the remaining 14.50 highlighted
     And I cannot save until the lines sum to 214.50
 
-  KAL-SPL-003 @planned
+  KAL-SPL-003 @automated
   Scenario: Split lines feed category reports
     Given a saved split of 180.00 "Groceries" and 34.50 "Alcohol"
     When I open spending by category for the month

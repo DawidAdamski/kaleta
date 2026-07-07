@@ -3,10 +3,14 @@
 
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
 
 from httpx import AsyncClient
 
+from kaleta.services.budget_service import BudgetService
+from kaleta.services.saved_report_service import ReportConfig, SavedReportService
+from tests.conftest import make_session_factory
 from tests.integration.conftest import create_account, create_category, transaction_payload
 
 
@@ -222,6 +226,55 @@ class TestUpdateTransaction:
         )
         assert resp.status_code == 422
         assert resp.json()["error"]["code"] == "validation_error"
+
+
+class TestSplitAggregation:
+    async def test_split_lines_feed_category_reports(self, api_client: AsyncClient, db_engine):
+        """Covers: KAL-SPL-003"""
+        account = await create_account(api_client)
+        groceries = await create_category(api_client, name="Groceries")
+        alcohol = await create_category(api_client, name="Alcohol")
+        resp = await api_client.post(
+            "/api/v1/transactions/",
+            json={
+                "account_id": account["id"],
+                "category_id": None,
+                "amount": "214.50",
+                "type": "expense",
+                "date": "2025-06-15",
+                "description": "Lidl split",
+                "is_split": True,
+                "splits": [
+                    {"category_id": groceries["id"], "amount": "180.00", "note": ""},
+                    {"category_id": alcohol["id"], "amount": "34.50", "note": ""},
+                ],
+            },
+        )
+        assert resp.status_code == 201
+
+        factory = make_session_factory(db_engine)
+        async with factory() as session:
+            budget_rows = await BudgetService(session).range_summary(
+                datetime.date(2025, 6, 1),
+                datetime.date(2025, 6, 30),
+            )
+            by_cat = {row.category_id: row.actual_amount for row in budget_rows}
+            assert by_cat[groceries["id"]] == Decimal("180.00")
+            assert by_cat[alcohol["id"]] == Decimal("34.50")
+
+            report = await SavedReportService(session).execute(
+                ReportConfig(
+                    dimension="category",
+                    metric="sum",
+                    transaction_types=["expense"],
+                    date_preset="custom",
+                    date_from="2025-06-01",
+                    date_to="2025-06-30",
+                    category_ids=[alcohol["id"]],
+                )
+            )
+            assert report.labels == ["Alcohol"]
+            assert report.values == [34.5]
 
 
 class TestDeleteTransaction:

@@ -14,8 +14,9 @@ from sqlalchemy.orm import selectinload
 
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
-from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.models.transaction import TransactionType
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
+from kaleta.services.categorised_flows import categorised_flows_selectable
 
 REALIZATION_WARNING_THRESHOLD_PCT: float = 5.0
 MONTHS_PER_YEAR = 12
@@ -592,16 +593,17 @@ class BudgetService:
             for b in budgets
         }
 
+        flow = categorised_flows_selectable()
         actuals_rows = await self.session.execute(
-            select(Transaction.category_id, func.sum(Transaction.amount).label("total"))
+            select(flow.c.category_id, func.sum(flow.c.amount).label("total"))
             .where(
-                Transaction.type == TransactionType.EXPENSE,
-                Transaction.date >= month_start,
-                Transaction.date <= month_end,
-                Transaction.is_internal_transfer == False,  # noqa: E712
-                Transaction.category_id.isnot(None),
+                flow.c.type == TransactionType.EXPENSE,
+                flow.c.date >= month_start,
+                flow.c.date <= month_end,
+                flow.c.is_internal_transfer == False,  # noqa: E712
+                flow.c.category_id.isnot(None),
             )
-            .group_by(Transaction.category_id)
+            .group_by(flow.c.category_id)
         )
         actuals: dict[int, Decimal] = {row.category_id: row.total for row in actuals_rows}
 
@@ -684,16 +686,17 @@ class BudgetService:
         all_expense_cats: dict[int, str] = {row.id: row.name for row in cats_result}
 
         # Load actual expenses in period (all expense categories)
+        flow = categorised_flows_selectable()
         actuals_result = await self.session.execute(
-            select(Transaction.category_id, func.sum(Transaction.amount).label("total"))
+            select(flow.c.category_id, func.sum(flow.c.amount).label("total"))
             .where(
-                Transaction.type == TransactionType.EXPENSE,
-                Transaction.date >= start,
-                Transaction.date <= end,
-                Transaction.is_internal_transfer == False,  # noqa: E712
-                Transaction.category_id.isnot(None),
+                flow.c.type == TransactionType.EXPENSE,
+                flow.c.date >= start,
+                flow.c.date <= end,
+                flow.c.is_internal_transfer == False,  # noqa: E712
+                flow.c.category_id.isnot(None),
             )
-            .group_by(Transaction.category_id)
+            .group_by(flow.c.category_id)
         )
         actuals: dict[int, Decimal] = {row.category_id: row.total for row in actuals_result}
 
@@ -720,20 +723,21 @@ class BudgetService:
 
     async def actuals_by_category_month(self, year: int) -> dict[tuple[int, int], Decimal]:
         """Return {(category_id, month): actual_amount} for expense transactions."""
+        flow = categorised_flows_selectable()
         result = await self.session.execute(
             select(
-                Transaction.category_id,
-                extract("month", Transaction.date).label("month"),
-                func.sum(Transaction.amount).label("total"),
+                flow.c.category_id,
+                extract("month", flow.c.date).label("month"),
+                func.sum(flow.c.amount).label("total"),
             )
             .where(
-                Transaction.type == TransactionType.EXPENSE,
-                Transaction.date >= datetime.date(year, 1, 1),
-                Transaction.date <= datetime.date(year, 12, 31),
-                Transaction.is_internal_transfer == False,  # noqa: E712
-                Transaction.category_id.isnot(None),
+                flow.c.type == TransactionType.EXPENSE,
+                flow.c.date >= datetime.date(year, 1, 1),
+                flow.c.date <= datetime.date(year, 12, 31),
+                flow.c.is_internal_transfer == False,  # noqa: E712
+                flow.c.category_id.isnot(None),
             )
-            .group_by(Transaction.category_id, extract("month", Transaction.date))
+            .group_by(flow.c.category_id, extract("month", flow.c.date))
         )
         return {(int(row.category_id), int(row.month)): row.total for row in result}
 
