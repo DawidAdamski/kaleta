@@ -144,6 +144,24 @@ GitHub issue (@planned) → plan in docs/plans/ → branch → PR → BDD retag 
    must stay green.
 5. **Archive the plan.** After merge, hand the plan to `plan-archiver`.
 
+### Small findings — the Chore inbox
+
+Not everything deserves the full cycle. Dead code, naming nits, missing
+guards, tiny refactors spotted mid-task:
+
+- **If it belongs to the branch you already have open** (same file/area,
+  trivially small): fix it there, in its own commit.
+- **Otherwise**: add a one-line checkbox to the pinned **"Chore inbox"**
+  issue on GitHub. Do not create a dedicated issue or plan for it, and
+  do not fix it as a drive-by on an unrelated branch (the Working
+  Agreement forbids that). The maintainer triages the inbox periodically
+  and converts items worth doing into real issues via GitHub's
+  "convert to issue".
+
+Rule of thumb: a plan is for work that spans layers or needs design
+decisions; an issue is for work that waits its turn; the inbox is for
+one-liners that must not be forgotten.
+
 ## Working Agreement (Definition of Done)
 
 Every task, no exceptions:
