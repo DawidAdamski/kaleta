@@ -12,8 +12,9 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.schemas.transaction import TransactionType, TransactionUpdate
+from kaleta.schemas.transaction import TransactionSplitCreate, TransactionType, TransactionUpdate
 from kaleta.services import TransactionService, with_session
+from kaleta.views.transactions.split_editor import build_split_editor
 
 
 @dataclass
@@ -32,6 +33,8 @@ def build_edit_dialog(
     on_saved: Callable[[], None],
 ) -> EditDialogContext:
     edit_tx_id: dict[str, int | None] = {"value": None}
+    edit_is_split: dict[str, bool] = {"value": False}
+    edit_split_rows: list[dict[str, Any]] = []
     edit_dialog = ui.dialog()
     with edit_dialog, ui.card().classes("w-[520px]"):
         ui.label(t("transactions.edit")).classes("text-lg font-bold")
@@ -68,6 +71,37 @@ def build_edit_dialog(
         edit_info = ui.label("").classes("text-sm text-slate-500 italic")
         edit_info.set_visibility(False)
 
+        edit_split_container = ui.column().classes("w-full gap-1 border-t pt-3 mt-1")
+        edit_split_container.set_visibility(False)
+
+        def _update_save_enabled() -> None:
+            if not edit_is_split["value"]:
+                edit_save_btn.enable()
+                return
+            main_amount = Decimal(str(edit_amount_input.value or 0))
+            split_amounts = [Decimal(str(r["amount"] or 0)) for r in edit_split_rows]
+            balanced, _ = TransactionService.split_balance(main_amount, split_amounts)
+            if balanced and edit_split_rows:
+                edit_save_btn.enable()
+            else:
+                edit_save_btn.disable()
+
+        refresh_edit_split_rows, refresh_edit_split_balance, _ = build_split_editor(
+            split_rows=edit_split_rows,
+            tx_type_sel=edit_type_sel,
+            income_cats=income_cats,
+            expense_cats=expense_cats,
+            amount_input=edit_amount_input,
+            split_container=edit_split_container,
+            on_balance_change=_update_save_enabled,
+        )
+
+        def _on_edit_amount_change(_: Any) -> None:
+            refresh_edit_split_balance()
+            _update_save_enabled()
+
+        edit_amount_input.on_value_change(_on_edit_amount_change)
+
         def _on_edit_type_change() -> None:
             chosen = edit_type_sel.value
             is_transfer = chosen == TransactionType.TRANSFER.value
@@ -77,7 +111,9 @@ def build_edit_dialog(
                 edit_category_sel.set_options(expense_cats)
             else:
                 edit_category_sel.set_options({})
-            edit_category_sel.set_visibility(not is_transfer)
+            edit_category_sel.set_visibility(not is_transfer and not edit_is_split["value"])
+            if edit_is_split["value"]:
+                refresh_edit_split_rows()
 
         edit_type_sel.on("update:model-value", lambda _: _on_edit_type_change())
 
@@ -109,6 +145,34 @@ def build_edit_dialog(
                 category_id=edit_category_sel.value if is_cat_visible else None,
                 tag_ids=edit_tag_sel.value or [],
             )
+            if edit_is_split["value"]:
+                if not edit_split_rows:
+                    ui.notify(t("transactions.add_one_split"), type="negative")
+                    return
+                main_amount = Decimal(str(edit_amount_input.value))
+                split_amounts = [Decimal(str(r["amount"] or 0)) for r in edit_split_rows]
+                balanced, remaining = TransactionService.split_balance(main_amount, split_amounts)
+                if not balanced:
+                    total_split = main_amount - remaining
+                    ui.notify(
+                        t(
+                            "transactions.splits_must_sum",
+                            total=f"{main_amount:.2f}",
+                            current=f"{total_split:.2f}",
+                        ),
+                        type="negative",
+                    )
+                    return
+                data.splits = [
+                    TransactionSplitCreate(
+                        category_id=r["category_id"],
+                        amount=Decimal(str(r["amount"])),
+                        note=r["note"] or "",
+                    )
+                    for r in edit_split_rows
+                ]
+                data.is_split = True
+                data.category_id = None
 
             async def _update(session: Any) -> None:
                 await TransactionService(session).update(tx_id, data)
@@ -120,7 +184,7 @@ def build_edit_dialog(
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
             ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
-            ui.button(t("common.save"), on_click=edit_submit).props("color=primary")
+            edit_save_btn = ui.button(t("common.save"), on_click=edit_submit).props("color=primary")
 
     async def open_for_id(tx_id: int) -> None:
         async def _load(session: Any) -> Any:
@@ -130,6 +194,17 @@ def build_edit_dialog(
         if tx is None:
             return
         edit_tx_id["value"] = tx_id
+        edit_is_split["value"] = tx.is_split
+        edit_split_rows.clear()
+        if tx.is_split:
+            for split in tx.splits:
+                edit_split_rows.append(
+                    {
+                        "category_id": split.category_id,
+                        "amount": float(split.amount),
+                        "note": split.note,
+                    }
+                )
         edit_account_sel.set_value(tx.account_id)
         edit_amount_input.set_value(float(tx.amount))
         edit_desc_input.set_value(tx.description or "")
@@ -145,14 +220,17 @@ def build_edit_dialog(
         edit_category_sel.set_value(tx.category_id)
         edit_category_sel.set_visibility(not tx.is_internal_transfer and not tx.is_split)
         edit_tag_sel.set_value([tg.id for tg in tx.tags])
+        edit_split_container.set_visibility(tx.is_split)
         if tx.is_split:
-            edit_info.set_text(t("transactions.split_edit_note"))
-            edit_info.set_visibility(True)
+            refresh_edit_split_rows()
+            refresh_edit_split_balance()
+            edit_info.set_visibility(False)
         elif tx.is_internal_transfer:
             edit_info.set_text(t("transactions.transfer_edit_note"))
             edit_info.set_visibility(True)
         else:
             edit_info.set_visibility(False)
+        _update_save_enabled()
         edit_dialog.open()
 
     return EditDialogContext(dialog=edit_dialog, tag_sel=edit_tag_sel, open_for_id=open_for_id)

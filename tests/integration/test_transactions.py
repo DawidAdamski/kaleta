@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from httpx import AsyncClient
 
 from tests.integration.conftest import create_account, create_category, transaction_payload
@@ -125,6 +127,101 @@ class TestUpdateTransaction:
         resp = await api_client.put("/api/v1/transactions/999", json={"description": "ghost"})
         assert resp.status_code == 404
         assert resp.json()["error"]["message"] == "Transaction not found"
+
+    async def test_create_unbalanced_split_returns_422(self, api_client: AsyncClient):
+        """Covers: KAL-SPL-002"""
+        account = await create_account(api_client)
+        cat1 = await create_category(api_client, name="Groceries")
+        cat2 = await create_category(api_client, name="Alcohol")
+        resp = await api_client.post(
+            "/api/v1/transactions/",
+            json={
+                "account_id": account["id"],
+                "category_id": None,
+                "amount": "214.50",
+                "type": "expense",
+                "date": "2025-06-01",
+                "description": "Lidl split",
+                "is_split": True,
+                "splits": [
+                    {"category_id": cat1["id"], "amount": "180.00", "note": ""},
+                    {"category_id": cat2["id"], "amount": "20.00", "note": ""},
+                ],
+            },
+        )
+        assert resp.status_code == 422
+
+    async def test_update_split_lines_returns_200(self, api_client: AsyncClient):
+        """Covers: KAL-SPL-004"""
+        account = await create_account(api_client)
+        cat1 = await create_category(api_client, name="Groceries API")
+        cat2 = await create_category(api_client, name="Alcohol API")
+        created = (
+            await api_client.post(
+                "/api/v1/transactions/",
+                json={
+                    "account_id": account["id"],
+                    "category_id": None,
+                    "amount": "214.50",
+                    "type": "expense",
+                    "date": "2025-06-01",
+                    "description": "Lidl split API",
+                    "is_split": True,
+                    "splits": [
+                        {"category_id": cat1["id"], "amount": "180.00", "note": ""},
+                        {"category_id": cat2["id"], "amount": "34.50", "note": ""},
+                    ],
+                },
+            )
+        ).json()
+        resp = await api_client.put(
+            f"/api/v1/transactions/{created['id']}",
+            json={
+                "splits": [
+                    {"category_id": cat1["id"], "amount": "170.00", "note": ""},
+                    {"category_id": cat2["id"], "amount": "44.50", "note": ""},
+                ]
+            },
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        amounts = sorted(Decimal(s["amount"]) for s in body["splits"])
+        assert amounts == [Decimal("44.50"), Decimal("170.00")]
+
+    async def test_update_unbalanced_splits_returns_422(self, api_client: AsyncClient):
+        """Covers: KAL-SPL-002"""
+        account = await create_account(api_client)
+        cat1 = await create_category(api_client, name="Groceries API 2")
+        cat2 = await create_category(api_client, name="Alcohol API 2")
+        created = (
+            await api_client.post(
+                "/api/v1/transactions/",
+                json={
+                    "account_id": account["id"],
+                    "category_id": None,
+                    "amount": "100.00",
+                    "type": "expense",
+                    "date": "2025-06-01",
+                    "description": "Split API unbalanced",
+                    "is_split": True,
+                    "splits": [
+                        {"category_id": cat1["id"], "amount": "60.00", "note": ""},
+                        {"category_id": cat2["id"], "amount": "40.00", "note": ""},
+                    ],
+                },
+            )
+        ).json()
+        resp = await api_client.put(
+            f"/api/v1/transactions/{created['id']}",
+            json={
+                "splits": [
+                    {"category_id": cat1["id"], "amount": "50.00", "note": ""},
+                    {"category_id": cat2["id"], "amount": "40.00", "note": ""},
+                ]
+            },
+        )
+        assert resp.status_code == 422
+        assert resp.json()["error"]["code"] == "validation_error"
 
 
 class TestDeleteTransaction:

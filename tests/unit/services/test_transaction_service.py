@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.transaction import TransactionType
@@ -1159,3 +1160,186 @@ class TestTransactionDisplayHelpers:
         )
         assert balanced is False
         assert remaining == Decimal("70.00")
+
+
+# ── Split integrity (KAL-SPL-002, KAL-SPL-004) ────────────────────────────────
+
+
+class TestSplitIntegrity:
+    async def test_update_split_replaces_rows(self, svc: TransactionService, session: AsyncSession):
+        """Covers: KAL-SPL-004"""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Food")
+        cat2_id = await _make_category(session, "Transport")
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
+        updated = await svc.update(
+            tx.id,
+            TransactionUpdate(
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("90.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("60.00")),
+                ]
+            ),
+        )
+        assert updated is not None
+        amounts = sorted(s.amount for s in updated.splits)
+        assert amounts == [Decimal("60.00"), Decimal("90.00")]
+
+    async def test_update_unbalanced_splits_rejected(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-002"""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Food")
+        cat2_id = await _make_category(session, "Transport")
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
+        with pytest.raises(ValidationError, match=r"\+25\.00 remaining"):
+            await svc.update(
+                tx.id,
+                TransactionUpdate(
+                    splits=[
+                        TransactionSplitCreate(category_id=cat1_id, amount=Decimal("75.00")),
+                        TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                    ]
+                ),
+            )
+
+    async def test_update_split_amount_without_splits_rejected(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-002"""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Food")
+        cat2_id = await _make_category(session, "Transport")
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
+        with pytest.raises(ValidationError, match="without updating splits"):
+            await svc.update(tx.id, TransactionUpdate(amount=Decimal("200.00")))
+
+    async def test_update_split_amount_with_splits_allowed(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-004"""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Food")
+        cat2_id = await _make_category(session, "Transport")
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
+        updated = await svc.update(
+            tx.id,
+            TransactionUpdate(
+                amount=Decimal("200.00"),
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("120.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("80.00")),
+                ],
+            ),
+        )
+        assert updated is not None
+        assert updated.amount == Decimal("200.00")
+        amounts = sorted(s.amount for s in updated.splits)
+        assert amounts == [Decimal("80.00"), Decimal("120.00")]
+
+    async def test_unsplit_without_category_rejected(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-004"""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Food")
+        cat2_id = await _make_category(session, "Transport")
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
+        with pytest.raises(ValidationError, match="category"):
+            await svc.update(tx.id, TransactionUpdate(is_split=False))
+
+    async def test_unsplit_with_category_allowed(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-004"""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Food")
+        cat2_id = await _make_category(session, "Transport")
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("50.00")),
+                ],
+            )
+        )
+        updated = await svc.update(
+            tx.id,
+            TransactionUpdate(is_split=False, category_id=cat1_id),
+        )
+        assert updated is not None
+        assert updated.is_split is False
+        assert updated.category_id == cat1_id
+        assert updated.splits == []

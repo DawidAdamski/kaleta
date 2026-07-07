@@ -770,7 +770,7 @@ Feature: Transaction Splits
   I want to split a transaction across categories
   So that I can track things like alcohol separately from groceries
 
-  KAL-SPL-001 @planned
+  KAL-SPL-001 @automated
   Scenario: Split an expense into two categories
     Given an expense of 214.50 at payee "Lidl" categorised "Groceries"
     When I split it into 180.00 "Groceries" and 34.50 "Alcohol"
@@ -778,7 +778,7 @@ Feature: Transaction Splits
     Then the transaction shows two split lines
     And the transaction total is still 214.50
 
-  KAL-SPL-002 @planned
+  KAL-SPL-002 @automated
   Scenario: Split lines must sum to the original amount
     Given I am splitting an expense of 214.50
     When the split lines sum to 200.00
@@ -792,7 +792,7 @@ Feature: Transaction Splits
     Then "Alcohol" includes 34.50 from the split
     And "Groceries" includes 180.00 from the split
 
-  KAL-SPL-004 @planned
+  KAL-SPL-004 @automated
   Scenario: Edit an existing split
     Given a transaction with a saved split
     When I change a split line amount and rebalance

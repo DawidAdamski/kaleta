@@ -10,10 +10,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from kaleta.exceptions import KaletaError
+from kaleta.exceptions import KaletaError, ValidationError
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
-from kaleta.schemas.transaction import TransactionCreate, TransactionUpdate
+from kaleta.schemas.transaction import (
+    TransactionCreate,
+    TransactionSplitCreate,
+    TransactionUpdate,
+)
 
 
 class TransactionService:
@@ -172,14 +176,68 @@ class TransactionService:
             raise KaletaError("Transfer legs not found after commit")
         return fetched_out, fetched_in
 
+    @staticmethod
+    def _validate_split_sum(amount: Decimal, splits: builtins.list[TransactionSplitCreate]) -> None:
+        if not splits:
+            raise ValidationError("Split transactions must have at least one split.")
+        split_total = sum((s.amount for s in splits), start=Decimal("0"))
+        if split_total != amount:
+            remaining = amount - split_total
+            raise ValidationError(
+                f"Split amounts must sum to {amount}; {remaining:+.2f} remaining."
+            )
+
     async def update(self, transaction_id: int, data: TransactionUpdate) -> Transaction | None:
         transaction = await self.get(transaction_id)
         if transaction is None:
             return None
-        updates = data.model_dump(exclude_unset=True)
-        tag_ids = updates.pop("tag_ids", None)
+        fields_set = data.model_fields_set
+        updates = data.model_dump(exclude_unset=True, exclude={"splits", "is_split", "tag_ids"})
+        splits = data.splits if "splits" in fields_set else None
+        is_split = data.is_split if "is_split" in fields_set else None
+        tag_ids = data.tag_ids if "tag_ids" in fields_set else None
+
+        if (
+            transaction.is_split
+            and "amount" in updates
+            and updates["amount"] != transaction.amount
+            and splits is None
+        ):
+            raise ValidationError(
+                "Cannot change amount on a split transaction without updating splits."
+            )
+
+        effective_type = (
+            data.type if "type" in fields_set and data.type is not None else transaction.type
+        )
+        if (
+            is_split is False
+            and transaction.is_split
+            and effective_type in (TransactionType.INCOME, TransactionType.EXPENSE)
+            and ("category_id" not in fields_set or data.category_id is None)
+        ):
+            raise ValidationError(
+                f"{effective_type.value.capitalize()} transactions require a category."
+            )
+
         for field, value in updates.items():
             setattr(transaction, field, value)
+
+        if is_split is not None:
+            transaction.is_split = is_split
+            if is_split:
+                transaction.category_id = None
+            elif transaction.splits:
+                transaction.splits.clear()
+
+        if splits is not None:
+            self._validate_split_sum(transaction.amount, splits)
+            transaction.is_split = True
+            transaction.category_id = None
+            transaction.splits.clear()
+            for split_data in splits:
+                transaction.splits.append(TransactionSplit(**split_data.model_dump()))
+
         if tag_ids is not None:
             transaction.tags = await self._load_tags(tag_ids)
         await self.session.commit()
