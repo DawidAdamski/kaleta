@@ -16,7 +16,7 @@ from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.payee import PayeeCreate
-from kaleta.schemas.transaction import TransactionCreate
+from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import (
     AccountService,
     BudgetService,
@@ -341,6 +341,33 @@ class TestSpendingByCategory:
         rep = await svc.spending_by_category(datetime.date(2025, 6, 1), datetime.date(2025, 7, 1))
         assert [r.category for r in rep.rows] == ["Rent", "Food"]
         assert rep.total == Decimal("1700")
+
+    async def test_split_lines_feed_category_totals(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """Covers: KAL-SPL-003"""
+        acc = await _make_account(session)
+        groceries = await _make_category(session, "Groceries")
+        alcohol = await _make_category(session, "Alcohol")
+        d = datetime.date(2025, 6, 15)
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=acc,
+                amount=Decimal("214.50"),
+                type=TransactionType.EXPENSE,
+                date=d,
+                description="Lidl",
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=groceries, amount=Decimal("180.00")),
+                    TransactionSplitCreate(category_id=alcohol, amount=Decimal("34.50")),
+                ],
+            )
+        )
+        rep = await svc.spending_by_category(datetime.date(2025, 6, 1), datetime.date(2025, 7, 1))
+        by_cat = {row.category: row.amount for row in rep.rows}
+        assert by_cat["Groceries"] == Decimal("180.00")
+        assert by_cat["Alcohol"] == Decimal("34.50")
 
 
 # ── top_merchants ──────────────────────────────────────────────────────────────

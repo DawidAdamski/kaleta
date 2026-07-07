@@ -16,6 +16,7 @@ from kaleta.models.institution import Institution
 from kaleta.models.report import SavedReport
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.report import SavedReportCreate
+from kaleta.services.categorised_flows import categorised_flows_selectable
 
 # ── Config dataclass ───────────────────────────────────────────────────────────
 
@@ -179,43 +180,19 @@ class SavedReportService:
 
     async def execute(self, config: ReportConfig) -> ReportResult:
         date_from, date_to = self._resolve_dates(config)
+        if config.dimension == "category" or config.category_ids:
+            return await self._execute_on_flows(config, date_from, date_to)
+        return await self._execute_on_transactions(config, date_from, date_to)
 
-        # Base WHERE filters
-        filters = [Transaction.is_internal_transfer == False]  # noqa: E712
-        if date_from:
-            filters.append(Transaction.date >= date_from)
-        if date_to:
-            filters.append(Transaction.date <= date_to)
-        if config.transaction_types:
-            _type_map = {
-                "expense": TransactionType.EXPENSE,
-                "income": TransactionType.INCOME,
-                "transfer": TransactionType.TRANSFER,
-            }
-            type_clauses = [
-                Transaction.type == _type_map[t] for t in config.transaction_types if t in _type_map
-            ]
-            if type_clauses:
-                filters.append(or_(*type_clauses))
-        if config.account_ids:
-            filters.append(Transaction.account_id.in_(config.account_ids))
-        if config.category_ids:
-            filters.append(Transaction.category_id.in_(config.category_ids))
-
-        # Dimension expression + joins
+    async def _execute_on_transactions(
+        self,
+        config: ReportConfig,
+        date_from: datetime.date | None,
+        date_to: datetime.date | None,
+    ) -> ReportResult:
+        filters = self._transaction_filters(config, date_from, date_to)
         dim_expr, joins, col_header, is_weekday = self._dimension(config.dimension)
-
-        # Metric expression
-        metric_expr: Any
-        if config.metric == "sum":
-            metric_expr = func.sum(Transaction.amount)
-            metric_header = "Total Amount"
-        elif config.metric == "count":
-            metric_expr = func.count(Transaction.id)
-            metric_header = "Count"
-        else:
-            metric_expr = func.avg(Transaction.amount)
-            metric_header = "Average"
+        metric_expr, metric_header = self._metric_exprs(config.metric, use_flows=False)
 
         stmt = (
             select(dim_expr.label("label"), metric_expr.label("value"))
@@ -229,7 +206,41 @@ class SavedReportService:
             stmt = stmt.limit(config.top_n)
 
         rows = builtins.list((await self.session.execute(stmt)).fetchall())
+        return self._rows_to_result(rows, col_header, metric_header, is_weekday)
 
+    async def _execute_on_flows(
+        self,
+        config: ReportConfig,
+        date_from: datetime.date | None,
+        date_to: datetime.date | None,
+    ) -> ReportResult:
+        flow = categorised_flows_selectable()
+        filters = self._flow_filters(config, date_from, date_to, flow)
+        dim_expr, joins, col_header, is_weekday = self._flow_dimension(config.dimension, flow)
+        metric_expr, metric_header = self._metric_exprs(config.metric, use_flows=True, flow=flow)
+
+        stmt = (
+            select(dim_expr.label("label"), metric_expr.label("value"))
+            .select_from(flow)
+            .where(*filters)
+            .group_by(dim_expr)
+            .order_by(metric_expr.desc())
+        )
+        for join_target, condition, isouter in joins:
+            stmt = stmt.join(join_target, condition, isouter=isouter)
+        if config.top_n and config.top_n > 0:
+            stmt = stmt.limit(config.top_n)
+
+        rows = builtins.list((await self.session.execute(stmt)).fetchall())
+        return self._rows_to_result(rows, col_header, metric_header, is_weekday)
+
+    @staticmethod
+    def _rows_to_result(
+        rows: builtins.list[Any],
+        col_header: str,
+        metric_header: str,
+        is_weekday: bool,
+    ) -> ReportResult:
         if is_weekday:
             labels = [_WEEKDAY_NAMES[int(r.label)] if r.label is not None else "?" for r in rows]
         else:
@@ -242,6 +253,71 @@ class SavedReportService:
             column_header=col_header,
             metric_header=metric_header,
         )
+
+    @staticmethod
+    def _transaction_filters(
+        config: ReportConfig,
+        date_from: datetime.date | None,
+        date_to: datetime.date | None,
+    ) -> builtins.list[Any]:
+        filters: builtins.list[Any] = [Transaction.is_internal_transfer == False]  # noqa: E712
+        if date_from:
+            filters.append(Transaction.date >= date_from)
+        if date_to:
+            filters.append(Transaction.date <= date_to)
+        filters.extend(SavedReportService._type_filters(config, Transaction.type))
+        if config.account_ids:
+            filters.append(Transaction.account_id.in_(config.account_ids))
+        return filters
+
+    @staticmethod
+    def _flow_filters(
+        config: ReportConfig,
+        date_from: datetime.date | None,
+        date_to: datetime.date | None,
+        flow: Any,
+    ) -> builtins.list[Any]:
+        filters: builtins.list[Any] = [flow.c.is_internal_transfer == False]  # noqa: E712
+        if date_from:
+            filters.append(flow.c.date >= date_from)
+        if date_to:
+            filters.append(flow.c.date <= date_to)
+        filters.extend(SavedReportService._type_filters(config, flow.c.type))
+        if config.account_ids:
+            filters.append(flow.c.account_id.in_(config.account_ids))
+        if config.category_ids:
+            filters.append(flow.c.category_id.in_(config.category_ids))
+        return filters
+
+    @staticmethod
+    def _type_filters(config: ReportConfig, type_column: Any) -> builtins.list[Any]:
+        if not config.transaction_types:
+            return []
+        _type_map = {
+            "expense": TransactionType.EXPENSE,
+            "income": TransactionType.INCOME,
+            "transfer": TransactionType.TRANSFER,
+        }
+        type_clauses = [
+            type_column == _type_map[t] for t in config.transaction_types if t in _type_map
+        ]
+        return [or_(*type_clauses)] if type_clauses else []
+
+    @staticmethod
+    def _metric_exprs(
+        metric: Metric,
+        *,
+        use_flows: bool,
+        flow: Any | None = None,
+    ) -> tuple[Any, str]:
+        amount_col = flow.c.amount if use_flows and flow is not None else Transaction.amount
+        if metric == "sum":
+            return func.sum(amount_col), "Total Amount"
+        if metric == "count":
+            if use_flows:
+                return func.count(), "Count"
+            return func.count(Transaction.id), "Count"
+        return func.avg(amount_col), "Average"
 
     # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -334,6 +410,66 @@ class SavedReportService:
                 True,
             )
         # fallback
+        return (func.coalesce(Category.name, "Uncategorised"), [], "Category", False)
+
+    @staticmethod
+    def _flow_dimension(
+        dim: Dimension,
+        flow: Any,
+    ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool]:
+        """Return (dim_expr, joins, column_header, is_weekday) for categorised flows."""
+        if dim == "category":
+            return (
+                func.coalesce(Category.name, "Uncategorised"),
+                [(Category, flow.c.category_id == Category.id, True)],
+                "Category",
+                False,
+            )
+        if dim == "account":
+            return (
+                Account.name,
+                [(Account, flow.c.account_id == Account.id, False)],
+                "Account",
+                False,
+            )
+        if dim == "institution":
+            return (
+                func.coalesce(Institution.name, "No Institution"),
+                [
+                    (Account, flow.c.account_id == Account.id, False),
+                    (Institution, Account.institution_id == Institution.id, True),
+                ],
+                "Institution",
+                False,
+            )
+        if dim == "month":
+            return (
+                date_year_month(flow.c.date),
+                [],
+                "Month",
+                False,
+            )
+        if dim == "year":
+            return (
+                date_year(flow.c.date),
+                [],
+                "Year",
+                False,
+            )
+        if dim == "type":
+            return (
+                flow.c.type,
+                [],
+                "Type",
+                False,
+            )
+        if dim == "weekday":
+            return (
+                date_weekday(flow.c.date),
+                [],
+                "Weekday",
+                True,
+            )
         return (func.coalesce(Category.name, "Uncategorised"), [], "Category", False)
 
 

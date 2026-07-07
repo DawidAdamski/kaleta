@@ -138,6 +138,17 @@ Out of scope:
 - Edit dialog mounts `split_editor` for split transactions; Save is disabled
   while lines are unbalanced.
 
+### PR 2 (feat/splits-aggregation)
+- `categorised_flows_selectable()` in `categorised_flows.py` is the single
+  source of truth: non-split rows from `Transaction`, split rows from
+  `TransactionSplit` joined to parent.
+- Budget actuals (`realization_for_month`, `range_summary`,
+  `actuals_by_category_month`), `ReportService._sum_by_category`, and
+  `SavedReportService.execute` (category dimension or category filter) all
+  consume the shared selectable.
+- Monthly Readiness stage 1 excludes fully categorised splits; still flags
+  non-split uncategorised rows and splits with a null-category line.
+
 ## Acceptance criteria
 
 - `uv run python scripts/spec_coverage.py`

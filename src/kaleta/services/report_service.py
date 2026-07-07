@@ -31,6 +31,7 @@ from kaleta.models.budget import Budget
 from kaleta.models.category import Category
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.services.categorised_flows import categorised_flows_selectable
 
 # ── Shared dataclasses ────────────────────────────────────────────────────────
 
@@ -740,28 +741,28 @@ class ReportService:
         Uncategorised transactions are bucketed under a NULL name row so the
         caller can label them ("—" in the dataclasses).
         """
+        flow = categorised_flows_selectable()
         stmt = (
             select(
                 Category.name.label("name"),
-                Transaction.type.label("type"),
-                func.sum(Transaction.amount).label("total"),
+                flow.c.type.label("type"),
+                func.sum(flow.c.amount).label("total"),
             )
-            .join(Category, Transaction.category_id == Category.id, isouter=True)
+            .select_from(flow)
+            .join(Category, flow.c.category_id == Category.id, isouter=True)
             .where(
-                Transaction.date >= start,
-                Transaction.date < end,
-                Transaction.is_internal_transfer == False,  # noqa: E712
+                flow.c.date >= start,
+                flow.c.date < end,
+                flow.c.is_internal_transfer == False,  # noqa: E712
             )
-            .group_by(Category.name, Transaction.type)
+            .group_by(Category.name, flow.c.type)
         )
         if only_type is not None:
-            stmt = stmt.where(Transaction.type == only_type)
+            stmt = stmt.where(flow.c.type == only_type)
         else:
             # Skip TRANSFER in category-based reports — transfers are
             # account-to-account movement, not income or expense.
-            stmt = stmt.where(
-                Transaction.type.in_([TransactionType.INCOME, TransactionType.EXPENSE])
-            )
+            stmt = stmt.where(flow.c.type.in_([TransactionType.INCOME, TransactionType.EXPENSE]))
 
         result = await self.session.execute(stmt)
         return list(result.all())
