@@ -22,7 +22,7 @@ from kaleta.services.reserve_fund_service import ReserveFundService
 from kaleta.services.saved_report_service import SavedReportService
 from kaleta.services.scheduled_backup_service import ScheduledBackupService
 from kaleta.services.session import dispose_sessions, with_session
-from kaleta.services.setup_service import activate_database
+from kaleta.services.setup_service import activate_database, ensure_schema_current
 from kaleta.services.subscription_service import SubscriptionService
 from kaleta.services.tag_service import TagService
 from kaleta.services.transaction_service import TransactionService
@@ -31,6 +31,7 @@ from kaleta.services.yearly_plan_service import YearlyPlanService
 
 __all__ = [
     "activate_database",
+    "ensure_schema_current",
     "dispose_sessions",
     "with_session",
     "AccountService",

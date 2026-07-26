@@ -14,11 +14,21 @@ forecast cash flow — from a browser, desktop window, or headless API.
 Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
 
 ```bash
-uv sync && uv run alembic upgrade head && uv run kaleta
+uv sync && uv run kaleta
 ```
 
-Open **http://localhost:8080**, create your account on first launch, then sign
-in. Optional demo data: `uv run python scripts/seed.py`.
+Open **http://localhost:8080**. On first launch the setup wizard creates the
+database and runs migrations; on later starts the app auto-upgrades the
+configured DB (from `~/.kaleta/config.json`) to the installed schema, with a
+SQLite safety copy under `~/.kaleta/backups` first. Create your account, then
+sign in. Optional demo data: `uv run python scripts/seed.py`.
+
+Manual migrate (targets the live DB — bare `alembic upgrade head` uses
+`KALETA_DB_URL` / cwd `kaleta.db`, which may differ from the configured one):
+
+```bash
+KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/path/to/kaleta.db uv run alembic upgrade head
+```
 
 ## Documentation
 
