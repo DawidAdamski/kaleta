@@ -16,12 +16,22 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 uv sync
-uv run alembic upgrade head
 uv run kaleta
 ```
 
-Open **http://localhost:8080**. On first launch you choose a database location,
-then create a username and password before any financial data pages load.
+Open **http://localhost:8080**. On first launch you choose a database location
+(migrations run in the wizard); on later starts the app brings the configured
+database up to the installed alembic head automatically. Then create a username
+and password before any financial data pages load.
+
+To migrate the **configured** database by hand (for example after restoring a
+file copy), point Alembic at that URL — bare `uv run alembic upgrade head`
+uses `KALETA_DB_URL` (default: `kaleta.db` in the current working directory),
+which is often **not** the live DB from `~/.kaleta/config.json`:
+
+```bash
+KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/KaletaData/kaleta.db uv run alembic upgrade head
+```
 
 ### Demo data
 
@@ -112,7 +122,8 @@ After model changes:
 
 ```bash
 uv run alembic revision --autogenerate -m "description"
-uv run alembic upgrade head
+# Prefer starting the app (auto-migrate) or set KALETA_MIGRATE_URL to the target DB:
+KALETA_MIGRATE_URL=sqlite+aiosqlite:///./kaleta.db uv run alembic upgrade head
 ```
 
 ## Project structure

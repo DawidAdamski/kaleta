@@ -58,15 +58,28 @@ def _register_api() -> None:
 
 
 def _preload_config() -> None:
-    """Read ~/.kaleta/config.json and reconfigure the DB proxy before views are registered."""
+    """Read ~/.kaleta/config.json and reconfigure the DB proxy before views are registered.
+
+    When a database is already configured, also bring its schema to the installed
+    alembic head (with a pre-migration VACUUM INTO safety copy for on-disk SQLite).
+    """
+    import logging
+
     from kaleta.config import settings as app_settings
     from kaleta.config.setup_config import get_db_url
+    from kaleta.exceptions import MigrationError
 
     db_url = get_db_url()
     if db_url:
         from kaleta.db import configure_database
+        from kaleta.services.setup_service import ensure_schema_current
 
         configure_database(db_url, debug=app_settings.debug)
+        try:
+            ensure_schema_current(db_url)
+        except MigrationError as exc:
+            logging.getLogger(__name__).error("Refusing to start: %s", exc.message)
+            raise SystemExit(f"Refusing to start: {exc.message}") from exc
 
 
 def _register_auth() -> None:

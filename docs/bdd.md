@@ -2029,6 +2029,14 @@ Feature: Settings — Data safety
     And PRAGMA journal_mode is wal
     And PRAGMA busy_timeout is 5000
     And PRAGMA synchronous is 1
+
+  KAL-SET-019 @automated
+  Scenario: Configured database auto-upgrades to alembic head on start
+    Given I have an on-disk SQLite database stamped at an older alembic revision
+    And a backup directory is configured
+    When ensure_schema_current runs for that database
+    Then a kaleta-*.db safety copy exists under the backup directory
+    And the database alembic revision matches the installed head
 ```
 
 ## Feature: Housekeeping — Integrity

@@ -40,3 +40,9 @@ class ForecastUnavailableError(KaletaError):
 
 class UnauthorizedError(KaletaError):
     code = "unauthorized"
+
+
+class MigrationError(KaletaError):
+    """Schema cannot be brought to the installed alembic head safely."""
+
+    code = "migration_error"

@@ -111,6 +111,8 @@ invocation today is `KALETA_MIGRATE_URL=<real-url> uv run alembic upgrade head`.
 auto-upgrade (with a pre-migration `VACUUM INTO` safety copy — ties into
 finding 2) or refuse to start with a clear message. Update README.
 
+→ **Plan:** [`migrate-on-startup.md`](migrate-on-startup.md) (in progress).
+
 ---
 
 ## P1 — daily-run friction (fix in the first weeks of dogfooding)
