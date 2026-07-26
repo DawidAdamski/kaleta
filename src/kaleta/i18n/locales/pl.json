@@ -562,7 +562,15 @@
     "merge_confirm_confirm": "Scal",
     "merged_tx": "Usunięto {count} zduplikowanych transakcji.",
     "merged_payees": "Scalono {count} odbiorcę/-ów w zachowany wpis.",
-    "merged_categories": "Scalono {count} kategori(e) w zachowaną."
+    "merged_categories": "Scalono {count} kategori(e) w zachowaną.",
+    "integrity_heading": "Integralność",
+    "integrity_hint": "Sprawdź osierocone klucze obce SQLite pozostałe po importach lub starszych wersjach. Bezpieczne — tylko odczyt.",
+    "integrity_idle": "Uruchom sprawdzenie, aby wykryć osierocone odniesienia kluczy obcych.",
+    "integrity_run": "Sprawdź",
+    "integrity_ok": "Nie znaleziono osieroconych kluczy obcych.",
+    "integrity_not_sqlite": "Sprawdzanie integralności kluczy obcych jest dostępne tylko przy SQLite.",
+    "integrity_violation_count": "{count} osieroconych odniesień",
+    "integrity_violation_row": "Tabela {table}, wiersz {rowid} → brak rodzica w {parent}"
   },
   "accounts": {
     "title": "Konta",

@@ -129,4 +129,12 @@ KALETA_MODE=web                       # web | app | api
 KALETA_SECRET_KEY=...                 # Session/auth secret (required outside debug)
 KALETA_DEBUG=false                    # Debug mode; allows placeholder secret key
 KALETA_API_TOKEN=...                  # Optional bootstrap bearer for headless API mode
+KALETA_BACKUP_ENABLED=true            # Scheduled SQLite VACUUM INTO backups
+KALETA_BACKUP_INTERVAL_HOURS=24       # Hours between scheduled backups
+KALETA_BACKUP_RETAIN=7                # Keep last K on-disk .db snapshots
+KALETA_BACKUP_DIR=~/.kaleta/backups   # Directory for kaleta-*.db files (not ZIP exports)
 ```
+
+Scheduled backups are SQLite file snapshots (`VACUUM INTO`), separate from the
+Settings → Data ZIP export/restore format. They are a no-op for PostgreSQL and
+in-memory SQLite.

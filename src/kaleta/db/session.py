@@ -11,6 +11,8 @@ from __future__ import annotations
 from collections.abc import AsyncGenerator
 from typing import Any
 
+from sqlalchemy import event
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -19,6 +21,19 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from kaleta.config import settings
+
+
+def _register_sqlite_pragmas(sync_engine: Engine) -> None:
+    """Apply durability/integrity PRAGMAs on every new SQLite connection."""
+
+    @event.listens_for(sync_engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection: Any, _connection_record: Any) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.execute("PRAGMA journal_mode=WAL")
+        cursor.execute("PRAGMA busy_timeout=5000")
+        cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.close()
 
 
 class _SessionProxy:
@@ -32,6 +47,8 @@ class _SessionProxy:
     def _init(self, url: str, debug: bool = False) -> None:
         connect_args: dict[str, Any] = {"check_same_thread": False} if "sqlite" in url else {}
         self._engine = create_async_engine(url, echo=debug, connect_args=connect_args)
+        if "sqlite" in url:
+            _register_sqlite_pragmas(self._engine.sync_engine)
         self._factory = async_sessionmaker(
             bind=self._engine,
             expire_on_commit=False,

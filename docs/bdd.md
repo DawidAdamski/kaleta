@@ -2012,6 +2012,45 @@ Feature: Settings — Data safety
     When I upload the backup ZIP and confirm restore
     Then restore fails with a clear schema-mismatch error
     And my existing data is unchanged
+
+  KAL-SET-017 @automated
+  Scenario: Scheduled VACUUM backup writes a timestamped file and respects retention
+    Given I am using an on-disk SQLite database
+    And the backup directory is configured with retain K of 2
+    When the scheduled backup runs three times
+    Then each run creates a file matching "kaleta-*.db" under the backup directory
+    And exactly 2 backup files remain after retention
+
+  KAL-SET-018 @automated
+  Scenario: SQLite connections enable foreign keys and WAL
+    Given the app is configured with an on-disk SQLite database
+    When a new database connection is opened
+    Then PRAGMA foreign_keys is 1
+    And PRAGMA journal_mode is wal
+    And PRAGMA busy_timeout is 5000
+    And PRAGMA synchronous is 1
+```
+
+## Feature: Housekeeping — Integrity
+
+```gherkin
+Feature: Housekeeping — Integrity
+  As a user
+  I want to detect orphan foreign-key rows in my SQLite database
+  So that I can clean up data left behind by imports or older builds
+
+  KAL-INT-001 @automated
+  Scenario: Integrity check reports clean when there are no orphans
+    Given I am using SQLite with a consistent database
+    When I run the Housekeeping integrity foreign-key check
+    Then the result is empty
+
+  KAL-INT-002 @automated
+  Scenario: Integrity check lists foreign-key orphans
+    Given I am using SQLite
+    And an orphan row references a missing parent (foreign keys disabled during insert)
+    When I run the Housekeeping integrity foreign-key check
+    Then the result includes the orphan table and parent name
 ```
 
 ## Feature: Public API
