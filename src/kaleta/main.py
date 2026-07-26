@@ -17,6 +17,7 @@ from kaleta.api.errors import register_error_handlers
 from kaleta.config import settings
 from kaleta.logging_config import RequestLoggingMiddleware, configure_logging
 from kaleta.services.backup_scheduler import BackupScheduler
+from kaleta.services.nbp_startup import NbpStartupFetcher
 
 # Cached OpenAPI spec — generated once from our router tree.
 _openapi_spec: dict[str, Any] | None = None
@@ -160,12 +161,20 @@ def _register_backup_scheduler() -> None:
     nicegui_app.on_shutdown(BackupScheduler.stop)
 
 
+def _register_nbp_startup_fetch() -> None:
+    """Opt-in NBP Table A import on process start (default OFF)."""
+    nicegui_app.on_startup(NbpStartupFetcher.start)
+    nicegui_app.on_shutdown(NbpStartupFetcher.stop)
+
+
 @asynccontextmanager
 async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     BackupScheduler.start()
+    NbpStartupFetcher.start()
     try:
         yield
     finally:
+        await NbpStartupFetcher.stop()
         await BackupScheduler.stop()
 
 
@@ -183,6 +192,7 @@ def run_web() -> None:
     _register_auth()
     _register_views()
     _register_backup_scheduler()
+    _register_nbp_startup_fetch()
     ui.run(
         host=settings.host,
         port=settings.port,
@@ -201,6 +211,7 @@ def run_app() -> None:
     _register_auth()
     _register_views()
     _register_backup_scheduler()
+    _register_nbp_startup_fetch()
     ui.run(
         host=settings.host,
         port=settings.port,

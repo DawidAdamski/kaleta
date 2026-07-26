@@ -13,6 +13,8 @@ from kaleta.services.dedupe_service import DedupeService
 from kaleta.services.institution_service import InstitutionService
 from kaleta.services.integrity_service import IntegrityService
 from kaleta.services.monthly_readiness_service import MonthlyReadinessService
+from kaleta.services.nbp_rate_service import NbpRateService
+from kaleta.services.nbp_startup import NbpStartupFetcher
 from kaleta.services.net_worth_service import NetWorthService
 from kaleta.services.payee_service import PayeeService
 from kaleta.services.personal_loan_service import PersonalLoanService
@@ -48,6 +50,8 @@ __all__ = [
     "CreditService",
     "CurrencyRateService",
     "DedupeService",
+    "NbpRateService",
+    "NbpStartupFetcher",
     "InstitutionService",
     "MonthlyReadinessService",
     "NetWorthService",

@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from kaleta.exceptions import (
     ConflictError,
+    ExternalServiceError,
     ForecastUnavailableError,
     KaletaError,
     NotFoundError,
@@ -41,7 +42,7 @@ def _status_for(exc: KaletaError) -> int:
         return 422
     if isinstance(exc, ConflictError):
         return 409
-    if isinstance(exc, ForecastUnavailableError):
+    if isinstance(exc, (ForecastUnavailableError, ExternalServiceError)):
         return 503
     return 500
 
