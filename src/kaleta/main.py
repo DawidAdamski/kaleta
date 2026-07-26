@@ -112,6 +112,7 @@ def _register_views() -> None:
         planned_transactions,
         reports,
         reports_canned,
+        rules,
         safety_funds,
         secure_app,
         settings,
@@ -150,6 +151,7 @@ def _register_views() -> None:
     credit.register()
     housekeeping.register()
     tags.register()
+    rules.register()
     wizard.register()
     settings.register()
 

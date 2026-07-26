@@ -12,8 +12,13 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import t
+from kaleta.schemas.categorisation_rule import (
+    CategorisationRuleCreate,
+    CategorisationRuleSuggestion,
+    RuleMatchMode,
+)
 from kaleta.schemas.transaction import TransactionSplitCreate, TransactionType, TransactionUpdate
-from kaleta.services import TransactionService, with_session
+from kaleta.services import RuleService, TransactionService, with_session
 from kaleta.views.transactions.split_editor import build_split_editor
 
 
@@ -34,8 +39,43 @@ def build_edit_dialog(
 ) -> EditDialogContext:
     edit_tx_id: dict[str, int | None] = {"value": None}
     edit_is_split: dict[str, bool] = {"value": False}
+    edit_original_category_id: dict[str, int | None] = {"value": None}
+    edit_payee_name: dict[str, str | None] = {"value": None}
     edit_split_rows: list[dict[str, Any]] = []
     edit_dialog = ui.dialog()
+    suggest_dialog = ui.dialog()
+    pending_suggestion: dict[str, CategorisationRuleSuggestion | None] = {"value": None}
+
+    with suggest_dialog, ui.card().classes("w-[440px] gap-3"):
+        ui.label(t("rules.suggest_title")).classes("text-lg font-bold")
+        suggest_body = ui.label("").classes("text-sm")
+
+        async def _create_suggested_rule() -> None:
+            suggestion = pending_suggestion["value"]
+            if suggestion is None:
+                suggest_dialog.close()
+                return
+
+            async def _create(session: Any) -> None:
+                await RuleService(session).create(
+                    CategorisationRuleCreate(
+                        pattern=suggestion.pattern,
+                        category_id=suggestion.category_id,
+                        match_mode=RuleMatchMode.CONTAINS,
+                    )
+                )
+
+            await with_session(_create)
+            ui.notify(t("rules.created"), type="positive")
+            suggest_dialog.close()
+
+        with ui.row().classes("w-full justify-end gap-2"):
+            ui.button(t("rules.suggest_dismiss"), on_click=suggest_dialog.close).props("flat")
+            ui.button(
+                t("rules.suggest_create"),
+                on_click=_create_suggested_rule,
+            ).props("color=primary")
+
     with edit_dialog, ui.card().classes("w-[520px]"):
         ui.label(t("transactions.edit")).classes("text-lg font-bold")
 
@@ -174,13 +214,36 @@ def build_edit_dialog(
                 data.is_split = True
                 data.category_id = None
 
-            async def _update(session: Any) -> None:
+            async def _update(session: Any) -> CategorisationRuleSuggestion | None:
                 await TransactionService(session).update(tx_id, data)
+                new_category_id = data.category_id
+                if (
+                    edit_is_split["value"]
+                    or new_category_id is None
+                    or new_category_id == edit_original_category_id["value"]
+                ):
+                    return None
+                return await RuleService(session).suggest_from_corrections(
+                    payee_name=edit_payee_name["value"],
+                    description=data.description or "",
+                    category_id=new_category_id,
+                )
 
-            await with_session(_update)
+            suggestion = await with_session(_update)
             ui.notify(t("transactions.updated"), type="positive")
             edit_dialog.close()
             on_saved()
+            if suggestion is not None:
+                pending_suggestion["value"] = suggestion
+                suggest_body.set_text(
+                    t(
+                        "rules.suggest_body",
+                        pattern=suggestion.pattern,
+                        category=suggestion.category_name,
+                        count=suggestion.match_count,
+                    )
+                )
+                suggest_dialog.open()
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
             ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
@@ -195,6 +258,8 @@ def build_edit_dialog(
             return
         edit_tx_id["value"] = tx_id
         edit_is_split["value"] = tx.is_split
+        edit_original_category_id["value"] = tx.category_id
+        edit_payee_name["value"] = tx.payee.name if tx.payee else None
         edit_split_rows.clear()
         if tx.is_split:
             for split in tx.splits:

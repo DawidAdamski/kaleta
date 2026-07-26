@@ -17,6 +17,7 @@ from kaleta.models import (
     AssetType,
     AuditLog,
     Budget,
+    CategorisationRule,
     Category,
     CategoryType,
     Counterparty,
@@ -37,6 +38,7 @@ from kaleta.models import (
     ReserveFund,
     ReserveFundBackingMode,
     ReserveFundKind,
+    RuleMatchMode,
     SavedReport,
     Subscription,
     SubscriptionStatus,
@@ -108,6 +110,17 @@ async def seed_every_model(session: AsyncSession) -> None:
     category = Category(name="Food", type=CategoryType.EXPENSE, user_id=user.id)
     session.add(category)
     await session.flush()
+
+    session.add(
+        CategorisationRule(
+            pattern="LIDL",
+            match_mode=RuleMatchMode.CONTAINS,
+            category_id=category.id,
+            is_active=True,
+            priority=0,
+            user_id=user.id,
+        )
+    )
 
     payee = Payee(name="Biedronka", user_id=user.id)
     session.add(payee)
