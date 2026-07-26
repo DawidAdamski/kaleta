@@ -1338,6 +1338,47 @@ Feature: Planned and Recurring Transactions
     When I disable "Include planned transactions"
     And I click "Run forecast"
     Then the forecast is based solely on historical transaction patterns
+
+  # --- Posting due occurrences ---
+
+  KAL-PLN-015 @automated
+  Scenario: Post a single due occurrence creates a real transaction
+    Given there is an account "PKO Main"
+    And there is an active planned monthly expense "Netflix" of 49 starting 2025-01-15
+    And today is 2025-01-20
+    When I post the occurrence of "Netflix" for 2025-01-15
+    Then a transaction exists for account "PKO Main" with amount 49 on 2025-01-15
+    And the transaction is linked to planned transaction "Netflix"
+
+  KAL-PLN-016 @automated
+  Scenario: Post all due posts every unposted occurrence in the lookback window
+    Given there is an account "PKO Main"
+    And there is an active planned weekly expense "Groceries" of 300 starting 2025-01-01
+    And today is 2025-01-15
+    When I post all due planned occurrences with lookback 30 days
+    Then 3 transactions linked to "Groceries" exist on or before 2025-01-15
+
+  KAL-PLN-017 @automated
+  Scenario: Re-posting the same occurrence is idempotent
+    Given there is an account "PKO Main"
+    And there is an active planned monthly expense "Rent" of 2500 starting 2025-01-01
+    And today is 2025-01-10
+    And the occurrence of "Rent" for 2025-01-01 has already been posted
+    When I post the occurrence of "Rent" for 2025-01-01 again
+    Then exactly 1 transaction linked to "Rent" on 2025-01-01 exists
+
+  KAL-PLN-018 @automated
+  Scenario: Auto-post on start is off by default
+    Given I open Settings → Features
+    Then the "Auto-post due planned transactions on start" switch is off
+
+  KAL-PLN-019 @manual
+  Scenario: Auto-post on start posts due occurrences once per session
+    Given auto-post due on start is enabled
+    And there is an unposted overdue planned expense "Netflix" of 49
+    When I open the app and land on any authenticated page
+    Then a transaction for "Netflix" is created
+    And opening another page in the same session does not create a duplicate
 ```
 
 ## Feature: Recurring Payment Detection

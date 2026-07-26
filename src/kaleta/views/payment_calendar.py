@@ -19,6 +19,7 @@ from typing import Any
 
 from nicegui import app, ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, RecurrenceFrequency
 from kaleta.schemas.transaction import TransactionType
@@ -35,7 +36,9 @@ from kaleta.services.planned_transaction_service import (
     MonthGrid,
     PlannedOccurrence,
 )
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
+from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
@@ -182,6 +185,47 @@ def register() -> None:
                     on_click=lambda: _open_quick_add(state["selected"]),
                 ).props("color=primary")
 
+        def _lookback_days() -> int:
+            return (
+                int(app.storage.user.get("payment_calendar_overdue_days", 0) or 0)
+                or DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS
+            )
+
+        async def _post_occurrence(occ: PlannedOccurrence) -> None:
+            try:
+
+                async def _run(session: Any) -> None:
+                    await PlannedTransactionService(session).post_occurrence(
+                        occ.planned_id, occ.date
+                    )
+
+                await with_session(_run)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+                return
+            ui.notify(t("payment_calendar.posted", name=occ.name), type="positive")
+            day_dialog.close()
+            await _refresh()
+
+        async def _post_all_due() -> None:
+            try:
+
+                async def _run(session: Any) -> int:
+                    posted = await PlannedTransactionService(session).post_due(
+                        lookback_days=_lookback_days()
+                    )
+                    return len(posted)
+
+                count = await with_session(_run)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+                return
+            if count:
+                ui.notify(t("payment_calendar.posted_all", count=count), type="positive")
+            else:
+                ui.notify(t("payment_calendar.posted_none"), type="info")
+            await _refresh()
+
         def _render_occurrence_row(occ: PlannedOccurrence, *, muted: bool = False) -> None:
             is_income = occ.type == TransactionType.INCOME
             amt_cls = AMOUNT_INCOME if is_income else AMOUNT_EXPENSE
@@ -189,6 +233,7 @@ def register() -> None:
             row_cls = "w-full items-center justify-between p-2 rounded-lg border " + (
                 "border-slate-200/60 opacity-70" if muted else "border-slate-200/60"
             )
+            can_post = occ.date <= datetime.date.today()
             with ui.row().classes(row_cls):
                 with ui.column().classes("gap-0 flex-1"):
                     ui.label(occ.name).classes("text-sm font-medium")
@@ -196,9 +241,16 @@ def register() -> None:
                     if occ.category_name:
                         sub_parts.append(occ.category_name)
                     ui.label(" · ".join(sub_parts)).classes("text-xs text-slate-500")
-                ui.label(f"{sign}{_fmt(abs(occ.amount))}").classes(
-                    f"{amt_cls} text-sm font-semibold"
-                )
+                with ui.row().classes("items-center gap-2"):
+                    ui.label(f"{sign}{_fmt(abs(occ.amount))}").classes(
+                        f"{amt_cls} text-sm font-semibold"
+                    )
+                    if can_post:
+                        ui.button(
+                            t("payment_calendar.post"),
+                            icon="publish",
+                            on_click=lambda _e=None, o=occ: _post_occurrence(o),
+                        ).props("flat dense color=primary size=sm")
 
         def _render_subscription_row(ch: SubscriptionCharge) -> None:
             with ui.row().classes(
@@ -280,6 +332,11 @@ def register() -> None:
                         on_click=lambda: _goto(today.year, today.month),
                     ).props("flat color=primary dense")
                     ui.button(
+                        t("payment_calendar.post_all_due"),
+                        icon="publish",
+                        on_click=_post_all_due,
+                    ).props("flat color=primary dense")
+                    ui.button(
                         t("payment_calendar.list_view"),
                         icon="list",
                         on_click=lambda: ui.navigate.to("/planned"),
@@ -311,9 +368,7 @@ def register() -> None:
                 last = datetime.date(y, m, last_day)
 
                 async def _load_grid(session: Any) -> tuple[MonthGrid, Any]:
-                    overdue_days = (
-                        int(app.storage.user.get("payment_calendar_overdue_days", 0) or 0) or 30
-                    )
+                    overdue_days = _lookback_days()
                     grid = await PlannedTransactionService(session).grid_for_month(
                         y, m, overdue_window_days=overdue_days
                     )

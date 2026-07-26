@@ -29,4 +29,5 @@ status: accepted
   | `subscriptions_detector_days` | `int` | `730` |
   | `housekeeping_duplicate_days` | `int` | `365` |
   | `payment_calendar_overdue_days` | `int` | `30` |
+  | `auto_post_due_on_startup` | `bool` | `False` |
   | `dashboard_widgets` | `dict[str, list[str]]` | `{}` |

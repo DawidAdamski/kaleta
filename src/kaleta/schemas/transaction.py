@@ -49,6 +49,7 @@ class TransactionBase(BaseModel):
     is_internal_transfer: bool = False
     is_split: bool = False
     linked_transaction_id: int | None = None
+    planned_transaction_id: int | None = None
 
 
 class TransactionCreate(TransactionBase):
@@ -90,6 +91,7 @@ class TransactionUpdate(BaseModel):
     is_internal_transfer: bool | None = None
     is_split: bool | None = None
     linked_transaction_id: int | None = None
+    planned_transaction_id: int | None = None
     tag_ids: list[int] | None = None
     splits: list[TransactionSplitCreate] | None = None
 

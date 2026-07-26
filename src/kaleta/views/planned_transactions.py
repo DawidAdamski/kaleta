@@ -6,6 +6,7 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.planned_transaction import (
     PlannedTransactionCreate,
@@ -15,7 +16,9 @@ from kaleta.schemas.planned_transaction import (
 )
 from kaleta.schemas.transaction import TransactionType
 from kaleta.services import AccountService, CategoryService, PlannedTransactionService, with_session
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
+from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, TABLE_SURFACE
 
 
@@ -255,6 +258,32 @@ def register() -> None:
             await with_session(_do_toggle)
             planned_list_ui.refresh()
 
+        async def _post_due(pt: PlannedTransactionResponse) -> None:
+            from nicegui import app
+
+            lookback = (
+                int(app.storage.user.get("payment_calendar_overdue_days", 0) or 0)
+                or DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS
+            )
+            try:
+
+                async def _do_post(session: Any) -> int:
+                    posted = await PlannedTransactionService(session).post_due(
+                        lookback_days=lookback,
+                        planned_id=pt.id,
+                    )
+                    return len(posted)
+
+                count = await with_session(_do_post)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+                return
+            if count:
+                ui.notify(t("planned.posted", count=count, name=pt.name), type="positive")
+            else:
+                ui.notify(t("planned.posted_none", name=pt.name), type="info")
+            planned_list_ui.refresh()
+
         # ── Planned list ──────────────────────────────────────────────────────
         @ui.refreshable
         async def planned_list_ui() -> None:
@@ -344,6 +373,8 @@ def register() -> None:
                 '<q-btn flat round dense icon="power_settings_new" size="sm"'
                 " :color=\"props.row.is_active ? 'grey-6' : 'positive'\""
                 " @click=\"$parent.$emit('toggle', props.row.id)\" />"
+                '<q-btn flat round dense icon="publish" size="sm" color="primary"'
+                " @click=\"$parent.$emit('post', props.row.id)\" />"
                 '<q-btn flat round dense icon="edit" size="sm" color="primary"'
                 " @click=\"$parent.$emit('edit', props.row.id)\" />"
                 '<q-btn flat round dense icon="delete" size="sm" color="negative"'
@@ -357,6 +388,11 @@ def register() -> None:
                 if pt:
                     await _toggle(pt)
 
+            async def _handle_post(e: Any) -> None:
+                pt = pt_by_id.get(int(e.args)) if getattr(e, "args", None) is not None else None
+                if pt:
+                    await _post_due(pt)
+
             def _handle_edit(e: Any) -> None:
                 pt = pt_by_id.get(int(e.args)) if getattr(e, "args", None) is not None else None
                 if pt:
@@ -368,6 +404,7 @@ def register() -> None:
                     _open_delete(pt)
 
             tbl.on("toggle", _handle_toggle)
+            tbl.on("post", _handle_post)
             tbl.on("edit", _handle_edit)
             tbl.on("delete", _handle_delete)
 
