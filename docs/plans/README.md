@@ -148,6 +148,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [migrate-on-startup](migrate-on-startup.md) | in-progress | Setup / ops (audit P0.4) |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
+| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |

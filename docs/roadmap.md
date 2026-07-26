@@ -226,7 +226,9 @@ Dashboard polish and widget work (see backlog paragraph above).
 Transaction QoL: notes, payee autocomplete, upcoming planned overlay.
 
 #### Import {#import}
-CSV import mapping memory and multi-file queue.
+CSV import mapping memory, multi-file queue, and fixture-backed bank
+profiles (generic + mBank today; more banks only with real anonymized
+exports — see `import-bank-profiles`).
 
 #### Settings {#settings}
 Settings tabs, week start, debug seed, panel styling.
