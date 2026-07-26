@@ -12,15 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.models.audit_log import AuditLog
 from kaleta.schemas.currency_rate import CurrencyRateCreate
 from kaleta.services.audit_service import AuditService
-from kaleta.services.backup_service import BackupService
 from kaleta.services.currency_rate_service import CurrencyRateService
-
-
-class TestBackupService:
-    def test_export_filename_has_zip_suffix(self) -> None:
-        filename = BackupService.export_filename()
-        assert filename.startswith("kaleta_backup_")
-        assert filename.endswith(".zip")
 
 
 class TestAuditService:

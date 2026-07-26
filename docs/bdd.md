@@ -1987,21 +1987,31 @@ Feature: Settings — Data safety
     Then the confirm wipe button remains disabled
     And my existing accounts and transactions are unchanged
 
-  KAL-SET-014 @manual
+  KAL-SET-014 @automated
   Scenario: Backup export produces a downloadable file
     Given I have at least one account with transactions
     And I am on the Settings page, Data tab
     When I click "Export backup"
     Then a ZIP file download starts
     And the filename matches the pattern "kaleta_backup_*.zip"
+    And the archive metadata records the current alembic revision
+    And every ORM table is included in the archive
 
-  KAL-SET-015 @manual
-  Scenario: Restore from a backup file restores accounts and transactions
-    Given I exported a backup containing accounts and transactions
+  KAL-SET-015 @automated
+  Scenario: Restore from a backup file restores the full database
+    Given I exported a backup containing rows in every ORM table
     And I cleared all data from the database
     And I am on the Settings page, Data tab
     When I upload the backup ZIP and confirm restore
-    Then my accounts and transactions from the backup are present again
+    Then every table's row count matches the backup
+
+  KAL-SET-016 @automated
+  Scenario: Restore refuses a backup from a different schema revision
+    Given I have a backup ZIP whose alembic_revision does not match this app
+    And I am on the Settings page, Data tab
+    When I upload the backup ZIP and confirm restore
+    Then restore fails with a clear schema-mismatch error
+    And my existing data is unchanged
 ```
 
 ## Feature: Public API
