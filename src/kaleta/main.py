@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -221,6 +222,11 @@ def run_api() -> None:
 
 
 def main() -> None:
+    if "--reset-password" in sys.argv:
+        from kaleta.cli.reset_password import ResetPasswordCli
+
+        raise SystemExit(ResetPasswordCli().run())
+
     match settings.mode:
         case "web":
             run_web()
