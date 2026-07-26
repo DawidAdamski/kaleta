@@ -8,12 +8,14 @@ from typing import Any
 from nicegui import app, ui
 
 from kaleta.i18n import t
-from kaleta.services import DedupeService, with_session
+from kaleta.services import DedupeService, IntegrityService, with_session
 from kaleta.services.dedupe_service import (
     CategoryGroup,
     PayeeGroup,
     TxGroup,
 )
+from kaleta.services.integrity_service import ForeignKeyViolation
+from kaleta.views.error_handling import handle_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -85,6 +87,9 @@ def register() -> None:
             # ── Redundant categories ─────────────────────────────────────
             _render_category_section(category_groups, _ask_confirm)
 
+            # ── Integrity (SQLite FK check) ───────────────────────────────
+            _render_integrity_section()
+
 
 # ── Sections ─────────────────────────────────────────────────────────────────
 
@@ -95,6 +100,59 @@ def _section_header(title_key: str, hint_key: str, count: int) -> None:
         if count > 0:
             ui.badge(t("housekeeping.group_count", count=count)).props("color=amber-7 rounded")
     ui.label(t(hint_key)).classes(BODY_MUTED)
+
+
+def _render_integrity_section() -> None:
+    with ui.card().classes(SECTION_CARD):
+        ui.label(t("housekeeping.integrity_heading")).classes(SECTION_HEADING)
+        ui.label(t("housekeeping.integrity_hint")).classes(BODY_MUTED)
+
+        result_box = ui.column().classes("w-full gap-2 mt-2")
+        with result_box:
+            ui.label(t("housekeeping.integrity_idle")).classes(BODY_MUTED)
+
+        async def _run_check() -> None:
+            async def _load(session: Any) -> tuple[bool, list[ForeignKeyViolation]]:
+                svc = IntegrityService(session)
+                if not await svc.is_sqlite():
+                    return False, []
+                return True, await svc.foreign_key_check()
+
+            try:
+                is_sqlite, violations = await with_session(_load)
+            except Exception as exc:
+                if handle_kaleta_error(exc):
+                    return
+                raise
+
+            result_box.clear()
+            with result_box:
+                if not is_sqlite:
+                    ui.label(t("housekeeping.integrity_not_sqlite")).classes(BODY_MUTED)
+                    return
+                if not violations:
+                    ui.label(t("housekeeping.integrity_ok")).classes(
+                        "text-sm text-positive font-medium"
+                    )
+                    return
+                ui.badge(t("housekeeping.integrity_violation_count", count=len(violations))).props(
+                    "color=negative rounded"
+                )
+                for v in violations:
+                    ui.label(
+                        t(
+                            "housekeeping.integrity_violation_row",
+                            table=v.table,
+                            rowid=v.rowid,
+                            parent=v.parent,
+                        )
+                    ).classes("text-sm")
+
+        ui.button(
+            t("housekeeping.integrity_run"),
+            icon="verified",
+            on_click=_run_check,
+        ).props("color=primary unelevated size=sm outline").classes("mt-2")
 
 
 def _render_tx_section(groups: list[TxGroup], ask_confirm: Any) -> None:

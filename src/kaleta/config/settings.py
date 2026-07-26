@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import logging
+from pathlib import Path
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -7,6 +8,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 _INSECURE_KEY = "change-me-in-production"
+_DEFAULT_BACKUP_DIR = "~/.kaleta/backups"
 
 
 def normalize_db_url(url: str) -> str:
@@ -34,6 +36,10 @@ class Settings(BaseSettings):
     secret_key: str = _INSECURE_KEY
     debug: bool = False
     api_token: str | None = None
+    backup_enabled: bool = True
+    backup_interval_hours: int = 24
+    backup_retain: int = 7
+    backup_dir: str = _DEFAULT_BACKUP_DIR
 
     @field_validator("db_url", mode="before")
     @classmethod
@@ -46,6 +52,25 @@ class Settings(BaseSettings):
                 normalized,
             )
         return normalized
+
+    @field_validator("backup_interval_hours")
+    @classmethod
+    def _validate_backup_interval(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("KALETA_BACKUP_INTERVAL_HOURS must be >= 1")
+        return value
+
+    @field_validator("backup_retain")
+    @classmethod
+    def _validate_backup_retain(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("KALETA_BACKUP_RETAIN must be >= 1")
+        return value
+
+    @field_validator("backup_dir")
+    @classmethod
+    def _expand_backup_dir(cls, value: str) -> str:
+        return str(Path(value).expanduser())
 
     @model_validator(mode="after")
     def _validate_secret_key(self) -> "Settings":

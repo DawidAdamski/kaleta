@@ -67,6 +67,10 @@ Set via the `KALETA_MODE` environment variable:
 | `KALETA_SECRET_KEY` | `change-me-in-production` | Secret key for sessions (required outside debug) |
 | `KALETA_DEBUG` | `false` | Enable debug mode (allows default secret key) |
 | `KALETA_API_TOKEN` | _(unset)_ | Optional bootstrap bearer token for `KALETA_MODE=api` |
+| `KALETA_BACKUP_ENABLED` | `true` | Enable scheduled SQLite `VACUUM INTO` backups |
+| `KALETA_BACKUP_INTERVAL_HOURS` | `24` | Hours between scheduled backups |
+| `KALETA_BACKUP_RETAIN` | `7` | Keep the last K `kaleta-*.db` files |
+| `KALETA_BACKUP_DIR` | `~/.kaleta/backups` | Directory for on-disk SQLite snapshots (not ZIP exports) |
 
 Create a `.env` file in the project root to override defaults:
 

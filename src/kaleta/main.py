@@ -1,6 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from typing import Any
 
 import uvicorn
@@ -14,6 +16,7 @@ from kaleta.api import create_api_router
 from kaleta.api.errors import register_error_handlers
 from kaleta.config import settings
 from kaleta.logging_config import RequestLoggingMiddleware, configure_logging
+from kaleta.services.backup_scheduler import BackupScheduler
 
 # Cached OpenAPI spec — generated once from our router tree.
 _openapi_spec: dict[str, Any] | None = None
@@ -138,8 +141,23 @@ def _register_views() -> None:
     settings.register()
 
 
+def _register_backup_scheduler() -> None:
+    """Start/stop scheduled SQLite file backups with the NiceGUI process."""
+    nicegui_app.on_startup(BackupScheduler.start)
+    nicegui_app.on_shutdown(BackupScheduler.stop)
+
+
+@asynccontextmanager
+async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    BackupScheduler.start()
+    try:
+        yield
+    finally:
+        await BackupScheduler.stop()
+
+
 def create_api() -> FastAPI:
-    api = FastAPI(title="Kaleta API", version="0.1.0")
+    api = FastAPI(title="Kaleta API", version="0.1.0", lifespan=_api_lifespan)
     register_error_handlers(api)
     return api
 
@@ -151,6 +169,7 @@ def run_web() -> None:
     _register_api()
     _register_auth()
     _register_views()
+    _register_backup_scheduler()
     ui.run(
         host=settings.host,
         port=settings.port,
@@ -168,6 +187,7 @@ def run_app() -> None:
     _register_api()
     _register_auth()
     _register_views()
+    _register_backup_scheduler()
     ui.run(
         host=settings.host,
         port=settings.port,

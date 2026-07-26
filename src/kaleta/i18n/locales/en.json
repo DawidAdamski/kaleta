@@ -562,7 +562,15 @@
     "merge_confirm_confirm": "Merge",
     "merged_tx": "Removed {count} duplicate transaction(s).",
     "merged_payees": "Merged {count} payee(s) into the keeper.",
-    "merged_categories": "Merged {count} category(ies) into the keeper."
+    "merged_categories": "Merged {count} category(ies) into the keeper.",
+    "integrity_heading": "Integrity",
+    "integrity_hint": "Check SQLite foreign-key orphans left behind by imports or older builds. Safe to run anytime — read-only.",
+    "integrity_idle": "Run a check to scan for orphan foreign-key references.",
+    "integrity_run": "Run check",
+    "integrity_ok": "No foreign-key orphans found.",
+    "integrity_not_sqlite": "Foreign-key integrity check is only available when using SQLite.",
+    "integrity_violation_count": "{count} orphan reference(s)",
+    "integrity_violation_row": "Table {table}, row {rowid} → missing parent in {parent}"
   },
   "accounts": {
     "title": "Accounts",

@@ -144,6 +144,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [sqlite-integrity-scheduled-backups](sqlite-integrity-scheduled-backups.md) | in-progress | DB / Housekeeping / Settings |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |

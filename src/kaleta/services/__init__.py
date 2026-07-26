@@ -11,6 +11,7 @@ from kaleta.services.credit_service import CreditService
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.dedupe_service import DedupeService
 from kaleta.services.institution_service import InstitutionService
+from kaleta.services.integrity_service import IntegrityService
 from kaleta.services.monthly_readiness_service import MonthlyReadinessService
 from kaleta.services.net_worth_service import NetWorthService
 from kaleta.services.payee_service import PayeeService
@@ -19,6 +20,7 @@ from kaleta.services.planned_transaction_service import PlannedTransactionServic
 from kaleta.services.report_service import ReportService
 from kaleta.services.reserve_fund_service import ReserveFundService
 from kaleta.services.saved_report_service import SavedReportService
+from kaleta.services.scheduled_backup_service import ScheduledBackupService
 from kaleta.services.session import dispose_sessions, with_session
 from kaleta.services.setup_service import activate_database
 from kaleta.services.subscription_service import SubscriptionService
@@ -36,6 +38,8 @@ __all__ = [
     "AuditService",
     "AuthService",
     "BackupService",
+    "IntegrityService",
+    "ScheduledBackupService",
     "SavedReportService",
     "AssetService",
     "BudgetService",
