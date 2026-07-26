@@ -21,7 +21,8 @@ practical.
 
 ## Scope
 
-- New [`docs/deploy-local.md`](../deploy-local.md):
+- New `docs/deploy-local.md` (created when this plan is implemented;
+  do not markdown-link until the file exists on the branch):
   - macOS **launchd** plist example:
     `KALETA_MODE=web`, `KALETA_HOST=127.0.0.1`, pinned
     `WorkingDirectory` (e.g. `~/.kaleta/run` or data dir — not the
