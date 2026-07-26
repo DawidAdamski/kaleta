@@ -148,27 +148,19 @@ class TestBackupService:
     ) -> None:
         """Restoring must DELETE every ORM table, not only those in the ZIP payload."""
         await seed_every_model(session)
+        before = await row_counts(session)
         data = await BackupService(session).export()
 
-        # Empty payees.json so a partial DELETE of only "listed" payload tables
-        # would leave post-export orphans behind.
-        with zipfile.ZipFile(io.BytesIO(data), "r") as zf:
-            meta = json.loads(zf.read("metadata.json"))
-            meta["tables"]["payees"] = 0
-            rewritten = io.BytesIO()
-            with zipfile.ZipFile(rewritten, "w") as out:
-                for name in zf.namelist():
-                    if name == "payees.json":
-                        out.writestr(name, "[]")
-                    elif name == "metadata.json":
-                        out.writestr(name, json.dumps(meta))
-                    else:
-                        out.writestr(name, zf.read(name))
-
-        # Add a post-export payee so a partial DELETE would leave a hybrid DB.
+        # Post-export orphan: a restore that only wiped tables present in the ZIP
+        # with rows would leave this behind. Full-schema DELETE clears it.
         session.add(Payee(name="Orphan Payee"))
         await session.commit()
+        assert await session.scalar(select(func.count()).select_from(Payee)) == (
+            before["payees"] + 1
+        )
 
-        await BackupService(session).restore(rewritten.getvalue())
-        payee_count = await session.scalar(select(func.count()).select_from(Payee))
-        assert payee_count == 0
+        await BackupService(session).restore(data)
+        after = await row_counts(session)
+        assert after == before
+        names = list(await session.scalars(select(Payee.name)))
+        assert "Orphan Payee" not in names

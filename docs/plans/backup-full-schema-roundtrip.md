@@ -68,4 +68,10 @@ Backups also lack an alembic revision stamp, so schema drift is invisible.
   datetime to match `DateTime()` (no tz) columns.
 - Restore deserializes JSON scalars via ORM column types (`Date` /
   `DateTime` / `Numeric`) before INSERT — asyncpg rejects ISO date/time
-  strings and needs real `date`/`datetime`/`Decimal` values.
+  strings and needs real `date`/`datetime`/`Decimal` values. Core
+  `insert()` applies dialect bind processors so SQLite still accepts
+  Decimal/date values.
+- Hybrid-state test adds a post-export orphan payee and asserts restore
+  returns to the pre-orphan counts (proves DELETE of every ORM table).
+  Earlier "empty payees.json" rewrite was dropped — it left FK dependents
+  in the ZIP and only passed on SQLite where restore disables FKs.
