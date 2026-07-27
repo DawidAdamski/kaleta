@@ -3,7 +3,7 @@ import enum
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -20,6 +20,13 @@ class TransactionType(str, enum.Enum):  # noqa: UP042
 
 class Transaction(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "transactions"
+    __table_args__ = (
+        UniqueConstraint(
+            "planned_transaction_id",
+            "date",
+            name="uq_transactions_planned_occurrence",
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     account_id: Mapped[int] = mapped_column(ForeignKey("accounts.id"), nullable=False)
@@ -30,6 +37,12 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
     # Self-referential FK for linking paired internal transfer legs
     linked_transaction_id: Mapped[int | None] = mapped_column(
         ForeignKey("transactions.id"), nullable=True
+    )
+    # When set, this row is the posted ledger entry for one planned occurrence.
+    planned_transaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey("planned_transactions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
     )
 
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
@@ -56,6 +69,9 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
     )
     linked_transaction: Mapped["Transaction | None"] = relationship(
         "Transaction", remote_side="Transaction.id", foreign_keys=[linked_transaction_id]
+    )
+    planned_transaction: Mapped["PlannedTransaction | None"] = relationship(  # type: ignore[name-defined]  # noqa: F821
+        "PlannedTransaction", foreign_keys=[planned_transaction_id]
     )
     splits: Mapped[list["TransactionSplit"]] = relationship(
         "TransactionSplit", back_populates="transaction", cascade="all, delete-orphan"

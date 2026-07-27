@@ -4,19 +4,22 @@
 from __future__ import annotations
 
 import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 from nicegui import ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.transaction import TransactionType
-from kaleta.services.planned_transaction_service import PlannedTransactionService
+from kaleta.services import PlannedTransactionService, with_session
+from kaleta.services.planned_transaction_service import PlannedOccurrence
 from kaleta.views.components.amount_label import amount_css_class, format_signed_amount
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.theme import BODY_MUTED
 
 
@@ -31,7 +34,7 @@ async def render_upcoming_planned(session: AsyncSession, is_dark: bool) -> None:
     today = datetime.date.today()
     horizon = today + datetime.timedelta(days=14)
     occs = await PlannedTransactionService(session).get_occurrences(
-        today, horizon, account_id=None, active_only=True
+        today, horizon, account_id=None, active_only=True, exclude_posted=True
     )
     with section_card(
         t("dashboard_widgets.upcoming_planned"),
@@ -47,10 +50,30 @@ async def render_upcoming_planned(session: AsyncSession, is_dark: bool) -> None:
                     TransactionType.INCOME.value if is_income else TransactionType.EXPENSE.value
                 )
                 amount_cls = amount_css_class(tx_type)
-                with ui.row().classes("w-full items-center justify-between"):
-                    with ui.column().classes("gap-0"):
+                with ui.row().classes("w-full items-center justify-between gap-2"):
+                    with ui.column().classes("gap-0 flex-1"):
                         ui.label(occ.name).classes("text-sm")
                         ui.label(str(occ.date)).classes("text-xs text-slate-500")
                     ui.label(f"{format_signed_amount(occ.amount, tx_type)} zł").classes(
                         f"text-sm font-medium {amount_cls}"
                     )
+                    if occ.date <= today:
+                        ui.button(
+                            t("dashboard_widgets.post_planned"),
+                            icon="publish",
+                            on_click=lambda _e=None, o=occ: _post_occurrence(o),
+                        ).props("flat dense color=primary size=sm")
+
+
+async def _post_occurrence(occ: PlannedOccurrence) -> None:
+    try:
+
+        async def _run(session: Any) -> None:
+            await PlannedTransactionService(session).post_occurrence(occ.planned_id, occ.date)
+
+        await with_session(_run)
+    except KaletaError as exc:
+        notify_kaleta_error(exc)
+        return
+    ui.notify(t("dashboard_widgets.posted_planned", name=occ.name), type="positive")
+    ui.navigate.to("/")

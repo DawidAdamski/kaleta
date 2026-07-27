@@ -7,6 +7,8 @@ Page URL: /planned
 
 from __future__ import annotations
 
+import datetime
+
 from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import seed_account, seed_category, seed_planned_transaction
@@ -125,7 +127,7 @@ def test_edit_planned_transaction_amount(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Netflix Edit Test")).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Netflix Edit Test")
-    row.get_by_role("button").nth(1).click()  # edit (toggle=0, edit=1, delete=2)
+    row.get_by_role("button").nth(2).click()  # edit (toggle=0, post=1, edit=2, delete=3)
 
     dialog = page.get_by_role("dialog")
     expect(dialog).to_be_visible(timeout=5000)
@@ -157,7 +159,7 @@ def test_delete_planned_transaction(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Old subscription Delete Test")).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Old subscription Delete Test")
-    row.get_by_role("button").nth(2).click()  # delete button (index 2)
+    row.get_by_role("button").nth(3).click()  # delete button (index 3)
 
     dialog = page.get_by_role("dialog")
     expect(dialog).to_be_visible(timeout=5000)
@@ -265,3 +267,52 @@ def test_planned_not_shown_without_toggle(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/transactions")
     # Without the Show Planned toggle, planned items are not shown as real transactions
     expect(page.get_by_text("Netflix NoToggle Test")).not_to_be_visible(timeout=3000)
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Auto-post on start is off by default
+# ---------------------------------------------------------------------------
+
+
+def test_auto_post_due_off_by_default(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-018"""
+    page.goto(f"{base_url}/settings")
+    page.get_by_role("tab", name="Features").click()
+    switch = page.get_by_text("Auto-post due planned transactions on start")
+    expect(switch).to_be_visible(timeout=5000)
+    # Quasar switch: aria-checked false when off
+    switch_input = page.locator(".q-toggle").filter(
+        has_text="Auto-post due planned transactions on start"
+    )
+    expect(switch_input).to_be_visible()
+    checked = switch_input.locator("input").get_attribute("aria-checked")
+    assert checked in (None, "false")
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Post due from planned list creates a transaction
+# ---------------------------------------------------------------------------
+
+
+def test_post_due_from_planned_list(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-015"""
+    today = datetime.date.today()
+    start = today - datetime.timedelta(days=5)
+    acc_id = seed_account("PKO Main Planned PostDue")
+    seed_planned_transaction(
+        name="Netflix PostDue Test",
+        amount=49,
+        account_id=acc_id,
+        frequency="once",
+        is_active=True,
+        start_date=start,
+    )
+
+    page.goto(f"{base_url}/planned")
+    expect(page.get_by_text("Netflix PostDue Test")).to_be_visible(timeout=5000)
+    row = page.locator(".q-table tbody tr").filter(has_text="Netflix PostDue Test")
+    row.get_by_role("button").nth(1).click()  # post
+    expect(page.get_by_text("Posted").first).to_be_visible(timeout=5000)
+
+    page.goto(f"{base_url}/transactions")
+    expect(page.get_by_text("Netflix PostDue Test").first).to_be_visible(timeout=5000)
