@@ -123,6 +123,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [auth-reset-password-cli](auth-reset-password-cli.md) | in-progress | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft (Q4) | Dashboard |
 | [transactions-notes-field](transactions-notes-field.md) | draft (Q4) | Transactions |
 | [wizard-action-items-widget](wizard-action-items-widget.md) | draft (Q4) | Wizard |
@@ -146,8 +147,11 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 |---|---|---|
 | [sqlite-integrity-scheduled-backups](sqlite-integrity-scheduled-backups.md) | in-progress | DB / Housekeeping / Settings |
 | [migrate-on-startup](migrate-on-startup.md) | in-progress | Setup / ops (audit P0.4) |
+| [currency-nbp-rates](currency-nbp-rates.md) | in-progress | Settings / FX (audit P1.5) |
+| [deploy-local-health](deploy-local-health.md) | in-progress | Ops / API (audit P1.9) |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
+| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
 | [rules-auto-categorisation](rules-auto-categorisation.md) | in-progress | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |

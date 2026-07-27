@@ -5,14 +5,15 @@ from typing import Literal
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.exceptions import ConflictError, ValidationError
+from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.user import User
 
 AuthState = Literal["no_user", "placeholder", "ready"]
 PLACEHOLDER_USERNAME = "__placeholder__"
+MIN_PASSWORD_LENGTH = 8
 
 
 class AuthService:
@@ -30,12 +31,22 @@ class AuthService:
         except (VerifyMismatchError, InvalidHashError):
             return False
 
+    def validate_new_password(self, password: str) -> None:
+        if len(password) < MIN_PASSWORD_LENGTH:
+            msg = f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
+            raise ValidationError(msg)
+
     async def create_user(self, username: str, password: str) -> User:
+        self.validate_new_password(password)
         user = User(username=username, password_hash=self.hash_password(password))
         self.session.add(user)
         await self.session.commit()
         await self.session.refresh(user)
         return user
+
+    async def count_users(self) -> int:
+        result = await self.session.execute(select(func.count()).select_from(User))
+        return int(result.scalar_one())
 
     async def get_single_user(self) -> User | None:
         result = await self.session.execute(select(User).limit(1))
@@ -73,12 +84,35 @@ class AuthService:
         if username == PLACEHOLDER_USERNAME:
             msg = "Choose a different username"
             raise ValidationError(msg)
+        self.validate_new_password(password)
         existing = await self.get_user_by_username(username)
         if existing is not None and existing.id != user.id:
             msg = "Username already taken"
             raise ConflictError(msg)
         user.username = username
         user.password_hash = self.hash_password(password)
+        await self.session.commit()
+        await self.session.refresh(user)
+        return user
+
+    async def reset_password(self, new_password: str) -> User:
+        """Set a new password for the sole real user (CLI forgotten-password path)."""
+        self.validate_new_password(new_password)
+        count = await self.count_users()
+        if count == 0:
+            msg = (
+                "No user found. Create an account via the first-run bootstrap "
+                "(open the app and use Create account)."
+            )
+            raise NotFoundError(msg)
+        if count > 1:
+            msg = "Multiple users found. Refusing to reset password in single-user mode."
+            raise ConflictError(msg)
+        user = await self.get_single_user()
+        if user is None or user.username == PLACEHOLDER_USERNAME:
+            msg = "No real user account found. Open the app to finish creating your account."
+            raise NotFoundError(msg)
+        user.password_hash = self.hash_password(new_password)
         await self.session.commit()
         await self.session.refresh(user)
         return user

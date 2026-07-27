@@ -19,6 +19,12 @@ from kaleta.exceptions import ImportError_
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate
+from kaleta.services.import_profiles import (
+    GENERIC_PROFILE,
+    MBANK_PROFILE,
+    detect_bank_profile,
+    is_mbank_content,
+)
 from kaleta.services.rule_service import RuleService
 
 # ── File decoding ────────────────────────────────────────────────────────────
@@ -128,12 +134,16 @@ def inherit_queue_settings(
     queue: list[QueueSettingsSnapshot],
 ) -> bool:
     """Copy settings from a prior queued file when profiles or accounts match."""
-    if current.profile == "mbank" and current.metadata and current.metadata.account_number_digits:
+    if (
+        current.profile == MBANK_PROFILE
+        and current.metadata
+        and current.metadata.account_number_digits
+    ):
         for prior in reversed(queue):
             if prior.file_id == current.file_id:
                 continue
             if (
-                prior.profile == "mbank"
+                prior.profile == MBANK_PROFILE
                 and prior.metadata
                 and prior.metadata.account_number_digits == current.metadata.account_number_digits
                 and prior.target_account_id is not None
@@ -177,7 +187,7 @@ def validate_import_readiness(
         return "import.select_expense_cat_hint", {}
     if check.income_cat_id is None:
         return "import.select_income_cat_hint", {}
-    if check.profile == "mbank" and check.metadata and check.metadata.currency:
+    if check.profile == MBANK_PROFILE and check.metadata and check.metadata.currency:
         file_currency = check.metadata.currency.upper()
         account_currency = (check.account_currency or "").upper()
         if account_currency and file_currency != account_currency:
@@ -283,7 +293,7 @@ class MBankPreprocessor:
     @staticmethod
     def is_mbank_file(content: str) -> bool:
         """Quick heuristic — check if the file looks like an mBank export."""
-        return "#Numer rachunku" in content or "#Rodzaj rachunku" in content
+        return is_mbank_content(content)
 
 
 def _build_mbank_description(raw: dict[str, str]) -> str:
@@ -400,12 +410,19 @@ class ImportService:
         self.session = session
 
     def parse_queued_file(self, content: str, profile: str) -> ParseQueuedFileResult:
-        """Parse queued CSV content, auto-detecting mBank when profile is generic."""
-        resolved_profile = profile
-        if profile == "generic" and MBankPreprocessor.is_mbank_file(content):
-            resolved_profile = "mbank"
+        """Parse queued CSV content, auto-detecting a bank profile when generic.
 
-        if resolved_profile == "mbank":
+        Bank-specific branches are registered in ``import_profiles.BANK_PROFILES``.
+        Add a new ``elif resolved_profile == …`` arm only when a real fixture and
+        preprocessor exist (see ``tests/e2e/fixtures/import/README.md``).
+        """
+        resolved_profile = profile
+        if profile == GENERIC_PROFILE:
+            detected = detect_bank_profile(content)
+            if detected is not None:
+                resolved_profile = detected
+
+        if resolved_profile == MBANK_PROFILE:
             if not MBankPreprocessor.is_mbank_file(content):
                 return ParseQueuedFileResult(
                     profile=resolved_profile,
@@ -435,6 +452,8 @@ class ImportService:
                 metadata=metadata,
                 ok=True,
             )
+
+        # Future bank profiles: branch here (one bank per PR, fixture-backed).
 
         result = self.parse_csv(content)
         if not result.rows:

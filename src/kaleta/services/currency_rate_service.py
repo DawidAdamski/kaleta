@@ -190,6 +190,42 @@ class CurrencyRateService:
                 )
             )
 
+    async def store_pln_mid_rates(
+        self,
+        on_date: datetime.date,
+        mids: dict[str, Decimal],
+    ) -> int:
+        """
+        Store NBP-style mid rates (1 XXX = mid PLN) and their inverses in one commit.
+
+        Returns the number of rows written (2 per currency code).
+        """
+        rows = 0
+        for code, mid in mids.items():
+            currency = code.upper()
+            if currency == "PLN" or mid <= 0:
+                continue
+            self.session.add(
+                CurrencyRate(
+                    date=on_date,
+                    from_currency=currency,
+                    to_currency="PLN",
+                    rate=mid,
+                )
+            )
+            self.session.add(
+                CurrencyRate(
+                    date=on_date,
+                    from_currency="PLN",
+                    to_currency=currency,
+                    rate=Decimal("1") / mid,
+                )
+            )
+            rows += 2
+        if rows:
+            await self.session.commit()
+        return rows
+
     async def list_for_pair(self, from_currency: str, to_currency: str) -> list[CurrencyRate]:
         result = await self.session.execute(
             select(CurrencyRate)

@@ -74,6 +74,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
 def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     """Shared layout: header + left drawer + main content area."""
     from kaleta.config.setup_config import is_configured
+    from kaleta.views.auto_post import maybe_auto_post_due
 
     ui.add_head_html(PWA_HEAD)
     ui.add_head_html(f"<style>{theme_css()}</style>")
@@ -82,6 +83,9 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         ui.navigate.to("/setup")
         yield
         return
+
+    # Session-start equivalent of auto-post (storage.user unavailable at process startup).
+    ui.timer(0.01, maybe_auto_post_due, once=True)
 
     is_dark: bool = app.storage.user.get("dark_mode", False)
     is_mini: bool = app.storage.user.get("sidebar_mini", False)
