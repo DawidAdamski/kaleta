@@ -33,7 +33,7 @@ KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/path/to/kaleta.db uv run alembic up
 ## Documentation
 
 - [Documentation site](https://dawidadamski.github.io/kaleta/) — product guides, architecture, roadmap
-- [Getting started](docs/getting-started.md) — Docker, environment variables, development setup
+- [Getting started](docs/getting-started.md) — Docker/Podman volumes, environment variables, development
 - [Local deploy (launchd / systemd)](docs/deploy-local.md) — autostart on localhost + `/api/v1/health`
 - [Contributing](CONTRIBUTING.md) — how we work and open a PR
 - [Security](SECURITY.md) — report vulnerabilities privately
