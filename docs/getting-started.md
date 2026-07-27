@@ -110,19 +110,120 @@ KALETA_PORT=8080
 KALETA_SECRET_KEY=your-secret-key-here
 ```
 
-## Docker
+## Docker / Podman
+
+Kaleta ships `Containerfile` (slim) and `Containerfile.full` (includes Prophet).
+[`docker-compose.yml`](../docker-compose.yml) builds the **full** image by default
+and persists SQLite under a named volume. The same Compose file works with
+Docker Compose or Podman Compose.
+
+Open **http://localhost:8080** after the container is up. First visit still runs
+setup (database + account) unless you already have data on the volume.
+
+### Compose (named volume)
+
+From the repository root:
 
 ```bash
-# Full image (Prophet forecasting) — default in docker-compose
-docker compose up
+# Docker
+docker compose up --build
 
-# Slim image (no Prophet, ~300 MB smaller)
-docker build -f Containerfile -t kaleta:slim .
-docker run -p 8080:8080 kaleta:slim
-
-# Or using Podman
-podman-compose up
+# Podman (either form, depending on your install)
+podman compose up --build
+# or:
+podman-compose up --build
 ```
+
+Compose sets:
+
+| Variable / mount | Value |
+|------------------|--------|
+| `KALETA_DB_URL` | `sqlite:///data/kaleta.db` → file `/app/data/kaleta.db` |
+| `KALETA_HOST` | `0.0.0.0` |
+| Volume `kaleta-data` | mounted at `/app/data` |
+
+Set a real secret (required when `KALETA_DEBUG` is not true):
+
+```bash
+export KALETA_SECRET_KEY="$(openssl rand -hex 32)"
+podman compose up --build
+```
+
+Or add under `environment:` in `docker-compose.yml`:
+
+```yaml
+- KALETA_SECRET_KEY=replace-with-a-long-random-string
+```
+
+Stop with `Ctrl+C`, or detach with `-d`. Data survives container recreation
+as long as the `kaleta-data` volume remains.
+
+Inspect / remove the volume (destructive):
+
+```bash
+podman volume ls
+podman volume inspect kaleta_kaleta-data   # name may include the project prefix
+# podman volume rm kaleta_kaleta-data
+```
+
+### Bind-mount a host folder
+
+Keep the database on the host (easy backups, visible files):
+
+```bash
+mkdir -p "$HOME/KaletaData/backups"
+
+podman build -f Containerfile.full -t kaleta:full .
+
+podman run --name kaleta --rm -it \
+  -p 8080:8080 \
+  -e KALETA_HOST=0.0.0.0 \
+  -e KALETA_PORT=8080 \
+  -e KALETA_DB_URL=sqlite:///data/kaleta.db \
+  -e KALETA_BACKUP_DIR=/data/backups \
+  -e KALETA_SECRET_KEY="$(openssl rand -hex 32)" \
+  -v "$HOME/KaletaData:/app/data:Z" \
+  kaleta:full
+```
+
+- Host path `$HOME/KaletaData` maps to `/app/data` in the container.
+- `:Z` is for SELinux (Fedora/RHEL); on macOS you can omit it:
+  `-v "$HOME/KaletaData:/app/data"`.
+- SQLite file: `$HOME/KaletaData/kaleta.db`.
+- Scheduled backups (if enabled): `$HOME/KaletaData/backups/`.
+
+Equivalent with Docker:
+
+```bash
+docker build -f Containerfile.full -t kaleta:full .
+docker run --name kaleta --rm -it \
+  -p 8080:8080 \
+  -e KALETA_HOST=0.0.0.0 \
+  -e KALETA_PORT=8080 \
+  -e KALETA_DB_URL=sqlite:///data/kaleta.db \
+  -e KALETA_BACKUP_DIR=/data/backups \
+  -e KALETA_SECRET_KEY="$(openssl rand -hex 32)" \
+  -v "$HOME/KaletaData:/app/data" \
+  kaleta:full
+```
+
+### Slim image (no Prophet)
+
+Smaller image if you do not need forecasting:
+
+```bash
+podman build -f Containerfile -t kaleta:slim .
+# same podman run as above, image kaleta:slim
+```
+
+### Notes
+
+- Prefer **one** persistent store (Compose volume **or** bind mount). Mixing a
+  host `uv run kaleta` install (`~/.kaleta`) with a container volume means two
+  separate databases unless you deliberately point both at the same file.
+- Bind to loopback on the host if you only use it locally, e.g.
+  `-p 127.0.0.1:8080:8080`, instead of publishing on all interfaces.
+- For non-container autostart on the host, see [Local deploy](deploy-local.md).
 
 ## Development
 
