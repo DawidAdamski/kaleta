@@ -26,6 +26,7 @@ _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
         "/create-account",
         "/secure-app",
         "/favicon.ico",
+        "/health",
     }
 )
 

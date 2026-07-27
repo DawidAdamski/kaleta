@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+# Pin NiceGUI storage under ~/.kaleta/ before any import that may load nicegui
+# (Storage.path is resolved at import time from NICEGUI_STORAGE_PATH).
+import os
+from pathlib import Path
+
+_NICEGUI_STORAGE = (Path.home() / ".kaleta" / "nicegui").resolve()
+_NICEGUI_STORAGE.mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("NICEGUI_STORAGE_PATH", str(_NICEGUI_STORAGE))
+
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -14,10 +23,12 @@ from nicegui import ui
 
 from kaleta.api import create_api_router
 from kaleta.api.errors import register_error_handlers
+from kaleta.api.v1.health import register_health_alias
 from kaleta.config import settings
 from kaleta.logging_config import RequestLoggingMiddleware, configure_logging
 from kaleta.services.backup_scheduler import BackupScheduler
 from kaleta.services.nbp_startup import NbpStartupFetcher
+from kaleta.services.nicegui_storage_service import NiceguiStorageService
 
 # Cached OpenAPI spec — generated once from our router tree.
 _openapi_spec: dict[str, Any] | None = None
@@ -45,6 +56,7 @@ def _setup_pwa() -> None:
 def _register_api() -> None:
     register_error_handlers(nicegui_app)
     nicegui_app.include_router(create_api_router())
+    register_health_alias(nicegui_app)
 
     @nicegui_app.get("/api-docs", response_class=HTMLResponse, include_in_schema=False)
     async def _swagger_ui() -> HTMLResponse:
@@ -155,6 +167,10 @@ def _register_views() -> None:
     settings.register()
 
 
+def _sweep_nicegui_storage() -> None:
+    NiceguiStorageService().sweep_stale()
+
+
 def _register_backup_scheduler() -> None:
     """Start/stop scheduled SQLite file backups with the NiceGUI process."""
     nicegui_app.on_startup(BackupScheduler.start)
@@ -167,8 +183,13 @@ def _register_nbp_startup_fetch() -> None:
     nicegui_app.on_shutdown(NbpStartupFetcher.stop)
 
 
+def _register_storage_sweep() -> None:
+    nicegui_app.on_startup(_sweep_nicegui_storage)
+
+
 @asynccontextmanager
 async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    _sweep_nicegui_storage()
     BackupScheduler.start()
     NbpStartupFetcher.start()
     try:
@@ -181,6 +202,7 @@ async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
 def create_api() -> FastAPI:
     api = FastAPI(title="Kaleta API", version="0.1.0", lifespan=_api_lifespan)
     register_error_handlers(api)
+    register_health_alias(api)
     return api
 
 
@@ -193,6 +215,7 @@ def run_web() -> None:
     _register_views()
     _register_backup_scheduler()
     _register_nbp_startup_fetch()
+    _register_storage_sweep()
     ui.run(
         host=settings.host,
         port=settings.port,
@@ -212,6 +235,7 @@ def run_app() -> None:
     _register_views()
     _register_backup_scheduler()
     _register_nbp_startup_fetch()
+    _register_storage_sweep()
     ui.run(
         host=settings.host,
         port=settings.port,
