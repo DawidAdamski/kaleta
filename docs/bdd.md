@@ -2047,6 +2047,36 @@ Feature: Settings — Data safety
     And the database alembic revision matches the installed head
 ```
 
+## Feature: Currency rates — NBP Table A
+
+```gherkin
+Feature: Currency rates — NBP Table A
+  As a user with foreign-currency accounts
+  I want optional NBP mid rates against PLN
+  So that net worth stays accurate without paid FX APIs or mandatory network
+
+  KAL-FXR-001 @automated
+  Scenario: Fetching NBP Table A stores both directions for each currency
+    Given the NBP Table A API returns mid 4.2500 for EUR and mid 3.9000 for USD on effective date 2024-07-22
+    When I import the latest NBP rates
+    Then currency_rates contains EUR→PLN at 4.250000 and PLN→EUR at 0.235294 on 2024-07-22
+    And currency_rates contains USD→PLN at 3.900000 and PLN→USD at 0.256410 on 2024-07-22
+
+  KAL-FXR-002 @automated
+  Scenario: Offline NBP fetch fails soft without crashing
+    Given the NBP Table A HTTP call raises a network error
+    When I import the latest NBP rates
+    Then an ExternalServiceError is raised with a clear offline message
+    And no currency_rates rows are written
+
+  KAL-FXR-003 @automated
+  Scenario: Fetch on startup is opt-in and defaults to off
+    Given nbp_fetch_on_startup is unset in ~/.kaleta/config.json
+    When the NBP startup fetcher starts
+    Then no HTTP request is made to NBP
+    And get_nbp_fetch_on_startup returns false
+```
+
 ## Feature: Housekeeping — Integrity
 
 ```gherkin

@@ -9,11 +9,15 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.config.setup_config import get_nbp_fetch_on_startup, set_nbp_fetch_on_startup
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.currency_rate import CurrencyRateCreate, CurrencyRateResponse
-from kaleta.services import BackupService, CurrencyRateService, with_session
+from kaleta.schemas.nbp import NbpFetchResult
+from kaleta.services import BackupService, CurrencyRateService, NbpRateService, with_session
 from kaleta.services.data_service import DataService
 from kaleta.views.accounts import COMMON_CURRENCIES
+from kaleta.views.error_handling import notify_kaleta_error
 
 
 async def render_data_tab(
@@ -162,9 +166,55 @@ async def render_data_tab(
                 ui.button(t("common.cancel"), on_click=add_dlg.close).props("flat")
                 ui.button(t("common.save"), on_click=_save_rate).props("color=primary")
 
-        ui.button(t("settings.add_rate"), icon="add", on_click=add_dlg.open).props(
-            "flat color=primary"
-        ).classes("mt-3")
+        with ui.row().classes("items-center gap-3 mt-3 flex-wrap"):
+            ui.button(t("settings.add_rate"), icon="add", on_click=add_dlg.open).props(
+                "flat color=primary"
+            )
+
+            async def _fetch_nbp() -> None:
+                notif = ui.notification(t("settings.nbp_fetching"), spinner=True, timeout=0)
+                try:
+
+                    async def _import(session: Any) -> NbpFetchResult:
+                        return await NbpRateService(session).import_latest()
+
+                    result = await with_session(_import)
+                    notif.dismiss()
+                    ui.notify(
+                        t(
+                            "settings.nbp_fetch_done",
+                            count=result.currencies_stored,
+                            date=str(result.effective_date),
+                        ),
+                        type="positive",
+                    )
+                    if relevant_pairs or foreign_currencies:
+                        rates_table.refresh()
+                except KaletaError as exc:
+                    notif.dismiss()
+                    notify_kaleta_error(exc)
+                except Exception as exc:
+                    notif.dismiss()
+                    ui.notify(t("settings.nbp_fetch_error", error=str(exc)), type="negative")
+
+            ui.button(
+                t("settings.nbp_fetch"),
+                icon="cloud_download",
+                on_click=_fetch_nbp,
+            ).props("outline color=primary")
+
+        ui.label(t("settings.nbp_hint")).classes("text-xs text-slate-500 mt-2")
+        nbp_startup = ui.checkbox(
+            t("settings.nbp_fetch_on_startup"),
+            value=get_nbp_fetch_on_startup(),
+        ).classes("mt-1")
+
+        def _toggle_nbp_startup(e: object) -> None:
+            enabled = bool(getattr(e, "value", False))
+            set_nbp_fetch_on_startup(enabled)
+            ui.notify(t("settings.saved"), type="positive")
+
+        nbp_startup.on_value_change(_toggle_nbp_startup)
 
     with ui.card().classes("p-6 w-full mt-4"):
         with ui.row().classes("items-center gap-2 mb-1"):

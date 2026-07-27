@@ -28,6 +28,7 @@ from kaleta.api.v1.health import register_health_alias
 from kaleta.config import settings
 from kaleta.logging_config import RequestLoggingMiddleware, configure_logging
 from kaleta.services.backup_scheduler import BackupScheduler
+from kaleta.services.nbp_startup import NbpStartupFetcher
 from kaleta.services.nicegui_storage_service import NiceguiStorageService
 
 # Cached OpenAPI spec — generated once from our router tree.
@@ -177,6 +178,12 @@ def _register_backup_scheduler() -> None:
     nicegui_app.on_shutdown(BackupScheduler.stop)
 
 
+def _register_nbp_startup_fetch() -> None:
+    """Opt-in NBP Table A import on process start (default OFF)."""
+    nicegui_app.on_startup(NbpStartupFetcher.start)
+    nicegui_app.on_shutdown(NbpStartupFetcher.stop)
+
+
 def _register_storage_sweep() -> None:
     nicegui_app.on_startup(_sweep_nicegui_storage)
 
@@ -185,9 +192,11 @@ def _register_storage_sweep() -> None:
 async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _sweep_nicegui_storage()
     BackupScheduler.start()
+    NbpStartupFetcher.start()
     try:
         yield
     finally:
+        await NbpStartupFetcher.stop()
         await BackupScheduler.stop()
 
 
@@ -206,6 +215,7 @@ def run_web() -> None:
     _register_auth()
     _register_views()
     _register_backup_scheduler()
+    _register_nbp_startup_fetch()
     _register_storage_sweep()
     ui.run(
         host=settings.host,
@@ -225,6 +235,7 @@ def run_app() -> None:
     _register_auth()
     _register_views()
     _register_backup_scheduler()
+    _register_nbp_startup_fetch()
     _register_storage_sweep()
     ui.run(
         host=settings.host,

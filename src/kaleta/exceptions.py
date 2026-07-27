@@ -38,6 +38,12 @@ class ForecastUnavailableError(KaletaError):
     code = "forecast_unavailable"
 
 
+class ExternalServiceError(KaletaError):
+    """Remote dependency unreachable or returned an unusable response."""
+
+    code = "external_service"
+
+
 class UnauthorizedError(KaletaError):
     code = "unauthorized"
 
