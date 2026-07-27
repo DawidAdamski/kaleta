@@ -1,7 +1,7 @@
 """add categorisation_rules table
 
 Revision ID: c9d0e1f2a3b4
-Revises: e9f2a3b4c5d6
+Revises: f7b8c9d0e1a2
 Create Date: 2026-07-26 00:00:00.000000
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision = "c9d0e1f2a3b4"
-down_revision = "e9f2a3b4c5d6"
+down_revision = "f7b8c9d0e1a2"
 branch_labels = None
 depends_on = None
 
