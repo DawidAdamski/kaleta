@@ -52,3 +52,9 @@ class MigrationError(KaletaError):
     """Schema cannot be brought to the installed alembic head safely."""
 
     code = "migration_error"
+
+
+class SetupRequiredError(KaletaError):
+    """Database has not been chosen yet — complete first-run setup in the UI."""
+
+    code = "setup_required"

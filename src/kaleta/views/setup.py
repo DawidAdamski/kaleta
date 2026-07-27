@@ -10,6 +10,7 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.config.setup_config import recommended_db_path, recommended_db_url
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
 from kaleta.services import activate_database
@@ -224,6 +225,32 @@ def register() -> None:  # noqa: PLR0915
                         ui.label(t("setup.cloud_title")).classes("text-lg font-semibold")
                         ui.label(t("setup.cloud_desc")).classes("text-sm text-slate-500")
                         ui.badge(t("setup.coming_soon"), color="grey").classes("mt-2")
+
+                with ui.column().classes("w-full items-center gap-2 mt-2"):
+                    with ui.row().classes("items-center gap-2"):
+                        rec_spinner = ui.spinner(size="sm")
+                        rec_spinner.set_visibility(False)
+                        rec_status = ui.label("").classes("text-sm text-slate-500")
+
+                    async def _handle_recommended() -> None:
+                        rec_spinner.set_visibility(True)
+                        path = recommended_db_path()
+                        path.parent.mkdir(parents=True, exist_ok=True)
+                        await _activate_db(
+                            recommended_db_url(),
+                            name=path.stem,
+                            spinner=rec_spinner,
+                            status=rec_status,
+                        )
+
+                    ui.button(
+                        t("setup.use_recommended"),
+                        icon="rocket_launch",
+                        on_click=_handle_recommended,
+                    ).props("color=primary unelevated").classes("w-full max-w-md")
+                    ui.label(t("setup.use_recommended_hint")).classes(
+                        "text-xs text-slate-500 text-center"
+                    )
 
             # ── Step 2: Local options ──
             with ui.column().classes("w-full max-w-2xl gap-4") as step_local:

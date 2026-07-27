@@ -4,7 +4,7 @@ title: Setup — zero-config first-run for new users
 area: setup
 effort: medium
 roadmap_ref: ../roadmap.md#setup
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 
@@ -151,4 +151,25 @@ Out of scope:
    which to ship.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### 2026-07-27 — remaining gaps (plan partially stale)
+
+Already true before this work:
+
+- Default `KALETA_DB_URL` is `~/.kaleta/kaleta.db` (not cwd `kaleta.db`).
+- README quick start is already `uv sync && uv run kaleta`.
+- Migrations live in `setup_service.activate_database` / migrate-on-startup.
+
+Shipped in this branch:
+
+- Auth middleware: unconfigured UI → `/setup` (blocks `/login` / `/create-account`
+  from touching the default engine before setup).
+- API: `get_session_configured` → 503 `setup_required` before auth/session open;
+  `/api/v1/health` stays public via `get_session`.
+- Setup: one-click **Use recommended location** → `~/.kaleta/kaleta.db`
+  (aligned with settings default; plan’s `~/Documents` AC superseded).
+- Web mode: `ui.run(show=not is_configured())`; `app` mode unchanged.
+- Tests: `KAL-SET-021`, `KAL-SET-022`.
+
+## Implementation (filled by plan-archiver)
+_Pending archive after merge._
