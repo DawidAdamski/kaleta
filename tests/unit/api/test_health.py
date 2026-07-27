@@ -76,12 +76,46 @@ async def test_health_alias_unauthenticated(db_engine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_service_reports_pending_when_unstamped(session: AsyncSession) -> None:
-    """In-memory create_all DBs have no alembic_version — pending is true."""
+async def test_health_service_reports_pending_when_unstamped() -> None:
+    """Unstamped DBs (no alembic_version) report migrations_pending=true.
+
+    Uses a private in-memory SQLite engine so CI postgres (which migrates and
+    stamps alembic_version before tests) cannot leak a head revision into this
+    assertion via the shared session fixture.
+    """
+    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
+    try:
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        async with factory() as s:
+            snap = await HealthService(s).check()
+        assert snap.database_ok is True
+        assert snap.migrations_pending is True
+        assert snap.version == "0.1.0"
+    finally:
+        await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_health_service_reports_not_pending_when_at_head(session: AsyncSession) -> None:
+    """When the DB revision matches alembic head, migrations_pending is false."""
+    from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
+
+    from kaleta.services.setup_service import current_revision, head_revision
+
+    bind = session.bind
+    if isinstance(bind, AsyncEngine):
+        url = bind.url.render_as_string(hide_password=False)
+    elif isinstance(bind, AsyncConnection):
+        url = bind.engine.url.render_as_string(hide_password=False)
+    else:
+        pytest.skip("no usable session bind")
+    if current_revision(url) != head_revision():
+        pytest.skip("fixture DB is not stamped at alembic head")
     snap = await HealthService(session).check()
     assert snap.database_ok is True
-    assert snap.migrations_pending is True
-    assert snap.version == "0.1.0"
+    assert snap.migrations_pending is False
 
 
 def test_nicegui_storage_sweep_removes_stale_files(
