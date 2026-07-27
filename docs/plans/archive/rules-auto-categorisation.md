@@ -3,7 +3,8 @@ plan_id: rules-auto-categorisation
 title: Rules — auto-categorisation from payee/description patterns
 area: import
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-07-27
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -102,3 +103,41 @@ Out of scope:
   insufficient for retag).
 - Backup round-trip helpers updated to seed `categorisation_rules`
   (new table appears in `Base.metadata.sorted_tables`).
+
+## Implementation
+
+Landed on 2026-07-27.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `8c2e17f` | Dawid Adamski | 2026-07-27 | feat: auto-categorisation rules for import and corrections (#32) |
+
+**Files changed:**
+- `src/kaleta/models/categorisation_rule.py` (new), `src/kaleta/models/__init__.py`
+- `src/kaleta/schemas/categorisation_rule.py` (new)
+- `src/kaleta/services/rule_service.py` (new), `src/kaleta/services/import_service.py`
+- `src/kaleta/services/__init__.py`
+- `src/kaleta/views/rules.py` (new), `src/kaleta/views/layout.py`, `src/kaleta/main.py`
+- `src/kaleta/views/transactions/edit_dialog.py`
+- `src/kaleta/views/import_view/page.py`
+- `src/kaleta/i18n/locales/en.json`, `src/kaleta/i18n/locales/pl.json`
+- `alembic/versions/c9d0e1f2a3b4_add_categorisation_rules.py` (new)
+- `scripts/seed.py`
+- `docs/bdd.md`
+- `tests/unit/services/test_rule_service.py` (new), `tests/unit/services/test_import_service.py`
+- `tests/e2e/test_rules.py` (new), `tests/e2e/seed_helpers.py`
+- `tests/integration/test_categorisation_rules.py` (new), `tests/backup_helpers.py`
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_rule_service.py -q` | 0 |
+| `uv run pytest tests/unit/services/test_import_service.py -q -k rule` | 0 |
+| `uv run pytest tests/e2e/test_rules.py -q` | 0 |
+| `grep -qE "KAL-RUL-001 @automated" docs/bdd.md` | 0 |
+| `grep -qE "KAL-RUL-002 @automated" docs/bdd.md` | 0 |
+| `grep -qE "KAL-RUL-003 @automated" docs/bdd.md` | 0 |
+| `grep -qE "KAL-RUL-004 @automated" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |

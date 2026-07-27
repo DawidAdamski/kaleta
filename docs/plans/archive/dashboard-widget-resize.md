@@ -3,8 +3,8 @@ plan_id: dashboard-widget-resize
 title: Dashboard — Grid-based widget resize and any-to-any reorder
 area: dashboard
 effort: medium
-status: draft
-deferred_to: q4-2026
+status: archived
+archived_at: 2026-07-27
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
@@ -181,4 +181,30 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+Implemented as commit `68a59a5` on 2026-04-23 — predates this plan file's `draft`
+status tag (plan was written after the fact to capture the scope).
+
+## Implementation
+
+Landed on 2026-04-23.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `68a59a5` | Dawid | 2026-04-23 | feat(dashboard): grid-based resize and any-to-any reorder |
+
+**Files changed:**
+- `src/kaleta/views/dashboard.py` (unified 4-column CSS grid, `/_dashboard/layout` endpoint)
+- `src/kaleta/views/dashboard_widgets.py` (Widget.default_size + allowed_sizes, RenderFn extended)
+- `src/kaleta/i18n/locales/en.json`, `src/kaleta/i18n/locales/pl.json`
+- `tests/unit/views/test_dashboard_layout.py` (new — 13 cases), `tests/unit/views/test_dashboard_order.py` (removed)
+
+**What shipped:**
+- Single 4-column CSS grid replaces three size-segregated containers (KPI / half / full).
+- Widget catalog extended with `default_size` and `allowed_sizes` (cols × rows tuples).
+- Resize button cycles through `allowed_sizes` in edit mode; hidden for single-size widgets.
+- `POST /_dashboard/layout` persists `{id, cols, rows}` list, replaces old `/_dashboard/order`.
+- Legacy `dashboard_widgets` storage migrated automatically on first load via `resolve_user_layout()`.
+- Responsive fallback: 2 cols < 768 px, 1 col < 480 px.
+
+**Notes:** Plan was marked `draft (Q4)` but implementation was already in the repo since April 2026;
+status corrected to `archived` at archival time.

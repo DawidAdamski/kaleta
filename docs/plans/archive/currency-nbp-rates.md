@@ -3,7 +3,8 @@ plan_id: currency-nbp-rates
 title: Optional NBP Table A exchange-rate fetch
 area: settings / currency rates
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-07-27
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 source: ../plans/audit-production-readiness.md#5-currency-rates-are-manual-only--no-nbp-integration
 ---
@@ -84,3 +85,33 @@ network for core app use.
   continues on `ExternalServiceError` / other failures.
 - BDD IDs use `KAL-FXR-*` (not `KAL-FX-*`) because
   `scripts/spec_coverage.py` requires a 3–4 letter area code.
+
+## Implementation
+
+Landed on 2026-07-27.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `04be4b1` | Dawid Adamski | 2026-07-27 | feat: optional NBP Table A currency rate fetch (#30) |
+
+**Files changed:**
+- `src/kaleta/services/nbp_rate_service.py` (new), `src/kaleta/services/nbp_startup.py` (new)
+- `src/kaleta/services/currency_rate_service.py`, `src/kaleta/services/__init__.py`
+- `src/kaleta/config/setup_config.py`
+- `src/kaleta/exceptions.py`, `src/kaleta/api/errors.py`
+- `src/kaleta/main.py`
+- `src/kaleta/schemas/nbp.py` (new)
+- `src/kaleta/views/settings/data_tab.py`
+- `src/kaleta/i18n/locales/en.json`, `src/kaleta/i18n/locales/pl.json`
+- `docs/bdd.md`
+- `tests/unit/services/test_nbp_rate_service.py` (new)
+- `tests/integration/test_nbp_rates.py` (new)
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_nbp_rate_service.py tests/integration/test_nbp_rates.py -q` | 0 |
+| `grep -E 'KAL-FXR-00[1-3]' docs/bdd.md \| grep -q .` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |

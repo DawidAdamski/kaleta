@@ -3,7 +3,8 @@ plan_id: transactions-splits-integrity
 title: Transaction splits — server-side integrity and split-aware reporting
 area: transactions
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-07-27
 roadmap_ref: ../roadmap.md#transactions
 ---
 
@@ -163,3 +164,43 @@ Out of scope:
 - [manual] Split 214.50 into 180.00 + 34.50 in the UI; Budgets
   "vs actual" and the category report show 34.50 under Alcohol, and
   Monthly Readiness stage 1 does not flag the transaction.
+
+## Implementation
+
+Landed on 2026-07-07 (two PRs).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `a8db5af` | Dawid (Ani) | 2026-07-07 | feat(transactions): server-side split integrity and split editing (KAL-SPL-002, KAL-SPL-004) |
+| `5fbd083` | Dawid (Ani) | 2026-07-07 | feat(transactions): split-aware category aggregation and readiness fix (KAL-SPL-003) |
+
+**Files changed (a8db5af — PR 1):**
+- `src/kaleta/schemas/transaction.py`, `src/kaleta/services/transaction_service.py`
+- `src/kaleta/api/v1/transactions.py`
+- `src/kaleta/views/transactions/edit_dialog.py`, `src/kaleta/views/transactions/split_editor.py`
+- `docs/bdd.md`
+- `tests/unit/schemas/test_transaction_schema.py` (new), `tests/unit/services/test_transaction_service.py`
+- `tests/integration/test_transactions.py`, `tests/e2e/test_transactions.py`
+
+**Files changed (5fbd083 — PR 2):**
+- `src/kaleta/services/categorised_flows.py` (new)
+- `src/kaleta/services/budget_service.py`, `src/kaleta/services/report_service.py`
+- `src/kaleta/services/saved_report_service.py`, `src/kaleta/services/monthly_readiness_service.py`
+- `docs/bdd.md`
+- `tests/unit/services/test_budget_service.py`, `tests/unit/services/test_report_service.py`
+- `tests/unit/services/test_saved_report_service.py`, `tests/unit/services/test_monthly_readiness_service.py`
+- `tests/integration/test_transactions.py`
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `grep -qE "KAL-SPL-001 @(automated\|manual)" docs/bdd.md` | 0 |
+| `grep -qE "KAL-SPL-002 @(automated\|manual)" docs/bdd.md` | 0 |
+| `grep -qE "KAL-SPL-003 @(automated\|manual)" docs/bdd.md` | 0 |
+| `grep -qE "KAL-SPL-004 @(automated\|manual)" docs/bdd.md` | 0 |
+| `uv run pytest tests/unit/services/test_transaction_service.py -q` | 0 |
+| `uv run pytest tests/unit/services/test_budget_service.py -q` | 0 |
+| `uv run pytest tests/integration -q` | 0 |
+| `bash scripts/verify.sh` | 0 |

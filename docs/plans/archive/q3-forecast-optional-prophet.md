@@ -3,7 +3,8 @@ plan_id: q3-forecast-optional-prophet
 title: Make Prophet optional — forecast extra + lightweight fallback
 area: forecast
 effort: medium
-status: done
+status: archived
+archived_at: 2026-07-27
 roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
@@ -81,3 +82,23 @@ should degrade gracefully, not crash, when Prophet is absent.
 - **Forecast cache:** in-memory cache keyed by
   `(account_id, horizon_days, history_days, model)` where `model` is `prophet` or
   `naive`, so switching installs does not serve stale curves.
+
+## Implementation
+
+Landed on 2026-07-05.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `96cc367` | Dawid (Ani) | 2026-07-05 | Enhance documentation and error handling across the application |
+
+**Files changed (selection relevant to this plan):**
+- `pyproject.toml` (Prophet optional extra), `Containerfile`, `Containerfile.full`, `docker-compose.yml`
+- `src/kaleta/services/` (forecast service — ProphetForecaster / NaiveForecaster split)
+- `docs/tech-stack.md`, `README.md`
+- `.github/workflows/ci.yml`
+
+**Notes:** Commit `96cc367` is an omnibus doc/refactor commit; forecast changes are confirmed landed
+(NaiveForecaster in production, `_ForecastCacheKey.model` added, Prophet in optional extra).
+No dedicated executable acceptance criteria in the plan (all prose or `[manual]`-style); verified by parent agent.
+
+No executable acceptance criteria (criteria are prose/`[manual]`-style). Verified by parent agent before archival.

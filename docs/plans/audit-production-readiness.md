@@ -111,7 +111,7 @@ invocation today is `KALETA_MIGRATE_URL=<real-url> uv run alembic upgrade head`.
 auto-upgrade (with a pre-migration `VACUUM INTO` safety copy — ties into
 finding 2) or refuse to start with a clear message. Update README.
 
-→ **Plan:** [`migrate-on-startup.md`](migrate-on-startup.md) (in progress).
+→ **Plan:** [`migrate-on-startup.md`](archive/migrate-on-startup.md) (archived).
 
 ---
 
@@ -203,7 +203,7 @@ in SECURITY.md / getting-started).
 
 ## P2 — hardening & analysis ergonomics (nice-to-have for LAN/long-term)
 
-→ **Plan:** [`p2-hardening-analysis.md`](p2-hardening-analysis.md) (in progress).
+→ **Plan:** [`p2-hardening-analysis.md`](archive/p2-hardening-analysis.md) (archived).
 
 11. **No login rate-limiting, no session expiry.** → addressed in plan WP2
     (`LoginRateLimiter` 5/15m + `KALETA_SESSION_TTL_HOURS` default 72).

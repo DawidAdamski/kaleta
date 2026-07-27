@@ -4,7 +4,8 @@ title: Planned transactions — post due occurrences
 area: planned-transactions
 effort: medium
 roadmap_ref: ../roadmap.md#transactions
-status: in-progress
+status: archived
+archived_at: 2026-07-27
 source: ../plans/audit-production-readiness.md#6-planned-transactions-are-never-posted
 ---
 
@@ -95,3 +96,33 @@ Out of scope:
   categories still post.
 - **Transfer plans**: still a single ledger leg (no destination account on
   the planned model); out of scope to invent a pair.
+
+## Implementation
+
+Landed on 2026-07-27.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `b210601` | Dawid Adamski | 2026-07-27 | feat(planned): post due occurrences with idempotent FK link (#31) |
+
+**Files changed:**
+- `src/kaleta/models/transaction.py` (planned_transaction_id FK + unique constraint)
+- `src/kaleta/schemas/transaction.py`
+- `src/kaleta/services/planned_transaction_service.py`
+- `src/kaleta/views/payment_calendar.py`, `src/kaleta/views/planned_transactions.py`
+- `src/kaleta/views/dashboard_widgets/upcoming_planned.py`
+- `src/kaleta/views/auto_post.py` (new), `src/kaleta/views/layout.py`
+- `src/kaleta/views/settings/features_tab.py`, `src/kaleta/views/settings/constants.py`
+- `src/kaleta/i18n/locales/en.json`, `src/kaleta/i18n/locales/pl.json`
+- `alembic/versions/f7b8c9d0e1a2_add_planned_transaction_link.py` (new)
+- `docs/bdd.md`
+- `tests/unit/services/test_planned_transaction_service.py`
+- `tests/integration/test_planned_post_due.py` (new), `tests/e2e/test_planned_transactions.py`
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_planned_transaction_service.py -q -k post` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |

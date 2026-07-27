@@ -3,7 +3,8 @@ plan_id: backup-full-schema-roundtrip
 title: Backup covers every ORM table + alembic revision stamp
 area: settings / data
 effort: small
-status: in-progress
+status: archived
+archived_at: 2026-07-27
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 
@@ -75,3 +76,26 @@ Backups also lack an alembic revision stamp, so schema drift is invisible.
   returns to the pre-orphan counts (proves DELETE of every ORM table).
   Earlier "empty payees.json" rewrite was dropped — it left FK dependents
   in the ZIP and only passed on SQLite where restore disables FKs.
+
+## Implementation
+
+Landed on 2026-07-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5226444` | Dawid Adamski | 2026-07-26 | fix: export and restore every ORM table in backups (#25) |
+
+**Files changed:**
+- `src/kaleta/services/backup_service.py`
+- `src/kaleta/models/__init__.py` (Institution, CurrencyRate registration)
+- `docs/bdd.md`
+- `tests/unit/services/test_backup_service.py`, `tests/unit/services/test_settings_services.py`
+- `tests/integration/test_backup.py`, `tests/backup_helpers.py`
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_backup_service.py -q` | 0 |
+| `./scripts/verify.sh` | 0 |
+| `grep -E 'KAL-SET-01[456]' docs/bdd.md \| grep -q '@automated'` | 0 |
