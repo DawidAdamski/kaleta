@@ -4,6 +4,7 @@ from __future__ import annotations
 # Pin NiceGUI storage under ~/.kaleta/ before any import that may load nicegui
 # (Storage.path is resolved at import time from NICEGUI_STORAGE_PATH).
 import os
+import sys
 from pathlib import Path
 
 _NICEGUI_STORAGE = (Path.home() / ".kaleta" / "nicegui").resolve()
@@ -245,6 +246,11 @@ def run_api() -> None:
 
 
 def main() -> None:
+    if "--reset-password" in sys.argv:
+        from kaleta.cli.reset_password import ResetPasswordCli
+
+        raise SystemExit(ResetPasswordCli().run())
+
     match settings.mode:
         case "web":
             run_web()

@@ -123,6 +123,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [auth-reset-password-cli](auth-reset-password-cli.md) | in-progress | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft (Q4) | Dashboard |
 | [transactions-notes-field](transactions-notes-field.md) | draft (Q4) | Transactions |
 | [wizard-action-items-widget](wizard-action-items-widget.md) | draft (Q4) | Wizard |

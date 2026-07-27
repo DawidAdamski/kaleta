@@ -1968,6 +1968,14 @@ Feature: Single-user authentication
     Given a valid API bearer token exists
     When I request "/api/v1/accounts/" with the bearer token
     Then the response status is 200
+
+  KAL-AUTH-007 @automated
+  Scenario: CLI resets the single-user password interactively
+    Given a configured database with one user "alice" whose password is "old-password-1"
+    When I run `uv run kaleta --reset-password` and enter "new-password-9" twice
+    Then the command exits successfully
+    And "alice" can authenticate with "new-password-9"
+    And "alice" cannot authenticate with "old-password-1"
 ```
 
 ## Feature: Settings — Data safety
