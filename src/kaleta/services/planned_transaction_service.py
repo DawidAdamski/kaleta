@@ -6,17 +6,22 @@ from __future__ import annotations
 import builtins
 import calendar
 import datetime
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import select, tuple_
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.exceptions import NotFoundError
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
+
+logger = logging.getLogger(__name__)
 
 # ── Date arithmetic helpers ───────────────────────────────────────────────────
 
@@ -196,6 +201,8 @@ class PlannedTransactionService:
         end_date: datetime.date,
         account_id: int | None = None,
         active_only: bool = True,
+        *,
+        exclude_posted: bool = False,
     ) -> builtins.list[PlannedOccurrence]:
         """Generate every occurrence of planned transactions in [start_date, end_date]."""
         stmt = select(PlannedTransaction).options(*self._opts())
@@ -236,6 +243,10 @@ class PlannedTransactionService:
                     occurrences.append(self._make_occurrence(current, p))
                 current = _advance(current, p.frequency, p.interval)
 
+        if exclude_posted and occurrences:
+            posted = await self._posted_keys({(o.planned_id, o.date) for o in occurrences})
+            occurrences = [o for o in occurrences if (o.planned_id, o.date) not in posted]
+
         occurrences.sort(key=lambda o: o.date)
         return occurrences
 
@@ -251,9 +262,8 @@ class PlannedTransactionService:
         """Return per-day aggregates for the month plus overdue bucket.
 
         Overdue items are occurrences whose date falls within
-        ``[month_start - overdue_window_days, month_start)``. A future
-        reconciliation flow (not in this version) will narrow this to
-        un-reconciled items only.
+        ``[month_start - overdue_window_days, month_start)`` and have not
+        yet been posted to the ledger.
         """
         first = datetime.date(year, month, 1)
         last_day = calendar.monthrange(year, month)[1]
@@ -264,6 +274,7 @@ class PlannedTransactionService:
             last,
             account_id=account_id,
             active_only=active_only,
+            exclude_posted=True,
         )
 
         days: dict[datetime.date, DayAggregate] = {}
@@ -293,9 +304,123 @@ class PlannedTransactionService:
                 overdue_end,
                 account_id=account_id,
                 active_only=active_only,
+                exclude_posted=True,
             )
 
         return MonthGrid(year=year, month=month, days=days, overdue=overdue)
+
+    async def post_occurrence(
+        self,
+        planned_id: int,
+        occurrence_date: datetime.date,
+    ) -> Transaction:
+        """Post one planned occurrence as a real transaction (idempotent)."""
+        tx = await self._ensure_posted(planned_id, occurrence_date)
+        await self._session.commit()
+        fetched = await self._get_transaction(tx.id)
+        assert fetched is not None
+        return fetched
+
+    async def post_due(
+        self,
+        *,
+        as_of: datetime.date | None = None,
+        lookback_days: int = 30,
+        planned_id: int | None = None,
+    ) -> builtins.list[Transaction]:
+        """Post every unposted occurrence in ``[as_of - lookback, as_of]``.
+
+        Idempotent: already-posted occurrences are skipped / returned as-is.
+        When ``planned_id`` is set, only that plan is considered.
+        """
+        as_of = as_of or datetime.date.today()
+        start = as_of - datetime.timedelta(days=lookback_days)
+        occurrences = await self.get_occurrences(
+            start,
+            as_of,
+            active_only=True,
+            exclude_posted=True,
+        )
+        if planned_id is not None:
+            occurrences = [o for o in occurrences if o.planned_id == planned_id]
+
+        results: builtins.list[Transaction] = []
+        for occ in occurrences:
+            results.append(await self.post_occurrence(occ.planned_id, occ.date))
+        logger.info(
+            "Posted %s due planned occurrence(s) (as_of=%s, lookback=%s)",
+            len(results),
+            as_of.isoformat(),
+            lookback_days,
+        )
+        return results
+
+    async def _ensure_posted(
+        self,
+        planned_id: int,
+        occurrence_date: datetime.date,
+    ) -> Transaction:
+        """Create or return the ledger row for ``(planned_id, occurrence_date)``."""
+        existing = await self._find_posted(planned_id, occurrence_date)
+        if existing is not None:
+            return existing
+
+        pt = await self.get(planned_id)
+        if pt is None:
+            raise NotFoundError(f"Planned transaction {planned_id} not found")
+
+        description = (pt.description or pt.name or "").strip()
+        tx = Transaction(
+            account_id=pt.account_id,
+            category_id=pt.category_id,
+            amount=abs(pt.amount),
+            type=pt.type,
+            date=occurrence_date,
+            description=description,
+            is_internal_transfer=False,
+            is_split=False,
+            planned_transaction_id=pt.id,
+        )
+        try:
+            async with self._session.begin_nested():
+                self._session.add(tx)
+                await self._session.flush()
+        except IntegrityError:
+            existing = await self._find_posted(planned_id, occurrence_date)
+            if existing is not None:
+                return existing
+            raise
+        return tx
+
+    async def _find_posted(
+        self,
+        planned_id: int,
+        occurrence_date: datetime.date,
+    ) -> Transaction | None:
+        stmt = select(Transaction).where(
+            Transaction.planned_transaction_id == planned_id,
+            Transaction.date == occurrence_date,
+        )
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def _get_transaction(self, tx_id: int) -> Transaction | None:
+        stmt = select(Transaction).where(Transaction.id == tx_id)
+        result = await self._session.execute(stmt)
+        return result.scalar_one_or_none()
+
+    async def _posted_keys(
+        self,
+        candidates: builtins.set[tuple[int, datetime.date]],
+    ) -> builtins.set[tuple[int, datetime.date]]:
+        if not candidates:
+            return set()
+        stmt = select(Transaction.planned_transaction_id, Transaction.date).where(
+            Transaction.planned_transaction_id.is_not(None),
+            tuple_(Transaction.planned_transaction_id, Transaction.date).in_(candidates),
+        )
+        result = await self._session.execute(stmt)
+        return {(int(pid), d) for pid, d in result.all() if pid is not None}
 
     def _make_occurrence(self, d: datetime.date, p: PlannedTransaction) -> PlannedOccurrence:
         return PlannedOccurrence(

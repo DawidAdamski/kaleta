@@ -4,6 +4,7 @@
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.user import User
 from kaleta.services.auth_service import PLACEHOLDER_USERNAME, AuthService
 
@@ -78,3 +79,45 @@ class TestAuthServiceAccountLifecycle:
         assert user.username == "owner"
         assert await auth.auth_state() == "ready"
         assert await auth.authenticate("owner", "new-password-123") is not None
+
+
+class TestAuthServiceResetPassword:
+    @pytest.mark.asyncio
+    async def test_reset_password_updates_hash(self, auth: AuthService) -> None:
+        """Covers: KAL-AUTH-007"""
+        await auth.create_user("alice", "old-password-1")
+        user = await auth.reset_password("new-password-9")
+        assert user.username == "alice"
+        assert await auth.authenticate("alice", "new-password-9") is not None
+        assert await auth.authenticate("alice", "old-password-1") is None
+
+    @pytest.mark.asyncio
+    async def test_reset_password_rejects_short_password(self, auth: AuthService) -> None:
+        await auth.create_user("alice", "old-password-1")
+        with pytest.raises(ValidationError, match="at least 8"):
+            await auth.reset_password("short")
+
+    @pytest.mark.asyncio
+    async def test_reset_password_no_user(self, auth: AuthService) -> None:
+        with pytest.raises(NotFoundError, match="first-run bootstrap"):
+            await auth.reset_password("new-password-9")
+
+    @pytest.mark.asyncio
+    async def test_reset_password_multiple_users(self, auth: AuthService) -> None:
+        await auth.create_user("alice", "old-password-1")
+        auth.session.add(User(username="bob", password_hash=auth.hash_password("other-password")))
+        await auth.session.commit()
+        with pytest.raises(ConflictError, match="Multiple users"):
+            await auth.reset_password("new-password-9")
+
+    @pytest.mark.asyncio
+    async def test_reset_password_refuses_placeholder(self, auth: AuthService) -> None:
+        auth.session.add(
+            User(
+                username=PLACEHOLDER_USERNAME,
+                password_hash=auth.hash_password("not-used"),
+            )
+        )
+        await auth.session.commit()
+        with pytest.raises(NotFoundError, match="No real user"):
+            await auth.reset_password("new-password-9")

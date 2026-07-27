@@ -35,3 +35,21 @@ assess severity.
 We prefer coordinated disclosure. Please allow reasonable time for a fix before
 public discussion. We will credit reporters in the advisory when they wish to
 be named.
+
+## Forgotten password (local single-user)
+
+Kaleta is single-user and does not offer email or in-app password recovery.
+If you forget your password on a local install:
+
+```bash
+uv run kaleta --reset-password
+```
+
+This updates the argon2 password hash for the sole user in the database
+configured in `~/.kaleta/config.json`. The command refuses to run when no user
+exists (complete first-run bootstrap instead) or when more than one user row is
+present.
+
+**Sessions and tokens:** resetting the password does **not** invalidate existing
+NiceGUI browser sessions or API bearer tokens. Sign out (or clear site data) and
+revoke tokens in Settings if you need to force re-authentication after a reset.

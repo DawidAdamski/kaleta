@@ -1,81 +1,76 @@
 ---
 plan_id: auth-reset-password-cli
-title: Auth — CLI password reset for single-user installs
+title: CLI password reset for forgotten single-user credentials
 area: auth
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
-source: audit-production-readiness.md#10-password-reset-requires-hand-editing-the-database
+source: ../plans/audit-production-readiness.md#10-password-reset-requires-hand-editing-the-database
 ---
 
-# Auth — CLI password reset for single-user installs
+# CLI password reset for forgotten single-user credentials
 
 ## Intent
 
-Single-user + argon2 with no CLI reset path: a forgotten password
-means deleting the user row in SQLite so create-account bootstrap
-reappears. Add `uv run kaleta --reset-password` (interactive) and
-document it so recovery does not require hand-editing the database.
+A forgotten password on a single-user Kaleta install currently forces
+hand-editing (or deleting) the user row in SQLite so bootstrap reappears.
+Ship an interactive `uv run kaleta --reset-password` that updates the
+argon2 hash on the configured database — the same DB the running app
+uses via `~/.kaleta/config.json`.
 
 ## Scope
 
-- CLI flag on the `kaleta` entrypoint:
-  `uv run kaleta --reset-password`
-  - Resolves the configured DB (same path as the running app /
-    `~/.kaleta/config.json`)
-  - Prompts for new password (and confirmation) on stdin
-  - Hashes with existing argon2 helpers in `AuthService`
-  - Updates the sole user row; clear error if no user exists
-    (point to create-account bootstrap) or if multiple users
-    (unexpected — refuse)
-- Document in getting-started and SECURITY (or equivalent): when
-  to use the CLI vs wipe-user fallback
-- Unit test for service `set_password` / reset path with temp DB
-- BDD `KAL-AUTH-007` (CLI/unit — `@automated` via service test)
-
-Additive to [`q3-auth-single-user.md`](q3-auth-single-user.md);
-does **not** reopen session design, rate limits, or multi-user.
+- `uv run kaleta --reset-password`: prompt for new password + confirm;
+  hash with argon2 via `AuthService`; resolve DB like the running app
+  (`get_db_url()` / `~/.kaleta/config.json`, with `KALETA_DB_URL` only
+  as the settings default when config is absent — match `_preload_config`).
+- Clear errors: no user → point to first-run bootstrap; multiple users
+  → refuse (single-user contract).
+- Document in `docs/getting-started.md` and `SECURITY.md` (including that
+  existing NiceGUI sessions may linger after a reset).
+- BDD scenario `KAL-AUTH-007` + unit/integration tests.
+- Interactive only in v1 (no `--password-stdin`).
 
 ### Not in scope
 
-- Email / magic-link reset
-- In-UI "forgot password" flow
-- Resetting API tokens as part of this command (optional note:
-  tokens remain valid after password change unless separately
-  revoked)
-- Multi-user admin reset
+- Email-based password reset
+- In-UI “forgot password”
+- Multi-user admin / per-username selection
+- Invalidating existing sessions or API tokens (document that sessions
+  may linger until the browser storage is cleared or cookies expire)
 
 ## Acceptance criteria
 
-- `uv run pytest tests/unit/services/test_auth_service.py -q`
-- `grep -E 'KAL-AUTH-007' docs/bdd.md | grep -q .`
+- `uv run pytest tests/unit/services/test_auth_service.py tests/unit/cli/test_reset_password.py tests/integration/test_reset_password_cli.py -q`
+- `grep -q 'KAL-AUTH-007' docs/bdd.md`
+- `grep -q -- '--reset-password' docs/getting-started.md`
+- `grep -q -- '--reset-password' SECURITY.md`
 - `uv run python scripts/spec_coverage.py`
 - `./scripts/verify.sh`
-- `[manual]` After changing the password via CLI, login with the
-  new password succeeds and the old password fails.
 
 ## Touchpoints
 
-- `src/kaleta/main.py` — argparse / CLI before `ui.run`
-- `src/kaleta/services/auth_service.py` — `set_password` /
-  `reset_password`
-- `pyproject.toml` — entrypoint already `kaleta`; no new script
-  required if flag lives on main
-- `docs/` getting-started + SECURITY
+- `src/kaleta/main.py` — early `--reset-password` dispatch
+- `src/kaleta/cli/reset_password.py` (new) — interactive command
+- `src/kaleta/services/auth_service.py` — `reset_password` / user count
 - `docs/bdd.md` — `KAL-AUTH-007`
+- `docs/getting-started.md`, `SECURITY.md`
 - `tests/unit/services/test_auth_service.py`
+- `tests/unit/cli/test_reset_password.py` (new)
+- `tests/integration/test_reset_password_cli.py` (new)
 
 ## Open questions
 
-1. Non-interactive `--password-stdin` for scripting? Default: **not
-   in v1**; interactive only (safer for local single-user).
-2. Should reset also invalidate NiceGUI sessions / API tokens?
-   Default: **document that existing sessions may linger until
-   storage clear**; tokens unchanged.
+- None — interactive-only v1; sessions/tokens not revoked (documented).
 
 ## Implementation notes
 
-_Filled in as work progresses._
-
-Source finding: `audit-production-readiness` P1.10. One plan = one
-branch = one PR. Can ship independently anytime (small).
+- Plan file was missing from the repo at pickup; created from the audit
+  finding + delivery brief, then implemented on `plan/auth-reset-password-cli`.
+- DB resolution matches `_preload_config`: only `~/.kaleta/config.json` via
+  `get_db_url()` — no silent fallback to CWD `KALETA_DB_URL` / `kaleta.db`.
+- `AuthService.reset_password` enforces single real user (count 0 / >1 /
+  placeholder → typed errors). Min length 8 shared via `validate_new_password`
+  (also applied on `create_user` / `secure_placeholder` for consistency with UI).
+- Interactive CLI only (`getpass`); no `--password-stdin`. Sessions/tokens not
+  revoked — success message + SECURITY.md document the linger.

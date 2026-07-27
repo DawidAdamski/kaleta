@@ -1,96 +1,97 @@
 ---
 plan_id: planned-transactions-post-due
-title: Planned transactions — post due occurrences to the ledger
-area: planned-transactions / payment-calendar
+title: Planned transactions — post due occurrences
+area: planned-transactions
 effort: medium
-status: draft
 roadmap_ref: ../roadmap.md#transactions
-source: audit-production-readiness.md#6-planned-transactions-are-never-posted
+status: in-progress
+source: ../plans/audit-production-readiness.md#6-planned-transactions-are-never-posted
 ---
 
-# Planned transactions — post due occurrences to the ledger
+# Planned transactions — post due occurrences
 
 ## Intent
 
-Payment Calendar computes occurrences and an overdue bucket, but
-nothing converts a due planned transaction into a real ledger row.
-Daily-run consequence: recurring bills must be re-entered or
-re-imported. Add an explicit **"post due"** path (one-click and
-bulk), then an **opt-in** auto-post on app start. Full background
-scheduling is unnecessary for a locally run app.
+Payment Calendar computes occurrences and an overdue bucket, but nothing
+converts a due planned transaction into a real ledger row. Users must
+re-enter recurring bills manually. Add explicit post actions (single
+occurrence and post-all-due) plus an opt-in auto-post on session start so
+the ledger stays in sync with the calendar without an OS cron.
 
 ## Scope
 
-- `PlannedTransactionService`:
-  - `post_occurrence(planned_id, occurrence_date) → Transaction`
-    (and transfer pair when type is transfer)
-  - `post_due(as_of: date | None = today) → list[Transaction]` —
-    all overdue / due-today active occurrences not yet posted
-  - Idempotency: do not double-post the same planned + date
-    (track via link field, occurrence marker, or lookup of existing
-    posted rows — pick one approach in implementation notes)
-- UI:
-  - Payment Calendar overdue bucket: per-row **"Post"** + **"Post
-    all due"**
-  - Dashboard upcoming-planned widget: one-click post per item
-  - Planned Transactions page: post next / selected occurrence
-- Settings → Features: **"Auto-post due planned transactions on
-  startup"** (default **off**)
-- Startup hook: if enabled, call `post_due` and notify count posted
-- New BDD under Planned Transactions: `KAL-PLN-015`+ (post one,
-  post all due, idempotent re-post, opt-in auto-post)
+- **Service** — `PlannedTransactionService.post_occurrence(planned_id, date)`
+  and `post_due(as_of=today, lookback_days=…)` — both **idempotent**.
+- **Schema** — `Transaction.planned_transaction_id` FK + unique
+  `(planned_transaction_id, date)` so re-posting the same occurrence is a
+  no-op (returns the existing row).
+- **UI**
+  - Payment Calendar: Post on overdue / past-due rows; **Post all due**
+    toolbar action.
+  - Dashboard `upcoming_planned` widget: one-click Post on due rows.
+  - Planned Transactions list: post action per row (posts due
+    occurrences for that plan).
+- **Settings → Features** — toggle “Auto-post due planned transactions
+  on start” (default **OFF**); session-start hook runs `post_due` once
+  when enabled.
+- **BDD** — new `KAL-PLN-015+` scenarios; unit/e2e coverage with
+  `Covers:` docstrings.
 
-This plan **owns** "convert to actual / post occurrence". The
-related draft [`transactions-upcoming-planned.md`](transactions-upcoming-planned.md)
-covers **visibility** of upcoming rows in the Transactions list
-only; any post button there must call this service and is deferred
-until this plan ships (or is a thin follow-up).
+Out of scope:
 
-### Not in scope
-
-- Full OS-level scheduler / cron daemon
-- Matching bank-import rows to planned occurrences (reconcile)
-- Skipping / snoozing UX beyond what already exists
-- Inline "upcoming" merge on `/transactions` (separate plan)
+- OS cron / background scheduler beyond session-start.
+- Import-reconcile matching of bank rows to planned occurrences.
+- Upcoming planned merge on `/transactions`
+  (`transactions-upcoming-planned` plan).
 
 ## Acceptance criteria
 
-- `uv run pytest tests/unit/services/test_planned_transaction_service.py -q`
-- `grep -E 'KAL-PLN-01[5-9]|KAL-PLN-02' docs/bdd.md | grep -q .`
+- `uv run pytest tests/unit/services/test_planned_transaction_service.py -q -k post`
 - `uv run python scripts/spec_coverage.py`
 - `./scripts/verify.sh --e2e`
-- `[manual]` Overdue item on Payment Calendar posts a matching
-  expense/income/transfer and disappears from the overdue bucket
-  (or moves to posted state) after refresh.
+- `[manual]` Payment Calendar overdue row Post creates a transaction and
+  removes the item from the overdue bucket after refresh.
+- `[manual]` Features toggle default is OFF; with toggle ON, first
+  authenticated page load posts due occurrences once per session.
 
 ## Touchpoints
 
-- `src/kaleta/services/planned_transaction_service.py`
-- `src/kaleta/services/transaction_service.py` (create path reuse)
+- `src/kaleta/models/transaction.py` — FK + unique constraint
+- `alembic/versions/` — migration
+- `src/kaleta/schemas/transaction.py` — optional `planned_transaction_id`
+- `src/kaleta/services/planned_transaction_service.py` — post APIs
 - `src/kaleta/views/payment_calendar.py`
 - `src/kaleta/views/dashboard_widgets/upcoming_planned.py`
 - `src/kaleta/views/planned_transactions.py`
-- `src/kaleta/views/settings/` — Features toggle
-- `src/kaleta/main.py` — optional startup auto-post
-- `src/kaleta/models/` — only if a posting link / marker column
-  is required (prefer minimal schema change)
+- `src/kaleta/views/settings/features_tab.py` (+ constants)
+- `src/kaleta/views/layout.py` — session-start auto-post hook
 - `src/kaleta/i18n/locales/{en,pl}.json`
-- `docs/bdd.md` — `KAL-PLN-015+`
+- `docs/bdd.md` — KAL-PLN-015+
 - `tests/unit/services/test_planned_transaction_service.py`
-- `tests/e2e/` — post-due happy path when views change
+- `tests/e2e/` — post-due coverage where practical
 
 ## Open questions
 
-1. **Idempotency store** — dedicated `posted_occurrences` table vs
-   `transactions.planned_transaction_id` + date uniqueness.
-   Default preference: FK + unique constraint on
-   `(planned_transaction_id, date)` if schema allows.
-2. **Partial amounts / edits before post** — v1 posts template
-   amount as-is; edit-after-post is normal transaction edit.
+1. **Process startup vs session start?** NiceGUI `app.storage.user` is
+   not available in `on_startup`. Auto-post runs once per authenticated
+   session on first `page_layout` (equivalent for a local single-user
+   app). Recorded in Implementation notes.
 
 ## Implementation notes
 
-_Filled in as work progresses._
-
-Source finding: `audit-production-readiness` P1.6. One plan = one
-branch = one PR.
+- **Idempotency**: `Transaction.planned_transaction_id` + unique
+  `(planned_transaction_id, date)`. `post_occurrence` / `post_due` look up
+  first; `IntegrityError` on race uses a SAVEPOINT (`begin_nested`) and
+  returns the existing row.
+- **exclude_posted**: `get_occurrences(..., exclude_posted=True)` used by
+  Payment Calendar grid, overdue bucket, dashboard widget, and `post_due`.
+  Forecast / monthly readiness keep the default (`False`).
+- **Auto-post hook**: Features toggle
+  `auto_post_due_on_startup` (default off). Process `on_startup` cannot read
+  NiceGUI `app.storage.user`, so `page_layout` schedules
+  `maybe_auto_post_due()` once per authenticated session via `ui.timer`.
+- **Category-less plans**: posting inserts `Transaction` ORM rows directly
+  (skips `TransactionCreate` category requirement) so optional planned
+  categories still post.
+- **Transfer plans**: still a single ledger leg (no destination account on
+  the planned model); out of scope to invent a pair.

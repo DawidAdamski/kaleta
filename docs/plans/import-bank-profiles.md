@@ -1,86 +1,109 @@
 ---
 plan_id: import-bank-profiles
-title: Import — bank profiles from real dogfood exports
+title: Import — bank profiles from real export fixtures
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
-source: audit-production-readiness.md#7-import-profiles-generic-csv--mbank-only
 ---
 
-# Import — bank profiles from real dogfood exports
+# Import — bank profiles from real export fixtures
 
 ## Intent
 
-`import_service` auto-detects mBank and falls back to a generic
-header-alias parser. Other banks used daily (seed suggests PKO,
-Revolut) depend on the generic parser coping with each export's
-columns, dates, and encoding. During the first month of dogfooding,
-collect **one real export per bank actually used**; for each format
-the generic parser mishandles, add a profile (or alias entries) plus
-a fixture test. Driven by real files — not speculation.
+Daily import currently has two working formats: **generic CSV** (header
+alias parser) and **mBank** (metadata preprocessor + auto-detect). Other
+banks the user actually uses (seed data mentions PKO, Revolut, etc.) fall
+through to the generic parser, which may mishandle encoding, delimiters,
+or column shapes.
+
+Add bank-specific profiles **only when driven by real, anonymized export
+fixtures** collected during dogfooding — never by inventing parsers from
+docs or memory. Distinct from
+[`import-per-file-mapping-memory`](import-per-file-mapping-memory.md)
+(filename → account/column memory); this plan is about format detection
+and parsing.
 
 ## Scope
 
-- Process:
-  1. Save anonymized sample exports under
-     `tests/e2e/fixtures/` or `tests/fixtures/import/`
-  2. Attempt import with `generic` / `mbank`; document failure mode
-  3. Add profile preprocessor and/or header aliases + date/encoding
-     handling in `import_service`
-  4. Register profile in
-     `views/import_view/constants.py` and i18n labels
-  5. Unit test with the fixture; e2e smoke if UI profile select
-     changes
-- Extend detection when profile=`generic` only when signatures are
-  unambiguous (same pattern as mBank)
-- Keep changes minimal: prefer alias / date-format extensions over
-  a new preprocessor class unless the format needs it
+- Document the fixture contribution process for new bank samples.
+- Make extension points in the import profile registry / `import_service`
+  / view constants obvious so a later PR can add one bank at a time.
+- For each **existing** non-mBank anonymized fixture in the repo: add a
+  profile, unit test, and (when UI-visible) i18n keys.
+- Retag / add `KAL-CSV-*` scenarios only when a profile lands with tests.
 
-Distinct from
-[`import-per-file-mapping-memory.md`](import-per-file-mapping-memory.md)
-(filename → column mapping memory / `ImportRule`). This plan is
-**parser profiles**; that plan is **remembered mappings**.
+Out of scope:
 
-### Not in scope
-
-- Speculative profiles without a real fixture in-repo
-- Open Banking / API bank sync
-- Per-file mapping memory UI (separate plan)
-- Auto-categorisation rules (see `rules-auto-categorisation`)
+- Speculative PKO / Revolut / other profiles without real fixtures.
+- Per-file mapping memory (`import-per-file-mapping-memory`).
+- Open banking / PSD2 connectivity.
+- Changing mBank behaviour beyond shared registry wiring.
 
 ## Acceptance criteria
 
-- `test -f tests/e2e/fixtures/mbank_transfer.csv` (existing baseline)
-- `uv run pytest tests/unit/services/test_import_service.py -q`
-- `grep -E 'KAL-CSV-' docs/bdd.md | grep -q .`
-- `uv run python scripts/spec_coverage.py`
-- `[manual]` For each new bank profile: real (anonymized) fixture
-  imported end-to-end with correct dates, amounts, and currency;
-  BDD scenario added (`KAL-CSV-00N`) tagged `@automated` when
-  covered by a test.
+- `test -f tests/e2e/fixtures/import/README.md`
+- `uv run pytest tests/unit/services/test_import_profiles.py -q`
+- `grep -q "BankProfileSpec" src/kaleta/services/import_profiles.py`
+- `grep -q "detect_bank_profile" src/kaleta/services/import_service.py`
+- `[manual]` No enabled UI profile exists for a bank that lacks an
+  anonymized fixture under `tests/e2e/fixtures/` (or
+  `tests/e2e/fixtures/import/`).
+- `[manual]` When a dogfood fixture arrives: follow the README checklist
+  in a dedicated follow-up PR (one bank per PR).
+
+Partially unmet until dogfood files exist:
+
+- `[blocked]` At least one non-mBank bank profile with fixture-backed
+  unit test — **blocked on real anonymized exports**.
 
 ## Touchpoints
 
-- `src/kaleta/services/import_service.py`
-- `src/kaleta/views/import_view/constants.py`
-- `src/kaleta/i18n/locales/{en,pl}.json`
-- `tests/unit/services/test_import_service.py`
-- `tests/e2e/fixtures/` — anonymized bank CSVs
-- `docs/bdd.md` — new `KAL-CSV-*` per bank when automated
+- `src/kaleta/services/import_profiles.py` — registry + detection
+  extension point (new).
+- `src/kaleta/services/import_service.py` — wire auto-detect through
+  registry; keep mBank preprocessor.
+- `src/kaleta/views/import_view/constants.py` — profile list from
+  registry.
+- `tests/e2e/fixtures/import/README.md` — contribution guide.
+- `tests/unit/services/test_import_profiles.py` — registry contracts.
+- `docs/plans/README.md` — index entry.
+- Per-bank later: i18n keys, preprocessor, BDD `KAL-CSV-*`, e2e fixture.
 
 ## Open questions
 
-1. **Which banks first?** Unknown until dogfood exports land —
-   candidates from seed (PKO, Revolut) are **not** committed
-   profiles until a fixture proves need.
-2. **PII scrubbing standard** for fixtures — strip account numbers
-   / names; keep amount/date/description shape.
+- Should new bank fixtures live only under `tests/e2e/fixtures/import/`
+  while the historical mBank e2e file stays at
+  `tests/e2e/fixtures/mbank_transfer.csv`? **Yes** — avoid churn on
+  existing e2e paths; new banks use the subdirectory.
+- Who supplies dogfood files? Maintainer / early users; strip PII before
+  commit (see fixture README).
 
 ## Implementation notes
 
-_Filled in as work progresses. Log each bank + fixture path here
-as dogfood files arrive._
+### 2026-07-26 — scaffolding only (profiles blocked on dogfood)
 
-Source finding: `audit-production-readiness` P1.7. One plan = one
-branch = one PR (or one PR per bank profile if large).
+**Fixtures audit:** the only bank export fixture in the repo is
+`tests/e2e/fixtures/mbank_transfer.csv`. No anonymized PKO, Revolut, or
+other non-mBank samples exist. Per plan constraint, **no speculative
+bank profiles** were added.
+
+**Landed:**
+
+- `src/kaleta/services/import_profiles.py` — `BankProfileSpec` registry,
+  `detect_bank_profile()`, UI row helper; docstring checklist for the
+  next bank.
+- `ImportService.parse_queued_file` auto-detect goes through the
+  registry; comment marks where the next parse branch belongs.
+- View `_PROFILES` reads from the registry (single source of truth).
+- `tests/e2e/fixtures/import/README.md` — layout + anonymization +
+  contribution checklist.
+- Unit tests lock enabled keys to `{generic, mbank}` only.
+
+**Blocked / acceptance partially unmet:**
+
+- First non-mBank profile + fixture-backed test — waiting on dogfood
+  files. Follow-up: one PR per bank after a sample lands under
+  `tests/e2e/fixtures/import/<profile_id>/`.
+
+**Not in this branch:** `import-per-file-mapping-memory` (distinct plan).

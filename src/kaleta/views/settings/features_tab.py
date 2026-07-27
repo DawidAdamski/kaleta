@@ -7,6 +7,7 @@ from nicegui import app, ui
 
 from kaleta.i18n import t
 from kaleta.views.settings.constants import (
+    DEFAULT_AUTO_POST_DUE_ON_STARTUP,
     DEFAULT_HOUSEKEEPING_DUPLICATE_DAYS,
     DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS,
     DEFAULT_SUBSCRIPTIONS_DETECTOR_DAYS,
@@ -97,3 +98,21 @@ def render_features_tab() -> None:
                     "payment_calendar_overdue_days", int(e.value or 0)
                 ),
             ).classes("max-w-60")
+
+        with ui.card().classes("p-6 w-full"):
+            with ui.row().classes("items-center gap-2 mb-1"):
+                ui.icon("publish", color="primary").classes("text-xl")
+                ui.label(t("settings.auto_post_due_title")).classes("text-lg font-semibold")
+            ui.label(t("settings.auto_post_due_hint")).classes("text-xs text-slate-500 mb-4")
+
+            auto_post = bool(
+                app.storage.user.get(
+                    "auto_post_due_on_startup",
+                    DEFAULT_AUTO_POST_DUE_ON_STARTUP,
+                )
+            )
+            ui.switch(
+                t("settings.auto_post_due"),
+                value=auto_post,
+                on_change=lambda e: set_user_key("auto_post_due_on_startup", bool(e.value)),
+            )

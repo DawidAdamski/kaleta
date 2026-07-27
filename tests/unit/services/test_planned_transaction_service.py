@@ -545,3 +545,129 @@ class TestGridForMonth:
         assert grid.total_inflow() == Decimal("5000")
         assert grid.total_outflow() == Decimal("1500")
         assert grid.total_net() == Decimal("3500")
+
+
+# ── Posting due occurrences ───────────────────────────────────────────────────
+
+
+class TestPostOccurrence:
+    async def test_post_creates_linked_transaction(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-015"""
+        acc_id = await _make_account(session, name="PKO Main")
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Netflix",
+                amount=Decimal("49.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 15),
+            )
+        )
+        tx = await svc.post_occurrence(pt.id, datetime.date(2025, 1, 15))
+        assert tx.amount == Decimal("49.00")
+        assert tx.date == datetime.date(2025, 1, 15)
+        assert tx.account_id == acc_id
+        assert tx.planned_transaction_id == pt.id
+        assert tx.description == "Netflix"
+
+    async def test_repost_is_idempotent(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-017"""
+        acc_id = await _make_account(session, name="PKO Main")
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        first = await svc.post_occurrence(pt.id, datetime.date(2025, 1, 1))
+        second = await svc.post_occurrence(pt.id, datetime.date(2025, 1, 1))
+        assert first.id == second.id
+        from sqlalchemy import func, select
+
+        from kaleta.models.transaction import Transaction
+
+        count = await session.scalar(
+            select(func.count())
+            .select_from(Transaction)
+            .where(
+                Transaction.planned_transaction_id == pt.id,
+                Transaction.date == datetime.date(2025, 1, 1),
+            )
+        )
+        assert count == 1
+
+
+class TestPostDue:
+    async def test_post_all_due_posts_weekly_window(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-016"""
+        acc_id = await _make_account(session, name="PKO Main")
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Groceries",
+                amount=Decimal("300.00"),
+                frequency=RecurrenceFrequency.WEEKLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        posted = await svc.post_due(
+            as_of=datetime.date(2025, 1, 15),
+            lookback_days=30,
+        )
+        assert len(posted) == 3
+        assert all(tx.planned_transaction_id == pt.id for tx in posted)
+        assert {tx.date for tx in posted} == {
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 8),
+            datetime.date(2025, 1, 15),
+        }
+
+    async def test_post_due_skips_already_posted(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-017"""
+        acc_id = await _make_account(session)
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        await svc.post_occurrence(pt.id, datetime.date(2025, 1, 1))
+        again = await svc.post_due(
+            as_of=datetime.date(2025, 1, 10),
+            lookback_days=30,
+            planned_id=pt.id,
+        )
+        assert again == []
+
+    async def test_posted_occurrence_leaves_overdue_bucket(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Netflix",
+                amount=Decimal("49.00"),
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(2025, 5, 20),
+            )
+        )
+        grid_before = await svc.grid_for_month(2025, 6, overdue_window_days=30)
+        assert any(o.planned_id == pt.id for o in grid_before.overdue)
+        await svc.post_occurrence(pt.id, datetime.date(2025, 5, 20))
+        grid_after = await svc.grid_for_month(2025, 6, overdue_window_days=30)
+        assert not any(o.planned_id == pt.id for o in grid_after.overdue)

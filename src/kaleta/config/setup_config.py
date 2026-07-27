@@ -64,3 +64,15 @@ def clear_db() -> None:
     data.pop("db_url", None)
     data.pop("name", None)
     _write(data)
+
+
+def get_nbp_fetch_on_startup() -> bool:
+    """Return whether NBP Table A rates should be fetched when the process starts."""
+    return bool(_read().get("nbp_fetch_on_startup", False))
+
+
+def set_nbp_fetch_on_startup(enabled: bool) -> None:
+    """Persist the opt-in NBP fetch-on-startup flag (default remains OFF when unset)."""
+    data = _read()
+    data["nbp_fetch_on_startup"] = bool(enabled)
+    _write(data)

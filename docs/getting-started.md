@@ -24,6 +24,20 @@ Open **http://localhost:8080**. On first launch you choose a database location
 database up to the installed alembic head automatically. Then create a username
 and password before any financial data pages load.
 
+### Forgotten password
+
+If you forget the login password, reset it interactively against the same
+database the app uses (`~/.kaleta/config.json`):
+
+```bash
+uv run kaleta --reset-password
+```
+
+You will be prompted for a new password and confirmation (minimum 8 characters).
+There is no email reset and no in-app “forgot password” flow. Existing browser
+sessions may still work until you sign out or clear site data; API bearer tokens
+are unchanged. See [SECURITY.md](../SECURITY.md).
+
 To migrate the **configured** database by hand (for example after restoring a
 file copy), point Alembic at that URL — bare `uv run alembic upgrade head`
 uses `KALETA_DB_URL` (default: `kaleta.db` in the current working directory),

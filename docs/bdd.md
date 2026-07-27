@@ -1338,6 +1338,47 @@ Feature: Planned and Recurring Transactions
     When I disable "Include planned transactions"
     And I click "Run forecast"
     Then the forecast is based solely on historical transaction patterns
+
+  # --- Posting due occurrences ---
+
+  KAL-PLN-015 @automated
+  Scenario: Post a single due occurrence creates a real transaction
+    Given there is an account "PKO Main"
+    And there is an active planned monthly expense "Netflix" of 49 starting 2025-01-15
+    And today is 2025-01-20
+    When I post the occurrence of "Netflix" for 2025-01-15
+    Then a transaction exists for account "PKO Main" with amount 49 on 2025-01-15
+    And the transaction is linked to planned transaction "Netflix"
+
+  KAL-PLN-016 @automated
+  Scenario: Post all due posts every unposted occurrence in the lookback window
+    Given there is an account "PKO Main"
+    And there is an active planned weekly expense "Groceries" of 300 starting 2025-01-01
+    And today is 2025-01-15
+    When I post all due planned occurrences with lookback 30 days
+    Then 3 transactions linked to "Groceries" exist on or before 2025-01-15
+
+  KAL-PLN-017 @automated
+  Scenario: Re-posting the same occurrence is idempotent
+    Given there is an account "PKO Main"
+    And there is an active planned monthly expense "Rent" of 2500 starting 2025-01-01
+    And today is 2025-01-10
+    And the occurrence of "Rent" for 2025-01-01 has already been posted
+    When I post the occurrence of "Rent" for 2025-01-01 again
+    Then exactly 1 transaction linked to "Rent" on 2025-01-01 exists
+
+  KAL-PLN-018 @automated
+  Scenario: Auto-post on start is off by default
+    Given I open Settings → Features
+    Then the "Auto-post due planned transactions on start" switch is off
+
+  KAL-PLN-019 @manual
+  Scenario: Auto-post on start posts due occurrences once per session
+    Given auto-post due on start is enabled
+    And there is an unposted overdue planned expense "Netflix" of 49
+    When I open the app and land on any authenticated page
+    Then a transaction for "Netflix" is created
+    And opening another page in the same session does not create a duplicate
 ```
 
 ## Feature: Recurring Payment Detection
@@ -1968,6 +2009,14 @@ Feature: Single-user authentication
     Given a valid API bearer token exists
     When I request "/api/v1/accounts/" with the bearer token
     Then the response status is 200
+
+  KAL-AUTH-007 @automated
+  Scenario: CLI resets the single-user password interactively
+    Given a configured database with one user "alice" whose password is "old-password-1"
+    When I run `uv run kaleta --reset-password` and enter "new-password-9" twice
+    Then the command exits successfully
+    And "alice" can authenticate with "new-password-9"
+    And "alice" cannot authenticate with "old-password-1"
 ```
 
 ## Feature: Settings — Data safety
@@ -2037,6 +2086,36 @@ Feature: Settings — Data safety
     When ensure_schema_current runs for that database
     Then a kaleta-*.db safety copy exists under the backup directory
     And the database alembic revision matches the installed head
+```
+
+## Feature: Currency rates — NBP Table A
+
+```gherkin
+Feature: Currency rates — NBP Table A
+  As a user with foreign-currency accounts
+  I want optional NBP mid rates against PLN
+  So that net worth stays accurate without paid FX APIs or mandatory network
+
+  KAL-FXR-001 @automated
+  Scenario: Fetching NBP Table A stores both directions for each currency
+    Given the NBP Table A API returns mid 4.2500 for EUR and mid 3.9000 for USD on effective date 2024-07-22
+    When I import the latest NBP rates
+    Then currency_rates contains EUR→PLN at 4.250000 and PLN→EUR at 0.235294 on 2024-07-22
+    And currency_rates contains USD→PLN at 3.900000 and PLN→USD at 0.256410 on 2024-07-22
+
+  KAL-FXR-002 @automated
+  Scenario: Offline NBP fetch fails soft without crashing
+    Given the NBP Table A HTTP call raises a network error
+    When I import the latest NBP rates
+    Then an ExternalServiceError is raised with a clear offline message
+    And no currency_rates rows are written
+
+  KAL-FXR-003 @automated
+  Scenario: Fetch on startup is opt-in and defaults to off
+    Given nbp_fetch_on_startup is unset in ~/.kaleta/config.json
+    When the NBP startup fetcher starts
+    Then no HTTP request is made to NBP
+    And get_nbp_fetch_on_startup returns false
 ```
 
 ## Feature: Housekeeping — Integrity
