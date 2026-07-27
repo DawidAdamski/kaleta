@@ -47,10 +47,12 @@ leaving the page.
   - Clicking a planned row opens the PlannedTransaction
     detail dialog (existing `/planned-transactions` edit
     flow), not the Transaction edit dialog.
-  - The "convert to actual" action (already on the planned
-    transactions page) is also available from a row-level
-    button so the user can mark a planned row as posted
-    without leaving Transactions.
+  - **"Post / convert to actual" is out of scope here.** That
+    behaviour is owned by
+    [`planned-transactions-post-due.md`](planned-transactions-post-due.md).
+    After that plan ships, a thin follow-up may add a row-level
+    Post button that calls the shared service — do not implement
+    posting logic in this plan.
 - **Sorting / filtering** — the existing filter bar (date
   range, account, category, type, description) applies to
   planned occurrences as well. Account / category / type /
@@ -83,6 +85,9 @@ Out of scope:
 - Confirming a posted occurrence as "skipped" — that's
   handled on the planned-transactions page.
 - Showing planned rows in the CSV export.
+- Posting / converting an occurrence to a real
+  `Transaction` — see
+  [`planned-transactions-post-due.md`](planned-transactions-post-due.md).
 
 ## Acceptance criteria
 
@@ -95,10 +100,6 @@ Out of scope:
   accounts.
 - Clicking a planned row opens the planned-transaction
   edit dialog, not the regular transaction dialog.
-- A "Convert to actual" button on the row creates a real
-  `Transaction`, removes that occurrence from the upcoming
-  list (next occurrence still shows for recurring plans),
-  and refreshes the row.
 
 ## Touchpoints
 
@@ -107,8 +108,7 @@ Out of scope:
 - `src/kaleta/views/transactions.py` — fetch + merge upcoming
   occurrences; row rendering tweaks; row click handler.
 - `src/kaleta/services/planned_transaction_service.py` —
-  reuse `get_occurrences()`; possibly add a
-  `convert_to_actual(occurrence_date, planned_id)` helper.
+  reuse `get_occurrences()` only (no post/convert helpers).
 - `src/kaleta/i18n/locales/{en,pl}.json` — new keys.
 - `tests/unit/services/test_planned_transaction_service.py`
   and a new
