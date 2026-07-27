@@ -5,7 +5,7 @@ area: infrastructure
 effort: medium
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
+roadmap_ref: ../../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Public-repo readiness — contributor docs, security policy, templates

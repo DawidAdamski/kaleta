@@ -129,7 +129,7 @@ on app start / on demand from Settings, storing into the existing
 `currency_rates` table. Keep it optional-and-offline-safe (core principle:
 app works with no network).
 
-→ Plan: [`currency-nbp-rates`](currency-nbp-rates.md)
+→ Plan: [`currency-nbp-rates`](archive/currency-nbp-rates.md)
 
 ### 6. Planned transactions are never posted
 
@@ -144,7 +144,7 @@ Calendar / dashboard widget listing due items with one-click post), then an
 opt-in auto-post on app start. Full background scheduling is unnecessary
 for a locally-run app — on-start + on-demand covers it.
 
-→ Plan: [`planned-transactions-post-due`](planned-transactions-post-due.md)
+→ Plan: [`planned-transactions-post-due`](archive/planned-transactions-post-due.md)
 
 ### 7. Import profiles: generic CSV + mBank only
 
@@ -170,7 +170,7 @@ core-tier rule engine (payee/description contains X → category Y, rules
 learned from past corrections) would cut daily effort dramatically and is
 the natural precursor to the paid AI feature.
 
-→ Plan: [`rules-auto-categorisation`](rules-auto-categorisation.md)
+→ Plan: [`rules-auto-categorisation`](archive/rules-auto-categorisation.md)
 
 ### 9. Local deployment story: no autostart, no health endpoint
 
@@ -187,7 +187,7 @@ the natural precursor to the paid AI feature.
   WorkingDirectory (launchd) plus a startup sweep of stale storage files
   fixes both.
 
-→ Plan: [`deploy-local-health`](deploy-local-health.md)
+→ Plan: [`deploy-local-health`](archive/deploy-local-health.md)
 
 ### 10. Password reset requires hand-editing the database
 
@@ -197,7 +197,7 @@ reappears *(flow inferred from `auth_state()`; unverified end-to-end)*.
 **Fix:** `uv run kaleta --reset-password` (or documented sqlite one-liner
 in SECURITY.md / getting-started).
 
-→ Plan: [`auth-reset-password-cli`](auth-reset-password-cli.md)
+→ Plan: [`auth-reset-password-cli`](archive/auth-reset-password-cli.md)
 
 ---
 
@@ -252,16 +252,16 @@ Implementation proceeds as **one plan = one branch = one PR**
 
 | # | Item | Effort | Payoff | Plan |
 |---|------|--------|--------|------|
-| 1 | SQLite pragmas listener (P0.3) | S | integrity + concurrency, one file | [`sqlite-integrity-scheduled-backups`](sqlite-integrity-scheduled-backups.md) |
+| 1 | SQLite pragmas listener (P0.3) | S | integrity + concurrency, one file | [`sqlite-integrity-scheduled-backups`](archive/sqlite-integrity-scheduled-backups.md) |
 | 2 | Auto-migrate on start + README fix (P0.4) | S | safe upgrades | (fold into integrity / setup plans) |
-| 3 | Backup from `Base.metadata` + revision stamp (P0.1) | M | trustworthy restore | [`backup-full-schema-roundtrip`](backup-full-schema-roundtrip.md) |
-| 4 | Scheduled `VACUUM INTO` backups + retention (P0.2) | S–M | set-and-forget safety | [`sqlite-integrity-scheduled-backups`](sqlite-integrity-scheduled-backups.md) |
-| 5 | launchd/systemd doc + `/health` + storage path (P1.9) | S | true daily-run setup | [`deploy-local-health`](deploy-local-health.md) |
-| 5b | CLI password reset (P1.10) | S | recovery without DB surgery | [`auth-reset-password-cli`](auth-reset-password-cli.md) |
-| 6 | NBP rate fetch (P1.5) | S–M | correct multi-currency numbers | [`currency-nbp-rates`](currency-nbp-rates.md) |
-| 7 | "Post due" for planned transactions (P1.6) | M | calendar ↔ ledger closes | [`planned-transactions-post-due`](planned-transactions-post-due.md) |
+| 3 | Backup from `Base.metadata` + revision stamp (P0.1) | M | trustworthy restore | [`backup-full-schema-roundtrip`](archive/backup-full-schema-roundtrip.md) |
+| 4 | Scheduled `VACUUM INTO` backups + retention (P0.2) | S–M | set-and-forget safety | [`sqlite-integrity-scheduled-backups`](archive/sqlite-integrity-scheduled-backups.md) |
+| 5 | launchd/systemd doc + `/health` + storage path (P1.9) | S | true daily-run setup | [`deploy-local-health`](archive/deploy-local-health.md) |
+| 5b | CLI password reset (P1.10) | S | recovery without DB surgery | [`auth-reset-password-cli`](archive/auth-reset-password-cli.md) |
+| 6 | NBP rate fetch (P1.5) | S–M | correct multi-currency numbers | [`currency-nbp-rates`](archive/currency-nbp-rates.md) |
+| 7 | "Post due" for planned transactions (P1.6) | M | calendar ↔ ledger closes | [`planned-transactions-post-due`](archive/planned-transactions-post-due.md) |
 | 8 | Import profiles from real bank files (P1.7) | M | painless weekly import | [`import-bank-profiles`](import-bank-profiles.md) |
-| 9 | Rule-based auto-categorisation (P1.8) | M–L | biggest daily time-saver | [`rules-auto-categorisation`](rules-auto-categorisation.md) |
+| 9 | Rule-based auto-categorisation (P1.8) | M–L | biggest daily time-saver | [`rules-auto-categorisation`](archive/rules-auto-categorisation.md) |
 
 Items 1–5 are the "safe to move real data in" gate; 5b and 6–9 are
 the "enjoyable daily driver" gate (5b can ship anytime). P2 items
@@ -286,17 +286,17 @@ slot in opportunistically via the Chore inbox.
 ## Acceptance criteria
 
 - [x] Every P1 finding (5–10) converted into a draft plan:
-  - P1.5 → [`currency-nbp-rates`](currency-nbp-rates.md)
-  - P1.6 → [`planned-transactions-post-due`](planned-transactions-post-due.md)
+  - P1.5 → [`currency-nbp-rates`](archive/currency-nbp-rates.md)
+  - P1.6 → [`planned-transactions-post-due`](archive/planned-transactions-post-due.md)
   - P1.7 → [`import-bank-profiles`](import-bank-profiles.md)
-  - P1.8 → [`rules-auto-categorisation`](rules-auto-categorisation.md)
-  - P1.9 → [`deploy-local-health`](deploy-local-health.md)
-  - P1.10 → [`auth-reset-password-cli`](auth-reset-password-cli.md)
+  - P1.8 → [`rules-auto-categorisation`](archive/rules-auto-categorisation.md)
+  - P1.9 → [`deploy-local-health`](archive/deploy-local-health.md)
+  - P1.10 → [`auth-reset-password-cli`](archive/auth-reset-password-cli.md)
 - [ ] Every P0 finding converted into a GitHub issue / plan, added
   to the Chore inbox, or explicitly rejected with a note here
   (P0.1–0.3 covered by in-progress
-  [`backup-full-schema-roundtrip`](backup-full-schema-roundtrip.md)
-  and [`sqlite-integrity-scheduled-backups`](sqlite-integrity-scheduled-backups.md);
+  [`backup-full-schema-roundtrip`](archive/backup-full-schema-roundtrip.md)
+  and [`sqlite-integrity-scheduled-backups`](archive/sqlite-integrity-scheduled-backups.md);
   P0.4 still needs an explicit plan or fold-in note).
 - [ ] P2 items triaged (issue / Chore inbox / reject).
 - `[manual]` Interim runbook validated once by a real backup +

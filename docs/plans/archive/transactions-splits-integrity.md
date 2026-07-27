@@ -5,13 +5,13 @@ area: transactions
 effort: medium
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#transactions
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Transaction splits — server-side integrity and split-aware reporting
 
 GitHub issue: [#? Transaction splits (KAL-SPL)](https://github.com/DawidAdamski/kaleta/issues)
-BDD spec: [`docs/bdd.md` → Feature: Transaction Splits](../bdd.md#feature-transaction-splits) (KAL-SPL-001…004)
+BDD spec: [`docs/bdd.md` → Feature: Transaction Splits](../../bdd.md#feature-transaction-splits) (KAL-SPL-001…004)
 
 ## Intent
 

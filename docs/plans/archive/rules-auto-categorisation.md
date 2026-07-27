@@ -5,7 +5,7 @@ area: import
 effort: medium
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#import
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Rules — auto-categorisation from payee/description patterns

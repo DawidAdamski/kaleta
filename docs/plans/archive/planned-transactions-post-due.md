@@ -3,10 +3,10 @@ plan_id: planned-transactions-post-due
 title: Planned transactions — post due occurrences
 area: planned-transactions
 effort: medium
-roadmap_ref: ../roadmap.md#transactions
+roadmap_ref: ../../roadmap.md#transactions
 status: archived
 archived_at: 2026-07-27
-source: ../plans/audit-production-readiness.md#6-planned-transactions-are-never-posted
+source: ../audit-production-readiness.md#6-planned-transactions-are-never-posted
 ---
 
 # Planned transactions — post due occurrences

@@ -5,7 +5,7 @@ area: settings / data
 effort: small
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Backup covers every ORM table + alembic revision stamp

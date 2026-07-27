@@ -5,7 +5,7 @@ area: dashboard
 effort: medium
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#dashboard
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Dashboard — Grid-based widget resize and any-to-any reorder

@@ -5,12 +5,12 @@ area: cross-cutting
 effort: medium
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # P2 — hardening & analysis ergonomics
 
-Converts findings 11–16 from [`audit-production-readiness.md`](audit-production-readiness.md).
+Converts findings 11–16 from [`audit-production-readiness.md`](../audit-production-readiness.md).
 One branch ships all four work packages (umbrella); split further only if review demands it.
 
 See Cursor plan / agent notes for sequential WP detail. Scope summary:

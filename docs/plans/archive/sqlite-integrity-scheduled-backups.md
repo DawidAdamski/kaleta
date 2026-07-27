@@ -5,7 +5,7 @@ area: db / housekeeping / settings
 effort: medium
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # SQLite integrity pragmas + scheduled VACUUM backups

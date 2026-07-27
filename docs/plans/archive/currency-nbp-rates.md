@@ -5,8 +5,8 @@ area: settings / currency rates
 effort: medium
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#cross-cutting-principles
-source: ../plans/audit-production-readiness.md#5-currency-rates-are-manual-only--no-nbp-integration
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
+source: ../audit-production-readiness.md#5-currency-rates-are-manual-only--no-nbp-integration
 ---
 
 # Optional NBP Table A exchange-rate fetch
