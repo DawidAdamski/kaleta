@@ -71,6 +71,45 @@ def _register_api() -> None:
         return _api_spec()
 
 
+def _warn_repo_root_data_leftovers() -> None:
+    """Log if the process CWD is a git checkout with leftover session/DB files."""
+    import logging
+
+    cwd = Path.cwd()
+    if not (cwd / ".git").is_dir():
+        return
+    leftovers = [name for name in (".nicegui", "kaleta.db", "demo.db") if (cwd / name).exists()]
+    if not leftovers:
+        return
+    logging.getLogger(__name__).warning(
+        "Found %s in git working tree %s; prefer data under ~/.kaleta "
+        "(NiceGUI sessions use ~/.kaleta/nicegui). Remove leftovers manually — "
+        "they are not deleted automatically.",
+        ", ".join(leftovers),
+        cwd,
+    )
+
+
+async def _ensure_api_env_token_user() -> None:
+    """When KALETA_API_TOKEN is set, ensure a real user exists for bearer auth."""
+    import logging
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.services.api_token_service import MIN_API_TOKEN_LENGTH
+    from kaleta.services.auth_service import AuthService
+
+    token = settings.api_token
+    if not token or len(token) < MIN_API_TOKEN_LENGTH:
+        return
+    async with AsyncSessionFactory() as session:
+        user = await AuthService(session).ensure_api_bootstrap_user()
+    logging.getLogger(__name__).info(
+        "API env-token bootstrap ready for user %r (id=%s)",
+        user.username,
+        user.id,
+    )
+
+
 def _preload_config() -> None:
     """Read ~/.kaleta/config.json and reconfigure the DB proxy before views are registered.
 
@@ -192,7 +231,9 @@ def _register_storage_sweep() -> None:
 
 @asynccontextmanager
 async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    _warn_repo_root_data_leftovers()
     _sweep_nicegui_storage()
+    await _ensure_api_env_token_user()
     BackupScheduler.start()
     NbpStartupFetcher.start()
     try:
@@ -211,6 +252,7 @@ def create_api() -> FastAPI:
 
 def run_web() -> None:
     configure_logging()
+    _warn_repo_root_data_leftovers()
     _preload_config()
     _setup_pwa()
     _register_api()
@@ -231,6 +273,7 @@ def run_web() -> None:
 
 def run_app() -> None:
     configure_logging()
+    _warn_repo_root_data_leftovers()
     _preload_config()
     _setup_pwa()
     _register_api()

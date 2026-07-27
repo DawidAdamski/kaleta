@@ -100,12 +100,13 @@ Set via `KALETA_MODE` environment variable:
 
 ## Environment Variables
 ```
-KALETA_DB_URL=sqlite+aiosqlite:///kaleta.db
+KALETA_DB_URL=sqlite+aiosqlite:///$HOME/.kaleta/kaleta.db
 KALETA_HOST=0.0.0.0
 KALETA_PORT=8080
 KALETA_MODE=web
 KALETA_SECRET_KEY=<change-me>
 KALETA_DEBUG=false
+KALETA_SESSION_TTL_HOURS=72
 KALETA_BACKUP_ENABLED=true
 KALETA_BACKUP_INTERVAL_HOURS=24
 KALETA_BACKUP_RETAIN=7

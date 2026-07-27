@@ -14,6 +14,7 @@ from kaleta.models.api_token import ApiToken
 from kaleta.services.auth_service import PLACEHOLDER_USERNAME, AuthService
 
 _MIN_API_TOKEN_LENGTH = 16
+MIN_API_TOKEN_LENGTH = _MIN_API_TOKEN_LENGTH
 
 
 class ApiTokenService:

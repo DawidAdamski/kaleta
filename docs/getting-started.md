@@ -84,22 +84,27 @@ Set via the `KALETA_MODE` environment variable:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KALETA_DB_URL` | `sqlite:///kaleta.db` | Database connection URL |
+| `KALETA_DB_URL` | `sqlite+aiosqlite:///{home}/.kaleta/kaleta.db` | Database connection URL (default under `~/.kaleta`) |
 | `KALETA_HOST` | `127.0.0.1` | Host to bind to (`0.0.0.0` in Docker Compose) |
 | `KALETA_PORT` | `8080` | Port to listen on |
 | `KALETA_MODE` | `web` | Runtime mode (`web` / `app` / `api`) |
 | `KALETA_SECRET_KEY` | `change-me-in-production` | Secret key for sessions (required outside debug) |
 | `KALETA_DEBUG` | `false` | Enable debug mode (allows default secret key) |
-| `KALETA_API_TOKEN` | _(unset)_ | Optional bootstrap bearer token for `KALETA_MODE=api` |
+| `KALETA_API_TOKEN` | _(unset)_ | Bootstrap bearer for `KALETA_MODE=api` (≥16 chars). On API startup with this set, Kaleta ensures a real user exists (creates locked user `api` if needed) so the token can authenticate. UI-managed tokens remain the normal path for `web`/`app`. |
+| `KALETA_SESSION_TTL_HOURS` | `72` | UI session lifetime in hours (`0` disables expiry) |
 | `KALETA_BACKUP_ENABLED` | `true` | Enable scheduled SQLite `VACUUM INTO` backups |
 | `KALETA_BACKUP_INTERVAL_HOURS` | `24` | Hours between scheduled backups |
 | `KALETA_BACKUP_RETAIN` | `7` | Keep the last K `kaleta-*.db` files |
 | `KALETA_BACKUP_DIR` | `~/.kaleta/backups` | Directory for on-disk SQLite snapshots (not ZIP exports) |
 
+Keep production data under `~/.kaleta` (database, NiceGUI sessions in
+`~/.kaleta/nicegui`, backups). Repo-root `*.db` / `.nicegui/` leftovers from
+older runs are safe to delete manually — the app does not remove them.
+
 Create a `.env` file in the project root to override defaults:
 
 ```env
-KALETA_DB_URL=sqlite:///kaleta.db
+KALETA_DB_URL=sqlite+aiosqlite:////Users/you/.kaleta/kaleta.db
 KALETA_HOST=127.0.0.1
 KALETA_PORT=8080
 KALETA_SECRET_KEY=your-secret-key-here

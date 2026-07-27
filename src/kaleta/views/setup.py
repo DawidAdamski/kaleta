@@ -253,7 +253,7 @@ def register() -> None:  # noqa: PLR0915
                                     placeholder=t("setup.db_name_default"),
                                 ).classes("w-full")
 
-                                default_folder = str(Path.home() / "Documents")
+                                default_folder = str(Path.home() / ".kaleta")
                                 with ui.row().classes("w-full items-center gap-1"):
                                     new_folder = ui.input(
                                         t("setup.db_location"),
@@ -299,7 +299,7 @@ def register() -> None:  # noqa: PLR0915
                                 with ui.row().classes("w-full items-center gap-1"):
                                     open_path = ui.input(
                                         t("setup.db_path"),
-                                        placeholder=str(Path.home() / "Documents" / "budget.db"),
+                                        placeholder=str(Path.home() / ".kaleta" / "kaleta.db"),
                                     ).classes("flex-1")
                                     _, open_file_picker = _make_picker(open_path, mode="file")
                                     ui.button(

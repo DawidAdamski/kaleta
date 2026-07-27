@@ -145,6 +145,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [p2-hardening-analysis](p2-hardening-analysis.md) | in-progress | Auth / API / Settings (audit P2) |
 | [sqlite-integrity-scheduled-backups](sqlite-integrity-scheduled-backups.md) | in-progress | DB / Housekeeping / Settings |
 | [migrate-on-startup](migrate-on-startup.md) | in-progress | Setup / ops (audit P0.4) |
 | [currency-nbp-rates](currency-nbp-rates.md) | in-progress | Settings / FX (audit P1.5) |

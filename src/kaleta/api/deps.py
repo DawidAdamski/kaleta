@@ -18,6 +18,7 @@ from kaleta.services.api_token_service import ApiTokenService
 T = TypeVar("T")
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+_SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
 # ── Database session ──────────────────────────────────────────────────────────
@@ -28,8 +29,8 @@ async def get_session() -> AsyncGenerator[AsyncSession]:
         yield session
 
 
-def _unauthorized() -> NoReturn:
-    raise UnauthorizedError("Authentication required")
+def _unauthorized(message: str = "Authentication required") -> NoReturn:
+    raise UnauthorizedError(message)
 
 
 async def get_current_user_id(
@@ -37,7 +38,11 @@ async def get_current_user_id(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
     session: AsyncSession = Depends(get_session),
 ) -> int:
-    """Resolve the authenticated user from a bearer token or UI session cookie."""
+    """Resolve the authenticated user from a bearer token or UI session cookie.
+
+    Cookie (NiceGUI session) authentication is allowed only for safe HTTP methods.
+    State-changing API calls require ``Authorization: Bearer``.
+    """
     if credentials is not None and credentials.scheme.lower() == "bearer":
         user_id = await ApiTokenService(session).authenticate_bearer(credentials.credentials)
         if user_id is not None:
@@ -45,7 +50,9 @@ async def get_current_user_id(
 
     session_user_id = user_id_from_request(request)
     if session_user_id is not None:
-        return session_user_id
+        if request.method.upper() in _SAFE_METHODS:
+            return session_user_id
+        _unauthorized("Bearer token required for state-changing API requests")
 
     _unauthorized()
 

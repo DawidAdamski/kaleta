@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import suppress
 from urllib.parse import quote
 
 from fastapi import Request
@@ -12,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from kaleta.auth.session import is_authenticated
+from kaleta.auth.session import is_authenticated, logout_session, session_expired
 from kaleta.config.setup_config import is_configured
 from kaleta.services import AuthService, with_session
 from kaleta.services.auth_service import AuthState
@@ -83,6 +84,15 @@ def register_auth_middleware() -> None:
                 authenticated = False
 
             if authenticated:
+                try:
+                    expired = session_expired()
+                except RuntimeError:
+                    expired = False
+                if expired:
+                    with suppress(RuntimeError):
+                        logout_session()
+                    redirect_to = quote(path, safe="/")
+                    return RedirectResponse(f"/login?redirect_to={redirect_to}")
                 return await call_next(request)
 
             if is_configured():
