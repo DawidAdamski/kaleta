@@ -3,7 +3,7 @@ plan_id: import-bank-profiles
 title: Import — bank profiles from real export fixtures
 area: import
 effort: medium
-status: in-progress
+status: draft
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -80,6 +80,11 @@ Partially unmet until dogfood files exist:
   commit (see fixture README).
 
 ## Implementation notes
+
+### 2026-07-27 — reset to draft; scaffold complete, waiting on fixtures
+
+Scaffold shipped in `db7d0f3` / PR #29; reset to `draft` until a real non-mBank
+anonymized fixture arrives. Not active WIP.
 
 ### 2026-07-26 — scaffolding only (profiles blocked on dogfood)
 
