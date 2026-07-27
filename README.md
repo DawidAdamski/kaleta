@@ -17,11 +17,12 @@ Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
 uv sync && uv run kaleta
 ```
 
-Open **http://localhost:8080**. On first launch the setup wizard creates the
-database and runs migrations; on later starts the app auto-upgrades the
-configured DB (from `~/.kaleta/config.json`) to the installed schema, with a
-SQLite safety copy under `~/.kaleta/backups` first. Create your account, then
-sign in. Optional demo data: `uv run python scripts/seed.py`.
+On first launch the browser opens at **/setup** — pick **Use recommended
+location** (or choose a custom path) and Kaleta creates the database and runs
+migrations. Later starts auto-upgrade the configured DB (from
+`~/.kaleta/config.json`) to the installed schema, with a SQLite safety copy
+under `~/.kaleta/backups` first. Create your account, then sign in. Optional
+demo data: `uv run python scripts/seed.py`.
 
 Manual migrate (targets the live DB — bare `alembic upgrade head` uses
 `KALETA_DB_URL` / cwd `kaleta.db`, which may differ from the configured one):

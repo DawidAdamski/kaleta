@@ -11,8 +11,9 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.auth.session import user_id_from_request
+from kaleta.config.setup_config import is_configured
 from kaleta.db import AsyncSessionFactory
-from kaleta.exceptions import UnauthorizedError
+from kaleta.exceptions import SetupRequiredError, UnauthorizedError
 from kaleta.services.api_token_service import ApiTokenService
 
 T = TypeVar("T")
@@ -29,14 +30,32 @@ async def get_session() -> AsyncGenerator[AsyncSession]:
         yield session
 
 
+async def get_session_configured() -> AsyncGenerator[AsyncSession]:
+    """Session for authenticated API routes — blocked until first-run setup completes."""
+    if not is_configured():
+        raise SetupRequiredError(
+            "Complete first-run setup in the browser at /setup before using the API"
+        )
+    async with AsyncSessionFactory() as session:
+        yield session
+
+
 def _unauthorized(message: str = "Authentication required") -> NoReturn:
     raise UnauthorizedError(message)
+
+
+async def require_setup() -> None:
+    """Reject API use until first-run setup has written ``~/.kaleta/config.json``."""
+    if not is_configured():
+        raise SetupRequiredError(
+            "Complete first-run setup in the browser at /setup before using the API"
+        )
 
 
 async def get_current_user_id(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_session_configured),
 ) -> int:
     """Resolve the authenticated user from a bearer token or UI session cookie.
 

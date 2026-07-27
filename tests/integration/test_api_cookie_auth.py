@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from kaleta.api import create_api_router
-from kaleta.api.deps import get_session
+from kaleta.api.deps import get_session, get_session_configured
 from kaleta.api.errors import register_error_handlers
 from kaleta.services.auth_service import AuthService
 from tests.conftest import make_session_factory
@@ -38,6 +38,7 @@ async def api_app_cookie(db_engine, cookie_user, monkeypatch: pytest.MonkeyPatch
             yield s
 
     app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_session_configured] = override_session
 
     def _uid_from_request(_request: Any) -> int | None:
         return cookie_user.id

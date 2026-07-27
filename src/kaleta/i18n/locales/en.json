@@ -1431,6 +1431,8 @@
     "browse": "Browse",
     "select_folder": "Select this folder",
     "picker_no_access": "Permission denied",
-    "db_name_default": "My Budget"
+    "db_name_default": "My Budget",
+    "use_recommended": "Use recommended location",
+    "use_recommended_hint": "Creates ~/.kaleta/kaleta.db, runs migrations, and continues."
   }
 }
