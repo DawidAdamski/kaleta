@@ -19,6 +19,19 @@ from kaleta.schemas.transaction import (
     TransactionUpdate,
 )
 
+LEDGER_CSV_HEADERS: tuple[str, ...] = (
+    "date",
+    "type",
+    "amount",
+    "currency",
+    "account",
+    "category",
+    "payee",
+    "description",
+    "tags",
+    "is_internal_transfer",
+)
+
 
 class TransactionService:
     def __init__(self, session: AsyncSession) -> None:
@@ -97,6 +110,50 @@ class TransactionService:
         count_stmt = select(func.count()).select_from(stmt.subquery())
         result = await self.session.execute(count_stmt)
         return result.scalar_one()
+
+    async def export_ledger_csv(self) -> bytes:
+        """Export every transaction as UTF-8 CSV (spreadsheet / notebook friendly)."""
+        import csv
+        import io
+
+        stmt = (
+            self._base_stmt()
+            .options(
+                selectinload(Transaction.account),
+                selectinload(Transaction.category),
+                selectinload(Transaction.payee),
+                selectinload(Transaction.tags),
+                selectinload(Transaction.splits).selectinload(TransactionSplit.category),
+            )
+            .order_by(Transaction.date.asc(), Transaction.id.asc())
+        )
+        result = await self.session.execute(stmt)
+        transactions = builtins.list(result.scalars().all())
+
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(LEDGER_CSV_HEADERS)
+        for tx in transactions:
+            writer.writerow(
+                [
+                    tx.date.isoformat(),
+                    tx.type.value,
+                    str(tx.amount),
+                    tx.account.currency if tx.account else "",
+                    tx.account.name if tx.account else "",
+                    self.category_display_label(tx),
+                    tx.payee.name if tx.payee else "",
+                    tx.description or "",
+                    ";".join(sorted(tag.name for tag in tx.tags)),
+                    "true" if tx.is_internal_transfer else "false",
+                ]
+            )
+        return buf.getvalue().encode("utf-8")
+
+    @staticmethod
+    def ledger_csv_filename() -> str:
+        today = datetime.date.today().isoformat()
+        return f"kaleta_ledger_{today}.csv"
 
     async def get(self, transaction_id: int) -> Transaction | None:
         stmt = (

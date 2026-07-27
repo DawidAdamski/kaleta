@@ -2017,6 +2017,32 @@ Feature: Single-user authentication
     Then the command exits successfully
     And "alice" can authenticate with "new-password-9"
     And "alice" cannot authenticate with "old-password-1"
+
+  KAL-AUTH-008 @automated
+  Scenario: Login locks after five failed attempts from the same IP
+    Given a Kaleta user exists
+    And I am on the login page
+    When I submit five wrong passwords from the same client
+    Then further login attempts are rejected with a rate-limit message
+    And the lock lasts 15 minutes
+
+  KAL-AUTH-009 @automated
+  Scenario: Sessions expire after the configured TTL
+    Given KALETA_SESSION_TTL_HOURS is 72
+    And I signed in more than 72 hours ago
+    When I open a protected page
+    Then I am redirected to the login page
+
+  KAL-AUTH-010 @automated
+  Scenario: API cookie auth is read-only
+    Given I am authenticated via the UI session cookie
+    When I GET "/api/v1/accounts/"
+    Then the response status is 200
+    When I POST "/api/v1/accounts/" with a valid body using only the session cookie
+    Then the response status is 401
+    And the JSON body reports unauthorized
+    When I POST "/api/v1/accounts/" with a bearer token
+    Then the response status is 201
 ```
 
 ## Feature: Settings — Data safety
@@ -2086,6 +2112,13 @@ Feature: Settings — Data safety
     When ensure_schema_current runs for that database
     Then a kaleta-*.db safety copy exists under the backup directory
     And the database alembic revision matches the installed head
+
+  KAL-SET-020 @automated
+  Scenario: Full ledger CSV export downloads all transactions
+    Given I have transactions dated "2026-01-15" for account "Checking" category "Food"
+    When I export the ledger CSV from Settings → Data
+    Then the CSV header is "date,type,amount,currency,account,category,payee,description,tags,is_internal_transfer"
+    And a row contains "2026-01-15", "expense", "12.50", "Checking", "Food", and "Groceries"
 ```
 
 ## Feature: Currency rates — NBP Table A

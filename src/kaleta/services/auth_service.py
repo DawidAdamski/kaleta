@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import secrets
 from typing import Literal
 
 from argon2 import PasswordHasher
@@ -13,6 +14,7 @@ from kaleta.models.user import User
 
 AuthState = Literal["no_user", "placeholder", "ready"]
 PLACEHOLDER_USERNAME = "__placeholder__"
+API_BOOTSTRAP_USERNAME = "api"
 MIN_PASSWORD_LENGTH = 8
 
 
@@ -116,6 +118,25 @@ class AuthService:
         await self.session.commit()
         await self.session.refresh(user)
         return user
+
+    async def ensure_api_bootstrap_user(self) -> User:
+        """Ensure a real user exists so ``KALETA_API_TOKEN`` can authenticate.
+
+        Used on ``KALETA_MODE=api`` startup when an env bootstrap token is set.
+        Creates (or converts a placeholder into) username ``api`` with a random
+        unusable password — login is via bearer only.
+        """
+        state = await self.auth_state()
+        if state == "ready":
+            user = await self.get_single_user()
+            if user is None:
+                msg = "Auth state ready but no user row found"
+                raise NotFoundError(msg)
+            return user
+        locked_password = secrets.token_urlsafe(32)
+        if state == "placeholder":
+            return await self.secure_placeholder(API_BOOTSTRAP_USERNAME, locked_password)
+        return await self.create_user(API_BOOTSTRAP_USERNAME, locked_password)
 
     async def record_login(self, *, username: str | None, success: bool) -> None:
         from kaleta.db.audit import record_auth_event

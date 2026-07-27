@@ -121,3 +121,33 @@ class TestAuthServiceResetPassword:
         await auth.session.commit()
         with pytest.raises(NotFoundError, match="No real user"):
             await auth.reset_password("new-password-9")
+
+
+class TestAuthServiceApiBootstrap:
+    @pytest.mark.asyncio
+    async def test_ensure_creates_api_user_when_empty(self, auth: AuthService) -> None:
+        from kaleta.services.auth_service import API_BOOTSTRAP_USERNAME
+
+        user = await auth.ensure_api_bootstrap_user()
+        assert user.username == API_BOOTSTRAP_USERNAME
+        assert await auth.auth_state() == "ready"
+
+    @pytest.mark.asyncio
+    async def test_ensure_converts_placeholder(self, auth: AuthService) -> None:
+        from kaleta.services.auth_service import API_BOOTSTRAP_USERNAME
+
+        auth.session.add(
+            User(
+                username=PLACEHOLDER_USERNAME,
+                password_hash=auth.hash_password("not-used"),
+            )
+        )
+        await auth.session.commit()
+        user = await auth.ensure_api_bootstrap_user()
+        assert user.username == API_BOOTSTRAP_USERNAME
+
+    @pytest.mark.asyncio
+    async def test_ensure_keeps_existing_user(self, auth: AuthService) -> None:
+        await auth.create_user("owner", "password-123")
+        user = await auth.ensure_api_bootstrap_user()
+        assert user.username == "owner"

@@ -16,6 +16,7 @@ from kaleta.schemas.currency_rate import CurrencyRateCreate, CurrencyRateRespons
 from kaleta.schemas.nbp import NbpFetchResult
 from kaleta.services import BackupService, CurrencyRateService, NbpRateService, with_session
 from kaleta.services.data_service import DataService
+from kaleta.services.transaction_service import TransactionService
 from kaleta.views.accounts import COMMON_CURRENCIES
 from kaleta.views.error_handling import notify_kaleta_error
 
@@ -230,6 +231,14 @@ async def render_data_tab(
             ui.download(data, filename=BackupService.export_filename())
             ui.notify(t("settings.backup_exported"), type="positive")
 
+        async def _do_ledger_export() -> None:
+            async def _export(session: Any) -> bytes:
+                return await TransactionService(session).export_ledger_csv()
+
+            data = await with_session(_export)
+            ui.download(data, filename=TransactionService.ledger_csv_filename())
+            ui.notify(t("settings.ledger_exported"), type="positive")
+
         restore_dlg = ui.dialog()
         with restore_dlg, ui.card().classes("w-[480px]"):
             ui.label(t("settings.restore_title")).classes("text-lg font-semibold mb-1")
@@ -277,10 +286,15 @@ async def render_data_tab(
                 )
                 restore_btn.disable()
 
-        with ui.row().classes("gap-3"):
+        with ui.row().classes("gap-3 flex-wrap"):
             ui.button(t("settings.backup_export"), icon="download", on_click=_do_export).props(
                 "color=primary"
             )
+            ui.button(
+                t("settings.ledger_export"),
+                icon="table_view",
+                on_click=_do_ledger_export,
+            ).props("outline color=primary").tooltip(t("settings.ledger_export_hint"))
             ui.button(t("settings.backup_restore"), icon="upload", on_click=restore_dlg.open).props(
                 "outline color=negative"
             )

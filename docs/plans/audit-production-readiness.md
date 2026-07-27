@@ -203,37 +203,24 @@ in SECURITY.md / getting-started).
 
 ## P2 — hardening & analysis ergonomics (nice-to-have for LAN/long-term)
 
-11. **No login rate-limiting, no session expiry.** Sessions persist
-    indefinitely in NiceGUI user storage; login attempts are unmetered.
-    Fine for 127.0.0.1; worth an in-memory attempt counter + optional
-    session TTL before LAN exposure.
-12. **API accepts the UI session cookie without CSRF protection**
-    (`api/deps.py` falls back to `user_id_from_request`). Low risk on
-    localhost, real risk if ever LAN/reverse-proxied. Mitigation: require
-    bearer for state-changing API calls, or add a CSRF token check for
-    cookie-authenticated requests.
-13. **`KALETA_API_TOKEN` is dead config.** Defined in settings and
-    documented in getting-started, but never read by `api/deps.py` — in
-    headless `KALETA_MODE=api` with a fresh DB there is **no way to mint a
-    token** (token CRUD lives in the UI). Either wire it into
-    `get_current_user_id` as a bootstrap bearer or remove it from docs.
-14. **API coverage limits external analysis.** `/api/v1/` exposes 6
-    resources (accounts, budgets, categories, institutions, payees,
-    transactions). No read endpoints for reports, subscriptions, loans,
-    reserve funds, net worth — anything scripted (notebooks, MCP/LLM
-    analysis, dashboards) beyond the ledger must read the SQLite file
-    directly. Read-only report endpoints would make the "headless API"
-    mode genuinely useful for analysis.
-15. **No one-click full ledger export.** Canned reports export CSV
-    (`formatters.csv_download`) and the backup ZIP contains JSON, but
-    there is no "all transactions → CSV/Parquet" export for spreadsheet or
-    notebook analysis. Cheap to add next to the backup button.
-16. **Repo-root data files.** `kaleta.db`, `demo.db`,
-    `kaleta-pre-auth-backup.db`, stray `test` file, `test_import.csv`, and
-    `.nicegui/` session files sit in the working tree (gitignored, but
-    pre-auth backup contains real-ish data and the Q4 public-repo plan
-    calls for a history audit). Move real data out of the repo directory
-    entirely — it doubles as protection against `git clean -x`.
+→ **Plan:** [`p2-hardening-analysis.md`](p2-hardening-analysis.md) (in progress).
+
+11. **No login rate-limiting, no session expiry.** → addressed in plan WP2
+    (`LoginRateLimiter` 5/15m + `KALETA_SESSION_TTL_HOURS` default 72).
+12. **API accepts the UI session cookie without CSRF protection.** → WP2:
+    cookie auth is read-only (safe methods only); mutations require Bearer.
+13. **`KALETA_API_TOKEN` bootstrap.** *Correction:* already accepted via
+    `ApiTokenService._authenticate_env_token` when a real user exists.
+    Remaining gap (fresh DB / no user) closed in WP1 by creating a locked
+    `api` bootstrap user on `KALETA_MODE=api` startup when the env token is set.
+14. **API coverage limits external analysis.** → WP4 read-only routes:
+    subscriptions, personal-loans, reserve-funds, net-worth, reports/cashflow,
+    reports/income-statement.
+15. **No one-click full ledger export.** → WP3 Settings → Data ledger CSV.
+16. **Repo-root data files.** NiceGUI storage already under `~/.kaleta/nicegui`
+    (deploy-local-health). WP1 defaults `KALETA_DB_URL` / setup wizard to
+    `~/.kaleta/kaleta.db` and warns on leftover `.nicegui`/`*.db` in a git CWD.
+    History scrub remains with q4-public-repo-readiness.
 
 ---
 

@@ -5,9 +5,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from fastapi import Request
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
+from kaleta.auth.login_rate_limit import login_rate_limiter
 from kaleta.auth.session import is_authenticated, login_session
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
@@ -20,9 +22,18 @@ def _safe_redirect(path: str) -> str:
     return "/"
 
 
+def _client_key(request: Request) -> str:
+    if request.client is None:
+        return "unknown"
+    return request.client.host or "unknown"
+
+
 def register() -> None:
     @ui.page("/login")
-    async def login_page(redirect_to: str = "/") -> RedirectResponse | None:
+    async def login_page(
+        request: Request,
+        redirect_to: str = "/",
+    ) -> RedirectResponse | None:
         if is_authenticated():
             return RedirectResponse(_safe_redirect(redirect_to))
 
@@ -39,6 +50,7 @@ def register() -> None:
             return RedirectResponse(bootstrap)
 
         target = _safe_redirect(redirect_to)
+        rate_key = _client_key(request)
         shell = auth_page_shell("auth.login_title", "auth.login_subtitle")
 
         with shell, ui.card().classes("w-full max-w-md p-6"), ui.column().classes("w-full gap-4"):
@@ -53,6 +65,12 @@ def register() -> None:
 
             async def _submit() -> None:
                 error.set_visibility(False)
+                if login_rate_limiter.is_locked(rate_key):
+                    secs = login_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("auth.login_rate_limited", seconds=secs))
+                    error.set_visibility(True)
+                    return
+
                 name = (username.value or "").strip()
                 pwd = password.value or ""
 
@@ -67,10 +85,16 @@ def register() -> None:
 
                 ok, user_id = await with_session(_try)
                 if not ok or user_id is None:
-                    error.set_text(t("auth.login_failed"))
+                    locked = login_rate_limiter.record_failure(rate_key)
+                    if locked:
+                        secs = login_rate_limiter.remaining_lock_seconds(rate_key)
+                        error.set_text(t("auth.login_rate_limited", seconds=secs))
+                    else:
+                        error.set_text(t("auth.login_failed"))
                     error.set_visibility(True)
                     return
 
+                login_rate_limiter.clear(rate_key)
                 login_session(user_id=user_id, username=name)
                 ui.navigate.to(target)
 

@@ -122,13 +122,15 @@ Set via `KALETA_MODE` environment variable:
 ## Environment Configuration
 
 ```
-KALETA_DB_URL=sqlite+aiosqlite:///kaleta.db  # Database connection string
+KALETA_DB_URL=sqlite+aiosqlite:///{home}/.kaleta/kaleta.db
 KALETA_HOST=127.0.0.1                   # Bind address (Docker Compose sets 0.0.0.0)
 KALETA_PORT=8080                      # Bind port
 KALETA_MODE=web                       # web | app | api
 KALETA_SECRET_KEY=...                 # Session/auth secret (required outside debug)
 KALETA_DEBUG=false                    # Debug mode; allows placeholder secret key
-KALETA_API_TOKEN=...                  # Optional bootstrap bearer for headless API mode
+KALETA_API_TOKEN=...                  # Bootstrap bearer for headless API (≥16 chars);
+                                      # creates locked user `api` on startup if needed
+KALETA_SESSION_TTL_HOURS=72           # UI session TTL; 0 disables
 KALETA_BACKUP_ENABLED=true            # Scheduled SQLite VACUUM INTO backups
 KALETA_BACKUP_INTERVAL_HOURS=24       # Hours between scheduled backups
 KALETA_BACKUP_RETAIN=7                # Keep last K on-disk .db snapshots
