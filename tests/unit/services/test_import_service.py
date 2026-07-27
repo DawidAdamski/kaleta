@@ -656,3 +656,41 @@ class TestCurrencyMismatchWarning:
     def test_detects_mismatch_case_insensitive(self):
         assert currency_mismatch_warning(file_currency="eur", account_currency="PLN") is True
         assert currency_mismatch_warning(file_currency="PLN", account_currency="PLN") is False
+
+
+# ── Categorisation rules on import (KAL-RUL-002) ─────────────────────────────
+
+
+class TestApplyCategorisationRules:
+    async def test_lidl_pre_categorised_groceries(self, session: AsyncSession) -> None:
+        """Covers: KAL-RUL-002"""
+        from kaleta.schemas.categorisation_rule import CategorisationRuleCreate
+        from kaleta.services import RuleService
+
+        account_id = await _make_account(session)
+        default_expense = await _make_expense_cat(session)
+        groceries = await CategoryService(session).create(
+            CategoryCreate(name="Groceries", type=CategoryType.EXPENSE)
+        )
+        await RuleService(session).create(
+            CategorisationRuleCreate(pattern="LIDL", category_id=groceries.id)
+        )
+
+        svc = ImportService(session)
+        rows = [
+            ParsedRow(
+                date=datetime.date(2024, 3, 15),
+                amount=Decimal("-45.00"),
+                description="LIDL Warszawa",
+                raw={},
+            )
+        ]
+        creates = svc.to_transaction_creates(
+            rows,
+            account_id=account_id,
+            default_expense_category_id=default_expense,
+        )
+        assert creates[0].category_id == default_expense
+
+        creates = await svc.apply_categorisation_rules(creates)
+        assert creates[0].category_id == groceries.id

@@ -937,25 +937,25 @@ Feature: Auto-categorisation Rules
   I want rules and suggestions that categorise transactions for me
   So that repeated merchants stop costing me manual work
 
-  KAL-RUL-001 @planned
+  KAL-RUL-001 @automated
   Scenario: Create a categorisation rule
     Given I am on the Rules page
     When I add a rule: description contains "LIDL" sets category "Groceries"
     Then the rule appears in the rules list
 
-  KAL-RUL-002 @planned
+  KAL-RUL-002 @automated
   Scenario: Rules apply during CSV import
     Given a rule mapping "LIDL" to "Groceries"
     When I import a CSV containing a LIDL transaction
     Then the imported transaction is pre-categorised "Groceries"
 
-  KAL-RUL-003 @planned
+  KAL-RUL-003 @automated
   Scenario: Suggest a rule from repeated manual categorisation
     Given I have manually set "Groceries" on three "LIDL" transactions
     When I categorise a fourth "LIDL" transaction the same way
     Then Kaleta offers to create the matching rule
 
-  KAL-RUL-004 @planned
+  KAL-RUL-004 @automated
   Scenario: Manual category always wins over a rule
     Given a rule mapping "LIDL" to "Groceries"
     And an imported LIDL transaction pre-categorised "Groceries"

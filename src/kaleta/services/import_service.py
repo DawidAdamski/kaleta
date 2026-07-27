@@ -16,6 +16,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ImportError_
+from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_profiles import (
@@ -24,6 +25,7 @@ from kaleta.services.import_profiles import (
     detect_bank_profile,
     is_mbank_content,
 )
+from kaleta.services.rule_service import RuleService
 
 # ── File decoding ────────────────────────────────────────────────────────────
 
@@ -565,6 +567,50 @@ class ImportService:
                 )
             )
         return creates
+
+    async def apply_categorisation_rules(
+        self,
+        creates: list[TransactionCreate],
+    ) -> list[TransactionCreate]:
+        """Override category_id from matching active rules (import-time only).
+
+        Internal transfers are skipped. Manual edits after import are never
+        overwritten because rules are not re-applied outside this path.
+        """
+        if not creates:
+            return creates
+
+        rules = await RuleService(self.session).list(active_only=True)
+        if not rules:
+            return creates
+
+        payee_ids = {c.payee_id for c in creates if c.payee_id is not None}
+        payee_names: dict[int, str] = {}
+        if payee_ids:
+            result = await self.session.execute(select(Payee).where(Payee.id.in_(payee_ids)))
+            payee_names = {p.id: p.name for p in result.scalars()}
+
+        updated: list[TransactionCreate] = []
+        for create in creates:
+            if create.is_internal_transfer or create.type == TransactionType.TRANSFER:
+                updated.append(create)
+                continue
+            payee_name = payee_names.get(create.payee_id) if create.payee_id else None
+            matched_category_id: int | None = None
+            for rule in rules:
+                if RuleService.matches(
+                    rule.pattern,
+                    payee_name=payee_name,
+                    description=create.description,
+                    match_mode=rule.match_mode,
+                ):
+                    matched_category_id = rule.category_id
+                    break
+            if matched_category_id is not None and matched_category_id != create.category_id:
+                updated.append(create.model_copy(update={"category_id": matched_category_id}))
+            else:
+                updated.append(create)
+        return updated
 
     async def to_transaction_creates_with_payees(
         self,

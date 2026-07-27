@@ -63,6 +63,7 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
             ("category", "/categories", "nav.categories"),
             ("label", "/tags", "nav.tags"),
             ("person_search", "/payees", "nav.payees"),
+            ("rule", "/rules", "nav.rules"),
             ("settings", "/settings", "nav.settings"),
         ],
     ),

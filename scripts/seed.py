@@ -22,6 +22,7 @@ from kaleta.db.session import AsyncSessionFactory
 from kaleta.models.account import Account, AccountType
 from kaleta.models.asset import Asset, AssetType
 from kaleta.models.budget import Budget
+from kaleta.models.categorisation_rule import CategorisationRule, RuleMatchMode
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.institution import Institution, InstitutionType
 from kaleta.models.tag import Tag
@@ -220,6 +221,19 @@ async def seed() -> None:
         freelance_cat = cat_by_name["Freelance"]
         zwroty_cat = cat_by_name["Zwroty"]
         rent_cat = cat_by_name["Mieszkanie & Czynsz"]
+        food_cat = cat_by_name["Żywność"]
+
+        # ── Demo categorisation rule (LIDL → Żywność) ─────────────────────────
+        session.add(
+            CategorisationRule(
+                pattern="LIDL",
+                match_mode=RuleMatchMode.CONTAINS,
+                category_id=food_cat.id,
+                is_active=True,
+                priority=0,
+            )
+        )
+        await session.flush()
 
         # ── Transactions ──────────────────────────────────────────────────────
         today = datetime.date.today()

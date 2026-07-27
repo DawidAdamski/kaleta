@@ -4,6 +4,7 @@ from kaleta.models.api_token import ApiToken
 from kaleta.models.asset import Asset, AssetType
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.budget import Budget
+from kaleta.models.categorisation_rule import CategorisationRule, RuleMatchMode
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.credit import CreditCardProfile, LoanProfile
 from kaleta.models.currency_rate import CurrencyRate
@@ -35,6 +36,7 @@ __all__ = [
     "AssetType",
     "AuditLog",
     "Budget",
+    "CategorisationRule",
     "Category",
     "CategoryType",
     "Counterparty",
@@ -52,6 +54,7 @@ __all__ = [
     "ReserveFundKind",
     "LoanDirection",
     "LoanStatus",
+    "RuleMatchMode",
     "SavedReport",
     "Payee",
     "PersonalLoan",

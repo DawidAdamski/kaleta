@@ -26,7 +26,8 @@
     "group_manage": "Manage",
     "group_tools": "Tools",
     "group_setup": "Setup",
-    "payees": "Payees"
+    "payees": "Payees",
+    "rules": "Rules"
   },
   "common": {
     "save": "Save",
@@ -237,6 +238,30 @@
     "no_tags_hint": "Click \"Add Tag\" to create your first tag.",
     "pick_icon": "Pick icon",
     "search_icon": "Search icons"
+  },
+  "rules": {
+    "title": "Rules",
+    "subtitle": "Auto-categorise imports when a payee or description contains a pattern.",
+    "add": "Add Rule",
+    "edit": "Edit Rule",
+    "pattern": "Pattern",
+    "pattern_hint": "e.g. LIDL",
+    "pattern_required": "Pattern is required.",
+    "category_required": "Category is required.",
+    "match_mode": "Match",
+    "match_mode_contains": "Description contains (case-insensitive)",
+    "active": "Active",
+    "priority": "Priority",
+    "created": "Rule created.",
+    "updated": "Rule updated.",
+    "deleted": "Rule deleted.",
+    "delete_confirm": "Delete rule \"{pattern}\" → {category}?",
+    "no_rules": "No rules yet.",
+    "no_rules_hint": "Click \"Add Rule\" to map a merchant pattern to a category.",
+    "suggest_title": "Create a categorisation rule?",
+    "suggest_body": "You categorised \"{pattern}\" as \"{category}\" {count} times. Create a rule so future imports are pre-categorised?",
+    "suggest_create": "Create rule",
+    "suggest_dismiss": "Not now"
   },
   "wizard": {
     "title": "Financial Wizard",

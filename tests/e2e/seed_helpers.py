@@ -67,11 +67,51 @@ def seed_category(name: str, cat_type: str = "expense", parent_id: int | None = 
     return resp.json()["id"]
 
 
+def get_or_seed_category(name: str, cat_type: str = "expense") -> int:
+    """Return an existing category id by name, or create it."""
+    resp = _client.get(f"{API_BASE}/categories/", params={"type": cat_type})
+    resp.raise_for_status()
+    for cat in resp.json():
+        if cat.get("name") == name and cat.get("parent_id") is None:
+            return int(cat["id"])
+        for child in cat.get("children") or []:
+            if child.get("name") == name:
+                return int(child["id"])
+    return seed_category(name, cat_type=cat_type)
+
+
 def seed_payee(name: str) -> int:
     """Create a payee; return its ID."""
     resp = _client.post(f"{API_BASE}/payees/", json={"name": name})
     resp.raise_for_status()
     return resp.json()["id"]
+
+
+def seed_rule(pattern: str, category_id: int, *, priority: int = 0) -> int:
+    """Create a categorisation rule via the service layer; return its ID."""
+    import asyncio
+    from concurrent.futures import ThreadPoolExecutor
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.schemas.categorisation_rule import CategorisationRuleCreate
+    from kaleta.services import RuleService
+
+    def _worker() -> int:
+        async def _create() -> int:
+            async with AsyncSessionFactory() as session:
+                rule = await RuleService(session).create(
+                    CategorisationRuleCreate(
+                        pattern=pattern,
+                        category_id=category_id,
+                        priority=priority,
+                    )
+                )
+                return rule.id
+
+        return asyncio.run(_create())
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(_worker).result()
 
 
 def seed_transaction(

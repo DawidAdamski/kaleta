@@ -26,7 +26,8 @@
     "group_manage": "Zarządzaj",
     "group_tools": "Narzędzia",
     "group_setup": "Konfiguracja",
-    "payees": "Odbiorcy"
+    "payees": "Odbiorcy",
+    "rules": "Reguły"
   },
   "common": {
     "save": "Zapisz",
@@ -237,6 +238,30 @@
     "no_tags_hint": "Kliknij \"Dodaj tag\", aby utworzyć pierwszy tag.",
     "pick_icon": "Wybierz ikonę",
     "search_icon": "Szukaj ikon"
+  },
+  "rules": {
+    "title": "Reguły",
+    "subtitle": "Automatycznie kategoryzuj importy, gdy odbiorca lub opis zawiera wzorzec.",
+    "add": "Dodaj regułę",
+    "edit": "Edytuj regułę",
+    "pattern": "Wzorzec",
+    "pattern_hint": "np. LIDL",
+    "pattern_required": "Wzorzec jest wymagany.",
+    "category_required": "Kategoria jest wymagana.",
+    "match_mode": "Dopasowanie",
+    "match_mode_contains": "Opis zawiera (bez rozróżniania wielkości liter)",
+    "active": "Aktywna",
+    "priority": "Priorytet",
+    "created": "Reguła utworzona.",
+    "updated": "Reguła zaktualizowana.",
+    "deleted": "Reguła usunięta.",
+    "delete_confirm": "Usunąć regułę \"{pattern}\" → {category}?",
+    "no_rules": "Brak reguł.",
+    "no_rules_hint": "Kliknij \"Dodaj regułę\", aby powiązać wzorzec z kategorią.",
+    "suggest_title": "Utworzyć regułę kategoryzacji?",
+    "suggest_body": "Sklasyfikowano \"{pattern}\" jako \"{category}\" {count} razy. Utworzyć regułę, aby przyszłe importy były wstępnie kategoryzowane?",
+    "suggest_create": "Utwórz regułę",
+    "suggest_dismiss": "Nie teraz"
   },
   "wizard": {
     "title": "Finansowy Asystent",

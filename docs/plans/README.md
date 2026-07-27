@@ -153,6 +153,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
 | [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
+| [rules-auto-categorisation](rules-auto-categorisation.md) | in-progress | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
 | [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |

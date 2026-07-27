@@ -247,6 +247,7 @@ async def import_page() -> None:
                 if queued_file.skip_duplicates:
                     creates, skipped = await svc_import.filter_duplicates(creates)
 
+                creates = await svc_import.apply_categorisation_rules(creates)
                 count = await TransactionService(session).create_bulk(creates)
 
                 if (
