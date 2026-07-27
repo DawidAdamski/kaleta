@@ -1,91 +1,86 @@
 ---
 plan_id: deploy-local-health
-title: Local deploy docs, /health endpoint, NiceGUI storage GC
-area: ops / api / docs
+title: Local deploy docs + unauthenticated health + NiceGUI storage pin
+area: ops / api
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#cross-cutting-principles
-source: audit-production-readiness.md#9-local-deployment-story-no-autostart-no-health-endpoint
+source: ../plans/audit-production-readiness.md#9-local-deployment-story-no-autostart-no-health-endpoint
 ---
 
-# Local deploy docs, /health endpoint, NiceGUI storage GC
+# Local deploy docs + unauthenticated health + NiceGUI storage pin
 
 ## Intent
 
-Daily run currently means a terminal window: no launchd/systemd
-examples, no health probe for uptime monitors, and NiceGUI session
-storage (`.nicegui/`) accumulates in the CWD (repo root). Ship a
-local deployment guide, a trivial unauthenticated health route, and
-pin + sweep session storage so a background local instance is
-practical.
+Make Kaleta a true daily-driver on a laptop: document launchd/systemd
+autostart for localhost web mode, expose an unauthenticated health probe
+(version, DB reachability, pending-migration flag), and stop NiceGUI
+session files from accumulating in the repo working directory.
 
 ## Scope
 
-- New `docs/deploy-local.md` (created when this plan is implemented;
-  do not markdown-link until the file exists on the branch):
-  - macOS **launchd** plist example:
-    `KALETA_MODE=web`, `KALETA_HOST=127.0.0.1`, pinned
-    `WorkingDirectory` (e.g. `~/.kaleta/run` or data dir — not the
-    git checkout), `ProgramArguments` via `uv run kaleta`
-  - Linux **systemd** user/system unit with the same env
-  - Pointer to interim runbook in
-    [`audit-production-readiness.md`](audit-production-readiness.md)
-    until P0 backups/migrations land
-- Health route (prefer `/api/v1/health` or top-level `/health` —
-  pick one and document): unauthenticated JSON with
-  - app version
-  - DB reachability (simple `SELECT 1`)
-  - pending-migration flag (alembic current vs head) — dovetails
-    with audit P0.4 auto-migrate work
-- NiceGUI storage:
-  - Pin storage directory under `~/.kaleta/` (or the launchd
-    WorkingDirectory), not the repo CWD
-  - Startup sweep of stale session files (age threshold, e.g.
-    >30 days) so GC is automatic
-- Unit/API test for health shape; docs link from README
-  getting-started
+- New `docs/deploy-local.md` with launchd plist + systemd unit examples
+  (`KALETA_MODE=web`, `KALETA_HOST=127.0.0.1`, pinned WorkingDirectory).
+- Unauthenticated `GET /api/v1/health` (optional `/health` alias) returning
+  app version, DB reachability, and a pending-migration flag.
+- Pin NiceGUI storage under `~/.kaleta/` via `NICEGUI_STORAGE_PATH` and
+  sweep stale storage files older than 30 days on startup.
+- BDD scenario under Public API + unit test `tests/unit/api/test_health.py`.
+- Link from README.
 
 ### Not in scope
 
-- Docker / Podman (see ADR-006)
-- Authenticated admin health with secrets
-- Full observability / metrics stack
-- Implementing auto-migrate itself (P0.4 / separate plan) — health
-  only **reports** pending migrations
+- Docker / Compose changes.
+- Auto-migrate implementation (only *report* pending migrations; startup
+  migrate is covered by `migrate-on-startup`).
+- Settings UI for storage path or health knobs.
+- Auth / rate-limiting for the health endpoint (must stay public).
 
 ## Acceptance criteria
 
+- `uv run pytest tests/unit/api/test_health.py tests/integration/test_health.py -q`
+- `grep -q 'KAL-API-004' docs/bdd.md`
 - `test -f docs/deploy-local.md`
-- `grep -E 'launchd|systemd' docs/deploy-local.md | grep -q .`
-- `uv run pytest tests/unit/api/test_health.py -q`
-- `grep -E 'KAL-API-.*health|/health' docs/bdd.md | grep -q .`
+- `grep -q 'deploy-local' README.md`
+- `grep -qE 'launchd|systemd' docs/deploy-local.md`
+- `grep -q '/api/v1/health' docs/deploy-local.md`
 - `uv run python scripts/spec_coverage.py`
 - `./scripts/verify.sh`
-- `[manual]` `curl -s http://127.0.0.1:8080/api/v1/health` (or
-  chosen path) returns JSON with version + db ok while app runs.
 
 ## Touchpoints
 
-- `docs/deploy-local.md` (new)
-- `docs/` examples or snippets for plist / unit (inline in doc or
-  `docs/deploy/`)
-- `src/kaleta/api/` — health router
-- `src/kaleta/main.py` — storage path + GC + register route
-- `src/kaleta/config/settings.py` — storage dir if needed
-- `README.md` — link to deploy-local
-- `docs/bdd.md` — health scenario under Public API
-- `tests/unit/api/test_health.py`
+- `docs/deploy-local.md` (new), `README.md`
+- `src/kaleta/services/health_service.py` (new)
+- `src/kaleta/services/nicegui_storage_service.py` (new)
+- `src/kaleta/schemas/health.py` (new)
+- `src/kaleta/api/v1/health.py` (new)
+- `src/kaleta/api/__init__.py`, `src/kaleta/main.py`
+- `src/kaleta/auth/middleware.py` — public `/health`
+- `docs/bdd.md` — `KAL-API-004`
+- `tests/unit/api/test_health.py`, `tests/integration/test_health.py`
 
 ## Open questions
 
-1. Path: `/health` vs `/api/v1/health` — default:
-   **`/api/v1/health`** plus optional `/health` alias for dumb
-   probes.
-2. Exact stale-file age for `.nicegui` GC — default **30 days**.
+- None — report-only pending-migration flag; storage under
+  `~/.kaleta/nicegui`; 30-day mtime sweep matches NiceGUI’s default tab TTL.
 
 ## Implementation notes
 
-_Filled in as work progresses._
-
-Source finding: `audit-production-readiness` P1.9. One plan = one
-branch = one PR. Suggested first Multitask pickup after P0 gate.
+- Plan file was missing from the tree; created from audit finding 9 + the
+  agent task brief before implementation.
+- Health is mounted on a **public** `/api/v1` router sibling so it does not
+  inherit `require_api_auth` from the authenticated `v1_router`.
+  `/health` alias registered via `register_health_alias` on NiceGUI and
+  headless FastAPI apps; auth middleware lists `/health` as a public UI path.
+- `migrations_pending` is report-only (`current_revision` vs `head_revision`);
+  no migrate call from the probe. Revision readout errors are treated as
+  pending so monitors notice drift.
+- NiceGUI storage: `NICEGUI_STORAGE_PATH` setdefault to `~/.kaleta/nicegui`
+  in `kaleta/__init__.py` and again (stdlib-only) at the top of `main.py`
+  before `nicegui` import — `Storage.path` is class-level at import time.
+  `NiceguiStorageService.sweep_stale()` deletes regular files with mtime
+  older than 30 days on web/app startup and api lifespan.
+- Spec coverage only scans `tests/integration/` + `tests/e2e/`; added a thin
+  integration test alongside the required `tests/unit/api/test_health.py`.
+- `pyproject.toml` per-file ignore `E402` on `main.py` for the pre-import
+  storage pin block.
