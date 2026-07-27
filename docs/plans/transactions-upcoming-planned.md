@@ -49,7 +49,7 @@ leaving the page.
     flow), not the Transaction edit dialog.
   - **"Post / convert to actual" is out of scope here.** That
     behaviour is owned by
-    [`planned-transactions-post-due.md`](planned-transactions-post-due.md).
+    [`planned-transactions-post-due.md`](archive/planned-transactions-post-due.md).
     After that plan ships, a thin follow-up may add a row-level
     Post button that calls the shared service — do not implement
     posting logic in this plan.
@@ -87,7 +87,7 @@ Out of scope:
 - Showing planned rows in the CSV export.
 - Posting / converting an occurrence to a real
   `Transaction` — see
-  [`planned-transactions-post-due.md`](planned-transactions-post-due.md).
+  [`planned-transactions-post-due.md`](archive/planned-transactions-post-due.md).
 
 ## Acceptance criteria
 

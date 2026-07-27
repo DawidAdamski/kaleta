@@ -3,8 +3,9 @@ plan_id: q4-licence-and-cla
 title: Licence — AGPL-3.0 core + CLA, decision record and tooling
 area: infrastructure
 effort: medium
-status: done
-roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Licence — AGPL-3.0 core + CLA, decision record and tooling
@@ -86,3 +87,35 @@ all `src/kaleta/**/*.py` (header line), `scripts/` (SPDX check),
   CLA workflow can persist signatures (the action creates
   `.cla/signatures.json` on first sign).
 - `[manual]` Lawyer review of LICENSE + CLA — left unchecked for owner.
+
+## Implementation
+
+Landed on 2026-07-05.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `8a121e6` | Dawid (Ani) | 2026-07-05 | Remove calendar-snapshot.md and add LICENSE file |
+| `f33ac46` | Dawid (Ani) | 2026-07-05 | Add Getting Started section and update licensing information |
+
+**Files changed:**
+- `LICENSE` (new — full AGPL-3.0 text)
+- `docs/adr/033-agpl-core-with-cla.md` (new)
+- `docs/cla.md` (new), `.github/workflows/cla.yml` (new)
+- `pyproject.toml` (AGPL-3.0-or-later license + classifier)
+- `README.md` (AGPL badge, open-core paragraph)
+- `scripts/check_spdx_headers.py` (new), `scripts/verify.sh`
+- `src/kaleta/**/*.py` (SPDX headers — 302 files)
+- `docs/architecture.md` (ADR index), `docs/getting-started.md`
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `test -f LICENSE && grep -q "GNU AFFERO GENERAL PUBLIC LICENSE" LICENSE` | 0 |
+| `grep -q 'AGPL-3.0-or-later' pyproject.toml` | 0 |
+| `test -f docs/adr/033-agpl-core-with-cla.md` | 0 |
+| `test -f docs/cla.md && test -f .github/workflows/cla.yml` | 0 |
+| `grep -qi "AGPL" README.md` | 0 |
+| `uv run python scripts/check_doc_links.py` | 0 |
+
+**Notes:** `[ -z "$(grep -rL 'SPDX-License-Identifier: AGPL-3.0-or-later' src/kaleta --include='*.py')" ]` confirmed by parent. `[manual]` lawyer review left unchecked for owner.

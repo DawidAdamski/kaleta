@@ -100,8 +100,8 @@ The subagent:
 
 | # | Plan | Status | Depends on |
 |---|---|---|---|
-| 1 | [q4-licence-and-cla](q4-licence-and-cla.md) | done | — |
-| 2 | [q4-public-repo-readiness](q4-public-repo-readiness.md) | draft | 1 (CONTRIBUTING references CLA) |
+| 1 | [q4-licence-and-cla](archive/q4-licence-and-cla.md) | archived | — |
+| 2 | [q4-public-repo-readiness](archive/q4-public-repo-readiness.md) | archived | 1 (CONTRIBUTING references CLA) |
 | 3 | [q4-supabase-deployment](q4-supabase-deployment.md) | draft | — (CI postgres part parallel-safe) |
 | 4 | [q4-dashboard-design-refresh](q4-dashboard-design-refresh.md) | draft | — (after categories bug is fixed) |
 
@@ -112,7 +112,7 @@ The subagent:
 | 1 | [q3-test-safety-net](archive/q3-test-safety-net.md) | archived | — |
 | 2 | [q3-views-refactor](archive/q3-views-refactor.md) | archived | 1 (e2e green first) |
 | 3 | [q3-auth-single-user](q3-auth-single-user.md) | draft | 1 (updates API tests) |
-| 4 | [q3-forecast-optional-prophet](q3-forecast-optional-prophet.md) | done | — (parallel-safe) |
+| 4 | [q3-forecast-optional-prophet](archive/q3-forecast-optional-prophet.md) | archived | — (parallel-safe) |
 | 5 | [q3-engineering-hygiene](q3-engineering-hygiene.md) | draft | CI after 1; exceptions parallel-safe |
 | 6 | [q3-spec-enforcement](q3-spec-enforcement.md) | draft | CI from 5; import-linter ignores burned down by 2 |
 
@@ -123,7 +123,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [auth-reset-password-cli](auth-reset-password-cli.md) | in-progress | Auth (audit P1.10) |
+| [auth-reset-password-cli](archive/auth-reset-password-cli.md) | archived | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft (Q4) | Dashboard |
 | [transactions-notes-field](transactions-notes-field.md) | draft (Q4) | Transactions |
 | [wizard-action-items-widget](wizard-action-items-widget.md) | draft (Q4) | Wizard |
@@ -145,18 +145,21 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [p2-hardening-analysis](p2-hardening-analysis.md) | in-progress | Auth / API / Settings (audit P2) |
-| [sqlite-integrity-scheduled-backups](sqlite-integrity-scheduled-backups.md) | in-progress | DB / Housekeeping / Settings |
-| [migrate-on-startup](migrate-on-startup.md) | in-progress | Setup / ops (audit P0.4) |
-| [currency-nbp-rates](currency-nbp-rates.md) | in-progress | Settings / FX (audit P1.5) |
-| [deploy-local-health](deploy-local-health.md) | in-progress | Ops / API (audit P1.9) |
+| [p2-hardening-analysis](archive/p2-hardening-analysis.md) | archived | Auth / API / Settings (audit P2) |
+| [sqlite-integrity-scheduled-backups](archive/sqlite-integrity-scheduled-backups.md) | archived | DB / Housekeeping / Settings |
+| [migrate-on-startup](archive/migrate-on-startup.md) | archived | Setup / ops (audit P0.4) |
+| [currency-nbp-rates](archive/currency-nbp-rates.md) | archived | Settings / FX (audit P1.5) |
+| [deploy-local-health](archive/deploy-local-health.md) | archived | Ops / API (audit P1.9) |
+| [backup-full-schema-roundtrip](archive/backup-full-schema-roundtrip.md) | archived | Settings / Data |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
-| [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
+| [dashboard-widget-resize](archive/dashboard-widget-resize.md) | archived | Dashboard |
 | [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
-| [rules-auto-categorisation](rules-auto-categorisation.md) | in-progress | Import / Rules |
+| [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
+| [planned-transactions-post-due](archive/planned-transactions-post-due.md) | archived | Planned transactions |
+| [transactions-splits-integrity](archive/transactions-splits-integrity.md) | archived | Transactions |
 | [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |
 | [transactions-upcoming-planned](transactions-upcoming-planned.md) | draft | Transactions |
 | [ux-audit-feature-categorization](ux-audit-feature-categorization.md) | draft | UX / IA |

@@ -3,9 +3,10 @@ plan_id: migrate-on-startup
 title: Auto-migrate configured DB on app start (schema drift after git pull)
 area: setup / ops
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
-source: ../plans/audit-production-readiness.md#4-migrations-dont-run-on-upgrade--schema-drift-after-git-pull
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
+source: ../audit-production-readiness.md#4-migrations-dont-run-on-upgrade--schema-drift-after-git-pull
 ---
 
 # Auto-migrate configured DB on app start
@@ -83,3 +84,30 @@ stale and the first query that touches a new column fails at runtime.
   `SystemExit` on `MigrationError`.
 - Unknown DB revision (ahead of / foreign to installed scripts) refuses
   before any upgrade attempt; no safety copy in that case.
+
+## Implementation
+
+Landed on 2026-07-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `33bcfd8` | Dawid (Ani) | 2026-07-26 | fix: auto-migrate configured DB on app start |
+
+**Files changed:**
+- `src/kaleta/services/setup_service.py`
+- `src/kaleta/services/__init__.py`, `src/kaleta/exceptions.py`
+- `src/kaleta/main.py`
+- `README.md`, `docs/getting-started.md`
+- `docs/bdd.md`
+- `tests/unit/services/test_setup_service.py`
+- `tests/integration/test_migrate_on_startup.py` (new)
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_setup_service.py tests/integration/test_migrate_on_startup.py -q` | 0 |
+| `grep -q 'KAL-SET-019' docs/bdd.md` | 0 |
+| `grep -q 'KALETA_MIGRATE_URL' README.md` | 0 |
+| `grep -q 'KALETA_MIGRATE_URL' docs/getting-started.md` | 0 |
+| `./scripts/verify.sh` | 0 |

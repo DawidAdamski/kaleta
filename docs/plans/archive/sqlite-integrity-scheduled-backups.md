@@ -3,8 +3,9 @@ plan_id: sqlite-integrity-scheduled-backups
 title: SQLite integrity pragmas + scheduled VACUUM backups
 area: db / housekeeping / settings
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # SQLite integrity pragmas + scheduled VACUUM backups
@@ -77,3 +78,33 @@ keep rolling on-disk file backups via `VACUUM INTO` with retention.
   also carry the IDs for local readability).
 - Housekeeping Integrity card is read-only; SQLite-only messaging when
   dialect is not SQLite.
+
+## Implementation
+
+Landed on 2026-07-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1fdcb89` | Dawid (Ani) | 2026-07-26 | feat(db): SQLite integrity pragmas and scheduled VACUUM backups |
+
+**Files changed:**
+- `src/kaleta/db/session.py`
+- `src/kaleta/config/settings.py`
+- `src/kaleta/services/scheduled_backup_service.py` (new), `src/kaleta/services/backup_scheduler.py` (new)
+- `src/kaleta/services/integrity_service.py` (new), `src/kaleta/services/__init__.py`
+- `src/kaleta/views/housekeeping.py`
+- `src/kaleta/main.py`
+- `src/kaleta/i18n/locales/en.json`, `src/kaleta/i18n/locales/pl.json`
+- `docs/bdd.md`, `docs/getting-started.md`, `docs/tech-stack.md`, `AGENTS.md`
+- `tests/unit/db/test_sqlite_pragmas.py` (new)
+- `tests/unit/services/test_integrity_service.py` (new), `tests/unit/services/test_scheduled_backup_service.py` (new)
+- `tests/integration/test_sqlite_integrity_backups.py` (new)
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/db/ tests/unit/services/test_scheduled_backup_service.py tests/unit/services/test_integrity_service.py -q` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
+| `grep -E 'KAL-SET-01[7-9]\|KAL-INT-' docs/bdd.md \| grep -q .` | 0 |

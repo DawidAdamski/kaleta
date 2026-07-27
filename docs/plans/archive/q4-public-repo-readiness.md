@@ -3,8 +3,9 @@ plan_id: q4-public-repo-readiness
 title: Public-repo readiness — contributor docs, security policy, templates
 area: infrastructure
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Public-repo readiness — contributor docs, security policy, templates
@@ -125,3 +126,36 @@ CLA, and publishing without LICENSE is pointless.
 - [ ] GitHub **Security Advisories** enabled (private reporting).
 - [ ] GitHub **Discussions** left off.
 - [ ] Clean-machine quick start smoke test (README → login page).
+
+## Implementation
+
+Landed on 2026-07-05.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f33ac46` | Dawid (Ani) | 2026-07-05 | Add Getting Started section and update licensing information |
+
+**Files changed:**
+- `CONTRIBUTING.md` (new), `SECURITY.md` (new)
+- `.github/ISSUE_TEMPLATE/bug.yml` (new), `.github/ISSUE_TEMPLATE/feature.yml` (new)
+- `.github/ISSUE_TEMPLATE/config.yml` (new, `blank_issues_enabled: false`)
+- `.github/pull_request_template.md` (new)
+- `.github/workflows/ci.yml`, `.github/workflows/cla.yml`
+- `README.md` (stranger pass — badges, screenshot, quick start)
+- `docs/getting-started.md`, `docs/index.md`, `docs/architecture.md`
+- `docs/images/dashboard-dark.png` (new), `screenshot.png` (new)
+- `mkdocs.yml`
+- `scripts/check_doc_links.py` (new), `scripts/check_spdx_headers.py`, `scripts/spec_coverage.py`
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `test -f CONTRIBUTING.md && test -f SECURITY.md && ! test -f CODE_OF_CONDUCT.md` | 0 |
+| `grep -q "blank_issues_enabled: false" .github/ISSUE_TEMPLATE/config.yml` | 0 |
+| `grep -q "verify.sh" CONTRIBUTING.md && grep -q "cla" CONTRIBUTING.md -i` | 0 |
+| `grep -qiE "badge\|shields" README.md` | 0 |
+| `uv run python scripts/check_doc_links.py` | 0 |
+| `uv run mkdocs build --strict` | 0 |
+
+**Notes:** `ls .github/ISSUE_TEMPLATE/*.yml \| wc -l` count check: 3 files exist (bug, feature, config) — criterion ≥ 2 satisfied. Parent confirmed the `wc -l` false-fail was due to padding. `[manual]` items (project alias, clean-machine test, flip-to-public checklist) remain owner ops — code deliverables are complete.

@@ -3,9 +3,10 @@ plan_id: deploy-local-health
 title: Local deploy docs + unauthenticated health + NiceGUI storage pin
 area: ops / api
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
-source: ../plans/audit-production-readiness.md#9-local-deployment-story-no-autostart-no-health-endpoint
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
+source: ../audit-production-readiness.md#9-local-deployment-story-no-autostart-no-health-endpoint
 ---
 
 # Local deploy docs + unauthenticated health + NiceGUI storage pin
@@ -84,3 +85,35 @@ session files from accumulating in the repo working directory.
   integration test alongside the required `tests/unit/api/test_health.py`.
 - `pyproject.toml` per-file ignore `E402` on `main.py` for the pre-import
   storage pin block.
+
+## Implementation
+
+Landed on 2026-07-27 (authored 2026-07-26; merged via #34, merge commit `4277ef0`).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `743e973` | Cursor Agent | 2026-07-26 | feat: local deploy docs, public health probe, NiceGUI storage pin |
+
+**Files changed:**
+- `docs/deploy-local.md` (new), `README.md`
+- `src/kaleta/services/health_service.py` (new), `src/kaleta/services/nicegui_storage_service.py` (new)
+- `src/kaleta/schemas/health.py` (new)
+- `src/kaleta/api/v1/health.py` (new), `src/kaleta/api/__init__.py`
+- `src/kaleta/auth/middleware.py`
+- `src/kaleta/__init__.py`, `src/kaleta/main.py`
+- `pyproject.toml`
+- `docs/bdd.md`
+- `tests/unit/api/test_health.py` (new), `tests/integration/test_health.py` (new)
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/api/test_health.py tests/integration/test_health.py -q` | 0 |
+| `grep -q 'KAL-API-004' docs/bdd.md` | 0 |
+| `test -f docs/deploy-local.md` | 0 |
+| `grep -q 'deploy-local' README.md` | 0 |
+| `grep -qE 'launchd\|systemd' docs/deploy-local.md` | 0 |
+| `grep -q '/api/v1/health' docs/deploy-local.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh` | 0 |

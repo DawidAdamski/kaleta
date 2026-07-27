@@ -3,9 +3,10 @@ plan_id: auth-reset-password-cli
 title: CLI password reset for forgotten single-user credentials
 area: auth
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
-source: ../plans/audit-production-readiness.md#10-password-reset-requires-hand-editing-the-database
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+source: ../audit-production-readiness.md#10-password-reset-requires-hand-editing-the-database
 ---
 
 # CLI password reset for forgotten single-user credentials
@@ -74,3 +75,31 @@ uses via `~/.kaleta/config.json`.
   (also applied on `create_user` / `secure_placeholder` for consistency with UI).
 - Interactive CLI only (`getpass`); no `--password-stdin`. Sessions/tokens not
   revoked — success message + SECURITY.md document the linger.
+
+## Implementation
+
+Landed on 2026-07-27.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `40cf727` | Dawid Adamski | 2026-07-27 | feat(auth): add interactive CLI password reset (#28) |
+
+**Files changed:**
+- `src/kaleta/cli/__init__.py`, `src/kaleta/cli/reset_password.py` (new)
+- `src/kaleta/main.py`
+- `src/kaleta/services/auth_service.py`
+- `SECURITY.md`, `docs/getting-started.md`
+- `docs/bdd.md`
+- `tests/unit/cli/test_reset_password.py` (new), `tests/unit/services/test_auth_service.py`
+- `tests/integration/test_reset_password_cli.py` (new)
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_auth_service.py tests/unit/cli/test_reset_password.py tests/integration/test_reset_password_cli.py -q` | 0 |
+| `grep -q 'KAL-AUTH-007' docs/bdd.md` | 0 |
+| `grep -q -- '--reset-password' docs/getting-started.md` | 0 |
+| `grep -q -- '--reset-password' SECURITY.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh` | 0 |
