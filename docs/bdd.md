@@ -2098,6 +2098,15 @@ Feature: Public API
     Given a running instance
     When I open the OpenAPI documentation endpoint
     Then all public endpoints are listed with request and response schemas
+
+  KAL-API-004 @automated
+  Scenario: Unauthenticated health probe reports version and DB status
+    Given a running instance with a reachable database
+    When I GET /api/v1/health without credentials
+    Then the response is 200
+    And the body includes version "0.1.0"
+    And database_ok is true
+    And migrations_pending is a boolean
 ```
 
 ---

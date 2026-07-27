@@ -147,6 +147,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 |---|---|---|
 | [sqlite-integrity-scheduled-backups](sqlite-integrity-scheduled-backups.md) | in-progress | DB / Housekeeping / Settings |
 | [migrate-on-startup](migrate-on-startup.md) | in-progress | Setup / ops (audit P0.4) |
+| [deploy-local-health](deploy-local-health.md) | in-progress | Ops / API (audit P1.9) |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
