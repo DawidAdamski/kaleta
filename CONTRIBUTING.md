@@ -20,6 +20,9 @@ Highlights:
   (`scripts/spec_coverage.py`) are CI-enforced.
 - New user-facing behaviour needs a `KAL-` scenario in
   [`docs/bdd.md`](docs/bdd.md).
+- Bank import profiles need a real anonymized CSV under
+  [`tests/e2e/fixtures/import/`](tests/e2e/fixtures/import/README.md) —
+  do not invent parsers without a sample.
 
 ## Development setup
 

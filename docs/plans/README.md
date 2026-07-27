@@ -150,6 +150,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [deploy-local-health](deploy-local-health.md) | in-progress | Ops / API (audit P1.9) |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](dashboard-widget-resize.md) | draft (Q4) | Dashboard |
+| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
