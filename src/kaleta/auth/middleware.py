@@ -20,7 +20,7 @@ from kaleta.services.auth_service import AuthState
 
 log = logging.getLogger(__name__)
 
-# Pages reachable without an authenticated session.
+# Pages reachable without an authenticated session (only when already configured).
 _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
     {
         "/login",
@@ -40,11 +40,19 @@ _PUBLIC_PREFIXES: tuple[str, ...] = (
     "/api-docs",
 )
 
+_ASSET_PATHS: frozenset[str] = frozenset({"/manifest.json", "/sw.js", "/favicon.ico"})
+
 
 def is_public_path(path: str) -> bool:
     if path in _PUBLIC_UI_PATHS:
         return True
-    if path == "/manifest.json" or path == "/sw.js":
+    if path in _ASSET_PATHS:
+        return True
+    return any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
+
+
+def _is_framework_or_api(path: str) -> bool:
+    if path in _ASSET_PATHS or path == "/health":
         return True
     return any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
 
@@ -71,8 +79,11 @@ def register_auth_middleware() -> None:
     class AuthMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
             path = request.url.path
-            if path == "/setup" and not is_configured():
-                return await call_next(request)
+
+            if not is_configured():
+                if path == "/setup" or _is_framework_or_api(path):
+                    return await call_next(request)
+                return RedirectResponse("/setup")
 
             if is_public_path(path):
                 return await call_next(request)
@@ -95,14 +106,13 @@ def register_auth_middleware() -> None:
                     return RedirectResponse(f"/login?redirect_to={redirect_to}")
                 return await call_next(request)
 
-            if is_configured():
-                try:
-                    bootstrap = await _bootstrap_redirect_path()
-                except Exception:
-                    log.exception("Auth bootstrap check failed")
-                    bootstrap = None
-                if bootstrap and path != bootstrap:
-                    return RedirectResponse(bootstrap)
+            try:
+                bootstrap = await _bootstrap_redirect_path()
+            except Exception:
+                log.exception("Auth bootstrap check failed")
+                bootstrap = None
+            if bootstrap and path != bootstrap:
+                return RedirectResponse(bootstrap)
 
             redirect_to = quote(path, safe="/")
             return RedirectResponse(f"/login?redirect_to={redirect_to}")

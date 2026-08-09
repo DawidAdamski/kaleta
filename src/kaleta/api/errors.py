@@ -16,6 +16,7 @@ from kaleta.exceptions import (
     ForecastUnavailableError,
     KaletaError,
     NotFoundError,
+    SetupRequiredError,
     UnauthorizedError,
     ValidationError,
 )
@@ -24,6 +25,7 @@ log = logging.getLogger(__name__)
 
 _STATUS_BY_TYPE: dict[type[KaletaError], int] = {
     UnauthorizedError: 401,
+    SetupRequiredError: 503,
 }
 
 
@@ -42,7 +44,7 @@ def _status_for(exc: KaletaError) -> int:
         return 422
     if isinstance(exc, ConflictError):
         return 409
-    if isinstance(exc, (ForecastUnavailableError, ExternalServiceError)):
+    if isinstance(exc, (ForecastUnavailableError, ExternalServiceError, SetupRequiredError)):
         return 503
     return 500
 

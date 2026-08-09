@@ -1431,6 +1431,8 @@
     "browse": "Przeglądaj",
     "select_folder": "Wybierz ten folder",
     "picker_no_access": "Brak dostępu",
-    "db_name_default": "Mój budżet"
+    "db_name_default": "Mój budżet",
+    "use_recommended": "Użyj zalecanej lokalizacji",
+    "use_recommended_hint": "Tworzy ~/.kaleta/kaleta.db, uruchamia migracje i kontynuuje."
   }
 }

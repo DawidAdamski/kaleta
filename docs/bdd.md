@@ -2119,6 +2119,20 @@ Feature: Settings — Data safety
     When I export the ledger CSV from Settings → Data
     Then the CSV header is "date,type,amount,currency,account,category,payee,description,tags,is_internal_transfer"
     And a row contains "2026-01-15", "expense", "12.50", "Checking", "Food", and "Groceries"
+
+  KAL-SET-021 @automated
+  Scenario: Recommended first-run path creates the default SQLite database
+    Given the app is not yet configured
+    When I activate the recommended database location
+    Then ~/.kaleta/config.json stores a sqlite+aiosqlite URL for kaleta.db
+    And the database alembic revision matches the installed head
+
+  KAL-SET-022 @automated
+  Scenario: API rejects requests before first-run setup
+    Given the app is not yet configured
+    When I GET "/api/v1/accounts/" without completing setup
+    Then the response status is 503
+    And the JSON error code is "setup_required"
 ```
 
 ## Feature: Currency rates — NBP Table A

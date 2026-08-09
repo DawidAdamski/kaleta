@@ -5,12 +5,13 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
 import pytest_asyncio
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from kaleta.api import create_api_router
-from kaleta.api.deps import get_session
+from kaleta.api.deps import get_session, get_session_configured
 from kaleta.api.errors import register_error_handlers
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.auth_service import AuthService
@@ -28,6 +29,12 @@ INSTITUTION_PAYLOAD: dict[str, Any] = {"name": "Test Bank", "type": "bank"}
 CATEGORY_PAYLOAD: dict[str, Any] = {"name": "Food", "type": "expense"}
 
 PAYEE_PAYLOAD: dict[str, Any] = {"name": "Grocery Store"}
+
+
+@pytest.fixture(autouse=True)
+def _api_assumes_configured(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Authenticated API routes require setup; tests inject the DB via overrides."""
+    monkeypatch.setattr("kaleta.api.deps.is_configured", lambda: True)
 
 
 @pytest_asyncio.fixture
@@ -65,6 +72,7 @@ async def api_client(db_engine, api_bearer_token):
             yield s
 
     app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_session_configured] = override_session
 
     headers = {"Authorization": f"Bearer {api_bearer_token}"}
     async with AsyncClient(
@@ -89,6 +97,7 @@ async def api_client_unauth(db_engine):
             yield s
 
     app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_session_configured] = override_session
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client

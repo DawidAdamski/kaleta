@@ -261,12 +261,14 @@ def run_web() -> None:
     _register_backup_scheduler()
     _register_nbp_startup_fetch()
     _register_storage_sweep()
+    from kaleta.config.setup_config import is_configured
+
     ui.run(
         host=settings.host,
         port=settings.port,
         title="Kaleta",
         reload=False,
-        show=False,
+        show=not is_configured(),
         storage_secret=settings.secret_key,
     )
 

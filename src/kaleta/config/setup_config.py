@@ -58,6 +58,16 @@ def is_configured() -> bool:
     return bool(get_db_url())
 
 
+def recommended_db_path() -> Path:
+    """Default on-disk SQLite path for the one-click first-run fast path."""
+    return _CONFIG_DIR / "kaleta.db"
+
+
+def recommended_db_url() -> str:
+    """``sqlite+aiosqlite`` URL for :func:`recommended_db_path`."""
+    return f"sqlite+aiosqlite:///{recommended_db_path()}"
+
+
 def clear_db() -> None:
     """Remove the active database URL from config (triggers setup on next page load)."""
     data = _read()
