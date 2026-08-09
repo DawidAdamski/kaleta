@@ -2227,6 +2227,47 @@ Feature: Public API
     And migrations_pending is a boolean
 ```
 
+## Feature: Navigation
+
+```gherkin
+Feature: Workflow-based navigation
+  As the Kaleta owner
+  I want the sidebar organised by when I use each page
+  So that daily work is at hand and setup pages stay out of the way
+
+  KAL-NAV-001 @automated
+  Scenario: Sidebar shows pinned entries and workflow groups
+    Given I am signed in
+    When I open any page
+    Then the sidebar shows Dashboard and Financial Wizard pinned at the top
+    And below them the groups Capture, Monthly cycle, Plans & funds, Insight, and Setup
+
+  KAL-NAV-002 @automated
+  Scenario: Setup group is collapsed by default
+    Given I am signed in with no stored sidebar preferences
+    When I open the dashboard
+    Then the Setup group header is visible
+    And the items inside Setup are hidden until I click the group header
+
+  KAL-NAV-003 @planned
+  Scenario: Collapse state persists across reloads
+    Given I expanded the Setup group
+    When I reload the page
+    Then the Setup group is still expanded
+
+  KAL-NAV-004 @automated
+  Scenario: Every sidebar entry routes to its page
+    Given I am signed in
+    When I click each sidebar entry in turn
+    Then each click navigates to the entry's page URL
+
+  KAL-NAV-005 @automated
+  Scenario: Wizard sub-pages are reachable from the sidebar
+    Given I am signed in
+    When I click Subscriptions, Monthly Readiness, Safety Funds, or Personal Loans in the sidebar
+    Then I land on the corresponding page under /wizard/ without visiting the Wizard hub first
+```
+
 ---
 
 ## Notes for test implementation

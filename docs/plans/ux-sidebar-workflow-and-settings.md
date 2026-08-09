@@ -3,7 +3,7 @@ plan_id: ux-sidebar-workflow-and-settings
 title: Sidebar redesign around workflows + settings expansion
 area: ux
 effort: medium
-status: draft
+status: in-progress
 deferred_to: q4-2026
 roadmap_ref: ../roadmap.md#ux
 ---
@@ -75,3 +75,21 @@ Out of scope:
 - [manual] Nav groups match the bdd.md workflow map; collapsed state
   survives reload; mini mode usable; new settings all have defaults
   and take effect without restart.
+
+## Implementation notes
+
+- PR 1 ships **Phase A** of
+  [`../ux/feature-categorization-audit.md`](../ux/feature-categorization-audit.md),
+  which supersedes the grouping sketched in Scope above: Dashboard and
+  Wizard are **pinned above the groups** (not inside Insight), groups are
+  Capture / Monthly cycle / Plans & funds / Insight / Setup, the four
+  `/wizard/*` sub-pages (Monthly Readiness, Subscriptions, Safety Funds,
+  Personal Loans) get first-class nav entries with **URLs unchanged**, the
+  Budget Plan nav label becomes "Annual Plan" / "Plan roczny" (key and URL
+  unchanged), and Setup is collapsed by default (stored user choice wins).
+- Added `Feature: Navigation` (KAL-NAV-001…005) to `docs/bdd.md` and
+  `tests/e2e/test_navigation.py` covering 001/002/004/005; KAL-NAV-003
+  (collapse persistence across reloads) stays `@planned`.
+- Credit Calculator merge into Credit, `/planned` link from Payment
+  Calendar, and the settings expansion (PR 2) are **not** in PR 1 — see
+  audit Phase B.
