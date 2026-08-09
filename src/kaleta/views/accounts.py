@@ -20,6 +20,7 @@ COMMON_CURRENCIES: list[str] = [
     "USD",
     "GBP",
     "CHF",
+    "JPY",
     "CZK",
     "HUF",
     "NOK",
