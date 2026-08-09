@@ -3,8 +3,9 @@ plan_id: q3-spec-enforcement
 title: Spec enforcement — make architecture, BDD, and plans machine-verifiable
 area: infrastructure
 effort: medium
-status: draft
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Spec enforcement — make architecture, BDD, and plans machine-verifiable
@@ -134,3 +135,36 @@ plan-archiver agent definition (`.claude/` or `.ai/`), `docs/adr/`
 - **Section 5:** 32 ADRs split to `docs/adr/NNN-slug.md`; index table
   in `architecture.md`; mkdocs nav updated; diagram aligned with
   ADR-032 (no controller layer).
+
+## Implementation
+
+Landed on 2026-07-05.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1796ac1` | Dawid (Ani) | 2026-07-03 | docs: Q3 roadmap, plans, ADR-032 |
+| `5dc0525` | Dawid (Ani) | 2026-07-04 | docs(bdd): scenario IDs + spec coverage gate |
+| `0cc377c` | Dawid (Ani) | 2026-07-05 | refactor(views): burn down import-linter ignores for nine small views |
+| `96cc367` | Dawid (Ani) | 2026-07-05 | Enhance documentation and error handling across the application |
+
+**Files changed:**
+- `pyproject.toml` (import-linter dev dep + 4 contracts; ignore list burned down in 0cc377c)
+- `scripts/spec_coverage.py` (new — parses bdd.md IDs, scans e2e docstrings, fails on uncovered @automated)
+- `docs/bdd.md` (KAL-<AREA>-<NNN> IDs + @automated/@manual/@planned tags on all 205 scenarios)
+- `tests/e2e/` (Covers: KAL-* docstrings added; conftest isolated; 5 new test files)
+- `.github/workflows/ci.yml` (lint-imports + spec_coverage gate wired in)
+- `docs/adr/001-032-*.md` (32 ADRs split to individual files under docs/adr/)
+- `docs/architecture.md` (ADR section replaced by index table; diagram aligned with ADR-032)
+- `docs/plans/README.md` (plan template updated with executable AC convention)
+- `.claude/agents/plan-archiver.md` (archiver updated to run AC commands before archiving)
+- `mkdocs.yml` (nav updated with all ADR files)
+- `CLAUDE.md` (key-documents section updated)
+- `scripts/check_doc_links.py` (new — link/anchor integrity checker; wired to CI and verify.sh)
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run lint-imports` | 0 |
+| `grep -c "KAL-" docs/bdd.md` (result: 205 ≥ 115) | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |

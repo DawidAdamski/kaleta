@@ -3,8 +3,9 @@ plan_id: q3-auth-single-user
 title: Single-user authentication — sessions, API tokens, secure defaults
 area: auth
 effort: large
-status: draft
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Single-user authentication — sessions, API tokens, secure defaults
@@ -168,3 +169,40 @@ list tokens, revoke; audit `AUTH` rows on create/revoke (`table_name=api_token`)
 | All API integration tests green with token fixture | **PASS** (`api_client` + `api_bearer_token`) |
 | App refuses default secret key outside debug | **PASS** (`Settings._validate_secret_key`) |
 | Docs updated (README, tech-stack) | **PASS** |
+
+## Implementation
+
+Landed on 2026-07-27.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f33ac46` | Dawid (Ani) | 2026-07-05 | Add Getting Started section and update licensing information |
+| `96cc367` | Dawid (Ani) | 2026-07-05 | Enhance documentation and error handling across the application |
+| `5969241` | Dawid (Ani) | 2026-07-27 | feat: harden LAN auth and expand analysis export/API |
+
+**Files changed:**
+- `src/kaleta/models/user.py` (new — User model with argon2 password hashing)
+- `src/kaleta/models/api_token.py` (new — ApiToken model with hashed token + last_used_at)
+- `alembic/versions/d8f1a2b3c4e6_add_users_and_user_id.py` (new — users table + nullable user_id FK on 15 tables)
+- `alembic/versions/e9f2a3b4c5d6_add_api_tokens.py` (new — api_tokens table)
+- `src/kaleta/auth/__init__.py`, `auth/middleware.py`, `auth/session.py` (new — AuthMiddleware + session store helpers)
+- `src/kaleta/auth/login_rate_limit.py` (new — brute-force protection, added in 5969241)
+- `src/kaleta/config/settings.py` (KALETA_HOST default → 127.0.0.1; secret_key refusal guard)
+- `src/kaleta/api/deps.py`, `src/kaleta/api/v1/__init__.py` (require_api_auth dependency)
+- `src/kaleta/api/errors.py` (unified 401 error envelope)
+- `src/kaleta/services/auth_service.py`, `src/kaleta/services/api_token_service.py` (new)
+- `src/kaleta/views/login.py`, `views/create_account.py`, `views/secure_app.py` (new auth UI pages)
+- `src/kaleta/views/auth_common.py`, `views/error_handling.py`, `views/settings/security_tab.py`
+- `src/kaleta/views/layout.py` (auth guard wired into nav)
+- `src/kaleta/main.py` (AuthMiddleware registration)
+- `src/kaleta/db/audit.py` (AUTH event recording)
+- `src/kaleta/logging_config.py` (new — centralised logging config)
+- `scripts/seed.py`, `README.md`, `docs/tech-stack.md`
+- `tests/e2e/test_auth.py` (new — login/logout BDD scenarios)
+- `tests/integration/test_api_auth.py`, `test_api_cookie_auth.py`, `test_auth_hardening.py` (new)
+- `tests/unit/services/test_auth_service.py`, `tests/unit/services/test_api_token_service.py` (new)
+- `tests/unit/auth/test_login_rate_limit.py`, `tests/unit/auth/test_session_ttl.py` (new, 5969241)
+
+**Acceptance criteria run** (step 3b):
+
+No executable acceptance criteria — all AC bullets are prose. Completion was verified via the sub-task 3 sign-off table in Implementation notes above.

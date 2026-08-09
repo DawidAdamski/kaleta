@@ -111,10 +111,10 @@ The subagent:
 |---|---|---|---|
 | 1 | [q3-test-safety-net](archive/q3-test-safety-net.md) | archived | — |
 | 2 | [q3-views-refactor](archive/q3-views-refactor.md) | archived | 1 (e2e green first) |
-| 3 | [q3-auth-single-user](q3-auth-single-user.md) | draft | 1 (updates API tests) |
+| 3 | [q3-auth-single-user](archive/q3-auth-single-user.md) | archived | 1 (updates API tests) |
 | 4 | [q3-forecast-optional-prophet](archive/q3-forecast-optional-prophet.md) | archived | — (parallel-safe) |
-| 5 | [q3-engineering-hygiene](q3-engineering-hygiene.md) | draft | CI after 1; exceptions parallel-safe |
-| 6 | [q3-spec-enforcement](q3-spec-enforcement.md) | draft | CI from 5; import-linter ignores burned down by 2 |
+| 5 | [q3-engineering-hygiene](archive/q3-engineering-hygiene.md) | archived | CI after 1; exceptions parallel-safe |
+| 6 | [q3-spec-enforcement](archive/q3-spec-enforcement.md) | archived | CI from 5; import-linter ignores burned down by 2 |
 
 See [roadmap → Q3 2026](../roadmap.md#q3-2026-jul-sep-stabilisation--debt)
 and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directly.md).
@@ -153,7 +153,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [backup-full-schema-roundtrip](archive/backup-full-schema-roundtrip.md) | archived | Settings / Data |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](archive/dashboard-widget-resize.md) | archived | Dashboard |
-| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers |
+| [import-bank-profiles](import-bank-profiles.md) | draft | Import — fixture-backed bank parsers |
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |

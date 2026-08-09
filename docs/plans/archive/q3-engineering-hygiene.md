@@ -3,8 +3,9 @@ plan_id: q3-engineering-hygiene
 title: Engineering hygiene — exceptions, logging, CI
 area: infrastructure
 effort: medium
-status: draft
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-07-27
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Engineering hygiene — exceptions, logging, CI
@@ -76,3 +77,35 @@ mapping helper), `main.py`, `.github/workflows/ci.yml` (new),
   Prophet fallback warning in `forecasters`.
 - Cosmetic drafts folded into archived `q3-views-refactor`; feature drafts
   tagged `deferred_to: q4-2026`.
+
+## Implementation
+
+Landed on 2026-07-05.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `96cc367` | Dawid (Ani) | 2026-07-05 | Enhance documentation and error handling across the application |
+| `6539af6` | Dawid (Ani) | 2026-07-05 | Update database connection handling and enhance CI workflows |
+
+**Files changed:**
+- `src/kaleta/exceptions.py` (new — KaletaError hierarchy: NotFoundError, ValidationError, ConflictError, ImportError_, ForecastUnavailableError)
+- `src/kaleta/api/errors.py` (new — register_error_handlers; unified `{"error": {"code","message"}}` envelope)
+- `src/kaleta/views/error_handling.py` (new — notify_kaleta_error toast helper)
+- `src/kaleta/logging_config.py` (new — configure_logging() honouring KALETA_DEBUG)
+- `src/kaleta/main.py` (logging config wired; request middleware in API mode)
+- `src/kaleta/services/` (all services migrated off bare ValueError/RuntimeError)
+- `.github/workflows/ci.yml` (ruff + mypy + pytest unit + integration + e2e smoke; PostgreSQL job in 6539af6)
+- `.github/workflows/pr-review.yml` (PR review automation)
+- `AGENTS.md`, `CLAUDE.md` (domain errors + logging conventions documented)
+- `docs/plans/` (cosmetic drafts folded into q3-views-refactor; feature drafts tagged deferred_to: q4-2026)
+- `docs/bdd.md`, `docs/tech-stack.md`, `docs/architecture.md` (docs updated)
+- `README.md` (CI badge added)
+
+**Acceptance criteria run** (step 3b):
+
+AC bullets contain backtick commands followed by prose expectations (`→ zero hits`); these are not purely exit-0 commands. Both greps were run manually to confirm compliance:
+
+| Check | Result |
+|---|---|
+| `grep -rn "raise ValueError" src/kaleta/services/` output empty | confirmed ✓ |
+| `grep -rn "print(" src/kaleta/` output empty | confirmed ✓ |
