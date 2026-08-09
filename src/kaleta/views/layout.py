@@ -25,45 +25,67 @@ try:
 except Exception:
     _APP_VERSION = "v0.1.0"
 
-# Groups: (group_key, [(icon, path, label_key), ...])
+# Pinned entries rendered above the groups: (icon, path, label_key).
+# See docs/ux/feature-categorization-audit.md (Phase A) for the rationale.
+NAV_PINNED: list[tuple[str, str, str]] = [
+    ("dashboard", "/", "nav.dashboard"),
+    ("auto_awesome", "/wizard", "nav.wizard"),
+]
+
+# Paths matched exactly for active-state (their sub-pages have own nav entries).
+_NAV_EXACT: frozenset[str] = frozenset({"/", "/wizard"})
+
+# Groups collapsed on first visit; a user's stored choice always wins.
+_DEFAULT_COLLAPSED: frozenset[str] = frozenset({"nav.group_setup"})
+
+# Groups: (group_key, [(icon, path, label_key), ...]) — ordered by workflow
+# cadence (capture → monthly → plans → insight → setup), mirroring the
+# workflow map in docs/bdd.md.
 NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
     (
-        "nav.group_overview",
-        [
-            ("dashboard", "/", "nav.dashboard"),
-            ("account_balance_wallet", "/accounts", "nav.accounts"),
-            ("pie_chart", "/net-worth", "nav.net_worth"),
-            ("assessment", "/reports", "nav.reports"),
-        ],
-    ),
-    (
-        "nav.group_manage",
+        "nav.group_capture",
         [
             ("receipt_long", "/transactions", "nav.transactions"),
-            ("calendar_month", "/payment-calendar", "nav.payment_calendar"),
-            ("bar_chart", "/budgets", "nav.budgets"),
-            ("edit_note", "/budget-plan", "nav.budget_plan"),
             ("upload_file", "/import", "nav.import"),
         ],
     ),
     (
-        "nav.group_tools",
+        "nav.group_monthly",
         [
+            ("bar_chart", "/budgets", "nav.budgets"),
+            ("calendar_month", "/payment-calendar", "nav.payment_calendar"),
+            ("event_available", "/wizard/monthly-readiness", "nav.monthly_readiness"),
+            ("subscriptions", "/wizard/subscriptions", "nav.subscriptions"),
+        ],
+    ),
+    (
+        "nav.group_plans",
+        [
+            ("edit_note", "/budget-plan", "nav.budget_plan"),
+            ("savings", "/wizard/safety-funds", "nav.safety_funds"),
+            ("handshake", "/wizard/personal-loans", "nav.personal_loans"),
+        ],
+    ),
+    (
+        "nav.group_insight",
+        [
+            ("assessment", "/reports", "nav.reports"),
+            ("pie_chart", "/net-worth", "nav.net_worth"),
             ("insights", "/forecast", "nav.forecast"),
-            ("calculate", "/credit-calculator", "nav.credit_calculator"),
             ("credit_card", "/credit", "nav.credit"),
-            ("auto_awesome", "/wizard", "nav.wizard"),
-            ("cleaning_services", "/housekeeping", "nav.housekeeping"),
+            ("calculate", "/credit-calculator", "nav.credit_calculator"),
         ],
     ),
     (
         "nav.group_setup",
         [
+            ("account_balance_wallet", "/accounts", "nav.accounts"),
             ("account_balance", "/institutions", "nav.institutions"),
             ("category", "/categories", "nav.categories"),
             ("label", "/tags", "nav.tags"),
             ("person_search", "/payees", "nav.payees"),
             ("rule", "/rules", "nav.rules"),
+            ("cleaning_services", "/housekeeping", "nav.housekeeping"),
             ("settings", "/settings", "nav.settings"),
         ],
     ),
@@ -115,8 +137,8 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     current_path = ui.context.client.request.url.path if ui.context.client else "/"
 
     def _nav_active(nav_path: str) -> bool:
-        if nav_path == "/":
-            return current_path == "/"
+        if nav_path in _NAV_EXACT:
+            return current_path == nav_path
         return current_path == nav_path or current_path.startswith(f"{nav_path}/")
 
     with ui.header().classes(f"{HEADER} items-center px-4 gap-4 h-16"):
@@ -191,11 +213,23 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     with ui.left_drawer(value=True).classes(DRAWER) as drawer:
         if is_mini:
             drawer.props("mini mini-to-overlay")
+        # Pinned entries — always visible, above the workflow groups.
+        for icon, path, key in NAV_PINNED:
+            active = _nav_active(path)
+            item_cls = f"{NAV_ITEM} {NAV_ITEM_ACTIVE if active else ''}".strip()
+            with ui.item(on_click=lambda p=path: ui.navigate.to(p)).classes(item_cls):
+                with ui.item_section().props("avatar"):
+                    ui.icon(icon)
+                with ui.item_section():
+                    ui.item_label(t(key))
+
+        ui.separator().classes("mx-4 my-2 opacity-60")
+
         # Collapse state persisted per user across page loads
         nav_collapsed: dict[str, bool] = dict(app.storage.user.get("nav_collapsed", {}))
 
         for group_key, items in NAV_GROUPS:
-            is_col = nav_collapsed.get(group_key, False)
+            is_col = nav_collapsed.get(group_key, group_key in _DEFAULT_COLLAPSED)
 
             # Clickable group header
             with ui.row().classes(NAV_GROUP_ROW) as hdr:
@@ -221,7 +255,7 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             def _make_toggle(gk: str, col: ui.column, ch: ui.icon) -> Callable[[], None]:
                 def _toggle() -> None:
                     stored: dict[str, bool] = dict(app.storage.user.get("nav_collapsed", {}))
-                    now_col = not stored.get(gk, False)
+                    now_col = not stored.get(gk, gk in _DEFAULT_COLLAPSED)
                     stored[gk] = now_col
                     app.storage.user["nav_collapsed"] = stored
                     col.set_visibility(not now_col)
