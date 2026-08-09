@@ -5,7 +5,7 @@ area: auth
 effort: large
 status: archived
 archived_at: 2026-07-27
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Single-user authentication — sessions, API tokens, secure defaults
