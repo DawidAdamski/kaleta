@@ -45,6 +45,33 @@ class TestCreateCategory:
         resp = await api_client.post("/api/v1/categories/", json={"name": "Food"})
         assert resp.status_code == 422
 
+    async def test_same_root_name_allowed_per_type(self, api_client: AsyncClient):
+        """Covers: KAL-CAT-012"""
+        expense = await api_client.post(
+            "/api/v1/categories/",
+            json={"name": "Nieprzypisane", "type": "expense"},
+        )
+        income = await api_client.post(
+            "/api/v1/categories/",
+            json={"name": "Nieprzypisane", "type": "income"},
+        )
+        assert expense.status_code == 201
+        assert income.status_code == 201
+        assert expense.json()["name"] == "Nieprzypisane"
+        assert income.json()["name"] == "Nieprzypisane"
+        assert expense.json()["type"] == "expense"
+        assert income.json()["type"] == "income"
+        assert expense.json()["id"] != income.json()["id"]
+
+    async def test_duplicate_root_name_same_type_returns_409(self, api_client: AsyncClient):
+        await create_category(api_client, name="Nieprzypisane", type="expense")
+        resp = await api_client.post(
+            "/api/v1/categories/",
+            json={"name": "Nieprzypisane", "type": "expense"},
+        )
+        assert resp.status_code == 409
+        assert "already exists under the same parent" in resp.json()["error"]["message"]
+
 
 class TestGetCategory:
     async def test_get_by_id_returns_200(self, api_client: AsyncClient):

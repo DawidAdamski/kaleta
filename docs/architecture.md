@@ -57,7 +57,7 @@ kaleta/
 │   │   ├── account.py
 │   │   ├── transaction.py   # Transaction + TransactionSplit models
 │   │   ├── budget.py
-│   │   ├── category.py      # UNIQUE(name, parent_id) constraint; is_subscriptions_root flag
+│   │   ├── category.py      # UNIQUE(name, parent_id, type) constraint; is_subscriptions_root flag
 │   │   ├── institution.py   # Institution model + InstitutionType enum
 │   │   ├── asset.py         # Asset model + AssetType enum
 │   │   ├── payee.py         # Payee model (name UNIQUE)
@@ -156,7 +156,7 @@ out of sequence in the original monolithic document).
 | [015](adr/015-physical-assets-as-a-separate-model-from-bank-accounts.md) | Physical Assets as a Separate Model from Bank Accounts | accepted |
 | [016](adr/016-multi-currency-accounts-and-cross-currency-transfers.md) | Multi-Currency Accounts and Cross-Currency Transfers | accepted |
 | [017](adr/017-progressive-web-app-pwa-support.md) | Progressive Web App (PWA) Support | accepted |
-| [018](adr/018-category-uniqueness-scoped-to-parent.md) | Category Uniqueness Scoped to Parent | accepted |
+| [018](adr/018-category-uniqueness-scoped-to-parent.md) | Category Uniqueness Scoped to Parent and Type | accepted |
 | [019](adr/019-payee-as-a-first-class-entity-with-merge-support.md) | Payee as a First-Class Entity with Merge Support | accepted |
 | [020](adr/020-transfer-detection-via-counterparty-account-number-matching.md) | Transfer Detection via Counterparty Account Number Matching | accepted |
 | [021](adr/021-bdde2e-test-layer-with-pytest-playwright.md) | BDD/E2E Test Layer with pytest-playwright | accepted |

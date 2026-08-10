@@ -26,10 +26,26 @@ class TestCategoryServiceCreate:
         cat = await svc.create(CategoryCreate(name="Wynagrodzenie", type=CategoryType.INCOME))
         assert cat.type == CategoryType.INCOME
 
-    async def test_duplicate_name_raises(self, svc: CategoryService):
+    async def test_duplicate_name_same_type_raises(self, svc: CategoryService):
+        """Covers: KAL-CAT-010 — duplicate root name within the same type is rejected."""
         await svc.create(CategoryCreate(name="Duplicate", type=CategoryType.EXPENSE))
-        with pytest.raises(ConflictError):
-            await svc.create(CategoryCreate(name="Duplicate", type=CategoryType.INCOME))
+        with pytest.raises(ConflictError, match="already exists under the same parent"):
+            await svc.create(CategoryCreate(name="Duplicate", type=CategoryType.EXPENSE))
+
+    async def test_same_name_different_type_allowed(self, svc: CategoryService):
+        """Covers: KAL-CAT-012 — same root name once per type succeeds."""
+        expense = await svc.create(CategoryCreate(name="Nieprzypisane", type=CategoryType.EXPENSE))
+        income = await svc.create(CategoryCreate(name="Nieprzypisane", type=CategoryType.INCOME))
+        assert expense.id != income.id
+        assert expense.type == CategoryType.EXPENSE
+        assert income.type == CategoryType.INCOME
+
+    async def test_child_type_mismatch_raises(self, svc: CategoryService):
+        parent = await svc.create(CategoryCreate(name="Food", type=CategoryType.EXPENSE))
+        with pytest.raises(ConflictError, match="must match parent type"):
+            await svc.create(
+                CategoryCreate(name="Groceries", type=CategoryType.INCOME, parent_id=parent.id)
+            )
 
     async def test_sql_injection_name_stored_verbatim(self, svc: CategoryService):
         payload = "'; DROP TABLE categories; --"[:100]
@@ -100,6 +116,28 @@ class TestCategoryServiceUpdate:
     async def test_update_nonexistent_returns_none(self, svc: CategoryService):
         result = await svc.update(99999, CategoryUpdate(name="x"))
         assert result is None
+
+    async def test_rename_onto_same_type_sibling_raises(self, svc: CategoryService):
+        await svc.create(CategoryCreate(name="Food", type=CategoryType.EXPENSE))
+        other = await svc.create(CategoryCreate(name="Transport", type=CategoryType.EXPENSE))
+        with pytest.raises(ConflictError, match="already exists under the same parent"):
+            await svc.update(other.id, CategoryUpdate(name="Food"))
+
+    async def test_rename_to_other_type_name_allowed(self, svc: CategoryService):
+        await svc.create(CategoryCreate(name="Nieprzypisane", type=CategoryType.EXPENSE))
+        income = await svc.create(CategoryCreate(name="Salary", type=CategoryType.INCOME))
+        updated = await svc.update(income.id, CategoryUpdate(name="Nieprzypisane"))
+        assert updated is not None
+        assert updated.name == "Nieprzypisane"
+        assert updated.type == CategoryType.INCOME
+
+    async def test_update_type_mismatch_with_parent_raises(self, svc: CategoryService):
+        parent = await svc.create(CategoryCreate(name="Food", type=CategoryType.EXPENSE))
+        child = await svc.create(
+            CategoryCreate(name="Groceries", type=CategoryType.EXPENSE, parent_id=parent.id)
+        )
+        with pytest.raises(ConflictError, match="must match parent type"):
+            await svc.update(child.id, CategoryUpdate(type=CategoryType.INCOME))
 
 
 class TestCategoryServiceDelete:

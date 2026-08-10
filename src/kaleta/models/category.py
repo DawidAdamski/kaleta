@@ -18,7 +18,9 @@ class CategoryType(str, enum.Enum):  # noqa: UP042
 
 class Category(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "categories"
-    __table_args__ = (UniqueConstraint("name", "parent_id", name="uq_categories_name_parent"),)
+    __table_args__ = (
+        UniqueConstraint("name", "parent_id", "type", name="uq_categories_name_parent_type"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
