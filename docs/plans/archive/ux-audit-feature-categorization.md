@@ -3,7 +3,7 @@ plan_id: ux-audit-feature-categorization
 title: UX audit — feature categorisation in nav and settings
 area: ux
 effort: medium
-roadmap_ref: ../roadmap.md#ux
+roadmap_ref: ../../roadmap.md#ux
 status: archived
 archived_at: 2026-08-10
 deferred_to: q4-2026

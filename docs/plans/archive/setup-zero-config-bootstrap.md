@@ -3,7 +3,7 @@ plan_id: setup-zero-config-bootstrap
 title: Setup — zero-config first-run for new users
 area: setup
 effort: medium
-roadmap_ref: ../roadmap.md#setup
+roadmap_ref: ../../roadmap.md#setup
 status: archived
 archived_at: 2026-08-10
 deferred_to: q4-2026
