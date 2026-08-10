@@ -65,7 +65,7 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     )
     expect(preview.get_by_role("cell", name="Income", exact=True).first).to_be_visible(timeout=5000)
 
-    page.get_by_role("button", name="Import all").click()
+    page.get_by_role("button", name="Import 1 file").click()
     expect(page.get_by_text("Imported", exact=False).first).to_be_visible(timeout=10000)
 
     page.goto(f"{base_url}/transactions")

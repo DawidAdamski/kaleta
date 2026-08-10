@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_service import (
     MBankFileMetadata,
     ParsedRow,
@@ -29,6 +30,7 @@ class QueuedFile:
     status_msg: str = ""
     imported_count: int = 0
     skipped_dupes: int = 0
+    skipped_rows: list[TransactionCreate] = field(default_factory=list)
 
 
 def settings_snapshot(file: QueuedFile) -> QueueSettingsSnapshot:
@@ -50,3 +52,14 @@ def apply_settings_snapshot(file: QueuedFile, snapshot: QueueSettingsSnapshot) -
     file.expense_cat_id = snapshot.expense_cat_id
     file.income_cat_id = snapshot.income_cat_id
     file.skip_duplicates = snapshot.skip_duplicates
+
+
+def import_button_label(ready_count: int) -> str:
+    """Count-aware label for the queue import button."""
+    from kaleta.i18n import t
+
+    if ready_count <= 0:
+        return t("import.import_btn_zero")
+    if ready_count == 1:
+        return t("import.import_btn_one")
+    return t("import.import_btn_many", count=ready_count)

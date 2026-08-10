@@ -52,7 +52,7 @@ async def import_page() -> None:
     )
     known_digits = build_known_account_digits(a.external_account_number for a in accounts)
 
-    state: dict[str, Any] = {"queue": [], "active_id": None}
+    state: dict[str, Any] = {"queue": [], "active_id": None, "last_settings": None}
 
     def _active() -> QueuedFile | None:
         active_id = state["active_id"]
@@ -60,8 +60,11 @@ async def import_page() -> None:
             return None
         return next((f for f in state["queue"] if f.id == active_id), None)
 
-    def _queue_snapshots() -> list[Any]:
-        return [settings_snapshot(f) for f in state["queue"]]
+    def _inheritance_priors(current_id: str) -> list[Any]:
+        priors = [settings_snapshot(f) for f in state["queue"] if f.id != current_id]
+        if not priors and state["last_settings"] is not None:
+            return [state["last_settings"]]
+        return priors
 
     async def _parse_file(queued_file: QueuedFile) -> None:
         queued_file.parsed_rows = []
@@ -137,6 +140,16 @@ async def import_page() -> None:
         _render_queue()
         _repaint_active()
 
+    def _start_new_import() -> None:
+        if state["queue"]:
+            state["last_settings"] = settings_snapshot(state["queue"][-1])
+        state["queue"] = []
+        state["active_id"] = None
+        summary_section.hide()
+        upload_section.upload_widget.reset()
+        _render_queue()
+        _repaint_active()
+
     async def _select_profile(key: str) -> None:
         active = _active()
         if active is None:
@@ -174,7 +187,7 @@ async def import_page() -> None:
 
         if queued_file.status == "ready":
             snapshot = settings_snapshot(queued_file)
-            inherited = inherit_queue_settings(snapshot, _queue_snapshots())
+            inherited = inherit_queue_settings(snapshot, _inheritance_priors(queued_file.id))
             if inherited:
                 apply_settings_snapshot(queued_file, snapshot)
             if queued_file.profile == "mbank":
@@ -185,6 +198,7 @@ async def import_page() -> None:
                 ui.notify(t("import.queue_inherited"), type="info")
 
         state["active_id"] = queued_file.id
+        summary_section.hide()
         _render_queue()
         _repaint_active()
 
@@ -225,7 +239,7 @@ async def import_page() -> None:
 
         try:
 
-            async def _persist(session: Any) -> tuple[int, int]:
+            async def _persist(session: Any) -> tuple[int, list[Any]]:
                 svc_import = ImportService(session)
                 if queued_file.profile == "mbank":
                     creates = await svc_import.to_transaction_creates_with_payees(
@@ -243,9 +257,9 @@ async def import_page() -> None:
                         default_income_category_id=income_cat_id,
                     )
 
-                skipped = 0
+                skipped_rows: list[Any] = []
                 if queued_file.skip_duplicates:
-                    creates, skipped = await svc_import.filter_duplicates(creates)
+                    creates, skipped_rows = await svc_import.filter_duplicates(creates)
 
                 creates = await svc_import.apply_categorisation_rules(creates)
                 count = await TransactionService(session).create_bulk(creates)
@@ -259,16 +273,17 @@ async def import_page() -> None:
                         target_account_id,
                         queued_file.metadata.account_number_digits,
                     )
-                return count, skipped
+                return count, skipped_rows
 
-            count, skipped = await with_session(_persist)
+            count, skipped_rows = await with_session(_persist)
         except Exception as exc:  # noqa: BLE001
             queued_file.status = "failed"
             queued_file.status_msg = str(exc)
             return
 
         queued_file.imported_count = count
-        queued_file.skipped_dupes = skipped
+        queued_file.skipped_rows = skipped_rows
+        queued_file.skipped_dupes = len(skipped_rows)
         queued_file.status = "done"
         queued_file.status_msg = t("import.done", count=count)
 
@@ -285,8 +300,11 @@ async def import_page() -> None:
                 _render_queue()
                 _repaint_active()
         finally:
-            queue_section.import_all_btn.props(remove="disable")
+            ready = sum(1 for f in state["queue"] if f.status == "ready")
+            queue_section.update_import_button(ready)
 
+        if state["queue"]:
+            state["last_settings"] = settings_snapshot(state["queue"][-1])
         summary_section.render(state["queue"])
         summary_section.show()
 
@@ -324,6 +342,7 @@ async def import_page() -> None:
         )
         upload_section.upload_widget.on_upload(handle_upload)
         queue_section.import_all_btn.on("click", do_import_all)
+        summary_section.bind_start_new(_start_new_import)
 
         _render_queue()
         _repaint_active()

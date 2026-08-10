@@ -703,13 +703,14 @@ class ImportService:
 
     async def filter_duplicates(
         self, creates: list[TransactionCreate]
-    ) -> tuple[list[TransactionCreate], int]:
+    ) -> tuple[list[TransactionCreate], list[TransactionCreate]]:
         """Remove creates that already exist in the database.
 
-        Returns ``(unique_creates, skipped_count)``.
+        Returns ``(unique_creates, skipped_creates)``. A create is skipped when
+        the same (account, date, amount, description) already exists.
         """
         unique: list[TransactionCreate] = []
-        skipped = 0
+        skipped: list[TransactionCreate] = []
         for create in creates:
             is_dupe = await self.find_duplicate(
                 account_id=create.account_id,
@@ -718,7 +719,7 @@ class ImportService:
                 description=create.description,
             )
             if is_dupe:
-                skipped += 1
+                skipped.append(create)
             else:
                 unique.append(create)
         return unique, skipped

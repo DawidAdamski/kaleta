@@ -27,17 +27,14 @@ class PreviewSection:
         counts = count_row_types(rows, known_digits)
         self.stats_row.clear()
         with self.stats_row:
-            ui.chip(
-                f"\U0001f4e5 {t('import.stats_expense')}: {counts.expense}",
-                color="red-2",
+            ui.label(f"\U0001f4e5 {t('import.stats_expense')}: {counts.expense}").classes(
+                "k-stat-chip k-stat-chip--expense"
             )
-            ui.chip(
-                f"\U0001f4e4 {t('import.stats_income')}: {counts.income}",
-                color="green-2",
+            ui.label(f"\U0001f4e4 {t('import.stats_income')}: {counts.income}").classes(
+                "k-stat-chip k-stat-chip--income"
             )
-            ui.chip(
-                f"\U0001f504 {t('import.stats_transfer')}: {counts.transfer}",
-                color="blue-2",
+            ui.label(f"\U0001f504 {t('import.stats_transfer')}: {counts.transfer}").classes(
+                "k-stat-chip k-stat-chip--transfer"
             )
         preview_rows = build_preview_table_rows(rows, known_digits)
         for row in preview_rows:

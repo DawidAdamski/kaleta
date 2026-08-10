@@ -3,7 +3,7 @@ plan_id: import-flow-polish
 title: Import — post-import reset, clearer actions, duplicate transparency, dark-mode fix
 area: import
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -113,6 +113,32 @@ that heuristic belongs to the transfer/dedupe engines), column mapping
    settings as defaults for the next session (the `queue_inherited`
    mechanism)? Default: **yes** — that is the monthly re-import flow.
 
+## Tests (same PR as the implementation)
+
+Unit (`tests/unit/services/test_import_service.py`):
+
+1. `filter_duplicates` returns skipped `TransactionCreate` rows (not only
+   a count) for exact (account, date, amount, description) matches;
+   unique rows remain in the first return value.
+
+E2E (`tests/e2e/test_csv_import.py`, docstrings with `Covers: KAL-*`):
+
+2. KAL-CSV-010 — complete an import, click "Start new import", upload
+   and import again without reloading.
+3. KAL-CSV-011 — seed a matching ledger row, import the CSV with skip
+   duplicates on; assert help tooltip text and expandable skipped list
+   shows date/amount/description.
+
+KAL-CSV-012 stays `@manual` (visual dark/light assert).
+
 ## Implementation notes
 
-_Filled in as work progresses._
+- Open Q1: keep last file's account/category settings across "Start new
+  import" via `state["last_settings"]` so `inherit_queue_settings` still
+  works with an empty queue (monthly re-import flow).
+- Dark-mode chips: Quasar `color="red-2"` etc. lose contrast under
+  `.body--dark .q-chip` solid override — replaced with `k-stat-chip--*`
+  theme tokens. Metadata banner drops `bg-blue-50` in favour of
+  light+dark `k-info-banner` styles.
+- Button label uses ready-file count only; tooltip clarifies pending/
+  failed are skipped.

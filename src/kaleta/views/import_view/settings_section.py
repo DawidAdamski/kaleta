@@ -96,7 +96,11 @@ def build_settings_section(
             income_cat_sel = ui.select(
                 income_cat_opts, label=t("import.default_income_cat")
             ).classes("flex-1 min-w-48")
-        skip_dupes_cb = ui.checkbox(t("import.skip_duplicates"), value=True)
+        with ui.row().classes("items-center gap-1"):
+            skip_dupes_cb = ui.checkbox(t("import.skip_duplicates"), value=True)
+            ui.icon("help_outline", size="1rem").classes("text-slate-500 cursor-help").tooltip(
+                t("import.skip_duplicates_help")
+            )
     return SettingsSection(
         card=card,
         account_sel=account_sel,
