@@ -26,7 +26,7 @@ from kaleta.views.transactions.split_editor import build_split_editor
 class EditDialogContext:
     dialog: Any
     tag_sel: Any
-    open_for_id: Callable[[int], Any]
+    open_for_id: Callable[..., Any]
 
 
 def build_edit_dialog(
@@ -87,7 +87,18 @@ def build_edit_dialog(
 
         edit_account_sel = ui.select(account_options, label=t("common.account")).classes("w-full")
 
-        edit_category_sel = ui.select(expense_cats, label=t("common.category")).classes("w-full")
+        with ui.row().classes("w-full items-start gap-3 no-wrap"):
+            edit_category_sel = ui.select(expense_cats, label=t("common.category")).classes(
+                "flex-1"
+            )
+            with ui.column().classes("gap-0 shrink-0 pt-1"):
+                edit_split_switch = ui.switch(
+                    t("transactions.split"),
+                    on_change=lambda e: _on_edit_split_toggle(bool(e.value)),
+                )
+                ui.label(t("transactions.split_tooltip")).classes(
+                    "text-xs text-slate-500 max-w-[11rem] leading-tight"
+                )
 
         edit_amount_input = ui.number(t("common.amount"), min=0.01, step=0.01).classes("w-full")
 
@@ -126,7 +137,11 @@ def build_edit_dialog(
             else:
                 edit_save_btn.disable()
 
-        refresh_edit_split_rows, refresh_edit_split_balance, _ = build_split_editor(
+        (
+            refresh_edit_split_rows,
+            refresh_edit_split_balance,
+            focus_first_split_cat,
+        ) = build_split_editor(
             split_rows=edit_split_rows,
             tx_type_sel=edit_type_sel,
             income_cats=income_cats,
@@ -142,6 +157,22 @@ def build_edit_dialog(
 
         edit_amount_input.on_value_change(_on_edit_amount_change)
 
+        def _on_edit_split_toggle(value: bool) -> None:
+            edit_is_split["value"] = value
+            is_transfer = edit_type_sel.value == TransactionType.TRANSFER.value
+            edit_category_sel.set_visibility(not value and not is_transfer)
+            edit_split_container.set_visibility(value)
+            if value:
+                while len(edit_split_rows) < 2:
+                    edit_split_rows.append({"category_id": None, "amount": None, "note": ""})
+                refresh_edit_split_rows()
+                refresh_edit_split_balance()
+                focus_first_split_cat()
+            else:
+                refresh_edit_split_rows()
+                refresh_edit_split_balance()
+            _update_save_enabled()
+
         def _on_edit_type_change() -> None:
             chosen = edit_type_sel.value
             is_transfer = chosen == TransactionType.TRANSFER.value
@@ -152,7 +183,11 @@ def build_edit_dialog(
             else:
                 edit_category_sel.set_options({})
             edit_category_sel.set_visibility(not is_transfer and not edit_is_split["value"])
-            if edit_is_split["value"]:
+            edit_split_switch.set_visibility(not is_transfer)
+            if is_transfer and edit_is_split["value"]:
+                edit_split_switch.set_value(False)
+                _on_edit_split_toggle(False)
+            elif edit_is_split["value"]:
                 refresh_edit_split_rows()
 
         edit_type_sel.on("update:model-value", lambda _: _on_edit_type_change())
@@ -213,6 +248,14 @@ def build_edit_dialog(
                 ]
                 data.is_split = True
                 data.category_id = None
+            else:
+                data.is_split = False
+                if (
+                    chosen_type in (TransactionType.INCOME, TransactionType.EXPENSE)
+                    and not edit_category_sel.value
+                ):
+                    ui.notify(t("transactions.select_category"), type="negative")
+                    return
 
             async def _update(session: Any) -> CategorisationRuleSuggestion | None:
                 await TransactionService(session).update(tx_id, data)
@@ -249,7 +292,7 @@ def build_edit_dialog(
             ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
             edit_save_btn = ui.button(t("common.save"), on_click=edit_submit).props("color=primary")
 
-    async def open_for_id(tx_id: int) -> None:
+    async def open_for_id(tx_id: int, *, arm_split: bool = False) -> None:
         async def _load(session: Any) -> Any:
             return await TransactionService(session).get(tx_id)
 
@@ -257,7 +300,6 @@ def build_edit_dialog(
         if tx is None:
             return
         edit_tx_id["value"] = tx_id
-        edit_is_split["value"] = tx.is_split
         edit_original_category_id["value"] = tx.category_id
         edit_payee_name["value"] = tx.payee.name if tx.payee else None
         edit_split_rows.clear()
@@ -283,12 +325,24 @@ def build_edit_dialog(
         else:
             edit_category_sel.set_options({})
         edit_category_sel.set_value(tx.category_id)
-        edit_category_sel.set_visibility(not tx.is_internal_transfer and not tx.is_split)
         edit_tag_sel.set_value([tg.id for tg in tx.tags])
-        edit_split_container.set_visibility(tx.is_split)
-        if tx.is_split:
+
+        is_transfer = tx.type == TransactionType.TRANSFER or tx.is_internal_transfer
+        want_split = (tx.is_split or arm_split) and not is_transfer
+        edit_is_split["value"] = want_split
+        edit_split_switch.set_visibility(not is_transfer)
+        edit_split_switch.set_value(want_split)
+        edit_category_sel.set_visibility(not is_transfer and not want_split)
+        edit_split_container.set_visibility(want_split)
+
+        if want_split:
+            if arm_split and not tx.is_split:
+                while len(edit_split_rows) < 2:
+                    edit_split_rows.append({"category_id": None, "amount": None, "note": ""})
             refresh_edit_split_rows()
             refresh_edit_split_balance()
+            if arm_split and not tx.is_split:
+                focus_first_split_cat()
             edit_info.set_visibility(False)
         elif tx.is_internal_transfer:
             edit_info.set_text(t("transactions.transfer_edit_note"))

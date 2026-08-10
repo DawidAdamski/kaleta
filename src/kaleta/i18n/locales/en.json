@@ -190,6 +190,7 @@
     "group_month": "Month",
     "split": "Split",
     "split_tooltip": "Split this transaction across categories",
+    "split_category": "Split ({count})",
     "add_split": "Add split",
     "fill_last": "Fill last",
     "balanced": "Balanced",

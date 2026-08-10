@@ -3,7 +3,7 @@ plan_id: transactions-split-discoverability
 title: Transactions — make splits discoverable (row indicator, row action, dialog hint)
 area: transactions
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#transactions
 ---
 
@@ -111,4 +111,14 @@ E2E (`tests/e2e/test_transactions.py`, docstrings with
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- Next free IDs were KAL-SPL-005 / KAL-SPL-006 (001–004 already automated).
+- Row fields (`has_splits`, `split_count`, `split_tooltip`) live on
+  `TransactionService.build_table_row`; category label i18n is applied in
+  `attach_split_labels` (same pattern as `attach_type_labels`) so the service
+  stays free of `t()`.
+- CSV export keeps the detailed `category_display_label` (`(Split: A, B)`);
+  only the table uses `Split (N)` / `Podzielona (N)`.
+- Per-row "Split" action is in the table actions cell (not the bulk bar in
+  `table_actions.py`); emits `split_tx` and opens edit with `arm_split=True`.
+- Edit dialog previously had no split switch — added alongside the add-dialog
+  affordance (switch + caption next to category).

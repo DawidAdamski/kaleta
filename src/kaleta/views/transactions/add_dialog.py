@@ -73,7 +73,16 @@ def build_add_dialog(
             "w-full"
         )
 
-        category_sel = ui.select(expense_cats, label=t("common.category")).classes("w-full")
+        with ui.row().classes("w-full items-start gap-3 no-wrap"):
+            category_sel = ui.select(expense_cats, label=t("common.category")).classes("flex-1")
+            with ui.column().classes("gap-0 shrink-0 pt-1"):
+                split_switch = ui.switch(
+                    t("transactions.split"),
+                    on_change=lambda e: _on_split_toggle(e.value),
+                )
+                ui.label(t("transactions.split_tooltip")).classes(
+                    "text-xs text-slate-500 max-w-[11rem] leading-tight"
+                )
 
         today_str = str(datetime.date.today())
         date_text = ui.input(t("common.date")).props("type=date").classes("w-full")
@@ -88,11 +97,6 @@ def build_add_dialog(
             )
             .classes("w-full")
             .props("use-chips clearable")
-        )
-
-        split_switch = ui.switch(
-            t("transactions.split"),
-            on_change=lambda e: _on_split_toggle(e.value),
         )
 
         fx_row = ui.column().classes("w-full gap-2 border border-primary rounded p-3")

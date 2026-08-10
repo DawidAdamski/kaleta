@@ -1343,3 +1343,81 @@ class TestSplitIntegrity:
         assert updated.is_split is False
         assert updated.category_id == cat1_id
         assert updated.splits == []
+
+
+# ── Table row build (KAL-SPL-005 discoverability) ─────────────────────────────
+
+
+class TestBuildTableRowSplits:
+    async def test_split_row_has_indicator_fields(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-005"""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Groceries")
+        cat2_id = await _make_category(session, "Alcohol")
+        tx = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("214.50"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                description="Lidl",
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("180.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("34.50")),
+                ],
+            )
+        )
+        assert tx is not None
+        row = TransactionService.build_table_row(tx, None, "none")
+        assert row["has_splits"] is True
+        assert row["split_count"] == 2
+        assert row["category"] == "Split (2)"
+        assert row["split_tooltip"] == "180.00 Groceries · 34.50 Alcohol"
+
+    async def test_plain_row_has_no_split_fields(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-005"""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session, "Groceries")
+        tx = await svc.create(_tx(acc_id, cat_id, description="Plain"))
+        assert tx is not None
+        row = TransactionService.build_table_row(tx, None, "none")
+        assert row["has_splits"] is False
+        assert row["split_count"] == 0
+        assert row["category"] == "Groceries"
+        assert row["split_tooltip"] == ""
+
+    async def test_list_splits_available_after_expunge(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-SPL-005 — list() must eager-load splits (no N+1 / lazy load)."""
+        acc_id = await _make_account(session)
+        cat1_id = await _make_category(session, "Groceries")
+        cat2_id = await _make_category(session, "Alcohol")
+        await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("214.50"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1_id, amount=Decimal("180.00")),
+                    TransactionSplitCreate(category_id=cat2_id, amount=Decimal("34.50")),
+                ],
+            )
+        )
+        txs = await svc.list()
+        session.expunge_all()
+        assert len(txs) == 1
+        assert len(txs[0].splits) == 2
+        assert txs[0].splits[0].category is not None
+        row = TransactionService.build_table_row(txs[0], None, "none")
+        assert row["has_splits"] is True
+        assert row["split_count"] == 2

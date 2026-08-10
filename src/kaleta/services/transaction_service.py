@@ -310,10 +310,22 @@ class TransactionService:
 
     @staticmethod
     def category_display_label(transaction: Transaction) -> str:
+        """Human-readable category for CSV / exports (lists split category names)."""
         if transaction.is_split and transaction.splits:
             names = [s.category.name for s in transaction.splits if s.category]
             return f"(Split: {', '.join(names)})" if names else "(Split)"
         return transaction.category.name if transaction.category else "—"
+
+    @staticmethod
+    def split_lines_summary(transaction: Transaction) -> str:
+        """Tooltip text listing split amounts and category names (locale-neutral)."""
+        if not transaction.is_split or not transaction.splits:
+            return ""
+        parts: builtins.list[str] = []
+        for split in transaction.splits:
+            name = split.category.name if split.category else "—"
+            parts.append(f"{split.amount:,.2f} {name}")
+        return " · ".join(parts)
 
     @staticmethod
     def group_separator_label(
@@ -356,12 +368,24 @@ class TransactionService:
         grouping: str,
     ) -> dict[str, Any]:
         prev_date = prev_transaction.date if prev_transaction else None
+        has_splits = bool(transaction.is_split and transaction.splits)
+        split_count = len(transaction.splits) if has_splits else 0
+        if has_splits:
+            # English fallback; views.attach_split_labels overwrites with t().
+            category = f"Split ({split_count})"
+            split_tooltip = TransactionService.split_lines_summary(transaction)
+        else:
+            category = transaction.category.name if transaction.category else "—"
+            split_tooltip = ""
         return {
             "id": transaction.id,
             "date": str(transaction.date),
             "account": transaction.account.name if transaction.account else "—",
             "description": (transaction.description or "—")[:55],
-            "category": TransactionService.category_display_label(transaction),
+            "category": category,
+            "has_splits": has_splits,
+            "split_count": split_count,
+            "split_tooltip": split_tooltip,
             "type": transaction.type.value,
             "amount": TransactionService.format_signed_amount(transaction.amount, transaction.type),
             "tags": "",

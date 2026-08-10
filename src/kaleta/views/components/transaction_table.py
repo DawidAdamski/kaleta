@@ -26,6 +26,15 @@ def attach_type_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def attach_split_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Localise the category cell for split rows (``Split (N)`` / ``Podzielona (N)``)."""
+    for row in rows:
+        if row.get("has_splits"):
+            count = int(row.get("split_count") or 0)
+            row["category"] = t("transactions.split_category", count=count)
+    return rows
+
+
 def transaction_columns() -> list[dict[str, Any]]:
     """Standard column definitions for the transactions list table."""
     return [
@@ -58,7 +67,7 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("common.category"),
             "field": "category",
             "align": "left",
-            "style": "width: 130px; min-width: 100px",
+            "style": "width: 150px; min-width: 120px",
         },
         {
             "name": "type",
@@ -87,12 +96,12 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": "",
             "field": "actions",
             "align": "right",
-            "style": "width: 48px; min-width: 48px",
+            "style": "width: 88px; min-width: 88px",
         },
     ]
 
 
-def _body_slot(colspan: int) -> str:
+def _body_slot(colspan: int, *, edit_label: str, split_label: str) -> str:
     return (
         '<tr v-if="props.row.sep_label" class="bg-slate-50">'
         f'<td colspan="{colspan}" style="font-weight:500;border-bottom:1px solid #e0e0e0"'
@@ -108,7 +117,15 @@ def _body_slot(colspan: int) -> str:
         '<q-td key="date" :props="props">{{ props.row.date }}</q-td>'
         '<q-td key="account" :props="props">{{ props.row.account }}</q-td>'
         '<q-td key="description" :props="props">{{ props.row.description }}</q-td>'
-        '<q-td key="category" :props="props">{{ props.row.category }}</q-td>'
+        '<q-td key="category" :props="props">'
+        '<div class="row items-center no-wrap q-gutter-xs">'
+        '<q-icon v-if="props.row.has_splits" name="call_split" size="xs" color="primary"'
+        ' class="split-row-icon">'
+        "<q-tooltip>{{ props.row.split_tooltip }}</q-tooltip>"
+        "</q-icon>"
+        "<span>{{ props.row.category }}</span>"
+        "</div>"
+        "</q-td>"
         '<q-td key="type" :props="props">{{ props.row.type_label }}</q-td>'
         f"{amount_cell_slot()}"
         '<q-td key="tags" :props="props">'
@@ -119,7 +136,14 @@ def _body_slot(colspan: int) -> str:
         "</q-td>"
         '<q-td key="actions" :props="props" auto-width>'
         '<q-btn flat round dense icon="edit" size="sm" color="primary"'
+        f' aria-label="{edit_label}"'
         " @click=\"$parent.$emit('edit_tx', props.row.id)\" />"
+        "<q-btn v-if=\"!props.row.has_splits && props.row.type !== 'transfer'\""
+        ' flat round dense icon="call_split" size="sm" color="primary"'
+        f' aria-label="{split_label}"'
+        " @click=\"$parent.$emit('split_tx', props.row.id)\">"
+        f"<q-tooltip>{split_label}</q-tooltip>"
+        "</q-btn>"
         "</q-td>"
         "</q-tr>"
     )
@@ -130,9 +154,10 @@ def render_transaction_table(
     *,
     on_edit: Callable[[Any], Awaitable[None]],
     on_selection: Callable[[object], None],
+    on_split: Callable[[Any], Awaitable[None]] | None = None,
     colspan: int = 9,
 ) -> Any:
-    """Render the transactions data table and wire edit/selection events."""
+    """Render the transactions data table and wire edit/selection/split events."""
     tbl = (
         ui.table(columns=transaction_columns(), rows=rows, row_key="id")
         .classes(TABLE_SURFACE)
@@ -140,8 +165,17 @@ def render_transaction_table(
     )
     tbl.props("selection=multiple")
     tbl.add_slot("no-data", table_no_data_slot())
-    tbl.add_slot("body", _body_slot(colspan))
+    tbl.add_slot(
+        "body",
+        _body_slot(
+            colspan,
+            edit_label=t("common.edit"),
+            split_label=t("transactions.split"),
+        ),
+    )
     tbl.on("edit_tx", on_edit)
+    if on_split is not None:
+        tbl.on("split_tx", on_split)
     tbl.on("update:selected", on_selection)
     return tbl
 
