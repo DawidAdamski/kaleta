@@ -723,6 +723,14 @@ Feature: Manual Transaction Entry
     And I am on the Transactions page
     When I filter by account "PKO Main"
     Then I only see transactions for "PKO Main"
+
+  KAL-TXN-006 @manual
+  Scenario: Transaction type column uses translated labels
+    Given the UI language is set to Polish
+    And there are expense, income, and transfer transactions
+    And I am on the Transactions page
+    Then the Type column shows "Wydatek", "Przychód", and "Przelew"
+    And amount colours still follow the raw type (expense red, income green, transfer neutral)
 ```
 
 ## Feature: Quick Entry

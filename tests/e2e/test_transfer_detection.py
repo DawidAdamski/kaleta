@@ -57,9 +57,13 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     _select_import_option(page, "Default income category", income_cat)
 
     preview = page.locator(".q-table")
-    expect(preview.get_by_text("transfer", exact=False).first).to_be_visible(timeout=5000)
-    expect(preview.get_by_text("expense", exact=False).first).to_be_visible(timeout=5000)
-    expect(preview.get_by_text("income", exact=False).first).to_be_visible(timeout=5000)
+    expect(preview.get_by_role("cell", name="Transfer", exact=True).first).to_be_visible(
+        timeout=5000
+    )
+    expect(preview.get_by_role("cell", name="Expense", exact=True).first).to_be_visible(
+        timeout=5000
+    )
+    expect(preview.get_by_role("cell", name="Income", exact=True).first).to_be_visible(timeout=5000)
 
     page.get_by_role("button", name="Import all").click()
     expect(page.get_by_text("Imported", exact=False).first).to_be_visible(timeout=10000)
@@ -74,16 +78,16 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
         page.locator(".q-table tbody tr").filter(has_text="Jan Kowalski — Transfer E2E").first
     )
     expect(transfer_row).to_be_visible(timeout=5000)
-    expect(transfer_row.get_by_role("cell", name="transfer", exact=True)).to_be_visible(
+    expect(transfer_row.get_by_role("cell", name="Transfer", exact=True)).to_be_visible(
         timeout=5000
     )
 
     search.click(click_count=3)
     search.fill("Biedronka Transfer E2E")
     expense_row = page.locator(".q-table tbody tr").filter(has_text="Biedronka Transfer E2E").first
-    expect(expense_row.get_by_role("cell", name="expense", exact=True)).to_be_visible(timeout=5000)
+    expect(expense_row.get_by_role("cell", name="Expense", exact=True)).to_be_visible(timeout=5000)
 
     search.click(click_count=3)
     search.fill("Salary Transfer E2E")
     income_row = page.locator(".q-table tbody tr").filter(has_text="Salary Transfer E2E").first
-    expect(income_row.get_by_role("cell", name="income", exact=True)).to_be_visible(timeout=5000)
+    expect(income_row.get_by_role("cell", name="Income", exact=True)).to_be_visible(timeout=5000)
