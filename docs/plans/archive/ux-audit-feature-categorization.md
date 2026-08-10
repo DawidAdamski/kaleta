@@ -4,7 +4,8 @@ title: UX audit — feature categorisation in nav and settings
 area: ux
 effort: medium
 roadmap_ref: ../roadmap.md#ux
-status: draft
+status: archived
+archived_at: 2026-08-10
 deferred_to: q4-2026
 ---
 
@@ -101,3 +102,24 @@ deliverable is the audit document.
 
 ## Implementation notes
 _Filled in as work progresses._
+
+## Implementation
+
+Landed on 2026-08-10.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `376409f` | Dawid (Ani) | 2026-08-10 | feat(nav): regroup sidebar by user workflow (audit phase A) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/ux-sidebar-workflow-and-settings.md
+- docs/ux/feature-categorization-audit.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/layout.py
+- tests/e2e/test_navigation.py
+
+**Acceptance criteria run** (step 3b): No executable acceptance criteria — all bullets are prose.
+
+**Notes:** The commit title references "audit phase A" and also includes the sidebar regroup implementation (Phase 2 work from the plan's scope). The key deliverable `docs/ux/feature-categorization-audit.md` is present in the commit. The follow-up plan `ux-sidebar-workflow-and-settings` was also touched in this commit, covering the implementation phase.
