@@ -171,8 +171,8 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [transactions-splits-integrity](archive/transactions-splits-integrity.md) | archived | Transactions |
 | [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |
 | [transactions-upcoming-planned](transactions-upcoming-planned.md) | draft | Transactions |
-| [ux-audit-feature-categorization](ux-audit-feature-categorization.md) | draft | UX / IA |
-| [setup-zero-config-bootstrap](setup-zero-config-bootstrap.md) | in-progress | Setup |
+| [ux-audit-feature-categorization](archive/ux-audit-feature-categorization.md) | archived | UX / IA |
+| [setup-zero-config-bootstrap](archive/setup-zero-config-bootstrap.md) | archived | Setup |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
 | [budgets-realization-view](archive/budgets-realization-view.md) | archived | Budgets |

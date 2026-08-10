@@ -3,7 +3,7 @@ plan_id: q4-dashboard-design-refresh
 title: Dashboard design refresh — match the target mockup
 area: dashboard
 effort: medium
-status: in_progress
+status: in-progress
 roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
 ---
 

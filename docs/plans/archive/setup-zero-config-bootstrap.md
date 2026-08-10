@@ -3,8 +3,9 @@ plan_id: setup-zero-config-bootstrap
 title: Setup — zero-config first-run for new users
 area: setup
 effort: medium
-roadmap_ref: ../roadmap.md#setup
-status: in-progress
+roadmap_ref: ../../roadmap.md#setup
+status: archived
+archived_at: 2026-08-10
 deferred_to: q4-2026
 ---
 
@@ -171,5 +172,29 @@ Shipped in this branch:
 - Web mode: `ui.run(show=not is_configured())`; `app` mode unchanged.
 - Tests: `KAL-SET-021`, `KAL-SET-022`.
 
-## Implementation (filled by plan-archiver)
-_Pending archive after merge._
+## Implementation
+
+Landed on 2026-07-27.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2f954e1` | Dawid (Ani) | 2026-07-27 | feat(setup): zero-config first-run with recommended location and API guard |
+
+**Files changed:**
+- README.md
+- docs/bdd.md
+- docs/plans/README.md
+- src/kaleta/api/deps.py
+- src/kaleta/api/errors.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/config/setup_config.py
+- src/kaleta/exceptions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/views/setup.py
+- tests/integration/conftest.py
+- tests/integration/test_api_cookie_auth.py
+- tests/integration/test_first_run.py
+
+**Acceptance criteria run** (step 3b): No executable acceptance criteria — all bullets are prose.

@@ -1,6 +1,6 @@
 # UX audit — feature categorisation in nav and settings
 
-Deliverable of plan [`ux-audit-feature-categorization`](../plans/ux-audit-feature-categorization.md).
+Deliverable of plan [`ux-audit-feature-categorization`](../plans/archive/ux-audit-feature-categorization.md).
 Date: 2026-08-09 · Status: proposal for review · Inputs: `views/layout.py`
 (NAV_GROUPS), `views/settings/page.py` (tabs), `docs/bdd.md` (workflow map),
 registered routes in `src/kaleta/views/`.
