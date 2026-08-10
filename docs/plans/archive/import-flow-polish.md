@@ -5,7 +5,7 @@ area: import
 effort: small
 status: archived
 archived_at: 2026-08-11
-roadmap_ref: ../roadmap.md#import
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — flow polish (reset, labels, duplicates, dark mode)
@@ -80,8 +80,8 @@ Four small dogfooding frictions on the Import page, one PR:
 
 Out of scope: fuzzy duplicate matching (amount±tolerance, date window —
 that heuristic belongs to the transfer/dedupe engines), column mapping
-([`import-mapping-wizard`](import-mapping-wizard.md)), import history
-([`import-history-account-coverage`](import-history-account-coverage.md)).
+([`import-mapping-wizard`](../import-mapping-wizard.md)), import history
+([`import-history-account-coverage`](../import-history-account-coverage.md)).
 
 ## Acceptance criteria
 

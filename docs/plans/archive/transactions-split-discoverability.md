@@ -5,7 +5,7 @@ area: transactions
 effort: small
 status: archived
 archived_at: 2026-08-11
-roadmap_ref: ../roadmap.md#transactions
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Transactions — make splits discoverable

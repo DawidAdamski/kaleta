@@ -5,7 +5,7 @@ area: categories
 effort: small
 status: archived
 archived_at: 2026-08-11
-roadmap_ref: ../roadmap.md#categories
+roadmap_ref: ../../roadmap.md#categories
 ---
 
 # Allow the same category name for income and expense
@@ -36,7 +36,7 @@ mental namespaces; the same name must be allowed once per type.
   ```
 
 - The DB constraint mirrors it: `uq_categories_name_parent
-  (name, parent_id)` from [ADR-018](../adr/018-category-uniqueness-scoped-to-parent.md).
+  (name, parent_id)` from [ADR-018](../../adr/018-category-uniqueness-scoped-to-parent.md).
 - Bonus finding: `CategoryService.update()` has **no duplicate check at
   all** — a rename can silently create a duplicate that `create()` would
   reject.

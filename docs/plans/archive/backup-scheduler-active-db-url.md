@@ -5,7 +5,7 @@ area: settings
 effort: small
 status: archived
 archived_at: 2026-08-11
-roadmap_ref: ../roadmap.md#settings
+roadmap_ref: ../../roadmap.md#settings
 ---
 
 # Scheduled backups must target the active database
@@ -18,7 +18,7 @@ database** configured via the setup wizard in `~/.kaleta/config.json`.
 When those differ, every scheduled backup either fails or — worse —
 silently backs up the *wrong* database while the user believes their real
 data is protected. This is a hole in the P0 data-safety layer
-(see [`audit-production-readiness.md`](audit-production-readiness.md), finding 2).
+(see [`audit-production-readiness.md`](../audit-production-readiness.md), finding 2).
 
 Observed in the wild (config.json pointed at a non-default path; app ran
 fine, migration safety copy was written correctly, then):
@@ -90,7 +90,7 @@ Out of scope: backup UI, retention policy changes, PostgreSQL backups
 1. Should `run_once()` failures on N consecutive ticks surface in the UI
    (Settings → Data banner) instead of log-only? Default: log-only in
    this plan; a visibility follow-up can ride with the observability plan
-   ([`observability-anonymous-events.md`](observability-anonymous-events.md)).
+   ([`observability-anonymous-events.md`](../observability-anonymous-events.md)).
 
 ## Implementation notes
 
