@@ -123,6 +123,8 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [categories-name-unique-per-type](categories-name-unique-per-type.md) | draft | Categories — dogfooding bug |
+| [backup-scheduler-active-db-url](backup-scheduler-active-db-url.md) | draft | Settings / data safety — dogfooding bug |
 | [auth-reset-password-cli](archive/auth-reset-password-cli.md) | archived | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft (Q4) | Dashboard |
 | [transactions-notes-field](transactions-notes-field.md) | draft (Q4) | Transactions |
