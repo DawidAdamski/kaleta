@@ -80,17 +80,52 @@ class CategoryService:
         )
         return result.scalar_one_or_none()
 
-    async def create(self, data: CategoryCreate) -> Category:
-        # SQLite treats NULL != NULL in unique constraints, so enforce (name, parent_id)
-        # uniqueness manually to catch duplicate root-level category names.
-        stmt = select(Category).where(Category.name == data.name)
-        if data.parent_id is None:
+    async def _assert_type_matches_parent(
+        self, *, parent_id: int | None, category_type: CategoryType
+    ) -> None:
+        """Reject mixed-type subtrees (child type must equal parent type)."""
+        if parent_id is None:
+            return
+        parent = await self.get(parent_id)
+        if parent is None:
+            raise NotFoundError(f"Parent category id={parent_id} not found")
+        if parent.type != category_type:
+            raise ConflictError(
+                f"Category type '{category_type.value}' must match parent type "
+                f"'{parent.type.value}'"
+            )
+
+    async def _assert_unique_name(
+        self,
+        *,
+        name: str,
+        parent_id: int | None,
+        category_type: CategoryType,
+        exclude_id: int | None = None,
+    ) -> None:
+        # SQLite treats NULL != NULL in unique constraints, so enforce
+        # (name, parent_id, type) uniqueness manually for root categories.
+        stmt = select(Category).where(
+            Category.name == name,
+            Category.type == category_type,
+        )
+        if parent_id is None:
             stmt = stmt.where(Category.parent_id.is_(None))
         else:
-            stmt = stmt.where(Category.parent_id == data.parent_id)
+            stmt = stmt.where(Category.parent_id == parent_id)
+        if exclude_id is not None:
+            stmt = stmt.where(Category.id != exclude_id)
         existing = await self.session.execute(stmt)
         if existing.scalar_one_or_none() is not None:
-            raise ConflictError(f"Category name '{data.name}' already exists under the same parent")
+            raise ConflictError(f"Category name '{name}' already exists under the same parent")
+
+    async def create(self, data: CategoryCreate) -> Category:
+        await self._assert_type_matches_parent(parent_id=data.parent_id, category_type=data.type)
+        await self._assert_unique_name(
+            name=data.name,
+            parent_id=data.parent_id,
+            category_type=data.type,
+        )
         category = Category(**data.model_dump())
         self.session.add(category)
         await self.session.commit()
@@ -105,7 +140,21 @@ class CategoryService:
         category = await self.get(category_id)
         if category is None:
             return None
-        for field, value in data.model_dump(exclude_unset=True).items():
+        updates = data.model_dump(exclude_unset=True)
+        effective_name = updates.get("name", category.name)
+        effective_parent_id = updates.get("parent_id", category.parent_id)
+        effective_type = updates.get("type", category.type)
+        await self._assert_type_matches_parent(
+            parent_id=effective_parent_id,
+            category_type=effective_type,
+        )
+        await self._assert_unique_name(
+            name=effective_name,
+            parent_id=effective_parent_id,
+            category_type=effective_type,
+            exclude_id=category_id,
+        )
+        for field, value in updates.items():
             setattr(category, field, value)
         await self.session.commit()
         # Re-fetch with selectinload so children are available for serialization.

@@ -3,7 +3,7 @@ plan_id: categories-name-unique-per-type
 title: Allow the same category name for income and expense (uniqueness per type)
 area: categories
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#categories
 ---
 
@@ -98,4 +98,16 @@ income/expense lists); merging or renaming existing user data.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- Child-type guard was missing in `create`/`update`; added hard-fail
+  `ConflictError` (open question default) so per-type uniqueness cannot
+  produce mixed-type subtrees. Missing parent on create/update also raises
+  `NotFoundError`.
+- Template `preview_template` / `apply_template` already skip by
+  `(lower(name), type)` at root — no change needed.
+- Existing unit test `test_duplicate_name_raises` encoded the bug (expense
+  then income same name expected to fail); replaced with same-type reject +
+  KAL-CAT-012 cross-type allow cases. Integration API test also covers
+  KAL-CAT-012 (spec_coverage only counts e2e/integration `Covers:`).
+- ADR-018 amended in place (title + decision now include `type`); no new ADR.
+- Views unchanged — Categories page already splits income/expense lists; short
+  `verify.sh` gate is sufficient.

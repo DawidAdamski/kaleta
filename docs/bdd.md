@@ -425,6 +425,14 @@ Feature: Category Management
     And I see "Monthly" as a subcategory under "Subscriptions"
     And I see "Yearly" as a subcategory under "Subscriptions"
     And I see "Other" as a subcategory under "Subscriptions"
+
+  KAL-CAT-012 @automated
+  Scenario: Same root category name allowed once per type
+    Given there is an expense category "Nieprzypisane"
+    And I am on the Categories page
+    When I add an income category named "Nieprzypisane" without a parent
+    Then I see "Nieprzypisane" in the income categories list
+    And I see "Nieprzypisane" in the expense categories list
 ```
 
 ## Feature: Tag Management
