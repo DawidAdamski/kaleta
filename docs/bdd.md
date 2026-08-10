@@ -897,6 +897,37 @@ Feature: mBank CSV Import
     And I import an mBank file for "mBank PLN" that contains a transfer to "12114020040000330299991234"
     Then that transaction is imported as type "Transfer"
     And the other transactions are imported as "Expense" or "Income"
+
+  KAL-CSV-010 @automated
+  Scenario: User starts a second import without reloading
+    Given I have completed an import on the Import page
+    When I click "Start new import"
+    Then the queue and summary are cleared
+    And I am back at the Upload step
+    When I upload another CSV file and import it
+    Then the new file is imported successfully
+    And I never had to reload the page
+
+  KAL-CSV-011 @automated
+  Scenario: Skipped duplicates are listed with the matching rule explained
+    Given the ledger already contains a transaction matching a CSV row
+      on account, date, amount and description
+    And I am on the Import page
+    And "Skip duplicates" is checked
+    When I hover the help icon next to "Skip duplicates"
+    Then I see an explanation that a row is skipped when the same
+      account, date, amount and description already exist
+    When I upload a CSV that includes that duplicate row and import it
+    Then the import summary shows an expandable "Skipped N duplicates" list
+    And the list includes the date, amount and description of the skipped row
+
+  KAL-CSV-012 @manual
+  Scenario: Import page is readable in dark mode
+    Given I am on the Import page in dark mode
+    When I upload a CSV file so the preview chips and metadata banner appear
+    Then the Expenses, Income and Transfers chips are readable
+    And the mBank metadata banner is readable
+    And the same elements remain readable after switching to light mode
 ```
 
 ## Feature: Transfer Recognition

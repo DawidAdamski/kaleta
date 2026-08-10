@@ -44,7 +44,7 @@ class MetadataSection:
 
 
 def build_metadata_section() -> MetadataSection:
-    card = ui.card().classes("k-info-banner w-full bg-blue-50")
+    card = ui.card().classes("k-info-banner w-full")
     card.set_visibility(False)
     with card:
         grid = ui.grid(columns=2).classes("w-full gap-x-6 gap-y-1")

@@ -694,3 +694,79 @@ class TestApplyCategorisationRules:
 
         creates = await svc.apply_categorisation_rules(creates)
         assert creates[0].category_id == groceries.id
+
+
+# ── Duplicate filtering ───────────────────────────────────────────────────────
+
+
+class TestFilterDuplicates:
+    async def test_returns_skipped_rows_not_only_count(self, session: AsyncSession) -> None:
+        """Covers: KAL-CSV-011 — filter_duplicates returns the skipped creates."""
+        from kaleta.schemas.transaction import TransactionCreate
+        from kaleta.services import TransactionService
+
+        account_id = await _make_account(session)
+        expense_id = await _make_expense_cat(session)
+        income_id = await _make_income_cat(session)
+
+        existing = TransactionCreate(
+            account_id=account_id,
+            category_id=expense_id,
+            amount=Decimal("50.00"),
+            type=TransactionType.EXPENSE,
+            date=datetime.date(2024, 1, 15),
+            description="Biedronka",
+        )
+        await TransactionService(session).create(existing)
+
+        unique_row = TransactionCreate(
+            account_id=account_id,
+            category_id=expense_id,
+            amount=Decimal("120.50"),
+            type=TransactionType.EXPENSE,
+            date=datetime.date(2024, 1, 17),
+            description="Orlen",
+        )
+        income_row = TransactionCreate(
+            account_id=account_id,
+            category_id=income_id,
+            amount=Decimal("2000.00"),
+            type=TransactionType.INCOME,
+            date=datetime.date(2024, 1, 16),
+            description="Wyplata",
+        )
+        duplicate = TransactionCreate(
+            account_id=account_id,
+            category_id=expense_id,
+            amount=Decimal("50.00"),
+            type=TransactionType.EXPENSE,
+            date=datetime.date(2024, 1, 15),
+            description="Biedronka",
+        )
+
+        svc = ImportService(session)
+        unique, skipped = await svc.filter_duplicates([duplicate, unique_row, income_row])
+
+        assert len(unique) == 2
+        assert {c.description for c in unique} == {"Orlen", "Wyplata"}
+        assert len(skipped) == 1
+        assert skipped[0].description == "Biedronka"
+        assert skipped[0].date == datetime.date(2024, 1, 15)
+        assert skipped[0].amount == Decimal("50.00")
+
+    async def test_no_duplicates_returns_empty_skipped(self, session: AsyncSession) -> None:
+        from kaleta.schemas.transaction import TransactionCreate
+
+        account_id = await _make_account(session)
+        expense_id = await _make_expense_cat(session)
+        row = TransactionCreate(
+            account_id=account_id,
+            category_id=expense_id,
+            amount=Decimal("10.00"),
+            type=TransactionType.EXPENSE,
+            date=datetime.date(2024, 2, 1),
+            description="Fresh",
+        )
+        unique, skipped = await ImportService(session).filter_duplicates([row])
+        assert len(unique) == 1
+        assert skipped == []

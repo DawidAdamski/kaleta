@@ -94,7 +94,7 @@ def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
         _select_option(page, "Default expense category", expense_default)
         _select_option(page, "Default income category", income_cat)
 
-        page.get_by_role("button", name="Import all").click()
+        page.get_by_role("button", name="Import 1 file").click()
         expect(page.get_by_text("Imported", exact=False).first).to_be_visible(timeout=10000)
 
         page.goto(f"{base_url}/transactions")

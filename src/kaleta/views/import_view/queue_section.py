@@ -11,7 +11,7 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.views.components.empty_state import table_no_data_slot
 from kaleta.views.import_view.constants import STATUS_COLOR
-from kaleta.views.import_view.state import QueuedFile
+from kaleta.views.import_view.state import QueuedFile, import_button_label
 
 
 @dataclass
@@ -31,9 +31,19 @@ class QueueSection:
         with self.container:
             if not queue:
                 ui.html(table_no_data_slot("import.queue_empty"), sanitize=False).classes("py-2")
+                self.update_import_button(0)
                 return
             for queued_file in queue:
                 self._render_row(queued_file, active_id, on_select=on_select, on_remove=on_remove)
+        ready = sum(1 for f in queue if f.status == "ready")
+        self.update_import_button(ready)
+
+    def update_import_button(self, ready_count: int) -> None:
+        self.import_all_btn.set_text(import_button_label(ready_count))
+        if ready_count <= 0:
+            self.import_all_btn.props("disable")
+        else:
+            self.import_all_btn.props(remove="disable")
 
     def _render_row(
         self,
@@ -91,8 +101,10 @@ def build_queue_section() -> QueueSection:
     with ui.card().classes("w-full"):
         with ui.row().classes("w-full items-center justify-between mb-2"):
             ui.label(t("import.queue_section")).classes("text-lg font-semibold")
-            import_all_btn = ui.button(t("import.import_all"), icon="upload").props(
-                "color=primary unelevated"
+            import_all_btn = (
+                ui.button(t("import.import_btn_zero"), icon="upload")
+                .props("color=primary unelevated disable")
+                .tooltip(t("import.import_btn_tooltip"))
             )
         ui.label(t("import.queue_active_hint")).classes("text-xs text-slate-500 mb-2")
         container = ui.column().classes("w-full gap-1")

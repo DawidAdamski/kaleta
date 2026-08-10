@@ -74,6 +74,15 @@ body,.q-body--layout{
   font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
   font-feature-settings:'cv02','cv03','cv04','cv11'
 }
+.k-info-banner{background:rgba(13,148,136,.08)}
+.k-stat-chip{
+  display:inline-flex;align-items:center;gap:.35rem;
+  padding:.25rem .75rem;border-radius:9999px;
+  font-size:.875rem;font-weight:500;line-height:1.25
+}
+.k-stat-chip--expense{background:rgba(220,38,38,.12);color:rgb(185,28,28)}
+.k-stat-chip--income{background:rgba(22,163,74,.12);color:rgb(21,128,61)}
+.k-stat-chip--transfer{background:rgba(100,116,139,.15);color:rgb(71,85,105)}
 """
 
 # Dark-mode overrides via Quasar `.body--dark` on <body>.
@@ -137,6 +146,9 @@ body.body--dark{background-color:rgb(10,14,23);color-scheme:dark}
 .body--dark .k-cat-row:hover{background:rgba(21,25,34,.5)}
 .body--dark .k-subcat-label{color:rgb(226,232,240)}
 .body--dark .k-info-banner{background:rgba(13,148,136,.15)}
+.body--dark .k-stat-chip--expense{background:rgba(239,68,68,.18);color:rgb(252,165,165)}
+.body--dark .k-stat-chip--income{background:rgba(34,197,94,.18);color:rgb(134,239,172)}
+.body--dark .k-stat-chip--transfer{background:rgba(148,163,184,.18);color:rgb(203,213,225)}
 .body--dark .k-selection-bar{background:rgba(13,148,136,.2);color:rgb(241,245,249)}
 .body--dark .kpi-trend-positive{color:rgb(94,234,212)}
 .body--dark .kpi-trend-negative{color:rgb(252,165,165)}
