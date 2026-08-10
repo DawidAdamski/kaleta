@@ -27,10 +27,28 @@ class ScheduledBackupService:
 
     @classmethod
     def from_settings(cls) -> ScheduledBackupService:
+        """Build from environment settings only (ignores ~/.kaleta/config.json)."""
         from kaleta.config import settings
 
         return cls(
             db_url=settings.db_url,
+            backup_dir=Path(settings.backup_dir),
+            retain=settings.backup_retain,
+        )
+
+    @classmethod
+    def from_active_config(cls) -> ScheduledBackupService:
+        """Build using the same DB URL precedence as ``main._preload_config``.
+
+        Prefer ``setup_config.get_db_url()`` (``~/.kaleta/config.json``); fall
+        back to ``settings.db_url``. Backup dir and retention still come from
+        environment settings.
+        """
+        from kaleta.config import settings
+        from kaleta.config.setup_config import get_db_url
+
+        return cls(
+            db_url=get_db_url() or settings.db_url,
             backup_dir=Path(settings.backup_dir),
             retain=settings.backup_retain,
         )

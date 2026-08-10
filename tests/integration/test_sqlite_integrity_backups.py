@@ -1,11 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration coverage for scheduled backups, SQLite pragmas, and integrity.
 
-Covers: KAL-SET-017, KAL-SET-018, KAL-INT-001, KAL-INT-002
+Covers: KAL-SET-017, KAL-SET-018, KAL-SET-023, KAL-INT-001, KAL-INT-002
 """
 
 from __future__ import annotations
 
+import sqlite3
 import time
 from pathlib import Path
 
@@ -13,6 +14,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.config import settings
 from kaleta.db.session import AsyncSessionFactory
 from kaleta.services.integrity_service import IntegrityService
 from kaleta.services.scheduled_backup_service import ScheduledBackupService
@@ -22,8 +24,6 @@ from tests.conftest import _USE_POSTGRES
 @pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only scheduled VACUUM backups")
 def test_scheduled_backup_retention_keeps_two(tmp_path: Path) -> None:
     """Covers: KAL-SET-017"""
-    import sqlite3
-
     source = tmp_path / "live.db"
     backup_dir = tmp_path / "backups"
     conn = sqlite3.connect(str(source))
@@ -44,6 +44,43 @@ def test_scheduled_backup_retention_keeps_two(tmp_path: Path) -> None:
 
     assert len(svc.list_backups()) == 2
     assert all(p.name.startswith("kaleta-") and p.suffix == ".db" for p in svc.list_backups())
+
+
+@pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only scheduled VACUUM backups")
+def test_scheduled_backup_uses_active_config_url(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-SET-023"""
+    active = tmp_path / "active.db"
+    default = tmp_path / "kaleta.db"
+    backup_dir = tmp_path / "backups"
+
+    for path, marker in ((active, "active"), (default, "default")):
+        conn = sqlite3.connect(str(path))
+        try:
+            conn.execute("CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)")
+            conn.execute("INSERT INTO demo (name) VALUES (?)", (marker,))
+            conn.commit()
+        finally:
+            conn.close()
+
+    monkeypatch.setattr(settings, "db_url", f"sqlite+aiosqlite:///{default}")
+    monkeypatch.setattr(settings, "backup_dir", str(backup_dir))
+    monkeypatch.setattr(settings, "backup_retain", 7)
+    monkeypatch.setattr(
+        "kaleta.config.setup_config.get_db_url",
+        lambda: f"sqlite+aiosqlite:///{active}",
+    )
+
+    created = ScheduledBackupService.from_active_config().run_once()
+    assert created is not None
+
+    verify = sqlite3.connect(str(created))
+    try:
+        row = verify.execute("SELECT name FROM demo").fetchone()
+    finally:
+        verify.close()
+    assert row == ("active",)
 
 
 @pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only connect pragmas")
