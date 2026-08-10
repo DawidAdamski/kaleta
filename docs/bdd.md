@@ -923,6 +923,35 @@ Feature: mBank CSV Import
     Then that transaction is imported as type "Transfer"
     And the other transactions are imported as "Expense" or "Income"
 
+  KAL-CSV-005 @automated
+  Scenario: User maps columns of an unrecognised CSV and imports it
+    Given there is an account "Revolut PLN"
+    And there is an expense category "Other Expenses"
+    And there is an income category "Other Income"
+    And I am on the Import page
+    And the profile is "Generic CSV"
+    When I upload a CSV whose headers the alias parser does not know
+    Then I see the column-mapping step with the first rows of the file
+    When I map date, amount and description to the correct columns
+    Then the preview updates with parsed transactions
+    When I select account and default categories and click Import
+    Then the transactions are imported successfully
+
+  KAL-CSV-006 @automated
+  Scenario: Mapping step pre-fills from alias detection
+    Given I am on the Import page with profile "Generic CSV"
+    When I upload a CSV with recognised headers (date, amount, description)
+    Then the mapping dropdowns are pre-selected from the alias parser
+    And I see a preview with parsed transactions without remapping
+
+  KAL-CSV-007 @automated
+  Scenario: Invalid mapping shows inline errors and blocks import
+    Given I am on the Import page with an uploaded generic CSV
+    When I clear the required date column mapping
+    Then I see an inline mapping error
+    And the file is not Ready
+    And the Import button stays disabled
+
   KAL-CSV-010 @automated
   Scenario: User starts a second import without reloading
     Given I have completed an import on the Import page

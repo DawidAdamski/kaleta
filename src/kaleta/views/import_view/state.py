@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_service import (
+    ColumnMapping,
+    CsvInspection,
     MBankFileMetadata,
     ParsedRow,
     QueueSettingsSnapshot,
@@ -22,6 +24,8 @@ class QueuedFile:
     parsed_rows: list[ParsedRow] = field(default_factory=list)
     parse_errors: list[str] = field(default_factory=list)
     metadata: MBankFileMetadata | None = None
+    column_mapping: ColumnMapping | None = None
+    inspection: CsvInspection | None = None
     target_account_id: int | None = None
     expense_cat_id: int | None = None
     income_cat_id: int | None = None
@@ -43,6 +47,7 @@ def settings_snapshot(file: QueuedFile) -> QueueSettingsSnapshot:
         expense_cat_id=file.expense_cat_id,
         income_cat_id=file.income_cat_id,
         skip_duplicates=file.skip_duplicates,
+        column_mapping=file.column_mapping,
     )
 
 
@@ -52,6 +57,8 @@ def apply_settings_snapshot(file: QueuedFile, snapshot: QueueSettingsSnapshot) -
     file.expense_cat_id = snapshot.expense_cat_id
     file.income_cat_id = snapshot.income_cat_id
     file.skip_duplicates = snapshot.skip_duplicates
+    if snapshot.column_mapping is not None:
+        file.column_mapping = snapshot.column_mapping
 
 
 def import_button_label(ready_count: int) -> str:

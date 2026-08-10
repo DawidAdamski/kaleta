@@ -3,7 +3,7 @@ plan_id: import-mapping-wizard
 title: Import — interactive column-mapping step for generic CSV
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -105,6 +105,39 @@ Out of scope:
    Default: **yes** — fall back to generic + mapping instead of a dead
    end.
 
+## Tests (same PR as the implementation)
+
+Unit (`tests/unit/services/test_import_service.py`):
+
+1. Explicit `ColumnMapping` parses a CSV whose headers the alias
+   detector does not know (e.g. Revolut-style columns).
+2. `detect_column_mapping` / `inspect_csv` pre-fills aliases for known
+   headers.
+3. Incomplete or invalid mapping returns errors and no ready rows
+   (import stays blocked).
+4. `inherit_queue_settings` copies `column_mapping` for same-profile
+   priors.
+
+E2E (`tests/e2e/test_csv_import.py`, docstrings with `Covers: KAL-*`):
+
+5. KAL-CSV-005 — upload an unrecognised-header CSV, map columns in the
+   mapping step, import successfully.
+6. KAL-CSV-006 — upload a known-alias CSV; mapping dropdowns are
+   pre-filled and preview shows rows without manual remapping.
+7. KAL-CSV-007 — leave a required mapping blank (or set an invalid
+   combination); inline errors appear and Import stays disabled.
+
 ## Implementation notes
 
-_Filled in as work progresses._
+- Open Q1: expose debit/credit dropdowns in the mapping UI (parser
+  already supports two-column amounts via aliases).
+- Open Q2: when mBank parse fails, fall back to generic profile +
+  mapping step instead of a dead-end `failed` status.
+- New queue status `needs_mapping` — Import button only counts `ready`.
+- `ColumnMapping` is a JSON-friendly dataclass (indices + format
+  strings) for reuse by `import-per-file-mapping-memory`.
+- Mapping-change handlers schedule async re-parse via
+  `nicegui.background_tasks` so live preview updates on every dropdown
+  change.
+- Profile help sentences (`profile_generic_help` / `profile_mbank_help`)
+  explain Generic vs mBank under the format buttons.

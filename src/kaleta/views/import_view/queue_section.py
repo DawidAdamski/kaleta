@@ -89,6 +89,8 @@ class QueueSection:
                 parts.append(t("import.skipped_dupes", count=queued_file.skipped_dupes))
         elif queued_file.status == "failed":
             parts.append(queued_file.status_msg or t("import.queue_status_failed"))
+        elif queued_file.status == "needs_mapping":
+            parts.append(queued_file.status_msg or t("import.mapping_required"))
         elif queued_file.parsed_rows:
             parts.append(t("import.rows_loaded", count=len(queued_file.parsed_rows)))
         elif queued_file.status_msg:

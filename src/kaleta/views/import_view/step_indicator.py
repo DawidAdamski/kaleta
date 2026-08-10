@@ -12,6 +12,7 @@ def render_step_indicator() -> None:
     steps = [
         t("import.step_format"),
         t("import.step_upload"),
+        t("import.step_mapping"),
         t("import.step_settings"),
         t("import.step_preview"),
         t("import.step_confirm"),

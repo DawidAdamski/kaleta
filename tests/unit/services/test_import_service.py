@@ -17,6 +17,7 @@ from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.services import AccountService, CategoryService
 from kaleta.services.import_service import (
+    ColumnMapping,
     ImportReadinessCheck,
     ImportService,
     MBankFileMetadata,
@@ -30,7 +31,9 @@ from kaleta.services.import_service import (
     classify_row_preview_type,
     count_row_types,
     currency_mismatch_warning,
+    detect_column_mapping,
     inherit_queue_settings,
+    inspect_csv,
     is_counterparty_transfer,
     validate_import_readiness,
 )
@@ -596,6 +599,98 @@ class TestInheritQueueSettings:
         assert inherit_queue_settings(current, [prior, current]) is True
         assert current.expense_cat_id == 10
         assert current.income_cat_id == 11
+
+    def test_inherits_column_mapping_for_same_profile(self):
+        mapping = ColumnMapping(date=0, amount=1, description=2)
+        prior = QueueSettingsSnapshot(
+            file_id="a",
+            profile="generic",
+            column_mapping=mapping,
+        )
+        current = QueueSettingsSnapshot(file_id="b", profile="generic")
+        assert inherit_queue_settings(current, [prior]) is True
+        assert current.column_mapping == mapping
+
+
+# ── ColumnMapping / inspect_csv ───────────────────────────────────────────────
+
+
+class TestColumnMapping:
+    def test_explicit_mapping_parses_unknown_headers(self):
+        """Covers plan: Revolut-style headers need an explicit ColumnMapping."""
+        csv = "Txn Day,Sum,Note\n2024-03-01,-12.50,Coffee Shop\n2024-03-02,2500.00,Salary\n"
+        mapping = ColumnMapping(date=0, amount=1, description=2)
+        result = _svc().parse_csv(csv, mapping=mapping)
+        assert result.errors == []
+        assert len(result.rows) == 2
+        assert result.rows[0].amount == Decimal("-12.50")
+        assert result.rows[0].description == "Coffee Shop"
+        assert result.rows[1].amount == Decimal("2500.00")
+
+    def test_detect_column_mapping_prefills_aliases(self):
+        headers = ["date", "amount", "description", "payee"]
+        mapping = detect_column_mapping(headers)
+        assert mapping.date == 0
+        assert mapping.amount == 1
+        assert mapping.description == 2
+        assert mapping.payee == 3
+        assert mapping.is_complete() is True
+
+    def test_inspect_csv_returns_sample_and_detection(self):
+        csv = "date,amount,description\n2024-01-15,-50.00,Coffee\n2024-01-16,10.00,Tea\n"
+        inspection = inspect_csv(csv)
+        assert inspection.delimiter == ","
+        assert inspection.headers == ["date", "amount", "description"]
+        assert len(inspection.sample_rows) == 2
+        assert inspection.detected_mapping.date == 0
+
+    def test_incomplete_mapping_blocks_queued_parse(self):
+        csv = "Txn Day,Sum,Note\n2024-03-01,-12.50,Coffee\n"
+        result = _svc().parse_queued_file(csv, "generic")
+        assert result.ok is False
+        assert result.needs_mapping is True
+        assert any("Date" in e for e in result.errors)
+
+    def test_invalid_mapping_via_parse_csv_returns_errors(self):
+        csv = "Txn Day,Sum,Note\n2024-03-01,-12.50,Coffee\n"
+        mapping = ColumnMapping(date=None, amount=1, description=2)
+        result = _svc().parse_csv(csv, mapping=mapping)
+        assert len(result.rows) == 0
+        assert any("Date" in e for e in result.errors)
+
+    def test_queued_parse_with_explicit_mapping_succeeds(self):
+        csv = "Txn Day,Sum,Note\n2024-03-01,-12.50,Coffee\n"
+        mapping = ColumnMapping(date=0, amount=1, description=2)
+        result = _svc().parse_queued_file(csv, "generic", mapping=mapping)
+        assert result.ok is True
+        assert len(result.rows) == 1
+        assert result.column_mapping is not None
+        assert result.column_mapping.date == 0
+
+    def test_debit_credit_explicit_mapping(self):
+        csv = "Day,Out,In,Note\n2024-01-15,200.00,,Expense\n2024-01-16,,5000.00,Income\n"
+        mapping = ColumnMapping(date=0, description=3, debit=1, credit=2)
+        result = _svc().parse_csv(csv, mapping=mapping)
+        assert len(result.rows) == 2
+        assert result.rows[0].amount == Decimal("-200.00")
+        assert result.rows[1].amount == Decimal("5000.00")
+
+    def test_date_format_override(self):
+        csv = "d,a,n\n15/03/2024,-1.00,x\n"
+        mapping = ColumnMapping(date=0, amount=1, description=2, date_format="%d/%m/%Y")
+        result = _svc().parse_csv(csv, mapping=mapping)
+        assert result.rows[0].date == datetime.date(2024, 3, 15)
+
+    def test_amounts_positive_for_expenses_flips_sign(self):
+        csv = "d,a,n\n2024-01-15,50.00,Shop\n"
+        mapping = ColumnMapping(
+            date=0,
+            amount=1,
+            description=2,
+            amounts_negative_for_expenses=False,
+        )
+        result = _svc().parse_csv(csv, mapping=mapping)
+        assert result.rows[0].amount == Decimal("-50.00")
 
 
 # ── import readiness validation ───────────────────────────────────────────────
