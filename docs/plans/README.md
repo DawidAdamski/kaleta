@@ -125,6 +125,9 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 |---|---|---|
 | [categories-name-unique-per-type](categories-name-unique-per-type.md) | draft | Categories — dogfooding bug |
 | [backup-scheduler-active-db-url](backup-scheduler-active-db-url.md) | draft | Settings / data safety — dogfooding bug |
+| [import-flow-polish](import-flow-polish.md) | draft | Import — dogfooding UX |
+| [transactions-type-labels-i18n](transactions-type-labels-i18n.md) | draft | Transactions — dogfooding bug |
+| [transactions-split-discoverability](transactions-split-discoverability.md) | draft | Transactions — dogfooding UX |
 | [auth-reset-password-cli](archive/auth-reset-password-cli.md) | archived | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft (Q4) | Dashboard |
 | [transactions-notes-field](transactions-notes-field.md) | draft (Q4) | Transactions |
@@ -156,7 +159,11 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](archive/dashboard-widget-resize.md) | archived | Dashboard |
 | [import-bank-profiles](import-bank-profiles.md) | draft | Import — fixture-backed bank parsers |
-| [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import |
+| [import-mapping-wizard](import-mapping-wizard.md) | draft | Import — dogfooding UX |
+| [import-history-account-coverage](import-history-account-coverage.md) | draft | Import — dogfooding UX |
+| [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import — after import-mapping-wizard |
+| [wizard-unplanned-radar](wizard-unplanned-radar.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
+| [wizard-pay-yourself-salary](wizard-pay-yourself-salary.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
@@ -183,6 +190,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | Plan | Status | Roadmap ref |
 |---|---|---|
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
+| [wizard-what-if-scenarios](wizard-what-if-scenarios.md) | draft | Wizard / Forecast — dogfooding gap (Coming soon tile) |
 | [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
 | [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |
 | [budgets-rename-and-payment-calendar](archive/budgets-rename-and-payment-calendar.md) | archived | Budgets + new Payment Calendar |
