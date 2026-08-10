@@ -3,7 +3,8 @@ plan_id: categories-name-unique-per-type
 title: Allow the same category name for income and expense (uniqueness per type)
 area: categories
 effort: small
-status: in-progress
+status: archived
+archived_at: 2026-08-11
 roadmap_ref: ../roadmap.md#categories
 ---
 
@@ -111,3 +112,31 @@ income/expense lists); merging or renaming existing user data.
 - ADR-018 amended in place (title + decision now include `type`); no new ADR.
 - Views unchanged — Categories page already splits income/expense lists; short
   `verify.sh` gate is sufficient.
+
+## Implementation
+
+Landed on 2026-08-11. PR [#48](https://github.com/dadamski/kaleta/pull/48).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `41c0906` | Dawid Adamski | 2026-08-11 | feat(categories): scope name uniqueness to parent and type (#48) |
+
+**Files changed:**
+- alembic/versions/…_categories_unique_name_parent_type.py
+- docs/adr/018-category-uniqueness-scoped-to-parent.md
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/categories-name-unique-per-type.md
+- src/kaleta/models/category.py
+- src/kaleta/services/category_service.py
+- tests/integration/test_categories.py
+- tests/unit/services/test_category_service.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_category_service.py -q` | 0 |
+| `grep -q "KAL-CAT-012" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `bash scripts/verify.sh` | 0 |

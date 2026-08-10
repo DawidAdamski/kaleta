@@ -3,7 +3,8 @@ plan_id: transactions-split-discoverability
 title: Transactions — make splits discoverable (row indicator, row action, dialog hint)
 area: transactions
 effort: small
-status: in-progress
+status: archived
+archived_at: 2026-08-11
 roadmap_ref: ../roadmap.md#transactions
 ---
 
@@ -122,3 +123,40 @@ E2E (`tests/e2e/test_transactions.py`, docstrings with
   `table_actions.py`); emits `split_tx` and opens edit with `arm_split=True`.
 - Edit dialog previously had no split switch — added alongside the add-dialog
   affordance (switch + caption next to category).
+
+## Implementation
+
+Landed on 2026-08-11. PR [#50](https://github.com/dadamski/kaleta/pull/50).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4721d5c` | Dawid Adamski | 2026-08-11 | feat(transactions): make splits discoverable in the table and dialogs (#50) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/transactions-split-discoverability.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/transactions/add_dialog.py
+- src/kaleta/views/transactions/edit_dialog.py
+- src/kaleta/views/transactions/page.py
+- tests/e2e/test_transactions.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/views/test_transaction_split_labels.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit -q` | 0 |
+| `uv run pytest tests/e2e/test_transactions.py -q` | infra (see note) |
+| `grep -qE "KAL-SPL-00[5-9]" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `bash scripts/verify.sh` | 0 |
+
+**Notes:** The e2e test run (`tests/e2e/test_transactions.py`) requires a dedicated
+test server on port 8081 which could not be spawned in the archival environment.
+The tests are confirmed passing: terminal 1 shows `./scripts/verify.sh --e2e`
+completed with "VERIFY OK (incl. e2e)" during the PR.
