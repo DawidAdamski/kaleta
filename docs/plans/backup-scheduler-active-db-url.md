@@ -3,7 +3,7 @@ plan_id: backup-scheduler-active-db-url
 title: Scheduled backups must target the active database from config.json
 area: settings
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#settings
 ---
 
@@ -93,4 +93,11 @@ Out of scope: backup UI, retention policy changes, PostgreSQL backups
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- Only `backup_scheduler.py` called `from_settings()` for the live DB URL;
+  kept `from_settings` for env-only / test construction, added
+  `from_active_config` for the active-DB precedence used by the scheduler.
+- `activate_database` takes a post-activation `run_once()` snapshot with the
+  activated URL (not via the scheduler task) so a fresh DB is protected even
+  when the interval has not yet elapsed; failures are logged, not raised.
+- Open question 1 (UI surfacing of consecutive failures): deferred per plan
+  default (log-only).

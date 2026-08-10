@@ -7,6 +7,9 @@ import sqlite3
 import time
 from pathlib import Path
 
+import pytest
+
+from kaleta.config import settings
 from kaleta.services.scheduled_backup_service import ScheduledBackupService
 
 
@@ -81,3 +84,57 @@ class TestScheduledBackupService:
         )
         assert pg.resolve_sqlite_path() is None
         assert pg.create_backup() is None
+
+    def test_from_active_config_prefers_config_json_over_settings(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Covers: KAL-SET-023"""
+        active = tmp_path / "active.db"
+        default = tmp_path / "kaleta.db"
+        backup_dir = tmp_path / "backups"
+        _seed_sqlite(active)
+        # Default path exists but holds different data — must not be snapshotted.
+        conn = sqlite3.connect(str(default))
+        try:
+            conn.execute("CREATE TABLE demo (id INTEGER PRIMARY KEY, name TEXT)")
+            conn.execute("INSERT INTO demo (name) VALUES ('wrong')")
+            conn.commit()
+        finally:
+            conn.close()
+
+        monkeypatch.setattr(settings, "db_url", f"sqlite+aiosqlite:///{default}")
+        monkeypatch.setattr(settings, "backup_dir", str(backup_dir))
+        monkeypatch.setattr(settings, "backup_retain", 7)
+        monkeypatch.setattr(
+            "kaleta.config.setup_config.get_db_url",
+            lambda: f"sqlite+aiosqlite:///{active}",
+        )
+
+        svc = ScheduledBackupService.from_active_config()
+        created = svc.run_once()
+        assert created is not None
+        assert created.is_file()
+
+        verify = sqlite3.connect(str(created))
+        try:
+            row = verify.execute("SELECT name FROM demo").fetchone()
+        finally:
+            verify.close()
+        assert row == ("kaleta",)
+
+    def test_from_active_config_falls_back_to_settings(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        source = tmp_path / "env-default.db"
+        backup_dir = tmp_path / "backups"
+        _seed_sqlite(source)
+
+        monkeypatch.setattr(settings, "db_url", f"sqlite+aiosqlite:///{source}")
+        monkeypatch.setattr(settings, "backup_dir", str(backup_dir))
+        monkeypatch.setattr(settings, "backup_retain", 3)
+        monkeypatch.setattr("kaleta.config.setup_config.get_db_url", lambda: None)
+
+        svc = ScheduledBackupService.from_active_config()
+        created = svc.run_once()
+        assert created is not None
+        assert created.parent == backup_dir

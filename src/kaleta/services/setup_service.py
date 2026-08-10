@@ -172,7 +172,19 @@ async def activate_database(db_url: str, *, name: str) -> None:
     from kaleta.config import settings
     from kaleta.config.setup_config import save_db
     from kaleta.db import configure_database
+    from kaleta.services.scheduled_backup_service import ScheduledBackupService
 
     await run_migrations(db_url)
     configure_database(db_url, debug=settings.debug)
     save_db(db_url, name=name)
+
+    # Immediate first snapshot so a freshly activated DB is protected before
+    # the scheduler's next tick (and even if the interval has not elapsed).
+    try:
+        ScheduledBackupService(
+            db_url=db_url,
+            backup_dir=Path(settings.backup_dir),
+            retain=settings.backup_retain,
+        ).run_once()
+    except Exception:
+        logger.exception("Post-activation backup failed for %s", db_url)

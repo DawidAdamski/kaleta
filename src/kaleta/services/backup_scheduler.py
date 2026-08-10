@@ -52,9 +52,11 @@ class BackupScheduler:
 
     @classmethod
     async def _loop(cls) -> None:
-        svc = ScheduledBackupService.from_settings()
         while True:
             try:
+                # Rebuild each tick so a DB switch via /setup is picked up
+                # without restarting the process.
+                svc = ScheduledBackupService.from_active_config()
                 svc.run_once()
             except Exception:
                 logger.exception("Scheduled backup failed")

@@ -2180,6 +2180,14 @@ Feature: Settings — Data safety
     When I GET "/api/v1/accounts/" without completing setup
     Then the response status is 503
     And the JSON error code is "setup_required"
+
+  KAL-SET-023 @automated
+  Scenario: Scheduled backup snapshots the active database from config.json
+    Given ~/.kaleta/config.json points at an on-disk SQLite database at a non-default path
+    And KALETA_DB_URL still points at the environment default path
+    When the scheduled backup runs once
+    Then a kaleta-*.db snapshot is written of the config.json database
+    And no ValidationError is raised for the environment default path
 ```
 
 ## Feature: Currency rates — NBP Table A
