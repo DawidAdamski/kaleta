@@ -3,8 +3,9 @@ plan_id: transactions-type-labels-i18n
 title: Transactions — type column shows raw enum values instead of translations
 area: transactions
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#transactions
+status: archived
+archived_at: 2026-08-11
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Transactions — translate the type column (and other raw enum renders)
@@ -117,3 +118,33 @@ English by design — display-layer concern only).
   `app.storage.user.language = "pl"`.
 - Verify unblocker (unrelated flake): scoped KAL-CAT-011 locators to
   `main` so nav "Subscriptions" no longer causes a strict-mode clash.
+
+## Implementation
+
+Landed on 2026-08-10. PR [#46](https://github.com/dadamski/kaleta/pull/46).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `8d45711` | Dawid Adamski | 2026-08-10 | fix(transactions): translate type column labels (#46) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/transactions-type-labels-i18n.md
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/import_view/preview_section.py
+- src/kaleta/views/planned_transactions.py
+- src/kaleta/views/reports_canned/largest_transactions.py
+- src/kaleta/views/transactions/page.py
+- tests/e2e/test_categories.py
+- tests/e2e/test_transfer_detection.py
+- tests/unit/test_pwa.py
+- tests/unit/views/test_transaction_type_labels.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit -q` | 0 |
+| `grep -q "KAL-TXN-006" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `bash scripts/verify.sh` | 0 |

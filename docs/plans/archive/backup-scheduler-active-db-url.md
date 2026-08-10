@@ -3,8 +3,9 @@ plan_id: backup-scheduler-active-db-url
 title: Scheduled backups must target the active database from config.json
 area: settings
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#settings
+status: archived
+archived_at: 2026-08-11
+roadmap_ref: ../../roadmap.md#settings
 ---
 
 # Scheduled backups must target the active database
@@ -17,7 +18,7 @@ database** configured via the setup wizard in `~/.kaleta/config.json`.
 When those differ, every scheduled backup either fails or — worse —
 silently backs up the *wrong* database while the user believes their real
 data is protected. This is a hole in the P0 data-safety layer
-(see [`audit-production-readiness.md`](audit-production-readiness.md), finding 2).
+(see [`audit-production-readiness.md`](../audit-production-readiness.md), finding 2).
 
 Observed in the wild (config.json pointed at a non-default path; app ran
 fine, migration safety copy was written correctly, then):
@@ -89,7 +90,7 @@ Out of scope: backup UI, retention policy changes, PostgreSQL backups
 1. Should `run_once()` failures on N consecutive ticks surface in the UI
    (Settings → Data banner) instead of log-only? Default: log-only in
    this plan; a visibility follow-up can ride with the observability plan
-   ([`observability-anonymous-events.md`](observability-anonymous-events.md)).
+   ([`observability-anonymous-events.md`](../observability-anonymous-events.md)).
 
 ## Implementation notes
 
@@ -101,3 +102,30 @@ Out of scope: backup UI, retention policy changes, PostgreSQL backups
   when the interval has not yet elapsed; failures are logged, not raised.
 - Open question 1 (UI surfacing of consecutive failures): deferred per plan
   default (log-only).
+
+## Implementation
+
+Landed on 2026-08-11. PR [#49](https://github.com/dadamski/kaleta/pull/49).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `0c5f027` | Dawid Adamski | 2026-08-11 | fix(backup): snapshot the active DB from config.json (#49) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/backup-scheduler-active-db-url.md
+- src/kaleta/services/backup_scheduler.py
+- src/kaleta/services/scheduled_backup_service.py
+- src/kaleta/services/setup_service.py
+- tests/integration/test_first_run.py
+- tests/integration/test_sqlite_integrity_backups.py
+- tests/unit/services/test_scheduled_backup_service.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_scheduled_backup_service.py -q` | 0 |
+| `grep -q "KAL-SET-023" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `bash scripts/verify.sh` | 0 |

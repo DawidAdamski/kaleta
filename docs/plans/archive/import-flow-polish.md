@@ -3,8 +3,9 @@ plan_id: import-flow-polish
 title: Import — post-import reset, clearer actions, duplicate transparency, dark-mode fix
 area: import
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-08-11
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — flow polish (reset, labels, duplicates, dark mode)
@@ -79,8 +80,8 @@ Four small dogfooding frictions on the Import page, one PR:
 
 Out of scope: fuzzy duplicate matching (amount±tolerance, date window —
 that heuristic belongs to the transfer/dedupe engines), column mapping
-([`import-mapping-wizard`](import-mapping-wizard.md)), import history
-([`import-history-account-coverage`](import-history-account-coverage.md)).
+([`import-mapping-wizard`](../import-mapping-wizard.md)), import history
+([`import-history-account-coverage`](../import-history-account-coverage.md)).
 
 ## Acceptance criteria
 
@@ -142,3 +143,39 @@ KAL-CSV-012 stays `@manual` (visual dark/light assert).
   light+dark `k-info-banner` styles.
 - Button label uses ready-file count only; tooltip clarifies pending/
   failed are skipped.
+
+## Implementation
+
+Landed on 2026-08-11. PR [#47](https://github.com/dadamski/kaleta/pull/47).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5c9d4b9` | Dawid Adamski | 2026-08-11 | feat(import): polish post-import reset, labels, duplicates, dark mode (#47) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-flow-polish.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/metadata_section.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/preview_section.py
+- src/kaleta/views/import_view/queue_section.py
+- src/kaleta/views/import_view/settings_section.py
+- src/kaleta/views/import_view/state.py
+- src/kaleta/views/import_view/summary_section.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_rules.py
+- tests/e2e/test_transfer_detection.py
+- tests/unit/services/test_import_service.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_import_service.py -q` | 0 |
+| `grep -q "KAL-CSV-010" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `bash scripts/verify.sh` | 0 |
