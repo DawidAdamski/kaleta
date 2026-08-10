@@ -17,6 +17,15 @@ PAGE_SIZES = [25, 50, 100, 200]
 DEFAULT_PAGE_SIZE = 50
 
 
+def attach_type_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Add translated ``type_label`` while keeping raw ``type`` for amount colours."""
+    for row in rows:
+        row_type = row.get("type")
+        if isinstance(row_type, str):
+            row["type_label"] = t(f"common.{row_type}")
+    return rows
+
+
 def transaction_columns() -> list[dict[str, Any]]:
     """Standard column definitions for the transactions list table."""
     return [
@@ -100,7 +109,7 @@ def _body_slot(colspan: int) -> str:
         '<q-td key="account" :props="props">{{ props.row.account }}</q-td>'
         '<q-td key="description" :props="props">{{ props.row.description }}</q-td>'
         '<q-td key="category" :props="props">{{ props.row.category }}</q-td>'
-        '<q-td key="type" :props="props">{{ props.row.type }}</q-td>'
+        '<q-td key="type" :props="props">{{ props.row.type_label }}</q-td>'
         f"{amount_cell_slot()}"
         '<q-td key="tags" :props="props">'
         '<q-chip v-for="tag in props.row.tags_data" :key="tag.id"'

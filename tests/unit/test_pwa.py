@@ -121,7 +121,8 @@ class TestManifestJson:
     """manifest.json must be valid JSON containing required PWA fields."""
 
     @pytest.fixture(scope="class")
-    def manifest(self) -> dict:
+    @classmethod
+    def manifest(cls) -> dict:
         raw = (_STATIC_DIR / "manifest.json").read_text(encoding="utf-8")
         return json.loads(raw)
 
@@ -177,7 +178,8 @@ class TestServiceWorkerJs:
     """sw.js must contain the cache identifier and all three lifecycle listeners."""
 
     @pytest.fixture(scope="class")
-    def sw_content(self) -> str:
+    @classmethod
+    def sw_content(cls) -> str:
         return (_STATIC_DIR / "sw.js").read_text(encoding="utf-8")
 
     def test_sw_defines_cache_name(self, sw_content: str):

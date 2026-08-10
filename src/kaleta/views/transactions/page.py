@@ -23,6 +23,7 @@ from kaleta.views.components.filter_bar import (
 )
 from kaleta.views.components.transaction_table import (
     DEFAULT_PAGE_SIZE,
+    attach_type_labels,
     render_pagination_bar,
     render_transaction_table,
 )
@@ -141,7 +142,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         total_pages = max(1, (total + page_size - 1) // page_size)
         filters["total_pages"] = total_pages
         current_page = filters["page"]
-        rows = TransactionService.build_table_rows(txs, grouping)
+        rows = attach_type_labels(TransactionService.build_table_rows(txs, grouping))
 
         async def _handle_edit(e: Any) -> None:
             await edit_dialog_ctx.open_for_id(e.args)

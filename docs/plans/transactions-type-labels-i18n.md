@@ -3,7 +3,7 @@ plan_id: transactions-type-labels-i18n
 title: Transactions — type column shows raw enum values instead of translations
 area: transactions
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#transactions
 ---
 
@@ -94,4 +94,26 @@ English by design — display-layer concern only).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- Services must not call `t()`: `kaleta.i18n` imports `nicegui`, which
+  breaks the `services-no-ui` import-linter contract. Translation happens
+  at the view boundary.
+- `attach_type_labels()` in `views/components/transaction_table.py` adds
+  `type_label` via `t(f"common.{type}")`; raw `type` kept for amount
+  colouring. Called from `transactions/page.py` after `build_table_rows`.
+- Import preview: same pattern in `preview_section.py` (column `field` →
+  `type_label`; raw `type` kept for `amount_body_cell_slot`).
+- Sweep results:
+  - **Fixed**: transactions table, import preview, planned-transactions
+    type badge, largest-transactions report (table + CSV).
+  - **Clean** (raw `type` only for colouring / not displayed): dashboard
+    recent_transactions, forecast planned-occurrences table.
+  - **Clean** (already translated): accounts type chips, institutions
+    type labels, net-worth account/asset types, subscriptions cadence.
+- Open Q1: `tests/e2e/test_transactions.py` has no type-cell asserts.
+  `tests/e2e/test_transfer_detection.py` did — updated to expect
+  translated English labels (`Transfer`/`Expense`/`Income`).
+- KAL-TXN-006 tagged `@manual` (Polish UI language toggle in e2e is
+  disproportionate); unit test asserts Polish BDD literals via mocked
+  `app.storage.user.language = "pl"`.
+- Verify unblocker (unrelated flake): scoped KAL-CAT-011 locators to
+  `main` so nav "Subscriptions" no longer causes a strict-mode clash.

@@ -70,7 +70,12 @@ def register() -> None:
 
                 cols = [
                     {"name": "date", "label": t("common.date"), "field": "date", "align": "left"},
-                    {"name": "type", "label": t("common.type"), "field": "type", "align": "left"},
+                    {
+                        "name": "type",
+                        "label": t("common.type"),
+                        "field": "type_label",
+                        "align": "left",
+                    },
                     {
                         "name": "account",
                         "label": t("common.account"),
@@ -100,6 +105,7 @@ def register() -> None:
                     {
                         "date": str(i.date),
                         "type": i.type.value,
+                        "type_label": t(f"common.{i.type.value}"),
                         "account": i.account,
                         "category": i.category,
                         "desc": i.description[:50],
@@ -124,7 +130,7 @@ def register() -> None:
                         [
                             [
                                 str(i.date),
-                                i.type.value,
+                                t(f"common.{i.type.value}"),
                                 i.account,
                                 i.category,
                                 i.description,

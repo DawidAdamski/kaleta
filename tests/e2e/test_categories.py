@@ -20,8 +20,9 @@ def test_categories_page_renders_subscription_tree(page: Page, base_url: str) ->
     """
     page.goto(f"{base_url}/categories")
 
+    main = page.get_by_role("main")
     expect(page.get_by_text("Categories", exact=True).first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Subscriptions", exact=True)).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Monthly", exact=True)).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Yearly", exact=True)).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Other", exact=True)).to_be_visible(timeout=5000)
+    expect(main.get_by_text("Subscriptions", exact=True)).to_be_visible(timeout=5000)
+    expect(main.get_by_text("Monthly", exact=True)).to_be_visible(timeout=5000)
+    expect(main.get_by_text("Yearly", exact=True)).to_be_visible(timeout=5000)
+    expect(main.get_by_text("Other", exact=True)).to_be_visible(timeout=5000)

@@ -39,7 +39,10 @@ class PreviewSection:
                 f"\U0001f504 {t('import.stats_transfer')}: {counts.transfer}",
                 color="blue-2",
             )
-        self.preview_table.rows = build_preview_table_rows(rows, known_digits)
+        preview_rows = build_preview_table_rows(rows, known_digits)
+        for row in preview_rows:
+            row["type_label"] = t(f"common.{row['type']}")
+        self.preview_table.rows = preview_rows
 
     def set_visible(self, visible: bool) -> None:
         self.card.set_visibility(visible)
@@ -76,7 +79,7 @@ def build_preview_section() -> PreviewSection:
                     {
                         "name": "type",
                         "label": t("common.type"),
-                        "field": "type",
+                        "field": "type_label",
                         "align": "left",
                     },
                 ],

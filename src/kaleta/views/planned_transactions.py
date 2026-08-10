@@ -331,6 +331,7 @@ def register() -> None:
                     "account": row["account_name"],
                     "category": row["category_name"],
                     "type": row["pt"].type.value,
+                    "type_label": type_opts[row["pt"].type],
                     "amount": (
                         f"+{abs(row['pt'].amount):,.2f}"
                         if row["pt"].type == TransactionType.INCOME
@@ -352,7 +353,7 @@ def register() -> None:
                 '<q-td :props="props">'
                 "<q-badge :color=\"props.row.type === 'income' ? 'positive' : "
                 "props.row.type === 'expense' ? 'negative' : 'info'\" outline>"
-                "{{ props.row.type }}</q-badge></q-td>",
+                "{{ props.row.type_label }}</q-badge></q-td>",
             )
             tbl.add_slot(
                 "body-cell-amount",
