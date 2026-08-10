@@ -814,6 +814,23 @@ Feature: Transaction Splits
     When I change a split line amount and rebalance
     And I save
     Then the updated split lines are stored
+
+  KAL-SPL-005 @automated
+  Scenario: Split row shows indicator and category summary
+    Given a saved split of 180.00 "Groceries" and 34.50 "Alcohol"
+    When I open the transactions table
+    Then the split row shows a split icon next to the category
+    And the category cell reads "Split (2)"
+    And a non-split row shows neither the icon nor that label
+
+  KAL-SPL-006 @automated
+  Scenario: Split row action opens the editor pre-armed
+    Given a plain expense in the transactions table
+    When I click the row's "Split" action
+    Then the edit dialog opens with the split switch ON
+    And the split editor is visible with empty lines ready
+    When I add two balanced lines and save
+    Then the table shows the split indicator on that row
 ```
 
 ## Feature: Pagination and Grouping

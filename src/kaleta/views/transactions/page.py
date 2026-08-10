@@ -23,6 +23,7 @@ from kaleta.views.components.filter_bar import (
 )
 from kaleta.views.components.transaction_table import (
     DEFAULT_PAGE_SIZE,
+    attach_split_labels,
     attach_type_labels,
     render_pagination_bar,
     render_transaction_table,
@@ -142,10 +143,15 @@ async def transactions_page(*, open_new: bool = False) -> None:
         total_pages = max(1, (total + page_size - 1) // page_size)
         filters["total_pages"] = total_pages
         current_page = filters["page"]
-        rows = attach_type_labels(TransactionService.build_table_rows(txs, grouping))
+        rows = attach_split_labels(
+            attach_type_labels(TransactionService.build_table_rows(txs, grouping))
+        )
 
         async def _handle_edit(e: Any) -> None:
             await edit_dialog_ctx.open_for_id(e.args)
+
+        async def _handle_split(e: Any) -> None:
+            await edit_dialog_ctx.open_for_id(e.args, arm_split=True)
 
         def _on_selection(e: object) -> None:
             selected_tx_ids.clear()
@@ -153,7 +159,12 @@ async def transactions_page(*, open_new: bool = False) -> None:
             selected_tx_ids.extend(r["id"] for r in rows_list)
             table_actions_ui.refresh()
 
-        render_transaction_table(rows, on_edit=_handle_edit, on_selection=_on_selection)
+        render_transaction_table(
+            rows,
+            on_edit=_handle_edit,
+            on_split=_handle_split,
+            on_selection=_on_selection,
+        )
         render_pagination_bar(
             total=total,
             current_page=current_page,

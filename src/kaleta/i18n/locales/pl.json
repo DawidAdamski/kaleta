@@ -190,6 +190,7 @@
     "group_month": "Miesiąc",
     "split": "Podziel",
     "split_tooltip": "Podziel transakcję na kategorie",
+    "split_category": "Podzielona ({count})",
     "add_split": "Dodaj podział",
     "fill_last": "Uzupełnij ostatni",
     "balanced": "Zbilansowano",
