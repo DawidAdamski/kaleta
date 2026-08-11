@@ -51,8 +51,10 @@ def build_known_account_digits(external_numbers: Iterable[str | None]) -> set[st
 
 
 def is_counterparty_transfer(row: ParsedRow, known_digits: set[str]) -> bool:
-    """Return True when an mBank row's counterparty matches a known own account."""
-    counterparty = digits_only(row.raw.get("Numer rachunku", ""))
+    """Return True when a row's counterparty matches a known own account."""
+    counterparty = digits_only(
+        row.raw.get("Numer rachunku", "") or row.raw.get("counterparty_account", "")
+    )
     return bool(counterparty and counterparty in known_digits)
 
 
@@ -107,6 +109,57 @@ def build_preview_table_rows(
     return preview
 
 
+# ── Column mapping ────────────────────────────────────────────────────────────
+
+
+@dataclass
+class ColumnMapping:
+    """Explicit CSV column indices and format options for the generic parser.
+
+    Indices are 0-based header positions. ``None`` means unmapped.
+    Empty format strings mean auto-detect. JSON-serialisable for the
+    mapping-memory follow-up plan.
+    """
+
+    date: int | None = None
+    amount: int | None = None
+    description: int | None = None
+    payee: int | None = None
+    counterparty_account: int | None = None
+    debit: int | None = None
+    credit: int | None = None
+    date_format: str = ""
+    decimal_separator: str = ""
+    thousands_separator: str = ""
+    amounts_negative_for_expenses: bool = True
+
+    def is_complete(self) -> bool:
+        """Required fields for a Ready import: date, description, amount mode."""
+        has_amount = self.amount is not None or (self.debit is not None or self.credit is not None)
+        return self.date is not None and self.description is not None and has_amount
+
+    def validation_errors(self) -> list[str]:
+        """Human-readable gaps that block import."""
+        errors: list[str] = []
+        if self.date is None:
+            errors.append("Date column is required.")
+        if self.description is None:
+            errors.append("Description column is required.")
+        if self.amount is None and self.debit is None and self.credit is None:
+            errors.append("Amount column (or debit/credit columns) is required.")
+        return errors
+
+
+@dataclass
+class CsvInspection:
+    """Raw CSV structure for the mapping step UI."""
+
+    delimiter: str
+    headers: list[str]
+    sample_rows: list[list[str]] = field(default_factory=list)
+    detected_mapping: ColumnMapping = field(default_factory=ColumnMapping)
+
+
 @dataclass
 class ParseQueuedFileResult:
     profile: str
@@ -114,8 +167,11 @@ class ParseQueuedFileResult:
     errors: list[str] = field(default_factory=list)
     metadata: MBankFileMetadata | None = None
     ok: bool = False
+    needs_mapping: bool = False
     error_key: str | None = None
     error_params: dict[str, Any] = field(default_factory=dict)
+    inspection: CsvInspection | None = None
+    column_mapping: ColumnMapping | None = None
 
 
 @dataclass
@@ -127,6 +183,7 @@ class QueueSettingsSnapshot:
     expense_cat_id: int | None = None
     income_cat_id: int | None = None
     skip_duplicates: bool = True
+    column_mapping: ColumnMapping | None = None
 
 
 def inherit_queue_settings(
@@ -157,12 +214,16 @@ def inherit_queue_settings(
     for prior in reversed(queue):
         if prior.file_id == current.file_id:
             continue
-        if prior.profile == current.profile and (prior.expense_cat_id or prior.income_cat_id):
+        if prior.profile == current.profile and (
+            prior.expense_cat_id or prior.income_cat_id or prior.column_mapping is not None
+        ):
             if current.expense_cat_id is None:
                 current.expense_cat_id = prior.expense_cat_id
             if current.income_cat_id is None:
                 current.income_cat_id = prior.income_cat_id
             current.skip_duplicates = prior.skip_duplicates
+            if current.column_mapping is None and prior.column_mapping is not None:
+                current.column_mapping = prior.column_mapping
             return True
     return False
 
@@ -337,27 +398,46 @@ _DATE_FORMATS = [
 ]
 
 
-def _parse_date(value: str) -> datetime.date:
+def _parse_date(value: str, fmt: str = "") -> datetime.date:
     value = value.strip()
-    for fmt in _DATE_FORMATS:
+    formats = [fmt] if fmt else _DATE_FORMATS
+    for candidate in formats:
         try:
-            return datetime.datetime.strptime(value, fmt).date()
+            return datetime.datetime.strptime(value, candidate).date()
         except ValueError:
             continue
     raise ImportError_(f"Cannot parse date: {value!r}")
 
 
-def _parse_amount(value: str) -> Decimal:
+def _parse_amount(
+    value: str,
+    *,
+    decimal_separator: str = "",
+    thousands_separator: str = "",
+) -> Decimal:
     """Parse amount string, handling Polish/EU number formats."""
-    cleaned = value.strip().replace("\xa0", "").replace(" ", "")
+    cleaned = value.strip().replace("\xa0", "")
     # Remove currency symbols
     cleaned = re.sub(r"[A-Z]{3}$", "", cleaned).strip()
-    # Handle PL format: 1 234,56 → 1234.56
-    if "," in cleaned and "." not in cleaned:
+    if thousands_separator:
+        cleaned = cleaned.replace(thousands_separator, "")
+    else:
+        cleaned = cleaned.replace(" ", "")
+
+    if decimal_separator == ",":
+        if thousands_separator != ".":
+            cleaned = cleaned.replace(".", "")
         cleaned = cleaned.replace(",", ".")
-    elif "," in cleaned and "." in cleaned:
-        # e.g. 1.234,56 → 1234.56
-        cleaned = cleaned.replace(".", "").replace(",", ".")
+    elif decimal_separator == ".":
+        if thousands_separator != ",":
+            cleaned = cleaned.replace(",", "")
+    else:
+        # Auto: PL format 1 234,56 or EU 1.234,56 → 1234.56
+        if "," in cleaned and "." not in cleaned:
+            cleaned = cleaned.replace(",", ".")
+        elif "," in cleaned and "." in cleaned:
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+
     try:
         return Decimal(cleaned)
     except InvalidOperation as exc:
@@ -369,8 +449,15 @@ def _parse_amount(value: str) -> Decimal:
 _DATE_ALIASES = {"date", "data", "data transakcji", "data operacji", "transaction date"}
 _AMOUNT_ALIASES = {"amount", "kwota", "wartość", "value", "transaction amount", "kwota operacji"}
 _DESC_ALIASES = {"description", "opis", "tytuł", "title", "tytul", "opis operacji", "details"}
-_DEBIT_ALIASES = {"debit", "wydatki", "obciążenie", "wypłata"}
-_CREDIT_ALIASES = {"credit", "przychody", "uznanie", "wpłata"}
+_PAYEE_ALIASES = {"payee", "odbiorca", "nadawca", "merchant", "counterparty"}
+_COUNTERPARTY_ALIASES = {
+    "counterparty account",
+    "numer rachunku",
+    "account number",
+    "iban",
+}
+_DEBIT_ALIASES = {"debit", "wydatki", "obciążenie", "wypłata", "money out"}
+_CREDIT_ALIASES = {"credit", "przychody", "uznanie", "wpłata", "money in"}
 
 
 def _norm(name: str) -> str:
@@ -382,6 +469,54 @@ def _detect_column(headers: list[str], aliases: set[str]) -> int | None:
         if _norm(h) in aliases:
             return i
     return None
+
+
+def detect_column_mapping(headers: list[str]) -> ColumnMapping:
+    """Guess a ``ColumnMapping`` from header aliases (may be incomplete)."""
+    return ColumnMapping(
+        date=_detect_column(headers, _DATE_ALIASES),
+        amount=_detect_column(headers, _AMOUNT_ALIASES),
+        description=_detect_column(headers, _DESC_ALIASES),
+        payee=_detect_column(headers, _PAYEE_ALIASES),
+        counterparty_account=_detect_column(headers, _COUNTERPARTY_ALIASES),
+        debit=_detect_column(headers, _DEBIT_ALIASES),
+        credit=_detect_column(headers, _CREDIT_ALIASES),
+    )
+
+
+def detect_delimiter(content: str) -> str:
+    """Pick the most frequent delimiter among comma, semicolon, and tab."""
+    sample = content[:2048]
+    counts = {d: sample.count(d) for d in (",", ";", "\t")}
+    return max(counts, key=lambda d: counts[d])
+
+
+def inspect_csv(
+    content: str,
+    *,
+    delimiter: str = "",
+    sample_limit: int = 10,
+) -> CsvInspection:
+    """Inspect CSV structure for the mapping step (headers + sample rows)."""
+    delim = delimiter or detect_delimiter(content)
+    reader = csv.reader(io.StringIO(content), delimiter=delim)
+    try:
+        headers = next(reader)
+    except StopIteration:
+        return CsvInspection(delimiter=delim, headers=[], detected_mapping=ColumnMapping())
+
+    headers = [h.strip() for h in headers]
+    sample_rows: list[list[str]] = []
+    for i, row in enumerate(reader):
+        if i >= sample_limit:
+            break
+        sample_rows.append(list(row))
+    return CsvInspection(
+        delimiter=delim,
+        headers=headers,
+        sample_rows=sample_rows,
+        detected_mapping=detect_column_mapping(headers),
+    )
 
 
 # ── Result types ─────────────────────────────────────────────────────────────
@@ -409,12 +544,21 @@ class ImportService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    def parse_queued_file(self, content: str, profile: str) -> ParseQueuedFileResult:
+    def parse_queued_file(
+        self,
+        content: str,
+        profile: str,
+        *,
+        mapping: ColumnMapping | None = None,
+    ) -> ParseQueuedFileResult:
         """Parse queued CSV content, auto-detecting a bank profile when generic.
 
         Bank-specific branches are registered in ``import_profiles.BANK_PROFILES``.
         Add a new ``elif resolved_profile == …`` arm only when a real fixture and
         preprocessor exist (see ``tests/e2e/fixtures/import/README.md``).
+
+        When *mapping* is provided (generic path), it overrides alias detection.
+        Failed mBank parses fall back to generic + mapping instead of a dead end.
         """
         resolved_profile = profile
         if profile == GENERIC_PROFILE:
@@ -424,26 +568,26 @@ class ImportService:
 
         if resolved_profile == MBANK_PROFILE:
             if not MBankPreprocessor.is_mbank_file(content):
-                return ParseQueuedFileResult(
-                    profile=resolved_profile,
-                    error_key="import.not_mbank_file",
+                # Fall back to generic + mapping (plan open Q2).
+                return self._parse_generic_with_mapping(
+                    content,
+                    mapping=mapping,
+                    profile=GENERIC_PROFILE,
                 )
             data_section = MBankPreprocessor.extract_data_section(content)
             if data_section is None:
-                return ParseQueuedFileResult(
-                    profile=resolved_profile,
-                    error_key="import.no_data_section",
+                return self._parse_generic_with_mapping(
+                    content,
+                    mapping=mapping,
+                    profile=GENERIC_PROFILE,
                 )
             metadata = MBankPreprocessor.extract_metadata(content)
             result = self.parse_csv(data_section, delimiter=";")
             if not result.rows:
-                return ParseQueuedFileResult(
-                    profile=resolved_profile,
-                    rows=result.rows,
-                    errors=result.errors,
-                    metadata=metadata,
-                    error_key="import.no_rows",
-                    error_params={"skipped": result.skipped},
+                return self._parse_generic_with_mapping(
+                    content,
+                    mapping=mapping,
+                    profile=GENERIC_PROFILE,
                 )
             return ParseQueuedFileResult(
                 profile=resolved_profile,
@@ -455,84 +599,169 @@ class ImportService:
 
         # Future bank profiles: branch here (one bank per PR, fixture-backed).
 
-        result = self.parse_csv(content)
+        return self._parse_generic_with_mapping(
+            content,
+            mapping=mapping,
+            profile=resolved_profile,
+        )
+
+    def _parse_generic_with_mapping(
+        self,
+        content: str,
+        *,
+        mapping: ColumnMapping | None,
+        profile: str,
+    ) -> ParseQueuedFileResult:
+        inspection = inspect_csv(content)
+        effective = mapping if mapping is not None else inspection.detected_mapping
+        mapping_errors = effective.validation_errors()
+        if mapping_errors:
+            return ParseQueuedFileResult(
+                profile=profile,
+                errors=mapping_errors,
+                needs_mapping=True,
+                inspection=inspection,
+                column_mapping=effective,
+            )
+
+        result = self.parse_csv(
+            content,
+            delimiter=inspection.delimiter,
+            mapping=effective,
+        )
         if not result.rows:
             return ParseQueuedFileResult(
-                profile=resolved_profile,
+                profile=profile,
                 rows=result.rows,
-                errors=result.errors,
-                error_key="import.no_rows",
-                error_params={"skipped": result.skipped},
+                errors=result.errors or mapping_errors,
+                needs_mapping=True,
+                error_key="import.no_rows" if not result.errors else None,
+                error_params={"skipped": result.skipped} if not result.errors else {},
+                inspection=inspection,
+                column_mapping=effective,
             )
         return ParseQueuedFileResult(
-            profile=resolved_profile,
+            profile=profile,
             rows=result.rows,
             errors=result.errors,
             ok=True,
+            inspection=inspection,
+            column_mapping=effective,
         )
 
-    def parse_csv(self, content: str, *, delimiter: str = "") -> ImportResult:
+    def parse_csv(
+        self,
+        content: str,
+        *,
+        delimiter: str = "",
+        mapping: ColumnMapping | None = None,
+    ) -> ImportResult:
         """Parse CSV content into ParsedRow objects.
 
         Supports:
-        - Single amount column (negative = expense)
+        - Single amount column (negative = expense by default)
         - Separate debit / credit columns
+        - Explicit ``ColumnMapping`` (falls back to header-alias detection)
         - Auto-detects delimiter (comma, semicolon, tab)
         """
         result = ImportResult()
 
-        # Auto-detect delimiter
-        if not delimiter:
-            sample = content[:2048]
-            counts = {d: sample.count(d) for d in (",", ";", "\t")}
-            delimiter = max(counts, key=lambda d: counts[d])
-
-        reader = csv.DictReader(io.StringIO(content), delimiter=delimiter)
+        delim = delimiter or detect_delimiter(content)
+        reader = csv.DictReader(io.StringIO(content), delimiter=delim)
         if not reader.fieldnames:
             result.errors.append("CSV has no headers.")
             return result
 
         headers = list(reader.fieldnames)
-        date_col = _detect_column(headers, _DATE_ALIASES)
-        amount_col = _detect_column(headers, _AMOUNT_ALIASES)
-        desc_col = _detect_column(headers, _DESC_ALIASES)
-        debit_col = _detect_column(headers, _DEBIT_ALIASES)
-        credit_col = _detect_column(headers, _CREDIT_ALIASES)
+        effective = mapping if mapping is not None else detect_column_mapping(headers)
 
-        if date_col is None:
-            result.errors.append(f"Cannot find a date column. Headers: {headers}")
-            return result
-        if amount_col is None and (debit_col is None and credit_col is None):
-            result.errors.append(f"Cannot find an amount/debit/credit column. Headers: {headers}")
+        date_col = effective.date
+        amount_col = effective.amount
+        desc_col = effective.description
+        payee_col = effective.payee
+        counterparty_col = effective.counterparty_account
+        debit_col = effective.debit
+        credit_col = effective.credit
+
+        structural = effective.validation_errors() if mapping is not None else []
+        if mapping is None:
+            # Legacy alias path: description optional; amount OR debit/credit required.
+            if date_col is None:
+                result.errors.append(f"Cannot find a date column. Headers: {headers}")
+                return result
+            if amount_col is None and debit_col is None and credit_col is None:
+                result.errors.append(
+                    f"Cannot find an amount/debit/credit column. Headers: {headers}"
+                )
+                return result
+        elif structural:
+            result.errors.extend(structural)
             return result
 
-        date_key = headers[date_col]
+        date_key = headers[date_col] if date_col is not None else None
         amount_key = headers[amount_col] if amount_col is not None else None
         desc_key = headers[desc_col] if desc_col is not None else None
+        payee_key = headers[payee_col] if payee_col is not None else None
+        counterparty_key = headers[counterparty_col] if counterparty_col is not None else None
         debit_key = headers[debit_col] if debit_col is not None else None
         credit_key = headers[credit_col] if credit_col is not None else None
 
+        if date_key is None:
+            result.errors.append(f"Cannot find a date column. Headers: {headers}")
+            return result
+
         for line_no, row in enumerate(reader, start=2):
             try:
-                date = _parse_date(row.get(date_key, ""))
+                date = _parse_date(row.get(date_key, ""), effective.date_format)
 
                 if amount_key:
                     raw_amount = row.get(amount_key, "").strip()
                     if not raw_amount:
                         result.skipped += 1
                         continue
-                    amount = _parse_amount(raw_amount)
+                    amount = _parse_amount(
+                        raw_amount,
+                        decimal_separator=effective.decimal_separator,
+                        thousands_separator=effective.thousands_separator,
+                    )
+                    if not effective.amounts_negative_for_expenses:
+                        amount = -amount
                 else:
                     # Separate debit/credit columns
                     raw_debit = row.get(debit_key or "", "").strip() if debit_key else ""
                     raw_credit = row.get(credit_key or "", "").strip() if credit_key else ""
-                    debit = _parse_amount(raw_debit) if raw_debit else Decimal("0")
-                    credit = _parse_amount(raw_credit) if raw_credit else Decimal("0")
+                    debit = (
+                        _parse_amount(
+                            raw_debit,
+                            decimal_separator=effective.decimal_separator,
+                            thousands_separator=effective.thousands_separator,
+                        )
+                        if raw_debit
+                        else Decimal("0")
+                    )
+                    credit = (
+                        _parse_amount(
+                            raw_credit,
+                            decimal_separator=effective.decimal_separator,
+                            thousands_separator=effective.thousands_separator,
+                        )
+                        if raw_credit
+                        else Decimal("0")
+                    )
                     amount = credit - debit  # positive = income
 
                 description = row.get(desc_key, "").strip() if desc_key else ""
+                payee = row.get(payee_key, "").strip() if payee_key else ""
+                counterparty = row.get(counterparty_key, "").strip() if counterparty_key else ""
+                raw = dict(row)
+                if payee:
+                    raw["payee"] = payee
+                    if not description:
+                        description = payee
+                if counterparty:
+                    raw["counterparty_account"] = counterparty
                 result.rows.append(
-                    ParsedRow(date=date, amount=amount, description=description, raw=dict(row))
+                    ParsedRow(date=date, amount=amount, description=description, raw=raw)
                 )
 
             except (ImportError_, KeyError) as exc:

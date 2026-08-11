@@ -18,6 +18,7 @@ from kaleta.services.import_service import (
     inherit_queue_settings,
     validate_import_readiness,
 )
+from kaleta.views.import_view.mapping_section import build_mapping_section
 from kaleta.views.import_view.metadata_section import build_metadata_section
 from kaleta.views.import_view.preview_section import build_preview_section
 from kaleta.views.import_view.profile_section import build_profile_section
@@ -71,24 +72,44 @@ async def import_page() -> None:
         queued_file.parse_errors = []
         queued_file.metadata = None
         queued_file.status_msg = ""
+        mapping = queued_file.column_mapping
 
         async def _run_parse(session: Any) -> Any:
             svc = ImportService(session)
-            return svc.parse_queued_file(queued_file.content, queued_file.profile)
+            return svc.parse_queued_file(
+                queued_file.content,
+                queued_file.profile,
+                mapping=mapping,
+            )
 
         result = await with_session(_run_parse)
         queued_file.profile = result.profile
-        if not result.ok:
-            queued_file.status = "failed"
-            queued_file.status_msg = (
-                t(result.error_key, **result.error_params) if result.error_key else ""
-            )
+        queued_file.inspection = result.inspection
+        if result.column_mapping is not None:
+            queued_file.column_mapping = result.column_mapping
+        queued_file.parse_errors = list(result.errors)
+
+        if result.ok:
+            queued_file.parsed_rows = result.rows
+            queued_file.metadata = result.metadata
+            queued_file.status = "ready"
+            queued_file.status_msg = t("import.rows_loaded", count=len(queued_file.parsed_rows))
             return
-        queued_file.parsed_rows = result.rows
-        queued_file.parse_errors = result.errors
-        queued_file.metadata = result.metadata
-        queued_file.status = "ready"
-        queued_file.status_msg = t("import.rows_loaded", count=len(queued_file.parsed_rows))
+
+        if result.needs_mapping:
+            queued_file.parsed_rows = result.rows
+            queued_file.metadata = result.metadata
+            queued_file.status = "needs_mapping"
+            if result.error_key:
+                queued_file.status_msg = t(result.error_key, **result.error_params)
+            else:
+                queued_file.status_msg = t("import.mapping_required")
+            return
+
+        queued_file.status = "failed"
+        queued_file.status_msg = (
+            t(result.error_key, **result.error_params) if result.error_key else ""
+        )
 
     def _repaint_active() -> None:
         active = _active()
@@ -96,6 +117,7 @@ async def import_page() -> None:
 
         if active is None:
             metadata_section.hide()
+            mapping_section.set_visible(False)
             settings_section.set_visible(False)
             preview_section.set_visible(False)
             transfer_section.set_visible(False)
@@ -113,11 +135,21 @@ async def import_page() -> None:
         else:
             metadata_section.hide()
 
+        show_mapping = active.profile == "generic" and active.status in {
+            "ready",
+            "needs_mapping",
+            "done",
+        }
+        if show_mapping:
+            mapping_section.load_file(active)
+        mapping_section.set_visible(show_mapping)
+
         settings_section.load_file(active, accounts)
         preview_section.render(active.parsed_rows, known_digits)
 
-        settings_section.set_visible(active.status in {"ready", "done"})
-        preview_section.set_visible(active.status in {"ready", "done"})
+        show_settings = active.status in {"ready", "done"}
+        settings_section.set_visible(show_settings)
+        preview_section.set_visible(active.status in {"ready", "done", "needs_mapping"})
         transfer_section.set_visible(active.profile == "generic" and active.status == "ready")
 
     def _render_queue() -> None:
@@ -155,6 +187,8 @@ async def import_page() -> None:
         if active is None:
             return
         active.profile = key
+        if key == "mbank":
+            active.column_mapping = None
         await _parse_file(active)
         _repaint_active()
         _render_queue()
@@ -182,19 +216,21 @@ async def import_page() -> None:
             filename=e.file.name,
             content=content,
         )
+        # Inherit settings (including column mapping) before the first parse.
+        snapshot = settings_snapshot(queued_file)
+        inherited = inherit_queue_settings(snapshot, _inheritance_priors(queued_file.id))
+        if inherited:
+            apply_settings_snapshot(queued_file, snapshot)
+
         await _parse_file(queued_file)
         state["queue"].append(queued_file)
 
-        if queued_file.status == "ready":
-            snapshot = settings_snapshot(queued_file)
-            inherited = inherit_queue_settings(snapshot, _inheritance_priors(queued_file.id))
-            if inherited:
-                apply_settings_snapshot(queued_file, snapshot)
-            if queued_file.profile == "mbank":
-                auto = await _auto_match_account(queued_file)
-                if auto:
-                    inherited = True
-            if inherited:
+        if queued_file.status in {"ready", "needs_mapping"} and inherited:
+            ui.notify(t("import.queue_inherited"), type="info")
+
+        if queued_file.status == "ready" and queued_file.profile == "mbank":
+            auto = await _auto_match_account(queued_file)
+            if auto:
                 ui.notify(t("import.queue_inherited"), type="info")
 
         state["active_id"] = queued_file.id
@@ -208,6 +244,15 @@ async def import_page() -> None:
             return
         settings_section.sync_from_widgets(active)
         settings_section.update_currency_warning(active, accounts)
+
+    async def _on_mapping_change() -> None:
+        active = _active()
+        if active is None or active.profile != "generic":
+            return
+        mapping_section.sync_to_file(active)
+        await _parse_file(active)
+        _repaint_active()
+        _render_queue()
 
     async def _import_one(queued_file: QueuedFile) -> None:
         queued_file.status = "importing"
@@ -325,6 +370,7 @@ async def import_page() -> None:
         upload_section = build_upload_section()
         queue_section = build_queue_section()
         metadata_section = build_metadata_section()
+        mapping_section = build_mapping_section()
         settings_section = build_settings_section(
             account_options,
             expense_cat_opts,
@@ -334,6 +380,7 @@ async def import_page() -> None:
         transfer_section = build_transfer_section(run_detect)
         summary_section = build_summary_section()
 
+        mapping_section.bind(on_change=_on_mapping_change)
         settings_section.bind(
             on_account_change=_on_settings_change,
             on_expense_change=_on_settings_change,

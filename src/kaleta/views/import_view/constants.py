@@ -13,6 +13,7 @@ _PROFILES: list[tuple[str, str, str, bool]] = iter_ui_profiles()
 
 STATUS_COLOR: dict[str, str] = {
     "pending": "grey-6",
+    "needs_mapping": "amber-8",
     "ready": "primary",
     "importing": "amber-7",
     "done": "positive",
