@@ -35,6 +35,11 @@ class QueuedFile:
     imported_count: int = 0
     skipped_dupes: int = 0
     skipped_rows: list[TransactionCreate] = field(default_factory=list)
+    matched_rule_id: int | None = None
+    matched_rule_pattern: str | None = None
+    remember_mapping: bool = True
+    filename_pattern: str = ""
+    from_bulk_default: bool = False
 
 
 def settings_snapshot(file: QueuedFile) -> QueueSettingsSnapshot:

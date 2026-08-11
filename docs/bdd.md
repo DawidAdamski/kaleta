@@ -982,6 +982,60 @@ Feature: mBank CSV Import
     Then the Expenses, Income and Transfers chips are readable
     And the mBank metadata banner is readable
     And the same elements remain readable after switching to light mode
+
+  KAL-CSV-013 @automated
+  Scenario: Multi-file queue keeps per-file account and mapping
+    Given there are accounts "mBank PLN" and "PKO PLN"
+    And I am on the Import page with profile "Generic CSV"
+    When I upload "mbank-2025-10.csv" and "pko-2025-10.csv" in one session
+    Then I see two queue rows
+    When I select the mBank file and set account "mBank PLN" and its column mapping
+    And I select the PKO file and set account "PKO PLN" and its column mapping
+    Then each file keeps its own account and mapping when I switch between them
+
+  KAL-CSV-014 @automated
+  Scenario: Remember mapping creates an import rule with suggested pattern
+    Given I am on the Import page with a mapped generic CSV "mbank-2025-10.csv"
+    And "Remember this mapping" is checked
+    When I import the file
+    Then an import rule is saved with filename pattern "mbank-*.csv"
+    And I can edit the suggested pattern before confirming
+
+  KAL-CSV-015 @automated
+  Scenario: Saved import rule auto-populates the next upload
+    Given a saved import rule pattern "mbank-*.csv" for account "mBank PLN"
+      with a column mapping
+    And I am on the Import page
+    When I upload "mbank-2025-11.csv"
+    Then the queue row shows chip "Rule: mbank-*.csv"
+    And the account and column mapping are pre-filled from the rule
+    And I can still override them before importing
+
+  KAL-CSV-016 @planned
+  Scenario: More specific filename pattern wins on match
+    Given saved rules "mbank-*.csv" and "mbank-2025-*.csv" for different accounts
+    When I upload "mbank-2025-11.csv"
+    Then the rule "mbank-2025-*.csv" is applied
+    And when two rules tie on specificity the one with later last_used_at wins
+
+  KAL-CSV-017 @automated
+  Scenario: Disabled import rule stops matching; delete removes it
+    Given a saved import rule "mbank-*.csv" that matches my uploads
+    When I disable the rule in Settings → Import
+    And I upload "mbank-2025-12.csv"
+    Then the rule is not applied
+    And the rule still appears in the saved rules list
+    When I delete the rule
+    Then it is removed permanently from the list
+
+  KAL-CSV-018 @automated
+  Scenario: Bulk default account applies only when no rule matches
+    Given a saved import rule "mbank-*.csv" for account "mBank PLN"
+    And I am on the Import page
+    When I set the bulk default account to "Cash"
+    And I upload three unmatched CSVs and one "mbank-2025-10.csv"
+    Then the three unmatched files use account "Cash"
+    And the mBank file keeps the rule's account "mBank PLN"
 ```
 
 ## Feature: Transfer Recognition

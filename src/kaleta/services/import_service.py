@@ -112,6 +112,12 @@ def build_preview_table_rows(
 # ── Column mapping ────────────────────────────────────────────────────────────
 
 
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
 @dataclass
 class ColumnMapping:
     """Explicit CSV column indices and format options for the generic parser.
@@ -148,6 +154,41 @@ class ColumnMapping:
         if self.amount is None and self.debit is None and self.credit is None:
             errors.append("Amount column (or debit/credit columns) is required.")
         return errors
+
+    def to_dict(self) -> dict[str, Any]:
+        """JSON-friendly keyed dict for ImportRule persistence."""
+        return {
+            "date": self.date,
+            "amount": self.amount,
+            "description": self.description,
+            "payee": self.payee,
+            "counterparty_account": self.counterparty_account,
+            "debit": self.debit,
+            "credit": self.credit,
+            "date_format": self.date_format,
+            "decimal_separator": self.decimal_separator,
+            "thousands_separator": self.thousands_separator,
+            "amounts_negative_for_expenses": self.amounts_negative_for_expenses,
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any] | None) -> ColumnMapping:
+        """Rebuild from a keyed dict (ImportRule.column_mapping)."""
+        if not data:
+            return cls()
+        return cls(
+            date=_optional_int(data.get("date")),
+            amount=_optional_int(data.get("amount")),
+            description=_optional_int(data.get("description")),
+            payee=_optional_int(data.get("payee")),
+            counterparty_account=_optional_int(data.get("counterparty_account")),
+            debit=_optional_int(data.get("debit")),
+            credit=_optional_int(data.get("credit")),
+            date_format=str(data.get("date_format") or ""),
+            decimal_separator=str(data.get("decimal_separator") or ""),
+            thousands_separator=str(data.get("thousands_separator") or ""),
+            amounts_negative_for_expenses=bool(data.get("amounts_negative_for_expenses", True)),
+        )
 
 
 @dataclass

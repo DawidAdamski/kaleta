@@ -114,6 +114,38 @@ def seed_rule(pattern: str, category_id: int, *, priority: int = 0) -> int:
         return executor.submit(_worker).result()
 
 
+def seed_import_rule(
+    filename_pattern: str,
+    account_id: int,
+    *,
+    column_mapping: dict[str, Any] | None = None,
+    is_active: bool = True,
+) -> int:
+    """Create a filename-pattern import rule via the REST API; return its ID."""
+    body: dict[str, Any] = {
+        "filename_pattern": filename_pattern,
+        "account_id": account_id,
+        "column_mapping": column_mapping or {"date": 0, "amount": 1, "description": 2},
+        "is_active": is_active,
+    }
+    resp = _client.post(f"{API_BASE}/import-rules/", json=body)
+    resp.raise_for_status()
+    return int(resp.json()["id"])
+
+
+def update_import_rule(rule_id: int, **fields: Any) -> None:
+    """PATCH-like update of an import rule via PUT."""
+    resp = _client.put(f"{API_BASE}/import-rules/{rule_id}", json=fields)
+    resp.raise_for_status()
+
+
+def list_import_rules() -> list[dict[str, Any]]:
+    """Return all saved import rules."""
+    resp = _client.get(f"{API_BASE}/import-rules/")
+    resp.raise_for_status()
+    return list(resp.json())
+
+
 def seed_transaction(
     account_id: int,
     category_id: int,

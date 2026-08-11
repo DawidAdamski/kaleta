@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: mBank CSV Import (generic CSV path).
 
-Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-010, KAL-CSV-011
+Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-010,
+KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015, KAL-CSV-017, KAL-CSV-018
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -15,19 +16,30 @@ from pathlib import Path
 from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import (
+    list_import_rules,
     seed_account,
     seed_category,
+    seed_import_rule,
     seed_income_category,
     seed_transaction,
+    update_import_rule,
 )
 
 IMPORT_CSV = Path(__file__).resolve().parents[2] / "test_import.csv"
-UNRECOGNISED_CSV = (
-    Path(__file__).resolve().parent / "fixtures" / "import" / "unrecognised_headers.csv"
-)
+FIXTURES = Path(__file__).resolve().parent / "fixtures" / "import"
+UNRECOGNISED_CSV = FIXTURES / "unrecognised_headers.csv"
+MBANK_OCT = FIXTURES / "mbank-2025-10.csv"
+MBANK_NOV = FIXTURES / "mbank-2025-11.csv"
+MBANK_DEC = FIXTURES / "mbank-2025-12.csv"
+BULK_MBANK = FIXTURES / "bulk-mbank-2025-10.csv"
+PKO_OCT = FIXTURES / "pko-2025-10.csv"
+OTHER_A = FIXTURES / "other-a.csv"
+OTHER_B = FIXTURES / "other-b.csv"
+OTHER_C = FIXTURES / "other-c.csv"
 
 
 def _select_import_option(page: Page, label: str, option: str) -> None:
+    page.keyboard.press("Escape")
     page.locator(".q-select").filter(has_text=label).click()
     page.locator(".q-menu").last.get_by_text(option, exact=True).click()
 
@@ -274,3 +286,121 @@ def test_skipped_duplicates_listed_with_help(page: Page, base_url: str) -> None:
     expect(page.get_by_text("2024-01-15 · 50.00 · Biedronka", exact=True)).to_be_visible(
         timeout=5000
     )
+
+
+def test_multi_file_queue_keeps_per_file_account(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-013"""
+    mbank = "mBank PLN Memory"
+    pko = "PKO PLN Memory"
+    seed_account(mbank)
+    seed_account(pko)
+    seed_category("Other Expenses Multi")
+    seed_income_category("Other Income Multi")
+
+    page.goto(f"{base_url}/import")
+    page.locator('input[type="file"]').set_input_files([str(MBANK_OCT), str(PKO_OCT)])
+    expect(page.get_by_text("mbank-2025-10.csv").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("pko-2025-10.csv").first).to_be_visible(timeout=5000)
+
+    page.get_by_text("mbank-2025-10.csv").first.click()
+    page.wait_for_timeout(400)
+    _select_import_option(page, "Target account", _account_option(mbank))
+    expect(page.get_by_text(_account_option(mbank)).first).to_be_visible(timeout=5000)
+
+    page.get_by_text("pko-2025-10.csv").first.click()
+    page.wait_for_timeout(400)
+    _select_import_option(page, "Target account", _account_option(pko))
+    expect(page.get_by_text(_account_option(pko)).first).to_be_visible(timeout=5000)
+
+    # Both per-file account chips remain visible in the queue after switching.
+    expect(page.get_by_text(_account_option(mbank)).first).to_be_visible()
+    expect(page.get_by_text(_account_option(pko)).first).to_be_visible()
+
+
+def test_remember_mapping_and_auto_apply_rule(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-014, KAL-CSV-015"""
+    account_name = "mBank PLN Remember"
+    expense_cat = "Other Expenses Remember"
+    income_cat = "Other Income Remember"
+    seed_account(account_name)
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    page.locator('input[type="file"]').set_input_files(str(MBANK_OCT))
+    expect(page.get_by_text("mbank-2025-10.csv").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+
+    _select_import_option(page, "Target account", _account_option(account_name))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+    expect(page.get_by_text("Remember this mapping")).to_be_visible()
+    pattern = page.get_by_label("Filename pattern")
+    expect(pattern).to_have_value("mbank-*.csv")
+
+    page.get_by_role("button", name="Import 1 file").click()
+    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
+
+    rules = list_import_rules()
+    assert any(r["filename_pattern"] == "mbank-*.csv" for r in rules)
+
+    page.get_by_role("button", name="Start new import").click()
+    page.locator('input[type="file"]').set_input_files(str(MBANK_NOV))
+    expect(page.get_by_text("mbank-2025-11.csv").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Rule: mbank-*.csv").first).to_be_visible(timeout=5000)
+    expect(page.locator(".q-select").filter(has_text="Target account")).to_contain_text(
+        account_name
+    )
+
+
+def test_disabled_import_rule_stops_matching(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-017"""
+    account_name = "mBank PLN Disable"
+    account_id = seed_account(account_name)
+    seed_category("Other Expenses Disable")
+    seed_income_category("Other Income Disable")
+    rule_id = seed_import_rule("disable-mbank-*.csv", account_id)
+
+    page.goto(f"{base_url}/settings")
+    page.get_by_role("tab", name="Import").click()
+    expect(page.get_by_text("Saved import rules")).to_be_visible(timeout=5000)
+    expect(page.get_by_role("cell", name="disable-mbank-*.csv").first).to_be_visible()
+
+    update_import_rule(rule_id, is_active=False)
+
+    # Seed an active rule with the real pattern used by uploads, then disable it.
+    active_id = seed_import_rule("mbank-*.csv", account_id)
+    update_import_rule(active_id, is_active=False)
+
+    page.goto(f"{base_url}/import")
+    page.locator('input[type="file"]').set_input_files(str(MBANK_DEC))
+    expect(page.get_by_text("mbank-2025-12.csv").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Rule: mbank-*.csv")).not_to_be_visible(timeout=3000)
+
+    page.goto(f"{base_url}/settings")
+    page.get_by_role("tab", name="Import").click()
+    expect(page.get_by_role("cell", name="mbank-*.csv").first).to_be_visible()
+
+
+def test_bulk_default_skips_matched_rule(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-018"""
+    mbank = "mBank PLN Bulk"
+    cash = "Cash Bulk"
+    mbank_id = seed_account(mbank)
+    seed_account(cash)
+    seed_category("Other Expenses Bulk")
+    seed_income_category("Other Income Bulk")
+    seed_import_rule("bulk-mbank-*.csv", mbank_id)
+
+    page.goto(f"{base_url}/import")
+    _select_import_option(page, "Default account for this batch", _account_option(cash))
+    page.locator('input[type="file"]').set_input_files(
+        [str(OTHER_A), str(OTHER_B), str(OTHER_C), str(BULK_MBANK)]
+    )
+
+    expect(page.get_by_text("other-a.csv").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("bulk-mbank-2025-10.csv").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Rule: bulk-mbank-*.csv").first).to_be_visible(timeout=5000)
+    # Unmatched files keep the bulk default; the matched file keeps the rule account.
+    expect(page.get_by_text(_account_option(cash)).first).to_be_visible()
+    expect(page.get_by_text(_account_option(mbank)).first).to_be_visible()

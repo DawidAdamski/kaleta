@@ -9,8 +9,15 @@ from typing import Any
 from nicegui import events, ui
 
 from kaleta.i18n import t
-from kaleta.services import AccountService, CategoryService, TransactionService, with_session
+from kaleta.services import (
+    AccountService,
+    CategoryService,
+    ImportRuleService,
+    TransactionService,
+    with_session,
+)
 from kaleta.services.import_service import (
+    ColumnMapping,
     ImportReadinessCheck,
     ImportService,
     auto_decode,
@@ -53,7 +60,12 @@ async def import_page() -> None:
     )
     known_digits = build_known_account_digits(a.external_account_number for a in accounts)
 
-    state: dict[str, Any] = {"queue": [], "active_id": None, "last_settings": None}
+    state: dict[str, Any] = {
+        "queue": [],
+        "active_id": None,
+        "last_settings": None,
+        "bulk_account_id": None,
+    }
 
     def _active() -> QueuedFile | None:
         active_id = state["active_id"]
@@ -161,6 +173,9 @@ async def import_page() -> None:
         )
 
     def _set_active(file_id: str) -> None:
+        previous = _active()
+        if previous is not None and previous.id != file_id and not settings_section._loading:
+            settings_section.sync_from_widgets(previous)
         state["active_id"] = file_id
         _repaint_active()
         _render_queue()
@@ -209,28 +224,82 @@ async def import_page() -> None:
             return True
         return False
 
+    async def _apply_import_rule(queued_file: QueuedFile) -> bool:
+        async def _match(session: Any) -> Any:
+            return await ImportRuleService(session).match(queued_file.filename)
+
+        rule = await with_session(_match)
+        if rule is None:
+            return False
+        queued_file.matched_rule_id = rule.id
+        queued_file.matched_rule_pattern = rule.filename_pattern
+        queued_file.filename_pattern = rule.filename_pattern
+        if rule.account_id in account_options:
+            queued_file.target_account_id = rule.account_id
+        mapping = ColumnMapping.from_dict(dict(rule.column_mapping or {}))
+        if mapping.is_complete() or any(
+            getattr(mapping, field) is not None
+            for field in ("date", "amount", "description", "payee", "debit", "credit")
+        ):
+            queued_file.column_mapping = mapping
+        if rule.delimiter and queued_file.inspection is None:
+            # Delimiter is re-detected on parse; stored for future use.
+            pass
+        return True
+
+    def _apply_bulk_default(queued_file: QueuedFile) -> bool:
+        bulk_id = state["bulk_account_id"]
+        if bulk_id is None or queued_file.matched_rule_id is not None:
+            return False
+        if queued_file.target_account_id is not None:
+            return False
+        if bulk_id not in account_options:
+            return False
+        queued_file.target_account_id = bulk_id
+        queued_file.from_bulk_default = True
+        return True
+
     async def handle_upload(e: events.UploadEventArguments) -> None:
         content = auto_decode(await e.file.read())
+        suggested = ImportRuleService.suggest_filename_pattern(e.file.name)
         queued_file = QueuedFile(
             id=str(uuid.uuid4()),
             filename=e.file.name,
             content=content,
+            filename_pattern=suggested,
         )
-        # Inherit settings (including column mapping) before the first parse.
+
+        rule_applied = await _apply_import_rule(queued_file)
+
+        # Inherit settings (including column mapping) before the first parse,
+        # but never overwrite fields already filled from a matched rule.
         snapshot = settings_snapshot(queued_file)
         inherited = inherit_queue_settings(snapshot, _inheritance_priors(queued_file.id))
         if inherited:
+            if queued_file.target_account_id is not None:
+                snapshot.target_account_id = queued_file.target_account_id
+            if queued_file.column_mapping is not None:
+                snapshot.column_mapping = queued_file.column_mapping
             apply_settings_snapshot(queued_file, snapshot)
+
+        bulk_applied = _apply_bulk_default(queued_file)
 
         await _parse_file(queued_file)
         state["queue"].append(queued_file)
 
-        if queued_file.status in {"ready", "needs_mapping"} and inherited:
+        if rule_applied:
+            ui.notify(
+                t("import.rule_applied", pattern=queued_file.matched_rule_pattern or ""),
+                type="info",
+            )
+        elif queued_file.status in {"ready", "needs_mapping"} and inherited:
             ui.notify(t("import.queue_inherited"), type="info")
+        elif bulk_applied:
+            ui.notify(t("import.bulk_applied"), type="info")
 
         if queued_file.status == "ready" and queued_file.profile == "mbank":
             auto = await _auto_match_account(queued_file)
-            if auto:
+            if auto and not rule_applied:
                 ui.notify(t("import.queue_inherited"), type="info")
 
         state["active_id"] = queued_file.id
@@ -239,10 +308,13 @@ async def import_page() -> None:
         _repaint_active()
 
     def _on_settings_change() -> None:
+        if settings_section._loading:
+            return
         active = _active()
         if active is None:
             return
         settings_section.sync_from_widgets(active)
+        active.from_bulk_default = False
         settings_section.update_currency_warning(active, accounts)
 
     async def _on_mapping_change() -> None:
@@ -253,6 +325,29 @@ async def import_page() -> None:
         await _parse_file(active)
         _repaint_active()
         _render_queue()
+
+    async def _save_remembered_rule(queued_file: QueuedFile) -> None:
+        if not queued_file.remember_mapping:
+            return
+        if queued_file.target_account_id is None:
+            return
+        mapping = queued_file.column_mapping
+        mapping_dict = mapping.to_dict() if mapping is not None else {}
+        delimiter = queued_file.inspection.delimiter if queued_file.inspection else None
+
+        async def _upsert(session: Any) -> None:
+            svc = ImportRuleService(session)
+            rule = await svc.upsert_from_import(
+                filename=queued_file.filename,
+                filename_pattern=queued_file.filename_pattern or None,
+                account_id=queued_file.target_account_id,  # type: ignore[arg-type]
+                column_mapping=mapping_dict,
+                delimiter=delimiter,
+            )
+            queued_file.matched_rule_id = rule.id
+            queued_file.matched_rule_pattern = rule.filename_pattern
+
+        await with_session(_upsert)
 
     async def _import_one(queued_file: QueuedFile) -> None:
         queued_file.status = "importing"
@@ -332,6 +427,18 @@ async def import_page() -> None:
         queued_file.status = "done"
         queued_file.status_msg = t("import.done", count=count)
 
+        try:
+            await _save_remembered_rule(queued_file)
+            rule_id = queued_file.matched_rule_id
+            if rule_id is not None:
+
+                async def _touch(session: Any, rid: int = rule_id) -> None:
+                    await ImportRuleService(session).touch_last_used(rid)
+
+                await with_session(_touch)
+        except Exception as exc:  # noqa: BLE001
+            ui.notify(t("import.rule_save_failed", error=str(exc)), type="warning")
+
     async def do_import_all() -> None:
         eligible = [f for f in state["queue"] if f.status == "ready"]
         if not eligible:
@@ -362,13 +469,29 @@ async def import_page() -> None:
         transfer_section.set_result(msg)
         ui.notify(msg, type="positive")
 
+    def _on_bulk_account_change(_e: object = None) -> None:
+        value = queue_section.bulk_account_sel.value
+        state["bulk_account_id"] = int(value) if value is not None else None
+        if state["bulk_account_id"] is None:
+            return
+        for queued_file in state["queue"]:
+            if queued_file.matched_rule_id is not None:
+                continue
+            if queued_file.status in {"done", "failed", "importing"}:
+                continue
+            if queued_file.target_account_id is None or queued_file.from_bulk_default:
+                queued_file.target_account_id = state["bulk_account_id"]
+                queued_file.from_bulk_default = True
+        _render_queue()
+        _repaint_active()
+
     with page_layout(t("import.title")):
         ui.label(t("import.title")).classes("text-2xl font-bold")
         render_step_indicator()
 
         profile_section = build_profile_section(_select_profile)
         upload_section = build_upload_section()
-        queue_section = build_queue_section()
+        queue_section = build_queue_section(account_options)
         metadata_section = build_metadata_section()
         mapping_section = build_mapping_section()
         settings_section = build_settings_section(
@@ -386,7 +509,9 @@ async def import_page() -> None:
             on_expense_change=_on_settings_change,
             on_income_change=_on_settings_change,
             on_skip_change=_on_settings_change,
+            on_remember_change=_on_settings_change,
         )
+        queue_section.bulk_account_sel.on("update:model-value", _on_bulk_account_change)
         upload_section.upload_widget.on_upload(handle_upload)
         queue_section.import_all_btn.on("click", do_import_all)
         summary_section.bind_start_new(_start_new_import)
