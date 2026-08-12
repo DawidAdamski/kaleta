@@ -21,8 +21,26 @@ def _fill_number(scope: Page, label: str, value: str) -> None:
 
 
 def _select_option(page: Page, dialog: Page, select_index: int, option: str) -> None:
+    """Open a Quasar select and pick an option, scrolling virtual lists if needed."""
     dialog.locator(".q-select").nth(select_index).click()
-    page.locator(".q-menu").get_by_text(option, exact=True).click()
+    menu = page.locator(".q-menu").last
+    expect(menu).to_be_visible(timeout=3000)
+    target = menu.get_by_text(option, exact=True)
+    for _ in range(40):
+        if target.count() > 0:
+            target.first.click()
+            return
+        menu.evaluate(
+            """(el) => {
+              const scroller =
+                el.querySelector('.q-virtual-scroll__content')?.parentElement
+                || el.querySelector('.scroll')
+                || el;
+              scroller.scrollTop += 220;
+            }"""
+        )
+        page.wait_for_timeout(40)
+    raise AssertionError(f"Select option not found after scrolling: {option!r}")
 
 
 def test_add_edit_split_transaction(page: Page, base_url: str) -> None:

@@ -3,7 +3,7 @@ plan_id: import-history-account-coverage
 title: Import — per-account import history and coverage view
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -101,4 +101,14 @@ notifications can ride the wizard-reminders plan later).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- Open Q1 (last activity vs last import): confirmed — newest transaction date
+  is computed from all transactions (manual + import); coverage labels
+  distinguish "Last activity" from "Last import".
+- `ImportRun` is `session.add`-only; `TransactionService.create_bulk` commits
+  it in the same transaction as the inserts (called after `record_import_run`
+  in `_persist`).
+- Change history heading to "File history" (not "Recent imports") so
+  Playwright ``get_by_role("button", name="Import")`` is not polluted by the
+  expansion control; history row copy uses "new" instead of "imported" so it
+  does not steal ``get_by_text("Imported")`` from the queue status chip.
+- `verify.sh --e2e`: green (77 e2e + 1446 unit/integration).

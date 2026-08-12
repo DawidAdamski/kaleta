@@ -10,6 +10,7 @@ from kaleta.models.credit import CreditCardProfile, LoanProfile
 from kaleta.models.currency_rate import CurrencyRate
 from kaleta.models.dismissed_candidate import DismissedCandidate
 from kaleta.models.import_rule import ImportRule
+from kaleta.models.import_run import ImportRun
 from kaleta.models.institution import Institution, InstitutionType
 from kaleta.models.monthly_readiness import MonthlyReadiness
 from kaleta.models.payee import Payee
@@ -45,6 +46,7 @@ __all__ = [
     "CurrencyRate",
     "DismissedCandidate",
     "ImportRule",
+    "ImportRun",
     "Institution",
     "InstitutionType",
     "LoanProfile",

@@ -14,8 +14,10 @@ from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from kaleta.exceptions import ImportError_
+from kaleta.models.import_run import ImportRun
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.transaction import TransactionCreate
@@ -1053,3 +1055,37 @@ class ImportService:
             await self.session.commit()
 
         return pairs
+
+    def record_import_run(
+        self,
+        *,
+        account_id: int,
+        filename: str,
+        profile: str,
+        imported_count: int,
+        skipped_count: int,
+        row_date_min: datetime.date | None,
+        row_date_max: datetime.date | None,
+    ) -> ImportRun:
+        """Stage an ``ImportRun`` on the session (caller owns the commit)."""
+        run = ImportRun(
+            account_id=account_id,
+            filename=filename,
+            profile=profile,
+            imported_count=imported_count,
+            skipped_count=skipped_count,
+            row_date_min=row_date_min,
+            row_date_max=row_date_max,
+        )
+        self.session.add(run)
+        return run
+
+    async def list_recent_runs(self, *, limit: int = 20) -> list[ImportRun]:
+        """Return the most recent import runs (newest first)."""
+        result = await self.session.execute(
+            select(ImportRun)
+            .options(selectinload(ImportRun.account))
+            .order_by(ImportRun.created_at.desc())
+            .limit(limit)
+        )
+        return list(result.scalars().all())

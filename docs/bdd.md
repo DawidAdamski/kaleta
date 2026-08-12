@@ -952,6 +952,25 @@ Feature: mBank CSV Import
     And the file is not Ready
     And the Import button stays disabled
 
+  KAL-CSV-008 @automated
+  Scenario: Coverage panel shows last import and newest transaction date
+    Given there is an account "mBank PLN"
+    And there is an expense category "Other Expenses"
+    And there is an income category "Other Income"
+    And I am on the Import page
+    When I import a CSV into "mBank PLN"
+    Then the account coverage panel shows "mBank PLN" with a last-import
+      filename and a newest transaction date
+    And an account with no imports shows "—" for last import
+
+  KAL-CSV-009 @automated
+  Scenario: Accounts page shows last activity per account
+    Given there is an account "mBank PLN" with imported transactions
+    And there is an account "Cash" with no transactions
+    When I open the Accounts page
+    Then "mBank PLN" shows a last-activity date
+    And "Cash" shows "—" for last activity
+
   KAL-CSV-010 @automated
   Scenario: User starts a second import without reloading
     Given I have completed an import on the Import page
