@@ -4,8 +4,7 @@ title: Import — per-file mapping with filename-based memory
 area: import
 effort: medium
 roadmap_ref: ../roadmap.md#import
-status: draft
-deferred_to: q4-2026
+status: in-progress
 ---
 
 # Import — per-file mapping with filename-based memory
@@ -138,5 +137,37 @@ Out of scope:
    "amount": 2, ...}`) or list positional? Default: **keyed
    dict** for clarity.
 
+## Tests (same PR as the implementation)
+
+Unit (`tests/unit/services/test_import_rule_service.py`):
+
+1. `suggest_filename_pattern("mbank-2025-10.csv")` → `mbank-*.csv`.
+2. `match()` — most-specific non-wildcard prefix wins.
+3. `match()` — ties broken by `last_used_at` desc.
+4. `match()` — case-insensitive; disabled rules skipped.
+5. CRUD create / update / delete / toggle `is_active`.
+
+E2E (`tests/e2e/test_csv_import.py`, docstrings with `Covers: KAL-*`):
+
+6. KAL-CSV-013 — two files in one session each keep their own account.
+7. KAL-CSV-014 / 015 — remember mapping; next upload auto-applies rule.
+8. KAL-CSV-017 — disable rule in Settings → Import; upload no longer matches.
+9. KAL-CSV-018 — bulk default account applies only to unmatched files.
+
 ## Implementation notes
-_Filled in as work progresses._
+
+- Open Q1–Q3 defaults adopted: longer non-wildcard prefix, case-
+  insensitive fnmatch, digit-block → `*` suggestion.
+- Open Q4: subtle chip on the queue row (`Rule: pattern`).
+- Open Q5: `ColumnMapping.to_dict()` / `from_dict()` keyed by field name.
+- Column mapping UI for the active file already lives in
+  `mapping_section.py` (shipped by import-mapping-wizard); this plan
+  adds filename-rule memory, bulk defaults, per-row account + rule chip,
+  remember-on-import, Settings → Import rules, and the API.
+- `JSONB` stored as SQLAlchemy `JSON` (SQLite-compatible).
+- Alembic revision `g1h2i3j4k5l6` (avoided colliding with existing
+  `a1b2c3d4e5f6` currency migration).
+- Settings load guard prevents widget echo events from clobbering the
+  newly selected queue file; queue is not rebuilt on every settings
+  keystroke (avoids racing open Quasar menus).
+- Match sort normalises naive SQLite `last_used_at` to aware UTC.

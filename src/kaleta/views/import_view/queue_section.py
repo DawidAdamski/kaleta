@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Multi-file upload queue panel."""
+"""Multi-file upload queue panel with bulk defaults and rule chips."""
 
 from __future__ import annotations
 
@@ -18,6 +18,8 @@ from kaleta.views.import_view.state import QueuedFile, import_button_label
 class QueueSection:
     container: ui.column
     import_all_btn: ui.button
+    bulk_account_sel: ui.select
+    account_options: dict[int, str]
 
     def render(
         self,
@@ -34,7 +36,12 @@ class QueueSection:
                 self.update_import_button(0)
                 return
             for queued_file in queue:
-                self._render_row(queued_file, active_id, on_select=on_select, on_remove=on_remove)
+                self._render_row(
+                    queued_file,
+                    active_id,
+                    on_select=on_select,
+                    on_remove=on_remove,
+                )
         ready = sum(1 for f in queue if f.status == "ready")
         self.update_import_button(ready)
 
@@ -54,7 +61,7 @@ class QueueSection:
         on_remove: Callable[[str], None],
     ) -> None:
         is_active = queued_file.id == active_id
-        classes = "w-full items-center gap-3 p-2 rounded cursor-pointer border-l-4 " + (
+        classes = "w-full items-start gap-3 p-2 rounded cursor-pointer border-l-4 " + (
             "border-primary" if is_active else "border-transparent"
         )
         with ui.row().classes(classes).on("click", lambda _e, fid=queued_file.id: on_select(fid)):
@@ -68,10 +75,19 @@ class QueueSection:
                 if queued_file.status == "importing"
                 else "description",
                 size="1.2rem",
-            ).classes(f"text-{colour}")
-            with ui.column().classes("flex-1 gap-0"):
+            ).classes(f"text-{colour} mt-1")
+            with ui.column().classes("flex-1 gap-1 min-w-0"):
                 ui.label(queued_file.filename).classes("text-sm font-medium")
                 self._subtitle(queued_file)
+                with ui.row().classes("items-center gap-2 flex-wrap"):
+                    if queued_file.matched_rule_pattern:
+                        ui.chip(
+                            t("import.rule_chip", pattern=queued_file.matched_rule_pattern),
+                            color="primary",
+                        ).props("dense outline")
+                    account_label = self.account_options.get(queued_file.target_account_id or -1)
+                    if account_label:
+                        ui.chip(account_label, color="grey-7").props("dense outline")
             ui.chip(t(f"import.queue_status_{queued_file.status}"), color=colour).props(
                 "dense outline"
             )
@@ -99,7 +115,7 @@ class QueueSection:
             ui.label(" · ".join(parts)).classes("text-xs text-slate-500")
 
 
-def build_queue_section() -> QueueSection:
+def build_queue_section(account_options: dict[int, str]) -> QueueSection:
     with ui.card().classes("w-full"):
         with ui.row().classes("w-full items-center justify-between mb-2"):
             ui.label(t("import.queue_section")).classes("text-lg font-semibold")
@@ -109,5 +125,21 @@ def build_queue_section() -> QueueSection:
                 .tooltip(t("import.import_btn_tooltip"))
             )
         ui.label(t("import.queue_active_hint")).classes("text-xs text-slate-500 mb-2")
+        with ui.row().classes("w-full items-end gap-3 mb-3 flex-wrap"):
+            bulk_account_sel = (
+                ui.select(
+                    account_options,
+                    label=t("import.bulk_account"),
+                    value=None,
+                )
+                .classes("min-w-64 flex-1")
+                .props("clearable")
+            )
+            ui.label(t("import.bulk_account_hint")).classes("text-xs text-slate-500 pb-2")
         container = ui.column().classes("w-full gap-1")
-    return QueueSection(container=container, import_all_btn=import_all_btn)
+    return QueueSection(
+        container=container,
+        import_all_btn=import_all_btn,
+        bulk_account_sel=bulk_account_sel,
+        account_options=account_options,
+    )

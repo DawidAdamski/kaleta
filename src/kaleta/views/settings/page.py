@@ -16,6 +16,7 @@ from kaleta.views.settings.data_tab import render_data_tab
 from kaleta.views.settings.features_tab import render_features_tab
 from kaleta.views.settings.general_tab import render_general_tab
 from kaleta.views.settings.history_tab import render_history_tab
+from kaleta.views.settings.import_tab import render_import_tab
 from kaleta.views.settings.security_tab import render_security_tab
 
 
@@ -46,6 +47,7 @@ async def settings_page() -> None:
                 "appearance", label=t("settings.tab_appearance"), icon="palette"
             )
             features_tab = ui.tab("features", label=t("settings.tab_features"), icon="toggle_on")
+            import_tab = ui.tab("import", label=t("settings.tab_import"), icon="upload_file")
             data_tab = ui.tab("data", label=t("settings.tab_data"), icon="storage")
             security_tab = ui.tab("security", label=t("settings.tab_security"), icon="security")
             history_tab = ui.tab("history", label=t("settings.tab_history"), icon="history")
@@ -58,6 +60,8 @@ async def settings_page() -> None:
                 render_appearance_tab()
             with ui.tab_panel(features_tab):
                 render_features_tab()
+            with ui.tab_panel(import_tab):
+                await render_import_tab()
             with ui.tab_panel(data_tab):
                 await render_data_tab(
                     default_currency=default_currency,

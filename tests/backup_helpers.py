@@ -24,6 +24,7 @@ from kaleta.models import (
     CreditCardProfile,
     CurrencyRate,
     DismissedCandidate,
+    ImportRule,
     Institution,
     InstitutionType,
     LoanDirection,
@@ -118,6 +119,15 @@ async def seed_every_model(session: AsyncSession) -> None:
             category_id=category.id,
             is_active=True,
             priority=0,
+            user_id=user.id,
+        )
+    )
+    session.add(
+        ImportRule(
+            filename_pattern="mbank-*.csv",
+            account_id=account.id,
+            column_mapping={"date": 0, "amount": 1, "description": 2},
+            is_active=True,
             user_id=user.id,
         )
     )

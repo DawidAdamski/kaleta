@@ -21,7 +21,10 @@ class SettingsSection:
     expense_cat_sel: ui.select
     income_cat_sel: ui.select
     skip_dupes_cb: ui.checkbox
+    remember_cb: ui.checkbox
+    pattern_input: ui.input
     currency_warn_label: ui.label
+    _loading: bool = False
 
     def bind(
         self,
@@ -30,24 +33,45 @@ class SettingsSection:
         on_expense_change: Callable[[], None],
         on_income_change: Callable[[], None],
         on_skip_change: Callable[[], None],
+        on_remember_change: Callable[[], None],
     ) -> None:
-        self.account_sel.on("update:model-value", lambda _e: on_account_change())
-        self.expense_cat_sel.on("update:model-value", lambda _e: on_expense_change())
-        self.income_cat_sel.on("update:model-value", lambda _e: on_income_change())
-        self.skip_dupes_cb.on("update:model-value", lambda _e: on_skip_change())
+        def _guard(handler: Callable[[], None]) -> Callable[[object], None]:
+            def _wrapped(_e: object = None) -> None:
+                if self._loading:
+                    return
+                handler()
+
+            return _wrapped
+
+        self.account_sel.on("update:model-value", _guard(on_account_change))
+        self.expense_cat_sel.on("update:model-value", _guard(on_expense_change))
+        self.income_cat_sel.on("update:model-value", _guard(on_income_change))
+        self.skip_dupes_cb.on("update:model-value", _guard(on_skip_change))
+        self.remember_cb.on("update:model-value", _guard(on_remember_change))
+        self.pattern_input.on("update:model-value", _guard(on_remember_change))
 
     def load_file(self, file: QueuedFile, accounts: list[Any]) -> None:
-        self.account_sel.value = file.target_account_id
-        self.expense_cat_sel.value = file.expense_cat_id
-        self.income_cat_sel.value = file.income_cat_id
-        self.skip_dupes_cb.value = file.skip_duplicates
-        self._update_currency_warning(file, accounts)
+        self._loading = True
+        try:
+            self.account_sel.value = file.target_account_id
+            self.expense_cat_sel.value = file.expense_cat_id
+            self.income_cat_sel.value = file.income_cat_id
+            self.skip_dupes_cb.value = file.skip_duplicates
+            self.remember_cb.value = file.remember_mapping
+            self.pattern_input.value = file.filename_pattern or file.filename
+            self.pattern_input.set_visibility(bool(file.remember_mapping))
+            self._update_currency_warning(file, accounts)
+        finally:
+            self._loading = False
 
     def sync_from_widgets(self, file: QueuedFile) -> None:
         file.target_account_id = self.account_sel.value
         file.expense_cat_id = self.expense_cat_sel.value
         file.income_cat_id = self.income_cat_sel.value
         file.skip_duplicates = bool(self.skip_dupes_cb.value)
+        file.remember_mapping = bool(self.remember_cb.value)
+        file.filename_pattern = (self.pattern_input.value or "").strip()
+        self.pattern_input.set_visibility(file.remember_mapping)
 
     def update_currency_warning(self, file: QueuedFile, accounts: list[Any]) -> None:
         self._update_currency_warning(file, accounts)
@@ -101,11 +125,17 @@ def build_settings_section(
             ui.icon("help_outline", size="1rem").classes("text-slate-500 cursor-help").tooltip(
                 t("import.skip_duplicates_help")
             )
+        with ui.column().classes("w-full gap-1 mt-2"):
+            remember_cb = ui.checkbox(t("import.remember_mapping"), value=True)
+            ui.label(t("import.remember_mapping_hint")).classes("text-xs text-slate-500")
+            pattern_input = ui.input(t("import.filename_pattern")).classes("w-full max-w-md")
     return SettingsSection(
         card=card,
         account_sel=account_sel,
         expense_cat_sel=expense_cat_sel,
         income_cat_sel=income_cat_sel,
         skip_dupes_cb=skip_dupes_cb,
+        remember_cb=remember_cb,
+        pattern_input=pattern_input,
         currency_warn_label=currency_warn_label,
     )

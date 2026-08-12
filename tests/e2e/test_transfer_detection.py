@@ -32,14 +32,17 @@ def _account_option(name: str, currency: str = "PLN") -> str:
 
 
 def _select_import_option(page: Page, label: str, option: str) -> None:
+    page.keyboard.press("Escape")
     page.locator(".q-select").filter(has_text=label).click()
-    page.locator(".q-menu").get_by_text(option, exact=True).click()
+    page.locator(".q-menu").last.get_by_text(option, exact=True).click()
 
 
 def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str) -> None:
     """Covers: KAL-CSV-004"""
-    expense_cat = "Other Expenses Transfer E2E"
-    income_cat = "Other Income Transfer E2E"
+    # Leading "AAA" keeps these near the top of Quasar's virtualised select list
+    # when the shared e2e DB already has many categories from earlier tests.
+    expense_cat = "AAA Transfer Expense"
+    income_cat = "AAA Transfer Income"
 
     seed_account_with_external(MAIN_ACCOUNT, MAIN_EXTERNAL)
     seed_account_with_external(SAVINGS_ACCOUNT, SAVINGS_EXTERNAL)
@@ -51,6 +54,7 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
 
     expect(page.get_by_text("mbank_transfer.csv")).to_be_visible(timeout=5000)
     expect(page.get_by_text("Loaded 3 rows", exact=False).first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Import settings", exact=True)).to_be_visible(timeout=5000)
 
     _select_import_option(page, "Target account", _account_option(MAIN_ACCOUNT))
     _select_import_option(page, "Default expense category", expense_cat)
