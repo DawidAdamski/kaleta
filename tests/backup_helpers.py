@@ -25,6 +25,7 @@ from kaleta.models import (
     CurrencyRate,
     DismissedCandidate,
     ImportRule,
+    ImportRun,
     Institution,
     InstitutionType,
     LoanDirection,
@@ -128,6 +129,18 @@ async def seed_every_model(session: AsyncSession) -> None:
             account_id=account.id,
             column_mapping={"date": 0, "amount": 1, "description": 2},
             is_active=True,
+            user_id=user.id,
+        )
+    )
+    session.add(
+        ImportRun(
+            account_id=account.id,
+            filename="mbank-2024-06.csv",
+            profile="mbank",
+            imported_count=1,
+            skipped_count=0,
+            row_date_min=date(2024, 6, 1),
+            row_date_max=date(2024, 6, 1),
             user_id=user.id,
         )
     )

@@ -121,3 +121,80 @@ class TestAccountServiceAdjustBalance:
         updated = await svc.get(account.id)
         assert updated is not None
         assert updated.balance == Decimal("70.00")
+
+
+class TestAccountServiceListWithActivity:
+    async def test_list_with_activity_returns_newest_date_and_last_import(
+        self, session: AsyncSession, svc: AccountService
+    ) -> None:
+        """Covers: KAL-CSV-008, KAL-CSV-009 — activity aggregates without N+1."""
+        from datetime import date
+
+        from kaleta.models.category import CategoryType
+        from kaleta.models.transaction import TransactionType
+        from kaleta.schemas.category import CategoryCreate
+        from kaleta.schemas.transaction import TransactionCreate
+        from kaleta.services.category_service import CategoryService
+        from kaleta.services.import_service import ImportService
+        from kaleta.services.transaction_service import TransactionService
+
+        loaded = await svc.create(AccountCreate(name="Loaded"))
+        empty = await svc.create(AccountCreate(name="Empty"))
+        category = await CategoryService(session).create(
+            CategoryCreate(name="Food", type=CategoryType.EXPENSE)
+        )
+
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=loaded.id,
+                category_id=category.id,
+                amount=Decimal("10.00"),
+                type=TransactionType.EXPENSE,
+                date=date(2024, 3, 10),
+                description="Older",
+            )
+        )
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=loaded.id,
+                category_id=category.id,
+                amount=Decimal("20.00"),
+                type=TransactionType.EXPENSE,
+                date=date(2024, 6, 15),
+                description="Newer",
+            )
+        )
+
+        ImportService(session).record_import_run(
+            account_id=loaded.id,
+            filename="statement.csv",
+            profile="generic",
+            imported_count=2,
+            skipped_count=0,
+            row_date_min=date(2024, 3, 10),
+            row_date_max=date(2024, 6, 15),
+        )
+        await session.commit()
+
+        rows = await svc.list_with_activity()
+        by_name = {r.name: r for r in rows}
+        assert by_name["Loaded"].newest_transaction_date == date(2024, 6, 15)
+        assert by_name["Loaded"].last_import_filename == "statement.csv"
+        assert by_name["Loaded"].last_import_at is not None
+        assert by_name["Empty"].newest_transaction_date is None
+        assert by_name["Empty"].last_import_filename is None
+        assert empty.id in {r.id for r in rows}
+
+    async def test_is_stale_threshold(self) -> None:
+        from datetime import date, timedelta
+
+        from kaleta.services.account_service import STALE_ACTIVITY_DAYS
+
+        today = date(2024, 8, 13)
+        assert AccountService.is_stale(None, today=today) is True
+        assert AccountService.is_stale(today - timedelta(days=STALE_ACTIVITY_DAYS + 1), today=today)
+        assert not AccountService.is_stale(
+            today - timedelta(days=STALE_ACTIVITY_DAYS),
+            today=today,
+        )
+        assert not AccountService.is_stale(today, today=today)

@@ -625,7 +625,8 @@
     "name_required": "Nazwa jest wymagana.",
     "currency": "Waluta",
     "currency_hint": "Waluta używana przez to konto",
-    "no_institution": "Brak instytucji"
+    "no_institution": "Brak instytucji",
+    "last_activity": "Ostatnia aktywność"
   },
   "institutions": {
     "title": "Instytucje",
@@ -896,7 +897,18 @@
     "filename_pattern": "Wzorzec nazwy pliku",
     "rule_chip": "Reguła: {pattern}",
     "rule_applied": "Zastosowano zapisaną regułę {pattern}.",
-    "rule_save_failed": "Nie udało się zapisać reguły importu: {error}"
+    "rule_save_failed": "Nie udało się zapisać reguły importu: {error}",
+    "coverage_heading": "Pokrycie kont",
+    "coverage_hint": "Najnowsza data transakcji (dowolne źródło) i ostatni import CSV dla każdego konta.",
+    "coverage_last_activity": "Ostatnia aktywność",
+    "coverage_last_import": "Ostatni import",
+    "coverage_last_import_value": "{filename} · {when}",
+    "coverage_never": "—",
+    "coverage_stale": "Wymaga uwagi",
+    "coverage_stale_hint": "Najnowsza transakcja jest starsza niż {days} dni albo konto nie ma jeszcze danych.",
+    "history_heading": "Historia plików",
+    "history_empty": "Brak zapisanych importów.",
+    "history_row": "{when} · {filename} → {account} · {imported} nowych, {skipped} pominiętych"
   },
   "payees": {
     "title": "Odbiorcy",

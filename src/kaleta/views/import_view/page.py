@@ -25,6 +25,7 @@ from kaleta.services.import_service import (
     inherit_queue_settings,
     validate_import_readiness,
 )
+from kaleta.views.import_view.coverage_section import build_coverage_section
 from kaleta.views.import_view.mapping_section import build_mapping_section
 from kaleta.views.import_view.metadata_section import build_metadata_section
 from kaleta.views.import_view.preview_section import build_preview_section
@@ -44,14 +45,17 @@ from kaleta.views.layout import page_layout
 
 
 async def import_page() -> None:
-    async def _load_reference(session: Any) -> tuple[Any, Any]:
+    async def _load_reference(session: Any) -> tuple[Any, Any, Any, Any]:
         accounts = await AccountService(session).list()
         categories = await CategoryService(session).list()
-        return accounts, categories
+        activity = await AccountService(session).list_with_activity()
+        runs = await ImportService(session).list_recent_runs(limit=20)
+        return accounts, categories, activity, runs
 
-    accounts, categories = await with_session(_load_reference)
+    accounts, categories, activity_rows, recent_runs = await with_session(_load_reference)
 
     account_options = {a.id: f"{a.name} ({a.currency})" for a in accounts}
+    account_names = {a.id: a.name for a in accounts}
     expense_cat_opts = CategoryService.build_option_labels(
         [c for c in categories if c.type.value == "expense"]
     )
@@ -60,11 +64,25 @@ async def import_page() -> None:
     )
     known_digits = build_known_account_digits(a.external_account_number for a in accounts)
 
+    def _history_tuples(runs: list[Any]) -> list[tuple[str, str, str, int, int]]:
+        rows: list[tuple[str, str, str, int, int]] = []
+        for run in runs:
+            when = run.created_at.isoformat()[:16].replace("T", " ") if run.created_at else "—"
+            account_name = (
+                run.account.name
+                if getattr(run, "account", None) is not None
+                else account_names.get(run.account_id, str(run.account_id))
+            )
+            rows.append((when, run.filename, account_name, run.imported_count, run.skipped_count))
+        return rows
+
     state: dict[str, Any] = {
         "queue": [],
         "active_id": None,
         "last_settings": None,
         "bulk_account_id": None,
+        "activity_rows": activity_rows,
+        "history_rows": _history_tuples(recent_runs),
     }
 
     def _active() -> QueuedFile | None:
@@ -402,6 +420,16 @@ async def import_page() -> None:
                     creates, skipped_rows = await svc_import.filter_duplicates(creates)
 
                 creates = await svc_import.apply_categorisation_rules(creates)
+                dates = [c.date for c in creates]
+                svc_import.record_import_run(
+                    account_id=target_account_id,
+                    filename=queued_file.filename,
+                    profile=queued_file.profile,
+                    imported_count=len(creates),
+                    skipped_count=len(skipped_rows),
+                    row_date_min=min(dates) if dates else None,
+                    row_date_max=max(dates) if dates else None,
+                )
                 count = await TransactionService(session).create_bulk(creates)
 
                 if (
@@ -459,6 +487,18 @@ async def import_page() -> None:
             state["last_settings"] = settings_snapshot(state["queue"][-1])
         summary_section.render(state["queue"])
         summary_section.show()
+        await _refresh_coverage()
+
+    async def _refresh_coverage() -> None:
+        async def _load(session: Any) -> tuple[Any, Any]:
+            activity = await AccountService(session).list_with_activity()
+            runs = await ImportService(session).list_recent_runs(limit=20)
+            return activity, runs
+
+        activity, runs = await with_session(_load)
+        state["activity_rows"] = activity
+        state["history_rows"] = _history_tuples(runs)
+        coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
 
     async def run_detect() -> None:
         async def _detect(session: Any) -> int:
@@ -491,6 +531,8 @@ async def import_page() -> None:
 
         profile_section = build_profile_section(_select_profile)
         upload_section = build_upload_section()
+        coverage_section = build_coverage_section()
+        coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
         queue_section = build_queue_section(account_options)
         metadata_section = build_metadata_section()
         mapping_section = build_mapping_section()

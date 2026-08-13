@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: mBank CSV Import (generic CSV path).
 
-Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-010,
-KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015, KAL-CSV-017, KAL-CSV-018
+Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
+KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
+KAL-CSV-017, KAL-CSV-018
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -61,7 +62,7 @@ def _configure_and_upload(
 
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
 
-    expect(page.get_by_text("test_import.csv")).to_be_visible(timeout=5000)
+    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Biedronka", exact=False).first).to_be_visible(timeout=5000)
 
     _select_import_option(page, "Target account", _account_option(account))
@@ -89,7 +90,7 @@ def test_csv_import_with_account_mapping(page: Page, base_url: str) -> None:
 
     page.get_by_role("button", name="Import 1 file").click()
 
-    expect(page.get_by_text("Imported", exact=False).first).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=10000)
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
@@ -139,7 +140,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
 
     page.get_by_role("button", name="Import 1 file").click()
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Imported", exact=False).first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
     search = page.get_by_label("Search description")
@@ -160,7 +161,7 @@ def test_mapping_prefills_from_alias_detection(page: Page, base_url: str) -> Non
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
 
-    expect(page.get_by_text("test_import.csv")).to_be_visible(timeout=5000)
+    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Column mapping", exact=True)).to_be_visible(timeout=5000)
     expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Biedronka", exact=False).first).to_be_visible(timeout=5000)
@@ -190,7 +191,7 @@ def test_invalid_mapping_blocks_import(page: Page, base_url: str) -> None:
 
     expect(page.get_by_text("Date column is required.")).to_be_visible(timeout=5000)
     expect(page.get_by_text("Needs mapping", exact=True).first).to_be_visible(timeout=5000)
-    import_btn = page.get_by_role("button", name="Import")
+    import_btn = page.get_by_role("button", name="Import", exact=True)
     expect(import_btn).to_be_disabled()
 
 
@@ -404,3 +405,49 @@ def test_bulk_default_skips_matched_rule(page: Page, base_url: str) -> None:
     # Unmatched files keep the bulk default; the matched file keeps the rule account.
     expect(page.get_by_text(_account_option(cash)).first).to_be_visible()
     expect(page.get_by_text(_account_option(mbank)).first).to_be_visible()
+
+
+def test_coverage_panel_after_import(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-008"""
+    account = "Coverage mBank PLN"
+    empty = "Coverage Empty"
+    expense = "Other Expenses Coverage"
+    income = "Other Income Coverage"
+    seed_account(account)
+    seed_account(empty)
+    seed_category(expense)
+    seed_income_category(income)
+
+    _configure_and_upload(page, base_url, account=account, expense=expense, income=income)
+    page.get_by_role("button", name="Import 1 file").click()
+    expect(page.get_by_text("Import summary")).to_be_visible(timeout=10000)
+
+    expect(page.get_by_text("Account coverage")).to_be_visible()
+    expect(page.get_by_text(account).first).to_be_visible()
+    expect(page.get_by_text("test_import.csv").first).to_be_visible()
+    expect(page.get_by_text(empty).first).to_be_visible()
+    expect(page.get_by_text("File history")).to_be_visible()
+
+
+def test_accounts_page_last_activity(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-009"""
+    loaded = "Activity Loaded"
+    empty = "Activity Empty"
+    expense = "Activity Expense"
+    account_id = seed_account(loaded)
+    seed_account(empty)
+    expense_id = seed_category(expense)
+    seed_transaction(
+        account_id,
+        expense_id,
+        12.34,
+        date=datetime.date(2024, 6, 15),
+        description="Seeded activity",
+    )
+
+    page.goto(f"{base_url}/accounts")
+    expect(page.get_by_text("Accounts", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Last activity").first).to_be_visible()
+    expect(page.get_by_text(loaded).first).to_be_visible()
+    expect(page.get_by_text("2024-06-15").first).to_be_visible()
+    expect(page.get_by_text(empty).first).to_be_visible()

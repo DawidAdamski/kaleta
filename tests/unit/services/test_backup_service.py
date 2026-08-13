@@ -57,6 +57,7 @@ class TestBackupService:
             "audit_log",
             "institutions",
             "currency_rates",
+            "import_runs",
         ):
             assert required in names
 

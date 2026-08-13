@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -12,6 +12,7 @@ __all__ = [
     "AccountCreate",
     "AccountUpdate",
     "AccountResponse",
+    "AccountActivityResponse",
 ]
 
 
@@ -43,3 +44,11 @@ class AccountResponse(AccountBase):
     external_account_number: str | None = None
     created_at: datetime
     updated_at: datetime
+
+
+class AccountActivityResponse(AccountResponse):
+    """Account plus coverage fields for import / accounts UI."""
+
+    newest_transaction_date: date | None = None
+    last_import_at: datetime | None = None
+    last_import_filename: str | None = None

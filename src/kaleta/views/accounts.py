@@ -7,12 +7,35 @@ from typing import Any
 from nicegui import app, ui
 
 from kaleta.i18n import t
-from kaleta.schemas.account import AccountCreate, AccountResponse, AccountType, AccountUpdate
+from kaleta.schemas.account import (
+    AccountActivityResponse,
+    AccountCreate,
+    AccountType,
+    AccountUpdate,
+)
 from kaleta.schemas.institution import InstitutionResponse
 from kaleta.services import AccountService, InstitutionService, with_session
 from kaleta.views.institution_avatar import institution_avatar
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD
+
+
+def _fmt_activity(value: object | None) -> str:
+    if value is None:
+        return "—"
+    iso = getattr(value, "isoformat", None)
+    if callable(iso):
+        return str(iso())
+    return "—"
+
+
+def _activity_sort_key(account: AccountActivityResponse) -> tuple[int, str, str]:
+    """Unloaded accounts first within a group (cluster empty last-activity)."""
+    newest = account.newest_transaction_date
+    if newest is None:
+        return (0, "", account.name.lower())
+    return (1, newest.isoformat(), account.name.lower())
+
 
 COMMON_CURRENCIES: list[str] = [
     "PLN",
@@ -45,7 +68,7 @@ def _type_labels() -> dict[str, str]:
     }
 
 
-def _group_icon(by: str, name: str, accts: list[AccountResponse]) -> str:
+def _group_icon(by: str, name: str, accts: list[AccountActivityResponse]) -> str:
     labels = _type_labels()
     if by == "type":
         rev = {v: k for k, v in labels.items()}
@@ -59,11 +82,11 @@ def register() -> None:
     async def accounts_page() -> None:
         async def _load_page(
             session: Any,
-        ) -> tuple[list[AccountResponse], list[InstitutionResponse]]:
-            accounts = await AccountService(session).list()
+        ) -> tuple[list[AccountActivityResponse], list[InstitutionResponse]]:
+            accounts = await AccountService(session).list_with_activity()
             institutions = await InstitutionService(session).list()
             return (
-                [AccountResponse.model_validate(a) for a in accounts],
+                accounts,
                 [InstitutionResponse.model_validate(i) for i in institutions],
             )
 
@@ -137,10 +160,12 @@ def register() -> None:
                         institution_id=inst_id,
                     )
 
-                    async def _persist(session: Any) -> AccountResponse | None:
+                    async def _persist(session: Any) -> AccountActivityResponse | None:
                         created = await AccountService(session).create(data)
                         reloaded = await AccountService(session).get(created.id)
-                        return AccountResponse.model_validate(reloaded) if reloaded else None
+                        if reloaded is None:
+                            return None
+                        return AccountActivityResponse.model_validate(reloaded)
 
                     reloaded_acc = await with_session(_persist)
                     if reloaded_acc:
@@ -197,12 +222,24 @@ def register() -> None:
                         institution_id=inst_id,
                     )
 
-                    async def _persist(session: Any) -> AccountResponse | None:
+                    async def _persist(session: Any) -> AccountActivityResponse | None:
                         updated_row = await AccountService(session).update(aid, data)
                         if updated_row is None:
                             return None
                         reloaded = await AccountService(session).get(aid)
-                        return AccountResponse.model_validate(reloaded) if reloaded else None
+                        if reloaded is None:
+                            return None
+                        previous = next((a for a in account_list if a.id == aid), None)
+                        row = AccountActivityResponse.model_validate(reloaded)
+                        if previous is None:
+                            return row
+                        return row.model_copy(
+                            update={
+                                "newest_transaction_date": previous.newest_transaction_date,
+                                "last_import_at": previous.last_import_at,
+                                "last_import_filename": previous.last_import_filename,
+                            }
+                        )
 
                     updated = await with_session(_persist)
                     if updated:
@@ -261,7 +298,7 @@ def register() -> None:
                 add_inst.set_value(0)
                 add_dialog.open()
 
-            def _open_edit(a: AccountResponse) -> None:
+            def _open_edit(a: AccountActivityResponse) -> None:
                 state["selected_id"] = a.id
                 edit_name.set_value(a.name)
                 edit_type.set_value(a.type.value)
@@ -269,7 +306,7 @@ def register() -> None:
                 edit_inst.set_value(a.institution_id or 0)
                 edit_dialog.open()
 
-            def _open_delete(a: AccountResponse) -> None:
+            def _open_delete(a: AccountActivityResponse) -> None:
                 state["selected_id"] = a.id
                 delete_label.set_text(t("accounts.delete_confirm", name=a.name))
                 delete_dialog.open()
@@ -297,7 +334,7 @@ def register() -> None:
                 labels = _type_labels()
                 by = state["group_by"]
 
-                groups: dict[str, list[AccountResponse]] = defaultdict(list)
+                groups: dict[str, list[AccountActivityResponse]] = defaultdict(list)
                 if by == "institution":
                     inst_name_by_id: dict[int, str] = {i.id: i.name for i in institution_list}
                     for a in account_list:
@@ -314,7 +351,7 @@ def register() -> None:
                     return
 
                 for group_name in sorted(groups.keys()):
-                    accts = groups[group_name]
+                    accts = sorted(groups[group_name], key=_activity_sort_key)
                     group_key = f"{by}:{group_name}"
                     exp = ui.expansion(
                         group_name,
@@ -334,7 +371,8 @@ def register() -> None:
                                 ui.label(t("common.institution")).classes("w-44")
                             else:
                                 ui.label(t("common.type")).classes("w-44")
-                            ui.label(t("common.balance")).classes("w-44 text-right pr-2")
+                            ui.label(t("common.balance")).classes("w-36 text-right pr-2")
+                            ui.label(t("accounts.last_activity")).classes("w-36")
                             ui.label("").classes("w-20")
 
                         # Account rows — Python buttons, no JS event emission
@@ -357,7 +395,10 @@ def register() -> None:
                                         "w-44 text-slate-500 text-sm"
                                     )
                                 ui.label(f"{a.balance:,.2f} {a.currency}").classes(
-                                    "w-44 text-right font-mono text-sm pr-2"
+                                    "w-36 text-right font-mono text-sm pr-2"
+                                )
+                                ui.label(_fmt_activity(a.newest_transaction_date)).classes(
+                                    "w-36 text-sm font-mono"
                                 )
                                 with ui.row().classes("w-20 justify-end gap-1"):
                                     ui.button(

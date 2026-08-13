@@ -865,3 +865,29 @@ class TestFilterDuplicates:
         unique, skipped = await ImportService(session).filter_duplicates([row])
         assert len(unique) == 1
         assert skipped == []
+
+
+class TestImportRunRecording:
+    async def test_record_and_list_recent_runs(self, session: AsyncSession) -> None:
+        """Covers: KAL-CSV-008 — ImportRun persists with the import."""
+        account_id = await _make_account(session)
+        svc = ImportService(session)
+        svc.record_import_run(
+            account_id=account_id,
+            filename="oct.csv",
+            profile="generic",
+            imported_count=3,
+            skipped_count=1,
+            row_date_min=datetime.date(2024, 10, 1),
+            row_date_max=datetime.date(2024, 10, 31),
+        )
+        await session.commit()
+
+        runs = await svc.list_recent_runs(limit=20)
+        assert len(runs) == 1
+        assert runs[0].filename == "oct.csv"
+        assert runs[0].imported_count == 3
+        assert runs[0].skipped_count == 1
+        assert runs[0].row_date_min == datetime.date(2024, 10, 1)
+        assert runs[0].row_date_max == datetime.date(2024, 10, 31)
+        assert runs[0].account is not None

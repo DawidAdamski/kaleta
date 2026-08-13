@@ -625,7 +625,8 @@
     "name_required": "Name is required.",
     "currency": "Currency",
     "currency_hint": "Currency used by this account",
-    "no_institution": "No institution"
+    "no_institution": "No institution",
+    "last_activity": "Last activity"
   },
   "institutions": {
     "title": "Institutions",
@@ -896,7 +897,18 @@
     "filename_pattern": "Filename pattern",
     "rule_chip": "Rule: {pattern}",
     "rule_applied": "Applied saved rule {pattern}.",
-    "rule_save_failed": "Could not save import rule: {error}"
+    "rule_save_failed": "Could not save import rule: {error}",
+    "coverage_heading": "Account coverage",
+    "coverage_hint": "Newest transaction date (any source) and last CSV import per account.",
+    "coverage_last_activity": "Last activity",
+    "coverage_last_import": "Last import",
+    "coverage_last_import_value": "{filename} · {when}",
+    "coverage_never": "—",
+    "coverage_stale": "Needs attention",
+    "coverage_stale_hint": "Newest transaction is older than {days} days, or the account has no data yet.",
+    "history_heading": "File history",
+    "history_empty": "No imports recorded yet.",
+    "history_row": "{when} · {filename} → {account} · {imported} new, {skipped} skipped"
   },
   "payees": {
     "title": "Payees",
