@@ -164,6 +164,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import — after import-mapping-wizard |
 | [wizard-unplanned-radar](wizard-unplanned-radar.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
 | [wizard-pay-yourself-salary](wizard-pay-yourself-salary.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
+| [reports-money-flow](reports-money-flow.md) | draft | Reports — money flow Sankey |
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
@@ -192,6 +193,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
 | [wizard-what-if-scenarios](wizard-what-if-scenarios.md) | draft | Wizard / Forecast — dogfooding gap (Coming soon tile) |
 | [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
+| [funds-reservoir-view](funds-reservoir-view.md) | draft | Funds — reservoir view (after reports-money-flow) |
 | [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |
 | [budgets-rename-and-payment-calendar](archive/budgets-rename-and-payment-calendar.md) | archived | Budgets + new Payment Calendar |
 | [credit-first-class](archive/credit-first-class.md) | archived | Credit |

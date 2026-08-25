@@ -1,0 +1,8 @@
+---
+description: Zasady projektu kaleta
+alwaysApply: true
+---
+- Odpowiadaj po polsku; kod, nazwy i commity po angielsku.
+- Po zmianie w src/ aktualizuj lub dodaj testy w tests/.
+- Nie modyfikuj istniejących migracji w alembic/versions — twórz nowe.
+- Nie wykonuj git commit ani git push bez wyraźnej prośby.
