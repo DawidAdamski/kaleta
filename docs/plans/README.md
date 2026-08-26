@@ -102,8 +102,8 @@ The subagent:
 |---|---|---|---|
 | 1 | [q4-licence-and-cla](archive/q4-licence-and-cla.md) | archived | — |
 | 2 | [q4-public-repo-readiness](archive/q4-public-repo-readiness.md) | archived | 1 (CONTRIBUTING references CLA) |
-| 3 | [q4-supabase-deployment](q4-supabase-deployment.md) | draft | — (CI postgres part parallel-safe) |
-| 4 | [q4-dashboard-design-refresh](q4-dashboard-design-refresh.md) | draft | — (after categories bug is fixed) |
+| 3 | [q4-supabase-deployment](q4-supabase-deployment.md) | in-progress | Section 1 (CI Postgres) done; docs/hosting/demo open |
+| 4 | [q4-dashboard-design-refresh](archive/q4-dashboard-design-refresh.md) | archived | — |
 
 ### Q3 2026 — Stabilisation & debt (execute in this order)
 
@@ -150,6 +150,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [audit-production-readiness](archive/audit-production-readiness.md) | archived | Cross-cutting audit (data-safety / ops lens) |
 | [p2-hardening-analysis](archive/p2-hardening-analysis.md) | archived | Auth / API / Settings (audit P2) |
 | [sqlite-integrity-scheduled-backups](archive/sqlite-integrity-scheduled-backups.md) | archived | DB / Housekeeping / Settings |
 | [migrate-on-startup](archive/migrate-on-startup.md) | archived | Setup / ops (audit P0.4) |
@@ -158,7 +159,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [backup-full-schema-roundtrip](archive/backup-full-schema-roundtrip.md) | archived | Settings / Data |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](archive/dashboard-widget-resize.md) | archived | Dashboard |
-| [import-bank-profiles](import-bank-profiles.md) | draft | Import — fixture-backed bank parsers |
+| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers (scaffold done) |
 | [import-mapping-wizard](archive/import-mapping-wizard.md) | archived | Import — dogfooding UX |
 | [import-history-account-coverage](archive/import-history-account-coverage.md) | archived | Import — dogfooding UX |
 | [import-per-file-mapping-memory](archive/import-per-file-mapping-memory.md) | archived | Import — after import-mapping-wizard |
@@ -173,6 +174,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |
 | [transactions-upcoming-planned](transactions-upcoming-planned.md) | draft | Transactions |
 | [ux-audit-feature-categorization](archive/ux-audit-feature-categorization.md) | archived | UX / IA |
+| [ux-sidebar-workflow-and-settings](ux-sidebar-workflow-and-settings.md) | in-progress | UX — PR1 nav done; PR2 settings expansion open |
 | [setup-zero-config-bootstrap](archive/setup-zero-config-bootstrap.md) | archived | Setup |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |

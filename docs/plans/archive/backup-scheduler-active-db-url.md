@@ -18,7 +18,7 @@ database** configured via the setup wizard in `~/.kaleta/config.json`.
 When those differ, every scheduled backup either fails or — worse —
 silently backs up the *wrong* database while the user believes their real
 data is protected. This is a hole in the P0 data-safety layer
-(see [`audit-production-readiness.md`](../audit-production-readiness.md), finding 2).
+(see [`audit-production-readiness.md`](audit-production-readiness.md), finding 2).
 
 Observed in the wild (config.json pointed at a non-default path; app ran
 fine, migration safety copy was written correctly, then):

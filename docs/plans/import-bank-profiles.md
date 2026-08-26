@@ -3,7 +3,7 @@ plan_id: import-bank-profiles
 title: Import — bank profiles from real export fixtures
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 

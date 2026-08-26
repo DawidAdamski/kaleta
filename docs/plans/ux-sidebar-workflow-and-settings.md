@@ -93,3 +93,8 @@ Out of scope:
 - Credit Calculator merge into Credit, `/planned` link from Payment
   Calendar, and the settings expansion (PR 2) are **not** in PR 1 — see
   audit Phase B.
+- **Progress (2026-08-26):** PR 1 is **done** (merged as #42 /
+  `376409f`). Remaining work for this plan is **PR 2 only** (General /
+  Features / Privacy settings knobs + wiring hardcoded detection
+  thresholds). `KAL-NAV-003` (collapse persistence e2e) still
+  `@planned` — storage writes exist; e2e missing.
