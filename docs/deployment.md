@@ -19,6 +19,16 @@ For localhost autostart (launchd / systemd), see
 Secrets (`KALETA_DB_URL`, `KALETA_SECRET_KEY`) are **env-only** — never
 commit them to the repo.
 
+## Recommended rollout (2026-08)
+
+1. **Start with Supabase** for Postgres + the public demo (this doc).
+2. **App host:** any container platform that runs `kaleta:full` with the
+   env block below (Fly.io, Railway, a small VPS — owner choice).
+3. **Hetzner (or similar) later** — optional migration if Supabase + app
+   host prove stable and cost/ops warrant a move.
+4. **Commercial / shop layer** (e.g. [EasyTools](https://www.easy.tools/pl/cennik))
+   is out of scope until pricing and paid features are defined.
+
 ## Supabase connection strings
 
 Kaleta uses **async SQLAlchemy** with **asyncpg**. Set

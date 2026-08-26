@@ -54,9 +54,7 @@ def build_known_account_digits(external_numbers: Iterable[str | None]) -> set[st
 
 def is_counterparty_transfer(row: ParsedRow, known_digits: set[str]) -> bool:
     """Return True when a row's counterparty matches a known own account."""
-    counterparty = digits_only(
-        row.raw.get("Numer rachunku", "") or row.raw.get("counterparty_account", "")
-    )
+    counterparty = digits_only(counterparty_account_raw(row.raw))
     return bool(counterparty and counterparty in known_digits)
 
 
@@ -489,16 +487,36 @@ def _parse_amount(
 
 # ── Column name aliases ──────────────────────────────────────────────────────
 
-_DATE_ALIASES = {"date", "data", "data transakcji", "data operacji", "transaction date"}
+_DATE_ALIASES = {
+    "date",
+    "data",
+    "data księgowania",
+    "data ksiegowania",
+    "data transakcji",
+    "data operacji",
+    "transaction date",
+}
 _AMOUNT_ALIASES = {"amount", "kwota", "wartość", "value", "transaction amount", "kwota operacji"}
 _DESC_ALIASES = {"description", "opis", "tytuł", "title", "tytul", "opis operacji", "details"}
 _PAYEE_ALIASES = {"payee", "odbiorca", "nadawca", "merchant", "counterparty"}
 _COUNTERPARTY_ALIASES = {
     "counterparty account",
     "numer rachunku",
+    "numer konta",
     "account number",
     "iban",
 }
+
+
+def counterparty_account_raw(raw: dict[str, str]) -> str:
+    """Return counterparty account from mBank or generic CSV row fields."""
+    return (
+        raw.get("Numer rachunku", "").strip()
+        or raw.get("Numer konta", "").strip()
+        or raw.get("counterparty_account", "").strip()
+    )
+
+
 _DEBIT_ALIASES = {"debit", "wydatki", "obciążenie", "wypłata", "money out"}
 _CREDIT_ALIASES = {"credit", "przychody", "uznanie", "wpłata", "money in"}
 
@@ -915,7 +933,7 @@ class ImportService:
                 payee_id = payee.id
 
             # Transfer only when the counterparty account is one of ours
-            counterparty_raw = row.raw.get("Numer rachunku", "").strip()
+            counterparty_raw = counterparty_account_raw(row.raw)
             counterparty_digits = re.sub(r"\D", "", counterparty_raw)
             if counterparty_digits and counterparty_digits in known:
                 creates.append(
