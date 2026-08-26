@@ -42,6 +42,11 @@ from kaleta.views.import_view.summary_section import build_summary_section
 from kaleta.views.import_view.transfer_section import build_transfer_section
 from kaleta.views.import_view.upload_section import build_upload_section
 from kaleta.views.layout import page_layout
+from kaleta.views.settings.user_prefs import (
+    get_import_skip_duplicates_default,
+    get_transfer_amount_tolerance,
+    get_transfer_pairing_days,
+)
 
 
 async def import_page() -> None:
@@ -285,6 +290,7 @@ async def import_page() -> None:
             filename=e.file.name,
             content=content,
             filename_pattern=suggested,
+            skip_duplicates=get_import_skip_duplicates_default(),
         )
 
         rule_applied = await _apply_import_rule(queued_file)
@@ -501,8 +507,14 @@ async def import_page() -> None:
         coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
 
     async def run_detect() -> None:
+        pairing_days = get_transfer_pairing_days()
+        amount_tolerance = get_transfer_amount_tolerance()
+
         async def _detect(session: Any) -> int:
-            return await ImportService(session).detect_and_link_transfers()
+            return await ImportService(session).detect_and_link_transfers(
+                max_days_apart=pairing_days,
+                amount_tolerance=amount_tolerance,
+            )
 
         pairs = await with_session(_detect)
         msg = t("import.linked_pairs", count=pairs)

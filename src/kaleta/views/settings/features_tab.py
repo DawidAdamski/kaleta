@@ -9,8 +9,12 @@ from kaleta.i18n import t
 from kaleta.views.settings.constants import (
     DEFAULT_AUTO_POST_DUE_ON_STARTUP,
     DEFAULT_HOUSEKEEPING_DUPLICATE_DAYS,
+    DEFAULT_IMPORT_SKIP_DUPLICATES,
+    DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE,
     DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS,
     DEFAULT_SUBSCRIPTIONS_DETECTOR_DAYS,
+    DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
+    DEFAULT_TRANSFER_PAIRING_DAYS,
 )
 from kaleta.views.settings.helpers import set_user_key
 
@@ -115,4 +119,72 @@ def render_features_tab() -> None:
                 t("settings.auto_post_due"),
                 value=auto_post,
                 on_change=lambda e: set_user_key("auto_post_due_on_startup", bool(e.value)),
+            )
+
+        with ui.card().classes("p-6 w-full"):
+            with ui.row().classes("items-center gap-2 mb-1"):
+                ui.icon("swap_horiz", color="primary").classes("text-xl")
+                ui.label(t("settings.transfer_pairing_title")).classes("text-lg font-semibold")
+            ui.label(t("settings.transfer_pairing_hint")).classes("text-xs text-slate-500 mb-4")
+
+            pairing_days = int(
+                app.storage.user.get("transfer_pairing_days", DEFAULT_TRANSFER_PAIRING_DAYS)
+            )
+            ui.number(
+                t("settings.transfer_pairing_days"),
+                value=pairing_days,
+                min=0,
+                max=30,
+                step=1,
+                on_change=lambda e: set_user_key("transfer_pairing_days", int(e.value or 0)),
+            ).classes("max-w-60")
+
+            tolerance = float(
+                app.storage.user.get("transfer_amount_tolerance", DEFAULT_TRANSFER_AMOUNT_TOLERANCE)
+            )
+            ui.number(
+                t("settings.transfer_amount_tolerance"),
+                value=tolerance,
+                min=0,
+                max=100,
+                step=0.01,
+                format="%.2f",
+                on_change=lambda e: set_user_key(
+                    "transfer_amount_tolerance", f"{float(e.value or 0):.2f}"
+                ),
+            ).classes("max-w-60 mt-2")
+
+        with ui.card().classes("p-6 w-full"):
+            with ui.row().classes("items-center gap-2 mb-1"):
+                ui.icon("groups", color="primary").classes("text-xl")
+                ui.label(t("settings.payee_dedupe_title")).classes("text-lg font-semibold")
+            ui.label(t("settings.payee_dedupe_hint")).classes("text-xs text-slate-500 mb-4")
+
+            dedupe_dist = int(
+                app.storage.user.get("payee_dedupe_max_distance", DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE)
+            )
+            ui.number(
+                t("settings.payee_dedupe_max_distance"),
+                value=dedupe_dist,
+                min=1,
+                max=5,
+                step=1,
+                on_change=lambda e: set_user_key("payee_dedupe_max_distance", int(e.value or 0)),
+            ).classes("max-w-60")
+
+        with ui.card().classes("p-6 w-full"):
+            with ui.row().classes("items-center gap-2 mb-1"):
+                ui.icon("upload_file", color="primary").classes("text-xl")
+                ui.label(t("settings.import_defaults_title")).classes("text-lg font-semibold")
+            ui.label(t("settings.import_defaults_hint")).classes("text-xs text-slate-500 mb-4")
+
+            skip_default = bool(
+                app.storage.user.get(
+                    "import_skip_duplicates_default", DEFAULT_IMPORT_SKIP_DUPLICATES
+                )
+            )
+            ui.switch(
+                t("settings.import_skip_duplicates_default"),
+                value=skip_default,
+                on_change=lambda e: set_user_key("import_skip_duplicates_default", bool(e.value)),
             )

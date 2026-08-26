@@ -2350,6 +2350,19 @@ Feature: Settings — Data safety
     When the scheduled backup runs once
     Then a kaleta-*.db snapshot is written of the config.json database
     And no ValidationError is raised for the environment default path
+
+  KAL-SET-024 @automated
+  Scenario: Privacy tab exposes anonymous event capture controls
+    Given I am signed in
+    When I open Settings and select the Privacy & diagnostics tab
+    Then I see a toggle for anonymous error event capture
+    And I see a Copy session ID control
+
+  KAL-SET-025 @automated
+  Scenario: Features tab exposes transfer pairing thresholds
+    Given I am signed in
+    When I open Settings and select the Features tab
+    Then I see transfer pairing day and amount tolerance controls
 ```
 
 ## Feature: Currency rates — NBP Table A

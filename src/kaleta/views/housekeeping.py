@@ -17,6 +17,7 @@ from kaleta.services.dedupe_service import (
 from kaleta.services.integrity_service import ForeignKeyViolation
 from kaleta.views.error_handling import handle_kaleta_error
 from kaleta.views.layout import page_layout
+from kaleta.views.settings.user_prefs import get_payee_dedupe_max_distance
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
@@ -31,6 +32,7 @@ def register() -> None:
     @ui.page("/housekeeping")
     async def housekeeping_page() -> None:
         dup_window_days = int(app.storage.user.get("housekeeping_duplicate_days", 0) or 0) or None
+        payee_max_distance = get_payee_dedupe_max_distance()
 
         async def _load(
             session: Any,
@@ -38,7 +40,7 @@ def register() -> None:
             svc = DedupeService(session)
             return (
                 await svc.duplicate_transactions(window_days=dup_window_days),
-                await svc.similar_payees(),
+                await svc.similar_payees(payee_max_distance=payee_max_distance),
                 await svc.redundant_categories(),
             )
 

@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import datetime
 from collections.abc import Awaitable, Callable
 from decimal import Decimal
 from typing import Any
@@ -17,21 +16,22 @@ from kaleta.views.theme import BODY_MUTED
 
 
 async def build_edit_dialog(
-    today: datetime.date,
+    budget_year: int,
+    budget_month: int,
     *,
     on_saved: Callable[[], Any],
 ) -> tuple[Any, Callable[[], Awaitable[None]]]:
     with ui.dialog() as edit_dialog, ui.card().classes("w-96"):
         ui.label(t("budgets.edit")).classes("text-lg font-bold")
         ui.label(
-            t("budgets.period_label", month=f"{today.month:02d}", year=str(today.year))
+            t("budgets.period_label", month=f"{budget_month:02d}", year=str(budget_year))
         ).classes(f"{BODY_MUTED} mb-2")
 
         @ui.refreshable
         async def dialog_content() -> None:
             async def _load(session: Any) -> tuple[Any, ...]:
                 month_summaries = await BudgetService(session).monthly_summary(
-                    today.month, today.year
+                    budget_month, budget_year
                 )
                 all_cats = await CategoryService(session).list()
                 return month_summaries, all_cats
@@ -57,8 +57,8 @@ async def build_edit_dialog(
                     data = BudgetCreate(
                         category_id=new_cat_sel.value,
                         amount=Decimal(str(new_amount.value)),
-                        month=today.month,
-                        year=today.year,
+                        month=budget_month,
+                        year=budget_year,
                     )
 
                     async def _upsert(session: Any) -> None:
@@ -94,8 +94,8 @@ async def build_edit_dialog(
                             data = BudgetCreate(
                                 category_id=cat_id,
                                 amount=Decimal(str(field.value or 0)),
-                                month=today.month,
-                                year=today.year,
+                                month=budget_month,
+                                year=budget_year,
                             )
 
                             async def _upsert(session: Any) -> None:
