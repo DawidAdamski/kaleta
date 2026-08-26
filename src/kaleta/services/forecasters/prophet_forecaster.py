@@ -31,7 +31,7 @@ class ProphetForecaster:
     ) -> list[ForecastRow] | None:
         try:
             import pandas as pd  # type: ignore[import-untyped]
-            from prophet import Prophet  # type: ignore[import-not-found]
+            from prophet import Prophet
         except ImportError:
             return None
 
