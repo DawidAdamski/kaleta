@@ -11,7 +11,7 @@ roadmap_ref: ../roadmap.md#cross-cutting-principles
 
 ## Intent
 
-Sibling to [`reports-money-flow`](reports-money-flow.md), which answers
+Sibling to [`reports-money-flow`](archive/reports-money-flow.md), which answers
 *"gdzie kończą się moje pieniądze w tym miesiącu?"* with a Sankey. This
 plan answers the other half of the same intuition: *"ile wody stoi w
 którym zbiorniku i czy poziom rośnie?"* — accounts and reserve funds

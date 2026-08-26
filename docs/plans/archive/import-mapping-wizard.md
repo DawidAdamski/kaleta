@@ -4,7 +4,7 @@ title: Import — interactive column-mapping step for generic CSV
 area: import
 effort: medium
 status: in-progress
-roadmap_ref: ../roadmap.md#import
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — interactive column-mapping step for generic CSV
@@ -25,7 +25,7 @@ the parser detected and *correct* it before importing.
 
 - Profiles: `generic` (header-alias parser) and `mbank` (auto-detected)
   — `services/import_service.py`; registry scaffold from
-  [`import-bank-profiles`](import-bank-profiles.md) (in-progress).
+  [`import-bank-profiles`](../import-bank-profiles.md) (in-progress).
 - The only hint the user gets is
   `import.upload_hint_generic` — "Supported formats: date, amount,
   description. Negative = expense, positive = income."
@@ -72,7 +72,7 @@ Out of scope:
   `ColumnMapping` type. This plan supersedes that draft's in-queue
   "column mapping dropdowns" bullet; the memory/rule engine remains
   there.
-- New bank profiles ([`import-bank-profiles`](import-bank-profiles.md)).
+- New bank profiles ([`import-bank-profiles`](../import-bank-profiles.md)).
 
 ## Acceptance criteria
 

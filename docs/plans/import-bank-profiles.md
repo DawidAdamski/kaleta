@@ -20,7 +20,7 @@ or column shapes.
 Add bank-specific profiles **only when driven by real, anonymized export
 fixtures** collected during dogfooding — never by inventing parsers from
 docs or memory. Distinct from
-[`import-per-file-mapping-memory`](import-per-file-mapping-memory.md)
+[`import-per-file-mapping-memory`](archive/import-per-file-mapping-memory.md)
 (filename → account/column memory); this plan is about format detection
 and parsing.
 

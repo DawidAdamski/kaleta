@@ -3,7 +3,7 @@ plan_id: import-per-file-mapping-memory
 title: Import — per-file mapping with filename-based memory
 area: import
 effort: medium
-roadmap_ref: ../roadmap.md#import
+roadmap_ref: ../../roadmap.md#import
 status: in-progress
 ---
 
