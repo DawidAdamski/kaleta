@@ -130,3 +130,9 @@ supplied QIF, MT940, and XLSX for the same statement — documented in
 - BDD: `KAL-CSV-019 @automated`
 
 **Still open:** PKO / Revolut profiles when exports arrive.
+
+**Follow-up plans (Wise alternate formats, draft):**
+
+- [`import-wise-qif.md`](import-wise-qif.md)
+- [`import-wise-mt940.md`](import-wise-mt940.md)
+- [`import-wise-xlsx.md`](import-wise-xlsx.md)

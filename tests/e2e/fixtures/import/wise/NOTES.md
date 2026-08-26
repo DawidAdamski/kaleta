@@ -7,9 +7,9 @@ Anonymized from maintainer dogfood — Japan trip JPY wallet, Q2 2026.
 | Format | Import support |
 |--------|----------------|
 | **CSV** | Yes — select **Wise** profile (auto-detected from `TransferWise ID` header) |
-| QIF | Not yet — export CSV from Wise instead |
-| MT940 | Not yet — export CSV from Wise instead |
-| XLSX | Not yet — export CSV from Wise instead |
+| QIF | Planned — [`import-wise-qif`](../../../../../docs/plans/import-wise-qif.md) |
+| MT940 | Planned — [`import-wise-mt940`](../../../../../docs/plans/import-wise-mt940.md) |
+| XLSX | Planned — [`import-wise-xlsx`](../../../../../docs/plans/import-wise-xlsx.md) |
 
 Wise UI offers all four for the same statement; Kaleta's upload widget accepts
 `.csv` only. CSV has the richest columns (merchant, exchange metadata).
