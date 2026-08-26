@@ -3,8 +3,9 @@ plan_id: import-bank-profiles
 title: Import — bank profiles from real export fixtures
 area: import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-08-26
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — bank profiles from real export fixtures
@@ -20,7 +21,7 @@ or column shapes.
 Add bank-specific profiles **only when driven by real, anonymized export
 fixtures** collected during dogfooding — never by inventing parsers from
 docs or memory. Distinct from
-[`import-per-file-mapping-memory`](archive/import-per-file-mapping-memory.md)
+[`import-per-file-mapping-memory`](import-per-file-mapping-memory.md)
 (filename → account/column memory); this plan is about format detection
 and parsing.
 
@@ -51,11 +52,6 @@ Out of scope:
   `tests/e2e/fixtures/import/`).
 - `[manual]` When a dogfood fixture arrives: follow the README checklist
   in a dedicated follow-up PR (one bank per PR).
-
-Partially unmet until dogfood files exist:
-
-- ~~`[blocked]` At least one non-mBank bank profile with fixture-backed
-  unit test~~ — **Wise** landed 2026-08-26 (see Implementation notes).
 
 ## Touchpoints
 
@@ -103,54 +99,48 @@ bank profiles** were added.
 - View `_PROFILES` reads from the registry (single source of truth).
 - `tests/e2e/fixtures/import/README.md` — layout + anonymization +
   contribution checklist.
-- Unit tests lock enabled keys to `{generic, mbank}` only.
-
-**Blocked / acceptance partially unmet:**
-
-- First non-mBank profile + fixture-backed test — waiting on dogfood
-  files. Follow-up: one PR per bank after a sample lands under
-  `tests/e2e/fixtures/import/<profile_id>/`.
-
-**Not in this branch:** `import-per-file-mapping-memory` (distinct plan).
 
 ### 2026-08-26 — real mBank dogfood fixtures (credit + ROR)
 
-**Fixtures:** Anonymized samples from maintainer dogfood exports under
-`tests/e2e/fixtures/import/mbank/`:
-
-- `credit-card-sample.csv` — karta kredytowa (`#Numer karty` column)
-- `current-account-sample.csv` — konto bieżące/oszczędnościowe (`#Saldo po operacji`, `Numer konta`)
-
-Parser already handled both shapes; fixes landed for transfer detection via
-`Numer konta` (real exports use this header, not `Numer rachunku` in rows)
-and date alias `Data księgowania`.
-
-**Tests:** `tests/unit/services/test_mbank_real_exports.py`.
-
-**Hosting (owner decision, 2026-08-26):** Supabase Postgres first for hosted
-demo; Hetzner migration optional later; commercial shop (e.g. easy.tools) deferred
-until pricing model is decided — see `docs/deployment.md`.
+**Fixtures:** `tests/e2e/fixtures/import/mbank/` — credit card + ROR samples.
+Transfer detection via `Numer konta`; date alias `Data księgowania`.
+**Tests:** `test_mbank_real_exports.py`. **PR #63.**
 
 ### 2026-08-26 — Wise profile (first non-mBank bank)
 
-**Fixtures:** Anonymized JPY travel wallet CSV under
-`tests/e2e/fixtures/import/wise/jpy-travel-sample.csv`. Maintainer also
-supplied QIF, MT940, and XLSX for the same statement — documented in
-`NOTES.md` as unsupported (upload accepts `.csv` only; use CSV export).
+**Fixtures:** `tests/e2e/fixtures/import/wise/jpy-travel-sample.csv`.
+**PR #64.** BDD `KAL-CSV-019 @automated`.
 
-**Landed:**
+**Follow-up (separate draft plans, not this plan):**
 
-- `WISE_PROFILE` + auto-detect (`TransferWise ID` header)
-- `WisePreprocessor` — currency/period metadata from rows
-- Merchant-first descriptions (cleaner than verbose PL card text)
-- Currency mismatch guard (same as mBank)
-- Unit tests: `test_wise_real_exports.py`
-- BDD: `KAL-CSV-019 @automated`
+- [`import-wise-qif.md`](../import-wise-qif.md)
+- [`import-wise-mt940.md`](../import-wise-mt940.md)
+- [`import-wise-xlsx.md`](../import-wise-xlsx.md)
 
-**Still open:** PKO / Revolut profiles when exports arrive.
+**Future banks (PKO / Revolut):** use the fixture README checklist — one
+bank per PR; no standing plan required.
 
-**Follow-up plans (Wise alternate formats, draft):**
+## Implementation
 
-- [`import-wise-qif.md`](import-wise-qif.md)
-- [`import-wise-mt940.md`](import-wise-mt940.md)
-- [`import-wise-xlsx.md`](import-wise-xlsx.md)
+Landed across PR #29 (scaffold), #63 (mBank fixtures), #64 (Wise); archived
+2026-08-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `db7d0f3` | — | 2026-07 | Import profile registry scaffold (PR #29) |
+| `858007c` | Dawid Adamski | 2026-08-26 | Merge PR #63 — mBank real export fixtures |
+| `d69511f` | Dawid Adamski | 2026-08-26 | Merge PR #64 — Wise CSV profile |
+
+**Profiles enabled:** `generic`, `mbank`, `wise` — each fixture-backed.
+
+**Acceptance criteria run** (archiver, 2026-08-26):
+
+| Command | Exit |
+|---|---|
+| `` `test -f tests/e2e/fixtures/import/README.md` `` | 0 |
+| `` `uv run pytest tests/unit/services/test_import_profiles.py -q` `` | 0 (7 passed) |
+| `` `grep -q "BankProfileSpec" src/kaleta/services/import_profiles.py` `` | 0 |
+| `` `grep -q "detect_bank_profile" src/kaleta/services/import_service.py` `` | 0 |
+
+**Notes:** PKO/Revolut remain out of scope until dogfood exports arrive.
+Extension process lives in `tests/e2e/fixtures/import/README.md`.

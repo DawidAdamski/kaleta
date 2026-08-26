@@ -51,4 +51,4 @@ See also [deployment.md](deployment.md) for Supabase Postgres setup.
 
 ## Related plan
 
-[`docs/plans/observability-anonymous-events.md`](plans/observability-anonymous-events.md)
+[`docs/plans/archive/observability-anonymous-events.md`](plans/archive/observability-anonymous-events.md)

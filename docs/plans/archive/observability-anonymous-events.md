@@ -3,16 +3,17 @@ plan_id: observability-anonymous-events
 title: Anonymous error events with user-driven disclosure
 area: infrastructure
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-08-26
 deferred_to: q4-2026
-roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
+roadmap_ref: ../../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Anonymous error events with user-driven disclosure
 
-Companion to [`q4-supabase-deployment`](archive/q4-supabase-deployment.md)
+Companion to [`q4-supabase-deployment`](q4-supabase-deployment.md)
 (hosted instance). Settings UI surface lands via
-[`ux-sidebar-workflow-and-settings`](archive/ux-sidebar-workflow-and-settings.md) PR 2.
+[`ux-sidebar-workflow-and-settings`](ux-sidebar-workflow-and-settings.md) PR 2.
 
 ## Intent
 
@@ -86,3 +87,33 @@ Out of scope:
 - [manual] Trigger an error in the UI → toast shows a copyable
   event_id → the event is findable by SQL → contains no PII → is gone
   after the retention window.
+
+## Implementation
+
+Landed in PR #62; archived 2026-08-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f254288` | Dawid Adamski | 2026-08-26 | Merge pull request #62 — observability events |
+| `695154a` | Dawid Adamski | 2026-08-26 | fix(events): purge_older_than timezone-safe on Postgres |
+
+**Delivered:**
+
+- `app_events` model + migration `i3j4k5l6m7n8`
+- `EventService`, `event_capture`, `EventRetentionScheduler`
+- `KALETA_EVENTS_ENABLED`, `KALETA_EVENT_RETENTION_DAYS`
+- Error toast / API responses include `event_id`
+- `docs/privacy-events.md`, BDD `KAL-OBS-001`–`003` `@automated`
+- q4-supabase-deployment plan moved to archive in same PR
+
+**Acceptance criteria run** (archiver, 2026-08-26):
+
+| Command | Exit |
+|---|---|
+| `` `grep -qE "KAL-OBS-[0-9]{3}" docs/bdd.md` `` | 0 |
+| `` `uv run python scripts/spec_coverage.py` `` | 0 |
+| `` `uv run pytest tests/unit -q -k "event"` `` | 0 (10 passed) |
+
+**Notes:** `[manual]` UI → SQL verification deferred until hosted Supabase
+demo is live. Postgres CI fix in `695154a` (`synchronize_session=False`
+on retention purge).

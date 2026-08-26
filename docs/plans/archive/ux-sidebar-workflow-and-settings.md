@@ -59,7 +59,7 @@ plan alone.
   `max_days_apart=3`, `amount_tolerance=0.01`).
 - **Privacy & diagnostics tab** (new): telemetry/event capture toggle,
   event retention days, "copy session ID" button — the UI surface for
-  [`observability-anonymous-events`](../observability-anonymous-events.md).
+  [`observability-anonymous-events`](observability-anonymous-events.md).
 - Settings model: reuse the existing settings persistence; every new
   option needs a sane default and must work with no user action.
 

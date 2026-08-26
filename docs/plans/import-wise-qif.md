@@ -13,7 +13,7 @@ roadmap_ref: ../roadmap.md#import
 
 Wise lets users export the same statement as **QIF** (personal finance
 tools). Some users may prefer QIF over CSV. Kaleta already ships the
-**Wise CSV** profile ([`import-bank-profiles`](import-bank-profiles.md),
+**Wise CSV** profile ([`import-bank-profiles`](archive/import-bank-profiles.md),
 PR #64); this plan adds QIF as an alternate entry path for the same
 wallet transactions.
 
