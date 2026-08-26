@@ -9,6 +9,7 @@ from kaleta.views.reports_canned import (
     income_statement,
     landing,
     largest_transactions,
+    money_flow,
     net_worth_statement,
     savings_rate,
     spending_by_category,
@@ -30,3 +31,4 @@ def register() -> None:
     ytd_summary.register()
     largest_transactions.register()
     net_worth_statement.register()
+    money_flow.register()

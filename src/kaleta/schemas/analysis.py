@@ -41,3 +41,26 @@ class IncomeStatementResponse(BaseModel):
     total_income: Decimal
     total_expenses: Decimal
     net: Decimal
+
+
+class MoneyFlowNodeResponse(BaseModel):
+    id: str
+    label: str
+    kind: str
+
+
+class MoneyFlowLinkResponse(BaseModel):
+    source: str
+    target: str
+    amount: Decimal
+
+
+class MoneyFlowResponse(BaseModel):
+    nodes: list[MoneyFlowNodeResponse] = Field(default_factory=list)
+    links: list[MoneyFlowLinkResponse] = Field(default_factory=list)
+    total_in: Decimal
+    total_out: Decimal
+    net: Decimal
+    total_transfers: Decimal = Decimal("0")
+    period_label: str
+    mode: str = "budget"

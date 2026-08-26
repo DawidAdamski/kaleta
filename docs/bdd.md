@@ -2118,6 +2118,49 @@ Feature: AI Insights
     Then the summary highlights the electricity anomaly with the comparison
 ```
 
+## Feature: Money Flow
+
+How income feeds expenses through the budget — a Sankey of the period.
+
+```gherkin
+Feature: Money Flow
+  As a user
+  I want to see money moving from income categories through the budget into expenses
+  So that I understand where my paycheck ends up at a glance
+
+  KAL-FLW-001 @automated
+  Scenario: Diagram renders income → budget → expenses for a month
+    Given income and expense transactions in the current month
+    When I open the Money Flow report for that month
+    Then I see a Sankey diagram with income categories feeding a Budget pool
+    And expense categories flow out of the Budget pool
+    And KPI totals show income, expenses, and the net surplus or deficit
+
+  KAL-FLW-002 @automated
+  Scenario: Surplus appears as a savings sink and a deficit as a source
+    Given a month whose income exceeds expenses
+    When I open the Money Flow report for that month
+    Then a Surplus node receives the leftover from Budget
+    Given a month whose expenses exceed income
+    When I open the Money Flow report for that month
+    Then a "Covered from savings" node feeds Budget to balance the graph
+
+  KAL-FLW-003 @automated
+  Scenario: Split transactions land in their own category ribbons
+    Given a split expense with lines in "Groceries" and "Alcohol"
+    When I open the Money Flow report for that period
+    Then each split line appears as its own expense ribbon with its own amount
+
+  KAL-FLW-004 @automated
+  Scenario: Account view shows internal transfers between accounts
+    Given an internal transfer between accounts in the period
+    And ordinary income and expense transactions in the same period
+    When I open the Money Flow report in Accounts view
+    Then income flows into the account and expenses leave it
+    And the transfer appears as a ribbon between the two account nodes
+    And income and expense totals ignore the transfer amounts
+```
+
 ---
 
 # Workflow 7 — Platform
