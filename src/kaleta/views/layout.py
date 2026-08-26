@@ -6,6 +6,7 @@ from typing import Any
 
 from nicegui import app, ui
 
+from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
 from kaleta.views.theme import (
@@ -318,4 +319,19 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
 
     width_cls = "max-w-screen-2xl" if wide else "max-w-7xl"
     with ui.column().classes(f"{PAGE_CONTAINER} {width_cls}"):
+        if settings.demo and not app.storage.user.get("demo_banner_dismissed", False):
+
+            def _dismiss_demo_banner() -> None:
+                app.storage.user["demo_banner_dismissed"] = True
+                demo_banner.set_visibility(False)
+
+            with ui.row().classes(
+                "k-info-banner w-full items-center gap-2 px-3 py-2 mb-3 rounded"
+            ) as demo_banner:
+                ui.icon("info", size="sm")
+                ui.label(t("common.demo_banner")).classes("text-sm flex-grow")
+                ui.button(
+                    icon="close",
+                    on_click=_dismiss_demo_banner,
+                ).props("flat dense round").tooltip(t("common.demo_dismiss"))
         yield

@@ -2254,6 +2254,33 @@ Feature: Single-user authentication
     Then the response status is 201
 ```
 
+## Feature: Demo instance
+
+```gherkin
+Feature: Demo instance banner
+  As a visitor on the public demo
+  I want a clear notice that data resets daily
+  So that I do not treat the instance as my private ledger
+
+  KAL-PLT-001 @automated
+  Scenario: Demo banner is visible and dismissible within a session
+    Given KALETA_DEMO is true
+    And I am signed in
+    When I open the dashboard
+    Then I see "Demo instance — data resets daily."
+    When I dismiss the demo banner
+    Then the demo banner stays hidden on the next page in the same session
+
+  KAL-PLT-002 @automated
+  Scenario: Demo reset script restores the published demo credentials
+    Given an empty configured database
+    And KALETA_DEMO is true
+    When I run `uv run python scripts/reset_demo.py`
+    Then the command exits successfully
+    And user "demo" can authenticate with password "demo-kaleta"
+    And the database contains seeded demo data
+```
+
 ## Feature: Settings — Data safety
 
 ```gherkin

@@ -126,3 +126,29 @@ reset, UI banner.
 
 **Status (2026-08-26):** Section 1 (CI Postgres) done → plan kept
 `in-progress` until sections 2–4 (docs / hosting / demo) land.
+
+### Sections 2 + 4 — Supabase docs + demo hardening (2026-08-26)
+
+**Docs:** Added `docs/deployment.md` — Supabase pooler vs direct URLs,
+env wiring, bootstrap, published demo credentials, cron reset example.
+Linked from `README.md`.
+
+**Demo flag:** `KALETA_DEMO` in `src/kaleta/config/settings.py` (default
+`false`).
+
+**UI:** Dismissible demo banner in `views/layout.py` when `KALETA_DEMO=true`
+(i18n `common.demo_banner` / `common.demo_dismiss`; persisted per session in
+`app.storage.user`).
+
+**Reset script:** `scripts/reset_demo.py` — requires `KALETA_DEMO=true`
+(or `--force`), writes `~/.kaleta/config.json`, resets sole user password,
+runs `DataService.seed()`.
+
+**Postgres fix:** `DataService.clear_all()` skips SQLite-only `PRAGMA` on
+PostgreSQL (needed for hosted demo reset).
+
+**Tests:** `KAL-PLT-001` e2e banner; `KAL-PLT-002` integration reset script;
+unit tests for demo flag.
+
+**Still open (section 3 + manual AC):** app host choice (Fly/Railway/Hetzner),
+live HTTPS demo URL in README, observed nightly reset on production.

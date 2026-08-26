@@ -48,6 +48,7 @@ the naive fallback.
 
 - [Documentation site](https://dawidadamski.github.io/kaleta/) — product guides, architecture, roadmap
 - [Getting started](docs/getting-started.md) — Docker/Podman volumes, environment variables, development
+- [Hosted deployment (Supabase)](docs/deployment.md) — Postgres demo instance, env wiring, daily reset
 - [Local deploy (launchd / systemd)](docs/deploy-local.md) — autostart on localhost + `/api/v1/health`
 - [Contributing](CONTRIBUTING.md) — how we work and open a PR
 - [Security](SECURITY.md) — report vulnerabilities privately

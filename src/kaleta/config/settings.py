@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     backup_interval_hours: int = 24
     backup_retain: int = 7
     backup_dir: str = _DEFAULT_BACKUP_DIR
+    demo: bool = False
 
     @field_validator("db_url", mode="before")
     @classmethod
