@@ -123,6 +123,14 @@ def _salary(months_back: int) -> Decimal:
     return Decimal(str(round(base * random.uniform(0.95, 1.05), 2)))  # nosec B311
 
 
+async def _set_sqlite_foreign_keys(session: AsyncSession, *, enabled: bool) -> None:
+    """Toggle SQLite FK enforcement. No-op on PostgreSQL."""
+    conn = await session.connection()
+    if conn.dialect.name != "sqlite":
+        return
+    await session.execute(text(f"PRAGMA foreign_keys = {'ON' if enabled else 'OFF'}"))
+
+
 # ── service ───────────────────────────────────────────────────────────────────
 
 
@@ -133,28 +141,29 @@ class DataService:
     async def clear_all(self) -> None:
         """Delete every row from every table, preserving the schema."""
         s = self.session
-        # Disable FK checks for SQLite so we don't need a precise order
-        await s.execute(text("PRAGMA foreign_keys = OFF"))
-        for model in (
-            TransactionSplit,
-            Transaction,
-            Budget,
-            PlannedTransaction,
-            CurrencyRate,
-            AuditLog,
-            Asset,
-            SavedReport,
-            Tag,
-            Account,
-            Category,
-            Institution,
-            Payee,
-        ):
-            await s.execute(delete(model))
-        # Clear the many-to-many join table
-        await s.execute(text("DELETE FROM transaction_tags"))
-        await s.execute(text("PRAGMA foreign_keys = ON"))
-        await s.commit()
+        await _set_sqlite_foreign_keys(s, enabled=False)
+        try:
+            for model in (
+                TransactionSplit,
+                Transaction,
+                Budget,
+                PlannedTransaction,
+                CurrencyRate,
+                AuditLog,
+                Asset,
+                SavedReport,
+                Tag,
+                Account,
+                Category,
+                Institution,
+                Payee,
+            ):
+                await s.execute(delete(model))
+            # Clear the many-to-many join table
+            await s.execute(text("DELETE FROM transaction_tags"))
+            await s.commit()
+        finally:
+            await _set_sqlite_foreign_keys(s, enabled=True)
 
     async def seed(self) -> dict[str, int]:
         """Clear all data then insert 6 years of realistic Polish-language demo data."""

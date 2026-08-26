@@ -53,6 +53,8 @@
     "none": "None",
     "toggle_dark": "Toggle dark mode",
     "toggle_sidebar": "Collapse / expand sidebar",
+    "demo_banner": "Demo instance — data resets daily.",
+    "demo_dismiss": "Dismiss",
     "no_data": "No data",
     "actions": "Actions",
     "close": "Close",

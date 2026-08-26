@@ -3,9 +3,10 @@ plan_id: ux-sidebar-workflow-and-settings
 title: Sidebar redesign around workflows + settings expansion
 area: ux
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-08-26
 deferred_to: q4-2026
-roadmap_ref: ../roadmap.md#ux
+roadmap_ref: ../../roadmap.md#ux
 ---
 
 # Sidebar redesign around workflows + settings expansion
@@ -58,7 +59,7 @@ plan alone.
   `max_days_apart=3`, `amount_tolerance=0.01`).
 - **Privacy & diagnostics tab** (new): telemetry/event capture toggle,
   event retention days, "copy session ID" button — the UI surface for
-  [`observability-anonymous-events`](observability-anonymous-events.md).
+  [`observability-anonymous-events`](../observability-anonymous-events.md).
 - Settings model: reuse the existing settings persistence; every new
   option needs a sane default and must work with no user action.
 
@@ -79,7 +80,7 @@ Out of scope:
 ## Implementation notes
 
 - PR 1 ships **Phase A** of
-  [`../ux/feature-categorization-audit.md`](../ux/feature-categorization-audit.md),
+  [`../../ux/feature-categorization-audit.md`](../../ux/feature-categorization-audit.md),
   which supersedes the grouping sketched in Scope above: Dashboard and
   Wizard are **pinned above the groups** (not inside Insight), groups are
   Capture / Monthly cycle / Plans & funds / Insight / Setup, the four
@@ -106,3 +107,55 @@ Out of scope:
   default. Privacy tab — events toggle + retention + copy session ID
   (UI only; backend in `observability-anonymous-events`). BDD
   `KAL-SET-024`/`025` `@automated`. Plan ready to archive after merge.
+
+## Implementation
+
+Landed on 2026-08-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `376409f` | Dawid (Ani) | 2026-08-10 | feat(nav): regroup sidebar by user workflow (audit phase A) |
+| `5816e26` | Dawid Adamski | 2026-08-26 | feat(settings): expand General, Features, and Privacy tabs (PR2) (#60) |
+
+**Files changed (PR1 — #42):**
+- docs/bdd.md
+- docs/plans/ux-sidebar-workflow-and-settings.md
+- docs/ux/feature-categorization-audit.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/layout.py
+- tests/e2e/test_navigation.py
+
+**Files changed (PR2 — #60):**
+- docs/bdd.md
+- docs/plans/ux-sidebar-workflow-and-settings.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/dedupe_service.py
+- src/kaleta/views/budgets/dialogs.py
+- src/kaleta/views/budgets/page.py
+- src/kaleta/views/housekeeping.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/settings/constants.py
+- src/kaleta/views/settings/features_tab.py
+- src/kaleta/views/settings/general_tab.py
+- src/kaleta/views/settings/page.py
+- src/kaleta/views/settings/privacy_tab.py
+- src/kaleta/views/settings/user_prefs.py
+- src/kaleta/views/transactions/add_dialog.py
+- tests/e2e/test_settings_expansion.py
+- tests/unit/services/test_dedupe_service.py
+- tests/unit/views/test_user_prefs.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `` `grep -qE "KAL-NAV-[0-9]{3}" docs/bdd.md` `` | 0 |
+| `` `uv run python scripts/spec_coverage.py` `` | 0 |
+| `` `bash scripts/verify.sh` `` | 0 |
+
+**Notes:** `KAL-NAV-003` (collapse persistence across reloads) remains
+`@planned` — the storage writes are in place but the e2e test was
+intentionally deferred as optional. It can be covered independently
+in a future chore.

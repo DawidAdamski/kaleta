@@ -102,7 +102,7 @@ The subagent:
 |---|---|---|---|
 | 1 | [q4-licence-and-cla](archive/q4-licence-and-cla.md) | archived | — |
 | 2 | [q4-public-repo-readiness](archive/q4-public-repo-readiness.md) | archived | 1 (CONTRIBUTING references CLA) |
-| 3 | [q4-supabase-deployment](q4-supabase-deployment.md) | in-progress | Section 1 (CI Postgres) done; docs/hosting/demo open |
+| 3 | [q4-supabase-deployment](q4-supabase-deployment.md) | in-progress | Sections 2+4 done; hosting + live demo URL open |
 | 4 | [q4-dashboard-design-refresh](archive/q4-dashboard-design-refresh.md) | archived | — |
 
 ### Q3 2026 — Stabilisation & debt (execute in this order)
@@ -174,7 +174,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |
 | [transactions-upcoming-planned](transactions-upcoming-planned.md) | draft | Transactions |
 | [ux-audit-feature-categorization](archive/ux-audit-feature-categorization.md) | archived | UX / IA |
-| [ux-sidebar-workflow-and-settings](ux-sidebar-workflow-and-settings.md) | in-progress | UX — PR1 nav done; PR2 settings expansion open |
+| [ux-sidebar-workflow-and-settings](archive/ux-sidebar-workflow-and-settings.md) | archived | UX — sidebar nav (#42) + settings expansion (#60) |
 | [setup-zero-config-bootstrap](archive/setup-zero-config-bootstrap.md) | archived | Setup |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
