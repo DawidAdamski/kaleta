@@ -27,6 +27,9 @@ from dataclasses import dataclass
 
 GENERIC_PROFILE = "generic"
 MBANK_PROFILE = "mbank"
+WISE_PROFILE = "wise"
+
+METADATA_PROFILES: frozenset[str] = frozenset({MBANK_PROFILE, WISE_PROFILE})
 
 DetectFn = Callable[[str], bool]
 
@@ -34,6 +37,12 @@ DetectFn = Callable[[str], bool]
 def is_mbank_content(content: str) -> bool:
     """Heuristic: content looks like an mBank CSV export."""
     return "#Numer rachunku" in content or "#Rodzaj rachunku" in content
+
+
+def is_wise_content(content: str) -> bool:
+    """Heuristic: content looks like a Wise (TransferWise) CSV export."""
+    sample = content[:512]
+    return "TransferWise ID" in sample or "transferwise id" in sample.lower()
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +74,13 @@ BANK_PROFILES: tuple[BankProfileSpec, ...] = (
         icon="account_balance",
         enabled=True,
         detect=is_mbank_content,
+    ),
+    BankProfileSpec(
+        key=WISE_PROFILE,
+        label_key="import.profile_wise",
+        icon="language",
+        enabled=True,
+        detect=is_wise_content,
     ),
     # Next bank: append BankProfileSpec here only after a real fixture lands.
     # Example (do not uncomment without fixtures/import/<id>/sample.csv):

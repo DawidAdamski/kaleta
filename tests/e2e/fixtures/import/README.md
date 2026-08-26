@@ -16,9 +16,18 @@ tests/e2e/fixtures/import/
     credit-card-sample.csv    ← real export shape (credit card)
     current-account-sample.csv
     NOTES.md
+  wise/
+    jpy-travel-sample.csv     ← real export shape (JPY travel wallet)
+    NOTES.md
   <other_bank>/
     sample.csv              ← minimal anonymized export (required)
 ```
+
+Example: `wise/jpy-travel-sample.csv` (JPY travel wallet, CSV export).
+
+`profile_id` must match the registry key in
+`src/kaleta/services/import_profiles.py` (e.g. `mbank`, `wise`; `pko` only
+after a real file arrives).
 
 Existing mBank Playwright fixture (do not relocate without updating
 e2e paths):

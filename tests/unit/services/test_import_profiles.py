@@ -13,9 +13,11 @@ from kaleta.services.import_profiles import (
     BANK_PROFILES,
     GENERIC_PROFILE,
     MBANK_PROFILE,
+    WISE_PROFILE,
     detect_bank_profile,
     enabled_profile_keys,
     is_mbank_content,
+    is_wise_content,
     iter_ui_profiles,
 )
 
@@ -23,22 +25,27 @@ FIXTURES_IMPORT = Path(__file__).resolve().parents[2] / "e2e" / "fixtures" / "im
 
 
 class TestBankProfileRegistry:
-    def test_enabled_profiles_are_only_generic_and_mbank(self) -> None:
-        assert enabled_profile_keys() == frozenset({GENERIC_PROFILE, MBANK_PROFILE})
+    def test_enabled_profiles_are_generic_mbank_and_wise(self) -> None:
+        assert enabled_profile_keys() == frozenset({GENERIC_PROFILE, MBANK_PROFILE, WISE_PROFILE})
 
     def test_ui_profiles_match_registry_order(self) -> None:
         ui = iter_ui_profiles()
         assert [row[0] for row in ui] == [p.key for p in BANK_PROFILES]
         assert all(len(row) == 4 for row in ui)
 
-    def test_mbank_has_detector_generic_does_not(self) -> None:
+    def test_mbank_and_wise_have_detectors_generic_does_not(self) -> None:
         by_key = {p.key: p for p in BANK_PROFILES}
         assert by_key[GENERIC_PROFILE].detect is None
         assert by_key[MBANK_PROFILE].detect is is_mbank_content
+        assert by_key[WISE_PROFILE].detect is is_wise_content
 
     def test_detect_bank_profile_promotes_mbank(self) -> None:
         content = "#Numer rachunku\n55 1140 2004\n#Rodzaj rachunku\nEKONTO\n"
         assert detect_bank_profile(content) == MBANK_PROFILE
+
+    def test_detect_bank_profile_promotes_wise(self) -> None:
+        content = '"TransferWise ID",Date,Amount,Currency,Description\nX,01-01-2024,-1,EUR,Test\n'
+        assert detect_bank_profile(content) == WISE_PROFILE
 
     def test_detect_bank_profile_ignores_plain_csv(self) -> None:
         content = "date,amount,description\n2024-01-15,-10.00,Coffee\n"

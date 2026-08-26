@@ -1055,6 +1055,22 @@ Feature: mBank CSV Import
     And I upload three unmatched CSVs and one "mbank-2025-10.csv"
     Then the three unmatched files use account "Cash"
     And the mBank file keeps the rule's account "mBank PLN"
+
+  KAL-CSV-019 @automated
+  Scenario: Wise CSV auto-detects and uses merchant as description
+    Given there is an account "Wise JPY"
+    And there is an expense category "Other Expenses"
+    And there is an income category "Other Income"
+    And I am on the Import page
+    When I upload a valid Wise CSV file
+    Then the profile is auto-detected as "Wise"
+    And I see metadata with currency "JPY"
+    And the preview shows merchant "Japanpost Bank(245950) GIFU" for a card purchase
+    When I select account "Wise JPY"
+    And I select default expense category "Other Expenses"
+    And I select default income category "Other Income"
+    And I click "Import"
+    Then the transactions are imported successfully
 ```
 
 ## Feature: Transfer Recognition

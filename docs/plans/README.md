@@ -159,7 +159,10 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [backup-full-schema-roundtrip](archive/backup-full-schema-roundtrip.md) | archived | Settings / Data |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](archive/dashboard-widget-resize.md) | archived | Dashboard |
-| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — fixture-backed bank parsers (scaffold done) |
+| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — Wise CSV landed (#64); mBank variants (#63) |
+| [import-wise-qif](import-wise-qif.md) | draft | Import — Wise QIF (after CSV) |
+| [import-wise-mt940](import-wise-mt940.md) | draft | Import — Wise MT940 (after CSV) |
+| [import-wise-xlsx](import-wise-xlsx.md) | draft | Import — Wise XLSX (after CSV) |
 | [import-mapping-wizard](archive/import-mapping-wizard.md) | archived | Import — dogfooding UX |
 | [import-history-account-coverage](archive/import-history-account-coverage.md) | archived | Import — dogfooding UX |
 | [import-per-file-mapping-memory](archive/import-per-file-mapping-memory.md) | archived | Import — after import-mapping-wizard |
