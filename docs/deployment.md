@@ -155,5 +155,5 @@ Expect `"database_ok": true` and `"migrations_pending": false`.
 ## Related
 
 - CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job)
-- Plan: [`docs/plans/q4-supabase-deployment.md`](plans/q4-supabase-deployment.md)
-- Observability (optional): [`docs/plans/observability-anonymous-events.md`](plans/observability-anonymous-events.md)
+- Plan: [`docs/plans/archive/q4-supabase-deployment.md`](plans/archive/q4-supabase-deployment.md)
+- Observability: [`docs/privacy-events.md`](privacy-events.md)

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 from sqlalchemy import text
@@ -13,6 +13,7 @@ from kaleta.models import (
     Account,
     AccountType,
     ApiToken,
+    AppEvent,
     Asset,
     AssetType,
     AuditLog,
@@ -333,6 +334,19 @@ async def seed_every_model(session: AsyncSession) -> None:
             old_data=None,
             new_data='{"name":"Checking"}',
             reverted=False,
+        )
+    )
+    session.add(
+        AppEvent(
+            event_id="TESTEV01",
+            occurred_at=datetime(2024, 6, 1, 12, 0, 0, tzinfo=UTC),
+            level="ERROR",
+            route="/test",
+            exception_class="RuntimeError",
+            stack_hash="abc123",
+            stack_trace="(test)",
+            app_version="test",
+            user_id=user.id,
         )
     )
     await session.commit()
