@@ -6,7 +6,7 @@ effort: small
 status: archived
 archived_at: 2026-07-27
 roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
-source: ../audit-production-readiness.md#10-password-reset-requires-hand-editing-the-database
+source: audit-production-readiness.md#10-password-reset-requires-hand-editing-the-database
 ---
 
 # CLI password reset for forgotten single-user credentials

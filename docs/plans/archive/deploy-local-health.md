@@ -6,7 +6,7 @@ effort: small
 status: archived
 archived_at: 2026-07-27
 roadmap_ref: ../../roadmap.md#cross-cutting-principles
-source: ../audit-production-readiness.md#9-local-deployment-story-no-autostart-no-health-endpoint
+source: audit-production-readiness.md#9-local-deployment-story-no-autostart-no-health-endpoint
 ---
 
 # Local deploy docs + unauthenticated health + NiceGUI storage pin

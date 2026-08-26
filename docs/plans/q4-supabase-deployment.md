@@ -3,7 +3,7 @@ plan_id: q4-supabase-deployment
 title: Hosted instance on Supabase Postgres + CI postgres matrix
 area: infrastructure
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
 ---
 
@@ -123,3 +123,6 @@ stay isolated. `make_session_factory()` exported for integration fixtures.
 
 **Not touched (other plan sections):** Supabase docs, demo flag, hosting, demo
 reset, UI banner.
+
+**Status (2026-08-26):** Section 1 (CI Postgres) done → plan kept
+`in-progress` until sections 2–4 (docs / hosting / demo) land.

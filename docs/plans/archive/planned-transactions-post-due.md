@@ -6,7 +6,7 @@ effort: medium
 roadmap_ref: ../../roadmap.md#transactions
 status: archived
 archived_at: 2026-07-27
-source: ../audit-production-readiness.md#6-planned-transactions-are-never-posted
+source: audit-production-readiness.md#6-planned-transactions-are-never-posted
 ---
 
 # Planned transactions — post due occurrences

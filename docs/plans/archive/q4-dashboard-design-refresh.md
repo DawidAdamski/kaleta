@@ -3,8 +3,9 @@ plan_id: q4-dashboard-design-refresh
 title: Dashboard design refresh — match the target mockup
 area: dashboard
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
+status: archived
+archived_at: 2026-08-26
+roadmap_ref: ../../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Dashboard design refresh — match the target mockup
@@ -237,3 +238,47 @@ third, card flatness, typography, grey purge, light mode last. Nav active =
 4 px left bar + `bg-teal-500/10` (not full pill). KPI trend positive = teal
 (not income green); hide unavailable as em-dash preserving row height; savings
 rate uses p.p. not %.
+
+## Implementation
+
+Landed on 2026-08-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `14457e6` | Dawid (Ani) | 2026-07-05 | Add dashboard target image for design reference |
+| `6539af6` | Dawid (Ani) | 2026-07-05 | Update database connection handling and enhance CI workflows *(mega-commit — shipped Inter font, teal primary, KPI trend rows, theme tokens, chart teal palette, architecture colour table, grey purge)* |
+| `107bb51` | Dawid (Ani) | 2026-08-26 | fix(docs): update screenshot reference in README and remove obsolete images |
+
+**Files changed (key design-refresh files across the three commits):**
+
+- `docs/design/dashboard-target.png` (added in 14457e6; removed in 107bb51 — replaced by `docs/design/screenshot.png`)
+- `docs/design/screenshot.png` (moved from `screenshot.png` in 107bb51; current capture)
+- `docs/architecture.md` (colour table updated)
+- `src/kaleta/static/fonts/inter-var.woff2` (Inter self-hosted webfont)
+- `src/kaleta/static/fonts/LICENSE.txt`
+- `src/kaleta/views/theme.py` (palette tokens, teal primary, card flatness, nav active state)
+- `src/kaleta/views/chart_utils.py` (teal series palette, grid/axis colours)
+- `src/kaleta/views/dashboard_widgets/helpers.py` (KPI trend row, icon chip)
+- `src/kaleta/views/dashboard_widgets/cashflow_chart.py`
+- `src/kaleta/views/dashboard_widgets/net_worth_trend.py`
+- `src/kaleta/views/dashboard_widgets/savings_rate_kpi.py`
+- `src/kaleta/views/dashboard_widgets/savings_rate_trend.py`
+- `src/kaleta/views/dashboard_widgets/total_balance.py`
+- `src/kaleta/views/dashboard_widgets/month_net.py`
+- `src/kaleta/views/components/empty_state.py`
+- `src/kaleta/views/components/transaction_table.py`
+- `src/kaleta/views/layout.py` (sidebar visual polish — not listed in git stat but confirmed via views sweep)
+- `src/kaleta/services/report_service.py` (period-over-period KPI delta support)
+- `src/kaleta/i18n/locales/en.json`, `src/kaleta/i18n/locales/pl.json` (i18n keys for trend rows)
+- `tests/unit/views/test_chart_utils.py`, `tests/unit/services/test_report_service.py`
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit | Notes |
+|---|---|---|
+| `` grep -rn "bg-grey-\|text-grey-" src/kaleta/views/ `` | 1 | Exit 1 = 0 matches = PASS (grey purge complete) |
+
+**Notes:**
+- `./scripts/verify.sh --e2e` was not run by the archiver — it requires a live app instance and was confirmed passing by the owner during code verification on 2026-08-26.
+- `dashboard-target.png` was added in 14457e6 and subsequently removed in 107bb51; `docs/design/screenshot.png` is the current product capture used in README.
+- 6539af6 commit message describes CI/database work because it is a true mega-commit; the design-refresh deliverables are verified by file-level inspection (theme.py +294 lines, inter-var.woff2 added, helpers.py +104 lines, chart_utils.py +34 lines).
