@@ -3,7 +3,7 @@ plan_id: reports-money-flow
 title: Reports — money flow diagram (Sankey)
 area: reports
 effort: medium
-status: draft
+status: ready-to-archive
 roadmap_ref: ../roadmap.md#reports
 ---
 
@@ -21,12 +21,9 @@ three reports and doing arithmetic in one's head.
 
 A Sankey diagram answers it in one picture: sources on the left, a
 single budget pool in the middle, sinks on the right, link thickness
-proportional to złoty. The water metaphor the user reached for
-(*jeziorka, stawy*) survives in the **language and colour** of this view
-(dopływy / odpływy / nadwyżka), while the geometry stays a flow graph —
-see [Open questions](#open-questions) and the follow-up plan
-[`funds-reservoir-view`](funds-reservoir-view.md) for the literal
-reservoir rendering.
+proportional to złoty. Geometry stays a flow graph; literal reservoir
+rendering lives in the follow-up plan
+[`funds-reservoir-view`](funds-reservoir-view.md).
 
 ## Current behaviour (code facts)
 
@@ -83,11 +80,11 @@ per the existing report pattern).
     are a correctness bug, not a cosmetic one.
   - **Balancing node** (the part that makes a Sankey honest): income and
     expense rarely match. Surplus becomes a `surplus` sink
-    ("Nadwyżka → oszczędności"); a deficit becomes a `deficit` source
-    ("Pokryte z oszczędności"). Without it link widths misrepresent the
+    ("Surplus"); a deficit becomes a `deficit` source
+    ("Covered from savings"). Without it link widths misrepresent the
     pool.
   - **Top-N + rest**: keep the `top_n` largest nodes per side, fold the
-    remainder into one "Pozostałe" node. A month with 40 categories is
+    remainder into one "Other" node. A month with 40 categories is
     unreadable otherwise.
   - Uncategorised rows keep their bucket, labelled from i18n — never
     silently dropped.
@@ -96,65 +93,65 @@ per the existing report pattern).
 ### View — `views/reports_canned/money_flow.py` (new)
 
 - Route `/reports/money-flow`, registered in `reports_canned/__init__.py`
-  and added to `catalog.py` (icon `water` / `account_tree`, colour
-  `teal-7`).
-- Period control: reuse `month_controls()` plus a month ↔ whole-year
-  toggle (a Sankey of a single month is often too sparse to be useful).
+  and added to `catalog.py` (icon `account_tree`, colour `teal-7`).
+- Period control: Month (default) | Year | Custom via `month_controls` /
+  year select / `date_range_controls`.
 - Depth toggle (top-level categories / expand subcategories) and a
   top-N select (8 / 12 / 20 / all).
-- KPI row above the chart reusing `kpi()`: dopływy, odpływy, nadwyżka —
-  so the numbers behind the ribbons stay legible.
+- KPI row above the chart reusing `kpi()`: income, expenses, surplus/
+  deficit — so the numbers behind the ribbons stay legible.
 - Colours from `chart_utils`: income links `CHART_INCOME`, expense links
   `CHART_EXPENSE`, pool `CHART_TEAL`, gradient along each link; dark mode
   through `apply_dark()`. No new hex literals in the view.
 - Tooltip: amount + share of total for both nodes and links.
 - CSV export of the edge list (`source, target, amount`) via
   `csv_download`.
-- Empty state: `EmptyState` component, not a bare label.
+- Empty state: `report_no_data_label()`, not a bare label.
 
 ### API
 
-- `GET /api/v1/reports/money-flow?year=&month=&top_n=&depth=` in
+- `GET /api/v1/reports/money-flow?start=&end=&top_n=&depth=` in
   `api/v1/reports.py`, returning a `MoneyFlowResponse` added to
-  `schemas/analysis.py` (nodes + links + totals). ORM objects never
-  cross the boundary — the service already returns dataclasses.
+  `schemas/analysis.py` (nodes + links + totals). Half-open
+  `[start, end)`. ORM objects never cross the boundary — the service
+  already returns dataclasses.
 
 ### Specs and tests
 
 - `docs/bdd.md`, Workflow 6 — Insight: new feature block with
-  `KAL-FLW-001` … `KAL-FLW-004` tagged `@planned`:
+  `KAL-FLW-001` … `KAL-FLW-004` tagged `@planned` then `@automated`:
   001 diagram renders income → budget → expenses for a month;
   002 surplus appears as a savings sink and a deficit as a source;
   003 split transactions land in their own category ribbons;
   004 internal transfers do not appear.
-  Retag to `@automated` as the tests below land.
 - Unit: `tests/unit/services/test_money_flow_service.py` — balancing
   node both directions, top-N folding, uncategorised bucket, split
   attribution, transfer exclusion, empty period, name collision between
   an income and an expense category.
-- Integration: `tests/unit/api/` (or `tests/integration/`, matching the
-  existing reports tests) for the new endpoint.
-- E2e: extend `tests/e2e/` with a money-flow render check (page loads,
-  KPI values match the seeded fixture).
+- Integration: `tests/integration/test_analysis_api.py` for the new
+  endpoint.
+- E2e: `tests/e2e/test_money_flow.py` — page loads, KPI values match
+  the seeded fixture.
 
 ### Not in scope
 
-- **Transfers and an account layer.** Account-to-account movement makes
-  the graph cyclic and needs its own design pass; v1 stays on the
-  income → pool → expense DAG, consistent with every other
-  category-based report.
+- **Transfers and an account layer (v1 partial).** Paired internal transfers
+  appear as net account→account ribbons (acyclic). Unpaired legs are skipped.
+  A richer account-layer design may still follow later.
 - **Literal reservoir / pond rendering** — see
   [`funds-reservoir-view`](funds-reservoir-view.md).
 - **Drill-through to the ledger.** `views/transactions/page.py` accepts
   no query parameters today; wiring node-click → filtered ledger is a
   separate change to the transactions page.
-- Dashboard widget, PNG export, time-animated flows, custom report
-  builder integration (`CHART_TYPES` stays as it is).
+- Dashboard widget, PNG export, custom report builder integration
+  (`CHART_TYPES` stays as it is).
+- **Interactive time scrubbing** (week→day / month→month animation) —
+  separate follow-up plan; not created in this PR.
 
 ## Acceptance criteria
 
 - `uv run pytest tests/unit/services/test_money_flow_service.py -q`
-- `uv run pytest tests/unit/api -q`
+- `uv run pytest tests/integration/test_analysis_api.py -q`
 - `grep -q "KAL-FLW-001" docs/bdd.md`
 - `uv run python scripts/spec_coverage.py`
 - `uv run lint-imports`
@@ -179,21 +176,34 @@ per the existing report pattern).
 - `src/kaleta/i18n/locales/en.json` + `pl.json`
   (`reports_lib.money_flow*`, `money_flow.*`)
 - `docs/bdd.md` (KAL-FLW-001…004)
-- `tests/unit/services/`, `tests/unit/api/`, `tests/e2e/`
+- `tests/unit/services/`, `tests/integration/`, `tests/e2e/`
 
 ## Open questions
 
-1. **Metaphor.** Sankey is the analytic engine; how far to push the
-   water language in labels and iconography (dopływy / odpływy /
-   zbiornik vs. neutral income / expenses / budget)? Default: water
-   language in the page copy, neutral terms in the CSV export and API.
-2. **Default period.** Month matches the other canned reports, but a
-   single month can be sparse. Default: open on the current month with
-   a one-click switch to the full year.
-3. **Where does the pool label come from?** "Budżet" is the obvious
-   choice, but the zero-based philosophy might argue for splitting the
-   pool by budget envelope. Deferred — v1 keeps one pool.
+Resolved:
+
+1. **Metaphor.** Neutral UI + API + CSV (Income / Expenses / Budget /
+   Surplus / Covered from savings). Water language deferred to
+   `funds-reservoir-view`.
+2. **Default period.** Open on the current month; presets Month | Year |
+   Custom date range.
+3. **Pool label.** v1 keeps one pool labelled "Budget" / "Budżet".
 
 ## Implementation notes
 
-_(filled in as work progresses)_
+- Neutral UI/API/CSV labels; water metaphor deferred to `funds-reservoir-view`.
+- Period presets: Month (default) | Year | Custom via existing scaffold controls.
+- API uses half-open `[start, end)`; `top_n=0` means all categories.
+- NiceGUI `ui.echart` does not eval JS formatter strings — node `name` must be
+  the human label (with collision suffixes). Tooltips use `{b}: {c}` templates.
+- Paired internal transfers (`create_transfer` / linked legs) render as net
+  account→account edges; income/expense totals still exclude transfer amounts.
+- Dual lens: `mode=budget|accounts` (API query + view toggle). Budget mode hides
+  transfer ribbons; Accounts mode shows account nodes and transfer edges
+  (KAL-FLW-004).
+- Tiny drive-by: removed unused `type: ignore[import-not-found]` on Prophet
+  import so mypy stays green (prophet is installed in the env).
+- Verification (2026-08-26, branch `feat/reports-money-flow`):
+  `./scripts/verify.sh --e2e` → VERIFY OK (1461 unit/integration + 78 e2e).
+  BDD `KAL-FLW-001…004` tagged `@automated`; `spec_coverage.py` green.
+  Ready for PR + `plan-archiver` after merge.

@@ -56,4 +56,11 @@ REPORTS: list[tuple[str, str, str, str, str]] = [
         "account_balance",
         "deep-purple-7",
     ),
+    (
+        "money-flow",
+        "reports_lib.money_flow",
+        "reports_lib.money_flow_desc",
+        "account_tree",
+        "teal-7",
+    ),
 ]
