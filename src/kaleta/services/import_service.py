@@ -24,8 +24,10 @@ from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_profiles import (
     GENERIC_PROFILE,
     MBANK_PROFILE,
+    WISE_PROFILE,
     detect_bank_profile,
     is_mbank_content,
+    is_wise_content,
 )
 from kaleta.services.rule_service import RuleService
 
@@ -254,6 +256,22 @@ def inherit_queue_settings(
                 current.skip_duplicates = prior.skip_duplicates
                 return True
 
+    if current.profile == WISE_PROFILE and current.metadata and current.metadata.currency:
+        for prior in reversed(queue):
+            if prior.file_id == current.file_id:
+                continue
+            if (
+                prior.profile == WISE_PROFILE
+                and prior.metadata
+                and prior.metadata.currency == current.metadata.currency
+                and prior.target_account_id is not None
+            ):
+                current.target_account_id = prior.target_account_id
+                current.expense_cat_id = prior.expense_cat_id
+                current.income_cat_id = prior.income_cat_id
+                current.skip_duplicates = prior.skip_duplicates
+                return True
+
     for prior in reversed(queue):
         if prior.file_id == current.file_id:
             continue
@@ -291,7 +309,11 @@ def validate_import_readiness(
         return "import.select_expense_cat_hint", {}
     if check.income_cat_id is None:
         return "import.select_income_cat_hint", {}
-    if check.profile == MBANK_PROFILE and check.metadata and check.metadata.currency:
+    if (
+        check.profile in (MBANK_PROFILE, WISE_PROFILE)
+        and check.metadata
+        and check.metadata.currency
+    ):
         file_currency = check.metadata.currency.upper()
         account_currency = (check.account_currency or "").upper()
         if account_currency and file_currency != account_currency:
@@ -398,6 +420,78 @@ class MBankPreprocessor:
     def is_mbank_file(content: str) -> bool:
         """Quick heuristic — check if the file looks like an mBank export."""
         return is_mbank_content(content)
+
+
+class WisePreprocessor:
+    """Parses Wise (TransferWise) CSV statement exports.
+
+    Wise files are plain CSV with a fixed header row starting with
+    ``TransferWise ID``. Metadata (currency, period) is derived from rows.
+    """
+
+    _HEADER_MARKER = "TransferWise ID"
+
+    @staticmethod
+    def is_wise_file(content: str) -> bool:
+        return WisePreprocessor._HEADER_MARKER in content[:512] or is_wise_content(content)
+
+    @staticmethod
+    def extract_metadata(content: str) -> MBankFileMetadata:
+        reader = csv.DictReader(io.StringIO(content))
+        currency = ""
+        holder = ""
+        dates: list[datetime.date] = []
+        for row in reader:
+            if not currency:
+                currency = (row.get("Currency") or "").strip()
+            if not holder:
+                holder = (row.get("Card Holder Full Name") or "").strip()
+            date_raw = (row.get("Date") or "").strip()
+            if date_raw:
+                try:
+                    dates.append(_parse_date(date_raw))
+                except ImportError_:
+                    continue
+        date_from = min(dates) if dates else None
+        date_to = max(dates) if dates else None
+        return MBankFileMetadata(
+            client_name=holder,
+            account_type="Wise",
+            currency=currency,
+            account_number="",
+            account_number_digits="",
+            date_from=date_from,
+            date_to=date_to,
+        )
+
+
+def _build_wise_description(raw: dict[str, str]) -> str:
+    """Prefer merchant/payee over Wise's verbose Polish card descriptions."""
+    merchant = (raw.get("Merchant") or "").strip()
+    if merchant:
+        return merchant
+    payee = (raw.get("Payee Name") or "").strip()
+    if payee:
+        return payee
+    return (raw.get("Description") or "").strip()
+
+
+def _apply_wise_descriptions(rows: list[ParsedRow]) -> list[ParsedRow]:
+    updated: list[ParsedRow] = []
+    for row in rows:
+        description = _build_wise_description(row.raw)
+        if description and description != row.description:
+            updated.append(
+                ParsedRow(
+                    date=row.date,
+                    amount=row.amount,
+                    description=description,
+                    raw=row.raw,
+                )
+            )
+        else:
+            updated.append(row)
+    return updated
 
 
 def _build_mbank_description(raw: dict[str, str]) -> str:
@@ -635,6 +729,30 @@ class ImportService:
             return ParseQueuedFileResult(
                 profile=resolved_profile,
                 rows=result.rows,
+                errors=result.errors,
+                metadata=metadata,
+                ok=True,
+            )
+
+        if resolved_profile == WISE_PROFILE:
+            if not WisePreprocessor.is_wise_file(content):
+                return self._parse_generic_with_mapping(
+                    content,
+                    mapping=mapping,
+                    profile=GENERIC_PROFILE,
+                )
+            metadata = WisePreprocessor.extract_metadata(content)
+            result = self.parse_csv(content, delimiter=",")
+            if not result.rows:
+                return self._parse_generic_with_mapping(
+                    content,
+                    mapping=mapping,
+                    profile=GENERIC_PROFILE,
+                )
+            rows = _apply_wise_descriptions(result.rows)
+            return ParseQueuedFileResult(
+                profile=resolved_profile,
+                rows=rows,
                 errors=result.errors,
                 metadata=metadata,
                 ok=True,

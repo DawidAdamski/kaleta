@@ -25,6 +25,7 @@ from kaleta.services.import_service import (
     inherit_queue_settings,
     validate_import_readiness,
 )
+from kaleta.views.import_view.constants import METADATA_PROFILES
 from kaleta.views.import_view.coverage_section import build_coverage_section
 from kaleta.views.import_view.mapping_section import build_mapping_section
 from kaleta.views.import_view.metadata_section import build_metadata_section
@@ -160,12 +161,12 @@ async def import_page() -> None:
             return
 
         upload_section.set_hint(
-            t("import.upload_hint_mbank")
-            if active.profile == "mbank"
+            t(f"import.upload_hint_{active.profile}")
+            if active.profile in METADATA_PROFILES
             else t("import.upload_hint_generic")
         )
 
-        if active.profile == "mbank" and active.metadata is not None:
+        if active.profile in METADATA_PROFILES and active.metadata is not None:
             metadata_section.render(active.metadata, len(active.parsed_rows))
         else:
             metadata_section.hide()

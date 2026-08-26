@@ -17,6 +17,8 @@ tests/e2e/fixtures/import/
     NOTES.md                ← optional: export path in the bank UI, quirks
 ```
 
+Example: `wise/jpy-travel-sample.csv` (JPY travel wallet, CSV export).
+
 `profile_id` must match the registry key in
 `src/kaleta/services/import_profiles.py` (e.g. `mbank`, later `pko` only
 after a real file arrives).

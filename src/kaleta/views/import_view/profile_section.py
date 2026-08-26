@@ -43,4 +43,5 @@ def build_profile_section(
                 buttons[profile_key] = btn
         ui.label(t("import.profile_generic_help")).classes("text-xs text-slate-500 mt-2")
         ui.label(t("import.profile_mbank_help")).classes("text-xs text-slate-500")
+        ui.label(t("import.profile_wise_help")).classes("text-xs text-slate-500")
     return ProfileSection(buttons=buttons)

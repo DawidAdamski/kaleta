@@ -54,8 +54,8 @@ Out of scope:
 
 Partially unmet until dogfood files exist:
 
-- `[blocked]` At least one non-mBank bank profile with fixture-backed
-  unit test — **blocked on real anonymized exports**.
+- ~~`[blocked]` At least one non-mBank bank profile with fixture-backed
+  unit test~~ — **Wise** landed 2026-08-26 (see Implementation notes).
 
 ## Touchpoints
 
@@ -112,3 +112,21 @@ bank profiles** were added.
   `tests/e2e/fixtures/import/<profile_id>/`.
 
 **Not in this branch:** `import-per-file-mapping-memory` (distinct plan).
+
+### 2026-08-26 — Wise profile (first non-mBank bank)
+
+**Fixtures:** Anonymized JPY travel wallet CSV under
+`tests/e2e/fixtures/import/wise/jpy-travel-sample.csv`. Maintainer also
+supplied QIF, MT940, and XLSX for the same statement — documented in
+`NOTES.md` as unsupported (upload accepts `.csv` only; use CSV export).
+
+**Landed:**
+
+- `WISE_PROFILE` + auto-detect (`TransferWise ID` header)
+- `WisePreprocessor` — currency/period metadata from rows
+- Merchant-first descriptions (cleaner than verbose PL card text)
+- Currency mismatch guard (same as mBank)
+- Unit tests: `test_wise_real_exports.py`
+- BDD: `KAL-CSV-019 @automated`
+
+**Still open:** PKO / Revolut profiles when exports arrive.

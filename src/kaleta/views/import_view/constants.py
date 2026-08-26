@@ -7,9 +7,11 @@ Profile keys / labels / enable flags come from
 
 from __future__ import annotations
 
-from kaleta.services.import_profiles import iter_ui_profiles
+from kaleta.services.import_profiles import METADATA_PROFILES, iter_ui_profiles
 
 _PROFILES: list[tuple[str, str, str, bool]] = iter_ui_profiles()
+
+__all__ = ["METADATA_PROFILES", "_PROFILES"]
 
 STATUS_COLOR: dict[str, str] = {
     "pending": "grey-6",
