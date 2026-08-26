@@ -2297,6 +2297,34 @@ Feature: Demo instance banner
     And the database contains seeded demo data
 ```
 
+## Feature: Anonymous error events
+
+```gherkin
+Feature: Anonymous error events
+  As a maintainer of a hosted Kaleta instance
+  I want anonymous error events with user-visible IDs
+  So that users can optionally share a trace without exposing financial data
+
+  KAL-OBS-001 @automated
+  Scenario: Server-side Kaleta errors produce a persisted anonymous event
+    Given KALETA_EVENTS_ENABLED is true
+    When a server-side KaletaError is recorded through EventService
+    Then the event payload contains no free-text PII fields
+    And the event can be looked up by its short event_id
+
+  KAL-OBS-002 @automated
+  Scenario: Validation errors are not captured as anonymous events
+    Given KALETA_EVENTS_ENABLED is true
+    When a ValidationError occurs
+    Then anonymous event capture is skipped
+
+  KAL-OBS-003 @automated
+  Scenario: Retention purge deletes events older than the configured window
+    Given an app event older than the retention window exists
+    When the retention purge runs
+    Then the old event is deleted
+```
+
 ## Feature: Settings — Data safety
 
 ```gherkin

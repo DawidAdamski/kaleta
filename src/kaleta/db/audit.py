@@ -33,7 +33,7 @@ from kaleta.models.audit_log import AuditLog  # registers table in Base.metadata
 log = logging.getLogger(__name__)
 
 # Tables we never audit (prevents infinite recursion and noise).
-_SKIP_TABLES: frozenset[str] = frozenset({"audit_log"})
+_SKIP_TABLES: frozenset[str] = frozenset({"audit_log", "app_events"})
 
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────

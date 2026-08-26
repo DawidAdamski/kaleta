@@ -102,7 +102,7 @@ The subagent:
 |---|---|---|---|
 | 1 | [q4-licence-and-cla](archive/q4-licence-and-cla.md) | archived | — |
 | 2 | [q4-public-repo-readiness](archive/q4-public-repo-readiness.md) | archived | 1 (CONTRIBUTING references CLA) |
-| 3 | [q4-supabase-deployment](q4-supabase-deployment.md) | in-progress | Sections 2+4 done; hosting + live demo URL open |
+| 3 | [q4-supabase-deployment](archive/q4-supabase-deployment.md) | archived | Repo scope done; live host + HTTPS manual |
 | 4 | [q4-dashboard-design-refresh](archive/q4-dashboard-design-refresh.md) | archived | — |
 
 ### Q3 2026 — Stabilisation & debt (execute in this order)
@@ -180,6 +180,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [ux-sidebar-workflow-and-settings](archive/ux-sidebar-workflow-and-settings.md) | archived | UX — sidebar nav (#42) + settings expansion (#60) |
 | [setup-zero-config-bootstrap](archive/setup-zero-config-bootstrap.md) | archived | Setup |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
+| [observability-anonymous-events](observability-anonymous-events.md) | in-progress | Q4 hosted instance / ops |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
 | [budgets-realization-view](archive/budgets-realization-view.md) | archived | Budgets |
 | [import-multi-file-queue](archive/import-multi-file-queue.md) | archived | Import |

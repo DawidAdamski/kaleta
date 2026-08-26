@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     backup_retain: int = 7
     backup_dir: str = _DEFAULT_BACKUP_DIR
     demo: bool = False
+    events_enabled: bool = True
+    event_retention_days: int = 7
 
     @field_validator("db_url", mode="before")
     @classmethod
@@ -83,6 +85,13 @@ class Settings(BaseSettings):
     @classmethod
     def _expand_backup_dir(cls, value: str) -> str:
         return str(Path(value).expanduser())
+
+    @field_validator("event_retention_days")
+    @classmethod
+    def _validate_event_retention(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("KALETA_EVENT_RETENTION_DAYS must be >= 1")
+        return value
 
     @model_validator(mode="after")
     def _validate_secret_and_data_dir(self) -> "Settings":

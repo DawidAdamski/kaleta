@@ -19,6 +19,16 @@ For localhost autostart (launchd / systemd), see
 Secrets (`KALETA_DB_URL`, `KALETA_SECRET_KEY`) are **env-only** — never
 commit them to the repo.
 
+## Recommended rollout (2026-08)
+
+1. **Start with Supabase** for Postgres + the public demo (this doc).
+2. **App host:** any container platform that runs `kaleta:full` with the
+   env block below (Fly.io, Railway, a small VPS — owner choice).
+3. **Hetzner (or similar) later** — optional migration if Supabase + app
+   host prove stable and cost/ops warrant a move.
+4. **Commercial / shop layer** (e.g. [EasyTools](https://www.easy.tools/pl/cennik))
+   is out of scope until pricing and paid features are defined.
+
 ## Supabase connection strings
 
 Kaleta uses **async SQLAlchemy** with **asyncpg**. Set
@@ -145,5 +155,5 @@ Expect `"database_ok": true` and `"migrations_pending": false`.
 ## Related
 
 - CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job)
-- Plan: [`docs/plans/q4-supabase-deployment.md`](plans/q4-supabase-deployment.md)
-- Observability (optional): [`docs/plans/observability-anonymous-events.md`](plans/observability-anonymous-events.md)
+- Plan: [`docs/plans/archive/q4-supabase-deployment.md`](plans/archive/q4-supabase-deployment.md)
+- Observability: [`docs/privacy-events.md`](privacy-events.md)
