@@ -46,7 +46,7 @@ async def test_record_lookup_and_retention_purge(session: AsyncSession) -> None:
     session.add(
         AppEvent(
             event_id="OLDCAP01",
-            occurred_at=(datetime.now(UTC) - timedelta(days=30)).replace(tzinfo=None),
+            occurred_at=datetime.now(UTC) - timedelta(days=30),
             level="ERROR",
             route="/old",
             exception_class="RuntimeError",

@@ -122,10 +122,8 @@ class EventService:
         if days < 1:
             return 0
         cutoff = datetime.now(UTC) - timedelta(days=days)
-        conn = await self.session.connection()
-        if conn.dialect.name == "sqlite":
-            cutoff = cutoff.replace(tzinfo=None)
-        result = await self.session.execute(delete(AppEvent).where(AppEvent.occurred_at < cutoff))
+        stmt = delete(AppEvent).where(AppEvent.occurred_at < cutoff)
+        result = await self.session.execute(stmt.execution_options(synchronize_session=False))
         await self.session.commit()
         return int(getattr(result, "rowcount", 0) or 0)
 

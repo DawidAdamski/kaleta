@@ -63,7 +63,7 @@ async def test_purge_older_than(session: AsyncSession) -> None:
     svc = EventService(session)
     old = AppEvent(
         event_id="OLDEVENT1",
-        occurred_at=(datetime.now(UTC) - timedelta(days=30)).replace(tzinfo=None),
+        occurred_at=datetime.now(UTC) - timedelta(days=30),
         level="ERROR",
         route="/old",
         exception_class="RuntimeError",
