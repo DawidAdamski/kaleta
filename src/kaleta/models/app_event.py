@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, Text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
 
@@ -34,8 +34,6 @@ class AppEvent(Base):
         nullable=True,
     )
     request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    user: Mapped[User | None] = relationship("User")  # type: ignore[name-defined]  # noqa: F821
 
     def __repr__(self) -> str:
         return (

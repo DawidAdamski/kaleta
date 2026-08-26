@@ -3,14 +3,14 @@ plan_id: observability-anonymous-events
 title: Anonymous error events with user-driven disclosure
 area: infrastructure
 effort: medium
-status: draft
+status: in-progress
 deferred_to: q4-2026
 roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Anonymous error events with user-driven disclosure
 
-Companion to [`q4-supabase-deployment`](q4-supabase-deployment.md)
+Companion to [`q4-supabase-deployment`](archive/q4-supabase-deployment.md)
 (hosted instance). Settings UI surface lands via
 [`ux-sidebar-workflow-and-settings`](archive/ux-sidebar-workflow-and-settings.md) PR 2.
 

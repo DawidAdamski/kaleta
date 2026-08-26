@@ -11,42 +11,18 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from kaleta.exceptions import (
-    ConflictError,
-    ExternalServiceError,
-    ForecastUnavailableError,
     KaletaError,
-    NotFoundError,
-    SetupRequiredError,
-    UnauthorizedError,
-    ValidationError,
+    kaleta_error_http_status,
 )
 
 log = logging.getLogger(__name__)
 
-_STATUS_BY_TYPE: dict[type[KaletaError], int] = {
-    UnauthorizedError: 401,
-    SetupRequiredError: 503,
-}
 
-
-def error_envelope(*, code: str, message: str) -> dict[str, Any]:
-    return {"error": {"code": code, "message": message}}
-
-
-def _status_for(exc: KaletaError) -> int:
-    for cls, status in _STATUS_BY_TYPE.items():
-        if isinstance(exc, cls):
-            return status
-
-    if isinstance(exc, NotFoundError):
-        return 404
-    if isinstance(exc, ValidationError):
-        return 422
-    if isinstance(exc, ConflictError):
-        return 409
-    if isinstance(exc, (ForecastUnavailableError, ExternalServiceError, SetupRequiredError)):
-        return 503
-    return 500
+def error_envelope(*, code: str, message: str, event_id: str | None = None) -> dict[str, Any]:
+    body: dict[str, Any] = {"code": code, "message": message}
+    if event_id:
+        body["event_id"] = event_id
+    return {"error": body}
 
 
 def _code_from_http_status(status: int) -> str:
@@ -71,13 +47,44 @@ def _message_from_http_detail(detail: Any) -> tuple[str, str]:
     return "error", str(detail)
 
 
-async def kaleta_error_handler(_request: Request, exc: KaletaError) -> JSONResponse:
+def _status_for(exc: KaletaError) -> int:
+    return kaleta_error_http_status(exc)
+
+
+async def kaleta_error_handler(request: Request, exc: KaletaError) -> JSONResponse:
     status = _status_for(exc)
+    event_id: str | None = None
     if status >= 500:
         log.exception("Unhandled domain error: %s", exc.message)
+        from kaleta.services.event_capture import capture_exception_async
+
+        event_id = await capture_exception_async(
+            exc,
+            route=str(request.url.path),
+            request_id=request.headers.get("x-request-id"),
+        )
     return JSONResponse(
         status_code=status,
-        content=error_envelope(code=exc.code, message=exc.message),
+        content=error_envelope(code=exc.code, message=exc.message, event_id=event_id),
+    )
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    log.exception("Unhandled exception on %s", request.url.path)
+    from kaleta.services.event_capture import capture_exception_async
+
+    event_id = await capture_exception_async(
+        exc,
+        route=str(request.url.path),
+        request_id=request.headers.get("x-request-id"),
+    )
+    return JSONResponse(
+        status_code=500,
+        content=error_envelope(
+            code="internal_error",
+            message="An unexpected error occurred.",
+            event_id=event_id,
+        ),
     )
 
 
@@ -109,3 +116,4 @@ def register_error_handlers(app: FastAPI) -> None:
     app.add_exception_handler(KaletaError, kaleta_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(Exception, unhandled_exception_handler)

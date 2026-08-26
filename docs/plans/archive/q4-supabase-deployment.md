@@ -3,8 +3,9 @@ plan_id: q4-supabase-deployment
 title: Hosted instance on Supabase Postgres + CI postgres matrix
 area: infrastructure
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
+status: archived
+archived_at: 2026-08-26
+roadmap_ref: ../../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Hosted instance on Supabase Postgres + CI postgres matrix
@@ -121,12 +122,6 @@ stay isolated. `make_session_factory()` exported for integration fixtures.
 1266/1266 postgres-backed unit+integration tests pass (excluding 14 pre-existing
 `test_chart_utils.py` failures unrelated to DB).
 
-**Not touched (other plan sections):** Supabase docs, demo flag, hosting, demo
-reset, UI banner.
-
-**Status (2026-08-26):** Section 1 (CI Postgres) done → plan kept
-`in-progress` until sections 2–4 (docs / hosting / demo) land.
-
 ### Sections 2 + 4 — Supabase docs + demo hardening (2026-08-26)
 
 **Docs:** Added `docs/deployment.md` — Supabase pooler vs direct URLs,
@@ -150,5 +145,37 @@ PostgreSQL (needed for hosted demo reset).
 **Tests:** `KAL-PLT-001` e2e banner; `KAL-PLT-002` integration reset script;
 unit tests for demo flag.
 
-**Still open (section 3 + manual AC):** app host choice (Fly/Railway/Hetzner),
-live HTTPS demo URL in README, observed nightly reset on production.
+**Deferred (section 3 + manual AC):** app host choice (Fly/Railway/Hetzner),
+live HTTPS demo URL in README, observed nightly reset on production — owner
+ops tasks documented in `docs/deployment.md`; not blocking repo automation.
+
+## Implementation
+
+Landed across multiple PRs; repo-automated scope archived 2026-08-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| (section 1) | — | 2026-07-05 | CI Postgres matrix + PG compat fixes (see notes) |
+| `78ef8ca` | Dawid Adamski | 2026-08-26 | docs: archive ux-sidebar + Supabase demo deployment (sections 2+4) (#61) |
+
+**Files changed (#61 — sections 2+4):**
+- `docs/deployment.md`, `docs/bdd.md`, `docs/plans/q4-supabase-deployment.md`
+- `scripts/reset_demo.py`
+- `src/kaleta/config/settings.py`, `src/kaleta/views/layout.py`
+- `src/kaleta/services/data_service.py`
+- `src/kaleta/i18n/locales/en.json`, `pl.json`
+- `tests/e2e/test_demo_banner.py`, `tests/integration/test_reset_demo.py`
+- `tests/unit/config/test_settings_demo.py`
+- `README.md`
+
+**Acceptance criteria run** (archiver, 2026-08-26):
+
+| Command | Exit |
+|---|---|
+| `` `grep -q "KALETA_DEMO" src/kaleta/config/settings.py` `` | 0 |
+| `` `test -f docs/deployment.md` `` | 0 |
+| `` `uv run python scripts/check_doc_links.py` `` | 0 |
+| `` `bash scripts/verify.sh --e2e` `` | 0 |
+
+**Notes:** Section 3 (container host + HTTPS) and manual hosted-demo checks
+remain owner follow-ups when infrastructure is chosen.

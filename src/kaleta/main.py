@@ -213,6 +213,13 @@ def _sweep_nicegui_storage() -> None:
     NiceguiStorageService().sweep_stale()
 
 
+def _register_event_retention_scheduler() -> None:
+    from kaleta.services.event_retention_scheduler import EventRetentionScheduler
+
+    nicegui_app.on_startup(EventRetentionScheduler.start)
+    nicegui_app.on_shutdown(EventRetentionScheduler.stop)
+
+
 def _register_backup_scheduler() -> None:
     """Start/stop scheduled SQLite file backups with the NiceGUI process."""
     nicegui_app.on_startup(BackupScheduler.start)
@@ -235,11 +242,15 @@ async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _sweep_nicegui_storage()
     await _ensure_api_env_token_user()
     BackupScheduler.start()
+    from kaleta.services.event_retention_scheduler import EventRetentionScheduler
+
+    EventRetentionScheduler.start()
     NbpStartupFetcher.start()
     try:
         yield
     finally:
         await NbpStartupFetcher.stop()
+        await EventRetentionScheduler.stop()
         await BackupScheduler.stop()
 
 
@@ -259,6 +270,7 @@ def run_web() -> None:
     _register_auth()
     _register_views()
     _register_backup_scheduler()
+    _register_event_retention_scheduler()
     _register_nbp_startup_fetch()
     _register_storage_sweep()
     from kaleta.config.setup_config import is_configured
@@ -282,6 +294,7 @@ def run_app() -> None:
     _register_auth()
     _register_views()
     _register_backup_scheduler()
+    _register_event_retention_scheduler()
     _register_nbp_startup_fetch()
     _register_storage_sweep()
     ui.run(
