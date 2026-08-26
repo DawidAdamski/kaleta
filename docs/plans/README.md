@@ -174,7 +174,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |
 | [transactions-upcoming-planned](transactions-upcoming-planned.md) | draft | Transactions |
 | [ux-audit-feature-categorization](archive/ux-audit-feature-categorization.md) | archived | UX / IA |
-| [ux-sidebar-workflow-and-settings](ux-sidebar-workflow-and-settings.md) | in-progress | UX — PR1 nav done; PR2 settings expansion open |
+| [ux-sidebar-workflow-and-settings](archive/ux-sidebar-workflow-and-settings.md) | archived | UX — PR1 nav done; PR2 settings expansion open |
 | [setup-zero-config-bootstrap](archive/setup-zero-config-bootstrap.md) | archived | Setup |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
