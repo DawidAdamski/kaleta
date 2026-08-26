@@ -231,6 +231,14 @@ class TestSimilarPayees:
         groups = await DedupeService(session).similar_payees()
         assert len(groups) == 1
 
+    async def test_payee_max_distance_setting(self, session: AsyncSession):
+        await _make_payee(session, "Netflix")
+        await _make_payee(session, "Netflaz")  # two substitutions away (i→a, x→z): distance 2
+        strict = await DedupeService(session).similar_payees(payee_max_distance=1)
+        loose = await DedupeService(session).similar_payees(payee_max_distance=3)
+        assert len(strict) == 0
+        assert len(loose) == 1
+
     async def test_merge_payees_reassigns_transactions(self, session: AsyncSession):
         acc = await _make_account(session)
         keeper = await _make_payee(session, "Netflix")

@@ -16,15 +16,17 @@ from kaleta.views.budgets.helpers import range_label, range_options
 from kaleta.views.budgets.overview import render_overview_content
 from kaleta.views.budgets.realization import render_realization_flat, render_realization_grouped
 from kaleta.views.layout import page_layout
+from kaleta.views.settings.user_prefs import budget_period_for
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
 
 
 async def budgets_page() -> None:
     today = datetime.date.today()
+    budget_year, budget_month = budget_period_for(today)
     current_range: dict[str, str] = {"key": "this_month"}
     realization_state: dict[str, Any] = {
-        "year": today.year,
-        "month": today.month,
+        "year": budget_year,
+        "month": budget_month,
         "group": "flat",
     }
 
@@ -40,7 +42,8 @@ async def budgets_page() -> None:
         render_overview_content(summaries, is_dark=is_dark)
 
     _, open_edit_dialog = await build_edit_dialog(
-        today,
+        budget_year,
+        budget_month,
         on_saved=budget_content.refresh,
     )
 

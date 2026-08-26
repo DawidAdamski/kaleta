@@ -186,7 +186,11 @@ class DedupeService:
 
     # ── Similar payees ────────────────────────────────────────────────────
 
-    async def similar_payees(self) -> builtins.list[PayeeGroup]:
+    async def similar_payees(
+        self,
+        *,
+        payee_max_distance: int | None = None,
+    ) -> builtins.list[PayeeGroup]:
         """Find payees whose names collide on normalisation or close Levenshtein."""
         # Counts per payee_id for display + keeper-suggestion.
         count_result = await self.session.execute(
@@ -228,7 +232,7 @@ class DedupeService:
             for b, nb in norm_cache[i + 1 :]:
                 if b.id in visited:
                     continue
-                if _norm_levenshtein_close(na, nb):
+                if _norm_levenshtein_close(na, nb, max_distance=payee_max_distance):
                     cluster.append(b)
             if len(cluster) >= 2:
                 for m in cluster:
@@ -417,16 +421,19 @@ def _levenshtein_close(a: str, b: str) -> bool:
     return _norm_levenshtein_close(_normalise_name(a), _normalise_name(b))
 
 
-def _norm_levenshtein_close(na: str, nb: str) -> bool:
+def _norm_levenshtein_close(na: str, nb: str, *, max_distance: int | None = None) -> bool:
     """Compare two already-normalised strings."""
     if not na or not nb or na == nb:
         return False
     short_len = min(len(na), len(nb))
-    threshold = (
-        PAYEE_LEVENSHTEIN_SHORT_THRESHOLD
-        if short_len <= PAYEE_LEVENSHTEIN_SHORT_NAME_MAX
-        else PAYEE_LEVENSHTEIN_LONG_THRESHOLD
-    )
+    if max_distance is not None:
+        threshold = max_distance
+    else:
+        threshold = (
+            PAYEE_LEVENSHTEIN_SHORT_THRESHOLD
+            if short_len <= PAYEE_LEVENSHTEIN_SHORT_NAME_MAX
+            else PAYEE_LEVENSHTEIN_LONG_THRESHOLD
+        )
     # Fast reject: Levenshtein distance is always >= |len(a) - len(b)|.
     if abs(len(na) - len(nb)) > threshold:
         return False

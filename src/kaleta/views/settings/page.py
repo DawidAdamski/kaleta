@@ -17,13 +17,16 @@ from kaleta.views.settings.features_tab import render_features_tab
 from kaleta.views.settings.general_tab import render_general_tab
 from kaleta.views.settings.history_tab import render_history_tab
 from kaleta.views.settings.import_tab import render_import_tab
+from kaleta.views.settings.privacy_tab import render_privacy_tab
 from kaleta.views.settings.security_tab import render_security_tab
 
 
 async def settings_page() -> None:
     default_currency: str = app.storage.user.get("currency", "PLN")
 
-    async def _load_data_context(session: Any) -> tuple[str, list[str], list[tuple[str, str]]]:
+    async def _load_data_context(
+        session: Any,
+    ) -> tuple[str, list[str], list[tuple[str, str]], dict[int, str]]:
         accounts = await AccountService(session).list()
         rate_svc = CurrencyRateService(session)
         rate_pairs = await rate_svc.list_pairs()
@@ -34,9 +37,10 @@ async def settings_page() -> None:
             account_currencies,
             rate_pairs,
         )
-        return default_currency, foreign_currencies, relevant_pairs
+        account_options = {account.id: account.name for account in accounts}
+        return default_currency, foreign_currencies, relevant_pairs, account_options
 
-    _, foreign_currencies, relevant_pairs = await with_session(_load_data_context)
+    _, foreign_currencies, relevant_pairs, account_options = await with_session(_load_data_context)
 
     with page_layout(t("settings.title")):
         ui.label(t("settings.title")).classes("text-2xl font-bold")
@@ -47,6 +51,7 @@ async def settings_page() -> None:
                 "appearance", label=t("settings.tab_appearance"), icon="palette"
             )
             features_tab = ui.tab("features", label=t("settings.tab_features"), icon="toggle_on")
+            privacy_tab = ui.tab("privacy", label=t("settings.tab_privacy"), icon="shield")
             import_tab = ui.tab("import", label=t("settings.tab_import"), icon="upload_file")
             data_tab = ui.tab("data", label=t("settings.tab_data"), icon="storage")
             security_tab = ui.tab("security", label=t("settings.tab_security"), icon="security")
@@ -55,11 +60,13 @@ async def settings_page() -> None:
 
         with ui.tab_panels(tabs, value=general_tab).classes("w-full"):
             with ui.tab_panel(general_tab):
-                render_general_tab()
+                render_general_tab(account_options=account_options)
             with ui.tab_panel(appearance_tab):
                 render_appearance_tab()
             with ui.tab_panel(features_tab):
                 render_features_tab()
+            with ui.tab_panel(privacy_tab):
+                render_privacy_tab()
             with ui.tab_panel(import_tab):
                 await render_import_tab()
             with ui.tab_panel(data_tab):

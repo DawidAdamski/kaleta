@@ -14,6 +14,7 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate, TransactionType
 from kaleta.services import CurrencyRateService, TransactionService, with_session
+from kaleta.views.settings.user_prefs import get_default_account_id
 from kaleta.views.transactions.split_editor import build_split_editor
 
 
@@ -49,7 +50,11 @@ def build_add_dialog(
 
         account_sel = ui.select(account_options, label=t("common.account")).classes("w-full")
         if account_options:
-            account_sel.value = next(iter(account_options))
+            default_id = get_default_account_id()
+            if default_id is not None and default_id in account_options:
+                account_sel.value = default_id
+            else:
+                account_sel.value = next(iter(account_options))
 
         dest_row = ui.row().classes("w-full")
         dest_row.set_visibility(False)

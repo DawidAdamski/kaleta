@@ -98,3 +98,11 @@ Out of scope:
   Features / Privacy settings knobs + wiring hardcoded detection
   thresholds). `KAL-NAV-003` (collapse persistence e2e) still
   `@planned` — storage writes exist; e2e missing.
+- **PR 2 (2026-08-26, branch `cursor/ux-sidebar-settings-pr2-09ca`):**
+  General — number format, budget month start day (wired to budgets edit
+  dialog + realization default month), default account (add transaction
+  dialog). Features — transfer pairing days/tolerance (import detect),
+  payee dedupe max distance (housekeeping), import skip-duplicates
+  default. Privacy tab — events toggle + retention + copy session ID
+  (UI only; backend in `observability-anonymous-events`). BDD
+  `KAL-SET-024`/`025` `@automated`. Plan ready to archive after merge.
