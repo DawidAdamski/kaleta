@@ -4,7 +4,7 @@ title: Reports — money flow diagram (Sankey)
 area: reports
 effort: medium
 status: ready-to-archive
-roadmap_ref: ../roadmap.md#reports
+roadmap_ref: ../../roadmap.md#reports
 ---
 
 # Reports — money flow diagram (Sankey)
@@ -23,7 +23,7 @@ A Sankey diagram answers it in one picture: sources on the left, a
 single budget pool in the middle, sinks on the right, link thickness
 proportional to złoty. Geometry stays a flow graph; literal reservoir
 rendering lives in the follow-up plan
-[`funds-reservoir-view`](funds-reservoir-view.md).
+[`funds-reservoir-view`](../funds-reservoir-view.md).
 
 ## Current behaviour (code facts)
 
@@ -139,7 +139,7 @@ per the existing report pattern).
   appear as net account→account ribbons (acyclic). Unpaired legs are skipped.
   A richer account-layer design may still follow later.
 - **Literal reservoir / pond rendering** — see
-  [`funds-reservoir-view`](funds-reservoir-view.md).
+  [`funds-reservoir-view`](../funds-reservoir-view.md).
 - **Drill-through to the ledger.** `views/transactions/page.py` accepts
   no query parameters today; wiring node-click → filtered ledger is a
   separate change to the transactions page.

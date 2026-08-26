@@ -159,12 +159,12 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](archive/dashboard-widget-resize.md) | archived | Dashboard |
 | [import-bank-profiles](import-bank-profiles.md) | draft | Import — fixture-backed bank parsers |
-| [import-mapping-wizard](import-mapping-wizard.md) | draft | Import — dogfooding UX |
-| [import-history-account-coverage](import-history-account-coverage.md) | draft | Import — dogfooding UX |
-| [import-per-file-mapping-memory](import-per-file-mapping-memory.md) | draft | Import — after import-mapping-wizard |
+| [import-mapping-wizard](archive/import-mapping-wizard.md) | archived | Import — dogfooding UX |
+| [import-history-account-coverage](archive/import-history-account-coverage.md) | archived | Import — dogfooding UX |
+| [import-per-file-mapping-memory](archive/import-per-file-mapping-memory.md) | archived | Import — after import-mapping-wizard |
 | [wizard-unplanned-radar](wizard-unplanned-radar.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
 | [wizard-pay-yourself-salary](wizard-pay-yourself-salary.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
-| [reports-money-flow](reports-money-flow.md) | draft | Reports — money flow Sankey |
+| [reports-money-flow](archive/reports-money-flow.md) | archived | Reports — money flow Sankey |
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
