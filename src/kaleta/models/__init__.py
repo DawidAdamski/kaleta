@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from kaleta.models.account import Account, AccountType
 from kaleta.models.api_token import ApiToken
+from kaleta.models.app_event import AppEvent
 from kaleta.models.asset import Asset, AssetType
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.budget import Budget
@@ -34,6 +35,7 @@ __all__ = [
     "Account",
     "AccountType",
     "ApiToken",
+    "AppEvent",
     "Asset",
     "AssetType",
     "AuditLog",
