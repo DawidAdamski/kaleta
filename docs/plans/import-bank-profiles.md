@@ -111,4 +111,23 @@ bank profiles** were added.
   files. Follow-up: one PR per bank after a sample lands under
   `tests/e2e/fixtures/import/<profile_id>/`.
 
-**Not in this branch:** `import-per-file-mapping-memory` (distinct plan).
+### 2026-08-26 — real mBank dogfood fixtures (credit + ROR)
+
+**Fixtures:** Anonymized samples from maintainer dogfood exports under
+`tests/e2e/fixtures/import/mbank/`:
+
+- `credit-card-sample.csv` — karta kredytowa (`#Numer karty` column)
+- `current-account-sample.csv` — konto bieżące/oszczędnościowe (`#Saldo po operacji`, `Numer konta`)
+
+Parser already handled both shapes; fixes landed for transfer detection via
+`Numer konta` (real exports use this header, not `Numer rachunku` in rows)
+and date alias `Data księgowania`.
+
+**Tests:** `tests/unit/services/test_mbank_real_exports.py`.
+
+**Still blocked:** first **non-mBank** bank profile (PKO/Revolut) — needs a
+non-mBank export file.
+
+**Hosting (owner decision, 2026-08-26):** Supabase Postgres first for hosted
+demo; Hetzner migration optional later; commercial shop (e.g. easy.tools) deferred
+until pricing model is decided — see `docs/deployment.md`.

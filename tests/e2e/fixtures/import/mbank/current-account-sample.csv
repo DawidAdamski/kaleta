@@ -1,0 +1,50 @@
+mBank S.A. Bankowość Detaliczna;
+		Skrytka Pocztowa 2108;
+		90-959 Łódź 2;
+		www.mBank.pl;
+		mLinia: 801 300 800;
+		+48 (42) 6 300 800;
+		
+
+#Klient;
+Jan Kowalski;
+
+Elektroniczne zestawienie operacji;
+
+#Za okres:;
+01.01.2000;10.08.2026;
+#Rodzaj rachunku;
+MKONTO INTENSIVE;
+#Waluta;
+PLN;
+#Numer rachunku;
+55 1140 2004 0000 3302 9999 6836 ;
+#Data następnej kapitalizacji;
+2026-08-31;
+#Oprocentowanie rachunku;
+0,00%;
+#Limit kredytu;
+0,00 PLN;
+#Oprocentowanie kredytu;
+0,00%;
+
+#Podsumowanie obrotów na rachunku;#Liczba operacji;#Wartość operacji
+Uznania;622;2 247 541,17 PLN;
+Obciążenia;6357;2 243 144,20 PLN;
+Łącznie;6979;4 396,97 PLN;
+
+#Saldo początkowe;0,00 PLN;
+
+#Data księgowania;#Data operacji;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer konta;#Kwota;#Saldo po operacji;
+2019-06-12;2019-06-12;OTWARCIE RACHUNKU;"";"  ";'';0,00;0,00;
+2019-06-24;2019-06-24;PRZELEW WEWNĘTRZNY PRZYCHODZĄCY;"nasze                                                                                                     96132015374150799939999901";"Anna Nowak              CHEŁMICZKI 38  88-121 CHEŁMCE";'96132015374150799939999901';1 000,00;1 000,00;
+2019-06-26;2019-06-26;ZAKUP PRZY UŻYCIU KARTY;"KAUFLAND           /INOWROCLAW                                        DATA TRANSAKCJI: 2019-06-24";"  ";'';-209,98;790,02;
+2019-06-27;2019-06-27;ZAKUP PRZY UŻYCIU KARTY;"BP-SOLNICA 446     /INOWROCLAW                                        DATA TRANSAKCJI: 2019-06-25";"  ";'';-82,04;707,98;
+2019-06-28;2019-06-28;ZAKUP PRZY UŻYCIU KARTY;"McDonalds 219 Inowr/Inowroclaw                                        DATA TRANSAKCJI: 2019-06-26";"  ";'';-13,90;694,08;
+2019-06-28;2019-06-28;ZAKUP PRZY UŻYCIU KARTY;"KAUFLAND           /INOWROCLAW                                        DATA TRANSAKCJI: 2019-06-26";"  ";'';-294,48;399,60;
+2019-06-28;2019-06-28;ZAKUP PRZY UŻYCIU KARTY;"BP-SOLNICA 446     /INOWROCLAW                                        DATA TRANSAKCJI: 2019-06-26";"  ";'';-143,10;256,50;
+2019-06-29;2019-06-29;ZAKUP PRZY UŻYCIU KARTY;"Pauza 1            /Bydgoszcz                                         DATA TRANSAKCJI: 2019-06-27";"  ";'';-6,00;250,50;
+2019-06-29;2019-06-29;ZAKUP PRZY UŻYCIU KARTY;"BP-SOLNO 538       /INOWROCLAW                                        DATA TRANSAKCJI: 2019-06-27";"  ";'';-73,71;176,79;
+2019-07-03;2019-07-03;ZAKUP PRZY UŻYCIU KARTY;"CARREFOUR HIPERMARK/INOWROCLAW                                        DATA TRANSAKCJI: 2019-07-01";"  ";'';-10,97;165,82;
+2019-07-06;2019-07-06;ZAKUP PRZY UŻYCIU KARTY;"JMP S.A. BIEDRONKA /INOWROCLAW                                        DATA TRANSAKCJI: 2019-07-04";"  ";'';-44,57;121,25;
+2019-07-09;2019-07-09;WPŁATA WE WPŁATOMACIE;"4275WPŁATOMATEURONET/000091272";"  ";'';620,00;741,25;

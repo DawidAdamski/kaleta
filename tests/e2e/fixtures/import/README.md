@@ -12,19 +12,21 @@ memory. Collect a real file during dogfooding first.
 ```
 tests/e2e/fixtures/import/
   README.md                 ← this file
-  <profile_id>/
+  mbank/
+    credit-card-sample.csv    ← real export shape (credit card)
+    current-account-sample.csv
+    NOTES.md
+  <other_bank>/
     sample.csv              ← minimal anonymized export (required)
-    NOTES.md                ← optional: export path in the bank UI, quirks
 ```
-
-`profile_id` must match the registry key in
-`src/kaleta/services/import_profiles.py` (e.g. `mbank`, later `pko` only
-after a real file arrives).
 
 Existing mBank Playwright fixture (do not relocate without updating
 e2e paths):
 
 - `tests/e2e/fixtures/mbank_transfer.csv`
+
+Additional mBank **format variants** (same `mbank` profile) may live under
+`import/mbank/` — see `import/mbank/NOTES.md`.
 
 ## Anonymization checklist
 
