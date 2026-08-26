@@ -12,7 +12,7 @@ roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
 
 Companion to [`q4-supabase-deployment`](q4-supabase-deployment.md)
 (hosted instance). Settings UI surface lands via
-[`ux-sidebar-workflow-and-settings`](ux-sidebar-workflow-and-settings.md) PR 2.
+[`ux-sidebar-workflow-and-settings`](archive/ux-sidebar-workflow-and-settings.md) PR 2.
 
 ## Intent
 

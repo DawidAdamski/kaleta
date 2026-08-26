@@ -80,7 +80,9 @@ def test_reset_demo_script_seeds_demo_user(tmp_path: Path, monkeypatch: pytest.M
     assert "demo" in config.read_text(encoding="utf-8")
 
 
-def test_reset_demo_refuses_without_demo_flag(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_reset_demo_refuses_without_demo_flag(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     db_path = tmp_path / "demo.db"
     db_url = f"sqlite+aiosqlite:///{db_path}"
     home = tmp_path / "home"

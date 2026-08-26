@@ -19,7 +19,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from kaleta.config.settings import Settings
 from kaleta.config.setup_config import save_db
 from kaleta.db import configure_database
-from kaleta.services import AuthService, DataService, with_session
+from kaleta.services import AuthService, with_session
+from kaleta.services.data_service import DataService
 
 DEFAULT_DEMO_USERNAME = "demo"
 DEFAULT_DEMO_PASSWORD = "demo-kaleta"

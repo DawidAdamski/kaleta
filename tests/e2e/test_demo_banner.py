@@ -6,22 +6,72 @@ Covers: KAL-PLT-001
 
 from __future__ import annotations
 
-import json
 import os
 import subprocess
+import sys
 import threading
-import time
 from collections.abc import Generator
 from pathlib import Path
 
-import httpx
 import pytest
 from playwright.sync_api import Page
 
-from tests.e2e.conftest import E2E_PASSWORD, E2E_USERNAME, PROJECT_ROOT, _ensure_e2e_user, _run_alembic, _terminate_process, _wait_for_server, _write_kaleta_config, login
+from tests.e2e.conftest import (
+    PROJECT_ROOT,
+    _run_alembic,
+    _terminate_process,
+    _wait_for_server,
+    _write_kaleta_config,
+    login,
+)
 
 DEMO_PORT = 8082
 DEMO_BASE = f"http://127.0.0.1:{DEMO_PORT}"
+
+
+def _ensure_e2e_user_subprocess(db_url: str, home: Path) -> None:
+    """Create the shared e2e user without asyncio.run in the pytest process."""
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "KALETA_DEBUG": "true",
+        "KALETA_DB_URL": db_url,
+    }
+    bootstrap = """
+import asyncio
+import os
+
+from kaleta.db import configure_database
+from kaleta.services import AuthService, with_session
+
+USERNAME = "e2e"
+PASSWORD = "e2e-test-password"
+
+
+async def _ensure() -> None:
+    configure_database(os.environ["KALETA_DB_URL"], debug=True)
+
+    async def _create(session):
+        auth = AuthService(session)
+        state = await auth.auth_state()
+        if state == "no_user":
+            await auth.create_user(USERNAME, PASSWORD)
+        elif state == "placeholder":
+            await auth.secure_placeholder(USERNAME, PASSWORD)
+
+    await with_session(_create)
+
+
+asyncio.run(_ensure())
+"""
+    subprocess.run(
+        [sys.executable, "-c", bootstrap],
+        cwd=PROJECT_ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def _pump_stdout(proc: subprocess.Popen[str], log_path: Path) -> None:
@@ -43,6 +93,7 @@ def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
 
     _write_kaleta_config(home, db_url)
     _run_alembic(db_url)
+    _ensure_e2e_user_subprocess(db_url, home)
 
     env = os.environ.copy()
     env["HOME"] = str(home)
@@ -66,7 +117,6 @@ def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
 
     try:
         _wait_for_server(DEMO_BASE)
-        _ensure_e2e_user(db_url)
         yield DEMO_BASE
     finally:
         _terminate_process(proc)
@@ -88,7 +138,7 @@ def test_demo_banner_visible_and_dismissible(demo_page: Page, demo_e2e_server: s
     banner = demo_page.get_by_text("Demo instance — data resets daily.")
     banner.wait_for(state="visible", timeout=15000)
 
-    demo_page.locator("button").filter(has=demo_page.locator(".material-icons", has_text="close")).first.click()
+    demo_page.locator(".k-info-banner button").click()
     banner.wait_for(state="hidden", timeout=5000)
 
     demo_page.goto(f"{demo_e2e_server}/transactions")
