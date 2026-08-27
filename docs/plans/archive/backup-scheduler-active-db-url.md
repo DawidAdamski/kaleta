@@ -90,7 +90,7 @@ Out of scope: backup UI, retention policy changes, PostgreSQL backups
 1. Should `run_once()` failures on N consecutive ticks surface in the UI
    (Settings → Data banner) instead of log-only? Default: log-only in
    this plan; a visibility follow-up can ride with the observability plan
-   ([`observability-anonymous-events.md`](../observability-anonymous-events.md)).
+   ([`observability-anonymous-events.md`](observability-anonymous-events.md)).
 
 ## Implementation notes
 

@@ -160,7 +160,7 @@ bank actually used; add a profile (or alias entries + a fixture test) per
 format that the generic parser mishandles. Driven by real files, not
 speculation.
 
-→ Plan: [`import-bank-profiles`](../import-bank-profiles.md)
+→ Plan: [`import-bank-profiles`](import-bank-profiles.md)
 
 ### 8. No rule-based auto-categorisation
 
@@ -261,7 +261,7 @@ Implementation proceeds as **one plan = one branch = one PR**
 | 5b | CLI password reset (P1.10) | S | recovery without DB surgery | [`auth-reset-password-cli`](auth-reset-password-cli.md) |
 | 6 | NBP rate fetch (P1.5) | S–M | correct multi-currency numbers | [`currency-nbp-rates`](currency-nbp-rates.md) |
 | 7 | "Post due" for planned transactions (P1.6) | M | calendar ↔ ledger closes | [`planned-transactions-post-due`](planned-transactions-post-due.md) |
-| 8 | Import profiles from real bank files (P1.7) | M | painless weekly import | [`import-bank-profiles`](../import-bank-profiles.md) |
+| 8 | Import profiles from real bank files (P1.7) | M | painless weekly import | [`import-bank-profiles`](import-bank-profiles.md) |
 | 9 | Rule-based auto-categorisation (P1.8) | M–L | biggest daily time-saver | [`rules-auto-categorisation`](rules-auto-categorisation.md) |
 
 Items 1–5 are the "safe to move real data in" gate; 5b and 6–9 are
@@ -289,7 +289,7 @@ slot in opportunistically via the Chore inbox.
 - [x] Every P1 finding (5–10) converted into a draft plan:
   - P1.5 → [`currency-nbp-rates`](currency-nbp-rates.md)
   - P1.6 → [`planned-transactions-post-due`](planned-transactions-post-due.md)
-  - P1.7 → [`import-bank-profiles`](../import-bank-profiles.md)
+  - P1.7 → [`import-bank-profiles`](import-bank-profiles.md)
   - P1.8 → [`rules-auto-categorisation`](rules-auto-categorisation.md)
   - P1.9 → [`deploy-local-health`](deploy-local-health.md)
   - P1.10 → [`auth-reset-password-cli`](auth-reset-password-cli.md)
@@ -335,6 +335,6 @@ commits for the audit document itself.
 
 **Remaining open item:**
 
-- P1.7 — import profiles for real bank files → [`import-bank-profiles`](../import-bank-profiles.md) (active plan, not yet archived as of 2026-08-26)
+- P1.7 — import profiles for real bank files → [`import-bank-profiles`](import-bank-profiles.md) (archived 2026-08-26, PRs #63/#64)
 
 **Acceptance criteria run** (step 3b): No executable acceptance criteria (all bullets are prose or `[manual]`).

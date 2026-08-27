@@ -159,7 +159,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [backup-full-schema-roundtrip](archive/backup-full-schema-roundtrip.md) | archived | Settings / Data |
 | [dashboard-edit-mode-drag](archive/dashboard-edit-mode-drag.md) | archived | Dashboard |
 | [dashboard-widget-resize](archive/dashboard-widget-resize.md) | archived | Dashboard |
-| [import-bank-profiles](import-bank-profiles.md) | in-progress | Import — Wise CSV landed (#64); mBank variants (#63) |
+| [import-bank-profiles](archive/import-bank-profiles.md) | archived | Import — registry + mBank (#63) + Wise (#64) |
 | [import-wise-qif](import-wise-qif.md) | draft | Import — Wise QIF (after CSV) |
 | [import-wise-mt940](import-wise-mt940.md) | draft | Import — Wise MT940 (after CSV) |
 | [import-wise-xlsx](import-wise-xlsx.md) | draft | Import — Wise XLSX (after CSV) |
@@ -180,7 +180,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [ux-sidebar-workflow-and-settings](archive/ux-sidebar-workflow-and-settings.md) | archived | UX — sidebar nav (#42) + settings expansion (#60) |
 | [setup-zero-config-bootstrap](archive/setup-zero-config-bootstrap.md) | archived | Setup |
 | [net-worth-layout-refresh](archive/net-worth-layout-refresh.md) | archived | Net Worth |
-| [observability-anonymous-events](observability-anonymous-events.md) | in-progress | Q4 hosted instance / ops |
+| [observability-anonymous-events](archive/observability-anonymous-events.md) | archived | Q4 — error events (#62) |
 | [transactions-reconcile](archive/transactions-reconcile.md) | archived | Transactions |
 | [budgets-realization-view](archive/budgets-realization-view.md) | archived | Budgets |
 | [import-multi-file-queue](archive/import-multi-file-queue.md) | archived | Import |
