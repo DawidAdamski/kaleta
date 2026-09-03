@@ -380,6 +380,8 @@ def build_add_dialog(
                 notes_input.run_method("focus")
 
         # ``ignore=[]`` so the shortcut also fires while another field has focus.
+        # One listener per page load — ``build_add_dialog`` is called once from
+        # ``transactions_page``; calling it twice would stack listeners.
         ui.keyboard(on_key=_focus_notes, ignore=[])
 
     def _on_split_toggle(value: bool) -> None:
