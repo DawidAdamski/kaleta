@@ -3,7 +3,7 @@ import enum
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String, UniqueConstraint
+from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -55,6 +55,9 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
     )  # noqa: E501
     date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    # Long-form user note kept apart from the bank-imported ``description``.
+    # Blank input is normalised to NULL by the schema — one empty representation only.
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_internal_transfer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_split: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

@@ -299,3 +299,54 @@ class TestDeleteTransaction:
     async def test_delete_invalid_id_returns_422(self, api_client: AsyncClient):
         resp = await api_client.delete("/api/v1/transactions/not-an-id")
         assert resp.status_code == 422
+
+
+class TestTransactionNotes:
+    async def test_create_and_get_round_trip_notes(self, api_client: AsyncClient):
+        """Covers: KAL-TXN-007"""
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+        payload = transaction_payload(
+            account["id"], category["id"], notes="Bought for mum's birthday"
+        )
+        created = await api_client.post("/api/v1/transactions/", json=payload)
+        assert created.status_code == 201
+        assert created.json()["notes"] == "Bought for mum's birthday"
+
+        fetched = await api_client.get(f"/api/v1/transactions/{created.json()['id']}")
+        assert fetched.status_code == 200
+        assert fetched.json()["notes"] == "Bought for mum's birthday"
+
+    async def test_create_without_notes_returns_null(self, api_client: AsyncClient):
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+        resp = await api_client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(account["id"], category["id"]),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["notes"] is None
+
+    async def test_create_with_blank_notes_returns_null(self, api_client: AsyncClient):
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+        resp = await api_client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(account["id"], category["id"], notes="   "),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["notes"] is None
+
+    async def test_update_clears_notes(self, api_client: AsyncClient):
+        """Covers: KAL-TXN-008"""
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+        created = (
+            await api_client.post(
+                "/api/v1/transactions/",
+                json=transaction_payload(account["id"], category["id"], notes="Receipt #123"),
+            )
+        ).json()
+        resp = await api_client.put(f"/api/v1/transactions/{created['id']}", json={"notes": None})
+        assert resp.status_code == 200
+        assert resp.json()["notes"] is None

@@ -132,6 +132,9 @@ class ColumnMapping:
     date: int | None = None
     amount: int | None = None
     description: int | None = None
+    # Optional long-form note column; never auto-detected, so imports leave
+    # ``Transaction.notes`` NULL unless the user points a column at it.
+    notes: int | None = None
     payee: int | None = None
     counterparty_account: int | None = None
     debit: int | None = None
@@ -163,6 +166,7 @@ class ColumnMapping:
             "date": self.date,
             "amount": self.amount,
             "description": self.description,
+            "notes": self.notes,
             "payee": self.payee,
             "counterparty_account": self.counterparty_account,
             "debit": self.debit,
@@ -182,6 +186,7 @@ class ColumnMapping:
             date=_optional_int(data.get("date")),
             amount=_optional_int(data.get("amount")),
             description=_optional_int(data.get("description")),
+            notes=_optional_int(data.get("notes")),
             payee=_optional_int(data.get("payee")),
             counterparty_account=_optional_int(data.get("counterparty_account")),
             debit=_optional_int(data.get("debit")),
@@ -485,6 +490,7 @@ def _apply_wise_descriptions(rows: list[ParsedRow]) -> list[ParsedRow]:
                     amount=row.amount,
                     description=description,
                     raw=row.raw,
+                    notes=row.notes,
                 )
             )
         else:
@@ -683,6 +689,7 @@ class ParsedRow:
     amount: Decimal  # positive = income, negative = expense
     description: str
     raw: dict[str, str]
+    notes: str = ""
 
 
 @dataclass
@@ -857,6 +864,7 @@ class ImportService:
         date_col = effective.date
         amount_col = effective.amount
         desc_col = effective.description
+        notes_col = effective.notes
         payee_col = effective.payee
         counterparty_col = effective.counterparty_account
         debit_col = effective.debit
@@ -880,6 +888,7 @@ class ImportService:
         date_key = headers[date_col] if date_col is not None else None
         amount_key = headers[amount_col] if amount_col is not None else None
         desc_key = headers[desc_col] if desc_col is not None else None
+        notes_key = headers[notes_col] if notes_col is not None else None
         payee_key = headers[payee_col] if payee_col is not None else None
         counterparty_key = headers[counterparty_col] if counterparty_col is not None else None
         debit_key = headers[debit_col] if debit_col is not None else None
@@ -930,6 +939,7 @@ class ImportService:
                     amount = credit - debit  # positive = income
 
                 description = row.get(desc_key, "").strip() if desc_key else ""
+                notes = row.get(notes_key, "").strip() if notes_key else ""
                 payee = row.get(payee_key, "").strip() if payee_key else ""
                 counterparty = row.get(counterparty_key, "").strip() if counterparty_key else ""
                 raw = dict(row)
@@ -940,7 +950,13 @@ class ImportService:
                 if counterparty:
                     raw["counterparty_account"] = counterparty
                 result.rows.append(
-                    ParsedRow(date=date, amount=amount, description=description, raw=raw)
+                    ParsedRow(
+                        date=date,
+                        amount=amount,
+                        description=description,
+                        raw=raw,
+                        notes=notes,
+                    )
                 )
 
             except (ImportError_, KeyError) as exc:
@@ -972,6 +988,7 @@ class ImportService:
                     type=tx_type,
                     date=row.date,
                     description=row.description,
+                    notes=row.notes,
                 )
             )
         return creates

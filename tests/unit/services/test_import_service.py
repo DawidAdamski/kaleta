@@ -692,6 +692,43 @@ class TestColumnMapping:
         result = _svc().parse_csv(csv, mapping=mapping)
         assert result.rows[0].amount == Decimal("-50.00")
 
+    def test_notes_column_is_never_auto_detected(self):
+        """Imports leave ``notes`` NULL unless the user maps a column at it."""
+        mapping = detect_column_mapping(["date", "amount", "description", "notes"])
+        assert mapping.notes is None
+
+    def test_notes_column_maps_into_parsed_rows(self):
+        csv = "Day,Sum,Title,Memo\n2024-03-01,-12.50,Coffee,Team offsite\n"
+        mapping = ColumnMapping(date=0, amount=1, description=2, notes=3)
+        result = _svc().parse_csv(csv, mapping=mapping)
+        assert result.errors == []
+        assert result.rows[0].description == "Coffee"
+        assert result.rows[0].notes == "Team offsite"
+
+    def test_unmapped_notes_column_leaves_notes_blank(self):
+        csv = "Day,Sum,Title,Memo\n2024-03-01,-12.50,Coffee,Team offsite\n"
+        mapping = ColumnMapping(date=0, amount=1, description=2)
+        result = _svc().parse_csv(csv, mapping=mapping)
+        assert result.rows[0].notes == ""
+
+    def test_notes_survive_mapping_round_trip(self):
+        mapping = ColumnMapping(date=0, amount=1, description=2, notes=3)
+        assert ColumnMapping.from_dict(mapping.to_dict()).notes == 3
+
+    def test_notes_reach_transaction_creates(self):
+        csv = "Day,Sum,Title,Memo\n2024-03-01,-12.50,Coffee,Team offsite\n"
+        mapping = ColumnMapping(date=0, amount=1, description=2, notes=3)
+        rows = _svc().parse_csv(csv, mapping=mapping).rows
+        creates = _svc().to_transaction_creates(rows, account_id=1, default_expense_category_id=1)
+        assert creates[0].notes == "Team offsite"
+
+    def test_blank_notes_cell_becomes_null_on_create(self):
+        csv = "Day,Sum,Title,Memo\n2024-03-01,-12.50,Coffee,\n"
+        mapping = ColumnMapping(date=0, amount=1, description=2, notes=3)
+        rows = _svc().parse_csv(csv, mapping=mapping).rows
+        creates = _svc().to_transaction_creates(rows, account_id=1, default_expense_category_id=1)
+        assert creates[0].notes is None
+
 
 # ── import readiness validation ───────────────────────────────────────────────
 

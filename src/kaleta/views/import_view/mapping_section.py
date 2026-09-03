@@ -66,6 +66,7 @@ class MappingSection:
     date_sel: ui.select
     amount_sel: ui.select
     description_sel: ui.select
+    notes_sel: ui.select
     payee_sel: ui.select
     counterparty_sel: ui.select
     debit_sel: ui.select
@@ -83,6 +84,7 @@ class MappingSection:
             self.date_sel,
             self.amount_sel,
             self.description_sel,
+            self.notes_sel,
             self.payee_sel,
             self.counterparty_sel,
             self.debit_sel,
@@ -121,6 +123,7 @@ class MappingSection:
             self.date_sel,
             self.amount_sel,
             self.description_sel,
+            self.notes_sel,
             self.payee_sel,
             self.counterparty_sel,
             self.debit_sel,
@@ -132,6 +135,7 @@ class MappingSection:
         self.date_sel.value = _idx_to_widget(mapping.date)
         self.amount_sel.value = _idx_to_widget(mapping.amount)
         self.description_sel.value = _idx_to_widget(mapping.description)
+        self.notes_sel.value = _idx_to_widget(mapping.notes)
         self.payee_sel.value = _idx_to_widget(mapping.payee)
         self.counterparty_sel.value = _idx_to_widget(mapping.counterparty_account)
         self.debit_sel.value = _idx_to_widget(mapping.debit)
@@ -163,6 +167,7 @@ class MappingSection:
             date=_widget_to_idx(self.date_sel.value),
             amount=_widget_to_idx(self.amount_sel.value),
             description=_widget_to_idx(self.description_sel.value),
+            notes=_widget_to_idx(self.notes_sel.value),
             payee=_widget_to_idx(self.payee_sel.value),
             counterparty_account=_widget_to_idx(self.counterparty_sel.value),
             debit=_widget_to_idx(self.debit_sel.value),
@@ -223,6 +228,7 @@ def build_mapping_section() -> MappingSection:
                 "flex-1 min-w-48"
             )
         with ui.row().classes("w-full gap-4 flex-wrap"):
+            notes_sel = ui.select({}, label=t("import.mapping_notes")).classes("flex-1 min-w-48")
             payee_sel = ui.select({}, label=t("import.mapping_payee")).classes("flex-1 min-w-48")
             counterparty_sel = ui.select({}, label=t("import.mapping_counterparty")).classes(
                 "flex-1 min-w-48"
@@ -251,6 +257,7 @@ def build_mapping_section() -> MappingSection:
         date_sel=date_sel,
         amount_sel=amount_sel,
         description_sel=description_sel,
+        notes_sel=notes_sel,
         payee_sel=payee_sel,
         counterparty_sel=counterparty_sel,
         debit_sel=debit_sel,

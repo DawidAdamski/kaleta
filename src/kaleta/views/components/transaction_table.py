@@ -101,7 +101,7 @@ def transaction_columns() -> list[dict[str, Any]]:
     ]
 
 
-def _body_slot(colspan: int, *, edit_label: str, split_label: str) -> str:
+def _body_slot(colspan: int, *, edit_label: str, split_label: str, notes_label: str) -> str:
     return (
         '<tr v-if="props.row.sep_label" class="bg-slate-50">'
         f'<td colspan="{colspan}" style="font-weight:500;border-bottom:1px solid #e0e0e0"'
@@ -116,7 +116,16 @@ def _body_slot(colspan: int, *, edit_label: str, split_label: str) -> str:
         "</q-td>"
         '<q-td key="date" :props="props">{{ props.row.date }}</q-td>'
         '<q-td key="account" :props="props">{{ props.row.account }}</q-td>'
-        '<q-td key="description" :props="props">{{ props.row.description }}</q-td>'
+        '<q-td key="description" :props="props">'
+        '<div class="row items-center no-wrap q-gutter-xs">'
+        '<q-icon v-if="props.row.has_notes" name="sticky_note_2" size="xs" color="primary"'
+        ' class="notes-row-icon"'
+        f' aria-label="{notes_label}">'
+        "<q-tooltip>{{ props.row.notes }}</q-tooltip>"
+        "</q-icon>"
+        "<span>{{ props.row.description }}</span>"
+        "</div>"
+        "</q-td>"
         '<q-td key="category" :props="props">'
         '<div class="row items-center no-wrap q-gutter-xs">'
         '<q-icon v-if="props.row.has_splits" name="call_split" size="xs" color="primary"'
@@ -171,6 +180,7 @@ def render_transaction_table(
             colspan,
             edit_label=t("common.edit"),
             split_label=t("transactions.split"),
+            notes_label=t("transactions.has_notes_tooltip"),
         ),
     )
     tbl.on("edit_tx", on_edit)

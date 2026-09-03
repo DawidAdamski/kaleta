@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.seed_helpers import seed_account, seed_category
+from tests.e2e.seed_helpers import seed_account, seed_category, seed_transaction
 
 
 def _fill_number(scope: Page, label: str, value: str) -> None:
@@ -263,3 +263,71 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     updated = page.locator(".q-table tbody tr").filter(has_text="Arm Split E2E")
     expect(updated.get_by_text("Split (2)", exact=True)).to_be_visible(timeout=5000)
     expect(updated.locator(".split-row-icon")).to_be_visible(timeout=5000)
+
+
+def test_add_note_then_clear_it(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-007, KAL-TXN-008
+
+    A transaction saved with a long-form note shows the note icon and the note
+    text on hover; clearing the textarea on edit removes the indicator again.
+    """
+    account_name = "PKO Notes E2E"
+    category_name = "Food Notes E2E"
+    described = "Gift Notes E2E"
+
+    account_id = seed_account(account_name)
+    category_id = seed_category(category_name)
+
+    # ── KAL-TXN-007: add with a note ──────────────────────────────────────
+    page.goto(f"{base_url}/transactions?new=1")
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_be_visible(timeout=5000)
+
+    _select_option(page, dialog, 1, account_name)
+    _fill_number(dialog, "Amount", "120.00")
+    dialog.get_by_label("Description (optional)").fill(described)
+
+    # Alt+Shift+N jumps to the notes textarea from any other field (Ctrl+Shift+N
+    # is bound too but Chrome claims it for a new incognito window).
+    page.keyboard.press("Alt+Shift+KeyN")
+    expect(dialog.get_by_label("Notes (optional)")).to_be_focused(timeout=5000)
+    page.keyboard.type("Bought for mum's birthday")
+    dialog.get_by_label("Category").click()
+    page.locator(".q-menu").get_by_text(category_name, exact=True).click()
+    dialog.get_by_role("button", name="Save").click()
+
+    row = page.locator(".q-table tbody tr").filter(has_text=described)
+    expect(row).to_have_count(1, timeout=5000)
+    note_icon = row.locator(".notes-row-icon")
+    expect(note_icon).to_be_visible(timeout=5000)
+
+    note_icon.hover()
+    expect(page.locator(".q-tooltip").filter(has_text="Bought for mum's birthday")).to_be_visible(
+        timeout=5000
+    )
+
+    # ── KAL-TXN-008: clear the note ───────────────────────────────────────
+    seeded = "Receipt Notes E2E"
+    seed_transaction(
+        account_id,
+        category_id,
+        25.0,
+        description=seeded,
+        notes="Receipt #123",
+    )
+    page.goto(f"{base_url}/transactions")
+    seeded_row = page.locator(".q-table tbody tr").filter(has_text=seeded)
+    expect(seeded_row.locator(".notes-row-icon")).to_be_visible(timeout=5000)
+
+    seeded_row.get_by_role("button", name="Edit").click()
+    edit_dialog = page.get_by_role("dialog")
+    expect(edit_dialog.get_by_text("Edit Transaction", exact=True)).to_be_visible(timeout=5000)
+
+    notes_field = edit_dialog.get_by_label("Notes (optional)")
+    expect(notes_field).to_have_value("Receipt #123", timeout=5000)
+    notes_field.fill("")
+    edit_dialog.get_by_role("button", name="Save").click()
+
+    expect(page.get_by_text("Transaction updated.").first).to_be_visible(timeout=5000)
+    seeded_row = page.locator(".q-table tbody tr").filter(has_text=seeded)
+    expect(seeded_row.locator(".notes-row-icon")).to_have_count(0, timeout=5000)

@@ -382,6 +382,8 @@ class TransactionService:
             "date": str(transaction.date),
             "account": transaction.account.name if transaction.account else "—",
             "description": (transaction.description or "—")[:55],
+            "notes": transaction.notes or "",
+            "has_notes": bool(transaction.notes),
             "category": category,
             "has_splits": has_splits,
             "split_count": split_count,

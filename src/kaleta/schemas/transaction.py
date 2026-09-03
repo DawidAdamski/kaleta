@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import datetime
 from decimal import Decimal
-from typing import Any, cast
+from typing import Annotated, Any, cast
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
 from kaleta.models.transaction import TransactionType
 
@@ -18,6 +18,17 @@ __all__ = [
     "TransactionResponse",
     "TransactionType",
 ]
+
+
+def _normalise_notes(value: str | None) -> str | None:
+    """Collapse blank/whitespace-only notes to ``None`` (single empty representation)."""
+    if value is None:
+        return None
+    return value.strip() or None
+
+
+# Long-form note; no length cap — the column is TEXT (plan open question 1).
+Notes = Annotated[str | None, AfterValidator(_normalise_notes)]
 
 
 class TransactionSplitCreate(BaseModel):
@@ -46,6 +57,7 @@ class TransactionBase(BaseModel):
     type: TransactionType
     date: datetime.date
     description: str = Field(default="", max_length=500)
+    notes: Notes = None
     is_internal_transfer: bool = False
     is_split: bool = False
     linked_transaction_id: int | None = None
@@ -88,6 +100,7 @@ class TransactionUpdate(BaseModel):
     type: TransactionType | None = None
     date: datetime.date | None = None
     description: str | None = Field(default=None, max_length=500)
+    notes: Notes = None
     is_internal_transfer: bool | None = None
     is_split: bool | None = None
     linked_transaction_id: int | None = None
