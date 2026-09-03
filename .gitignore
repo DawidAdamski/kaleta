@@ -64,3 +64,6 @@ docker-compose.override.yml
 
 # Docs build output
 site/
+
+# Goal mode runtime state (see docs/goal-mode.md)
+.claude/state/

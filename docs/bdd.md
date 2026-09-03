@@ -741,6 +741,25 @@ Feature: Manual Transaction Entry
     And amount colours still follow the raw type (expense red, income green, transfer neutral)
 ```
 
+  KAL-TXN-007 @planned
+  Scenario: Add a transaction with a long-form note
+    Given there is an account "PKO Main"
+    And I am on the Transactions page
+    When I press Ctrl+N
+    And I fill in "Amount" with "120.00"
+    And I fill in "Notes (optional)" with "Bought for mum's birthday"
+    And I click "Save"
+    Then I see a note icon on the new transaction row
+    And opening the icon shows "Bought for mum's birthday"
+
+  KAL-TXN-008 @planned
+  Scenario: Clearing the note removes the indicator
+    Given there is a transaction with a note "Receipt #123"
+    And I am on the Transactions page
+    When I edit the transaction and clear "Notes (optional)"
+    And I click "Save"
+    Then the row shows no note icon
+
 ## Feature: Quick Entry
 
 Consistency is the hard part of tracking finances. Whether entries are
