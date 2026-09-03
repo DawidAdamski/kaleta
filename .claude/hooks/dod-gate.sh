@@ -19,6 +19,15 @@ input=$(cat)   # hook payload (unused beyond presence)
 plan_id=$(cat "$state/active-plan")
 plan="docs/plans/$plan_id.md"
 
+# Auto-disarm: the plan got archived, or the work is DONE and we are no longer
+# on its branch (a forgotten `plan_goal.sh finish` must not judge other sessions).
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+if [ -f "docs/plans/archive/$plan_id.md" ] || { [ "$(cat "$state/result" 2>/dev/null)" = done ] && [ "$branch" != "plan/$plan_id" ]; }; then
+  rm -f "$state/active-plan"
+  echo "dod-gate: plan $plan_id is archived/finished — gate disarmed" >&2
+  exit 0
+fi
+
 # Explicit escape hatch: scripts/plan_goal.sh block "<reason>"
 if [ "$(cat "$state/result" 2>/dev/null)" = "blocked" ]; then exit 0; fi
 

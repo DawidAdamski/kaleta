@@ -1,0 +1,54 @@
+name: Archive plan after merge
+
+# When a `plan/<plan_id>` branch is merged into main, archive the plan
+# (docs/plans/README.md § "Archiving a plan") and open a docs PR with the
+# result — so archiving is never forgotten. Uses scripts/plan_archive.sh.
+#
+# Note: PRs opened with the default GITHUB_TOKEN do not trigger other
+# workflows (CI, PR review). Add a repo secret PLAN_ARCHIVE_TOKEN (a
+# fine-grained PAT with contents + pull-requests write) to get CI on them.
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+jobs:
+  archive:
+    if: github.event.pull_request.merged == true && startsWith(github.event.pull_request.head.ref, 'plan/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    env:
+      GH_TOKEN: ${{ secrets.PLAN_ARCHIVE_TOKEN || secrets.GITHUB_TOKEN }}
+      PLAN_ID: ${{ github.event.pull_request.head.ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.PLAN_ARCHIVE_TOKEN || secrets.GITHUB_TOKEN }}
+
+      - name: Archive the plan
+        id: archive
+        run: |
+          plan_id="${PLAN_ID#plan/}"
+          echo "plan_id=$plan_id" >> "$GITHUB_OUTPUT"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "docs/archive-$plan_id"
+          scripts/plan_archive.sh "$plan_id" --sha "$MERGE_SHA" --pr "$PR_NUMBER" --fast
+          if git diff --quiet main; then echo "changed=false" >> "$GITHUB_OUTPUT"; else echo "changed=true" >> "$GITHUB_OUTPUT"; fi
+
+      - name: Open the docs PR
+        if: steps.archive.outputs.changed == 'true'
+        run: |
+          plan_id="${{ steps.archive.outputs.plan_id }}"
+          git push -u origin "docs/archive-$plan_id"
+          gh pr create --base main --head "docs/archive-$plan_id" \
+            --title "docs(plans): archive $plan_id (#$PR_NUMBER)" \
+            --body "Automatic archive after merging #$PR_NUMBER (\`$MERGE_SHA\`). Produced by \`scripts/plan_archive.sh\` — see docs/plans/README.md § Archiving a plan. Acceptance criteria were validated by the PR's CI; \`[manual]\` items stay with the owner." \
+            --label documentation || true

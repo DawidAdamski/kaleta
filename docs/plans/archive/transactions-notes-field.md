@@ -3,8 +3,9 @@ plan_id: transactions-notes-field
 title: Transactions — long-form notes alongside description
 area: transactions
 effort: small
-roadmap_ref: ../roadmap.md#transactions
-status: in-progress
+roadmap_ref: ../../roadmap.md#transactions
+status: archived
+archived_at: 2026-09-03
 deferred_to: q4-2026
 ---
 
@@ -180,3 +181,37 @@ Manual (owner, before archiving):
   `sa.Text()` column — no server default, no backfill, so existing rows stay
   `NULL` and render exactly as before. Verified `upgrade head` then
   `downgrade -1` on a fresh SQLite file.
+
+## Implementation
+
+Landed on 2026-09-03 (PR #69).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ce08435` | Dawid Adamski | 2026-09-03 | Merge pull request #69 from DawidAdamski/plan/transactions-notes-field |
+
+**Files changed:**
+- alembic/versions/j4k5l6m7n8o9_add_transaction_notes.py
+- docs/bdd.md
+- docs/plans/transactions-notes-field.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/transaction.py
+- src/kaleta/schemas/transaction.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/import_view/mapping_section.py
+- src/kaleta/views/transactions/add_dialog.py
+- src/kaleta/views/transactions/edit_dialog.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_transactions.py
+- tests/integration/test_transactions.py
+- tests/unit/services/test_import_service.py
+- tests/unit/services/test_transaction_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
