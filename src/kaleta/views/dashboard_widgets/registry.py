@@ -70,6 +70,7 @@ DEFAULT_WIDGETS: list[str] = [
     "predicted_30d",
     "net_worth",
     "savings_rate_kpi",
+    "wizard_actions",
     "cashflow_chart",
     "budget_variance_month",
     "top_merchants",

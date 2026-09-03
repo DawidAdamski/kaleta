@@ -2620,6 +2620,49 @@ Feature: Dashboard Customization
     Then the "Net Worth Trend" widget is absent from the dashboard
 ```
 
+## Feature: Wizard Action Items
+
+```gherkin
+Feature: Wizard Action Items
+  As the Kaleta owner
+  I want one dashboard widget listing what every wizard section needs from me
+  So that I see overdue loans and pending reviews without visiting each page
+
+  KAL-WAC-001 @manual
+  Scenario: Nothing needs attention
+    Given no wizard section has an open item
+    When I open the dashboard
+    Then the "Needs attention" widget shows "All clear — nothing needs attention."
+
+  KAL-WAC-002 @automated
+  Scenario: A subscription past its expected renewal is listed
+    Given a subscription whose next expected charge was 2 days ago
+    When I open the dashboard
+    Then the "Needs attention" widget lists that subscription
+    And clicking the row opens the subscriptions page focused on it
+
+  KAL-WAC-003 @automated
+  Scenario: Loan urgency drives severity
+    Given a personal loan due in 3 days
+    And a personal loan that was due 1 day ago
+    When I open the dashboard
+    Then the overdue loan shows a danger severity
+    And the loan due in 3 days shows a warning severity
+
+  KAL-WAC-004 @automated
+  Scenario: Items are ranked by urgency
+    Given an overdue loan, an underfunded safety fund, and a subscription to review
+    When I open the dashboard
+    Then the "Needs attention" widget lists danger, then warning, then info
+    And inside one severity the newest item comes first
+
+  KAL-WAC-005 @manual
+  Scenario: The widget renders at both sizes
+    Given the "Needs attention" widget is on the dashboard
+    When I resize it between 2x2 and 4x2 in edit mode
+    Then both sizes render the list without clipping
+```
+
 ---
 
 ## Notes for test implementation

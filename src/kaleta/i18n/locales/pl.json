@@ -174,7 +174,32 @@
     "reset_layout_done": "Układ pulpitu przywrócony.",
     "reset_widgets": "Przywróć widżety",
     "reset_widgets_hint": "Włącza z powrotem wszystkie widżety w domyślnym rozmiarze i położeniu.",
-    "reset_widgets_done": "Pulpit przywrócony do ustawień domyślnych."
+    "reset_widgets_done": "Pulpit przywrócony do ustawień domyślnych.",
+    "wizard_actions": "Wymaga uwagi",
+    "wizard_actions_sub": "Otwarte zadania z kreatora finansowego",
+    "wizard_actions_empty": "Wszystko gotowe — nic nie wymaga uwagi.",
+    "wizard_actions_more": "+{count} więcej",
+    "wizard_actions_open": "Otwórz kreator finansowy"
+  },
+  "wizard_actions": {
+    "section_subscriptions": "Subskrypcje",
+    "section_safety_funds": "Fundusze bezpieczeństwa",
+    "section_personal_loans": "Pożyczki prywatne",
+    "section_monthly_readiness": "Gotowość miesięczna",
+    "section_getting_started": "Pierwsze kroki",
+    "subscription_renewal_due_title": "Odnowienie {name} jest należne",
+    "subscription_renewal_due_body": "Oczekiwane {date} — sprawdź, czy obciążenie doszło.",
+    "subscription_candidates_title": "Znaleziono {count} możliwych subskrypcji",
+    "subscription_candidates_body": "Cykliczne obciążenia, których jeszcze nie śledzisz.",
+    "fund_below_target_title": "{name} poniżej celu",
+    "fund_below_target_body": "Zebrane {pct}% — dopłać, aby trzymać się planu.",
+    "loan_due_soon_title": "Pożyczka z {name} jest wkrótce należna",
+    "loan_due_soon_body": "Termin za {days} dni.",
+    "loan_due_today_body": "Termin dzisiaj.",
+    "loan_overdue_title": "Pożyczka z {name} jest przeterminowana",
+    "loan_overdue_body": "{days} dni po terminie.",
+    "plan_next_month_title": "Zaplanuj kolejny miesiąc",
+    "plan_next_month_body": "{days} dni do końca miesiąca — przejdź gotowość miesięczną."
   },
   "transactions": {
     "title": "Transakcje",

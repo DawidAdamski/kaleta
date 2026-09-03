@@ -47,6 +47,7 @@ from . import (  # noqa: F401
     top_merchants,
     total_balance,
     upcoming_planned,
+    wizard_actions,
     ytd_summary,
 )
 
