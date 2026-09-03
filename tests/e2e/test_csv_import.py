@@ -3,7 +3,7 @@
 
 Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
-KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020
+KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -40,6 +40,7 @@ OTHER_B = FIXTURES / "other-b.csv"
 OTHER_C = FIXTURES / "other-c.csv"
 WISE_JPY = FIXTURES / "wise" / "jpy-travel-sample.csv"
 AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
+AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
 
 
 def _select_import_option(page: Page, label: str, option: str) -> None:
@@ -270,7 +271,7 @@ def test_upload_after_completed_run_starts_fresh_queue(page: Page, base_url: str
     page.locator('input[type="file"]').set_input_files(str(AUTORESET_SECOND))
 
     queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
-    expect(queue_card.get_by_text("autoreset-second.csv")).to_be_visible(timeout=5000)
+    expect(queue_card.get_by_text("autoreset-second.csv").first).to_be_visible(timeout=5000)
     expect(queue_card.get_by_text("test_import.csv")).to_have_count(0)
     expect(page.get_by_role("button", name="Import 1 file")).to_be_visible(timeout=5000)
     expect(page.get_by_text("Import summary", exact=True)).not_to_be_visible()
@@ -293,6 +294,34 @@ def test_upload_after_completed_run_starts_fresh_queue(page: Page, base_url: str
     # Exactly the second file's two rows were added — the first file did not
     # ride along a second time.
     assert count_transactions(account_id) == 5
+
+
+def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-021
+
+    A failed file is terminal, so it is cleared with the rest of the run — but
+    the user is told, so the failure cannot pass for a silent success.
+    """
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    # Import without picking a target account: the readiness check fails the file.
+    page.locator('input[type="file"]').set_input_files(str(AUTORESET_FAILING))
+    expect(page.get_by_text("autoreset-failing.csv").first).to_be_visible(timeout=5000)
+    page.get_by_role("button", name="Import 1 file").click()
+    expect(page.get_by_text("Failed", exact=True).first).to_be_visible(timeout=10000)
+
+    page.locator('input[type="file"]').set_input_files(str(AUTORESET_SECOND))
+
+    expect(
+        page.get_by_text(
+            "Previous import cleared from the queue — the failed file was not imported."
+        )
+    ).to_be_visible(timeout=5000)
+
+    queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
+    expect(queue_card.get_by_text("autoreset-second.csv").first).to_be_visible(timeout=5000)
+    expect(queue_card.get_by_text("autoreset-failing.csv")).to_have_count(0)
 
 
 def test_skipped_duplicates_listed_with_help(page: Page, base_url: str) -> None:

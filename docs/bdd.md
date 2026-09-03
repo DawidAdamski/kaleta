@@ -1101,6 +1101,14 @@ Feature: mBank CSV Import
     When I click "Import"
     Then only the new file's rows are added to the ledger
     And the previously imported file's transactions are not duplicated
+
+  KAL-CSV-021 @automated
+  Scenario: Clearing a failed file is called out, not silent
+    Given a file in the queue failed to import
+    When I upload another CSV file
+    Then the failed file is cleared from the queue with the rest of the run
+    And I am told the failed file was not imported
+    And the queue holds only the new file
 ```
 
 ## Feature: Transfer Recognition

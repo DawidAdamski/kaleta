@@ -129,6 +129,15 @@ E2E (`tests/e2e/test_csv_import.py`, docstring `Covers:` the new ID):
   loosened. Every other `.q-menu` helper in `tests/e2e/` has the same latent
   fragility; left alone here to keep this diff single-purpose, and worth a
   Chore-inbox line. Shipped as its own commit (Working Agreement rule 9).
+- **The failed-file branch got its own scenario, KAL-CSV-021.** The plan's test
+  list did not cover it, and review flagged it as the one shipped behaviour
+  without direct verification. Reaching a `failed` file turned out not to be a
+  parse-path question — `_parse_file` degrades to `needs_mapping` (not terminal)
+  for every malformed input tried, including empty and non-CSV content. The
+  reachable route is `_import_one`: importing a Ready file with no target
+  account fails the readiness check. The e2e drives exactly that, then asserts
+  the toast and the cleared queue. It seeds nothing, so it does not grow the
+  account list the virtualised selects depend on.
 - **`count_transactions(account_id)` added to `tests/e2e/seed_helpers.py`** so
   the e2e can assert the ledger count directly (3 rows from file A, then 5 after
   file B) rather than inferring "not duplicated" from the UI.
