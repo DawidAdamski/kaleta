@@ -3,8 +3,9 @@ plan_id: dashboard-customize-reset-options
 title: Dashboard — Split Reset into "Reset layout" and "Reset widgets"
 area: dashboard
 effort: small
-roadmap_ref: ../roadmap.md#dashboard
-status: in-progress
+roadmap_ref: ../../roadmap.md#dashboard
+status: archived
+archived_at: 2026-09-03
 deferred_to: q4-2026
 ---
 
@@ -142,3 +143,26 @@ Out of scope:
   immediately after `ui.notify`, so waiting on the confirmation is a race.
   The resulting grid is asserted instead; the `_done` strings are covered by
   review, not by a flaky wait.
+
+## Implementation
+
+Landed on 2026-09-03 (PR #72).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f491588` | Dawid Adamski | 2026-09-03 | Merge pull request #72 from DawidAdamski/plan/dashboard-customize-reset-options |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/dashboard-customize-reset-options.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/dashboard.py
+- tests/e2e/test_dashboard_customize.py
+- tests/unit/views/test_dashboard_layout.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
