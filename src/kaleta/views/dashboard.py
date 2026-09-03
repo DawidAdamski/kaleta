@@ -243,6 +243,42 @@ def _validate_layout(
     return cleaned or list(stored)
 
 
+def _default_entry(widget_id: str) -> dict[str, Any]:
+    """One layout row for *widget_id* at its declared default size."""
+    w = WIDGETS[widget_id]
+    return {"id": widget_id, "cols": w.default_size[0], "rows": w.default_size[1]}
+
+
+def _reset_layout_keep_enabled(layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Canonical order and default sizes for the widgets enabled in *layout*.
+
+    Only each row's ``id`` is read — sizes are being reset, so callers may pass
+    id-only rows (the Customize dialog passes its live checkbox state).
+
+    Nothing is enabled or disabled here — that is what ``Reset widgets`` is
+    for. Widgets that live outside ``DEFAULT_WIDGETS`` (opt-in extras the user
+    switched on) stay enabled and follow the canonical block in their current
+    relative order, since ``DEFAULT_WIDGETS`` has no position to offer them.
+
+    An empty *layout* yields an empty list: this is a pure transform, and the
+    read path (``resolve_user_layout``) already substitutes the defaults for an
+    empty stored layout.
+    """
+    enabled: list[str] = []
+    for entry in layout:
+        wid = entry.get("id")
+        if isinstance(wid, str) and wid in WIDGETS and wid not in enabled:
+            enabled.append(wid)
+    canonical = [wid for wid in DEFAULT_WIDGETS if wid in enabled]
+    extras = [wid for wid in enabled if wid not in DEFAULT_WIDGETS]
+    return [_default_entry(wid) for wid in canonical + extras]
+
+
+def _reset_layout_full_defaults() -> list[dict[str, Any]]:
+    """Every ``DEFAULT_WIDGETS`` entry enabled, at its default size, in order."""
+    return default_layout()
+
+
 def _register_layout_endpoint() -> None:
     from nicegui import app as nicegui_app
 
@@ -397,8 +433,12 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
         with list_container:
             for wid in working:
                 w: Widget = WIDGETS[wid]
-                with ui.row().classes(
-                    "w-full items-center gap-2 p-2 rounded border border-slate-200/60"
+                with (
+                    ui.row()
+                    .classes("w-full items-center gap-2 p-2 rounded border border-slate-200/60")
+                    # Mirrors the grid wrapper's data-widget-id so the row is
+                    # addressable by widget rather than by position (e2e).
+                    .props(f'data-customize-row="{wid}"')
                 ):
                     cb = ui.checkbox(value=enabled[wid])
                     cb.on_value_change(lambda e, _wid=wid: _toggle(_wid, bool(e.value)))
@@ -432,17 +472,47 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
             dialog.close()
             ui.navigate.to("/")
 
-        def _reset() -> None:
-            app.storage.user["dashboard_layout"] = default_layout()
+        def _apply_reset(new_layout: list[dict[str, Any]], done_key: str) -> None:
+            app.storage.user["dashboard_layout"] = new_layout
+            # Open question 2: both resets drop the legacy id-only key, as the
+            # single reset did before the split.
             app.storage.user.pop("dashboard_widgets", None)
-            ui.notify(t("dashboard_widgets.reset_done"), color="positive")
+            ui.notify(t(done_key), color="positive")
             dialog.close()
             ui.navigate.to("/")
 
-        with ui.row().classes("w-full justify-between items-center mt-3"):
-            ui.button(t("dashboard_widgets.reset"), icon="restart_alt", on_click=_reset).props(
-                "flat color=grey-7"
+        def _reset_layout() -> None:
+            # Read the live checkbox state, not the snapshot the dialog opened
+            # with, so a toggle made in this session is honoured rather than
+            # silently discarded (same source of truth as _save).
+            live = [{"id": wid} for wid in working if enabled.get(wid)]
+            new_layout = _reset_layout_keep_enabled(live)
+            if not new_layout:
+                ui.notify(t("dashboard_widgets.min_one"), color="negative")
+                return
+            _apply_reset(new_layout, "dashboard_widgets.reset_layout_done")
+
+        def _reset_widgets() -> None:
+            _apply_reset(
+                _reset_layout_full_defaults(),
+                "dashboard_widgets.reset_widgets_done",
             )
+
+        with ui.row().classes("w-full justify-between items-center mt-3"):
+            # Open question 1: same weight for both — neither reset is scary.
+            with ui.row().classes("gap-2"):
+                with ui.button(
+                    t("dashboard_widgets.reset_layout"),
+                    icon="grid_view",
+                    on_click=_reset_layout,
+                ).props("flat color=grey-7"):
+                    ui.tooltip(t("dashboard_widgets.reset_layout_hint"))
+                with ui.button(
+                    t("dashboard_widgets.reset_widgets"),
+                    icon="restart_alt",
+                    on_click=_reset_widgets,
+                ).props("flat color=grey-7"):
+                    ui.tooltip(t("dashboard_widgets.reset_widgets_hint"))
             with ui.row().classes("gap-2"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
                 ui.button(t("common.save"), icon="check", on_click=_save).props("color=primary")

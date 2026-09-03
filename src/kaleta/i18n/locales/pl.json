@@ -113,15 +113,13 @@
   "dashboard_widgets": {
     "customize": "Personalizuj",
     "customize_title": "Personalizuj pulpit",
-    "customize_hint": "Włącz lub wyłącz widżety. Użyj „Edytuj układ”, aby zmienić kolejność.",
+    "customize_hint": "Włącz lub wyłącz widżety. Użyj „Edytuj układ”, aby zmienić kolejność. „Przywróć układ” odtwarza rozmiary i kolejność, „Przywróć widżety” przywraca wszystko.",
     "edit_layout": "Edytuj układ",
     "done_editing": "Gotowe",
     "edit_banner": "Edytujesz układ — przeciągaj karty, klikaj ikonę rozmiaru, aby zmienić wielkość. Kliknij „Gotowe”, gdy skończysz.",
     "drag_hint": "Przeciągnij, aby zmienić kolejność",
     "resize_widget": "Zmień rozmiar",
     "empty_size_group": "Brak widżetów. Otwórz Personalizuj, aby dodać.",
-    "reset": "Przywróć domyślne",
-    "reset_done": "Pulpit przywrócony do ustawień domyślnych.",
     "saved": "Pulpit zaktualizowany.",
     "min_one": "Pozostaw włączony przynajmniej jeden widżet.",
     "kpi_vs_date": "vs. {day} {month} {year}",
@@ -170,7 +168,13 @@
     "no_history": "Za mało historii.",
     "credit_utilization": "Wykorzystanie limitu",
     "credit_utilization_sub": "Aktualne zadłużenie vs limit na karcie",
-    "credit_utilization_empty": "Brak kart kredytowych."
+    "credit_utilization_empty": "Brak kart kredytowych.",
+    "reset_layout": "Przywróć układ",
+    "reset_layout_hint": "Przywraca domyślny rozmiar i kolejność włączonych widżetów, nie włączając żadnego z powrotem.",
+    "reset_layout_done": "Układ pulpitu przywrócony.",
+    "reset_widgets": "Przywróć widżety",
+    "reset_widgets_hint": "Włącza z powrotem wszystkie widżety w domyślnym rozmiarze i położeniu.",
+    "reset_widgets_done": "Pulpit przywrócony do ustawień domyślnych."
   },
   "transactions": {
     "title": "Transakcje",
