@@ -39,8 +39,6 @@ class WizardActionService:
     LOAN_DUE_SOON_DAYS = 7
     # Nudge to plan the next month once month-end is this close.
     PLAN_NEXT_MONTH_WITHIN_DAYS = 5
-    # Detector candidates are collapsed into one row; below this, stay quiet.
-    MIN_SUBSCRIPTION_CANDIDATES = 1
 
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -89,8 +87,9 @@ class WizardActionService:
                 )
             )
 
+        # All detector hits collapse into one row rather than one row each.
         candidates = await svc.detect_candidates(today=ref)
-        if len(candidates) >= self.MIN_SUBSCRIPTION_CANDIDATES:
+        if candidates:
             items.append(
                 ActionItem(
                     kind=ActionKind.SUBSCRIPTION_CANDIDATES,
@@ -140,6 +139,7 @@ class WizardActionService:
             due = loan.due_at
             if due is None or due > horizon:
                 continue
+            # Due *today* is still only a warning — the day has not run out yet.
             overdue = due < ref
             items.append(
                 ActionItem(

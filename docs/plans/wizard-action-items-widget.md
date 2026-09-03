@@ -126,7 +126,9 @@ Out of scope:
 4. **Severity mapping.** Default taken: **domain-aware per kind**. Overdue
    loan → `danger`; loan due within `LOAN_DUE_SOON_DAYS` (7) and an
    under-target safety fund → `warning`; subscription reviews, detector
-   candidates, the month-end nudge and mentor hints → `info`.
+   candidates, the month-end nudge and mentor hints → `info`. A loan due
+   *today* is deliberately a `warning`, not a `danger` — the day has not run
+   out yet; `danger` starts the morning after (`due < today`).
 
 ### Where the plan's data model did not match the code
 

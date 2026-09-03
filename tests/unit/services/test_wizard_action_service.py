@@ -20,7 +20,11 @@ from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
-from kaleta.schemas.personal_loan import CounterpartyCreate, PersonalLoanCreate
+from kaleta.schemas.personal_loan import (
+    CounterpartyCreate,
+    PersonalLoanCreate,
+    RepaymentCreate,
+)
 from kaleta.schemas.reserve_fund import ReserveFundCreate
 from kaleta.schemas.subscription import SubscriptionCreate
 from kaleta.schemas.transaction import TransactionCreate
@@ -130,8 +134,6 @@ class TestPersonalLoans:
         loan_id = await _make_loan_due(
             session, due_at=TODAY - datetime.timedelta(days=3), name="Ala"
         )
-        from kaleta.schemas.personal_loan import RepaymentCreate
-
         account_id = await _make_account(session)
         await loans.record_repayment(
             loan_id,
