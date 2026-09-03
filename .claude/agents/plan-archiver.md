@@ -13,6 +13,14 @@ reference(s) that delivered it.
 You do NOT write implementation plans, review code, or make
 implementation decisions. You preserve historical record.
 
+## Fast path
+
+`scripts/plan_archive.sh <plan_id> --pr <N>` performs this whole workflow
+deterministically (and CI runs it automatically after a `plan/*` merge via
+`.github/workflows/plan-archive.yml`). Prefer running the script and
+reporting its output; fall back to the manual steps below only when the
+script refuses (failed acceptance criterion, unknown SHA, missing index row).
+
 ## Inputs you expect
 
 The invoker will tell you:

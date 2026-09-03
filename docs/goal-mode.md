@@ -37,6 +37,7 @@ scripts/plan_goal.sh start ──► .claude/state/active-plan   (arms the gate)
 | `scripts/plan_goal.sh` | `start / status / block / finish` — goal state in `.claude/state/` |
 | `scripts/review_gate.sh` | independent headless reviewer (+ optional Cursor CLI second opinion); writes the verdict the gate requires |
 | `scripts/plan_runner.sh` | headless queue consumer over `docs/plans/` |
+| `scripts/plan_archive.sh` | archive a merged plan (used by `.github/workflows/plan-archive.yml`) |
 | `.claude/state/` | runtime state, git-ignored: `active-plan`, `attempts`, `result`, `review-verdict.json`, `verify-last.log` |
 
 ## Interactive run (start here)
@@ -92,6 +93,24 @@ Results land in `logs/plans/<plan_id>.json`; the summary at the end says
 The runner never merges. With `--pr` it pushes and opens a PR whose body
 carries the verify.sh tail and the review verdict; the CI reviewer
 (`.github/workflows/pr-review.yml`) then reviews it a second time, and you merge.
+
+## After merge: archiving is automatic
+
+Merging a `plan/<plan_id>` PR triggers `.github/workflows/plan-archive.yml`.
+It runs `scripts/plan_archive.sh <plan_id> --sha <merge> --pr <N> --fast`
+(the deterministic twin of the `plan-archiver` subagent: `## Implementation`
+section, `status: archived`, move to `archive/`, README index row) and
+opens a `docs/archive-<plan_id>` PR for you to merge. By hand, e.g. for
+plans merged before this workflow existed:
+
+```bash
+scripts/plan_archive.sh transactions-notes-field --pr 69          # re-runs acceptance criteria
+scripts/plan_archive.sh transactions-notes-field --sha ce08435 --fast
+```
+
+The gate disarms itself once the plan file lands in `archive/` (or when
+the result is `done` and you are no longer on the plan branch), so a
+forgotten `plan_goal.sh finish` cannot judge an unrelated session.
 
 ## The reviewer(s)
 

@@ -57,6 +57,10 @@ the user did not pick. Once they answer, continue below with that plan id.
    the verify.sh tail, the review verdict, manual acceptance criteria
    left for the owner, and the exact `gh pr create` command to open the
    PR (do not push or open the PR yourself unless the user asked).
+   Archiving is automatic: merging a `plan/<plan_id>` PR triggers
+   `.github/workflows/plan-archive.yml`, which runs
+   `scripts/plan_archive.sh` and opens a docs PR. Fallback by hand:
+   `scripts/plan_archive.sh <plan_id> --pr <N>`.
 
 Never: add `skip`/`xfail`, loosen assertions, add `ignore_imports`,
 replace real types with `Any`, edit archived plans or applied migrations,
