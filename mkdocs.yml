@@ -34,6 +34,7 @@ nav:
       - Overview: walkthrough/index.md
   - Technical:
       - Architecture: architecture.md
+      - Goal mode (agents): goal-mode.md
       - Architecture Decision Records:
           - "ADR-001: NiceGUI as UI Framework": adr/001-nicegui-as-ui-framework.md
           - "ADR-002: SQLAlchemy 2.0 with Dual Database Support": adr/002-sqlalchemy-20-with-dual-database-support.md

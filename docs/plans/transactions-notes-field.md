@@ -55,16 +55,39 @@ Out of scope:
 
 ## Acceptance criteria
 
-- Migration applies cleanly on both SQLite (existing dev DBs) and
-  PostgreSQL.
+Executable (the DoD gate and `plan-archiver` run these):
+
+- `ls alembic/versions | grep -q notes`
+- `grep -q "notes" src/kaleta/models/transaction.py`
+- `grep -q "notes" src/kaleta/schemas/transaction.py`
+- `uv run pytest tests/unit/services/test_transaction_service.py -q -k notes`
+- `uv run pytest tests/integration/test_transactions.py -q -k notes`
+- `grep -q '"has_notes_tooltip"' src/kaleta/i18n/locales/en.json`
+- `grep -q '"has_notes_tooltip"' src/kaleta/i18n/locales/pl.json`
+- `grep -qE "KAL-TXN-007 @(automated|manual)" docs/bdd.md`
+- `grep -qE "KAL-TXN-008 @(automated|manual)" docs/bdd.md`
+- `uv run python scripts/spec_coverage.py`
+- `./scripts/verify.sh --e2e`
+
+Behaviour the tests above must pin down:
+
 - Creating a transaction with `notes="Bought for mum's birthday"`
-  persists it; fetching the transaction returns the note.
-- Editing a transaction and saving an empty notes field stores
-  `NULL` (or empty string — one or the other consistently).
-- Transactions list shows a small note icon when `notes` is non-empty;
-  clicking the icon opens a tooltip / small drawer with the text.
-- The note round-trips via the REST API (`/api/v1/transactions`).
-- Existing transactions (`notes=NULL`) render identically to today.
+  persists it; fetching returns the note (service unit test, `-k notes`).
+- Updating with `notes=None` clears the note; empty string is normalised
+  to `NULL` (one representation only — assert it).
+- The note round-trips via `POST`/`GET /api/v1/transactions`
+  (integration test, `-k notes`).
+- Existing rows (`notes=NULL`) keep rendering identically — covered by
+  the existing e2e suite staying green.
+
+Manual (owner, before archiving):
+
+- `[manual]` Migration applies cleanly on an existing SQLite dev DB and
+  on PostgreSQL (CI postgres job green).
+- `[manual]` Transactions list shows the note icon only when `notes` is
+  non-empty; clicking/hovering shows the text (KAL-TXN-007).
+- `[manual]` `Ctrl+Shift+N` focuses the notes field in the dialog and
+  does not collide with existing shortcuts.
 
 ## Touchpoints
 

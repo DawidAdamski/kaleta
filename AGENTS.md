@@ -227,3 +227,15 @@ Use the `Agent` tool to delegate to these specialists. Trigger them proactively 
 | `ux-designer` | When evaluating UI flows, reviewing view files, or auditing UX against BDD scenarios — provides high-level recommendations based on Nielsen heuristics and Kaleta brand guidelines |
 | `security-auditor` | After adding API endpoints, services, or any code handling user input/file uploads — runs Bandit static analysis and reports findings with remediation advice |
 | `deps-updater` | Periodically or before releases — checks all packages for available updates, assesses upgrade risk, and applies safe updates to `pyproject.toml` + `uv.lock` |
+
+## Goal mode (Claude Code)
+
+`/implement-plan <plan_id>` implements one plan under a deterministic
+Definition-of-Done judge: a `Stop` hook that runs the plan's executable
+acceptance criteria, `./scripts/verify.sh`, a green-washing check and an
+independent review (`scripts/review_gate.sh`) before the session may end.
+Headless equivalent: `scripts/plan_runner.sh`. Details, limits and the
+Cursor hybrid setup: `docs/goal-mode.md`. While a plan is armed
+(`scripts/plan_goal.sh status`), do not ask the user questions — take
+plan defaults and record them in Implementation notes; if truly blocked,
+`scripts/plan_goal.sh block "<reason>"`.
