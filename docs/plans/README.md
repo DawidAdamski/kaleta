@@ -131,7 +131,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [auth-reset-password-cli](archive/auth-reset-password-cli.md) | archived | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](archive/dashboard-customize-reset-options.md) | archived | Dashboard |
 | [transactions-notes-field](archive/transactions-notes-field.md) | archived | Transactions |
-| [wizard-action-items-widget](wizard-action-items-widget.md) | draft (Q4) | Wizard |
+| [wizard-action-items-widget](archive/wizard-action-items-widget.md) | archived | Wizard |
 | [seed-payees-tags-coverage](seed-payees-tags-coverage.md) | draft (Q4) | Seed |
 | [seed-payment-calendar](seed-payment-calendar.md) | draft (Q4) | Payment Calendar |
 | [settings-panel-color-fix](archive/settings-panel-color-fix.md) | archived | Settings — folded into views-refactor |

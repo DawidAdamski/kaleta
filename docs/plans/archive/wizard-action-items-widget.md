@@ -3,8 +3,9 @@ plan_id: wizard-action-items-widget
 title: Dashboard — Wizard action-items widget
 area: wizard
 effort: small
-roadmap_ref: ../product/financial-wizard.md#shared-wizard-patterns
-status: in-progress
+roadmap_ref: ../../product/financial-wizard.md#shared-wizard-patterns
+status: archived
+archived_at: 2026-09-03
 deferred_to: q4-2026
 ---
 
@@ -273,3 +274,34 @@ ones are manual for different reasons:
 - **KAL-WAC-005 (both widget sizes)** — a visual judgement ("renders without
   clipping") that an attribute assertion cannot stand in for. Carried over as
   `[manual]` from the plan's own acceptance criteria.
+
+## Implementation
+
+Landed on 2026-09-03 (PR #74).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `8de4606` | Dawid Adamski | 2026-09-03 | Merge pull request #74 from DawidAdamski/plan/wizard-action-items-widget |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/wizard-action-items-widget.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/schemas/wizard_actions.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/wizard_action_service.py
+- src/kaleta/views/dashboard_widgets/__init__.py
+- src/kaleta/views/dashboard_widgets/registry.py
+- src/kaleta/views/dashboard_widgets/wizard_actions.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_dashboard_customize.py
+- tests/e2e/test_wizard_actions_widget.py
+- tests/unit/services/test_wizard_action_service.py
+- tests/unit/views/test_wizard_actions_widget.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
