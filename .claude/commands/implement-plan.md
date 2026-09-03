@@ -5,6 +5,15 @@ argument-hint: <plan_id> [--max-attempts N]
 
 Implement the plan `docs/plans/$ARGUMENTS.md` end to end, in goal mode.
 
+## No plan given?
+
+If the argument above is empty (the command was invoked as plain
+`/implement-plan`): run `scripts/plan_goal.sh list draft`, show the
+table, recommend one plan (smallest effort first; prefer plans whose
+acceptance criteria are executable backtick commands), and ask the user
+which plan to take. Then STOP and wait for the answer — never arm a plan
+the user did not pick. Once they answer, continue below with that plan id.
+
 ## Contract
 
 - The plan is the scope contract (Working Agreement §1). Implement ONLY

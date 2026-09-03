@@ -86,7 +86,6 @@ fi
 # ── verdict ──────────────────────────────────────────────────────────────
 if [ ${#fail[@]} -eq 0 ]; then
   echo done > "$state/result"
-  rm -f "$state/attempts"
   { echo "dod-gate: DONE for plan $plan_id (manual criteria left for the owner: $nmanual)";
     [ ${#warn[@]} -gt 0 ] && printf 'warning: %s\n' "${warn[@]}"; } >&2
   exit 0
