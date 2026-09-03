@@ -78,6 +78,12 @@ def build_add_dialog(
             "w-full"
         )
 
+        notes_input = (
+            ui.textarea(f"{t('transactions.notes')} ({t('common.optional')})")
+            .classes("w-full notes-field")
+            .props(f'autogrow hint="{t("transactions.notes_hint")}"')
+        )
+
         with ui.row().classes("w-full items-start gap-3 no-wrap"):
             category_sel = ui.select(expense_cats, label=t("common.category")).classes("flex-1")
             with ui.column().classes("gap-0 shrink-0 pt-1"):
@@ -273,6 +279,7 @@ def build_add_dialog(
                     type=chosen_type,
                     date=parsed_date,
                     description=desc_input.value or "",
+                    notes=notes_input.value,
                     is_split=True,
                     splits=splits_payload,
                     tag_ids=add_tag_sel.value or [],
@@ -300,6 +307,8 @@ def build_add_dialog(
                         rate = None
                         dest_amt = Decimal(str(amount_input.value))
 
+                    # The note describes the move, so both legs carry it — same
+                    # rule the description already follows.
                     outgoing = TransactionCreate(
                         account_id=account_sel.value,
                         amount=Decimal(str(amount_input.value)),
@@ -307,6 +316,7 @@ def build_add_dialog(
                         type=TransactionType.TRANSFER,
                         date=parsed_date,
                         description=desc_input.value or "",
+                        notes=notes_input.value,
                         is_internal_transfer=True,
                     )
                     incoming = TransactionCreate(
@@ -316,6 +326,7 @@ def build_add_dialog(
                         type=TransactionType.TRANSFER,
                         date=parsed_date,
                         description=desc_input.value or "",
+                        notes=notes_input.value,
                         is_internal_transfer=True,
                     )
 
@@ -341,6 +352,7 @@ def build_add_dialog(
                     type=chosen_type,
                     date=parsed_date,
                     description=desc_input.value or "",
+                    notes=notes_input.value,
                     tag_ids=add_tag_sel.value or [],
                 )
 
@@ -357,6 +369,20 @@ def build_add_dialog(
             ui.button(t("common.save"), on_click=submit).props("color=primary")
 
         ui.keyboard(on_key=lambda e: submit() if e.key == "Enter" and e.action.keydown else None)
+
+        def _focus_notes(e: Any) -> None:
+            """Ctrl+Shift+N / Alt+Shift+N focus the notes textarea while the dialog is open."""
+            if not e.action.keydown or not dialog.value:
+                return
+            if str(e.key).lower() != "n" or not e.modifiers.shift:
+                return
+            if e.modifiers.ctrl or e.modifiers.alt:
+                notes_input.run_method("focus")
+
+        # ``ignore=[]`` so the shortcut also fires while another field has focus.
+        # One listener per page load — ``build_add_dialog`` is called once from
+        # ``transactions_page``; calling it twice would stack listeners.
+        ui.keyboard(on_key=_focus_notes, ignore=[])
 
     def _on_split_toggle(value: bool) -> None:
         is_split["value"] = value
@@ -387,6 +413,7 @@ def build_add_dialog(
         dest_amount_input.set_value(None)
         fx_info.set_text("")
         add_tag_sel.set_value([])
+        notes_input.set_value("")
         refresh_split_rows()
         refresh_split_balance()
 

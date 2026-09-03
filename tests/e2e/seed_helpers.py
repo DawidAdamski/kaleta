@@ -154,6 +154,7 @@ def seed_transaction(
     date: datetime.date | None = None,
     description: str = "seed",
     payee_id: int | None = None,
+    notes: str | None = None,
 ) -> int:
     """Create a single transaction; returns its ID."""
     body: dict[str, Any] = {
@@ -166,6 +167,8 @@ def seed_transaction(
     }
     if payee_id is not None:
         body["payee_id"] = payee_id
+    if notes is not None:
+        body["notes"] = notes
     resp = _client.post(f"{API_BASE}/transactions/", json=body)
     resp.raise_for_status()
     return resp.json()["id"]

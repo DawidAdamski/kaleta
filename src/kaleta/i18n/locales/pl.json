@@ -224,7 +224,10 @@
     "tags": "Tagi",
     "delete_selected": "Usuń {count} zaznaczonych",
     "delete_confirm_multi": "Usunąć {count} transakcję/i? Tej operacji nie można cofnąć.",
-    "manage_tags": "Zarządzaj tagami"
+    "manage_tags": "Zarządzaj tagami",
+    "notes": "Notatki",
+    "notes_hint": "Dłuższy kontekst, trzymany osobno od opisu z banku — zwykły tekst.",
+    "has_notes_tooltip": "Ma notatki"
   },
   "tags": {
     "title": "Tagi",
@@ -915,7 +918,8 @@
     "coverage_stale_hint": "Najnowsza transakcja jest starsza niż {days} dni albo konto nie ma jeszcze danych.",
     "history_heading": "Historia plików",
     "history_empty": "Brak zapisanych importów.",
-    "history_row": "{when} · {filename} → {account} · {imported} nowych, {skipped} pominiętych"
+    "history_row": "{when} · {filename} → {account} · {imported} nowych, {skipped} pominiętych",
+    "mapping_notes": "Notatki"
   },
   "payees": {
     "title": "Odbiorcy",

@@ -1421,3 +1421,113 @@ class TestBuildTableRowSplits:
         row = TransactionService.build_table_row(txs[0], None, "none")
         assert row["has_splits"] is True
         assert row["split_count"] == 2
+
+
+# ── Notes ─────────────────────────────────────────────────────────────────────
+
+
+class TestTransactionNotes:
+    async def test_create_persists_notes(self, svc: TransactionService, session: AsyncSession):
+        """Covers: KAL-TXN-007"""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id, notes="Bought for mum's birthday"))
+        session.expunge_all()
+        fetched = await svc.get(tx.id)
+        assert fetched is not None
+        assert fetched.notes == "Bought for mum's birthday"
+
+    async def test_create_without_notes_leaves_null(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id))
+        assert tx.notes is None
+
+    async def test_create_normalises_blank_notes_to_null(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Empty and whitespace-only notes share one stored representation: NULL."""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        empty = await svc.create(_tx(acc_id, cat_id, notes=""))
+        blank = await svc.create(_tx(acc_id, cat_id, notes="   \n  "))
+        assert empty.notes is None
+        assert blank.notes is None
+
+    async def test_create_keeps_long_notes_uncapped(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Open question 1 resolved as 'no length cap' — TEXT holds the whole note."""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        long_note = "x" * 10_000
+        tx = await svc.create(_tx(acc_id, cat_id, notes=long_note))
+        session.expunge_all()
+        fetched = await svc.get(tx.id)
+        assert fetched is not None
+        assert fetched.notes == long_note
+
+    async def test_update_sets_notes(self, svc: TransactionService, session: AsyncSession):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id))
+        updated = await svc.update(tx.id, TransactionUpdate(notes="Receipt #123"))
+        assert updated is not None
+        assert updated.notes == "Receipt #123"
+
+    async def test_update_with_none_clears_notes(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-TXN-008"""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id, notes="Receipt #123"))
+        updated = await svc.update(tx.id, TransactionUpdate(notes=None))
+        assert updated is not None
+        assert updated.notes is None
+
+    async def test_update_with_blank_string_clears_notes(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-TXN-008 — the dialog sends "" for an emptied textarea."""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id, notes="Receipt #123"))
+        updated = await svc.update(tx.id, TransactionUpdate(notes=""))
+        assert updated is not None
+        assert updated.notes is None
+
+    async def test_update_without_notes_keeps_existing_notes(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """An unset field must not wipe the note — ``exclude_unset`` guards this."""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id, notes="Receipt #123"))
+        updated = await svc.update(tx.id, TransactionUpdate(description="Renamed"))
+        assert updated is not None
+        assert updated.notes == "Receipt #123"
+
+    async def test_build_table_row_flags_notes(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-TXN-007 — the row carries the icon flag and the note text."""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id, notes="Bought for mum's birthday"))
+        row = TransactionService.build_table_row(tx, None, "none")
+        assert row["has_notes"] is True
+        assert row["notes"] == "Bought for mum's birthday"
+
+    async def test_build_table_row_without_notes_has_no_flag(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-TXN-008 — a cleared note leaves no indicator on the row."""
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(acc_id, cat_id))
+        row = TransactionService.build_table_row(tx, None, "none")
+        assert row["has_notes"] is False
+        assert row["notes"] == ""

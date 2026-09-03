@@ -224,7 +224,10 @@
     "tags": "Tags",
     "delete_selected": "Delete {count} selected",
     "delete_confirm_multi": "Delete {count} transaction(s)? This cannot be undone.",
-    "manage_tags": "Manage tags"
+    "manage_tags": "Manage tags",
+    "notes": "Notes",
+    "notes_hint": "Longer context kept apart from the bank description — plain text.",
+    "has_notes_tooltip": "Has notes"
   },
   "tags": {
     "title": "Tags",
@@ -915,7 +918,8 @@
     "coverage_stale_hint": "Newest transaction is older than {days} days, or the account has no data yet.",
     "history_heading": "File history",
     "history_empty": "No imports recorded yet.",
-    "history_row": "{when} · {filename} → {account} · {imported} new, {skipped} skipped"
+    "history_row": "{when} · {filename} → {account} · {imported} new, {skipped} skipped",
+    "mapping_notes": "Notes"
   },
   "payees": {
     "title": "Payees",

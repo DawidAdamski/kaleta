@@ -106,6 +106,12 @@ def build_edit_dialog(
             "w-full"
         )
 
+        edit_notes_input = (
+            ui.textarea(f"{t('transactions.notes')} ({t('common.optional')})")
+            .classes("w-full notes-field")
+            .props(f'autogrow hint="{t("transactions.notes_hint")}"')
+        )
+
         edit_date_input = ui.input(t("common.date")).props("type=date").classes("w-full")
 
         edit_tag_sel = (
@@ -217,6 +223,9 @@ def build_edit_dialog(
                 type=chosen_type,
                 date=parsed_date,
                 description=edit_desc_input.value or "",
+                # Blank textarea -> NULL via the schema validator, which is how
+                # the note gets cleared (KAL-TXN-008).
+                notes=edit_notes_input.value,
                 category_id=edit_category_sel.value if is_cat_visible else None,
                 tag_ids=edit_tag_sel.value or [],
             )
@@ -292,6 +301,20 @@ def build_edit_dialog(
             ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
             edit_save_btn = ui.button(t("common.save"), on_click=edit_submit).props("color=primary")
 
+        def _focus_notes(e: Any) -> None:
+            """Ctrl+Shift+N / Alt+Shift+N focus the notes textarea while the dialog is open."""
+            if not e.action.keydown or not edit_dialog.value:
+                return
+            if str(e.key).lower() != "n" or not e.modifiers.shift:
+                return
+            if e.modifiers.ctrl or e.modifiers.alt:
+                edit_notes_input.run_method("focus")
+
+        # ``ignore=[]`` so the shortcut also fires while another field has focus.
+        # One listener per page load — ``build_edit_dialog`` is called once from
+        # ``transactions_page``; calling it twice would stack listeners.
+        ui.keyboard(on_key=_focus_notes, ignore=[])
+
     async def open_for_id(tx_id: int, *, arm_split: bool = False) -> None:
         async def _load(session: Any) -> Any:
             return await TransactionService(session).get(tx_id)
@@ -315,6 +338,7 @@ def build_edit_dialog(
         edit_account_sel.set_value(tx.account_id)
         edit_amount_input.set_value(float(tx.amount))
         edit_desc_input.set_value(tx.description or "")
+        edit_notes_input.set_value(tx.notes or "")
         edit_date_input.set_value(str(tx.date))
         edit_type_sel.set_value(tx.type.value)
         edit_type_sel.set_visibility(not tx.is_internal_transfer)

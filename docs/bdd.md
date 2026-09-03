@@ -739,9 +739,8 @@ Feature: Manual Transaction Entry
     And I am on the Transactions page
     Then the Type column shows "Wydatek", "Przychód", and "Przelew"
     And amount colours still follow the raw type (expense red, income green, transfer neutral)
-```
 
-  KAL-TXN-007 @planned
+  KAL-TXN-007 @automated
   Scenario: Add a transaction with a long-form note
     Given there is an account "PKO Main"
     And I am on the Transactions page
@@ -750,15 +749,16 @@ Feature: Manual Transaction Entry
     And I fill in "Notes (optional)" with "Bought for mum's birthday"
     And I click "Save"
     Then I see a note icon on the new transaction row
-    And opening the icon shows "Bought for mum's birthday"
+    And hovering the icon shows "Bought for mum's birthday"
 
-  KAL-TXN-008 @planned
+  KAL-TXN-008 @automated
   Scenario: Clearing the note removes the indicator
     Given there is a transaction with a note "Receipt #123"
     And I am on the Transactions page
     When I edit the transaction and clear "Notes (optional)"
     And I click "Save"
     Then the row shows no note icon
+```
 
 ## Feature: Quick Entry
 
