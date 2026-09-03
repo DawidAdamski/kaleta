@@ -210,9 +210,14 @@ what was done about each:
   `+N more` label. Grouping is by section, but the *ranked* order decides
   which section leads, so the most urgent item always brings its group to the
   top rather than a fixed section order burying an overdue loan.
-- **Perf.** `detect_candidates` is the only expensive collector.
+- **Perf.** `detect_candidates` is the heaviest collector, and it is cheap.
   `test_aggregates_under_200ms_on_a_thousand_transactions` pins the plan's
-  budget with a real 1 000-row insert.
+  budget with a real 1 000-row insert; measured against a full
+  `scripts/seed.py` database (3 institutions, 4 accounts, ~1 601
+  transactions, 6 years) the whole aggregator runs in **5.6–6.2 ms**, of
+  which `detect_candidates` is ~3.5 ms — roughly 30x under the plan's 200 ms
+  budget. Adding this widget does not meaningfully change dashboard load
+  time; the render is dominated by the chart widgets.
 
 ### Fallout: `tests/e2e/test_dashboard_customize.py` had to be hardened
 
@@ -236,18 +241,35 @@ scale with the number of widgets:
    casualty). New `_wait_for_grid_settled()` blocks until the grid's child
    count holds steady across three 200 ms polls.
 
-Honest limitation: the flake could **not** be reproduced locally, including a
-full e2e suite run under 8 concurrent busy-loops (86 passed, 74 s). The fix
-therefore rests on the mechanism above rather than on a red-to-green
-demonstration. Both changes replace timing luck with an explicit wait for the
-event that actually matters, so they are correct regardless of which of the
-two fired in the gate's run.
+Honest limitation: the flake could **not** be reproduced locally, so the fix
+rests on the mechanism above rather than on a red-to-green demonstration.
+Both changes replace timing luck with an explicit wait for the event that
+actually matters, so they are correct regardless of which of the two fired in
+the gate's run.
+
+Two corrections to earlier measurements taken while investigating this:
+
+- An attempted repro "under 8 concurrent busy-loops" was not a clean
+  experiment — stray load processes from a previous attempt were still
+  running, so neither that run nor the pre-fix control was measured at the
+  load it claimed.
+- Once the machine was genuinely loaded (a suite run at 100 s against a
+  normal 72 s), a *different* test flaked — `test_navigation.py::
+  test_every_nav_entry_routes` — and the dashboard-customize test passed.
+  That is contention, not this widget: see the measurement below. No attempt
+  was made to harden `test_navigation.py`; it passes clean and the one
+  failure was a self-inflicted measurement artifact.
 
 ### BDD
 
 New `## Feature: Wizard Action Items`, KAL-WAC-001..005. 002/003/004 are
-`@automated` via `tests/e2e/test_wizard_actions_widget.py`. 001 (empty state)
-and 005 (both widget sizes) are `@manual`: the e2e suite shares one database
-across the whole session, so "no wizard section has an open item" cannot be
-guaranteed at the point this test runs, and asserting it would make the suite
-order-dependent.
+`@automated` via `tests/e2e/test_wizard_actions_widget.py`. The two `@manual`
+ones are manual for different reasons:
+
+- **KAL-WAC-001 (empty state)** — the e2e suite shares one database across the
+  whole session, so "no wizard section has an open item" cannot be guaranteed
+  at the point the test would run; asserting it would make the suite
+  order-dependent.
+- **KAL-WAC-005 (both widget sizes)** — a visual judgement ("renders without
+  clipping") that an attribute assertion cannot stand in for. Carried over as
+  `[manual]` from the plan's own acceptance criteria.
