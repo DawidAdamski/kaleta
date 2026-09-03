@@ -285,21 +285,12 @@ async def import_page() -> None:
         return True
 
     async def handle_upload(e: events.UploadEventArguments) -> None:
-        # Checked before the first await, defensively. NiceGUI schedules one
-        # background task per file in a multi-file drop, so these handlers
-        # interleave: resetting here means only the first task can see a
-        # terminal queue, and the rest find an empty one — never terminal — so
-        # they append instead of wiping each other's files. Today the same
-        # holds after the await too (a file is only terminal once imported,
-        # long after it was appended), so the tests cannot tell the two
-        # orderings apart; this order is the one that stays correct if a file
-        # ever becomes terminal earlier. KAL-CSV-020 covers the outcome: a
-        # multi-file drop onto a finished queue keeps every new file.
-        #
-        # _start_new_import() resets the upload widget from inside that widget's
-        # own on_upload handler. That is safe and covered by KAL-CSV-020: the
-        # POST body is fully parsed before any handler runs, so the reset only
-        # clears the client-side file list, exactly as "Start new import" does.
+        # A finished run is cleared before the new file joins the queue, so the
+        # user never sees stale done-rows next to it. Checked before the first
+        # await so that in a multi-file drop — one background task per file —
+        # only the first task can find a terminal queue; see the plan's
+        # implementation notes. Resetting the upload widget from inside its own
+        # handler is safe: the POST body is fully parsed before any handler runs.
         if queue_is_terminal(state["queue"]):
             had_failed = any(f.status == "failed" for f in state["queue"])
             _start_new_import()
