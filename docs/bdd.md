@@ -2611,6 +2611,13 @@ Feature: Dashboard Customization
     When I open Customize and click "Reset widgets"
     Then every default widget is enabled again
     And each widget is back at its default size and canonical position
+
+  KAL-DSH-003 @automated
+  Scenario: Reset layout honours a toggle made in the same dialog
+    Given every widget is enabled
+    And I am in the Customize dialog
+    When I untick "Net Worth Trend" and click "Reset layout" without saving
+    Then the "Net Worth Trend" widget is absent from the dashboard
 ```
 
 ---

@@ -252,6 +252,9 @@ def _default_entry(widget_id: str) -> dict[str, Any]:
 def _reset_layout_keep_enabled(layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Canonical order and default sizes for the widgets enabled in *layout*.
 
+    Only each row's ``id`` is read — sizes are being reset, so callers may pass
+    id-only rows (the Customize dialog passes its live checkbox state).
+
     Nothing is enabled or disabled here — that is what ``Reset widgets`` is
     for. Widgets that live outside ``DEFAULT_WIDGETS`` (opt-in extras the user
     switched on) stay enabled and follow the canonical block in their current
@@ -479,10 +482,15 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
             ui.navigate.to("/")
 
         def _reset_layout() -> None:
-            _apply_reset(
-                _reset_layout_keep_enabled(current_layout),
-                "dashboard_widgets.reset_layout_done",
-            )
+            # Read the live checkbox state, not the snapshot the dialog opened
+            # with, so a toggle made in this session is honoured rather than
+            # silently discarded (same source of truth as _save).
+            live = [{"id": wid} for wid in working if enabled.get(wid)]
+            new_layout = _reset_layout_keep_enabled(live)
+            if not new_layout:
+                ui.notify(t("dashboard_widgets.min_one"), color="negative")
+                return
+            _apply_reset(new_layout, "dashboard_widgets.reset_layout_done")
 
         def _reset_widgets() -> None:
             _apply_reset(

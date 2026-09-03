@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Dashboard Customization.
 
-Covers: KAL-DSH-001, KAL-DSH-002
+Covers: KAL-DSH-001, KAL-DSH-002, KAL-DSH-003
 
 Drives the two reset buttons in the Customize dialog against a dashboard
 that has one widget switched off and one widget resized away from its
@@ -83,3 +83,25 @@ def test_reset_layout_then_reset_widgets(page: Page, base_url: str) -> None:
     expect(page.locator(_TREND)).to_have_attribute("data-rows", "2")
     expect(page.locator(_CASHFLOW)).to_have_attribute("data-cols", "4")
     expect(page.locator(_CASHFLOW)).to_have_attribute("data-rows", "2")
+
+
+def test_reset_layout_honours_unsaved_toggle(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-003
+
+    Reset layout reads the live checkboxes, not the snapshot the dialog
+    opened with, so a toggle made without saving first is not discarded.
+    """
+    page.goto(f"{base_url}/")
+    expect(page.locator(_TREND)).to_have_count(1, timeout=10000)
+
+    dialog = _open_customize(page)
+    dialog.locator('[data-customize-row="net_worth_trend"] .q-checkbox').click()
+    dialog.get_by_role("button", name="Reset layout").click()
+
+    expect(page.locator(_TREND)).to_have_count(0, timeout=10000)
+    expect(page.locator(_CASHFLOW)).to_have_attribute("data-cols", "4")
+
+    # Leave the shared e2e session's dashboard back at its defaults.
+    dialog = _open_customize(page)
+    dialog.get_by_role("button", name="Reset widgets").click()
+    expect(page.locator(_TREND)).to_have_count(1, timeout=10000)

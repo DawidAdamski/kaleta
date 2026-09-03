@@ -131,6 +131,13 @@ Out of scope:
   `window.__kaletaCycleDashSize` hook the edit-mode resize button calls —
   and asserts on `data-cols` / `data-rows`. It ends on `Reset widgets`, so it
   leaves the shared e2e session's dashboard back at defaults for later tests.
+- **`Reset layout` reads the live checkboxes, not the opening snapshot.**
+  First cut closed over `current_layout` (the layout as of dialog open), so a
+  widget unticked in the same session and then reset — without pressing Save —
+  came back, contradicting the button's own tooltip. Both `_save` and
+  `_reset_layout` now derive the enabled set from the same `enabled` dict the
+  checkboxes mutate, and `_reset_layout` gained the `min_one` guard `_save`
+  already had. Caught by `review_gate.sh`; regression-covered by KAL-DSH-003.
 - **No toast assertions in e2e.** Both resets call `ui.navigate.to("/")`
   immediately after `ui.notify`, so waiting on the confirmation is a race.
   The resulting grid is asserted instead; the `_done` strings are covered by
