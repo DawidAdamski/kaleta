@@ -174,7 +174,31 @@
     "reset_layout_done": "Dashboard layout reset.",
     "reset_widgets": "Reset widgets",
     "reset_widgets_hint": "Switches every widget back on at its default size and position.",
-    "reset_widgets_done": "Dashboard reset to defaults."
+    "reset_widgets_done": "Dashboard reset to defaults.",
+    "wizard_actions": "Needs attention",
+    "wizard_actions_sub": "Open items from your financial wizard",
+    "wizard_actions_empty": "All clear — nothing needs attention.",
+    "wizard_actions_more": "+{count} more",
+    "wizard_actions_open": "Open financial wizard"
+  },
+  "wizard_actions": {
+    "section_subscriptions": "Subscriptions",
+    "section_safety_funds": "Safety funds",
+    "section_personal_loans": "Personal loans",
+    "section_monthly_readiness": "Monthly readiness",
+    "section_getting_started": "Getting started",
+    "subscription_renewal_due_title": "{name} renewal is due",
+    "subscription_renewal_due_body": "Expected on {date} — confirm the charge landed.",
+    "subscription_candidates_title": "{count} possible subscriptions found",
+    "subscription_candidates_body": "Recurring charges you are not tracking yet.",
+    "fund_below_target_title": "{name} is below target",
+    "fund_below_target_body": "{pct}% funded — top it up to stay on plan.",
+    "loan_due_soon_title": "Loan with {name} is due",
+    "loan_due_soon_body": "Due in {days} days.",
+    "loan_overdue_title": "Loan with {name} is overdue",
+    "loan_overdue_body": "{days} days past the due date.",
+    "plan_next_month_title": "Plan next month",
+    "plan_next_month_body": "{days} days to month-end — run monthly readiness."
   },
   "transactions": {
     "title": "Transactions",

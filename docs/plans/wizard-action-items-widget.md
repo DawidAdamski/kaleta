@@ -4,7 +4,7 @@ title: Dashboard — Wizard action-items widget
 area: wizard
 effort: small
 roadmap_ref: ../product/financial-wizard.md#shared-wizard-patterns
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 
@@ -111,4 +111,83 @@ Out of scope:
    info).
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### Open questions — resolved
+
+1. **Include in default layout?** Default taken: **yes**. `wizard_actions`
+   sits in `DEFAULT_WIDGETS` right after `savings_rate_kpi` and before
+   `cashflow_chart` — the plan's "after KPIs, before charts".
+2. **Re-fetch cadence.** Default taken: **per page load**. The widget calls
+   `WizardActionService.get_action_items()` once inside the dashboard's
+   existing session; no polling, no websocket refresh.
+3. **Inline dismiss.** Default taken: **no for v1**. Rows link to the source
+   page. The one exception is mentor hints, which the *wizard page* already
+   lets you dismiss — see "Mentor dismissals" below.
+4. **Severity mapping.** Default taken: **domain-aware per kind**. Overdue
+   loan → `danger`; loan due within `LOAN_DUE_SOON_DAYS` (7) and an
+   under-target safety fund → `warning`; subscription reviews, detector
+   candidates, the month-end nudge and mentor hints → `info`.
+
+### Where the plan's data model did not match the code
+
+The plan was written against an older shape of the repo. Three gaps, and
+what was done about each:
+
+- **`Subscription.review_at` does not exist.** The model has
+  `next_expected_at`. "Flagged for review" is therefore read as *a renewal
+  whose expected charge date has passed* — the charge should have landed and
+  wants confirming. Filtered to `status == ACTIVE`, the same filter
+  `upcoming_renewals` uses, so muted and cancelled subscriptions never nag
+  (regression-tested both ways).
+- **Reserve funds have no contribution schedule.** "Behind schedule" is read
+  off the only progress signal the model carries: `progress_pct < 1` on a
+  non-archived fund with a target above zero.
+- **There is no reminders system** to borrow loan thresholds from
+  (`wizard-reminders` is still a draft plan). `LOAN_DUE_SOON_DAYS = 7` and
+  `PLAN_NEXT_MONTH_WITHIN_DAYS = 5` are declared as class constants so they
+  are reviewable in one place and can be pointed at the reminders system when
+  it lands.
+- **Budget Builder ("annual revision due")** was the plan's own stretch goal,
+  to be deferred if the data does not exist. There is no "last build" stamp
+  on the yearly-plan model, so it is deferred as the plan allows.
+
+### Decisions a reviewer should know
+
+- **Items carry i18n keys, not strings.** No service in this repo imports
+  `kaleta.i18n`, and `MentorSuggestion` already establishes `title_key` /
+  `body_key` / `params`. `ActionItem` follows that, so the plan's `title` /
+  `body` fields are named `title_key` / `body_key` and the widget translates.
+- **`dashboard_widgets.py` is now a package.** The plan's touchpoints name a
+  single module; the code has since split into `views/dashboard_widgets/`
+  with `registry.py` holding `DEFAULT_WIDGETS`. New widget module:
+  `views/dashboard_widgets/wizard_actions.py`, imported from the package
+  `__init__` so the `@register` decorator runs.
+- **Mentor dismissals stay a view concern.** `views/wizard.py` stores them in
+  `app.storage.user["wizard_mentor_dismissed"]`, which services cannot read
+  (import-linter forbids `services -> nicegui`). The service therefore emits
+  every hint with a `dismiss_key`, and the widget filters against the same
+  storage key before capping the list.
+- **`?focus=<id>` is currently inert.** The acceptance criterion names
+  `/wizard/subscriptions?focus=<id>` explicitly, and the link does land on the
+  right page, but none of the three wizard pages read a `focus` query param
+  today. Wiring highlight/scroll into `views/subscriptions/`,
+  `views/personal_loans/` and `views/safety_funds.py` is outside this plan's
+  touchpoints, so the param is left as a forward-compatible hook — worth a
+  Chore-inbox line.
+- **Cap, not pagination.** Out-of-scope bullet reads "Pagination; cap at ~12
+  items total with a '+N more' tail" — implemented as `MAX_ROWS = 12` plus a
+  `+N more` label. Grouping is by section, but the *ranked* order decides
+  which section leads, so the most urgent item always brings its group to the
+  top rather than a fixed section order burying an overdue loan.
+- **Perf.** `detect_candidates` is the only expensive collector.
+  `test_aggregates_under_200ms_on_a_thousand_transactions` pins the plan's
+  budget with a real 1 000-row insert.
+
+### BDD
+
+New `## Feature: Wizard Action Items`, KAL-WAC-001..005. 002/003/004 are
+`@automated` via `tests/e2e/test_wizard_actions_widget.py`. 001 (empty state)
+and 005 (both widget sizes) are `@manual`: the e2e suite shares one database
+across the whole session, so "no wizard section has an open item" cannot be
+guaranteed at the point this test runs, and asserting it would make the suite
+order-dependent.

@@ -290,6 +290,7 @@ def seed_subscription(
     cadence_days: int = 30,
     *,
     payee_id: int | None = None,
+    next_expected_at: datetime.date | None = None,
 ) -> int:
     """Create a subscription via the service layer; return its ID."""
     from decimal import Decimal
@@ -307,6 +308,7 @@ def seed_subscription(
                     cadence_days=cadence_days,
                     payee_id=payee_id,
                     first_seen_at=datetime.date.today(),
+                    next_expected_at=next_expected_at,
                 )
             )
             return sub.id
@@ -345,6 +347,7 @@ def seed_personal_loan(
     *,
     direction: str = "outgoing",
     opened_at: datetime.date | None = None,
+    due_at: datetime.date | None = None,
 ) -> int:
     """Create a personal loan via the service layer; return its ID."""
     from decimal import Decimal
@@ -365,6 +368,7 @@ def seed_personal_loan(
                     principal=Decimal(str(principal)),
                     currency="PLN",
                     opened_at=opened_at or datetime.date.today(),
+                    due_at=due_at,
                 )
             )
             return loan.id
