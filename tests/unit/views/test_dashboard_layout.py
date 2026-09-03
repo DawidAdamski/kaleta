@@ -1,16 +1,21 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for the dashboard layout helpers.
 
-Covers ``_validate_layout`` and ``cycle_size`` plus the legacy-migration
-path through ``resolve_user_layout``.
+Covers ``_validate_layout``, ``cycle_size``, the two Customize-dialog reset
+helpers, and the legacy-migration path through ``resolve_user_layout``.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from kaleta.views.dashboard import _validate_layout
+from kaleta.views.dashboard import (
+    _reset_layout_full_defaults,
+    _reset_layout_keep_enabled,
+    _validate_layout,
+)
 from kaleta.views.dashboard_widgets import (
+    DEFAULT_WIDGETS,
     WIDGETS,
     cycle_size,
     default_layout,
@@ -142,3 +147,104 @@ class TestResolveUserLayout:
 
         assert len(result) == 1
         assert result[0]["id"] == "total_balance"
+
+
+class TestResetLayoutKeepEnabled:
+    """The ``Reset layout`` button: restore sizes and order, keep the enabled set."""
+
+    def test_keeps_disabled_widget_disabled_and_restores_size(self) -> None:
+        """Covers: KAL-DSH-001"""
+        # net_worth_trend toggled off, cashflow_chart resized 4x2 -> 2x2.
+        layout = [e for e in default_layout() if e["id"] != "net_worth_trend"]
+        for entry in layout:
+            if entry["id"] == "cashflow_chart":
+                entry["cols"], entry["rows"] = 2, 2
+
+        result = _reset_layout_keep_enabled(layout)
+
+        ids = [e["id"] for e in result]
+        assert "net_worth_trend" not in ids
+        cashflow = next(e for e in result if e["id"] == "cashflow_chart")
+        assert (cashflow["cols"], cashflow["rows"]) == (4, 2)
+
+    def test_restores_canonical_order_of_enabled_widgets(self) -> None:
+        """Covers: KAL-DSH-001"""
+        layout = [
+            {"id": "cashflow_chart", "cols": 2, "rows": 2},
+            {"id": "total_balance", "cols": 1, "rows": 1},
+            {"id": "month_income", "cols": 2, "rows": 1},
+        ]
+
+        result = _reset_layout_keep_enabled(layout)
+
+        assert [e["id"] for e in result] == [
+            "total_balance",
+            "month_income",
+            "cashflow_chart",
+        ]
+
+    def test_every_widget_lands_on_its_default_size(self) -> None:
+        layout = [{"id": wid, "cols": 4, "rows": 3} for wid in ("cashflow_chart", "total_balance")]
+
+        result = _reset_layout_keep_enabled(layout)
+
+        for entry in result:
+            w = WIDGETS[entry["id"]]
+            assert (entry["cols"], entry["rows"]) == w.default_size
+
+    def test_non_default_widget_stays_enabled_after_the_canonical_block(self) -> None:
+        """An opt-in extra must not be silently disabled by a *layout* reset."""
+        assert "credit_utilization" not in DEFAULT_WIDGETS
+        layout = [
+            {"id": "credit_utilization", "cols": 4, "rows": 2},
+            {"id": "total_balance", "cols": 1, "rows": 1},
+        ]
+
+        result = _reset_layout_keep_enabled(layout)
+
+        assert [e["id"] for e in result] == ["total_balance", "credit_utilization"]
+        assert result[1]["cols"] == 2  # credit_utilization default (2, 2)
+        assert result[1]["rows"] == 2
+
+    def test_unknown_and_duplicate_ids_dropped(self) -> None:
+        layout = [
+            {"id": "does_not_exist", "cols": 2, "rows": 1},
+            {"id": "total_balance", "cols": 1, "rows": 1},
+            {"id": "total_balance", "cols": 2, "rows": 1},
+        ]
+
+        result = _reset_layout_keep_enabled(layout)
+
+        assert result == [{"id": "total_balance", "cols": 2, "rows": 1}]
+
+    def test_empty_layout_stays_empty(self) -> None:
+        # Pure transform; the read path substitutes defaults for an empty layout.
+        assert _reset_layout_keep_enabled([]) == []
+
+
+class TestResetLayoutFullDefaults:
+    """The ``Reset widgets`` button: everything back on, canonical size and order."""
+
+    def test_re_enables_every_default_widget(self) -> None:
+        """Covers: KAL-DSH-002"""
+        layout = [{"id": "total_balance", "cols": 1, "rows": 1}]
+
+        result = _reset_layout_full_defaults()
+
+        ids = [e["id"] for e in result]
+        assert ids == [wid for wid in DEFAULT_WIDGETS if wid in WIDGETS]
+        assert "net_worth_trend" in ids
+        assert len(result) > len(layout)
+
+    def test_every_widget_at_its_default_size(self) -> None:
+        """Covers: KAL-DSH-002"""
+        result = _reset_layout_full_defaults()
+
+        for entry in result:
+            w = WIDGETS[entry["id"]]
+            assert (entry["cols"], entry["rows"]) == w.default_size
+        cashflow = next(e for e in result if e["id"] == "cashflow_chart")
+        assert (cashflow["cols"], cashflow["rows"]) == (4, 2)
+
+    def test_ignores_current_state_entirely(self) -> None:
+        assert _reset_layout_full_defaults() == default_layout()

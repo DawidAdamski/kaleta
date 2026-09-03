@@ -4,7 +4,7 @@ title: Dashboard — Split Reset into "Reset layout" and "Reset widgets"
 area: dashboard
 effort: small
 roadmap_ref: ../roadmap.md#dashboard
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 
@@ -81,4 +81,57 @@ Out of scope:
    `dashboard_widgets` key?** Default: **yes**, same as today.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### Open questions — resolved
+
+1. **Which button's visual weight is primary?** Default taken: **neither**.
+   Both are `flat color=grey-7`, the styling the single `Reset to default`
+   button already had, sitting together on the left of the dialog footer.
+2. **Should `Reset layout` also clear the legacy `dashboard_widgets` key?**
+   Default taken: **yes**. Both resets go through one `_apply_reset()` helper
+   that writes `dashboard_layout` and pops the legacy id-only key, exactly as
+   the old single reset did.
+
+### Decisions a reviewer should know
+
+- **Two helpers, both pure.** `_reset_layout_keep_enabled(layout)` and
+  `_reset_layout_full_defaults()` live at module scope in `dashboard.py`
+  (next to `_validate_layout`, which the same test module already imports)
+  so they are unit-testable without a NiceGUI client. The dialog callbacks
+  are thin wrappers over them.
+- **`credit_utilization` is registered but not in `DEFAULT_WIDGETS`.** It is
+  an opt-in extra a user can switch on from the Customize dialog. A *layout*
+  reset must not disable it, but `DEFAULT_WIDGETS` has no canonical position
+  to offer it — so `_reset_layout_keep_enabled` emits the canonical block
+  first (`DEFAULT_WIDGETS` order, filtered to enabled) and then any enabled
+  extras in their current relative order, each at its `default_size`.
+  Covered by `test_non_default_widget_stays_enabled_after_the_canonical_block`.
+- **Empty layout in, empty layout out.** The helper is a pure transform. It
+  is unreachable from the dialog (the Save path's `min_one` guard and
+  `resolve_user_layout` both prevent an empty stored layout), and the read
+  path already substitutes the defaults for an empty list, so the helper does
+  not second-guess it.
+- **One extra i18n key beyond the plan's list.** Touchpoints named
+  `reset_layout_done` but not a counterpart for the full reset, while also
+  asking for the old `reset_done` to be removed — that would leave the
+  widgets reset without a confirmation, or make both resets say the same
+  thing. Added `reset_widgets_done` ("Dashboard reset to defaults.", the old
+  `reset_done` string) so the two actions confirm distinctly. `reset` and
+  `reset_done` are gone from both locales; no other call site referenced them.
+- **`data-customize-row` on each dialog row** — a one-attribute production
+  hook (Working Agreement §3), mirroring the `data-widget-id` the grid
+  wrapper already carries, so the e2e test targets a widget's checkbox by id
+  rather than by row index.
+- **BDD.** There was no Dashboard feature in `docs/bdd.md` at all, so
+  `## Feature: Dashboard Customization` is new, with KAL-DSH-001 /
+  KAL-DSH-002 tagged `@automated` and covered by
+  `tests/e2e/test_dashboard_customize.py`. The e2e test sets up the
+  scenario's exact preconditions — `net_worth_trend` toggled off via the
+  dialog, `cashflow_chart` cycled 4x2 → 4x3 → 2x2 through the same
+  `window.__kaletaCycleDashSize` hook the edit-mode resize button calls —
+  and asserts on `data-cols` / `data-rows`. It ends on `Reset widgets`, so it
+  leaves the shared e2e session's dashboard back at defaults for later tests.
+- **No toast assertions in e2e.** Both resets call `ui.navigate.to("/")`
+  immediately after `ui.notify`, so waiting on the confirmation is a race.
+  The resulting grid is asserted instead; the `_done` strings are covered by
+  review, not by a flaky wait.

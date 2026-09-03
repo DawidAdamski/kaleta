@@ -2588,6 +2588,31 @@ Feature: Workflow-based navigation
     Then I land on the corresponding page under /wizard/ without visiting the Wizard hub first
 ```
 
+## Feature: Dashboard Customization
+
+```gherkin
+Feature: Dashboard Customization
+  As the Kaleta owner
+  I want to reset the dashboard grid without losing the widgets I chose
+  So that a messy layout and an unwanted widget are two separate problems
+
+  KAL-DSH-001 @automated
+  Scenario: Reset layout keeps the enabled set
+    Given I have toggled off the "Net Worth Trend" widget
+    And I have resized the "Cashflow" widget from 4x2 to 2x2
+    When I open Customize and click "Reset layout"
+    Then the "Cashflow" widget is back at 4x2 in its canonical position
+    And the "Net Worth Trend" widget is still absent from the dashboard
+
+  KAL-DSH-002 @automated
+  Scenario: Reset widgets restores everything
+    Given I have toggled off the "Net Worth Trend" widget
+    And I have resized the "Cashflow" widget from 4x2 to 2x2
+    When I open Customize and click "Reset widgets"
+    Then every default widget is enabled again
+    And each widget is back at its default size and canonical position
+```
+
 ---
 
 ## Notes for test implementation
