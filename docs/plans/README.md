@@ -130,7 +130,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [transactions-split-discoverability](archive/transactions-split-discoverability.md) | archived | Transactions — dogfooding UX |
 | [auth-reset-password-cli](archive/auth-reset-password-cli.md) | archived | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](dashboard-customize-reset-options.md) | draft (Q4) | Dashboard |
-| [transactions-notes-field](transactions-notes-field.md) | draft (Q4) | Transactions |
+| [transactions-notes-field](archive/transactions-notes-field.md) | archived | Transactions |
 | [wizard-action-items-widget](wizard-action-items-widget.md) | draft (Q4) | Wizard |
 | [seed-payees-tags-coverage](seed-payees-tags-coverage.md) | draft (Q4) | Seed |
 | [seed-payment-calendar](seed-payment-calendar.md) | draft (Q4) | Payment Calendar |
