@@ -59,3 +59,17 @@ issue) or a **gap-closing plan** (the splits pattern).
 - [manual] Every feature above has either retagged scenarios or a
   gap-closing entry (issue checkbox or plan) — no `@planned` feature
   left misrepresenting existing code.
+
+## Implementation notes
+
+**Verification 2026-08-26 (status refresh, not a full retag pass):**
+
+| Feature | Now | Notes |
+|---|---|---|
+| KAL-API | **DONE** | 001–004 `@automated` |
+| KAL-RUL | **DONE** | 001–004 `@automated`; plan archived |
+| KAL-SUB / FND / DBT / PID | **PARTIAL** | mix of `@automated` and `@planned` |
+| KAL-TRF / GOL / IRR / REC / QIK / CMP / ANR / INV / GFT / AIN | **OPEN** | still largely `@planned`; gap plans sparse (REC partially in `wizard-unplanned-radar`) |
+
+Acceptance criterion still unmet — keep `draft` until verification wave
+or gap-closing plans close the remaining `@planned` features.
