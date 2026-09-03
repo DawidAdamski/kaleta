@@ -6,6 +6,7 @@
 #   scripts/plan_goal.sh block "<reason>"                      let the session stop: work is blocked
 #   scripts/plan_goal.sh finish                                disarm the gate (after PR is opened)
 #   scripts/plan_goal.sh check                                 run the DoD judge now (no attempt counted); exit 1 if not done
+#   scripts/plan_goal.sh list [status] [effort]                table of plans: id / status / effort / area
 #
 # The Stop hook (.claude/hooks/dod-gate.sh) is active only while
 # .claude/state/active-plan exists. Everything here is plain files so the
@@ -42,6 +43,22 @@ case "$cmd" in
     rm -f "$state/attempts" "$state/result" "$state/blocked-reason" "$state/review-verdict.json" "$state/review-raw.json"
     echo "plan_goal: armed DoD gate for '$plan_id' on branch $(git rev-parse --abbrev-ref HEAD) (max attempts: $max)"
     ;;
+  list)
+    want_s=${2:-}; want_e=${3:-}
+    {
+      printf '%s\t%s\t%s\t%s\n' PLAN STATUS EFFORT AREA
+      for f in docs/plans/*.md; do
+        [ "$(basename "$f")" = README.md ] && continue
+        id=$(basename "$f" .md)
+        s=$(grep -m1 '^status:' "$f" | sed -E 's/^status:[[:space:]]*//')
+        e=$(grep -m1 '^effort:' "$f" | sed -E 's/^effort:[[:space:]]*//')
+        a=$(grep -m1 '^area:' "$f" | sed -E 's/^area:[[:space:]]*//')
+        [ -n "$want_s" ] && [ "$s" != "$want_s" ] && continue
+        [ -n "$want_e" ] && [ "$e" != "$want_e" ] && continue
+        printf '%s\t%s\t%s\t%s\n' "$id" "$s" "$e" "$a"
+      done | sort -t "$(printf '\t')" -k2,2 -k3,3r -k1,1
+    } | column -t -s "$(printf '\t')"
+    ;;
   status)
     if [ ! -f "$state/active-plan" ]; then echo "plan_goal: no active plan (gate disarmed)"; exit 0; fi
     echo "plan:      $(cat "$state/active-plan")"
@@ -73,5 +90,5 @@ case "$cmd" in
     echo "plan_goal: gate disarmed (review verdict kept for reference)"
     ;;
   *)
-    echo "usage: plan_goal.sh start <plan_id> [--max-attempts N] | status | check | block \"<reason>\" | finish" >&2; exit 1 ;;
+    echo "usage: plan_goal.sh start <plan_id> [--max-attempts N] | status | check | list [status] [effort] | block \"<reason>\" | finish" >&2; exit 1 ;;
 esac

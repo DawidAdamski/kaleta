@@ -47,6 +47,9 @@ claude                         # in the repo
 > /implement-plan transactions-notes-field
 ```
 
+No need to remember plan ids: plain `/implement-plan` lists the draft
+plans, recommends one and asks which to take.
+
 What happens: the command arms the gate, creates `plan/transactions-notes-field`
 from `main`, flips the plan to `in-progress`, and the agent works. Each
 time it tries to finish, the gate runs and either lets it stop (all
@@ -62,6 +65,7 @@ Optional belt-and-braces: after `/implement-plan …` you can also set
 Useful while it runs (from another terminal):
 
 ```bash
+scripts/plan_goal.sh list draft  # which plans are waiting (id / status / effort / area)
 scripts/plan_goal.sh status      # attempts, result, review verdict
 scripts/review_gate.sh           # run the independent review yourself
 scripts/plan_goal.sh block "needs a design decision on X"   # let it stop
