@@ -82,6 +82,26 @@ Out of scope:
 - Aggregator returns results in < 200 ms on a seeded DB of
   ~1000 transactions.
 
+Executable (the DoD gate and `plan-archiver` run these):
+
+- `test -f src/kaleta/services/wizard_action_service.py`
+- `grep -q "wizard_actions" src/kaleta/views/dashboard_widgets/registry.py`
+- `uv run pytest tests/unit/services/test_wizard_action_service.py -q`
+- `uv run pytest tests/unit/views/test_wizard_actions_widget.py -q`
+- `uv run pytest tests/e2e/test_wizard_actions_widget.py -q`
+- `grep -q '"wizard_actions_empty"' src/kaleta/i18n/locales/en.json`
+- `grep -q '"wizard_actions_empty"' src/kaleta/i18n/locales/pl.json`
+- `grep -qE "KAL-WAC-002 @automated" docs/bdd.md`
+- `grep -qE "KAL-WAC-003 @automated" docs/bdd.md`
+- `uv run python scripts/spec_coverage.py`
+- `./scripts/verify.sh --e2e`
+
+Manual (owner, before archiving):
+
+- `[manual]` With no wizard section reporting anything, the widget shows the
+  empty state (KAL-WAC-001).
+- `[manual]` The widget renders correctly at both 2x2 and 4x2 (KAL-WAC-005).
+
 ## Touchpoints
 
 - New file `src/kaleta/services/wizard_action_service.py`.
@@ -193,6 +213,35 @@ what was done about each:
 - **Perf.** `detect_candidates` is the only expensive collector.
   `test_aggregates_under_200ms_on_a_thousand_transactions` pins the plan's
   budget with a real 1 000-row insert.
+
+### Fallout: `tests/e2e/test_dashboard_customize.py` had to be hardened
+
+Adding an 18th widget to `DEFAULT_WIDGETS` made the dashboard's initial
+render measurably longer, which turned two latent races in the
+dashboard-customize e2e test (merged to `main` as PR #72) into a real flake —
+it failed in one DoD-gate run at 84 s wall-clock while passing every local
+run at 69–75 s. Both races are in the test, not in production code, and both
+scale with the number of widgets:
+
+1. **The layout POST is fire-and-forget.** `__kaletaPostDashLayout()` issues a
+   bare `fetch()`. Navigating with `page.goto()` before it lands aborts it, so
+   the resize is never persisted and the assertion *after* the reload sees the
+   old size. `_cycle_size` now wraps the call in `page.expect_response(
+   "**/_dashboard/layout")` and asserts the response is OK.
+2. **A POST fired mid-render persists a truncated layout.**
+   `__kaletaPostDashLayout()` serialises whatever `#dash-grid` contains at
+   that instant, and NiceGUI streams widgets in one at a time — so resizing
+   before the grid is complete can save a layout missing every widget yet to
+   arrive (`net_worth_trend` is last in `DEFAULT_WIDGETS`, so it is the first
+   casualty). New `_wait_for_grid_settled()` blocks until the grid's child
+   count holds steady across three 200 ms polls.
+
+Honest limitation: the flake could **not** be reproduced locally, including a
+full e2e suite run under 8 concurrent busy-loops (86 passed, 74 s). The fix
+therefore rests on the mechanism above rather than on a red-to-green
+demonstration. Both changes replace timing luck with an explicit wait for the
+event that actually matters, so they are correct regardless of which of the
+two fired in the gate's run.
 
 ### BDD
 

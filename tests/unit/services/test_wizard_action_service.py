@@ -58,7 +58,7 @@ async def _make_account(session: AsyncSession, balance: Decimal = Decimal("0")) 
     return acc.id
 
 
-async def _make_loan_due(session: AsyncSession, *, due_at: datetime.date, name: str) -> int:
+async def _make_loan_due(session: AsyncSession, *, due_at: datetime.date | None, name: str) -> int:
     loans = PersonalLoanService(session)
     cp = await loans.create_counterparty(CounterpartyCreate(name=name))
     loan = await loans.create_loan(
@@ -141,7 +141,7 @@ class TestPersonalLoans:
     async def test_loan_without_a_due_date_stays_quiet(
         self, svc: WizardActionService, session: AsyncSession
     ):
-        await _make_loan_due(session, due_at=None, name="Ala")  # type: ignore[arg-type]
+        await _make_loan_due(session, due_at=None, name="Ala")
         assert await svc.get_action_items(today=TODAY) == []
 
     async def test_settled_loan_stays_quiet(self, svc: WizardActionService, session: AsyncSession):
