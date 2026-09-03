@@ -195,6 +195,7 @@
     "fund_below_target_body": "{pct}% funded — top it up to stay on plan.",
     "loan_due_soon_title": "Loan with {name} is due",
     "loan_due_soon_body": "Due in {days} days.",
+    "loan_due_today_body": "Due today.",
     "loan_overdue_title": "Loan with {name} is overdue",
     "loan_overdue_body": "{days} days past the due date.",
     "plan_next_month_title": "Plan next month",

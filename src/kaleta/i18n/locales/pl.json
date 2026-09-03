@@ -195,6 +195,7 @@
     "fund_below_target_body": "Zebrane {pct}% — dopłać, aby trzymać się planu.",
     "loan_due_soon_title": "Pożyczka z {name} jest wkrótce należna",
     "loan_due_soon_body": "Termin za {days} dni.",
+    "loan_due_today_body": "Termin dzisiaj.",
     "loan_overdue_title": "Pożyczka z {name} jest przeterminowana",
     "loan_overdue_body": "{days} dni po terminie.",
     "plan_next_month_title": "Zaplanuj kolejny miesiąc",

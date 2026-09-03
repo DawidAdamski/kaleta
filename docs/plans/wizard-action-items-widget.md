@@ -168,7 +168,10 @@ what was done about each:
   `app.storage.user["wizard_mentor_dismissed"]`, which services cannot read
   (import-linter forbids `services -> nicegui`). The service therefore emits
   every hint with a `dismiss_key`, and the widget filters against the same
-  storage key before capping the list.
+  storage key before capping the list. `drop_dismissed(items, dismissed)` takes
+  the key set as an argument rather than reading storage itself, which keeps it
+  pure and unit-testable (`tests/unit/views/test_wizard_actions_widget.py`);
+  `_dismissed_mentor_keys()` is the thin storage read at the call site.
 - **`?focus=<id>` is currently inert.** The acceptance criterion names
   `/wizard/subscriptions?focus=<id>` explicitly, and the link does land on the
   right page, but none of the three wizard pages read a `focus` query param
@@ -176,6 +179,12 @@ what was done about each:
   `views/personal_loans/` and `views/safety_funds.py` is outside this plan's
   touchpoints, so the param is left as a forward-compatible hook — worth a
   Chore-inbox line.
+- **`count` lives on the item, not in `params`.** The renderer merges it into
+  the interpolation values (`_message_params`), so the plan's `count` field is
+  the single source for "X subscriptions need review" rather than being
+  duplicated into `params` by each collector.
+- **A loan due today gets its own message.** `loan_due_soon_body` would render
+  "Due in 0 days"; `days == 0` uses `loan_due_today_body` instead.
 - **Cap, not pagination.** Out-of-scope bullet reads "Pagination; cap at ~12
   items total with a '+N more' tail" — implemented as `MAX_ROWS = 12` plus a
   `+N more` label. Grouping is by section, but the *ranked* order decides

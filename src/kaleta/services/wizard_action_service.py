@@ -99,7 +99,6 @@ class WizardActionService:
                     body_key="wizard_actions.subscription_candidates_body",
                     href="/wizard/subscriptions",
                     count=len(candidates),
-                    params={"count": len(candidates)},
                     created_at=max(c.last_seen_at for c in candidates),
                 )
             )
@@ -141,6 +140,14 @@ class WizardActionService:
                 continue
             # Due *today* is still only a warning — the day has not run out yet.
             overdue = due < ref
+            days = abs((due - ref).days)
+            if overdue:
+                body_key = "wizard_actions.loan_overdue_body"
+            elif days == 0:
+                # "Due in 0 days" reads badly; today gets its own phrasing.
+                body_key = "wizard_actions.loan_due_today_body"
+            else:
+                body_key = "wizard_actions.loan_due_soon_body"
             items.append(
                 ActionItem(
                     kind=ActionKind.LOAN_OVERDUE if overdue else ActionKind.LOAN_DUE_SOON,
@@ -151,15 +158,11 @@ class WizardActionService:
                         if overdue
                         else "wizard_actions.loan_due_soon_title"
                     ),
-                    body_key=(
-                        "wizard_actions.loan_overdue_body"
-                        if overdue
-                        else "wizard_actions.loan_due_soon_body"
-                    ),
+                    body_key=body_key,
                     href=f"/wizard/personal-loans?focus={loan.id}",
                     params={
                         "name": loan.counterparty.name,
-                        "days": abs((due - ref).days),
+                        "days": days,
                     },
                     created_at=due,
                 )
@@ -198,7 +201,9 @@ class WizardActionService:
                 body_key=s.body_key,
                 href=s.cta_url,
                 count=int(s.params["count"]) if "count" in s.params else None,
-                params={k: v for k, v in s.params.items() if isinstance(v, str | int)},
+                params={
+                    k: v for k, v in s.params.items() if k != "count" and isinstance(v, str | int)
+                },
                 created_at=ref,
                 dismiss_key=s.key,
             )

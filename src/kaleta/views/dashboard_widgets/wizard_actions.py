@@ -27,17 +27,29 @@ _SEVERITY_DOT: dict[ActionSeverity, str] = {
 }
 
 
-def _drop_dismissed(items: list[ActionItem]) -> list[ActionItem]:
+def drop_dismissed(items: list[ActionItem], dismissed: set[str]) -> list[ActionItem]:
     """Hide mentor hints the user dismissed on the wizard page.
 
-    Dismissals live in ``app.storage.user`` (browser-scoped), which the
-    services layer cannot read — so the filter belongs here, using the same
-    key ``views/wizard.py`` writes.
+    Pure on purpose — the caller supplies *dismissed*, because those keys live
+    in ``app.storage.user`` (browser-scoped), which the services layer cannot
+    read. Non-mentor items have no ``dismiss_key`` and always survive.
     """
-    dismissed: set[str] = set(app.storage.user.get("wizard_mentor_dismissed", []))
     if not dismissed:
         return items
     return [i for i in items if i.dismiss_key is None or i.dismiss_key not in dismissed]
+
+
+def _dismissed_mentor_keys() -> set[str]:
+    """The keys ``views/wizard.py`` writes when the user dismisses a hint."""
+    return set(app.storage.user.get("wizard_mentor_dismissed", []))
+
+
+def _message_params(item: ActionItem) -> dict[str, str | int]:
+    """Interpolation values for an item's title/body, including its ``count``."""
+    params: dict[str, str | int] = dict(item.params)
+    if item.count is not None:
+        params["count"] = item.count
+    return params
 
 
 def _render_row(item: ActionItem) -> None:
@@ -53,11 +65,10 @@ def _render_row(item: ActionItem) -> None:
         ui.element("div").classes(
             f"h-2 w-2 rounded-full shrink-0 mt-1.5 {_SEVERITY_DOT[item.severity]}"
         )
+        params = _message_params(item)
         with ui.column().classes("gap-0 min-w-0 flex-1"):
-            ui.label(t(item.title_key, **item.params)).classes("text-sm leading-tight")
-            ui.label(t(item.body_key, **item.params)).classes(
-                "text-xs text-slate-500 leading-tight"
-            )
+            ui.label(t(item.title_key, **params)).classes("text-sm leading-tight")
+            ui.label(t(item.body_key, **params)).classes("text-xs text-slate-500 leading-tight")
 
 
 @register(
@@ -68,7 +79,9 @@ def _render_row(item: ActionItem) -> None:
     ((2, 2), (4, 2)),
 )
 async def render_wizard_actions(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
-    items = _drop_dismissed(await WizardActionService(session).get_action_items())
+    items = drop_dismissed(
+        await WizardActionService(session).get_action_items(), _dismissed_mentor_keys()
+    )
 
     with section_card(
         t("dashboard_widgets.wizard_actions"),

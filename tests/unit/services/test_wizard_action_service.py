@@ -20,6 +20,7 @@ from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
+from kaleta.schemas.payee import PayeeCreate
 from kaleta.schemas.personal_loan import (
     CounterpartyCreate,
     PersonalLoanCreate,
@@ -32,6 +33,7 @@ from kaleta.schemas.wizard_actions import ActionKind, ActionSection, ActionSever
 from kaleta.services import (
     AccountService,
     CategoryService,
+    PayeeService,
     PersonalLoanService,
     ReserveFundService,
     SubscriptionService,
@@ -116,6 +118,19 @@ class TestPersonalLoans:
         assert items[0].kind is ActionKind.LOAN_OVERDUE
         assert items[0].severity is ActionSeverity.DANGER
         assert items[0].params["days"] == 3
+
+    async def test_loan_due_today_is_a_warning_with_its_own_message(
+        self, svc: WizardActionService, session: AsyncSession
+    ):
+        """The day has not run out yet — danger starts the morning after."""
+        await _make_loan_due(session, due_at=TODAY, name="Ala")
+
+        items = await svc.get_action_items(today=TODAY)
+
+        assert len(items) == 1
+        assert items[0].kind is ActionKind.LOAN_DUE_SOON
+        assert items[0].severity is ActionSeverity.WARNING
+        assert items[0].body_key == "wizard_actions.loan_due_today_body"
 
     async def test_loan_beyond_the_horizon_stays_quiet(
         self, svc: WizardActionService, session: AsyncSession
@@ -204,6 +219,46 @@ class TestSubscriptions:
                 next_expected_at=TODAY + datetime.timedelta(days=5),
             )
         )
+        assert await svc.get_action_items(today=TODAY) == []
+
+
+class TestSubscriptionCandidates:
+    async def test_untracked_recurring_charges_collapse_into_one_row(
+        self, svc: WizardActionService, session: AsyncSession
+    ):
+        """The detector's hits become a single counted row, not one row each."""
+        account_id = await _make_account(session)
+        cat_id = (
+            await CategoryService(session).create(
+                CategoryCreate(name="Food", type=CategoryType.EXPENSE)
+            )
+        ).id
+        payee_id = (await PayeeService(session).create(PayeeCreate(name="Spotify"))).id
+        for i in range(4):
+            await TransactionService(session).create(
+                TransactionCreate(
+                    account_id=account_id,
+                    category_id=cat_id,
+                    payee_id=payee_id,
+                    amount=Decimal("23.00"),
+                    type=TransactionType.EXPENSE,
+                    date=TODAY - datetime.timedelta(days=30 * i),
+                    description="Spotify",
+                )
+            )
+
+        items = await svc.get_action_items(today=TODAY)
+        candidates = [i for i in items if i.kind is ActionKind.SUBSCRIPTION_CANDIDATES]
+
+        assert len(candidates) == 1
+        assert candidates[0].section is ActionSection.SUBSCRIPTIONS
+        assert candidates[0].severity is ActionSeverity.INFO
+        assert candidates[0].count == 1
+        assert candidates[0].href == "/wizard/subscriptions"
+
+    async def test_no_recurring_charges_means_no_candidate_row(
+        self, svc: WizardActionService, session: AsyncSession
+    ):
         assert await svc.get_action_items(today=TODAY) == []
 
 
