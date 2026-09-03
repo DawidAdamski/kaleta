@@ -105,13 +105,22 @@ E2E (`tests/e2e/test_csv_import.py`, docstring `Covers:` the new ID):
   next free id, but the spec has since grown to KAL-CSV-019 (Wise CSV). The
   acceptance criterion `grep -q "KAL-CSV-013"` still holds — that scenario
   exists and is the multi-file queue regression this change must not break.
-- **The reset runs before the first `await` in `handle_upload`.** A multi-file
-  drop arrives as one HTTP request, but NiceGUI dispatches an async upload
-  handler per file as a separate task, so the handlers interleave at every
-  `await`. Doing the terminal check and `_start_new_import()` synchronously at
-  the top means only the first handler can find a terminal queue; the rest see
-  an empty one, and `queue_is_terminal([])` is `False` by design, so they append
-  instead of wiping each other's files.
+- **The reset runs before the first `await` in `handle_upload` — defensively,
+  not because a test demands it.** A multi-file drop arrives as one HTTP
+  request, but `handle_event` schedules each async upload handler as its own
+  background task (`background_tasks.create_or_defer`), so the handlers do
+  interleave. Checking synchronously at the top means only the first handler can
+  find a terminal queue; the rest see an empty one, and `queue_is_terminal([])`
+  is `False` by design, so they append instead of wiping each other's files.
+  Mutation-checked: moving the block *after* `await e.file.read()` still passes
+  the whole e2e suite, because a file only becomes terminal once imported —
+  long after it was appended — so the queue is empty at the second handler's
+  check either way. The order is kept as the one that stays correct if a file
+  can ever be terminal earlier, and the comment says so rather than claiming
+  test coverage it does not have.
+- **KAL-CSV-020 also drops two files at once onto a finished queue** and asserts
+  both survive with the finished file gone. That is a real regression test for
+  the multi-drop outcome; it is not evidence for the ordering above.
 - **Open question 1 resolved as the plan's default.** An already-empty queue is
   not terminal, so dropping a file after "Start new import" is a no-op — no
   special case.

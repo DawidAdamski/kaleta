@@ -1101,6 +1101,8 @@ Feature: mBank CSV Import
     When I click "Import"
     Then only the new file's rows are added to the ledger
     And the previously imported file's transactions are not duplicated
+    When I later drop two files at once onto the finished queue
+    Then both new files are queued and the finished one is gone
 
   KAL-CSV-021 @automated
   Scenario: Clearing a failed file is called out, not silent

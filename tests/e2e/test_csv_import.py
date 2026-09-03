@@ -276,17 +276,12 @@ def test_upload_after_completed_run_starts_fresh_queue(page: Page, base_url: str
     expect(page.get_by_role("button", name="Import 1 file")).to_be_visible(timeout=5000)
     expect(page.get_by_text("Import summary", exact=True)).not_to_be_visible()
 
-    # Categories are inherited from the previous session; the generic profile
-    # does not carry the account over, so re-select whatever is still missing.
-    account_sel = page.locator(".q-select").filter(has_text="Target account")
-    if account_name not in (account_sel.inner_text() or ""):
-        _select_import_option(page, "Target account", _account_option(account_name))
-    expense_sel = page.locator(".q-select").filter(has_text="Default expense category")
-    if expense_cat not in (expense_sel.inner_text() or ""):
-        _select_import_option(page, "Default expense category", expense_cat)
-    income_sel = page.locator(".q-select").filter(has_text="Default income category")
-    if income_cat not in (income_sel.inner_text() or ""):
-        _select_import_option(page, "Default income category", income_cat)
+    # The generic profile inherits categories but never the account. Re-picking
+    # all three is idempotent, so set them outright rather than inferring what
+    # carried over from the rendered select labels.
+    _select_import_option(page, "Target account", _account_option(account_name))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
 
     page.get_by_role("button", name="Import 1 file").click()
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
@@ -294,6 +289,14 @@ def test_upload_after_completed_run_starts_fresh_queue(page: Page, base_url: str
     # Exactly the second file's two rows were added — the first file did not
     # ride along a second time.
     assert count_transactions(account_id) == 5
+
+    # Dropping several files at once onto the finished queue keeps all of them:
+    # the fan-out of one handler per file must reset once, not once per file.
+    page.locator('input[type="file"]').set_input_files([str(MBANK_OCT), str(PKO_OCT)])
+    expect(queue_card.get_by_text("mbank-2025-10.csv").first).to_be_visible(timeout=5000)
+    expect(queue_card.get_by_text("pko-2025-10.csv").first).to_be_visible(timeout=5000)
+    expect(queue_card.get_by_text("autoreset-second.csv")).to_have_count(0)
+    expect(page.get_by_role("button", name="Import 2 files")).to_be_visible(timeout=5000)
 
 
 def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> None:
