@@ -910,6 +910,7 @@
     "transfer_hint": "Links pairs of equal-amount transactions between accounts.",
     "detect_transfers": "Detect & Link Transfers",
     "linked_pairs": "Linked {count} transfer pair(s).",
+    "queue_reset_failed": "Previous import cleared from the queue — the failed file was not imported.",
     "queue_section": "Files to import",
     "queue_empty": "Drop one or more files above to build the import queue.",
     "queue_remove": "Remove",

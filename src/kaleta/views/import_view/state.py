@@ -42,6 +42,19 @@ class QueuedFile:
     from_bulk_default: bool = False
 
 
+TERMINAL_STATUSES = frozenset({"done", "failed"})
+
+
+def queue_is_terminal(queue: list[QueuedFile]) -> bool:
+    """True when the queue holds files and every one of them has finished.
+
+    A fully ``done``/``failed`` queue is a completed import session. The next
+    upload starts a fresh one rather than piling onto rows that can no longer
+    be imported. An empty queue is not terminal — there is nothing to clear.
+    """
+    return bool(queue) and all(f.status in TERMINAL_STATUSES for f in queue)
+
+
 def settings_snapshot(file: QueuedFile) -> QueueSettingsSnapshot:
     """Convert queue file state into a service-layer settings snapshot."""
     return QueueSettingsSnapshot(

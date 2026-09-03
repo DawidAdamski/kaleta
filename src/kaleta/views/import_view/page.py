@@ -36,6 +36,7 @@ from kaleta.views.import_view.settings_section import build_settings_section
 from kaleta.views.import_view.state import (
     QueuedFile,
     apply_settings_snapshot,
+    queue_is_terminal,
     settings_snapshot,
 )
 from kaleta.views.import_view.step_indicator import render_step_indicator
@@ -284,6 +285,22 @@ async def import_page() -> None:
         return True
 
     async def handle_upload(e: events.UploadEventArguments) -> None:
+        # Runs before the first await on purpose: a multi-file drop fans out into
+        # one concurrent handler per file, and only the first one may find a
+        # terminal queue. Once it clears the queue the others see an empty one,
+        # which is never terminal, so they append instead of wiping each other.
+        #
+        # _start_new_import() resets the upload widget from inside that widget's
+        # own on_upload handler. That is safe here and verified by KAL-CSV-020:
+        # the file has already been received (the POST body is fully parsed
+        # before any handler runs), so the reset only clears the client-side
+        # file list, exactly as the "Start new import" button does.
+        if queue_is_terminal(state["queue"]):
+            had_failed = any(f.status == "failed" for f in state["queue"])
+            _start_new_import()
+            if had_failed:
+                ui.notify(t("import.queue_reset_failed"), type="info")
+
         content = auto_decode(await e.file.read())
         suggested = ImportRuleService.suggest_filename_pattern(e.file.name)
         queued_file = QueuedFile(

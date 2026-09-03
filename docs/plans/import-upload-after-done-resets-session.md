@@ -3,7 +3,7 @@ plan_id: import-upload-after-done-resets-session
 title: Import — dropping a file after a completed run starts a fresh session
 area: import
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -101,4 +101,34 @@ E2E (`tests/e2e/test_csv_import.py`, docstring `Covers:` the new ID):
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **BDD id is KAL-CSV-020, not KAL-CSV-013.** The plan predicted 013 as the
+  next free id, but the spec has since grown to KAL-CSV-019 (Wise CSV). The
+  acceptance criterion `grep -q "KAL-CSV-013"` still holds — that scenario
+  exists and is the multi-file queue regression this change must not break.
+- **The reset runs before the first `await` in `handle_upload`.** A multi-file
+  drop arrives as one HTTP request, but NiceGUI dispatches an async upload
+  handler per file as a separate task, so the handlers interleave at every
+  `await`. Doing the terminal check and `_start_new_import()` synchronously at
+  the top means only the first handler can find a terminal queue; the rest see
+  an empty one, and `queue_is_terminal([])` is `False` by design, so they append
+  instead of wiping each other's files.
+- **Open question 1 resolved as the plan's default.** An already-empty queue is
+  not terminal, so dropping a file after "Start new import" is a no-op — no
+  special case.
+- **`queue_is_terminal` lives in `state.py`** next to `TERMINAL_STATUSES`, not
+  in `constants.py`: the helper is queue logic over `QueuedFile`, and
+  `constants.py` documents itself as profile/colour lookups only.
+- **Test-infrastructure fix outside the plan's touchpoints:
+  `tests/e2e/test_rules.py::_select_option`.** The new e2e seeds one more
+  account, which pushed `test_rules_apply_during_csv_import`'s target-account
+  option out of Quasar's virtualised `.q-menu` slice — the option was not in
+  the DOM at all, so the click timed out. Verified as a latent order dependency,
+  not a regression from this change: the full suite is green on `main`, green on
+  this branch with the new test deselected, and failed only with it selected.
+  The helper now scrolls the menu until the option renders. No assertion was
+  loosened. Every other `.q-menu` helper in `tests/e2e/` has the same latent
+  fragility; left alone here to keep this diff single-purpose, and worth a
+  Chore-inbox line. Shipped as its own commit (Working Agreement rule 9).
+- **`count_transactions(account_id)` added to `tests/e2e/seed_helpers.py`** so
+  the e2e can assert the ledger count directly (3 rows from file A, then 5 after
+  file B) rather than inferring "not duplicated" from the UI.
