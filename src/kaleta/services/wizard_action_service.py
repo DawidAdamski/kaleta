@@ -201,8 +201,13 @@ class WizardActionService:
                 body_key=s.body_key,
                 href=s.cta_url,
                 count=int(s.params["count"]) if "count" in s.params else None,
+                # ``MentorSuggestion.params`` is ``dict[str, Any]``. Coerce
+                # rather than filter, so a future param type reaches the
+                # template as text instead of vanishing.
                 params={
-                    k: v for k, v in s.params.items() if k != "count" and isinstance(v, str | int)
+                    k: v if isinstance(v, str | int) else str(v)
+                    for k, v in s.params.items()
+                    if k != "count"
                 },
                 created_at=ref,
                 dismiss_key=s.key,
