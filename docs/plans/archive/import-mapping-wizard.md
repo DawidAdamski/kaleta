@@ -3,8 +3,14 @@ plan_id: import-mapping-wizard
 title: Import — interactive column-mapping step for generic CSV
 area: import
 effort: medium
+<<<<<<< HEAD
 status: in-progress
 roadmap_ref: ../../roadmap.md#import
+=======
+status: archived
+archived_at: 2026-08-26
+roadmap_ref: ../roadmap.md#import
+>>>>>>> fff0cb1 (docs(plans): archive completed plans, update index)
 ---
 
 # Import — interactive column-mapping step for generic CSV
@@ -141,3 +147,36 @@ E2E (`tests/e2e/test_csv_import.py`, docstrings with `Covers: KAL-*`):
   change.
 - Profile help sentences (`profile_generic_help` / `profile_mbank_help`)
   explain Generic vs mBank under the format buttons.
+
+## Implementation
+
+Landed on 2026-08-11.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c75f453` | Dawid Adamski | 2026-08-11 | feat(import): add interactive CSV column-mapping wizard step (#52) |
+
+**Files changed:**
+- docs/bdd.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/constants.py
+- src/kaleta/views/import_view/mapping_section.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/profile_section.py
+- src/kaleta/views/import_view/queue_section.py
+- src/kaleta/views/import_view/state.py
+- src/kaleta/views/import_view/step_indicator.py
+- tests/e2e/fixtures/import/unrecognised_headers.csv
+- tests/e2e/test_csv_import.py
+- tests/unit/services/test_import_service.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_import_service.py -q` | 0 |
+| `grep -q "KAL-CSV-005" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `bash scripts/verify.sh` | 0 |

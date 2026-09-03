@@ -3,8 +3,14 @@ plan_id: reports-money-flow
 title: Reports — money flow diagram (Sankey)
 area: reports
 effort: medium
+<<<<<<< HEAD
 status: ready-to-archive
 roadmap_ref: ../../roadmap.md#reports
+=======
+status: archived
+archived_at: 2026-08-26
+roadmap_ref: ../roadmap.md#reports
+>>>>>>> fff0cb1 (docs(plans): archive completed plans, update index)
 ---
 
 # Reports — money flow diagram (Sankey)
@@ -207,3 +213,38 @@ Resolved:
   `./scripts/verify.sh --e2e` → VERIFY OK (1461 unit/integration + 78 e2e).
   BDD `KAL-FLW-001…004` tagged `@automated`; `spec_coverage.py` green.
   Ready for PR + `plan-archiver` after merge.
+
+## Implementation
+
+Landed on 2026-08-26.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ec1caa5` | Dawid (Ani) | 2026-08-26 | feat(reports): money flow Sankey diagram |
+| `e32b692` | Dawid Adamski | 2026-08-26 | Merge pull request #57 from DawidAdamski/feat/reports-money-flow |
+
+**Files changed:**
+- docs/bdd.md
+- src/kaleta/api/v1/reports.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/schemas/analysis.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/money_flow_service.py
+- src/kaleta/views/reports_canned/__init__.py
+- src/kaleta/views/reports_canned/catalog.py
+- src/kaleta/views/reports_canned/money_flow.py
+- tests/e2e/test_money_flow.py
+- tests/integration/test_analysis_api.py
+- tests/unit/services/test_money_flow_service.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_money_flow_service.py -q` | 0 |
+| `uv run pytest tests/integration/test_analysis_api.py -q` | 0 |
+| `grep -q "KAL-FLW-001" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `uv run lint-imports` | 0 |
+| `bash scripts/verify.sh --e2e` | 0 (pre-merge; requires live app — recorded in Implementation notes above) |

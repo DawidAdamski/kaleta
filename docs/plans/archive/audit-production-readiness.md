@@ -3,7 +3,8 @@ plan_id: audit-production-readiness
 title: Audit — production readiness for daily local use with real data (2026-07-25)
 area: cross-cutting
 effort: medium
-status: draft
+status: archived
+archived_at: 2026-08-26
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 
@@ -292,13 +293,59 @@ slot in opportunistically via the Chore inbox.
   - P1.8 → [`rules-auto-categorisation`](archive/rules-auto-categorisation.md)
   - P1.9 → [`deploy-local-health`](archive/deploy-local-health.md)
   - P1.10 → [`auth-reset-password-cli`](archive/auth-reset-password-cli.md)
-- [ ] Every P0 finding converted into a GitHub issue / plan, added
+- [x] Every P0 finding converted into a GitHub issue / plan, added
   to the Chore inbox, or explicitly rejected with a note here
-  (P0.1–0.3 covered by in-progress
+  (P0.1–0.3 → archived
   [`backup-full-schema-roundtrip`](archive/backup-full-schema-roundtrip.md)
   and [`sqlite-integrity-scheduled-backups`](archive/sqlite-integrity-scheduled-backups.md);
-  P0.4 still needs an explicit plan or fold-in note).
-- [ ] P2 items triaged (issue / Chore inbox / reject).
+  P0.4 → archived [`migrate-on-startup`](archive/migrate-on-startup.md)).
+- [x] P2 items triaged — archived
+  [`p2-hardening-analysis`](archive/p2-hardening-analysis.md).
 - `[manual]` Interim runbook validated once by a real backup +
   restore drill (copy `.db`, open the copy via setup wizard,
   verify counts).
+
+## Implementation notes
+
+**Verification 2026-08-26:** All P0 and P2 findings are implemented and
+archived. P1.5–1.6 and P1.8–1.10 likewise. The only open follow-up from
+this audit is **P1.7** — [`import-bank-profiles`](import-bank-profiles.md)
+(scaffold landed; waiting on non-mBank fixtures). Audit acceptance for
+plan conversion is met; remaining product work lives in that plan.
+Status flipped to `ready-to-archive`.
+
+## Implementation
+
+Landed on 2026-08-26 (audit acceptance verified; no single feature commit
+— the audit itself was introduced at `d05b0be` and its findings were closed
+by the follow-up plans listed below).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d05b0be` | Dawid (Ani) | 2026-07-08 | docs: planned-vs-code audit + draft plans (sidebar/settings, observability) |
+
+**Follow-up plans that closed audit findings (all archived):**
+
+| Plan | Finding |
+|---|---|
+| [`backup-full-schema-roundtrip`](archive/backup-full-schema-roundtrip.md) | P0.1 — backup covers 8 of ~25 tables |
+| [`sqlite-integrity-scheduled-backups`](archive/sqlite-integrity-scheduled-backups.md) | P0.2 — no automated backups · P0.3 — SQLite integrity pragmas |
+| [`migrate-on-startup`](archive/migrate-on-startup.md) | P0.4 — migrations don't run on upgrade |
+| [`currency-nbp-rates`](archive/currency-nbp-rates.md) | P1.5 — currency rates manual-only |
+| [`planned-transactions-post-due`](archive/planned-transactions-post-due.md) | P1.6 — planned transactions never posted |
+| [`rules-auto-categorisation`](archive/rules-auto-categorisation.md) | P1.8 — no rule-based auto-categorisation |
+| [`deploy-local-health`](archive/deploy-local-health.md) | P1.9 — local deployment story |
+| [`auth-reset-password-cli`](archive/auth-reset-password-cli.md) | P1.10 — password reset requires DB surgery |
+| [`p2-hardening-analysis`](archive/p2-hardening-analysis.md) | P2 — hardening & analysis ergonomics |
+
+**Open item:** P1.7 — import profiles ([`import-bank-profiles`](import-bank-profiles.md))
+remains in-progress; scaffold landed, non-mBank fixtures pending. Tracked
+as a separate active plan — not a blocker for this audit's archival.
+
+**Acceptance criteria run** (step 3b): No executable acceptance criteria
+(all bullets are prose checkboxes or `[manual]`).
+
+**Notes:** Audit acceptance criteria (plan conversion) confirmed met on
+2026-08-26. All P0, P2, and P1.5–P1.6 / P1.8–P1.10 findings implemented
+and archived. Only `import-bank-profiles` (P1.7) remains open as a
+separate active plan.

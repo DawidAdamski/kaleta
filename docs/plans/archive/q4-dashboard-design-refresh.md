@@ -3,7 +3,8 @@ plan_id: q4-dashboard-design-refresh
 title: Dashboard design refresh — match the target mockup
 area: dashboard
 effort: medium
-status: in-progress
+status: archived
+archived_at: 2026-08-26
 roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
 ---
 
@@ -237,3 +238,51 @@ third, card flatness, typography, grey purge, light mode last. Nav active =
 4 px left bar + `bg-teal-500/10` (not full pill). KPI trend positive = teal
 (not income green); hide unavailable as em-dash preserving row height; savings
 rate uses p.p. not %.
+
+## Implementation
+
+Landed on 2026-07-05.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `14457e6` | Dawid (Ani) | 2026-07-05 | Add dashboard target image for design reference |
+| `6539af6` | Dawid (Ani) | 2026-07-05 | Update database connection handling and enhance CI workflows |
+
+**Files changed (design-refresh relevant):**
+- `docs/design/dashboard-target.png` (added in 14457e6; removed in 107bb51 — see notes)
+- `docs/images/dashboard-dark.png` (moved in 14457e6)
+- `src/kaleta/static/fonts/inter-var.woff2` + `LICENSE.txt` (Inter font)
+- `src/kaleta/views/theme.py`
+- `src/kaleta/views/chart_utils.py`
+- `src/kaleta/views/layout.py`
+- `src/kaleta/views/dashboard.py`
+- `src/kaleta/views/dashboard_widgets/helpers.py`
+- `src/kaleta/views/dashboard_widgets/cashflow_chart.py`
+- `src/kaleta/views/dashboard_widgets/net_worth_trend.py`
+- `src/kaleta/views/dashboard_widgets/savings_rate_kpi.py`
+- `src/kaleta/views/dashboard_widgets/savings_rate_trend.py`
+- `src/kaleta/views/dashboard_widgets/total_balance.py`
+- `src/kaleta/views/dashboard_widgets/month_net.py`
+- `src/kaleta/views/dashboard_widgets/largest_transactions.py`
+- `src/kaleta/views/dashboard_widgets/upcoming_planned.py`
+- `src/kaleta/services/report_service.py` (KPI period-over-period deltas)
+- `src/kaleta/services/net_worth_service.py`
+- `docs/architecture.md` (UI Colour Schema table updated to teal tokens)
+- `src/kaleta/i18n/locales/en.json`, `pl.json`
+- All remaining view files (grey purge sweep)
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `grep -rn "bg-grey-\|text-grey-" src/kaleta/views/` | 0 (0 source-file hits) |
+| `./scripts/verify.sh --e2e` | accepted by owner (e2e requires live environment; not run by archiver) |
+
+**Notes:**
+- `6539af6` is a mega-commit; the design-refresh changes (Inter font, teal primary, KPI trend rows,
+  theme tokens, chart teal palette, architecture colour table, grey purge) are bundled with unrelated
+  CI/database work. Partial touchpoint overlap only — all plan touchpoints are covered within this commit.
+- `docs/design/dashboard-target.png` (added in `14457e6`) was subsequently removed in `107bb51`
+  ("fix(docs): update screenshot reference in README and remove obsolete images"). The current design
+  reference capture is `docs/design/screenshot.png`.
+- `[manual]` side-by-side acceptance and light-mode review were accepted by the owner on 2026-08-26.

@@ -3,8 +3,14 @@ plan_id: import-history-account-coverage
 title: Import — per-account import history and coverage view
 area: import
 effort: medium
+<<<<<<< HEAD
 status: in-progress
 roadmap_ref: ../../roadmap.md#import
+=======
+status: archived
+archived_at: 2026-08-26
+roadmap_ref: ../roadmap.md#import
+>>>>>>> fff0cb1 (docs(plans): archive completed plans, update index)
 ---
 
 # Import — per-account import history and coverage view
@@ -112,3 +118,43 @@ notifications can ride the wizard-reminders plan later).
   expansion control; history row copy uses "new" instead of "imported" so it
   does not steal ``get_by_text("Imported")`` from the queue status chip.
 - `verify.sh --e2e`: green (77 e2e + 1446 unit/integration).
+
+## Implementation
+
+Landed on 2026-08-13.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `f3ca136` | Dawid Adamski | 2026-08-13 | feat(import): persist import runs and show account coverage (#54) |
+
+**Files changed:**
+- alembic/versions/h2i3j4k5l6m7_add_import_runs.py
+- docs/bdd.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/__init__.py
+- src/kaleta/models/import_run.py
+- src/kaleta/schemas/account.py
+- src/kaleta/services/account_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/views/accounts.py
+- src/kaleta/views/import_view/coverage_section.py
+- src/kaleta/views/import_view/page.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_rules.py
+- tests/e2e/test_transactions.py
+- tests/e2e/test_transfer_detection.py
+- tests/unit/services/test_account_service.py
+- tests/unit/services/test_backup_service.py
+- tests/unit/services/test_import_service.py
+
+**Acceptance criteria run** (step 3b):
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_import_service.py -q` | 0 |
+| `uv run pytest tests/unit/services/test_account_service.py -q` | 0 |
+| `uv run pytest tests/unit/services/test_backup_service.py -q` | 0 |
+| `grep -q "KAL-CSV-008" docs/bdd.md` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `bash scripts/verify.sh` | 0 |

@@ -4,7 +4,7 @@ title: Transactions — long-form notes alongside description
 area: transactions
 effort: small
 roadmap_ref: ../roadmap.md#transactions
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 

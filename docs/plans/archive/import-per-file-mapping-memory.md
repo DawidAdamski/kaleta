@@ -3,8 +3,14 @@ plan_id: import-per-file-mapping-memory
 title: Import — per-file mapping with filename-based memory
 area: import
 effort: medium
+<<<<<<< HEAD
 roadmap_ref: ../../roadmap.md#import
 status: in-progress
+=======
+roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-08-26
+>>>>>>> fff0cb1 (docs(plans): archive completed plans, update index)
 ---
 
 # Import — per-file mapping with filename-based memory
@@ -171,3 +177,40 @@ E2E (`tests/e2e/test_csv_import.py`, docstrings with `Covers: KAL-*`):
   newly selected queue file; queue is not rebuilt on every settings
   keystroke (avoids racing open Quasar menus).
 - Match sort normalises naive SQLite `last_used_at` to aware UTC.
+
+## Implementation
+
+Landed on 2026-08-12.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `9d71f2a` | Dawid (Ani) | 2026-08-11 | feat(import): remember per-file CSV mappings by filename pattern |
+| `a1bbb55` | Dawid Adamski | 2026-08-12 | Merge pull request #53 from DawidAdamski/feat/import-per-file-mapping-memory |
+
+**Files changed:**
+- alembic/versions/g1h2i3j4k5l6_add_import_rules.py
+- docs/bdd.md
+- src/kaleta/api/v1/__init__.py
+- src/kaleta/api/v1/import_rules.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/__init__.py
+- src/kaleta/models/import_rule.py
+- src/kaleta/schemas/import_rule.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/import_rule_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/queue_section.py
+- src/kaleta/views/import_view/settings_section.py
+- src/kaleta/views/import_view/state.py
+- src/kaleta/views/settings/import_tab.py
+- src/kaleta/views/settings/page.py
+- tests/e2e/fixtures/import/ (7 new CSV fixtures)
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_transfer_detection.py
+- tests/unit/services/test_import_rule_service.py
+
+**Acceptance criteria run** (step 3b):
+
+No executable acceptance criteria in this plan (all bullets are prose). Verified via `bash scripts/verify.sh` → VERIFY OK (exit 0).
