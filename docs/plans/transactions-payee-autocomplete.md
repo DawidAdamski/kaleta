@@ -210,6 +210,14 @@ Out of scope:
   costs nothing — `match_or_create_by_name` folds case and reuses the row, so
   no duplicate can appear. Not worth mutating a live Quasar select's options,
   which keeps a separate deep copy for filtering.
+- **One keyboard-only edge case is worth a manual look.** With `add-unique` on
+  dict options, if Quasar's *new-value* path ever fires for text that exactly
+  matches an existing payee label, NiceGUI keys it by the string, which is not
+  among the select's values, and the field clears instead of selecting. In the
+  tested flows it does not happen — filtering highlights the match and Enter
+  picks it as a normal keyed option — and even if it did, nothing is corrupted:
+  `match_or_create_by_name` folds case, so saving still reuses the existing
+  payee rather than creating a second one. Listed as a manual check.
 - **The options dict is copied per dialog.** `new_value_mode` mutates the dict
   in place; the page hands the same dict to both dialogs, so each select gets
   `dict(payee_options)`.
