@@ -174,7 +174,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
 | [planned-transactions-post-due](archive/planned-transactions-post-due.md) | archived | Planned transactions |
 | [transactions-splits-integrity](archive/transactions-splits-integrity.md) | archived | Transactions |
-| [transactions-payee-autocomplete](transactions-payee-autocomplete.md) | draft | Transactions |
+| [transactions-payee-autocomplete](archive/transactions-payee-autocomplete.md) | archived | Transactions |
 | [transactions-upcoming-planned](transactions-upcoming-planned.md) | draft | Transactions |
 | [ux-audit-feature-categorization](archive/ux-audit-feature-categorization.md) | archived | UX / IA |
 | [ux-sidebar-workflow-and-settings](archive/ux-sidebar-workflow-and-settings.md) | archived | UX — sidebar nav (#42) + settings expansion (#60) |
