@@ -3,8 +3,9 @@ plan_id: import-upload-after-done-resets-session
 title: Import — dropping a file after a completed run starts a fresh session
 area: import
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-04
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — upload after a completed run starts a fresh session
@@ -150,3 +151,31 @@ E2E (`tests/e2e/test_csv_import.py`, docstring `Covers:` the new ID):
 - **`count_transactions(account_id)` added to `tests/e2e/seed_helpers.py`** so
   the e2e can assert the ledger count directly (3 rows from file A, then 5 after
   file B) rather than inferring "not duplicated" from the UI.
+
+## Implementation
+
+Landed on 2026-09-04 (PR #76).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5d271ef` | Dawid Adamski | 2026-09-04 | Merge pull request #76 from DawidAdamski/plan/import-upload-after-done-resets-session |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-upload-after-done-resets-session.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/state.py
+- tests/e2e/fixtures/import/autoreset-failing.csv
+- tests/e2e/fixtures/import/autoreset-second.csv
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_rules.py
+- tests/unit/views/test_import_queue_state.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
