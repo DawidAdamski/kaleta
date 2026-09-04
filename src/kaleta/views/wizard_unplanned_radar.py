@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -40,9 +41,7 @@ def _fmt_date(value: datetime.date) -> str:
 def cadence_label(frequency: RecurrenceFrequency, interval: int) -> str:
     """Human wording for the rhythm the radar inferred."""
     if frequency == RecurrenceFrequency.YEARLY:
-        if interval == 1:
-            return t("unplanned_radar.cadence_yearly_one")
-        return t("unplanned_radar.cadence_yearly", interval=interval)
+        return t("unplanned_radar.cadence_yearly")
     return t("unplanned_radar.cadence_monthly", interval=interval)
 
 
@@ -119,7 +118,7 @@ def _render_summary(summary: RadarSummary) -> None:
 def _render_candidate_row(
     candidate: RadarCandidate,
     *,
-    on_plan: Any,
+    on_plan: Callable[[RadarCandidate], None],
 ) -> None:
     with ui.row().classes("w-full items-center gap-3 py-2 border-b border-slate-100"):
         ui.icon("search", size="1.3rem").classes("text-primary")
@@ -223,7 +222,7 @@ def _build_plan_dialog(
     *,
     account_opts: dict[int, str],
     category_opts: dict[int, str],
-) -> Any:
+) -> Callable[[RadarCandidate], None]:
     """Build the pre-filled "plan this cost" dialog; returns its opener."""
     pending: dict[str, RadarCandidate | None] = {"candidate": None}
 

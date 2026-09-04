@@ -126,7 +126,11 @@ tier), price-drift alerts.
   `YEARLY` with `interval = round(gap / 365)`; anything shorter maps
   to `MONTHLY` with `interval = max(2, round(gap / 30))`, so a
   quarterly cost becomes "every 3 months". The `MONTHLY` floor of 2
-  is what stops the radar from ever emitting a monthly plan.
+  is what stops the radar from ever emitting a monthly plan. Yearly is
+  always `interval = 1`: `MAX_GAP_DAYS` caps the gap at 450, well under
+  two years. Raising that ceiling means a multi-year label — and
+  `t()` has no plural mechanism, so a Polish "co N lat/lata" string
+  would need one first.
 - **Evidence link.** Converting a candidate reuses
   `PlannedTransactionService.create` and then sets
   `Transaction.planned_transaction_id` on the source charges. No new
@@ -176,6 +180,15 @@ tier), price-drift alerts.
   alone would have been inconsistent.
 - No amount-drift alerting (KAL-REC-004) and no reminder channel —
   both listed as out of scope.
+
+### Copy and plural agreement
+
+`t()` is flat `str.format` with no plural rules, so every count-bearing
+string is worded to survive any value: "Charges: {count}", "Past
+payments linked: {count}", "Wydatki: {count}", "Co {interval} mies.".
+The naive forms ("{count} charges", "{count} wydatki") read wrong at
+1 and, in Polish, at 5+. If more of these appear, the fix is plural
+support in `kaleta.i18n`, not more careful wording.
 
 ### Pre-existing finding (not fixed here)
 

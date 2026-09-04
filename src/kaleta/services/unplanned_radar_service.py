@@ -398,10 +398,15 @@ def _median(values: list[Decimal]) -> Decimal:
 
 
 def _cadence(average_gap_days: int) -> tuple[RecurrenceFrequency, int]:
-    """Map an average gap onto the closest recurrence the planner can express."""
+    """Map an average gap onto the closest recurrence the planner can express.
+
+    ``MAX_GAP_DAYS`` caps the gap at 450, so a yearly rhythm is always
+    interval 1. Raise that ceiling and this needs a multi-year interval —
+    and a label that survives Polish plural agreement.
+    """
     if average_gap_days >= YEARLY_GAP_FLOOR_DAYS:
-        years = max(1, round(average_gap_days / 365))
-        return RecurrenceFrequency.YEARLY, years
+        return RecurrenceFrequency.YEARLY, 1
+    # Floor of 2: a monthly rhythm belongs to the subscription detector.
     months = max(2, round(average_gap_days / 30))
     return RecurrenceFrequency.MONTHLY, months
 

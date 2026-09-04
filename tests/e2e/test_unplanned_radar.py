@@ -56,7 +56,7 @@ def test_irregular_repeat_cost_is_detected(page: Page, base_url: str) -> None:
 
     row = _row(_card(page, CANDIDATES_HEADING), "Serwis Auto E2E")
     expect(row).to_have_count(1)
-    expect(row.get_by_text(re.compile(r"^2 charges, last on "))).to_be_visible(timeout=10000)
+    expect(row.get_by_text(re.compile(r"^Charges: 2, last on "))).to_be_visible(timeout=10000)
     expect(row.get_by_text("1,300.00", exact=True)).to_be_visible(timeout=5000)
     expect(row.get_by_text("Yearly", exact=True)).to_be_visible(timeout=5000)
 
@@ -128,7 +128,7 @@ def test_planned_transaction_keeps_its_source_payments(page: Page, base_url: str
 
     planned_row = _row(_card(page, PLANNED_HEADING), "Serwis Link E2E")
     expect(planned_row).to_have_count(1, timeout=10000)
-    expect(planned_row.get_by_text("2 past payments linked", exact=True)).to_be_visible(
+    expect(planned_row.get_by_text("Past payments linked: 2", exact=True)).to_be_visible(
         timeout=5000
     )
 
@@ -176,7 +176,7 @@ def test_radar_offers_the_irregular_fund_link(page: Page, base_url: str) -> None
     _open_radar(page, base_url)
 
     fund_card = _card(page, "Irregular expenses fund")
-    expect(fund_card.get_by_text(re.compile(r"irregular costs add up to about"))).to_be_visible(
+    expect(fund_card.get_by_text(re.compile(r"^Irregular costs: \d+ — about "))).to_be_visible(
         timeout=10000
     )
     expect(fund_card.get_by_role("button", name="Open Safety & Reserve Funds")).to_be_visible(
