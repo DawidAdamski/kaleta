@@ -796,6 +796,14 @@ Feature: Manual Transaction Entry
     When I edit the older transaction
     Then the payee field shows "Biedronka"
     And the category is still "Chemia" — editing fills nothing in for me
+
+  KAL-TXN-013 @automated
+  Scenario: A transfer has no counterparty to name
+    Given there is an internal transfer between two of my own accounts
+    And I am on the Transactions page
+    When I edit that transfer
+    Then there is no payee field, just as there is no category field
+    And saving leaves whatever the importer attached to the leg alone
 ```
 
 ## Feature: Quick Entry

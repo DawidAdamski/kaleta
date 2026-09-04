@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Manual Transaction Entry.
 
-Covers: KAL-TXN-001, KAL-TXN-009, KAL-TXN-010, KAL-TXN-011, KAL-TXN-012
+Covers: KAL-TXN-001, KAL-TXN-009, KAL-TXN-010, KAL-TXN-011, KAL-TXN-012,
+KAL-TXN-013
 
 Maps the q3-test-safety-net flow: add, edit, and split a transaction.
 Page URL: /transactions
@@ -12,6 +13,7 @@ from __future__ import annotations
 from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import (
+    get_transaction,
     seed_account,
     seed_category,
     seed_payee,
@@ -501,3 +503,43 @@ def test_edit_shows_payee_and_fills_nothing(page: Page, base_url: str) -> None:
     expect(edit_dialog.get_by_text("Edit Transaction", exact=True)).to_be_visible(timeout=5000)
     expect(edit_dialog.get_by_label(PAYEE_LABEL)).to_have_value(payee_name, timeout=5000)
     expect(edit_dialog.get_by_label("Category")).to_have_value(other_cat, timeout=5000)
+
+
+def test_editing_a_transfer_has_no_payee_field(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-013
+
+    A transfer between own accounts has no counterparty, so the payee field is
+    hidden — and saving must leave the payee an import attached to the leg alone.
+    """
+    source_name = "PKO Transfer Payee E2E"
+    category_name = "Przelewy Transfer Payee E2E"
+    payee_name = "Imported Transfer Payee E2E"
+    described = "Transfer Payee E2E"
+
+    account_id = seed_account(source_name)
+    category_id = seed_category(category_name)
+    payee_id = seed_payee(payee_name)
+    tx_id = seed_transaction(
+        account_id,
+        category_id,
+        100.0,
+        tx_type="transfer",
+        payee_id=payee_id,
+        description=described,
+    )
+
+    page.goto(f"{base_url}/transactions")
+    row = _find_row(page, described)
+    expect(row).to_have_count(1, timeout=5000)
+    row.get_by_role("button", name="Edit").click()
+
+    edit_dialog = page.get_by_role("dialog")
+    expect(edit_dialog.get_by_text("Edit Transaction", exact=True)).to_be_visible(timeout=5000)
+    # NiceGUI hides with a CSS class, so the fields stay in the DOM.
+    expect(edit_dialog.get_by_label(PAYEE_LABEL)).not_to_be_visible(timeout=5000)
+    expect(edit_dialog.get_by_label("Category")).not_to_be_visible()
+
+    edit_dialog.get_by_role("button", name="Save").click()
+    expect(page.get_by_text("Transaction updated.").first).to_be_visible(timeout=5000)
+
+    assert get_transaction(tx_id)["payee_id"] == payee_id

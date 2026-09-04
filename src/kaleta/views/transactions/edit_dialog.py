@@ -42,6 +42,7 @@ def build_edit_dialog(
     edit_tx_id: dict[str, int | None] = {"value": None}
     edit_is_split: dict[str, bool] = {"value": False}
     edit_original_category_id: dict[str, int | None] = {"value": None}
+    loaded_payee: dict[str, Any] = {"id": None, "name": None}
     edit_split_rows: list[dict[str, Any]] = []
     edit_dialog = ui.dialog()
     suggest_dialog = ui.dialog()
@@ -192,6 +193,8 @@ def build_edit_dialog(
             else:
                 edit_category_sel.set_options({})
             edit_category_sel.set_visibility(not is_transfer and not edit_is_split["value"])
+            # An internal transfer moves money between own accounts — no counterparty.
+            edit_payee_sel.set_visibility(not is_transfer)
             edit_split_switch.set_visibility(not is_transfer)
             if is_transfer and edit_is_split["value"]:
                 edit_split_switch.set_value(False)
@@ -220,16 +223,8 @@ def build_edit_dialog(
                 parsed_date = datetime.date.today()
             chosen_type = TransactionType(edit_type_sel.value)
             is_cat_visible = edit_category_sel.visible
-            payee_id, payee_name = split_payee_value(edit_payee_sel.value)
-            # The payee is editable now, so the rule suggester must be told the
-            # name as it stands at save time — not the one loaded with the row.
-            effective_payee_name = (
-                payee_options.get(payee_id) if payee_id is not None else payee_name
-            )
             data = TransactionUpdate(
                 account_id=edit_account_sel.value,
-                payee_id=payee_id,
-                payee_name=payee_name,
                 amount=Decimal(str(edit_amount_input.value)),
                 type=chosen_type,
                 date=parsed_date,
@@ -240,6 +235,24 @@ def build_edit_dialog(
                 category_id=edit_category_sel.value if is_cat_visible else None,
                 tag_ids=edit_tag_sel.value or [],
             )
+            # Hidden for transfers: leave the stored payee alone rather than
+            # clearing whatever the importer attached to the leg. Assigning after
+            # construction is what puts the fields in ``model_fields_set``, the
+            # same way this dialog already sets ``splits`` and ``is_split``.
+            effective_payee_name: str | None = None
+            if edit_payee_sel.visible:
+                payee_id, payee_name = split_payee_value(edit_payee_sel.value)
+                data.payee_id = payee_id
+                data.payee_name = payee_name
+                # The rule suggester needs the name as it stands at save time. A
+                # payee created after this page loaded is not in the options, so
+                # fall back to the name the row was loaded with.
+                effective_payee_name = (
+                    payee_options.get(payee_id) if payee_id is not None else payee_name
+                )
+                if effective_payee_name is None and payee_id == loaded_payee["id"]:
+                    effective_payee_name = loaded_payee["name"]
+
             if edit_is_split["value"]:
                 if not edit_split_rows:
                     ui.notify(t("transactions.add_one_split"), type="negative")
@@ -361,11 +374,14 @@ def build_edit_dialog(
         edit_category_sel.set_value(tx.category_id)
         edit_tag_sel.set_value([tg.id for tg in tx.tags])
         edit_payee_sel.set_value(tx.payee_id)
+        loaded_payee["id"] = tx.payee_id
+        loaded_payee["name"] = tx.payee.name if tx.payee else None
 
         is_transfer = tx.type == TransactionType.TRANSFER or tx.is_internal_transfer
         want_split = (tx.is_split or arm_split) and not is_transfer
         edit_is_split["value"] = want_split
         edit_split_switch.set_visibility(not is_transfer)
+        edit_payee_sel.set_visibility(not is_transfer)
         edit_split_switch.set_value(want_split)
         edit_category_sel.set_visibility(not is_transfer and not want_split)
         edit_split_container.set_visibility(want_split)

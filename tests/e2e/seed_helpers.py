@@ -184,6 +184,13 @@ def count_transactions(account_id: int) -> int:
     return int(resp.json()["total"])
 
 
+def get_transaction(transaction_id: int) -> dict[str, Any]:
+    """Read one transaction back through the API."""
+    resp = _client.get(f"{API_BASE}/transactions/{transaction_id}")
+    resp.raise_for_status()
+    return dict(resp.json())
+
+
 def seed_budget(category_id: int, amount: float, month: int, year: int) -> int:
     """Create a budget entry; return its ID."""
     body = {

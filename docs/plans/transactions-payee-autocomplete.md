@@ -178,9 +178,16 @@ Out of scope:
   endpoint still ships — it is in the plan's scope, is covered by tests, and is
   what an external client uses. The plan's own wording allows this ("or rebind
   the Python on-change").
-- **The payee field is hidden for transfers.** An internal transfer moves money
-  between the user's own accounts and has no counterparty; both legs are built
-  without one, exactly as the category field is hidden there.
+- **The payee field is hidden for transfers, in both dialogs.** An internal
+  transfer moves money between the user's own accounts and has no counterparty;
+  the add dialog builds both legs without one, exactly as the category field is
+  hidden there. Review caught that the *edit* dialog had no such rule — it would
+  have persisted a payee onto a transfer leg, since `TransactionUpdate` has no
+  `validate_rules` to stop it. The field is now hidden there on load and on type
+  change, and while hidden the payee is left out of the update entirely rather
+  than sent as `None`: clearing it would wipe whatever the CSV import attached
+  to the leg. Covered by KAL-TXN-013, which also asserts the stored payee
+  survives a save.
 
 ### Findings a reviewer should know
 
@@ -218,6 +225,11 @@ Out of scope:
   every other use of `common.category` / `transactions.tags`. The string now
   uses the colon-list form the repo already uses for the same problem
   (`categories.template_skipped`).
+- **The rule suggester falls back to the name the row was loaded with.** The
+  edit dialog reads the payee's name from the page-load options; a payee created
+  later in the session is not in that dict, so the name would silently be `None`
+  and the suggestion would degrade rather than fail. `loaded_payee` keeps the
+  name the row opened with as the fallback.
 - **The combobox lives in one place.** `views/transactions/payee_field.py`
   holds `build_payee_select()` (both dialogs build the identical widget) and
   `split_payee_value()` (an `int` value means an existing payee, a `str` means
