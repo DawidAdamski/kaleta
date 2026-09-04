@@ -3,7 +3,7 @@
 
 Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
-KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021
+KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -39,6 +39,7 @@ OTHER_A = FIXTURES / "other-a.csv"
 OTHER_B = FIXTURES / "other-b.csv"
 OTHER_C = FIXTURES / "other-c.csv"
 WISE_JPY = FIXTURES / "wise" / "jpy-travel-sample.csv"
+WISE_JPY_QIF = FIXTURES / "wise" / "jpy-travel-sample.qif"
 AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
 AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
 
@@ -575,3 +576,42 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
     search = page.get_by_label("Search description")
     search.fill("Japanpost Bank(245950) GIFU")
     expect(page.get_by_text("Japanpost Bank(245950) GIFU").first).to_be_visible(timeout=5000)
+
+
+def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-022
+
+    Wise QIF auto-detects into the Wise profile, shows JPY metadata derived
+    from the record memos, and imports with the English payee as description.
+    """
+    account_name = "Wise JPY QIF"
+    expense_cat = "Other Expenses Wise QIF E2E"
+    income_cat = "Other Income Wise QIF E2E"
+
+    seed_account(account_name, currency="JPY")
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    page.locator('input[type="file"]').set_input_files(str(WISE_JPY_QIF))
+    expect(page.get_by_text("jpy-travel-sample.qif").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("JPY").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Japanpost Bank(245950) GIFU", exact=False).first).to_be_visible(
+        timeout=5000
+    )
+
+    _select_import_option(page, "Target account", _account_option(account_name, "JPY"))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    page.get_by_role("button", name="Import 1 file").click()
+    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
+
+    page.goto(f"{base_url}/transactions")
+    search = page.get_by_label("Search description")
+    search.fill("Topped up account")
+    expect(page.get_by_text("Topped up account").first).to_be_visible(timeout=5000)

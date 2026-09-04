@@ -1137,6 +1137,22 @@ Feature: mBank CSV Import
     And I click "Import"
     Then the transactions are imported successfully
 
+  KAL-CSV-022 @automated
+  Scenario: Wise QIF statement imports through the same Wise profile
+    Given there is an account "Wise JPY"
+    And there is an expense category "Other Expenses"
+    And there is an income category "Other Income"
+    And I am on the Import page
+    When I upload a valid Wise QIF file
+    Then the profile is auto-detected as "Wise"
+    And I see metadata with currency "JPY"
+    And the preview shows payee "Japanpost Bank(245950) GIFU" for a card purchase
+    When I select account "Wise JPY"
+    And I select default expense category "Other Expenses"
+    And I select default income category "Other Income"
+    And I click "Import"
+    Then the transactions are imported successfully
+
   KAL-CSV-020 @automated
   Scenario: Dropping a file after a completed run starts a fresh queue
     Given I have completed an import on the Import page
