@@ -72,7 +72,45 @@ monthly narrative with insights.
 **Dependencies:** planned transactions module, notifications (new),
 AI service integration (paid tier).
 
-### 3. Subscriptions
+### 3. Unplanned Expenses Radar {#3-unplanned-expenses-radar}
+
+The Monthly Readiness flow above can only plan what the user
+remembers. The radar (`/wizard/unplanned-radar`) covers what they
+forget: the irregular costs that arrive months or years apart — car
+service, dentist, school fees, chimney sweep, insurance top-ups.
+
+- **Detection:** history is grouped by payee, or by a
+  description-derived merchant key for rows that never got a payee.
+  A group counts as a pattern when consecutive charges sit 60–450
+  days apart and every amount lands within ±30 % of the median. Two
+  occurrences are enough — irregular costs rarely give you three.
+  Anything already covered by an active planned transaction, an
+  active subscription, the Subscriptions category tree, or an earlier
+  dismissal is filtered out.
+- **Amount drift is expected, not suspicious.** A subscription that
+  moves 5 % is news; a car service that moves 15 % is Tuesday. The
+  radar reports the median amount and the amounts it saw.
+- **Two actions per row.** *Plan it* opens a pre-filled planned
+  transaction (name, median amount, inferred rhythm, the account and
+  category the charges used, first occurrence at the estimated next
+  date). *Not a repeating cost* is persisted, so the row does not
+  come back on the next page load.
+- **Evidence stays attached.** Converting links the source charges to
+  the new plan, so the plan carries the payments that justified it
+  rather than an untraceable number.
+- **Feeds the irregular fund.** The page totals the yearly estimates
+  and offers the monthly equivalent as the amount to set aside, with
+  a link to [Safety & Reserve Funds](#4-safety--reserve-funds) — the
+  radar is the natural source for that fund's item list.
+- **Boundary with Subscriptions:** the monthly rhythm belongs to the
+  subscription tracker. If the radar starts listing streaming
+  services, its minimum gap is wrong.
+
+**Dependencies:** planned transactions module, payee / merchant-key
+normalisation shared with the subscription detector, the dismissal
+table (shared, keyed by kind).
+
+### 4. Subscriptions {#3-subscriptions}
 
 Tracks recurring paid services — from obvious ones (streaming,
 software) to modern hidden subscriptions (heated seats in a car,
@@ -97,7 +135,7 @@ enhanced app features).
 (new taxonomy under categories or separate `SubscriptionGroup`
 table), URL field on a per-payee or per-subscription record.
 
-### 4. Safety & Reserve Funds {#4-safety--reserve-funds}
+### 5. Safety & Reserve Funds {#4-safety--reserve-funds}
 
 Four related goals, configurable per user:
 
@@ -125,7 +163,7 @@ Four related goals, configurable per user:
 **Dependencies:** savings account concept (or fund as first-class
 entity), transfers, planned transactions.
 
-### 5. Budget Builder
+### 6. Budget Builder {#5-budget-builder}
 
 Annual budget construction, complementing Monthly Readiness.
 
@@ -139,7 +177,7 @@ Annual budget construction, complementing Monthly Readiness.
 - **Relationship with Monthly Readiness:** Budget Builder creates;
   Monthly Readiness verifies & adjusts.
 
-### 6. Personal Loans Register {#6-personal-loans}
+### 7. Personal Loans Register {#6-personal-loans}
 
 Track money lent to / borrowed from people (not banks).
 

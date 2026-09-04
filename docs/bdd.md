@@ -1892,6 +1892,12 @@ Payments that repeat with a stable amount and cadence should be
 detected and turned into planned transactions in one step — this also
 feeds the forecast.
 
+Two detectors share this feature. The subscription tracker handles the
+monthly rhythm; the **unplanned expenses radar**
+(`/wizard/unplanned-radar`) handles the slow one — car service,
+dentist, school fees — where charges sit months or years apart and the
+amount drifts.
+
 ```gherkin
 Feature: Recurring Payment Detection
   As a user
@@ -1911,7 +1917,7 @@ Feature: Recurring Payment Detection
     Then a monthly planned transaction for 49.99 to "Netflix" exists
     And the detection is marked as handled
 
-  KAL-REC-003 @planned
+  KAL-REC-003 @automated
   Scenario: Link past transactions to the planned series
     Given a planned transaction created from a detection
     When I view the planned transaction
@@ -1922,6 +1928,44 @@ Feature: Recurring Payment Detection
     Given a planned transaction "Netflix 49.99 monthly"
     When a new matching payment arrives at 54.99
     Then Kaleta flags the price change and offers to update the plan
+
+  KAL-REC-005 @automated
+  Scenario: Detect an irregular cost that repeats every few years
+    Given a "Serwis Auto" expense of 1200.00 two years ago
+    And a "Serwis Auto" expense of 1400.00 one year ago
+    When I open the unplanned expenses radar
+    Then "Serwis Auto" is listed as an irregular repeat cost
+    And it shows 2 charges and a typical amount of 1300.00
+    And its rhythm is shown as "Yearly"
+
+  KAL-REC-006 @automated
+  Scenario: Monthly charges stay out of the radar
+    Given a "Kino Helios" expense of 49.99 in each of the last three months
+    When I open the unplanned expenses radar
+    Then "Kino Helios" is not listed — monthly charges belong to the
+      subscriptions tracker
+
+  KAL-REC-007 @automated
+  Scenario: Plan an irregular cost straight from the radar
+    Given "Serwis Auto" is listed on the unplanned expenses radar
+    When I click "Plan it" and save the pre-filled plan
+    Then a planned transaction "Serwis Auto" for 1300.00 exists
+    And "Serwis Auto" is no longer listed as a radar candidate
+
+  KAL-REC-008 @automated
+  Scenario: Dismiss a radar candidate for good
+    Given "Serwis Auto" is listed on the unplanned expenses radar
+    When I mark it as not a repeating cost
+    And I reopen the unplanned expenses radar
+    Then "Serwis Auto" is not listed
+
+  KAL-REC-009 @automated
+  Scenario: Radar totals feed the irregular expenses fund
+    Given "Serwis Auto" costs 1300.00 once a year
+    And "Kominiarz" costs 150.00 once a year
+    When I look at the irregular expenses fund line on the radar
+    Then it sums their yearly estimates to 1450.00
+    And it offers a link to Safety & Reserve Funds
 ```
 
 ## Feature: Subscriptions Panel
