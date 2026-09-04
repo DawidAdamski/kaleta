@@ -112,7 +112,8 @@ Out of scope:
 - `src/kaleta/i18n/locales/{en,pl}.json` — 3 keys.
 - `tests/unit/services/test_transaction_service.py`,
   `tests/unit/services/test_payee_service.py`,
-  `tests/integration/api/test_payees.py`.
+  `tests/integration/test_payees.py` (the plan said
+  `tests/integration/api/test_payees.py`; no such path has ever existed).
 
 ## Open questions
 

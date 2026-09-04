@@ -208,8 +208,12 @@ def build_add_dialog(
             category_sel.value = None
             dest_row.set_visibility(is_transfer)
             # An internal transfer moves money between own accounts — it has no
-            # counterparty, and its two legs are built without one.
+            # counterparty, and its two legs are built without one. Cleared as
+            # well as hidden, like the category above, so a hidden value can
+            # never leak onto a leg.
             payee_sel.set_visibility(not is_transfer)
+            if is_transfer:
+                payee_sel.set_value(None)
             category_sel.set_visibility(not is_transfer and not is_split["value"])
             split_switch.set_visibility(not is_transfer)
             _refresh_fx_visibility()
