@@ -449,3 +449,175 @@ class TestPayeeListWithCounts:
         counts = {p.name: c for p, c in rows}
         assert counts["Keep"] == 5
         assert "Merge" not in counts
+
+
+# ── match_or_create_by_name() ─────────────────────────────────────────────────
+
+
+class TestMatchOrCreateByName:
+    """Covers: KAL-TXN-011"""
+
+    async def test_exact_name_matches_existing(self, svc: PayeeService):
+        existing = await svc.create(PayeeCreate(name="Biedronka"))
+        matched = await svc.match_or_create_by_name("Biedronka")
+        assert matched.id == existing.id
+
+    async def test_lowercase_matches_existing(self, svc: PayeeService):
+        """Typed by a human, so "biedronka" has to find "Biedronka"."""
+        existing = await svc.create(PayeeCreate(name="Biedronka"))
+        matched = await svc.match_or_create_by_name("biedronka")
+        assert matched.id == existing.id
+
+    async def test_polish_name_matches_case_insensitively(self, svc: PayeeService):
+        """SQLite's lower() does not fold Ż/Ł, so the fold happens in Python."""
+        existing = await svc.create(PayeeCreate(name="Żabka"))
+        matched = await svc.match_or_create_by_name("żabka")
+        assert matched.id == existing.id
+
+    async def test_surrounding_whitespace_ignored(self, svc: PayeeService):
+        existing = await svc.create(PayeeCreate(name="Empik"))
+        matched = await svc.match_or_create_by_name("  Empik  ")
+        assert matched.id == existing.id
+
+    async def test_unknown_name_creates_payee(self, svc: PayeeService):
+        created = await svc.match_or_create_by_name("Pasibus")
+        assert created.id is not None
+        assert created.name == "Pasibus"
+
+    async def test_created_name_is_stripped(self, svc: PayeeService):
+        created = await svc.match_or_create_by_name("  Pasibus  ")
+        assert created.name == "Pasibus"
+
+    async def test_repeated_call_does_not_duplicate(self, svc: PayeeService):
+        first = await svc.match_or_create_by_name("Costa Coffee")
+        second = await svc.match_or_create_by_name("costa coffee")
+        assert first.id == second.id
+        names = [p.name for p in await svc.list()]
+        assert names.count("Costa Coffee") == 1
+
+
+# ── last_used_for() ───────────────────────────────────────────────────────────
+
+
+class TestLastUsedFor:
+    """Covers: KAL-TXN-009"""
+
+    async def test_returns_none_without_transactions(self, session: AsyncSession):
+        svc = PayeeService(session)
+        payee_id = await _make_payee(session, "Fresh")
+        assert await svc.last_used_for(payee_id) is None
+
+    async def test_returns_category_of_most_recent_transaction(self, session: AsyncSession):
+        svc = PayeeService(session)
+        account_id = await _make_account(session)
+        old_cat = await _make_category(session, "Old")
+        new_cat = await _make_category(session, "New")
+        payee_id = await _make_payee(session, "Biedronka")
+        tx_svc = TransactionService(session)
+        for cat_id, day in (
+            (old_cat, datetime.date(2025, 1, 1)),
+            (new_cat, datetime.date(2025, 6, 1)),
+        ):
+            await tx_svc.create(
+                TransactionCreate(
+                    account_id=account_id,
+                    category_id=cat_id,
+                    payee_id=payee_id,
+                    amount=Decimal("10.00"),
+                    type=TransactionType.EXPENSE,
+                    date=day,
+                )
+            )
+
+        last_used = await svc.last_used_for(payee_id)
+        assert last_used is not None
+        assert last_used.category_id == new_cat
+
+    async def test_returns_tags_of_that_transaction(self, session: AsyncSession):
+        from kaleta.schemas.tag import TagCreate
+        from kaleta.services import TagService
+
+        svc = PayeeService(session)
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+        tag = await TagService(session).create(TagCreate(name="Card"))
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=account_id,
+                category_id=cat_id,
+                payee_id=payee_id,
+                amount=Decimal("10.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                tag_ids=[tag.id],
+            )
+        )
+
+        last_used = await svc.last_used_for(payee_id)
+        assert last_used is not None
+        assert last_used.tag_ids == [tag.id]
+
+    async def test_transfers_are_skipped(self, session: AsyncSession):
+        """A transfer carries no category and says nothing about the booking."""
+        svc = PayeeService(session)
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session, "Groceries")
+        payee_id = await _make_payee(session, "Biedronka")
+        tx_svc = TransactionService(session)
+        await tx_svc.create(
+            TransactionCreate(
+                account_id=account_id,
+                category_id=cat_id,
+                payee_id=payee_id,
+                amount=Decimal("10.00"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2025, 1, 1),
+            )
+        )
+        await tx_svc.create(
+            TransactionCreate(
+                account_id=account_id,
+                payee_id=payee_id,
+                amount=Decimal("99.00"),
+                type=TransactionType.TRANSFER,
+                date=datetime.date(2025, 9, 1),
+            )
+        )
+
+        last_used = await svc.last_used_for(payee_id)
+        assert last_used is not None
+        assert last_used.category_id == cat_id
+
+    async def test_other_payees_are_ignored(self, session: AsyncSession):
+        svc = PayeeService(session)
+        account_id = await _make_account(session)
+        mine = await _make_category(session, "Mine")
+        theirs = await _make_category(session, "Theirs")
+        payee_id = await _make_payee(session, "Biedronka")
+        other_id = await _make_payee(session, "Lidl")
+        tx_svc = TransactionService(session)
+        await tx_svc.create(
+            TransactionCreate(
+                account_id=account_id,
+                category_id=mine,
+                payee_id=payee_id,
+                amount=Decimal("10.00"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2025, 1, 1),
+            )
+        )
+        await tx_svc.create(
+            TransactionCreate(
+                account_id=account_id,
+                category_id=theirs,
+                payee_id=other_id,
+                amount=Decimal("10.00"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2025, 9, 1),
+            )
+        )
+
+        last_used = await svc.last_used_for(payee_id)
+        assert last_used is not None
+        assert last_used.category_id == mine

@@ -39,6 +39,13 @@ class PayeeMerge(BaseModel):
     )
 
 
+class PayeeLastUsed(BaseModel):
+    """What a payee was last booked as — the learned default for a new entry."""
+
+    category_id: int | None = None
+    tag_ids: list[int] = Field(default_factory=list)
+
+
 class PayeeResponse(PayeeBase):
     model_config = ConfigDict(from_attributes=True)
 

@@ -34,13 +34,13 @@ def build_edit_dialog(
     expense_cats: dict[int, str],
     income_cats: dict[int, str],
     tag_options: dict[int, str],
+    payee_options: dict[int, str],
     *,
     on_saved: Callable[[], None],
 ) -> EditDialogContext:
     edit_tx_id: dict[str, int | None] = {"value": None}
     edit_is_split: dict[str, bool] = {"value": False}
     edit_original_category_id: dict[str, int | None] = {"value": None}
-    edit_payee_name: dict[str, str | None] = {"value": None}
     edit_split_rows: list[dict[str, Any]] = []
     edit_dialog = ui.dialog()
     suggest_dialog = ui.dialog()
@@ -86,6 +86,20 @@ def build_edit_dialog(
         ).classes("w-full")
 
         edit_account_sel = ui.select(account_options, label=t("common.account")).classes("w-full")
+
+        edit_payee_sel = (
+            ui.select(
+                # Copied: ``new_value_mode`` mutates the options dict in place, and
+                # the page shares one dict with the add dialog.
+                dict(payee_options),
+                label=f"{t('transactions.payee_field')} ({t('common.optional')})",
+                value=None,
+                new_value_mode="add-unique",
+                key_generator=lambda name: name,
+            )
+            .classes("w-full")
+            .props(f'clearable hint="{t("transactions.payee_hint")}"')
+        )
 
         with ui.row().classes("w-full items-start gap-3 no-wrap"):
             edit_category_sel = ui.select(expense_cats, label=t("common.category")).classes(
@@ -217,8 +231,22 @@ def build_edit_dialog(
                 parsed_date = datetime.date.today()
             chosen_type = TransactionType(edit_type_sel.value)
             is_cat_visible = edit_category_sel.visible
+            raw_payee = edit_payee_sel.value
+            # The payee is editable now, so the rule suggester must be told the
+            # name as it stands at save time — not the one loaded with the row.
+            effective_payee_name = (
+                payee_options.get(raw_payee)
+                if isinstance(raw_payee, int)
+                else raw_payee.strip()
+                if isinstance(raw_payee, str) and raw_payee.strip()
+                else None
+            )
             data = TransactionUpdate(
                 account_id=edit_account_sel.value,
+                payee_id=raw_payee if isinstance(raw_payee, int) else None,
+                payee_name=(
+                    raw_payee.strip() if isinstance(raw_payee, str) and raw_payee.strip() else None
+                ),
                 amount=Decimal(str(edit_amount_input.value)),
                 type=chosen_type,
                 date=parsed_date,
@@ -276,7 +304,7 @@ def build_edit_dialog(
                 ):
                     return None
                 return await RuleService(session).suggest_from_corrections(
-                    payee_name=edit_payee_name["value"],
+                    payee_name=effective_payee_name,
                     description=data.description or "",
                     category_id=new_category_id,
                 )
@@ -324,7 +352,6 @@ def build_edit_dialog(
             return
         edit_tx_id["value"] = tx_id
         edit_original_category_id["value"] = tx.category_id
-        edit_payee_name["value"] = tx.payee.name if tx.payee else None
         edit_split_rows.clear()
         if tx.is_split:
             for split in tx.splits:
@@ -350,6 +377,7 @@ def build_edit_dialog(
             edit_category_sel.set_options({})
         edit_category_sel.set_value(tx.category_id)
         edit_tag_sel.set_value([tg.id for tg in tx.tags])
+        edit_payee_sel.set_value(tx.payee_id)
 
         is_transfer = tx.type == TransactionType.TRANSFER or tx.is_internal_transfer
         want_split = (tx.is_split or arm_split) and not is_transfer

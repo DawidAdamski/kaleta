@@ -18,6 +18,7 @@ from kaleta.schemas.transaction import (
     TransactionSplitCreate,
     TransactionUpdate,
 )
+from kaleta.services.payee_service import PayeeService
 
 LEDGER_CSV_HEADERS: tuple[str, ...] = (
     "date",
@@ -176,15 +177,47 @@ class TransactionService:
         result = await self.session.execute(select(Tag).where(Tag.id.in_(tag_ids)))
         return builtins.list(result.scalars())
 
+    async def _resolve_payee_id(self, data: TransactionCreate | TransactionUpdate) -> int | None:
+        """Turn a typed payee name into an id, matching or creating the payee.
+
+        An explicit ``payee_id`` always wins — the name is only the fallback for
+        free text the user typed into the combobox.
+        """
+        if data.payee_id is not None or not data.payee_name:
+            return data.payee_id
+        payee = await PayeeService(self.session).match_or_create_by_name(data.payee_name)
+        return payee.id
+
+    async def _payee_tag_defaults(
+        self, payee_id: int | None, tag_ids: builtins.list[int]
+    ) -> builtins.list[int]:
+        """Tags this payee was last booked with, when the caller supplied none.
+
+        Tags only. The learned *category* is filled in the dialog instead
+        (``PayeeService.last_used_for``), because a category can never be
+        missing here: ``TransactionCreate`` rejects a non-split income/expense
+        without one, and a split parent or a transfer must not carry one at all.
+
+        Looked up *before* the insert on purpose — afterwards the row being
+        created would be its own most-recent match.
+        """
+        if payee_id is None or tag_ids:
+            return tag_ids
+        last_used = await PayeeService(self.session).last_used_for(payee_id)
+        if last_used is None:
+            return tag_ids
+        return builtins.list(last_used.tag_ids)
+
     async def create(self, data: TransactionCreate) -> Transaction:
+        payee_id = await self._resolve_payee_id(data)
+        tag_ids = await self._payee_tag_defaults(payee_id, builtins.list(data.tag_ids))
         # Load tags up-front so we can pass them to the constructor — assigning
         # to ``.tags`` post-insert would trigger a lazy-load of the (empty)
         # collection in sync context and raise MissingGreenlet.
-        tags = await self._load_tags(data.tag_ids) if data.tag_ids else []
-        transaction = Transaction(
-            **data.model_dump(exclude={"splits", "tag_ids"}),
-            tags=tags,
-        )
+        tags = await self._load_tags(tag_ids) if tag_ids else []
+        values = data.model_dump(exclude={"splits", "tag_ids", "payee_name"})
+        values["payee_id"] = payee_id
+        transaction = Transaction(**values, tags=tags)
         self.session.add(transaction)
         await self.session.flush()
         for split_data in data.splits:
@@ -205,7 +238,10 @@ class TransactionService:
         import where transactions have no splits and no tags.
         Returns the number of inserted rows.
         """
-        objects = [Transaction(**c.model_dump(exclude={"splits", "tag_ids"})) for c in creates]
+        objects = [
+            Transaction(**c.model_dump(exclude={"splits", "tag_ids", "payee_name"}))
+            for c in creates
+        ]
         self.session.add_all(objects)
         await self.session.commit()
         return len(objects)
@@ -216,11 +252,11 @@ class TransactionService:
         incoming: TransactionCreate,
     ) -> tuple[Transaction, Transaction]:
         """Create a paired internal transfer (two linked legs) atomically."""
-        tx_out = Transaction(**outgoing.model_dump(exclude={"splits", "tag_ids"}))
+        tx_out = Transaction(**outgoing.model_dump(exclude={"splits", "tag_ids", "payee_name"}))
         self.session.add(tx_out)
         await self.session.flush()  # get tx_out.id
 
-        tx_in = Transaction(**incoming.model_dump(exclude={"splits", "tag_ids"}))
+        tx_in = Transaction(**incoming.model_dump(exclude={"splits", "tag_ids", "payee_name"}))
         tx_in.linked_transaction_id = tx_out.id
         self.session.add(tx_in)
         await self.session.flush()  # get tx_in.id
@@ -249,7 +285,14 @@ class TransactionService:
         if transaction is None:
             return None
         fields_set = data.model_fields_set
-        updates = data.model_dump(exclude_unset=True, exclude={"splits", "is_split", "tag_ids"})
+        updates = data.model_dump(
+            exclude_unset=True, exclude={"splits", "is_split", "tag_ids", "payee_name"}
+        )
+        # A typed payee resolves to an id here too, so the edit dialog can name a
+        # payee that does not exist yet. No learned defaults on update: the row
+        # already has the values the user chose, and we do not overwrite them.
+        if data.payee_name:
+            updates["payee_id"] = await self._resolve_payee_id(data)
         splits = data.splits if "splits" in fields_set else None
         is_split = data.is_split if "is_split" in fields_set else None
         tag_ids = data.tag_ids if "tag_ids" in fields_set else None

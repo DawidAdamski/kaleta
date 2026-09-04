@@ -1531,3 +1531,177 @@ class TestTransactionNotes:
         row = TransactionService.build_table_row(tx, None, "none")
         assert row["has_notes"] is False
         assert row["notes"] == ""
+
+
+# ── Payee resolution and learned tag defaults ────────────────────────────────
+
+
+async def _make_payee(session: AsyncSession, name: str) -> int:
+    from kaleta.schemas.payee import PayeeCreate
+    from kaleta.services import PayeeService
+
+    payee = await PayeeService(session).create(PayeeCreate(name=name))
+    return payee.id
+
+
+class TestCreateWithPayeeName:
+    """Covers: KAL-TXN-011"""
+
+    async def test_typed_name_creates_and_links_payee(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        from kaleta.services import PayeeService
+
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+
+        tx = await svc.create(_tx(account_id, cat_id, payee_name="Pasibus"))
+
+        assert tx.payee_id is not None
+        payee = await PayeeService(session).get(tx.payee_id)
+        assert payee is not None and payee.name == "Pasibus"
+
+    async def test_typed_name_reuses_existing_payee(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+
+        tx = await svc.create(_tx(account_id, cat_id, payee_name="biedronka"))
+
+        assert tx.payee_id == payee_id
+
+    async def test_explicit_payee_id_wins_over_name(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        chosen_id = await _make_payee(session, "Chosen")
+
+        tx = await svc.create(_tx(account_id, cat_id, payee_id=chosen_id, payee_name="Ignored"))
+
+        assert tx.payee_id == chosen_id
+
+    async def test_no_payee_leaves_transaction_unlinked(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+
+        tx = await svc.create(_tx(account_id, cat_id))
+
+        assert tx.payee_id is None
+
+
+class TestCreatePayeeTagDefaults:
+    """Covers: KAL-TXN-010"""
+
+    async def test_tags_copied_from_last_transaction_for_payee(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+        tag_id = await _make_tag(session, "Card")
+        await svc.create(_tx(account_id, cat_id, payee_id=payee_id, tag_ids=[tag_id]))
+
+        tx = await svc.create(_tx(account_id, cat_id, payee_id=payee_id))
+
+        assert [tag.id for tag in tx.tags] == [tag_id]
+
+    async def test_supplied_tags_are_not_overwritten(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+        learned_id = await _make_tag(session, "Card")
+        chosen_id = await _make_tag(session, "Cash")
+        await svc.create(_tx(account_id, cat_id, payee_id=payee_id, tag_ids=[learned_id]))
+
+        tx = await svc.create(_tx(account_id, cat_id, payee_id=payee_id, tag_ids=[chosen_id]))
+
+        assert [tag.id for tag in tx.tags] == [chosen_id]
+
+    async def test_first_transaction_for_payee_gets_no_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Nothing to learn from yet — and the row must not learn from itself."""
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+
+        tx = await svc.create(_tx(account_id, cat_id, payee_id=payee_id))
+
+        assert tx.tags == []
+
+    async def test_no_payee_means_no_learned_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+        tag_id = await _make_tag(session, "Card")
+        await svc.create(_tx(account_id, cat_id, payee_id=payee_id, tag_ids=[tag_id]))
+
+        tx = await svc.create(_tx(account_id, cat_id))
+
+        assert tx.tags == []
+
+    async def test_typed_name_also_inherits_tags(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+        tag_id = await _make_tag(session, "Card")
+        await svc.create(_tx(account_id, cat_id, payee_id=payee_id, tag_ids=[tag_id]))
+
+        tx = await svc.create(_tx(account_id, cat_id, payee_name="biedronka"))
+
+        assert tx.payee_id == payee_id
+        assert [tag.id for tag in tx.tags] == [tag_id]
+
+
+class TestUpdateWithPayeeName:
+    """Covers: KAL-TXN-011"""
+
+    async def test_typed_name_links_payee_on_update(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        from kaleta.services import PayeeService
+
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        tx = await svc.create(_tx(account_id, cat_id))
+
+        updated = await svc.update(tx.id, TransactionUpdate(payee_name="Sphinx"))
+
+        assert updated is not None and updated.payee_id is not None
+        payee = await PayeeService(session).get(updated.payee_id)
+        assert payee is not None and payee.name == "Sphinx"
+
+    async def test_payee_id_clears_the_link(self, svc: TransactionService, session: AsyncSession):
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+        tx = await svc.create(_tx(account_id, cat_id, payee_id=payee_id))
+
+        updated = await svc.update(tx.id, TransactionUpdate(payee_id=None))
+
+        assert updated is not None and updated.payee_id is None
+
+    async def test_update_does_not_learn_tags(self, svc: TransactionService, session: AsyncSession):
+        """Editing must not inject tags the user did not ask for."""
+        account_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        payee_id = await _make_payee(session, "Biedronka")
+        tag_id = await _make_tag(session, "Card")
+        await svc.create(_tx(account_id, cat_id, payee_id=payee_id, tag_ids=[tag_id]))
+        plain = await svc.create(_tx(account_id, cat_id))
+
+        updated = await svc.update(plain.id, TransactionUpdate(payee_id=payee_id))
+
+        assert updated is not None
+        assert updated.tags == []

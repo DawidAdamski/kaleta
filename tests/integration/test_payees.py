@@ -5,7 +5,13 @@ from __future__ import annotations
 
 from httpx import AsyncClient
 
-from tests.integration.conftest import PAYEE_PAYLOAD, create_payee
+from tests.integration.conftest import (
+    PAYEE_PAYLOAD,
+    create_account,
+    create_category,
+    create_payee,
+    transaction_payload,
+)
 
 
 class TestListPayees:
@@ -125,3 +131,83 @@ class TestMergePayees:
         )
         assert resp.status_code == 404
         assert resp.json()["error"]["message"] == "Payee not found"
+
+
+class TestPayeeLastUsed:
+    """Covers: KAL-TXN-009, KAL-TXN-010"""
+
+    async def test_returns_category_of_last_transaction(self, api_client: AsyncClient):
+        """Tags travel the same payload; there is no tags API to seed one over HTTP,
+        so the tag half is covered in ``TestLastUsedFor`` at the service level."""
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+        payee = await create_payee(api_client, name="Biedronka")
+        created = await api_client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(account["id"], category["id"], payee_id=payee["id"]),
+        )
+        assert created.status_code == 201
+
+        resp = await api_client.get(f"/api/v1/payees/{payee['id']}/last-used")
+        assert resp.status_code == 200
+        assert resp.json() == {"category_id": category["id"], "tag_ids": []}
+
+    async def test_transfer_only_payee_returns_404(self, api_client: AsyncClient):
+        """A transfer says nothing about how the payee is normally booked."""
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+        payee = await create_payee(api_client, name="Only Transfers")
+        created = await api_client.post(
+            "/api/v1/transactions/",
+            json={
+                **transaction_payload(account["id"], category["id"], payee_id=payee["id"]),
+                "type": "transfer",
+                "category_id": None,
+            },
+        )
+        assert created.status_code == 201
+
+        resp = await api_client.get(f"/api/v1/payees/{payee['id']}/last-used")
+        assert resp.status_code == 404
+
+    async def test_payee_without_transactions_returns_404(self, api_client: AsyncClient):
+        payee = await create_payee(api_client, name="Fresh")
+        resp = await api_client.get(f"/api/v1/payees/{payee['id']}/last-used")
+        assert resp.status_code == 404
+
+    async def test_unknown_payee_returns_404(self, api_client: AsyncClient):
+        resp = await api_client.get("/api/v1/payees/99999/last-used")
+        assert resp.status_code == 404
+
+
+class TestTransactionPayeeName:
+    """Covers: KAL-TXN-011"""
+
+    async def test_posting_payee_name_creates_and_links_the_payee(self, api_client: AsyncClient):
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+
+        resp = await api_client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(account["id"], category["id"], payee_name="Pasibus"),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["payee_name"] == "Pasibus"
+
+        listed = await api_client.get("/api/v1/payees/")
+        assert [p["name"] for p in listed.json()] == ["Pasibus"]
+
+    async def test_posting_payee_name_reuses_existing_payee(self, api_client: AsyncClient):
+        account = await create_account(api_client)
+        category = await create_category(api_client)
+        payee = await create_payee(api_client, name="Biedronka")
+
+        resp = await api_client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(account["id"], category["id"], payee_name="biedronka"),
+        )
+        assert resp.status_code == 201
+        assert resp.json()["payee_id"] == payee["id"]
+
+        listed = await api_client.get("/api/v1/payees/")
+        assert len(listed.json()) == 1

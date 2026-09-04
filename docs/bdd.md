@@ -758,6 +758,44 @@ Feature: Manual Transaction Entry
     When I edit the transaction and clear "Notes (optional)"
     And I click "Save"
     Then the row shows no note icon
+
+  KAL-TXN-009 @automated
+  Scenario: Picking a known payee fills the category it was last booked to
+    Given there is a payee "Biedronka" whose last expense was category "Żywność"
+    And I am on the Transactions page
+    When I press Alt+N
+    And I type "biedr" in "Payee" and pick "Biedronka"
+    Then the category is filled with "Żywność"
+    And I am told which fields were filled from the last "Biedronka" entry
+    And I can still change them before saving
+
+  KAL-TXN-010 @automated
+  Scenario: A category I chose myself is never overwritten
+    Given there is a payee "Biedronka" whose last expense was category "Żywność"
+    And I am on the Transactions page
+    When I press Alt+N
+    And I select category "Chemia"
+    And I pick payee "Biedronka"
+    Then the category stays "Chemia"
+
+  KAL-TXN-011 @automated
+  Scenario: Typing a payee that does not exist creates it on save
+    Given there is no payee "Pasibus"
+    And I am on the Transactions page
+    When I press Alt+N
+    And I type "Pasibus" in "Payee"
+    And I fill in the rest of the entry and click "Save"
+    Then the transaction is linked to a payee named "Pasibus"
+    And "Pasibus" appears on the Payees page
+
+  KAL-TXN-012 @automated
+  Scenario: Editing shows the payee but fills nothing
+    Given there is an older transaction for payee "Biedronka" in category "Chemia"
+    And "Biedronka" has since been booked to "Żywność"
+    And I am on the Transactions page
+    When I edit the older transaction
+    Then the payee field shows "Biedronka"
+    And the category is still "Chemia" — editing fills nothing in for me
 ```
 
 ## Feature: Quick Entry
