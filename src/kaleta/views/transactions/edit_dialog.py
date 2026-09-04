@@ -194,6 +194,9 @@ def build_edit_dialog(
                 edit_category_sel.set_options({})
             edit_category_sel.set_visibility(not is_transfer and not edit_is_split["value"])
             # An internal transfer moves money between own accounts — no counterparty.
+            # Hidden but deliberately not cleared, unlike the add dialog: a hidden
+            # field is left out of the update entirely, so the row keeps its payee
+            # if the type is switched back.
             edit_payee_sel.set_visibility(not is_transfer)
             edit_split_switch.set_visibility(not is_transfer)
             if is_transfer and edit_is_split["value"]:

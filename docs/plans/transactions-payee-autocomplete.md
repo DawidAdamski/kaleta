@@ -5,7 +5,6 @@ area: transactions
 effort: medium
 roadmap_ref: ../roadmap.md#transactions
 status: in-progress
-deferred_to: q4-2026
 ---
 
 # Transactions — payee autocomplete and auto-fill on create
@@ -191,6 +190,10 @@ Out of scope:
   survives a save.
 
 ### Findings a reviewer should know
+
+- **`deferred_to: q4-2026` was dropped from the frontmatter.** It contradicted
+  `status: in-progress` once the plan was picked up; flagged in review as stale
+  metadata.
 
 - **`last_used_for` skips rows without a category**, not just transfers. A split
   parent has `category_id = NULL`, so the most recent row could otherwise answer
