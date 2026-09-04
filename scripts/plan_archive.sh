@@ -130,6 +130,60 @@ for i,l in enumerate(lines):
 open(p,'w').write('\n'.join(lines))
 print('plan_archive: README index row updated' if hit else 'plan_archive: WARNING no index row found in docs/plans/README.md')
 PY
+
+# ── inbound links: every doc that pointed at the plan's old location ──────
+# The block above fixes links *inside* the moved plan. This one fixes links
+# *at* it from anywhere else — without it, an already-archived plan that
+# references a sibling draft (see archive/import-bank-profiles.md) dangles
+# the moment that draft is archived, and check_doc_links.py goes red.
+# Prints one repointed path per line; notices go to stderr so they do not
+# pollute the captured list.
+inbound=$(python3 - "$plan_id" <<'PY3'
+import os, re, sys
+
+plan_id = sys.argv[1]
+old_target = os.path.join("docs/plans", f"{plan_id}.md")
+new_target = os.path.join("docs/plans/archive", f"{plan_id}.md")
+link_re = re.compile(r"(?<!!)\[([^\]]*)\]\(([^)]+)\)")
+skip_dirs = {".git", ".venv", "node_modules", "__pycache__", ".mypy_cache", ".ruff_cache"}
+
+for root, dirs, files in os.walk("."):
+    dirs[:] = [d for d in dirs if d not in skip_dirs]
+    for name in sorted(files):
+        if not name.endswith(".md"):
+            continue
+        path = os.path.normpath(os.path.join(root, name))
+        if path == new_target:
+            continue  # the moved plan itself — already rewritten above
+        with open(path, encoding="utf-8") as fh:
+            original = fh.read()
+
+        def repoint(match):
+            label, target = match.group(1), match.group(2)
+            if target.startswith(("http://", "https://", "mailto:", "#")):
+                return match.group(0)
+            ref, _, anchor = target.partition("#")
+            if not ref:
+                return match.group(0)
+            resolved = os.path.normpath(os.path.join(os.path.dirname(path), ref))
+            if resolved != old_target:
+                return match.group(0)
+            rel = os.path.relpath(new_target, os.path.dirname(path) or ".")
+            return f"[{label}]({rel}{'#' + anchor if anchor else ''})"
+
+        updated = link_re.sub(repoint, original)
+        if updated != original:
+            with open(path, "w", encoding="utf-8") as fh:
+                fh.write(updated)
+            print(path)
+PY3
+)
+if [ -n "$inbound" ]; then
+  printf '%s\n' "$inbound" | while IFS= read -r f; do [ -n "$f" ] && git add "$f"; done
+  echo "plan_archive: repointed inbound links to $plan_id in:" >&2
+  printf '  - %s\n' $inbound >&2
+fi
+
 git add "docs/plans/archive/$plan_id.md" docs/plans/README.md
 
 if [ "$commit" = 1 ]; then

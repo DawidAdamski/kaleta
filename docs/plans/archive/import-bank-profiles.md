@@ -113,7 +113,7 @@ Transfer detection via `Numer konta`; date alias `Data księgowania`.
 
 **Follow-up (separate draft plans, not this plan):**
 
-- [`import-wise-qif.md`](../import-wise-qif.md)
+- [`import-wise-qif.md`](import-wise-qif.md)
 - [`import-wise-mt940.md`](../import-wise-mt940.md)
 - [`import-wise-xlsx.md`](../import-wise-xlsx.md)
 
