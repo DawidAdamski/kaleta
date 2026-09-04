@@ -78,8 +78,9 @@ fixture (see `tests/e2e/fixtures/import/README.md`).
 
 - **Auto-detect vs profile picker** — took the plan default (*prefer
   detect*). `is_wise_qif_content()` requires **both** `!Type:Bank` in the
-  first 64 bytes **and** an `N` line matching `CARD-` / `TRANSFER-` /
-  `BALANCE-`. `!Type:Bank` alone is generic QIF, so it cannot identify a
+  first 64 bytes **and** an `N` line matching `CARD-` or `TRANSFER-` — the
+  only two prefixes the real export contains. `!Type:Bank` alone is
+  generic QIF, so it cannot identify a
   dialect on its own; the Wise transaction id in `N` is the same token as
   the CSV export's `TransferWise ID` column, and that pairing is what
   claims the file. A Quicken-style QIF is deliberately left unclaimed
