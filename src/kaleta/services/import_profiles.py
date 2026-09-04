@@ -41,7 +41,7 @@ def is_mbank_content(content: str) -> bool:
 
 
 _QIF_BANK_HEADER = "!Type:Bank"
-_WISE_QIF_REFERENCE = re.compile(r"^N(?:CARD|TRANSFER|BALANCE)-\w+", re.MULTILINE)
+_WISE_QIF_REFERENCE = re.compile(r"^N(?:CARD|TRANSFER)-\w+", re.MULTILINE)
 
 
 def is_wise_qif_content(content: str) -> bool:
@@ -52,6 +52,10 @@ def is_wise_qif_content(content: str) -> bool:
     transaction id in the ``N`` field (``CARD-…`` / ``TRANSFER-…``, the same
     tokens as the CSV export's ``TransferWise ID`` column) — that pairing is
     what identifies the dialect.
+
+    Only the two prefixes the real export actually contains are matched; a
+    file whose ids Kaleta has not seen falls through to the generic path
+    rather than being claimed on a guess.
     """
     if _QIF_BANK_HEADER not in content[:64]:
         return False

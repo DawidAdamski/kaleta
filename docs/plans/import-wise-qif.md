@@ -166,6 +166,10 @@ rather than folding it into this PR. `test_data/` also holds real
   `upload_section.py` only ever renders `drop_hint_generic`, so the
   reworded `drop_hint_wise` will not actually be seen. `drop_hint_mbank`
   was left untouched; wiring either up is a separate chore.
+- **The banner's client and account rows are blank for QIF.** The format
+  carries neither, so `extract_metadata` leaves both empty and the shared
+  banner renders two empty values. Cosmetic, and the Wise CSV path already
+  renders a blank account number for the same reason.
 - **`inherit_queue_settings` cannot copy the account between QIF files.**
   Its Wise arm keys off `metadata.currency`, which QIF leaves empty, so
   two queued QIFs fall through to the generic same-profile branch: the
