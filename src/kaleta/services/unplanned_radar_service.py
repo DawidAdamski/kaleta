@@ -136,6 +136,8 @@ class UnplannedRadarService:
             if payee is not None:
                 if payee.id in tracked_payee_ids or payee.id in dismissed_payee_ids:
                     continue
+                if merchant_key_from_description(payee.name) in tracked_keys:
+                    continue
                 payee_names[payee.id] = payee.name
                 by_payee[payee.id].append(occ)
                 continue
@@ -304,7 +306,12 @@ class UnplannedRadarService:
     # ── Exclusion sources ─────────────────────────────────────────────────
 
     async def _subscription_category_ids(self) -> set[int]:
-        """Subscriptions root + its direct children — handled by the sub tracker."""
+        """Subscriptions root + its direct children — handled by the sub tracker.
+
+        One level deep, matching ``SubscriptionService`` and the tree the
+        category service actually builds. If the Subscriptions tree ever grows
+        a third level, both walks need to recurse together.
+        """
         root_result = await self.session.execute(
             select(Category.id).where(Category.is_subscriptions_root.is_(True))
         )
@@ -337,16 +344,7 @@ class UnplannedRadarService:
         planned = await self.session.execute(
             select(PlannedTransaction.name).where(PlannedTransaction.is_active.is_(True))
         )
-        planned_keys = {
-            merchant_key_from_description(name) for name in planned.scalars().all() if name
-        }
-        keys.update(planned_keys)
-
-        if planned_keys:
-            payees = await self.session.execute(select(Payee.id, Payee.name))
-            for payee_id, payee_name in payees.all():
-                if merchant_key_from_description(payee_name) in planned_keys:
-                    payee_ids.add(payee_id)
+        keys.update(merchant_key_from_description(name) for name in planned.scalars().all() if name)
 
         keys.discard("")
         return payee_ids, keys
