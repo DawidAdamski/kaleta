@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""CSV upload drop zone for the import wizard."""
+"""CSV / QIF upload drop zone for the import wizard."""
 
 from __future__ import annotations
 
@@ -33,7 +33,7 @@ def build_upload_section() -> UploadSection:
                 max_files=20,
                 max_file_size=50 * 1024 * 1024,
             )
-            .props("accept=.csv flat bordered")
+            .props("accept=.csv,.qif flat bordered")
             .classes("w-full mt-2")
         )
     return UploadSection(hint_label=hint_label, upload_widget=upload_widget)
