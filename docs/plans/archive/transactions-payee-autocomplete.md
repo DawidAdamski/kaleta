@@ -3,8 +3,9 @@ plan_id: transactions-payee-autocomplete
 title: Transactions — payee autocomplete and auto-fill on create
 area: transactions
 effort: medium
-roadmap_ref: ../roadmap.md#transactions
-status: in-progress
+roadmap_ref: ../../roadmap.md#transactions
+status: archived
+archived_at: 2026-09-04
 ---
 
 # Transactions — payee autocomplete and auto-fill on create
@@ -253,3 +254,37 @@ Out of scope:
   date falling off page 1 of the ledger. The file's scroll-until-found loop is
   now reusable by label (`_select_labeled`), and rows are located through the
   search filter (`_find_row`).
+
+## Implementation
+
+Landed on 2026-09-04 (PR #78).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `a8734e3` | Dawid Adamski | 2026-09-04 | Merge pull request #78 from DawidAdamski/plan/transactions-payee-autocomplete |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/transactions-payee-autocomplete.md
+- src/kaleta/api/v1/payees.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/schemas/payee.py
+- src/kaleta/schemas/transaction.py
+- src/kaleta/services/payee_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/transactions/add_dialog.py
+- src/kaleta/views/transactions/edit_dialog.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/transactions/payee_field.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_transactions.py
+- tests/integration/test_payees.py
+- tests/unit/services/test_payee_service.py
+- tests/unit/services/test_transaction_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
