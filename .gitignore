@@ -67,3 +67,6 @@ site/
 
 # Goal mode runtime state (see docs/goal-mode.md)
 .claude/state/
+
+# Real bank exports for fixture work — live PII, never commit.
+test_data/
