@@ -18,6 +18,7 @@ from kaleta.services.import_profiles import (
     enabled_profile_keys,
     is_mbank_content,
     is_wise_content,
+    is_wise_qif_content,
     iter_ui_profiles,
 )
 
@@ -47,9 +48,25 @@ class TestBankProfileRegistry:
         content = '"TransferWise ID",Date,Amount,Currency,Description\nX,01-01-2024,-1,EUR,Test\n'
         assert detect_bank_profile(content) == WISE_PROFILE
 
+    def test_detect_bank_profile_promotes_wise_qif(self) -> None:
+        content = "!Type:Bank\nD05/17/2026\nT-1.00\nPShop\nNCARD-3802617048\n^\n"
+        assert is_wise_qif_content(content) is True
+        assert detect_bank_profile(content) == WISE_PROFILE
+
+    def test_detect_bank_profile_ignores_qif_without_wise_ids(self) -> None:
+        """Generic QIF stays unclaimed — only the Wise dialect is supported."""
+        content = "!Type:Bank\nD01/15/2024\nT-10.00\nPCoffee\n^\n"
+        assert is_wise_qif_content(content) is False
+        assert detect_bank_profile(content) is None
+
     def test_detect_bank_profile_ignores_plain_csv(self) -> None:
         content = "date,amount,description\n2024-01-15,-10.00,Coffee\n"
         assert detect_bank_profile(content) is None
+
+    def test_wise_fixture_directory_ships_both_supported_shapes(self) -> None:
+        wise = FIXTURES_IMPORT / "wise"
+        assert (wise / "jpy-travel-sample.csv").is_file()
+        assert (wise / "jpy-travel-sample.qif").is_file()
 
     def test_fixture_contribution_readme_exists(self) -> None:
         readme = FIXTURES_IMPORT / "README.md"

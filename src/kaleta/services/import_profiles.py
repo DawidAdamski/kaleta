@@ -22,6 +22,7 @@ without a real anonymized export fixture** — see
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 
@@ -39,10 +40,30 @@ def is_mbank_content(content: str) -> bool:
     return "#Numer rachunku" in content or "#Rodzaj rachunku" in content
 
 
+_QIF_BANK_HEADER = "!Type:Bank"
+_WISE_QIF_REFERENCE = re.compile(r"^N(?:CARD|TRANSFER|BALANCE)-\w+", re.MULTILINE)
+
+
+def is_wise_qif_content(content: str) -> bool:
+    """Heuristic: content looks like a Wise QIF statement export.
+
+    QIF is a generic format, so the ``!Type:Bank`` header alone is not enough
+    to claim the file as Wise's. Wise stamps every record with its own
+    transaction id in the ``N`` field (``CARD-…`` / ``TRANSFER-…``, the same
+    tokens as the CSV export's ``TransferWise ID`` column) — that pairing is
+    what identifies the dialect.
+    """
+    if _QIF_BANK_HEADER not in content[:64]:
+        return False
+    return _WISE_QIF_REFERENCE.search(content) is not None
+
+
 def is_wise_content(content: str) -> bool:
-    """Heuristic: content looks like a Wise (TransferWise) CSV export."""
+    """Heuristic: content looks like a Wise (TransferWise) CSV or QIF export."""
     sample = content[:512]
-    return "TransferWise ID" in sample or "transferwise id" in sample.lower()
+    if "TransferWise ID" in sample or "transferwise id" in sample.lower():
+        return True
+    return is_wise_qif_content(content)
 
 
 @dataclass(frozen=True, slots=True)

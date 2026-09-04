@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import csv
 import datetime
 import io
@@ -28,6 +29,7 @@ from kaleta.services.import_profiles import (
     detect_bank_profile,
     is_mbank_content,
     is_wise_content,
+    is_wise_qif_content,
 )
 from kaleta.services.rule_service import RuleService
 
@@ -498,6 +500,143 @@ def _apply_wise_descriptions(rows: list[ParsedRow]) -> list[ParsedRow]:
     return updated
 
 
+# ── Wise QIF preprocessor ────────────────────────────────────────────────────
+
+# Wise's English card memos read "Card transaction of 50220 JPY issued by …".
+# QIF has no currency field at all, so that trailing code is the only in-file
+# source for the wallet currency the metadata banner shows.
+_QIF_MEMO_CURRENCY = re.compile(r"\d[\d\s,.]*\s([A-Z]{3})\b")
+
+_QIF_RECORD_END = "^"
+
+
+@dataclass
+class QifRecord:
+    """One ``^``-terminated QIF record, fields keyed by their leading letter."""
+
+    date: str = ""
+    amount: str = ""
+    payee: str = ""
+    reference: str = ""
+    memo: str = ""
+
+    def is_empty(self) -> bool:
+        return not (self.date or self.amount or self.payee or self.reference or self.memo)
+
+    def as_raw(self) -> dict[str, str]:
+        """Row dict mirroring the CSV path's ``ParsedRow.raw`` shape."""
+        raw = {
+            "date": self.date,
+            "amount": self.amount,
+            "payee": self.payee,
+            "reference": self.reference,
+            "memo": self.memo,
+        }
+        return {key: value for key, value in raw.items() if value}
+
+
+def iter_qif_records(content: str) -> Iterable[QifRecord]:
+    """Split QIF *content* into records, ignoring ``!Type:`` header lines."""
+    record = QifRecord()
+    for line in content.splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("!"):
+            continue
+        if stripped == _QIF_RECORD_END:
+            if not record.is_empty():
+                yield record
+            record = QifRecord()
+            continue
+        field_letter, value = stripped[0], stripped[1:].strip()
+        if field_letter == "D":
+            record.date = value
+        elif field_letter == "T":
+            record.amount = value
+        elif field_letter == "P":
+            record.payee = value
+        elif field_letter == "N":
+            record.reference = value
+        elif field_letter == "M":
+            record.memo = value
+        # Other QIF letters (C cleared, L category, A address) are not used.
+    if not record.is_empty():
+        yield record
+
+
+class WiseQifPreprocessor:
+    """Parses Wise QIF statement exports.
+
+    Wise offers QIF alongside CSV for the same statement. The records carry
+    ``D`` date (US ``MM/DD/YYYY``), ``T`` amount, ``P`` payee, ``N`` Wise
+    transaction id and ``M`` memo, separated by ``^``. QIF is not CSV, so this
+    path bypasses ``parse_csv`` entirely instead of routing through a mapping.
+    """
+
+    _DATE_FORMAT = "%m/%d/%Y"
+
+    @staticmethod
+    def is_wise_qif(content: str) -> bool:
+        """Quick heuristic — check if the file looks like a Wise QIF export."""
+        return is_wise_qif_content(content)
+
+    @staticmethod
+    def parse(content: str) -> ImportResult:
+        """Parse QIF records into ``ParsedRow`` objects (positive = income)."""
+        result = ImportResult()
+        for index, record in enumerate(iter_qif_records(content), start=1):
+            if not record.date or not record.amount:
+                result.skipped += 1
+                continue
+            try:
+                date = _parse_date(record.date, WiseQifPreprocessor._DATE_FORMAT)
+                amount = _parse_amount(
+                    record.amount,
+                    decimal_separator=".",
+                    thousands_separator=",",
+                )
+            except ImportError_ as exc:
+                result.errors.append(f"QIF record {index}: {exc}")
+                continue
+            description = record.payee or record.memo
+            notes = record.memo if record.memo != description else ""
+            result.rows.append(
+                ParsedRow(
+                    date=date,
+                    amount=amount,
+                    description=description,
+                    raw=record.as_raw(),
+                    notes=notes,
+                )
+            )
+        return result
+
+    @staticmethod
+    def extract_metadata(content: str) -> MBankFileMetadata:
+        """Derive the Wise metadata banner fields from the QIF records."""
+        dates: list[datetime.date] = []
+        currencies: list[str] = []
+        for record in iter_qif_records(content):
+            if record.date:
+                with contextlib.suppress(ImportError_):
+                    dates.append(_parse_date(record.date, WiseQifPreprocessor._DATE_FORMAT))
+            memo_currency = _QIF_MEMO_CURRENCY.search(record.memo)
+            if memo_currency:
+                currencies.append(memo_currency.group(1))
+        # An empty currency disables the mismatch block in
+        # ``validate_import_readiness`` — the right default when the export
+        # never names one.
+        currency = max(set(currencies), key=currencies.count) if currencies else ""
+        return MBankFileMetadata(
+            client_name="",
+            account_type="Wise",
+            currency=currency,
+            account_number="",
+            account_number_digits="",
+            date_from=min(dates) if dates else None,
+            date_to=max(dates) if dates else None,
+        )
+
+
 def _build_mbank_description(raw: dict[str, str]) -> str:
     """Build a human-readable description from mBank CSV row fields.
 
@@ -760,6 +899,8 @@ class ImportService:
             )
 
         if resolved_profile == WISE_PROFILE:
+            if WiseQifPreprocessor.is_wise_qif(content):
+                return self._parse_wise_qif(content)
             if not WisePreprocessor.is_wise_file(content):
                 return self._parse_generic_with_mapping(
                     content,
@@ -789,6 +930,29 @@ class ImportService:
             content,
             mapping=mapping,
             profile=resolved_profile,
+        )
+
+    def _parse_wise_qif(self, content: str) -> ParseQueuedFileResult:
+        """Parse a Wise QIF upload.
+
+        Unlike the CSV branches there is no generic fallback: a QIF that fails
+        to yield rows is not CSV, so handing it to the column-mapping step
+        would only show the user a garbled table.
+        """
+        result = WiseQifPreprocessor.parse(content)
+        if not result.rows:
+            return ParseQueuedFileResult(
+                profile=WISE_PROFILE,
+                errors=result.errors,
+                error_key="import.qif_no_rows",
+                error_params={"skipped": result.skipped},
+            )
+        return ParseQueuedFileResult(
+            profile=WISE_PROFILE,
+            rows=result.rows,
+            errors=result.errors,
+            metadata=WiseQifPreprocessor.extract_metadata(content),
+            ok=True,
         )
 
     def _parse_generic_with_mapping(
