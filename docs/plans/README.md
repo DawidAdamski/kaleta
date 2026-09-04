@@ -163,6 +163,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [import-wise-qif](archive/import-wise-qif.md) | archived | Import — Wise QIF (after CSV) |
 | [import-wise-mt940](import-wise-mt940.md) | draft | Import — Wise MT940 (after CSV) |
 | [import-wise-xlsx](import-wise-xlsx.md) | draft | Import — Wise XLSX (after CSV) |
+| [import-filename-currency-guard](import-filename-currency-guard.md) | draft | Import — currency guard for QIF (after import-wise-qif) |
 | [import-mapping-wizard](archive/import-mapping-wizard.md) | archived | Import — dogfooding UX |
 | [import-history-account-coverage](archive/import-history-account-coverage.md) | archived | Import — dogfooding UX |
 | [import-per-file-mapping-memory](archive/import-per-file-mapping-memory.md) | archived | Import — after import-mapping-wizard |
