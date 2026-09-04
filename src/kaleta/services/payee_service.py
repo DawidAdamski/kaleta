@@ -111,6 +111,11 @@ class PayeeService:
         spelling. Here the name is typed by a human, so "biedronka" has to find
         "Biedronka". SQLite's ``lower()`` only folds ASCII, so the fold is done
         in Python — otherwise Polish names (Żabka, Empik Ł.) would never match.
+
+        The fold only runs when the indexed exact match misses, and then scans
+        the payee table. That is the right trade at this scale (a personal ledger
+        holds tens to low hundreds of payees); a generated ``lower(name)`` column
+        would be the fix if it ever stops being.
         """
         name_clean = name.strip()
         result = await self.session.execute(select(Payee).where(Payee.name == name_clean))

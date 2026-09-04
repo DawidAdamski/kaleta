@@ -218,6 +218,11 @@ Out of scope:
   every other use of `common.category` / `transactions.tags`. The string now
   uses the colon-list form the repo already uses for the same problem
   (`categories.template_skipped`).
+- **The combobox lives in one place.** `views/transactions/payee_field.py`
+  holds `build_payee_select()` (both dialogs build the identical widget) and
+  `split_payee_value()` (an `int` value means an existing payee, a `str` means
+  one the service still has to match or create). Extracted after review flagged
+  the two dialogs carrying near-duplicate parsing.
 - **Two of the new e2e tests only failed in the full suite.** Both were
   suite-scale fragilities, not feature bugs: a category option virtualised out
   of Quasar's menu once enough categories exist, and a row seeded with an old

@@ -15,6 +15,7 @@ from kaleta.i18n import t
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate, TransactionType
 from kaleta.services import CurrencyRateService, PayeeService, TransactionService, with_session
 from kaleta.views.settings.user_prefs import get_default_account_id
+from kaleta.views.transactions.payee_field import build_payee_select, split_payee_value
 from kaleta.views.transactions.split_editor import build_split_editor
 
 
@@ -85,19 +86,7 @@ def build_add_dialog(
             .props(f'autogrow hint="{t("transactions.notes_hint")}"')
         )
 
-        payee_sel = (
-            ui.select(
-                # Copied: ``new_value_mode`` mutates the options dict in place, and
-                # the page shares one dict with the edit dialog.
-                dict(payee_options),
-                label=f"{t('transactions.payee_field')} ({t('common.optional')})",
-                value=None,
-                new_value_mode="add-unique",
-                key_generator=lambda name: name,
-            )
-            .classes("w-full")
-            .props(f'clearable hint="{t("transactions.payee_hint")}"')
-        )
+        payee_sel = build_payee_select(payee_options)
 
         with ui.row().classes("w-full items-start gap-3 no-wrap"):
             category_sel = ui.select(expense_cats, label=t("common.category")).classes("flex-1")
@@ -247,18 +236,9 @@ def build_add_dialog(
             split_container=split_container,
         )
 
-        def _payee_selection() -> tuple[int | None, str | None]:
-            """Split the combobox value into an existing id or a typed new name."""
-            raw = payee_sel.value
-            if isinstance(raw, int):
-                return raw, None
-            if isinstance(raw, str) and raw.strip():
-                return None, raw.strip()
-            return None, None
-
         async def _on_payee_change() -> None:
             """Pre-fill category and tags from how this payee was last booked."""
-            payee_id, _ = _payee_selection()
+            payee_id, _ = split_payee_value(payee_sel.value)
             if payee_id is None:
                 return
             want_category = category_sel.visible and category_sel.value is None
@@ -336,7 +316,7 @@ def build_add_dialog(
                     )
                     for r in split_rows
                 ]
-                payee_id, payee_name = _payee_selection()
+                payee_id, payee_name = split_payee_value(payee_sel.value)
                 data = TransactionCreate(
                     account_id=account_sel.value,
                     category_id=None,
@@ -412,7 +392,7 @@ def build_add_dialog(
                 if not category_sel.value:
                     ui.notify(t("transactions.select_category"), type="negative")
                     return
-                payee_id, payee_name = _payee_selection()
+                payee_id, payee_name = split_payee_value(payee_sel.value)
                 data = TransactionCreate(
                     account_id=account_sel.value,
                     category_id=category_sel.value,

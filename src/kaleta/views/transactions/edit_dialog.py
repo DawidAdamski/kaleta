@@ -19,6 +19,7 @@ from kaleta.schemas.categorisation_rule import (
 )
 from kaleta.schemas.transaction import TransactionSplitCreate, TransactionType, TransactionUpdate
 from kaleta.services import RuleService, TransactionService, with_session
+from kaleta.views.transactions.payee_field import build_payee_select, split_payee_value
 from kaleta.views.transactions.split_editor import build_split_editor
 
 
@@ -87,19 +88,7 @@ def build_edit_dialog(
 
         edit_account_sel = ui.select(account_options, label=t("common.account")).classes("w-full")
 
-        edit_payee_sel = (
-            ui.select(
-                # Copied: ``new_value_mode`` mutates the options dict in place, and
-                # the page shares one dict with the add dialog.
-                dict(payee_options),
-                label=f"{t('transactions.payee_field')} ({t('common.optional')})",
-                value=None,
-                new_value_mode="add-unique",
-                key_generator=lambda name: name,
-            )
-            .classes("w-full")
-            .props(f'clearable hint="{t("transactions.payee_hint")}"')
-        )
+        edit_payee_sel = build_payee_select(payee_options)
 
         with ui.row().classes("w-full items-start gap-3 no-wrap"):
             edit_category_sel = ui.select(expense_cats, label=t("common.category")).classes(
@@ -231,22 +220,16 @@ def build_edit_dialog(
                 parsed_date = datetime.date.today()
             chosen_type = TransactionType(edit_type_sel.value)
             is_cat_visible = edit_category_sel.visible
-            raw_payee = edit_payee_sel.value
+            payee_id, payee_name = split_payee_value(edit_payee_sel.value)
             # The payee is editable now, so the rule suggester must be told the
             # name as it stands at save time — not the one loaded with the row.
             effective_payee_name = (
-                payee_options.get(raw_payee)
-                if isinstance(raw_payee, int)
-                else raw_payee.strip()
-                if isinstance(raw_payee, str) and raw_payee.strip()
-                else None
+                payee_options.get(payee_id) if payee_id is not None else payee_name
             )
             data = TransactionUpdate(
                 account_id=edit_account_sel.value,
-                payee_id=raw_payee if isinstance(raw_payee, int) else None,
-                payee_name=(
-                    raw_payee.strip() if isinstance(raw_payee, str) and raw_payee.strip() else None
-                ),
+                payee_id=payee_id,
+                payee_name=payee_name,
                 amount=Decimal(str(edit_amount_input.value)),
                 type=chosen_type,
                 date=parsed_date,
