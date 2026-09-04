@@ -138,7 +138,17 @@ tier), price-drift alerts.
   a link as the radar's, so a charge linked by hand through
   `TransactionUpdate` lands in the same list. The section is therefore
   named "Planned with linked history", not "Planned from the radar" —
-  the copy claims only what the query can prove.
+  the copy claims only what the query can prove. Conversion links only
+  charges *before* `start_date`, so the link and the read-back agree
+  even when the user picks an earlier first-occurrence date.
+- **A plan "covers" a source by name alone.** A plan carries no
+  reference to what it replaces, so the exclusion matches the plan's
+  name against the payee / merchant key. That is coarser than
+  "already covered by a planned transaction" sounds: an unrelated
+  active planned expense sharing a name suppresses the candidate.
+  Restricting the match to active *expenses* at least keeps a planned
+  salary from silencing a same-named payee. A real provenance column
+  would fix it properly — out of scope here.
 - **KAL-REC-002 stays `@planned`.** Its Given is
   "Netflix 49.99 monthly" — the *subscription* detector's convert
   action, which still only creates `Subscription` rows. Retagging it

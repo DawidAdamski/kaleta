@@ -498,6 +498,42 @@ class TestCreatePlannedFromCandidate:
             datetime.date(2025, 9, 10),
         ]
 
+    async def test_an_early_start_date_only_links_what_precedes_it(self, session: AsyncSession):
+        """A charge on or after start_date is a posted occurrence, not history."""
+        await _seed_yearly_car_service(session)
+        svc = UnplannedRadarService(session)
+        [candidate] = await svc.detect(today=TODAY)
+
+        # Start before the most recent charge — only the older one is history.
+        planned = await svc.create_planned_from_candidate(
+            candidate, start_date=datetime.date(2025, 1, 1)
+        )
+
+        linked = await session.execute(
+            select(Transaction.date).where(Transaction.planned_transaction_id == planned.id)
+        )
+        assert list(linked.scalars().all()) == [datetime.date(2024, 9, 10)]
+        [row] = await svc.planned_with_history()
+        assert row.linked_count == 1
+        assert await svc.linked_history(planned.id) == [datetime.date(2024, 9, 10)]
+
+    async def test_planned_income_does_not_cover_a_radar_candidate(self, session: AsyncSession):
+        account_id, _, _ = await _seed_yearly_car_service(session)
+        await PlannedTransactionService(session).create(
+            PlannedTransactionCreate(
+                name="Serwis Auto",
+                amount=Decimal("1300.00"),
+                type=TransactionType.INCOME,
+                account_id=account_id,
+                frequency=RecurrenceFrequency.YEARLY,
+                start_date=datetime.date(2026, 9, 10),
+            )
+        )
+
+        [candidate] = await UnplannedRadarService(session).detect(today=TODAY)
+
+        assert candidate.source_name == "Serwis Auto"
+
     async def test_blank_name_is_rejected(self, session: AsyncSession):
         from kaleta.exceptions import ValidationError
 

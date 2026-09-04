@@ -16,7 +16,6 @@ filtered out.
 
 from __future__ import annotations
 
-import builtins
 import datetime
 import logging
 from collections import Counter, defaultdict
@@ -70,7 +69,7 @@ class _Occurrence:
     category_id: int | None
 
 
-def summarise(candidates: builtins.list[RadarCandidate]) -> RadarSummary:
+def summarise(candidates: list[RadarCandidate]) -> RadarSummary:
     """Roll candidates up into the irregular-fund suggestion line."""
     yearly = sum((c.yearly_estimate for c in candidates), Decimal("0"))
     yearly = yearly.quantize(_CENTS, rounding=ROUND_HALF_UP)
@@ -93,7 +92,7 @@ class UnplannedRadarService:
         *,
         today: datetime.date | None = None,
         window_days: int | None = None,
-    ) -> builtins.list[RadarCandidate]:
+    ) -> list[RadarCandidate]:
         """Return irregular repeat-costs worth planning, biggest yearly cost first."""
         ref = today or datetime.date.today()
         effective_window = window_days if window_days and window_days > 0 else RADAR_WINDOW_DAYS
@@ -146,7 +145,7 @@ class UnplannedRadarService:
                 continue
             by_key[key].append(occ)
 
-        candidates: builtins.list[RadarCandidate] = []
+        candidates: list[RadarCandidate] = []
         for payee_id, occurrences in by_payee.items():
             candidate = _candidate_from_occurrences(
                 occurrences, name=payee_names[payee_id], payee_id=payee_id
@@ -236,6 +235,9 @@ class UnplannedRadarService:
     async def _link_history(self, planned: PlannedTransaction, candidate: RadarCandidate) -> None:
         """Point the candidate's source charges at the freshly created plan.
 
+        Only charges predating ``start_date`` are linked — that is what
+        :meth:`planned_with_history` reads back, and a charge on or after the
+        start date would collide with a real posted occurrence.
         ``(planned_transaction_id, date)`` is unique, so at most one charge per
         date is linked; the rest keep their existing link (or none).
         """
@@ -246,6 +248,7 @@ class UnplannedRadarService:
             .where(
                 Transaction.id.in_(candidate.transaction_ids),
                 Transaction.planned_transaction_id.is_(None),
+                Transaction.date < planned.start_date,
             )
             .order_by(Transaction.date)
         )
@@ -258,7 +261,7 @@ class UnplannedRadarService:
 
     # ── Converted plans ───────────────────────────────────────────────────
 
-    async def planned_with_history(self) -> builtins.list[RadarPlannedRow]:
+    async def planned_with_history(self) -> list[RadarPlannedRow]:
         """Plans that carry linked charges predating them.
 
         A charge dated before its plan's ``start_date`` is history rather than
@@ -294,7 +297,7 @@ class UnplannedRadarService:
             row.linked_dates.append(tx_date)
         return sorted(rows.values(), key=lambda r: r.name)
 
-    async def linked_history(self, planned_id: int) -> builtins.list[datetime.date]:
+    async def linked_history(self, planned_id: int) -> list[datetime.date]:
         """Dates of the historical charges linked to one plan."""
         planned = await self.session.get(PlannedTransaction, planned_id)
         if planned is None:
@@ -347,8 +350,14 @@ class UnplannedRadarService:
             if name:
                 keys.add(merchant_key_from_description(name))
 
+        # Name matching is deliberately coarse — it is the only signal a plan
+        # carries about what it covers. Restricting it to active expenses at
+        # least keeps a planned salary from silencing a same-named payee.
         planned = await self.session.execute(
-            select(PlannedTransaction.name).where(PlannedTransaction.is_active.is_(True))
+            select(PlannedTransaction.name).where(
+                PlannedTransaction.is_active.is_(True),
+                PlannedTransaction.type == TransactionType.EXPENSE,
+            )
         )
         keys.update(merchant_key_from_description(name) for name in planned.scalars().all() if name)
 
@@ -379,7 +388,7 @@ def _amount_bucket(amount: Decimal) -> str:
     return str(int(amount.quantize(Decimal("1"), rounding=ROUND_HALF_UP)))
 
 
-def _median(values: builtins.list[Decimal]) -> Decimal:
+def _median(values: list[Decimal]) -> Decimal:
     ordered = sorted(values)
     n = len(ordered)
     mid = n // 2
@@ -398,7 +407,7 @@ def _cadence(average_gap_days: int) -> tuple[RecurrenceFrequency, int]:
 
 
 def _candidate_from_occurrences(
-    occurrences: builtins.list[_Occurrence], *, name: str, payee_id: int | None
+    occurrences: list[_Occurrence], *, name: str, payee_id: int | None
 ) -> RadarCandidate | None:
     """Return a candidate when the charges form a slow, drifting rhythm."""
     if len(occurrences) < MIN_OCCURRENCES:
@@ -443,7 +452,7 @@ def _candidate_from_occurrences(
     )
 
 
-def _dominant_category_id(occurrences: builtins.list[_Occurrence]) -> int | None:
+def _dominant_category_id(occurrences: list[_Occurrence]) -> int | None:
     """The category most of the charges were filed under, if any."""
     counts = Counter(o.category_id for o in occurrences if o.category_id is not None)
     if not counts:
