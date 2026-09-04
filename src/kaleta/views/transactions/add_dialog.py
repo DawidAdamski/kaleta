@@ -13,8 +13,9 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate, TransactionType
-from kaleta.services import CurrencyRateService, TransactionService, with_session
+from kaleta.services import CurrencyRateService, PayeeService, TransactionService, with_session
 from kaleta.views.settings.user_prefs import get_default_account_id
+from kaleta.views.transactions.payee_field import build_payee_select, split_payee_value
 from kaleta.views.transactions.split_editor import build_split_editor
 
 
@@ -31,6 +32,7 @@ def build_add_dialog(
     expense_cats: dict[int, str],
     income_cats: dict[int, str],
     tag_options: dict[int, str],
+    payee_options: dict[int, str],
     *,
     on_saved: Callable[[], None],
 ) -> AddDialogContext:
@@ -83,6 +85,8 @@ def build_add_dialog(
             .classes("w-full notes-field")
             .props(f'autogrow hint="{t("transactions.notes_hint")}"')
         )
+
+        payee_sel = build_payee_select(payee_options)
 
         with ui.row().classes("w-full items-start gap-3 no-wrap"):
             category_sel = ui.select(expense_cats, label=t("common.category")).classes("flex-1")
@@ -203,6 +207,13 @@ def build_add_dialog(
                 category_sel.set_options({})
             category_sel.value = None
             dest_row.set_visibility(is_transfer)
+            # An internal transfer moves money between own accounts — it has no
+            # counterparty, and its two legs are built without one. Cleared as
+            # well as hidden, like the category above, so a hidden value can
+            # never leak onto a leg.
+            payee_sel.set_visibility(not is_transfer)
+            if is_transfer:
+                payee_sel.set_value(None)
             category_sel.set_visibility(not is_transfer and not is_split["value"])
             split_switch.set_visibility(not is_transfer)
             _refresh_fx_visibility()
@@ -228,6 +239,43 @@ def build_add_dialog(
             amount_input=amount_input,
             split_container=split_container,
         )
+
+        async def _on_payee_change() -> None:
+            """Pre-fill category and tags from how this payee was last booked."""
+            payee_id, _ = split_payee_value(payee_sel.value)
+            if payee_id is None:
+                return
+            want_category = category_sel.visible and category_sel.value is None
+            want_tags = not add_tag_sel.value
+            if not want_category and not want_tags:
+                return
+
+            async def _load(session: Any) -> Any:
+                return await PayeeService(session).last_used_for(payee_id)
+
+            last_used = await with_session(_load)
+            if last_used is None:
+                return
+            filled: list[str] = []
+            # The learned category can belong to the other type (an expense
+            # category on an income row), in which case it is not on offer here.
+            if want_category and last_used.category_id in (category_sel.options or {}):
+                category_sel.set_value(last_used.category_id)
+                filled.append(t("common.category"))
+            if want_tags and last_used.tag_ids:
+                add_tag_sel.set_value(list(last_used.tag_ids))
+                filled.append(t("transactions.tags"))
+            if filled:
+                ui.notify(
+                    t(
+                        "transactions.payee_autofilled",
+                        fields=", ".join(filled),
+                        payee=payee_options.get(payee_id, ""),
+                    ),
+                    type="info",
+                )
+
+        payee_sel.on("update:model-value", lambda _: _on_payee_change())
 
         async def submit() -> None:
             if not account_sel.value:
@@ -272,9 +320,12 @@ def build_add_dialog(
                     )
                     for r in split_rows
                 ]
+                payee_id, payee_name = split_payee_value(payee_sel.value)
                 data = TransactionCreate(
                     account_id=account_sel.value,
                     category_id=None,
+                    payee_id=payee_id,
+                    payee_name=payee_name,
                     amount=amount_input.value,
                     type=chosen_type,
                     date=parsed_date,
@@ -345,9 +396,12 @@ def build_add_dialog(
                 if not category_sel.value:
                     ui.notify(t("transactions.select_category"), type="negative")
                     return
+                payee_id, payee_name = split_payee_value(payee_sel.value)
                 data = TransactionCreate(
                     account_id=account_sel.value,
                     category_id=category_sel.value,
+                    payee_id=payee_id,
+                    payee_name=payee_name,
                     amount=amount_input.value,
                     type=chosen_type,
                     date=parsed_date,
@@ -413,6 +467,8 @@ def build_add_dialog(
         dest_amount_input.set_value(None)
         fx_info.set_text("")
         add_tag_sel.set_value([])
+        payee_sel.set_value(None)
+        payee_sel.set_visibility(True)
         notes_input.set_value("")
         refresh_split_rows()
         refresh_split_balance()

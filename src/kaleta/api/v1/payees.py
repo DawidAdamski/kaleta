@@ -7,7 +7,13 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.api.deps import get_session
-from kaleta.schemas.payee import PayeeCreate, PayeeMerge, PayeeResponse, PayeeUpdate
+from kaleta.schemas.payee import (
+    PayeeCreate,
+    PayeeLastUsed,
+    PayeeMerge,
+    PayeeResponse,
+    PayeeUpdate,
+)
 from kaleta.services.payee_service import PayeeService
 
 _404: dict[int | str, dict[str, Any]] = {404: {"description": "Payee not found"}}
@@ -46,6 +52,30 @@ async def get_payee(
     if not payee:
         raise HTTPException(status_code=404, detail="Payee not found")
     return payee  # type: ignore[return-value]
+
+
+@router.get(
+    "/{payee_id}/last-used",
+    response_model=PayeeLastUsed,
+    summary="How this payee was last booked",
+    description=(
+        "Returns the category and tags of the payee's most recent categorised, "
+        "non-transfer transaction — the learned default a client can pre-fill a "
+        "new entry with. 404 when the payee does not exist or has no such history."
+    ),
+    responses={404: {"description": "Payee not found or has no prior transactions"}},
+)
+async def payee_last_used(
+    payee_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> PayeeLastUsed:
+    svc = PayeeService(session)
+    if not await svc.get(payee_id):
+        raise HTTPException(status_code=404, detail="Payee not found")
+    last_used = await svc.last_used_for(payee_id)
+    if last_used is None:
+        raise HTTPException(status_code=404, detail="Payee has no prior transactions")
+    return last_used
 
 
 @router.put(

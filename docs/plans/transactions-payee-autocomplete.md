@@ -4,8 +4,7 @@ title: Transactions — payee autocomplete and auto-fill on create
 area: transactions
 effort: medium
 roadmap_ref: ../roadmap.md#transactions
-status: draft
-deferred_to: q4-2026
+status: in-progress
 ---
 
 # Transactions — payee autocomplete and auto-fill on create
@@ -112,7 +111,8 @@ Out of scope:
 - `src/kaleta/i18n/locales/{en,pl}.json` — 3 keys.
 - `tests/unit/services/test_transaction_service.py`,
   `tests/unit/services/test_payee_service.py`,
-  `tests/integration/api/test_payees.py`.
+  `tests/integration/test_payees.py` (the plan said
+  `tests/integration/api/test_payees.py`; no such path has ever existed).
 
 ## Open questions
 
@@ -130,4 +130,126 @@ Out of scope:
    it; tests already exist.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### Open questions — all resolved to the plan's defaults
+
+1. **Match by identity?** Deferred, as planned. `match_or_create_by_name`
+   matches on `Payee.name` only; it is the single call site to swap when
+   `payees-identities-automerge` ships aliases.
+2. **Auto-fill scope** — both category and tags.
+3. **Toast vs silent** — toast. `transactions.payee_autofilled` names the fields
+   it filled and the payee they came from.
+4. **Where is `Tag` linked?** `Transaction.tags`, many-to-many via
+   `transaction_tags` (`models/tag.py`). Reused as-is; no model change.
+
+### Deviations from the plan, and why
+
+- **The view touchpoint moved.** The plan points at
+  `src/kaleta/views/transactions.py` around lines ~394 / ~871; that module has
+  since been split into `views/transactions/` (`add_dialog.py`,
+  `edit_dialog.py`, `page.py`). Same two dialogs, new files.
+- **Service-side auto-fill is tags-only, and the category half lives in the
+  dialog.** The plan asks `TransactionService.create` to fill a missing
+  category. It cannot: `TransactionCreate.validate_rules` rejects a non-split
+  income/expense without a category, and a split parent or a transfer must not
+  carry one — so every path that reaches the service either already has a
+  category or must not be given one. Writing the branch anyway would have been
+  dead code. Tags have no such constraint and are filled in the service, which
+  is what makes the API round-trip criterion meaningful. The category is filled
+  in the dialog when the payee is picked, which is where the user can see and
+  override it — and is what the acceptance criteria describe.
+- **The look-up happens *before* the insert, not after.** The plan says "after
+  insert". After the insert the new row is itself the payee's most recent
+  transaction, so the feature would learn from itself.
+- **`payee_name` is on `TransactionUpdate` too.** The plan only lists
+  `TransactionCreate`. Without it, a brand-new name typed into the *edit*
+  dialog's combobox would be silently dropped. `update` resolves the name the
+  same way but never applies learned defaults — the row already holds the
+  user's choices.
+- **`match_or_create_by_name` is a new method, not a rename of
+  `find_or_create`.** They differ where it matters: `find_or_create` matches
+  case-*sensitively* because mBank exports arrive ALL-CAPS and each spelling is
+  its own payee; the new method folds case in Python (SQLite's `lower()` only
+  folds ASCII, so `Żabka`/`żabka` would never match in SQL). The import path
+  keeps the old method.
+- **The view calls `PayeeService.last_used_for` through `with_session`, not the
+  new HTTP endpoint.** Every other view in the repo reaches the service layer
+  directly; having a NiceGUI page HTTP-call its own API would be a first. The
+  endpoint still ships — it is in the plan's scope, is covered by tests, and is
+  what an external client uses. The plan's own wording allows this ("or rebind
+  the Python on-change").
+- **The payee field is hidden for transfers, in both dialogs.** An internal
+  transfer moves money between the user's own accounts and has no counterparty;
+  the add dialog builds both legs without one, exactly as the category field is
+  hidden there. Review caught that the *edit* dialog had no such rule — it would
+  have persisted a payee onto a transfer leg, since `TransactionUpdate` has no
+  `validate_rules` to stop it. The field is now hidden there on load and on type
+  change, and while hidden the payee is left out of the update entirely rather
+  than sent as `None`: clearing it would wipe whatever the CSV import attached
+  to the leg. Covered by KAL-TXN-013, which also asserts the stored payee
+  survives a save.
+
+### Findings a reviewer should know
+
+- **`deferred_to: q4-2026` was dropped from the frontmatter.** It contradicted
+  `status: in-progress` once the plan was picked up; flagged in review as stale
+  metadata.
+
+- **`last_used_for` skips rows without a category**, not just transfers. A split
+  parent has `category_id = NULL`, so the most recent row could otherwise answer
+  "no category" and the feature would look broken. The trade-off: a payee seen
+  only on split transactions teaches nothing, including its tags.
+- **The seed ships no payees.** The acceptance criteria say *Biedronka* is
+  "created by the seed"; `scripts/seed.py` creates no `Payee` rows at all —
+  that is `seed-payees-tags-coverage`'s scope (still draft, deferred to
+  q4-2026), so seeding them here would poach another plan. The e2e tests seed
+  their own payee and category and assert the same behaviour; read the manual
+  criteria as "an existing payee" rather than "the seeded one".
+- **A payee created from the dialog does not appear in that page's combobox
+  until reload.** The options are read once at page load. Retyping the name
+  costs nothing — `match_or_create_by_name` folds case and reuses the row, so
+  no duplicate can appear. Not worth mutating a live Quasar select's options,
+  which keeps a separate deep copy for filtering.
+- **One keyboard-only edge case is worth a manual look.** With `add-unique` on
+  dict options, if Quasar's *new-value* path ever fires for text that exactly
+  matches an existing payee label, NiceGUI keys it by the string, which is not
+  among the select's values, and the field clears instead of selecting. In the
+  tested flows it does not happen — filtering highlights the match and Enter
+  picks it as a normal keyed option — and even if it did, nothing is corrupted:
+  `match_or_create_by_name` folds case, so saving still reuses the existing
+  payee rather than creating a second one. Listed as a manual check.
+- **The options dict is copied per dialog.** `new_value_mode` mutates the dict
+  in place; the page hands the same dict to both dialogs, so each select gets
+  `dict(payee_options)`.
+- **Select indices in `tests/e2e/test_transactions.py` still hold.** The payee
+  select is inserted after the account select, and the only positional lookup in
+  the suite is `nth(1)` for the account.
+- **Making the payee editable made the rule suggester's payee name go stale.**
+  `edit_submit` fed `RuleService.suggest_from_corrections` the name captured
+  when the row was loaded. That was safe while the payee could not be changed
+  here; now a user who corrects both payee and category would have got a rule
+  suggested for the *old* payee. It now uses the name as it stands at save time,
+  and the `edit_payee_name` holder that only existed for this is gone. Found by
+  `i18n-verifier` while auditing the diff.
+- **Polish `payee_autofilled` was reworded for case agreement.** `{fields}`
+  receives nominative labels (`Kategoria`, `Tagi`), which cannot follow
+  "Uzupełniono" — and the labels cannot be inflected, since they are shared with
+  every other use of `common.category` / `transactions.tags`. The string now
+  uses the colon-list form the repo already uses for the same problem
+  (`categories.template_skipped`).
+- **The rule suggester falls back to the name the row was loaded with.** The
+  edit dialog reads the payee's name from the page-load options; a payee created
+  later in the session is not in that dict, so the name would silently be `None`
+  and the suggestion would degrade rather than fail. `loaded_payee` keeps the
+  name the row opened with as the fallback.
+- **The combobox lives in one place.** `views/transactions/payee_field.py`
+  holds `build_payee_select()` (both dialogs build the identical widget) and
+  `split_payee_value()` (an `int` value means an existing payee, a `str` means
+  one the service still has to match or create). Extracted after review flagged
+  the two dialogs carrying near-duplicate parsing.
+- **Two of the new e2e tests only failed in the full suite.** Both were
+  suite-scale fragilities, not feature bugs: a category option virtualised out
+  of Quasar's menu once enough categories exist, and a row seeded with an old
+  date falling off page 1 of the ledger. The file's scroll-until-found loop is
+  now reusable by label (`_select_labeled`), and rows are located through the
+  search filter (`_find_row`).

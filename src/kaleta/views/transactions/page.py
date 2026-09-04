@@ -12,6 +12,7 @@ from kaleta.schemas.transaction import TransactionType
 from kaleta.services import (
     AccountService,
     CategoryService,
+    PayeeService,
     TagService,
     TransactionService,
     with_session,
@@ -38,13 +39,14 @@ from kaleta.views.transactions.table_actions import render_table_actions
 
 
 async def transactions_page(*, open_new: bool = False) -> None:
-    async def _load_reference_data(session: Any) -> tuple[Any, Any, Any]:
+    async def _load_reference_data(session: Any) -> tuple[Any, Any, Any, Any]:
         accounts = await AccountService(session).list()
         categories = await CategoryService(session).list()
         tags = await TagService(session).list()
-        return accounts, categories, tags
+        payees = await PayeeService(session).list()
+        return accounts, categories, tags, payees
 
-    accounts, categories, tags = await with_session(_load_reference_data)
+    accounts, categories, tags, payees = await with_session(_load_reference_data)
 
     account_options: dict[int, str] = {a.id: a.name for a in accounts}
     expense_cats = CategoryService.build_option_labels(
@@ -55,6 +57,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
     )
     all_cats = CategoryService.build_option_labels(categories)
     tag_options: dict[int, str] = {tg.id: tg.name for tg in tags}
+    payee_options: dict[int, str] = {p.id: p.name for p in payees}
     accounts_by_id = {a.id: a for a in accounts}
     selected_tx_ids: list[int] = []
 
@@ -95,6 +98,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         expense_cats,
         income_cats,
         tag_options,
+        payee_options,
         on_saved=_apply_filters,
     )
     edit_dialog_ctx = build_edit_dialog(
@@ -102,6 +106,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         expense_cats,
         income_cats,
         tag_options,
+        payee_options,
         on_saved=_apply_filters,
     )
     _, confirm_delete_selected = build_delete_dialog(

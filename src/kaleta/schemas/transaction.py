@@ -67,6 +67,10 @@ class TransactionBase(BaseModel):
 class TransactionCreate(TransactionBase):
     splits: list[TransactionSplitCreate] = Field(default_factory=list)
     tag_ids: list[int] = Field(default_factory=list)
+    # Free-text payee typed by the user. Resolved to ``payee_id`` by the
+    # service (matched case-insensitively, created when new); ignored when
+    # ``payee_id`` is already set.
+    payee_name: str | None = Field(default=None, max_length=200)
 
     @model_validator(mode="after")
     def validate_rules(self) -> TransactionCreate:
@@ -107,6 +111,7 @@ class TransactionUpdate(BaseModel):
     planned_transaction_id: int | None = None
     tag_ids: list[int] | None = None
     splits: list[TransactionSplitCreate] | None = None
+    payee_name: str | None = Field(default=None, max_length=200)
 
 
 class TransactionResponse(TransactionBase):

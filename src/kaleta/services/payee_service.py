@@ -5,10 +5,11 @@ import builtins
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from kaleta.models.payee import Payee
-from kaleta.models.transaction import Transaction
-from kaleta.schemas.payee import PayeeCreate, PayeeUpdate
+from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.schemas.payee import PayeeCreate, PayeeLastUsed, PayeeUpdate
 
 
 class PayeeService:
@@ -98,3 +99,65 @@ class PayeeService:
         self.session.add(payee)
         await self.session.flush()
         return payee
+
+    async def match_or_create_by_name(self, name: str) -> Payee:
+        """Case-insensitive name lookup; creates the payee when nothing matches.
+
+        Does NOT commit — the caller owns the transaction; ``flush()`` makes the
+        new ID available within the current session.
+
+        Distinct from :meth:`find_or_create`, which matches case-sensitively
+        because mBank exports arrive ALL-CAPS and must stay one payee per exact
+        spelling. Here the name is typed by a human, so "biedronka" has to find
+        "Biedronka". SQLite's ``lower()`` only folds ASCII, so the fold is done
+        in Python — otherwise Polish names (Żabka, Empik Ł.) would never match.
+
+        The fold only runs when the indexed exact match misses, and then scans
+        the payee table. That is the right trade at this scale (a personal ledger
+        holds tens to low hundreds of payees); a generated ``lower(name)`` column
+        would be the fix if it ever stops being.
+        """
+        name_clean = name.strip()
+        result = await self.session.execute(select(Payee).where(Payee.name == name_clean))
+        exact = result.scalar_one_or_none()
+        if exact is not None:
+            return exact
+
+        folded = name_clean.casefold()
+        candidates = await self.session.execute(select(Payee).order_by(Payee.id))
+        for payee in candidates.scalars():
+            if payee.name.casefold() == folded:
+                return payee
+
+        payee = Payee(name=name_clean)
+        self.session.add(payee)
+        await self.session.flush()
+        return payee
+
+    async def last_used_for(self, payee_id: int) -> PayeeLastUsed | None:
+        """Category and tags of this payee's most recent categorised entry.
+
+        Transfers are skipped — they carry no category and say nothing about how
+        the payee is normally booked. Rows without a category (split parents) are
+        skipped too, so the answer is always usable as a default; ``None`` means
+        the payee has nothing to learn from yet.
+        """
+        stmt = (
+            select(Transaction)
+            .where(
+                Transaction.payee_id == payee_id,
+                Transaction.type != TransactionType.TRANSFER,
+                Transaction.category_id.is_not(None),
+            )
+            .options(selectinload(Transaction.tags))
+            .order_by(Transaction.date.desc(), Transaction.id.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        transaction = result.scalars().first()
+        if transaction is None:
+            return None
+        return PayeeLastUsed(
+            category_id=transaction.category_id,
+            tag_ids=[tag.id for tag in transaction.tags],
+        )
