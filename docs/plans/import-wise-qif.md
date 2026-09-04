@@ -163,8 +163,16 @@ rather than folding it into this PR. `test_data/` also holds real
 ### Out of scope, left alone
 
 - `import.drop_hint_mbank` / `import.drop_hint_wise` are dead i18n keys —
-  `upload_section.py` only ever renders `drop_hint_generic`. Both were
-  updated for consistency but wiring them up is a separate chore.
+  `upload_section.py` only ever renders `drop_hint_generic`, so the
+  reworded `drop_hint_wise` will not actually be seen. `drop_hint_mbank`
+  was left untouched; wiring either up is a separate chore.
+- **Per-record QIF parse errors have no render path.** `_parse_wise_qif`
+  puts them in `errors`, but the failed-status branch in `page.py` shows
+  `error_key` only, and `mapping_section` (the sole renderer of
+  `parse_errors`) is generic-profile-only. A QIF whose records all fail
+  for a concrete reason shows just the generic `import.qif_no_rows`. This
+  follows from the deliberate no-mapping-fallback design; surfacing the
+  detail is a follow-up, not a change to make here.
 - The BDD feature block is still titled *mBank CSV Import* while already
   holding the Wise CSV scenario (KAL-CSV-019) and now the QIF one
   (KAL-CSV-022). Renaming it is a docs change outside this plan's scope
