@@ -25,7 +25,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.exceptions import NotFoundError, ValidationError
+from kaleta.exceptions import ValidationError
 from kaleta.models.category import Category
 from kaleta.models.dismissed_candidate import DismissedCandidate, DismissedCandidateKind
 from kaleta.models.payee import Payee
@@ -296,21 +296,6 @@ class UnplannedRadarService:
             row.linked_count += 1
             row.linked_dates.append(tx_date)
         return sorted(rows.values(), key=lambda r: r.name)
-
-    async def linked_history(self, planned_id: int) -> list[datetime.date]:
-        """Dates of the historical charges linked to one plan."""
-        planned = await self.session.get(PlannedTransaction, planned_id)
-        if planned is None:
-            raise NotFoundError(f"Planned transaction {planned_id} not found")
-        result = await self.session.execute(
-            select(Transaction.date)
-            .where(
-                Transaction.planned_transaction_id == planned_id,
-                Transaction.date < planned.start_date,
-            )
-            .order_by(Transaction.date)
-        )
-        return list(result.scalars().all())
 
     # ── Exclusion sources ─────────────────────────────────────────────────
 

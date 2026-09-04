@@ -51,7 +51,11 @@ class RadarSummary(BaseModel):
 
 
 class RadarPlannedRow(BaseModel):
-    """A planned transaction the radar created, with its history link count."""
+    """A planned transaction that carries charges predating its start date.
+
+    Conversion from the radar is what normally produces those links, but
+    nothing records who made them — a charge linked by hand appears here too.
+    """
 
     planned_id: int
     name: str

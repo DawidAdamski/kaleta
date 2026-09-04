@@ -468,10 +468,6 @@ class TestCreatePlannedFromCandidate:
             datetime.date(2024, 9, 10),
             datetime.date(2025, 9, 10),
         ]
-        assert await svc.linked_history(planned.id) == [
-            datetime.date(2024, 9, 10),
-            datetime.date(2025, 9, 10),
-        ]
 
     async def test_converted_candidate_stops_being_detected(self, session: AsyncSession):
         await _seed_yearly_car_service(session)
@@ -515,7 +511,7 @@ class TestCreatePlannedFromCandidate:
         assert list(linked.scalars().all()) == [datetime.date(2024, 9, 10)]
         [row] = await svc.planned_with_history()
         assert row.linked_count == 1
-        assert await svc.linked_history(planned.id) == [datetime.date(2024, 9, 10)]
+        assert row.linked_dates == [datetime.date(2024, 9, 10)]
 
     async def test_planned_income_does_not_cover_a_radar_candidate(self, session: AsyncSession):
         account_id, _, _ = await _seed_yearly_car_service(session)
@@ -543,9 +539,3 @@ class TestCreatePlannedFromCandidate:
 
         with pytest.raises(ValidationError):
             await svc.create_planned_from_candidate(candidate, name="   ")
-
-    async def test_linked_history_of_an_unknown_plan_raises(self, session: AsyncSession):
-        from kaleta.exceptions import NotFoundError
-
-        with pytest.raises(NotFoundError):
-            await UnplannedRadarService(session).linked_history(999)

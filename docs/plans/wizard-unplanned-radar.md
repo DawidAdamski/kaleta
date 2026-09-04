@@ -137,7 +137,8 @@ tier), price-drift alerts.
   column was needed: `(planned_transaction_id, date)` is already
   unique, and a charge that predates `start_date` is by definition
   history rather than a posted occurrence. `planned_with_history()`
-  reads that back — it is how KAL-REC-003 is verified without
+  reads that back — a single method, no speculative read API beyond
+  what the page renders. It is how KAL-REC-003 is verified without
   touching the planned-transactions page. The flip side: nothing marks
   a link as the radar's, so a charge linked by hand through
   `TransactionUpdate` lands in the same list. The section is therefore
