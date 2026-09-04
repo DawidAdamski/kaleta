@@ -1157,6 +1157,24 @@ Feature: mBank CSV Import
     Then the failed file is cleared from the queue with the rest of the run
     And I am told the failed file was not imported
     And the queue holds only the new file
+
+  KAL-CSV-022 @automated
+  Scenario: Wise QIF statement imports through the same Wise profile
+    Given there is an account "Wise JPY"
+    And there is an expense category "Other Expenses"
+    And there is an income category "Other Income"
+    And I am on the Import page
+    When I upload a valid Wise QIF file
+    Then the profile is auto-detected as "Wise"
+    And the metadata banner shows the statement period
+    And the banner shows no currency, because the QIF format carries none
+    And the preview shows payee "Japanpost Bank(245950) GIFU" for a card purchase
+    And the card holder name in the QIF memos is nowhere on the page
+    When I select account "Wise JPY"
+    And I select default expense category "Other Expenses"
+    And I select default income category "Other Income"
+    And I click "Import"
+    Then the transactions are imported successfully
 ```
 
 ## Feature: Transfer Recognition
