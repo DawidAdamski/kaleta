@@ -3,7 +3,7 @@ plan_id: wizard-unplanned-radar
 title: Wizard — unplanned expenses radar (detect irregular one-offs, convert to planned)
 area: wizard
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#payment-calendar
 ---
 

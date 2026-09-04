@@ -9,7 +9,7 @@ from kaleta.models.categorisation_rule import CategorisationRule, RuleMatchMode
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.credit import CreditCardProfile, LoanProfile
 from kaleta.models.currency_rate import CurrencyRate
-from kaleta.models.dismissed_candidate import DismissedCandidate
+from kaleta.models.dismissed_candidate import DismissedCandidate, DismissedCandidateKind
 from kaleta.models.import_rule import ImportRule
 from kaleta.models.import_run import ImportRun
 from kaleta.models.institution import Institution, InstitutionType
@@ -47,6 +47,7 @@ __all__ = [
     "CreditCardProfile",
     "CurrencyRate",
     "DismissedCandidate",
+    "DismissedCandidateKind",
     "ImportRule",
     "ImportRun",
     "Institution",
