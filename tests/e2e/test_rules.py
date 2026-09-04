@@ -25,7 +25,19 @@ from tests.e2e.seed_helpers import (
 
 def _select_option(page: Page, label: str, option: str) -> None:
     page.locator(".q-select").filter(has_text=label).click()
-    page.locator(".q-menu").get_by_text(option, exact=True).click()
+    menu = page.locator(".q-menu").last
+    expect(menu).to_be_visible(timeout=5000)
+    target = menu.get_by_text(option, exact=True)
+    # Quasar virtualises long option lists: an option far down the list is not
+    # in the DOM at all until the menu is scrolled to it. The account list grows
+    # with every account the suite seeds, so scroll until the option renders.
+    for _ in range(30):
+        if target.count() > 0:
+            break
+        menu.hover()
+        page.mouse.wheel(0, 400)
+        page.wait_for_timeout(50)
+    target.click()
 
 
 def _account_option(name: str, currency: str = "PLN") -> str:

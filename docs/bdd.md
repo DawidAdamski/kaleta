@@ -1090,6 +1090,27 @@ Feature: mBank CSV Import
     And I select default income category "Other Income"
     And I click "Import"
     Then the transactions are imported successfully
+
+  KAL-CSV-020 @automated
+  Scenario: Dropping a file after a completed run starts a fresh queue
+    Given I have completed an import on the Import page
+    And the summary with "Start new import" is showing
+    When I upload another CSV file without clicking "Start new import"
+    Then the queue holds only the new file
+    And the import button reads "Import 1 file"
+    When I click "Import"
+    Then only the new file's rows are added to the ledger
+    And the previously imported file's transactions are not duplicated
+    When I later drop two files at once onto the finished queue
+    Then both new files are queued and the finished one is gone
+
+  KAL-CSV-021 @automated
+  Scenario: Clearing a failed file is called out, not silent
+    Given a file in the queue failed to import
+    When I upload another CSV file
+    Then the failed file is cleared from the queue with the rest of the run
+    And I am told the failed file was not imported
+    And the queue holds only the new file
 ```
 
 ## Feature: Transfer Recognition

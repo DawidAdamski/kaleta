@@ -174,6 +174,16 @@ def seed_transaction(
     return resp.json()["id"]
 
 
+def count_transactions(account_id: int) -> int:
+    """Return the number of transactions currently booked on an account."""
+    resp = _client.get(
+        f"{API_BASE}/transactions/",
+        params={"account_ids": [account_id], "page_size": 1},
+    )
+    resp.raise_for_status()
+    return int(resp.json()["total"])
+
+
 def seed_budget(category_id: int, amount: float, month: int, year: int) -> int:
     """Create a budget entry; return its ID."""
     body = {

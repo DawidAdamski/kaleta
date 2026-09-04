@@ -910,6 +910,7 @@
     "transfer_hint": "Łączy pary transakcji o równych kwotach między kontami.",
     "detect_transfers": "Wykryj i połącz przelewy",
     "linked_pairs": "Połączono {count} par(y) przelewów.",
+    "queue_reset_failed": "Wyczyszczono poprzedni import z kolejki — plik z błędem nie został zaimportowany.",
     "queue_section": "Pliki do importu",
     "queue_empty": "Upuść jeden lub więcej plików powyżej, aby zbudować kolejkę.",
     "queue_remove": "Usuń",

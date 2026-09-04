@@ -36,6 +36,7 @@ from kaleta.views.import_view.settings_section import build_settings_section
 from kaleta.views.import_view.state import (
     QueuedFile,
     apply_settings_snapshot,
+    queue_is_terminal,
     settings_snapshot,
 )
 from kaleta.views.import_view.step_indicator import render_step_indicator
@@ -284,6 +285,18 @@ async def import_page() -> None:
         return True
 
     async def handle_upload(e: events.UploadEventArguments) -> None:
+        # A finished run is cleared before the new file joins the queue, so the
+        # user never sees stale done-rows next to it. Checked before the first
+        # await so that in a multi-file drop — one background task per file —
+        # only the first task can find a terminal queue; see the plan's
+        # implementation notes. Resetting the upload widget from inside its own
+        # handler is safe: the POST body is fully parsed before any handler runs.
+        if queue_is_terminal(state["queue"]):
+            had_failed = any(f.status == "failed" for f in state["queue"])
+            _start_new_import()
+            if had_failed:
+                ui.notify(t("import.queue_reset_failed"), type="info")
+
         content = auto_decode(await e.file.read())
         suggested = ImportRuleService.suggest_filename_pattern(e.file.name)
         queued_file = QueuedFile(
