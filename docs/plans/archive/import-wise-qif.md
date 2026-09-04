@@ -3,8 +3,9 @@ plan_id: import-wise-qif
 title: Import — Wise QIF statement format
 area: import
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-04
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — Wise QIF statement format
@@ -13,7 +14,7 @@ roadmap_ref: ../roadmap.md#import
 
 Wise lets users export the same statement as **QIF** (personal finance
 tools). Some users may prefer QIF over CSV. Kaleta already ships the
-**Wise CSV** profile ([`import-bank-profiles`](archive/import-bank-profiles.md),
+**Wise CSV** profile ([`import-bank-profiles`](import-bank-profiles.md),
 PR #64); this plan adds QIF as an alternate entry path for the same
 wallet transactions.
 
@@ -196,3 +197,32 @@ rather than folding it into this PR. `test_data/` also holds real
   holding the Wise CSV scenario (KAL-CSV-019) and now the QIF one
   (KAL-CSV-022). Renaming it is a docs change outside this plan's scope
   (Working Agreement §9).
+
+## Implementation
+
+Landed on 2026-09-04 (PR #80).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `e5d2db8` | Dawid Adamski | 2026-09-04 | Merge pull request #80 from DawidAdamski/plan/import-wise-qif |
+
+**Files changed:**
+- .gitignore
+- docs/bdd.md
+- docs/plans/import-wise-qif.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/import_profiles.py
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/upload_section.py
+- tests/e2e/fixtures/import/wise/NOTES.md
+- tests/e2e/fixtures/import/wise/jpy-travel-sample.qif
+- tests/e2e/test_csv_import.py
+- tests/unit/services/test_import_profiles.py
+- tests/unit/services/test_wise_qif_import.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
