@@ -12,6 +12,7 @@ Page URL: /import
 from __future__ import annotations
 
 import datetime
+import re
 from pathlib import Path
 
 from playwright.sync_api import Page, expect
@@ -596,9 +597,18 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/import")
     expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
 
+    wise_button = page.get_by_role("button", name="Wise")
+    expect(wise_button).to_be_visible()
+
     page.locator('input[type="file"]').set_input_files(str(WISE_JPY_QIF))
     expect(page.get_by_text("jpy-travel-sample.qif").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+
+    # Auto-detection promoted the upload to Wise: the selector tints that
+    # button (``color=primary``) and leaves the others grey.
+    expect(wise_button).to_have_class(re.compile(r"text-primary"), timeout=5000)
+    expect(page.get_by_role("button", name="Generic CSV")).to_have_class(re.compile(r"text-grey-4"))
+
     expect(page.get_by_text("Japanpost Bank(245950) GIFU", exact=False).first).to_be_visible(
         timeout=5000
     )

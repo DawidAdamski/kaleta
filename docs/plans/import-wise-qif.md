@@ -166,6 +166,20 @@ rather than folding it into this PR. `test_data/` also holds real
   `upload_section.py` only ever renders `drop_hint_generic`, so the
   reworded `drop_hint_wise` will not actually be seen. `drop_hint_mbank`
   was left untouched; wiring either up is a separate chore.
+- **`inherit_queue_settings` cannot copy the account between QIF files.**
+  Its Wise arm keys off `metadata.currency`, which QIF leaves empty, so
+  two queued QIFs fall through to the generic same-profile branch: the
+  categories and skip-duplicates flag still propagate, the target account
+  does not. Correct behaviour (the account is a real choice, and there is
+  no currency to confirm the files match), just less convenient than the
+  CSV path. Fixed for free by the filename follow-up above.
+- **The active profile button is only tinted, not filled.**
+  `set_active_profile` sets `color=primary unelevated`, but the build-time
+  `flat` prop is never removed, so Quasar renders `q-btn--flat
+  text-primary` and the `unelevated` never applies. Cosmetic, pre-existing,
+  and shared by all three profiles — the e2e asserts what actually renders
+  (`text-primary` vs `text-grey-4`) rather than papering over it. Chore
+  inbox, not this PR.
 - **Per-record QIF parse errors have no render path.** `_parse_wise_qif`
   puts them in `errors`, but the failed-status branch in `page.py` shows
   `error_key` only, and `mapping_section` (the sole renderer of
