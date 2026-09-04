@@ -17,7 +17,7 @@ importing a JPY statement onto a PLN account. It works by comparing
 fires when the file names its currency.
 
 **A Wise QIF never does.** Confirmed against a real export
-([`import-wise-qif`](import-wise-qif.md), *Fixture provenance*): the body
+([`import-wise-qif`](archive/import-wise-qif.md), *Fixture provenance*): the body
 carries `D` date, `T` amount, `P` payee, `N` id and `M` card holder, and
 nothing else. Wise puts the currency in the **download filename**
 (`statement_136577258_JPY_2026-04-01_2026-06-30.qif`), which
@@ -113,7 +113,7 @@ Out of scope:
 
 ## Depends on
 
-- [`import-wise-qif`](import-wise-qif.md) merged — this plan closes the
+- [`import-wise-qif`](archive/import-wise-qif.md) merged — this plan closes the
   gap that plan documented and deliberately left open.
 
 ## Implementation notes
