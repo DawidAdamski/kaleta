@@ -259,7 +259,13 @@ class UnplannedRadarService:
     # ── Converted plans ───────────────────────────────────────────────────
 
     async def planned_with_history(self) -> builtins.list[RadarPlannedRow]:
-        """Plans that carry linked charges predating them — the radar's output."""
+        """Plans that carry linked charges predating them.
+
+        A charge dated before its plan's ``start_date`` is history rather than
+        a posted occurrence, which is exactly what conversion leaves behind.
+        Nothing marks the link as the radar's, so a hand-linked charge shows
+        up here too — the page names the section for what it lists.
+        """
         result = await self.session.execute(
             select(Transaction.planned_transaction_id, Transaction.date, PlannedTransaction)
             .join(

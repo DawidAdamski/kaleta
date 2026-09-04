@@ -134,7 +134,11 @@ tier), price-drift alerts.
   unique, and a charge that predates `start_date` is by definition
   history rather than a posted occurrence. `planned_with_history()`
   reads that back — it is how KAL-REC-003 is verified without
-  touching the planned-transactions page.
+  touching the planned-transactions page. The flip side: nothing marks
+  a link as the radar's, so a charge linked by hand through
+  `TransactionUpdate` lands in the same list. The section is therefore
+  named "Planned with linked history", not "Planned from the radar" —
+  the copy claims only what the query can prove.
 - **KAL-REC-002 stays `@planned`.** Its Given is
   "Netflix 49.99 monthly" — the *subscription* detector's convert
   action, which still only creates `Subscription` rows. Retagging it

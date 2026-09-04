@@ -25,7 +25,7 @@ from tests.e2e.seed_helpers import (
 CAR_SERVICE_CHARGES = [(730, 1200.00), (365, 1400.00)]
 RADAR_URL = "/wizard/unplanned-radar"
 CANDIDATES_HEADING = "Detected irregular costs"
-PLANNED_HEADING = "Planned from the radar"
+PLANNED_HEADING = "Planned with linked history"
 
 
 def _open_radar(page: Page, base_url: str) -> None:
