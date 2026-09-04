@@ -502,11 +502,6 @@ def _apply_wise_descriptions(rows: list[ParsedRow]) -> list[ParsedRow]:
 
 # ── Wise QIF preprocessor ────────────────────────────────────────────────────
 
-# Wise's English card memos read "Card transaction of 50220 JPY issued by …".
-# QIF has no currency field at all, so that trailing code is the only in-file
-# source for the wallet currency the metadata banner shows.
-_QIF_MEMO_CURRENCY = re.compile(r"\d[\d\s,.]*\s([A-Z]{3})\b")
-
 _QIF_RECORD_END = "^"
 
 
@@ -566,10 +561,22 @@ def iter_qif_records(content: str) -> Iterable[QifRecord]:
 class WiseQifPreprocessor:
     """Parses Wise QIF statement exports.
 
-    Wise offers QIF alongside CSV for the same statement. The records carry
-    ``D`` date (US ``MM/DD/YYYY``), ``T`` amount, ``P`` payee, ``N`` Wise
-    transaction id and ``M`` memo, separated by ``^``. QIF is not CSV, so this
-    path bypasses ``parse_csv`` entirely instead of routing through a mapping.
+    Wise offers QIF alongside CSV for the same statement, but the QIF carries
+    far less: ``D`` date (US ``MM/DD/YYYY``), ``T`` amount, ``P`` payee,
+    ``N`` Wise transaction id and ``M`` memo, separated by ``^``. QIF is not
+    CSV, so this path bypasses ``parse_csv`` entirely instead of routing
+    through a mapping.
+
+    Two fields the CSV has are simply absent, as the real export confirms
+    (``tests/e2e/fixtures/import/wise/jpy-travel-sample.qif``):
+
+    * **No currency.** Nothing in the file names it, so
+      :meth:`extract_metadata` leaves it empty — see the method for what that
+      costs.
+    * **No per-transaction memo.** ``M`` holds the card holder and last four
+      (``Jan Kowalski 1234``), identical on every card row, or a copy of the
+      payee on top-ups. It describes the card, not the transaction, so it is
+      never persisted as notes.
     """
 
     _DATE_FORMAT = "%m/%d/%Y"
@@ -597,39 +604,43 @@ class WiseQifPreprocessor:
             except ImportError_ as exc:
                 result.errors.append(f"QIF record {index}: {exc}")
                 continue
-            description = record.payee or record.memo
-            notes = record.memo if record.memo != description else ""
+            # Payee only: ``M`` is the card identity, so falling back to it
+            # would put the holder's name in the ledger. An empty description
+            # is the lesser evil, and the real export always fills ``P``.
             result.rows.append(
                 ParsedRow(
                     date=date,
                     amount=amount,
-                    description=description,
+                    description=record.payee,
                     raw=record.as_raw(),
-                    notes=notes,
                 )
             )
         return result
 
     @staticmethod
     def extract_metadata(content: str) -> MBankFileMetadata:
-        """Derive the Wise metadata banner fields from the QIF records."""
+        """Derive the Wise metadata banner fields from the QIF records.
+
+        Only the period is recoverable. **Currency is left empty because the
+        format has none** — Wise puts it in the download filename
+        (``statement_<id>_JPY_<from>_<to>.qif``), not the content.
+
+        That has a cost the CSV path does not pay: ``validate_import_readiness``
+        skips its currency-mismatch block on a falsy currency, so importing a
+        JPY QIF into a PLN account is not stopped. Empty is still the correct
+        value — inventing a currency would risk blocking a *correct* import —
+        but the guard cannot cover this path until the filename is threaded
+        through parsing.
+        """
         dates: list[datetime.date] = []
-        currencies: list[str] = []
         for record in iter_qif_records(content):
             if record.date:
                 with contextlib.suppress(ImportError_):
                     dates.append(_parse_date(record.date, WiseQifPreprocessor._DATE_FORMAT))
-            memo_currency = _QIF_MEMO_CURRENCY.search(record.memo)
-            if memo_currency:
-                currencies.append(memo_currency.group(1))
-        # An empty currency disables the mismatch block in
-        # ``validate_import_readiness`` — the right default when the export
-        # never names one.
-        currency = max(set(currencies), key=currencies.count) if currencies else ""
         return MBankFileMetadata(
             client_name="",
             account_type="Wise",
-            currency=currency,
+            currency="",
             account_number="",
             account_number_digits="",
             date_from=min(dates) if dates else None,

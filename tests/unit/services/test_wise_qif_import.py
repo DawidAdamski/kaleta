@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Parse the Wise QIF statement export shape from the anonymized dogfood fixture.
 
-Expected values are literals read off ``jpy-travel-sample.qif`` — the QIF export
-is English where the CSV is Polish, so nothing here may be borrowed from the CSV
-fixture or computed by the parser under test.
+The fixture is a real Wise export with only the card-holder memos anonymized,
+so expected values are literals read off ``jpy-travel-sample.qif`` itself. The
+QIF says less than the CSV — no currency, and a memo that names the card rather
+than the transaction — so nothing here may be borrowed from the CSV fixture or
+computed by the parser under test.
 """
 
 from __future__ import annotations
@@ -73,10 +75,15 @@ class TestWiseQifRecords:
         assert len(records) == 9
         first = records[0]
         assert first.date == "05/17/2026"
-        assert first.amount == "-51571.00"
+        assert first.amount == "-51571"
         assert first.payee == "Japanpost Bank(245950) GIFU"
         assert first.reference == "CARD-3802617048"
-        assert first.memo == "Card transaction of 50220 JPY issued by Japanpost Bank(245950) GIFU"
+        assert first.memo == "Jan Kowalski 1234"
+
+    def test_field_order_in_the_real_export_is_not_assumed(self) -> None:
+        """Wise writes D, N, T, P, M — the parser keys off the letter, not position."""
+        lines = [line[0] for line in _content().splitlines() if line and not line.startswith("!")]
+        assert lines[:6] == ["D", "N", "T", "P", "M", "^"]
 
     def test_trailing_record_without_caret_is_kept(self) -> None:
         content = "!Type:Bank\nD05/17/2026\nT-1.00\nPX\nNCARD-1\n"
@@ -103,38 +110,49 @@ class TestWiseQifParsing:
         assert rows[0].date == datetime.date(2026, 5, 17)
         assert rows[-1].date == datetime.date(2026, 4, 17)
 
-    def test_card_row_uses_payee_as_description_and_keeps_memo_as_notes(self) -> None:
+    def test_card_row_uses_payee_as_description(self) -> None:
         rows = _parse().rows
         card_row = next(r for r in rows if r.raw.get("reference") == "CARD-3802617048")
-        assert card_row.amount == Decimal("-51571.00")
+        assert card_row.amount == Decimal("-51571")
         assert card_row.description == "Japanpost Bank(245950) GIFU"
-        assert card_row.notes == (
-            "Card transaction of 50220 JPY issued by Japanpost Bank(245950) GIFU"
-        )
 
-    def test_top_up_is_income_and_does_not_duplicate_memo_into_notes(self) -> None:
+    def test_card_holder_memo_never_reaches_the_ledger(self) -> None:
+        """``M`` is the holder name + last four, identical on every card row."""
+        rows = _parse().rows
+        assert {row.notes for row in rows} == {""}
+        assert not any("Jan Kowalski" in row.description for row in rows)
+
+    def test_top_up_is_income(self) -> None:
         rows = _parse().rows
         top_up = next(r for r in rows if r.raw.get("reference") == "TRANSFER-2134191896")
-        assert top_up.amount == Decimal("100000.00")
+        assert top_up.amount == Decimal("100000")
         assert top_up.description == "Topped up account"
-        assert top_up.notes == ""
 
     def test_qif_descriptions_are_english_not_the_csv_polish(self) -> None:
         descriptions = {row.description for row in _parse().rows}
         assert "Topped up account" in descriptions
         assert "Doładowanie konta" not in descriptions
 
+    def test_integer_amounts_of_the_real_export_parse_exactly(self) -> None:
+        """Wise writes JPY with no decimal part at all (``T-51571``)."""
+        amounts = {row.amount for row in _parse().rows}
+        assert Decimal("-1811") in amounts
+        assert Decimal("269000") in amounts
+
     def test_amount_with_thousands_separator_is_not_mangled(self) -> None:
+        """`_parse_amount`'s auto mode would read this EU-style, as -1.811."""
         content = "!Type:Bank\nD05/17/2026\nT-1,811.00\nPBellmart NAGOYA\nNCARD-1\n^\n"
         rows = WiseQifPreprocessor.parse(content).rows
         assert rows[0].amount == Decimal("-1811.00")
 
 
 class TestWiseQifMetadata:
-    def test_currency_is_derived_from_the_english_card_memos(self) -> None:
+    def test_currency_is_empty_because_the_format_carries_none(self) -> None:
+        """Wise puts the currency in the filename, never in the QIF body."""
         meta = WiseQifPreprocessor.extract_metadata(_content())
-        assert meta.currency == "JPY"
+        assert meta.currency == ""
         assert meta.account_type == "Wise"
+        assert "JPY" not in _content()
 
     def test_period_spans_the_oldest_and_newest_record(self) -> None:
         meta = WiseQifPreprocessor.extract_metadata(_content())
@@ -144,11 +162,26 @@ class TestWiseQifMetadata:
     def test_metadata_reaches_the_parse_result(self) -> None:
         result = _parse()
         assert result.metadata is not None
-        assert result.metadata.currency == "JPY"
+        assert result.metadata.date_to == datetime.date(2026, 5, 17)
 
-    def test_missing_currency_degrades_to_empty_instead_of_guessing(self) -> None:
-        content = "!Type:Bank\nD05/17/2026\nT-1.00\nPX\nNCARD-1\nMno amount code here\n^\n"
-        assert WiseQifPreprocessor.extract_metadata(content).currency == ""
+    def test_empty_currency_does_not_block_a_correct_import(self) -> None:
+        """The mismatch guard must stay silent rather than reject on a guess."""
+        from kaleta.services.import_service import (
+            ImportReadinessCheck,
+            validate_import_readiness,
+        )
+
+        error_key, _ = validate_import_readiness(
+            ImportReadinessCheck(
+                target_account_id=1,
+                expense_cat_id=2,
+                income_cat_id=3,
+                profile=WISE_PROFILE,
+                metadata=WiseQifPreprocessor.extract_metadata(_content()),
+                account_currency="JPY",
+            )
+        )
+        assert error_key is None
 
 
 class TestWiseQifFailureModes:

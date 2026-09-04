@@ -87,7 +87,7 @@ fixture (see `tests/e2e/fixtures/import/README.md`).
   `is_wise_content()` now answers for CSV **or** QIF so the registry entry
   keeps its single `detect` callable — `test_import_profiles` still
   asserts `BANK_PROFILES[wise].detect is is_wise_content`.
-- **English QIF vs Polish CSV** — confirmed and enforced. The QIF fixture
+- **English QIF vs Polish CSV** — confirmed against the real export. It
   reads `Topped up account` where the CSV reads `Doładowanie konta`, and
   its dates are US `MM/DD/YYYY` against the CSV's `DD-MM-YYYY`. Every
   expected value in `test_wise_qif_import.py` is a literal from the QIF
@@ -101,40 +101,64 @@ fixture (see `tests/e2e/fixtures/import/README.md`).
   CSV branches, has **no generic-mapping fallback** — handing a QIF to the
   column-mapping step would only render a garbled table. A QIF that yields
   no rows fails with the new `import.qif_no_rows` key instead.
-- **Currency is derived from the memos.** QIF has no currency field at
-  all, yet the plan asks the Wise metadata banner to show `JPY`. Wise's
-  English card memos embed it after the amount (`Card transaction of
-  50220 JPY issued by …`), which is the only in-file source, so
-  `_QIF_MEMO_CURRENCY` takes the most common trailing 3-letter code.
-  When no memo names one the currency stays **empty**, which is the safe
-  default: `validate_import_readiness` skips the currency-mismatch block
-  on a falsy currency, so an unknown currency never wrongly blocks an
-  import.
+- **Currency is empty — the plan's "banner shows JPY" is not
+  achievable.** See *Fixture provenance* below: the real export names no
+  currency anywhere. Wise puts it in the download filename
+  (`statement_<id>_JPY_<from>_<to>.qif`), which `parse_queued_file` never
+  receives. Empty is the correct value rather than a guess, and it is
+  inert for readiness (`validate_import_readiness` skips the
+  currency-mismatch block on a falsy currency), **but that is precisely
+  the gap**: a JPY QIF imported into a PLN account is not stopped, where
+  the CSV path would stop it. Closing it means threading the upload
+  filename into parsing — a signature change across the view, deliberately
+  left out of this plan. **Owner decision, see the follow-up below.**
 - **Amounts are parsed with explicit separators** (`decimal="."`,
   `thousands=","`). `_parse_amount`'s auto mode reads `-1,811.00` as
   `-1.811` (EU convention); QIF is US-shaped, so the separators must be
   pinned. `test_amount_with_thousands_separator_is_not_mangled` covers it.
-- **Memo is kept as notes only when it adds information** — description is
-  `P` (payee) falling back to `M`; `notes` holds `M` only when it differs
-  from the description, so top-up rows do not store the same string twice.
+- **The memo is never persisted.** `M` is not a transaction memo: the real
+  export puts the card holder and last four there (`Jan Kowalski 1234`),
+  byte-identical on all seven card rows, and a copy of the payee on the
+  two top-ups. Description is `P` alone — falling back to `M` would write
+  the holder's name into the ledger — and `notes` stays empty.
+  `test_card_holder_memo_never_reaches_the_ledger` and an e2e absence
+  assertion pin this.
 - **`accept` widened to `.csv,.qif` for every profile**, not just Wise.
   The widget is built once, before a profile is known, and a QIF dropped
   under *Generic CSV* is promoted to Wise by detection anyway — a
   profile-conditional `accept` would only reject files the parser handles.
 
-### Fixture provenance — needs a maintainer diff
+### Fixture provenance — resolved against the real export
 
-`jpy-travel-sample.qif` was authored to the **field spec written in this
-plan** (`D` US `MM/DD/YYYY`, `T`, `P`, `N`, `M`, `^`), mirroring the nine
-rows of `jpy-travel-sample.csv` — it is *not* a dump of a real Wise QIF
-export, which was not available in this session.
-`tests/e2e/fixtures/import/README.md` asks for a real collected file
-before shipping a parser, so before relying on this path the maintainer
-should export one real Wise QIF and diff it against the fixture,
-particularly the `D` date format and the English memo wording the
-currency derivation depends on. Both are single-constant changes
-(`WiseQifPreprocessor._DATE_FORMAT`, `_QIF_MEMO_CURRENCY`) if the real
-export differs.
+The fixture was first authored to the field spec written in this plan,
+then **replaced with the maintainer's real Wise export** (`test_data/
+statement_136577258_JPY_2026-04-01_2026-06-30.qif`, supplied mid-task and
+deliberately not committed — it holds live PII). Only the card-holder
+memos were anonymized; every `D` / `N` / `T` / `P` line is byte-identical
+to the real file.
+
+The real export confirmed one assumption and broke two:
+
+| Plan assumption | Real export | Effect |
+|---|---|---|
+| `D` is US `MM/DD/YYYY` | ✅ `D05/17/2026` | none |
+| field order `D T P N M` | `D N T P M` | none — the parser keys off the letter, not position (`test_field_order_in_the_real_export_is_not_assumed`) |
+| decimal amounts | `T-51571`, no decimal part | none — pinned separators handle both |
+| banner shows currency `JPY` | **no currency anywhere in the file** | dropped the memo-sniffing regex; currency is empty, and the mismatch guard cannot fire (see above) |
+| `M` is a transaction memo | **card holder + last four**, same on every card row | `M` is no longer persisted; it would have written the holder's name into every imported transaction |
+
+The second and third rows are the reason to insist on a real fixture: a
+hand-authored one had passed 23 green tests while encoding a memo format
+Wise does not emit.
+
+### Follow-up for the owner (not done here)
+
+Derive the wallet currency from the Wise download filename
+(`statement_<id>_<CCY>_<from>_<to>`) so the currency-mismatch guard
+covers QIF as it does CSV. It needs `parse_queued_file` to take the
+filename, so it is a scope change, not a fix — raise it as an issue
+rather than folding it into this PR. `test_data/` also holds real
+`.mt940` and `.xlsx` exports for the two sibling plans.
 
 ### Out of scope, left alone
 

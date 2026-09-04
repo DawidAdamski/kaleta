@@ -1,55 +1,55 @@
 !Type:Bank
 D05/17/2026
-T-51571.00
-PJapanpost Bank(245950) GIFU
 NCARD-3802617048
-MCard transaction of 50220 JPY issued by Japanpost Bank(245950) GIFU
+T-51571
+PJapanpost Bank(245950) GIFU
+MJan Kowalski 1234
 ^
 D05/17/2026
-T-1811.00
-PBellmart NAGOYA
 NCARD-3802350449
-MCard transaction of 1811 JPY issued by Bellmart NAGOYA
+T-1811
+PBellmart NAGOYA
+MJan Kowalski 1234
 ^
 D05/15/2026
-T100000.00
-PTopped up account
 NTRANSFER-2134191896
+T100000
+PTopped up account
 MTopped up account
 ^
 D05/14/2026
-T-102916.00
-PNakagyo-Ku  Kyoto-Shi KYOTO
 NCARD-3790648970
-MCard transaction of 100220 JPY issued by Nakagyo-Ku  Kyoto-Shi KYOTO
+T-102916
+PNakagyo-Ku  Kyoto-Shi KYOTO
+MJan Kowalski 1234
 ^
 D05/10/2026
-T-51571.00
-PJapanpost Bank(017010) TOKYO
 NCARD-3773587991
-MCard transaction of 50220 JPY issued by Japanpost Bank(017010) TOKYO
+T-51571
+PJapanpost Bank(017010) TOKYO
+MJan Kowalski 1234
 ^
 D05/10/2026
-T-51571.00
-PJapanpost Bank(017010) TOKYO
 NCARD-3773586456
-MCard transaction of 50220 JPY issued by Japanpost Bank(017010) TOKYO
-^
-D05/10/2026
-T-50399.00
+T-51571
 PJapanpost Bank(017010) TOKYO
-NCARD-3773579244
-MCard transaction of 50220 JPY issued by Japanpost Bank(017010) TOKYO
+MJan Kowalski 1234
 ^
 D05/10/2026
-T-9990.00
-PJr East SIBUYAKU
+NCARD-3773579244
+T-50399
+PJapanpost Bank(017010) TOKYO
+MJan Kowalski 1234
+^
+D05/10/2026
 NCARD-3773297563
-MCard transaction of 9990 JPY issued by Jr East SIBUYAKU
+T-9990
+PJr East SIBUYAKU
+MJan Kowalski 1234
 ^
 D04/17/2026
-T269000.00
-PTopped up account
 NTRANSFER-2081544402
+T269000
+PTopped up account
 MTopped up account
 ^

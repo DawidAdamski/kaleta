@@ -1145,8 +1145,10 @@ Feature: mBank CSV Import
     And I am on the Import page
     When I upload a valid Wise QIF file
     Then the profile is auto-detected as "Wise"
-    And I see metadata with currency "JPY"
+    And the metadata banner shows the statement period
+    And the banner shows no currency, because the QIF format carries none
     And the preview shows payee "Japanpost Bank(245950) GIFU" for a card purchase
+    And the card holder name in the QIF memos is nowhere on the page
     When I select account "Wise JPY"
     And I select default expense category "Other Expenses"
     And I select default income category "Other Income"
