@@ -111,8 +111,12 @@ warn otherwise), reminders.
   sees. For 6/9/4/12 that yields p25 = 5,500.00 and median = 7,500.00.
 - **No proposal, no projection.** Under `MIN_HISTORY_MONTHS` (3) the
   service returns `salary = 0.00`, an empty `projection` and
-  `has_enough_history = False`; the panel renders the hint. An explicit
-  override still projects, so a user who knows better is not blocked.
+  `has_enough_history = False`; the panel renders the hint. What gates
+  the projection is whether a salary was *decided*, not whether it is
+  above zero — so an explicit override always projects, `0.00` included
+  (paying yourself nothing is a choice, and the resulting "every zloty
+  accumulates" curve is a real answer). A user who knows better than the
+  short window is never blocked.
 - **The target account lives in the description.** `PlannedTransaction`
   carries a single `account_id` — there is no destination column. The
   salary transfer is therefore created on the *source* account with

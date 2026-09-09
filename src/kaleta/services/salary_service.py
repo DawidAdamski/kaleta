@@ -184,6 +184,10 @@ class SalaryService:
         p25 = _percentile(totals, Decimal("0.25"))
         by_basis = {SalaryBasis.WORST: worst, SalaryBasis.P25: p25, SalaryBasis.MEDIAN: median}
 
+        # A projection needs a salary to replay against. An override is one
+        # even at 0.00 — that is a user's deliberate choice, and the resulting
+        # "every zloty accumulates" curve is a real answer.
+        has_proposal = override is not None or has_enough_history
         if override is not None:
             salary = _quantize(override)
         elif has_enough_history:
@@ -192,7 +196,7 @@ class SalaryService:
             # Too short a window to say anything — no proposal, no projection.
             salary = Decimal("0.00")
 
-        projection = _project_buffer(months, salary) if salary > 0 else []
+        projection = _project_buffer(months, salary) if has_proposal else []
 
         return SalaryProposal(
             window_months=window_months,

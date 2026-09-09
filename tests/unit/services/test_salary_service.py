@@ -308,6 +308,27 @@ class TestPropose:
         assert proposal.salary == Decimal("5000.00")
         assert proposal.final_buffer == Decimal("11000.00")
 
+    async def test_zero_override_still_projects(self, session: AsyncSession):
+        """Paying yourself nothing is a choice — every zloty accumulates."""
+        account_id = await _make_account(session, "Business")
+        category_id = await _make_income_category(session, "Invoices")
+        await _seed_income(session, account_id, category_id, IRREGULAR)
+
+        proposal = await SalaryService(session).propose(today=TODAY, override=Decimal("0"))
+
+        assert proposal.salary == Decimal("0.00")
+        assert proposal.final_buffer == Decimal("31000.00")
+
+    async def test_override_projects_even_without_enough_history(self, session: AsyncSession):
+        account_id = await _make_account(session, "Business")
+        category_id = await _make_income_category(session, "Invoices")
+        await _seed_income(session, account_id, category_id, IRREGULAR[2:])
+
+        proposal = await SalaryService(session).propose(today=TODAY, override=Decimal("3000"))
+
+        assert proposal.has_enough_history is False
+        assert proposal.final_buffer == Decimal("10000.00")
+
     async def test_negative_override_is_rejected(self, session: AsyncSession):
         with pytest.raises(ValidationError):
             await SalaryService(session).propose(today=TODAY, override=Decimal("-1"))
