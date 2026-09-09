@@ -168,7 +168,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [import-history-account-coverage](archive/import-history-account-coverage.md) | archived | Import — dogfooding UX |
 | [import-per-file-mapping-memory](archive/import-per-file-mapping-memory.md) | archived | Import — after import-mapping-wizard |
 | [wizard-unplanned-radar](wizard-unplanned-radar.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
-| [wizard-pay-yourself-salary](wizard-pay-yourself-salary.md) | draft | Wizard — dogfooding gap (Coming soon tile) |
+| [wizard-pay-yourself-salary](archive/wizard-pay-yourself-salary.md) | archived | Wizard — dogfooding gap (Coming soon tile) |
 | [reports-money-flow](archive/reports-money-flow.md) | archived | Reports — money flow Sankey |
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
