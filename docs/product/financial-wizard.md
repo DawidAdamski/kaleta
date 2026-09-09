@@ -141,6 +141,39 @@ Track money lent to / borrowed from people (not banks).
   transactions that move the money.
 - **Reminders:** the wizard nudges the user as return dates approach.
 
+### 7. Pay Yourself a Salary {#7-pay-yourself-a-salary}
+
+For the entrepreneur persona: irregular inflows (invoices,
+commission, royalties) smoothed into one fixed monthly transfer, so
+the household budget stops swinging with the invoicing calendar.
+
+- **Cadence:** revisit quarterly, or whenever the income mix
+  changes. Not a monthly chore.
+- **Inputs:** non-transfer `INCOME` transactions over a window of
+  recent **complete** months (6 / 12 / 24, default 12). The running
+  month is always partial and never counts. The series starts at the
+  first month inside the window that earned anything — leading empty
+  months are missing data, not zero-income months — while gaps and
+  trailing months after it count as zero, because a dry month is
+  real information about how much the income can drop.
+- **Proposal:** the worst month of that window by default, matching
+  the promise of the tile. The lower quartile and the median are
+  offered as less conservative alternatives, and the amount is
+  editable — an override replays the buffer against whatever the
+  user actually picks.
+- **Buffer:** the window replayed month by month. Everything a month
+  earns above the salary accumulates; a lean month draws it down. The
+  chart shows income bars, the salary line, and the running buffer.
+- **Output:** one action item — a monthly `TRANSFER` planned
+  transaction from the inflow account to the personal account, which
+  the Payment Calendar and the forecast then pick up like any other
+  recurring item. The panel schedules nothing itself.
+- **Limits (v1):** single-currency income. Income in more than one
+  currency is summed as-is with a warning; no conversion. Tax and ZUS
+  modelling are out — the salary is gross of both.
+- **Degradation:** fewer than 3 complete months of income and the
+  panel shows a hint instead of a proposal.
+
 ## Shared wizard patterns
 
 - **Every section supports reminders** via the same notification

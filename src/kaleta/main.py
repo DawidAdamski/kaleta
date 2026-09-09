@@ -174,6 +174,7 @@ def _register_views() -> None:
         tags,
         transactions,
         wizard,
+        wizard_salary,
     )
 
     setup.register()
@@ -206,6 +207,7 @@ def _register_views() -> None:
     tags.register()
     rules.register()
     wizard.register()
+    wizard_salary.register()
     settings.register()
 
 

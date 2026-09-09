@@ -3,7 +3,7 @@ plan_id: wizard-pay-yourself-salary
 title: Wizard — "pay yourself a salary" panel for irregular income
 area: wizard
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 
@@ -81,4 +81,68 @@ warn otherwise), reminders.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Resolved open questions
+
+1. **Which incomes count** — took the plan default: **all non-transfer
+   `INCOME` transactions, across every account**. The category filter
+   was left out entirely rather than shipped as an unused service
+   parameter; the plan lists it as a stretch, and adding a knob nothing
+   calls is worse than adding it when the panel needs it.
+2. **Proposal formula default** — took the plan default: **worst month
+   of the window**, which is what the wizard tile already promises. The
+   lower quartile and median ship as selectable alternatives
+   (`SalaryBasis`), and the amount stays editable on top of either.
+
+### Decisions worth a reviewer's time
+
+- **Where the series starts.** The window is N *complete* months (the
+  running month is partial and would drag every statistic down), but
+  the series does not start at the window's first month — it starts at
+  the first month inside the window that earned anything. Leading empty
+  months are absence of data, not zero-income months; starting at the
+  window edge would make the worst month `0.00` for anyone with less
+  than N months of history, which is the exact case this panel exists
+  for. Gaps and trailing months *after* that first earning month do
+  count as zero — a dry month is real information about how far the
+  income can fall.
+- **Percentile definition.** `_percentile` uses the ordinary linear
+  interpolation ("rank `q × (n−1)`, blend the neighbours"), so p25 and
+  the median are meaningful on the short series this panel usually
+  sees. For 6/9/4/12 that yields p25 = 5,500.00 and median = 7,500.00.
+- **No proposal, no projection.** Under `MIN_HISTORY_MONTHS` (3) the
+  service returns `salary = 0.00`, an empty `projection` and
+  `has_enough_history = False`; the panel renders the hint. An explicit
+  override still projects, so a user who knows better is not blocked.
+- **The target account lives in the description.** `PlannedTransaction`
+  carries a single `account_id` — there is no destination column. The
+  salary transfer is therefore created on the *source* account with
+  `description = "<source> → <target>"`. The plan forbids new
+  scheduling machinery, so this is the honest limit of reuse; a proper
+  two-legged planned transfer is a separate model change.
+- **The `is_internal_transfer` filter is not redundant.**
+  `TransactionCreate` rejects the flag on a non-transfer row, but the
+  column carries no such constraint and both the importer and the demo
+  generator write `Transaction` rows directly. The query filters on the
+  flag rather than trusting the schema invariant; a unit test seeds such
+  a row through the ORM to prove the guard is live.
+
+### Where the KAL-SAL scenarios are covered
+
+`scripts/spec_coverage.py` only reads `tests/e2e` and `tests/integration`.
+The five scenarios are arithmetic over a fixed income window, and the e2e
+instance shares **one** database across all modules — the panel aggregates
+income from every account, so any other module's seeded income would move
+the numbers on screen. Scenario coverage therefore lives in
+`tests/integration/test_pay_yourself_salary.py`, pinned to a fixed
+"today". `tests/e2e/test_pay_yourself_salary.py` stays a smoke test: the
+tile opens the page and the panel renders, with no amount assertions.
+`tests/unit/services/test_salary_service.py` covers the helpers and the
+edge cases (year-end month arithmetic, dry months, multi-currency,
+negative buffers, rejected inputs).
+
+### Not done, deliberately
+
+- No sidebar entry in `views/layout.py` — the plan scopes the route to
+  `_STEP_ROUTES` only, and `KAL-NAV-004` walks every sidebar entry.
+- No currency conversion. Multi-currency income is summed as-is behind a
+  warning, per the plan's "warn otherwise".
