@@ -118,4 +118,67 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Open questions — all four defaults taken
+
+- **Filename, not a UI field.** `parse_wise_filename` reads the download
+  name; no confirmation step was added.
+- **Unknown passes.** A name that does not match the Wise shape yields
+  `None`, the currency stays `""`, and `validate_import_readiness`
+  already skips its block on a falsy currency — so nothing changed for a
+  renamed upload. `KAL-CSV-024` pins that half in e2e, so a future
+  "fail closed" refactor breaks a test rather than a user's import.
+- **Content wins.** The name is read only inside
+  `WiseQifPreprocessor.extract_metadata`, the one path whose format
+  names no currency. The mBank and Wise-CSV branches never consult it,
+  so a contradiction between name and content cannot arise yet.
+- **The account id is discarded.** `_WISE_FILENAME` matches the
+  `<account_id>` segment with a bare `\d+` and never captures it, and
+  `WiseFilenameMetadata` has no field for it —
+  `test_the_result_holds_currency_and_period_only` asserts the field set
+  so a future field cannot smuggle it in.
+
+### Decisions taken while implementing
+
+- **One view call site, not two.** The plan expected two
+  `parse_queued_file` calls in `import_view/page.py`; there is one, in
+  the `_parse_file` helper that every parse and re-parse routes through.
+  Nothing else in `src/` calls it.
+- **The fixture keeps its name; tests choose one per upload.** Renaming
+  `jpy-travel-sample.qif` to a Wise shape would have baked the currency
+  into the fixture and left no way to exercise the renamed-upload path
+  without a second copy of the same bytes. Instead `_upload_as()` feeds
+  the fixture's bytes to the widget under whatever name the test needs
+  (Playwright's `FilePayload` form of `set_input_files`). Both halves of
+  the guard are covered by the one fixture.
+- **The wallet id is anonymized in the repo.** The real
+  `<account_id>` appears in the archived QIF plan's provenance table;
+  it is not propagated further. Tests, the regex comment and NOTES.md
+  use `12345678`, matching the fixtures' existing anonymization
+  convention.
+- **Two scenarios, not one.** The plan asked for "a new scenario for the
+  block itself". The block and the must-not-block halves have different
+  Givens and different outcomes, so they are `KAL-CSV-023` (JPY name
+  onto a PLN account is blocked) and `KAL-CSV-024` (renamed upload stays
+  unknown and imports). `KAL-CSV-022`'s "banner shows no currency" line
+  became "shows currency JPY, read from the download name", plus a line
+  pinning that the period stays the one the rows cover.
+- **The period assertion is now two-sided.** `extract_metadata` parses
+  the name's dates and deliberately ignores them, which is invisible in
+  a test that only checks the right answer. The e2e also asserts the
+  banner contains neither `2026-04-01` nor `2026-06-30` — the name's
+  requested range — so a future change that starts trusting the name
+  fails loudly.
+
+### Finding, not fixed here (out of scope)
+
+`SettingsSection._update_currency_warning`
+(`src/kaleta/views/import_view/settings_section.py`) calls
+`currency_mismatch_warning` without the falsy-currency guard that
+`validate_import_readiness` has. When a file's currency is unknown it
+compares `"" != "PLN"` and shows *"File currency () differs from account
+currency (PLN)"* — an empty-parens warning on a file that is perfectly
+importable. This predates the plan and is unchanged by it (a QIF's
+currency was `""` for every upload before; now it is `""` only for
+unrecognised names, so the change makes it strictly rarer). Fixing it
+means touching the warning path, which this plan's scope does not
+cover — filed for the Chore inbox instead.
