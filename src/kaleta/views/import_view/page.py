@@ -117,6 +117,7 @@ async def import_page() -> None:
                 queued_file.content,
                 queued_file.profile,
                 mapping=mapping,
+                filename=queued_file.filename,
             )
 
         result = await with_session(_run_parse)

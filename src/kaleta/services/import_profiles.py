@@ -22,6 +22,7 @@ without a real anonymized export fixture** — see
 
 from __future__ import annotations
 
+import datetime
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -68,6 +69,64 @@ def is_wise_content(content: str) -> bool:
     if "TransferWise ID" in sample or "transferwise id" in sample.lower():
         return True
     return is_wise_qif_content(content)
+
+
+@dataclass(frozen=True, slots=True)
+class WiseFilenameMetadata:
+    """What a Wise download name says about the statement inside it.
+
+    Deliberately **without the account id**. Wise's ``<account_id>`` segment
+    identifies the user's wallet, so it is matched and discarded rather than
+    carried into the app where it could be stored or logged.
+    """
+
+    currency: str
+    date_from: datetime.date
+    date_to: datetime.date
+
+
+# ``statement_12345678_JPY_2026-04-01_2026-06-30.qif`` — the name Wise gives
+# every statement download, whatever the format. The account id is matched
+# but never captured, so it cannot leak into the app (see WiseFilenameMetadata).
+#
+# The currency group is any three letters, not a list of known codes: an
+# account's own currency is a bare ``String(3)`` too, so a stricter filename
+# would reject statements for currencies Kaleta happily holds accounts in.
+# A well-shaped name carrying nonsense yields a currency that matches no
+# account, which the mismatch guard reports plainly.
+_WISE_FILENAME = re.compile(
+    r"^statement_\d+_(?P<currency>[A-Za-z]{3})"
+    r"_(?P<date_from>\d{4}-\d{2}-\d{2})_(?P<date_to>\d{4}-\d{2}-\d{2})"
+    r"\.[A-Za-z0-9]+$"
+)
+
+
+def parse_wise_filename(name: str) -> WiseFilenameMetadata | None:
+    """Read currency and period out of a Wise statement download name.
+
+    Wise's QIF export names no currency anywhere in the file body — it lives
+    only in the download name — so this is the sole way the currency-mismatch
+    guard can fire on a QIF import.
+
+    Returns ``None`` for any name that does not match the exact Wise shape,
+    including one the user renamed. Callers must treat that as *unknown*, not
+    as a reason to block: rejecting a renamed upload would leave a legitimate
+    import with no way forward.
+    """
+    match = _WISE_FILENAME.match(name)
+    if match is None:
+        return None
+    try:
+        date_from = datetime.date.fromisoformat(match["date_from"])
+        date_to = datetime.date.fromisoformat(match["date_to"])
+    except ValueError:
+        # Well-shaped but impossible dates (``2026-13-45``) — not a Wise name.
+        return None
+    return WiseFilenameMetadata(
+        currency=match["currency"].upper(),
+        date_from=date_from,
+        date_to=date_to,
+    )
 
 
 @dataclass(frozen=True, slots=True)

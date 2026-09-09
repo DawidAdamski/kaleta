@@ -3,9 +3,13 @@
 
 The fixture is a real Wise export with only the card-holder memos anonymized,
 so expected values are literals read off ``jpy-travel-sample.qif`` itself. The
-QIF says less than the CSV — no currency, and a memo that names the card rather
-than the transaction — so nothing here may be borrowed from the CSV fixture or
-computed by the parser under test.
+QIF says less than the CSV — no currency in the body, and a memo that names the
+card rather than the transaction — so nothing here may be borrowed from the CSV
+fixture or computed by the parser under test.
+
+The fixture is stored under a hand-given name; the name Wise actually downloads
+it as is ``WISE_QIF_NAME`` below, taken from the provenance note in
+``tests/e2e/fixtures/import/wise/NOTES.md``.
 """
 
 from __future__ import annotations
@@ -33,6 +37,10 @@ from kaleta.services.import_service import (
 FIXTURES = Path(__file__).resolve().parents[2] / "e2e" / "fixtures" / "import" / "wise"
 QIF_FIXTURE = FIXTURES / "jpy-travel-sample.qif"
 
+# The shape Wise gives every statement download — the only place the export
+# names its currency. The account-id segment is anonymized, as in the fixtures.
+WISE_QIF_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
+
 
 class _NoSession:
     session = None
@@ -42,8 +50,10 @@ def _content() -> str:
     return QIF_FIXTURE.read_text(encoding="utf-8")
 
 
-def _parse(profile: str = WISE_PROFILE):  # type: ignore[no-untyped-def]
-    return ImportService(_NoSession()).parse_queued_file(_content(), profile)  # type: ignore[arg-type]
+def _parse(profile: str = WISE_PROFILE, *, filename: str = ""):  # type: ignore[no-untyped-def]
+    return ImportService(_NoSession()).parse_queued_file(  # type: ignore[arg-type]
+        _content(), profile, filename=filename
+    )
 
 
 class TestWiseQifDetection:
@@ -147,15 +157,30 @@ class TestWiseQifParsing:
 
 
 class TestWiseQifMetadata:
-    def test_currency_is_empty_because_the_format_carries_none(self) -> None:
-        """Wise puts the currency in the filename, never in the QIF body."""
+    def test_the_body_names_no_currency_so_a_nameless_parse_has_none(self) -> None:
+        """Wise puts the currency in the download name, never in the QIF body."""
         meta = WiseQifPreprocessor.extract_metadata(_content())
         assert meta.currency == ""
         assert meta.account_type == "Wise"
         assert "JPY" not in _content()
 
+    def test_the_download_name_supplies_the_currency_the_body_lacks(self) -> None:
+        meta = WiseQifPreprocessor.extract_metadata(_content(), filename=WISE_QIF_NAME)
+        assert meta.currency == "JPY"
+
+    def test_a_renamed_upload_leaves_the_currency_unknown(self) -> None:
+        """Unknown, not wrong: a renamed file must stay importable."""
+        meta = WiseQifPreprocessor.extract_metadata(_content(), filename="foo.qif")
+        assert meta.currency == ""
+
     def test_period_spans_the_oldest_and_newest_record(self) -> None:
         meta = WiseQifPreprocessor.extract_metadata(_content())
+        assert meta.date_from == datetime.date(2026, 4, 17)
+        assert meta.date_to == datetime.date(2026, 5, 17)
+
+    def test_the_records_outrank_the_names_wider_range(self) -> None:
+        """The name holds the *requested* period; the rows hold the real one."""
+        meta = WiseQifPreprocessor.extract_metadata(_content(), filename=WISE_QIF_NAME)
         assert meta.date_from == datetime.date(2026, 4, 17)
         assert meta.date_to == datetime.date(2026, 5, 17)
 
@@ -164,23 +189,53 @@ class TestWiseQifMetadata:
         assert result.metadata is not None
         assert result.metadata.date_to == datetime.date(2026, 5, 17)
 
-    def test_empty_currency_does_not_block_a_correct_import(self) -> None:
-        """The mismatch guard must stay silent rather than reject on a guess."""
+    def test_the_upload_name_reaches_the_parse_result(self) -> None:
+        result = _parse(filename=WISE_QIF_NAME)
+        assert result.metadata is not None
+        assert result.metadata.currency == "JPY"
+
+    def test_a_generic_upload_promoted_to_wise_still_reads_its_name(self) -> None:
+        result = _parse(GENERIC_PROFILE, filename=WISE_QIF_NAME)
+        assert result.profile == WISE_PROFILE
+        assert result.metadata is not None
+        assert result.metadata.currency == "JPY"
+
+    @staticmethod
+    def _readiness(*, filename: str, account_currency: str) -> tuple[str | None, dict[str, object]]:
         from kaleta.services.import_service import (
             ImportReadinessCheck,
             validate_import_readiness,
         )
 
-        error_key, _ = validate_import_readiness(
+        return validate_import_readiness(
             ImportReadinessCheck(
                 target_account_id=1,
                 expense_cat_id=2,
                 income_cat_id=3,
                 profile=WISE_PROFILE,
-                metadata=WiseQifPreprocessor.extract_metadata(_content()),
-                account_currency="JPY",
+                metadata=WiseQifPreprocessor.extract_metadata(_content(), filename=filename),
+                account_currency=account_currency,
             )
         )
+
+    def test_empty_currency_does_not_block_a_correct_import(self) -> None:
+        """The mismatch guard must stay silent rather than reject on a guess."""
+        error_key, _ = self._readiness(filename="", account_currency="JPY")
+        assert error_key is None
+
+    def test_a_renamed_upload_still_imports_onto_any_account(self) -> None:
+        """Unknown must not block — a renamed file would otherwise be stuck."""
+        error_key, _ = self._readiness(filename="foo.qif", account_currency="PLN")
+        assert error_key is None
+
+    def test_the_named_currency_blocks_the_wrong_account(self) -> None:
+        """The whole point: a JPY statement must not land on a PLN account."""
+        error_key, params = self._readiness(filename=WISE_QIF_NAME, account_currency="PLN")
+        assert error_key == "import.currency_mismatch_block"
+        assert params == {"file": "JPY", "account": "PLN"}
+
+    def test_the_named_currency_lets_the_right_account_through(self) -> None:
+        error_key, _ = self._readiness(filename=WISE_QIF_NAME, account_currency="JPY")
         assert error_key is None
 
 

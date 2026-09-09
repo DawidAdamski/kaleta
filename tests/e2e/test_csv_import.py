@@ -3,7 +3,8 @@
 
 Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
-KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022
+KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022,
+KAL-CSV-023, KAL-CSV-024
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -15,7 +16,7 @@ import datetime
 import re
 from pathlib import Path
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import FilePayload, Page, expect
 
 from tests.e2e.seed_helpers import (
     count_transactions,
@@ -41,8 +42,22 @@ OTHER_B = FIXTURES / "other-b.csv"
 OTHER_C = FIXTURES / "other-c.csv"
 WISE_JPY = FIXTURES / "wise" / "jpy-travel-sample.csv"
 WISE_JPY_QIF = FIXTURES / "wise" / "jpy-travel-sample.qif"
+# Wise names every statement download ``statement_<id>_<CCY>_<from>_<to>.<ext>``
+# and the QIF's currency lives nowhere else, so tests that care about the
+# currency upload the fixture under that name. The account-id segment is
+# anonymized here as it is in the fixtures — it identifies a real wallet.
+WISE_QIF_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
 AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
 AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
+
+
+def _upload_as(path: Path, name: str) -> FilePayload:
+    """Feed *path*'s bytes to the upload widget under a different *name*."""
+    return {
+        "name": name,
+        "mimeType": "application/octet-stream",
+        "buffer": path.read_bytes(),
+    }
 
 
 def _select_import_option(page: Page, label: str, option: str) -> None:
@@ -583,8 +598,9 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     """Covers: KAL-CSV-022
 
     Wise QIF auto-detects into the Wise profile, banners the statement period
-    with no currency (the format carries none), keeps the card-holder memo out
-    of the page, and imports with the English payee as description.
+    and the currency read off the download name (the format itself carries
+    none), keeps the card-holder memo out of the page, and imports with the
+    English payee as description.
     """
     account_name = "Wise JPY QIF"
     expense_cat = "Other Expenses Wise QIF E2E"
@@ -600,8 +616,10 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     wise_button = page.get_by_role("button", name="Wise")
     expect(wise_button).to_be_visible()
 
-    page.locator('input[type="file"]').set_input_files(str(WISE_JPY_QIF))
-    expect(page.get_by_text("jpy-travel-sample.qif").first).to_be_visible(timeout=5000)
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(WISE_JPY_QIF, WISE_QIF_DOWNLOAD_NAME)
+    )
+    expect(page.get_by_text(WISE_QIF_DOWNLOAD_NAME).first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
 
     # Auto-detection promoted the upload to Wise: the selector tints that
@@ -613,10 +631,14 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
         timeout=5000
     )
 
-    # QIF names no currency anywhere, so the banner carries the period only.
+    # The QIF body names no currency; the download name does, and that is what
+    # the banner shows. The period stays record-derived: the name asks for
+    # 04-01 – 06-30, the transactions actually run 04-17 – 05-17.
     banner = page.locator(".k-info-banner").first
     expect(banner).to_contain_text("2026-04-17 – 2026-05-17", timeout=5000)
-    expect(banner).not_to_contain_text("JPY")
+    expect(banner).to_contain_text("JPY")
+    expect(banner).not_to_contain_text("2026-04-01")
+    expect(banner).not_to_contain_text("2026-06-30")
 
     # ``M`` is the card holder and last four on every card row — it must not
     # reach the preview, and below, not the ledger either.
@@ -635,3 +657,77 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     search.fill("Topped up account")
     expect(page.get_by_text("Topped up account").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Jan Kowalski", exact=False)).to_have_count(0)
+
+
+def test_wise_qif_currency_from_name_blocks_the_wrong_account(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-023
+
+    The QIF body names no currency, so before the download name was read a JPY
+    statement landed on a PLN account and was booked as PLN. It must be blocked.
+    """
+    account_name = "Wise PLN Guard"
+    expense_cat = "Other Expenses Wise Guard E2E"
+    income_cat = "Other Income Wise Guard E2E"
+
+    account_id = seed_account(account_name, currency="PLN")
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(WISE_JPY_QIF, WISE_QIF_DOWNLOAD_NAME)
+    )
+    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+
+    _select_import_option(page, "Target account", _account_option(account_name, "PLN"))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    page.get_by_role("button", name="Import 1 file").click()
+
+    expect(
+        page.get_by_text(
+            "Import blocked: file currency (JPY) does not match account currency (PLN).",
+            exact=False,
+        ).first
+    ).to_be_visible(timeout=10000)
+    assert count_transactions(account_id) == 0
+
+
+def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-024
+
+    Reading the name is best-effort. A renamed download yields no currency, and
+    unknown must never block — refusing would leave that file no way in at all.
+    """
+    account_name = "Wise PLN Renamed"
+    expense_cat = "Other Expenses Wise Renamed E2E"
+    income_cat = "Other Income Wise Renamed E2E"
+
+    account_id = seed_account(account_name, currency="PLN")
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    page.locator('input[type="file"]').set_input_files(_upload_as(WISE_JPY_QIF, "foo.qif"))
+    expect(page.get_by_text("foo.qif").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+
+    # No name to read a currency off, so the banner leaves it blank — exactly
+    # as it did before the guard learned to read download names.
+    banner = page.locator(".k-info-banner").first
+    expect(banner).to_contain_text("2026-04-17 – 2026-05-17", timeout=5000)
+    expect(banner).not_to_contain_text("JPY")
+
+    _select_import_option(page, "Target account", _account_option(account_name, "PLN"))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    page.get_by_role("button", name="Import 1 file").click()
+    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
+    assert count_transactions(account_id) > 0
