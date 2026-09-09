@@ -70,6 +70,7 @@ _STEP_ROUTES: dict[str, str] = {
     "sub_audit": "/wizard/subscriptions",
     "sub_cost_trends": "/wizard/subscriptions",
     "personal_loans": "/wizard/personal-loans",
+    "salary": "/wizard/pay-yourself",
 }
 
 # (icon, title_key, desc_key, url, done_hint_key)

@@ -24,6 +24,7 @@ from kaleta.services.planned_transaction_service import PlannedTransactionServic
 from kaleta.services.report_service import ReportService
 from kaleta.services.reserve_fund_service import ReserveFundService
 from kaleta.services.rule_service import RuleService
+from kaleta.services.salary_service import SalaryService
 from kaleta.services.saved_report_service import SavedReportService
 from kaleta.services.scheduled_backup_service import ScheduledBackupService
 from kaleta.services.session import dispose_sessions, with_session
@@ -48,6 +49,7 @@ __all__ = [
     "IntegrityService",
     "ScheduledBackupService",
     "SavedReportService",
+    "SalaryService",
     "AssetService",
     "BudgetService",
     "CategoryService",

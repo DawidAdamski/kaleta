@@ -1808,6 +1808,56 @@ Feature: Annual Review
     Then each subscription and irregular item asks for keep / adjust / drop
 ```
 
+## Feature: Pay Yourself a Salary
+
+Irregular income (freelance, contracting, commission) is smoothed into
+one fixed monthly transfer. The proposal looks at recent **complete**
+months only — the running month is always partial — and defaults to the
+worst of them, so a lean month is already priced in. Everything a month
+earns above the salary accumulates as a buffer.
+
+```gherkin
+Feature: Pay Yourself a Salary
+  As a freelancer with irregular income
+  I want a safe fixed monthly salary derived from my worst recent month
+  So that my budget stops swinging with my invoices
+
+  KAL-SAL-001 @automated
+  Scenario: Proposal is the worst month of the window
+    Given income of 6000.00, 9000.00, 4000.00 and 12000.00 over the last four complete months
+    When I open the Pay yourself a salary panel
+    Then the proposed monthly salary is 4,000.00
+    And the panel shows a worst month of 4,000.00 and a best month of 12,000.00
+
+  KAL-SAL-002 @automated
+  Scenario: Buffer accumulates the surplus above the salary
+    Given income of 6000.00, 9000.00, 4000.00 and 12000.00 over the last four complete months
+    When I open the Pay yourself a salary panel
+    Then the buffer after the final month is 15,000.00
+
+  KAL-SAL-003 @automated
+  Scenario: Overriding the proposal replays the buffer
+    Given income of 6000.00, 9000.00, 4000.00 and 12000.00 over the last four complete months
+    And the Pay yourself a salary panel proposes 4,000.00
+    When I override the monthly salary with 5000.00
+    Then the buffer after the final month is 11,000.00
+
+  KAL-SAL-004 @automated
+  Scenario: Accepting the proposal creates a monthly planned transfer
+    Given income of 6000.00, 9000.00, 4000.00 and 12000.00 over the last four complete months
+    And the panel proposes 4,000.00 from my business account to my personal account
+    When I create the salary transfer
+    Then a monthly planned transaction of 4,000.00 exists on the business account
+    And it appears in the Payment Calendar
+
+  KAL-SAL-005 @automated
+  Scenario: Too little history shows a hint instead of a proposal
+    Given income in only two complete months
+    When I open the Pay yourself a salary panel
+    Then no salary is proposed
+    And the panel explains that at least 3 complete months of income are needed
+```
+
 ## Feature: Irregular Expenses Fund
 
 Yearly and surprise costs (car insurance, property tax, a heating
