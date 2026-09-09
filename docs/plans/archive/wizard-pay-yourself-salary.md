@@ -3,8 +3,9 @@ plan_id: wizard-pay-yourself-salary
 title: Wizard — "pay yourself a salary" panel for irregular income
 area: wizard
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-09-09
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Wizard — "pay yourself a salary" (irregular income)
@@ -150,3 +151,33 @@ negative buffers, rejected inputs).
   `_STEP_ROUTES` only, and `KAL-NAV-004` walks every sidebar entry.
 - No currency conversion. Multi-currency income is summed as-is behind a
   warning, per the plan's "warn otherwise".
+
+## Implementation
+
+Landed on 2026-09-09 (PR #85).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c417f97` | Dawid Adamski | 2026-09-10 | Merge pull request #85 from DawidAdamski/plan/wizard-pay-yourself-salary |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/wizard-pay-yourself-salary.md
+- docs/product/financial-wizard.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/schemas/salary.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/salary_service.py
+- src/kaleta/views/wizard.py
+- src/kaleta/views/wizard_salary.py
+- tests/e2e/test_pay_yourself_salary.py
+- tests/integration/test_pay_yourself_salary.py
+- tests/unit/services/test_salary_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
