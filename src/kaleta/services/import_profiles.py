@@ -88,6 +88,12 @@ class WiseFilenameMetadata:
 # ``statement_12345678_JPY_2026-04-01_2026-06-30.qif`` — the name Wise gives
 # every statement download, whatever the format. The account id is matched
 # but never captured, so it cannot leak into the app (see WiseFilenameMetadata).
+#
+# The currency group is any three letters, not a list of known codes: an
+# account's own currency is a bare ``String(3)`` too, so a stricter filename
+# would reject statements for currencies Kaleta happily holds accounts in.
+# A well-shaped name carrying nonsense yields a currency that matches no
+# account, which the mismatch guard reports plainly.
 _WISE_FILENAME = re.compile(
     r"^statement_\d+_(?P<currency>[A-Za-z]{3})"
     r"_(?P<date_from>\d{4}-\d{2}-\d{2})_(?P<date_to>\d{4}-\d{2}-\d{2})"

@@ -15,9 +15,8 @@ from __future__ import annotations
 import datetime
 import re
 from pathlib import Path
-from typing import Any
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import FilePayload, Page, expect
 
 from tests.e2e.seed_helpers import (
     count_transactions,
@@ -52,7 +51,7 @@ AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
 AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
 
 
-def _upload_as(path: Path, name: str) -> dict[str, Any]:
+def _upload_as(path: Path, name: str) -> FilePayload:
     """Feed *path*'s bytes to the upload widget under a different *name*."""
     return {
         "name": name,
