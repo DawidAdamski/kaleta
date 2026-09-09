@@ -3,8 +3,9 @@ plan_id: import-filename-currency-guard
 title: Import — currency guard for statements that carry no currency
 area: import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-09
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — currency guard for statements that carry no currency
@@ -17,7 +18,7 @@ importing a JPY statement onto a PLN account. It works by comparing
 fires when the file names its currency.
 
 **A Wise QIF never does.** Confirmed against a real export
-([`import-wise-qif`](archive/import-wise-qif.md), *Fixture provenance*): the body
+([`import-wise-qif`](import-wise-qif.md), *Fixture provenance*): the body
 carries `D` date, `T` amount, `P` payee, `N` id and `M` card holder, and
 nothing else. Wise puts the currency in the **download filename**
 (`statement_136577258_JPY_2026-04-01_2026-06-30.qif`), which
@@ -61,8 +62,8 @@ Out of scope:
   filename covers the normal case).
 - Filename parsing for any bank other than Wise. mBank carries its
   currency in the file header already.
-- MT940 / XLSX ([`import-wise-mt940`](import-wise-mt940.md),
-  [`import-wise-xlsx`](import-wise-xlsx.md)) — both formats do name a
+- MT940 / XLSX ([`import-wise-mt940`](../import-wise-mt940.md),
+  [`import-wise-xlsx`](../import-wise-xlsx.md)) — both formats do name a
   currency in-band; if either turns out not to, extend this helper then,
   with a real fixture first.
 - Converting amounts between currencies, or warning when the filename
@@ -113,7 +114,7 @@ Out of scope:
 
 ## Depends on
 
-- [`import-wise-qif`](archive/import-wise-qif.md) merged — this plan closes the
+- [`import-wise-qif`](import-wise-qif.md) merged — this plan closes the
   gap that plan documented and deliberately left open.
 
 ## Implementation notes
@@ -183,3 +184,28 @@ unrecognised names, so the change makes it strictly rarer). Fixing it
 means touching the warning path, which this plan's scope does not
 cover — filed on the Chore inbox
 ([#20](https://github.com/DawidAdamski/kaleta/issues/20)) instead.
+
+## Implementation
+
+Landed on 2026-09-09 (PR #83).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `0040357` | Dawid Adamski | 2026-09-09 | Merge pull request #83 from DawidAdamski/plan/import-filename-currency-guard |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-filename-currency-guard.md
+- src/kaleta/services/import_profiles.py
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/page.py
+- tests/e2e/fixtures/import/wise/NOTES.md
+- tests/e2e/test_csv_import.py
+- tests/unit/services/test_import_filename_metadata.py
+- tests/unit/services/test_wise_qif_import.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
