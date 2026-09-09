@@ -3,7 +3,7 @@ plan_id: import-filename-currency-guard
 title: Import — currency guard for statements that carry no currency
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
