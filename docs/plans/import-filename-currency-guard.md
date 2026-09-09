@@ -181,4 +181,5 @@ importable. This predates the plan and is unchanged by it (a QIF's
 currency was `""` for every upload before; now it is `""` only for
 unrecognised names, so the change makes it strictly rarer). Fixing it
 means touching the warning path, which this plan's scope does not
-cover — filed for the Chore inbox instead.
+cover — filed on the Chore inbox
+([#20](https://github.com/DawidAdamski/kaleta/issues/20)) instead.

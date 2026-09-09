@@ -639,7 +639,7 @@ class WiseQifPreprocessor:
             if record.date:
                 with contextlib.suppress(ImportError_):
                     dates.append(_parse_date(record.date, WiseQifPreprocessor._DATE_FORMAT))
-        from_name = parse_wise_filename(filename) if filename else None
+        from_name = parse_wise_filename(filename)
         return MBankFileMetadata(
             client_name="",
             account_type="Wise",
