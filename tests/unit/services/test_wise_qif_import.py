@@ -37,9 +37,9 @@ from kaleta.services.import_service import (
 FIXTURES = Path(__file__).resolve().parents[2] / "e2e" / "fixtures" / "import" / "wise"
 QIF_FIXTURE = FIXTURES / "jpy-travel-sample.qif"
 
-# The name Wise gives this very statement on download — the only place the
-# export names its currency.
-WISE_QIF_NAME = "statement_136577258_JPY_2026-04-01_2026-06-30.qif"
+# The shape Wise gives every statement download — the only place the export
+# names its currency. The account-id segment is anonymized, as in the fixtures.
+WISE_QIF_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
 
 
 class _NoSession:

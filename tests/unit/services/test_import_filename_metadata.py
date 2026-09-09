@@ -4,9 +4,12 @@
 Wise's QIF export names no currency in the file body, so the download name is
 the only place the currency-mismatch guard can read one. These tests pin the
 exact name shape Wise produces
-(``statement_136577258_JPY_2026-04-01_2026-06-30.qif``, recorded in
+(``statement_<account_id>_<CCY>_<from>_<to>.<ext>``, recorded in
 ``tests/e2e/fixtures/import/wise/NOTES.md``), the refusal to guess at anything
 else, and the fact that the account-id segment never reaches the caller.
+
+The account id is anonymized here, as it is in the fixtures: the real segment
+identifies the maintainer's wallet and has no business in the repo.
 """
 
 from __future__ import annotations
@@ -17,7 +20,7 @@ import pytest
 
 from kaleta.services.import_profiles import WiseFilenameMetadata, parse_wise_filename
 
-WISE_QIF_NAME = "statement_136577258_JPY_2026-04-01_2026-06-30.qif"
+WISE_QIF_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
 
 
 class TestWiseDownloadNameIsRead:
@@ -35,13 +38,13 @@ class TestWiseDownloadNameIsRead:
     )
     def test_every_format_wise_offers_shares_one_name_shape(self, extension: str) -> None:
         """Wise names all four downloads alike; only QIF needs the currency today."""
-        meta = parse_wise_filename(f"statement_136577258_PLN_2026-01-01_2026-03-31.{extension}")
+        meta = parse_wise_filename(f"statement_12345678_PLN_2026-01-01_2026-03-31.{extension}")
         assert meta is not None
         assert meta.currency == "PLN"
 
     def test_a_lowercased_name_still_yields_an_uppercase_currency(self) -> None:
         """Some browsers and file managers lowercase a download on save."""
-        meta = parse_wise_filename("statement_136577258_jpy_2026-04-01_2026-06-30.qif")
+        meta = parse_wise_filename("statement_12345678_jpy_2026-04-01_2026-06-30.qif")
         assert meta is not None
         assert meta.currency == "JPY"
 
@@ -53,13 +56,13 @@ class TestUnrecognisedNamesStayUnknown:
             "",
             "foo.qif",
             "jpy-travel-sample.qif",
-            "statement_136577258_JPY_2026-04-01.qif",
-            "statement_136577258_2026-04-01_2026-06-30.qif",
-            "statement_136577258_JAPAN_2026-04-01_2026-06-30.qif",
+            "statement_12345678_JPY_2026-04-01.qif",
+            "statement_12345678_2026-04-01_2026-06-30.qif",
+            "statement_12345678_JAPAN_2026-04-01_2026-06-30.qif",
             "statement_JPY_2026-04-01_2026-06-30.qif",
-            "wise_136577258_JPY_2026-04-01_2026-06-30.qif",
-            "statement_136577258_JPY_2026-04-01_2026-06-30",
-            "statement_136577258_JPY_01-04-2026_30-06-2026.qif",
+            "wise_12345678_JPY_2026-04-01_2026-06-30.qif",
+            "statement_12345678_JPY_2026-04-01_2026-06-30",
+            "statement_12345678_JPY_01-04-2026_30-06-2026.qif",
         ],
     )
     def test_anything_but_the_wise_shape_is_none(self, name: str) -> None:
@@ -79,7 +82,7 @@ class TestTheAccountIdIsDiscarded:
         """``<account_id>`` identifies the user's wallet — it must not be carried."""
         meta = parse_wise_filename(WISE_QIF_NAME)
         assert meta is not None
-        assert "136577258" not in repr(meta)
+        assert "12345678" not in repr(meta)
 
     def test_the_result_holds_currency_and_period_only(self) -> None:
         assert WiseFilenameMetadata.__dataclass_fields__.keys() == {

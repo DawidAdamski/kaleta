@@ -85,7 +85,7 @@ class WiseFilenameMetadata:
     date_to: datetime.date
 
 
-# ``statement_136577258_JPY_2026-04-01_2026-06-30.qif`` — the name Wise gives
+# ``statement_12345678_JPY_2026-04-01_2026-06-30.qif`` — the name Wise gives
 # every statement download, whatever the format. The account id is matched
 # but never captured, so it cannot leak into the app (see WiseFilenameMetadata).
 _WISE_FILENAME = re.compile(

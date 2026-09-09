@@ -1164,15 +1164,44 @@ Feature: mBank CSV Import
     And there is an expense category "Other Expenses"
     And there is an income category "Other Income"
     And I am on the Import page
-    When I upload a valid Wise QIF file
+    When I upload a valid Wise QIF file under its Wise download name
     Then the profile is auto-detected as "Wise"
     And the metadata banner shows the statement period
-    And the banner shows no currency, because the QIF format carries none
+    And the banner shows currency "JPY", read from the download name
+    And the period is the one the transactions cover, not the one the name requests
     And the preview shows payee "Japanpost Bank(245950) GIFU" for a card purchase
     And the card holder name in the QIF memos is nowhere on the page
     When I select account "Wise JPY"
     And I select default expense category "Other Expenses"
     And I select default income category "Other Income"
+    And I click "Import"
+    Then the transactions are imported successfully
+
+  KAL-CSV-023 @automated
+  Scenario: A QIF whose currency only its name knows is guarded by that name
+    A Wise QIF names no currency in its body, so nothing used to stop a JPY
+    statement landing on a PLN account and being read as PLN. The download
+    name carries the currency, and the guard now reads it there.
+
+    Given there is an account "Wise PLN" in PLN
+    And I am on the Import page
+    When I upload a Wise QIF file whose download name says "JPY"
+    And I select account "Wise PLN"
+    And I click "Import"
+    Then the import is blocked
+    And I am told the file currency does not match the account currency
+
+  KAL-CSV-024 @automated
+  Scenario: A renamed statement stays unknown, and unknown never blocks
+    Reading the name is best-effort. A user who renamed their download must
+    still be able to import it — refusing would leave the file no way in at
+    all, which is worse than the gap this guard closes.
+
+    Given there is an account "Wise PLN" in PLN
+    And I am on the Import page
+    When I upload that same Wise QIF renamed to "foo.qif"
+    Then the metadata banner shows no currency
+    When I select account "Wise PLN"
     And I click "Import"
     Then the transactions are imported successfully
 ```
