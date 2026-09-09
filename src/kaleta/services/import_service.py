@@ -30,6 +30,7 @@ from kaleta.services.import_profiles import (
     is_mbank_content,
     is_wise_content,
     is_wise_qif_content,
+    parse_wise_filename,
 )
 from kaleta.services.rule_service import RuleService
 
@@ -570,9 +571,8 @@ class WiseQifPreprocessor:
     Two fields the CSV has are simply absent, as the real export confirms
     (``tests/e2e/fixtures/import/wise/jpy-travel-sample.qif``):
 
-    * **No currency.** Nothing in the file names it, so
-      :meth:`extract_metadata` leaves it empty — see the method for what that
-      costs.
+    * **No currency.** Nothing in the file body names it — Wise puts it in the
+      download name, which :meth:`extract_metadata` reads instead.
     * **No per-transaction memo.** ``M`` holds the card holder and last four
       (``Jan Kowalski 1234``), identical on every card row, or a copy of the
       payee on top-ups. It describes the card, not the transaction, so it is
@@ -618,29 +618,32 @@ class WiseQifPreprocessor:
         return result
 
     @staticmethod
-    def extract_metadata(content: str) -> MBankFileMetadata:
+    def extract_metadata(content: str, *, filename: str = "") -> MBankFileMetadata:
         """Derive the Wise metadata banner fields from the QIF records.
 
-        Only the period is recoverable. **Currency is left empty because the
-        format has none** — Wise puts it in the download filename
-        (``statement_<id>_JPY_<from>_<to>.qif``), not the content.
+        The period comes from the records. **The currency cannot** — the
+        format names none — so it is read from *filename*, where Wise puts it
+        (``statement_<id>_JPY_<from>_<to>.qif``). That is what lets
+        ``validate_import_readiness`` fire its currency-mismatch block on a
+        QIF import, as it already does on the CSV path.
 
-        That has a cost the CSV path does not pay: ``validate_import_readiness``
-        skips its currency-mismatch block on a falsy currency, so importing a
-        JPY QIF into a PLN account is not stopped. Empty is still the correct
-        value — inventing a currency would risk blocking a *correct* import —
-        but the guard cannot cover this path until the filename is threaded
-        through parsing.
+        The period stays record-derived even when the name carries one: the
+        name holds the *requested* range, so an April–June statement whose
+        first transaction is 17 April must banner 17 April, not 1 April.
+
+        A renamed or otherwise unrecognised *filename* leaves the currency
+        empty, which is inert for readiness — unknown must not block.
         """
         dates: list[datetime.date] = []
         for record in iter_qif_records(content):
             if record.date:
                 with contextlib.suppress(ImportError_):
                     dates.append(_parse_date(record.date, WiseQifPreprocessor._DATE_FORMAT))
+        from_name = parse_wise_filename(filename) if filename else None
         return MBankFileMetadata(
             client_name="",
             account_type="Wise",
-            currency="",
+            currency=from_name.currency if from_name else "",
             account_number="",
             account_number_digits="",
             date_from=min(dates) if dates else None,
@@ -862,6 +865,7 @@ class ImportService:
         profile: str,
         *,
         mapping: ColumnMapping | None = None,
+        filename: str = "",
     ) -> ParseQueuedFileResult:
         """Parse queued CSV content, auto-detecting a bank profile when generic.
 
@@ -871,6 +875,10 @@ class ImportService:
 
         When *mapping* is provided (generic path), it overrides alias detection.
         Failed mBank parses fall back to generic + mapping instead of a dead end.
+
+        *filename* is the name of the upload. Content always wins; the name is
+        consulted only for what the format cannot express — today that is the
+        Wise QIF's currency. Callers that have no name may omit it.
         """
         resolved_profile = profile
         if profile == GENERIC_PROFILE:
@@ -911,7 +919,7 @@ class ImportService:
 
         if resolved_profile == WISE_PROFILE:
             if WiseQifPreprocessor.is_wise_qif(content):
-                return self._parse_wise_qif(content)
+                return self._parse_wise_qif(content, filename=filename)
             if not WisePreprocessor.is_wise_file(content):
                 return self._parse_generic_with_mapping(
                     content,
@@ -943,12 +951,15 @@ class ImportService:
             profile=resolved_profile,
         )
 
-    def _parse_wise_qif(self, content: str) -> ParseQueuedFileResult:
+    def _parse_wise_qif(self, content: str, *, filename: str = "") -> ParseQueuedFileResult:
         """Parse a Wise QIF upload.
 
         Unlike the CSV branches there is no generic fallback: a QIF that fails
         to yield rows is not CSV, so handing it to the column-mapping step
         would only show the user a garbled table.
+
+        *filename* carries the only currency this format has — see
+        :meth:`WiseQifPreprocessor.extract_metadata`.
         """
         result = WiseQifPreprocessor.parse(content)
         if not result.rows:
@@ -962,7 +973,7 @@ class ImportService:
             profile=WISE_PROFILE,
             rows=result.rows,
             errors=result.errors,
-            metadata=WiseQifPreprocessor.extract_metadata(content),
+            metadata=WiseQifPreprocessor.extract_metadata(content, filename=filename),
             ok=True,
         )
 
