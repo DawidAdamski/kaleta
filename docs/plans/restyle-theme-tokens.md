@@ -254,6 +254,17 @@ they targeted no longer exist — `dashboard_widgets/helpers.py` renders
   not headings; giving them the heading class would have made a later change
   to heading colour silently repaint the budget grid.
 
+- **The 236px drawer needed the handoff's nav type and gutter, not just the
+  width.** At Quasar's defaults (14px labels, a 56px avatar column) "Payment
+  Calendar", "Monthly Readiness" and "Credit Calculator" wrapped to two lines
+  inside a fixed `h-11` row and overflowed it — which is how
+  `test_every_nav_entry_routes` failed once in a full e2e run while passing in
+  isolation: a clipped label is an unreliable click target. `.k-nav-item` now
+  uses the handoff's 13px label and a 19px icon with a 12px gutter, and
+  `min-h-11` instead of `h-11` so a wrap could never clip again. Measured in
+  the browser: all 25 entries are single-line 44px rows, the mini rail is
+  64px, and expanding returns to 236px.
+
 - **Six dark values are extrapolated, not quoted.** The handoff's dark table
   covers thirteen roles; `--k-surface-warm` (`#262420`), `--k-border-strong`
   (`#453F34`), `--k-disabled` (`#6E6656`), `--k-chip-dash` (`#453F34`),

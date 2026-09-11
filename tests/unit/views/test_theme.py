@@ -191,6 +191,16 @@ def test_no_constant_carries_a_tailwind_palette_class() -> None:
     assert not offenders, offenders
 
 
+def test_nav_items_use_the_handoff_type_and_gutter() -> None:
+    # 13px labels and a 19px icon column are what let 236px hold the long
+    # entries on one line; a fixed height would clip a wrap.
+    assert "min-h-11" in theme.NAV_ITEM
+    assert "font-size:13px" in _block(theme.BASE_CSS, ".k-nav-item .q-item__label")
+    avatar = _block(theme.BASE_CSS, ".k-nav-item .q-item__section--avatar")
+    assert "width:19px" in avatar
+    assert "padding-right:12px" in avatar
+
+
 def test_ink_is_a_separate_token_from_the_heading_class() -> None:
     # Figures and dense grid cells are ink, but they are not headings.
     assert theme.INK == "k-ink"

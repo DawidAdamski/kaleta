@@ -36,7 +36,7 @@ NAV_GROUP = "k-nav-group k-eyebrow flex-1"
 NAV_GROUP_ROW = (
     "k-nav-row items-center h-9 px-3 mx-2 rounded-lg cursor-pointer select-none transition-colors"
 )
-NAV_ITEM = "k-nav-item h-11 rounded-lg mx-3 mb-[3px] px-3 cursor-pointer transition-colors"
+NAV_ITEM = "k-nav-item min-h-11 rounded-lg mx-3 mb-[3px] px-3 cursor-pointer transition-colors"
 NAV_ITEM_ACTIVE = "k-nav-item--active"
 
 PAGE_TITLE = "k-page-title text-[32px] font-light tracking-tight"
@@ -197,7 +197,15 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 .k-nav-row:hover{background:var(--k-surface)}
 .k-nav-item{color:var(--k-ink-2)}
 .k-nav-item:hover{background:var(--k-surface)}
-.k-nav-item .q-item__label{color:var(--k-ink-2)}
+.k-nav-item .q-item__label{color:var(--k-ink-2);font-size:13px;line-height:1.3}
+/* Quasar reserves 56px for the avatar column; the handoff's drawer is a
+   19px icon and a 12px gap, which is what lets 236px hold the long labels. */
+.k-nav-item .q-item__section--avatar{
+  min-width:0;
+  width:19px;
+  flex:0 0 19px;
+  padding-right:12px
+}
 .k-nav-item:not(.k-nav-item--active) .q-icon{color:var(--k-muted)!important}
 .k-nav-item--active{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
 .k-nav-item--active .q-item__label{color:var(--k-ink);font-weight:600}
