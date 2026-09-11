@@ -385,7 +385,7 @@ def register() -> None:
                     ui.icon("home", color="primary").classes("text-xl")
                     ui.label(t("net_worth.physical_assets")).classes("text-lg font-semibold flex-1")
                     ui.label(_fmt(summary.total_physical_assets, default_currency)).classes(
-                        "font-bold text-primary text-sm"
+                        "k-mono k-heading font-semibold text-sm"
                     )
                 _physical_assets_section(summary)
 

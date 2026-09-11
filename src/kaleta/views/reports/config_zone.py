@@ -48,7 +48,7 @@ def build_config_zone(
                 )
                 with ui.row().classes("items-center gap-1"):
                     ui.icon(dim_icon, color="primary")
-                    ui.label(dim_label).classes("font-semibold text-primary")
+                    ui.label(dim_label).classes("k-heading font-semibold")
                 ui.label(t("reports.drop_here")).classes("text-xs text-slate-400 mt-1")
 
             dz_met_cls = (

@@ -15,9 +15,9 @@ from kaleta.schemas.salary import SalaryBasis, SalaryPlanCreate, SalaryProposal
 from kaleta.services import AccountService, SalaryService, with_session
 from kaleta.services.salary_service import MIN_HISTORY_MONTHS
 from kaleta.views.chart_utils import (
+    CHART_ACCENT,
     CHART_INCOME,
-    CHART_NET_LINE,
-    CHART_TEAL,
+    CHART_INK,
     apply_dark,
 )
 from kaleta.views.error_handling import notify_kaleta_error
@@ -75,7 +75,7 @@ def _buffer_chart(proposal: SalaryProposal, is_dark: bool) -> dict[str, Any]:
                 "name": t("salary.chart_salary"),
                 "type": "line",
                 "data": [float(proposal.salary)] * len(labels),
-                "itemStyle": {"color": CHART_NET_LINE},
+                "itemStyle": {"color": CHART_INK},
                 "lineStyle": {"width": 2, "type": "dashed"},
                 "symbol": "none",
             },
@@ -83,7 +83,7 @@ def _buffer_chart(proposal: SalaryProposal, is_dark: bool) -> dict[str, Any]:
                 "name": t("salary.chart_buffer"),
                 "type": "line",
                 "data": [float(p.buffer) for p in proposal.projection],
-                "itemStyle": {"color": CHART_TEAL},
+                "itemStyle": {"color": CHART_ACCENT},
                 "lineStyle": {"width": 2},
                 "symbol": "circle",
                 "symbolSize": 6,
@@ -184,7 +184,7 @@ def register() -> None:
                                 "salary.multi_currency_warning",
                                 currencies=", ".join(proposal.currencies),
                             )
-                        ).classes(f"{BODY_MUTED} text-amber-700 mt-2")
+                        ).classes(f"{BODY_MUTED} k-trend--warn mt-2")
 
             def _render_proposal() -> None:
                 with ui.card().classes(SECTION_CARD):

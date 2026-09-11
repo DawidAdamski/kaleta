@@ -26,6 +26,11 @@ try:
 except Exception:
     _APP_VERSION = "v0.1.0"
 
+# Drawer geometry from the design handoff: 236px expanded, 64px collapsed.
+_DRAWER_WIDTH = "width=236"
+_MINI_PROPS = "mini mini-to-overlay mini-width=64"
+_MINI_PROPS_OFF = "mini mini-to-overlay mini-width"
+
 # Pinned entries rendered above the groups: (icon, path, label_key).
 # See docs/ux/feature-categorization-audit.md (Phase A) for the rationale.
 NAV_PINNED: list[tuple[str, str, str]] = [
@@ -128,9 +133,9 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         new_mini = not app.storage.user.get("sidebar_mini", False)
         app.storage.user["sidebar_mini"] = new_mini
         if new_mini:
-            drawer.props("mini mini-to-overlay")
+            drawer.props(_MINI_PROPS)
         else:
-            drawer.props(remove="mini mini-to-overlay")
+            drawer.props(remove=_MINI_PROPS_OFF)
         mini_btn.props(f"icon={'chevron_right' if new_mini else 'chevron_left'}")
 
     ui.query("body").classes(PAGE_SHELL)
@@ -142,7 +147,7 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             return current_path == nav_path
         return current_path == nav_path or current_path.startswith(f"{nav_path}/")
 
-    with ui.header().classes(f"{HEADER} items-center px-4 gap-4 h-16"):
+    with ui.header().classes(f"{HEADER} items-center px-4 gap-4 h-[60px]"):
         ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(
             "flat round dense color=primary"
         )
@@ -154,7 +159,7 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             .props("flat round dense color=primary")
             .tooltip(t("common.toggle_sidebar"))
         )
-        ui.label("Kaleta").classes("text-xl font-bold tracking-tight text-primary")
+        ui.label("Kaleta").classes("k-heading text-[17px] font-semibold tracking-tight")
         ui.space()
         ui.label(title).classes("text-sm text-slate-500")
         toggle_btn = (
@@ -211,9 +216,9 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
             on_click=close_dialog.open,
         ).props("flat round dense color=primary").tooltip(t("common.close_db"))
 
-    with ui.left_drawer(value=True).classes(DRAWER) as drawer:
+    with ui.left_drawer(value=True).props(_DRAWER_WIDTH).classes(DRAWER) as drawer:
         if is_mini:
-            drawer.props("mini mini-to-overlay")
+            drawer.props(_MINI_PROPS)
         # Pinned entries — always visible, above the workflow groups.
         for icon, path, key in NAV_PINNED:
             active = _nav_active(path)
@@ -274,26 +279,24 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
                 ui.item_label(t("nav.api_docs"))
 
         ui.space()
-        ui.label(_APP_VERSION).classes(
-            "k-app-version text-xs text-slate-400 text-center pb-3 w-full"
-        )
+        ui.label(_APP_VERSION).classes("k-app-version k-mono text-xs text-center pb-3 w-full")
 
     # ── Keyboard shortcuts help dialog (press ?) ──────────────────────────
     with ui.dialog() as shortcuts_dialog, ui.card().classes("w-[480px] gap-3"):
         ui.label(t("common.shortcuts_help")).classes("text-lg font-bold")
         ui.label(t("common.shortcuts_global")).classes("text-sm font-semibold text-slate-500 mt-2")
         with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
-            ui.label("Alt+N").classes("font-mono text-sm text-primary font-bold")
+            ui.label("Alt+N").classes("k-mono k-heading text-sm font-semibold")
             ui.label(t("common.shortcut_new_tx")).classes("text-sm")
-            ui.label("?").classes("font-mono text-sm text-primary font-bold")
+            ui.label("?").classes("k-mono k-heading text-sm font-semibold")
             ui.label(t("common.shortcut_open_help")).classes("text-sm")
         ui.label(t("common.shortcuts_transactions")).classes(
             "text-sm font-semibold text-slate-500 mt-3"
         )
         with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
-            ui.label("Enter").classes("font-mono text-sm text-primary font-bold")
+            ui.label("Enter").classes("k-mono k-heading text-sm font-semibold")
             ui.label(t("common.shortcut_submit")).classes("text-sm")
-            ui.label("Escape").classes("font-mono text-sm text-primary font-bold")
+            ui.label("Escape").classes("k-mono k-heading text-sm font-semibold")
             ui.label(t("common.shortcut_close")).classes("text-sm")
         with ui.row().classes("w-full justify-end mt-2"):
             ui.button(t("common.close"), on_click=shortcuts_dialog.close).props("flat")

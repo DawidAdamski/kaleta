@@ -6,12 +6,28 @@ All functions are pure (no DB, no NiceGUI runtime) so plain def tests are used.
 
 from __future__ import annotations
 
-from kaleta.views.chart_utils import apply_dark, axis_style, chart_text_color
+from kaleta.views.chart_utils import (
+    CHART_ACCENT,
+    CHART_BAND,
+    CHART_EXPENSE,
+    CHART_INCOME,
+    CHART_INK,
+    CHART_NEUTRAL_BAR,
+    apply_dark,
+    axis_style,
+    chart_accent_color,
+    chart_expense_color,
+    chart_grid_color,
+    chart_income_color,
+    chart_palette,
+    chart_text_color,
+)
 
-DARK_COLOR = "#94a3b8"
-LIGHT_COLOR = "#64748b"
-DARK_SPLIT = "#1e293b"
-LIGHT_SPLIT = "#e2e8f0"
+# Sand palette literals — docs/design/restyle/README.md "Design tokens".
+DARK_COLOR = "#A8A08D"
+LIGHT_COLOR = "#6B6353"
+DARK_SPLIT = "#322F27"
+LIGHT_SPLIT = "#E2DBCC"
 
 
 # ── chart_text_color ───────────────────────────────────────────────────────────
@@ -166,3 +182,62 @@ def test_apply_dark_full_options_dict() -> None:
     assert opts["xAxis"]["axisLabel"]["formatter"] == "{value} zł"
     assert opts["xAxis"]["axisLabel"]["color"] == DARK_COLOR
     assert opts["yAxis"]["axisLabel"]["color"] == DARK_COLOR
+
+
+# ── palette — the sand tokens, mirrored for ECharts ───────────────────────────
+
+
+def test_chart_palette_light_is_the_handoff_order() -> None:
+    assert chart_palette(False) == [
+        "#1C1A15",
+        "#B4591F",
+        "#36684D",
+        "#A44631",
+        "#8E8676",
+        "#EFCDB2",
+    ]
+
+
+def test_chart_palette_dark_swaps_ink_accent_and_money_colours() -> None:
+    assert chart_palette(True) == [
+        "#F0EBDF",
+        "#E8935B",
+        "#6FAF87",
+        "#DE8672",
+        "#8E8676",
+        "#EFCDB2",
+    ]
+
+
+def test_chart_palette_returns_a_copy() -> None:
+    palette = chart_palette(False)
+    palette.append("#000000")
+    assert chart_palette(False)[-1] == CHART_BAND
+
+
+def test_module_constants_match_the_light_palette() -> None:
+    assert (CHART_INK, CHART_ACCENT, CHART_INCOME, CHART_EXPENSE, CHART_NEUTRAL_BAR) == (
+        "#1C1A15",
+        "#B4591F",
+        "#36684D",
+        "#A44631",
+        "#8E8676",
+    )
+
+
+def test_money_colour_helpers_follow_the_mode() -> None:
+    assert chart_income_color(False) == "#36684D"
+    assert chart_income_color(True) == "#6FAF87"
+    assert chart_expense_color(False) == "#A44631"
+    assert chart_expense_color(True) == "#DE8672"
+    assert chart_accent_color(False) == "#B4591F"
+    assert chart_accent_color(True) == "#E8935B"
+
+
+def test_grid_colour_is_the_border_token() -> None:
+    assert chart_grid_color(False) == LIGHT_SPLIT
+    assert chart_grid_color(True) == DARK_SPLIT
+
+
+def test_no_teal_left_in_the_palette() -> None:
+    assert "#14b8a6" not in chart_palette(False) + chart_palette(True)

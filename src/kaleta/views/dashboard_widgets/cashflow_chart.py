@@ -16,7 +16,7 @@ from kaleta.services.report_service import MonthCashflow
 from kaleta.views.chart_utils import (
     CHART_EXPENSE,
     CHART_INCOME,
-    CHART_NET_LINE,
+    CHART_INK,
     apply_dark,
 )
 from kaleta.views.dashboard_widgets.helpers import section_card
@@ -52,7 +52,7 @@ def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[st
                 "name": t("dashboard.net"),
                 "type": "line",
                 "data": [float(m.net) for m in months],
-                "itemStyle": {"color": CHART_NET_LINE},
+                "itemStyle": {"color": CHART_INK},
                 "lineStyle": {"width": 2},
                 "symbol": "circle",
                 "symbolSize": 6,

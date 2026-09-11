@@ -11,7 +11,7 @@ from kaleta.services.budget_service import PlanCategoryRow
 def recurring_display(row: PlanCategoryRow) -> tuple[str, str]:
     """Return label text and colour class for the recurring/monthly column."""
     if row.uniform_monthly is not None:
-        return f"{row.uniform_monthly:,.0f}", "text-primary"
+        return f"{row.uniform_monthly:,.0f}", "k-heading"
     if row.has_any_plan:
         return "~", "text-orange-8"
     return "—", "text-slate-400"
@@ -25,7 +25,7 @@ def plan_cell_color(amount: Decimal | None, is_override: bool) -> str:
     if is_override:
         return "text-orange-8"
     if amount:
-        return "text-primary"
+        return "k-heading"
     return "text-slate-400"
 
 

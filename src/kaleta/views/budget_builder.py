@@ -74,7 +74,7 @@ def register() -> None:
                     ui.label(t("budget_builder.subtitle")).classes(BODY_MUTED)
                 with ui.row().classes("items-center gap-2"):
                     ui.icon("event", size="1.2rem").classes("text-primary")
-                    ui.label(str(current_year)).classes("text-xl font-semibold text-primary")
+                    ui.label(str(current_year)).classes("k-mono k-heading text-xl font-semibold")
 
             # ── Income section ───────────────────────────────────────────
             income_col: ui.column

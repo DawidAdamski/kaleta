@@ -16,6 +16,7 @@ from kaleta.services import (
 )
 from kaleta.services.wizard_mentor_service import MentorSuggestion, WizardMentorService
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import ACCENT_SURFACE, ON_ACCENT
 
 # (icon, step_key, section)  — section groups them visually
 _STEPS: list[tuple[str, str, str]] = [
@@ -168,20 +169,22 @@ def register() -> None:
             with ui.card().classes("w-full p-0 overflow-hidden"):
                 # Clickable header → toggles the steps column below.
                 with ui.row().classes(
-                    "items-center gap-3 px-5 py-4 bg-teal-7 cursor-pointer select-none"
+                    f"items-center gap-3 px-5 py-4 {ACCENT_SURFACE} cursor-pointer select-none"
                 ) as onboarding_header:
-                    ui.icon("rocket_launch", size="1.4rem").classes("text-white")
+                    ui.icon("rocket_launch", size="1.4rem").classes(ON_ACCENT)
                     with ui.column().classes("gap-0 flex-1"):
                         ui.label(t("wizard.setup_title")).classes(
-                            "text-white font-semibold text-base"
+                            f"{ON_ACCENT} font-semibold text-base"
                         )
-                        ui.label(t("wizard.setup_subtitle")).classes("text-teal-1 text-xs")
+                        ui.label(t("wizard.setup_subtitle")).classes(
+                            f"{ON_ACCENT} text-xs opacity-80"
+                        )
                     if all_done:
                         ui.badge(t("wizard.setup_all_done"), color="green").classes("text-xs")
                     chevron = ui.icon(
                         "keyboard_arrow_up" if onboarding_open else "keyboard_arrow_down",
                         size="1.6rem",
-                    ).classes("text-white")
+                    ).classes(ON_ACCENT)
 
                 # Steps (collapsed away when onboarding_open is False)
                 steps_col = ui.column().classes("gap-0 w-full")
@@ -221,22 +224,22 @@ def register() -> None:
                                     ui.label(str(i + 1)).classes("text-sm font-bold")
 
                             ui.icon(icon, size="1.5rem").classes(
-                                "flex-shrink-0 " + ("text-green-7" if done else "text-slate-400")
+                                "flex-shrink-0 " + ("k-trend--pos" if done else "text-slate-400")
                             )
 
                             with ui.column().classes("gap-0.5 flex-1"):
                                 ui.label(t(title_key)).classes(
-                                    "font-medium text-sm " + ("text-green-8" if done else "")
+                                    "font-medium text-sm " + ("k-trend--pos" if done else "")
                                 )
                                 ui.label(t(desc_key)).classes(
                                     "text-xs text-slate-500 leading-relaxed"
                                 )
                                 if done:
                                     ui.label(count_text).classes(
-                                        "text-xs text-green-7 font-medium mt-0.5"
+                                        "text-xs k-trend--pos font-medium mt-0.5"
                                     )
                                 else:
-                                    ui.label(t(hint_key)).classes("text-xs text-amber-7 mt-0.5")
+                                    ui.label(t(hint_key)).classes("text-xs k-trend--warn mt-0.5")
 
                             ui.button(
                                 t("wizard.setup_go") if not done else t("wizard.setup_edit"),
@@ -270,7 +273,7 @@ def register() -> None:
                             with ui.row().classes(
                                 "items-center gap-3 px-5 py-4 bg-slate-50 w-full"
                             ):
-                                ui.icon("check_circle", size="1.4rem").classes("text-green-7")
+                                ui.icon("check_circle", size="1.4rem").classes("k-trend--pos")
                                 ui.label(t("wizard.mentor_all_quiet")).classes(
                                     "text-sm text-slate-600"
                                 )

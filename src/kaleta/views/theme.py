@@ -1,114 +1,308 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+"""Theme tokens and stylesheet — the "sand" visual language.
+
+Every colour in the app comes from a CSS custom property declared once on
+``:root`` (light) and once on ``.body--dark`` (warm dark), so a ``.k-*``
+utility class is written a single time and works in both modes. See
+``docs/design/restyle/README.md`` for the token tables this file mirrors.
+"""
+
 from __future__ import annotations
 
-# Semantic colour tokens for transaction amounts.
-# Income/expense use green/red; never text-primary (teal brand accent).
-AMOUNT_INCOME = "text-green-7"
-AMOUNT_EXPENSE = "text-red-7"
-AMOUNT_NEUTRAL = "text-slate-500"
+# Semantic colour tokens for transaction amounts. Every amount is IBM Plex
+# Mono with tabular figures so columns align; the colour comes from the
+# income/expense tokens, never from a Tailwind ramp.
+AMOUNT_INCOME = "k-amount k-amount--in"
+AMOUNT_EXPENSE = "k-amount k-amount--out"
+AMOUNT_NEUTRAL = "k-amount k-amount--neutral"
 
-# Shared surface tokens — flat panels, 12 px radius (mockup-aligned).
-_SURFACE = "k-surface w-full rounded-xl border border-slate-200/70 bg-white/80"
+# Opt-in monospace for non-amount numbers (dates, counts, percentages, the
+# version string) — same family and tabular figures, inherited colour.
+MONO = "k-mono"
+
+# Shared surface tokens — paper on ground, 1px shadow instead of a border.
+_SURFACE = "k-surface w-full rounded-xl"
 _CARD_PAD = "p-5"
 
-PAGE_SHELL = "bg-slate-50"
+PAGE_SHELL = "k-ground"
 PAGE_CONTAINER = "w-full mx-auto p-6 md:p-8 gap-6"
 
-HEADER = "bg-white/90 text-slate-900 border-b border-slate-200/70"
-DRAWER = "bg-white/95 border-r border-slate-200/70 pt-3"
+HEADER = "k-header"
+DRAWER = "k-drawer pt-3"
 
-NAV_GROUP = (
-    "k-nav-group text-[11px] text-slate-500 uppercase tracking-[0.14em] font-semibold flex-1"
-)
+NAV_GROUP = "k-nav-group k-eyebrow flex-1"
 NAV_GROUP_ROW = (
-    "k-nav-row items-center h-9 px-3 mx-2 rounded-xl cursor-pointer "
-    "select-none hover:bg-slate-100 transition-colors"
+    "k-nav-row items-center h-9 px-3 mx-2 rounded-lg cursor-pointer select-none transition-colors"
 )
-NAV_ITEM = (
-    "k-nav-item h-11 rounded-xl mx-2 mb-1 cursor-pointer transition-colors "
-    "hover:bg-slate-100 border-l-4 border-transparent pl-2"
-)
+NAV_ITEM = "k-nav-item h-11 rounded-lg mx-3 mb-[3px] px-3 cursor-pointer transition-colors"
 NAV_ITEM_ACTIVE = "k-nav-item--active"
 
-PAGE_TITLE = "text-3xl font-semibold tracking-tight text-primary"
+PAGE_TITLE = "k-page-title text-[32px] font-light tracking-tight"
 SECTION_CARD = f"{_SURFACE} {_CARD_PAD}"
 TOOLBAR_CARD = f"{_SURFACE} p-3"
-SECTION_TITLE = "k-muted text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500"
-SECTION_HEADING = "text-lg font-semibold text-primary"
-DIALOG_TITLE = "text-lg font-bold text-primary"
-BODY_MUTED = "k-muted text-sm text-slate-500"
+SECTION_TITLE = "k-muted k-eyebrow"
+SECTION_HEADING = "k-heading text-lg font-medium"
+DIALOG_TITLE = "k-heading text-lg font-medium"
+BODY_MUTED = "k-muted text-sm"
 
-KPI_VALUE = "text-3xl font-semibold tracking-tight"
-KPI_TREND_POSITIVE = "text-teal-600"
-KPI_TREND_NEGATIVE = "text-red-600"
-KPI_TREND_NEUTRAL = "text-slate-400"
+KPI_VALUE = "k-mono text-3xl font-medium tracking-tight"
+KPI_TREND_POSITIVE = "k-trend--pos"
+KPI_TREND_NEGATIVE = "k-trend--neg"
+KPI_TREND_NEUTRAL = "k-trend--neutral"
 
 TABLE_CARD = SECTION_CARD
-TABLE_SURFACE = (
-    "w-full [&_.q-table]:bg-transparent [&_.q-table__top]:px-0 "
-    "[&_.q-table_th]:text-slate-500 [&_.q-table_th]:font-semibold "
-    "[&_.q-table_th]:uppercase [&_.q-table_th]:tracking-[0.08em] "
-    "[&_.q-table_th]:text-[11px] [&_.q-table_td]:text-sm "
-    "[&_.q-table_tbody_tr:hover]:bg-slate-50"
-)
+TABLE_SURFACE = "k-table w-full"
 
-# Inter font + Quasar brand (teal primary). Light mode uses teal-600 for contrast.
+# Filled accent surface (banners, section headers, step markers) and the
+# text colour that sits on it — apricot in light, ink on apricot in dark.
+ACCENT_SURFACE = "k-accent-surface"
+ON_ACCENT = "k-on-accent"
+
+# Fonts, brand variables and the design tokens every .k-* class reads.
 BASE_CSS = """
 @font-face{
-  font-family:'Inter';
+  font-family:'Libre Franklin';
   font-style:normal;
   font-weight:100 900;
   font-display:swap;
-  src:url('/static/fonts/inter-var.woff2') format('woff2')
+  src:url('/static/fonts/libre-franklin-var.woff2') format('woff2')
+}
+@font-face{
+  font-family:'IBM Plex Mono';
+  font-style:normal;
+  font-weight:400;
+  font-display:swap;
+  src:url('/static/fonts/ibm-plex-mono-400.woff2') format('woff2')
+}
+@font-face{
+  font-family:'IBM Plex Mono';
+  font-style:normal;
+  font-weight:500;
+  font-display:swap;
+  src:url('/static/fonts/ibm-plex-mono-500.woff2') format('woff2')
 }
 :root{
-  --q-primary:#0d9488;
-  --q-secondary:#64748b;
-  --q-accent:#14b8a6;
-  --q-positive:#16a34a;
-  --q-negative:#dc2626;
-  --q-info:#0d9488;
-  --q-warning:#d97706
+  --q-primary:#B4591F;
+  --q-secondary:#6B6353;
+  --q-accent:#DE7B45;
+  --q-positive:#36684D;
+  --q-negative:#A44631;
+  --q-info:#9A4E1F;
+  --q-warning:#8A5A12;
+
+  --k-ground:#F3EFE7;
+  --k-surface:#FCFAF6;
+  --k-surface-sunken:#F3EFE7;
+  --k-surface-warm:#F6F1E7;
+  --k-ink:#1C1A15;
+  --k-ink-2:#4A443A;
+  --k-muted:#6B6353;
+  --k-muted-strong:#6E6656;
+  --k-disabled:#B5AB96;
+  --k-hairline:#EDE7DA;
+  --k-border:#E2DBCC;
+  --k-border-strong:#C9BFA8;
+  --k-accent:#B4591F;
+  --k-accent-text:#9A4E1F;
+  --k-accent-light:#DE7B45;
+  --k-income:#36684D;
+  --k-expense:#A44631;
+  --k-warning:#8A5A12;
+  --k-neutral-bar:#8E8676;
+
+  --k-row-hover:#FAF4E9;
+  --k-chip-dash:#CFC5AE;
+  --k-card-shadow:0 1px 2px rgba(28,26,21,.05);
+  --k-on-accent:#FCFAF6
+}
+.body--dark{
+  --q-primary:#E8935B;
+  --q-info:#E8935B;
+
+  --k-ground:#171613;
+  --k-surface:#201F1A;
+  --k-surface-sunken:#2A2822;
+  --k-surface-warm:#262420;
+  --k-ink:#F0EBDF;
+  --k-ink-2:#CFC7B6;
+  --k-muted:#A8A08D;
+  --k-muted-strong:#A19781;
+  --k-disabled:#6E6656;
+  --k-hairline:#2A2822;
+  --k-border:#322F27;
+  --k-border-strong:#453F34;
+  --k-accent:#E8935B;
+  --k-accent-text:#E8935B;
+  --k-accent-light:#E8935B;
+  --k-income:#6FAF87;
+  --k-expense:#DE8672;
+  --k-warning:#E3B457;
+
+  --k-row-hover:#262420;
+  --k-chip-dash:#453F34;
+  --k-card-shadow:none;
+  --k-on-accent:#241C13
 }
 body,.q-body--layout{
-  font-family:'Inter',ui-sans-serif,system-ui,sans-serif;
-  font-feature-settings:'cv02','cv03','cv04','cv11'
+  font-family:'Libre Franklin',ui-sans-serif,system-ui,sans-serif
 }
-.k-info-banner{background:rgba(13,148,136,.08)}
+body{background-color:var(--k-ground);color:var(--k-ink)}
+.k-ground{background-color:var(--k-ground)}
+
+/* ── Surfaces & shell ─────────────────────────────────────────────── */
+.k-surface{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
+.k-header{
+  background:var(--k-surface);
+  color:var(--k-ink);
+  border-bottom:1px solid var(--k-border)
+}
+.k-drawer,
+.k-drawer .q-drawer__content{
+  background:var(--k-ground);
+  border-right-color:var(--k-border)
+}
+
+/* ── Navigation — a quiet index, no per-item boxes ────────────────── */
+.k-nav-group{color:var(--k-muted-strong)}
+.k-nav-row:hover{background:var(--k-surface)}
+.k-nav-item{color:var(--k-ink-2)}
+.k-nav-item:hover{background:var(--k-surface)}
+.k-nav-item .q-item__label{color:var(--k-ink-2)}
+.k-nav-item:not(.k-nav-item--active) .q-icon{color:var(--k-muted)!important}
+.k-nav-item--active{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
+.k-nav-item--active .q-item__label{color:var(--k-ink);font-weight:600}
+.k-nav-item--active .q-icon{color:var(--k-accent-text)!important}
+.k-app-version{color:var(--k-muted)}
+
+/* ── Typography ───────────────────────────────────────────────────── */
+.k-page-title{color:var(--k-ink);letter-spacing:-.02em}
+.k-heading{color:var(--k-ink)}
+.k-eyebrow{
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.2em;
+  text-transform:uppercase;
+  color:var(--k-muted-strong)
+}
+.k-muted{color:var(--k-muted)}
+.k-mono,.k-amount{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums
+}
+.k-amount--in{color:var(--k-income)}
+.k-amount--out{color:var(--k-expense)}
+.k-amount--neutral{color:var(--k-muted)}
+.k-trend--pos{color:var(--k-income)}
+.k-trend--neg{color:var(--k-expense)}
+.k-trend--warn{color:var(--k-warning)}
+.k-trend--neutral{color:var(--k-muted)}
+
+/* ── Tables ───────────────────────────────────────────────────────── */
+.k-table .q-table{background:transparent}
+.k-table .q-table__top{padding-left:0;padding-right:0}
+.k-table .q-table th{
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--k-muted-strong)
+}
+.k-table .q-table td{font-size:13.5px;color:var(--k-ink)}
+.k-table .q-table tbody tr:hover{background:var(--k-row-hover)}
+.k-cat-row{border-bottom-color:var(--k-hairline)}
+.k-cat-row:hover{background:var(--k-row-hover)}
+.k-subcat-label{color:var(--k-ink-2)}
+.k-selection-bar{background:var(--k-surface-warm);color:var(--k-ink)}
+
+/* ── Shared utility classes (used by the per-screen restyle plans) ── */
+.k-pace{
+  position:relative;
+  height:7px;
+  border-radius:4px;
+  background:var(--k-hairline)
+}
+.k-pace__fill{position:absolute;top:0;bottom:0;left:0;border-radius:4px}
+.k-pace__tick{
+  position:absolute;
+  top:-3px;
+  width:2px;
+  height:13px;
+  background:var(--k-ink)
+}
+.k-filter-chip{
+  display:inline-flex;align-items:center;gap:.4rem;
+  padding:6px 12px;border-radius:999px;
+  background:var(--k-surface-sunken);
+  color:var(--k-ink-2);
+  font-size:12.5px;line-height:1.2;
+  cursor:pointer
+}
+.k-filter-chip--empty{
+  background:transparent;
+  border:1px dashed var(--k-chip-dash);
+  color:var(--k-muted)
+}
+
+/* ── Banners & chips ──────────────────────────────────────────────── */
+.k-accent-surface{background:var(--k-accent);color:var(--k-on-accent)}
+.k-accent-surface .q-icon,.k-on-accent{color:var(--k-on-accent)}
+.k-info-banner{background:rgba(180,89,31,.08);color:var(--k-ink-2)}
 .k-stat-chip{
   display:inline-flex;align-items:center;gap:.35rem;
   padding:.25rem .75rem;border-radius:9999px;
   font-size:.875rem;font-weight:500;line-height:1.25
 }
-.k-stat-chip--expense{background:rgba(220,38,38,.12);color:rgb(185,28,28)}
-.k-stat-chip--income{background:rgba(22,163,74,.12);color:rgb(21,128,61)}
-.k-stat-chip--transfer{background:rgba(100,116,139,.15);color:rgb(71,85,105)}
+.k-stat-chip--expense{background:rgba(164,70,49,.12);color:var(--k-expense)}
+.k-stat-chip--income{background:rgba(54,104,77,.12);color:var(--k-income)}
+.k-stat-chip--transfer{background:rgba(142,134,118,.18);color:var(--k-muted)}
+.body--dark .k-info-banner{background:rgba(232,147,91,.14)}
+.body--dark .k-stat-chip--expense{background:rgba(222,134,114,.18)}
+.body--dark .k-stat-chip--income{background:rgba(111,175,135,.18)}
+.body--dark .k-stat-chip--transfer{background:rgba(168,160,141,.18)}
+
+/* ── Tailwind ramp → sand tokens ──────────────────────────────────────
+   Views still spell muted text and sunken panels with Tailwind's cool
+   slate ramp. Remapping the ramp here keeps those 250-odd call sites
+   warm in both modes without a mechanical rewrite of every view. Only
+   classes a grep of src/kaleta/views proves are still referenced are
+   listed; see the plan's Implementation notes for the survivor table. */
+.text-slate-400{color:var(--k-disabled)}
+.text-slate-500{color:var(--k-muted)}
+.text-slate-600{color:var(--k-muted-strong)}
+.text-slate-700{color:var(--k-ink-2)}
+.bg-slate-50{background-color:var(--k-surface-warm)}
+.bg-slate-100{background-color:var(--k-surface-sunken)}
+.bg-slate-200{background-color:var(--k-hairline)}
+.bg-slate-600,.bg-slate-700{background-color:var(--k-ink)}
+.hover\\:bg-slate-50:hover{background-color:var(--k-row-hover)}
+.hover\\:bg-slate-100:hover{background-color:var(--k-surface-sunken)}
+.hover\\:bg-slate-700:hover{background-color:var(--k-ink-2)}
+.border-slate-200,.border-slate-300{border-color:var(--k-border)}
 """
 
 # Dark-mode overrides via Quasar `.body--dark` on <body>.
+#
+# Everything token-driven above already follows the mode; what remains here
+# are Quasar components that paint their own colours (menus, dialogs,
+# fields, pickers, uploader, scrollbars) plus the `!important` survivors
+# for Tailwind classes the views still use directly.
 DARK_CSS = """
-.body--dark{
-  --q-primary:#14b8a6;
-  --q-info:#14b8a6
-}
-/* Palette: deep navy body, elevated flat surfaces. */
-body.body--dark{background-color:rgb(10,14,23);color-scheme:dark}
+body.body--dark{background-color:var(--k-ground);color-scheme:dark}
 .body--dark .q-header{
-  background:rgb(10,14,23);
-  color:rgb(241,245,249);
-  border-bottom-color:rgb(30,36,48)
+  background:var(--k-surface);
+  color:var(--k-ink);
+  border-bottom-color:var(--k-border)
 }
-.body--dark .q-header .text-slate-500{color:rgb(148,163,184)}
 .body--dark .q-drawer,
 .body--dark .q-drawer__content{
-  background:rgb(10,14,23);
-  border-right-color:rgb(30,36,48)
+  background:var(--k-ground);
+  border-right-color:var(--k-border)
 }
 .body--dark .q-card--dark,
 .body--dark .q-card.q-dark{
-  background:rgb(21,25,34);
-  color:rgb(241,245,249);
-  border-color:rgb(36,42,54)
+  background:var(--k-surface);
+  color:var(--k-ink);
+  border-color:var(--k-border)
 }
 .body--dark .q-table--dark,
 .body--dark .q-table--dark .q-table__top,
@@ -116,171 +310,110 @@ body.body--dark{background-color:rgb(10,14,23);color-scheme:dark}
 .body--dark .q-table--dark thead,
 .body--dark .q-table--dark tbody,
 .body--dark .q-table--dark tr{background-color:transparent}
-.body--dark .k-nav-group{color:rgb(100,116,139)}
-.body--dark .k-nav-row:hover{background:rgba(21,25,34,.8)}
-.body--dark .k-nav-item:hover{background:rgba(21,25,34,.8)}
-.body--dark .k-nav-item--active{
-  background:rgba(20,184,166,.1);
-  border-left-color:rgb(20,184,166)
-}
-.body--dark .k-nav-item--active .q-item__label{color:rgb(226,232,240)}
-.body--dark .k-nav-item--active .q-icon{color:rgb(94,234,212)!important}
-.body--dark .k-nav-item:not(.k-nav-item--active) .q-icon{color:rgb(100,116,139)!important}
-.k-nav-item--active{
-  background:rgba(13,148,136,.08);
-  border-left-color:rgb(13,148,136)
-}
-.k-nav-item--active .q-item__label{color:rgb(15,23,42);font-weight:600}
-.k-nav-item--active .q-icon{color:rgb(13,148,136)!important}
-.k-nav-item:not(.k-nav-item--active) .q-icon{color:rgb(100,116,139)!important}
-.body--dark .k-surface{
-  background:rgb(21,25,34);
-  border-color:rgb(36,42,54)
-}
-.body--dark .k-muted{color:rgb(148,163,184)}
-.body--dark .text-slate-500{color:rgb(148,163,184)}
-.body--dark .q-table--dark td{color:rgb(226,232,240)}
-.body--dark .q-table--dark .q-table th{color:rgb(148,163,184)}
-.body--dark .q-table--dark .q-table tbody tr:hover{background:rgba(21,25,34,.6)}
-.body--dark .k-cat-row{border-bottom-color:rgb(36,42,54)}
-.body--dark .k-cat-row:hover{background:rgba(21,25,34,.5)}
-.body--dark .k-subcat-label{color:rgb(226,232,240)}
-.body--dark .k-info-banner{background:rgba(13,148,136,.15)}
-.body--dark .k-stat-chip--expense{background:rgba(239,68,68,.18);color:rgb(252,165,165)}
-.body--dark .k-stat-chip--income{background:rgba(34,197,94,.18);color:rgb(134,239,172)}
-.body--dark .k-stat-chip--transfer{background:rgba(148,163,184,.18);color:rgb(203,213,225)}
-.body--dark .k-selection-bar{background:rgba(13,148,136,.2);color:rgb(241,245,249)}
-.body--dark .kpi-trend-positive{color:rgb(94,234,212)}
-.body--dark .kpi-trend-negative{color:rgb(252,165,165)}
-.body--dark .nicegui-expansion-content .border-b{border-bottom-color:rgb(30,36,48)}
-.body--dark .q-toggle__track{background:rgba(148,163,184,.35)}
+.body--dark .q-table--dark td{color:var(--k-ink)}
+.body--dark .q-table--dark .q-table th{color:var(--k-muted-strong)}
+.body--dark .nicegui-expansion-content .border-b{border-bottom-color:var(--k-border)}
+.body--dark .q-toggle__track{background:rgba(168,160,141,.35)}
 
 @layer quasar_importants {
-  .body--dark .bg-slate-50{background:rgba(21,25,34,.7) !important}
-  .body--dark .bg-slate-100{background:rgb(21,25,34) !important}
-  .body--dark .bg-slate-200{background:rgb(21,25,34) !important}
-  .body--dark .bg-slate-600{background:rgb(71,85,105) !important}
-  .body--dark .bg-slate-700{background:rgb(36,42,54) !important}
-  .body--dark .bg-slate-100 .text-slate-600,
-  .body--dark .bg-slate-100.text-slate-600,
-  .body--dark .bg-slate-50 .text-slate-600,
-  .body--dark .bg-slate-50.text-slate-600,
-  .body--dark .text-slate-600{color:rgb(148,163,184) !important}
-  .body--dark .text-slate-500{color:rgb(148,163,184) !important}
-  .body--dark .text-slate-400{color:rgb(100,116,139) !important}
-  .body--dark .border-slate-300{border-color:rgb(36,42,54) !important}
-  .body--dark .bg-green-1{background:rgba(34,197,94,.12) !important}
-  .body--dark .bg-green-2{background:rgba(34,197,94,.18) !important}
-  .body--dark .bg-blue-1{background:rgba(20,184,166,.12) !important}
-  .body--dark .bg-blue-2{background:rgba(20,184,166,.18) !important}
-  .body--dark .bg-red-1{background:rgba(239,68,68,.15) !important}
-  .body--dark .bg-orange-1{background:rgba(249,115,22,.15) !important}
-  .body--dark .bg-amber-1{background:rgba(245,158,11,.15) !important}
-  .body--dark .bg-yellow-1{background:rgba(234,179,8,.15) !important}
-  .body--dark .bg-teal-1{background:rgba(20,184,166,.15) !important}
-  .body--dark .bg-purple-1{background:rgba(168,85,247,.15) !important}
-  .body--dark .bg-pink-1{background:rgba(236,72,153,.15) !important}
-  .body--dark .text-green-8,
-  .body--dark .text-green-9{color:rgb(134,239,172) !important}
-  .body--dark .text-green-7{color:rgb(110,231,183) !important}
-  .body--dark .text-amber-7,
-  .body--dark .text-amber-8,
-  .body--dark .text-amber-9{color:rgb(252,211,77) !important}
-  .body--dark .text-red-7,
-  .body--dark .text-red-8,
-  .body--dark .text-red-9{color:rgb(252,165,165) !important}
-  .body--dark .text-blue-7,
-  .body--dark .text-blue-8,
-  .body--dark .text-blue-9{color:rgb(147,197,253) !important}
-  .body--dark .text-orange-7,
-  .body--dark .text-orange-8,
-  .body--dark .text-orange-9{color:rgb(253,186,116) !important}
-  .body--dark .text-teal-600{color:rgb(94,234,212) !important}
+  /* Survivors only — every entry below is still spelled out in a view.
+     Colour comes from the sand tokens so the two modes stay one product. */
+  .body--dark .text-slate-400{color:var(--k-disabled) !important}
+  .body--dark .text-slate-500{color:var(--k-muted) !important}
+  .body--dark .text-slate-600{color:var(--k-muted-strong) !important}
+  .body--dark .bg-slate-50{background:var(--k-surface-warm) !important}
+  .body--dark .bg-slate-100{background:var(--k-surface-sunken) !important}
+  .body--dark .bg-slate-200{background:var(--k-hairline) !important}
+  .body--dark .bg-slate-600,
+  .body--dark .bg-slate-700{background:var(--k-surface-sunken) !important}
+  .body--dark .border-slate-300{border-color:var(--k-border) !important}
+  .body--dark .bg-green-1{background:rgba(111,175,135,.15) !important}
+  .body--dark .bg-blue-1{background:rgba(232,147,91,.12) !important}
+  .body--dark .bg-amber-1{background:rgba(227,180,87,.15) !important}
+  .body--dark .text-orange-8{color:var(--k-accent-text) !important}
 }
-.body--dark .bg-slate-100{border-color:rgb(36,42,54)}
-.body--dark .hover\\:bg-slate-50:hover{background:rgba(21,25,34,.7) !important}
-.body--dark .hover\\:bg-slate-100:hover{background:rgb(21,25,34) !important}
-.body--dark .hover\\:bg-slate-700:hover{background:rgb(36,42,54) !important}
+.body--dark .bg-slate-100{border-color:var(--k-border)}
+.body--dark .hover\\:bg-slate-50:hover{background:var(--k-row-hover) !important}
+.body--dark .hover\\:bg-slate-100:hover{background:var(--k-surface-sunken) !important}
+.body--dark .hover\\:bg-slate-700:hover{background:var(--k-surface-warm) !important}
 
 .body--dark .q-menu{
-  background:rgb(10,14,23);
-  color:rgb(226,232,240);
-  border:1px solid rgb(30,36,48)
+  background:var(--k-surface);
+  color:var(--k-ink);
+  border:1px solid var(--k-border)
 }
-.body--dark .q-menu .q-item{color:rgb(226,232,240)}
+.body--dark .q-menu .q-item{color:var(--k-ink)}
 .body--dark .q-menu .q-item__label--caption,
-.body--dark .q-menu .q-item__label--header{color:rgb(148,163,184)}
+.body--dark .q-menu .q-item__label--header{color:var(--k-muted)}
 .body--dark .q-menu .q-item:hover,
 .body--dark .q-menu .q-item--active,
 .body--dark .q-menu .q-item.q-manual-focusable--focused{
-  background:rgba(21,25,34,.8)
+  background:var(--k-surface-sunken)
 }
-.body--dark .q-menu .q-separator{background:rgb(30,36,48)}
+.body--dark .q-menu .q-separator{background:var(--k-border)}
 .body--dark .q-tooltip{
-  background:rgb(21,25,34);
-  color:rgb(226,232,240)
+  background:var(--k-surface-sunken);
+  color:var(--k-ink)
 }
 .body--dark .q-date,
-.body--dark .q-time{background:rgb(10,14,23);color:rgb(226,232,240)}
+.body--dark .q-time{background:var(--k-ground);color:var(--k-ink)}
 .body--dark .q-date__header,
-.body--dark .q-time__header{background:rgb(21,25,34);color:rgb(241,245,249)}
+.body--dark .q-time__header{background:var(--k-surface);color:var(--k-ink)}
 .body--dark .q-date__calendar-item--fill,
-.body--dark .q-date__calendar-item--out{color:rgb(100,116,139)}
+.body--dark .q-date__calendar-item--out{color:var(--k-muted)}
 .body--dark .q-date__calendar-item > div,
-.body--dark .q-date__calendar-weekdays > div{color:rgb(226,232,240)}
+.body--dark .q-date__calendar-weekdays > div{color:var(--k-ink)}
 .body--dark .q-date__navigation .q-btn,
-.body--dark .q-date__view .q-btn{color:rgb(226,232,240)}
+.body--dark .q-date__view .q-btn{color:var(--k-ink)}
 .body--dark .q-dialog__inner > .q-card{
-  background:rgb(10,14,23);
-  color:rgb(226,232,240);
-  border:1px solid rgb(30,36,48)
+  background:var(--k-surface);
+  color:var(--k-ink);
+  border:1px solid var(--k-border)
 }
-.body--dark .q-dialog .text-slate-500,
-.body--dark .q-dialog .text-slate-600{color:rgb(148,163,184)}
-.body--dark .q-dialog .q-separator{background:rgb(30,36,48)}
-.body--dark .q-field--outlined .q-field__control{color:rgb(226,232,240)}
-.body--dark .q-field--outlined .q-field__control:before{border-color:rgb(36,42,54)}
-.body--dark .q-field--outlined:hover .q-field__control:before{border-color:rgb(100,116,139)}
+.body--dark .q-dialog .q-separator{background:var(--k-border)}
+.body--dark .q-field--outlined .q-field__control{color:var(--k-ink)}
+.body--dark .q-field--outlined .q-field__control:before{border-color:var(--k-border)}
+.body--dark .q-field--outlined:hover .q-field__control:before{border-color:var(--k-muted)}
 .body--dark .q-field__native,
 .body--dark .q-field__input,
 .body--dark .q-field__prefix,
-.body--dark .q-field__suffix{color:rgb(226,232,240)}
-.body--dark .q-field__label{color:rgb(148,163,184)}
-.body--dark .q-field--filled .q-field__control{background:rgba(21,25,34,.5)}
-.body--dark .q-placeholder::placeholder{color:rgb(100,116,139)}
-.body--dark .q-chip{background:rgb(21,25,34);color:rgb(226,232,240)}
-.body--dark .q-separator{background:rgb(30,36,48)}
-.body--dark hr.q-separator--horizontal{background:rgb(30,36,48)}
+.body--dark .q-field__suffix{color:var(--k-ink)}
+.body--dark .q-field__label{color:var(--k-muted)}
+.body--dark .q-field--filled .q-field__control{background:var(--k-surface-sunken)}
+.body--dark .q-placeholder::placeholder{color:var(--k-muted)}
+.body--dark .q-chip{background:var(--k-surface-sunken);color:var(--k-ink)}
+.body--dark .q-separator{background:var(--k-border)}
+.body--dark hr.q-separator--horizontal{background:var(--k-border)}
 .body--dark .q-table__bottom,
 .body--dark .q-table__top{
-  color:rgb(148,163,184);
-  border-color:rgb(30,36,48)
+  color:var(--k-muted);
+  border-color:var(--k-border)
 }
-.body--dark .q-pagination .q-btn{color:rgb(226,232,240)}
-.body--dark .nicegui-echart text{fill:rgb(148,163,184)}
+.body--dark .q-pagination .q-btn{color:var(--k-ink)}
+.body--dark .nicegui-echart text{fill:var(--k-muted)}
 .body--dark .q-expansion-item__toggle-icon,
-.body--dark .q-expansion-item .q-item__label{color:rgb(226,232,240)}
-.body--dark .q-notification{background:rgb(21,25,34);color:rgb(226,232,240)}
+.body--dark .q-expansion-item .q-item__label{color:var(--k-ink)}
+.body--dark .q-notification{background:var(--k-surface);color:var(--k-ink)}
 .body--dark .q-uploader--dark,
 .body--dark .q-uploader{
-  background:rgb(21,25,34);
-  color:rgb(226,232,240);
-  border-color:rgb(36,42,54)
+  background:var(--k-surface);
+  color:var(--k-ink);
+  border-color:var(--k-border)
 }
-.body--dark .q-uploader__header{background:rgb(10,14,23);color:rgb(226,232,240)}
+.body--dark .q-uploader__header{background:var(--k-ground);color:var(--k-ink)}
 .body--dark .q-uploader__subtitle,
-.body--dark .q-uploader__title{color:rgb(226,232,240)}
-.body--dark .q-uploader__list{background:rgb(21,25,34)}
+.body--dark .q-uploader__title{color:var(--k-ink)}
+.body--dark .q-uploader__list{background:var(--k-surface)}
 .body--dark ::-webkit-scrollbar{width:10px;height:10px}
-.body--dark ::-webkit-scrollbar-track{background:rgb(10,14,23)}
+.body--dark ::-webkit-scrollbar-track{background:var(--k-ground)}
 .body--dark ::-webkit-scrollbar-thumb{
-  background:rgb(36,42,54);
+  background:var(--k-border-strong);
   border-radius:4px;
-  border:2px solid rgb(10,14,23)
+  border:2px solid var(--k-ground)
 }
-.body--dark ::-webkit-scrollbar-thumb:hover{background:rgb(71,85,105)}
-.body--dark ::-webkit-scrollbar-corner{background:rgb(10,14,23)}
-.body--dark *{scrollbar-color:rgb(36,42,54) rgb(10,14,23);scrollbar-width:thin}
+.body--dark ::-webkit-scrollbar-thumb:hover{background:var(--k-muted-strong)}
+.body--dark ::-webkit-scrollbar-corner{background:var(--k-ground)}
+.body--dark *{scrollbar-color:var(--k-border-strong) var(--k-ground);scrollbar-width:thin}
 .q-drawer__content{overflow-x:hidden}
 .q-drawer--mini .k-nav-row,
 .q-drawer--mini .k-app-version{display:none !important}
@@ -307,12 +440,11 @@ body.body--dark{background-color:rgb(10,14,23);color-scheme:dark}
   display:none !important
 }
 .q-drawer--mini .q-separator{margin:6px 12px}
-.q-drawer--mini .k-nav-item--active{border-left-color:transparent}
 """
 
 
 def theme_css() -> str:
-    """Full theme stylesheet: Inter font, brand colours, dark overrides."""
+    """Full theme stylesheet: fonts, sand tokens, dark overrides."""
     return BASE_CSS + DARK_CSS
 
 

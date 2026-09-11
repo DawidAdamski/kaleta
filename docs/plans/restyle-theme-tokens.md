@@ -3,7 +3,7 @@ plan_id: restyle-theme-tokens
 title: Restyle — sand palette, fonts and mono amounts in theme.py (handoff step 1)
 area: theme
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#ux
 ---
 
@@ -95,7 +95,8 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
 ## Acceptance criteria
 
 - `test -f src/kaleta/static/fonts/libre-franklin-var.woff2`
-- `test -f src/kaleta/static/fonts/ibm-plex-mono-var.woff2`
+- `test -f src/kaleta/static/fonts/ibm-plex-mono-400.woff2`
+- `test -f src/kaleta/static/fonts/ibm-plex-mono-500.woff2`
 - `grep -q "IBM Plex Mono" src/kaleta/views/theme.py`
 - `grep -q "#B4591F" src/kaleta/views/theme.py`
 - `grep -q "#171613" src/kaleta/views/theme.py`
@@ -144,4 +145,93 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Resolved open questions
+
+1. **Variable vs static woff2.** Split answer, exactly as the default's
+   fallback clause allows. *Libre Franklin* ships as one variable file —
+   `libre-franklin-var.woff2` (39 KB), subset from upstream
+   `google/fonts@ofl/librefranklin/LibreFranklin[wght].ttf` to latin +
+   latin-ext (all Polish diacritics verified present) and converted with
+   `fonttools[woff]`. Its `wght` axis is 100–900 with default 100, byte-for-byte
+   the same axis record Google Fonts serves, so CSS `font-weight` drives it
+   normally. *IBM Plex Mono* has **no variable build upstream**: neither
+   `google/fonts@ofl/ibmplexmono` (14 statics) nor `@ibm/plex-mono@2.5.0`
+   ships one. Per the open question's fallback, it ships as statics for the
+   two weights the type scale uses — `ibm-plex-mono-400.woff2` and
+   `ibm-plex-mono-500.woff2`, taken verbatim from `@ibm/plex-mono@2.5.0`
+   `fonts/complete/woff2/` (full charset, no subsetting needed). The
+   acceptance criterion naming `ibm-plex-mono-var.woff2` was replaced by the
+   two real filenames, which is what "name the acceptance files accordingly"
+   asks for. Both OFL texts are appended to `static/fonts/LICENSE.txt`.
+   `inter-var.woff2` stays on disk unreferenced, as the scope requires.
+2. **The `!important` layer.** Kept, emptied down to seven survivors (table
+   below). Zero-survivor entries were deleted rather than ported.
+3. **PWA `theme_color`.** Yes — `manifest.json` `theme_color` and
+   `background_color` and the `PWA_HEAD` meta are all `#F3EFE7`;
+   `tests/unit/test_pwa.py` pinned the old `#1976d2` in two places and was
+   updated to the new literal.
+
+### `@layer quasar_importants` — survivors
+
+Only classes a grep of `src/kaleta/views` still proves referenced are kept,
+and each now resolves through a sand token instead of a navy literal:
+
+| Class | Still needed by |
+|---|---|
+| `text-slate-400` | 28 files (`tags.py`, `forecast.py`, `budget_plan/grid.py`, …) |
+| `text-slate-500` | 57 files — the app's default caption colour |
+| `text-slate-600` | `credit_calculator.py`, `wizard.py`, `institutions.py`, `components/transaction_table.py`, … |
+| `bg-slate-50` / `bg-slate-100` / `bg-slate-200` | `categories.py`, `setup.py`, `budget_plan/grid.py`, `budgets/realization.py`, `wizard.py`, … |
+| `bg-slate-600` / `bg-slate-700` | `budget_plan/grid.py`, `dashboard_widgets/wizard_actions.py` |
+| `border-slate-300` | `dashboard.py`, `transactions/constants.py` |
+| `bg-green-1` / `bg-blue-1` / `bg-amber-1` | `wizard.py`, `budget_plan/grid.py`, `forecast.py` |
+| `text-orange-8` | `budget_plan/helpers.py` (override marker — `2c` retires it) |
+
+Deleted as unreferenced: `bg-green-2`, `bg-blue-2`, `bg-red-1`, `bg-orange-1`,
+`bg-yellow-1`, `bg-teal-1`, `bg-purple-1`, `bg-pink-1`, `text-green-9`,
+`text-amber-8/9`, `text-red-8/9`, `text-blue-7/8/9`, `text-orange-7/9`,
+`text-teal-600`, and the `.kpi-trend-positive/negative` rules (the classes
+they targeted no longer exist — `dashboard_widgets/helpers.py` renders
+`KPI_TREND_*`, which are now `.k-trend--*`).
+
+### Decisions
+
+- **The Tailwind slate ramp is remapped, not rewritten.** `text-slate-4/5/600`
+  alone appears ~250 times across 60 view files; rewriting every call site
+  would be a mechanical diff far larger than the rest of this plan and would
+  collide with every per-screen `restyle-*` plan still to come. Instead
+  `BASE_CSS` redefines the ramp in terms of the sand tokens (light) and the
+  `!important` layer does the same for dark. The call sites become correct
+  without moving, and each per-screen plan can retire its own as it touches
+  them. `bg-slate-*` used as a *surface* is likewise remapped rather than
+  hand-edited.
+- **`text-green-7` had to leave the views, not just `theme.py`.** The
+  acceptance criterion bans the string from `theme.py`, but the class was
+  still spelled out in `wizard.py`, so deleting the dark override alone would
+  have left "done" ticks unreadable in dark mode. The status colours moved to
+  token classes (`k-trend--pos` / `--neg` / `--warn`) in `wizard.py`,
+  `safety_funds.py`, `payment_calendar.py`, plus the equivalent `-700` ramp
+  spellings in `month_net.py`, `wizard_salary.py` and two `import_view`
+  sections. `.k-trend--warn` is the new sibling of the `KPI_TREND_*` set.
+- **Two constants beyond the scope list**: `ACCENT_SURFACE` / `ON_ACCENT`
+  (`.k-accent-surface`). The sweep requires `bg-teal-7` + `text-teal-1` to
+  leave `wizard.py`'s Setup header, and teal no longer exists anywhere in the
+  palette; a filled accent surface is the handoff's own token for that role.
+- **Drawer width is set with `.props("width=236")`, not `ui.left_drawer(width=…)`.**
+  This NiceGUI version's `LeftDrawer.__init__` takes no `width` argument
+  (mypy catches it); the Quasar prop is the supported path. The mini rail is
+  `mini-width=64`, with a key-only string for `props(remove=…)`.
+- **`settings/appearance_tab.py` was not touched** — the scope's "(if it shows
+  swatches)" condition does not hold: the tab is two toggles, no palette
+  preview.
+- **No `KAL-` scenario was added.** The handoff is explicit that "nothing in
+  this redesign changes app behaviour"; this plan adds no user-facing
+  capability, only presentation, so Working Agreement §5 does not bite. The
+  contract is covered instead by `tests/unit/views/test_theme.py` (token
+  values quoted from the handoff tables) and the extended
+  `test_chart_utils.py`.
+- **`chart_utils` constants were renamed, not aliased**: `CHART_TEAL` →
+  `CHART_ACCENT`, `CHART_TEAL_FILL` → `CHART_ACCENT_FILL`, `CHART_NET_LINE` →
+  `CHART_INK`. Five view modules import them; keeping teal-named aliases
+  around would have re-introduced the vocabulary this plan removes. No series
+  was rebuilt — only the colour each already asked for.

@@ -19,7 +19,7 @@ from kaleta.services.money_flow_service import (
     month_bounds,
     year_bounds,
 )
-from kaleta.views.chart_utils import CHART_EXPENSE, CHART_INCOME, CHART_TEAL, apply_dark
+from kaleta.views.chart_utils import CHART_ACCENT, CHART_EXPENSE, CHART_INCOME, apply_dark
 from kaleta.views.components.empty_state import report_no_data_label
 from kaleta.views.layout import page_layout
 from kaleta.views.reports_canned.formatters import csv_download, fmt
@@ -308,8 +308,8 @@ def _node_color(kind: str) -> str:
     if kind == "sink":
         return CHART_EXPENSE
     if kind == "account":
-        return CHART_TEAL
-    return CHART_TEAL
+        return CHART_ACCENT
+    return CHART_ACCENT
 
 
 def _link_color(node_id: str, flow: MoneyFlow) -> str:

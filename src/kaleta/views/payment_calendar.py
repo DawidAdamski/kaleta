@@ -283,7 +283,7 @@ def register() -> None:
             with day_content:
                 if overdue:
                     ui.label(t("payment_calendar.overdue_title")).classes(
-                        "text-xs font-semibold uppercase tracking-wide text-red-7"
+                        "text-xs font-semibold uppercase tracking-wide k-trend--neg"
                     )
                     for occ in overdue:
                         _render_occurrence_row(occ, muted=True)
@@ -354,7 +354,7 @@ def register() -> None:
                     f"{TOOLBAR_CARD} flex-1 min-w-48 text-lg font-semibold"
                 )
                 kpi_overdue = ui.label("").classes(
-                    f"{TOOLBAR_CARD} flex-1 min-w-48 text-lg font-semibold text-amber-7"
+                    f"{TOOLBAR_CARD} flex-1 min-w-48 text-lg font-semibold k-trend--warn"
                 )
 
             # Calendar grid container
@@ -459,8 +459,8 @@ def register() -> None:
                 with col:
                     with ui.row().classes("w-full items-center justify-between"):
                         ui.label(str(date.day)).classes(
-                            "text-base font-bold "
-                            + ("text-primary" if is_today else "text-slate-700")
+                            "k-mono text-base font-bold "
+                            + ("k-heading" if is_today else "text-slate-500")
                         )
                         if total_count > 0:
                             ui.badge(str(total_count)).props("color=primary rounded").classes(

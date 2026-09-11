@@ -12,7 +12,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import ReportService
-from kaleta.views.chart_utils import CHART_TEAL, CHART_TEAL_FILL, apply_dark
+from kaleta.views.chart_utils import CHART_ACCENT, CHART_ACCENT_FILL, apply_dark
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
 
@@ -39,9 +39,9 @@ async def render_savings_rate_trend(session: AsyncSession, is_dark: bool) -> Non
                 "type": "line",
                 "data": rates,
                 "smooth": True,
-                "itemStyle": {"color": CHART_TEAL},
-                "lineStyle": {"color": CHART_TEAL},
-                "areaStyle": {"color": CHART_TEAL_FILL},
+                "itemStyle": {"color": CHART_ACCENT},
+                "lineStyle": {"color": CHART_ACCENT},
+                "areaStyle": {"color": CHART_ACCENT_FILL},
             }
         ],
     }

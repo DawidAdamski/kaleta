@@ -231,14 +231,14 @@ def register() -> None:
                                         "text-xs text-slate-500 uppercase tracking-wide"
                                     )
                                     ui.label(f"{_fmt(first_pay)} → {_fmt(last_pay)}").classes(
-                                        "text-base font-bold text-primary mt-1"
+                                        "k-mono k-heading text-base font-semibold mt-1"
                                     )
                                 else:
                                     ui.label(t("credit_calculator.monthly_payment")).classes(
                                         "text-xs text-slate-500 uppercase tracking-wide"
                                     )
                                     ui.label(_fmt(monthly)).classes(
-                                        "text-xl font-bold text-primary mt-1"
+                                        "k-mono k-heading text-xl font-semibold mt-1"
                                     )
 
                             with ui.card().classes("flex-1 min-w-36 p-4"):

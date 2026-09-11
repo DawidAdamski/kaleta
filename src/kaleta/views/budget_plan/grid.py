@@ -270,7 +270,7 @@ def _render_compare_grid(
                 ).style(S_CAT)
                 ui.label(rec_text).classes(f"{cell_cls} font-medium {rec_color}").style(S_REC)
                 for cell in year_row.months:
-                    color = "text-primary" if cell.planned else "text-slate-400"
+                    color = "k-heading" if cell.planned else "text-slate-400"
                     ui.label(format_amount(cell.planned)).classes(f"{cell_cls} {color}").style(
                         S_MON
                     )

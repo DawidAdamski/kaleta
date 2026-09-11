@@ -13,7 +13,7 @@ _STATIC_DIR = Path(__file__).parent / "static"
 PWA_HEAD = """
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/svg+xml" href="/static/icons/icon.svg">
-<meta name="theme-color" content="#1976d2">
+<meta name="theme-color" content="#F3EFE7">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">

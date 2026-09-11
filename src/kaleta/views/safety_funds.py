@@ -133,7 +133,7 @@ def register() -> None:
                     )
                 else:
                     account_in = None
-                    ui.label(t("safety_funds.need_account")).classes(f"{BODY_MUTED} text-amber-7")
+                    ui.label(t("safety_funds.need_account")).classes(f"{BODY_MUTED} k-trend--warn")
 
                 def _on_kind_change(e: Any) -> None:
                     # Show multiplier only for emergency; update default name
