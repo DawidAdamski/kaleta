@@ -243,6 +243,12 @@ they targeted no longer exist — `dashboard_widgets/helpers.py` renders
   IBM Plex Mono weights report `loaded`, body ground computes to
   `rgb(243, 239, 231)` light / `rgb(23, 22, 19)` dark, the page title is
   weight 300 in ink, the drawer measures 236px and the header 60px.
+- **Three amber spellings are left alone on purpose.** `forecast.py`'s
+  Prophet-unavailable banner (`bg-amber-1 text-amber-10`) is the thing `3a`
+  turns into a footnote; `setup.py`'s folder glyph is a decorative icon; and
+  `dashboard.py` already spells its own light/dark pair. The fourth,
+  `import_view/settings_section.py`'s currency warning, was a genuine miss and
+  is now `k-trend--warn` like its siblings.
 - **Left for the per-screen plans**, deliberately: `icon_badge_classes()`
   still builds Tailwind `bg-{color}-500/10` badges from each widget's
   registered colour (the `1c` dashboard plan merges those KPI cards), and

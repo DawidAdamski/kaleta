@@ -109,7 +109,7 @@ def build_settings_section(
     with card:
         ui.label(t("import.settings_section")).classes("text-lg font-semibold mb-3")
         ui.label("").classes("text-sm k-trend--pos")
-        currency_warn_label = ui.label("").classes("text-sm text-amber-600")
+        currency_warn_label = ui.label("").classes("text-sm k-trend--warn")
         with ui.row().classes("w-full gap-4 flex-wrap"):
             account_sel = ui.select(account_options, label=t("import.target_account")).classes(
                 "flex-1 min-w-64"
