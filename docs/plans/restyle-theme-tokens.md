@@ -187,6 +187,11 @@ and each now resolves through a sand token instead of a navy literal:
 | `bg-green-1` / `bg-blue-1` / `bg-amber-1` | `wizard.py`, `budget_plan/grid.py`, `forecast.py` |
 | `text-orange-8` | `budget_plan/helpers.py` (override marker — `2c` retires it) |
 
+`BASE_CSS` remaps the same ramp for **light** mode, plus two classes that
+need no dark override and so do not appear in the table above:
+`text-slate-700` (`categories.py` sub-category labels, `payment_calendar.py`)
+and `border-slate-200` (grouped with `border-slate-300` onto `--k-border`).
+
 Deleted as unreferenced: `bg-green-2`, `bg-blue-2`, `bg-red-1`, `bg-orange-1`,
 `bg-yellow-1`, `bg-teal-1`, `bg-purple-1`, `bg-pink-1`, `text-green-9`,
 `text-amber-8/9`, `text-red-8/9`, `text-blue-7/8/9`, `text-orange-7/9`,
@@ -242,6 +247,23 @@ they targeted no longer exist — `dashboard_widgets/helpers.py` renders
   still builds Tailwind `bg-{color}-500/10` badges from each widget's
   registered colour (the `1c` dashboard plan merges those KPI cards), and
   `wizard.py`'s `_SECTION_COLORS` header bars stay until `3d`.
+
+- **Six dark values are extrapolated, not quoted.** The handoff's dark table
+  covers thirteen roles; `--k-surface-warm` (`#262420`), `--k-border-strong`
+  (`#453F34`), `--k-disabled` (`#6E6656`), `--k-chip-dash` (`#453F34`),
+  `--k-row-hover` (`#262420`) and `--k-neutral-bar` (`#8E8676`, unchanged) had
+  no dark row, so they were derived by holding the light table's step between
+  neighbouring surfaces. `--k-accent-text` and `--k-accent-light` both collapse
+  to the dark accent `#E8935B`, which is what the handoff's own note
+  ("Accent `#E8935B` (ink `#241C13` sits on it)") implies — dark mode has one
+  accent, not three. `test_every_dark_token_is_also_declared_light` guards
+  against a token existing in only one mode.
+- **One deliberate value change in the sweep**: `payment_calendar.py`'s
+  non-today day numbers moved from `text-slate-700` (ink-2) to `text-slate-500`
+  (muted). Today's number had been the only `text-primary` figure on the page,
+  and once accent left figures, ink-vs-ink-2 was too weak to read as "today".
+  Muted for other days restores the contrast the accent used to carry; `3c`
+  replaces this with the 2px ink border and `Today` label.
 
 - **Two constants beyond the scope list**: `ACCENT_SURFACE` / `ON_ACCENT`
   (`.k-accent-surface`). The sweep requires `bg-teal-7` + `text-teal-1` to
