@@ -12,6 +12,7 @@ from kaleta.pwa import PWA_HEAD
 from kaleta.views.theme import (
     DRAWER,
     HEADER,
+    INK,
     NAV_GROUP,
     NAV_GROUP_ROW,
     NAV_ITEM,
@@ -288,17 +289,17 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
         ui.label(t("common.shortcuts_help")).classes("text-lg font-bold")
         ui.label(t("common.shortcuts_global")).classes("text-sm font-semibold text-slate-500 mt-2")
         with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
-            ui.label("Alt+N").classes("k-mono k-heading text-sm font-semibold")
+            ui.label("Alt+N").classes(f"k-mono {INK} text-sm font-semibold")
             ui.label(t("common.shortcut_new_tx")).classes("text-sm")
-            ui.label("?").classes("k-mono k-heading text-sm font-semibold")
+            ui.label("?").classes(f"k-mono {INK} text-sm font-semibold")
             ui.label(t("common.shortcut_open_help")).classes("text-sm")
         ui.label(t("common.shortcuts_transactions")).classes(
             "text-sm font-semibold text-slate-500 mt-3"
         )
         with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
-            ui.label("Enter").classes("k-mono k-heading text-sm font-semibold")
+            ui.label("Enter").classes(f"k-mono {INK} text-sm font-semibold")
             ui.label(t("common.shortcut_submit")).classes("text-sm")
-            ui.label("Escape").classes("k-mono k-heading text-sm font-semibold")
+            ui.label("Escape").classes(f"k-mono {INK} text-sm font-semibold")
             ui.label(t("common.shortcut_close")).classes("text-sm")
         with ui.row().classes("w-full justify-end mt-2"):
             ui.button(t("common.close"), on_click=shortcuts_dialog.close).props("flat")

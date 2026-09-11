@@ -8,6 +8,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import INK
 
 
 def _next_month(d: datetime.date) -> datetime.date:
@@ -231,14 +232,14 @@ def register() -> None:
                                         "text-xs text-slate-500 uppercase tracking-wide"
                                     )
                                     ui.label(f"{_fmt(first_pay)} → {_fmt(last_pay)}").classes(
-                                        "k-mono k-heading text-base font-semibold mt-1"
+                                        f"k-mono {INK} text-base font-semibold mt-1"
                                     )
                                 else:
                                     ui.label(t("credit_calculator.monthly_payment")).classes(
                                         "text-xs text-slate-500 uppercase tracking-wide"
                                     )
                                     ui.label(_fmt(monthly)).classes(
-                                        "k-mono k-heading text-xl font-semibold mt-1"
+                                        f"k-mono {INK} text-xl font-semibold mt-1"
                                     )
 
                             with ui.card().classes("flex-1 min-w-36 p-4"):

@@ -191,6 +191,12 @@ def test_no_constant_carries_a_tailwind_palette_class() -> None:
     assert not offenders, offenders
 
 
+def test_ink_is_a_separate_token_from_the_heading_class() -> None:
+    # Figures and dense grid cells are ink, but they are not headings.
+    assert theme.INK == "k-ink"
+    assert "color:var(--k-ink)" in _block(theme.BASE_CSS, ".k-heading,.k-ink")
+
+
 def test_headings_are_ink_not_the_brand_accent() -> None:
     for constant in (theme.PAGE_TITLE, theme.SECTION_HEADING, theme.DIALOG_TITLE):
         assert "text-primary" not in constant

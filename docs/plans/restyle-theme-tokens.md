@@ -248,6 +248,12 @@ they targeted no longer exist — `dashboard_widgets/helpers.py` renders
   registered colour (the `1c` dashboard plan merges those KPI cards), and
   `wizard.py`'s `_SECTION_COLORS` header bars stay until `3d`.
 
+- **`INK` / `.k-ink` is separate from `.k-heading`** even though both resolve
+  to `var(--k-ink)`. Figures and dense grid cells (`budget_plan` month cells,
+  the credit-calculator payment, the net-worth total, keycaps) are ink text,
+  not headings; giving them the heading class would have made a later change
+  to heading colour silently repaint the budget grid.
+
 - **Six dark values are extrapolated, not quoted.** The handoff's dark table
   covers thirteen roles; `--k-surface-warm` (`#262420`), `--k-border-strong`
   (`#453F34`), `--k-disabled` (`#6E6656`), `--k-chip-dash` (`#453F34`),

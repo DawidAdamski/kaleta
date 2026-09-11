@@ -26,7 +26,7 @@ from kaleta.services import (
     with_session,
 )
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
+from kaleta.views.theme import BODY_MUTED, INK, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
 
 
 def _fmt(d: Decimal) -> str:
@@ -74,7 +74,7 @@ def register() -> None:
                     ui.label(t("budget_builder.subtitle")).classes(BODY_MUTED)
                 with ui.row().classes("items-center gap-2"):
                     ui.icon("event", size="1.2rem").classes("text-primary")
-                    ui.label(str(current_year)).classes("k-mono k-heading text-xl font-semibold")
+                    ui.label(str(current_year)).classes(f"k-mono {INK} text-xl font-semibold")
 
             # ── Income section ───────────────────────────────────────────
             income_col: ui.column

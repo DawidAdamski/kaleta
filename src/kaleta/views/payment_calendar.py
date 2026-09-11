@@ -42,6 +42,7 @@ from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAY
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
+    INK,
     PAGE_TITLE,
     SECTION_CARD,
     TOOLBAR_CARD,
@@ -459,8 +460,7 @@ def register() -> None:
                 with col:
                     with ui.row().classes("w-full items-center justify-between"):
                         ui.label(str(date.day)).classes(
-                            "k-mono text-base font-bold "
-                            + ("k-heading" if is_today else "text-slate-500")
+                            "k-mono text-base font-bold " + (INK if is_today else "text-slate-500")
                         )
                         if total_count > 0:
                             ui.badge(str(total_count)).props("color=primary rounded").classes(

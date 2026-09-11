@@ -9,6 +9,8 @@ utility class is written a single time and works in both modes. See
 
 from __future__ import annotations
 
+from nicegui import ui
+
 # Semantic colour tokens for transaction amounts. Every amount is IBM Plex
 # Mono with tabular figures so columns align; the colour comes from the
 # income/expense tokens, never from a Tailwind ramp.
@@ -58,6 +60,9 @@ TABLE_SURFACE = "k-table w-full"
 ACCENT_SURFACE = "k-accent-surface"
 ON_ACCENT = "k-on-accent"
 
+# Plain ink text for figures and dense grid cells (not a heading).
+INK = "k-ink"
+
 # Quasar brand colours. NiceGUI writes its own defaults onto <body> at runtime,
 # which outranks any `:root` rule, so `apply_brand()` must run on every page that
 # loads `theme_css()` — the `:root` block below is the static fallback.
@@ -76,8 +81,6 @@ QUASAR_BRAND = {
 
 def apply_brand() -> None:
     """Push the sand brand onto Quasar for the current page."""
-    from nicegui import ui
-
     ui.colors(**QUASAR_BRAND)
 
 
@@ -203,7 +206,7 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 
 /* ── Typography ───────────────────────────────────────────────────── */
 .k-page-title{color:var(--k-ink);letter-spacing:-.02em}
-.k-heading{color:var(--k-ink)}
+.k-heading,.k-ink{color:var(--k-ink)}
 .k-eyebrow{
   font-size:10px;
   font-weight:600;

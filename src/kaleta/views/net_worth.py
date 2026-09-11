@@ -16,6 +16,7 @@ from kaleta.services.net_worth_service import (
     PhysicalAssetSnapshot,
 )
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import INK
 
 
 def _type_label() -> dict[AccountType, str]:
@@ -385,7 +386,7 @@ def register() -> None:
                     ui.icon("home", color="primary").classes("text-xl")
                     ui.label(t("net_worth.physical_assets")).classes("text-lg font-semibold flex-1")
                     ui.label(_fmt(summary.total_physical_assets, default_currency)).classes(
-                        "k-mono k-heading font-semibold text-sm"
+                        f"k-mono {INK} font-semibold text-sm"
                     )
                 _physical_assets_section(summary)
 
