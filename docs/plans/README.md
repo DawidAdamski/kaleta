@@ -96,6 +96,32 @@ The subagent:
 
 ## Plans index
 
+### Restyle — sand palette (design handoff, execute in this order)
+
+Spec: [`docs/design/restyle/README.md`](../design/restyle/README.md) and the
+canvas `docs/design/restyle/Kaleta Dashboard.dc.html` (artboard ids in
+brackets). Plan 1 is the foundation; 2–13 each ship one screen and are
+independent of each other unless noted.
+
+| # | Plan | Artboard | Status | Depends on |
+|---|---|---|---|---|
+| 1 | [restyle-theme-tokens](restyle-theme-tokens.md) | `1c`/`1d` tokens | draft | — |
+| 2 | [restyle-transactions-filter-chips](restyle-transactions-filter-chips.md) | `2a` | draft | 1 |
+| 3 | [restyle-budgets-pace-bars](restyle-budgets-pace-bars.md) | `2b` | draft | 1 |
+| 4 | [restyle-dashboard](restyle-dashboard.md) | `1c`/`1d` | draft | 1 |
+| 5 | [restyle-import-mapping](restyle-import-mapping.md) | `2d` | draft | 1 |
+| 6 | [restyle-forecast-on-load](restyle-forecast-on-load.md) | `3a` | draft | 1 |
+| 7 | [restyle-login-split](restyle-login-split.md) | `3f` | draft | 1 |
+| 8 | [restyle-budget-plan-grid](restyle-budget-plan-grid.md) | `2c` | draft | 1 |
+| 9 | [restyle-net-worth](restyle-net-worth.md) | `3b` | draft | 1 |
+| 10 | [restyle-payment-calendar](restyle-payment-calendar.md) | `3c` | draft | 1 |
+| 11 | [restyle-wizard-index](restyle-wizard-index.md) | `3d` | draft | 1 |
+| 12 | [restyle-reports-sentence](restyle-reports-sentence.md) | `3e` | draft | 1 |
+| 13 | [restyle-dashboard-mobile](restyle-dashboard-mobile.md) | `1f` | draft | 4 (needs a safe-to-spend service method) |
+
+Not planned: `1a` (before-picture), `1b` (superseded by 4), `1e` desktop
+rethink (revisit after living with 4).
+
 ### Q4 2026 — Open-source launch (execute in this order)
 
 | # | Plan | Status | Depends on |
