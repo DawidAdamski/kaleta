@@ -164,8 +164,8 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
    two real filenames, which is what "name the acceptance files accordingly"
    asks for. Both OFL texts are appended to `static/fonts/LICENSE.txt`.
    `inter-var.woff2` stays on disk unreferenced, as the scope requires.
-2. **The `!important` layer.** Kept, emptied down to seven survivors (table
-   below). Zero-survivor entries were deleted rather than ported.
+2. **The `!important` layer.** Kept, emptied down to the eight survivor rows
+   in the table below. Zero-survivor entries were deleted rather than ported.
 3. **PWA `theme_color`.** Yes — `manifest.json` `theme_color` and
    `background_color` and the `PWA_HEAD` meta are all `#F3EFE7`;
    `tests/unit/test_pwa.py` pinned the old `#1976d2` in two places and was
@@ -253,6 +253,18 @@ they targeted no longer exist — `dashboard_widgets/helpers.py` renders
   the credit-calculator payment, the net-worth total, keycaps) are ink text,
   not headings; giving them the heading class would have made a later change
   to heading colour silently repaint the budget grid.
+
+- **The chart palette is wired, not just declared.** The mode-aware helpers
+  (`chart_ink_color`, `chart_income_color`, `chart_expense_color`,
+  `chart_accent_color`) replace the fixed light hexes in `cashflow_chart.py`,
+  `savings_rate_trend.py`, `net_worth_trend.py`, `wizard_salary.py` and
+  `money_flow.py` — a colour lookup, not a series rebuild, and it fixes a real
+  legibility bug the tokens would otherwise have shipped: the cashflow net
+  line was ink `#1C1A15` on a `#201F1A` dark card. `money_flow.py` also lost a
+  hard-coded `#94a3b8`/`#334155` label pair in favour of `chart_text_color()`.
+  `CHART_PALETTE` / `chart_palette()` stay uncalled on purpose — the scope
+  names them as the shared list, and the per-screen plans that rebuild series
+  are the consumers.
 
 - **The 236px drawer needed the handoff's nav type and gutter, not just the
   width.** At Quasar's defaults (14px labels, a 56px avatar column) "Payment

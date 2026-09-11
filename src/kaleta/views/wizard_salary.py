@@ -15,10 +15,10 @@ from kaleta.schemas.salary import SalaryBasis, SalaryPlanCreate, SalaryProposal
 from kaleta.services import AccountService, SalaryService, with_session
 from kaleta.services.salary_service import MIN_HISTORY_MONTHS
 from kaleta.views.chart_utils import (
-    CHART_ACCENT,
-    CHART_INCOME,
-    CHART_INK,
     apply_dark,
+    chart_accent_color,
+    chart_income_color,
+    chart_ink_color,
 )
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
@@ -69,13 +69,13 @@ def _buffer_chart(proposal: SalaryProposal, is_dark: bool) -> dict[str, Any]:
                 "name": t("salary.chart_income"),
                 "type": "bar",
                 "data": [float(p.income) for p in proposal.projection],
-                "itemStyle": {"color": CHART_INCOME},
+                "itemStyle": {"color": chart_income_color(is_dark)},
             },
             {
                 "name": t("salary.chart_salary"),
                 "type": "line",
                 "data": [float(proposal.salary)] * len(labels),
-                "itemStyle": {"color": CHART_INK},
+                "itemStyle": {"color": chart_ink_color(is_dark)},
                 "lineStyle": {"width": 2, "type": "dashed"},
                 "symbol": "none",
             },
@@ -83,7 +83,7 @@ def _buffer_chart(proposal: SalaryProposal, is_dark: bool) -> dict[str, Any]:
                 "name": t("salary.chart_buffer"),
                 "type": "line",
                 "data": [float(p.buffer) for p in proposal.projection],
-                "itemStyle": {"color": CHART_ACCENT},
+                "itemStyle": {"color": chart_accent_color(is_dark)},
                 "lineStyle": {"width": 2},
                 "symbol": "circle",
                 "symbolSize": 6,

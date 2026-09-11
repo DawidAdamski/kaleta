@@ -19,6 +19,7 @@ from kaleta.views.chart_utils import (
     chart_expense_color,
     chart_grid_color,
     chart_income_color,
+    chart_ink_color,
     chart_palette,
     chart_text_color,
 )
@@ -226,6 +227,8 @@ def test_module_constants_match_the_light_palette() -> None:
 
 
 def test_money_colour_helpers_follow_the_mode() -> None:
+    assert chart_ink_color(False) == "#1C1A15"
+    assert chart_ink_color(True) == "#F0EBDF"
     assert chart_income_color(False) == "#36684D"
     assert chart_income_color(True) == "#6FAF87"
     assert chart_expense_color(False) == "#A44631"

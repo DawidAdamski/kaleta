@@ -65,6 +65,10 @@ def chart_palette(is_dark: bool) -> list[str]:
     return list(CHART_PALETTE_DARK if is_dark else CHART_PALETTE)
 
 
+def chart_ink_color(is_dark: bool) -> str:
+    return CHART_INK_DARK if is_dark else CHART_INK
+
+
 def chart_income_color(is_dark: bool) -> str:
     return CHART_INCOME_DARK if is_dark else CHART_INCOME
 

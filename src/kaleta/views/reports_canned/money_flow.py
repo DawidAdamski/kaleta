@@ -19,7 +19,13 @@ from kaleta.services.money_flow_service import (
     month_bounds,
     year_bounds,
 )
-from kaleta.views.chart_utils import CHART_ACCENT, CHART_EXPENSE, CHART_INCOME, apply_dark
+from kaleta.views.chart_utils import (
+    apply_dark,
+    chart_accent_color,
+    chart_expense_color,
+    chart_income_color,
+    chart_text_color,
+)
 from kaleta.views.components.empty_state import report_no_data_label
 from kaleta.views.layout import page_layout
 from kaleta.views.reports_canned.formatters import csv_download, fmt
@@ -219,7 +225,7 @@ def register() -> None:
                 node_data = [
                     {
                         "name": n.label,
-                        "itemStyle": {"color": _node_color(n.kind)},
+                        "itemStyle": {"color": _node_color(n.kind, is_dark)},
                     }
                     for n in flow.nodes
                 ]
@@ -238,11 +244,11 @@ def register() -> None:
                                 "colorStops": [
                                     {
                                         "offset": 0,
-                                        "color": _link_color(lnk.source, flow),
+                                        "color": _link_color(lnk.source, flow, is_dark),
                                     },
                                     {
                                         "offset": 1,
-                                        "color": _link_color(lnk.target, flow),
+                                        "color": _link_color(lnk.target, flow, is_dark),
                                     },
                                 ],
                             },
@@ -270,7 +276,7 @@ def register() -> None:
                                         "nodeAlign": "justify",
                                         "lineStyle": {"curveness": 0.5},
                                         "label": {
-                                            "color": "#94a3b8" if is_dark else "#334155",
+                                            "color": chart_text_color(is_dark),
                                         },
                                         "data": node_data,
                                         "links": link_data,
@@ -302,17 +308,15 @@ def register() -> None:
             await _load()
 
 
-def _node_color(kind: str) -> str:
+def _node_color(kind: str, is_dark: bool) -> str:
     if kind in ("source", "deficit"):
-        return CHART_INCOME
+        return chart_income_color(is_dark)
     if kind == "sink":
-        return CHART_EXPENSE
-    if kind == "account":
-        return CHART_ACCENT
-    return CHART_ACCENT
+        return chart_expense_color(is_dark)
+    return chart_accent_color(is_dark)
 
 
-def _link_color(node_id: str, flow: MoneyFlow) -> str:
+def _link_color(node_id: str, flow: MoneyFlow, is_dark: bool) -> str:
     kind_by_id = {n.id: n.kind for n in flow.nodes}
     kind = kind_by_id.get(node_id, "pool")
-    return _node_color(kind)
+    return _node_color(kind, is_dark)
