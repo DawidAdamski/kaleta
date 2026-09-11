@@ -7,12 +7,13 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
-from kaleta.views.theme import theme_css
+from kaleta.views.theme import apply_brand, theme_css
 
 
 def auth_page_shell(title_key: str, subtitle_key: str) -> ui.column:
     ui.add_head_html(PWA_HEAD)
     ui.add_head_html(f"<style>{theme_css()}</style>")
+    apply_brand()
     with ui.column().classes("w-full min-h-screen items-center justify-center p-8 gap-6") as col:
         with ui.row().classes("items-center gap-3"):
             ui.icon("account_balance_wallet", size="3rem").classes("text-primary")

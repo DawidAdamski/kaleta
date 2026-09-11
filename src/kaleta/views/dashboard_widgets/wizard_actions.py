@@ -21,9 +21,9 @@ from kaleta.views.theme import BODY_MUTED
 MAX_ROWS = 12
 
 _SEVERITY_DOT: dict[ActionSeverity, str] = {
-    ActionSeverity.DANGER: "bg-red-500",
-    ActionSeverity.WARNING: "bg-amber-500",
-    ActionSeverity.INFO: "bg-sky-500",
+    ActionSeverity.DANGER: "k-dot--danger",
+    ActionSeverity.WARNING: "k-dot--warn",
+    ActionSeverity.INFO: "k-dot--info",
 }
 
 

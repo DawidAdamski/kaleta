@@ -18,6 +18,7 @@ from kaleta.views.theme import (
     NAV_ITEM_ACTIVE,
     PAGE_CONTAINER,
     PAGE_SHELL,
+    apply_brand,
     theme_css,
 )
 
@@ -106,6 +107,7 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
 
     ui.add_head_html(PWA_HEAD)
     ui.add_head_html(f"<style>{theme_css()}</style>")
+    apply_brand()
 
     if not is_configured():
         ui.navigate.to("/setup")

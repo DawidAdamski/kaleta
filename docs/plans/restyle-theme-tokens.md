@@ -213,6 +213,36 @@ they targeted no longer exist — `dashboard_widgets/helpers.py` renders
   `safety_funds.py`, `payment_calendar.py`, plus the equivalent `-700` ramp
   spellings in `month_net.py`, `wizard_salary.py` and two `import_view`
   sections. `.k-trend--warn` is the new sibling of the `KPI_TREND_*` set.
+- **The `:root` brand block alone never took effect** — and had not for the
+  teal palette either. NiceGUI's per-page `ui.colors()` writes its defaults
+  (`--q-primary:#5898d4`, …) onto `<body>`, which outranks any `:root` rule
+  for every descendant, so `color=primary` buttons and `text-primary` links
+  were rendering NiceGUI blue, not the declared brand. Measured in the
+  browser: `:root` gave `#B4591F` while `body` gave `#5898d4`. The scope item
+  "Quasar brand variables" is only real if they apply, so `theme.QUASAR_BRAND`
+  is now the single source and `theme.apply_brand()` pushes it via
+  `ui.colors()` from both shells that load `theme_css()` (`layout.page_layout`
+  and `auth_common.auth_page_shell`). The `:root` block stays as the static
+  fallback, and `test_runtime_brand_matches_the_css_fallback` keeps the two in
+  step.
+- **Three Quasar primitives paint their own white** and had to be pointed at
+  the tokens, or Settings would have stayed white-on-white on sand: `.q-card`
+  (every plain `ui.card()`, dialogs included), `.q-tab-panels` / `.q-tab-panel`,
+  and the `.q-table` thead/tbody/container chain. All three are surfaces, so
+  they belong to this plan's "Surfaces & shell" item; doing it in CSS avoids
+  touching the ~40 views that call `ui.card()` directly.
+- **Severity dots** in `dashboard_widgets/wizard_actions.py` were
+  `bg-red-500` / `bg-amber-500` / `bg-sky-500`; sky blue has no place in the
+  palette, so they became `.k-dot--danger/--warn/--info`.
+- **Verified in a live browser**, not just in tests: Libre Franklin and both
+  IBM Plex Mono weights report `loaded`, body ground computes to
+  `rgb(243, 239, 231)` light / `rgb(23, 22, 19)` dark, the page title is
+  weight 300 in ink, the drawer measures 236px and the header 60px.
+- **Left for the per-screen plans**, deliberately: `icon_badge_classes()`
+  still builds Tailwind `bg-{color}-500/10` badges from each widget's
+  registered colour (the `1c` dashboard plan merges those KPI cards), and
+  `wizard.py`'s `_SECTION_COLORS` header bars stay until `3d`.
+
 - **Two constants beyond the scope list**: `ACCENT_SURFACE` / `ON_ACCENT`
   (`.k-accent-surface`). The sweep requires `bg-teal-7` + `text-teal-1` to
   leave `wizard.py`'s Setup header, and teal no longer exists anywhere in the

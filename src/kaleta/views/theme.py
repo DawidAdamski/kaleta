@@ -58,6 +58,29 @@ TABLE_SURFACE = "k-table w-full"
 ACCENT_SURFACE = "k-accent-surface"
 ON_ACCENT = "k-on-accent"
 
+# Quasar brand colours. NiceGUI writes its own defaults onto <body> at runtime,
+# which outranks any `:root` rule, so `apply_brand()` must run on every page that
+# loads `theme_css()` — the `:root` block below is the static fallback.
+QUASAR_BRAND = {
+    "primary": "#B4591F",
+    "secondary": "#6B6353",
+    "accent": "#DE7B45",
+    "positive": "#36684D",
+    "negative": "#A44631",
+    "info": "#9A4E1F",
+    "warning": "#8A5A12",
+    "dark": "#201F1A",
+    "dark_page": "#171613",
+}
+
+
+def apply_brand() -> None:
+    """Push the sand brand onto Quasar for the current page."""
+    from nicegui import ui
+
+    ui.colors(**QUASAR_BRAND)
+
+
 # Fonts, brand variables and the design tokens every .k-* class reads.
 BASE_CSS = """
 @font-face{
@@ -156,6 +179,10 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
   color:var(--k-ink);
   border-bottom:1px solid var(--k-border)
 }
+/* Quasar paints its own white on these; make them read the tokens so a
+   plain ui.card() is paper on ground without every view opting in. */
+.q-card{background:var(--k-surface);color:var(--k-ink)}
+.q-tab-panels,.q-tab-panel{background-color:transparent}
 .k-drawer,
 .k-drawer .q-drawer__content{
   background:var(--k-ground);
@@ -195,10 +222,18 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 .k-trend--pos{color:var(--k-income)}
 .k-trend--neg{color:var(--k-expense)}
 .k-trend--warn{color:var(--k-warning)}
+.k-dot--danger{background:var(--k-expense)}
+.k-dot--warn{background:var(--k-warning)}
+.k-dot--info{background:var(--k-accent)}
 .k-trend--neutral{color:var(--k-muted)}
 
 /* ── Tables ───────────────────────────────────────────────────────── */
-.k-table .q-table{background:transparent}
+.k-table .q-table,
+.k-table .q-table__container,
+.k-table .q-table thead,
+.k-table .q-table tbody,
+.k-table .q-table thead tr,
+.k-table .q-table tbody tr{background-color:transparent}
 .k-table .q-table__top{padding-left:0;padding-right:0}
 .k-table .q-table th{
   font-size:10px;

@@ -100,6 +100,18 @@ def test_quasar_brand_variables_are_the_sand_palette() -> None:
         assert f"{token}:{value}" in root, token
 
 
+def test_runtime_brand_matches_the_css_fallback() -> None:
+    # NiceGUI writes its own brand onto <body>, which outranks :root, so the
+    # values pushed by apply_brand() must agree with the stylesheet.
+    for token, value in QUASAR_LIGHT.items():
+        assert theme.QUASAR_BRAND[token.removeprefix("--q-")] == value, token
+
+
+def test_runtime_brand_sets_the_dark_page_colours() -> None:
+    assert theme.QUASAR_BRAND["dark_page"] == "#171613"
+    assert theme.QUASAR_BRAND["dark"] == "#201F1A"
+
+
 def test_dark_mode_overrides_only_the_two_brand_variables() -> None:
     dark = _dark_root()
     assert "--q-primary:#E8935B" in dark
@@ -196,6 +208,17 @@ def test_dark_mode_drops_the_card_shadow() -> None:
 
 
 # ── shared utility classes the per-screen plans build on ──────────────────────
+
+
+def test_status_dot_classes_read_the_tokens() -> None:
+    assert "background:var(--k-expense)" in _block(theme.BASE_CSS, ".k-dot--danger")
+    assert "background:var(--k-warning)" in _block(theme.BASE_CSS, ".k-dot--warn")
+    assert "background:var(--k-accent)" in _block(theme.BASE_CSS, ".k-dot--info")
+
+
+def test_quasar_cards_and_tab_panels_follow_the_surface_tokens() -> None:
+    assert "background:var(--k-surface)" in _block(theme.BASE_CSS, ".q-card")
+    assert "background-color:transparent" in _block(theme.BASE_CSS, ".q-tab-panels,.q-tab-panel")
 
 
 def test_pace_bar_classes_are_shipped() -> None:
