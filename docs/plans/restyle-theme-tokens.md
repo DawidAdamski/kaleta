@@ -236,8 +236,8 @@ Four defects only real data could show, all fixed:
    link rendered in the browser's default blue; links are now
    `--k-accent-text`.
 
-`tags.py` and `institutions.py` keep their `#42A5F5` defaults: those are
-user-chosen data values, not chrome. `institution_avatar.py`'s `#64748b`
+`tags.py` keeps its `#42A5F5` tag default and `institutions.py` its
+`#1976d2` swatch default: both are user-chosen data values, not chrome. `institution_avatar.py`'s `#64748b`
 fallback was chrome and moved to the muted token.
 
 ### Contrast measurements
