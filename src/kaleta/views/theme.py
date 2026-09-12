@@ -369,8 +369,10 @@ body.body--dark{background-color:var(--k-ground);color-scheme:dark}
      here: that rule resolves through a var() which flips under .body--dark
      (measured in the browser, see Implementation notes). What remains is the
      classes whose dark value must *differ* from the light one, plus the
-     tints BASE_CSS leaves alone. bg-slate-600/700 are inverted chips — ink
-     behind white text in light, which in dark would be near-white on white. */
+     tints BASE_CSS leaves alone. bg-slate-600/700 are inverted chips: the
+     base rule gives them --k-ink, which is right in light (dark chip, white
+     text) but resolves to near-white on white in dark — hence the override
+     to the mid surface tone below. */
   .body--dark .bg-slate-600,
   .body--dark .bg-slate-700{background:var(--k-surface-sunken) !important}
   .body--dark .bg-green-1{background:rgba(111,175,135,.15) !important}
