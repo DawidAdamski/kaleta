@@ -365,17 +365,14 @@ body.body--dark{background-color:var(--k-ground);color-scheme:dark}
 .body--dark .q-toggle__track{background:rgba(168,160,141,.35)}
 
 @layer quasar_importants {
-  /* Survivors only — every entry below is still spelled out in a view.
-     Colour comes from the sand tokens so the two modes stay one product. */
-  .body--dark .text-slate-400{color:var(--k-disabled) !important}
-  .body--dark .text-slate-500{color:var(--k-muted) !important}
-  .body--dark .text-slate-600{color:var(--k-muted-strong) !important}
-  .body--dark .bg-slate-50{background:var(--k-surface-warm) !important}
-  .body--dark .bg-slate-100{background:var(--k-surface-sunken) !important}
-  .body--dark .bg-slate-200{background:var(--k-hairline) !important}
+  /* Survivors only. A class the BASE_CSS ramp already remaps needs no entry
+     here: that rule resolves through a var() which flips under .body--dark
+     (measured in the browser, see Implementation notes). What remains is the
+     classes whose dark value must *differ* from the light one, plus the
+     tints BASE_CSS leaves alone. bg-slate-600/700 are inverted chips — ink
+     behind white text in light, which in dark would be near-white on white. */
   .body--dark .bg-slate-600,
   .body--dark .bg-slate-700{background:var(--k-surface-sunken) !important}
-  .body--dark .border-slate-300{border-color:var(--k-border) !important}
   .body--dark .bg-green-1{background:rgba(111,175,135,.15) !important}
   .body--dark .bg-blue-1{background:rgba(232,147,91,.12) !important}
   .body--dark .bg-amber-1{background:rgba(227,180,87,.15) !important}

@@ -159,7 +159,7 @@ def test_apply_dark_empty_dict_no_error() -> None:
     opts: dict = {}
     result = apply_dark(opts, is_dark=True)
     # Seeding the palette is the only thing apply_dark adds unprompted.
-    assert result == {"color": chart_palette(True)}
+    assert result == {"color": ["#F0EBDF", "#E8935B", "#6FAF87", "#DE8672", "#8E8676", "#EFCDB2"]}
 
 
 def test_apply_dark_returns_same_object() -> None:
@@ -254,13 +254,13 @@ def test_apply_dark_seeds_the_series_palette() -> None:
     # A chart that names no colours must not fall back to ECharts' blue ramp.
     opts: dict = {"series": [{"type": "bar", "data": [1, 2]}]}
     apply_dark(opts, is_dark=False)
-    assert opts["color"] == chart_palette(False)
+    assert opts["color"] == ["#1C1A15", "#B4591F", "#36684D", "#A44631", "#8E8676", "#EFCDB2"]
 
 
 def test_apply_dark_seeds_the_dark_palette_in_dark_mode() -> None:
     opts: dict = {"series": [{"type": "line", "data": [1]}]}
     apply_dark(opts, is_dark=True)
-    assert opts["color"] == chart_palette(True)
+    assert opts["color"] == ["#F0EBDF", "#E8935B", "#6FAF87", "#DE8672", "#8E8676", "#EFCDB2"]
 
 
 def test_apply_dark_never_overrides_an_explicit_palette() -> None:

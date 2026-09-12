@@ -168,8 +168,8 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
    two real filenames, which is what "name the acceptance files accordingly"
    asks for. Both OFL texts are appended to `static/fonts/LICENSE.txt`.
    `inter-var.woff2` stays on disk unreferenced, as the scope requires.
-2. **The `!important` layer.** Kept, emptied down to the eight survivor rows
-   in the table below. Zero-survivor entries were deleted rather than ported.
+2. **The `!important` layer.** Kept, emptied from ~40 entries down to the
+   four rows in the table below. Zero-survivor entries were deleted rather than ported.
 3. **PWA `theme_color`.** Yes — `manifest.json` `theme_color` and
    `background_color` and the `PWA_HEAD` meta are all `#F3EFE7`;
    `tests/unit/test_pwa.py` pinned the old `#1976d2` in two places and was
@@ -180,16 +180,23 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
 Only classes a grep of `src/kaleta/views` still proves referenced are kept,
 and each now resolves through a sand token instead of a navy literal:
 
-| Class | Still needed by |
+| Class | Why it survives |
 |---|---|
-| `text-slate-400` | 28 files (`tags.py`, `forecast.py`, `budget_plan/grid.py`, …) |
-| `text-slate-500` | 57 files — the app's default caption colour |
-| `text-slate-600` | `credit_calculator.py`, `wizard.py`, `institutions.py`, `components/transaction_table.py`, … |
-| `bg-slate-50` / `bg-slate-100` / `bg-slate-200` | `categories.py`, `setup.py`, `budget_plan/grid.py`, `budgets/realization.py`, `wizard.py`, … |
-| `bg-slate-600` / `bg-slate-700` | `budget_plan/grid.py`, `dashboard_widgets/wizard_actions.py` |
-| `border-slate-300` | `dashboard.py`, `transactions/constants.py` |
-| `bg-green-1` / `bg-blue-1` / `bg-amber-1` | `wizard.py`, `budget_plan/grid.py`, `forecast.py` |
+| `bg-slate-600` / `bg-slate-700` | Inverted chips (`budget_plan/grid.py`, `dashboard_widgets/wizard_actions.py`): ink behind white text in light, which in dark would be near-white on white — the only ramp class whose dark value must *differ* from its light one |
+| `bg-green-1` / `bg-blue-1` / `bg-amber-1` | Tints `BASE_CSS` does not remap (`wizard.py`, `budget_plan/grid.py`, `forecast.py`) |
 | `text-orange-8` | `budget_plan/helpers.py` (override marker — `2c` retires it) |
+
+The eight other entries this block started with — `text-slate-400/500/600`,
+`bg-slate-50/100/200`, `border-slate-300` — turned out to be **redundant**,
+not survivors. The unlayered `BASE_CSS` rule for each resolves through a
+`var()` that already flips under `.body--dark`, so the `!important` copy
+restated the same value. Verified by deleting them and measuring the
+computed colour in dark mode on `/transactions`: `text-slate-400` →
+`rgb(110,102,86)` (`--k-disabled`), `text-slate-500` → `rgb(168,160,141)`
+(`--k-muted`), `text-slate-600` → `rgb(161,151,129)` (`--k-muted-strong`),
+`bg-slate-100` → `rgb(42,40,34)` (`--k-surface-sunken`) — every one the
+correct dark token with no override present. The block is down from ~40
+entries to four.
 
 `BASE_CSS` remaps the same ramp for **light** mode, plus two classes that
 need no dark override and so do not appear in the table above:
