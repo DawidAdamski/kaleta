@@ -393,6 +393,10 @@ buttons keep `--q-primary` would close it, and is worth a decision.
   (`.k-accent-surface`). The sweep requires `bg-teal-7` + `text-teal-1` to
   leave `wizard.py`'s Setup header, and teal no longer exists anywhere in the
   palette; a filled accent surface is the handoff's own token for that role.
+  The subtitle there also gained `opacity-80`: `text-teal-1` was a *lighter
+  tint* of the header colour, and `ON_ACCENT` alone is the full-strength
+  on-accent ink, so without it the subtitle would have read as loud as the
+  title.
 - **Drawer width is set with `.props("width=236")`, not `ui.left_drawer(width=…)`.**
   This NiceGUI version's `LeftDrawer.__init__` takes no `width` argument
   (mypy catches it); the Quasar prop is the supported path. The mini rail is
