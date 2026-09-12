@@ -44,6 +44,7 @@ CHART_PALETTE_DARK = [
 ]
 
 CHART_ACCENT_FILL = "rgba(180, 89, 31, 0.18)"
+CHART_ACCENT_FILL_DARK = "rgba(232, 147, 91, 0.18)"
 
 # Axis labels, grid lines — muted / hairline in each mode.
 CHART_GRID_DARK = "#322F27"
@@ -79,6 +80,11 @@ def chart_expense_color(is_dark: bool) -> str:
 
 def chart_accent_color(is_dark: bool) -> str:
     return CHART_ACCENT_DARK if is_dark else CHART_ACCENT
+
+
+def chart_accent_fill(is_dark: bool) -> str:
+    """Area-fill tint of the accent — must follow the mode like the line does."""
+    return CHART_ACCENT_FILL_DARK if is_dark else CHART_ACCENT_FILL
 
 
 def axis_style(is_dark: bool) -> dict[str, dict[str, Any]]:

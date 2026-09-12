@@ -12,7 +12,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import ReportService
-from kaleta.views.chart_utils import CHART_ACCENT_FILL, apply_dark, chart_accent_color
+from kaleta.views.chart_utils import apply_dark, chart_accent_color, chart_accent_fill
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
 
@@ -41,7 +41,7 @@ async def render_savings_rate_trend(session: AsyncSession, is_dark: bool) -> Non
                 "smooth": True,
                 "itemStyle": {"color": chart_accent_color(is_dark)},
                 "lineStyle": {"color": chart_accent_color(is_dark)},
-                "areaStyle": {"color": CHART_ACCENT_FILL},
+                "areaStyle": {"color": chart_accent_fill(is_dark)},
             }
         ],
     }

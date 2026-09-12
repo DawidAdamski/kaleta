@@ -357,9 +357,10 @@ buttons keep `--q-primary` would close it, and is worth a decision.
   legibility bug the tokens would otherwise have shipped: the cashflow net
   line was ink `#1C1A15` on a `#201F1A` dark card. `money_flow.py` also lost a
   hard-coded `#94a3b8`/`#334155` label pair in favour of `chart_text_color()`.
-  `CHART_PALETTE` / `chart_palette()` stay uncalled on purpose — the scope
-  names them as the shared list, and the per-screen plans that rebuild series
-  are the consumers.
+  `CHART_ACCENT_FILL` was a fixed light rgba used unconditionally (inherited
+  from `CHART_TEAL_FILL`), so the two trend widgets drew a muted-brown area
+  under an `#E8935B` line in dark mode; it is now `chart_accent_fill(is_dark)`
+  like every other colour helper.
 
 - **The 236px drawer needed the handoff's nav type and gutter, not just the
   width.** At Quasar's defaults (14px labels, a 56px avatar column) "Payment

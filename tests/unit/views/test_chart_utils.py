@@ -16,6 +16,7 @@ from kaleta.views.chart_utils import (
     apply_dark,
     axis_style,
     chart_accent_color,
+    chart_accent_fill,
     chart_expense_color,
     chart_grid_color,
     chart_income_color,
@@ -236,6 +237,12 @@ def test_money_colour_helpers_follow_the_mode() -> None:
     assert chart_expense_color(True) == "#DE8672"
     assert chart_accent_color(False) == "#B4591F"
     assert chart_accent_color(True) == "#E8935B"
+
+
+def test_accent_fill_follows_the_mode_like_the_line_does() -> None:
+    # A fixed light rgba would read as muted brown beside an #E8935B line.
+    assert chart_accent_fill(False) == "rgba(180, 89, 31, 0.18)"
+    assert chart_accent_fill(True) == "rgba(232, 147, 91, 0.18)"
 
 
 def test_grid_colour_is_the_border_token() -> None:
