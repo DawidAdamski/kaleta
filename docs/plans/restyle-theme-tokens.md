@@ -229,7 +229,14 @@ Four defects only real data could show, all fixed:
    `#EFCDB2` band, muted baseline). `credit_calculator.py` never called
    `apply_dark` at all, so it also gained `is_dark`; without that, ink on a
    dark card would have been invisible.
-4. **Two colours escaped the sweep entirely.** The Net Worth hero built its
+4. **One opacity moved with a colour.** The forecast confidence band went
+   from `#fb8c00` at 0.15 to `CHART_BAND` `#EFCDB2` at 0.35. The handoff
+   names the band colour but not its alpha; `#EFCDB2` is a pale tint where
+   `#fb8c00` was saturated, so holding 0.15 would have made the band
+   invisible on paper. 0.35 keeps it at roughly the weight it had. (This is
+   unrelated to the `~0.22` the handoff asks of `net_worth.py`'s *area
+   fills*, which `3b` owns and this plan left at 0.35.)
+5. **Two colours escaped the sweep entirely.** The Net Worth hero built its
    class as `f"text-{color}"`, so grepping for the literal `text-primary`
    never saw an accent-coloured hero figure — now mono ink, or expense when
    negative. And `ui.link` had no rule at all, so the Prophet-unavailable
