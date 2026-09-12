@@ -6,14 +6,20 @@ from __future__ import annotations
 from typing import Any
 
 from kaleta.i18n import t
-from kaleta.views.chart_utils import apply_dark
+from kaleta.views.chart_utils import (
+    CHART_NEUTRAL_BAR,
+    apply_dark,
+    chart_expense_color,
+    chart_income_color,
+)
 
 
 def budget_chart_options(summaries: list[Any], is_dark: bool = False) -> dict[str, Any]:
     categories = [s.category_name for s in summaries]
     budgeted = [float(s.budget_amount) for s in summaries]
     actual = [float(s.actual_amount) for s in summaries]
-    colors_act = ["#ef5350" if s.over_budget else "#4caf50" for s in summaries]
+    over, under = chart_expense_color(is_dark), chart_income_color(is_dark)
+    colors_act = [over if s.over_budget else under for s in summaries]
 
     opts = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
@@ -26,7 +32,7 @@ def budget_chart_options(summaries: list[Any], is_dark: bool = False) -> dict[st
                 "name": t("budgets.budgeted"),
                 "type": "bar",
                 "data": budgeted,
-                "itemStyle": {"color": "#90caf9"},
+                "itemStyle": {"color": CHART_NEUTRAL_BAR},
                 "barGap": "0%",
             },
             {

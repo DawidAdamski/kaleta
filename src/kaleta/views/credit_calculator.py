@@ -4,9 +4,10 @@ from __future__ import annotations
 import datetime
 from typing import Any
 
-from nicegui import ui
+from nicegui import app, ui
 
 from kaleta.i18n import t
+from kaleta.views.chart_utils import apply_dark, chart_income_color, chart_ink_color
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import INK
 
@@ -122,6 +123,7 @@ def _fmt(amount: float) -> str:
 def register() -> None:
     @ui.page("/credit-calculator")
     async def credit_calculator_page() -> None:
+        is_dark: bool = app.storage.user.get("dark_mode", False)
         state: dict[str, Any] = {
             "principal": 300_000.0,
             "rate": 7.5,
@@ -316,9 +318,12 @@ def register() -> None:
                                     "data": [round(row["balance"] / 1000, 1) for row in schedule],
                                     "smooth": True,
                                     "symbol": "none",
-                                    "lineStyle": {"color": "#1976d2", "width": 2},
-                                    "itemStyle": {"color": "#1976d2"},
-                                    "areaStyle": {"color": "#1976d2", "opacity": 0.08},
+                                    "lineStyle": {"color": chart_ink_color(is_dark), "width": 2},
+                                    "itemStyle": {"color": chart_ink_color(is_dark)},
+                                    "areaStyle": {
+                                        "color": chart_ink_color(is_dark),
+                                        "opacity": 0.08,
+                                    },
                                 }
                             ]
 
@@ -335,12 +340,15 @@ def register() -> None:
                                         "smooth": True,
                                         "symbol": "none",
                                         "lineStyle": {
-                                            "color": "#2e7d32",
+                                            "color": chart_income_color(is_dark),
                                             "width": 2,
                                             "type": "dashed",
                                         },
-                                        "itemStyle": {"color": "#2e7d32"},
-                                        "areaStyle": {"color": "#2e7d32", "opacity": 0.06},
+                                        "itemStyle": {"color": chart_income_color(is_dark)},
+                                        "areaStyle": {
+                                            "color": chart_income_color(is_dark),
+                                            "opacity": 0.06,
+                                        },
                                     }
                                 )
 
@@ -354,32 +362,35 @@ def register() -> None:
                             )
 
                             ui.echart(
-                                {
-                                    "tooltip": {"trigger": "axis"},
-                                    "legend": {"data": legend_data, "top": 0},
-                                    "grid": {
-                                        "left": "10%",
-                                        "right": "4%",
-                                        "top": "15%",
-                                        "bottom": "18%",
-                                    },
-                                    "xAxis": {
-                                        "type": "category",
-                                        "data": labels,
-                                        "axisLabel": {
-                                            "rotate": 45,
-                                            "fontSize": 10,
-                                            "interval": tick_interval,
+                                apply_dark(
+                                    {
+                                        "tooltip": {"trigger": "axis"},
+                                        "legend": {"data": legend_data, "top": 0},
+                                        "grid": {
+                                            "left": "10%",
+                                            "right": "4%",
+                                            "top": "15%",
+                                            "bottom": "18%",
                                         },
+                                        "xAxis": {
+                                            "type": "category",
+                                            "data": labels,
+                                            "axisLabel": {
+                                                "rotate": 45,
+                                                "fontSize": 10,
+                                                "interval": tick_interval,
+                                            },
+                                        },
+                                        "yAxis": {
+                                            "type": "value",
+                                            "name": t("credit_calculator.thousand_pln"),
+                                            "nameTextStyle": {"fontSize": 10},
+                                            "axisLabel": {"formatter": "{value}k"},
+                                        },
+                                        "series": series,
                                     },
-                                    "yAxis": {
-                                        "type": "value",
-                                        "name": t("credit_calculator.thousand_pln"),
-                                        "nameTextStyle": {"fontSize": 10},
-                                        "axisLabel": {"formatter": "{value}k"},
-                                    },
-                                    "series": series,
-                                }
+                                    is_dark,
+                                )
                             ).classes("w-full h-72")
 
                         # ── Payment schedule table ─────────────────────────────

@@ -7,7 +7,7 @@ from nicegui import ui
 
 from kaleta.schemas.institution import InstitutionResponse
 
-_DEFAULT_COLOR = "#64748b"  # slate-500
+_DEFAULT_COLOR = "#6B6353"  # slate-500
 
 
 def institution_avatar(inst: InstitutionResponse | None, size: int = 32) -> None:

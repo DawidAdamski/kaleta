@@ -10,7 +10,7 @@ from nicegui import app, ui
 from kaleta.i18n import t
 from kaleta.services import with_session
 from kaleta.services.report_service import ReportService, SavingsRatePoint
-from kaleta.views.chart_utils import apply_dark
+from kaleta.views.chart_utils import apply_dark, chart_accent_color, chart_income_color
 from kaleta.views.layout import page_layout
 from kaleta.views.reports_canned.formatters import csv_download, fmt, fmt_pct
 from kaleta.views.reports_canned.scaffold import export_button, kpi, loading_label, report_header
@@ -94,14 +94,23 @@ def register() -> None:
                                         "type": "line",
                                         "data": rates,
                                         "smooth": True,
-                                        "lineStyle": {"color": "#4caf50", "width": 3},
-                                        "itemStyle": {"color": "#4caf50"},
-                                        "areaStyle": {"color": "#4caf50", "opacity": 0.15},
+                                        "lineStyle": {
+                                            "color": chart_income_color(is_dark),
+                                            "width": 3,
+                                        },
+                                        "itemStyle": {"color": chart_income_color(is_dark)},
+                                        "areaStyle": {
+                                            "color": chart_income_color(is_dark),
+                                            "opacity": 0.15,
+                                        },
                                     },
                                 ],
                                 "markLine": {
                                     "silent": True,
-                                    "lineStyle": {"color": "#fb8c00", "type": "dashed"},
+                                    "lineStyle": {
+                                        "color": chart_accent_color(is_dark),
+                                        "type": "dashed",
+                                    },
                                     "data": [{"yAxis": 20, "name": "20%"}],
                                 },
                             },

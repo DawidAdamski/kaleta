@@ -93,7 +93,13 @@ def axis_style(is_dark: bool) -> dict[str, dict[str, Any]]:
 
 
 def apply_dark(options: dict[str, Any], is_dark: bool) -> dict[str, Any]:
-    """Inject dark-mode-aware text and grid colours into an ECharts options dict."""
+    """Inject the sand palette and mode-aware text/grid colours into ECharts options.
+
+    The series palette is seeded with ``setdefault`` so a chart that names its
+    own colours (per-series ``itemStyle``) keeps them, while one that names
+    none picks up the system palette instead of ECharts' default blue ramp.
+    """
+    options.setdefault("color", chart_palette(is_dark))
     color = chart_text_color(is_dark)
     split_color = chart_grid_color(is_dark)
 

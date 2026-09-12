@@ -17,7 +17,13 @@ from kaleta.services.forecast_service import (
     apply_scenarios,
 )
 from kaleta.services.forecasters import is_prophet_available
-from kaleta.views.chart_utils import apply_dark
+from kaleta.views.chart_utils import (
+    CHART_BAND,
+    CHART_NEUTRAL_BAR,
+    apply_dark,
+    chart_accent_color,
+    chart_ink_color,
+)
 from kaleta.views.layout import page_layout
 
 
@@ -66,7 +72,7 @@ def _forecast_chart(
                 "name": t("forecast.actual"),
                 "type": "line",
                 "data": [v for _, v in hist],
-                "itemStyle": {"color": "#1976d2"},
+                "itemStyle": {"color": chart_ink_color(is_dark)},
                 "lineStyle": {"width": 2},
                 "showSymbol": False,
                 "z": 3,
@@ -75,7 +81,7 @@ def _forecast_chart(
                 "name": t("forecast.predicted"),
                 "type": "line",
                 "data": [None] * len(hist) + [v for _, v in fore],
-                "itemStyle": {"color": "#fb8c00"},
+                "itemStyle": {"color": chart_accent_color(is_dark)},
                 "lineStyle": {"width": 2, "type": "dashed"},
                 "showSymbol": False,
                 "z": 3,
@@ -100,7 +106,7 @@ def _forecast_chart(
                 "lineStyle": {"opacity": 0},
                 "showSymbol": False,
                 "stack": "confidence",
-                "areaStyle": {"color": "#fb8c00", "opacity": 0.15},
+                "areaStyle": {"color": CHART_BAND, "opacity": 0.35},
                 "z": 1,
             },
         ],
@@ -112,8 +118,8 @@ def _forecast_chart(
                 "name": t("forecast.baseline_reference"),
                 "type": "line",
                 "data": [None] * len(hist) + [v for _, v in base_fore],
-                "itemStyle": {"color": "#9e9e9e"},
-                "lineStyle": {"width": 1, "type": "dotted", "color": "#9e9e9e"},
+                "itemStyle": {"color": CHART_NEUTRAL_BAR},
+                "lineStyle": {"width": 1, "type": "dotted", "color": CHART_NEUTRAL_BAR},
                 "showSymbol": False,
                 "z": 2,
             }

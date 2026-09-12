@@ -11,7 +11,7 @@ from nicegui import app, ui
 from kaleta.i18n import t
 from kaleta.services import with_session
 from kaleta.services.report_service import BudgetVarianceReport, ReportService
-from kaleta.views.chart_utils import apply_dark
+from kaleta.views.chart_utils import apply_dark, chart_accent_color, chart_ink_color
 from kaleta.views.layout import page_layout
 from kaleta.views.reports_canned.formatters import csv_download, fmt, fmt_pct
 from kaleta.views.reports_canned.scaffold import (
@@ -99,13 +99,13 @@ def register() -> None:
                                         "name": t("reports_lib.planned"),
                                         "type": "bar",
                                         "data": [float(r.planned) for r in rep.rows],
-                                        "itemStyle": {"color": "#1976d2"},
+                                        "itemStyle": {"color": chart_ink_color(is_dark)},
                                     },
                                     {
                                         "name": t("reports_lib.actual"),
                                         "type": "bar",
                                         "data": [float(r.actual) for r in rep.rows],
-                                        "itemStyle": {"color": "#fb8c00"},
+                                        "itemStyle": {"color": chart_accent_color(is_dark)},
                                     },
                                 ],
                             },

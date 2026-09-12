@@ -111,8 +111,12 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
   Settings on seed data: sand ground / paper cards in light, warm dark
   (not navy) in dark; all amounts in IBM Plex Mono with aligned decimals;
   page titles in ink not accent. Compare to artboards `1c` / `1d`.
+  **Done** — 13 screens shot in both modes at 1360px on the six-year seed;
+  see "Seeded visual pass" below for the four defects it caught. Owner
+  sign-off against the artboards still welcome.
 - `[manual]` Contrast: body and label text on `#F3EFE7` clears 4.5:1
   (spot-check muted `#6B6353` and eyebrow `#6E6656`).
+  **Done** — muted 5.18:1, eyebrow 4.95:1; full table below.
 
 ## Touchpoints
 
@@ -198,6 +202,73 @@ Deleted as unreferenced: `bg-green-2`, `bg-blue-2`, `bg-red-1`, `bg-orange-1`,
 `text-teal-600`, and the `.kpi-trend-positive/negative` rules (the classes
 they targeted no longer exist — `dashboard_widgets/helpers.py` renders
 `KPI_TREND_*`, which are now `.k-trend--*`).
+
+### Seeded visual pass
+
+Ran the app on a six-year seed and shot 13 screens in both modes at 1360px.
+Four defects only real data could show, all fixed:
+
+1. **Nav icons overlapped their labels.** Sizing the avatar column to 19px
+   left Quasar's 24px glyph overflowing into the text. The column is 31px
+   (19px glyph + 12px gutter) with `.k-nav-item .q-icon{font-size:19px}`.
+   My earlier "all 25 entries are single-line 44px rows" was measured from
+   `getBoundingClientRect` without looking at the render — the heights were
+   right and the layout was broken.
+2. **Every chart with no explicit colours was still on ECharts' default blue
+   ramp** — Budget vs Actual most visibly. `apply_dark` now seeds
+   `options.setdefault("color", chart_palette(is_dark))`, which is what the
+   scope's "so every ECharts instance matches the palette" asks for and
+   finally gives `CHART_PALETTE` its consumer. Per-series `itemStyle` still
+   wins, so no chart that names its own colours changed.
+3. **Ten view modules hard-coded Material hexes** (`#1976d2`, `#4caf50`,
+   `#ef5350`, `#fb8c00`, `#2e7d32`, `#c62828`, `#009688`, `#bdbdbd`) in
+   chart series: `budgets/chart.py`, `net_worth.py`, `forecast.py`,
+   `credit_calculator.py` and six `reports_canned/*`. All swapped to the
+   token helpers — a colour lookup each, no series restructured. The
+   forecast mapping is the handoff's own (ink actuals, accent prediction,
+   `#EFCDB2` band, muted baseline). `credit_calculator.py` never called
+   `apply_dark` at all, so it also gained `is_dark`; without that, ink on a
+   dark card would have been invisible.
+4. **Two colours escaped the sweep entirely.** The Net Worth hero built its
+   class as `f"text-{color}"`, so grepping for the literal `text-primary`
+   never saw an accent-coloured hero figure — now mono ink, or expense when
+   negative. And `ui.link` had no rule at all, so the Prophet-unavailable
+   link rendered in the browser's default blue; links are now
+   `--k-accent-text`.
+
+`tags.py` and `institutions.py` keep their `#42A5F5` defaults: those are
+user-chosen data values, not chrome. `institution_avatar.py`'s `#64748b`
+fallback was chrome and moved to the muted token.
+
+### Contrast measurements
+
+Every token against the ground it sits on (`#F3EFE7`) and on paper
+(`#FCFAF6`), sRGB relative luminance per WCAG 2.1:
+
+| Token | Light | on ground | on paper | |
+|---|---|---|---|---|
+| ink | `#1C1A15` | 15.16 | 16.68 | AA |
+| ink-2 | `#4A443A` | 8.40 | 9.24 | AA |
+| muted | `#6B6353` | **5.18** | 5.70 | AA |
+| muted-strong | `#6E6656` | **4.95** | 5.45 | AA |
+| income | `#36684D` | 5.64 | 6.21 | AA |
+| expense | `#A44631` | 5.23 | 5.76 | AA |
+| warning | `#8A5A12` | 5.16 | 5.67 | AA |
+| accent-text | `#9A4E1F` | 5.26 | 5.78 | AA |
+| accent | `#B4591F` | 4.17 | 4.59 | AA-large only |
+| disabled | `#B5AB96` | 1.98 | 2.18 | fails by design |
+
+Dark mode clears AA on every text token (lowest: muted-strong 5.71 on
+surface). `#FCFAF6` on the accent fill is 4.59; dark's ink-on-accent is 7.0.
+
+**One thing for the owner to note:** `--k-accent` `#B4591F` is 4.17:1 as
+*text* on the ground — below AA for body copy. The handoff assigns it to
+filled surfaces and gives `--k-accent-text` `#9A4E1F` (5.26) to links, so
+the split is correct by design; but `--q-primary` is `#B4591F` per the
+handoff, and Quasar's flat text buttons ("EDIT LAYOUT", "CUSTOMIZE") render
+in it. Those sit just under AA. I did not change it — the handoff fixes that
+hex — but pointing Quasar's *text* variant at `--k-accent-text` while filled
+buttons keep `--q-primary` would close it, and is worth a decision.
 
 ### Decisions
 

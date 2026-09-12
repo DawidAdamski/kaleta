@@ -197,8 +197,17 @@ def test_nav_items_use_the_handoff_type_and_gutter() -> None:
     assert "min-h-11" in theme.NAV_ITEM
     assert "font-size:13px" in _block(theme.BASE_CSS, ".k-nav-item .q-item__label")
     avatar = _block(theme.BASE_CSS, ".k-nav-item .q-item__section--avatar")
-    assert "width:19px" in avatar
+    # 19px glyph + 12px gutter — the column must hold the icon, and the icon
+    # must be sized to it, or the glyph overflows into the label.
+    assert "width:31px" in avatar
     assert "padding-right:12px" in avatar
+    assert "font-size:19px" in _block(theme.BASE_CSS, ".k-nav-item .q-icon")
+
+
+def test_links_use_the_accent_text_token() -> None:
+    # The Prophet-unavailable link rendered in the browser's default blue
+    # until this rule existed.
+    assert "color:var(--k-accent-text)" in _block(theme.BASE_CSS, "a:not(.q-btn):not(.q-item)")
 
 
 def test_ink_is_a_separate_token_from_the_heading_class() -> None:

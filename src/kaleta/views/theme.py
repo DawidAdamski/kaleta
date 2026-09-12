@@ -202,10 +202,11 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
    19px icon and a 12px gap, which is what lets 236px hold the long labels. */
 .k-nav-item .q-item__section--avatar{
   min-width:0;
-  width:19px;
-  flex:0 0 19px;
+  width:31px;
+  flex:0 0 31px;
   padding-right:12px
 }
+.k-nav-item .q-icon{font-size:19px}
 .k-nav-item:not(.k-nav-item--active) .q-icon{color:var(--k-muted)!important}
 .k-nav-item--active{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
 .k-nav-item--active .q-item__label{color:var(--k-ink);font-weight:600}
@@ -223,6 +224,8 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
   color:var(--k-muted-strong)
 }
 .k-muted{color:var(--k-muted)}
+/* Links are actions: accent text, never the browser's default blue. */
+a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-mono,.k-amount{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-variant-numeric:tabular-nums

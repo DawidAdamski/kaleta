@@ -15,6 +15,12 @@ from kaleta.services.net_worth_service import (
     NetWorthSummary,
     PhysicalAssetSnapshot,
 )
+from kaleta.views.chart_utils import (
+    chart_expense_color,
+    chart_grid_color,
+    chart_income_color,
+    chart_text_color,
+)
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import INK
 
@@ -57,13 +63,15 @@ def _delta_pill(label: str, delta: Decimal | None, currency: str) -> None:
 
 def _header_strip(summary: NetWorthSummary, currency: str) -> None:
     """Top-of-page net-worth headline with 30d + YTD delta pills."""
-    color = "primary" if summary.net_worth >= 0 else "negative"
+    amount_cls = INK if summary.net_worth >= 0 else "k-trend--neg"
     with (
         ui.card().classes("w-full p-6"),
         ui.column().classes("w-full items-center gap-2"),
     ):
         ui.label(t("net_worth.net_worth")).classes("text-sm text-slate-500 uppercase tracking-wide")
-        ui.label(_fmt(summary.net_worth, currency)).classes(f"text-4xl font-bold text-{color}")
+        ui.label(_fmt(summary.net_worth, currency)).classes(
+            f"k-mono {amount_cls} text-4xl font-medium tracking-tight"
+        )
         with ui.row().classes("gap-6 mt-1 flex-wrap justify-center"):
             _delta_pill(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)
             _delta_pill(t("net_worth.vs_start_of_year"), summary.delta_ytd, currency)
@@ -80,7 +88,10 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
     labels = [s.label for s in summary.history]
     assets_k = [round(float(s.total_assets) / 1000, 1) for s in summary.history]
     liabilities_k = [round(float(s.total_liabilities) / 1000, 1) for s in summary.history]
-    text_color = "#e0e0e0" if dark else "#555555"
+    text_color = chart_text_color(dark)
+    grid_color = chart_grid_color(dark)
+    assets_color = chart_income_color(dark)
+    liabilities_color = chart_expense_color(dark)
 
     ui.echart(
         {
@@ -102,7 +113,7 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
                 "name": t("net_worth.thousand_pln"),
                 "nameTextStyle": {"color": text_color, "fontSize": 10},
                 "axisLabel": {"formatter": "{value}k", "color": text_color},
-                "splitLine": {"lineStyle": {"color": "#444444" if dark else "#e0e0e0"}},
+                "splitLine": {"lineStyle": {"color": grid_color}},
             },
             "series": [
                 {
@@ -113,9 +124,9 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
                     "smooth": True,
                     "symbol": "circle",
                     "symbolSize": 4,
-                    "lineStyle": {"color": "#2e7d32", "width": 2},
-                    "itemStyle": {"color": "#2e7d32"},
-                    "areaStyle": {"color": "#4caf50", "opacity": 0.35},
+                    "lineStyle": {"color": assets_color, "width": 2},
+                    "itemStyle": {"color": assets_color},
+                    "areaStyle": {"color": assets_color, "opacity": 0.35},
                 },
                 {
                     "name": t("net_worth.liabilities"),
@@ -125,9 +136,9 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
                     "smooth": True,
                     "symbol": "circle",
                     "symbolSize": 4,
-                    "lineStyle": {"color": "#c62828", "width": 2},
-                    "itemStyle": {"color": "#c62828"},
-                    "areaStyle": {"color": "#ef5350", "opacity": 0.35},
+                    "lineStyle": {"color": liabilities_color, "width": 2},
+                    "itemStyle": {"color": liabilities_color},
+                    "areaStyle": {"color": liabilities_color, "opacity": 0.35},
                 },
             ],
         }
