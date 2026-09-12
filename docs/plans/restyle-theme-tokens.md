@@ -175,6 +175,18 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
    `tests/unit/test_pwa.py` pinned the old `#1976d2` in two places and was
    updated to the new literal.
 
+### Changed assertions (rule 4)
+
+Three assertions in existing tests changed value. None was loosened; each
+pins behaviour this plan deliberately changed, and all three still assert
+an exact literal:
+
+| Test | Was | Now | Why |
+|---|---|---|---|
+| `test_pwa.py::test_theme_color_meta_present` | `#1976d2` | `#F3EFE7` | Open question 3 — PWA chrome follows the sand ground |
+| `test_pwa.py::test_manifest_has_theme_color` | `#1976d2` | `#F3EFE7` | Same |
+| `test_chart_utils.py::test_apply_dark_empty_dict_no_error` | `result == {}` | `result == {"color": [six literal hexes]}` | `apply_dark` now seeds the series palette; the test's intent (it must not raise, and must add nothing else) is preserved and tightened to name what it does add |
+
 ### `@layer quasar_importants` — survivors
 
 Only classes a grep of `src/kaleta/views` still proves referenced are kept,
