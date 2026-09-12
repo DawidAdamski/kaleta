@@ -79,8 +79,8 @@ def render_overview_content(summaries: list[Any], *, is_dark: bool) -> None:
                 <span
                     :style="{
                         color: parseFloat(props.value) > 100
-                            ? '#ef5350'
-                            : '#4caf50'
+                            ? 'var(--k-expense)'
+                            : 'var(--k-income)'
                     }"
                 >
                     {{ props.value }}

@@ -169,7 +169,7 @@ Out of scope: any layout change on any screen (`1c`+ dashboard,
    asks for. Both OFL texts are appended to `static/fonts/LICENSE.txt`.
    `inter-var.woff2` stays on disk unreferenced, as the scope requires.
 2. **The `!important` layer.** Kept, emptied from ~40 entries down to the
-   four rows in the table below. Zero-survivor entries were deleted rather than ported.
+   three survivor groups in the table below (five declarations). Zero-survivor entries were deleted rather than ported.
 3. **PWA `theme_color`.** Yes — `manifest.json` `theme_color` and
    `background_color` and the `PWA_HEAD` meta are all `#F3EFE7`;
    `tests/unit/test_pwa.py` pinned the old `#1976d2` in two places and was
@@ -195,8 +195,8 @@ computed colour in dark mode on `/transactions`: `text-slate-400` →
 `rgb(110,102,86)` (`--k-disabled`), `text-slate-500` → `rgb(168,160,141)`
 (`--k-muted`), `text-slate-600` → `rgb(161,151,129)` (`--k-muted-strong`),
 `bg-slate-100` → `rgb(42,40,34)` (`--k-surface-sunken`) — every one the
-correct dark token with no override present. The block is down from ~40
-entries to four.
+correct dark token with no override present. The block is down from ~40 entries
+to five declarations across three survivor groups.
 
 `BASE_CSS` remaps the same ramp for **light** mode, plus two classes that
 need no dark override and so do not appear in the table above:
@@ -227,7 +227,7 @@ Four defects only real data could show, all fixed:
    scope's "so every ECharts instance matches the palette" asks for and
    finally gives `CHART_PALETTE` its consumer. Per-series `itemStyle` still
    wins, so no chart that names its own colours changed.
-3. **Ten view modules hard-coded Material hexes** (`#1976d2`, `#4caf50`,
+3. **Eleven view modules hard-coded Material hexes** (`#1976d2`, `#4caf50`,
    `#ef5350`, `#fb8c00`, `#2e7d32`, `#c62828`, `#009688`, `#bdbdbd`) in
    chart series: `budgets/chart.py`, `net_worth.py`, `forecast.py`,
    `credit_calculator.py` and six `reports_canned/*`. All swapped to the
@@ -235,7 +235,11 @@ Four defects only real data could show, all fixed:
    forecast mapping is the handoff's own (ink actuals, accent prediction,
    `#EFCDB2` band, muted baseline). `credit_calculator.py` never called
    `apply_dark` at all, so it also gained `is_dark`; without that, ink on a
-   dark card would have been invisible.
+   dark card would have been invisible. The eleventh, `budgets/overview.py`,
+   hid inside a Vue slot template in *single* quotes and so escaped the first
+   scan (which only matched double-quoted hexes); it now binds
+   `var(--k-expense)` / `var(--k-income)` straight in the template, which
+   flips with the mode without the slot needing `is_dark` at all.
 4. **One opacity moved with a colour.** The forecast confidence band went
    from `#fb8c00` at 0.15 to `CHART_BAND` `#EFCDB2` at 0.35. The handoff
    names the band colour but not its alpha; `#EFCDB2` is a pale tint where
