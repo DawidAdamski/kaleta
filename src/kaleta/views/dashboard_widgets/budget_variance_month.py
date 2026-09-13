@@ -69,7 +69,7 @@ def _variance_row(row: BudgetVarianceRow) -> None:
     """
     spent = row.spent_pct
     spent_txt = "—" if spent is None else f"{float(spent):.0f}%"
-    severe = spent is None or spent >= _SEVERE_SPENT_PCT
+    severe = row.is_severely_over(_SEVERE_SPENT_PCT)
     colour = "var(--k-expense)" if severe else "var(--k-warning)"
     amount_cls = AMOUNT_EXPENSE if severe else AMOUNT_WARNING
 

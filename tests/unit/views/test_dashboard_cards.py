@@ -11,10 +11,9 @@ from kaleta.views.dashboard_widgets.helpers import fmt_number, split_amount
 
 
 def _is_severe(planned: str, actual: str) -> bool:
-    """How ``_variance_row`` decides between the expense and warning colour."""
+    """The call ``_variance_row`` makes to choose between expense and warning."""
     row = BudgetVarianceRow(category="x", planned=Decimal(planned), actual=Decimal(actual))
-    spent = row.spent_pct
-    return spent is None or spent >= _SEVERE_SPENT_PCT
+    return row.is_severely_over(_SEVERE_SPENT_PCT)
 
 
 class TestVarianceSeverity:
@@ -31,6 +30,17 @@ class TestVarianceSeverity:
 
     def test_exactly_at_the_threshold_reads_as_expense(self) -> None:
         assert _is_severe("100.00", "110.00") is True
+
+    def test_unbudgeted_spending_reads_as_expense(self) -> None:
+        # No plan to still be inside of.
+        assert _is_severe("0", "50.00") is True
+
+    def test_the_signed_variance_cannot_be_mistaken_for_it(self) -> None:
+        # variance_pct is negative when over budget: comparing *it* against the
+        # threshold classified every over-budget row as a warning.
+        row = BudgetVarianceRow(category="x", planned=Decimal("1400.00"), actual=Decimal("1612.30"))
+        assert (row.variance_pct or Decimal("0")) < _SEVERE_SPENT_PCT
+        assert row.is_severely_over(_SEVERE_SPENT_PCT) is True
 
 
 class TestFigureFormatting:

@@ -792,3 +792,24 @@ class TestCurrentMonthPoint:
 
         assert point.income == Decimal("0.00")
         assert point.rate_pct is None
+
+
+class TestSavingsRatePointTarget:
+    """`meets_target` is what colours the month card's savings bar."""
+
+    def test_at_the_target_counts_as_met(self) -> None:
+        point = SavingsRatePoint(2026, 7, Decimal("1000"), Decimal("800"))
+
+        assert point.rate_pct == Decimal("20")
+        assert point.meets_target(Decimal("20")) is True
+
+    def test_below_the_target_does_not(self) -> None:
+        point = SavingsRatePoint(2026, 7, Decimal("1000"), Decimal("900"))
+
+        assert point.meets_target(Decimal("20")) is False
+
+    def test_a_month_with_no_income_has_not_met_it(self) -> None:
+        point = SavingsRatePoint(2026, 7, Decimal("0"), Decimal("120"))
+
+        assert point.rate_pct is None
+        assert point.meets_target(Decimal("20")) is False

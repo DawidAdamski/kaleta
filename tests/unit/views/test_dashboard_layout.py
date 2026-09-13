@@ -165,7 +165,7 @@ class TestLegacyKpiMigration:
 
         assert [e["id"] for e in result] == ["balance_card", "month_card", "cashflow_chart"]
 
-    def test_merged_cards_take_the_first_kpi_position(self) -> None:
+    def test_a_merged_card_takes_the_position_of_what_it_replaced(self) -> None:
         """Covers: KAL-DSH-004"""
         stored = [
             {"id": "cashflow_chart", "cols": 4, "rows": 2},
@@ -178,7 +178,6 @@ class TestLegacyKpiMigration:
         assert [e["id"] for e in result] == [
             "cashflow_chart",
             "balance_card",
-            "month_card",
             "recent_transactions",
         ]
 
@@ -195,14 +194,11 @@ class TestLegacyKpiMigration:
         assert once == twice
         assert [e["id"] for e in twice].count("balance_card") == 1
 
-    def test_merged_cards_land_on_their_default_sizes(self) -> None:
+    def test_a_merged_card_lands_on_its_default_size(self) -> None:
         """Covers: KAL-DSH-004"""
         result = resolve_user_layout([{"id": "month_income", "cols": 1, "rows": 1}], None)
 
-        assert result == [
-            {"id": "balance_card", "cols": 2, "rows": 2},
-            {"id": "month_card", "cols": 2, "rows": 2},
-        ]
+        assert result == [{"id": "month_card", "cols": 2, "rows": 2}]
 
     def test_a_layout_without_legacy_ids_is_untouched(self) -> None:
         """Covers: KAL-DSH-004"""
@@ -213,10 +209,11 @@ class TestLegacyKpiMigration:
 
         assert migrate_legacy_kpis(stored) == stored
 
-    def test_partial_legacy_set_still_migrates(self) -> None:
+    def test_a_partial_legacy_set_only_brings_back_what_it_replaced(self) -> None:
         """Covers: KAL-DSH-004
 
-        A user who disabled five of the seven still has two legacy ids stored.
+        A user who kept only month tiles gets the month card — not the balance
+        card they had removed.
         """
         stored = [
             {"id": "month_net", "cols": 2, "rows": 1},
@@ -225,7 +222,13 @@ class TestLegacyKpiMigration:
 
         result = resolve_user_layout(stored, None)
 
-        assert [e["id"] for e in result] == ["balance_card", "month_card"]
+        assert [e["id"] for e in result] == ["month_card"]
+
+    def test_only_the_balance_tile_brings_back_only_the_balance_card(self) -> None:
+        """Covers: KAL-DSH-004"""
+        result = resolve_user_layout([{"id": "total_balance", "cols": 2, "rows": 1}], None)
+
+        assert [e["id"] for e in result] == ["balance_card"]
 
     def test_legacy_widgets_are_hidden_from_the_picker(self) -> None:
         """Covers: KAL-DSH-004"""

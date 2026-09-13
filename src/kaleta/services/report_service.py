@@ -147,6 +147,16 @@ class BudgetVarianceRow:
     def over_budget(self) -> bool:
         return self.actual > self.planned and self.planned > 0
 
+    def is_severely_over(self, threshold_pct: Decimal) -> bool:
+        """Past *threshold_pct* of plan — or spent with no plan at all.
+
+        Where a caller draws the line between "watch this" and "this is a
+        problem". Unbudgeted spending counts as severe: there is no plan it
+        could still be inside of.
+        """
+        spent = self.spent_pct
+        return spent is None or spent >= threshold_pct
+
 
 @dataclass
 class BudgetVarianceReport:
@@ -184,6 +194,11 @@ class SavingsRatePoint:
         if self.income <= 0:
             return None
         return (self.savings / self.income) * Decimal("100")
+
+    def meets_target(self, target_pct: Decimal) -> bool:
+        """Kept at least *target_pct* of income. A month with no income has not."""
+        rate = self.rate_pct
+        return rate is not None and rate >= target_pct
 
     @property
     def label(self) -> str:

@@ -10,7 +10,6 @@ used to be cards of their own, ``predicted_30d`` and ``net_worth``.
 
 from __future__ import annotations
 
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -22,6 +21,7 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.services.forecast_service import ForecastService
 from kaleta.services.net_worth_service import NetWorthService
+from kaleta.services.report_service import SavingsRatePoint
 from kaleta.views.dashboard_widgets.constants import SAVINGS_RATE_TARGET_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_number
 from kaleta.views.dashboard_widgets.registry import register
@@ -46,12 +46,14 @@ def _figure(label: str, value: str, amount_cls: str) -> None:
         ui.label(value).classes(f"k-mono {amount_cls} text-[26px] font-medium tracking-tight")
 
 
-def _pace_bar(rate: Decimal | None) -> None:
-    """Savings-rate track filled to *rate*, with a tick at the target."""
+def _pace_bar(point: SavingsRatePoint) -> None:
+    """Savings-rate track filled to the kept share, with a tick at the target."""
+    rate = point.rate_pct
     target = float(SAVINGS_RATE_TARGET_PCT)
     filled = 0.0 if rate is None else max(0.0, min(float(rate), 100.0))
-    on_target = rate is not None and rate >= SAVINGS_RATE_TARGET_PCT
-    fill_colour = "var(--k-income)" if on_target else "var(--k-warning)"
+    fill_colour = (
+        "var(--k-income)" if point.meets_target(SAVINGS_RATE_TARGET_PCT) else "var(--k-warning)"
+    )
 
     with ui.row().classes("w-full items-baseline justify-between mt-5"):
         ui.label(
@@ -77,7 +79,7 @@ def _pace_bar(rate: Decimal | None) -> None:
 )
 async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     point = await ReportService(session).current_month_point()
-    income, expenses, net, rate = point.income, point.expenses, point.savings, point.rate_pct
+    income, expenses, net = point.income, point.expenses, point.savings
     summary = await NetWorthService(session).get_summary(history_months=2)
     forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
     predicted = forecast.predicted_balance_30d
@@ -90,7 +92,7 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
                 _figure(t("common.expense"), fmt_number(expenses), AMOUNT_EXPENSE)
                 _figure(t("dashboard.net"), fmt_number(net), INK)
 
-        _pace_bar(rate)
+        _pace_bar(point)
 
         with ui.row().classes("w-full gap-6 pt-4 mt-4 k-card-footer flex-wrap"):
             _footer_stat(

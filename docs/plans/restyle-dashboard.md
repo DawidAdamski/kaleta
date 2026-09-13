@@ -187,7 +187,15 @@ caption, and a hairline footer, so that size is gone — `(2,2)` and
 
 One widget, one name: the balance card's eyebrow used to read
 `dashboard.total_balance` ("Total Balance") while the Customize picker
-listed it as "Balance". Both now read `dashboard_widgets.balance_card`.
+listed it as "Balance". Both now read `dashboard_widgets.balance_card`,
+"Total balance" — which is also the name the scenarios and the product
+doc use.
+
+The drawer bullet in Scope ("no per-item boxes, eyebrow group label,
+13px items, 236px / 64px mini") is **already delivered** — by the parent
+`restyle-theme-tokens` plan, since the drawer is chrome for every page,
+not for the dashboard. Nothing in this plan's own diff touches it. See
+that plan's Implementation notes for the measurements.
 
 Moving the two slow figures also moved their services: `balance_card`
 now needs only `ReportService` + `AccountService`, while `month_card`
@@ -243,6 +251,14 @@ pure list→list function: the merged cards take the index of the *first*
 legacy entry, everything else keeps its relative order, and a widget
 already present is not added twice — which is what makes a second load a
 no-op rather than a duplicate.
+
+Each legacy id maps to the card that absorbed it
+(`MERGED_KPI_FOR_LEGACY`) rather than to both: `total_balance` becomes the
+balance card, the six month/rate/forecast tiles become the month card. A
+user who had removed the balance tile and kept only the month ones gets
+the month card back and nothing else — a migration that handed back a
+widget someone had deliberately removed would be a worse bug than the one
+it fixes.
 
 The stored layout is never rewritten by the migration itself. It is
 rewritten the next time the user drags or resizes anything, because the

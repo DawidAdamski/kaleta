@@ -69,21 +69,26 @@ def cycle_size(current: WidgetSize, allowed: tuple[WidgetSize, ...]) -> WidgetSi
     return allowed[(idx + 1) % len(allowed)]
 
 
-#: The seven single-figure KPI widgets the merged cards replace, in the order
-#: they used to appear. A stored layout naming any of these is migrated once
-#: (see ``layout.resolve_user_layout``).
-LEGACY_KPI_WIDGETS: tuple[str, ...] = (
-    "total_balance",
-    "month_income",
-    "month_expenses",
-    "month_net",
-    "predicted_30d",
-    "net_worth",
-    "savings_rate_kpi",
-)
+#: Which merged card each of the seven single-figure KPI widgets became, in
+#: the order they used to appear. A stored layout naming any of these is
+#: migrated on read (see ``layout.migrate_legacy_kpis``). The mapping is what
+#: keeps the migration faithful: a user who kept only the month tiles gets the
+#: month card, not both.
+MERGED_KPI_FOR_LEGACY: dict[str, str] = {
+    "total_balance": "balance_card",
+    "month_income": "month_card",
+    "month_expenses": "month_card",
+    "month_net": "month_card",
+    "predicted_30d": "month_card",
+    "net_worth": "month_card",
+    "savings_rate_kpi": "month_card",
+}
+
+#: The seven, as a tuple — the order above is the dashboard's old default.
+LEGACY_KPI_WIDGETS: tuple[str, ...] = tuple(MERGED_KPI_FOR_LEGACY)
 
 #: What those seven become.
-MERGED_KPI_WIDGETS: tuple[str, ...] = ("balance_card", "month_card")
+MERGED_KPI_WIDGETS: tuple[str, ...] = tuple(dict.fromkeys(MERGED_KPI_FOR_LEGACY.values()))
 
 
 def selectable_widgets() -> list[str]:

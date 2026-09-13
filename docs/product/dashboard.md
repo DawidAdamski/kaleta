@@ -51,7 +51,7 @@ Every widget implements:
 
 Native widgets (built into the dashboard):
 
-- **Balance** (`balance_card`) — hero total over the three largest
+- **Total balance** (`balance_card`) — hero total over the three largest
   accounts that make it up, with the rest collapsed into one "N more"
   tile. Replaces the separate total-balance tile.
 - **This month** (`month_card`) — income / expense / net side by side, a

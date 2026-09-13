@@ -9,7 +9,7 @@ from typing import Any
 from kaleta.views.dashboard_widgets.registry import (
     DEFAULT_WIDGETS,
     LEGACY_KPI_WIDGETS,
-    MERGED_KPI_WIDGETS,
+    MERGED_KPI_FOR_LEGACY,
     WIDGETS,
 )
 
@@ -36,29 +36,44 @@ def default_layout() -> list[dict[str, Any]]:
 def migrate_legacy_kpis(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Fold the seven single-figure KPI widgets into the two merged cards.
 
-    Idempotent: a layout with no legacy id is returned unchanged, and a layout
-    that already carries the merged cards does not get a second copy. The
-    merged cards take the position of the first legacy widget they replace, so
-    a dashboard the user reordered keeps its shape.
+    Each legacy id becomes the card that absorbed it (``MERGED_KPI_FOR_LEGACY``),
+    and that card lands where the first widget it replaces used to sit, so a
+    dashboard the user reordered keeps its shape. A layout that kept only the
+    month tiles gets only the month card — the migration does not hand back a
+    widget the user had removed.
+
+    Idempotent: a layout with no legacy id is returned unchanged, and a card
+    that is already in the layout is not added a second time.
     """
     seen_legacy = [e for e in entries if e.get("id") in LEGACY_KPI_WIDGETS]
     if not seen_legacy:
         return entries
 
-    already = {e.get("id") for e in entries}
-    insert_at = next(i for i, e in enumerate(entries) if e.get("id") in LEGACY_KPI_WIDGETS)
-    kept = [e for e in entries if e.get("id") not in LEGACY_KPI_WIDGETS]
-    merged = [
-        {"id": wid, "cols": WIDGETS[wid].default_size[0], "rows": WIDGETS[wid].default_size[1]}
-        for wid in MERGED_KPI_WIDGETS
-        if wid in WIDGETS and wid not in already
-    ]
+    present = {e.get("id") for e in entries}
+    migrated: list[dict[str, Any]] = []
+    for entry in entries:
+        wid = entry.get("id")
+        if wid not in LEGACY_KPI_WIDGETS:
+            migrated.append(entry)
+            continue
+        merged = MERGED_KPI_FOR_LEGACY[str(wid)]
+        if merged in present or merged not in WIDGETS:
+            continue
+        present.add(merged)
+        migrated.append(
+            {
+                "id": merged,
+                "cols": WIDGETS[merged].default_size[0],
+                "rows": WIDGETS[merged].default_size[1],
+            }
+        )
+
     logger.warning(
         "Dashboard layout still lists %d legacy KPI widget(s); showing %s instead",
         len(seen_legacy),
-        ", ".join(str(w["id"]) for w in merged) or "(already present)",
+        ", ".join(sorted({MERGED_KPI_FOR_LEGACY[str(e["id"])] for e in seen_legacy})),
     )
-    return kept[:insert_at] + merged + kept[insert_at:]
+    return migrated
 
 
 def resolve_user_layout(stored_layout: Any, legacy_widgets: Any = None) -> list[dict[str, Any]]:
