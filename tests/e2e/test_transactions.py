@@ -663,3 +663,59 @@ def test_a_transfer_pair_nets_to_nothing(page: Page, base_url: str) -> None:
     total = page.get_by_text("+0.00", exact=True)
     expect(total).to_be_visible(timeout=10000)
     expect(total).to_have_class(re.compile(r"k-amount--neutral"))
+
+
+def test_account_chip_filters_shows_its_value_and_clears(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-005
+
+    The account filter is a multi-select inside a chip's menu now, so this
+    drives the whole path: open the chip, pick an account, read the value off
+    the chip, and clear it from the chip's own ``×``.
+    """
+    token = "LedgerAccountE2E"
+    mine = f"PKO Chip {token}"
+    other = f"mBank Chip {token}"
+    mine_id = seed_account(mine)
+    other_id = seed_account(other)
+    category_id = seed_category(f"Zywnosc Chip {token}")
+    seed_transaction(mine_id, category_id, 10.00, description=f"Mine {token}")
+    seed_transaction(other_id, category_id, 20.00, description=f"Theirs {token}")
+
+    _filter_by_search(page, base_url, token)
+
+    chip = page.locator(".k-chip-accounts")
+    expect(chip).to_contain_text("Accounts")
+    chip.click()
+    # The chip's menu holds the select; the select opens a menu of its own.
+    page.locator(".q-menu").last.locator(".q-select").click()
+    _pick_open_menu_option(page, mine)
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+
+    # The chip says which account, and the ledger holds only its row.
+    expect(chip).to_contain_text(mine, timeout=10000)
+    expect(page.locator(".q-table tbody tr")).to_have_count(1, timeout=10000)
+    expect(page.get_by_text(f"Mine {token}")).to_be_visible()
+
+    chip.locator(".q-icon", has_text="close").click()
+
+    expect(chip).to_contain_text("Accounts", timeout=10000)
+    expect(page.locator(".q-table tbody tr")).to_have_count(2, timeout=10000)
+
+
+def test_a_chip_opens_from_the_keyboard(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-005
+
+    Every filter moved behind a chip, so a keyboard user has to be able to
+    open one — the chips carry tabindex and answer Space, and Quasar's own
+    anchor handling answers Enter.
+    """
+    page.goto(f"{base_url}/transactions")
+    chip = page.locator(".k-chip-types")
+    expect(chip).to_be_visible(timeout=10000)
+
+    opener = chip.locator('[role="button"]').first
+    opener.focus()
+    opener.press(" ")
+
+    expect(page.locator(".q-menu").last).to_be_visible(timeout=5000)

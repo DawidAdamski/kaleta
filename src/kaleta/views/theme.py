@@ -294,10 +294,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-subcat-label{color:var(--k-ink-2)}
 .k-selection-bar{background:var(--k-surface-warm);color:var(--k-ink)}
 .k-clear-all{color:var(--k-accent-text)}
+.k-clear-all:hover{text-decoration:underline}
 /* Grouping toggle below the ledger: one segmented pill, not three buttons. */
 .k-group-toggle{background:var(--k-surface-sunken);border-radius:999px;padding:2px}
 .k-group-toggle .q-btn{border-radius:999px;font-size:11.5px;min-height:24px;padding:0 10px}
-.k-clear-all:hover{text-decoration:underline}
 /* Ledger rows: the category reads as a pill, the group separator as a band. */
 .k-cat-pill{
   display:inline-block;

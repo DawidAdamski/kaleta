@@ -63,6 +63,10 @@ async def transactions_page(*, open_new: bool = False) -> None:
     #: The selected rows themselves — the bar totals the figures already on
     #: screen rather than asking the service for them again.
     selected_rows: list[dict[str, Any]] = []
+    #: This page's rows by id. The selection event arrives from the browser;
+    #: the figures the bar adds up come from here, so the total is the
+    #: server's own view of the page either way.
+    page_rows: dict[int, dict[str, Any]] = {}
 
     filters: dict[str, Any] = {
         "date_from": None,
@@ -166,6 +170,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
         rows = attach_split_labels(
             attach_type_labels(TransactionService.build_table_rows(txs, grouping))
         )
+        page_rows.clear()
+        page_rows.update({row["id"]: row for row in rows if row.get("id") is not None})
 
         async def _handle_edit(e: Any) -> None:
             await edit_dialog_ctx.open_for_id(e.args)
@@ -177,8 +183,10 @@ async def transactions_page(*, open_new: bool = False) -> None:
             selected_tx_ids.clear()
             selected_rows.clear()
             rows_list = getattr(e, "args", None) or []
-            selected_rows.extend(rows_list)
             selected_tx_ids.extend(r["id"] for r in rows_list)
+            selected_rows.extend(
+                page_rows[tx_id] for tx_id in selected_tx_ids if tx_id in page_rows
+            )
             table_actions_ui.refresh()
 
         render_transaction_table(

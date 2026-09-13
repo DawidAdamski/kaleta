@@ -158,11 +158,27 @@ only the spelling it greps for is.
 ### Keyboard
 
 Moving a `ui.select` behind a chip moves it behind a `div`, and a div takes
-no focus and answers no Enter. Every filter would have become mouse-only.
-Each opener therefore carries `tabindex`, `role="button"` and
-`aria-haspopup`, with Enter and Space wired to `menu.open`; each `×` carries
-`tabindex`, `role` and an `aria-label`; and "Clear all N" is a `ui.button`
-rather than a label with a click handler.
+no focus and answers no key. Every filter would have become mouse-only. Each
+opener therefore carries `tabindex`, `role="button"` and `aria-haspopup`;
+each `×` carries `tabindex`, `role`, an `aria-label` and answers both Enter
+and Space; and "Clear all N" is a `ui.button` rather than a label with a
+click handler.
+
+Only **Space** is wired to `menu.open`. Enter is Quasar's: `QMenu` toggles
+on its anchor's keyup, so opening the menu here too would have opened it on
+keydown and closed it again a breath later. Space it does not handle, and
+the handler is `.prevent`ed so the page does not scroll out from under the
+menu that just opened. `test_a_chip_opens_from_the_keyboard` holds the
+behaviour down.
+
+### What the e2e tests drive
+
+The risky part of this change is a multi-select popup living inside another
+popup, so `test_account_chip_filters_shows_its_value_and_clears` drives that
+whole path end to end: open the chip, open the select inside its menu, pick
+an account, read the value back off the chip, and clear it from the chip's
+own `×`. It carries `KAL-TXN-005`, which until now was covered only at the
+API level — the UI account filter had no e2e at all.
 
 ### Clearing a chip costs one query
 
@@ -174,6 +190,11 @@ date chip holds two fields, so `render_filter_bar` takes an optional
 per end.
 
 ### Transfers are not a net
+
+The bar totals the *server's* rows. The selection event arrives from the
+browser, but only the ids are taken from it; the figures come from the page's
+own row dicts, keyed by id. A total is not something to take the client's
+word for.
 
 `net_of_rows` skips transfer rows. Both legs of an internal transfer are
 booked, so summing the column as-is would show 3 000 leaving on a week when

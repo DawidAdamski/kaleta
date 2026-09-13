@@ -94,10 +94,11 @@ class _Chip:
         moment the selects moved behind the chips.
         """
         self.opener.props('tabindex="0" role="button" aria-haspopup="true"')
-        # ``.prevent`` on Space, or the page scrolls out from under the menu
-        # that just opened.
-        for key in ("keydown.enter", "keydown.space.prevent"):
-            self.opener.on(key, menu.open)
+        # Enter is Quasar's: QMenu toggles on its anchor's keyup, and opening
+        # the menu here as well would open it on keydown and close it again a
+        # moment later. Space it does not handle, and ``.prevent`` stops the
+        # page scrolling out from under the menu that just opened.
+        self.opener.on("keydown.space.prevent", menu.open)
 
     def show(self, main: str, extra: str) -> None:  # noqa: D401
         """Paint the chip for a value, or fall back to the dashed empty state."""
@@ -177,8 +178,9 @@ def render_filter_bar(
     on_search_change: Callable[[str], None],
     on_tag_change: Callable[[list[int]], None],
     on_clear: Callable[[], None],
-    on_clear_dates: Callable[[], None] | None = None,
+    on_clear_dates: Callable[[], None],
     filters_title_key: str = "transactions.filters",
+    date_range_key: str = "transactions.date_range",
     date_from_key: str = "transactions.date_from",
     date_to_key: str = "transactions.date_to",
     accounts_key: str = "transactions.accounts",
@@ -192,18 +194,12 @@ def render_filter_bar(
     chips: dict[str, _Chip] = {}
     widgets: dict[str, Any] = {}
 
-    def _both_dates_cleared() -> None:
-        on_date_from(None)
-        on_date_to(None)
-
-    clear_dates = on_clear_dates or _both_dates_cleared
-
     def _clear_date() -> None:
         # Both ends go, then the page is told once — clearing a chip should
         # cost one query, not one per field behind it.
         widgets["date_from"].set_value(None)
         widgets["date_to"].set_value(None)
-        clear_dates()
+        on_clear_dates()
 
     def _clear_select(key: str) -> Callable[[], None]:
         def _clear() -> None:
@@ -224,7 +220,7 @@ def render_filter_bar(
         ui.icon("filter_list", size="18px").classes("k-muted")
         ui.label(t(filters_title_key)).classes("k-eyebrow mr-1")
 
-        chips["date"], date_opener = _new_chip("date", date_from_key, _clear_date)
+        chips["date"], date_opener = _new_chip("date", date_range_key, _clear_date)
         with date_opener:
             date_menu = ui.menu().classes("p-3")
         with date_menu, ui.column().classes("gap-2"):
