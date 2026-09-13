@@ -90,10 +90,19 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filter_widgets.badge_label.set_visibility(count > 0)
         filter_widgets.refresh_chips(filters)
 
-    def _apply_filters() -> None:
-        filters["page"] = 0
+    def _drop_selection() -> None:
+        """Forget what was ticked, because the redraw about to happen unticks it.
+
+        Every path that refreshes the table has to come through here: a bar
+        left saying "2 selected" over a table with nothing ticked still has
+        two real ids behind its delete button.
+        """
         selected_tx_ids.clear()
         selected_rows.clear()
+
+    def _apply_filters() -> None:
+        filters["page"] = 0
+        _drop_selection()
         transaction_table.refresh()
         table_actions_ui.refresh()
         _update_badge()
@@ -191,20 +200,23 @@ async def transactions_page(*, open_new: bool = False) -> None:
 
     def _go_page(page: int) -> None:
         filters["page"] = page
-        selected_tx_ids.clear()
-        selected_rows.clear()
+        _drop_selection()
         transaction_table.refresh()
         table_actions_ui.refresh()
 
     def _set_grouping(value: str) -> None:
         filters["grouping"] = value
         filters["page"] = 0
+        _drop_selection()
         transaction_table.refresh()
+        table_actions_ui.refresh()
 
     def _set_page_size(value: int) -> None:
         filters["page_size"] = value
         filters["page"] = 0
+        _drop_selection()
         transaction_table.refresh()
+        table_actions_ui.refresh()
 
     def _set_filter(key: str, value: object) -> None:
         filters[key] = value
@@ -244,7 +256,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filter_widgets.type_filter.set_value([])
         filter_widgets.tag_filter.set_value([])
         filter_widgets.search_input.set_value("")
-        selected_rows.clear()
+        _drop_selection()
         _update_badge()
         transaction_table.refresh()
         table_actions_ui.refresh()

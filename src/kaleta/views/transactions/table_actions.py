@@ -10,7 +10,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import TransactionService
-from kaleta.views.theme import SELECTION_BAR, amount_class
+from kaleta.views.theme import AMOUNT_NEUTRAL, SELECTION_BAR, amount_class
 
 
 def render_table_actions(
@@ -47,9 +47,15 @@ def render_table_actions(
             )
             ui.space()
             ui.label(t("transactions.selected_total")).classes("k-muted text-[12px]")
-            ui.label(TransactionService.format_net(total)).classes(
-                f"{amount_class('income' if total >= 0 else 'expense')} text-[12.5px]"
-            )
+            # A selection of transfers nets to zero — which is neither money
+            # in nor money out, and must not be painted as either.
+            if total > 0:
+                tone = amount_class("income")
+            elif total < 0:
+                tone = amount_class("expense")
+            else:
+                tone = AMOUNT_NEUTRAL
+            ui.label(TransactionService.format_net(total)).classes(f"{tone} text-[12.5px]")
 
     table_actions_ui()
     return table_actions_ui

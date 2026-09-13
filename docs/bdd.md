@@ -812,6 +812,14 @@ Feature: Manual Transaction Entry
     When I select both rows
     Then the bar says 2 are selected
     And the selected total reads +9,111.26
+    And clearing the filters leaves no selection bar behind
+
+  KAL-TXN-015 @automated
+  Scenario: A transfer between my own accounts nets to nothing
+    Given both legs of an internal transfer are on the page
+    When I select them
+    Then the selected total reads +0.00
+    And the figure is neither money-in nor money-out
 ```
 
 ## Feature: Quick Entry
@@ -951,6 +959,7 @@ Feature: Transaction Pagination and Grouping
     When I group the ledger by week
     Then that week's separator shows +9,111.26 beside its label
     And the figure is the net of the rows on this page
+    And transfers between my own accounts are left out of it
 ```
 
 ## Feature: mBank CSV Import

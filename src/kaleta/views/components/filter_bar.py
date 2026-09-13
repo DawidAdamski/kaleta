@@ -94,7 +94,9 @@ class _Chip:
         moment the selects moved behind the chips.
         """
         self.opener.props('tabindex="0" role="button" aria-haspopup="true"')
-        for key in ("keydown.enter", "keydown.space"):
+        # ``.prevent`` on Space, or the page scrolls out from under the menu
+        # that just opened.
+        for key in ("keydown.enter", "keydown.space.prevent"):
             self.opener.on(key, menu.open)
 
     def show(self, main: str, extra: str) -> None:  # noqa: D401
@@ -145,6 +147,7 @@ def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> t
             .props(f'tabindex="0" role="button" aria-label="{t("common.clear")}"')
             .on("click", lambda: on_clear())
             .on("keydown.enter", lambda: on_clear())
+            .on("keydown.space.prevent", lambda: on_clear())
         )
     return (
         _Chip(
@@ -246,7 +249,7 @@ def render_filter_bar(
             options: dict[Any, str],
             handler: Callable[[Any], None],
             width: str,
-        ) -> Any:
+        ) -> ui.select:
             chips[field_name], opener = _new_chip(field_name, label_key, _clear_select(field_name))
             with opener:
                 menu = ui.menu().classes("p-3")

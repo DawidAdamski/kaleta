@@ -182,6 +182,14 @@ booked, so summing the column as-is would show 3 000 leaving on a week when
 says how much there is. The selection bar reads the same function, so the
 two figures cannot disagree.
 
+### The separator net is muted, not an amount colour
+
+Scope says the group net is shown "(`k-amount`, signed)". Artboard 2a draws
+it in mono *muted* beside the week label, and that is what shipped: a
+separator is a heading for the rows under it, and a green or red figure in
+it competes with the amount column it sits above. The figure is still
+signed.
+
 ### The grouping toggle stayed a toggle
 
 Scope asked for "segmented `k-filter-chip`s". A Quasar `ui.toggle` already
