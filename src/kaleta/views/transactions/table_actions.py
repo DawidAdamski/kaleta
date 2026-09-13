@@ -4,23 +4,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from decimal import Decimal
 from typing import Any
 
 from nicegui import ui
 
 from kaleta.i18n import t
+from kaleta.services import TransactionService
 from kaleta.views.theme import SELECTION_BAR, amount_class
-
-
-def selection_total(rows: list[dict[str, Any]]) -> Decimal:
-    """Signed sum of the selected rows, as they are shown.
-
-    The rows are the ones already on screen, so this answers "what did I just
-    select" without a second query — and without the total being able to
-    disagree with the column above it.
-    """
-    return sum((Decimal(str(row.get("amount_value", 0))) for row in rows), start=Decimal("0"))
 
 
 def render_table_actions(
@@ -37,7 +27,10 @@ def render_table_actions(
         n = len(selected_tx_ids)
         if not n:
             return
-        total = selection_total(selected_rows)
+        # The rows are the ones already on screen: "what did I just select"
+        # is answered without a second query, by the same rule the group
+        # separators use.
+        total = TransactionService.net_of_rows(selected_rows)
         with ui.row().classes(f"{SELECTION_BAR} w-full items-center gap-3 px-4 py-2 rounded-lg"):
             ui.label(t("transactions.selected_count", count=n)).classes("text-[12.5px] font-medium")
             ui.button(icon="delete", on_click=on_delete).props(
@@ -54,7 +47,7 @@ def render_table_actions(
             )
             ui.space()
             ui.label(t("transactions.selected_total")).classes("k-muted text-[12px]")
-            ui.label(f"{total:+,.2f}").classes(
+            ui.label(TransactionService.format_net(total)).classes(
                 f"{amount_class('income' if total >= 0 else 'expense')} text-[12.5px]"
             )
 

@@ -214,6 +214,12 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filters[key] = value
         _apply_filters()
 
+    def _clear_dates() -> None:
+        """Both ends of the date chip at once — one apply, not two."""
+        filters["date_from"] = None
+        filters["date_to"] = None
+        _apply_filters()
+
     def _set_date_from(value: str | None) -> None:
         filters["date_from"] = parse_optional_date(value)
         _apply_filters()
@@ -269,6 +275,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             on_search_change=lambda v: _set_filter("search", v),
             on_tag_change=lambda v: _set_list_filter("tag_ids", v),
             on_clear=_clear_filters,
+            on_clear_dates=_clear_dates,
         )
 
         table_actions_ui = render_table_actions(

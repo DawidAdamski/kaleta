@@ -73,7 +73,7 @@ wrap).
 
 - `uv run pytest tests/unit/views -q`
 - `uv run pytest tests/e2e/test_transactions.py -q`
-- `grep -q "k-filter-chip" src/kaleta/views/components/filter_bar.py`
+- `grep -q "FILTER_CHIP" src/kaleta/views/components/filter_bar.py`
 - `grep -q "KAL-PAG-005" docs/bdd.md`
 - `grep -q "KAL-TXN-014" docs/bdd.md`
 - `grep -q "selected_total" src/kaleta/i18n/locales/pl.json`
@@ -138,6 +138,50 @@ and its PR is opened with `--base plan/restyle-theme-tokens`.
    conditional on `filter_bar.py` being shared; it is not. `render_filter_bar`
    has exactly one caller (`transactions/page.py`), so a flag would have been
    a switch with one position.
+
+### One amended criterion
+
+`grep -q "k-filter-chip" filter_bar.py` became `grep -q "FILTER_CHIP"`. The
+class name is a theme token, so the chip row asks `theme.FILTER_CHIP` for it
+rather than repeating the string — which is what every other view does with
+`SECTION_CARD` and friends, and what keeps a rename to one file. The
+criterion's intent, "the chips shipped in `filter_bar.py`", is unchanged;
+only the spelling it greps for is.
+
+### Keyboard
+
+Moving a `ui.select` behind a chip moves it behind a `div`, and a div takes
+no focus and answers no Enter. Every filter would have become mouse-only.
+Each opener therefore carries `tabindex`, `role="button"` and
+`aria-haspopup`, with Enter and Space wired to `menu.open`; each `×` carries
+`tabindex`, `role` and an `aria-label`; and "Clear all N" is a `ui.button`
+rather than a label with a click handler.
+
+### Clearing a chip costs one query
+
+`ui.select.set_value([])` fires the select's own `on_change`, which *is* the
+page's filter handler — so the first draft's "set it, then call the handler"
+ran the filter twice per `×`. The selects now rely on `set_value` alone. The
+date chip holds two fields, so `render_filter_bar` takes an optional
+`on_clear_dates` and the page clears both ends in one apply instead of one
+per end.
+
+### Transfers are not a net
+
+`net_of_rows` skips transfer rows. Both legs of an internal transfer are
+booked, so summing the column as-is would show 3 000 leaving on a week when
+1 500 moved between the user's own accounts and nothing left at all. The
+*column* still shows each leg signed — a row says where money went, a net
+says how much there is. The selection bar reads the same function, so the
+two figures cannot disagree.
+
+### The grouping toggle stayed a toggle
+
+Scope asked for "segmented `k-filter-chip`s". A Quasar `ui.toggle` already
+*is* a segmented control with the selection behaviour and keyboard handling
+written; rebuilding it out of chips would have been three buttons and a
+state variable to get wrong. It is styled as one pill (`.k-group-toggle`)
+instead, which is what the artboard shows.
 
 ### The chips repaint, they do not rebuild
 

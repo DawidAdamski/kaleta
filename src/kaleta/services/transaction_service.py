@@ -451,7 +451,7 @@ class TransactionService:
             "amount": TransactionService.format_signed_amount(transaction.amount, transaction.type),
             # Kept beside the formatted string so a selection total can be summed
             # without parsing it back out of the display.
-            "amount_value": float(
+            "amount_value": str(
                 TransactionService.signed_amount(transaction.amount, transaction.type)
             ),
             "tags": "",
@@ -493,13 +493,31 @@ class TransactionService:
             if not row.get("sep_label"):
                 continue
             if start is not None:
-                rows[start]["sep_net"] = TransactionService._net_of(rows[start:i])
+                rows[start]["sep_net"] = TransactionService.format_net(
+                    TransactionService.net_of_rows(rows[start:i])
+                )
             start = i
         if start is not None:
-            rows[start]["sep_net"] = TransactionService._net_of(rows[start:])
+            rows[start]["sep_net"] = TransactionService.format_net(
+                TransactionService.net_of_rows(rows[start:])
+            )
         return rows
 
     @staticmethod
-    def _net_of(rows: builtins.list[dict[str, Any]]) -> str:
-        total = sum((Decimal(str(r.get("amount_value", 0))) for r in rows), start=Decimal("0"))
-        return TransactionService.format_net(total)
+    def net_of_rows(rows: builtins.list[dict[str, Any]]) -> Decimal:
+        """What a set of ledger rows did to the user's money.
+
+        Transfers are skipped: both legs of one are booked, so counting them
+        would show money leaving twice over when it only moved between the
+        user's own accounts. The amount column still shows each leg signed —
+        that is a row saying where the money went, not a net saying how much
+        there is.
+        """
+        return sum(
+            (
+                Decimal(str(row.get("amount_value", 0)))
+                for row in rows
+                if row.get("type") != TransactionType.TRANSFER.value
+            ),
+            start=Decimal("0"),
+        )

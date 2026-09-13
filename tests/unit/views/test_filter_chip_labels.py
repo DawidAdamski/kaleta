@@ -9,7 +9,6 @@ expected string below is quoted from that artboard.
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
 from typing import Any
 
 from kaleta.schemas.transaction import TransactionType
@@ -19,7 +18,6 @@ from kaleta.views.components.filter_bar import (
     format_date_range,
     summarise_selection,
 )
-from kaleta.views.transactions.table_actions import selection_total
 
 ACCOUNTS = {1: "PKO Konto Główne", 2: "mBank Oszczędności", 3: "Revolut"}
 CATEGORIES = {10: "Żywność", 11: "Subskrypcje"}
@@ -113,21 +111,3 @@ class TestActiveFilterCount:
 
         # date_from, accounts, types — "Clear all 3".
         assert active_filter_count(filters) == 3
-
-
-class TestSelectionTotal:
-    """The bar totals the rows on screen, not a fresh query."""
-
-    def test_an_expense_and_an_income_net_out(self) -> None:
-        """Covers: KAL-TXN-014"""
-        rows = [{"amount_value": -128.74}, {"amount_value": 9240.00}]
-
-        assert selection_total(rows) == Decimal("9111.26")
-
-    def test_nothing_selected_totals_zero(self) -> None:
-        """Covers: KAL-TXN-014"""
-        assert selection_total([]) == Decimal("0")
-
-    def test_a_row_without_a_figure_does_not_break_the_total(self) -> None:
-        """Covers: KAL-TXN-014"""
-        assert selection_total([{"id": 1}, {"amount_value": -50.00}]) == Decimal("-50.00")

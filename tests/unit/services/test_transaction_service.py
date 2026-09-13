@@ -1163,12 +1163,45 @@ class TestTransactionDisplayHelpers:
             Decimal("-9240.00"), TransactionType.INCOME
         ) == Decimal("9240.00")
 
+    def test_net_of_rows_adds_up_what_is_on_screen(self):
+        """Covers: KAL-TXN-014"""
+        rows = [
+            {"amount_value": "-128.74", "type": "expense"},
+            {"amount_value": "9240.00", "type": "income"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("9111.26")
+
+    def test_net_of_rows_is_zero_for_nothing(self):
+        """Covers: KAL-TXN-014"""
+        assert TransactionService.net_of_rows([]) == Decimal("0")
+
+    def test_net_of_rows_skips_a_row_with_no_figure(self):
+        """Covers: KAL-TXN-014"""
+        rows = [{"id": 1, "type": "expense"}, {"amount_value": "-50.00", "type": "expense"}]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-50.00")
+
+    def test_net_of_rows_leaves_transfers_out(self):
+        """Covers: KAL-PAG-005
+
+        Both legs of an internal transfer are booked, so counting them would
+        show money leaving twice over when it never left the user at all.
+        """
+        rows = [
+            {"amount_value": "-1500.00", "type": "transfer"},
+            {"amount_value": "-1500.00", "type": "transfer"},
+            {"amount_value": "-128.74", "type": "expense"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-128.74")
+
     def test_group_net_sums_the_rows_of_each_group(self):
         """Covers: KAL-PAG-005"""
         rows = [
-            {"sep_label": "W27 2026", "amount_value": 9240.00},
-            {"sep_label": "", "amount_value": -128.74},
-            {"sep_label": "W26 2026", "amount_value": -287.40},
+            {"sep_label": "W27 2026", "amount_value": "9240.00", "type": "income"},
+            {"sep_label": "", "amount_value": "-128.74", "type": "expense"},
+            {"sep_label": "W26 2026", "amount_value": "-287.40", "type": "expense"},
         ]
 
         TransactionService.attach_group_nets(rows)
@@ -1178,7 +1211,7 @@ class TestTransactionDisplayHelpers:
 
     def test_group_net_is_absent_without_grouping(self):
         """Covers: KAL-PAG-005"""
-        rows = [{"sep_label": "", "amount_value": -128.74}]
+        rows = [{"sep_label": "", "amount_value": "-128.74", "type": "expense"}]
 
         TransactionService.attach_group_nets(rows)
 

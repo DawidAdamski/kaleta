@@ -78,14 +78,26 @@ def filter_chip_label(
 class _Chip:
     """One pill: the shell that carries the state classes, and its parts."""
 
-    shell: Any
-    add_icon: Any
-    name_label: Any
-    value_label: Any
-    extra_label: Any
-    clear_icon: Any
+    shell: ui.row
+    opener: ui.row
+    add_icon: ui.icon
+    name_label: ui.label
+    value_label: ui.label
+    extra_label: ui.label
+    clear_icon: ui.icon
 
-    def show(self, main: str, extra: str) -> None:
+    def open_with_keyboard(self, menu: ui.menu) -> None:
+        """Let the chip be reached and opened without a mouse.
+
+        The opener is a div, so it is not focusable and Enter does nothing to
+        it — which would have locked keyboard users out of every filter the
+        moment the selects moved behind the chips.
+        """
+        self.opener.props('tabindex="0" role="button" aria-haspopup="true"')
+        for key in ("keydown.enter", "keydown.space"):
+            self.opener.on(key, menu.open)
+
+    def show(self, main: str, extra: str) -> None:  # noqa: D401
         """Paint the chip for a value, or fall back to the dashed empty state."""
         filled = bool(main)
         self.shell.classes(
@@ -130,11 +142,14 @@ def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> t
         clear_icon = (
             ui.icon("close", size="15px")
             .classes("k-muted cursor-pointer")
+            .props(f'tabindex="0" role="button" aria-label="{t("common.clear")}"')
             .on("click", lambda: on_clear())
+            .on("keydown.enter", lambda: on_clear())
         )
     return (
         _Chip(
             shell=shell,
+            opener=opener,
             add_icon=add_icon,
             name_label=name_label,
             value_label=value_label,
@@ -159,6 +174,7 @@ def render_filter_bar(
     on_search_change: Callable[[str], None],
     on_tag_change: Callable[[list[int]], None],
     on_clear: Callable[[], None],
+    on_clear_dates: Callable[[], None] | None = None,
     filters_title_key: str = "transactions.filters",
     date_from_key: str = "transactions.date_from",
     date_to_key: str = "transactions.date_to",
@@ -173,16 +189,24 @@ def render_filter_bar(
     chips: dict[str, _Chip] = {}
     widgets: dict[str, Any] = {}
 
-    def _clear_date() -> None:
-        widgets["date_from"].set_value(None)
-        widgets["date_to"].set_value(None)
+    def _both_dates_cleared() -> None:
         on_date_from(None)
         on_date_to(None)
 
-    def _clear_select(key: str, handler: Callable[[list[Any]], None]) -> Callable[[], None]:
+    clear_dates = on_clear_dates or _both_dates_cleared
+
+    def _clear_date() -> None:
+        # Both ends go, then the page is told once — clearing a chip should
+        # cost one query, not one per field behind it.
+        widgets["date_from"].set_value(None)
+        widgets["date_to"].set_value(None)
+        clear_dates()
+
+    def _clear_select(key: str) -> Callable[[], None]:
         def _clear() -> None:
+            # ``set_value`` fires the select's own ``on_change``, which is the
+            # handler; calling it again here would run the filter twice.
             widgets[key].set_value([])
-            handler([])
 
         return _clear
 
@@ -198,7 +222,9 @@ def render_filter_bar(
         ui.label(t(filters_title_key)).classes("k-eyebrow mr-1")
 
         chips["date"], date_opener = _new_chip("date", date_from_key, _clear_date)
-        with date_opener, ui.menu().classes("p-3"), ui.column().classes("gap-2"):
+        with date_opener:
+            date_menu = ui.menu().classes("p-3")
+        with date_menu, ui.column().classes("gap-2"):
             widgets["date_from"] = (
                 ui.input(t(date_from_key))
                 .props("type=date clearable dense")
@@ -212,6 +238,8 @@ def render_filter_bar(
                 .on("update:model-value", lambda e: on_date_to(e.args))
             )
 
+        chips["date"].open_with_keyboard(date_menu)
+
         def _select_chip(
             field_name: str,
             label_key: str,
@@ -219,21 +247,22 @@ def render_filter_bar(
             handler: Callable[[Any], None],
             width: str,
         ) -> Any:
-            chips[field_name], opener = _new_chip(
-                field_name, label_key, _clear_select(field_name, handler)
-            )
-            with opener, ui.menu().classes("p-3"):
-                widget = (
-                    ui.select(
-                        options,
-                        label=t(label_key),
-                        multiple=True,
-                        value=[],
-                        on_change=lambda e: handler(e.value or []),
+            chips[field_name], opener = _new_chip(field_name, label_key, _clear_select(field_name))
+            with opener:
+                menu = ui.menu().classes("p-3")
+                with menu:
+                    widget = (
+                        ui.select(
+                            options,
+                            label=t(label_key),
+                            multiple=True,
+                            value=[],
+                            on_change=lambda e: handler(e.value or []),
+                        )
+                        .classes(width)
+                        .props("use-chips clearable dense")
                     )
-                    .classes(width)
-                    .props("use-chips clearable dense")
-                )
+            chips[field_name].open_with_keyboard(menu)
             widgets[field_name] = widget
             return widget
 
@@ -247,7 +276,9 @@ def render_filter_bar(
         tag_filter = _select_chip("tags", tags_key, tag_options, on_tag_change, "w-48")
 
         chips["search"], search_opener = _new_chip("search", search_key, _clear_search)
-        with search_opener, ui.menu().classes("p-3"):
+        with search_opener:
+            search_menu = ui.menu().classes("p-3")
+        with search_menu:
             widgets["search"] = (
                 ui.input(t(search_key))
                 .props("clearable dense autofocus")
@@ -255,15 +286,17 @@ def render_filter_bar(
                 .on("update:model-value", lambda e: on_search_change(e.args or ""))
             )
 
+        chips["search"].open_with_keyboard(search_menu)
+
         ui.button(icon="label", on_click=lambda: ui.navigate.to("/tags")).props(
             "flat round dense size=sm color=grey-7"
         ).tooltip(t(manage_tags_tooltip_key))
 
         ui.space()
         badge_label = (
-            ui.label("")
-            .classes("k-clear-all cursor-pointer text-[12px] font-medium")
-            .on("click", lambda: on_clear())
+            ui.button("", on_click=lambda: on_clear())
+            .props("flat dense no-caps size=sm")
+            .classes("k-clear-all text-[12px] font-medium")
         )
         badge_label.set_visibility(False)
 
