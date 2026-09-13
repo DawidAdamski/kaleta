@@ -804,6 +804,14 @@ Feature: Manual Transaction Entry
     When I edit that transfer
     Then there is no payee field, just as there is no category field
     And saving leaves whatever the importer attached to the leg alone
+
+  KAL-TXN-014 @automated
+  Scenario: The selection bar totals what I picked
+    Given a ledger holding an expense of 128.74 and an income of 9240.00
+    And I am on the Transactions page
+    When I select both rows
+    Then the bar says 2 are selected
+    And the selected total reads +9,111.26
 ```
 
 ## Feature: Quick Entry
@@ -935,6 +943,14 @@ Feature: Transaction Pagination and Grouping
     When I click the next page button
     Then I see the next 25 transactions
     And the pagination shows "Page 2 / 3"
+
+  KAL-PAG-005 @automated
+  Scenario: A group separator carries that group's net
+    Given one week holds an income of 9240.00 and an expense of 128.74
+    And I am on the Transactions page
+    When I group the ledger by week
+    Then that week's separator shows +9,111.26 beside its label
+    And the figure is the net of the rows on this page
 ```
 
 ## Feature: mBank CSV Import

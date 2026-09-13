@@ -3,7 +3,7 @@ plan_id: restyle-transactions-filter-chips
 title: Restyle — Transactions filter chips, selection total, week-group net (artboard 2a)
 area: transactions
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#transactions
 ---
 
@@ -112,4 +112,71 @@ wrap).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Read this before reviewing the diff
+
+Stacked on `plan/restyle-theme-tokens`, which is not merged yet — this plan
+"Depends on `restyle-theme-tokens`" for `.k-filter-chip`, `.k-amount` and
+`.k-mono`. So the merge-base diff shows that plan's work too. This plan's
+own diff is:
+
+    git diff plan/restyle-theme-tokens...HEAD
+
+and its PR is opened with `--base plan/restyle-theme-tokens`.
+
+### Open questions — decisions taken
+
+1. **Chip popovers reuse the existing controls.** Each chip opens a
+   `ui.menu` holding the same `ui.select` / `ui.input` as before, with the
+   same `on_change` handlers, so no filter semantics moved. `FilterBarWidgets`
+   still hands the page the same seven widgets, which is why `_clear_filters`
+   in `page.py` is unchanged.
+2. **Group net is page-scoped.** `attach_group_nets` sums the rows it was
+   given — the page the user is looking at — and the separator's tooltip says
+   so ("Net on this page"). Summing the whole result set would mean a second
+   aggregate query for a figure that sits inside one screen of scroll.
+3. **No `variant="chips"|"classic"` flag.** The open question made it
+   conditional on `filter_bar.py` being shared; it is not. `render_filter_bar`
+   has exactly one caller (`transactions/page.py`), so a flag would have been
+   a switch with one position.
+
+### The chips repaint, they do not rebuild
+
+A chip's label follows the filter, so it has to change when the filter does.
+Rebuilding the row through `@ui.refreshable` was the obvious way and the
+wrong one: the controls live *inside* the chips, so a refresh mid-selection
+would destroy the open multi-select the user was still picking from. Instead
+each chip keeps handles to its own labels and icons, and
+`FilterBarWidgets.refresh_chips(filters)` sets text and toggles the dashed
+empty state in place. The page already called `_update_badge()` on every
+filter change, so that is where the repaint hangs.
+
+Clearing one chip is its `×`, which is a sibling of the element the menu
+hangs from — not a child. A close icon inside the opener would have opened
+the menu on its way to clearing the filter.
+
+### Signs
+
+`TransactionService.signed_amount` is new and `format_signed_amount` now goes
+through it. Three things need the same sign convention — the amount column,
+a group's net, and the selection total — and the only way they cannot
+disagree is to have one function decide. Rows carry `amount_value` (a float
+beside the formatted string) so a total never has to parse a display string
+back into a number.
+
+`date_short` joins `date` on the row for the same reason: the ledger shows
+`DD.MM` but the column still sorts on the ISO value, and the full date is a
+tooltip away.
+
+### E2e: the search field moved behind a chip
+
+Six places across four e2e files typed into `Search description` directly.
+That field is now inside a menu that has to be opened first and closed again
+before the rows underneath are clickable, so they all go through
+`tests/e2e/ledger.py::search_ledger`. The helper is the only place that knows
+where the control lives, which is the point.
+
+### Not done
+
+`docs/design/screenshot.png` still shows the pre-restyle ledger, and the two
+`[manual]` criteria (the 2a comparison in light and dark, and the selection
+bar with week grouping on) are the owner's visual pass.

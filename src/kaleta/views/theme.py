@@ -66,6 +66,12 @@ DASH_CARD = f"{_SURFACE} k-dash-card"
 CARD_TITLE = "k-card-title"
 CARD_SUBTITLE = "k-card-subtitle"
 
+# Ledger toolbar (artboard 2a): a filter is a pill that shows its value, and a
+# dashed one when it has none to show.
+FILTER_CHIP = "k-filter-chip"
+FILTER_CHIP_EMPTY = "k-filter-chip--empty"
+SELECTION_BAR = "k-selection-bar"
+
 # Filled accent surface (banners, section headers, step markers) and the
 # text colour that sits on it — apricot in light, ink on apricot in dark.
 ACCENT_SURFACE = "k-accent-surface"
@@ -287,6 +293,28 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}
 .k-selection-bar{background:var(--k-surface-warm);color:var(--k-ink)}
+.k-clear-all{color:var(--k-accent-text)}
+/* Grouping toggle below the ledger: one segmented pill, not three buttons. */
+.k-group-toggle{background:var(--k-surface-sunken);border-radius:999px;padding:2px}
+.k-group-toggle .q-btn{border-radius:999px;font-size:11.5px;min-height:24px;padding:0 10px}
+.k-clear-all:hover{text-decoration:underline}
+/* Ledger rows: the category reads as a pill, the group separator as a band. */
+.k-cat-pill{
+  display:inline-block;
+  padding:3px 9px;
+  border-radius:999px;
+  background:var(--k-surface-sunken);
+  color:var(--k-ink-2);
+  font-size:11.5px
+}
+.k-sep-row{
+  background:var(--k-surface-warm);
+  color:var(--k-ink-2);
+  font-size:11px;
+  font-weight:500;
+  letter-spacing:.04em;
+  border-bottom:1px solid var(--k-hairline)
+}
 
 /* ── Shared utility classes (used by the per-screen restyle plans) ── */
 .k-pace{

@@ -60,6 +60,9 @@ async def transactions_page(*, open_new: bool = False) -> None:
     payee_options: dict[int, str] = {p.id: p.name for p in payees}
     accounts_by_id = {a.id: a for a in accounts}
     selected_tx_ids: list[int] = []
+    #: The selected rows themselves — the bar totals the figures already on
+    #: screen rather than asking the service for them again.
+    selected_rows: list[dict[str, Any]] = []
 
     filters: dict[str, Any] = {
         "date_from": None,
@@ -81,13 +84,16 @@ async def transactions_page(*, open_new: bool = False) -> None:
     filter_widgets: Any
 
     def _update_badge() -> None:
+        """Repaint the chips and the "Clear all N" link for the current filters."""
         count = active_filter_count(filters)
-        filter_widgets.badge_label.set_text(str(count))
+        filter_widgets.badge_label.set_text(t("transactions.clear_all_n", count=count))
         filter_widgets.badge_label.set_visibility(count > 0)
+        filter_widgets.refresh_chips(filters)
 
     def _apply_filters() -> None:
         filters["page"] = 0
         selected_tx_ids.clear()
+        selected_rows.clear()
         transaction_table.refresh()
         table_actions_ui.refresh()
         _update_badge()
@@ -160,7 +166,9 @@ async def transactions_page(*, open_new: bool = False) -> None:
 
         def _on_selection(e: object) -> None:
             selected_tx_ids.clear()
+            selected_rows.clear()
             rows_list = getattr(e, "args", None) or []
+            selected_rows.extend(rows_list)
             selected_tx_ids.extend(r["id"] for r in rows_list)
             table_actions_ui.refresh()
 
@@ -184,6 +192,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
     def _go_page(page: int) -> None:
         filters["page"] = page
         selected_tx_ids.clear()
+        selected_rows.clear()
         transaction_table.refresh()
         table_actions_ui.refresh()
 
@@ -229,8 +238,10 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filter_widgets.type_filter.set_value([])
         filter_widgets.tag_filter.set_value([])
         filter_widgets.search_input.set_value("")
+        selected_rows.clear()
         _update_badge()
         transaction_table.refresh()
+        table_actions_ui.refresh()
 
     type_options = {tx.value: t(f"common.{tx.value}") for tx in TransactionType}
 
@@ -262,6 +273,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
 
         table_actions_ui = render_table_actions(
             selected_tx_ids,
+            selected_rows,
             on_delete=confirm_delete_selected,
             refresh=lambda: table_actions_ui.refresh(),
         )

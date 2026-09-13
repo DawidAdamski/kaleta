@@ -18,6 +18,7 @@ from pathlib import Path
 
 from playwright.sync_api import FilePayload, Page, expect
 
+from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     count_transactions,
     list_import_rules,
@@ -115,10 +116,8 @@ def test_csv_import_with_account_mapping(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
     for label in ("Biedronka", "Orlen", "Wyplata"):
-        search.click(click_count=3)
-        search.fill(label)
+        search_ledger(page, label)
         expect(page.get_by_text(label).first).to_be_visible(timeout=5000)
 
 
@@ -164,8 +163,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
-    search.fill("Coffee Shop")
+    search_ledger(page, "Coffee Shop")
     expect(page.get_by_text("Coffee Shop").first).to_be_visible(timeout=5000)
 
 
@@ -589,8 +587,7 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
-    search.fill("Japanpost Bank(245950) GIFU")
+    search_ledger(page, "Japanpost Bank(245950) GIFU")
     expect(page.get_by_text("Japanpost Bank(245950) GIFU").first).to_be_visible(timeout=5000)
 
 
@@ -653,8 +650,7 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
-    search.fill("Topped up account")
+    search_ledger(page, "Topped up account")
     expect(page.get_by_text("Topped up account").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Jan Kowalski", exact=False)).to_have_count(0)
 

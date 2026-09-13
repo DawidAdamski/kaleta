@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Locator, Page, expect
 
+from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     get_transaction,
     seed_account,
@@ -89,9 +90,7 @@ def _select_labeled(page: Page, dialog: Page, label: str, option: str) -> None:
 
 def _find_row(page: Page, description: str):  # noqa: ANN201
     """Locate a ledger row by description, filtering so paging cannot hide it."""
-    search = page.get_by_label("Search description")
-    search.click(click_count=3)
-    search.fill(description)
+    search_ledger(page, description)
     return page.locator(".q-table tbody tr").filter(has_text=description)
 
 
@@ -564,3 +563,67 @@ def test_editing_a_transfer_has_no_payee_field(page: Page, base_url: str) -> Non
     expect(page.get_by_text("Transaction updated.").first).to_be_visible(timeout=5000)
 
     assert get_transaction(tx_id)["payee_id"] == payee_id
+
+
+LEDGER_TOKEN = "LedgerChipsE2E"
+
+
+def _filter_by_search(page: Page, base_url: str, token: str) -> None:
+    """Narrow the ledger to the two rows a scenario seeded."""
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, token)
+    expect(page.locator(".q-table tbody tr")).to_have_count(2, timeout=10000)
+
+
+def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-014
+
+    Two rows from artboard 2a — Lidl at -128,74 and a salary at +9 240,00 —
+    net out to +9 111,26 in the selection bar.
+    """
+    account_id = seed_account("PKO Ledger Total E2E")
+    expense_cat = seed_category("Zywnosc Ledger E2E")
+    income_cat = seed_category("Wynagrodzenie Ledger E2E", cat_type="income")
+    seed_transaction(account_id, expense_cat, 128.74, description=f"Lidl {LEDGER_TOKEN}")
+    seed_transaction(
+        account_id,
+        income_cat,
+        9240.00,
+        tx_type="income",
+        description=f"Salary {LEDGER_TOKEN}",
+    )
+
+    _filter_by_search(page, base_url, LEDGER_TOKEN)
+
+    # The chip says what it filtered, and the clear-all link counts it.
+    expect(page.locator(".k-chip-search")).to_contain_text(LEDGER_TOKEN)
+    expect(page.get_by_text("Clear all 1", exact=True)).to_be_visible()
+
+    for checkbox in page.locator(".q-table tbody .q-checkbox").all():
+        checkbox.click()
+
+    expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
+    expect(page.get_by_text("+9,111.26", exact=True)).to_be_visible(timeout=10000)
+
+
+def test_week_separator_shows_the_group_net(page: Page, base_url: str) -> None:
+    """Covers: KAL-PAG-005
+
+    The same two rows, grouped by week: the separator carries their net.
+    """
+    token = "LedgerWeekE2E"
+    account_id = seed_account("PKO Ledger Week E2E")
+    expense_cat = seed_category("Zywnosc Week E2E")
+    income_cat = seed_category("Wynagrodzenie Week E2E", cat_type="income")
+    seed_transaction(account_id, expense_cat, 128.74, description=f"Lidl {token}")
+    seed_transaction(
+        account_id, income_cat, 9240.00, tx_type="income", description=f"Salary {token}"
+    )
+
+    _filter_by_search(page, base_url, token)
+
+    page.get_by_role("button", name="Week", exact=True).click()
+
+    separator = page.locator(".k-sep-row")
+    expect(separator.first).to_be_visible(timeout=10000)
+    expect(separator.first).to_contain_text("+9,111.26")

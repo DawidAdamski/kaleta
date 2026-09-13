@@ -1145,6 +1145,45 @@ class TestTransactionDisplayHelpers:
         assert TransactionService.group_separator_label(d2, None, "month") == "February 2025"
         assert TransactionService.group_separator_label(d2, d1, "month") == "February 2025"
 
+    def test_signed_amount_is_positive_only_for_income(self):
+        assert TransactionService.signed_amount(
+            Decimal("9240.00"), TransactionType.INCOME
+        ) == Decimal("9240.00")
+        assert TransactionService.signed_amount(
+            Decimal("128.74"), TransactionType.EXPENSE
+        ) == Decimal("-128.74")
+        assert TransactionService.signed_amount(
+            Decimal("1500.00"), TransactionType.TRANSFER
+        ) == Decimal("-1500.00")
+
+    def test_signed_amount_ignores_a_sign_already_on_the_figure(self):
+        # The column and any total under it must agree, whichever way the
+        # stored amount happens to be signed.
+        assert TransactionService.signed_amount(
+            Decimal("-9240.00"), TransactionType.INCOME
+        ) == Decimal("9240.00")
+
+    def test_group_net_sums_the_rows_of_each_group(self):
+        """Covers: KAL-PAG-005"""
+        rows = [
+            {"sep_label": "W27 2026", "amount_value": 9240.00},
+            {"sep_label": "", "amount_value": -128.74},
+            {"sep_label": "W26 2026", "amount_value": -287.40},
+        ]
+
+        TransactionService.attach_group_nets(rows)
+
+        assert rows[0]["sep_net"] == "+9,111.26"
+        assert rows[2]["sep_net"] == "-287.40"
+
+    def test_group_net_is_absent_without_grouping(self):
+        """Covers: KAL-PAG-005"""
+        rows = [{"sep_label": "", "amount_value": -128.74}]
+
+        TransactionService.attach_group_nets(rows)
+
+        assert "sep_net" not in rows[0]
+
     def test_split_balance_balanced(self):
         balanced, remaining = TransactionService.split_balance(
             Decimal("100.00"),

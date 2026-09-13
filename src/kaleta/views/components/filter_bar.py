@@ -1,17 +1,104 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Reusable filter toolbar for account/category/date-range/description filters."""
+"""Filter toolbar for the transactions ledger — one row of chips (artboard 2a).
+
+Each filter is a chip that shows its *value* (``01.06.2026 → 03.07.2026``,
+``PKO Konto Główne +2``) and falls back to a dashed ``+ Category`` when unset,
+so the toolbar says what is filtered instead of what could be. The controls
+behind the chips are the same selects and inputs as before, moved into a menu:
+the chips are presentation, not new filter semantics.
+"""
 
 from __future__ import annotations
 
 import datetime
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.views.theme import TOOLBAR_CARD
+from kaleta.views.theme import FILTER_CHIP, FILTER_CHIP_EMPTY, TOOLBAR_CARD
+
+_DATE_FMT = "%d.%m.%Y"
+
+
+def format_date_range(date_from: datetime.date | None, date_to: datetime.date | None) -> str:
+    """``01.06.2026 → 03.07.2026``, with one side blank when only one is set."""
+    if date_from is None and date_to is None:
+        return ""
+    start = date_from.strftime(_DATE_FMT) if date_from else ""
+    end = date_to.strftime(_DATE_FMT) if date_to else ""
+    return f"{start} → {end}".strip()
+
+
+def summarise_selection(names: list[str]) -> tuple[str, str]:
+    """First name, plus ``+N`` for however many more are selected."""
+    if not names:
+        return "", ""
+    rest = len(names) - 1
+    return names[0], f"+{rest}" if rest else ""
+
+
+def _names(ids: list[Any], options: dict[Any, str]) -> list[str]:
+    return [options[i] for i in ids if i in options]
+
+
+def filter_chip_label(
+    field_name: str,
+    filters: dict[str, Any],
+    *,
+    account_options: dict[int, str],
+    category_options: dict[int, str],
+    type_options: dict[str, str],
+    tag_options: dict[int, str],
+) -> tuple[str, str]:
+    """What a chip reads: ``(main, extra)``, both empty when the filter is unset.
+
+    ``extra`` is the ``+N`` tail rendered in mono beside the first name.
+    """
+    if field_name == "date":
+        return format_date_range(filters.get("date_from"), filters.get("date_to")), ""
+    if field_name == "accounts":
+        return summarise_selection(_names(filters.get("account_ids") or [], account_options))
+    if field_name == "categories":
+        return summarise_selection(_names(filters.get("category_ids") or [], category_options))
+    if field_name == "tags":
+        return summarise_selection(_names(filters.get("tag_ids") or [], tag_options))
+    if field_name == "types":
+        values = [getattr(v, "value", v) for v in filters.get("tx_types") or []]
+        return summarise_selection([type_options[v] for v in values if v in type_options])
+    if field_name == "search":
+        search = (filters.get("search") or "").strip()
+        return (t("transactions.filter_chip_search", text=search) if search else ""), ""
+    return "", ""
+
+
+@dataclass
+class _Chip:
+    """One pill: the shell that carries the state classes, and its parts."""
+
+    shell: Any
+    add_icon: Any
+    name_label: Any
+    value_label: Any
+    extra_label: Any
+    clear_icon: Any
+
+    def show(self, main: str, extra: str) -> None:
+        """Paint the chip for a value, or fall back to the dashed empty state."""
+        filled = bool(main)
+        self.shell.classes(
+            add=FILTER_CHIP_EMPTY if not filled else "",
+            remove=FILTER_CHIP_EMPTY if filled else "",
+        )
+        self.add_icon.set_visibility(not filled)
+        self.name_label.set_visibility(not filled)
+        self.value_label.set_visibility(filled)
+        self.value_label.set_text(main)
+        self.extra_label.set_visibility(bool(extra))
+        self.extra_label.set_text(extra)
+        self.clear_icon.set_visibility(filled)
 
 
 @dataclass
@@ -26,6 +113,36 @@ class FilterBarWidgets:
     search_input: Any
     tag_filter: Any
     badge_label: Any
+    #: Repaint the chips after a filter changed. The page owns the filter dict,
+    #: so only it can say when the labels went stale.
+    refresh_chips: Callable[[dict[str, Any]], None] = field(default=lambda _f: None)
+
+
+def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> tuple[_Chip, Any]:
+    """A pill plus the element a menu should hang from to open on click."""
+    with ui.row().classes(f"{FILTER_CHIP} k-chip-{field_name}") as shell:
+        opener = ui.row().classes("items-center gap-1.5 no-wrap cursor-pointer")
+        with opener:
+            add_icon = ui.icon("add", size="15px")
+            name_label = ui.label(t(name_key))
+            value_label = ui.label("")
+            extra_label = ui.label("").classes("k-mono k-muted text-[11px]")
+        clear_icon = (
+            ui.icon("close", size="15px")
+            .classes("k-muted cursor-pointer")
+            .on("click", lambda: on_clear())
+        )
+    return (
+        _Chip(
+            shell=shell,
+            add_icon=add_icon,
+            name_label=name_label,
+            value_label=value_label,
+            extra_label=extra_label,
+            clear_icon=clear_icon,
+        ),
+        opener,
+    )
 
 
 def render_filter_bar(
@@ -52,96 +169,129 @@ def render_filter_bar(
     tags_key: str = "transactions.tags",
     manage_tags_tooltip_key: str = "transactions.manage_tags",
 ) -> FilterBarWidgets:
-    """Render the standard transactions filter card and return widget refs."""
-    with ui.card().classes(TOOLBAR_CARD):
-        with ui.row().classes("w-full items-center gap-2 flex-wrap"):
-            ui.icon("filter_list").classes("k-muted text-slate-500")
-            ui.label(t(filters_title_key)).classes(
-                "text-sm font-semibold uppercase tracking-[0.14em] text-slate-500"
-            )
-            badge_label = ui.badge("0", color="primary").classes("ml-1")
-            badge_label.set_visibility(False)
-            ui.space()
-            ui.button(t("common.clear"), icon="clear", on_click=on_clear).props(
-                "flat dense size=sm color=grey-7"
-            )
+    """Render the transactions filter chips and return widget refs."""
+    chips: dict[str, _Chip] = {}
+    widgets: dict[str, Any] = {}
 
-        with ui.row().classes("w-full gap-4 flex-wrap items-end mt-2"):
-            date_from_input = (
+    def _clear_date() -> None:
+        widgets["date_from"].set_value(None)
+        widgets["date_to"].set_value(None)
+        on_date_from(None)
+        on_date_to(None)
+
+    def _clear_select(key: str, handler: Callable[[list[Any]], None]) -> Callable[[], None]:
+        def _clear() -> None:
+            widgets[key].set_value([])
+            handler([])
+
+        return _clear
+
+    def _clear_search() -> None:
+        widgets["search"].set_value("")
+        on_search_change("")
+
+    with (
+        ui.card().classes(f"{TOOLBAR_CARD} k-filter-bar"),
+        ui.row().classes("w-full items-center gap-2 flex-wrap"),
+    ):
+        ui.icon("filter_list", size="18px").classes("k-muted")
+        ui.label(t(filters_title_key)).classes("k-eyebrow mr-1")
+
+        chips["date"], date_opener = _new_chip("date", date_from_key, _clear_date)
+        with date_opener, ui.menu().classes("p-3"), ui.column().classes("gap-2"):
+            widgets["date_from"] = (
                 ui.input(t(date_from_key))
-                .props("type=date clearable")
-                .classes("w-36")
+                .props("type=date clearable dense")
+                .classes("w-40")
                 .on("update:model-value", lambda e: on_date_from(e.args))
             )
-            date_to_input = (
+            widgets["date_to"] = (
                 ui.input(t(date_to_key))
-                .props("type=date clearable")
-                .classes("w-36")
+                .props("type=date clearable dense")
+                .classes("w-40")
                 .on("update:model-value", lambda e: on_date_to(e.args))
             )
-            account_filter = (
-                ui.select(
-                    account_options,
-                    label=t(accounts_key),
-                    multiple=True,
-                    value=[],
-                    on_change=lambda e: on_account_change(e.value or []),
-                )
-                .classes("w-48")
-                .props("use-chips clearable")
+
+        def _select_chip(
+            field_name: str,
+            label_key: str,
+            options: dict[Any, str],
+            handler: Callable[[Any], None],
+            width: str,
+        ) -> Any:
+            chips[field_name], opener = _new_chip(
+                field_name, label_key, _clear_select(field_name, handler)
             )
-            category_filter = (
-                ui.select(
-                    category_options,
-                    label=t(categories_key),
-                    multiple=True,
-                    value=[],
-                    on_change=lambda e: on_category_change(e.value or []),
+            with opener, ui.menu().classes("p-3"):
+                widget = (
+                    ui.select(
+                        options,
+                        label=t(label_key),
+                        multiple=True,
+                        value=[],
+                        on_change=lambda e: handler(e.value or []),
+                    )
+                    .classes(width)
+                    .props("use-chips clearable dense")
                 )
-                .classes("w-48")
-                .props("use-chips clearable")
-            )
-            type_filter = (
-                ui.select(
-                    type_options,
-                    label=t(types_key),
-                    multiple=True,
-                    value=[],
-                    on_change=lambda e: on_type_change(e.value or []),
-                )
-                .classes("w-40")
-                .props("use-chips clearable")
-            )
-            search_input = (
+            widgets[field_name] = widget
+            return widget
+
+        account_filter = _select_chip(
+            "accounts", accounts_key, account_options, on_account_change, "w-64"
+        )
+        type_filter = _select_chip("types", types_key, type_options, on_type_change, "w-48")
+        category_filter = _select_chip(
+            "categories", categories_key, category_options, on_category_change, "w-64"
+        )
+        tag_filter = _select_chip("tags", tags_key, tag_options, on_tag_change, "w-48")
+
+        chips["search"], search_opener = _new_chip("search", search_key, _clear_search)
+        with search_opener, ui.menu().classes("p-3"):
+            widgets["search"] = (
                 ui.input(t(search_key))
-                .props("clearable")
-                .classes("w-52")
+                .props("clearable dense autofocus")
+                .classes("w-64")
                 .on("update:model-value", lambda e: on_search_change(e.args or ""))
             )
-            tag_filter = (
-                ui.select(
-                    tag_options,
-                    label=t(tags_key),
-                    multiple=True,
-                    value=[],
-                    on_change=lambda e: on_tag_change(e.value or []),
+
+        ui.button(icon="label", on_click=lambda: ui.navigate.to("/tags")).props(
+            "flat round dense size=sm color=grey-7"
+        ).tooltip(t(manage_tags_tooltip_key))
+
+        ui.space()
+        badge_label = (
+            ui.label("")
+            .classes("k-clear-all cursor-pointer text-[12px] font-medium")
+            .on("click", lambda: on_clear())
+        )
+        badge_label.set_visibility(False)
+
+    def _refresh_chips(filters: dict[str, Any]) -> None:
+        for field_name, chip in chips.items():
+            chip.show(
+                *filter_chip_label(
+                    field_name,
+                    filters,
+                    account_options=account_options,
+                    category_options=category_options,
+                    type_options=type_options,
+                    tag_options=tag_options,
                 )
-                .classes("w-40")
-                .props("use-chips clearable")
             )
-            ui.button(icon="label", on_click=lambda: ui.navigate.to("/tags")).props(
-                "flat round dense color=grey-7"
-            ).tooltip(t(manage_tags_tooltip_key))
+
+    _refresh_chips({})
 
     return FilterBarWidgets(
-        date_from_input=date_from_input,
-        date_to_input=date_to_input,
+        date_from_input=widgets["date_from"],
+        date_to_input=widgets["date_to"],
         account_filter=account_filter,
         category_filter=category_filter,
         type_filter=type_filter,
-        search_input=search_input,
+        search_input=widgets["search"],
         tag_filter=tag_filter,
         badge_label=badge_label,
+        refresh_chips=_refresh_chips,
     )
 
 

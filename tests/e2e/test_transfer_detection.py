@@ -13,6 +13,7 @@ from pathlib import Path
 
 from playwright.sync_api import Page, expect
 
+from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     seed_account_with_external,
     seed_category,
@@ -74,9 +75,7 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
 
     page.goto(f"{base_url}/transactions")
 
-    search = page.get_by_label("Search description")
-    search.click(click_count=3)
-    search.fill("Jan Kowalski — Transfer E2E")
+    search_ledger(page, "Jan Kowalski — Transfer E2E")
 
     transfer_row = (
         page.locator(".q-table tbody tr").filter(has_text="Jan Kowalski — Transfer E2E").first
@@ -86,12 +85,10 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
         timeout=5000
     )
 
-    search.click(click_count=3)
-    search.fill("Biedronka Transfer E2E")
+    search_ledger(page, "Biedronka Transfer E2E")
     expense_row = page.locator(".q-table tbody tr").filter(has_text="Biedronka Transfer E2E").first
     expect(expense_row.get_by_role("cell", name="Expense", exact=True)).to_be_visible(timeout=5000)
 
-    search.click(click_count=3)
-    search.fill("Salary Transfer E2E")
+    search_ledger(page, "Salary Transfer E2E")
     income_row = page.locator(".q-table tbody tr").filter(has_text="Salary Transfer E2E").first
     expect(income_row.get_by_role("cell", name="Income", exact=True)).to_be_visible(timeout=5000)
