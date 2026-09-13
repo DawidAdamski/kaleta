@@ -6,14 +6,21 @@ from __future__ import annotations
 from decimal import Decimal
 
 from kaleta.services.report_service import BudgetVarianceRow
-from kaleta.views.dashboard_widgets.budget_variance_month import _SEVERE_SPENT_PCT
+from kaleta.views.dashboard_widgets.constants import SEVERE_SPENT_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_number, split_amount
+
+#: The threshold as the plan states it, not as the module computes it.
+_THRESHOLD = Decimal("110")
 
 
 def _is_severe(planned: str, actual: str) -> bool:
     """The call ``_variance_row`` makes to choose between expense and warning."""
     row = BudgetVarianceRow(category="x", planned=Decimal(planned), actual=Decimal(actual))
-    return row.is_severely_over(_SEVERE_SPENT_PCT)
+    return row.is_severely_over(_THRESHOLD)
+
+
+def test_the_shipped_threshold_is_the_one_the_plan_chose() -> None:
+    assert SEVERE_SPENT_PCT == _THRESHOLD
 
 
 class TestVarianceSeverity:
@@ -39,8 +46,8 @@ class TestVarianceSeverity:
         # variance_pct is negative when over budget: comparing *it* against the
         # threshold classified every over-budget row as a warning.
         row = BudgetVarianceRow(category="x", planned=Decimal("1400.00"), actual=Decimal("1612.30"))
-        assert (row.variance_pct or Decimal("0")) < _SEVERE_SPENT_PCT
-        assert row.is_severely_over(_SEVERE_SPENT_PCT) is True
+        assert (row.variance_pct or Decimal("0")) < _THRESHOLD
+        assert row.is_severely_over(_THRESHOLD) is True
 
 
 class TestFigureFormatting:

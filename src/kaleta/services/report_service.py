@@ -152,7 +152,9 @@ class BudgetVarianceRow:
 
         Where a caller draws the line between "watch this" and "this is a
         problem". Unbudgeted spending counts as severe: there is no plan it
-        could still be inside of.
+        could still be inside of. (The dashboard only ever asks this of
+        ``over_budget_rows``, which all have a plan; the rule is here for any
+        caller that walks every row.)
         """
         spent = self.spent_pct
         return spent is None or spent >= threshold_pct

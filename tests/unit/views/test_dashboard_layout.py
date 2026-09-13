@@ -272,7 +272,7 @@ class TestResetLayoutKeepEnabled:
         layout = [
             {"id": "cashflow_chart", "cols": 2, "rows": 2},
             {"id": "balance_card", "cols": 2, "rows": 2},
-            {"id": "month_card", "cols": 2, "rows": 1},
+            {"id": "month_card", "cols": 2, "rows": 2},
         ]
 
         result = _reset_layout_keep_enabled(layout)

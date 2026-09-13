@@ -156,7 +156,8 @@ plan actually changed:
    those bars run full width and only their colour varies, because every
    row shown is already past plan; a tick would mark a target that by
    definition sits behind the fill. Threshold for expense-vs-warning
-   colour: **110 % of plan** (`_SEVERE_SPENT_PCT`), which reproduces the
+   colour: **110 % of plan** (`constants.SEVERE_SPENT_PCT`, beside the
+   savings target), which reproduces the
    artboard's three rows (115 %, 139 % expense; 106 % warning).
 
    The percentage it reads is `BudgetVarianceRow.spent_pct`, added for
@@ -263,9 +264,9 @@ what the two cards show.
 `migrate_legacy_kpis` runs inside `resolve_user_layout`, on both of its
 return paths, so every reader of the layout (page render *and* the
 `/_dashboard/layout` POST handler) sees the same migrated list. It is a
-pure list→list function: the merged cards take the index of the *first*
-legacy entry, everything else keeps its relative order, and a widget
-already present is not added twice — which is what makes a second load a
+pure list→list function: each merged card takes the index of the first
+legacy entry *mapped to it*, everything else keeps its relative order, and
+a widget already present is not added twice — which is what makes a second load a
 no-op rather than a duplicate.
 
 Each legacy id maps to the card that absorbed it
@@ -290,15 +291,16 @@ scenario is about what a pre-restyle profile *sees*, and
 `scripts/spec_coverage.py` only scans `tests/e2e` and `tests/integration`.
 The e2e test stores the seven legacy ids through the real
 `/_dashboard/layout` endpoint (they are still valid ids at their old
-sizes), then loads the dashboard twice. The eight unit tests in
+sizes), then loads the dashboard twice. The nine unit tests in
 `tests/unit/views/test_dashboard_layout.py` cover the pure function's
 edges — partial legacy sets, position, idempotence, default sizes.
 
-Five existing tests in that file had to change fixture widgets: they used
-`total_balance` / `month_income` as stand-ins for "some widget", and
-those ids now migrate away mid-test. They were re-pointed at
-`top_merchants` / `balance_card` / `month_card`, which keeps each test
-testing its own subject instead of the migration.
+Six existing tests in that file had to change fixture widgets (three in
+`TestResolveUserLayout`, three in `TestResetLayoutKeepEnabled`): they used
+`total_balance` / `month_income` as stand-ins for "some widget", and those
+ids now migrate away mid-test. They were re-pointed at `top_merchants` /
+`balance_card` / `month_card`, which keeps each test testing its own
+subject instead of the migration.
 
 ### Chrome and layout
 

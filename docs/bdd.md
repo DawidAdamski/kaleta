@@ -2801,6 +2801,9 @@ Feature: Dashboard Customization
     And the tiles plus that one add up to the hero figure above them
     And the "This month" card fills its savings bar to the share of income I kept
     And a tick on that bar marks the 20% target
+    And an eyebrow above the page title says which month and day these figures stand at
+    And a budget-variance row past 110% of its plan reads in the expense colour,
+      one below it in the warning colour
 ```
 
 ## Feature: Wizard Action Items

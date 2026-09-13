@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -16,6 +15,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import ReportService
+from kaleta.views.dashboard_widgets.constants import SEVERE_SPENT_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_amount, fmt_number, section_card
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
@@ -54,12 +54,6 @@ async def render_budget_variance_month(session: AsyncSession, is_dark: bool) -> 
                 _variance_row(row)
 
 
-#: Share of plan above which a row reads as expense rather than warning.
-#: 110 = 10% past the budget; artboard 1c colours 115% and 139% as expense
-#: and 106% as warning.
-_SEVERE_SPENT_PCT = Decimal("110")
-
-
 def _variance_row(row: BudgetVarianceRow) -> None:
     """Category, overspend, a full ``.k-pace`` bar, and the spend against plan.
 
@@ -69,7 +63,7 @@ def _variance_row(row: BudgetVarianceRow) -> None:
     """
     spent = row.spent_pct
     spent_txt = "—" if spent is None else f"{float(spent):.0f}%"
-    severe = row.is_severely_over(_SEVERE_SPENT_PCT)
+    severe = row.is_severely_over(SEVERE_SPENT_PCT)
     colour = "var(--k-expense)" if severe else "var(--k-warning)"
     amount_cls = AMOUNT_EXPENSE if severe else AMOUNT_WARNING
 
