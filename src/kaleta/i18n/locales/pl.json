@@ -108,7 +108,11 @@
     "recent_transactions": "Ostatnie transakcje",
     "view_all": "Zobacz wszystkie",
     "no_transactions": "Brak transakcji. Naciśnij Ctrl+N, aby dodać.",
-    "net": "Bilans"
+    "net": "Bilans",
+    "savings_kept": "Zostało {pct}% przychodu",
+    "savings_kept_none": "Brak przychodu w tym miesiącu",
+    "savings_target": "Cel {pct}%",
+    "period_eyebrow": "{month} {year} · dzień {day}"
   },
   "dashboard_widgets": {
     "customize": "Personalizuj",
@@ -125,6 +129,8 @@
     "kpi_vs_date": "vs. {day} {month} {year}",
     "kpi_vs_month": "vs. {month} {year}",
     "kpi_rate_points": "{sign}{value} p.p.",
+    "balance_card": "Saldo",
+    "month_card": "Ten miesiąc",
     "total_balance": "Łączne saldo",
     "month_income": "Przychody w miesiącu",
     "month_expenses": "Wydatki w miesiącu",

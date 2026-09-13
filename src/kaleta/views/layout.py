@@ -101,8 +101,13 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
 
 
 @contextmanager
-def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
-    """Shared layout: header + left drawer + main content area."""
+def page_layout(title: str, *, wide: bool = False, container: str | None = None) -> Generator[None]:
+    """Shared layout: header + left drawer + main content area.
+
+    ``container`` swaps the content column's classes — the dashboard asks for
+    its own padding and band gap (``DASH_PAGE_CONTAINER``); every other page
+    keeps ``PAGE_CONTAINER``.
+    """
     from kaleta.config.setup_config import is_configured
     from kaleta.views.auto_post import maybe_auto_post_due
 
@@ -324,7 +329,7 @@ def page_layout(title: str, *, wide: bool = False) -> Generator[None]:
     ui.keyboard(on_key=_global_key, active=True)
 
     width_cls = "max-w-screen-2xl" if wide else "max-w-7xl"
-    with ui.column().classes(f"{PAGE_CONTAINER} {width_cls}"):
+    with ui.column().classes(f"{container or PAGE_CONTAINER} {width_cls}"):
         if settings.demo and not app.storage.user.get("demo_banner_dismissed", False):
 
             def _dismiss_demo_banner() -> None:

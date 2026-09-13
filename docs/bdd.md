@@ -2782,6 +2782,15 @@ Feature: Dashboard Customization
     And I am in the Customize dialog
     When I untick "Net Worth Trend" and click "Reset layout" without saving
     Then the "Net Worth Trend" widget is absent from the dashboard
+
+  KAL-DSH-004 @automated
+  Scenario: Legacy KPI layout migrates to the merged cards
+    Given my saved dashboard still lists the seven single-figure KPI widgets
+    When the dashboard loads
+    Then those seven are replaced by the "Balance" and "This month" cards
+    And the merged cards take the position the first KPI widget held
+    And the widgets I had placed after them keep their order
+    And loading the dashboard again does not add a second copy
 ```
 
 ## Feature: Wizard Action Items

@@ -3,7 +3,7 @@ plan_id: restyle-dashboard
 title: Restyle — Dashboard in the sand palette, merged KPI cards, quiet drawer (artboards 1c/1d)
 area: dashboard
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
@@ -117,4 +117,118 @@ mechanics (`dashboard-edit-mode-drag`, archived — unchanged).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Open questions — decisions taken
+
+1. **Legacy KPI widgets: kept, hidden.** The seven modules stay registered
+   with a new `Widget.legacy` flag; `selectable_widgets()` is what the
+   Customize picker offers, so they can no longer be added, but a stored
+   layout naming one still resolves instead of crashing.
+   `migrate_legacy_kpis` logs at INFO on every migration
+   (`Dashboard layout migrated: N legacy KPI widget(s) -> …`), which is
+   what makes "no stored layout references them any more" observable
+   before the later cleanup deletes them.
+2. **Savings target: 20 % constant**, `dashboard_widgets/constants.py`
+   `SAVINGS_RATE_TARGET_PCT`. Artboard `1c` draws its tick at 25 %; that is
+   mockup data, not a decision, so the plan's default stands until a
+   settings field exists.
+3. **`.k-pace` beyond savings rate: yes**, `budget_variance_month` now
+   draws one per over-budget category — but *without* a tick. In `1c`
+   those bars run full width and only their colour varies, because every
+   row shown is already past plan; a tick would mark a target that by
+   definition sits behind the fill. Threshold for expense-vs-warning
+   colour: **110 % of plan** (`_SEVERE_OVER_PCT`), which reproduces the
+   artboard's three rows (115 %, 139 % expense; 106 % warning).
+
+### Where the artboard overrode the plan text
+
+The plan was written from the artboard's *description*; three details in
+`1c`'s markup disagree with its prose, and the artboard won (the manual
+acceptance criterion is "matches artboards `1c`/`1d`"):
+
+| Plan text | `1c` markup | Shipped |
+|---|---|---|
+| Balance card carries "two small lines for net worth and predicted 30d" | those two sit under a hairline in the **month** card | month card |
+| Month figures "24px" | `font:500 26px 'IBM Plex Mono'` | 26px |
+| Account footer "rows (name, institution avatar, `k-amount`)" | three tiles on `--k-surface-sunken`, radius 10, name over figure, no avatar | tiles |
+
+Moving the two slow figures also moved their services: `balance_card`
+now needs only `ReportService` + `AccountService`, while `month_card`
+pulls `ForecastService` and `NetWorthService`. The 30-day forecast is the
+slowest call on the dashboard either way — it did not gain a second
+caller, it changed hands.
+
+### Migration
+
+`migrate_legacy_kpis` runs inside `resolve_user_layout`, on both of its
+return paths, so every reader of the layout (page render *and* the
+`/_dashboard/layout` POST handler) sees the same migrated list. It is a
+pure list→list function: the merged cards take the index of the *first*
+legacy entry, everything else keeps its relative order, and a widget
+already present is not added twice — which is what makes a second load a
+no-op rather than a duplicate.
+
+The stored layout is never rewritten by the migration itself. It is
+rewritten the next time the user drags or resizes anything, because the
+POST handler validates against the resolved (migrated) list. A profile
+that is never touched again migrates on every load, forever, at the cost
+of one list comprehension.
+
+### BDD coverage
+
+`KAL-DSH-004` is verified end-to-end in
+`tests/e2e/test_dashboard_customize.py`, not by the unit tests: the
+scenario is about what a pre-restyle profile *sees*, and
+`scripts/spec_coverage.py` only scans `tests/e2e` and `tests/integration`.
+The e2e test stores the seven legacy ids through the real
+`/_dashboard/layout` endpoint (they are still valid ids at their old
+sizes), then loads the dashboard twice. The eight unit tests in
+`tests/unit/views/test_dashboard_layout.py` cover the pure function's
+edges — partial legacy sets, position, idempotence, default sizes.
+
+Five existing tests in that file had to change fixture widgets: they used
+`total_balance` / `month_income` as stand-ins for "some widget", and
+those ids now migrate away mid-test. They were re-pointed at
+`top_merchants` / `balance_card` / `month_card`, which keeps each test
+testing its own subject instead of the migration.
+
+### Chrome and layout
+
+- `DASH_PAGE_CONTAINER` (`.k-dash-page`) is a dashboard-only variant of
+  `PAGE_CONTAINER`: 36/40/44 padding and a 44px band gap, dropping to
+  20/16/28 and 28px under 768px. `page_layout` takes a `container=`
+  keyword; every other page is untouched.
+- Responsive needed no new rule. The existing
+  `grid-column: span min(var(--cols), 2)` under 768px already takes a
+  2-column card to the full width of the 2-column grid.
+- The edit-mode chrome (drag handle, resize button, dashed outline,
+  focus ring) still carried raw slate/blue rgba literals from before the
+  restyle — the one place on the dashboard the sand palette had not
+  reached. Retokenised; the drag mechanics are untouched.
+- `mini_stat` took a Quasar hue string (`"green-7"`, `"purple-7"`) and
+  rendered `text-slate-500` labels. It now takes a theme amount class and
+  renders mono figures, so `ytd_summary` matches the other cards.
+- New tokens: `.k-account-chip`, `.k-card-footer`, `AMOUNT_WARNING`
+  (`--k-warning` figure, for a small budget overage).
+
+### Two e2e races the suite was hiding
+
+`tests/e2e/` was failing roughly one test per full run — a different one
+each time, always passing in isolation. Two real races, both fixed here
+because `verify.sh --e2e` cannot be green without them:
+
+- `test_dashboard_customize`: Save re-navigates to `/` itself, and the
+  test's own `page.goto("/")` raced it — whichever load lost died with
+  `net::ERR_ABORTED`. Now the test waits for the navigation Save starts.
+- `test_navigation`: `_ensure_group_expanded` probed `is_visible()` on a
+  drawer that was still streaming in, read an expanded group as
+  collapsed, and its "expand" click collapsed it. It now waits for the
+  group header before probing.
+
+Neither touches production code; they are test-only and unrelated to the
+restyle, so they belong in their own commit.
+
+### Not done
+
+`docs/design/screenshot.png` is still the pre-restyle dashboard. It is
+flagged `[manual]` in the acceptance criteria and needs a seeded
+1360px capture in both modes, which is the owner's visual pass.

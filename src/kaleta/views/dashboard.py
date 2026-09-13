@@ -18,6 +18,7 @@ The full layout — widget order *and* per-widget size — is persisted in
 
 from __future__ import annotations
 
+import datetime
 from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
@@ -34,9 +35,10 @@ from kaleta.views.dashboard_widgets import (
     Widget,
     default_layout,
     resolve_user_layout,
+    selectable_widgets,
 )
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import PAGE_TITLE
+from kaleta.views.theme import DASH_PAGE_CONTAINER, PAGE_TITLE
 
 _GRID_COLUMNS = 4
 
@@ -48,7 +50,7 @@ _EDIT_MODE_STYLE = f"""
     display: grid;
     grid-template-columns: repeat({_GRID_COLUMNS}, minmax(0, 1fr));
     grid-auto-rows: minmax(120px, auto);
-    gap: 16px;
+    gap: 20px;
     width: 100%;
   }}
   @media (max-width: 768px) {{
@@ -76,8 +78,8 @@ _EDIT_MODE_STYLE = f"""
     display: none;
     padding: 2px 4px;
     border-radius: 6px;
-    color: #64748b;
-    background: rgba(148,163,184,0.14);
+    color: var(--k-muted);
+    background: var(--k-surface-sunken);
   }}
   .dash-widget-wrap .dash-drag-handle-icon {{
     right: 6px;
@@ -88,10 +90,10 @@ _EDIT_MODE_STYLE = f"""
     cursor: pointer;
   }}
   .dash-widget-wrap .dash-resize-btn:hover {{
-    background: rgba(148,163,184,0.28);
+    background: var(--k-surface-warm);
   }}
   body.dash-editing .dash-widget-wrap {{
-    outline: 1px dashed rgba(100,116,139,0.45);
+    outline: 1px dashed var(--k-border-strong);
     outline-offset: 4px;
     border-radius: 10px;
     cursor: grab;
@@ -102,7 +104,7 @@ _EDIT_MODE_STYLE = f"""
     display: block;
   }}
   body.dash-editing .dash-widget-wrap:focus-visible {{
-    outline: 2px solid rgb(59,130,246);
+    outline: 2px solid var(--k-accent);
   }}
   .dash-edit-banner {{ display: none; }}
   body.dash-editing .dash-edit-banner {{ display: flex; }}
@@ -293,6 +295,17 @@ def _register_layout_endpoint() -> None:
         return {"status": "ok"}
 
 
+def _period_eyebrow() -> str:
+    """ "Jul 2026 · day 3" — where in the month the figures below stand."""
+    today = datetime.date.today()
+    return t(
+        "dashboard.period_eyebrow",
+        month=t(f"common.month_short_{today.month}"),
+        year=today.year,
+        day=today.day,
+    )
+
+
 def register() -> None:
     _register_layout_endpoint()
 
@@ -308,9 +321,11 @@ def register() -> None:
         ui.add_head_html(_EDIT_MODE_STYLE)
         ui.add_head_html(_INIT_JS)
 
-        with page_layout(t("dashboard.title")):
-            with ui.row().classes("w-full items-center justify-between mb-2"):
-                ui.label(t("dashboard.title")).classes(PAGE_TITLE)
+        with page_layout(t("dashboard.title"), container=DASH_PAGE_CONTAINER):
+            with ui.row().classes("w-full items-center justify-between"):
+                with ui.column().classes("gap-1"):
+                    ui.label(_period_eyebrow()).classes("k-eyebrow")
+                    ui.label(t("dashboard.title")).classes(PAGE_TITLE)
                 with ui.row().classes("items-center gap-2"):
                     with ui.button(
                         on_click=lambda: ui.run_javascript("window.__kaletaToggleDashEdit()")
@@ -417,7 +432,7 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
     this dialog only manages which widgets are shown.
     """
     enabled_ids = [e["id"] for e in current_layout]
-    disabled = [wid for wid in WIDGETS if wid not in enabled_ids]
+    disabled = [wid for wid in selectable_widgets() if wid not in enabled_ids]
     working = enabled_ids + disabled
     enabled: dict[str, bool] = {wid: (wid in enabled_ids) for wid in working}
 

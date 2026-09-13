@@ -16,24 +16,30 @@ from __future__ import annotations
 from kaleta.views.dashboard_widgets.layout import (
     LayoutEntry,
     default_layout,
+    migrate_legacy_kpis,
     resolve_user_layout,
     resolve_user_widgets,
 )
 from kaleta.views.dashboard_widgets.registry import (
     DEFAULT_WIDGETS,
+    LEGACY_KPI_WIDGETS,
+    MERGED_KPI_WIDGETS,
     WIDGETS,
     Widget,
     WidgetSize,
     cycle_size,
     register,
+    selectable_widgets,
 )
 
 # Import widget modules to populate the registry.
 from . import (  # noqa: F401
+    balance_card,
     budget_variance_month,
     cashflow_chart,
     credit_utilization,
     largest_transactions,
+    month_card,
     month_expenses,
     month_income,
     month_net,
@@ -53,12 +59,16 @@ from . import (  # noqa: F401
 
 __all__ = [
     "DEFAULT_WIDGETS",
+    "LEGACY_KPI_WIDGETS",
+    "MERGED_KPI_WIDGETS",
     "LayoutEntry",
     "WIDGETS",
     "Widget",
     "WidgetSize",
     "cycle_size",
+    "selectable_widgets",
     "default_layout",
+    "migrate_legacy_kpis",
     "register",
     "resolve_user_layout",
     "resolve_user_widgets",

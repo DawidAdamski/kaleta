@@ -22,6 +22,7 @@ from kaleta.views.theme import KPI_TREND_NEGATIVE, KPI_TREND_POSITIVE
     "swap_vert",
     (2, 1),
     ((1, 1), (2, 1)),
+    legacy=True,
 )
 async def render_month_net(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     svc = ReportService(session)

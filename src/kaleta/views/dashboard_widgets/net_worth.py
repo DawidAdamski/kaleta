@@ -20,6 +20,7 @@ from kaleta.views.dashboard_widgets.registry import register
     "account_balance_wallet",
     (2, 1),
     ((1, 1), (2, 1)),
+    legacy=True,
 )
 async def render_net_worth(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     summary = await NetWorthService(session).get_summary(history_months=2)

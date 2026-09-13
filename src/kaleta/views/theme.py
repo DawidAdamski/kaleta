@@ -17,6 +17,8 @@ from nicegui import ui
 AMOUNT_INCOME = "k-amount k-amount--in"
 AMOUNT_EXPENSE = "k-amount k-amount--out"
 AMOUNT_NEUTRAL = "k-amount k-amount--neutral"
+#: A figure that is off-plan but not yet alarming (small budget overage).
+AMOUNT_WARNING = "k-amount k-amount--warn"
 
 # Opt-in monospace for non-amount numbers (dates, counts, percentages, the
 # version string) — same family and tabular figures, inherited colour.
@@ -28,6 +30,9 @@ _CARD_PAD = "p-5"
 
 PAGE_SHELL = "k-ground"
 PAGE_CONTAINER = "w-full mx-auto p-6 md:p-8 gap-6"
+# The dashboard breathes wider than the working screens: 36/40/44 page
+# padding and a 44px band gap (handoff geometry table, artboard 1c).
+DASH_PAGE_CONTAINER = "k-dash-page w-full mx-auto"
 
 HEADER = "k-header"
 DRAWER = "k-drawer pt-3"
@@ -54,6 +59,12 @@ KPI_TREND_NEUTRAL = "k-trend--neutral"
 
 TABLE_CARD = SECTION_CARD
 TABLE_SURFACE = "k-table w-full"
+
+# Dashboard chrome (handoff geometry table): 14px radius and 26/28px padding,
+# against 12px / 22-24px on the working screens.
+DASH_CARD = f"{_SURFACE} k-dash-card"
+CARD_TITLE = "k-card-title"
+CARD_SUBTITLE = "k-card-subtitle"
 
 # Filled accent surface (banners, section headers, step markers) and the
 # text colour that sits on it — apricot in light, ink on apricot in dark.
@@ -233,6 +244,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-amount--in{color:var(--k-income)}
 .k-amount--out{color:var(--k-expense)}
 .k-amount--neutral{color:var(--k-muted)}
+.k-amount--warn{color:var(--k-warning)}
 .k-trend--pos{color:var(--k-income)}
 .k-trend--neg{color:var(--k-expense)}
 .k-trend--warn{color:var(--k-warning)}
@@ -258,6 +270,19 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-table .q-table td{font-size:13.5px;color:var(--k-ink)}
 .k-table .q-table tbody tr:hover{background:var(--k-row-hover)}
+.k-dash-page{padding:36px 40px 44px;gap:44px}
+@media (max-width:768px){.k-dash-page{padding:20px 16px 28px;gap:28px}}
+.k-dash-card{border-radius:14px;padding:26px 28px}
+.k-account-chip{background:var(--k-surface-sunken)}
+/* Hairline above a card's slow figures (month card footer, artboard 1c). */
+.k-card-footer{border-top:1px solid var(--k-hairline)}
+.k-card-title{
+  font-size:17px;
+  font-weight:500;
+  color:var(--k-ink);
+  line-height:1.3
+}
+.k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
 .k-cat-row{border-bottom-color:var(--k-hairline)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}
@@ -295,6 +320,17 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 /* ── Banners & chips ──────────────────────────────────────────────── */
 .k-accent-surface{background:var(--k-accent);color:var(--k-on-accent)}
 .k-accent-surface .q-icon,.k-on-accent{color:var(--k-on-accent)}
+/* Dashboard "needs attention" strip (artboard 1c). */
+.k-banner,.k-banner .k-banner-item{color:var(--k-on-accent)}
+.k-banner .k-banner-item:hover{text-decoration:underline}
+.k-banner-btn{
+  background:var(--k-surface);
+  color:var(--k-accent-text);
+  font-weight:600;
+  font-size:12.5px;
+  border-radius:999px;
+  padding:9px 18px
+}
 .k-info-banner{background:rgba(180,89,31,.08);color:var(--k-ink-2)}
 .k-stat-chip{
   display:inline-flex;align-items:center;gap:.35rem;

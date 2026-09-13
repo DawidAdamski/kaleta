@@ -108,7 +108,11 @@
     "recent_transactions": "Recent Transactions",
     "view_all": "View All",
     "no_transactions": "No transactions yet. Press Ctrl+N to add one.",
-    "net": "Net"
+    "net": "Net",
+    "savings_kept": "Kept {pct}% of income",
+    "savings_kept_none": "No income yet this month",
+    "savings_target": "Target {pct}%",
+    "period_eyebrow": "{month} {year} · day {day}"
   },
   "dashboard_widgets": {
     "customize": "Customize",
@@ -125,6 +129,8 @@
     "kpi_vs_date": "vs. {day} {month} {year}",
     "kpi_vs_month": "vs. {month} {year}",
     "kpi_rate_points": "{sign}{value} p.p.",
+    "balance_card": "Balance",
+    "month_card": "This month",
     "total_balance": "Total Balance",
     "month_income": "Month Income",
     "month_expenses": "Month Expenses",

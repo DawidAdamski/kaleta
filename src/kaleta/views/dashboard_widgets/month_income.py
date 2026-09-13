@@ -20,6 +20,7 @@ from kaleta.views.dashboard_widgets.registry import register
     "trending_up",
     (2, 1),
     ((1, 1), (2, 1)),
+    legacy=True,
 )
 async def render_month_income(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     income, _ = await ReportService(session).current_month_summary()

@@ -16,10 +16,13 @@ from kaleta.views.dashboard import (
 )
 from kaleta.views.dashboard_widgets import (
     DEFAULT_WIDGETS,
+    LEGACY_KPI_WIDGETS,
     WIDGETS,
     cycle_size,
     default_layout,
+    migrate_legacy_kpis,
     resolve_user_layout,
+    selectable_widgets,
 )
 
 
@@ -113,13 +116,13 @@ class TestCycleSize:
 class TestResolveUserLayout:
     def test_legacy_migration_uses_default_sizes(self) -> None:
         # Simulate old storage: just an ordered list of ids.
-        legacy = ["total_balance", "cashflow_chart"]
+        legacy = ["top_merchants", "cashflow_chart"]
 
         result = resolve_user_layout(None, legacy)
 
         assert [e["id"] for e in result] == legacy
-        assert result[0]["cols"] == 2  # total_balance default (2,1)
-        assert result[0]["rows"] == 1
+        assert result[0]["cols"] == 2  # top_merchants default (2,2)
+        assert result[0]["rows"] == 2
         assert result[1]["cols"] == 4  # cashflow_chart default (4,2)
         assert result[1]["rows"] == 2
 
@@ -130,23 +133,117 @@ class TestResolveUserLayout:
         assert result == expected
 
     def test_invalid_size_falls_back_to_default_size(self) -> None:
-        stored = [{"id": "total_balance", "cols": 99, "rows": 99}]
+        stored = [{"id": "top_merchants", "cols": 99, "rows": 99}]
 
         result = resolve_user_layout(stored, None)
 
         # The entry is kept (id is valid) but its size is clamped to default.
-        assert result == [{"id": "total_balance", "cols": 2, "rows": 1}]
+        assert result == [{"id": "top_merchants", "cols": 2, "rows": 2}]
 
     def test_unknown_id_dropped(self) -> None:
         stored = [
             {"id": "does_not_exist", "cols": 2, "rows": 1},
-            {"id": "total_balance", "cols": 2, "rows": 1},
+            {"id": "top_merchants", "cols": 2, "rows": 2},
         ]
 
         result = resolve_user_layout(stored, None)
 
         assert len(result) == 1
-        assert result[0]["id"] == "total_balance"
+        assert result[0]["id"] == "top_merchants"
+
+
+class TestLegacyKpiMigration:
+    """The seven single-figure KPI widgets fold into the two merged cards."""
+
+    def test_seven_kpis_become_the_two_merged_cards(self) -> None:
+        """Covers: KAL-DSH-004"""
+        stored = [{"id": wid, "cols": 2, "rows": 1} for wid in LEGACY_KPI_WIDGETS] + [
+            {"id": "cashflow_chart", "cols": 4, "rows": 2}
+        ]
+
+        result = resolve_user_layout(stored, None)
+
+        assert [e["id"] for e in result] == ["balance_card", "month_card", "cashflow_chart"]
+
+    def test_merged_cards_take_the_first_kpi_position(self) -> None:
+        """Covers: KAL-DSH-004"""
+        stored = [
+            {"id": "cashflow_chart", "cols": 4, "rows": 2},
+            {"id": "total_balance", "cols": 2, "rows": 1},
+            {"id": "recent_transactions", "cols": 4, "rows": 2},
+        ]
+
+        result = resolve_user_layout(stored, None)
+
+        assert [e["id"] for e in result] == [
+            "cashflow_chart",
+            "balance_card",
+            "month_card",
+            "recent_transactions",
+        ]
+
+    def test_migration_is_idempotent(self) -> None:
+        """Covers: KAL-DSH-004"""
+        stored = [
+            {"id": "total_balance", "cols": 2, "rows": 1},
+            {"id": "cashflow_chart", "cols": 4, "rows": 2},
+        ]
+
+        once = resolve_user_layout(stored, None)
+        twice = resolve_user_layout(once, None)
+
+        assert once == twice
+        assert [e["id"] for e in twice].count("balance_card") == 1
+
+    def test_merged_cards_land_on_their_default_sizes(self) -> None:
+        """Covers: KAL-DSH-004"""
+        result = resolve_user_layout([{"id": "month_income", "cols": 1, "rows": 1}], None)
+
+        assert result == [
+            {"id": "balance_card", "cols": 2, "rows": 2},
+            {"id": "month_card", "cols": 2, "rows": 2},
+        ]
+
+    def test_a_layout_without_legacy_ids_is_untouched(self) -> None:
+        """Covers: KAL-DSH-004"""
+        stored = [
+            {"id": "cashflow_chart", "cols": 4, "rows": 2},
+            {"id": "top_merchants", "cols": 2, "rows": 2},
+        ]
+
+        assert migrate_legacy_kpis(stored) == stored
+
+    def test_partial_legacy_set_still_migrates(self) -> None:
+        """Covers: KAL-DSH-004
+
+        A user who disabled five of the seven still has two legacy ids stored.
+        """
+        stored = [
+            {"id": "month_net", "cols": 2, "rows": 1},
+            {"id": "savings_rate_kpi", "cols": 2, "rows": 1},
+        ]
+
+        result = resolve_user_layout(stored, None)
+
+        assert [e["id"] for e in result] == ["balance_card", "month_card"]
+
+    def test_legacy_widgets_are_hidden_from_the_picker(self) -> None:
+        """Covers: KAL-DSH-004"""
+        offered = selectable_widgets()
+
+        assert not set(offered) & set(LEGACY_KPI_WIDGETS)
+        assert "balance_card" in offered
+        assert "month_card" in offered
+
+    def test_legacy_widgets_stay_renderable(self) -> None:
+        """Covers: KAL-DSH-004
+
+        Hidden from the picker, but still in WIDGETS — a stored layout naming
+        one must resolve rather than crash.
+        """
+        for wid in LEGACY_KPI_WIDGETS:
+            assert wid in WIDGETS
+            assert WIDGETS[wid].legacy is True
 
 
 class TestResetLayoutKeepEnabled:
@@ -171,20 +268,20 @@ class TestResetLayoutKeepEnabled:
         """Covers: KAL-DSH-001"""
         layout = [
             {"id": "cashflow_chart", "cols": 2, "rows": 2},
-            {"id": "total_balance", "cols": 1, "rows": 1},
-            {"id": "month_income", "cols": 2, "rows": 1},
+            {"id": "balance_card", "cols": 2, "rows": 2},
+            {"id": "month_card", "cols": 2, "rows": 1},
         ]
 
         result = _reset_layout_keep_enabled(layout)
 
         assert [e["id"] for e in result] == [
-            "total_balance",
-            "month_income",
+            "balance_card",
+            "month_card",
             "cashflow_chart",
         ]
 
     def test_every_widget_lands_on_its_default_size(self) -> None:
-        layout = [{"id": wid, "cols": 4, "rows": 3} for wid in ("cashflow_chart", "total_balance")]
+        layout = [{"id": wid, "cols": 4, "rows": 3} for wid in ("cashflow_chart", "balance_card")]
 
         result = _reset_layout_keep_enabled(layout)
 
@@ -197,12 +294,12 @@ class TestResetLayoutKeepEnabled:
         assert "credit_utilization" not in DEFAULT_WIDGETS
         layout = [
             {"id": "credit_utilization", "cols": 4, "rows": 2},
-            {"id": "total_balance", "cols": 1, "rows": 1},
+            {"id": "balance_card", "cols": 2, "rows": 2},
         ]
 
         result = _reset_layout_keep_enabled(layout)
 
-        assert [e["id"] for e in result] == ["total_balance", "credit_utilization"]
+        assert [e["id"] for e in result] == ["balance_card", "credit_utilization"]
         assert result[1]["cols"] == 2  # credit_utilization default (2, 2)
         assert result[1]["rows"] == 2
 

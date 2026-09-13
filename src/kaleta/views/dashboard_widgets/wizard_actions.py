@@ -15,7 +15,7 @@ from kaleta.schemas.wizard_actions import ActionItem, ActionSeverity
 from kaleta.services import WizardActionService
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
-from kaleta.views.theme import BODY_MUTED
+from kaleta.views.theme import ACCENT_SURFACE, BODY_MUTED, ON_ACCENT
 
 # Out of scope: pagination. Show at most this many rows, then a "+N more" tail.
 MAX_ROWS = 12
@@ -53,63 +53,59 @@ def _message_params(item: ActionItem) -> dict[str, str | int]:
 
 
 def _render_row(item: ActionItem) -> None:
+    """One action as an inline banner item.
+
+    Keeps ``data-action-kind`` / ``data-severity`` and the click-through so the
+    ranking and routing tests read the same DOM as before the restyle.
+    """
+    params = _message_params(item)
     with (
         ui.row()
-        .classes(
-            "w-full items-start gap-2 no-wrap cursor-pointer rounded px-1 py-1 "
-            "hover:bg-slate-100 dark:hover:bg-slate-700/40"
-        )
+        .classes("k-banner-item items-baseline gap-1.5 no-wrap cursor-pointer")
         .props(f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}"')
         .on("click", lambda _e=None, href=item.href: ui.navigate.to(href))
     ):
-        ui.element("div").classes(
-            f"h-2 w-2 rounded-full shrink-0 mt-1.5 {_SEVERITY_DOT[item.severity]}"
-        )
-        params = _message_params(item)
-        with ui.column().classes("gap-0 min-w-0 flex-1"):
-            ui.label(t(item.title_key, **params)).classes("text-sm leading-tight")
-            ui.label(t(item.body_key, **params)).classes("text-xs text-slate-500 leading-tight")
+        ui.label(t(item.title_key, **params)).classes("text-sm font-medium")
 
 
 @register(
     "wizard_actions",
     "dashboard_widgets.wizard_actions",
     "checklist",
-    (2, 2),
-    ((2, 2), (4, 2)),
+    (4, 1),
+    ((4, 1), (4, 2)),
 )
 async def render_wizard_actions(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     items = drop_dismissed(
         await WizardActionService(session).get_action_items(), _dismissed_mentor_keys()
     )
 
-    with section_card(
-        t("dashboard_widgets.wizard_actions"),
-        subtitle=t("dashboard_widgets.wizard_actions_sub"),
-    ):
-        if not items:
+    if not items:
+        # Nothing to shout about: a quiet card, not an accent banner.
+        with section_card(t("dashboard_widgets.wizard_actions")):
             ui.label(t("dashboard_widgets.wizard_actions_empty")).classes(
                 f"{BODY_MUTED} wizard-actions-empty"
             )
-        else:
-            shown = items[:MAX_ROWS]
-            with ui.column().classes("w-full gap-2 mt-1 wizard-actions-list"):
-                # Grouped by section, but the ranked order decides which
-                # section leads — the most urgent item brings its group up.
-                for section in dict.fromkeys(i.section for i in shown):
-                    ui.label(t(f"wizard_actions.section_{section.value}")).classes(
-                        "text-[11px] font-semibold uppercase tracking-wide text-slate-400 mt-1"
-                    )
-                    for item in shown:
-                        if item.section is section:
-                            _render_row(item)
-            if len(items) > MAX_ROWS:
-                ui.label(
-                    t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS)
-                ).classes(f"{BODY_MUTED} mt-1")
+        return
 
+    shown = items[:MAX_ROWS]
+    with (
+        ui.element("div").classes(f"{ACCENT_SURFACE} k-banner w-full rounded-[14px]"),
+        ui.row().classes("w-full items-center gap-4 no-wrap px-6 py-4"),
+    ):
+        ui.icon("auto_awesome", size="1.3rem").classes(ON_ACCENT)
+        with ui.column().classes("gap-0.5 min-w-0 flex-1"):
+            ui.label(t("dashboard_widgets.wizard_actions")).classes(f"k-eyebrow {ON_ACCENT}")
+            with ui.row().classes("items-baseline gap-2 flex-wrap wizard-actions-list"):
+                for index, item in enumerate(shown):
+                    if index:
+                        ui.label("·").classes("text-sm opacity-60")
+                    _render_row(item)
+                if len(items) > MAX_ROWS:
+                    ui.label(
+                        t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS)
+                    ).classes("text-sm opacity-80")
         ui.button(
             t("dashboard_widgets.wizard_actions_open"),
-            icon="auto_awesome",
             on_click=lambda: ui.navigate.to("/wizard"),
-        ).props("flat dense color=primary size=sm").classes("mt-2 self-start")
+        ).props("unelevated no-caps dense").classes("k-banner-btn shrink-0")
