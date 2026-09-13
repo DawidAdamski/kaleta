@@ -818,8 +818,18 @@ Feature: Manual Transaction Entry
   Scenario: A transfer between my own accounts nets to nothing
     Given both legs of an internal transfer are on the page
     When I select them
-    Then the selected total reads +0.00
+    Then the selected total reads 0.00, with no sign
     And the figure is neither money-in nor money-out
+    But a leg whose counterpart is not on the page counts as money out
+
+  KAL-TXN-016 @automated
+  Scenario: A filter chip says what it filters
+    Given I am on the Transactions page
+    When I pick an account from its chip
+    Then the chip reads that account's name in place of the field name
+    And the link beside the chips offers to clear 1 filter
+    And clearing the chip from its own "x" brings every row back
+    And a chip opens from the keyboard, without a mouse
 ```
 
 ## Feature: Quick Entry
@@ -959,7 +969,7 @@ Feature: Transaction Pagination and Grouping
     When I group the ledger by week
     Then that week's separator shows +9,111.26 beside its label
     And the figure is the net of the rows on this page
-    And transfers between my own accounts are left out of it
+    And a transfer whose other leg is on the page is left out of it
 ```
 
 ## Feature: mBank CSV Import

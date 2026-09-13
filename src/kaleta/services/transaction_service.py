@@ -407,8 +407,11 @@ class TransactionService:
 
     @staticmethod
     def format_net(net: Decimal) -> str:
-        """A group's net, signed the same way its rows are."""
-        return f"{net:+,.2f}"
+        """A group's net, signed the same way its rows are.
+
+        Zero carries no sign: nothing moved, so there is no direction to show.
+        """
+        return f"{net:,.2f}" if net == 0 else f"{net:+,.2f}"
 
     @staticmethod
     def split_balance(
@@ -444,6 +447,9 @@ class TransactionService:
             "notes": transaction.notes or "",
             "has_notes": bool(transaction.notes),
             "category": category,
+            # Which other row this one is the other half of, if any: the net
+            # of a group has to know a transfer pair when it sees one.
+            "linked_id": transaction.linked_transaction_id,
             "has_splits": has_splits,
             "split_count": split_count,
             "split_tooltip": split_tooltip,
@@ -507,17 +513,20 @@ class TransactionService:
     def net_of_rows(rows: builtins.list[dict[str, Any]]) -> Decimal:
         """What a set of ledger rows did to the user's money.
 
-        Transfers are skipped: both legs of one are booked, so counting them
-        would show money leaving twice over when it only moved between the
-        user's own accounts. The amount column still shows each leg signed —
-        that is a row saying where the money went, not a net saying how much
-        there is.
+        A transfer leg counts like anything else *unless its counterpart is on
+        screen too*. Both legs are booked and both display as outflows, so
+        adding them up would show money leaving twice over when it only moved
+        between the user's own accounts — but a lone leg, in a ledger filtered
+        to one account, really is money leaving that account.
         """
-        return sum(
-            (
-                Decimal(str(row.get("amount_value", 0)))
-                for row in rows
-                if row.get("type") != TransactionType.TRANSFER.value
-            ),
-            start=Decimal("0"),
-        )
+        visible = {row.get("id") for row in rows}
+        total = Decimal("0")
+        for row in rows:
+            paired = (
+                row.get("type") == TransactionType.TRANSFER.value
+                and row.get("linked_id") in visible
+            )
+            if paired:
+                continue
+            total += Decimal(str(row.get("amount_value", 0)))
+        return total

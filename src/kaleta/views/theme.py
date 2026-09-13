@@ -137,6 +137,7 @@ BASE_CSS = """
   --k-surface:#FCFAF6;
   --k-surface-sunken:#F3EFE7;
   --k-surface-warm:#F6F1E7;
+  --k-surface-warm-strong:#EFE3D6;
   --k-ink:#1C1A15;
   --k-ink-2:#4A443A;
   --k-muted:#6B6353;
@@ -166,6 +167,7 @@ BASE_CSS = """
   --k-surface:#201F1A;
   --k-surface-sunken:#2A2822;
   --k-surface-warm:#262420;
+  --k-surface-warm-strong:#2A2822;
   --k-ink:#F0EBDF;
   --k-ink-2:#CFC7B6;
   --k-muted:#A8A08D;
@@ -292,7 +294,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-cat-row{border-bottom-color:var(--k-hairline)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}
-.k-selection-bar{background:var(--k-surface-warm);color:var(--k-ink)}
+.k-selection-bar{background:var(--k-surface-warm-strong);color:var(--k-ink)}
 .k-clear-all{color:var(--k-accent-text)}
 .k-clear-all:hover{text-decoration:underline}
 /* Grouping toggle below the ledger: one segmented pill, not three buttons. */

@@ -1182,19 +1182,39 @@ class TestTransactionDisplayHelpers:
 
         assert TransactionService.net_of_rows(rows) == Decimal("-50.00")
 
-    def test_net_of_rows_leaves_transfers_out(self):
+    def test_net_of_rows_leaves_a_paired_transfer_out(self):
         """Covers: KAL-PAG-005
 
-        Both legs of an internal transfer are booked, so counting them would
-        show money leaving twice over when it never left the user at all.
+        Both legs of an internal transfer are booked and both display as
+        outflows, so counting them would show money leaving twice over when it
+        never left the user at all.
         """
         rows = [
-            {"amount_value": "-1500.00", "type": "transfer"},
-            {"amount_value": "-1500.00", "type": "transfer"},
-            {"amount_value": "-128.74", "type": "expense"},
+            {"id": 1, "linked_id": 2, "amount_value": "-1500.00", "type": "transfer"},
+            {"id": 2, "linked_id": 1, "amount_value": "-1500.00", "type": "transfer"},
+            {"id": 3, "linked_id": None, "amount_value": "-128.74", "type": "expense"},
         ]
 
         assert TransactionService.net_of_rows(rows) == Decimal("-128.74")
+
+    def test_net_of_rows_counts_a_transfer_leg_on_its_own(self):
+        """Covers: KAL-TXN-015
+
+        Filtered to one account, a transfer out of it is money gone from that
+        account — there is no second leg on screen to cancel it.
+        """
+        rows = [
+            {"id": 1, "linked_id": 2, "amount_value": "-1500.00", "type": "transfer"},
+            {"id": 3, "linked_id": None, "amount_value": "-128.74", "type": "expense"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-1628.74")
+
+    def test_format_net_leaves_zero_unsigned(self):
+        """Covers: KAL-TXN-015 — nothing moved, so there is no direction."""
+        assert TransactionService.format_net(Decimal("0")) == "0.00"
+        assert TransactionService.format_net(Decimal("9111.26")) == "+9,111.26"
+        assert TransactionService.format_net(Decimal("-287.40")) == "-287.40"
 
     def test_group_net_sums_the_rows_of_each_group(self):
         """Covers: KAL-PAG-005"""

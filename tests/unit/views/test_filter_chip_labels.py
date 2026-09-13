@@ -102,12 +102,21 @@ class TestChipLabels:
 
 
 class TestActiveFilterCount:
-    def test_counts_the_three_the_artboard_shows(self) -> None:
+    def test_counts_the_three_chips_the_artboard_fills(self) -> None:
         filters = {
             "date_from": datetime.date(2026, 6, 1),
+            "date_to": datetime.date(2026, 7, 3),
             "account_ids": [1, 2, 3],
             "tx_types": [TransactionType.EXPENSE],
         }
 
-        # date_from, accounts, types — "Clear all 3".
+        # Three chips carry a value in 2a — a date range, accounts, a type —
+        # and the link beside them reads "Clear all 3". Both ends of the range
+        # live in one chip, so they count once.
         assert active_filter_count(filters) == 3
+
+    def test_one_end_of_a_range_is_still_one_chip(self) -> None:
+        assert active_filter_count({"date_to": datetime.date(2026, 7, 3)}) == 1
+
+    def test_nothing_set_counts_nothing(self) -> None:
+        assert active_filter_count({}) == 0

@@ -220,6 +220,7 @@
     "page": "Page {current} / {total}",
     "grouping": "Group by",
     "clear_all_n": "Clear all {count}",
+    "clear_filter": "Clear {field}",
     "selected_count": "{count} selected",
     "selected_total": "Selected total",
     "group_net": "Net on this page",

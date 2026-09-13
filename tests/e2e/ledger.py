@@ -16,7 +16,9 @@ def search_ledger(page: Page, text: str) -> None:
     chip = page.locator(".k-chip-search")
     expect(chip).to_be_visible(timeout=10000)
     chip.click()
-    search = page.get_by_label("Search description")
+    # Exact: each chip's clear icon is labelled "Clear <field>", which a
+    # substring match would also pick up.
+    search = page.get_by_label("Search description", exact=True)
     expect(search).to_be_visible(timeout=5000)
     search.click(click_count=3)
     search.fill(text)

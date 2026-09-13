@@ -146,6 +146,23 @@ the two below it.
    has exactly one caller (`transactions/page.py`), so a flag would have been
    a switch with one position.
 
+### The date range is one chip, so it counts once
+
+`active_filter_count` counted `date_from` and `date_to` separately, which was
+right when they were two inputs. They are one chip now, and the plan's own
+manual criterion says a date range plus accounts plus a type should read
+"Clear all 3" — with both ends set, the old count said 4. The first version
+of the unit test set only `date_from`, which is the single input where the
+double count still gives 3; it now sets both, as the artboard does.
+
+### The selection bar is warmer than a separator
+
+`.k-selection-bar` read `--k-surface-warm`, the same token `.k-sep-row` uses,
+so the bar and the group separators were the same colour. Artboard 2a draws
+the bar at `#EFE3D6` against the separator's `#F6F1E7`, so the bar now has
+its own token, `--k-surface-warm-strong`, with the sunken surface as its dark
+counterpart.
+
 ### One amended criterion
 
 `grep -q "k-filter-chip" filter_bar.py` became `grep -q "FILTER_CHIP"`. The
@@ -196,12 +213,18 @@ browser, but only the ids are taken from it; the figures come from the page's
 own row dicts, keyed by id. A total is not something to take the client's
 word for.
 
-`net_of_rows` skips transfer rows. Both legs of an internal transfer are
-booked, so summing the column as-is would show 3 000 leaving on a week when
-1 500 moved between the user's own accounts and nothing left at all. The
-*column* still shows each leg signed — a row says where money went, a net
-says how much there is. The selection bar reads the same function, so the
-two figures cannot disagree.
+`net_of_rows` skips a transfer leg **only when its counterpart is on screen
+too** (rows carry `linked_id`). Both legs are booked and both display as
+outflows, so summing the column as-is would show 3 000 leaving on a week when
+1 500 moved between the user's own accounts and nothing left at all. But drop
+every transfer unconditionally and a ledger filtered to one account stops
+counting money that really did leave it — which is why the rule is about the
+pair, not the type. The *column* still shows each leg signed: a row says
+where money went, a net says how much there is. The selection bar reads the
+same function, so the two figures cannot disagree.
+
+Zero comes out unsigned (`0.00`, not `+0.00`) and painted neutral. Nothing
+moved, so there is no direction to show and none to colour.
 
 ### The separator net is muted, not an amount colour
 

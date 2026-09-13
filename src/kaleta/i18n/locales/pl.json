@@ -220,6 +220,7 @@
     "page": "Strona {current} / {total}",
     "grouping": "Grupuj wg",
     "clear_all_n": "Wyczyść wszystkie ({count})",
+    "clear_filter": "Wyczyść: {field}",
     "selected_count": "Zaznaczono: {count}",
     "selected_total": "Suma zaznaczonych",
     "group_net": "Bilans na tej stronie",

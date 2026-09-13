@@ -2,7 +2,7 @@
 """E2E tests for Feature: Manual Transaction Entry.
 
 Covers: KAL-TXN-001, KAL-TXN-009, KAL-TXN-010, KAL-TXN-011, KAL-TXN-012,
-KAL-TXN-013, KAL-TXN-014, KAL-TXN-015, KAL-PAG-005
+KAL-TXN-013, KAL-TXN-014, KAL-TXN-015, KAL-TXN-016, KAL-PAG-005
 
 Maps the q3-test-safety-net flow: add, edit, and split a transaction.
 Page URL: /transactions
@@ -21,6 +21,7 @@ from tests.e2e.seed_helpers import (
     seed_category,
     seed_payee,
     seed_transaction,
+    seed_transfer_pair,
 )
 
 
@@ -629,8 +630,15 @@ def test_week_separator_shows_the_group_net(page: Page, base_url: str) -> None:
 
     _filter_by_search(page, base_url, token)
 
+    # Selecting first: regrouping redraws the table with nothing ticked, so
+    # the bar must not survive it holding ids nobody can see are selected.
+    for checkbox in page.locator(".q-table tbody .q-checkbox").all():
+        checkbox.click()
+    expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
+
     page.get_by_role("button", name="Week", exact=True).click()
 
+    expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
     separator = page.locator(".k-sep-row")
     expect(separator.first).to_be_visible(timeout=10000)
     expect(separator.first).to_contain_text("+9,111.26")
@@ -643,16 +651,10 @@ def test_a_transfer_pair_nets_to_nothing(page: Page, base_url: str) -> None:
     outflows — but nothing left the user, and the total has to say so.
     """
     token = "LedgerTransferE2E"
-    account_id = seed_account("PKO Ledger Transfer E2E")
+    out_account = seed_account("PKO Ledger Transfer E2E")
+    in_account = seed_account("mBank Ledger Transfer E2E")
     category_id = seed_category("Przelewy Ledger E2E")
-    for leg in ("out", "in"):
-        seed_transaction(
-            account_id,
-            category_id,
-            1500.00,
-            tx_type="transfer",
-            description=f"Own {leg} {token}",
-        )
+    seed_transfer_pair(out_account, in_account, category_id, 1500.00, f"Own {token}")
 
     _filter_by_search(page, base_url, token)
 
@@ -660,13 +662,13 @@ def test_a_transfer_pair_nets_to_nothing(page: Page, base_url: str) -> None:
         checkbox.click()
 
     expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
-    total = page.get_by_text("+0.00", exact=True)
+    total = page.get_by_text("0.00", exact=True)
     expect(total).to_be_visible(timeout=10000)
     expect(total).to_have_class(re.compile(r"k-amount--neutral"))
 
 
 def test_account_chip_filters_shows_its_value_and_clears(page: Page, base_url: str) -> None:
-    """Covers: KAL-TXN-005
+    """Covers: KAL-TXN-005, KAL-TXN-016
 
     The account filter is a multi-select inside a chip's menu now, so this
     drives the whole path: open the chip, pick an account, read the value off
@@ -696,6 +698,8 @@ def test_account_chip_filters_shows_its_value_and_clears(page: Page, base_url: s
     expect(chip).to_contain_text(mine, timeout=10000)
     expect(page.locator(".q-table tbody tr")).to_have_count(1, timeout=10000)
     expect(page.get_by_text(f"Mine {token}")).to_be_visible()
+    # The search chip and the account chip: two filters, one link.
+    expect(page.get_by_role("button", name="Clear all 2")).to_be_visible()
 
     chip.locator(".q-icon", has_text="close").click()
 
@@ -704,7 +708,7 @@ def test_account_chip_filters_shows_its_value_and_clears(page: Page, base_url: s
 
 
 def test_a_chip_opens_from_the_keyboard(page: Page, base_url: str) -> None:
-    """Covers: KAL-TXN-005
+    """Covers: KAL-TXN-016
 
     Every filter moved behind a chip, so a keyboard user has to be able to
     open one — the chips carry tabindex and answer Space, and Quasar's own

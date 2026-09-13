@@ -100,7 +100,7 @@ class _Chip:
         # page scrolling out from under the menu that just opened.
         self.opener.on("keydown.space.prevent", menu.open)
 
-    def show(self, main: str, extra: str) -> None:  # noqa: D401
+    def show(self, main: str, extra: str) -> None:
         """Paint the chip for a value, or fall back to the dashed empty state."""
         filled = bool(main)
         self.shell.classes(
@@ -133,6 +133,11 @@ class FilterBarWidgets:
     refresh_chips: Callable[[dict[str, Any]], None] = field(default=lambda _f: None)
 
 
+def _aria(value: str) -> str:
+    """Quote a translated string safely into a double-quoted prop."""
+    return value.replace('"', "&quot;")
+
+
 def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> tuple[_Chip, Any]:
     """A pill plus the element a menu should hang from to open on click."""
     with ui.row().classes(f"{FILTER_CHIP} k-chip-{field_name}") as shell:
@@ -145,7 +150,12 @@ def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> t
         clear_icon = (
             ui.icon("close", size="15px")
             .classes("k-muted cursor-pointer")
-            .props(f'tabindex="0" role="button" aria-label="{t("common.clear")}"')
+            # Six identical "Clear" labels tell a screen-reader user nothing
+            # about which filter they are on.
+            .props(
+                'tabindex="0" role="button" '
+                f'aria-label="{_aria(t("transactions.clear_filter", field=t(name_key)))}"'
+            )
             .on("click", lambda: on_clear())
             .on("keydown.enter", lambda: on_clear())
             .on("keydown.space.prevent", lambda: on_clear())
@@ -338,11 +348,14 @@ def parse_optional_date(value: str | None) -> datetime.date | None:
 
 
 def active_filter_count(filters: dict[str, Any]) -> int:
-    """Count how many list filters are currently active."""
+    """How many filter chips are carrying a value.
+
+    The two ends of the date range share one chip, so they count once — the
+    link beside the chips says how many of them to clear.
+    """
     return sum(
         [
-            filters.get("date_from") is not None,
-            filters.get("date_to") is not None,
+            filters.get("date_from") is not None or filters.get("date_to") is not None,
             bool(filters.get("account_ids")),
             bool(filters.get("category_ids")),
             bool(filters.get("tx_types")),
