@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -53,30 +54,31 @@ async def render_budget_variance_month(session: AsyncSession, is_dark: bool) -> 
                 _variance_row(row)
 
 
-#: Overage share above which a row reads as expense rather than warning.
-_SEVERE_OVER_PCT = 110.0
+#: Share of plan above which a row reads as expense rather than warning.
+#: 110 = 10% past the budget; artboard 1c colours 115% and 139% as expense
+#: and 106% as warning.
+_SEVERE_SPENT_PCT = Decimal("110")
 
 
 def _variance_row(row: BudgetVarianceRow) -> None:
-    """Category, overage, a full ``.k-pace`` bar, and the spend against plan.
+    """Category, overspend, a full ``.k-pace`` bar, and the spend against plan.
 
-    Artboard ``1c``: the bar is the overage itself — every row shown here is
+    Artboard ``1c``: the bar is the overspend itself — every row shown here is
     already past its budget, so the track runs full and only its colour
     carries how far past. The numbers sit under it in mono.
     """
-    pct = row.variance_pct
-    pct_txt = "—" if pct is None else f"{float(pct):.0f}%"
-    over = row.actual - row.planned
-    severe = pct is None or float(pct) >= _SEVERE_OVER_PCT
+    spent = row.spent_pct
+    spent_txt = "—" if spent is None else f"{float(spent):.0f}%"
+    severe = spent is None or spent >= _SEVERE_SPENT_PCT
     colour = "var(--k-expense)" if severe else "var(--k-warning)"
     amount_cls = AMOUNT_EXPENSE if severe else AMOUNT_WARNING
 
     with ui.column().classes("w-full gap-1.5"):
         with ui.row().classes("w-full items-baseline justify-between no-wrap gap-3"):
             ui.label(row.category).classes(f"{INK} text-[13px] truncate")
-            ui.label(f"+{fmt_number(over)}").classes(f"{amount_cls} text-[13px]")
+            ui.label(f"+{fmt_number(row.overspend)}").classes(f"{amount_cls} text-[13px]")
         with ui.element("div").classes("k-pace w-full"):
             ui.element("div").classes("k-pace__fill").style(f"width:100%;background:{colour}")
-        ui.label(f"{fmt_amount(row.actual)} / {fmt_amount(row.planned)} · {pct_txt}").classes(
+        ui.label(f"{fmt_amount(row.actual)} / {fmt_amount(row.planned)} · {spent_txt}").classes(
             f"k-mono {CARD_SUBTITLE} text-[11px]"
         )

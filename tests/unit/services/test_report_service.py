@@ -25,6 +25,7 @@ from kaleta.services import (
     TransactionService,
 )
 from kaleta.services.report_service import (
+    BudgetVarianceRow,
     CategoryAmount,
     ReportService,
     SavingsRatePoint,
@@ -200,6 +201,45 @@ class TestCashFlowStatement:
 
 
 # ── budget_variance ────────────────────────────────────────────────────────────
+
+
+class TestBudgetVarianceRowArithmetic:
+    """The two signs a variance row carries, kept apart on purpose.
+
+    Figures are the three over-budget rows drawn in artboard 1c.
+    """
+
+    def test_overspend_is_positive_when_past_plan(self) -> None:
+        row = BudgetVarianceRow(
+            category="Żywność", planned=Decimal("1400.00"), actual=Decimal("1612.30")
+        )
+
+        assert row.overspend == Decimal("212.30")
+        assert row.variance == Decimal("-212.30")
+        assert row.over_budget is True
+
+    def test_spent_pct_counts_up_from_the_plan(self) -> None:
+        row = BudgetVarianceRow(
+            category="Rozrywka", planned=Decimal("300.00"), actual=Decimal("418.00")
+        )
+
+        # 139% of plan — not the -39% that variance_pct reports.
+        assert round(row.spent_pct or Decimal("0")) == Decimal("139")
+        assert round(row.variance_pct or Decimal("0")) == Decimal("-39")
+
+    def test_a_row_just_past_plan(self) -> None:
+        row = BudgetVarianceRow(
+            category="Transport", planned=Decimal("350.00"), actual=Decimal("372.40")
+        )
+
+        assert round(row.spent_pct or Decimal("0")) == Decimal("106")
+        assert row.overspend == Decimal("22.40")
+
+    def test_an_unbudgeted_row_has_no_percentage(self) -> None:
+        row = BudgetVarianceRow(category="Fun", planned=Decimal("0"), actual=Decimal("50"))
+
+        assert row.spent_pct is None
+        assert row.over_budget is False
 
 
 class TestBudgetVariance:

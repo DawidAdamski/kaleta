@@ -73,7 +73,7 @@ def _pace_bar(rate: Decimal | None) -> None:
     "dashboard_widgets.month_card",
     "swap_vert",
     (2, 2),
-    ((2, 1), (2, 2), (4, 2)),
+    ((2, 2), (4, 2)),
 )
 async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     point = await ReportService(session).current_month_point()

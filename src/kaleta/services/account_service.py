@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import builtins
+from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
@@ -18,6 +19,15 @@ from kaleta.schemas.account import AccountActivityResponse, AccountCreate, Accou
 STALE_ACTIVITY_DAYS = 35
 
 
+@dataclass(frozen=True)
+class BalanceBreakdown:
+    """The accounts a total is worth naming, and what the rest add up to."""
+
+    shown: builtins.list[Account]
+    hidden_count: int
+    hidden_total: Decimal
+
+
 class AccountService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -27,6 +37,21 @@ class AccountService:
             select(Account).options(selectinload(Account.institution)).order_by(Account.name)
         )
         return list(result.scalars().all())
+
+    async def balance_breakdown(self, limit: int = 3) -> BalanceBreakdown:
+        """The *limit* largest accounts, plus how many and how much they omit.
+
+        A card that shows a grand total next to a handful of accounts has to
+        say what it left out, or the figures read as a breakdown that does not
+        add up. Ranked by balance — the first three *by name* explain nothing.
+        """
+        accounts = sorted(await self.list(), key=lambda a: a.balance, reverse=True)
+        shown, rest = accounts[:limit], accounts[limit:]
+        return BalanceBreakdown(
+            shown=shown,
+            hidden_count=len(rest),
+            hidden_total=sum((a.balance for a in rest), start=Decimal("0")),
+        )
 
     async def list_with_activity(self) -> builtins.list[AccountActivityResponse]:
         """List accounts with newest transaction date and last import (no N+1)."""

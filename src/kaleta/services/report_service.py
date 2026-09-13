@@ -127,6 +127,23 @@ class BudgetVarianceRow:
         return (self.variance / self.planned) * Decimal("100")
 
     @property
+    def overspend(self) -> Decimal:
+        """How far past plan this row went; 0 or less when it did not.
+
+        The mirror of :attr:`variance`, which is signed the other way round
+        (positive = under budget). Having both named saves every caller from
+        flipping the sign by hand — and from getting it wrong.
+        """
+        return self.actual - self.planned
+
+    @property
+    def spent_pct(self) -> Decimal | None:
+        """Actual as a percentage of plan: 115 means 15% over."""
+        if self.planned == 0:
+            return None
+        return (self.actual / self.planned) * Decimal("100")
+
+    @property
     def over_budget(self) -> bool:
         return self.actual > self.planned and self.planned > 0
 

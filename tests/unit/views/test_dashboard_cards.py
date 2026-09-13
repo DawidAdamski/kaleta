@@ -1,59 +1,36 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for the pure helpers behind the merged dashboard cards."""
+"""Unit tests for the figure formatting behind the merged dashboard cards."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from decimal import Decimal
 
-from kaleta.views.dashboard_widgets.balance_card import top_accounts
+from kaleta.services.report_service import BudgetVarianceRow
+from kaleta.views.dashboard_widgets.budget_variance_month import _SEVERE_SPENT_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_number, split_amount
 
 
-@dataclass
-class _Account:
-    name: str
-    balance: Decimal
+def _is_severe(planned: str, actual: str) -> bool:
+    """How ``_variance_row`` decides between the expense and warning colour."""
+    row = BudgetVarianceRow(category="x", planned=Decimal(planned), actual=Decimal(actual))
+    spent = row.spent_pct
+    return spent is None or spent >= _SEVERE_SPENT_PCT
 
 
-def _accounts(*pairs: tuple[str, str]) -> list[_Account]:
-    return [_Account(name, Decimal(value)) for name, value in pairs]
+class TestVarianceSeverity:
+    """The three over-budget rows drawn in artboard 1c, and how they colour."""
 
+    def test_fifteen_percent_over_reads_as_expense(self) -> None:
+        assert _is_severe("1400.00", "1612.30") is True
 
-class TestTopAccounts:
-    def test_fewer_than_the_limit_are_all_shown(self) -> None:
-        accounts = _accounts(("PKO", "1200.00"), ("Revolut", "300.00"))
+    def test_thirty_nine_percent_over_reads_as_expense(self) -> None:
+        assert _is_severe("300.00", "418.00") is True
 
-        shown, hidden, hidden_total = top_accounts(accounts)
+    def test_six_percent_over_reads_as_a_warning(self) -> None:
+        assert _is_severe("350.00", "372.40") is False
 
-        assert [a.name for a in shown] == ["PKO", "Revolut"]
-        assert hidden == 0
-        assert hidden_total == Decimal("0")
-
-    def test_the_largest_lead_regardless_of_name(self) -> None:
-        accounts = _accounts(
-            ("Alfa", "10.00"), ("Beta", "9000.00"), ("Gamma", "500.00"), ("Delta", "40.00")
-        )
-
-        shown, _hidden, _total = top_accounts(accounts)
-
-        assert [a.name for a in shown] == ["Beta", "Gamma", "Delta"]
-
-    def test_the_remainder_is_counted_and_summed(self) -> None:
-        accounts = _accounts(
-            ("A", "100.00"), ("B", "90.00"), ("C", "80.00"), ("D", "7.50"), ("E", "2.50")
-        )
-
-        shown, hidden, hidden_total = top_accounts(accounts)
-
-        assert [a.name for a in shown] == ["A", "B", "C"]
-        assert hidden == 2
-        # The tiles must add up to the hero: 270 shown + 10 hidden = 280 total.
-        assert hidden_total == Decimal("10.00")
-        assert sum(a.balance for a in shown) + hidden_total == Decimal("280.00")
-
-    def test_no_accounts_at_all(self) -> None:
-        assert top_accounts([]) == ([], 0, Decimal("0"))
+    def test_exactly_at_the_threshold_reads_as_expense(self) -> None:
+        assert _is_severe("100.00", "110.00") is True
 
 
 class TestFigureFormatting:

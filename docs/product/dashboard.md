@@ -60,7 +60,8 @@ Native widgets (built into the dashboard):
   tiles, the savings-rate tile, and the net-worth and predicted-30d
   tiles.
 - **Needs attention** (`wizard_actions`) — full-width accent banner
-  listing the wizard's ranked actions; hidden when there are none.
+  listing the wizard's ranked actions, each with a severity glyph. With
+  nothing pending it drops to a quiet "All clear" card.
 - **Cashflow last N months** — bar + line, N configurable.
 - **Top categories this month** — horizontal bar, top 5.
 - **Recent transactions** — last N, filterable by account.

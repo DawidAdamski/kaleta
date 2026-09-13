@@ -2791,6 +2791,16 @@ Feature: Dashboard Customization
     And the merged cards take the position the first KPI widget held
     And the widgets I had placed after them keep their order
     And loading the dashboard again does not add a second copy
+
+  KAL-DSH-005 @manual
+  Scenario: The merged cards say what they leave out
+    Given I have five accounts and income booked this month
+    When I open the dashboard
+    Then the "Total balance" card names my three largest accounts
+    And one more tile reads "2 more accounts" carrying their combined balance
+    And the tiles plus that one add up to the hero figure above them
+    And the "This month" card fills its savings bar to the share of income I kept
+    And a tick on that bar marks the 20% target
 ```
 
 ## Feature: Wizard Action Items

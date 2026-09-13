@@ -156,8 +156,17 @@ plan actually changed:
    those bars run full width and only their colour varies, because every
    row shown is already past plan; a tick would mark a target that by
    definition sits behind the fill. Threshold for expense-vs-warning
-   colour: **110 % of plan** (`_SEVERE_OVER_PCT`), which reproduces the
+   colour: **110 % of plan** (`_SEVERE_SPENT_PCT`), which reproduces the
    artboard's three rows (115 %, 139 % expense; 106 % warning).
+
+   The percentage it reads is `BudgetVarianceRow.spent_pct`, added for
+   this: `variance` and `variance_pct` are signed the *other* way
+   (positive = under budget), so a row at 115 % of plan reports −15 %.
+   Comparing that against a 110 threshold silently classified every row
+   as a warning. `overspend` was added beside it for the same reason —
+   the widget had been re-deriving `actual - planned` by hand, with the
+   opposite sign to the `variance` property one line away. Both are
+   covered by unit tests built from the artboard's three rows.
 
 ### Where the artboard overrode the plan text
 
@@ -170,6 +179,15 @@ acceptance criterion is "matches artboards `1c`/`1d`"):
 | Balance card carries "two small lines for net worth and predicted 30d" | those two sit under a hairline in the **month** card | month card |
 | Month figures "24px" | `font:500 26px 'IBM Plex Mono'` | 26px |
 | Account footer "rows (name, institution avatar, `k-amount`)" | three tiles on `--k-surface-sunken`, radius 10, name over figure, no avatar | tiles |
+
+`month_card` was registered as resizable to `(2,1)` as well. A single
+120px row cannot hold an eyebrow, three 26px figures, a pace bar with its
+caption, and a hairline footer, so that size is gone — `(2,2)` and
+`(4,2)` only.
+
+One widget, one name: the balance card's eyebrow used to read
+`dashboard.total_balance` ("Total Balance") while the Customize picker
+listed it as "Balance". Both now read `dashboard_widgets.balance_card`.
 
 Moving the two slow figures also moved their services: `balance_card`
 now needs only `ReportService` + `AccountService`, while `month_card`
@@ -206,11 +224,15 @@ was wrong.
 
 ### Account tiles
 
-`top_accounts` ranks by balance and folds everything past the third into
-one "N more accounts" tile carrying their sum. Taking the first three of
+`AccountService.balance_breakdown(limit)` ranks by balance and folds
+everything past the third into a count and a sum, which the card renders
+as one "N more accounts" tile. Taking the first three of
 `AccountService.list()` would have been three *alphabetical* accounts,
 and with four or more the tiles would silently fail to add up to the hero
-above them.
+above them. It lives in the service, not the widget, for the same reason
+`current_month_point` does — the card should not be the place that
+decides what a balance breakdown means. `KAL-DSH-005` (@manual) covers
+what the two cards show.
 
 ### Migration
 
