@@ -248,6 +248,16 @@ hidden — it renders the "All clear" line, which is what `KAL-WAC-001`
 asserts. The behaviour is unchanged; only the plan's description of it
 was wrong.
 
+### What the merged cards dropped
+
+Five of the seven tiles carried a trend line — `month_net_delta`,
+`savings_rate_delta` and the rest — and the month card shows none of them.
+That is deliberate: `1c` draws a delta under the balance hero and nowhere
+else, because four more "vs June" lines in a 2x2 card is the noise the
+restyle is meant to remove. The balance card keeps its 30-day delta, so
+the one figure people actually track month over month still says which way
+it moved; the rest are a click away in Reports.
+
 ### Account tiles
 
 `AccountService.balance_breakdown(limit)` ranks by `abs(balance)` and folds
