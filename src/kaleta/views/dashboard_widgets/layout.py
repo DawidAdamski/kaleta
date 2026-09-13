@@ -53,8 +53,8 @@ def migrate_legacy_kpis(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for wid in MERGED_KPI_WIDGETS
         if wid in WIDGETS and wid not in already
     ]
-    logger.info(
-        "Dashboard layout migrated: %d legacy KPI widget(s) -> %s",
+    logger.warning(
+        "Dashboard layout still lists %d legacy KPI widget(s); showing %s instead",
         len(seen_legacy),
         ", ".join(str(w["id"]) for w in merged) or "(already present)",
     )

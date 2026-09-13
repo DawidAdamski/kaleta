@@ -10,7 +10,6 @@ used to be cards of their own, ``predicted_30d`` and ``net_worth``.
 
 from __future__ import annotations
 
-import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -23,9 +22,8 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.services.forecast_service import ForecastService
 from kaleta.services.net_worth_service import NetWorthService
-from kaleta.services.report_service import SavingsRatePoint
 from kaleta.views.dashboard_widgets.constants import SAVINGS_RATE_TARGET_PCT
-from kaleta.views.dashboard_widgets.helpers import fmt_amount
+from kaleta.views.dashboard_widgets.helpers import fmt_number
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -78,11 +76,8 @@ def _pace_bar(rate: Decimal | None) -> None:
     ((2, 1), (2, 2), (4, 2)),
 )
 async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
-    income, expenses = await ReportService(session).current_month_summary()
-    net = income - expenses
-    today = datetime.date.today()
-    # The service owns the formula; the card only asks this month's point for it.
-    rate = SavingsRatePoint(today.year, today.month, income, expenses).rate_pct
+    point = await ReportService(session).current_month_point()
+    income, expenses, net, rate = point.income, point.expenses, point.savings, point.rate_pct
     summary = await NetWorthService(session).get_summary(history_months=2)
     forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
     predicted = forecast.predicted_balance_30d
@@ -91,20 +86,18 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
         with ui.column().classes("gap-1 w-full"):
             ui.label(t("dashboard_widgets.month_card")).classes("k-eyebrow")
             with ui.row().classes("w-full gap-6 mt-2 no-wrap"):
-                _figure(t("common.income"), fmt_amount(income).removesuffix(" zł"), AMOUNT_INCOME)
-                _figure(
-                    t("common.expense"), fmt_amount(expenses).removesuffix(" zł"), AMOUNT_EXPENSE
-                )
-                _figure(t("dashboard.net"), fmt_amount(net).removesuffix(" zł"), INK)
+                _figure(t("common.income"), fmt_number(income), AMOUNT_INCOME)
+                _figure(t("common.expense"), fmt_number(expenses), AMOUNT_EXPENSE)
+                _figure(t("dashboard.net"), fmt_number(net), INK)
 
         _pace_bar(rate)
 
         with ui.row().classes("w-full gap-6 pt-4 mt-4 k-card-footer flex-wrap"):
             _footer_stat(
                 t("dashboard.balance_30"),
-                "—" if predicted is None else fmt_amount(predicted).removesuffix(" zł"),
+                "—" if predicted is None else fmt_number(predicted),
             )
             _footer_stat(
                 t("dashboard_widgets.net_worth"),
-                fmt_amount(summary.net_worth).removesuffix(" zł"),
+                fmt_number(summary.net_worth),
             )

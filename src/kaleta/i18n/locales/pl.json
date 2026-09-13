@@ -112,7 +112,8 @@
     "savings_kept": "Zostało {pct}% przychodu",
     "savings_kept_none": "Brak przychodu w tym miesiącu",
     "savings_target": "Cel {pct}%",
-    "period_eyebrow": "{month} {year} · dzień {day}"
+    "period_eyebrow": "{month} {year} · dzień {day}",
+    "other_accounts": "Pozostałe konta ({count})"
   },
   "dashboard_widgets": {
     "customize": "Personalizuj",
@@ -182,17 +183,11 @@
     "reset_widgets_hint": "Włącza z powrotem wszystkie widżety w domyślnym rozmiarze i położeniu.",
     "reset_widgets_done": "Pulpit przywrócony do ustawień domyślnych.",
     "wizard_actions": "Wymaga uwagi",
-    "wizard_actions_sub": "Otwarte zadania z kreatora finansowego",
     "wizard_actions_empty": "Wszystko gotowe — nic nie wymaga uwagi.",
     "wizard_actions_more": "+{count} więcej",
     "wizard_actions_open": "Otwórz kreator finansowy"
   },
   "wizard_actions": {
-    "section_subscriptions": "Subskrypcje",
-    "section_safety_funds": "Fundusze bezpieczeństwa",
-    "section_personal_loans": "Pożyczki prywatne",
-    "section_monthly_readiness": "Gotowość miesięczna",
-    "section_getting_started": "Pierwsze kroki",
     "subscription_renewal_due_title": "Odnowienie {name} jest należne",
     "subscription_renewal_due_body": "Oczekiwane {date} — sprawdź, czy obciążenie doszło.",
     "subscription_candidates_title": "Znaleziono {count} możliwych subskrypcji",
@@ -319,7 +314,6 @@
     "open": "Otwórz",
     "subtitle": "Krok po kroku przez Twoje finanse — wykrywa luki, pomaga budować poduszki bezpieczeństwa i planować to, co przed Tobą.",
     "section_monthly": "Gotowość na kolejny miesiąc",
-    "section_subscriptions": "Subskrypcje",
     "section_funds": "Fundusze bezpieczeństwa i rezerwy",
     "section_budget": "Kreator budżetu",
     "section_income": "Planowanie dochodów",

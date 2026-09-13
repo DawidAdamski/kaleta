@@ -112,7 +112,8 @@
     "savings_kept": "Kept {pct}% of income",
     "savings_kept_none": "No income yet this month",
     "savings_target": "Target {pct}%",
-    "period_eyebrow": "{month} {year} · day {day}"
+    "period_eyebrow": "{month} {year} · day {day}",
+    "other_accounts": "{count} more accounts"
   },
   "dashboard_widgets": {
     "customize": "Customize",
@@ -182,17 +183,11 @@
     "reset_widgets_hint": "Switches every widget back on at its default size and position.",
     "reset_widgets_done": "Dashboard reset to defaults.",
     "wizard_actions": "Needs attention",
-    "wizard_actions_sub": "Open items from your financial wizard",
     "wizard_actions_empty": "All clear — nothing needs attention.",
     "wizard_actions_more": "+{count} more",
     "wizard_actions_open": "Open financial wizard"
   },
   "wizard_actions": {
-    "section_subscriptions": "Subscriptions",
-    "section_safety_funds": "Safety funds",
-    "section_personal_loans": "Personal loans",
-    "section_monthly_readiness": "Monthly readiness",
-    "section_getting_started": "Getting started",
     "subscription_renewal_due_title": "{name} renewal is due",
     "subscription_renewal_due_body": "Expected on {date} — confirm the charge landed.",
     "subscription_candidates_title": "{count} possible subscriptions found",
@@ -319,7 +314,6 @@
     "open": "Open",
     "subtitle": "A step-by-step guide that helps you stay on top of your money — spotting gaps, building safety nets, and preparing for what's coming.",
     "section_monthly": "Monthly readiness",
-    "section_subscriptions": "Subscriptions",
     "section_funds": "Safety & reserve funds",
     "section_budget": "Budget builder",
     "section_income": "Income planning",

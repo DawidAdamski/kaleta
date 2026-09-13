@@ -51,12 +51,14 @@ Every widget implements:
 
 Native widgets (built into the dashboard):
 
-- **Balance** (`balance_card`) — hero total over the accounts that make
-  it up, with predicted 30-day balance and net worth as a quiet footer.
-  Replaces the separate total-balance, net-worth and predicted-30d tiles.
-- **This month** (`month_card`) — income / expense / net side by side
-  plus a savings-rate bar ticked at the 20 % target. Replaces the three
-  month tiles and the savings-rate tile.
+- **Balance** (`balance_card`) — hero total over the three largest
+  accounts that make it up, with the rest collapsed into one "N more"
+  tile. Replaces the separate total-balance tile.
+- **This month** (`month_card`) — income / expense / net side by side, a
+  savings-rate bar ticked at the 20 % target, and, under a hairline, the
+  predicted 30-day balance and net worth. Replaces the three month
+  tiles, the savings-rate tile, and the net-worth and predicted-30d
+  tiles.
 - **Needs attention** (`wizard_actions`) — full-width accent banner
   listing the wizard's ranked actions; hidden when there are none.
 - **Cashflow last N months** — bar + line, N configurable.

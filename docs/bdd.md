@@ -2830,10 +2830,11 @@ Feature: Wizard Action Items
     And inside one severity the newest item comes first
 
   KAL-WAC-005 @manual
-  Scenario: The widget renders at both sizes
-    Given the "Needs attention" widget is on the dashboard
-    When I resize it between 2x2 and 4x2 in edit mode
-    Then both sizes render the list without clipping
+  Scenario: The banner renders at both sizes
+    Given the "Needs attention" banner is on the dashboard
+    When I resize it between 4x1 and 4x2 in edit mode
+    Then both sizes render the actions without clipping
+    And each action still shows its severity
 ```
 
 ---

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 from nicegui import app, ui
 
 from kaleta.i18n import t
-from kaleta.schemas.wizard_actions import ActionItem
+from kaleta.schemas.wizard_actions import ActionItem, ActionSeverity
 from kaleta.services import WizardActionService
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
@@ -19,6 +19,15 @@ from kaleta.views.theme import ACCENT_SURFACE, BODY_MUTED, ON_ACCENT
 
 # Out of scope: pagination. Show at most this many rows, then a "+N more" tail.
 MAX_ROWS = 12
+
+# Severity on an accent fill cannot be a coloured dot — terracotta on apricot
+# is unreadable — so it is carried by the glyph instead, which also stops
+# severity from depending on colour vision (KAL-WAC-003).
+_SEVERITY_ICON: dict[ActionSeverity, str] = {
+    ActionSeverity.DANGER: "error",
+    ActionSeverity.WARNING: "warning",
+    ActionSeverity.INFO: "info",
+}
 
 
 def drop_dismissed(items: list[ActionItem], dismissed: set[str]) -> list[ActionItem]:
@@ -55,10 +64,11 @@ def _render_row(item: ActionItem) -> None:
     params = _message_params(item)
     with (
         ui.row()
-        .classes("k-banner-item items-baseline gap-1.5 no-wrap cursor-pointer")
+        .classes("k-banner-item items-center gap-1.5 no-wrap cursor-pointer")
         .props(f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}"')
         .on("click", lambda _e=None, href=item.href: ui.navigate.to(href))
     ):
+        ui.icon(_SEVERITY_ICON[item.severity], size="1rem").classes(f"{ON_ACCENT} shrink-0")
         ui.label(t(item.title_key, **params)).classes("text-sm font-medium")
 
 

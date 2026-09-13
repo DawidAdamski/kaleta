@@ -15,7 +15,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import ReportService
-from kaleta.views.dashboard_widgets.helpers import fmt_amount, section_card
+from kaleta.views.dashboard_widgets.helpers import fmt_amount, fmt_number, section_card
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -74,9 +74,7 @@ def _variance_row(row: BudgetVarianceRow) -> None:
     with ui.column().classes("w-full gap-1.5"):
         with ui.row().classes("w-full items-baseline justify-between no-wrap gap-3"):
             ui.label(row.category).classes(f"{INK} text-[13px] truncate")
-            ui.label(f"+{fmt_amount(over).removesuffix(' zł')}").classes(
-                f"{amount_cls} text-[13px]"
-            )
+            ui.label(f"+{fmt_number(over)}").classes(f"{amount_cls} text-[13px]")
         with ui.element("div").classes("k-pace w-full"):
             ui.element("div").classes("k-pace__fill").style(f"width:100%;background:{colour}")
         ui.label(f"{fmt_amount(row.actual)} / {fmt_amount(row.planned)} · {pct_txt}").classes(

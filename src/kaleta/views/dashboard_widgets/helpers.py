@@ -27,6 +27,16 @@ def fmt_amount(amount: Decimal | float | int) -> str:
     return f"{float(amount):,.2f} zł"
 
 
+def fmt_number(amount: Decimal | float | int) -> str:
+    """The same figure without its currency suffix.
+
+    Cards that label a whole column "zł" repeat the suffix on every row for
+    nothing. Derived from :func:`fmt_amount` so the two cannot drift apart if
+    the currency or the thousands separator ever changes.
+    """
+    return fmt_amount(amount).removesuffix(" zł")
+
+
 def _month_short_name(month: int) -> str:
     return t(f"common.month_short_{month}")
 
@@ -135,7 +145,7 @@ def split_amount(amount: Decimal | float | int) -> tuple[str, str]:
     the same string every other figure on the page does, then peels off the
     decimal group. ``64,648.01 zł`` → ``("64,648", ".01")``.
     """
-    numeric = fmt_amount(amount).removesuffix(" zł")
+    numeric = fmt_number(amount)
     whole, sep, frac = numeric.rpartition(".")
     return (whole, sep + frac) if sep else (numeric, "")
 

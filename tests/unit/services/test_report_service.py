@@ -696,3 +696,59 @@ class TestKpiDeltas:
 
         delta = await svc.savings_rate_delta()
         assert delta.rate_points == Decimal("20.0")
+
+
+class TestCurrentMonthPoint:
+    """The month card reads this month as one point rather than re-deriving it."""
+
+    async def test_carries_income_expenses_savings_and_rate(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        today = datetime.date.today()
+        acc = await _make_account(session)
+        salary = await _make_category(session, "Salary", CategoryType.INCOME)
+        food = await _make_category(session, "Food", CategoryType.EXPENSE)
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("5000"),
+            tx_type=TransactionType.INCOME,
+            date=today.replace(day=1),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("4000"),
+            tx_type=TransactionType.EXPENSE,
+            date=today.replace(day=1),
+        )
+
+        point = await svc.current_month_point()
+
+        assert (point.year, point.month) == (today.year, today.month)
+        assert point.income == Decimal("5000")
+        assert point.expenses == Decimal("4000")
+        assert point.savings == Decimal("1000")
+        assert point.rate_pct == Decimal("20")
+
+    async def test_no_income_yet_means_no_rate(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        today = datetime.date.today()
+        acc = await _make_account(session)
+        food = await _make_category(session, "Food", CategoryType.EXPENSE)
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("120"),
+            tx_type=TransactionType.EXPENSE,
+            date=today.replace(day=1),
+        )
+
+        point = await svc.current_month_point()
+
+        assert point.income == Decimal("0.00")
+        assert point.rate_pct is None

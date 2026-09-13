@@ -370,6 +370,17 @@ class ReportService:
         today = datetime.date.today()
         return await self._month_summary(today.year, today.month)
 
+    async def current_month_point(self) -> SavingsRatePoint:
+        """This month as one point: income, expenses, savings and the kept rate.
+
+        The same figures ``current_month_summary`` returns, but carrying the
+        savings-rate rules with them, so a caller that needs the rate does not
+        re-derive it.
+        """
+        today = datetime.date.today()
+        income, expenses = await self._month_summary(today.year, today.month)
+        return SavingsRatePoint(today.year, today.month, income, expenses)
+
     async def month_net_delta(self) -> KpiPeriodDelta:
         """Current calendar month net vs the previous month."""
         today = datetime.date.today()

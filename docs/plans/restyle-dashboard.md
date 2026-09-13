@@ -140,10 +140,13 @@ plan actually changed:
    with a new `Widget.legacy` flag; `selectable_widgets()` is what the
    Customize picker offers, so they can no longer be added, but a stored
    layout naming one still resolves instead of crashing.
-   `migrate_legacy_kpis` logs at INFO on every migration
-   (`Dashboard layout migrated: N legacy KPI widget(s) -> …`), which is
-   what makes "no stored layout references them any more" observable
-   before the later cleanup deletes them.
+   `migrate_legacy_kpis` logs at WARNING whenever a stored layout still
+   names one, which is what makes "no stored layout references them any
+   more" observable before the later cleanup deletes them. It is a
+   warning rather than an info line precisely because it repeats on every
+   load of an untouched profile: the noise *is* the signal that something
+   still needs migrating, and it stops the moment the user next drags or
+   resizes anything (the POST handler persists the resolved list).
 2. **Savings target: 20 % constant**, `dashboard_widgets/constants.py`
    `SAVINGS_RATE_TARGET_PCT`. Artboard `1c` draws its tick at 25 %; that is
    mockup data, not a decision, so the plan's default stands until a
@@ -173,6 +176,41 @@ now needs only `ReportService` + `AccountService`, while `month_card`
 pulls `ForecastService` and `NetWorthService`. The 30-day forecast is the
 slowest call on the dashboard either way — it did not gain a second
 caller, it changed hands.
+
+### What the wizard banner dropped, and what it kept
+
+Turning a 2x2 card into a 4x1 strip cost information, so it is worth being
+explicit about what went:
+
+- **Per-item body text** (`t(item.body_key)`) — a strip has room for one
+  line per action, not two. The body is one click away on `/wizard`, and
+  the title alone is what the ranking tests read.
+- **Section grouping** (`wizard_actions.section_*`) — headers inside a
+  single-line banner make no sense. Ranked order survives, which is what
+  `KAL-WAC-004` asserts; the five now-unused i18n keys are deleted, along
+  with `dashboard_widgets.wizard_actions_sub`.
+- **Allowed sizes** changed from `(2,2)/(4,2)` to `(4,1)/(4,2)`: a banner
+  that is not full width is not a banner. `KAL-WAC-005` was updated to
+  match — it named 2x2, which is no longer offered.
+
+What did **not** go: severity. The coloured dot did, because terracotta on
+apricot is unreadable, but each action now leads with an `error` /
+`warning` / `info` glyph in `--k-on-accent`. That keeps `KAL-WAC-003`
+honest as something a user can see, and carries severity by shape rather
+than by colour alone.
+
+The plan says the empty state "stays hidden as today". It never was
+hidden — it renders the "All clear" line, which is what `KAL-WAC-001`
+asserts. The behaviour is unchanged; only the plan's description of it
+was wrong.
+
+### Account tiles
+
+`top_accounts` ranks by balance and folds everything past the third into
+one "N more accounts" tile carrying their sum. Taking the first three of
+`AccountService.list()` would have been three *alphabetical* accounts,
+and with four or more the tiles would silently fail to add up to the hero
+above them.
 
 ### Migration
 
