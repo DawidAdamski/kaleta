@@ -113,7 +113,7 @@
     "savings_kept_none": "No income yet this month",
     "savings_target": "Target {pct}%",
     "period_eyebrow": "{month} {year} · day {day}",
-    "other_accounts": "{count} more accounts"
+    "other_accounts": "Other accounts ({count})"
   },
   "dashboard_widgets": {
     "customize": "Customize",

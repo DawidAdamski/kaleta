@@ -10,7 +10,6 @@ used to be cards of their own, ``predicted_30d`` and ``net_worth``.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
 
 from nicegui import ui
 
-from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.services.forecast_service import ForecastService
@@ -34,24 +32,6 @@ from kaleta.views.theme import (
     DASH_CARD,
     INK,
 )
-
-logger = logging.getLogger(__name__)
-
-
-async def _predicted_30d(session: AsyncSession) -> float | None:
-    """The 30-day forecast, or nothing at all.
-
-    Prophet may be missing and a young ledger has too little history to fit;
-    the service raises for both. This is the least important figure on the
-    card — it must not take the month's own numbers down with it, which is
-    what it would do now that the two live in one widget.
-    """
-    try:
-        result = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
-    except KaletaError:
-        logger.info("Month card: 30-day forecast unavailable", exc_info=True)
-        return None
-    return result.predicted_balance_30d
 
 
 def _footer_stat(label: str, value: str) -> None:
@@ -101,7 +81,10 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
     point = await ReportService(session).current_month_point()
     income, expenses, net = point.income, point.expenses, point.savings
     summary = await NetWorthService(session).get_summary(history_months=2)
-    predicted = await _predicted_30d(session)
+    forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
+    # No Prophet, or too little history: the service says so by having no
+    # prediction to give, and the footer renders an em dash for it.
+    predicted = forecast.predicted_balance_30d
 
     with ui.card().classes(f"{DASH_CARD} justify-between"):
         with ui.column().classes("gap-1 w-full"):

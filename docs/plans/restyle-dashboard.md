@@ -185,6 +185,11 @@ acceptance criterion is "matches artboards `1c`/`1d`"):
 caption, and a hairline footer, so that size is gone — `(2,2)` and
 `(4,2)` only.
 
+The page title gained the eyebrow `1c` draws above it — "Jul 2026 · day
+3" (`dashboard.period_eyebrow`), which says where in the month the figures
+below stand. Not in Scope; it is one line of the artboard's page header
+and the merged cards read differently without it.
+
 One widget, one name: the balance card's eyebrow used to read
 `dashboard.total_balance` ("Total Balance") while the Customize picker
 listed it as "Balance". Both now read `dashboard_widgets.balance_card`,
@@ -201,10 +206,15 @@ Moving the two slow figures also moved their services: `balance_card`
 now needs only `ReportService` + `AccountService`, while `month_card`
 pulls `ForecastService` and `NetWorthService`. The 30-day forecast is the
 slowest call on the dashboard either way — it did not gain a second
-caller, it changed hands. It is also the one call here that can fail
-outright (Prophet missing, or too little history), and it used to take
-down only its own small tile; it is now wrapped so that it costs the
-footer figure and not the month's own numbers.
+caller, it changed hands. It cannot fail
+outright, which is worth stating because merging widgets makes it a fair
+question: with no Prophet installed or fewer than 14 days of history the
+service returns a result with no prediction rather than raising, and the
+footer renders an em dash. (`ForecastUnavailableError` exists in
+`exceptions.py` but nothing raises it.) A genuine exception — a database
+error, say — still takes the whole page down, because `_render_widget`
+isolates no widget from one; that gap predates this plan and is
+dashboard-wide, not this card's to close.
 
 ### What the wizard banner dropped, and what it kept
 

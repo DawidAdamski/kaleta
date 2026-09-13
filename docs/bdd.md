@@ -2797,7 +2797,7 @@ Feature: Dashboard Customization
     Given I have five accounts and income booked this month
     When I open the dashboard
     Then the "Total balance" card names my three largest accounts by size
-    And one more tile reads "2 more accounts" carrying their combined balance
+    And one more tile reads "Other accounts (2)" carrying their combined balance
     And the tiles plus that one add up to the hero figure above them
     And the "This month" card fills its savings bar to the share of income I kept
     And a tick on that bar marks the 20% target
