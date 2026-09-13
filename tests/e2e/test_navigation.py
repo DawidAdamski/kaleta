@@ -65,11 +65,21 @@ def _drawer(page: Page) -> Locator:
 
 
 def _ensure_group_expanded(page: Page, group_label: str, probe_item: str) -> None:
-    """Expand a collapsed nav group by clicking its header (no-op when expanded)."""
+    """Expand a collapsed nav group by clicking its header (no-op when expanded).
+
+    ``is_visible`` reads the DOM as it stands *now*, so it must not run while
+    the drawer is still being streamed in after a navigation: an expanded
+    group that has not arrived yet probes as collapsed, the header click then
+    *collapses* it, and the item click that follows times out on an element
+    that is present but hidden. Waiting for the header first is what makes
+    the probe answer a question about the finished drawer.
+    """
     drawer = _drawer(page)
+    header = drawer.get_by_text(group_label, exact=True)
+    expect(header).to_be_visible(timeout=10000)
     probe = drawer.get_by_text(probe_item, exact=True)
     if not probe.is_visible():
-        drawer.get_by_text(group_label, exact=True).click()
+        header.click()
         expect(probe).to_be_visible(timeout=5000)
 
 
