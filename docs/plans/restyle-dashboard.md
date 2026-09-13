@@ -201,7 +201,10 @@ Moving the two slow figures also moved their services: `balance_card`
 now needs only `ReportService` + `AccountService`, while `month_card`
 pulls `ForecastService` and `NetWorthService`. The 30-day forecast is the
 slowest call on the dashboard either way — it did not gain a second
-caller, it changed hands.
+caller, it changed hands. It is also the one call here that can fail
+outright (Prophet missing, or too little history), and it used to take
+down only its own small tile; it is now wrapped so that it costs the
+footer figure and not the month's own numbers.
 
 ### What the wizard banner dropped, and what it kept
 
@@ -232,12 +235,15 @@ was wrong.
 
 ### Account tiles
 
-`AccountService.balance_breakdown(limit)` ranks by balance and folds
+`AccountService.balance_breakdown(limit)` ranks by `abs(balance)` and folds
 everything past the third into a count and a sum, which the card renders
 as one "N more accounts" tile. Taking the first three of
 `AccountService.list()` would have been three *alphabetical* accounts,
 and with four or more the tiles would silently fail to add up to the hero
-above them. It lives in the service, not the widget, for the same reason
+above them. Size, not signed balance: a credit card at −4 000 moves the
+total as much as a savings account at +4 000, and folding it into "N more"
+would hide the account that explains the hero best. It lives in the
+service, not the widget, for the same reason
 `current_month_point` does — the card should not be the place that
 decides what a balance breakdown means. `KAL-DSH-005` (@manual) covers
 what the two cards show.
@@ -297,6 +303,10 @@ testing its own subject instead of the migration.
   focus ring) still carried raw slate/blue rgba literals from before the
   restyle — the one place on the dashboard the sand palette had not
   reached. Retokenised; the drag mechanics are untouched.
+- `month_net` lost its `text-green-600` / `text-red-600` pair for the
+  `KPI_TREND_*` tokens. It is a legacy widget frozen for deletion, but it
+  still renders for anyone whose stored layout names it, and a red that
+  the rest of the palette retired is exactly what the restyle is for.
 - `mini_stat` took a Quasar hue string (`"green-7"`, `"purple-7"`) and
   rendered `text-slate-500` labels. It now takes a theme amount class and
   renders mono figures, so `ytd_summary` matches the other cards.

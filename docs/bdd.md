@@ -2796,7 +2796,7 @@ Feature: Dashboard Customization
   Scenario: The merged cards say what they leave out
     Given I have five accounts and income booked this month
     When I open the dashboard
-    Then the "Total balance" card names my three largest accounts
+    Then the "Total balance" card names my three largest accounts by size
     And one more tile reads "2 more accounts" carrying their combined balance
     And the tiles plus that one add up to the hero figure above them
     And the "This month" card fills its savings bar to the share of income I kept

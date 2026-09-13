@@ -43,9 +43,12 @@ class AccountService:
 
         A card that shows a grand total next to a handful of accounts has to
         say what it left out, or the figures read as a breakdown that does not
-        add up. Ranked by balance — the first three *by name* explain nothing.
+        add up. Ranked by *size*, not by signed balance and not by name: a
+        credit card at -4 000 moves the total as much as a savings account at
+        +4 000, so hiding it among "N more" would explain the least about the
+        figure it sits under.
         """
-        accounts = sorted(await self.list(), key=lambda a: a.balance, reverse=True)
+        accounts = sorted(await self.list(), key=lambda a: abs(a.balance), reverse=True)
         shown, rest = accounts[:limit], accounts[limit:]
         return BalanceBreakdown(
             shown=shown,

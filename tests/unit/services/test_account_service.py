@@ -244,6 +244,21 @@ class TestBalanceBreakdown:
         # The tiles must add up to the hero above them: 270 + 10 = 280.
         assert sum(a.balance for a in breakdown.shown) + breakdown.hidden_total == Decimal("280.00")
 
+    async def test_a_large_debt_is_named_not_hidden(self, svc: AccountService) -> None:
+        await self._seed(
+            svc,
+            ("Karta", "-4000.00"),
+            ("Konto", "3000.00"),
+            ("Oszczędności", "2000.00"),
+            ("Drobne", "50.00"),
+        )
+
+        breakdown = await svc.balance_breakdown(3)
+
+        assert [a.name for a in breakdown.shown] == ["Karta", "Konto", "Oszczędności"]
+        assert breakdown.hidden_count == 1
+        assert breakdown.hidden_total == Decimal("50.00")
+
     async def test_no_accounts_at_all(self, svc: AccountService) -> None:
         breakdown = await svc.balance_breakdown(3)
 
