@@ -117,6 +117,23 @@ mechanics (`dashboard-edit-mode-drag`, archived — unchanged).
 
 ## Implementation notes
 
+### Read this before reviewing the diff
+
+This branch is **stacked on `plan/restyle-theme-tokens`**, which is not
+merged yet — `restyle-dashboard` "Depends on `restyle-theme-tokens`" and
+cannot be built without the sand tokens it introduces. So
+`git diff $(git merge-base HEAD main)` shows *both* plans: the theme
+work (fonts, `theme.py`, `chart_utils.py`, the token sweep across ~20
+view files) is the parent branch's, already reviewed and approved on its
+own gate, and `docs/plans/restyle-theme-tokens.md` carries its notes.
+
+The 1:1:1 rule holds at the PR, not at the merge-base: this plan's PR is
+opened with `--base plan/restyle-theme-tokens`, so it closes one issue
+with one branch and one PR whose diff is dashboard-only. To see what this
+plan actually changed:
+
+    git diff plan/restyle-theme-tokens...HEAD
+
 ### Open questions — decisions taken
 
 1. **Legacy KPI widgets: kept, hidden.** The seven modules stay registered

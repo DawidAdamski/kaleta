@@ -10,6 +10,7 @@ used to be cards of their own, ``predicted_30d`` and ``net_worth``.
 
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -22,6 +23,7 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.services.forecast_service import ForecastService
 from kaleta.services.net_worth_service import NetWorthService
+from kaleta.services.report_service import SavingsRatePoint
 from kaleta.views.dashboard_widgets.constants import SAVINGS_RATE_TARGET_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_amount
 from kaleta.views.dashboard_widgets.registry import register
@@ -32,13 +34,6 @@ from kaleta.views.theme import (
     DASH_CARD,
     INK,
 )
-
-
-def savings_rate_pct(income: Decimal, expenses: Decimal) -> Decimal | None:
-    """Share of income kept this month, or None when there is no income yet."""
-    if income <= 0:
-        return None
-    return ((income - expenses) / income) * Decimal("100")
 
 
 def _footer_stat(label: str, value: str) -> None:
@@ -85,7 +80,9 @@ def _pace_bar(rate: Decimal | None) -> None:
 async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     income, expenses = await ReportService(session).current_month_summary()
     net = income - expenses
-    rate = savings_rate_pct(income, expenses)
+    today = datetime.date.today()
+    # The service owns the formula; the card only asks this month's point for it.
+    rate = SavingsRatePoint(today.year, today.month, income, expenses).rate_pct
     summary = await NetWorthService(session).get_summary(history_months=2)
     forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
     predicted = forecast.predicted_balance_30d

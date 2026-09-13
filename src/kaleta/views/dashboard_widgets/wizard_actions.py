@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 from nicegui import app, ui
 
 from kaleta.i18n import t
-from kaleta.schemas.wizard_actions import ActionItem, ActionSeverity
+from kaleta.schemas.wizard_actions import ActionItem
 from kaleta.services import WizardActionService
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
@@ -19,12 +19,6 @@ from kaleta.views.theme import ACCENT_SURFACE, BODY_MUTED, ON_ACCENT
 
 # Out of scope: pagination. Show at most this many rows, then a "+N more" tail.
 MAX_ROWS = 12
-
-_SEVERITY_DOT: dict[ActionSeverity, str] = {
-    ActionSeverity.DANGER: "k-dot--danger",
-    ActionSeverity.WARNING: "k-dot--warn",
-    ActionSeverity.INFO: "k-dot--info",
-}
 
 
 def drop_dismissed(items: list[ActionItem], dismissed: set[str]) -> list[ActionItem]:
