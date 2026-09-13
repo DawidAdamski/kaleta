@@ -278,6 +278,12 @@ because `verify.sh --e2e` cannot be green without them:
   drawer that was still streaming in, read an expanded group as
   collapsed, and its "expand" click collapsed it. It now waits for the
   group header before probing.
+- `test_transactions` (three tests): a split amount was `fill`ed but never
+  blurred, so NiceGUI's `change` sync had not fired when "Fill last"
+  balanced against the server's model — it wrote a last line that did not
+  add up, and Save stayed disabled for good. The amounts now tab out of
+  the field, and Save is clicked only once the dialog agrees the lines
+  balance.
 
 Neither touches production code; they are test-only and unrelated to the
 restyle, so they belong in their own commit.
