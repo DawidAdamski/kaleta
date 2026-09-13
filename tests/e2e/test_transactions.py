@@ -10,7 +10,7 @@ Page URL: /transactions
 
 from __future__ import annotations
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.seed_helpers import (
     get_transaction,
@@ -25,6 +25,32 @@ def _fill_number(scope: Page, label: str, value: str) -> None:
     field = scope.get_by_role("spinbutton", name=label, exact=True)
     field.click(click_count=3)
     field.fill(value)
+
+
+def _set_split_amount(field: Locator, value: str) -> None:
+    """Type a split line's amount and commit it.
+
+    NiceGUI syncs a number input on `change`, so a `fill` that is never blurred
+    leaves the server still holding the old figure — and "Fill last", which
+    balances against the server's model, then writes a last line that does not
+    add up to the total. The Save button stays disabled for good, 30s of
+    Playwright auto-waiting included. Tab commits the value first.
+    """
+    field.click(click_count=3)
+    field.fill(value)
+    field.press("Tab")
+
+
+def _save_when_balanced(dialog: Page) -> None:
+    """Save once the dialog agrees the split lines add up.
+
+    Save is disabled while they do not, and it is re-enabled over the
+    websocket, so clicking it in the same breath as "Fill last" races that
+    round trip.
+    """
+    save = dialog.get_by_role("button", name="Save")
+    expect(save).to_be_enabled(timeout=10000)
+    save.click()
 
 
 def _pick_open_menu_option(page: Page, option: str) -> None:
@@ -138,11 +164,10 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     split_amount_fields = dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.first.click(click_count=3)
-    split_amount_fields.first.fill("60")
+    _set_split_amount(split_amount_fields.first, "60")
     dialog.get_by_role("button", name="Fill last").click()
 
-    dialog.get_by_role("button", name="Save").click()
+    _save_when_balanced(dialog)
 
     expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
@@ -165,11 +190,9 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     split_amount_fields = split_edit_dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.nth(0).click(click_count=3)
-    split_amount_fields.nth(0).fill("70")
-    split_amount_fields.nth(1).click(click_count=3)
-    split_amount_fields.nth(1).fill("30")
-    split_edit_dialog.get_by_role("button", name="Save").click()
+    _set_split_amount(split_amount_fields.nth(0), "70")
+    _set_split_amount(split_amount_fields.nth(1), "30")
+    _save_when_balanced(split_edit_dialog)
 
     expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
@@ -221,10 +244,9 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
     split_amount_fields = dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.first.click(click_count=3)
-    split_amount_fields.first.fill("60")
+    _set_split_amount(split_amount_fields.first, "60")
     dialog.get_by_role("button", name="Fill last").click()
-    dialog.get_by_role("button", name="Save").click()
+    _save_when_balanced(dialog)
 
     split_row = page.locator(".q-table tbody tr").filter(has_text="Split Ind E2E")
     plain_row = page.locator(".q-table tbody tr").filter(has_text="Plain Ind E2E")
@@ -281,10 +303,9 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     split_amount_fields = edit_dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.first.click(click_count=3)
-    split_amount_fields.first.fill("50")
+    _set_split_amount(split_amount_fields.first, "50")
     edit_dialog.get_by_role("button", name="Fill last").click()
-    edit_dialog.get_by_role("button", name="Save").click()
+    _save_when_balanced(edit_dialog)
 
     updated = page.locator(".q-table tbody tr").filter(has_text="Arm Split E2E")
     expect(updated.get_by_text("Split (2)", exact=True)).to_be_visible(timeout=5000)
