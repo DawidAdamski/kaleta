@@ -5,7 +5,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from kaleta.services.report_service import BudgetVarianceRow
 from kaleta.views.dashboard_widgets.constants import SEVERE_SPENT_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_number, split_amount
 
@@ -13,41 +12,10 @@ from kaleta.views.dashboard_widgets.helpers import fmt_number, split_amount
 _THRESHOLD = Decimal("110")
 
 
-def _is_severe(planned: str, actual: str) -> bool:
-    """The call ``_variance_row`` makes to choose between expense and warning."""
-    row = BudgetVarianceRow(category="x", planned=Decimal(planned), actual=Decimal(actual))
-    return row.is_severely_over(_THRESHOLD)
-
-
 def test_the_shipped_threshold_is_the_one_the_plan_chose() -> None:
+    # The colour rule itself is tested on BudgetVarianceRow, next to the
+    # figures it reads; what belongs here is the number the widget hands it.
     assert SEVERE_SPENT_PCT == _THRESHOLD
-
-
-class TestVarianceSeverity:
-    """The three over-budget rows drawn in artboard 1c, and how they colour."""
-
-    def test_fifteen_percent_over_reads_as_expense(self) -> None:
-        assert _is_severe("1400.00", "1612.30") is True
-
-    def test_thirty_nine_percent_over_reads_as_expense(self) -> None:
-        assert _is_severe("300.00", "418.00") is True
-
-    def test_six_percent_over_reads_as_a_warning(self) -> None:
-        assert _is_severe("350.00", "372.40") is False
-
-    def test_exactly_at_the_threshold_reads_as_expense(self) -> None:
-        assert _is_severe("100.00", "110.00") is True
-
-    def test_unbudgeted_spending_reads_as_expense(self) -> None:
-        # No plan to still be inside of.
-        assert _is_severe("0", "50.00") is True
-
-    def test_the_signed_variance_cannot_be_mistaken_for_it(self) -> None:
-        # variance_pct is negative when over budget: comparing *it* against the
-        # threshold classified every over-budget row as a warning.
-        row = BudgetVarianceRow(category="x", planned=Decimal("1400.00"), actual=Decimal("1612.30"))
-        assert (row.variance_pct or Decimal("0")) < _THRESHOLD
-        assert row.is_severely_over(_THRESHOLD) is True
 
 
 class TestFigureFormatting:

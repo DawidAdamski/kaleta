@@ -160,6 +160,10 @@ plan actually changed:
    savings target), which reproduces the
    artboard's three rows (115 %, 139 % expense; 106 % warning).
 
+   `is_severely_over` answers False for a row with no plan at all, which is
+   the answer `over_budget` already gives it: unbudgeted spending is a
+   different story and a different widget's to tell.
+
    The percentage it reads is `BudgetVarianceRow.spent_pct`, added for
    this: `variance` and `variance_pct` are signed the *other* way
    (positive = under budget), so a row at 115 % of plan reports −15 %.
@@ -347,6 +351,14 @@ because `verify.sh --e2e` cannot be green without them:
 
 Neither touches production code; they are test-only and unrelated to the
 restyle, so they belong in their own commit.
+
+### Left for the Chore inbox
+
+`dashboard.py:_render_widget` renders each widget with no error isolation,
+so an exception in any one of them blanks the page. That was true before
+this plan and is not its to fix, but merging seven tiles into two cards
+raises the stakes: a failure now costs the month's figures and the savings
+bar together, where it used to cost one small tile.
 
 ### Not done
 

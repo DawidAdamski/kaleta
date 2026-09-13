@@ -148,16 +148,15 @@ class BudgetVarianceRow:
         return self.actual > self.planned and self.planned > 0
 
     def is_severely_over(self, threshold_pct: Decimal) -> bool:
-        """Past *threshold_pct* of plan — or spent with no plan at all.
+        """Past *threshold_pct* of plan.
 
         Where a caller draws the line between "watch this" and "this is a
-        problem". Unbudgeted spending counts as severe: there is no plan it
-        could still be inside of. (The dashboard only ever asks this of
-        ``over_budget_rows``, which all have a plan; the rule is here for any
-        caller that walks every row.)
+        problem". A row with no plan is neither, the same answer
+        :attr:`over_budget` gives it — unbudgeted spending is a different
+        story, told by a different widget.
         """
         spent = self.spent_pct
-        return spent is None or spent >= threshold_pct
+        return spent is not None and spent >= threshold_pct
 
 
 @dataclass

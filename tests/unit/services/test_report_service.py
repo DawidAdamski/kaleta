@@ -240,6 +240,46 @@ class TestBudgetVarianceRowArithmetic:
 
         assert row.spent_pct is None
         assert row.over_budget is False
+        # Not "over" its plan and not severely over it either — one row, one answer.
+        assert row.is_severely_over(Decimal("110")) is False
+
+
+class TestBudgetVarianceSeverity:
+    """Where a row falls against a threshold — artboard 1c's three rows."""
+
+    def test_fifteen_percent_over_is_severe(self) -> None:
+        row = BudgetVarianceRow(
+            category="Żywność", planned=Decimal("1400.00"), actual=Decimal("1612.30")
+        )
+
+        assert row.is_severely_over(Decimal("110")) is True
+
+    def test_thirty_nine_percent_over_is_severe(self) -> None:
+        row = BudgetVarianceRow(
+            category="Rozrywka", planned=Decimal("300.00"), actual=Decimal("418.00")
+        )
+
+        assert row.is_severely_over(Decimal("110")) is True
+
+    def test_six_percent_over_is_not(self) -> None:
+        row = BudgetVarianceRow(
+            category="Transport", planned=Decimal("350.00"), actual=Decimal("372.40")
+        )
+
+        assert row.is_severely_over(Decimal("110")) is False
+
+    def test_exactly_at_the_threshold_is_severe(self) -> None:
+        row = BudgetVarianceRow(category="x", planned=Decimal("100"), actual=Decimal("110"))
+
+        assert row.is_severely_over(Decimal("110")) is True
+
+    def test_the_signed_variance_cannot_be_mistaken_for_it(self) -> None:
+        # variance_pct is negative when over budget: comparing *it* against the
+        # threshold classified every over-budget row as a warning.
+        row = BudgetVarianceRow(category="x", planned=Decimal("1400.00"), actual=Decimal("1612.30"))
+
+        assert (row.variance_pct or Decimal("0")) < Decimal("110")
+        assert row.is_severely_over(Decimal("110")) is True
 
 
 class TestBudgetVariance:
