@@ -43,6 +43,9 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("common.date"),
             "field": "date",
             "sortable": True,
+            # QTable right-aligns by default; the amount is the only column
+            # that reads better that way.
+            "align": "left",
             "style": "width: 95px; min-width: 95px",
         },
         {

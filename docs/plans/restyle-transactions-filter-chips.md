@@ -163,6 +163,27 @@ the bar at `#EFE3D6` against the separator's `#F6F1E7`, so the bar now has
 its own token, `--k-surface-warm-strong`, with the sunken surface as its dark
 counterpart.
 
+### Selection is bulk-action behaviour, and it changed
+
+The plan lists bulk actions as out of scope, but the selection bar is in
+scope and the bar was lying. Every redraw that unticks the table —
+regrouping, a page-size change, a page turn, a filter change, "Clear all" —
+left the ids behind, so the bar read "2 selected" with a live delete button
+over a table with nothing ticked. `_drop_selection()` is now the one place
+that forgets them and every redraw path calls it.
+
+Dismissing the bar is the mirror image: the ledger stays standing, so the
+bar has to take the ticks off the rows as well as forget their ids
+(`_untick_table`). Both are covered by KAL-TXN-014 and KAL-PAG-005. No other
+bulk-action behaviour was touched: delete still deletes what is ticked.
+
+### The date column is left-aligned now
+
+Scope says the amount column is the only right-aligned one. QTable
+right-aligns any column that does not say otherwise, so the new `DD.MM`
+date cell was quietly right-aligned against the row's left edge; it now
+declares `align: left` like its neighbours.
+
 ### One amended criterion
 
 `grep -q "k-filter-chip" filter_bar.py` became `grep -q "FILTER_CHIP"`. The

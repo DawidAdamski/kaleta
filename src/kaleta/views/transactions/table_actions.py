@@ -18,6 +18,7 @@ def render_table_actions(
     selected_rows: list[dict[str, Any]],
     *,
     on_delete: Callable[[], None],
+    on_clear: Callable[[], None],
     refresh: Callable[[], None],
 ) -> Any:
     """Render the warm selection bar when one or more rows are checked."""
@@ -38,8 +39,9 @@ def render_table_actions(
             ).tooltip(t("transactions.delete_selected", count=n))
 
             def _clear_selection() -> None:
-                selected_tx_ids.clear()
-                selected_rows.clear()
+                # The page owns the table, so it is the one that can take the
+                # ticks off the rows as well as forget their ids.
+                on_clear()
                 refresh()
 
             ui.button(icon="close", on_click=_clear_selection).props(

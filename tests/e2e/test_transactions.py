@@ -608,8 +608,20 @@ def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> No
     expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
     expect(page.get_by_text("+9,111.26", exact=True)).to_be_visible(timeout=10000)
 
+    # Dismissing the bar leaves the ledger standing, so it has to take the
+    # ticks off the rows itself — a row that still looks selected under no bar
+    # sends the whole selection back on the next click.
+    ticked = page.locator('.q-table tbody .q-checkbox[aria-checked="true"]')
+    expect(ticked).to_have_count(2)
+    page.locator(".k-selection-bar").get_by_role("button").last.click()
+    expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
+    expect(ticked).to_have_count(0, timeout=10000)
+
     # Clearing the filters redraws the table with nothing ticked — the bar must
     # go with it, or its delete button still points at rows nobody selected.
+    for checkbox in page.locator(".q-table tbody .q-checkbox").all():
+        checkbox.click()
+    expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
     page.get_by_role("button", name="Clear all 1").click()
     expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
 

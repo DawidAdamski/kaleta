@@ -519,7 +519,7 @@ class TransactionService:
         between the user's own accounts — but a lone leg, in a ledger filtered
         to one account, really is money leaving that account.
         """
-        visible = {row.get("id") for row in rows}
+        visible = {row["id"] for row in rows if row.get("id") is not None}
         total = Decimal("0")
         for row in rows:
             paired = (

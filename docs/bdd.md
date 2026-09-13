@@ -812,6 +812,7 @@ Feature: Manual Transaction Entry
     When I select both rows
     Then the bar says 2 are selected
     And the selected total reads +9,111.26
+    And dismissing the bar unticks the rows it counted
     And clearing the filters leaves no selection bar behind
 
   KAL-TXN-015 @automated
@@ -824,11 +825,11 @@ Feature: Manual Transaction Entry
 
   KAL-TXN-016 @automated
   Scenario: A filter chip says what it filters
-    Given I am on the Transactions page
+    Given I have narrowed the ledger to my own rows with a search
     When I pick an account from its chip
     Then the chip reads that account's name in place of the field name
-    And the link beside the chips offers to clear 1 filter
-    And clearing the chip from its own "x" brings every row back
+    And the link beside the chips offers to clear 2 filters
+    And clearing the chip from its own "x" brings the searched rows back
     And a chip opens from the keyboard, without a mouse
 ```
 

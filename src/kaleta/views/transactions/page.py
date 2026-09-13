@@ -63,6 +63,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
     #: The selected rows themselves — the bar totals the figures already on
     #: screen rather than asking the service for them again.
     selected_rows: list[dict[str, Any]] = []
+    #: The live table, so the bar's "x" can untick the rows it refers to.
+    table_holder: dict[str, Any] = {}
     #: This page's rows by id. The selection event arrives from the browser;
     #: the figures the bar adds up come from here, so the total is the
     #: server's own view of the page either way.
@@ -103,6 +105,19 @@ async def transactions_page(*, open_new: bool = False) -> None:
         """
         selected_tx_ids.clear()
         selected_rows.clear()
+
+    def _untick_table() -> None:
+        """Clear the checkboxes too, for the paths that keep the table standing.
+
+        Dismissing the bar does not redraw the ledger, so the ticks have to be
+        taken off the rows the user can still see — otherwise the bar is gone
+        while the rows look selected, and the next tick sends all of them back.
+        """
+        _drop_selection()
+        table = table_holder.get("table")
+        if table is not None:
+            table.selected = []
+            table.update()
 
     def _apply_filters() -> None:
         filters["page"] = 0
@@ -189,7 +204,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             )
             table_actions_ui.refresh()
 
-        render_transaction_table(
+        table_holder["table"] = render_transaction_table(
             rows,
             on_edit=_handle_edit,
             on_split=_handle_split,
@@ -302,6 +317,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             selected_tx_ids,
             selected_rows,
             on_delete=confirm_delete_selected,
+            on_clear=_untick_table,
             refresh=lambda: table_actions_ui.refresh(),
         )
 

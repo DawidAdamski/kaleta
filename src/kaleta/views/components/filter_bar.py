@@ -127,6 +127,8 @@ class FilterBarWidgets:
     type_filter: Any
     search_input: Any
     tag_filter: Any
+    #: The "Clear all N" link. Still called ``badge_label`` because the page
+    #: sets its text and visibility the same way it did when it was a badge.
     badge_label: Any
     #: Repaint the chips after a filter changed. The page owns the filter dict,
     #: so only it can say when the labels went stale.

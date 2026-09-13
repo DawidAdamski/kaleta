@@ -167,7 +167,7 @@ BASE_CSS = """
   --k-surface:#201F1A;
   --k-surface-sunken:#2A2822;
   --k-surface-warm:#262420;
-  --k-surface-warm-strong:#2A2822;
+  --k-surface-warm-strong:var(--k-surface-sunken);
   --k-ink:#F0EBDF;
   --k-ink-2:#CFC7B6;
   --k-muted:#A8A08D;
