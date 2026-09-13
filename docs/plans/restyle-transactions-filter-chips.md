@@ -114,14 +114,21 @@ wrap).
 
 ### Read this before reviewing the diff
 
-Stacked on `plan/restyle-theme-tokens`, which is not merged yet — this plan
-"Depends on `restyle-theme-tokens`" for `.k-filter-chip`, `.k-amount` and
-`.k-mono`. So the merge-base diff shows that plan's work too. This plan's
-own diff is:
+Stacked on `plan/restyle-dashboard`, itself stacked on
+`plan/restyle-theme-tokens` — neither is merged yet. The declared dependency
+is only on the theme tokens (`.k-filter-chip`, `.k-amount`, `.k-mono`), but
+the branch sits on top of the dashboard plan for a second, practical reason:
+that branch carries the two test-only e2e race fixes without which
+`verify.sh --e2e` cannot be green on any branch. Cutting this one from the
+theme branch instead would have meant cherry-picking them and shipping the
+same commits twice.
 
-    git diff plan/restyle-theme-tokens...HEAD
+So the merge-base diff shows three plans. This plan's own diff is:
 
-and its PR is opened with `--base plan/restyle-theme-tokens`.
+    git diff plan/restyle-dashboard...HEAD
+
+and its PR is opened with `--base plan/restyle-dashboard`, to be merged after
+the two below it.
 
 ### Open questions — decisions taken
 
