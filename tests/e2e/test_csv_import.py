@@ -17,7 +17,7 @@ import datetime
 import re
 from pathlib import Path
 
-from playwright.sync_api import FilePayload, Page, expect
+from playwright.sync_api import FilePayload, Locator, Page, expect
 
 from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
@@ -746,12 +746,22 @@ def test_auto_detected_columns_are_marked(page: Page, base_url: str) -> None:
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
     expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=10000)
 
-    badges = page.locator(".k-auto-badge:visible")
-    expect(badges).to_have_count(3, timeout=10000)
+    # Asserted per field rather than as a total: a saved import rule from an
+    # earlier test in this shared database can fill the mapping instead of
+    # detection, which changes how many pills there are but not which fields
+    # the importer filled in.
+    def badge(field: str) -> Locator:
+        return page.locator(f'.k-auto-badge[data-auto-field="{field}"]')
+
+    for field in ("date", "amount", "description"):
+        expect(badge(field)).to_be_visible(timeout=10000)
 
     # Point the description picker somewhere else: it is no longer the guess.
     _select_import_option(page, "Description column", "1: date")
-    expect(badges).to_have_count(2, timeout=10000)
+    expect(badge("description")).to_be_hidden(timeout=10000)
+    # And only that one: the pills are per field, not a single switch.
+    expect(badge("date")).to_be_visible()
+    expect(badge("amount")).to_be_visible()
 
 
 def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str) -> None:
@@ -772,6 +782,13 @@ def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str)
     expect(strip).to_contain_text("Rows that could not be parsed (2): 3, 5")
     # And it points at the step it is standing on: the columns being mapped.
     expect(strip).to_contain_text("columns you mapped")
+
+    # Above the pickers, which is the whole point of moving it off Preview —
+    # it is read on the way into the thing it is asking you to change.
+    strip_box = strip.bounding_box()
+    picker_box = page.locator(".q-select").filter(has_text="Date column").first.bounding_box()
+    assert strip_box is not None and picker_box is not None
+    assert strip_box["y"] + strip_box["height"] <= picker_box["y"], (strip_box, picker_box)
 
 
 def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) -> None:

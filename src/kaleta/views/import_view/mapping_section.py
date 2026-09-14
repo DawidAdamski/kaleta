@@ -57,11 +57,15 @@ def _col_options(headers: list[str]) -> dict[int, str]:
     return options
 
 
+#: Attribute naming the field an ``auto`` pill belongs to.
+_BADGE_FIELD_ATTR = "data-auto-field"
+
 #: Picker name → the ``ColumnMapping`` field it maps, for the auto badges.
 _DETECTABLE_FIELDS: tuple[str, ...] = (
     "date",
     "amount",
     "description",
+    "notes",
     "payee",
     "counterparty_account",
     "debit",
@@ -343,6 +347,9 @@ def build_mapping_section() -> MappingSection:
             select = ui.select({}, label=t(label_key)).classes("w-full")
             if field is not None:
                 badge = ui.label(t("import.auto_badge")).classes(AUTO_BADGE)
+                # Which picker the pill belongs to, on the pill itself: the
+                # mark is the only thing on screen that names its own field.
+                badge.props[_BADGE_FIELD_ATTR] = field
                 badge.set_visibility(False)
                 badges[field] = badge
         return select
@@ -367,6 +374,11 @@ def build_mapping_section() -> MappingSection:
                     .props("dense flat")
                 )
                 sample_table.add_slot("body", sample_body_slot())
+
+            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
+                # Above the pickers, not under the sample: what the strip says
+                # is which columns to go and change, and it is read on the way
+                # into them.
                 with ui.row().classes(
                     f"{WARNING_STRIP} w-full items-start gap-2 px-3 py-2 rounded-lg"
                 ) as warning_strip:
@@ -374,15 +386,13 @@ def build_mapping_section() -> MappingSection:
                     warning_label = ui.label("").classes("text-[12px] leading-snug")
                 warning_strip.set_visibility(False)
                 errors_column = ui.column().classes("w-full gap-0.5")
-
-            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
                 ui.label(t("import.mapping_fields")).classes(f"{MUTED} k-eyebrow")
                 with ui.row().classes("w-full gap-3 flex-wrap"):
                     date_sel = _picker("import.mapping_date", "date", width="flex-1 min-w-40")
                     amount_sel = _picker("import.mapping_amount", "amount", width="flex-1 min-w-40")
                 description_sel = _picker("import.mapping_description", "description")
                 with ui.row().classes("w-full gap-3 flex-wrap"):
-                    notes_sel = _picker("import.mapping_notes", width="flex-1 min-w-40")
+                    notes_sel = _picker("import.mapping_notes", "notes", width="flex-1 min-w-40")
                     payee_sel = _picker("import.mapping_payee", "payee", width="flex-1 min-w-40")
                 with ui.row().classes("w-full gap-3 flex-wrap"):
                     counterparty_sel = _picker(

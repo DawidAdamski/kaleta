@@ -292,6 +292,32 @@ against the number of records `parse_csv` finds.
 not import: it now lives in `kaleta.i18n.plural_key(prefix, count)`, which
 any counted caption can use with `<prefix>_one` / `_few` / `_many` keys.
 
+### The strip really is above the pickers
+
+Fourth review round. Scope and KAL-CSV-026 both say "above the pickers"; the
+strip was built at the foot of the sample column, so on a wide screen it sat
+beside the pickers, under the table. It now opens the picker column, and the
+e2e test asserts the position rather than only the text — what the strip says
+is which columns to go and change, and it should be read on the way into
+them.
+
+`notes` joined `_DETECTABLE_FIELDS` and its picker got a pill. The header
+heuristic never detects a notes column, but a saved import rule or an
+inherited mapping can carry one, and since the mark follows the importer
+rather than one source, leaving notes out contradicted that.
+
+Each pill now carries `data-auto-field`, naming the picker it belongs to.
+The e2e check asserts the pills per field instead of counting them: in the
+shared e2e database a rule saved by an earlier test can fill the mapping
+instead of detection, which changes the total but not which fields the
+importer filled in.
+
+`inspect_csv` skips a blank line with `not row` — exactly `DictReader`'s own
+test — so a delimiter-only line like `;;;` stays a record to both of them,
+and the caption cannot disagree with the parser in either direction. Its
+docstring records the other half of the change: the pass is no longer
+bounded by `sample_limit`, and it runs on every re-parse.
+
 ### Not done
 
 The `[manual]` criterion — `test_import.csv` compared to artboard 2d in

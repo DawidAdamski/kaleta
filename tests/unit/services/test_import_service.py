@@ -709,6 +709,14 @@ class TestColumnMapping:
         assert inspection.total_rows == 2
         assert len(_svc().parse_csv(csv).rows) == inspection.total_rows
 
+    def test_inspect_csv_counts_a_delimiter_only_line_as_a_record(self):
+        """``DictReader`` does, so the caption must not quietly disagree."""
+        csv = "date,amount,description\n2024-01-15,-1.00,A\n,,\n"
+        assert inspect_csv(csv).total_rows == 2
+        # And the parser agrees it is a record — it fails on it, and says so.
+        result = _svc().parse_csv(csv)
+        assert len(result.rows) + result.skipped + len(result.error_rows) == 2
+
     def test_inspect_csv_headers_only_file_has_no_rows(self):
         inspection = inspect_csv("date,amount,description\n")
         assert inspection.total_rows == 0

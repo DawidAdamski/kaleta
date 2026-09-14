@@ -834,7 +834,13 @@ def inspect_csv(
     delimiter: str = "",
     sample_limit: int = 10,
 ) -> CsvInspection:
-    """Inspect CSV structure for the mapping step (headers + sample rows)."""
+    """Inspect CSV structure for the mapping step (headers + sample rows).
+
+    Reads the whole file: ``total_rows`` is the caption's figure and a sample
+    size is not it. The sample itself still stops at ``sample_limit``, but the
+    pass no longer does, and this runs on every re-parse — each picker change
+    on a generic file. Fine at the sizes a personal ledger imports.
+    """
     delim = delimiter or detect_delimiter(content)
     reader = csv.reader(io.StringIO(content), delimiter=delim)
     try:
@@ -849,8 +855,10 @@ def inspect_csv(
         # ``csv.reader`` yields a blank line as an empty row; ``DictReader``,
         # which does the actual parsing, skips it. Counting it here would put
         # a bigger number in the caption than the file has records — bank
-        # exports routinely end with a blank line.
-        if not any(cell.strip() for cell in row):
+        # exports routinely end with a blank line. The test is ``not row``,
+        # exactly what ``DictReader`` uses: a delimiter-only line like ``;;;``
+        # is a record to both of them, empty fields and all.
+        if not row:
             continue
         total_rows += 1
         if len(sample_rows) < sample_limit:
