@@ -88,6 +88,10 @@ PLAN_TOTAL = "k-plan-total"
 PLAN_MONTH_NOW = "k-plan-month-now"
 #: The quiet line under a category's plan, carrying what it actually spent.
 PLAN_ACTUAL_ROW = "k-plan-actual"
+#: A rule with nothing behind it — a heading, not a row you can act on.
+PLAN_RULE = "k-plan-rule"
+#: A month cell you can click to edit. Square, so the tinted column is a band.
+PLAN_CELL_EDIT = "k-plan-cell"
 
 # Filled accent surface (banners, section headers, step markers) and the
 # text colour that sits on it — apricot in light, ink on apricot in dark.
@@ -321,6 +325,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-plan-row{border-bottom:1px solid var(--k-hairline)}
 .k-plan-row:hover{background:var(--k-row-hover)}
+.k-plan-rule{border-bottom:1px solid var(--k-hairline)}
+/* An editable month outlines itself on hover: a fill would fight the
+   current-month tint it has to work on top of. */
+.k-plan-cell:hover{outline:1px solid var(--k-border-strong);outline-offset:-1px}
 .k-plan-total{border-top:1px solid var(--k-border-strong)}
 .k-plan-month-now{background:var(--k-plan-now)}
 .k-cat-row{border-bottom-color:var(--k-hairline)}

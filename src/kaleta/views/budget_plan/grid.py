@@ -34,10 +34,12 @@ from kaleta.views.theme import (
     MONO,
     MUTED,
     PLAN_ACTUAL_ROW,
+    PLAN_CELL_EDIT,
     PLAN_GRID,
     PLAN_HEAD,
     PLAN_MONTH_NOW,
     PLAN_ROW,
+    PLAN_RULE,
     PLAN_TOTAL,
 )
 
@@ -127,8 +129,8 @@ def _render_header(
             with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
                 hint = ui.icon("more_horiz", size="16px")
                 hint.tooltip(t("budget_plan.row_actions_hint"))
-                # A tooltip nobody can focus is a tooltip only a mouse reads.
-                hint.props('tabindex="0"')
+                # A bare <i> with a label and no role announces nothing.
+                hint.props('role="img"')
                 hint.props["aria-label"] = t("budget_plan.row_actions_hint")
 
 
@@ -213,7 +215,9 @@ def _render_single_year_grid(
                     tint = PLAN_MONTH_NOW if cell.month == this_month else ""
                     (
                         ui.label(format_amount(cell.planned))
-                        .classes(f"{cell_cls} {MONO} cursor-pointer rounded {color} {tint}")
+                        .classes(
+                            f"{cell_cls} {MONO} {PLAN_CELL_EDIT} cursor-pointer {color} {tint}"
+                        )
                         .style(S_MON)
                         .on(
                             "click",
@@ -304,7 +308,7 @@ def _render_compare_grid(
         # A hairline, and the name as the user typed it: `k-eyebrow` would
         # uppercase "Żywność" and strong rules belong to the header and the
         # totals band alone.
-        with ui.row().classes(f"{row_cls} {PLAN_ROW} mt-3"):
+        with ui.row().classes(f"{row_cls} {PLAN_RULE} mt-3"):
             ui.label(cat_label).classes(f"text-sm font-medium {INK} px-3 py-1 flex-1")
 
         for slice_ in grid.slices:
