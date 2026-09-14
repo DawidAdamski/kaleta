@@ -137,6 +137,8 @@ def test_run_90_day_forecast(page: Page, base_url: str) -> None:
 
     expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
     # "Extends 90 days beyond today" — the horizon the figure is dated at.
+    # The forecast runs from the day after the last *transaction*, and
+    # `seed_many_transactions` posts one today, so here that is today + 90.
     horizon = (datetime.date.today() + datetime.timedelta(days=90)).isoformat()
     expect(page.locator('[data-kpi="predicted"]')).to_contain_text(horizon, timeout=10000)
 
@@ -160,9 +162,9 @@ def test_run_forecast_all_accounts(page: Page, base_url: str) -> None:
     # Every account's history at once is more than enough to forecast, so
     # this asserts the figures rather than "those or a warning".
     expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
-    # And they describe the combined balance: the chart they stand above
-    # names the account they belong to. (The select's own value says the same
-    # thing, which is why that is not what this asserts.)
+    # And the chart they stand above names the selection they belong to.
+    # (The select's own value says the same thing, which is why that is not
+    # what this asserts.)
     expect(page.get_by_text("Balance forecast — All Accounts")).to_be_visible(timeout=10000)
     expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
 
@@ -215,7 +217,11 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     before_change = _figure(page, "change")
     before_text = _kpi(page, "predicted").inner_text()
 
-    # A windfall a week from now, well inside a 60-day horizon.
+    # A windfall a week from now: `seed_many_transactions` posts one today,
+    # so the forecast runs from tomorrow and today + 7 is a point on it.
+    # (`apply_scenarios` keys deltas by exact date — a date with no point
+    # shifts nothing, which is why the dialog reads its own default off the
+    # forecast rather than off the calendar.)
     when = (datetime.date.today() + datetime.timedelta(days=7)).isoformat()
     page.get_by_text("Add scenario", exact=True).click()
     dialog = page.get_by_role("dialog")

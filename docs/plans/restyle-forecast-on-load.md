@@ -318,9 +318,20 @@ would have been false for the commonest scenario there is.
 Scenario semantics are out of scope here, so the rule stays and the view
 stops walking into it: `point_shifted_by` mirrors the exact-date rule from
 `forecast_service`, where it can be read next to the function it mirrors, and
-the add dialog defaults to `first_shiftable_date()` — tomorrow, the first
-date that actually moves the line. A date that moves nothing still gets its
-`markLine`, because the user put it there, but no pin claims otherwise.
+a date that moves nothing still gets its `markLine`, because the user put it
+there, but no pin claims otherwise.
+
+The first attempt at the dialog default — "tomorrow" — was wrong for the same
+reason as the snap, and caught by the sixth review round. The forecast does
+not start tomorrow: `NaiveForecaster` runs from the day after the last
+**transaction**, so an account with something posted today is forecast from
+tomorrow and one quiet for a month was forecast from weeks ago. Which dates
+shift anything is a property of the data, not the calendar.
+`default_scenario_date(result)` therefore reads the answer off the run in
+hand — the first forecast point from today onward, or the first point at all
+when the whole forecast is behind us. The e2e tests say in a comment that
+they depend on `seed_many_transactions` posting one transaction today, which
+is what makes "today + 7" and "today + 90" the right dates to assert.
 
 The exact-date rule is brittle for a feature meant to answer "what if I buy a
 car in March": `wizard-what-if-scenarios` should widen it to on-or-after when
@@ -335,6 +346,21 @@ test never checked for it — an `@automated` tag over a clause nothing
 verifies. It now says the four figures describe the combined balance, which
 is what the page shows and what the test asserts.
 
+### One rule for the stale mark, tested without Prophet
+
+The mark has been wrong in three different ways — it would not go away, it
+outlived a failure and blamed the user for it, and it erased "Insufficient
+transaction history" with "press Re-run". All three are the same shape: a
+branch that read one condition and missed another, on a path this environment
+cannot run, because Prophet is not installed.
+
+`stale_action(prophet_available, drawn, running, controls_match)` is that
+branch as one rule, in a pure function with a unit test per case. The page
+says nothing about staleness on the naive path (its re-run lands within the
+debounce), while a run is in flight (the recorded account is still the
+previous one), or when nothing was drawn (a failure or too little history —
+the line already says something truer, and it is not the user's doing).
+
 ### Smaller things from round five
 
 `_sync_stale()` does nothing while a run is in flight: the state it compares
@@ -348,6 +374,23 @@ one it read as "no data".
 
 The scenario chips carry `role="button"` and `tabindex="0"` and answer Enter
 and Space, like the filter chips from artboard 2a.
+
+### Smaller things from round six
+
+`_page_is_live()` guards the failure paths too, not only the success one: a
+run that fails after the reader has navigated away would otherwise clear and
+write into a deleted page, and raise a toast at nobody.
+
+The scenario chip's figure goes through `format_net_amount` — the ledger's
+own convention, two decimals, and no sign on zero. It printed `+0 zł` for a
+zero scenario, and rounded a 0.40 zł one to `+0 zł` while the KPI beside it
+moved.
+
+`KAL-FCT-003` says the chart is titled for all accounts and the four figures
+stand above it, which is what the test checks. The previous wording — "its
+four figures describe that combined balance" — claimed an arithmetic
+relationship nothing verified, the same fault as the "secondary series"
+clause it replaced.
 
 ### A run outlives the page it was started for
 

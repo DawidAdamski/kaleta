@@ -33,7 +33,7 @@ from kaleta.services.forecast_service import (
     apply_preset,
     apply_scenarios,
     clear_forecast_cache,
-    first_shiftable_date,
+    default_scenario_date,
     forecast_kpis,
     point_shifted_by,
 )
@@ -702,14 +702,51 @@ class TestPointShiftedBy:
         assert point_shifted_by(self._series(), datetime.date(2027, 1, 1)) is None
 
 
-class TestFirstShiftableDate:
-    def test_a_scenario_has_to_be_dated_tomorrow_at_the_earliest(self) -> None:
-        # The forecast starts tomorrow, so today is the one date the add
-        # dialog must not offer by default.
-        assert first_shiftable_date(datetime.date(2026, 1, 1)) == datetime.date(2026, 1, 2)
+class TestDefaultScenarioDate:
+    """The date the add dialog can offer without offering a no-op.
 
-    def test_it_follows_the_real_today_when_not_told_one(self) -> None:
-        assert first_shiftable_date() == datetime.date.today() + datetime.timedelta(days=1)
+    Which dates shift anything is a property of the data, not the calendar:
+    the forecast runs from the day after the last *transaction*.
+    """
+
+    def test_a_busy_account_starts_its_forecast_tomorrow(self) -> None:
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(1, 990.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(2, 980.0, lower=880.0, upper=1080.0, forecast=True),
+        )
+
+        assert default_scenario_date(result, datetime.date(2026, 1, 1)) == datetime.date(2026, 1, 2)
+
+    def test_a_quiet_account_may_be_forecast_from_before_today(self) -> None:
+        # Last transaction three days ago: the forecast already covers today,
+        # so today is a point, and the first one from today onward is today.
+        result = _result(
+            _point(-4, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(-3, 995.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(0, 990.0, lower=880.0, upper=1080.0, forecast=True),
+            _point(3, 980.0, lower=860.0, upper=1090.0, forecast=True),
+        )
+
+        assert default_scenario_date(result, datetime.date(2026, 1, 1)) == datetime.date(2026, 1, 1)
+
+    def test_a_forecast_entirely_behind_us_still_offers_a_point(self) -> None:
+        result = _result(
+            _point(-9, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(-8, 995.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(-7, 990.0, lower=880.0, upper=1080.0, forecast=True),
+        )
+
+        assert default_scenario_date(result, datetime.date(2026, 1, 1)) == datetime.date(
+            2025, 12, 24
+        )
+
+    def test_nothing_to_forecast_means_nothing_to_offer(self) -> None:
+        assert default_scenario_date(None) is None
+        assert (
+            default_scenario_date(_result(_point(0, 1.0, lower=1.0, upper=1.0, forecast=False)))
+            is None
+        )
 
 
 class TestScenarioDatesThatDoNothing:
@@ -726,18 +763,22 @@ class TestScenarioDatesThatDoNothing:
             _point(2, 980.0, lower=880.0, upper=1080.0, forecast=True),
         )
 
-    def test_a_scenario_dated_today_moves_no_figure(self) -> None:
-        today = datetime.date(2026, 1, 1)
+    def test_a_date_that_is_not_a_forecast_point_moves_no_figure(self) -> None:
+        # Here the series starts tomorrow, so today is such a date. On a
+        # quiet account it would not be — which is exactly why the dialog
+        # reads its default off the forecast rather than off the calendar.
+        not_a_point = datetime.date(2026, 1, 1)
         shifted = apply_scenarios(
-            self._series(), [ScenarioShift(label="Now", date=today, amount=5000.0)]
+            self._series(), [ScenarioShift(label="Now", date=not_a_point, amount=5000.0)]
         )
 
         assert forecast_kpis(shifted).predicted == forecast_kpis(self._series()).predicted
 
-    def test_a_scenario_dated_tomorrow_moves_every_later_figure(self) -> None:
-        tomorrow = first_shiftable_date(datetime.date(2026, 1, 1))
+    def test_the_date_the_dialog_offers_moves_every_later_figure(self) -> None:
+        offered = default_scenario_date(self._series(), datetime.date(2026, 1, 1))
+        assert offered is not None
         shifted = apply_scenarios(
-            self._series(), [ScenarioShift(label="Soon", date=tomorrow, amount=5000.0)]
+            self._series(), [ScenarioShift(label="Soon", date=offered, amount=5000.0)]
         )
 
         before = forecast_kpis(self._series())

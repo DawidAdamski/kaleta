@@ -155,11 +155,26 @@ def apply_scenarios(
     return out
 
 
-#: The first date a scenario can be dated and have any effect. The forecast
-#: is daily from tomorrow, so today — and anything before it — shifts nothing.
-def first_shiftable_date(today: datetime.date | None = None) -> datetime.date:
-    """The earliest date a scenario can carry and still move the line."""
-    return (today or datetime.date.today()) + datetime.timedelta(days=1)
+def default_scenario_date(
+    result: ForecastResult | None, today: datetime.date | None = None
+) -> datetime.date | None:
+    """A date a scenario can be offered that will actually move the line.
+
+    :func:`apply_scenarios` keys its deltas by exact date, so only a date
+    that *is* a forecast point does anything at all. Which dates those are
+    depends on the data, not on the calendar: the forecast runs from the day
+    after the last **transaction**, so on an account with something posted
+    today it starts tomorrow, and on one quiet for a month it started weeks
+    ago.
+
+    The first point from today onward, then, and the first point at all when
+    the whole forecast is already behind us. ``None`` when there is no
+    forecast to put a scenario on.
+    """
+    if result is None or not result.forecast:
+        return None
+    day = today or datetime.date.today()
+    return next((p.date for p in result.forecast if p.date >= day), result.forecast[0].date)
 
 
 def point_shifted_by(result: ForecastResult, date: datetime.date) -> ForecastPoint | None:

@@ -25,6 +25,15 @@ def signed_amount_class(amount: Decimal | float, tx_type: TransactionType) -> st
     return AMOUNT_NEUTRAL if Decimal(str(amount)) == 0 else amount_class(tx_type.value)
 
 
+def format_net_amount(net: Decimal | float) -> str:
+    """A signed figure with no type behind it — a total, or a what-if.
+
+    Same convention as everywhere else, zero included: nothing moved, so
+    there is no direction to show.
+    """
+    return TransactionService.format_net(Decimal(str(net)))
+
+
 def net_tone(net: Decimal) -> str:
     """The tone for a total, which has no type of its own — only a direction."""
     if net > 0:

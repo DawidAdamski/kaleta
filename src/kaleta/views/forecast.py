@@ -19,7 +19,7 @@ from kaleta.services.forecast_service import (
     ScenarioShift,
     apply_preset,
     apply_scenarios,
-    first_shiftable_date,
+    default_scenario_date,
     forecast_kpis,
     point_shifted_by,
 )
@@ -34,7 +34,11 @@ from kaleta.views.chart_utils import (
     chart_ink_color,
     chart_text_color,
 )
-from kaleta.views.components.amount_label import format_signed_amount, net_tone
+from kaleta.views.components.amount_label import (
+    format_net_amount,
+    format_signed_amount,
+    net_tone,
+)
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
@@ -232,12 +236,35 @@ class _RunState:
     #: What the status line says when the chart answers the controls — kept
     #: so that clearing a stale mark can put it back.
     status: str = ""
+    #: Whether a chart is actually on screen. A run that failed or came back
+    #: with too little history leaves a message that must not be overwritten.
+    drawn: bool = False
 
 
 #: Where the Prophet footnote points.
 _PROPHET_DOCS_URL = "https://github.com/DawidAdamski/kaleta#optional-forecasting"
 
 _HORIZONS = (30, 60, 90)
+
+
+def stale_action(
+    *, prophet_available: bool, drawn: bool, running: bool, controls_match: bool
+) -> str:
+    """Whether the "press Re-run" mark should be set, cleared, or left alone.
+
+    A rule rather than a branch, because it has been wrong three times: a mark
+    that would not go away, one that outlived a failure and blamed the user
+    for it, and one that erased "Insufficient transaction history". The cases
+    where the page must say nothing about staleness at all:
+
+    - the naive path, whose re-run lands within the debounce;
+    - a run in flight, whose recorded account is still the *previous* one;
+    - nothing successfully drawn, where the line already says something truer
+      than "press Re-run" — a failure, or too little history.
+    """
+    if not prophet_available or running or not drawn:
+        return "leave"
+    return "clear" if controls_match else "mark"
 
 
 def _saved_horizon() -> int:
@@ -395,12 +422,16 @@ def register() -> None:
                 controls to be ahead *of*, and the line already says
                 something truer than "press Re-run".
                 """
-                if not prophet_available or run_state.raw is None or run_state.running:
-                    return
-                if _controls_match_last_run():
+                action = stale_action(
+                    prophet_available=prophet_available,
+                    drawn=run_state.drawn,
+                    running=run_state.running,
+                    controls_match=_controls_match_last_run(),
+                )
+                if action == "clear":
                     run_btn.props(add="flat")
                     status.set_text(run_state.status)
-                else:
+                elif action == "mark":
                     _mark_stale()
 
             def _on_controls_changed() -> None:
@@ -455,7 +486,7 @@ def register() -> None:
                         label = str(s.get("label", "—"))
                         with ui.row().classes(f"{FILTER_CHIP} gap-2"):
                             ui.label(f"{label} · {s.get('date', '')}").classes("text-xs")
-                            ui.label(f"{amt:+,.0f} zł").classes(
+                            ui.label(f"{format_net_amount(amt)} zł").classes(
                                 f"{MONO} text-xs {net_tone(Decimal(str(amt)))}"
                             )
                             remove = (
@@ -546,11 +577,12 @@ def register() -> None:
 
             def _open_add_scenario_dialog() -> None:
                 label_input.value = ""
-                # Tomorrow, not today: the forecast starts tomorrow, and a
-                # scenario dated today shifts nothing at all. Defaulting to a
-                # date that does nothing is a trap, and scenario semantics are
-                # out of this plan's scope to change.
-                date_input.value = first_shiftable_date().isoformat()
+                # A date the forecast actually has a point on, read off the
+                # run in hand: only those shift anything, and which ones they
+                # are depends on when the account last saw a transaction, not
+                # on the calendar. Offering a date that does nothing is a trap.
+                usable = default_scenario_date(run_state.raw)
+                date_input.value = (usable or datetime.date.today()).isoformat()
                 amount_input.value = 0
                 add_dialog.open()
 
@@ -585,13 +617,17 @@ def register() -> None:
                             break
                 finally:
                     run_state.running = False
-                    run_btn.props(remove="loading")
-                    if run_state.pending:
-                        # The loop did not exit on its own terms — a run
-                        # raised. The request that arrived meanwhile is still
-                        # owed an answer.
-                        _debounced_run()
-                    _sync_stale()
+                    # Nothing below touches anything the page still owns if
+                    # the reader has gone; a `return` here would swallow the
+                    # exception that brought us out of the loop.
+                    if _page_is_live():
+                        run_btn.props(remove="loading")
+                        if run_state.pending:
+                            # The loop did not exit on its own terms — a run
+                            # raised. The request that arrived meanwhile is
+                            # still owed an answer.
+                            _debounced_run()
+                        _sync_stale()
 
             async def _run_once() -> None:
                 if not _page_is_live():
@@ -621,15 +657,19 @@ def register() -> None:
                     # would let the next scenario or preset redraw the old
                     # account's chart under the new selection.
                     run_state.raw = None
-                    _clear_and_say(t("forecast.failed"))
-                    notify_kaleta_error(exc)
+                    run_state.drawn = False
+                    if _page_is_live():
+                        _clear_and_say(t("forecast.failed"))
+                        notify_kaleta_error(exc)
                     return
                 except Exception:
                     # Not a domain error and not ours to explain away: clear
                     # the skeleton, which is the whole page now that the page
                     # draws on load, then let the bug reach the logs as one.
                     run_state.raw = None
-                    _clear_and_say(t("forecast.failed"))
+                    run_state.drawn = False
+                    if _page_is_live():
+                        _clear_and_say(t("forecast.failed"))
                     raise
 
                 run_state.raw = raw
@@ -639,6 +679,7 @@ def register() -> None:
                     _clear_and_say(t("forecast.insufficient"))
 
             def _clear_and_say(message: str) -> None:
+                run_state.drawn = False
                 chart_container.clear()
                 kpi_row.clear()
                 status.set_text(message)
@@ -681,6 +722,7 @@ def register() -> None:
                 status.set_text(run_state.status)
                 _render_kpis(forecast_kpis(result))
                 _render_chart(result, baseline, shifts)
+                run_state.drawn = True
                 # The status line has just been rewritten; if the controls
                 # have moved on since this run, say so again.
                 _sync_stale()

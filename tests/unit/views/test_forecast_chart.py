@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The forecast chart's options (artboard 3a).
+"""The forecast chart's options, and the page's staleness rule (artboard 3a).
 
 Covers: KAL-FCT-001 — "a shaded confidence interval surrounds the prediction".
 Surrounds is the word the old chart got wrong: it stacked the band's height
@@ -13,7 +13,7 @@ import datetime
 from typing import Any
 
 from kaleta.services.forecast_service import ForecastPoint, ForecastResult, ScenarioShift
-from kaleta.views.forecast import _forecast_chart
+from kaleta.views.forecast import _forecast_chart, stale_action
 
 TODAY = datetime.date.today()
 
@@ -119,10 +119,11 @@ class TestScenarioMarkers:
             {"coord": [str(when), 980.0], "name": "Bonus", "value": "Bonus"}
         ]
 
-    def test_a_scenario_dated_today_marks_the_date_but_pins_nothing(self) -> None:
-        # `apply_scenarios` keys its deltas by exact date, and today is not a
-        # forecast point, so nothing on the line moved. The date is still
-        # drawn — the user put it there — but no pin claims a bend.
+    def test_a_date_with_no_forecast_point_marks_but_pins_nothing(self) -> None:
+        # `apply_scenarios` keys its deltas by exact date. This fixture's
+        # forecast starts tomorrow, so today shifts nothing — the date is
+        # still drawn, because the user put it there, but no pin claims a
+        # bend that did not happen.
         shift = ScenarioShift(label="Today", date=TODAY, amount=1.0)
 
         predicted = _series(_forecast_chart(_result(), scenarios=[shift]), "Predicted")
@@ -151,3 +152,47 @@ class TestTheBaselineReference:
         options = _forecast_chart(_result(), baseline=_result())
 
         assert _series(options, "Baseline (reference)")["lineStyle"]["type"] == "dotted"
+
+
+class TestStaleAction:
+    """When the page may say "press Re-run", and when it must not.
+
+    This rule has been wrong three times — a mark that would not go away, one
+    that outlived a failure and blamed the user for it, and one that erased
+    "Insufficient transaction history" — and the Prophet branch that reaches
+    it is not installed in this environment, so it is asserted directly.
+    """
+
+    def _act(self, **over: bool) -> str:
+        args: dict[str, bool] = {
+            "prophet_available": True,
+            "drawn": True,
+            "running": False,
+            "controls_match": True,
+        }
+        args.update(over)
+        return stale_action(**args)
+
+    def test_a_chart_that_answers_the_controls_clears_the_mark(self) -> None:
+        # Change the account and change it back: the hint has to go too.
+        assert self._act(controls_match=True) == "clear"
+
+    def test_controls_ahead_of_the_chart_are_marked(self) -> None:
+        assert self._act(controls_match=False) == "mark"
+
+    def test_the_naive_path_never_marks_anything(self) -> None:
+        # Its re-run lands within the debounce; there is nothing to warn of.
+        assert self._act(prophet_available=False, controls_match=False) == "leave"
+        assert self._act(prophet_available=False, controls_match=True) == "leave"
+
+    def test_nothing_is_said_while_a_run_is_in_flight(self) -> None:
+        # The recorded account is still the previous run's, so a match here
+        # would describe a chart that is not on screen.
+        assert self._act(running=True, controls_match=True) == "leave"
+        assert self._act(running=True, controls_match=False) == "leave"
+
+    def test_a_page_with_nothing_drawn_keeps_the_message_it_has(self) -> None:
+        # A failure, or too little history: the line already says something
+        # truer than "press Re-run", and it is not the user's doing.
+        assert self._act(drawn=False, controls_match=True) == "leave"
+        assert self._act(drawn=False, controls_match=False) == "leave"
