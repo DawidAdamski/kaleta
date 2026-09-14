@@ -230,8 +230,6 @@ class CsvInspection:
     #: Data rows in the whole file, not just the sampled ones — the mapping
     #: step's caption says how big the file is, and a sample size is not that.
     total_rows: int = 0
-    #: The encoding the upload decoded as, for the same caption.
-    encoding: str = "UTF-8"
 
 
 @dataclass
@@ -1121,7 +1119,11 @@ class ImportService:
             result.errors.append(f"Cannot find a date column. Headers: {headers}")
             return result
 
-        for line_no, row in enumerate(reader, start=2):
+        for row in reader:
+            # The physical line the record ends on, not its ordinal: a
+            # quoted field with a newline inside makes the two disagree,
+            # and the warning strip presents these as line numbers.
+            line_no = reader.line_num
             try:
                 date = _parse_date(row.get(date_key, ""), effective.date_format)
 

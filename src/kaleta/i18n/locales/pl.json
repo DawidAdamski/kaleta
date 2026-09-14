@@ -1008,9 +1008,12 @@
     "history_row": "{when} · {filename} → {account} · {imported} nowych, {skipped} pominiętych",
     "mapping_notes": "Notatki",
     "auto_badge": "auto",
-    "parse_warning": "Wiersze, których nie udało się odczytać ({count}): {rows} — sprawdź kolumny Data i Kwota",
+    "parse_warning": "Wiersze, których nie udało się odczytać ({count}): {rows} — sprawdź zmapowane kolumny",
     "parse_warning_more": "{rows} i jeszcze {extra}",
-    "mapping_sample_caption": "{delimiter} · {encoding} · {rows} wierszy"
+    "rows_count_one": "{count} wiersz",
+    "rows_count_few": "{count} wiersze",
+    "rows_count_many": "{count} wierszy",
+    "mapping_sample_caption": "{delimiter} · {encoding} · {rows}"
   },
   "payees": {
     "title": "Odbiorcy",

@@ -65,6 +65,11 @@ def current_step(active: QueuedFile | None) -> int:
     so "where am I" was only ever implied by which cards were visible. The
     same conditions decide it here, in one place, so the progress line cannot
     disagree with the page under it.
+
+    A bank profile (mbank, pko, wise) never shows the mapping card, and its
+    node still reads as done once the file is parsed. That is not a lie: the
+    columns *were* mapped — by the profile rather than by hand — so the step
+    is behind the user, which is what a done node means.
     """
     if active is None:
         return STEP_UPLOAD

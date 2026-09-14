@@ -217,6 +217,45 @@ real, valid exports — breaking one would weaken the tests that depend on it.
 `partly-unparseable.csv` is a five-row generic CSV with a bad amount on row
 3 and a bad date on row 5, which is what the strip is asserted to name.
 
+### The caption's number is the app's number, and its noun is Polish
+
+Second review round. The caption's row count was formatted in the view with
+a hard-coded space for thousands (`f"{n:,}".replace(",", " ")`) whatever the
+language, and `pl.json` carried a single "{rows} wierszy" — wrong for every
+count ending in 2-4 ("3 wierszy" should be "3 wiersze") and for 1. The count
+now uses the same `,` separator as every other figure in the app, and
+`row_count_key` picks among `rows_count_one` / `_few` / `_many`, following
+the Polish rule (1; 2-4 except 12-14; the rest). The same round removed
+`CsvInspection.encoding`, which was added with a `"UTF-8"` default that
+`inspect_csv` never filled in and nothing read — `inspect_csv` takes a
+decoded `str` and cannot know the encoding, so `QueuedFile.encoding`, set
+from `decode_upload` at upload time, is the only source.
+
+### Row numbers are lines, not records
+
+The warning strip presents its numbers as row numbers in the file, but they
+came from `enumerate(DictReader, start=2)`, which counts records. A quoted
+field containing a newline moves every later line, and the strip would have
+sent the reader to the wrong one. `reader.line_num` — the physical line the
+record ends on — is what it uses now, with a unit test on a CSV whose second
+record spans two lines.
+
+### The parse warning names the mapping, not two columns
+
+`import.parse_warning` ended "check the Date and Amount columns". A file
+mapped with separate debit/credit columns fails in `_parse_amount` on those,
+with no Amount picker in play at all, so the hint pointed at a field that
+was not there. It now says "check the columns you mapped", which is true for
+every mapping the step can produce.
+
+### A bank profile's mapping node is done, not skipped
+
+For mbank/pko/wise the mapping card never appears, and `current_step` still
+leaves its node behind the user once the file parses. That is deliberate and
+documented on `current_step`: the columns *were* mapped, by the profile
+rather than by hand, so the step really is behind you — which is all a done
+node claims.
+
 ### Not done
 
 The `[manual]` criterion — `test_import.csv` compared to artboard 2d in

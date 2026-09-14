@@ -770,7 +770,8 @@ def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str)
     strip = page.locator(".k-warning-strip")
     expect(strip).to_be_visible(timeout=10000)
     expect(strip).to_contain_text("Rows that could not be parsed (2): 3, 5")
-    expect(strip).to_contain_text("Date and Amount")
+    # And it points at the step it is standing on: the columns being mapped.
+    expect(strip).to_contain_text("columns you mapped")
 
 
 def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) -> None:

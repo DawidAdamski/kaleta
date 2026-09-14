@@ -1008,9 +1008,12 @@
     "history_row": "{when} · {filename} → {account} · {imported} new, {skipped} skipped",
     "mapping_notes": "Notes",
     "auto_badge": "auto",
-    "parse_warning": "Rows that could not be parsed ({count}): {rows} — check the Date and Amount columns",
+    "parse_warning": "Rows that could not be parsed ({count}): {rows} — check the columns you mapped",
     "parse_warning_more": "{rows} and {extra} more",
-    "mapping_sample_caption": "{delimiter} · {encoding} · {rows} rows"
+    "rows_count_one": "{count} row",
+    "rows_count_few": "{count} rows",
+    "rows_count_many": "{count} rows",
+    "mapping_sample_caption": "{delimiter} · {encoding} · {rows}"
   },
   "payees": {
     "title": "Payees",

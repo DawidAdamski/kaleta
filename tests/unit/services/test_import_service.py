@@ -31,6 +31,7 @@ from kaleta.services.import_service import (
     classify_row_preview_type,
     count_row_types,
     currency_mismatch_warning,
+    decode_upload,
     detect_column_mapping,
     inherit_queue_settings,
     inspect_csv,
@@ -170,6 +171,28 @@ class TestParseCsv:
         result = _svc().parse_csv(csv)
         assert len(result.rows) == 1  # only the good row
         assert len(result.errors) == 1  # one error reported
+
+    def test_error_rows_carry_the_line_numbers(self):
+        """The warning strip needs the numbers, not the prose around them."""
+        csv = (
+            "date,amount,description\n"
+            "2024-01-15,-1.00,Good\n"
+            "2024-01-16,NOT_A_NUMBER,Bad amount\n"
+            "2024-01-17,-2.00,Good\n"
+            "NOT_A_DATE,-3.00,Bad date\n"
+        )
+        result = _svc().parse_csv(csv)
+        assert len(result.rows) == 2
+        assert result.error_rows == [3, 5]
+
+    def test_error_rows_count_lines_not_records(self):
+        """A quoted newline moves every later line — the strip must follow it."""
+        csv = (
+            'date,amount,description\n2024-01-15,-1.00,"Two\nlines"\n2024-01-16,NOT_A_NUMBER,Bad\n'
+        )
+        result = _svc().parse_csv(csv)
+        # The bad record is the second one, but it sits on the file's line 4.
+        assert result.error_rows == [4]
 
     def test_empty_amount_rows_skipped(self):
         csv = "date,amount,description\n2024-01-15,,Skipped\n2024-01-16,-50.00,Good\n"
@@ -475,6 +498,34 @@ class TestAutoDecode:
         assert "abc" in decoded
 
 
+class TestDecodeUpload:
+    """The mapping caption names the encoding, so the name must be the truth."""
+
+    def test_plain_utf8_is_named_utf8(self):
+        assert decode_upload("opis;kwota\nżółw;-1,00\n".encode()) == (
+            "opis;kwota\nżółw;-1,00\n",
+            "UTF-8",
+        )
+
+    def test_bom_is_still_named_utf8(self):
+        text, name = decode_upload("date,amount\n".encode("utf-8-sig"))
+        # The BOM is consumed, not carried into the first header.
+        assert text == "date,amount\n"
+        assert name == "UTF-8"
+
+    def test_cp1250_file_is_not_captioned_utf8(self):
+        raw = "opis;kwota\nżółw;-1,00\n".encode("cp1250")
+        text, name = decode_upload(raw)
+        assert text == "opis;kwota\nżółw;-1,00\n"
+        assert name == "CP1250"
+
+    def test_every_name_reported_is_one_the_caption_can_show(self):
+        # CP1250 maps almost every byte, so it is the last stop in practice —
+        # whatever comes back, the caption must never show a codec id.
+        for raw in (b"date,amount\n", "ż".encode("cp1250"), b"\xff\xfeabc"):
+            assert decode_upload(raw)[1] in {"UTF-8", "CP1250", "ISO-8859-2"}
+
+
 # ── preview classification ───────────────────────────────────────────────────
 
 
@@ -643,6 +694,18 @@ class TestColumnMapping:
         assert inspection.headers == ["date", "amount", "description"]
         assert len(inspection.sample_rows) == 2
         assert inspection.detected_mapping.date == 0
+
+    def test_inspect_csv_counts_the_file_not_the_sample(self):
+        """The caption says how big the file is, and a sample size is not that."""
+        rows = "".join(f"2024-01-{d:02d},-1.00,Row {d}\n" for d in range(1, 26))
+        inspection = inspect_csv("date,amount,description\n" + rows, sample_limit=10)
+        assert inspection.total_rows == 25
+        assert len(inspection.sample_rows) == 10
+
+    def test_inspect_csv_headers_only_file_has_no_rows(self):
+        inspection = inspect_csv("date,amount,description\n")
+        assert inspection.total_rows == 0
+        assert inspection.sample_rows == []
 
     def test_incomplete_mapping_blocks_queued_parse(self):
         csv = "Txn Day,Sum,Note\n2024-03-01,-12.50,Coffee\n"

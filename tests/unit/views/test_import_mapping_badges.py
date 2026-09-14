@@ -8,10 +8,15 @@ state of its own: a field is auto exactly while it still holds the guess.
 
 from __future__ import annotations
 
+import json
+import pathlib
+
 from kaleta.services.import_service import ColumnMapping
 from kaleta.views.import_view.mapping_section import (
     SAMPLE_CELL_CHARS,
     auto_detected_fields,
+    row_count_key,
+    row_count_label,
     truncate_cell,
 )
 
@@ -56,3 +61,32 @@ class TestTruncateCell:
 
         assert len(cut) == SAMPLE_CELL_CHARS
         assert cut.endswith("…")
+
+
+class TestRowCountPlural:
+    """The caption's one number, in a language with three plural forms."""
+
+    def test_english_needs_only_one_and_other(self) -> None:
+        assert row_count_label(1) == "1 row"
+        assert row_count_label(2) == "2 rows"
+        assert row_count_label(1245) == "1,245 rows"
+
+    def test_polish_few_covers_counts_ending_in_two_to_four(self) -> None:
+        # "3 wierszy" is wrong Polish; the few form is what 2-4 take.
+        assert [row_count_key(n) for n in (2, 3, 4, 22, 104)] == ["import.rows_count_few"] * 5
+
+    def test_the_teens_are_many_even_though_they_end_in_two_to_four(self) -> None:
+        assert [row_count_key(n) for n in (12, 13, 14, 112)] == ["import.rows_count_many"] * 4
+
+    def test_one_is_singular_and_zero_is_not(self) -> None:
+        assert row_count_key(1) == "import.rows_count_one"
+        assert row_count_key(0) == "import.rows_count_many"
+        assert row_count_key(11) == "import.rows_count_many"
+
+    def test_polish_really_carries_all_three_forms(self) -> None:
+        pl = json.loads(
+            (pathlib.Path("src/kaleta/i18n/locales/pl.json")).read_text(encoding="utf-8")
+        )["import"]
+        assert pl["rows_count_one"] == "{count} wiersz"
+        assert pl["rows_count_few"] == "{count} wiersze"
+        assert pl["rows_count_many"] == "{count} wierszy"

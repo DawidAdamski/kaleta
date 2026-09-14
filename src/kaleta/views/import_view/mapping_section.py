@@ -114,6 +114,26 @@ def truncate_cell(value: str) -> str:
     return value[: SAMPLE_CELL_CHARS - 1] + "…"
 
 
+def row_count_key(count: int) -> str:
+    """Which plural form of "N rows" the caption needs.
+
+    English has two forms, Polish three: 1 is ``one``, a count ending in 2-4
+    (but not 12-14) is ``few``, everything else is ``many``. Picking the key
+    here keeps both locales grammatical at any count — "3 wierszy" is wrong
+    Polish, and it is the one number this caption exists to show.
+    """
+    if count == 1:
+        return "import.rows_count_one"
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return "import.rows_count_few"
+    return "import.rows_count_many"
+
+
+def row_count_label(count: int) -> str:
+    """The count in the app's number format, correctly plural: ``1,245 rows``."""
+    return t(row_count_key(count), count=f"{count:,}")
+
+
 def sample_body_slot() -> str:
     """Vue body slot putting the whole of a cut cell behind a tooltip.
 
@@ -226,14 +246,14 @@ class MappingSection:
 
         if inspection is not None:
             delim = inspection.delimiter.replace("\t", "TAB")
-            # "; · UTF-8 · 1 245 rows" — what the file *is*, not what the
+            # "; · UTF-8 · 1,245 rows" — what the file *is*, not what the
             # table below happens to be showing of it.
             self.meta_label.set_text(
                 t(
                     "import.mapping_sample_caption",
                     delimiter=delim,
                     encoding=file.encoding,
-                    rows=f"{inspection.total_rows:,}".replace(",", " "),
+                    rows=row_count_label(inspection.total_rows),
                 )
             )
             self._render_sample(inspection)
