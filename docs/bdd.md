@@ -2136,9 +2136,8 @@ Feature: Account Balance Forecast
     And I am on the Forecast page
     When I select account "PKO Main"
     And I set horizon to "30 days"
-    And I click "Run forecast"
     Then I see a chart with historical balance and a predicted balance line
-    And the predicted balance for day 30 is displayed
+    And the predicted balance at the horizon is displayed
     And a shaded confidence interval surrounds the prediction
 
   KAL-FCT-002 @automated
@@ -2147,7 +2146,6 @@ Feature: Account Balance Forecast
     And I am on the Forecast page
     When I select account "PKO Main"
     And I set horizon to "90 days"
-    And I click "Run forecast"
     Then the forecast chart extends 90 days beyond today
 
   # --- Multi-account forecast ---
@@ -2158,7 +2156,6 @@ Feature: Account Balance Forecast
     And I am on the Forecast page
     When I select "All accounts"
     And I set horizon to "30 days"
-    And I click "Run forecast"
     Then the forecast chart shows the combined balance of all three accounts
     And individual account lines are shown as secondary series
 
@@ -2201,7 +2198,6 @@ Feature: Account Balance Forecast
     Given there is an account "New Account" with only 7 days of transactions
     And I am on the Forecast page
     When I select account "New Account"
-    And I click "Run forecast"
     Then I see a warning "Insufficient history for a reliable forecast"
     And no chart is displayed
 
@@ -2218,12 +2214,27 @@ Feature: Account Balance Forecast
   Scenario: Fallback projection when Prophet is not installed
     Given Kaleta is installed without the optional forecast extra
     And I am on the Forecast page
-    Then I see a banner "Advanced forecasting (Prophet) not installed — using simple projection"
+    Then a footnote under the chart title says the simple projection is in use
     And a link to install instructions is visible
     And the Prophet-only preset selector is hidden
-    When I click "Run Forecast"
-    Then I see a chart with historical balance and a predicted balance line
+    And I see a chart with historical balance and a predicted balance line
     And a shaded confidence interval surrounds the prediction
+
+  # --- Runs on load (artboard 3a) ---
+
+  KAL-FCT-010 @automated
+  Scenario: The forecast page shows a baseline without pressing Run
+    Given there is an account with sufficient history
+    When I open the Forecast page
+    Then a chart and its four figures appear without my clicking anything
+    And the Run button reads "Re-run", for after I change something
+
+  KAL-FCT-011 @automated
+  Scenario: The figures include the scenario shifts the chart draws
+    Given a forecast whose predicted balance at the horizon is known
+    When a what-if scenario adds an amount before that horizon
+    Then the predicted figure moves by that amount
+    And the change figure moves with it
 ```
 
 ## Feature: Credit Calculator

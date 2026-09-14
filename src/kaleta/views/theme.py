@@ -105,9 +105,17 @@ AUTO_BADGE = "k-auto-badge"
 #: A warning that belongs to the step you are on, not a toast that flies past.
 WARNING_STRIP = "k-warning-strip"
 
+# ── Loading (artboard 3a) ─────────────────────────────────────────────────────
+#: A page that answers on load shows the shape of the answer while it works.
+#: Sunken sand rather than Quasar's grey, so the wait looks like this app.
+SKELETON = "k-skeleton"
+
 # Filled accent surface (banners, section headers, step markers) and the
 # text colour that sits on it — apricot in light, ink on apricot in dark.
 ACCENT_SURFACE = "k-accent-surface"
+#: A tinted badge behind an icon — the accent at reading strength, not at
+#: full. Replaces the per-view `bg-blue-500/10 text-blue-600` triplets.
+ACCENT_SOFT = "k-accent-soft"
 ON_ACCENT = "k-on-accent"
 
 # Plain ink text for figures and dense grid cells (not a heading).
@@ -180,6 +188,7 @@ BASE_CSS = """
   --k-border:#E2DBCC;
   --k-border-strong:#C9BFA8;
   --k-accent:#B4591F;
+  --k-accent-soft:#F4E3D5;
   --k-accent-text:#9A4E1F;
   --k-accent-light:#DE7B45;
   --k-income:#36684D;
@@ -211,6 +220,7 @@ BASE_CSS = """
   --k-border:#322F27;
   --k-border-strong:#453F34;
   --k-accent:#E8935B;
+  --k-accent-soft:#3A2E24;
   --k-accent-text:#E8935B;
   --k-accent-light:#E8935B;
   --k-income:#6FAF87;
@@ -445,6 +455,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   font-size:12.5px;line-height:1.2;
   cursor:pointer
 }
+.k-skeleton{
+  background:var(--k-surface-sunken)!important;
+  border:1px solid var(--k-hairline)
+}
+.k-skeleton::after{background:var(--k-surface)!important;opacity:.35}
 .k-filter-chip--empty{
   background:transparent;
   border:1px dashed var(--k-chip-dash);
@@ -453,6 +468,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 
 /* ── Banners & chips ──────────────────────────────────────────────── */
 .k-accent-surface{background:var(--k-accent);color:var(--k-on-accent)}
+.k-accent-soft{background:var(--k-accent-soft);color:var(--k-accent)}
 .k-accent-surface .q-icon,.k-on-accent{color:var(--k-on-accent)}
 /* Dashboard "needs attention" strip (artboard 1c). */
 .k-banner,.k-banner .k-banner-item{color:var(--k-on-accent)}

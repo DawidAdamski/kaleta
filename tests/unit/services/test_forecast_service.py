@@ -33,6 +33,7 @@ from kaleta.services.forecast_service import (
     apply_preset,
     apply_scenarios,
     clear_forecast_cache,
+    forecast_kpis,
 )
 from kaleta.services.forecasters import (
     NaiveForecaster,
@@ -567,3 +568,104 @@ class TestApplyScenarios:
             [ScenarioShift(label="x", date=orig.forecast[0].date, amount=50.0)],
         )
         assert [p.value for p in orig.forecast] == before
+
+
+# ── KPIs above the chart (artboard 3a) ───────────────────────────────────────
+
+
+def _point(day: int, value: float, *, lower: float, upper: float, forecast: bool) -> ForecastPoint:
+    return ForecastPoint(
+        date=datetime.date(2026, 1, 1) + datetime.timedelta(days=day),
+        value=value,
+        lower=lower,
+        upper=upper,
+        is_forecast=forecast,
+    )
+
+
+def _result(*points: ForecastPoint) -> ForecastResult:
+    return ForecastResult(account_name="PKO", points=list(points))
+
+
+class TestForecastKpis:
+    """Covers: KAL-FCT-011 — the figures read the series the chart draws."""
+
+    def test_the_horizon_is_the_last_forecast_point_not_day_thirty(self) -> None:
+        # A 90-day horizon answered with day 30 is the chart and the figures
+        # answering different questions.
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(30, 900.0, lower=800.0, upper=1000.0, forecast=True),
+            _point(90, 700.0, lower=500.0, upper=900.0, forecast=True),
+        )
+
+        kpis = forecast_kpis(result)
+
+        assert kpis.balance_today == 1000.0
+        assert kpis.predicted == 700.0
+        assert kpis.change == -300.0
+        assert kpis.horizon_date == datetime.date(2026, 4, 1)
+
+    def test_confidence_is_half_the_interval_at_the_horizon(self) -> None:
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(60, 900.0, lower=700.0, upper=1100.0, forecast=True),
+        )
+
+        assert forecast_kpis(result).confidence == 200.0
+
+    def test_a_scenario_moves_the_predicted_and_change_figures(self) -> None:
+        """Covers: KAL-FCT-011
+
+        The figures are read off the same result the chart is drawn from, so
+        a what-if that lifts the line lifts them by exactly as much.
+        """
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(30, 900.0, lower=800.0, upper=1000.0, forecast=True),
+            _point(60, 800.0, lower=600.0, upper=1000.0, forecast=True),
+        )
+        before = forecast_kpis(result)
+
+        shifted = apply_scenarios(
+            result,
+            [ScenarioShift(label="Bonus", date=datetime.date(2026, 1, 31), amount=5000.0)],
+        )
+        after = forecast_kpis(shifted)
+
+        assert after.predicted == before.predicted + 5000.0
+        assert after.change == before.change + 5000.0
+        # The interval moved with the line, so the ± is unchanged.
+        assert after.confidence == before.confidence
+
+    def test_a_scenario_after_the_horizon_leaves_the_figures_alone(self) -> None:
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(30, 900.0, lower=800.0, upper=1000.0, forecast=True),
+        )
+        shifted = apply_scenarios(
+            result,
+            [ScenarioShift(label="Later", date=datetime.date(2026, 6, 1), amount=5000.0)],
+        )
+
+        assert forecast_kpis(shifted).predicted == 900.0
+
+    def test_no_history_means_no_balance_today_and_no_change(self) -> None:
+        result = _result(_point(30, 900.0, lower=800.0, upper=1000.0, forecast=True))
+
+        kpis = forecast_kpis(result)
+
+        assert kpis.balance_today is None
+        assert kpis.change is None
+        assert kpis.predicted == 900.0
+
+    def test_no_forecast_leaves_every_figure_past_today_empty(self) -> None:
+        result = _result(_point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False))
+
+        kpis = forecast_kpis(result)
+
+        assert kpis.balance_today == 1000.0
+        assert kpis.predicted is None
+        assert kpis.change is None
+        assert kpis.confidence is None
+        assert kpis.horizon_date is None

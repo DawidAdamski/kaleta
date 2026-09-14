@@ -3,7 +3,7 @@ plan_id: restyle-forecast-on-load
 title: Restyle — Forecast runs baseline on load, controls on the title row, one linear-axis chart (artboard 3a)
 area: forecast
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#forecast
 ---
 
@@ -97,4 +97,110 @@ chart, note it there).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Open questions, resolved
+
+1. **Auto-run on control change, or an explicit Re-run?** Plan default, taken
+   as written: auto-run with a 300 ms debounce when the naive projection is
+   in use, and, when Prophet is installed and a run costs seconds, a change
+   only marks the chart stale — `stale_hint` under the title, the Re-run
+   button raised out of `flat` — and Re-run applies it. `is_prophet_available()`
+   is the proxy for "a run is slow", which is the plan's own wording.
+2. **Confidence KPI format?** Plan default: `± X zł`, half the 80 % interval
+   at the horizon, with the hint line under the figure saying so.
+
+### The band was drawn above the line it was meant to surround
+
+Not a restyle: a bug the restyle uncovered. The band is drawn by stacking its
+height on an invisible floor series, and the floor was the **upper** bound —
+so the shading ran from `upper` to `2·upper − lower`, sitting entirely above
+the prediction. `KAL-FCT-001` has said "a shaded confidence interval
+surrounds the prediction" all along. The floor is the lower bound now, and
+`tests/unit/views/test_forecast_chart.py` asserts floor + height = upper.
+
+### The x-axis is time, and the two lines meet
+
+A `category` axis spaces points evenly whatever dates they carry, so ninety
+daily history points beside sixty daily forecast points came out compressed —
+the past appeared to happen faster than the future. Every series now carries
+`[date, value]` pairs on an `xAxis.type = "time"`. The prediction is prepended
+with the last historical point so the solid and dashed lines meet at today
+instead of leaving a day-wide gap.
+
+### The horizon is the horizon
+
+`predicted_balance_30d` answers about day 30 whatever horizon was asked for.
+`forecast_kpis` reads the **last** forecast point, so a 90-day request gets a
+90-day answer, and the figure carries the date under it. The service property
+is left alone — it has other callers.
+
+### The figures cannot disagree with the picture
+
+`forecast_kpis(result)` takes the same `ForecastResult` the chart is drawn
+from — after `apply_preset` and `apply_scenarios` — so a what-if that lifts
+the line lifts the figures by exactly as much, and the interval that moved
+with it leaves the ± unchanged. Recomputing them from the raw forecast was
+the prototype's mistake.
+
+### One timer, and a dialog that outlives its own Save
+
+Two NiceGUI traps, both found by the e2e:
+
+- A `ui.timer` created inside an event handler belongs to the handler's
+  ambient slot. Save redraws the scenario chips — including the chip whose
+  click opened the dialog — so by the time the timer was constructed its
+  parent was gone (`The parent element this slot belongs to has been
+  deleted`). There is one debounce timer now, built with the page and armed
+  by `activate()`.
+- The add-scenario dialog had the same problem: built inside the chip row, it
+  was deleted halfway through its own handler. It is built once with the page
+  and reset on open.
+
+### `data-kpi` on each figure
+
+Three of the four KPI titles — Predicted, Change, Confidence — are words that
+also appear in the chart legend and in the upcoming-14 table, so neither a
+reader's eye nor a test can find *the figure* by its text. Each card names
+itself.
+
+### e2e: the page remembers the account
+
+`forecast_account` and `forecast_horizon` are new persisted keys, which the
+plan asks for. The e2e suite shares one browser session, so "All Accounts is
+the default" stopped being true once another test picked an account:
+`KAL-FCT-003` selects it explicitly, which is what the scenario says anyway.
+The scenario test removes its own scenario at the end for the same reason —
+and that exercises removal.
+
+### KAL-FCT-011 is an e2e, not a unit test
+
+Scope says "@automated, unit on the KPI helper", but `scripts/spec_coverage.py`
+only scans `tests/e2e` and `tests/integration`, so a `Covers:` in
+`tests/unit` counts for nothing. The rule is unit-tested either way
+(`TestForecastKpis`); the scenario is carried by an e2e that adds a windfall
+through the dialog and asserts the predicted and change figures move by its
+amount, then takes it away again.
+
+### Scenarios reworded, not re-scoped
+
+`KAL-FCT-001`, `002`, `003` and `007` each had a "When I click Run forecast"
+step that the page no longer has; they now describe a page that has already
+run. `KAL-FCT-009` describes a footnote rather than the amber banner. The
+banner's keys (`fallback_banner`, `click_run`, `run`, `running`,
+`current_balance`, `predicted_30`, `change_30`) are gone from both locales
+rather than left behind as cruft.
+
+### New tokens
+
+`--k-accent-soft` (`#F4E3D5` / `#3A2E24`) behind the KPI icons, replacing the
+per-view `bg-blue-500/10 text-blue-600` triplets, and `.k-skeleton` so the
+wait looks like this app rather than Quasar's grey. Both in `theme.py` with
+the rest.
+
+### Not done
+
+The `[manual]` criterion — `/forecast` on seed data compared to artboard `3a`
+in light and dark, with and without Prophet — is the owner's visual pass.
+This repo's dev environment has no Prophet, so the stale-then-Re-run branch
+of open question 1 is exercised by reading, not by running: it is part of
+that manual pass. Forecaster models, presets and scenario semantics are
+untouched, as Scope says.
