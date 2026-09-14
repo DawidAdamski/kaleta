@@ -3,11 +3,12 @@
 
 from __future__ import annotations
 
+import datetime
 from collections.abc import Awaitable, Callable
 from decimal import Decimal
 from typing import Any
 
-from nicegui import app, ui
+from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import BudgetService, with_session
@@ -28,7 +29,17 @@ from kaleta.views.budget_plan.helpers import (
     plan_cell_color,
     recurring_display,
 )
-from kaleta.views.theme import INK
+from kaleta.views.theme import (
+    INK,
+    MONO,
+    MUTED,
+    PLAN_ACTUAL_ROW,
+    PLAN_GRID,
+    PLAN_HEAD,
+    PLAN_MONTH_NOW,
+    PLAN_ROW,
+    PLAN_TOTAL,
+)
 
 
 def build_plan_grid(
@@ -41,7 +52,6 @@ def build_plan_grid(
 
     @ui.refreshable
     async def plan_grid() -> None:
-        is_dark: bool = app.storage.user.get("dark_mode", False)
         selected_years = sorted(state["years"])
 
         async def _load(session: Any) -> AnnualPlanGrid:
@@ -49,11 +59,11 @@ def build_plan_grid(
 
         grid = await with_session(_load)
 
-        hdr_cls = "bg-slate-600 text-slate-50" if is_dark else "bg-slate-100 text-slate-900"
-        row_hover = "hover:bg-slate-700" if is_dark else "hover:bg-slate-50"
-        sub_bg = "bg-slate-700" if is_dark else "bg-slate-50"
+        # No card, no shadow, no slate: artboard 2c gives the densest screen
+        # in the app the opposite treatment — hairlines, and the paper is the
+        # table. ``is_dark`` no longer decides anything here; the tokens do.
         cell_cls = "text-sm text-center py-1 px-1"
-        row_cls = "items-center no-wrap gap-0 border-b"
+        row_cls = "items-center no-wrap gap-0"
 
         async def _clear_category(cat_id: int) -> None:
             async def _run(session: Any) -> None:
@@ -64,11 +74,13 @@ def build_plan_grid(
             await with_session(_run)
             on_refresh()
 
+        # This grid does not reflow — twelve month columns cannot become one.
+        # It scrolls sideways instead, which the handoff calls for by name.
         with (
-            ui.element("div").classes("overflow-x-auto w-full rounded-lg border"),
+            ui.element("div").classes(f"overflow-x-auto w-full {PLAN_GRID}"),
             ui.element("div").style(INNER_MIN),
         ):
-            _render_header(grid, hdr_cls=hdr_cls, row_cls=row_cls, cell_cls=cell_cls)
+            _render_header(grid, row_cls=row_cls, cell_cls=cell_cls)
 
             if not grid.is_compare:
                 slice_ = grid.slices[0]
@@ -76,23 +88,12 @@ def build_plan_grid(
                     slice_,
                     budget_map=slice_.budget_map,
                     dialogs=dialogs,
-                    hdr_cls=hdr_cls,
-                    row_hover=row_hover,
                     cell_cls=cell_cls,
                     row_cls=row_cls,
-                    is_dark=is_dark,
                     clear_category=_clear_category,
                 )
             else:
-                _render_compare_grid(
-                    grid,
-                    sub_bg=sub_bg,
-                    row_hover=row_hover,
-                    hdr_cls=hdr_cls,
-                    cell_cls=cell_cls,
-                    row_cls=row_cls,
-                    is_dark=is_dark,
-                )
+                _render_compare_grid(grid, cell_cls=cell_cls, row_cls=row_cls)
 
     return plan_grid
 
@@ -100,23 +101,46 @@ def build_plan_grid(
 def _render_header(
     grid: AnnualPlanGrid,
     *,
-    hdr_cls: str,
     row_cls: str,
     cell_cls: str,
 ) -> None:
-    with ui.row().classes(f"{row_cls} {hdr_cls} font-bold"):
-        ui.label(t("common.category")).classes("text-sm font-bold px-3 py-2").style(S_CAT)
+    now = datetime.date.today()
+    year = grid.slices[0].year if not grid.is_compare else None
+    with ui.row().classes(f"{row_cls} {PLAN_HEAD} k-eyebrow"):
+        ui.label(t("common.category")).classes("px-3 py-2").style(S_CAT)
+        ui.label(t("common.month") if not grid.is_compare else t("common.year")).classes(
+            cell_cls
+        ).style(S_REC)
+        for index, month_lbl in enumerate(month_labels(), start=1):
+            tint = PLAN_MONTH_NOW if (year == now.year and index == now.month) else ""
+            ui.label(month_lbl).classes(f"{cell_cls} {tint}").style(S_MON)
+        ui.label(t("budget_plan.year_total")).classes("px-3 py-2 text-right").style(S_TOT)
         if not grid.is_compare:
-            ui.label(t("common.month")).classes(f"{cell_cls} font-bold").style(S_REC)
-        else:
-            ui.label(t("common.year")).classes(f"{cell_cls} font-bold").style(S_REC)
-        for month_lbl in month_labels():
-            ui.label(month_lbl).classes(f"{cell_cls} font-bold").style(S_MON)
-        ui.label(t("budget_plan.year_total")).classes(
-            "text-sm font-bold px-3 py-2 text-right"
-        ).style(S_TOT)
-        if not grid.is_compare:
-            ui.label(t("common.actions")).classes("text-sm font-bold px-3 py-2").style(S_ACT)
+            # The two row actions moved into a right-click menu to buy back
+            # the width twelve month columns need; the header says so, and the
+            # per-row button keeps them reachable without a mouse button.
+            with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
+                ui.icon("more_horiz", size="16px").tooltip(t("budget_plan.row_actions_hint"))
+
+
+def _row_actions(
+    row: Any,
+    *,
+    budget_map: dict[tuple[int, int], Decimal],
+    dialogs: EditDialogs,
+    clear_category: Callable[[int], Awaitable[None]],
+) -> None:
+    """The two row actions, as menu items rather than two always-on buttons."""
+    ui.menu_item(
+        t("budget_plan.set_from_yearly"),
+        on_click=lambda: dialogs.open_yearly(
+            cat_id=row.category_id, cat_name=row.name, budget_map=budget_map
+        ),
+    )
+    ui.menu_item(
+        t("budget_plan.clear_all"),
+        on_click=lambda: clear_category(row.category_id),
+    )
 
 
 def _render_single_year_grid(
@@ -124,21 +148,27 @@ def _render_single_year_grid(
     *,
     budget_map: dict[tuple[int, int], Decimal],
     dialogs: EditDialogs,
-    hdr_cls: str,
-    row_hover: str,
     cell_cls: str,
     row_cls: str,
-    is_dark: bool,
     clear_category: Callable[[int], Awaitable[None]],
 ) -> None:
-    act_bg = "bg-slate-700" if is_dark else "bg-slate-50"
+    now = datetime.date.today()
+    this_month = now.month if slice_.year == now.year else None
 
     for row in slice_.rows:
         rec_text, rec_color = recurring_display(row)
-        name_suffix = " text-slate-500 pl-7" if row.is_child else " font-medium"
+        name_suffix = f" {MUTED} pl-7" if row.is_child else f" {INK} font-medium"
         name_cls = "text-sm px-3 py-2 truncate" + name_suffix
 
-        with ui.row().classes(f"{row_cls} {row_hover}"):
+        with ui.row().classes(f"{row_cls} {PLAN_ROW}"):
+            # Right-click anywhere on the row, which is where the actions went.
+            with ui.context_menu():
+                _row_actions(
+                    row,
+                    budget_map=budget_map,
+                    dialogs=dialogs,
+                    clear_category=clear_category,
+                )
             with (
                 ui.element("div")
                 .style(S_CAT)
@@ -146,7 +176,7 @@ def _render_single_year_grid(
             ):
                 if row.is_child:
                     ui.icon("subdirectory_arrow_right").classes(
-                        "text-slate-400 ml-2 text-sm flex-shrink-0"
+                        f"{MUTED} ml-2 text-sm flex-shrink-0"
                     )
                 ui.label(row.name).classes(name_cls).style(
                     "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
@@ -167,9 +197,10 @@ def _render_single_year_grid(
 
             for cell in row.months:
                 color = plan_cell_color(cell.planned, cell.is_override)
+                tint = PLAN_MONTH_NOW if cell.month == this_month else ""
                 (
                     ui.label(format_amount(cell.planned))
-                    .classes(f"{cell_cls} cursor-pointer hover:bg-blue-1 rounded {color}")
+                    .classes(f"{cell_cls} cursor-pointer rounded {color} {tint}")
                     .style(S_MON)
                     .on(
                         "click",
@@ -183,60 +214,61 @@ def _render_single_year_grid(
                 )
 
             ui.label(format_amount(row.total_planned or None)).classes(
-                "text-sm text-right px-3 py-2 font-medium"
+                f"text-sm text-right px-3 py-2 font-medium {INK}"
             ).style(S_TOT)
 
-            with ui.row().classes("gap-0 px-1 items-center").style(S_ACT):
-                ui.button(
-                    icon="event_note",
-                    on_click=lambda r=row: dialogs.open_yearly(
-                        cat_id=r.category_id,
-                        cat_name=r.name,
+            with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
+                # The same menu the right-click opens, for touch and for
+                # anyone who has never right-clicked a table row.
+                actions_button = ui.button(icon="more_horiz").props(
+                    "flat round dense size=sm color=grey-7"
+                )
+                actions_button.tooltip(t("budget_plan.row_actions"))
+                actions_button.props["aria-label"] = f"{t('budget_plan.row_actions')}: {row.name}"
+                with actions_button, ui.menu():
+                    _row_actions(
+                        row,
                         budget_map=budget_map,
-                    ),
-                ).props("flat round dense size=sm color=orange-8").tooltip(
-                    t("budget_plan.set_from_yearly")
-                )
-                ui.button(
-                    icon="delete_sweep",
-                    on_click=lambda r=row: clear_category(r.category_id),
-                ).props("flat round dense size=sm color=negative").tooltip(
-                    t("budget_plan.clear_all")
-                )
+                        dialogs=dialogs,
+                        clear_category=clear_category,
+                    )
 
         if row.show_actual_row:
-            with ui.row().classes(f"items-center no-wrap gap-0 {act_bg}"):
-                ui.label(t("budget_plan.actual")).classes(
-                    "text-xs text-slate-400 italic px-3 py-0"
+            with ui.row().classes(f"{row_cls} {PLAN_ROW} {PLAN_ACTUAL_ROW}"):
+                ui.label(t("budget_plan.actual_row")).classes(
+                    f"text-[10.5px] {MUTED} px-3 py-0"
                 ).style(S_CAT)
                 ui.label("").style(S_REC)
                 for cell in row.months:
                     act_color = actual_cell_color(cell.actual, cell.is_over_budget)
+                    tint = PLAN_MONTH_NOW if cell.month == this_month else ""
                     ui.label(format_amount(cell.actual)).classes(
-                        f"text-xs text-center py-0 px-1 {act_color}"
+                        f"text-[10.5px] {MONO} text-center py-0 px-1 {act_color} {tint}"
                     ).style(S_MON)
                 ui.label(format_amount(row.total_actual or None)).classes(
-                    "text-xs text-right px-3 py-0 text-slate-500"
+                    f"text-[10.5px] {MONO} {MUTED} text-right px-3 py-0"
                 ).style(S_TOT)
                 ui.label("").style(S_ACT)
 
-    with ui.row().classes(f"{row_cls} {hdr_cls} font-bold border-t-2"):
-        ui.label(t("budget_plan.planned")).classes("text-sm font-bold px-3 py-2").style(S_CAT)
+    with ui.row().classes(f"{row_cls} {PLAN_TOTAL} {INK} font-medium"):
+        ui.label(t("budget_plan.planned")).classes("text-sm px-3 py-2").style(S_CAT)
         ui.label("").style(S_REC)
-        for tot in slice_.month_planned_totals:
-            ui.label(format_amount(tot or None)).classes(f"{cell_cls} font-bold").style(S_MON)
+        for index, tot in enumerate(slice_.month_planned_totals, start=1):
+            tint = PLAN_MONTH_NOW if index == this_month else ""
+            ui.label(format_amount(tot or None)).classes(f"{cell_cls} {tint}").style(S_MON)
         ui.label(format_amount(slice_.grand_planned or None)).classes(
-            "text-sm font-bold text-right px-3 py-2"
+            "text-sm text-right px-3 py-2"
         ).style(S_TOT)
         ui.label("").style(S_ACT)
 
-    with ui.row().classes(f"{row_cls} {hdr_cls} border-t"):
-        ui.label(t("budget_plan.actual")).classes("text-sm font-bold px-3 py-2").style(S_CAT)
+    with ui.row().classes(f"{row_cls} {MUTED}"):
+        ui.label(t("budget_plan.actual")).classes("text-sm px-3 py-2").style(S_CAT)
         ui.label("").style(S_REC)
-        for tot in slice_.month_actual_totals:
-            ui.label(format_amount(tot or None)).classes(f"{cell_cls}").style(S_MON)
+        for index, tot in enumerate(slice_.month_actual_totals, start=1):
+            tint = PLAN_MONTH_NOW if index == this_month else ""
+            ui.label(format_amount(tot or None)).classes(f"{cell_cls} {MONO} {tint}").style(S_MON)
         ui.label(format_amount(slice_.grand_actual or None)).classes(
-            "text-sm font-bold text-right px-3 py-2"
+            f"text-sm text-right px-3 py-2 {MONO}"
         ).style(S_TOT)
         ui.label("").style(S_ACT)
 
@@ -244,62 +276,44 @@ def _render_single_year_grid(
 def _render_compare_grid(
     grid: AnnualPlanGrid,
     *,
-    sub_bg: str,
-    row_hover: str,
-    hdr_cls: str,
     cell_cls: str,
     row_cls: str,
-    is_dark: bool,
 ) -> None:
-    act_bg = "bg-slate-700" if is_dark else "bg-slate-50"
     first_slice = grid.slices[0]
 
     for row in first_slice.rows:
         cat_label = row.name
         if row.is_child:
             cat_label = "   └ " + row.name
-        with ui.row().classes(f"{row_cls} {sub_bg}"):
-            ui.label(cat_label).classes("text-sm font-semibold px-3 py-1 flex-1")
+        with ui.row().classes(f"{row_cls} {PLAN_HEAD} k-eyebrow mt-2"):
+            ui.label(cat_label).classes("px-3 py-1 flex-1")
 
         for slice_ in grid.slices:
             year_row = next(r for r in slice_.rows if r.category_id == row.category_id)
             rec_text, rec_color = recurring_display(year_row)
 
-            with ui.row().classes(f"{row_cls} {row_hover}"):
-                ui.label(str(slice_.year)).classes(
-                    "text-xs text-slate-500 px-3 py-1 font-mono"
-                ).style(S_CAT)
+            # No actual sub-row here: the compare grid already spends a row per
+            # year, and a second one under each would double a grid that is
+            # dense before it starts. Scope says so.
+            with ui.row().classes(f"{row_cls} {PLAN_ROW}"):
+                ui.label(str(slice_.year)).classes(f"text-xs {MUTED} px-3 py-1 {MONO}").style(S_CAT)
                 ui.label(rec_text).classes(f"{cell_cls} font-medium {rec_color}").style(S_REC)
                 for cell in year_row.months:
-                    color = INK if cell.planned else "text-slate-400"
+                    color = INK if cell.planned else MUTED
                     ui.label(format_amount(cell.planned)).classes(f"{cell_cls} {color}").style(
                         S_MON
                     )
                 ui.label(format_amount(year_row.total_planned or None)).classes(
-                    "text-sm text-right px-3 py-1 font-medium"
+                    f"text-sm text-right px-3 py-1 font-medium {INK}"
                 ).style(S_TOT)
 
-            with ui.row().classes(f"items-center no-wrap gap-0 {act_bg}"):
-                ui.label(f"{slice_.year} {t('budget_plan.actual')}").classes(
-                    "text-xs text-slate-400 italic px-3 py-0"
-                ).style(S_CAT)
-                ui.label("").style(S_REC)
-                for cell in year_row.months:
-                    act_color = actual_cell_color(cell.actual, cell.is_over_budget)
-                    ui.label(format_amount(cell.actual)).classes(
-                        f"text-xs text-center py-0 px-1 {act_color}"
-                    ).style(S_MON)
-                ui.label(format_amount(year_row.total_actual or None)).classes(
-                    "text-xs text-right px-3 py-0 text-slate-500"
-                ).style(S_TOT)
-
-    with ui.row().classes(f"{row_cls} {hdr_cls} font-bold border-t-2"):
-        ui.label(t("common.total")).classes("text-sm font-bold px-3 py-2").style(S_CAT)
+    with ui.row().classes(f"{row_cls} {PLAN_TOTAL} {INK} font-medium"):
+        ui.label(t("common.total")).classes("text-sm px-3 py-2").style(S_CAT)
         ui.label("").style(S_REC)
         if grid.compare_month_totals is not None:
             for tot in grid.compare_month_totals:
-                ui.label(format_amount(tot or None)).classes(f"{cell_cls} font-bold").style(S_MON)
+                ui.label(format_amount(tot or None)).classes(cell_cls).style(S_MON)
         overall = grid.compare_grand_total or Decimal("0")
-        ui.label(format_amount(overall or None)).classes(
-            "text-sm font-bold text-right px-3 py-2"
-        ).style(S_TOT)
+        ui.label(format_amount(overall or None)).classes("text-sm text-right px-3 py-2").style(
+            S_TOT
+        )

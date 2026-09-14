@@ -1455,8 +1455,8 @@ Feature: Annual Budget Planning
     And I am on the Budget Plan page
     When I select view mode "Budget vs Actual"
     Then each category cell shows both the budgeted amount and the amount actually spent
-    And over-budget categories are highlighted in red
-    And under-budget categories are highlighted in green
+    And a month that went over its budget is highlighted
+    And a month that stayed inside it is not — spending as planned is not news
 
   KAL-BUD-007 @manual
   Scenario: View execution percentage per category
@@ -1515,6 +1515,19 @@ Feature: Annual Budget Planning
     Then each row ends with a bar filled to what was spent
     And a tick on the bar marks how much of the month has elapsed
     And the status word it replaced is still there on hover
+
+  KAL-BUD-015 @automated
+  Scenario: Budget plan row actions are reachable from the row context menu
+    Given I am on the Budget Plan page for the current year
+    When I right-click a category row
+    Then the two row actions are offered — set from yearly, and clear the row
+    And the same actions open from the row's own button, for touch
+
+  KAL-BUD-016 @automated
+  Scenario: The plan grid marks the month I am in
+    Given I am on the Budget Plan page for the current year
+    Then the current month's column is tinted, header and cells alike
+    And a category's actual spending reads under its plan, month by month
 
   KAL-BUD-014 @automated
   Scenario: An under-budget row names the bill still to come

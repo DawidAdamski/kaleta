@@ -23,6 +23,8 @@ AMOUNT_WARNING = "k-amount k-amount--warn"
 # Opt-in monospace for non-amount numbers (dates, counts, percentages, the
 # version string) — same family and tabular figures, inherited colour.
 MONO = "k-mono"
+#: Secondary text — a label beside a figure, an empty cell's em dash.
+MUTED = "k-muted"
 
 # Shared surface tokens — paper on ground, 1px shadow instead of a border.
 _SURFACE = "k-surface w-full rounded-xl"
@@ -73,6 +75,19 @@ FILTER_CHIP_EMPTY = "k-filter-chip--empty"
 SELECTION_BAR = "k-selection-bar"
 #: Hover tint for a hand-built row (one that is not inside a ``k-table``).
 ROW_HOVER = "k-row-hover"
+#: Accent-coloured text — the recurring column, a link that is not an <a>.
+ACCENT_TEXT = "k-accent-text"
+
+# ── Budget plan grid (artboard 2c) ────────────────────────────────────────────
+#: The annual grid is not a card: hairlines only, and the paper is the table.
+PLAN_GRID = "k-plan-grid"
+PLAN_HEAD = "k-plan-head"
+PLAN_ROW = "k-plan-row"
+PLAN_TOTAL = "k-plan-total"
+#: This month's column, so the eye finds "now" in twelve identical columns.
+PLAN_MONTH_NOW = "k-plan-month-now"
+#: The quiet line under a category's plan, carrying what it actually spent.
+PLAN_ACTUAL_ROW = "k-plan-actual"
 
 # Filled accent surface (banners, section headers, step markers) and the
 # text colour that sits on it — apricot in light, ink on apricot in dark.
@@ -294,6 +309,18 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
 .k-row-hover:hover{background:var(--k-row-hover)}
+.k-accent-text{color:var(--k-accent-text)}
+/* Budget plan grid: no card, no shadow — hairlines, and the paper is the
+   table. The header and the totals band are the only strong rules. */
+.k-plan-grid{background:transparent}
+.k-plan-head{
+  border-bottom:1px solid var(--k-border-strong);
+  color:var(--k-muted)
+}
+.k-plan-row{border-bottom:1px solid var(--k-hairline)}
+.k-plan-row:hover{background:var(--k-row-hover)}
+.k-plan-total{border-top:1px solid var(--k-border-strong)}
+.k-plan-month-now{background:#F0E5D4}
 .k-cat-row{border-bottom-color:var(--k-hairline)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}
@@ -451,6 +478,7 @@ body.body--dark{background-color:var(--k-ground);color-scheme:dark}
 }
 .body--dark .bg-slate-100{border-color:var(--k-border)}
 .body--dark .hover\\:bg-slate-50:hover{background:var(--k-row-hover) !important}
+.body--dark .k-plan-month-now{background:var(--k-surface-sunken)}
 .body--dark .hover\\:bg-slate-100:hover{background:var(--k-surface-sunken) !important}
 .body--dark .hover\\:bg-slate-700:hover{background:var(--k-surface-warm) !important}
 
