@@ -377,17 +377,20 @@ class MappingSection:
 def build_mapping_section() -> MappingSection:
     badges: dict[str, ui.element] = {}
 
-    def _picker(label_key: str, field: str | None = None, *, width: str = "w-full") -> ui.select:
-        """One field picker, with the ``auto`` pill that says where it came from."""
+    def _picker(label_key: str, field: str, *, width: str = "w-full") -> ui.select:
+        """One column picker, with the ``auto`` pill that says where it came from.
+
+        Every column picker has a field, and so a pill; the format and
+        separator selects below are not column pickers and build their own.
+        """
         with ui.column().classes(f"{width} gap-0.5 min-w-0"):
             select = ui.select({}, label=t(label_key)).classes("w-full")
-            if field is not None:
-                badge = ui.label(t("import.auto_badge")).classes(AUTO_BADGE)
-                # Which picker the pill belongs to, on the pill itself: the
-                # mark is the only thing on screen that names its own field.
-                badge.props[_BADGE_FIELD_ATTR] = field
-                badge.set_visibility(False)
-                badges[field] = badge
+            badge = ui.label(t("import.auto_badge")).classes(AUTO_BADGE)
+            # Which picker the pill belongs to, on the pill itself: the mark
+            # is the only thing on screen that names its own field.
+            badge.props[_BADGE_FIELD_ATTR] = field
+            badge.set_visibility(False)
+            badges[field] = badge
         return select
 
     card = ui.card().classes(f"{SECTION_CARD} w-full")

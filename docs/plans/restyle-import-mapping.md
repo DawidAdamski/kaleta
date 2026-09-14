@@ -419,8 +419,11 @@ a saved import rule and from an inherited queue snapshot, both of which can
 carry columns a user chose by hand on an earlier file — the wider reading of
 Scope's "profile match or heuristic", argued above. And `reader.line_num`
 changes the "Row N" text in Preview-step errors too, not only in the mapping
-strip; Preview is "Not in scope", but the number it prints is now the file's
-line rather than a record ordinal, which is a correction either way.
+strip; Preview is "Not in scope", but the number is now a line rather than a
+record ordinal, which is a correction either way. It is the uploaded file's
+line for generic and PKO files; mBank hands `parse_csv` a data section with
+the preamble already cut off, so its numbers keep the offset they always
+had, and the mapping strip never shows for mBank anyway.
 
 ### Not done
 

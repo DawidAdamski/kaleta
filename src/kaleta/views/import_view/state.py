@@ -104,12 +104,6 @@ def current_step(active: QueuedFile | None) -> int:
     return STEP_UPLOAD
 
 
-#: The one thing the import can refuse for that no setting will fix — the
-#: file's currency is not the account's. Everything else the readiness check
-#: blocks on is a field on the settings card, chosen or not.
-_NOT_A_SETTING = "import.currency_mismatch_block"
-
-
 def settings_are_complete(file: QueuedFile) -> bool:
     """Everything the settings step asks for, chosen.
 
@@ -117,6 +111,10 @@ def settings_are_complete(file: QueuedFile) -> bool:
     settings node is ticked exactly when the Import button would stop
     refusing, so a rule added to the service later cannot leave the line
     claiming a step the page below it is still asking for.
+
+    ``account_currency=None`` is what leaves the one refusal out that no
+    setting can fix — a file whose currency is not the account's. Everything
+    else the check blocks on is a field on the settings card.
     """
     error_key, _ = validate_import_readiness(
         ImportReadinessCheck(
@@ -128,7 +126,7 @@ def settings_are_complete(file: QueuedFile) -> bool:
             account_currency=None,
         )
     )
-    return error_key is None or error_key == _NOT_A_SETTING
+    return error_key is None
 
 
 def queue_is_terminal(queue: list[QueuedFile]) -> bool:
