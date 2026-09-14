@@ -20,14 +20,30 @@ def format_signed_amount(amount: Decimal | float, tx_type: TransactionType) -> s
     return TransactionService.format_signed_amount(Decimal(str(amount)), tx_type)
 
 
+def signed_amount_class(amount: Decimal | float, tx_type: TransactionType) -> str:
+    """The tone for one row's figure — zero moved nothing, so it is neither."""
+    return AMOUNT_NEUTRAL if Decimal(str(amount)) == 0 else amount_class(tx_type.value)
+
+
+def net_tone(net: Decimal) -> str:
+    """The tone for a total, which has no type of its own — only a direction."""
+    if net > 0:
+        return AMOUNT_INCOME
+    if net < 0:
+        return AMOUNT_EXPENSE
+    return AMOUNT_NEUTRAL
+
+
 def amount_cell_slot() -> str:
     """Vue ``q-td`` fragment for a colour-coded amount column in ``ui.table`` body slots."""
     return (
         '<q-td key="amount" :props="props" class="text-right">'
-        # A zero moved nothing, so it is neither income nor expense. Rows
-        # without an ``amount_value`` (other tables reuse this slot) give NaN,
-        # which is not zero, and fall through to the type as before.
-        f"<span :class=\"Number(props.row.amount_value) === 0 ? '{AMOUNT_NEUTRAL}' : "
+        # A zero moved nothing, so it is neither income nor expense — the
+        # server-side rule is ``signed_amount_class``. Other tables reuse this
+        # slot and send no ``amount_value`` at all; those fall through to the
+        # type, and the null guard keeps an explicit null from reading as zero.
+        f'<span :class="props.row.amount_value != null '
+        f"&& Number(props.row.amount_value) === 0 ? '{AMOUNT_NEUTRAL}' : "
         f"props.row.type === 'income' ? '{AMOUNT_INCOME}' : "
         f"props.row.type === 'expense' ? '{AMOUNT_EXPENSE}' : '{AMOUNT_NEUTRAL}'\">"
         "{{ props.row.amount }}</span></q-td>"

@@ -298,6 +298,12 @@ empty state in place. The page already repainted the "Clear all N"
 link on every filter change (`_repaint_filter_row`), so that is where the
 chip repaint hangs.
 
+The manage-tags glyph stayed in the chip row, between the search chip and
+"Clear all", where the old toolbar had it. Artboard 2a does not draw it —
+2a draws no route to tag management at all — and dropping the only link to
+`/tags` from the page that uses tags is a navigation change, not a restyle.
+Worth raising in the manual 2a pass.
+
 Clearing one chip is its `×`, which is a sibling of the element the menu
 hangs from — not a child. A close icon inside the opener would have opened
 the menu on its way to clearing the filter.
@@ -318,6 +324,12 @@ it used to (or the `+0.00` that `-abs()` would otherwise produce, since
 `Decimal` negates zero to a positive zero), and the amount cell paints a
 zero neutral instead of taking the row's type at its word. Nothing moved,
 so there is no direction to show and none to colour.
+
+The tone follows the same rule and lives in the same place:
+`signed_amount_class` for a row (zero is neutral whatever its type) and
+`net_tone` for a total (which has no type, only a direction). The ledger
+cell, the dashboard's planned card and the selection bar all read one of
+those two instead of each writing the ternary out again.
 
 `views/components/amount_label.py` had a second `format_signed_amount` of
 its own, which the dashboard's recent-transactions and upcoming-planned
