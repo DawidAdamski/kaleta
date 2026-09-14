@@ -355,6 +355,6 @@ def _render_compare_grid(
             for tot in grid.compare_month_totals:
                 ui.label(format_amount(tot or None)).classes(f"{cell_cls} {MONO}").style(S_MON)
         overall = grid.compare_grand_total or Decimal("0")
-        ui.label(format_amount(overall or None)).classes("text-sm text-right px-3 py-2").style(
-            S_TOT
-        )
+        ui.label(format_amount(overall or None)).classes(
+            f"text-sm text-right px-3 py-2 {MONO}"
+        ).style(S_TOT)
