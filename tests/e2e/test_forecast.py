@@ -219,7 +219,7 @@ def test_warning_shown_for_insufficient_history(page: Page, base_url: str) -> No
 
 
 def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> None:
-    """Covers: KAL-FCT-009, KAL-FCT-011, KAL-FCT-013
+    """Covers: KAL-FCT-011, KAL-FCT-013
 
     The figures are read off the same series the chart is drawn from, so a
     what-if that lifts the line lifts them by exactly as much. The prototype

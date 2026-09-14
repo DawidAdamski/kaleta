@@ -920,7 +920,19 @@ def register() -> None:
                 control.on_value_change(lambda _: _on_controls_changed())
             if preset_toggle is not None:
                 preset_toggle.on_value_change(lambda _: _on_preset_changed())
-            run_btn.on("click", run_forecast)
+
+            async def _on_rerun_clicked() -> None:
+                """Re-run, unless the run it would ask for is already out.
+
+                Pressing it again while the same selection is in flight would
+                queue a second identical run through `pending` — with Prophet,
+                one impatient click costs another several seconds.
+                """
+                if run_state.running and _controls_match_last_run():
+                    return
+                await run_forecast()
+
+            run_btn.on("click", _on_rerun_clicked)
 
             # The page answers before it is asked: a forecast is what this
             # page is for, and an empty frame behind a button was a question

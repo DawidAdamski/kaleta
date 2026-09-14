@@ -451,6 +451,17 @@ clause no test checks.
 carries over between tests in the shared session, so a wait on the date alone
 could be satisfied by the *previous* test's account still on screen.
 
+### Round twelve
+
+Pressing Re-run while the same selection is already out queued a second
+identical run through `pending` — with Prophet, one impatient click costs
+another several seconds. The click is ignored while a matching run is in
+flight; a click after the controls have moved still means what it says.
+
+And the scenario e2e's docstring still claimed `KAL-FCT-009`, which it does
+not check — the same over-claiming the round before it removed elsewhere.
+Coverage is unaffected: the fallback scenario has its own test.
+
 ### A run outlives the page it was started for
 
 `test_every_nav_entry_routes` clicks every sidebar entry in turn, and failed
