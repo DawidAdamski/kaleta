@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Annual Budget Planning — the Realization tab.
 
-Covers: KAL-BUD-012, KAL-BUD-013
+Covers: KAL-BUD-012, KAL-BUD-013, KAL-BUD-014
 
 Artboard 2b: the status word becomes a pace bar, and the month's schedule
 explains the rows the bar alone would misread.
@@ -126,3 +126,32 @@ def test_a_row_paid_in_full_early_says_so(page: Page, base_url: str) -> None:
     expect(fill).to_be_visible()
     assert _style_pct(fill, "width") == 100.0
     assert "--k-expense" not in (fill.get_attribute("style") or "")
+
+
+def test_a_bill_still_to_come_is_named(page: Page, base_url: str) -> None:
+    """Covers: KAL-BUD-014
+
+    An empty bar on the 20th is not thrift if the bill simply has not been
+    paid yet. The bill is seeded as due *today*, which is a date that exists
+    in every month — "later this month" does not, on the 31st.
+    """
+    today = datetime.date.today()
+    category = "Prad Pace E2E"
+    account = "PKO Prad Pace E2E"
+    cat_id = seed_category(category)
+    acc_id = seed_account(account)
+    seed_budget(cat_id, 400.0, today.month, today.year)
+    seed_planned_transaction(
+        "Prad Pace E2E plan",
+        284.0,
+        acc_id,
+        frequency="once",
+        category_id=cat_id,
+        start_date=today,
+    )
+
+    _open_realization(page, base_url)
+
+    row = _row_for(page, category)
+    expect(row).to_be_visible(timeout=10000)
+    expect(row).to_contain_text(f"284.00 planned for {today.day:02d}.{today.month:02d}")

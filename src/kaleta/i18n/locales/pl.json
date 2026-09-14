@@ -833,7 +833,7 @@
       "status_warning": "Uwaga",
       "status_over": "Przekroczono",
       "elapsed_hint": "Miesiąc upłynął w {pct}%",
-      "note_paid_in_full": "Opłacone w całości {date} — zgodnie z planem",
+      "note_paid_in_full": "Opłacone w całości dnia {date} — zgodnie z planem",
       "note_planned_on": "{amount} zaplanowane na {date}"
     }
   },

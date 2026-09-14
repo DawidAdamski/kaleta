@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 from nicegui import ui
 
 from kaleta.i18n import t
@@ -24,12 +26,11 @@ def note_text(note: RealizationNote) -> str:
     when = f"{note.date.day:02d}.{note.date.month:02d}"
     if note.kind == RealizationNoteKind.PAID_IN_FULL:
         return t("budgets.realization.note_paid_in_full", date=when)
-    # A "planned on" note without its amount would render "0.00 planned for
-    # 12.09", which is worse than no line at all.
-    assert note.amount is not None, note
+    # PLANNED_ON always carries its amount — RealizationNote refuses to exist
+    # otherwise — so the fallback below is for mypy, not for runtime.
     return t(
         "budgets.realization.note_planned_on",
-        amount=f"{note.amount:,.2f}",
+        amount=f"{note.amount or Decimal(0):,.2f}",
         date=when,
     )
 

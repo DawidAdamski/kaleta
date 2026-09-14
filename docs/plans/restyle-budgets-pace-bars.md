@@ -170,6 +170,16 @@ branch above it, so the two cannot both fire.
 The field is called `note` rather than the plan's `explanation`, which reads
 better through `note_text` and the two i18n keys.
 
+### A deactivated plan loses its note
+
+`_expense_schedule` reads `get_occurrences` with the default
+`active_only=True`. A plan that was posted this month and then switched off
+— the month you move out, say — takes its "Paid in full" line with it, even
+though the money did go out against it. Passing `active_only=False` would
+fix that half and break the other: the "planned on" branch would start
+announcing money from plans the user deliberately turned off. The right fix
+is per-branch, which means two schedule reads for an edge case; left as is.
+
 ### The schedule is read twice, on purpose
 
 `_expense_schedule` calls `get_occurrences` once in full and once with
@@ -227,12 +237,15 @@ restyled ledger uses, and the natural one in Polish.
 The plan tags it "@automated via unit test on the service note", but
 `scripts/spec_coverage.py` only scans `tests/e2e` and `tests/integration`;
 a `Covers:` in `tests/unit` counts for nothing. The pure rule still has its
-unit tests (sixteen of them) and the wiring has three more, but the scenario is
+unit tests (fifteen of them) and the wiring has three more, but the scenario is
 carried by `tests/e2e/test_budget_realization.py`.
 
-`KAL-BUD-013` is new and not in the plan: replacing the status word with a
-bar is user-facing behaviour, and Working Agreement §5 wants a scenario for
-it. It also pins the thing the plan is actually about.
+`KAL-BUD-013` and `KAL-BUD-014` are new and not in the plan. Replacing the
+status word with a bar and putting a "284,00 planned for 12.09" line under
+it are both user-facing behaviour, and Working Agreement §5 wants a scenario
+for each. KAL-BUD-014 seeds its bill as due **today**, which is a date every
+month has — "later this month" does not exist on the 31st, and a test that
+only runs for 30 days out of 31 is a test that fails on the 31st.
 
 ### The status word kept its keys, and its meaning
 

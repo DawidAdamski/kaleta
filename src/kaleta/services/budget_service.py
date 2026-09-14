@@ -12,6 +12,7 @@ from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import TransactionType
@@ -182,6 +183,12 @@ class RealizationNote:
     kind: RealizationNoteKind
     date: datetime.date
     amount: Decimal | None = None
+
+    def __post_init__(self) -> None:
+        # "planned for 12.09" without its figure would render "0.00 planned
+        # for 12.09", which is worse than no line at all.
+        if self.kind is RealizationNoteKind.PLANNED_ON and self.amount is None:
+            raise ValidationError("A planned-on note must carry the amount it names.")
 
 
 def realization_note(
