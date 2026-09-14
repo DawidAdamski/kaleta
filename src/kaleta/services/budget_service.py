@@ -167,6 +167,15 @@ class RealizationNoteKind(Enum):
 
 
 @dataclass(frozen=True, slots=True)
+class ScheduledExpense:
+    """One planned expense in a month, and whether it has been booked yet."""
+
+    date: datetime.date
+    amount: Decimal
+    posted: bool
+
+
+@dataclass(frozen=True, slots=True)
 class RealizationNote:
     """One line explaining a row's pace, when the month's schedule can explain it."""
 
@@ -180,7 +189,7 @@ def realization_note(
     planned: Decimal,
     actual: Decimal,
     used_pct: float,
-    occurrences: builtins.list[tuple[datetime.date, Decimal]],
+    occurrences: builtins.list[ScheduledExpense],
     today: datetime.date,
 ) -> RealizationNote | None:
     """Explain a row's pace from the month's schedule, or say nothing.
@@ -197,24 +206,31 @@ def realization_note(
         return None
 
     # One occurrence, big enough to be the whole budget, already due, and the
-    # budget used up exactly. Every clause is a way the line could otherwise
+    # budget used up *exactly*. Each clause is a way the line could otherwise
     # be false: a bill due on the 25th has not been paid on the 10th, and a
-    # row that went *over* — because the bill is bigger than the budget, or
+    # row that went over — because the bill is bigger than the budget, or
     # because something was spent on top of it — is an overspend, not
-    # "as expected".
-    if planned > 0 and actual >= planned and used_pct <= 100 and len(occurrences) == 1:
-        when, amount = occurrences[0]
-        if amount >= planned and when <= today:
-            return RealizationNote(RealizationNoteKind.PAID_IN_FULL, when)
+    # "as expected". Which is why this is an equality and not a range: one
+    # coffee charged to the rent category and the row really is over.
+    if planned > 0 and actual == planned and len(occurrences) == 1:
+        bill = occurrences[0]
+        if bill.amount >= planned and bill.date <= today:
+            return RealizationNote(RealizationNoteKind.PAID_IN_FULL, bill.date)
 
-    # Still under budget with money scheduled to go out. Today counts as
-    # upcoming: a bill due today and not yet paid is the day the line matters
-    # most, and the branch above has already taken the paid case.
+    # Still under budget with money scheduled to go out and not yet booked.
+    # A posted occurrence is already in the actuals, so naming it as still to
+    # come would count the same money twice. Today counts as upcoming: a bill
+    # due today and unpaid is the day the line matters most, and the branch
+    # above has already taken the paid case.
     if used_pct < 100:
-        upcoming = sorted(occ for occ in occurrences if occ[0] >= today)
+        upcoming = sorted(
+            (occ for occ in occurrences if occ.date >= today and not occ.posted),
+            key=lambda occ: occ.date,
+        )
         if upcoming:
-            when, amount = upcoming[0]
-            return RealizationNote(RealizationNoteKind.PLANNED_ON, when, amount)
+            return RealizationNote(
+                RealizationNoteKind.PLANNED_ON, upcoming[0].date, upcoming[0].amount
+            )
 
     return None
 
@@ -738,14 +754,34 @@ class BudgetService:
 
     async def _expense_schedule(
         self, start: datetime.date, end: datetime.date
-    ) -> dict[int, builtins.list[tuple[datetime.date, Decimal]]]:
-        """Planned expense occurrences in the window, keyed by category."""
-        occurrences = await PlannedTransactionService(self.session).get_occurrences(start, end)
-        schedule: dict[int, builtins.list[tuple[datetime.date, Decimal]]] = {}
+    ) -> dict[int, builtins.list[ScheduledExpense]]:
+        """Planned expenses in the window, by category, each marked posted or not.
+
+        Both halves matter. The whole schedule says *what the month is for* —
+        a rent row is explained by the rent being due on the 1st, whether or
+        not that occurrence has since been booked. Only the unbooked ones can
+        be announced as still to come: a posted occurrence is already in the
+        actuals, and naming it would count the same money twice. The planned
+        service keeps that bookkeeping itself, so neither half needs the
+        amount-and-date guesswork open question 1 rules out.
+        """
+        planned_svc = PlannedTransactionService(self.session)
+        occurrences = await planned_svc.get_occurrences(start, end)
+        outstanding = {
+            (occ.planned_id, occ.date)
+            for occ in await planned_svc.get_occurrences(start, end, exclude_posted=True)
+        }
+        schedule: dict[int, builtins.list[ScheduledExpense]] = {}
         for occ in occurrences:
             if occ.type != TransactionType.EXPENSE or occ.category_id is None:
                 continue
-            schedule.setdefault(occ.category_id, []).append((occ.date, occ.amount))
+            schedule.setdefault(occ.category_id, []).append(
+                ScheduledExpense(
+                    date=occ.date,
+                    amount=occ.amount,
+                    posted=(occ.planned_id, occ.date) not in outstanding,
+                )
+            )
         return schedule
 
     async def range_summary(

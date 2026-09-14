@@ -28,6 +28,8 @@ from kaleta.services import (
 from kaleta.services.budget_service import (
     RealizationNote,
     RealizationNoteKind,
+    RealizationStatus,
+    ScheduledExpense,
     build_category_plan_row,
     category_yearly_total,
     date_range_for_key,
@@ -803,6 +805,45 @@ class TestRealizationNoteWiring:
             RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1)
         )
 
+    async def test_a_posted_rent_still_carries_its_note(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        """Covers: KAL-BUD-012 — the path a real ledger takes.
+
+        The rent plan is *posted*, which is how the actual gets there at all.
+        The occurrence is then no longer outstanding, and the note has to
+        survive that — otherwise the explanation vanishes exactly when the
+        row starts needing it. The bar is full against a month that is two
+        days old, so the row reads WARNING; what it must not read is OVER.
+        """
+        rent_id = await _make_category(session, "Rent")
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=rent_id, amount=Decimal("2000.00"), month=4, year=2026)
+        )
+        planned_svc = PlannedTransactionService(session)
+        plan = await planned_svc.create(
+            PlannedTransactionCreate(
+                name="Rent",
+                amount=Decimal("2000.00"),
+                type=TransactionType.EXPENSE,
+                account_id=acc_id,
+                category_id=rent_id,
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2026, 4, 1),
+            )
+        )
+        await planned_svc.post_occurrence(plan.id, datetime.date(2026, 4, 1))
+
+        rows = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 2))
+        row = next(r for r in rows if r.category_id == rent_id)
+
+        assert row.actual == Decimal("2000.00")
+        assert row.note == RealizationNote(
+            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1)
+        )
+        assert row.status is RealizationStatus.WARNING
+
     async def test_a_finished_month_has_nothing_left_to_expect(
         self, svc: BudgetService, session: AsyncSession
     ):
@@ -854,7 +895,9 @@ class TestRealizationNote:
             planned=Decimal("2000.00"),
             actual=Decimal("2000.00"),
             used_pct=100.0,
-            occurrences=[(datetime.date(2026, 4, 1), Decimal("2000.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 1), Decimal("2000.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 2),
         )
 
@@ -867,8 +910,8 @@ class TestRealizationNote:
             actual=Decimal("2000.00"),
             used_pct=100.0,
             occurrences=[
-                (datetime.date(2026, 4, 1), Decimal("1000.00")),
-                (datetime.date(2026, 4, 15), Decimal("1000.00")),
+                ScheduledExpense(datetime.date(2026, 4, 1), Decimal("1000.00"), posted=False),
+                ScheduledExpense(datetime.date(2026, 4, 15), Decimal("1000.00"), posted=False),
             ],
             today=datetime.date(2026, 4, 20),
         )
@@ -880,7 +923,9 @@ class TestRealizationNote:
             planned=Decimal("2000.00"),
             actual=Decimal("2000.00"),
             used_pct=100.0,
-            occurrences=[(datetime.date(2026, 4, 1), Decimal("300.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 1), Decimal("300.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 20),
         )
 
@@ -893,7 +938,9 @@ class TestRealizationNote:
             planned=Decimal("1900.00"),
             actual=Decimal("2000.00"),
             used_pct=105.26,
-            occurrences=[(datetime.date(2026, 4, 1), Decimal("2000.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 1), Decimal("2000.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 2),
         )
 
@@ -904,7 +951,9 @@ class TestRealizationNote:
             planned=Decimal("400.00"),
             actual=Decimal("0.00"),
             used_pct=0.0,
-            occurrences=[(datetime.date(2026, 4, 12), Decimal("284.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 12), Decimal("284.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 12),
         )
 
@@ -919,7 +968,9 @@ class TestRealizationNote:
             planned=Decimal("2000.00"),
             actual=Decimal("2000.00"),
             used_pct=100.0,
-            occurrences=[(datetime.date(2026, 4, 25), Decimal("2000.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 25), Decimal("2000.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 10),
         )
 
@@ -930,8 +981,39 @@ class TestRealizationNote:
             planned=Decimal("2000.00"),
             actual=Decimal("3000.00"),
             used_pct=150.0,
-            occurrences=[(datetime.date(2026, 4, 1), Decimal("2000.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 1), Decimal("2000.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 10),
+        )
+
+        assert note is None
+
+    def test_a_posted_bill_still_explains_the_row(self):
+        # The realistic path: the rent plan was posted, which is *how* the
+        # actual got there. Booking it must not erase the reason for it.
+        note = realization_note(
+            planned=Decimal("2000.00"),
+            actual=Decimal("2000.00"),
+            used_pct=100.0,
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 1), Decimal("2000.00"), posted=True)
+            ],
+            today=datetime.date(2026, 4, 2),
+        )
+
+        assert note == RealizationNote(RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1))
+
+    def test_a_posted_occurrence_is_not_still_to_come(self):
+        # It is already in the actuals; naming it would count it twice.
+        note = realization_note(
+            planned=Decimal("400.00"),
+            actual=Decimal("284.00"),
+            used_pct=71.0,
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 12), Decimal("284.00"), posted=True)
+            ],
+            today=datetime.date(2026, 4, 3),
         )
 
         assert note is None
@@ -941,7 +1023,9 @@ class TestRealizationNote:
             planned=Decimal("400.00"),
             actual=Decimal("0.00"),
             used_pct=0.0,
-            occurrences=[(datetime.date(2026, 4, 12), Decimal("284.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 12), Decimal("284.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 3),
         )
 
@@ -955,8 +1039,8 @@ class TestRealizationNote:
             actual=Decimal("0.00"),
             used_pct=0.0,
             occurrences=[
-                (datetime.date(2026, 4, 25), Decimal("100.00")),
-                (datetime.date(2026, 4, 12), Decimal("284.00")),
+                ScheduledExpense(datetime.date(2026, 4, 25), Decimal("100.00"), posted=False),
+                ScheduledExpense(datetime.date(2026, 4, 12), Decimal("284.00"), posted=False),
             ],
             today=datetime.date(2026, 4, 3),
         )
@@ -969,7 +1053,9 @@ class TestRealizationNote:
             planned=Decimal("400.00"),
             actual=Decimal("50.00"),
             used_pct=12.5,
-            occurrences=[(datetime.date(2026, 4, 2), Decimal("50.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 2), Decimal("50.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 20),
         )
 
@@ -982,7 +1068,9 @@ class TestRealizationNote:
             planned=Decimal("400.00"),
             actual=Decimal("460.00"),
             used_pct=115.0,
-            occurrences=[(datetime.date(2026, 4, 12), Decimal("284.00"))],
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 12), Decimal("284.00"), posted=False)
+            ],
             today=datetime.date(2026, 4, 3),
         )
 

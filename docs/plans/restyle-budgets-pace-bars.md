@@ -141,12 +141,34 @@ top of the bill, and a bill bigger than the budget it is charged to. Rent of
 "as expected" under a red bar is reassurance for exactly the row that should
 not get any. Each clause has its own unit test.
 
+**Posted occurrences count for one branch and not the other.** The schedule
+is fetched whole and each entry is marked posted or not
+(`ScheduledExpense`). "Paid in full" reads the whole of it: posting the rent
+plan is *how* the actual got there, so excluding posted occurrences would
+erase the explanation exactly when the row starts needing it. "Planned on"
+reads only the unposted ones: an occurrence that has been booked is already
+in the actuals, and announcing it as still to come would count the same
+money twice under a bar that already includes it. Neither half needs the
+amount-and-date matching open question 1 rules out — the planned service
+keeps that bookkeeping itself.
+
 A bill **due today and unpaid** counts as upcoming, not past — the one day
 the "planned for 12.09" line matters most. The paid case is taken by the
 branch above it, so the two cannot both fire.
 
 The field is called `note` rather than the plan's `explanation`, which reads
 better through `note_text` and the two i18n keys.
+
+### The note only knows the category it is filed under
+
+The schedule is keyed on the occurrence's own `category_id`, so a plan filed
+under a child category does not explain a budget set on its parent, or the
+reverse. That is the same granularity the realization rows themselves use
+(one row per category, parent shown as a label), so the note is no narrower
+than the thing it annotates — but it does mean a household that budgets at
+parent level and plans at child level gets no notes. Left as is; changing it
+means deciding whether a parent's budget is the sum of its children's, which
+is `budgets-plan-unification` territory.
 
 ### A bar the schedule explains still keeps its colour
 
@@ -217,6 +239,20 @@ Row hover moved from the hard-coded `hover:bg-slate-50` to a `ROW_HOVER`
 token class. The old name was already remapped to `--k-row-hover` in
 `theme.py`, dark mode included, so this is not a fix — it is the rest of the
 row's move to tokens finishing the job.
+
+### The e2e must not depend on today's date
+
+`test_a_pace_bar_replaces_the_status_word` first seeded 200 against a budget
+of 800 and asserted the tooltip said "On track". `status` is WARNING when
+`used_pct > elapsed_pct + 5`, and `elapsed_pct` is the day of the month — so
+25 % used would have been a WARNING on the 1st through the 6th, and
+`verify.sh --e2e` would have gone red on those days for no reason at all. It
+seeds 5 % of the budget now, which is on track on every day of every month.
+
+The scenario's "full bar while the month is barely elapsed" cannot be set up
+from an e2e that runs on whatever today is. That half is pinned by
+`test_a_posted_rent_still_carries_its_note`, which controls `today` and
+asserts the row is WARNING and not OVER.
 
 ### One test outside this plan had to be fixed
 

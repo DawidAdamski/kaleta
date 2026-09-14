@@ -55,18 +55,21 @@ def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
     account = "PKO Pace E2E"
     cat_id = seed_category(category)
     acc_id = seed_account(account)
+    # 5% of the budget is on track on every day of every month: WARNING needs
+    # used_pct above elapsed_pct + 5, and elapsed is never negative. A test
+    # that only passes after the 6th is a test that fails on the 1st.
     seed_budget(cat_id, 800.0, TODAY.month, TODAY.year)
-    seed_transaction(acc_id, cat_id, 200.0, description="Lidl Pace E2E")
+    seed_transaction(acc_id, cat_id, 40.0, description="Lidl Pace E2E")
 
     _open_realization(page, base_url)
 
     row = _row_for(page, category)
     expect(row).to_be_visible(timeout=10000)
 
-    # 200 of 800: the fill is a quarter of the track, not a word.
+    # 40 of 800: the fill is a twentieth of the track, not a word.
     fill = row.locator(".k-pace__fill")
     expect(fill).to_be_visible()
-    assert _style_pct(fill, "width") == 25.0
+    assert _style_pct(fill, "width") == 5.0
 
     # The tick sits where the month does, which is what the fill is measured
     # against — the one thing the status badge never showed.
