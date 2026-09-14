@@ -392,6 +392,12 @@ out of this plan's scope:
 - **A transfer leg carries no direction**, so a net cannot say anything
   about one on its own (above). Closing it means a column on the row, or
   deriving the direction from the pair at write time.
+- **A sorted ledger puts a separator's net above rows it did not sum.**
+  The columns sort in the browser; the separator is drawn before whichever
+  row carries `sep_label`. The heading has always been misplaced by a sort,
+  but a figure in it now looks like a wrong number rather than a stray
+  label. The fix is to hide `sep_net` while a sort is active, or to sort
+  within groups on the server.
 - **"Clear all N" still costs one query per set filter.** Each chip's own
   `×` was fixed to cost one; `_clear_filters` calls `set_value` on four
   selects and each fires its own `on_change`. Pre-existing, and untouched

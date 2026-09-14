@@ -582,8 +582,7 @@ def _tick_every_row(page: Page) -> None:
     """
     for n, checkbox in enumerate(page.locator(".q-table tbody .q-checkbox").all(), start=1):
         checkbox.click()
-        label = "1 selected" if n == 1 else f"{n} selected"
-        expect(page.get_by_text(label, exact=True)).to_be_visible(timeout=10000)
+        expect(page.get_by_text(f"{n} selected", exact=True)).to_be_visible(timeout=10000)
 
 
 def _filter_by_search(page: Page, base_url: str, token: str, rows: int = 2) -> None:
