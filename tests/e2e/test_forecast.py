@@ -36,6 +36,17 @@ def _kpi(page: Page, key: str):
     return page.locator(f'[data-kpi="{key}"] .k-mono').first
 
 
+def _settled_on(page: Page, horizon_days: int) -> None:
+    """Wait until the figures on screen are the ones for this horizon.
+
+    A control change re-runs after a short delay, so a figure can be visible
+    and still belong to the *previous* selection. The predicted card carries
+    its own date, which is the horizon made visible.
+    """
+    horizon = (datetime.date.today() + datetime.timedelta(days=horizon_days)).strftime("%d.%m.%Y")
+    expect(page.locator('[data-kpi="predicted"]')).to_contain_text(horizon, timeout=_RUN_TIMEOUT)
+
+
 def _figure(page: Page, key: str) -> float:
     """The figure as a number — "+1,234.56 zł" is prose until it is parsed."""
     text = _kpi(page, key).inner_text()
@@ -119,8 +130,9 @@ def test_run_30_day_forecast_single_account(page: Page, base_url: str) -> None:
     _choose(page, "Forecast horizon (days)", "30 days")
 
     # The scenario asks for a chart and a predicted balance, so the test asks
-    # for those and not for "either that or a warning".
-    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
+    # for those and not for "either that or a warning" — and for *this*
+    # selection's, not a previous test's still on screen.
+    _settled_on(page, 30)
     expect(_kpi(page, "confidence")).to_be_visible()
     expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
 
@@ -140,12 +152,10 @@ def test_run_90_day_forecast(page: Page, base_url: str) -> None:
     _choose(page, "Account", "PKO Forecast 90d E2E")
     _choose(page, "Forecast horizon (days)", "90 days")
 
-    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
-    # "Extends 90 days beyond today" — the horizon the figure is dated at.
-    # The forecast runs from the day after the last *transaction*, and
-    # `seed_many_transactions` posts one today, so here that is today + 90.
-    horizon = (datetime.date.today() + datetime.timedelta(days=90)).strftime("%d.%m.%Y")
-    expect(page.locator('[data-kpi="predicted"]')).to_contain_text(horizon, timeout=10000)
+    # "Extends 90 days past the last balance it knows" — the horizon the
+    # figure is dated at. `seed_many_transactions` posts one today, so here
+    # that last balance is today's and the horizon is today + 90.
+    _settled_on(page, 90)
 
 
 # ---------------------------------------------------------------------------
@@ -220,7 +230,10 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "PKO Forecast Scenario E2E")
     _choose(page, "Forecast horizon (days)", "60 days")
-    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
+    # The 60-day run has to have landed before the baseline is read: a run
+    # for the previous test's horizon can still be on screen, and its figures
+    # would move for a reason that is not the scenario.
+    _settled_on(page, 60)
 
     before_predicted = _figure(page, "predicted")
     before_change = _figure(page, "change")
@@ -266,3 +279,6 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     # does not follow the session into the next test.
     page.locator('[aria-label="Remove scenario Bonus E2E"]').click()
     expect(_kpi(page, "predicted")).to_have_text(before_text, timeout=_REDRAW_TIMEOUT)
+    # "Every figure is what it was" — all of them, not just the one.
+    assert _figure(page, "change") == pytest.approx(before_change, abs=0.01)
+    assert _figure(page, "confidence") == pytest.approx(before_confidence, abs=0.01)

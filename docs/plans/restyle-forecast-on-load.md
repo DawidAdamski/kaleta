@@ -189,9 +189,10 @@ to warn about.
 
 The on-load timer, the debounce and the Re-run button can all ask for a run
 at once, and two in flight end with the last to *finish* on screen rather
-than the last one asked for — the race the debounce exists to prevent. A
-flag in `_run_state` refuses a second start. The run also catches its own
-failure now: the skeleton is the whole page once the page draws on load, and
+than the last one asked for — the race the debounce exists to prevent. The
+first attempt at this simply refused a second start, which dropped the later
+request; the loop described above is what replaced it. The run also catches
+its own failure now: the skeleton is the whole page once the page draws on load, and
 a `try/finally` with no `except` would have left it standing there for good.
 `forecast.failed` is the new key.
 
@@ -203,8 +204,13 @@ Two NiceGUI traps, both found by the e2e:
   ambient slot. Save redraws the scenario chips — including the chip whose
   click opened the dialog — so by the time the timer was constructed its
   parent was gone (`The parent element this slot belongs to has been
-  deleted`). There is one debounce timer now, built with the page and armed
-  by `activate()`.
+  deleted`). The first fix was one repeating timer armed by `activate()`,
+  which is not a debounce at all: NiceGUI ticks it on its own schedule and
+  `activate()` only flips a flag, so a change fired anywhere from 0 to 300 ms
+  later, a second change did not push the first one back, and the loop woke
+  every 300 ms for the life of the page. What is there now is a one-shot
+  timer per change, built inside a hidden `timer_host` element that lives
+  with the page, with a token so only the newest one runs.
 - The add-scenario dialog had the same problem: built inside the chip row, it
   was deleted halfway through its own handler. It is built once with the page
   and reset on open.
@@ -250,24 +256,38 @@ per-view `bg-blue-500/10 text-blue-600` triplets, and `.k-skeleton` so the
 wait looks like this app rather than Quasar's grey. Both in `theme.py` with
 the rest.
 
-### The stale mark goes away again
+### The stale mark: one rule, arrived at the hard way
 
-Fourth review round. The mark was one-way: `_sync_stale()` un-raised the
-button but left "Controls changed — press Re-run" on the status line, so
-changing the account and changing it back left a hint contradicting the chart
-under it — the behaviour the third round's notes claimed. The settled status
-line is kept on `_RunState` and put back when the controls match.
+With Prophet installed a run costs seconds, so a control change does not
+spend one: the chart stays, a hint says the controls changed, the Re-run
+button is raised, and Re-run applies them. Open question 1's answer.
 
-`_sync_stale()` also ran after a *failed* run and, finding no result to match
-against, replaced "The forecast could not be run" with "press Re-run" —
-blaming the user for a failure. With no usable run there is nothing for the
-controls to be ahead of, and the line already says something truer, so it
-leaves both alone.
+Saying *when* that mark belongs on screen took five review rounds and was
+wrong four times — it would not go away when the controls were changed back;
+it outlived a failure and blamed the reader for it; it erased "Insufficient
+transaction history" with "press Re-run"; and it stuck after a selection went
+away and came back. Every one of those was a branch reading one condition and
+missing another, on a path this environment cannot run, because Prophet is
+not installed here.
 
-The Re-run button keeps `color=primary` in both states and toggles only
-`flat`, so it does not change colour the first time a run lands. And if a run
-raises, a request that arrived while it was in flight is re-armed on the way
-out rather than dropped with the loop.
+So it is not a branch any more. `stale_action(prophet_available, running,
+controls_match)` is the whole rule, pure, with a unit test per case:
+
+- **what is on screen answers the controls, or it does not.** That is the
+  only question. A failure or an insufficient-history warning is an answer
+  like any other — it is what *this* selection says — so `_clear_and_say`
+  records its message on `run_state.status` exactly as a drawn chart records
+  its own, and clearing the mark restores whichever kind it was.
+- **matched against what the run was asked, not what it returned** —
+  recorded before the await, so a run that failed for account A can still be
+  compared with the controls.
+- **two exemptions.** The naive path never marks anything, because its re-run
+  lands within the debounce. And nothing is said while a run is in flight,
+  because the recorded selection is still the previous one.
+
+`stale_action` returns a `Literal`, so a typo in one of its three answers is
+a type error rather than a silent no-op.
+
 
 ### What "never costs a forecast" actually means
 
@@ -346,27 +366,7 @@ test never checked for it — an `@automated` tag over a clause nothing
 verifies. It now says the four figures describe the combined balance, which
 is what the page shows and what the test asserts.
 
-### One rule for the stale mark, tested without Prophet
-
-The mark has been wrong in three different ways — it would not go away, it
-outlived a failure and blamed the user for it, and it erased "Insufficient
-transaction history" with "press Re-run". All three are the same shape: a
-branch that read one condition and missed another, on a path this environment
-cannot run, because Prophet is not installed.
-
-`stale_action(prophet_available, drawn, running, controls_match)` is that
-branch as one rule, in a pure function with a unit test per case. The page
-says nothing about staleness on the naive path (its re-run lands within the
-debounce), while a run is in flight (the recorded account is still the
-previous one), or when nothing was drawn (a failure or too little history —
-the line already says something truer, and it is not the user's doing).
-
 ### Smaller things from round five
-
-`_sync_stale()` does nothing while a run is in flight: the state it compares
-against still describes the *previous* run, so changing the controls back to
-that run's values mid-flight replaced "Running Prophet…" with a status line
-describing a chart that was not on screen.
 
 The KPI hint line falls back to a non-breaking space rather than an em dash —
 "—" is what `_money` prints for a missing figure, so under a figure that has
@@ -392,11 +392,7 @@ four figures describe that combined balance" — claimed an arithmetic
 relationship nothing verified, the same fault as the "secondary series"
 clause it replaced.
 
-### Round seven, and one thing left for the manual pass
-
-`stale_action` returns a `Literal`, so a typo in one of its three answers is
-a type error rather than a silent no-op — worth it for the rule the notes
-above call wrong three times.
+### Smaller things from round seven, and one left for the manual pass
 
 The Change figure goes through `format_net_amount` like the scenario chip
 beside it, so a zero change reads `0.00 zł` rather than `+0.00 zł`
@@ -414,71 +410,7 @@ its default date off the *previous* account's forecast, so it can offer a
 date that shifts nothing once Re-run lands. Narrow, and only on the stale
 path; the fix belongs with whatever settles how a stale page behaves.
 
-### Round eight: the exemption has an end
-
-`stale_action` left the mark alone whenever nothing was drawn, which is right
-while the controls have not moved — a failure or too little history is not
-the reader's doing, and "press Re-run" would blame them for it. But it is
-wrong the moment the selection changes: account A's "Insufficient
-transaction history" is not an answer about account B. The exemption now
-applies only when the controls still match, and the match is measured
-against what the last run was *asked* (recorded before the await) rather than
-what it returned, so a failed run is still something the controls can be
-compared with.
-
-Three scenarios came out of this round rather than one. `KAL-FCT-011` now
-carries literal figures — 1000.00 opening, 800.00 at the horizon, +5000.00
-scenario, 5800.00 and 4800.00 after — because Working Agreement §11 wants
-verification tests to assert literals from the scenario, and the old test
-computed its expectations by calling `forecast_kpis` twice. `KAL-FCT-012` is
-`@manual`: the Prophet stale/Re-run behaviour is user-facing and cannot be
-automated where Prophet is not installed, so §5 wants it written down for the
-owner's pass rather than left in these notes. `KAL-FCT-013` says a what-if
-never waits for a run, and the e2e asserts it by the absence of a skeleton
-and of the "Running…" line.
-
-The horizon hint prints `13.12.2026` rather than `2026-12-13`, the format the
-rest of the app writes dates in. The figures themselves still use the
-app-wide `,` thousands separator, which reads oddly in Polish — the same
-Chore-inbox candidate the import-mapping plan recorded, not something to fix
-one page at a time.
-
-### Round nine: a failure is an answer like any other
-
-The stale rule shed its last special case. It had one for "nothing drawn",
-which made the mark one-way again: account A shows "Insufficient transaction
-history", select B (mark goes up), select A again — and the mark stayed,
-because nothing was drawn. The mistake was treating a failure as *not an
-answer*. It is one: it is what this selection says. `_clear_and_say` records
-its message on `run_state.status` exactly as a successful draw does, so
-clearing the mark restores the right line whichever kind it is, and
-`stale_action` is down to two exemptions — the naive path, and a run in
-flight.
-
-`KAL-FCT-011` and `KAL-FCT-013` say what their e2e can actually check.
-011 asserted `before + 10000` read back off the page while the scenario text
-said 5000.00, and never checked the third Then at all; it now moves by the
-scenario's own literal and asserts the confidence does *not* move. 013
-claimed "no forecast run" behind a check that could not see one: `.q-skeleton`
-count 0 *after* the fact would also pass if a fast naive run had shown and
-removed it. A `MutationObserver` armed before the scenario is added records
-the skeleton ever entering the DOM, which is the thing a run always does.
-
-One page, one date format: the scenario chips and the two tables printed ISO
-beside a horizon hint in `%d.%m.%Y`. The chart series stay ISO — that is what
-a `time` axis reads.
-
-`format_net_amount` is a new public helper in `views/components/amount_label.py`,
-which is not in this plan's Touchpoints. It is three lines delegating to
-`TransactionService.format_net`, and it is there so the Change figure and the
-scenario chip follow the same zero rule as the ledger.
-
-**Also left for the owner's Prophet pass:** while the page is stale, a
-scenario or preset change redraws the *previous* selection's chart with the
-new scenario on it. The mark says the page is stale, so it is not silent, but
-`KAL-FCT-012`'s "the chart stays as it was" is loose about which chart.
-
-### Round ten: both figures are dated
+### Both figures are dated
 
 "Balance today" is the last *historical* point, and history ends at the last
 transaction — so on an account quiet for a fortnight it is a fortnight-old

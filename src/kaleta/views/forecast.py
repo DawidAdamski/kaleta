@@ -421,12 +421,11 @@ def register() -> None:
                 not quietly clear the mark that says so — nor, when the user
                 changes it straight back, keep a mark that is no longer true.
 
-                Two exemptions. The naive path never marks anything: its
-                re-run follows within the debounce, so there is nothing to
-                warn about. And with no usable run behind us — the first one
-                still in flight, or a failed one — there is nothing for the
-                controls to be ahead *of*, and the line already says
-                something truer than "press Re-run".
+                Two exemptions, and only two: the naive path, whose re-run
+                follows within the debounce, and a run in flight, whose
+                recorded selection is still the previous one. A failure or a
+                warning is this selection's answer like any other — see
+                :func:`stale_action`, which owns the rule.
                 """
                 action = stale_action(
                     prophet_available=prophet_available,
@@ -462,15 +461,13 @@ def register() -> None:
                     app.storage.user["forecast_preset"] = preset_toggle.value
                 _redraw_now()
 
-            async def _debounce_tick() -> None:
-                debounce.deactivate()
-                await run_forecast()
-
-            # One timer, built with the page and armed by a change rather than
-            # a fresh timer per change: a handler's ambient slot can be gone by
-            # the time it runs (the chip that opened a dialog is redrawn by the
-            # dialog's own Save), and a timer created there dies with it.
-            debounce = ui.timer(_DEBOUNCE_SECONDS, _debounce_tick, active=False)
+            # A place for the delay timers to live. A `ui.timer` belongs to
+            # whatever slot is current when it is built, and a handler's
+            # ambient slot can be gone by the time it runs — Save redraws the
+            # chip that opened the dialog. This element is built with the page
+            # and outlives all of them.
+            timer_host = ui.element("div").style("display:none")
+            _debounce = {"token": 0}
 
             def _debounced_run() -> None:
                 """Coalesce a flurry of control changes into one run.
@@ -478,8 +475,23 @@ def register() -> None:
                 Without it, arrowing through a select's options starts a
                 forecast per keystroke, and the last one to *finish* — not the
                 last one asked for — wins.
+
+                A one-shot timer per change, not one repeating timer armed by
+                a flag: `ui.timer(..., active=False)` still ticks on its own
+                schedule and `activate()` only flips a flag, so a change would
+                fire anywhere from 0 to 300 ms later and a second change would
+                not push the first one back. Each change starts its own delay
+                and the newest token is the only one that fires.
                 """
-                debounce.activate()
+                _debounce["token"] += 1
+                token = _debounce["token"]
+
+                async def _fire() -> None:
+                    if _debounce["token"] == token and _page_is_live():
+                        await run_forecast()
+
+                with timer_host:
+                    ui.timer(_DEBOUNCE_SECONDS, _fire, once=True)
 
             def _render_scenarios() -> None:
                 scenario_row.clear()
@@ -914,7 +926,8 @@ def register() -> None:
             # page is for, and an empty frame behind a button was a question
             # the user had already answered by navigating here.
             _render_skeleton()
-            ui.timer(0.05, run_forecast, once=True)
+            with timer_host:
+                ui.timer(0.05, run_forecast, once=True)
 
 
 def _at_date(day: datetime.date | None) -> str:
