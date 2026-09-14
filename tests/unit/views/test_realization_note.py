@@ -46,7 +46,13 @@ class TestNoteText:
 
 
 class TestPolishTemplates:
-    """The longest line the pace column has to hold."""
+    """The longest line the pace column has to hold.
+
+    Filled the way ``note_text`` fills them — ``,.2f``, so the decimal
+    separator is a dot even in Polish. That is the page's format everywhere
+    (the Planned, Actual and Remaining cells included), not something this
+    line invented.
+    """
 
     def test_paid_in_full(self) -> None:
         assert (
@@ -56,6 +62,6 @@ class TestPolishTemplates:
 
     def test_planned_on(self) -> None:
         assert (
-            _template("pl", "note_planned_on").format(amount="284,00", date="12.09")
-            == "284,00 zaplanowane na 12.09"
+            _template("pl", "note_planned_on").format(amount="284.00", date="12.09")
+            == "284.00 zaplanowane na 12.09"
         )

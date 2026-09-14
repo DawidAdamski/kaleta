@@ -170,6 +170,14 @@ branch above it, so the two cannot both fire.
 The field is called `note` rather than the plan's `explanation`, which reads
 better through `note_text` and the two i18n keys.
 
+### The figure keeps the page's separator, dot included
+
+`note_text` formats with `,.2f`, so a Polish user reads
+"284.00 zaplanowane na 12.09" — a dot, not a comma. That is what every other
+figure on the page does (Planned, Actual, Remaining, and the ledger), so the
+line matches its row rather than inventing a second convention. Locale-aware
+number formatting is an app-wide change, not a change to one 12px line.
+
 ### A bill that will overshoot is still named
 
 "Planned on" fires whenever the row is under budget, including when the
@@ -247,7 +255,7 @@ restyled ledger uses, and the natural one in Polish.
 The plan tags it "@automated via unit test on the service note", but
 `scripts/spec_coverage.py` only scans `tests/e2e` and `tests/integration`;
 a `Covers:` in `tests/unit` counts for nothing. The pure rule still has its
-unit tests (fifteen of them) and the wiring has three more, but the scenario is
+unit tests (sixteen, counting the one that pins the note's own invariant) and the wiring has three more, but the scenario is
 carried by `tests/e2e/test_budget_realization.py`.
 
 `KAL-BUD-013` and `KAL-BUD-014` are new; Scope was amended to list

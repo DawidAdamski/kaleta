@@ -12,7 +12,6 @@ from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from kaleta.exceptions import ValidationError
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import TransactionType
@@ -187,8 +186,13 @@ class RealizationNote:
     def __post_init__(self) -> None:
         # "planned for 12.09" without its figure would render "0.00 planned
         # for 12.09", which is worse than no line at all.
+        #
+        # ValueError and not a KaletaError on purpose: a note built wrong is a
+        # bug in this module, not something the user did. Views catch
+        # KaletaError and turn it into a toast, and "A planned-on note must
+        # carry its amount" is not a sentence anyone should ever be shown.
         if self.kind is RealizationNoteKind.PLANNED_ON and self.amount is None:
-            raise ValidationError("A planned-on note must carry the amount it names.")
+            raise ValueError("A planned-on note must carry the amount it names.")
 
 
 def realization_note(
