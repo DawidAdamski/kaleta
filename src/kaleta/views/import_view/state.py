@@ -79,6 +79,12 @@ def current_step(active: QueuedFile | None) -> int:
         return STEP_UPLOAD
     if active.status == "done":
         return STEP_CONFIRM
+    if active.status == "importing":
+        # The rows are going in: the preview is behind the user and the
+        # confirmation is not there yet. Without this the line would drop
+        # back to upload the moment a bulk import repaints — clicking another
+        # queue file mid-import does exactly that.
+        return STEP_PREVIEW
     if active.status == "needs_mapping":
         return STEP_MAPPING
     if active.status == "failed":

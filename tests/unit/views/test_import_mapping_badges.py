@@ -8,10 +8,11 @@ state of its own: a field is auto exactly while it still holds the guess.
 
 from __future__ import annotations
 
-from kaleta.services.import_service import ColumnMapping
+from kaleta.services.import_service import ColumnMapping, row_error_prefix
 from kaleta.views.import_view.mapping_section import (
     SAMPLE_CELL_CHARS,
     auto_detected_fields,
+    message_is_summarised,
     row_count_label,
     truncate_cell,
 )
@@ -68,3 +69,23 @@ class TestRowCountLabel:
 
     def test_the_thousands_separator_is_the_app_s(self) -> None:
         assert row_count_label(1245) == "1,245 rows"
+
+
+class TestMessageProminence:
+    """Which parse messages the warning strip above already speaks for."""
+
+    def test_a_message_naming_a_listed_row_is_detail(self) -> None:
+        msg = f"{row_error_prefix(3)} Invalid amount: NOT_A_NUMBER"
+        assert message_is_summarised(msg, [3, 5]) is True
+
+    def test_a_blocking_message_keeps_its_prominence_beside_row_errors(self) -> None:
+        # The case the old `bool(error_rows)` flag got wrong: one failing row
+        # muted every message, including the one nothing else was saying.
+        assert message_is_summarised("Date column is required", [3, 5]) is False
+
+    def test_a_row_the_strip_does_not_list_is_not_summarised(self) -> None:
+        msg = f"{row_error_prefix(9)} Invalid date"
+        assert message_is_summarised(msg, [3, 5]) is False
+
+    def test_nothing_is_summarised_when_no_row_failed(self) -> None:
+        assert message_is_summarised("Date column is required", []) is False

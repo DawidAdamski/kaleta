@@ -520,7 +520,7 @@ class TestDecodeUpload:
         assert name == "CP1250"
 
     def test_every_name_reported_is_one_the_caption_can_show(self):
-        # CP1250 maps almost every byte, so it is the last stop in practice —
+        # ISO-8859-2 maps every byte, so the loop always finds a name —
         # whatever comes back, the caption must never show a codec id.
         for raw in (b"date,amount\n", "ż".encode("cp1250"), b"\xff\xfeabc"):
             assert decode_upload(raw)[1] in {"UTF-8", "CP1250", "ISO-8859-2"}

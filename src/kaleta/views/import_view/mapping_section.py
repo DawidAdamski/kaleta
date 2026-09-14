@@ -11,7 +11,7 @@ from typing import Any
 from nicegui import background_tasks, ui
 
 from kaleta.i18n import plural_key, t
-from kaleta.services.import_service import ColumnMapping, CsvInspection
+from kaleta.services.import_service import ColumnMapping, CsvInspection, row_error_prefix
 from kaleta.views.import_view.state import QueuedFile
 from kaleta.views.theme import (
     AUTO_BADGE,
@@ -60,7 +60,7 @@ def _col_options(headers: list[str]) -> dict[int, str]:
 #: Attribute naming the field an ``auto`` pill belongs to.
 _BADGE_FIELD_ATTR = "data-auto-field"
 
-#: Picker name → the ``ColumnMapping`` field it maps, for the auto badges.
+#: The ``ColumnMapping`` fields a picker can carry an ``auto`` pill for.
 _DETECTABLE_FIELDS: tuple[str, ...] = (
     "date",
     "amount",
@@ -118,6 +118,17 @@ def truncate_cell(value: str) -> str:
     if len(value) <= SAMPLE_CELL_CHARS:
         return value
     return value[: SAMPLE_CELL_CHARS - 1] + "…"
+
+
+def message_is_summarised(message: str, error_rows: list[int]) -> bool:
+    """Is the strip above already saying what this message says?
+
+    A message naming a row the strip lists is detail behind it, and reads as
+    a muted footnote. One with no row behind it — "Date column is required" —
+    is the thing standing between the user and an import, and keeps its
+    prominence even when other rows failed too.
+    """
+    return any(message.startswith(row_error_prefix(n)) for n in error_rows)
 
 
 def row_count_label(count: int) -> str:
@@ -328,13 +339,10 @@ class MappingSection:
             )
         self.warning_strip.set_visibility(bool(error_rows))
 
-        # A message the strip already summarises is detail; a message with no
-        # row behind it — "Date column is required" — is what stands between
-        # the user and an import, and must not be read as a footnote.
-        detail = bool(error_rows)
         self.errors_column.clear()
         with self.errors_column:
             for err in errors:
+                detail = message_is_summarised(err, error_rows)
                 ui.label(err).classes(f"text-xs {MUTED}" if detail else "text-sm text-negative")
 
 

@@ -141,12 +141,14 @@ tooltip repeating itself.
 
 ### The auto badge needed no new state
 
-Scope asks for `detected: set[str]` on the mapping state and "a small schema
-change". None was needed. `CsvInspection` already carries
-`detected_mapping`, and a field is "auto" exactly while the picker still
-holds the column detection chose — `auto_detected_fields(detected, current)`
-compares the two. A manual change makes them differ, which is the badge
-going away, with nothing to keep in sync and nothing to persist.
+**Superseded** by "The auto mark follows the importer" below, which adds
+`QueuedFile.auto_mapping`. What survives is the rule: a field is "auto"
+exactly while the picker still holds the column the importer put there, and
+`auto_detected_fields(detected, current)` compares the two — a manual change
+makes them differ, which is the badge going away. What did not survive is
+the claim that `CsvInspection.detected_mapping` is enough to compare
+against: it covers the header heuristic only, and Scope asks for the mark on
+anything the importer filled in. Nothing is persisted either way.
 
 ### The row numbers became numbers
 
@@ -167,9 +169,10 @@ section and hides the ones that do not apply.
 `current_step(active)` in `state.py` is that missing idea, and it reads the
 same conditions `_repaint_active` uses to show and hide, so the line cannot
 claim a step the page below it is not showing: `needs_mapping` → mapping,
-`ready` → settings until an account is chosen and preview after, `done` →
-confirm, and a failure lands on mapping for a generic file (its columns are
-the problem) or upload for a bank profile (the file is). Eight unit tests.
+`ready` → settings until an account is chosen and preview after,
+`importing` → preview, `done` → confirm, and a failure lands on upload
+whatever read it (see the section below, which corrects an earlier rule
+sending a generic failure to mapping). Ten unit tests.
 
 ### A failed file stands on the upload step
 
@@ -317,6 +320,27 @@ test — so a delimiter-only line like `;;;` stays a record to both of them,
 and the caption cannot disagree with the parser in either direction. Its
 docstring records the other half of the change: the pass is no longer
 bounded by `sample_limit`, and it runs on every re-parse.
+
+### An import in flight is not a step backwards
+
+Fifth review round, and the one real bug it found: `current_step` had no
+branch for `importing`, so it fell through to upload. `_import_one` does not
+repaint on its own, but clicking another queue file during a bulk import
+does, and the line would have jumped from preview back to step 2 while the
+rows were going in. `importing` is preview — behind the user, not yet
+confirmed.
+
+The prominence of a parse message is now decided per message rather than by
+"did any row fail": `message_is_summarised` asks whether the strip above
+already names that row, using `row_error_prefix` from the service so the
+format cannot drift between the two. The old flag muted every message as
+soon as one row failed, including a blocking one the strip says nothing
+about — correct today only because the service cannot produce both at once.
+
+Smaller: the step nodes take `--k-ground`, which is what the line is
+actually drawn on, so the connector cannot show through a lighter disc; the
+unreachable tail of `decode_upload` says why it is unreachable (ISO-8859-2
+maps every byte); and `_DETECTABLE_FIELDS` is described as the tuple it is.
 
 ### Not done
 

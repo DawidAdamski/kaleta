@@ -43,6 +43,12 @@ class TestCurrentStep:
     def test_a_parsed_file_with_an_account_is_on_preview(self) -> None:
         assert current_step(_file(status="ready", target_account_id=7)) == STEP_PREVIEW
 
+    def test_a_file_being_imported_has_not_gone_backwards(self) -> None:
+        # A bulk import repaints whenever the user clicks another queue file,
+        # and falling through to the default would send the line from preview
+        # back to upload while the rows are going in.
+        assert current_step(_file(status="importing")) == STEP_PREVIEW
+
     def test_an_imported_file_is_done(self) -> None:
         assert current_step(_file(status="done")) == STEP_CONFIRM
 

@@ -357,7 +357,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   height:22px;
   border-radius:999px;
   border:1px solid var(--k-border-strong);
-  background:var(--k-surface);
+  background:var(--k-ground);
   color:var(--k-muted);
   font-size:11px;
   font-weight:600;

@@ -57,12 +57,25 @@ def decode_upload(raw: bytes) -> tuple[str, str]:
             return raw.decode(enc), name
         except UnicodeDecodeError:
             continue
+    # Unreachable in practice: ISO-8859-2 maps every byte, so the loop always
+    # returns. Kept so the function has no way to raise, and labelled UTF-8
+    # because a file that got here has no encoding worth naming.
     return raw.decode("utf-8", errors="replace"), "UTF-8"
 
 
 def auto_decode(raw: bytes) -> str:
     """Decode uploaded CSV bytes, trying common Polish/EU encodings first."""
     return decode_upload(raw)[0]
+
+
+def row_error_prefix(line_no: int) -> str:
+    """How a parse error names the line it happened on.
+
+    Shared with the mapping step, which uses it to tell a message the warning
+    strip already summarises from one that stands alone, so the two cannot
+    drift apart.
+    """
+    return f"Row {line_no}:"
 
 
 def digits_only(value: str) -> str:
@@ -1199,7 +1212,7 @@ class ImportService:
                 )
 
             except (ImportError_, KeyError) as exc:
-                result.errors.append(f"Row {line_no}: {exc}")
+                result.errors.append(f"{row_error_prefix(line_no)} {exc}")
                 result.error_rows.append(line_no)
 
         return result
