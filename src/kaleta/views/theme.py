@@ -114,7 +114,9 @@ SKELETON = "k-skeleton"
 # text colour that sits on it — apricot in light, ink on apricot in dark.
 ACCENT_SURFACE = "k-accent-surface"
 #: A tinted badge behind an icon — the accent at reading strength, not at
-#: full. Replaces the per-view `bg-blue-500/10 text-blue-600` triplets.
+#: full. The forecast KPIs use it in place of the `bg-blue-500/10
+#: text-blue-600` triplet they carried; the dashboard's `kpi_card` still
+#: builds its own from an `icon_color` argument.
 ACCENT_SOFT = "k-accent-soft"
 ON_ACCENT = "k-on-accent"
 

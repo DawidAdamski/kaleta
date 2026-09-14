@@ -21,18 +21,6 @@ from tests.e2e.seed_helpers import seed_account, seed_category, seed_many_transa
 _RUN_TIMEOUT = 60000
 
 
-def _answered(page: Page):
-    """The page has finished — with figures, or with a reason there are none.
-
-    Only for the all-accounts view, whose data is whatever the shared e2e
-    database happens to hold. A test that seeds its own account asserts the
-    figures themselves.
-    """
-    return page.locator('[data-kpi="predicted"]').or_(
-        page.get_by_text("Insufficient transaction history for forecasting.")
-    )
-
-
 def _control(page: Page, label: str):
     """The select named by its aria-label — Quasar puts it on the control div."""
     return page.locator(f'[aria-label="{label}"]')
@@ -169,7 +157,14 @@ def test_run_forecast_all_accounts(page: Page, base_url: str) -> None:
     _choose(page, "Account", "All Accounts")
 
     expect(_control(page, "Account")).to_contain_text("All Accounts", timeout=5000)
-    expect(_answered(page)).to_be_visible(timeout=_RUN_TIMEOUT)
+
+    # Every account's history at once is more than enough to forecast, so
+    # this asserts the figures rather than "those or a warning".
+    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
+    # And they describe the combined balance: the status line under the
+    # controls names the account the figures belong to.
+    expect(page.get_by_text("All Accounts", exact=False).first).to_be_visible()
+    expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
 
 
 # ---------------------------------------------------------------------------

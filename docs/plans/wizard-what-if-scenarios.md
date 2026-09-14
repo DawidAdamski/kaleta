@@ -29,6 +29,16 @@ that answers "can I afford X?" without spreadsheet gymnastics.
   reuses that maths.
 - **Cross-panel projection layer** — ADR-030 (read-only projections
   across panels) is the architectural slot this fits into.
+- **The forecast chart** — `restyle-forecast-on-load` (artboard 3a)
+  rebuilt `views/forecast.py::_forecast_chart` on a linear time axis,
+  with the confidence band, a `markLine` at today and a
+  `markLine` + pin per scenario already in it, and moved the KPI figures
+  behind `forecast_service.forecast_kpis` so they cannot disagree with
+  the line. The "baseline chart (reuses forecast chart component)" below
+  means *that* function: the before/after overlay is one more series on
+  it, and the simulator's deltas are `ScenarioShift`s writ larger.
+  Extract `_forecast_chart` into a shared component rather than copying
+  it.
 
 ## Scope
 

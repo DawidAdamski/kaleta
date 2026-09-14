@@ -165,6 +165,26 @@ and only the account and the horizon are worth a new run. That widens open
 question 1 slightly — the preset is a title-row control but never marks the
 chart stale — and it is the better answer for the same reason the plan gives.
 
+### One run at a time, and the later request is served, not dropped
+
+Second review round. The first single-flight guard returned early while a run
+was in flight, which swapped "last to finish wins" for "the later request
+vanishes": changing the account during the on-load run left the select and
+storage showing the new account and the chart showing the old one. `run_forecast`
+loops — a request that arrives mid-run sets `pending`, and the loop serves it
+before it exits — so the chart ends up answering the controls as they stand.
+
+The stale mark had the mirror-image bug under Prophet: a run that started
+*before* the change would clear it on landing, leaving the old account's
+forecast under the new selection with nothing to say so. `_sync_stale()`
+compares what the run was asked against what is selected now, and runs after
+every redraw, so the mark survives exactly as long as it is true. The naive
+path is exempt: its re-run follows within the debounce, so there is nothing
+to warn about.
+
+`_RunState` is a dataclass rather than a `dict[str, Any]` — it holds a
+`ForecastResult`, and mypy strict should be able to say so.
+
 ### One run at a time, and a failure that does not strand the page
 
 The on-load timer, the debounce and the Re-run button can all ask for a run
@@ -229,6 +249,31 @@ rather than left behind as cruft.
 per-view `bg-blue-500/10 text-blue-600` triplets, and `.k-skeleton` so the
 wait looks like this app rather than Quasar's grey. Both in `theme.py` with
 the rest.
+
+### Errors are domain errors
+
+The first version caught bare `Exception` and wrote a muted "Try again" into
+the status line, which turns a programming error into a footnote — against
+AGENTS.md, which says views catch `KaletaError` and call
+`notify_kaleta_error`. They do now. Anything else still clears the skeleton
+first, because the skeleton is the whole page once the page draws on load,
+and is then re-raised as the bug it is.
+
+### A pin needs a point to sit on
+
+`markPoint` only drew where a scenario's date matched a forecast point
+exactly. The dialog defaults to today and the forecast starts tomorrow, so a
+scenario saved with the default date got its line and no pin — half of what
+Scope asks for. `_first_point_from` snaps to the first forecast point on or
+after the date.
+
+### KAL-FCT-003 says what the app does
+
+The scenario claimed "individual account lines are shown as secondary
+series". No such series exists, here or in the plan's list of them, and the
+test never checked for it — an `@automated` tag over a clause nothing
+verifies. It now says the four figures describe the combined balance, which
+is what the page shows and what the test asserts.
 
 ### The e2e server binds a fixed port
 

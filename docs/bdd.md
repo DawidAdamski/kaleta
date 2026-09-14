@@ -2157,7 +2157,7 @@ Feature: Account Balance Forecast
     When I select "All accounts"
     And I set horizon to "30 days"
     Then the forecast chart shows the combined balance of all three accounts
-    And individual account lines are shown as secondary series
+    And its four figures describe that combined balance
 
   KAL-FCT-004 @manual
   Scenario: Run a forecast for a selected subset of accounts

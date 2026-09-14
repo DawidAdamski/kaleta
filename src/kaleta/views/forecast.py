@@ -3,15 +3,18 @@ from __future__ import annotations
 
 import datetime
 import logging
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
 from nicegui import app, ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.services import with_session
 from kaleta.services.forecast_service import (
     ForecastKpis,
+    ForecastPoint,
     ForecastPreset,
     ForecastResult,
     ForecastService,
@@ -32,6 +35,7 @@ from kaleta.views.chart_utils import (
     chart_text_color,
 )
 from kaleta.views.components.amount_label import format_signed_amount, net_tone
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     ACCENT_SOFT,
@@ -51,6 +55,17 @@ from kaleta.views.theme import (
     amount_class,
     kpi_card_classes,
 )
+
+
+def _first_point_from(result: ForecastResult, date: datetime.date) -> ForecastPoint | None:
+    """The first forecast point on or after ``date`` — where a pin can sit.
+
+    A scenario's date rarely lands exactly on a forecast point: the dialog
+    defaults to today, and the forecast starts tomorrow. Matching exactly
+    left those scenarios with a line and no marker, which is half of what
+    artboard 3a asks for.
+    """
+    return next((p for p in result.forecast if p.date >= date), None)
 
 
 def _forecast_chart(
@@ -107,7 +122,6 @@ def _forecast_chart(
         }
     ]
     mark_points: list[dict[str, Any]] = []
-    forecast_by_date = {p.date: p.value for p in result.forecast}
     for shift in scenarios:
         mark_lines.append(
             {
@@ -117,10 +131,10 @@ def _forecast_chart(
                 "lineStyle": {"color": accent, "type": "dotted"},
             }
         )
-        value = forecast_by_date.get(shift.date)
-        if value is not None:
+        pin = _first_point_from(result, shift.date)
+        if pin is not None:
             mark_points.append(
-                {"coord": [str(shift.date), value], "name": shift.label, "value": shift.label}
+                {"coord": [str(pin.date), pin.value], "name": shift.label, "value": shift.label}
             )
 
     _opts: dict[str, Any] = {
@@ -204,6 +218,25 @@ logger = logging.getLogger(__name__)
 
 #: How long a control change waits before it re-runs itself.
 _DEBOUNCE_SECONDS = 0.3
+
+
+@dataclass
+class _RunState:
+    """What the last run produced, and what is being asked of the next one.
+
+    ``raw`` is the forecaster's own answer, before any preset or scenario:
+    both are pure post-processing, so the page redraws from this rather than
+    asking again. ``account`` and ``horizon`` record what it was asked, so
+    the page can tell whether the controls have moved on since.
+    """
+
+    raw: ForecastResult | None = None
+    account: int | str = "all"
+    horizon: int = 60
+    running: bool = False
+    #: A request that arrived mid-run, to be served before the loop exits.
+    pending: bool = False
+
 
 #: Where the Prophet footnote points.
 _PROPHET_DOCS_URL = "https://github.com/DawidAdamski/kaleta#optional-forecasting"
@@ -320,14 +353,35 @@ def register() -> None:
                 ui.label(t("forecast.scenarios_title")).classes(SECTION_TITLE)
                 scenario_row = ui.row().classes("items-center gap-2 flex-wrap mt-2")
 
-            #: What the last run returned, so a preset or a scenario can be
-            #: applied to it without asking the forecaster again.
-            _run_state: dict[str, Any] = {"raw": None, "horizon": 60, "running": False}
+            run_state = _RunState()
 
             def _mark_stale() -> None:
                 """Prophet runs are slow, so a change asks before spending one."""
                 status.set_text(t("forecast.stale_hint"))
                 run_btn.props(add="color=primary", remove="flat")
+
+            def _controls_match_last_run() -> bool:
+                return (
+                    run_state.raw is not None
+                    and run_state.account == account_sel.value
+                    and run_state.horizon == int(horizon_sel.value)
+                )
+
+            def _sync_stale() -> None:
+                """Say whether what is on screen still answers what is selected.
+
+                A run that started before the user changed the account is
+                still a run of the *old* account, and when it lands it must
+                not quietly clear the mark that says so. Only the naive path
+                is exempt: its re-run follows within the debounce, so there
+                is nothing to warn about.
+                """
+                if not prophet_available:
+                    return
+                if _controls_match_last_run():
+                    run_btn.props(add="flat", remove="color=primary")
+                else:
+                    _mark_stale()
 
             def _on_controls_changed() -> None:
                 """The account or the horizon changed — that needs a new run."""
@@ -464,14 +518,29 @@ def register() -> None:
             async def run_forecast() -> None:
                 """Ask the forecaster, then draw what it said.
 
-                One run at a time: the on-load timer, the debounce and the
-                Re-run button can all ask at once, and two runs in flight end
-                with the last to *finish* on screen rather than the last one
-                asked for — the very race the debounce exists to prevent.
+                One run at a time — the on-load timer, the debounce and the
+                Re-run button can all ask at once, and two in flight end with
+                the last to *finish* on screen rather than the last one asked
+                for. A request that arrives mid-run is not dropped, though:
+                it is served by the next turn of the loop, so the chart ends
+                up answering the controls as they now stand.
                 """
-                if _run_state["running"]:
+                if run_state.running:
+                    run_state.pending = True
                     return
-                _run_state["running"] = True
+                run_state.running = True
+                try:
+                    while True:
+                        run_state.pending = False
+                        await _run_once()
+                        if not run_state.pending:
+                            break
+                finally:
+                    run_state.running = False
+                    run_btn.props(remove="loading")
+                    _sync_stale()
+
+            async def _run_once() -> None:
                 _render_skeleton()
                 status.set_text(
                     t("forecast.running_prophet")
@@ -484,34 +553,35 @@ def register() -> None:
                 acct_id = None if chosen == "all" else int(chosen)
                 horizon = int(horizon_sel.value)
 
-                async def _run_forecast(session: Any) -> Any:
-                    return await ForecastService(session).forecast_account(
+                async def _ask(session: Any) -> ForecastResult:
+                    result: ForecastResult = await ForecastService(session).forecast_account(
                         account_id=acct_id, horizon_days=horizon
                     )
+                    return result
 
                 try:
-                    raw = await with_session(_run_forecast)
-                except Exception:
-                    # The skeleton is the whole page now that it draws on
-                    # load, so a failure must not leave it standing there.
-                    logger.exception("Forecast run failed")
-                    chart_container.clear()
-                    kpi_row.clear()
-                    status.set_text(t("forecast.failed"))
+                    raw = await with_session(_ask)
+                except KaletaError as exc:
+                    _clear_and_say(t("forecast.failed"))
+                    notify_kaleta_error(exc)
                     return
-                finally:
-                    run_btn.props(remove="loading")
-                    # Whatever the run said, the controls are no longer ahead
-                    # of the chart, so the button drops back to its quiet state.
-                    run_btn.props(add="flat")
-                    _run_state["running"] = False
+                except Exception:
+                    # Not a domain error and not ours to explain away: clear
+                    # the skeleton, which is the whole page now that the page
+                    # draws on load, then let the bug reach the logs as one.
+                    _clear_and_say(t("forecast.failed"))
+                    raise
 
-                _run_state["raw"] = raw
-                _run_state["horizon"] = horizon
+                run_state.raw = raw
+                run_state.account = chosen
+                run_state.horizon = horizon
                 if not _redraw_from_last_run():
-                    chart_container.clear()
-                    kpi_row.clear()
-                    status.set_text(t("forecast.insufficient"))
+                    _clear_and_say(t("forecast.insufficient"))
+
+            def _clear_and_say(message: str) -> None:
+                chart_container.clear()
+                kpi_row.clear()
+                status.set_text(message)
 
             def _redraw_from_last_run() -> bool:
                 """Redraw from the run in hand, with the preset and scenarios on.
@@ -522,7 +592,7 @@ def register() -> None:
                 second trip to Prophet. Returns False when there is nothing to
                 draw, which is the caller's cue to say why.
                 """
-                raw = _run_state["raw"]
+                raw = run_state.raw
                 if raw is None or raw.insufficient_data or not raw.points:
                     return False
 
@@ -543,11 +613,14 @@ def register() -> None:
                         "forecast.status_running",
                         account=result.account_name,
                         days=len(result.historical),
-                        horizon=_run_state["horizon"],
+                        horizon=run_state.horizon,
                     )
                 )
                 _render_kpis(forecast_kpis(result))
                 _render_chart(result, baseline, shifts)
+                # The status line has just been rewritten; if the controls
+                # have moved on since this run, say so again.
+                _sync_stale()
                 return True
 
             def _render_kpis(kpis: ForecastKpis) -> None:
