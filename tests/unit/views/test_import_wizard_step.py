@@ -7,6 +7,7 @@ page decides what to show from the active file's status. Both read this.
 
 from __future__ import annotations
 
+from kaleta.services.import_service import ColumnMapping, QueueSettingsSnapshot
 from kaleta.views.import_view.state import (
     STEP_CONFIRM,
     STEP_MAPPING,
@@ -14,6 +15,7 @@ from kaleta.views.import_view.state import (
     STEP_SETTINGS,
     STEP_UPLOAD,
     QueuedFile,
+    apply_settings_snapshot,
     current_step,
 )
 
@@ -50,3 +52,33 @@ class TestCurrentStep:
         # not on screen. True whichever profile read it.
         assert current_step(_file(status="failed", profile="generic")) == STEP_UPLOAD
         assert current_step(_file(status="failed", profile="mbank")) == STEP_UPLOAD
+
+
+class TestInheritedMappingIsStillAuto:
+    """Covers: KAL-CSV-025 — the mark follows the importer, not one source.
+
+    Scope calls the marked fields the ones filled "by profile match or
+    heuristic". A mapping copied from another file in the queue is the
+    importer filling them in too, so it carries the marks a fresh detection
+    would; the user's own edits never do.
+    """
+
+    def test_an_inherited_mapping_is_recorded_as_the_importers_own(self) -> None:
+        file = _file(status="ready")
+        assert file.auto_mapping is None
+
+        mapping = ColumnMapping(date=0, amount=1, description=2)
+        apply_settings_snapshot(
+            file, QueueSettingsSnapshot(file_id=file.id, profile="generic", column_mapping=mapping)
+        )
+
+        assert file.column_mapping == mapping
+        assert file.auto_mapping == mapping
+
+    def test_inheriting_nothing_leaves_the_marks_alone(self) -> None:
+        file = _file(status="ready")
+        file.auto_mapping = ColumnMapping(date=0)
+
+        apply_settings_snapshot(file, QueueSettingsSnapshot(file_id=file.id, profile="generic"))
+
+        assert file.auto_mapping == ColumnMapping(date=0)

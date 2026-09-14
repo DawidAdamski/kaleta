@@ -256,6 +256,42 @@ documented on `current_step`: the columns *were* mapped, by the profile
 rather than by hand, so the step really is behind you — which is all a done
 node claims.
 
+### The auto mark follows the importer, not one source of mappings
+
+Third review round. `auto_detected_fields` compared the pickers against
+`inspection.detected_mapping` — the header heuristic only. Scope asks for
+the mark on fields filled "by profile match or heuristic", so a mapping
+applied from a saved import rule got no mark, and one inherited from another
+queued file got one wherever it happened to agree with the heuristic. The
+file now carries `auto_mapping`: the mapping the importer put there, set at
+the three places the machine chooses one — detection on a first parse, a
+matched rule, an inherited snapshot — and never on a re-parse that carries
+the user's own edits back in. The badge rule itself is unchanged: a field is
+auto while the picker still holds what the importer put there.
+
+### A wrapping row does not stack
+
+The two columns carried `flex-wrap md:flex-nowrap`, which never stacked: two
+children with `min-w-0` always fit on one flex line, so a narrow screen
+squeezed them instead of wrapping. `flex-col md:flex-row` with `w-full` on
+each column is what actually stacks. The e2e side-by-side check runs at
+desktop width, so nothing catches this but the eye — it belongs to the
+`[manual]` pass.
+
+### Blank lines are not rows
+
+`inspect_csv` counts with `csv.reader`, which yields an empty row for a
+blank line; `parse_csv` uses `DictReader`, which skips them. A bank export
+that ends with a blank line would have been captioned one row larger than it
+imports. The count skips them now, and the test asserts the caption's number
+against the number of records `parse_csv` finds.
+
+### The plural rule is the app's, not the import view's
+
+`row_count_key` started life in `mapping_section.py`. The rule is language,
+not import: it now lives in `kaleta.i18n.plural_key(prefix, count)`, which
+any counted caption can use with `<prefix>_one` / `_few` / `_many` keys.
+
 ### Not done
 
 The `[manual]` criterion — `test_import.csv` compared to artboard 2d in

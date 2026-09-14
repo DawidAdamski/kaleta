@@ -845,9 +845,15 @@ def inspect_csv(
     headers = [h.strip() for h in headers]
     sample_rows: list[list[str]] = []
     total_rows = 0
-    for i, row in enumerate(reader):
+    for row in reader:
+        # ``csv.reader`` yields a blank line as an empty row; ``DictReader``,
+        # which does the actual parsing, skips it. Counting it here would put
+        # a bigger number in the caption than the file has records — bank
+        # exports routinely end with a blank line.
+        if not any(cell.strip() for cell in row):
+            continue
         total_rows += 1
-        if i < sample_limit:
+        if len(sample_rows) < sample_limit:
             sample_rows.append(list(row))
     return CsvInspection(
         delimiter=delim,

@@ -27,6 +27,10 @@ class QueuedFile:
     parse_errors: list[str] = field(default_factory=list)
     metadata: MBankFileMetadata | None = None
     column_mapping: ColumnMapping | None = None
+    #: The mapping the importer filled in by itself — header detection, a
+    #: saved rule, or another queued file — never the user's own edits. The
+    #: "auto" marks are what is left of it in the pickers.
+    auto_mapping: ColumnMapping | None = None
     inspection: CsvInspection | None = None
     target_account_id: int | None = None
     expense_cat_id: int | None = None
@@ -120,6 +124,8 @@ def apply_settings_snapshot(file: QueuedFile, snapshot: QueueSettingsSnapshot) -
     file.skip_duplicates = snapshot.skip_duplicates
     if snapshot.column_mapping is not None:
         file.column_mapping = snapshot.column_mapping
+        # Inherited, not typed: it carries the marks a fresh detection would.
+        file.auto_mapping = snapshot.column_mapping
 
 
 def import_button_label(ready_count: int) -> str:

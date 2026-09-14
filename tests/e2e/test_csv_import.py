@@ -796,7 +796,9 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
 
     # And the sample sits *beside* the pickers that map it, headers numbered
     # the way the pickers number them — not above them, as it used to.
-    header_cell = page.get_by_text("1: date", exact=True).first
+    # Scoped to the sample table: the Date picker renders its value the same
+    # way, so an unscoped match would compare the picker against itself.
+    header_cell = page.locator(".k-table thead").get_by_text("1: date", exact=True).first
     expect(header_cell).to_be_visible(timeout=5000)
     sample_box = header_cell.bounding_box()
     picker_box = page.locator(".q-select").filter(has_text="Date column").first.bounding_box()

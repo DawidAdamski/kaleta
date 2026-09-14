@@ -1262,7 +1262,7 @@ Feature: mBank CSV Import
     Given I am on the Import page
     When I upload a CSV where some rows cannot be read
     Then a strip above the pickers says how many, and which rows
-    And it names the columns to look at
+    And it points at the column mapping as the thing to look at
 
   KAL-CSV-027 @automated
   Scenario: The progress line says which step I am on

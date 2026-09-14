@@ -10,7 +10,7 @@ from typing import Any
 
 from nicegui import background_tasks, ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.services.import_service import ColumnMapping, CsvInspection
 from kaleta.views.import_view.state import QueuedFile
 from kaleta.views.theme import (
@@ -72,11 +72,13 @@ _DETECTABLE_FIELDS: tuple[str, ...] = (
 def auto_detected_fields(
     detected: ColumnMapping | None, current: ColumnMapping | None
 ) -> frozenset[str]:
-    """Which mapped columns are still the ones detection guessed.
+    """Which pickers still hold the column the importer put there.
 
-    No new state is needed for the badge: a field is "auto" exactly while the
-    picker holds the column detection chose. Change it by hand and the two
-    stop matching, which is the badge going away.
+    ``detected`` is whatever the importer filled in by itself — header
+    detection, a saved import rule, or another file in the queue — recorded
+    on the file as ``auto_mapping``. A field is "auto" exactly while the
+    picker still holds that column; change it by hand and the two stop
+    matching, which is the badge going away.
     """
     if detected is None or current is None:
         return frozenset()
@@ -114,24 +116,15 @@ def truncate_cell(value: str) -> str:
     return value[: SAMPLE_CELL_CHARS - 1] + "…"
 
 
-def row_count_key(count: int) -> str:
-    """Which plural form of "N rows" the caption needs.
-
-    English has two forms, Polish three: 1 is ``one``, a count ending in 2-4
-    (but not 12-14) is ``few``, everything else is ``many``. Picking the key
-    here keeps both locales grammatical at any count — "3 wierszy" is wrong
-    Polish, and it is the one number this caption exists to show.
-    """
-    if count == 1:
-        return "import.rows_count_one"
-    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
-        return "import.rows_count_few"
-    return "import.rows_count_many"
-
-
 def row_count_label(count: int) -> str:
-    """The count in the app's number format, correctly plural: ``1,245 rows``."""
-    return t(row_count_key(count), count=f"{count:,}")
+    """The count in the app's number format, correctly plural: ``1,245 rows``.
+
+    Polish has three plural forms where English has two, and this is the one
+    number the caption exists to show — "3 wierszy" would be wrong. The rule
+    itself lives in :func:`kaleta.i18n.plural_key`; the formatting is the
+    app's usual ``,`` separator, so the caption reads like every other figure.
+    """
+    return t(plural_key("import.rows_count", count), count=f"{count:,}")
 
 
 def sample_body_slot() -> str:
@@ -261,7 +254,7 @@ class MappingSection:
             self.meta_label.set_text("")
             self.sample_table.rows = []
 
-        self._render_badges(inspection, mapping)
+        self._render_badges(file.auto_mapping, mapping)
         self._render_errors(file.parse_errors, file.error_rows)
 
     def mapping_from_widgets(self) -> ColumnMapping:
@@ -283,9 +276,8 @@ class MappingSection:
     def sync_to_file(self, file: QueuedFile) -> None:
         file.column_mapping = self.mapping_from_widgets()
 
-    def _render_badges(self, inspection: CsvInspection | None, mapping: ColumnMapping) -> None:
-        detected = inspection.detected_mapping if inspection is not None else None
-        auto = auto_detected_fields(detected, mapping)
+    def _render_badges(self, auto_mapping: ColumnMapping | None, mapping: ColumnMapping) -> None:
+        auto = auto_detected_fields(auto_mapping, mapping)
         for name, badge in self.badges.items():
             badge.set_visibility(name in auto)
 
@@ -362,9 +354,12 @@ def build_mapping_section() -> MappingSection:
         ui.label(t("import.mapping_hint")).classes(f"{BODY_MUTED} mb-3")
 
         # Two columns: the file on the left, the pickers on the right, so a
-        # column is mapped while its values are on screen. Stacks under md.
-        with ui.row().classes("w-full gap-6 items-start no-wrap flex-wrap md:flex-nowrap"):
-            with ui.column().classes("flex-1 min-w-0 gap-2"):
+        # column is mapped while its values are on screen. Under md they
+        # stack — `flex-col` really stacks them, where a wrapping row never
+        # would: two `min-w-0` children always fit on one line, however narrow
+        # it gets, and would have squeezed instead of wrapping.
+        with ui.row().classes("w-full gap-6 items-start no-wrap flex-col md:flex-row"):
+            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
                 meta_label = ui.label("").classes(f"{MONO} {MUTED} text-[11px]")
                 sample_table = (
                     ui.table(columns=[], rows=[], row_key="idx")
@@ -380,7 +375,7 @@ def build_mapping_section() -> MappingSection:
                 warning_strip.set_visibility(False)
                 errors_column = ui.column().classes("w-full gap-0.5")
 
-            with ui.column().classes("flex-1 min-w-0 gap-2"):
+            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
                 ui.label(t("import.mapping_fields")).classes(f"{MUTED} k-eyebrow")
                 with ui.row().classes("w-full gap-3 flex-wrap"):
                     date_sel = _picker("import.mapping_date", "date", width="flex-1 min-w-40")

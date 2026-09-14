@@ -127,6 +127,11 @@ async def import_page() -> None:
         queued_file.inspection = result.inspection
         if result.column_mapping is not None:
             queued_file.column_mapping = result.column_mapping
+            if mapping is None:
+                # Nothing went in, so what came back is the importer's own
+                # guess. A re-parse after the user moves a picker sends that
+                # picker's value in, and must not claim it as a guess.
+                queued_file.auto_mapping = result.column_mapping
         queued_file.parse_errors = list(result.errors)
         queued_file.error_rows = list(result.error_rows)
 
@@ -240,6 +245,7 @@ async def import_page() -> None:
         active.profile = key
         if key == "mbank":
             active.column_mapping = None
+            active.auto_mapping = None
         await _parse_file(active)
         _repaint_active()
         _render_queue()
@@ -278,6 +284,7 @@ async def import_page() -> None:
             for field in ("date", "amount", "description", "payee", "debit", "credit")
         ):
             queued_file.column_mapping = mapping
+            queued_file.auto_mapping = mapping
         if rule.delimiter and queued_file.inspection is None:
             # Delimiter is re-detected on parse; stored for future use.
             pass

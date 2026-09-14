@@ -11,11 +11,12 @@ from __future__ import annotations
 import json
 import pathlib
 
+import kaleta.i18n
+from kaleta.i18n import plural_key
 from kaleta.services.import_service import ColumnMapping
 from kaleta.views.import_view.mapping_section import (
     SAMPLE_CELL_CHARS,
     auto_detected_fields,
-    row_count_key,
     row_count_label,
     truncate_cell,
 )
@@ -73,20 +74,21 @@ class TestRowCountPlural:
 
     def test_polish_few_covers_counts_ending_in_two_to_four(self) -> None:
         # "3 wierszy" is wrong Polish; the few form is what 2-4 take.
-        assert [row_count_key(n) for n in (2, 3, 4, 22, 104)] == ["import.rows_count_few"] * 5
+        forms = [plural_key("import.rows_count", n) for n in (2, 3, 4, 22, 104)]
+        assert forms == ["import.rows_count_few"] * 5
 
     def test_the_teens_are_many_even_though_they_end_in_two_to_four(self) -> None:
-        assert [row_count_key(n) for n in (12, 13, 14, 112)] == ["import.rows_count_many"] * 4
+        forms = [plural_key("import.rows_count", n) for n in (12, 13, 14, 112)]
+        assert forms == ["import.rows_count_many"] * 4
 
     def test_one_is_singular_and_zero_is_not(self) -> None:
-        assert row_count_key(1) == "import.rows_count_one"
-        assert row_count_key(0) == "import.rows_count_many"
-        assert row_count_key(11) == "import.rows_count_many"
+        assert plural_key("import.rows_count", 1) == "import.rows_count_one"
+        assert plural_key("import.rows_count", 0) == "import.rows_count_many"
+        assert plural_key("import.rows_count", 11) == "import.rows_count_many"
 
     def test_polish_really_carries_all_three_forms(self) -> None:
-        pl = json.loads(
-            (pathlib.Path("src/kaleta/i18n/locales/pl.json")).read_text(encoding="utf-8")
-        )["import"]
+        locales = pathlib.Path(kaleta.i18n.__file__).parent / "locales"
+        pl = json.loads((locales / "pl.json").read_text(encoding="utf-8"))["import"]
         assert pl["rows_count_one"] == "{count} wiersz"
         assert pl["rows_count_few"] == "{count} wiersze"
         assert pl["rows_count_many"] == "{count} wierszy"

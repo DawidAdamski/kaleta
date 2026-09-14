@@ -702,6 +702,13 @@ class TestColumnMapping:
         assert inspection.total_rows == 25
         assert len(inspection.sample_rows) == 10
 
+    def test_inspect_csv_does_not_count_blank_lines(self):
+        """A bank export routinely ends with one; DictReader never sees it."""
+        csv = "date,amount,description\n2024-01-15,-1.00,A\n\n2024-01-16,-2.00,B\n\n"
+        inspection = inspect_csv(csv)
+        assert inspection.total_rows == 2
+        assert len(_svc().parse_csv(csv).rows) == inspection.total_rows
+
     def test_inspect_csv_headers_only_file_has_no_rows(self):
         inspection = inspect_csv("date,amount,description\n")
         assert inspection.total_rows == 0
