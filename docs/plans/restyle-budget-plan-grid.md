@@ -56,7 +56,8 @@ Out of scope: budget-plan data model, unification with budgets
 - `uv run pytest tests/e2e/test_budget_plan.py -q`
 - `uv run pytest tests/unit/services/test_budget_service.py -q`
 - `grep -q "context_menu" src/kaleta/views/budget_plan/grid.py`
-- `grep -q "KAL-BUD-013" docs/bdd.md`
+- `grep -q "KAL-BUD-015" docs/bdd.md`
+- `grep -q "KAL-BUD-016" docs/bdd.md`
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
 - `[manual]` Seed data, current year: no card around the grid; each
@@ -142,6 +143,13 @@ it. It now reads "a month that stayed inside its budget is not [highlighted]
 — spending as planned is not news", and its e2e asserts the absence of the
 expense colour rather than the presence of green.
 
+### A category is one row, not two
+
+The plan line and its actual line used to be two independent rows, each with
+its own hairline and its own hover. Artboard 2c reads the pair as one
+category, so they sit inside one wrapper that carries the hairline, the
+hover and the right-click menu; the lines themselves carry neither.
+
 ### The compare grid lost its actual sub-rows
 
 Scope says the compare grid has "no sub-rows (already shows two years)", and
@@ -156,9 +164,9 @@ reading is that Scope meant "do not add any".
 The grid picked four class strings off `app.storage.user["dark_mode"]`
 (`bg-slate-600` vs `bg-slate-100`, and so on). Every one of them is now a
 token that answers `.body--dark` on its own, so the flag, the branches and
-the `app` import are gone. `--k-plan-month-now` is the one colour with a
-literal in it (`#F0E5D4`, straight from the artboard) plus a dark rule
-pointing at the sunken surface.
+the `app` import are gone. The tinted column is a token like every
+other colour in the stylesheet — `--k-plan-now`, `#F0E5D4` from the artboard
+in the light block, the sunken surface in the dark one.
 
 ### Not done
 

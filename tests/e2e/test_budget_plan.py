@@ -220,10 +220,11 @@ def test_the_grid_tints_the_current_month(page: Page, base_url: str) -> None:
     row = page.locator(".k-plan-row").filter(has_text=category).first
     expect(row).to_be_visible(timeout=10000)
 
-    # One tinted cell in the header and one in every row — no more, no less.
+    # One tinted cell in the header, and one on each of the category's two
+    # lines — the plan and the actual under it, which render as one row.
     header = page.locator(".k-plan-head").first
     expect(header.locator(".k-plan-month-now")).to_have_count(1)
-    expect(row.locator(".k-plan-month-now")).to_have_count(1)
+    expect(row.locator(".k-plan-month-now")).to_have_count(2)
 
     # The actual sub-row sits under the plan, quiet and in mono, with its own
     # tinted cell for the current month.

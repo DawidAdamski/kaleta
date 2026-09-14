@@ -12,7 +12,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import BudgetService, with_session
-from kaleta.services.budget_service import AnnualPlanGrid, YearPlanSlice
+from kaleta.services.budget_service import AnnualPlanGrid, PlanCategoryRow, YearPlanSlice
 from kaleta.views.budget_plan.constants import (
     INNER_MIN,
     S_ACT,
@@ -124,7 +124,7 @@ def _render_header(
 
 
 def _row_actions(
-    row: Any,
+    row: PlanCategoryRow,
     *,
     budget_map: dict[tuple[int, int], Decimal],
     dialogs: EditDialogs,
@@ -160,8 +160,11 @@ def _render_single_year_grid(
         name_suffix = f" {MUTED} pl-7" if row.is_child else f" {INK} font-medium"
         name_cls = "text-sm px-3 py-2 truncate" + name_suffix
 
-        with ui.row().classes(f"{row_cls} {PLAN_ROW}"):
-            # Right-click anywhere on the row, which is where the actions went.
+        # The plan line and its actual line are one category: they share a
+        # hairline and light up together, rather than reading as two rows
+        # that happen to sit next to each other.
+        with ui.column().classes(f"w-full gap-0 {PLAN_ROW}"):
+            # Right-click anywhere on the pair, which is where the actions went.
             with ui.context_menu():
                 _row_actions(
                     row,
@@ -169,72 +172,76 @@ def _render_single_year_grid(
                     dialogs=dialogs,
                     clear_category=clear_category,
                 )
-            with (
-                ui.element("div")
-                .style(S_CAT)
-                .classes("flex items-center gap-1 py-1 overflow-hidden")
-            ):
-                if row.is_child:
-                    ui.icon("subdirectory_arrow_right").classes(
-                        f"{MUTED} ml-2 text-sm flex-shrink-0"
+            with ui.row().classes(f"{row_cls} w-full"):
+                with (
+                    ui.element("div")
+                    .style(S_CAT)
+                    .classes("flex items-center gap-1 py-1 overflow-hidden")
+                ):
+                    if row.is_child:
+                        ui.icon("subdirectory_arrow_right").classes(
+                            f"{MUTED} ml-2 text-sm flex-shrink-0"
+                        )
+                    ui.label(row.name).classes(name_cls).style(
+                        "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
                     )
-                ui.label(row.name).classes(name_cls).style(
-                    "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-                )
 
-            suggest = float(row.uniform_monthly) if row.uniform_monthly else 0.0
-            (
-                ui.label(rec_text)
-                .classes(f"{cell_cls} font-medium {rec_color} cursor-pointer")
-                .style(S_REC)
-                .on(
-                    "click",
-                    lambda r=row, s=suggest: dialogs.open_monthly(
-                        cat_id=r.category_id, cat_name=r.name, suggest=s
-                    ),
-                )
-            )
-
-            for cell in row.months:
-                color = plan_cell_color(cell.planned, cell.is_override)
-                tint = PLAN_MONTH_NOW if cell.month == this_month else ""
+                suggest = float(row.uniform_monthly) if row.uniform_monthly else 0.0
                 (
-                    ui.label(format_amount(cell.planned))
-                    .classes(f"{cell_cls} cursor-pointer rounded {color} {tint}")
-                    .style(S_MON)
+                    ui.label(rec_text)
+                    .classes(f"{cell_cls} font-medium {rec_color} cursor-pointer")
+                    .style(S_REC)
                     .on(
                         "click",
-                        lambda r=row, c=cell: dialogs.open_cell(
-                            cat_id=r.category_id,
-                            month=c.month,
-                            cat_name=r.name,
-                            current=c.planned,
+                        lambda r=row, sug=suggest: dialogs.open_monthly(
+                            cat_id=r.category_id, cat_name=r.name, suggest=sug
                         ),
                     )
                 )
 
-            ui.label(format_amount(row.total_planned or None)).classes(
-                f"text-sm text-right px-3 py-2 font-medium {INK}"
-            ).style(S_TOT)
-
-            with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
-                # The same menu the right-click opens, for touch and for
-                # anyone who has never right-clicked a table row.
-                actions_button = ui.button(icon="more_horiz").props(
-                    "flat round dense size=sm color=grey-7"
-                )
-                actions_button.tooltip(t("budget_plan.row_actions"))
-                actions_button.props["aria-label"] = f"{t('budget_plan.row_actions')}: {row.name}"
-                with actions_button, ui.menu():
-                    _row_actions(
-                        row,
-                        budget_map=budget_map,
-                        dialogs=dialogs,
-                        clear_category=clear_category,
+                for cell in row.months:
+                    color = plan_cell_color(cell.planned, cell.is_override)
+                    tint = PLAN_MONTH_NOW if cell.month == this_month else ""
+                    (
+                        ui.label(format_amount(cell.planned))
+                        .classes(f"{cell_cls} cursor-pointer rounded {color} {tint}")
+                        .style(S_MON)
+                        .on(
+                            "click",
+                            lambda r=row, c=cell: dialogs.open_cell(
+                                cat_id=r.category_id,
+                                month=c.month,
+                                cat_name=r.name,
+                                current=c.planned,
+                            ),
+                        )
                     )
 
-        if row.show_actual_row:
-            with ui.row().classes(f"{row_cls} {PLAN_ROW} {PLAN_ACTUAL_ROW}"):
+                ui.label(format_amount(row.total_planned or None)).classes(
+                    f"text-sm text-right px-3 py-2 font-medium {INK}"
+                ).style(S_TOT)
+
+                with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
+                    # The same menu the right-click opens, for touch and for
+                    # anyone who has never right-clicked a table row.
+                    actions_button = ui.button(icon="more_horiz").props(
+                        "flat round dense size=sm color=grey-7"
+                    )
+                    actions_button.tooltip(t("budget_plan.row_actions"))
+                    actions_button.props["aria-label"] = (
+                        f"{t('budget_plan.row_actions')}: {row.name}"
+                    )
+                    with actions_button, ui.menu():
+                        _row_actions(
+                            row,
+                            budget_map=budget_map,
+                            dialogs=dialogs,
+                            clear_category=clear_category,
+                        )
+
+            if not row.show_actual_row:
+                continue
+            with ui.row().classes(f"{row_cls} w-full {PLAN_ACTUAL_ROW}"):
                 ui.label(t("budget_plan.actual_row")).classes(
                     f"text-[10.5px] {MUTED} px-3 py-0"
                 ).style(S_CAT)

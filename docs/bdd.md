@@ -1516,6 +1516,14 @@ Feature: Annual Budget Planning
     And a tick on the bar marks how much of the month has elapsed
     And the status word it replaced is still there on hover
 
+  KAL-BUD-014 @automated
+  Scenario: An under-budget row names the bill still to come
+    Given 400.00 is budgeted for a category this month
+    And a bill of 284.00 for it is due and not yet paid
+    When I open the Realization tab
+    Then a line under the empty bar names the amount and the date
+    And the bar is empty and still reads as on track
+
   KAL-BUD-015 @automated
   Scenario: Budget plan row actions are reachable from the row context menu
     Given I am on the Budget Plan page for the current year
@@ -1528,14 +1536,6 @@ Feature: Annual Budget Planning
     Given I am on the Budget Plan page for the current year
     Then the current month's column is tinted, header and cells alike
     And a category's actual spending reads under its plan, month by month
-
-  KAL-BUD-014 @automated
-  Scenario: An under-budget row names the bill still to come
-    Given 400.00 is budgeted for a category this month
-    And a bill of 284.00 for it is due and not yet paid
-    When I open the Realization tab
-    Then a line under the empty bar names the amount and the date
-    And the bar is empty and still reads as on track
 ```
 
 ## Feature: Budget Planning Comparisons

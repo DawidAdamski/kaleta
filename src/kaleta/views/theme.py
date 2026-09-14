@@ -172,6 +172,7 @@ BASE_CSS = """
   --k-neutral-bar:#8E8676;
 
   --k-row-hover:#FAF4E9;
+  --k-plan-now:#F0E5D4;
   --k-chip-dash:#CFC5AE;
   --k-card-shadow:0 1px 2px rgba(28,26,21,.05);
   --k-on-accent:#FCFAF6
@@ -201,6 +202,7 @@ BASE_CSS = """
   --k-warning:#E3B457;
 
   --k-row-hover:#262420;
+  --k-plan-now:#2A2822;
   --k-chip-dash:#453F34;
   --k-card-shadow:none;
   --k-on-accent:#241C13
@@ -320,7 +322,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-plan-row{border-bottom:1px solid var(--k-hairline)}
 .k-plan-row:hover{background:var(--k-row-hover)}
 .k-plan-total{border-top:1px solid var(--k-border-strong)}
-.k-plan-month-now{background:#F0E5D4}
+.k-plan-month-now{background:var(--k-plan-now)}
 .k-cat-row{border-bottom-color:var(--k-hairline)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}
@@ -478,7 +480,6 @@ body.body--dark{background-color:var(--k-ground);color-scheme:dark}
 }
 .body--dark .bg-slate-100{border-color:var(--k-border)}
 .body--dark .hover\\:bg-slate-50:hover{background:var(--k-row-hover) !important}
-.body--dark .k-plan-month-now{background:var(--k-surface-sunken)}
 .body--dark .hover\\:bg-slate-100:hover{background:var(--k-surface-sunken) !important}
 .body--dark .hover\\:bg-slate-700:hover{background:var(--k-surface-warm) !important}
 
