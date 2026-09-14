@@ -678,6 +678,13 @@ def test_a_transfer_pair_nets_to_nothing(page: Page, base_url: str) -> None:
     expect(total).to_be_visible(timeout=10000)
     expect(total).to_have_class(re.compile(r"k-amount--neutral"))
 
+    # One leg on its own says nothing either: the row does not record which
+    # way the money went, so the net must not claim a direction for it.
+    page.locator(".q-table tbody .q-checkbox").first.click()
+    expect(page.get_by_text("1 selected", exact=True)).to_be_visible(timeout=10000)
+    expect(total).to_be_visible()
+    expect(total).to_have_class(re.compile(r"k-amount--neutral"))
+
 
 def test_account_chip_filters_shows_its_value_and_clears(page: Page, base_url: str) -> None:
     """Covers: KAL-TXN-005, KAL-TXN-016

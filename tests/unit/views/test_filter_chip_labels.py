@@ -85,9 +85,7 @@ class TestChipLabels:
         assert _label("tags", tag_ids=[20]) == ("codzienne", "")
 
     def test_search_chip_carries_the_text(self) -> None:
-        main, extra = _label("search", search="Lidl")
-        assert "Lidl" in main
-        assert extra == ""
+        assert _label("search", search="Lidl") == ("Search: Lidl", "")
 
     def test_whitespace_is_not_a_search(self) -> None:
         assert _label("search", search="   ") == ("", "")

@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import datetime
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from nicegui import ui
@@ -131,13 +131,9 @@ class FilterBarWidgets:
     #: sets its text and visibility the same way it did when it was a badge.
     badge_label: Any
     #: Repaint the chips after a filter changed. The page owns the filter dict,
-    #: so only it can say when the labels went stale.
-    refresh_chips: Callable[[dict[str, Any]], None] = field(default=lambda _f: None)
-
-
-def _aria(value: str) -> str:
-    """Quote a translated string safely into a double-quoted prop."""
-    return value.replace('"', "&quot;")
+    #: so only it can say when the labels went stale. Required: a default no-op
+    #: would let a caller lose the repaint without anything saying so.
+    refresh_chips: Callable[[dict[str, Any]], None]
 
 
 def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> tuple[_Chip, Any]:
@@ -154,14 +150,15 @@ def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> t
             .classes("k-muted cursor-pointer")
             # Six identical "Clear" labels tell a screen-reader user nothing
             # about which filter they are on.
-            .props(
-                'tabindex="0" role="button" '
-                f'aria-label="{_aria(t("transactions.clear_filter", field=t(name_key)))}"'
-            )
+            .props('tabindex="0" role="button"')
             .on("click", lambda: on_clear())
             .on("keydown.enter", lambda: on_clear())
             .on("keydown.space.prevent", lambda: on_clear())
         )
+        # Set as a value, not as props text: the props string is parsed, so a
+        # translation holding a quote would break out of it, and Vue binds the
+        # attribute verbatim — an escaped entity would be read aloud as one.
+        clear_icon.props["aria-label"] = t("transactions.clear_filter", field=t(name_key))
     return (
         _Chip(
             shell=shell,

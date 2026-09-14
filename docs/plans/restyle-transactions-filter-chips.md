@@ -234,15 +234,26 @@ browser, but only the ids are taken from it; the figures come from the page's
 own row dicts, keyed by id. A total is not something to take the client's
 word for.
 
-`net_of_rows` skips a transfer leg **only when its counterpart is on screen
-too** (rows carry `linked_id`). Both legs are booked and both display as
-outflows, so summing the column as-is would show 3 000 leaving on a week when
-1 500 moved between the user's own accounts and nothing left at all. But drop
-every transfer unconditionally and a ledger filtered to one account stops
-counting money that really did leave it — which is why the rule is about the
-pair, not the type. The *column* still shows each leg signed: a row says
-where money went, a net says how much there is. The selection bar reads the
-same function, so the two figures cannot disagree.
+`net_of_rows` leaves transfers out entirely. Both legs are booked and both
+display as outflows, so summing the column as-is would show 3 000 leaving on
+a week when 1 500 moved between the user's own accounts and nothing left at
+all.
+
+Counting a *lone* leg was tried first — a leg in a ledger filtered to one
+account looks like money that really did leave it — and it is wrong. The two
+legs are stored identically: type `transfer`, a positive amount, no
+direction anywhere on the row (`add_dialog.py`, `data_service.py` and
+`import_service.py` all create them that way). So a leg on its own is as
+likely to be 1 500 arriving in the savings account as 1 500 leaving the
+current one, and counting it would have shown the savings week as
+`-1,500.00`. Until a leg carries its direction, the net says nothing about
+transfers at all.
+
+The *column* still shows each leg signed, which is the pre-existing display
+convention: a row says where money went, a net says how much there is. The
+same function backs the group separator and the selection bar, and since the
+rule depends only on the row's type — not on what happens to be on screen or
+ticked — the two figures cannot disagree.
 
 Zero comes out unsigned (`0.00`, not `+0.00`) and painted neutral. Nothing
 moved, so there is no direction to show and none to colour.

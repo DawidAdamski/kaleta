@@ -821,7 +821,8 @@ Feature: Manual Transaction Entry
     When I select them
     Then the selected total reads 0.00, with no sign
     And the figure is neither money-in nor money-out
-    But a leg whose counterpart is not on the page counts as money out
+    And a leg on its own counts for nothing either — a transfer records no
+      direction, so the net cannot claim one
 
   KAL-TXN-016 @automated
   Scenario: A filter chip says what it filters

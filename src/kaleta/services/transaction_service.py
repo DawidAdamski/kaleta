@@ -447,9 +447,6 @@ class TransactionService:
             "notes": transaction.notes or "",
             "has_notes": bool(transaction.notes),
             "category": category,
-            # Which other row this one is the other half of, if any: the net
-            # of a group has to know a transfer pair when it sees one.
-            "linked_id": transaction.linked_transaction_id,
             "has_splits": has_splits,
             "split_count": split_count,
             "split_tooltip": split_tooltip,
@@ -513,20 +510,22 @@ class TransactionService:
     def net_of_rows(rows: builtins.list[dict[str, Any]]) -> Decimal:
         """What a set of ledger rows did to the user's money.
 
-        A transfer leg counts like anything else *unless its counterpart is on
-        screen too*. Both legs are booked and both display as outflows, so
-        adding them up would show money leaving twice over when it only moved
-        between the user's own accounts — but a lone leg, in a ledger filtered
-        to one account, really is money leaving that account.
+        Transfers are left out of it entirely. Both legs of an internal
+        transfer are stored the same way — type ``transfer``, a positive
+        amount, no direction — so the ledger cannot say whether a leg it is
+        holding sent the money or received it, and paints both as outflows.
+        Counting a lone leg would therefore be right for half of them and
+        wrong for the other half; counting both would show money leaving
+        twice when it only moved between the user's own accounts. A net that
+        says nothing about a transfer is honest, and the rule is the same
+        wherever it is read, so the group separator and the selection bar
+        cannot disagree.
         """
-        visible = {row["id"] for row in rows if row.get("id") is not None}
-        total = Decimal("0")
-        for row in rows:
-            paired = (
-                row.get("type") == TransactionType.TRANSFER.value
-                and row.get("linked_id") in visible
-            )
-            if paired:
-                continue
-            total += Decimal(str(row.get("amount_value", 0)))
-        return total
+        return sum(
+            (
+                Decimal(str(row.get("amount_value", 0)))
+                for row in rows
+                if row.get("type") != TransactionType.TRANSFER.value
+            ),
+            Decimal("0"),
+        )
