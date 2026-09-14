@@ -764,9 +764,12 @@ def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str)
     page.locator('input[type="file"]').set_input_files(str(FIXTURES / "partly-unparseable.csv"))
     expect(page.get_by_text("partly-unparseable.csv").first).to_be_visible(timeout=10000)
 
+    # Rows 3 and 5 of the file: the bad amount and the bad date. The numbers
+    # are the point — "some rows failed" sends the reader back to the file to
+    # find out which.
     strip = page.locator(".k-warning-strip")
     expect(strip).to_be_visible(timeout=10000)
-    expect(strip).to_contain_text("2 rows could not be parsed")
+    expect(strip).to_contain_text("Rows that could not be parsed (2): 3, 5")
     expect(strip).to_contain_text("Date and Amount")
 
 
@@ -790,5 +793,14 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
     expect(page.locator(".k-step--now")).to_have_count(1)
     assert page.locator(".k-step--done").count() > 1
 
-    # And the sample sits beside the pickers that map it, headers numbered.
-    expect(page.get_by_text("1: date", exact=True).first).to_be_visible(timeout=5000)
+    # And the sample sits *beside* the pickers that map it, headers numbered
+    # the way the pickers number them — not above them, as it used to.
+    header_cell = page.get_by_text("1: date", exact=True).first
+    expect(header_cell).to_be_visible(timeout=5000)
+    sample_box = header_cell.bounding_box()
+    picker_box = page.locator(".q-select").filter(has_text="Date column").first.bounding_box()
+    assert sample_box is not None and picker_box is not None
+    assert sample_box["x"] + sample_box["width"] <= picker_box["x"], (sample_box, picker_box)
+    # Side by side means they share vertical space, not that one follows the
+    # other down the page.
+    assert sample_box["y"] < picker_box["y"] + picker_box["height"]

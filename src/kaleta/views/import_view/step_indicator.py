@@ -48,5 +48,6 @@ def render_step_indicator(current: int = 1) -> ui.row:
                     with node:
                         ui.label(str(index))
                 ui.label(label).classes(STEP_LABEL_NOW if now else STEP_LABEL)
-            node.props["aria-current"] = "step" if now else "false"
+            if now:
+                node.props["aria-current"] = "step"
     return line

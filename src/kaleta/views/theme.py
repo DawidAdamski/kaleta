@@ -366,7 +366,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   justify-content:center
 }
 .k-step--done{background:var(--k-ink);border-color:var(--k-ink);color:var(--k-surface)}
-.k-step--now{background:var(--k-accent);border-color:var(--k-accent);color:#FFF}
+.k-step--now{
+  background:var(--k-accent);
+  border-color:var(--k-accent);
+  color:var(--k-on-accent)
+}
 .k-step-label{font-size:11px;color:var(--k-muted);text-align:center;line-height:1.2}
 .k-step-label--now{color:var(--k-ink);font-weight:600}
 .k-auto-badge{

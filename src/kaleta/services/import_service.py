@@ -37,14 +37,32 @@ from kaleta.services.rule_service import RuleService
 # ── File decoding ────────────────────────────────────────────────────────────
 
 
-def auto_decode(raw: bytes) -> str:
-    """Decode uploaded CSV bytes, trying common Polish/EU encodings first."""
-    for enc in ("utf-8-sig", "utf-8", "cp1250", "iso-8859-2"):
+#: Display names for the encodings :func:`decode_upload` tries, in order.
+_ENCODING_NAMES: dict[str, str] = {
+    "utf-8-sig": "UTF-8",
+    "utf-8": "UTF-8",
+    "cp1250": "CP1250",
+    "iso-8859-2": "ISO-8859-2",
+}
+
+
+def decode_upload(raw: bytes) -> tuple[str, str]:
+    """Decode uploaded CSV bytes, and say which encoding worked.
+
+    The mapping step names the encoding in its caption, and a file that only
+    decoded as CP1250 must not be captioned "UTF-8".
+    """
+    for enc, name in _ENCODING_NAMES.items():
         try:
-            return raw.decode(enc)
+            return raw.decode(enc), name
         except UnicodeDecodeError:
             continue
-    return raw.decode("utf-8", errors="replace")
+    return raw.decode("utf-8", errors="replace"), "UTF-8"
+
+
+def auto_decode(raw: bytes) -> str:
+    """Decode uploaded CSV bytes, trying common Polish/EU encodings first."""
+    return decode_upload(raw)[0]
 
 
 def digits_only(value: str) -> str:
@@ -209,6 +227,11 @@ class CsvInspection:
     headers: list[str]
     sample_rows: list[list[str]] = field(default_factory=list)
     detected_mapping: ColumnMapping = field(default_factory=ColumnMapping)
+    #: Data rows in the whole file, not just the sampled ones — the mapping
+    #: step's caption says how big the file is, and a sample size is not that.
+    total_rows: int = 0
+    #: The encoding the upload decoded as, for the same caption.
+    encoding: str = "UTF-8"
 
 
 @dataclass
@@ -823,15 +846,17 @@ def inspect_csv(
 
     headers = [h.strip() for h in headers]
     sample_rows: list[list[str]] = []
+    total_rows = 0
     for i, row in enumerate(reader):
-        if i >= sample_limit:
-            break
-        sample_rows.append(list(row))
+        total_rows += 1
+        if i < sample_limit:
+            sample_rows.append(list(row))
     return CsvInspection(
         delimiter=delim,
         headers=headers,
         sample_rows=sample_rows,
         detected_mapping=detect_column_mapping(headers),
+        total_rows=total_rows,
     )
 
 

@@ -20,6 +20,8 @@ class QueuedFile:
     id: str
     filename: str
     content: str
+    #: The encoding the upload decoded as, named in the mapping caption.
+    encoding: str = "UTF-8"
     profile: str = "generic"
     parsed_rows: list[ParsedRow] = field(default_factory=list)
     parse_errors: list[str] = field(default_factory=list)
@@ -71,12 +73,12 @@ def current_step(active: QueuedFile | None) -> int:
     if active.status == "needs_mapping":
         return STEP_MAPPING
     if active.status == "failed":
-        # A generic file that failed failed at its mapping; a bank profile
-        # failed at the file itself, which is the upload's problem.
-        return STEP_MAPPING if active.profile == "generic" else STEP_UPLOAD
+        # A failed file shows no mapping, settings or preview card — the page
+        # hides all three — so the only place left to stand is the upload.
+        return STEP_UPLOAD
     if active.status == "ready":
-        # Ready means parsed. What is left is saying where the rows go, and
-        # then looking at them.
+        # Ready means parsed, and both cards are on screen. The step is what
+        # the user still has to *do*: say where the rows go, then look at them.
         return STEP_PREVIEW if active.target_account_id is not None else STEP_SETTINGS
     return STEP_UPLOAD
 

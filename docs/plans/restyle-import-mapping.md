@@ -114,6 +114,31 @@ and its PR is opened with `--base plan/restyle-budget-plan-grid`.
    artboard 2d draws and few enough that the picker beside a column stays on
    screen while you read it.
 
+### The caption says what the file is
+
+Scope asks for `; · UTF-8 · 1 245 rows`, and the step was reusing
+`import.mapping_meta` — "Delimiter: ; · 3 columns · showing 10 sample rows".
+Two of those three facts describe the *table*, not the file, and the third
+was about to be wrong: the table shows four rows while `inspect_csv` samples
+ten.
+
+`CsvInspection` gained `total_rows` (counted while sampling, no second pass)
+and the caption is a new `import.mapping_sample_caption`. `mapping_meta` is
+gone; a leftover key is a key someone re-adds a caption for.
+
+The encoding could not be hard-coded: `auto_decode` tries UTF-8, CP1250 and
+ISO-8859-2 in turn, so a file that only decoded as CP1250 must not be
+captioned UTF-8. `decode_upload` returns the decoded text *and* the encoding
+that worked, `auto_decode` stays as a one-line wrapper for its existing
+callers, and the queued file carries the name.
+
+### A cut cell shows the whole value on hover
+
+Open question 2 says "truncated at 32 chars with a tooltip", and the tooltip
+needed building: a body slot puts the full value behind a `q-tooltip`, and
+only where it differs from the shown one, so a short cell does not grow a
+tooltip repeating itself.
+
 ### The auto badge needed no new state
 
 Scope asks for `detected: set[str]` on the mapping state and "a small schema
@@ -146,6 +171,18 @@ claim a step the page below it is not showing: `needs_mapping` → mapping,
 confirm, and a failure lands on mapping for a generic file (its columns are
 the problem) or upload for a bank profile (the file is). Eight unit tests.
 
+### A failed file stands on the upload step
+
+The first version sent a failed *generic* file to the mapping step, on the
+grounds that its columns were the problem. The page disagrees: it hides the
+mapping card for `failed` along with settings and preview, so the line would
+have pointed at a step that was not on screen — exactly what
+`current_step` exists to prevent. A failed file stands on upload, whatever
+read it.
+
+Choosing an account also has to move the line, since that is the whole of
+the settings step; `_on_settings_change` refreshes it.
+
 ### e2e: the step a fresh upload lands on is not fixed
 
 `test_the_progress_line_says_which_step_i_am_on` asserts that the line
@@ -156,12 +193,29 @@ account is inherited from another queued file or from the last import — so
 database. The step numbers themselves are pinned by the unit tests, which
 own the state.
 
+### A blocking error is not a footnote
+
+`_render_errors` first put every message in small muted text under the
+strip. For a file that needs mapping, those messages are not detail — "Date
+column is required" is the thing standing between the user and an import,
+and it comes with no row numbers, so no strip appears either. Messages the
+strip summarises are muted; messages standing on their own keep the
+prominence they had.
+
 ### Three scenarios, not two
 
 `KAL-CSV-025` and `KAL-CSV-026` are the plan's. `KAL-CSV-027` is new: the
 progress line and the side-by-side layout are the other half of what
 artboard 2d changes, and Working Agreement §5 wants user-facing behaviour to
 have a scenario.
+
+### The fixture is generic, not mBank
+
+Scope says both new scenarios are automated "on the mBank fixture". The
+parse-failure one needs a file whose rows *fail*, and the mBank fixtures are
+real, valid exports — breaking one would weaken the tests that depend on it.
+`partly-unparseable.csv` is a five-row generic CSV with a bad amount on row
+3 and a bad date on row 5, which is what the strip is asserted to name.
 
 ### Not done
 

@@ -20,8 +20,8 @@ from kaleta.services.import_service import (
     ColumnMapping,
     ImportReadinessCheck,
     ImportService,
-    auto_decode,
     build_known_account_digits,
+    decode_upload,
     inherit_queue_settings,
     validate_import_readiness,
 )
@@ -308,12 +308,13 @@ async def import_page() -> None:
             if had_failed:
                 ui.notify(t("import.queue_reset_failed"), type="info")
 
-        content = auto_decode(await e.file.read())
+        content, encoding = decode_upload(await e.file.read())
         suggested = ImportRuleService.suggest_filename_pattern(e.file.name)
         queued_file = QueuedFile(
             id=str(uuid.uuid4()),
             filename=e.file.name,
             content=content,
+            encoding=encoding,
             filename_pattern=suggested,
             skip_duplicates=get_import_skip_duplicates_default(),
         )
@@ -365,6 +366,9 @@ async def import_page() -> None:
         settings_section.sync_from_widgets(active)
         active.from_bulk_default = False
         settings_section.update_currency_warning(active, accounts)
+        # Choosing the account is what the Settings step is for, so the line
+        # has to move when it happens.
+        step_line.refresh()
 
     async def _on_mapping_change() -> None:
         active = _active()

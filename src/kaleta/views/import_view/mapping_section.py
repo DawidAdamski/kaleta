@@ -114,6 +114,25 @@ def truncate_cell(value: str) -> str:
     return value[: SAMPLE_CELL_CHARS - 1] + "…"
 
 
+def sample_body_slot() -> str:
+    """Vue body slot putting the whole of a cut cell behind a tooltip.
+
+    ``c0`` holds what is shown, ``t0`` what the file actually said; the
+    tooltip appears only where the two differ, so a short value does not grow
+    a tooltip repeating itself.
+    """
+    return (
+        '<q-tr :props="props">'
+        '<q-td v-for="col in props.cols" :key="col.name" :props="props">'
+        "{{ props.row[col.name] }}"
+        "<q-tooltip v-if=\"props.row['t' + col.name.slice(1)] !== props.row[col.name]\">"
+        "{{ props.row['t' + col.name.slice(1)] }}"
+        "</q-tooltip>"
+        "</q-td>"
+        "</q-tr>"
+    )
+
+
 @dataclass
 class MappingSection:
     card: ui.card
@@ -207,12 +226,14 @@ class MappingSection:
 
         if inspection is not None:
             delim = inspection.delimiter.replace("\t", "TAB")
+            # "; · UTF-8 · 1 245 rows" — what the file *is*, not what the
+            # table below happens to be showing of it.
             self.meta_label.set_text(
                 t(
-                    "import.mapping_meta",
+                    "import.mapping_sample_caption",
                     delimiter=delim,
-                    columns=len(inspection.headers),
-                    rows=len(inspection.sample_rows),
+                    encoding=file.encoding,
+                    rows=f"{inspection.total_rows:,}".replace(",", " "),
                 )
             )
             self._render_sample(inspection)
@@ -291,10 +312,14 @@ class MappingSection:
             )
         self.warning_strip.set_visibility(bool(error_rows))
 
+        # A message the strip already summarises is detail; a message with no
+        # row behind it — "Date column is required" — is what stands between
+        # the user and an import, and must not be read as a footnote.
+        detail = bool(error_rows)
         self.errors_column.clear()
         with self.errors_column:
             for err in errors:
-                ui.label(err).classes(f"text-xs {MUTED}")
+                ui.label(err).classes(f"text-xs {MUTED}" if detail else "text-sm text-negative")
 
 
 def build_mapping_section() -> MappingSection:
@@ -326,6 +351,7 @@ def build_mapping_section() -> MappingSection:
                     .classes(f"{TABLE_SURFACE} {MONO} text-[11px]")
                     .props("dense flat")
                 )
+                sample_table.add_slot("body", sample_body_slot())
                 with ui.row().classes(
                     f"{WARNING_STRIP} w-full items-start gap-2 px-3 py-2 rounded-lg"
                 ) as warning_strip:

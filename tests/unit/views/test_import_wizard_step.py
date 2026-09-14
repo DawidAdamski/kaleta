@@ -44,10 +44,9 @@ class TestCurrentStep:
     def test_an_imported_file_is_done(self) -> None:
         assert current_step(_file(status="done")) == STEP_CONFIRM
 
-    def test_a_failed_generic_file_failed_at_its_mapping(self) -> None:
-        assert current_step(_file(status="failed", profile="generic")) == STEP_MAPPING
-
-    def test_a_failed_bank_file_failed_at_the_file_itself(self) -> None:
-        # Nothing to map: a bank profile reads its own columns, so the thing
-        # that went wrong was the upload.
+    def test_a_failed_file_stands_on_the_upload_step(self) -> None:
+        # The page hides the mapping, settings and preview cards for a failed
+        # file, so pointing the line at any of them would name a step that is
+        # not on screen. True whichever profile read it.
+        assert current_step(_file(status="failed", profile="generic")) == STEP_UPLOAD
         assert current_step(_file(status="failed", profile="mbank")) == STEP_UPLOAD

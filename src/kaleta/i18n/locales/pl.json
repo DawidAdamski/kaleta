@@ -903,7 +903,6 @@
     "upload_hint_wise": "Wyciąg eksportowany z Wise → Wyciągi → CSV lub QIF.",
     "mapping_section": "Mapowanie kolumn",
     "mapping_hint": "Przypisz każde pole do kolumny. Podgląd aktualizuje się przy każdej zmianie.",
-    "mapping_meta": "Separator: {delimiter} · {columns} kolumn · pokazano {rows} wierszy próbki",
     "mapping_fields": "Pola",
     "mapping_formats": "Formaty",
     "mapping_date": "Kolumna daty",
@@ -1009,8 +1008,9 @@
     "history_row": "{when} · {filename} → {account} · {imported} nowych, {skipped} pominiętych",
     "mapping_notes": "Notatki",
     "auto_badge": "auto",
-    "parse_warning": "Nie udało się odczytać {count} wierszy: {rows} — sprawdź kolumny Data i Kwota",
-    "parse_warning_more": "{rows} i jeszcze {extra}"
+    "parse_warning": "Wiersze, których nie udało się odczytać ({count}): {rows} — sprawdź kolumny Data i Kwota",
+    "parse_warning_more": "{rows} i jeszcze {extra}",
+    "mapping_sample_caption": "{delimiter} · {encoding} · {rows} wierszy"
   },
   "payees": {
     "title": "Odbiorcy",
