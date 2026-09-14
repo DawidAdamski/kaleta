@@ -131,6 +131,14 @@ generation, the account table columns.
   the upper series "Liabilities (stacked on assets)", and the y-axis
   starts at 0 so a steady sheet no longer looks like a cliff.
 
+- **Two totals outside the listed Scope.** The assets and liabilities
+  card headers still carried raw `text-positive` / `text-negative`
+  Quasar colours. The plan's Scope lists the tables' *columns* as out of
+  scope, not their headers, and leaving two bare colour classes in a
+  card the same commit restyles would have made the page disagree with
+  itself — so they now take `MONO`+`INK` and `MONO`+`AMOUNT_EXPENSE`
+  like every other figure on the page. No layout or wording changed.
+
 - **Stacking:** branched from `plan/restyle-forecast-on-load`, which is
   itself unmerged. Open the PR with
   `--base plan/restyle-forecast-on-load`; it must merge after every
