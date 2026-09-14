@@ -150,7 +150,11 @@ def _body_slot(
         ' class="split-row-icon">'
         "<q-tooltip>{{ props.row.split_tooltip }}</q-tooltip>"
         "</q-icon>"
-        "<span :class=\"props.row.has_splits ? '' : 'k-cat-pill'\">"
+        # A pill is a category's badge. A split row already has its own icon
+        # and label, and a transfer or an uncategorised row has an em dash —
+        # neither is a category, so neither gets a pill drawn around it.
+        "<span :class=\"props.row.has_splits || props.row.category === '—'"
+        " ? '' : 'k-cat-pill'\">"
         "{{ props.row.category }}"
         "</span>"
         "</div>"
