@@ -157,27 +157,27 @@ class TestTheBaselineReference:
 class TestStaleAction:
     """When the page may say "press Re-run", and when it must not.
 
-    This rule has been wrong three times — a mark that would not go away, one
-    that outlived a failure and blamed the user for it, and one that erased
-    "Insufficient transaction history" — and the Prophet branch that reaches
+    This rule has been wrong four times — a mark that would not go away, one
+    that outlived a failure and blamed the reader for it, one that erased
+    "Insufficient transaction history", and one that stuck after the
+    selection went away and came back — and the Prophet branch that reaches
     it is not installed in this environment, so it is asserted directly.
     """
 
     def _act(self, **over: bool) -> str:
         args: dict[str, bool] = {
             "prophet_available": True,
-            "drawn": True,
             "running": False,
             "controls_match": True,
         }
         args.update(over)
         return stale_action(**args)
 
-    def test_a_chart_that_answers_the_controls_clears_the_mark(self) -> None:
+    def test_a_page_that_answers_the_controls_clears_the_mark(self) -> None:
         # Change the account and change it back: the hint has to go too.
         assert self._act(controls_match=True) == "clear"
 
-    def test_controls_ahead_of_the_chart_are_marked(self) -> None:
+    def test_controls_ahead_of_the_page_are_marked(self) -> None:
         assert self._act(controls_match=False) == "mark"
 
     def test_the_naive_path_never_marks_anything(self) -> None:
@@ -186,18 +186,15 @@ class TestStaleAction:
         assert self._act(prophet_available=False, controls_match=True) == "leave"
 
     def test_nothing_is_said_while_a_run_is_in_flight(self) -> None:
-        # The recorded account is still the previous run's, so a match here
-        # would describe a chart that is not on screen.
+        # The recorded selection is still the previous run's, so a match here
+        # would describe a page that is not on screen.
         assert self._act(running=True, controls_match=True) == "leave"
         assert self._act(running=True, controls_match=False) == "leave"
 
-    def test_a_page_with_nothing_drawn_keeps_the_message_it_has(self) -> None:
-        # A failure, or too little history, under controls nobody touched:
-        # the line already says something truer than "press Re-run", and it
-        # is not the reader's doing.
-        assert self._act(drawn=False, controls_match=True) == "leave"
-
-    def test_but_that_message_stops_being_true_when_the_selection_moves(self) -> None:
-        # "Insufficient transaction history" was about account A. Pick B and
-        # it is no longer an answer to anything on screen.
-        assert self._act(drawn=False, controls_match=False) == "mark"
+    def test_a_failure_is_this_selection_s_answer_like_any_other(self) -> None:
+        # "Insufficient transaction history" for account A is what A says.
+        # Selecting B makes it stale; selecting A again makes it current, and
+        # the mark has to come off — the message itself is restored, because
+        # `_clear_and_say` records it the way a drawn chart records its own.
+        assert self._act(controls_match=False) == "mark"
+        assert self._act(controls_match=True) == "clear"

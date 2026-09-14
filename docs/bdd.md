@@ -2231,12 +2231,13 @@ Feature: Account Balance Forecast
 
   KAL-FCT-011 @automated
   Scenario: The figures include the scenario shifts the chart draws
-    Given a forecast that starts from a balance of 1000.00
-    And its predicted balance at the horizon is 800.00, a change of -200.00
-    When a what-if scenario adds 5000.00 on a date before that horizon
-    Then the predicted figure reads 5800.00
-    And the change figure reads 4800.00
-    And the confidence stays at ± 200.00, because the interval moved too
+    Given I am on the Forecast page with a chart on screen
+    When a what-if scenario adds 5000.00 on a date before the horizon
+    Then the predicted figure is 5000.00 higher
+    And the change figure is 5000.00 higher
+    And the confidence is unchanged, because the interval moved with the line
+    When I remove the scenario
+    Then every figure is what it was
 
   KAL-FCT-012 @manual
   Scenario: A slow forecaster asks before spending a run
@@ -2255,7 +2256,8 @@ Feature: Account Balance Forecast
   Scenario: A what-if never waits for a re-run
     Given I am on the Forecast page with a chart on screen
     When I add a what-if scenario
-    Then the figures and the chart move at once, with no forecast run
+    Then the figures move without my pressing anything
+    And the loading skeleton never appears, because no forecast was run
 ```
 
 ## Feature: Credit Calculator

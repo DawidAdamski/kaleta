@@ -443,6 +443,41 @@ app-wide `,` thousands separator, which reads oddly in Polish — the same
 Chore-inbox candidate the import-mapping plan recorded, not something to fix
 one page at a time.
 
+### Round nine: a failure is an answer like any other
+
+The stale rule shed its last special case. It had one for "nothing drawn",
+which made the mark one-way again: account A shows "Insufficient transaction
+history", select B (mark goes up), select A again — and the mark stayed,
+because nothing was drawn. The mistake was treating a failure as *not an
+answer*. It is one: it is what this selection says. `_clear_and_say` records
+its message on `run_state.status` exactly as a successful draw does, so
+clearing the mark restores the right line whichever kind it is, and
+`stale_action` is down to two exemptions — the naive path, and a run in
+flight.
+
+`KAL-FCT-011` and `KAL-FCT-013` say what their e2e can actually check.
+011 asserted `before + 10000` read back off the page while the scenario text
+said 5000.00, and never checked the third Then at all; it now moves by the
+scenario's own literal and asserts the confidence does *not* move. 013
+claimed "no forecast run" behind a check that could not see one: `.q-skeleton`
+count 0 *after* the fact would also pass if a fast naive run had shown and
+removed it. A `MutationObserver` armed before the scenario is added records
+the skeleton ever entering the DOM, which is the thing a run always does.
+
+One page, one date format: the scenario chips and the two tables printed ISO
+beside a horizon hint in `%d.%m.%Y`. The chart series stay ISO — that is what
+a `time` axis reads.
+
+`format_net_amount` is a new public helper in `views/components/amount_label.py`,
+which is not in this plan's Touchpoints. It is three lines delegating to
+`TransactionService.format_net`, and it is there so the Change figure and the
+scenario chip follow the same zero rule as the ledger.
+
+**Also left for the owner's Prophet pass:** while the page is stale, a
+scenario or preset change redraws the *previous* selection's chart with the
+new scenario on it. The mark says the page is stale, so it is not silent, but
+`KAL-FCT-012`'s "the chart stays as it was" is loose about which chart.
+
 ### A run outlives the page it was started for
 
 `test_every_nav_entry_routes` clicks every sidebar entry in turn, and failed

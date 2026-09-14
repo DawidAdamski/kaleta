@@ -239,9 +239,6 @@ class _RunState:
     #: What the status line says when the chart answers the controls — kept
     #: so that clearing a stale mark can put it back.
     status: str = ""
-    #: Whether a chart is actually on screen. A run that failed or came back
-    #: with too little history leaves a message that must not be overwritten.
-    drawn: bool = False
 
 
 #: Where the Prophet footnote points.
@@ -251,32 +248,25 @@ _HORIZONS = (30, 60, 90)
 
 
 def stale_action(
-    *, prophet_available: bool, drawn: bool, running: bool, controls_match: bool
+    *, prophet_available: bool, running: bool, controls_match: bool
 ) -> Literal["leave", "clear", "mark"]:
     """Whether the "press Re-run" mark should be set, cleared, or left alone.
 
-    A rule rather than a branch, because it has been wrong three times: a mark
-    that would not go away, one that outlived a failure and blamed the user
-    for it, and one that erased "Insufficient transaction history". The cases
-    where the page must say nothing about staleness at all:
+    A rule rather than a branch, because it has been wrong four times: a mark
+    that would not go away, one that outlived a failure and blamed the reader
+    for it, one that erased "Insufficient transaction history", and one that
+    stuck after the selection went away and came back.
 
-    - the naive path, whose re-run lands within the debounce;
-    - a run in flight, whose recorded account is still the *previous* one;
-    - a failure or too little history under controls nobody has touched,
-      where the line already says something truer than "press Re-run".
-
-    That last exemption ends the moment the selection moves on: A's
-    "Insufficient transaction history" is no longer true of B, so the mark
-    goes up whether or not anything was drawn.
+    What is on screen answers the controls, or it does not — and what is on
+    screen may perfectly well be a failure or a warning, as long as it is
+    *this* selection's failure or warning. The page says nothing about
+    staleness in only two cases: the naive path, whose re-run lands within
+    the debounce, and a run in flight, whose recorded selection is still the
+    previous one.
     """
     if not prophet_available or running:
         return "leave"
-    if controls_match:
-        # Nothing drawn and nothing changed: a failure or too little history,
-        # and the line already says so. Saying "press Re-run" over it would
-        # blame the reader for it.
-        return "clear" if drawn else "leave"
-    return "mark"
+    return "clear" if controls_match else "mark"
 
 
 def _saved_horizon() -> int:
@@ -440,7 +430,6 @@ def register() -> None:
                 """
                 action = stale_action(
                     prophet_available=prophet_available,
-                    drawn=run_state.drawn,
                     running=run_state.running,
                     controls_match=_controls_match_last_run(),
                 )
@@ -501,7 +490,7 @@ def register() -> None:
                         amt = float(s.get("amount", 0))
                         label = str(s.get("label", "—"))
                         with ui.row().classes(f"{FILTER_CHIP} gap-2"):
-                            ui.label(f"{label} · {s.get('date', '')}").classes("text-xs")
+                            ui.label(f"{label} · {_display_date(s.get('date'))}").classes("text-xs")
                             ui.label(f"{format_net_amount(amt)} zł").classes(
                                 f"{MONO} text-xs {net_tone(Decimal(str(amt)))}"
                             )
@@ -678,7 +667,6 @@ def register() -> None:
                     # would let the next scenario or preset redraw the old
                     # account's chart under the new selection.
                     run_state.raw = None
-                    run_state.drawn = False
                     if _page_is_live():
                         _clear_and_say(t("forecast.failed"))
                         notify_kaleta_error(exc)
@@ -688,7 +676,6 @@ def register() -> None:
                     # the skeleton, which is the whole page now that the page
                     # draws on load, then let the bug reach the logs as one.
                     run_state.raw = None
-                    run_state.drawn = False
                     if _page_is_live():
                         _clear_and_say(t("forecast.failed"))
                     raise
@@ -698,7 +685,13 @@ def register() -> None:
                     _clear_and_say(t("forecast.insufficient"))
 
             def _clear_and_say(message: str) -> None:
-                run_state.drawn = False
+                """Nothing to show, and the reason why.
+
+                The reason is remembered like any other settled line: clearing
+                a stale mark has to put back what this selection actually
+                said, which may well be "Insufficient transaction history".
+                """
+                run_state.status = message
                 chart_container.clear()
                 kpi_row.clear()
                 status.set_text(message)
@@ -741,7 +734,6 @@ def register() -> None:
                 status.set_text(run_state.status)
                 _render_kpis(forecast_kpis(result))
                 _render_chart(result, baseline, shifts)
-                run_state.drawn = True
                 # The status line has just been rewritten; if the controls
                 # have moved on since this run, say so again.
                 _sync_stale()
@@ -849,7 +841,7 @@ def register() -> None:
                     ]
                     rows = [
                         {
-                            "date": str(p.date),
+                            "date": p.date.strftime(_DATE_FMT),
                             "yhat": f"{p.value:,.2f} zł",
                             "lower": f"{p.lower:,.2f} zł",
                             "upper": f"{p.upper:,.2f} zł",
@@ -893,7 +885,7 @@ def register() -> None:
                     ]
                     p_rows = [
                         {
-                            "date": str(occ.date),
+                            "date": occ.date.strftime(_DATE_FMT),
                             "name": occ.name,
                             "category": occ.category_name or "—",
                             "amount": format_signed_amount(occ.amount, occ.type),
@@ -926,6 +918,14 @@ def register() -> None:
             # the user had already answered by navigating here.
             _render_skeleton()
             ui.timer(0.05, run_forecast, once=True)
+
+
+def _display_date(iso: object) -> str:
+    """A stored ISO date as the reader's format, or as-is if it is not one."""
+    try:
+        return datetime.date.fromisoformat(str(iso)).strftime(_DATE_FMT)
+    except (TypeError, ValueError):
+        return str(iso or "")
 
 
 def _money(value: float | None) -> str:

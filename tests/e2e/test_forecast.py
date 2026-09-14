@@ -217,7 +217,20 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
 
     before_predicted = _figure(page, "predicted")
     before_change = _figure(page, "change")
+    before_confidence = _figure(page, "confidence")
     before_text = _kpi(page, "predicted").inner_text()
+
+    # KAL-FCT-013 is a claim about what does *not* happen, so it is watched
+    # for rather than checked after the fact: a forecast run always renders
+    # the skeleton, and this records the skeleton ever entering the DOM.
+    page.evaluate(
+        """() => {
+            window.__sawSkeleton = !!document.querySelector('.q-skeleton');
+            new MutationObserver(() => {
+                if (document.querySelector('.q-skeleton')) window.__sawSkeleton = true;
+            }).observe(document.body, {childList: true, subtree: true});
+        }"""
+    )
 
     # A windfall a week from now: `seed_many_transactions` posts one today,
     # so the forecast runs from tomorrow and today + 7 is a point on it.
@@ -229,18 +242,18 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     dialog = page.get_by_role("dialog")
     dialog.get_by_label("Label").fill("Bonus E2E")
     dialog.locator('input[type="date"]').fill(when)
-    dialog.get_by_label("Amount (zł; negative for expenses)").fill("10000")
+    dialog.get_by_label("Amount (zł; negative for expenses)").fill("5000")
     dialog.get_by_role("button", name="Save").click()
 
-    # KAL-FCT-013: no forecast run, so no skeleton and no "Running…" — the
-    # figures simply move. Asserted by the *absence* of a re-run: the chart
-    # element is never torn down, so the one on screen now is the one that
-    # was there before the scenario was added.
     expect(_kpi(page, "predicted")).not_to_have_text(before_text, timeout=_RUN_TIMEOUT)
-    expect(page.locator(".q-skeleton")).to_have_count(0)
-    expect(page.get_by_text("Running forecast...")).to_have_count(0)
-    assert _figure(page, "predicted") == pytest.approx(before_predicted + 10000, abs=0.01)
-    assert _figure(page, "change") == pytest.approx(before_change + 10000, abs=0.01)
+    assert _figure(page, "predicted") == pytest.approx(before_predicted + 5000, abs=0.01)
+    assert _figure(page, "change") == pytest.approx(before_change + 5000, abs=0.01)
+    # The interval moved with the line, so the ± did not move at all.
+    assert _figure(page, "confidence") == pytest.approx(before_confidence, abs=0.01)
+
+    # KAL-FCT-013: the skeleton never appeared, so no forecast was run —
+    # `apply_scenarios` shifted the result already in hand.
+    assert page.evaluate("() => window.__sawSkeleton") is False
 
     # Take it away again — both so the figure comes back, and so the scenario
     # does not follow the session into the next test.
