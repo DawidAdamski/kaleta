@@ -12,6 +12,7 @@ from kaleta.services.import_service import ColumnMapping, row_error_prefix
 from kaleta.views.import_view.mapping_section import (
     SAMPLE_CELL_CHARS,
     auto_detected_fields,
+    column_label,
     message_is_summarised,
     row_count_label,
     truncate_cell,
@@ -89,3 +90,17 @@ class TestMessageProminence:
 
     def test_nothing_is_summarised_when_no_row_failed(self) -> None:
         assert message_is_summarised("Date column is required", []) is False
+
+
+class TestColumnLabel:
+    """The sample table and the pickers name the same column the same way."""
+
+    def test_a_named_column_is_numbered_and_named(self) -> None:
+        assert column_label(0, " Data ") == "1: Data"
+
+    def test_a_blank_header_still_gets_a_name(self) -> None:
+        # The case the two used to disagree on: the sample said "3", the
+        # picker said "3: (column 3)".
+        label = column_label(2, "   ")
+        assert label.startswith("3: ")
+        assert label != "3: "

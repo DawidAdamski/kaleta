@@ -49,11 +49,20 @@ _THOUSANDS_OPTIONS: dict[str, str] = {
 }
 
 
+def column_label(index: int, header: str) -> str:
+    """How a CSV column is named, wherever it is named.
+
+    The sample table and the pickers have to say the same thing about the
+    same column — that is the whole reason they sit side by side — and a
+    blank header is exactly where they used to disagree.
+    """
+    return f"{index + 1}: {header.strip() or t('import.mapping_empty_header', index=index + 1)}"
+
+
 def _col_options(headers: list[str]) -> dict[int, str]:
     options: dict[int, str] = {_UNMAPPED: t("import.mapping_unmapped")}
     for i, header in enumerate(headers):
-        label = header.strip() or t("import.mapping_empty_header", index=i + 1)
-        options[i] = f"{i + 1}: {label}"
+        options[i] = column_label(i, header)
     return options
 
 
@@ -302,7 +311,7 @@ class MappingSection:
         columns = [
             {
                 "name": f"c{i}",
-                "label": f"{i + 1}: {h.strip()}" if h.strip() else f"{i + 1}",
+                "label": column_label(i, h),
                 "field": f"c{i}",
                 "align": "left",
             }
@@ -341,9 +350,18 @@ class MappingSection:
 
         self.errors_column.clear()
         with self.errors_column:
+            shown_detail = 0
             for err in errors:
-                detail = message_is_summarised(err, error_rows)
-                ui.label(err).classes(f"text-xs {MUTED}" if detail else "text-sm text-negative")
+                if message_is_summarised(err, error_rows):
+                    # The strip already counts them all and lists the first
+                    # few. A thousand muted repetitions under it would bury
+                    # the pickers the strip is pointing at.
+                    if shown_detail >= _WARNING_ROWS_LISTED:
+                        continue
+                    shown_detail += 1
+                    ui.label(err).classes(f"text-xs {MUTED}")
+                else:
+                    ui.label(err).classes("text-sm text-negative")
 
 
 def build_mapping_section() -> MappingSection:

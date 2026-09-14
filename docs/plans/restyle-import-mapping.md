@@ -342,6 +342,36 @@ actually drawn on, so the connector cannot show through a lighter disc; the
 unreachable tail of `decode_upload` says why it is unreachable (ISO-8859-2
 maps every byte); and `_DETECTABLE_FIELDS` is described as the tuple it is.
 
+### The sample and the pickers name a column once
+
+Sixth review round. A blank header came out as `"3"` in the sample table and
+`"3: (column 3)"` in the picker — the one place the two disagreed, in the
+layout whose whole argument is that they name each other. `column_label`
+decides it once and both call it.
+
+The muted list under the strip is capped at the same eight rows the strip
+itself lists. Choosing the wrong date format on a thousand-row file put a
+thousand muted labels under a strip that had already counted them, burying
+the pickers it was pointing at.
+
+### What the auto mark means, exactly
+
+The mark says the picker holds the column the importer put there — not that
+the user has never touched it. Change a picker away and back to the detected
+column and the mark returns, because the value really is the importer's
+guess again. KAL-CSV-025 says "changing one of them by hand takes its mark
+away", which is what the user sees; the corner where the two readings differ
+is a field changed back to exactly what was guessed, and marking that one
+auto is the truthful answer.
+
+Two knock-on effects worth naming in the PR: `auto_mapping` is also set from
+a saved import rule and from an inherited queue snapshot, both of which can
+carry columns a user chose by hand on an earlier file — the wider reading of
+Scope's "profile match or heuristic", argued above. And `reader.line_num`
+changes the "Row N" text in Preview-step errors too, not only in the mapping
+strip; Preview is "Not in scope", but the number it prints is now the file's
+line rather than a record ordinal, which is a correction either way.
+
 ### Not done
 
 The `[manual]` criterion — `test_import.csv` compared to artboard 2d in
