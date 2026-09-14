@@ -14,7 +14,7 @@ import calendar
 import datetime
 import re
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.seed_helpers import (
     seed_account,
@@ -24,11 +24,8 @@ from tests.e2e.seed_helpers import (
     seed_transaction,
 )
 
-TODAY = datetime.date.today()
-MONTH_START = TODAY.replace(day=1)
 
-
-def _style_pct(locator, prop: str) -> float:  # noqa: ANN001
+def _style_pct(locator: Locator, prop: str) -> float:
     """Read a percentage out of an inline style, however the browser rounded it."""
     style = locator.get_attribute("style") or ""
     match = re.search(rf"{prop}:\s*([0-9.]+)%", style)
@@ -41,7 +38,7 @@ def _open_realization(page: Page, base_url: str) -> None:
     page.get_by_role("tab", name="Realization").click()
 
 
-def _row_for(page: Page, category_name: str):  # noqa: ANN202
+def _row_for(page: Page, category_name: str) -> Locator:
     return page.locator("div.row").filter(has_text=category_name).last
 
 
@@ -51,6 +48,9 @@ def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
     Every row ends with a track filled to what was spent and a tick where the
     month stands, instead of a word the reader had to weigh against nothing.
     """
+    # Read the date per test, not at import: a suite that crosses midnight
+    # would otherwise assert the tick against yesterday.
+    today = datetime.date.today()
     category = "Zywnosc Pace E2E"
     account = "PKO Pace E2E"
     cat_id = seed_category(category)
@@ -58,7 +58,7 @@ def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
     # 5% of the budget is on track on every day of every month: WARNING needs
     # used_pct above elapsed_pct + 5, and elapsed is never negative. A test
     # that only passes after the 6th is a test that fails on the 1st.
-    seed_budget(cat_id, 800.0, TODAY.month, TODAY.year)
+    seed_budget(cat_id, 800.0, today.month, today.year)
     seed_transaction(acc_id, cat_id, 40.0, description="Lidl Pace E2E")
 
     _open_realization(page, base_url)
@@ -73,7 +73,7 @@ def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
 
     # The tick sits where the month does, which is what the fill is measured
     # against — the one thing the status badge never showed.
-    elapsed = TODAY.day / calendar.monthrange(TODAY.year, TODAY.month)[1] * 100
+    elapsed = today.day / calendar.monthrange(today.year, today.month)[1] * 100
     assert abs(_style_pct(row.locator(".k-pace__tick"), "left") - elapsed) < 0.01
 
     # The status word did not disappear; it explains the bar on hover.
@@ -94,17 +94,23 @@ def test_a_row_paid_in_full_early_says_so(page: Page, base_url: str) -> None:
     Rent leaves on the 1st, so its bar is full while the month is barely
     elapsed. Without the line under it, the row reads as an overspend.
     """
+    today = datetime.date.today()
+    month_start = today.replace(day=1)
     category = "Czynsz Pace E2E"
     account = "PKO Rent Pace E2E"
     cat_id = seed_category(category)
     acc_id = seed_account(account)
-    seed_budget(cat_id, 2000.0, TODAY.month, TODAY.year)
+    seed_budget(cat_id, 2000.0, today.month, today.year)
+    # "once", not "monthly": an open-ended plan seeded into the shared e2e
+    # database would show up in every later test that reads the schedule —
+    # payment calendar, upcoming planned, the 30-day forecast.
     seed_planned_transaction(
         "Czynsz Pace E2E plan",
         2000.0,
         acc_id,
+        frequency="once",
         category_id=cat_id,
-        start_date=MONTH_START,
+        start_date=month_start,
     )
     seed_transaction(acc_id, cat_id, 2000.0, description="Czynsz Pace E2E tx")
 
@@ -112,7 +118,7 @@ def test_a_row_paid_in_full_early_says_so(page: Page, base_url: str) -> None:
 
     row = _row_for(page, category)
     expect(row).to_be_visible(timeout=10000)
-    expect(row).to_contain_text(f"Paid in full on {MONTH_START.day:02d}.{MONTH_START.month:02d}")
+    expect(row).to_contain_text(f"Paid in full on {month_start.day:02d}.{month_start.month:02d}")
 
     # Full bar, barely elapsed month — and still not painted as an overspend,
     # which is the whole point of the line above.

@@ -946,6 +946,20 @@ class TestRealizationNote:
 
         assert note is None
 
+    def test_a_bill_larger_than_the_budget_was_not_paid_in_full(self):
+        # 2 100 due, 2 000 spent: the budget is used up, the bill is not paid.
+        note = realization_note(
+            planned=Decimal("2000.00"),
+            actual=Decimal("2000.00"),
+            used_pct=100.0,
+            occurrences=[
+                ScheduledExpense(datetime.date(2026, 4, 1), Decimal("2100.00"), posted=False)
+            ],
+            today=datetime.date(2026, 4, 2),
+        )
+
+        assert note is None
+
     def test_a_bill_due_today_and_unpaid_is_still_upcoming(self):
         note = realization_note(
             planned=Decimal("400.00"),

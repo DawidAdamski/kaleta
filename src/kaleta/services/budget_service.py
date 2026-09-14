@@ -205,16 +205,16 @@ def realization_note(
     if not occurrences:
         return None
 
-    # One occurrence, big enough to be the whole budget, already due, and the
-    # budget used up *exactly*. Each clause is a way the line could otherwise
-    # be false: a bill due on the 25th has not been paid on the 10th, and a
-    # row that went over — because the bill is bigger than the budget, or
-    # because something was spent on top of it — is an overspend, not
-    # "as expected". Which is why this is an equality and not a range: one
+    # One occurrence, equal to the budget, already due, and the budget used up
+    # exactly. Each clause is a way the line could otherwise be false: a bill
+    # dated the 25th has not been paid on the 10th; 2 000 spent against a
+    # 2 100 bill is a bill still partly outstanding; and a row that went over
+    # — a bill bigger than its budget, or something spent on top of it — is an
+    # overspend, not "as expected". Hence equalities and not ranges: one
     # coffee charged to the rent category and the row really is over.
     if planned > 0 and actual == planned and len(occurrences) == 1:
         bill = occurrences[0]
-        if bill.amount >= planned and bill.date <= today:
+        if bill.amount == planned and bill.date <= today:
             return RealizationNote(RealizationNoteKind.PAID_IN_FULL, bill.date)
 
     # Still under budget with money scheduled to go out and not yet booked.

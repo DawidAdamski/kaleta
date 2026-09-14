@@ -1504,7 +1504,7 @@ Feature: Annual Budget Planning
     Given rent of 2000.00 is budgeted for this month and planned once for it
     And the rent has already gone out
     When I open the Realization tab
-    Then the row's bar is full while the month is barely elapsed
+    Then the row's bar is full, whatever the month has elapsed
     And a line under it says the money was paid in full on that date
     And the bar is not painted as an overspend — ahead of the month is not
       over the budget

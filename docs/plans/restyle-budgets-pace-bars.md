@@ -132,14 +132,25 @@ already describes. And an overspent row is never told what is still coming:
 
 ### The note has four clauses, and each one is a way it could lie
 
-"Paid in full" needs more than a big enough occurrence. The occurrence has
-to be **due** (`when <= today` — a 2 000 bill dated the 25th has not been
-paid on the 10th, whatever else was spent), and the row must not be **over**
-(`used_pct <= 100`), which covers both ways it can be: something spent on
-top of the bill, and a bill bigger than the budget it is charged to. Rent of
-2 000 against a budget of 1 900 is an overspend of 100, and a line reading
-"as expected" under a red bar is reassurance for exactly the row that should
-not get any. Each clause has its own unit test.
+"Paid in full" is three equalities and a date, and each one is a way the
+line could otherwise be false:
+
+- the occurrence is **due** (`bill.date <= today`) — a 2 000 bill dated the
+  25th has not been paid on the 10th, whatever else was spent;
+- the bill **is** the budget (`bill.amount == planned`) — 2 000 charged to a
+  1 900 budget is an overspend of 100, and 2 000 spent against a 2 100 bill
+  is a bill still partly outstanding;
+- the budget is used up **exactly** (`actual == planned`) — an equality, not
+  a range: one coffee charged to the rent category and the row really is
+  over, and "as expected" under a red bar is reassurance for the one row
+  that should never get any.
+
+Each has its own unit test. The branch is still a **heuristic** in one
+respect: it does not require the occurrence to have been *posted*, only to
+exist and be due. A 2 000 plan that was never booked, plus 2 000 of
+unrelated spending in the same category, gets the note. Requiring the post
+would be stricter and wrong far more often — recording rent by hand instead
+of posting the plan is the common path, and it is the one the e2e drives.
 
 **Posted occurrences count for one branch and not the other.** The schedule
 is fetched whole and each entry is marked posted or not
@@ -158,6 +169,14 @@ branch above it, so the two cannot both fire.
 
 The field is called `note` rather than the plan's `explanation`, which reads
 better through `note_text` and the two i18n keys.
+
+### The schedule is read twice, on purpose
+
+`_expense_schedule` calls `get_occurrences` once in full and once with
+`exclude_posted=True`, and diffs them to mark each entry. One pass would be
+cheaper, but the posted flag is the planned service's own bookkeeping and
+there is no public way to ask for it inline. Both calls happen only for the
+month actually on screen, and only when it is the current one.
 
 ### The note only knows the category it is filed under
 
@@ -208,7 +227,7 @@ restyled ledger uses, and the natural one in Polish.
 The plan tags it "@automated via unit test on the service note", but
 `scripts/spec_coverage.py` only scans `tests/e2e` and `tests/integration`;
 a `Covers:` in `tests/unit` counts for nothing. The pure rule still has its
-unit tests (eight of them) and the wiring has two more, but the scenario is
+unit tests (sixteen of them) and the wiring has three more, but the scenario is
 carried by `tests/e2e/test_budget_realization.py`.
 
 `KAL-BUD-013` is new and not in the plan: replacing the status word with a
