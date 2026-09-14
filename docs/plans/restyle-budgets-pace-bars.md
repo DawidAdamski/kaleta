@@ -178,16 +178,16 @@ figure on the page does (Planned, Actual, Remaining, and the ledger), so the
 line matches its row rather than inventing a second convention. Locale-aware
 number formatting is an app-wide change, not a change to one 12px line.
 
-### One deliberate exception to a written rule
+### The note's amount is required, so it cannot be missing
 
-AGENTS.md says services raise typed exceptions from `kaleta.exceptions` and
-**never** a bare `ValueError`. `RealizationNote.__post_init__` raises one
-anyway, and that is the point: the rule exists so a *domain* failure reaches
-the user as a toast or a 4xx, and a note constructed without its amount is
-not a domain failure — it is a bug in this module. `ValidationError` would
-have put "A planned-on note must carry the amount it names" in front of
-someone looking at their budget. Recorded here so the next reader does not
-correct it back.
+Two rounds were spent on what to *raise* when a "planned on" note is built
+without the figure it names — `ValidationError` puts a sentence about note
+internals in front of someone looking at their budget, a bare `ValueError`
+is what AGENTS.md forbids in a service. Neither was the answer: `amount` is
+simply required now. The paid-in-full branch has the bill's amount to hand
+and passes it, the "planned on" branch always had it, and the invalid state
+is gone along with the guard and the `or Decimal(0)` fallback that existed
+only to satisfy mypy. Working Agreement §10 — by design, not by exception.
 
 ### A bill that will overshoot is still named
 
@@ -236,7 +236,12 @@ note explains it, but does not repaint it. That is deliberate: the
 thresholds are out of scope (Scope says so), and amber is not *wrong* — the
 money did go out ahead of the month. What the row must not do is read as an
 **overspend**, and it does not: the fill is never `--k-expense` while the
-note stands, which is what KAL-BUD-012 asserts and how its step is worded.
+note stands, which is what KAL-BUD-012 asserts.
+
+The assertion names the colour the bar *is* (`--k-warning`) rather than one
+it is not. At exactly 100 % used, `status` cannot return OVER — the
+threshold is `> 100` — so "the fill is not `--k-expense`" would have been a
+step that could not fail, marked `@automated`.
 
 ### `PlannedOccurrence` gained a `category_id`
 

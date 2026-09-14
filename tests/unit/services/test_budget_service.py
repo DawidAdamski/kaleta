@@ -802,7 +802,7 @@ class TestRealizationNoteWiring:
         row = next(r for r in rows if r.category_id == rent_id)
 
         assert row.note == RealizationNote(
-            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1)
+            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1), Decimal("2000.00")
         )
 
     async def test_a_posted_rent_still_carries_its_note(
@@ -840,7 +840,7 @@ class TestRealizationNoteWiring:
 
         assert row.actual == Decimal("2000.00")
         assert row.note == RealizationNote(
-            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1)
+            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1), Decimal("2000.00")
         )
         assert row.status is RealizationStatus.WARNING
 
@@ -901,7 +901,9 @@ class TestRealizationNote:
             today=datetime.date(2026, 4, 2),
         )
 
-        assert note == RealizationNote(RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1))
+        assert note == RealizationNote(
+            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1), Decimal("2000.00")
+        )
 
     def test_two_occurrences_explain_nothing(self):
         # Half the budget arriving twice is a spending pattern, not a bill.
@@ -1003,12 +1005,6 @@ class TestRealizationNote:
 
         assert note is None
 
-    def test_a_planned_on_note_cannot_exist_without_its_amount(self):
-        # The view formats the figure straight out of the note, so a note
-        # without one would render "0.00 planned for 12.09".
-        with pytest.raises(ValueError, match="amount"):
-            RealizationNote(RealizationNoteKind.PLANNED_ON, datetime.date(2026, 4, 12))
-
     def test_a_posted_bill_still_explains_the_row(self):
         # The realistic path: the rent plan was posted, which is *how* the
         # actual got there. Booking it must not erase the reason for it.
@@ -1022,7 +1018,9 @@ class TestRealizationNote:
             today=datetime.date(2026, 4, 2),
         )
 
-        assert note == RealizationNote(RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1))
+        assert note == RealizationNote(
+            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1), Decimal("2000.00")
+        )
 
     def test_a_posted_occurrence_is_not_still_to_come(self):
         # It is already in the actuals; naming it would count it twice.

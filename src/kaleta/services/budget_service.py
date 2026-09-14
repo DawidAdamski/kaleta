@@ -181,18 +181,10 @@ class RealizationNote:
 
     kind: RealizationNoteKind
     date: datetime.date
-    amount: Decimal | None = None
-
-    def __post_init__(self) -> None:
-        # "planned for 12.09" without its figure would render "0.00 planned
-        # for 12.09", which is worse than no line at all.
-        #
-        # ValueError and not a KaletaError on purpose: a note built wrong is a
-        # bug in this module, not something the user did. Views catch
-        # KaletaError and turn it into a toast, and "A planned-on note must
-        # carry its amount" is not a sentence anyone should ever be shown.
-        if self.kind is RealizationNoteKind.PLANNED_ON and self.amount is None:
-            raise ValueError("A planned-on note must carry the amount it names.")
+    #: The bill this note is about. Required for both kinds: "planned for
+    #: 12.09" has to name a figure, and the paid-in-full branch has the same
+    #: figure to hand, so a note without one cannot be built at all.
+    amount: Decimal
 
 
 def realization_note(
@@ -226,7 +218,7 @@ def realization_note(
     if planned > 0 and actual == planned and len(occurrences) == 1:
         bill = occurrences[0]
         if bill.amount == planned and bill.date <= today:
-            return RealizationNote(RealizationNoteKind.PAID_IN_FULL, bill.date)
+            return RealizationNote(RealizationNoteKind.PAID_IN_FULL, bill.date, bill.amount)
 
     # Still under budget with money scheduled to go out and not yet booked.
     # A posted occurrence is already in the actuals, so naming it as still to

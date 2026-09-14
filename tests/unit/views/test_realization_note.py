@@ -26,7 +26,9 @@ def _template(locale: str, key: str) -> str:
 
 class TestNoteText:
     def test_paid_in_full_reads_the_day_and_the_month(self) -> None:
-        note = RealizationNote(RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 9, 1))
+        note = RealizationNote(
+            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 9, 1), Decimal("2000.00")
+        )
 
         assert note_text(note) == "Paid in full on 01.09 — expected"
 
