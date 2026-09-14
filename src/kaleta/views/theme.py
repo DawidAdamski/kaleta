@@ -96,6 +96,8 @@ PLAN_CELL_EDIT = "k-plan-cell"
 # ── Import wizard progress line (artboard 2d) ────────────────────────────────
 STEP_LINE = "k-steps"
 STEP_NODE = "k-step"
+STEP_NODE_DONE = "k-step--done"
+STEP_NODE_NOW = "k-step--now"
 STEP_LABEL = "k-step-label"
 STEP_LABEL_NOW = "k-step-label k-step-label--now"
 #: "auto" — this column came from detection, not from the user.

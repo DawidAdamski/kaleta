@@ -6,7 +6,14 @@ from __future__ import annotations
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.views.theme import STEP_LABEL, STEP_LABEL_NOW, STEP_LINE, STEP_NODE
+from kaleta.views.theme import (
+    STEP_LABEL,
+    STEP_LABEL_NOW,
+    STEP_LINE,
+    STEP_NODE,
+    STEP_NODE_DONE,
+    STEP_NODE_NOW,
+)
 
 
 def _step_labels() -> list[str]:
@@ -39,11 +46,11 @@ def render_step_indicator(current: int) -> None:
             with ui.column().classes("items-center gap-1 flex-1 min-w-0"):
                 node = ui.element("div").classes(STEP_NODE)
                 if done:
-                    node.classes(add="k-step--done")
+                    node.classes(add=STEP_NODE_DONE)
                     with node:
                         ui.icon("check", size="13px")
                 elif now:
-                    node.classes(add="k-step--now")
+                    node.classes(add=STEP_NODE_NOW)
                     with node:
                         ui.label(str(index))
                 else:

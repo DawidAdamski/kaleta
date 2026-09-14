@@ -64,7 +64,7 @@ STEP_PREVIEW = 5
 STEP_CONFIRM = 6
 
 
-def current_step(active: QueuedFile | None) -> int:
+def current_step(active: QueuedFile | None, *, account_currency: str | None = None) -> int:
     """Which of the six steps the user is standing on.
 
     The page shows every section at once and hides the ones that do not apply,
@@ -100,11 +100,12 @@ def current_step(active: QueuedFile | None) -> int:
         # blocked until both default categories are chosen too, and ticking
         # settings while the Import button refuses is the line lying about
         # the page under it.
-        return STEP_PREVIEW if settings_are_complete(active) else STEP_SETTINGS
+        complete = settings_are_complete(active, account_currency=account_currency)
+        return STEP_PREVIEW if complete else STEP_SETTINGS
     return STEP_UPLOAD
 
 
-def settings_are_complete(file: QueuedFile) -> bool:
+def settings_are_complete(file: QueuedFile, *, account_currency: str | None = None) -> bool:
     """Everything the settings step asks for, chosen.
 
     Asked of ``validate_import_readiness`` rather than copied from it: the
@@ -112,9 +113,10 @@ def settings_are_complete(file: QueuedFile) -> bool:
     refusing, so a rule added to the service later cannot leave the line
     claiming a step the page below it is still asking for.
 
-    ``account_currency=None`` is what leaves the one refusal out that no
-    setting can fix — a file whose currency is not the account's. Everything
-    else the check blocks on is a field on the settings card.
+    That includes a currency mismatch, which is a settings problem after
+    all — the account it disagrees with is chosen on this very card. The
+    caller passes the chosen account's currency; without one there is
+    nothing to disagree with.
     """
     error_key, _ = validate_import_readiness(
         ImportReadinessCheck(
@@ -123,7 +125,7 @@ def settings_are_complete(file: QueuedFile) -> bool:
             income_cat_id=file.income_cat_id,
             profile=file.profile,
             metadata=file.metadata,
-            account_currency=None,
+            account_currency=account_currency,
         )
     )
     return error_key is None

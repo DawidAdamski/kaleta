@@ -157,9 +157,16 @@ async def import_page() -> None:
             t(result.error_key, **result.error_params) if result.error_key else ""
         )
 
+    def _active_account_currency() -> str | None:
+        active = _active()
+        if active is None or active.target_account_id is None:
+            return None
+        account = next((a for a in accounts if a.id == active.target_account_id), None)
+        return account.currency if account else None
+
     @ui.refreshable
     def step_line() -> None:
-        render_step_indicator(current_step(_active()))
+        render_step_indicator(current_step(_active(), account_currency=_active_account_currency()))
 
     def _repaint_active() -> None:
         active = _active()

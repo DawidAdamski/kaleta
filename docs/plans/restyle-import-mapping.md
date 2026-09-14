@@ -354,6 +354,18 @@ itself lists. Choosing the wrong date format on a thousand-row file put a
 thousand muted labels under a strip that had already counted them, burying
 the pickers it was pointing at.
 
+### A currency mismatch is a settings problem too
+
+Eleventh review round. `settings_are_complete` passed `account_currency=None`,
+on the grounds that a currency mismatch is about the file — so an mBank or
+Wise statement in EUR against a PLN account showed Preview as the current
+step while the Import button still refused. But the account it disagrees
+with is chosen on that very card, so it is a settings problem after all.
+`current_step(active, account_currency=...)` takes the chosen account's
+currency, the page passes it, and with no account chosen there is nothing to
+disagree with. The step nodes' modifier classes moved into `theme.py`
+beside the ones they modify.
+
 ### The tick asks the service rather than copying it
 
 Ninth review round. `settings_are_complete` had copied the three field

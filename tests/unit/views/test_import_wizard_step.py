@@ -7,7 +7,11 @@ page decides what to show from the active file's status. Both read this.
 
 from __future__ import annotations
 
-from kaleta.services.import_service import ColumnMapping, QueueSettingsSnapshot
+from kaleta.services.import_service import (
+    ColumnMapping,
+    MBankFileMetadata,
+    QueueSettingsSnapshot,
+)
 from kaleta.views.import_view.state import (
     STEP_CONFIRM,
     STEP_MAPPING,
@@ -18,6 +22,18 @@ from kaleta.views.import_view.state import (
     apply_settings_snapshot,
     current_step,
 )
+
+
+def _mbank_metadata(currency: str) -> MBankFileMetadata:
+    return MBankFileMetadata(
+        client_name="Jan Kowalski",
+        account_type="eKonto",
+        currency=currency,
+        account_number="55 1140 2004 0000 3302 7888 6836",
+        account_number_digits="55114020040000330278886836",
+        date_from=None,
+        date_to=None,
+    )
 
 
 def _file(**kwargs: object) -> QueuedFile:
@@ -51,6 +67,24 @@ class TestCurrentStep:
         assert current_step(_file(status="ready", target_account_id=7)) == STEP_SETTINGS
         half = _file(status="ready", target_account_id=7, expense_cat_id=1)
         assert current_step(half) == STEP_SETTINGS
+
+    def test_a_currency_the_account_disagrees_with_keeps_settings_current(self) -> None:
+        # The Import button refuses a PLN account for an EUR statement, and
+        # the account it disagrees with is chosen on this very card — so the
+        # step the user still has to do is settings, not preview.
+        ready = _file(
+            status="ready",
+            profile="mbank",
+            target_account_id=7,
+            expense_cat_id=1,
+            income_cat_id=2,
+            metadata=_mbank_metadata("EUR"),
+        )
+        assert current_step(ready, account_currency="PLN") == STEP_SETTINGS
+        assert current_step(ready, account_currency="EUR") == STEP_PREVIEW
+        # And with no account currency to hand there is nothing to disagree
+        # with, which is the same answer the readiness check gives.
+        assert current_step(ready) == STEP_PREVIEW
 
     def test_categories_without_an_account_are_not_enough_either(self) -> None:
         part = _file(status="ready", expense_cat_id=1, income_cat_id=2)
