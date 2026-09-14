@@ -392,6 +392,28 @@ four figures describe that combined balance" — claimed an arithmetic
 relationship nothing verified, the same fault as the "secondary series"
 clause it replaced.
 
+### Round seven, and one thing left for the manual pass
+
+`stale_action` returns a `Literal`, so a typo in one of its three answers is
+a type error rather than a silent no-op — worth it for the rule the notes
+above call wrong three times.
+
+The Change figure goes through `format_net_amount` like the scenario chip
+beside it, so a zero change reads `0.00 zł` rather than `+0.00 zł`
+(KAL-TXN-017: zero has no direction).
+
+`KAL-FCT-002` said the chart "extends 90 days beyond today". It extends 90
+days past the last balance it knows, which is only today on an account with
+something posted today — the e2e's seed does, which is why it passed.
+Reworded rather than fixed: moving the forecast's origin is scenario
+semantics, and out of scope.
+
+**Left for the owner's Prophet pass:** with Prophet installed and the
+controls changed but Re-run not yet pressed, the add-scenario dialog reads
+its default date off the *previous* account's forecast, so it can offer a
+date that shifts nothing once Re-run lands. Narrow, and only on the stale
+path; the fix belongs with whatever settles how a stale page behaves.
+
 ### A run outlives the page it was started for
 
 `test_every_nav_entry_routes` clicks every sidebar entry in turn, and failed

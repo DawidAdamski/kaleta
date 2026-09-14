@@ -160,8 +160,10 @@ def test_run_forecast_all_accounts(page: Page, base_url: str) -> None:
     expect(_control(page, "Account")).to_contain_text("All Accounts", timeout=5000)
 
     # Every account's history at once is more than enough to forecast, so
-    # this asserts the figures rather than "those or a warning".
-    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
+    # this asserts the figures rather than "those or a warning" — all four of
+    # them, which is what the scenario claims.
+    for key in ("balance_today", "predicted", "change", "confidence"):
+        expect(_kpi(page, key)).to_be_visible(timeout=_RUN_TIMEOUT)
     # And the chart they stand above names the selection they belong to.
     # (The select's own value says the same thing, which is why that is not
     # what this asserts.)

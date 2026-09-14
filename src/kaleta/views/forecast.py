@@ -4,7 +4,7 @@ from __future__ import annotations
 import datetime
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Any
+from typing import Any, Literal
 
 from nicegui import app, ui
 
@@ -249,7 +249,7 @@ _HORIZONS = (30, 60, 90)
 
 def stale_action(
     *, prophet_available: bool, drawn: bool, running: bool, controls_match: bool
-) -> str:
+) -> Literal["leave", "clear", "mark"]:
     """Whether the "press Re-run" mark should be set, cleared, or left alone.
 
     A rule rather than a branch, because it has been wrong three times: a mark
@@ -754,7 +754,7 @@ def register() -> None:
                     _kpi(
                         "change",
                         t("forecast.kpi_change"),
-                        _signed(kpis.change),
+                        _money_net(kpis.change),
                         "swap_vert",
                         value_cls=change_tone,
                     )
@@ -910,8 +910,9 @@ def _money(value: float | None) -> str:
     return "—" if value is None else f"{value:,.2f} zł"
 
 
-def _signed(value: float | None) -> str:
-    return "—" if value is None else f"{value:+,.2f} zł"
+def _money_net(value: float | None) -> str:
+    """A signed figure, through the ledger's own rule — zero carries no sign."""
+    return "—" if value is None else f"{format_net_amount(value)} zł"
 
 
 def _kpi(

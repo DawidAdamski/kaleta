@@ -2146,7 +2146,7 @@ Feature: Account Balance Forecast
     And I am on the Forecast page
     When I select account "PKO Main"
     And I set horizon to "90 days"
-    Then the forecast chart extends 90 days beyond today
+    Then the forecast chart extends 90 days past the last balance it knows
 
   # --- Multi-account forecast ---
 
@@ -2157,7 +2157,7 @@ Feature: Account Balance Forecast
     When I select "All accounts"
     And I set horizon to "30 days"
     Then the forecast chart is titled for all accounts together
-    And the four figures stand above it
+    And all four figures are shown for that selection
 
   KAL-FCT-004 @manual
   Scenario: Run a forecast for a selected subset of accounts
