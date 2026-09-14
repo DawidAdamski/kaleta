@@ -43,8 +43,12 @@ def render_step_indicator(current: int) -> None:
         for index, label in enumerate(labels, start=1):
             done = index < current
             now = index == current
-            with ui.column().classes("items-center gap-1 flex-1 min-w-0"):
+            with ui.column().classes("items-center gap-1 flex-1 min-w-0") as step:
                 node = ui.element("div").classes(STEP_NODE)
+                # The node holds a number or a tick; the label is its sibling,
+                # so without this a screen reader announces "3" where the
+                # screen says "Column mapping".
+                node.props["aria-label"] = label
                 if done:
                     node.classes(add=STEP_NODE_DONE)
                     with node:
@@ -58,4 +62,6 @@ def render_step_indicator(current: int) -> None:
                         ui.label(str(index))
                 ui.label(label).classes(STEP_LABEL_NOW if now else STEP_LABEL)
             if now:
-                node.props["aria-current"] = "step"
+                # On the element that carries both the node and its label,
+                # which together are the step.
+                step.props["aria-current"] = "step"

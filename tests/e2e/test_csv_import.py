@@ -798,6 +798,9 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
 
     # Nothing uploaded: step 2 is the one you are on, step 1 is behind you.
     expect(page.locator(".k-step--now")).to_have_count(1, timeout=5000)
+    # And the node says which step it is, not just its number: a screen
+    # reader on "2" would otherwise be told nothing at all.
+    expect(page.locator('.k-step--now[aria-label="Upload"]')).to_have_count(1)
     expect(page.locator(".k-step--done")).to_have_count(1)
 
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))

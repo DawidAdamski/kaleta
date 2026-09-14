@@ -354,6 +354,19 @@ itself lists. Choosing the wrong date format on a thousand-row file put a
 thousand muted labels under a strip that had already counted them, burying
 the pickers it was pointing at.
 
+### The step node says which step it is
+
+Twelfth review round, nits. `aria-current="step"` sat on the node div, whose
+whole content is a number or a tick — a screen reader announced "3" where
+the screen says "Column mapping". The node carries the step's label as its
+`aria-label`, and `aria-current` moved onto the column holding both the node
+and its label, which together are the step. Asserted in KAL-CSV-027.
+
+The two eyebrow labels use `SECTION_TITLE` rather than rebuilding it from
+`MUTED` plus a raw class, and the comment on `auto_mapping` says "never
+*this file's* own edits" — a rule or a sibling file can carry columns
+someone chose by hand earlier, which is the wider reading argued above.
+
 ### A currency mismatch is a settings problem too
 
 Eleventh review round. `settings_are_complete` passed `account_currency=None`,

@@ -24,6 +24,7 @@ from kaleta.views.theme import (
     MUTED,
     SECTION_CARD,
     SECTION_HEADING,
+    SECTION_TITLE,
     TABLE_SURFACE,
     WARNING_STRIP,
 )
@@ -425,7 +426,7 @@ def build_mapping_section() -> MappingSection:
                     warning_label = ui.label("").classes("text-[12px] leading-snug")
                 warning_strip.set_visibility(False)
                 errors_column = ui.column().classes("w-full gap-0.5")
-                ui.label(t("import.mapping_fields")).classes(f"{MUTED} k-eyebrow")
+                ui.label(t("import.mapping_fields")).classes(SECTION_TITLE)
                 with ui.row().classes("w-full gap-3 flex-wrap"):
                     date_sel = _picker("import.mapping_date", "date", width="flex-1 min-w-40")
                     amount_sel = _picker("import.mapping_amount", "amount", width="flex-1 min-w-40")
@@ -442,7 +443,7 @@ def build_mapping_section() -> MappingSection:
                     debit_sel = _picker("import.mapping_debit", "debit", width="flex-1 min-w-40")
                     credit_sel = _picker("import.mapping_credit", "credit", width="flex-1 min-w-40")
 
-                ui.label(t("import.mapping_formats")).classes(f"{MUTED} k-eyebrow mt-2")
+                ui.label(t("import.mapping_formats")).classes(f"{SECTION_TITLE} mt-2")
                 with ui.row().classes("w-full gap-3 flex-wrap items-center"):
                     date_format_sel = ui.select(
                         _DATE_FORMAT_OPTIONS, label=t("import.mapping_date_format"), value=""
