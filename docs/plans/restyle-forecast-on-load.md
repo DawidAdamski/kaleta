@@ -419,15 +419,37 @@ than the chosen horizon. `ForecastKpis.balance_date` carries the day, and the
 card prints it the way the predicted card prints its horizon. The same
 mismatch that got `KAL-FCT-002` reworded.
 
-Two timeouts came down. The scenario redraw waits 5 s, not 60: it needs no
-forecaster at all, which is the whole of `KAL-FCT-013`, and a long wait would
-sit through a regression instead of failing on it. The insufficient-history
-check is back to 30 s — a seven-day account is turned away for want of
-history and never reaches the slow path.
+Two timeouts came down and one went up. The scenario redraw waits 5 s, not
+60: it needs no forecaster at all, which is the whole of `KAL-FCT-013`, and a
+long wait would sit through a regression instead of failing on it. The
+insufficient-history check is back to 30 s — a seven-day account is turned
+away for want of history and never reaches the slow path. `KAL-FCT-002` went
+from 30 s to the shared 60 s `_RUN_TIMEOUT`, because a 90-day Prophet run on
+120 days of history is the slowest thing this suite asks for, and 30 s was a
+guess that happened to hold where Prophet is absent.
 
 `KAL-FCT-012` says *which* chart stays as it was: the one answering the
 previous selection. That is the known stale-path behaviour recorded above,
 now stated where it can be checked rather than implied.
+
+### Round eleven: two tags that claimed more than had happened
+
+`KAL-FCT-009` — the Prophet-absent fallback — was reworded from a banner to a
+footnote and left `@manual`. But this environment *is* the one the scenario
+describes, so it is checked rather than taken on trust: a new e2e asserts the
+footnote, its link, the absence of `.bg-amber-1`, the absence of the
+Prophet-only preset toggle, and that a chart and its figures are there all
+the same. `@automated`.
+
+`KAL-FCT-012` is the opposite case. It is implemented, but `@manual` in this
+repo means "verified by hand", and nobody has: it needs Prophet installed.
+It is `@planned` with a comment saying so, to be retagged after the owner's
+pass. Leaving it `@manual` would have been the same fault as an `@automated`
+clause no test checks.
+
+`_settled_on` waits for the account as well as the horizon. The horizon
+carries over between tests in the shared session, so a wait on the date alone
+could be satisfied by the *previous* test's account still on screen.
 
 ### A run outlives the page it was started for
 

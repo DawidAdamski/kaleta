@@ -2210,7 +2210,7 @@ Feature: Account Balance Forecast
     Then the chart highlights the date the balance is predicted to reach zero
     And I see a warning "Balance may reach zero on [date]"
 
-  KAL-FCT-009 @manual
+  KAL-FCT-009 @automated
   Scenario: Fallback projection when Prophet is not installed
     Given Kaleta is installed without the optional forecast extra
     And I am on the Forecast page
@@ -2239,8 +2239,11 @@ Feature: Account Balance Forecast
     When I remove the scenario
     Then every figure is what it was
 
-  KAL-FCT-012 @manual
+  KAL-FCT-012 @planned
   Scenario: A slow forecaster asks before spending a run
+    # Implemented, but not yet verified by hand: this needs an environment
+    # with the optional Prophet extra installed. Retag @manual after the
+    # owner's pass.
     Given Kaleta is installed with the optional Prophet extra
     And I am on the Forecast page with a chart on screen
     When I change the account or the horizon

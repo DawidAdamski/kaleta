@@ -3,7 +3,7 @@
 
 Maps scenarios from docs/bdd.md — Feature: Account Balance Forecast.
 Covers: KAL-FCT-001, KAL-FCT-002, KAL-FCT-003, KAL-FCT-007, KAL-FCT-010,
-KAL-FCT-011, KAL-FCT-013
+KAL-FCT-009, KAL-FCT-011, KAL-FCT-013
 Page URL: /forecast
 """
 
@@ -36,14 +36,17 @@ def _kpi(page: Page, key: str):
     return page.locator(f'[data-kpi="{key}"] .k-mono').first
 
 
-def _settled_on(page: Page, horizon_days: int) -> None:
-    """Wait until the figures on screen are the ones for this horizon.
+def _settled_on(page: Page, account: str, horizon_days: int) -> None:
+    """Wait until what is on screen answers *this* account and horizon.
 
     A control change re-runs after a short delay, so a figure can be visible
-    and still belong to the *previous* selection. The predicted card carries
-    its own date, which is the horizon made visible.
+    and still belong to the previous selection — and both halves of the
+    selection matter, since the horizon carries over between tests in the
+    shared session. The chart names its account and the predicted card
+    carries its horizon's date, so both are asked for.
     """
     horizon = (datetime.date.today() + datetime.timedelta(days=horizon_days)).strftime("%d.%m.%Y")
+    expect(page.get_by_text(f"Balance forecast — {account}")).to_be_visible(timeout=_RUN_TIMEOUT)
     expect(page.locator('[data-kpi="predicted"]')).to_contain_text(horizon, timeout=_RUN_TIMEOUT)
 
 
@@ -132,7 +135,7 @@ def test_run_30_day_forecast_single_account(page: Page, base_url: str) -> None:
     # The scenario asks for a chart and a predicted balance, so the test asks
     # for those and not for "either that or a warning" — and for *this*
     # selection's, not a previous test's still on screen.
-    _settled_on(page, 30)
+    _settled_on(page, "PKO Forecast 30d E2E", 30)
     expect(_kpi(page, "confidence")).to_be_visible()
     expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
 
@@ -155,7 +158,7 @@ def test_run_90_day_forecast(page: Page, base_url: str) -> None:
     # "Extends 90 days past the last balance it knows" — the horizon the
     # figure is dated at. `seed_many_transactions` posts one today, so here
     # that last balance is today's and the horizon is today + 90.
-    _settled_on(page, 90)
+    _settled_on(page, "PKO Forecast 90d E2E", 90)
 
 
 # ---------------------------------------------------------------------------
@@ -216,7 +219,7 @@ def test_warning_shown_for_insufficient_history(page: Page, base_url: str) -> No
 
 
 def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> None:
-    """Covers: KAL-FCT-011, KAL-FCT-013
+    """Covers: KAL-FCT-009, KAL-FCT-011, KAL-FCT-013
 
     The figures are read off the same series the chart is drawn from, so a
     what-if that lifts the line lifts them by exactly as much. The prototype
@@ -233,7 +236,7 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     # The 60-day run has to have landed before the baseline is read: a run
     # for the previous test's horizon can still be on screen, and its figures
     # would move for a reason that is not the scenario.
-    _settled_on(page, 60)
+    _settled_on(page, "PKO Forecast Scenario E2E", 60)
 
     before_predicted = _figure(page, "predicted")
     before_change = _figure(page, "change")
@@ -282,3 +285,39 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     # "Every figure is what it was" — all of them, not just the one.
     assert _figure(page, "change") == pytest.approx(before_change, abs=0.01)
     assert _figure(page, "confidence") == pytest.approx(before_confidence, abs=0.01)
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Fallback projection when Prophet is not installed
+# ---------------------------------------------------------------------------
+
+
+def test_the_fallback_projection_is_a_footnote_not_a_banner(page: Page, base_url: str) -> None:
+    """Covers: KAL-FCT-009
+
+    This repo's dev environment has no Prophet, which is exactly the
+    environment the scenario describes — so it is checked rather than taken
+    on trust. Artboard 3a demotes the amber banner to a footnote: the simple
+    projection still works, and the page is not an error page.
+    """
+    acc_id = seed_account("PKO Forecast Fallback E2E")
+    cat_id = seed_category("Forecast Fallback Cat E2E")
+    seed_many_transactions(acc_id, cat_id, n_days=120)
+
+    page.goto(f"{base_url}/forecast")
+    _choose(page, "Account", "PKO Forecast Fallback E2E")
+    _settled_on(page, "PKO Forecast Fallback E2E", 60)
+
+    # The footnote and its link, under the chart's own title.
+    expect(page.get_by_text("Prophet is not installed — simple projection.")).to_be_visible()
+    expect(page.get_by_role("link", name="Install Prophet (optional extra)")).to_be_visible()
+    # Not the banner it replaced.
+    expect(page.locator(".bg-amber-1")).to_have_count(0)
+
+    # The Prophet-only preset toggle is not on the page at all.
+    for preset in ("Conservative", "Baseline", "Optimistic"):
+        expect(page.get_by_text(preset, exact=True)).to_have_count(0)
+
+    # And there is still a forecast: a chart, and the figures over it.
+    expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
+    expect(_kpi(page, "confidence")).to_be_visible()
