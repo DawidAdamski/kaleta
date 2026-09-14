@@ -80,7 +80,11 @@ def build_plan_grid(
             ui.element("div").classes(f"overflow-x-auto w-full {PLAN_GRID}"),
             ui.element("div").style(INNER_MIN),
         ):
-            _render_header(grid, row_cls=row_cls, cell_cls=cell_cls)
+            # One "today" for the whole render: a page drawn across midnight on
+            # the 1st would otherwise tint December in the header and January
+            # in the rows.
+            now = datetime.date.today()
+            _render_header(grid, row_cls=row_cls, cell_cls=cell_cls, now=now)
 
             if not grid.is_compare:
                 slice_ = grid.slices[0]
@@ -90,6 +94,7 @@ def build_plan_grid(
                     dialogs=dialogs,
                     cell_cls=cell_cls,
                     row_cls=row_cls,
+                    now=now,
                     clear_category=_clear_category,
                 )
             else:
@@ -103,8 +108,8 @@ def _render_header(
     *,
     row_cls: str,
     cell_cls: str,
+    now: datetime.date,
 ) -> None:
-    now = datetime.date.today()
     year = grid.slices[0].year if not grid.is_compare else None
     with ui.row().classes(f"{row_cls} {PLAN_HEAD} k-eyebrow"):
         ui.label(t("common.category")).classes("px-3 py-2").style(S_CAT)
@@ -150,9 +155,9 @@ def _render_single_year_grid(
     dialogs: EditDialogs,
     cell_cls: str,
     row_cls: str,
+    now: datetime.date,
     clear_category: Callable[[int], Awaitable[None]],
 ) -> None:
-    now = datetime.date.today()
     this_month = now.month if slice_.year == now.year else None
 
     for row in slice_.rows:
@@ -299,10 +304,10 @@ def _render_compare_grid(
             year_row = next(r for r in slice_.rows if r.category_id == row.category_id)
             rec_text, rec_color = recurring_display(year_row)
 
-            # No actual sub-row here: the compare grid already spends a row per
-            # year, and a second one under each would double a grid that is
-            # dense before it starts. Scope says so.
-            with ui.row().classes(f"{row_cls} {PLAN_ROW}"):
+            with (
+                ui.column().classes(f"w-full gap-0 {PLAN_ROW}"),
+                ui.row().classes(f"{row_cls} w-full"),
+            ):
                 ui.label(str(slice_.year)).classes(f"text-xs {MUTED} px-3 py-1 {MONO}").style(S_CAT)
                 ui.label(rec_text).classes(f"{cell_cls} font-medium {rec_color}").style(S_REC)
                 for cell in year_row.months:
@@ -312,6 +317,23 @@ def _render_compare_grid(
                     ).style(S_MON)
                 ui.label(format_amount(year_row.total_planned or None)).classes(
                     f"text-sm text-right px-3 py-1 font-medium {MONO} {INK}"
+                ).style(S_TOT)
+
+            # The actual line stays. Scope's "no sub-rows" reads two ways, and
+            # the reading that deletes a year's spending from the only screen
+            # that shows it is the wrong one to pick on your own.
+            with ui.row().classes(f"{row_cls} w-full {PLAN_ACTUAL_ROW}"):
+                ui.label(t("budget_plan.actual_row")).classes(
+                    f"text-[10.5px] {MUTED} px-3 py-0"
+                ).style(S_CAT)
+                ui.label("").style(S_REC)
+                for cell in year_row.months:
+                    act_color = actual_cell_color(cell.actual, cell.is_over_budget)
+                    ui.label(format_amount(cell.actual)).classes(
+                        f"text-[10.5px] {MONO} text-center py-0 px-1 {act_color}"
+                    ).style(S_MON)
+                ui.label(format_amount(year_row.total_actual or None)).classes(
+                    f"text-[10.5px] {MONO} {MUTED} text-right px-3 py-0"
                 ).style(S_TOT)
 
     with ui.row().classes(f"{row_cls} {PLAN_TOTAL} {INK} font-medium"):

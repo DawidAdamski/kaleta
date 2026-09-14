@@ -45,8 +45,10 @@ Depends on `restyle-theme-tokens`.
 - **Compare grid** (`_render_compare_grid`): same hairline surface;
   no sub-rows (already shows two years).
 - Toolbar (`toolbar.py`): controls in the title row, restyled only.
-- BDD: `KAL-BUD-013` "budget plan row actions are reachable from the
-  row context menu" (@automated, e2e `test_budget_plan.py`).
+- BDD: `KAL-BUD-015` "budget plan row actions are reachable from the
+  row context menu" and `KAL-BUD-016` "the plan grid marks the month I am
+  in" (@automated, e2e `test_budget_plan.py`). Renumbered from the plan's
+  original `KAL-BUD-013`, which was taken — see Implementation notes.
 
 Out of scope: budget-plan data model, unification with budgets
 (`budgets-plan-unification`, draft), comparisons logic, dialogs.
@@ -129,6 +131,14 @@ on a table row by accident. The header's actions column carries the same
 
 The handlers are the same two calls as before; only the way in changed.
 
+### The header hint is a hint, not a control
+
+Scope says the header's `more_horiz` "opens the menu on the hint click for
+touch devices". A header icon cannot open a *row's* menu — it does not know
+which row — so it carries the tooltip only, and touch is served by the
+`more_horiz` button on each row. The header glyph is there to say the
+actions column still exists and where its contents went.
+
 ### The actual sub-row stopped painting every month green
 
 `actual_cell_color` returned green for any month with spending and red for
@@ -169,14 +179,18 @@ its own hairline and its own hover. Artboard 2c reads the pair as one
 category, so they sit inside one wrapper that carries the hairline, the
 hover and the right-click menu; the lines themselves carry neither.
 
-### The compare grid lost its actual sub-rows
+### The compare grid kept its actual sub-rows
 
-Scope says the compare grid has "no sub-rows (already shows two years)", and
-it did have them: one actual row under every year of every category, which
-doubles a grid that is dense before it starts. They are gone. That removes
-actuals from the compare view entirely, which is a *data* change rather than
-a restyle — flagged for the owner's `[manual]` pass, because the alternative
-reading is that Scope meant "do not add any".
+Scope says the compare grid has "no sub-rows (already shows two years)".
+That reads two ways: *remove* the actual rows it already had, or *do not
+add* the new-style ones. They were removed first, and put back — deleting
+a year's spending from the only screen that shows it beside another year's
+is a data change, not a restyle, and it is not a call to make from an
+ambiguous clause. The rows are there, restyled to the same quiet rule as the
+single-year grid, and paired with their plan line the same way.
+
+If the owner wants them gone, that is a one-line deletion and a scenario
+step; it should not be the default reading of a sentence.
 
 ### `is_dark` stopped deciding anything
 

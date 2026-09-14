@@ -1486,7 +1486,6 @@ Feature: Annual Budget Planning
     When I enable "Show previous year"
     Then each cell shows the current year budget and the previous year budget side by side
     And the difference (positive or negative) is displayed
-    But no actual spending is shown — comparing years is about what was planned
 
   # --- Validation ---
 
@@ -1535,7 +1534,7 @@ Feature: Annual Budget Planning
   Scenario: The plan grid marks the month I am in
     Given I am on the Budget Plan page for the current year
     Then the current month's column is tinted, header and cells alike
-    And a category's actual spending reads under its plan, month by month
+    And the tint runs down the category's plan line and its actual line both
 ```
 
 ## Feature: Budget Planning Comparisons
