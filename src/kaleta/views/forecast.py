@@ -13,13 +13,13 @@ from kaleta.i18n import t
 from kaleta.services import with_session
 from kaleta.services.forecast_service import (
     ForecastKpis,
-    ForecastPoint,
     ForecastPreset,
     ForecastResult,
     ForecastService,
     ScenarioShift,
     apply_preset,
     apply_scenarios,
+    first_point_from,
     forecast_kpis,
 )
 from kaleta.services.forecasters import is_prophet_available
@@ -54,17 +54,6 @@ from kaleta.views.theme import (
     amount_class,
     kpi_card_classes,
 )
-
-
-def _first_point_from(result: ForecastResult, date: datetime.date) -> ForecastPoint | None:
-    """The first forecast point on or after ``date`` — where a pin can sit.
-
-    A scenario's date rarely lands exactly on a forecast point: the dialog
-    defaults to today, and the forecast starts tomorrow. Matching exactly
-    left those scenarios with a line and no marker, which is half of what
-    artboard 3a asks for.
-    """
-    return next((p for p in result.forecast if p.date >= date), None)
 
 
 def _forecast_chart(
@@ -130,7 +119,7 @@ def _forecast_chart(
                 "lineStyle": {"color": accent, "type": "dotted"},
             }
         )
-        pin = _first_point_from(result, shift.date)
+        pin = first_point_from(result, shift.date)
         if pin is not None:
             mark_points.append(
                 {"coord": [str(pin.date), pin.value], "name": shift.label, "value": shift.label}
@@ -237,6 +226,9 @@ class _RunState:
     running: bool = False
     #: A request that arrived mid-run, to be served before the loop exits.
     pending: bool = False
+    #: What the status line says when the chart answers the controls — kept
+    #: so that clearing a stale mark can put it back.
+    status: str = ""
 
 
 #: Where the Prophet footnote points.
@@ -364,7 +356,7 @@ def register() -> None:
             def _mark_stale() -> None:
                 """Prophet runs are slow, so a change asks before spending one."""
                 status.set_text(t("forecast.stale_hint"))
-                run_btn.props(add="color=primary", remove="flat")
+                run_btn.props(remove="flat")
 
             def _controls_match_last_run() -> bool:
                 return (
@@ -378,14 +370,21 @@ def register() -> None:
 
                 A run that started before the user changed the account is
                 still a run of the *old* account, and when it lands it must
-                not quietly clear the mark that says so. Only the naive path
-                is exempt: its re-run follows within the debounce, so there
-                is nothing to warn about.
+                not quietly clear the mark that says so — nor, when the user
+                changes it straight back, keep a mark that is no longer true.
+
+                Two exemptions. The naive path never marks anything: its
+                re-run follows within the debounce, so there is nothing to
+                warn about. And with no usable run behind us — the first one
+                still in flight, or a failed one — there is nothing for the
+                controls to be ahead *of*, and the line already says
+                something truer than "press Re-run".
                 """
-                if not prophet_available:
+                if not prophet_available or run_state.raw is None:
                     return
                 if _controls_match_last_run():
-                    run_btn.props(add="flat", remove="color=primary")
+                    run_btn.props(add="flat")
+                    status.set_text(run_state.status)
                 else:
                     _mark_stale()
 
@@ -560,6 +559,11 @@ def register() -> None:
                 finally:
                     run_state.running = False
                     run_btn.props(remove="loading")
+                    if run_state.pending:
+                        # The loop did not exit on its own terms — a run
+                        # raised. The request that arrived meanwhile is still
+                        # owed an answer.
+                        _debounced_run()
                     _sync_stale()
 
             async def _run_once() -> None:
@@ -635,14 +639,13 @@ def register() -> None:
                     apply_scenarios(raw, shifts) if preset is not ForecastPreset.BASELINE else None
                 )
 
-                status.set_text(
-                    t(
-                        "forecast.status_running",
-                        account=result.account_name,
-                        days=len(result.historical),
-                        horizon=run_state.horizon,
-                    )
+                run_state.status = t(
+                    "forecast.status_running",
+                    account=result.account_name,
+                    days=len(result.historical),
+                    horizon=run_state.horizon,
                 )
+                status.set_text(run_state.status)
                 _render_kpis(forecast_kpis(result))
                 _render_chart(result, baseline, shifts)
                 # The status line has just been rewritten; if the controls

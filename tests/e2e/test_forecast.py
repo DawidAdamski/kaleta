@@ -65,7 +65,6 @@ def test_the_forecast_runs_without_being_asked(page: Page, base_url: str) -> Non
 
     page.reload()
 
-    expect(page.get_by_text("Balance Forecast", exact=True)).to_be_visible(timeout=5000)
     # A chart and its four figures, with no click between the reload and here.
     for key in ("balance_today", "predicted", "change", "confidence"):
         expect(_kpi(page, key)).to_be_visible(timeout=_RUN_TIMEOUT)

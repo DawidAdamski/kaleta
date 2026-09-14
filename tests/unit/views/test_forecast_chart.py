@@ -119,6 +119,21 @@ class TestScenarioMarkers:
             {"coord": [str(when), 980.0], "name": "Bonus", "value": "Bonus"}
         ]
 
+    def test_a_scenario_dated_today_pins_the_first_forecast_point(self) -> None:
+        # The dialog defaults to today and the forecast starts tomorrow, so
+        # an exact match would leave the commonest scenario without a pin.
+        shift = ScenarioShift(label="Today", date=TODAY, amount=1.0)
+
+        predicted = _series(_forecast_chart(_result(), scenarios=[shift]), "Predicted")
+
+        assert predicted["markPoint"]["data"] == [
+            {
+                "coord": [str(TODAY + datetime.timedelta(days=1)), 990.0],
+                "name": "Today",
+                "value": "Today",
+            }
+        ]
+
     def test_a_scenario_outside_the_forecast_marks_the_date_but_pins_nothing(self) -> None:
         # There is no line to pin a marker to out there; the date is still
         # worth drawing, because the user put it in.

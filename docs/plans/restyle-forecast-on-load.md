@@ -250,6 +250,32 @@ per-view `bg-blue-500/10 text-blue-600` triplets, and `.k-skeleton` so the
 wait looks like this app rather than Quasar's grey. Both in `theme.py` with
 the rest.
 
+### The stale mark goes away again
+
+Fourth review round. The mark was one-way: `_sync_stale()` un-raised the
+button but left "Controls changed — press Re-run" on the status line, so
+changing the account and changing it back left a hint contradicting the chart
+under it — the behaviour the third round's notes claimed. The settled status
+line is kept on `_RunState` and put back when the controls match.
+
+`_sync_stale()` also ran after a *failed* run and, finding no result to match
+against, replaced "The forecast could not be run" with "press Re-run" —
+blaming the user for a failure. With no usable run there is nothing for the
+controls to be ahead of, and the line already says something truer, so it
+leaves both alone.
+
+The Re-run button keeps `color=primary` in both states and toggles only
+`flat`, so it does not change colour the first time a run lands. And if a run
+raises, a request that arrived while it was in flight is re-armed on the way
+out rather than dropped with the loop.
+
+### The snap rule lives with the shift rule
+
+`first_point_from` moved into `forecast_service`, next to `apply_scenarios`,
+whose on-or-after rule it repeats: the marker pins the first point the shift
+actually moved. Five unit tests, including the commonest case — a scenario
+dated today, which the dialog defaults to.
+
 ### What "never costs a forecast" actually means
 
 Third review round. The claim had two holes. With a run in flight, a scenario

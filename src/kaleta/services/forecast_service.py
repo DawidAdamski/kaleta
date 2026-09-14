@@ -155,6 +155,18 @@ def apply_scenarios(
     return out
 
 
+def first_point_from(result: ForecastResult, date: datetime.date) -> ForecastPoint | None:
+    """The first forecast point on or after ``date``.
+
+    The same on-or-after rule :func:`apply_scenarios` uses to decide which
+    points a shift touches, so the marker a view pins for that shift lands on
+    the first point the shift actually moved. A scenario's date rarely falls
+    exactly on a forecast point — the wizard defaults to today, and the
+    forecast starts tomorrow.
+    """
+    return next((p for p in result.forecast if p.date >= date), None)
+
+
 @dataclass(frozen=True, slots=True)
 class ForecastKpis:
     """The four figures artboard 3a puts above the chart.

@@ -33,6 +33,7 @@ from kaleta.services.forecast_service import (
     apply_preset,
     apply_scenarios,
     clear_forecast_cache,
+    first_point_from,
     forecast_kpis,
 )
 from kaleta.services.forecasters import (
@@ -669,3 +670,44 @@ class TestForecastKpis:
         assert kpis.change is None
         assert kpis.confidence is None
         assert kpis.horizon_date is None
+
+
+class TestFirstPointFrom:
+    """Where a scenario's marker sits — the same rule that moved the line."""
+
+    def _series(self) -> ForecastResult:
+        return _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(1, 990.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(5, 950.0, lower=800.0, upper=1100.0, forecast=True),
+        )
+
+    def test_an_exact_date_finds_its_own_point(self) -> None:
+        point = first_point_from(self._series(), datetime.date(2026, 1, 6))
+
+        assert point is not None
+        assert point.value == 950.0
+
+    def test_a_date_between_points_snaps_forward(self) -> None:
+        # The wizard defaults a scenario to today, and the forecast starts
+        # tomorrow: matching exactly left those with a line and no marker.
+        point = first_point_from(self._series(), datetime.date(2026, 1, 3))
+
+        assert point is not None
+        assert point.date == datetime.date(2026, 1, 6)
+
+    def test_today_snaps_to_the_first_forecast_point(self) -> None:
+        point = first_point_from(self._series(), datetime.date(2026, 1, 1))
+
+        assert point is not None
+        assert point.date == datetime.date(2026, 1, 2)
+
+    def test_a_date_past_the_horizon_has_no_point(self) -> None:
+        assert first_point_from(self._series(), datetime.date(2027, 1, 1)) is None
+
+    def test_history_is_never_a_landing_place(self) -> None:
+        # Only forecast points carry a shift, so only they can carry its pin.
+        point = first_point_from(self._series(), datetime.date(2025, 1, 1))
+
+        assert point is not None
+        assert point.is_forecast is True
