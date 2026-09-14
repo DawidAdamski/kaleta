@@ -1182,6 +1182,15 @@ class TestTransactionDisplayHelpers:
 
         assert TransactionService.net_of_rows(rows) == Decimal("-50.00")
 
+    def test_net_of_rows_survives_a_row_whose_figure_is_none(self):
+        """Covers: KAL-PAG-005 — a missing figure is nothing, not a crash."""
+        rows = [
+            {"id": 1, "amount_value": None, "type": "expense"},
+            {"id": 2, "amount_value": "-50.00", "type": "expense"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-50.00")
+
     def test_net_of_rows_leaves_a_transfer_out(self):
         """Covers: KAL-PAG-005
 

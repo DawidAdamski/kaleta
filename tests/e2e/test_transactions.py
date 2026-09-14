@@ -572,6 +572,20 @@ def test_editing_a_transfer_has_no_payee_field(page: Page, base_url: str) -> Non
 LEDGER_TOKEN = "LedgerChipsE2E"
 
 
+def _tick_every_row(page: Page) -> None:
+    """Tick each row, waiting for the bar to count it before ticking the next.
+
+    The first tick inserts the selection bar above the table, which moves every
+    row down. Clicking straight on through the shift can put the second click
+    where the checkbox no longer is, and the bar then never reaches the count
+    the scenario asserts.
+    """
+    for n, checkbox in enumerate(page.locator(".q-table tbody .q-checkbox").all(), start=1):
+        checkbox.click()
+        label = "1 selected" if n == 1 else f"{n} selected"
+        expect(page.get_by_text(label, exact=True)).to_be_visible(timeout=10000)
+
+
 def _filter_by_search(page: Page, base_url: str, token: str, rows: int = 2) -> None:
     """Narrow the ledger to the rows a scenario seeded."""
     page.goto(f"{base_url}/transactions")
@@ -603,10 +617,10 @@ def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> No
     expect(page.locator(".k-chip-search")).to_contain_text(LEDGER_TOKEN)
     expect(page.get_by_text("Clear all 1", exact=True)).to_be_visible()
 
-    for checkbox in page.locator(".q-table tbody .q-checkbox").all():
-        checkbox.click()
+    _tick_every_row(page)
 
-    expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
+    # The scenario's own words, kept in the test that covers it.
+    expect(page.get_by_text("2 selected", exact=True)).to_be_visible()
     bar = page.locator(".k-selection-bar")
     expect(bar.get_by_text("+9,111.26", exact=True)).to_be_visible(timeout=10000)
 
@@ -621,9 +635,7 @@ def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> No
 
     # Clearing the filters redraws the table with nothing ticked — the bar must
     # go with it, or its delete button still points at rows nobody selected.
-    for checkbox in page.locator(".q-table tbody .q-checkbox").all():
-        checkbox.click()
-    expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
+    _tick_every_row(page)
     page.get_by_role("button", name="Clear all 1").click()
     expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
 
@@ -646,9 +658,7 @@ def test_week_separator_shows_the_group_net(page: Page, base_url: str) -> None:
 
     # Selecting first: regrouping redraws the table with nothing ticked, so
     # the bar must not survive it holding ids nobody can see are selected.
-    for checkbox in page.locator(".q-table tbody .q-checkbox").all():
-        checkbox.click()
-    expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
+    _tick_every_row(page)
 
     page.get_by_role("button", name="Week", exact=True).click()
 
@@ -672,10 +682,8 @@ def test_a_transfer_pair_nets_to_nothing(page: Page, base_url: str) -> None:
 
     _filter_by_search(page, base_url, token)
 
-    for checkbox in page.locator(".q-table tbody .q-checkbox").all():
-        checkbox.click()
+    _tick_every_row(page)
 
-    expect(page.get_by_text("2 selected", exact=True)).to_be_visible(timeout=10000)
     total = page.locator(".k-selection-bar").get_by_text("0.00", exact=True)
     expect(total).to_be_visible(timeout=10000)
     expect(total).to_have_class(re.compile(r"k-amount--neutral"))

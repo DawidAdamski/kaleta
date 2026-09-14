@@ -524,7 +524,10 @@ class TransactionService:
         """
         return sum(
             (
-                Decimal(str(row.get("amount_value", 0)))
+                # ``or 0`` and not a ``get`` default: a separator row carries
+                # no figure at all, and a row can carry an explicit ``None``.
+                # ``Decimal("None")`` would raise and take the whole bar down.
+                Decimal(str(row.get("amount_value") or 0))
                 for row in rows
                 if row.get("type") != TransactionType.TRANSFER.value
             ),
