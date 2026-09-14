@@ -178,6 +178,17 @@ figure on the page does (Planned, Actual, Remaining, and the ledger), so the
 line matches its row rather than inventing a second convention. Locale-aware
 number formatting is an app-wide change, not a change to one 12px line.
 
+### One deliberate exception to a written rule
+
+AGENTS.md says services raise typed exceptions from `kaleta.exceptions` and
+**never** a bare `ValueError`. `RealizationNote.__post_init__` raises one
+anyway, and that is the point: the rule exists so a *domain* failure reaches
+the user as a toast or a 4xx, and a note constructed without its amount is
+not a domain failure — it is a bug in this module. `ValidationError` would
+have put "A planned-on note must carry the amount it names" in front of
+someone looking at their budget. Recorded here so the next reader does not
+correct it back.
+
 ### A bill that will overshoot is still named
 
 "Planned on" fires whenever the row is under budget, including when the
@@ -281,7 +292,8 @@ the bar now, and a leftover key is a key someone re-adds a badge for.
 ### The note wraps, and the row aligns to the top
 
 The pace column was `w-40` (160px) and the note was `truncate`, which cut
-"Opłacone w całości 01.09 — zgodnie z planem" in half — and an e2e
+"Opłacone w całości dnia 01.09 — zgodnie z planem" — 48 characters, and the
+longest line either locale produces — in half — and an e2e
 `to_contain_text` passes on text hidden by CSS, so no test would have caught
 it. The column is `w-56` and the line wraps. The row aligns `items-start` so
 a two-line note does not shove the figures down, with the bar dropped
@@ -291,6 +303,16 @@ Row hover moved from the hard-coded `hover:bg-slate-50` to a `ROW_HOVER`
 token class. The old name was already remapped to `--k-row-hover` in
 `theme.py`, dark mode included, so this is not a fix — it is the rest of the
 row's move to tokens finishing the job.
+
+### The tooltip still says "Warning" over a note saying "expected"
+
+A rent row paid on the 1st hovers as "Warning · Month is 7 % elapsed" while
+the line under it reads "Paid in full on 01.09 — expected". Both are true —
+the money did go out ahead of the month, and it was always going to — but
+they pull in opposite directions on exactly the row the note is there to
+calm. Silencing the word means teaching `status` about the schedule, and
+the thresholds are out of scope. Left for the owner's `[manual]` pass to
+judge against artboard 2b.
 
 ### The e2e must not depend on today's date
 
