@@ -1220,6 +1220,9 @@ class TestTransactionDisplayHelpers:
     def test_format_net_leaves_zero_unsigned(self):
         """Covers: KAL-TXN-015 — nothing moved, so there is no direction."""
         assert TransactionService.format_net(Decimal("0")) == "0.00"
+
+    def test_format_net_signs_a_total_that_moved(self):
+        """Covers: KAL-TXN-014, KAL-PAG-005"""
         assert TransactionService.format_net(Decimal("9111.26")) == "+9,111.26"
         assert TransactionService.format_net(Decimal("-287.40")) == "-287.40"
 

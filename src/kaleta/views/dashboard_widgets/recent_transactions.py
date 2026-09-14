@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.services import ReportService
+from kaleta.services import ReportService, TransactionService
 from kaleta.views.components.amount_label import amount_body_cell_slot, format_signed_amount
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
@@ -82,6 +82,8 @@ async def render_recent_transactions(session: AsyncSession, is_dark: bool) -> No
                 "category": tx.category.name if tx.category else "—",
                 "type": tx.type.value,
                 "amount": format_signed_amount(tx.amount, tx.type),
+                # The cell paints a zero neutral, and needs the figure to see it.
+                "amount_value": str(TransactionService.signed_amount(tx.amount, tx.type)),
             }
             for tx in recent
         ]

@@ -288,6 +288,17 @@ separator is a heading for the rows under it, and a green or red figure in
 it competes with the amount column it sits above. The figure is still
 signed.
 
+### Sorting and grouping still do not know about each other
+
+The columns are client-side sortable and the separator is drawn before
+whichever row carries `sep_label`, so sorting by amount or description
+scatters a group's rows and leaves its heading — and now its net — above
+rows it did not sum. The heading has had this problem since grouping
+shipped; putting a figure in it makes the wrong pairing look like a wrong
+number rather than a misplaced label. Left as it is: the fix is either to
+drop the separators while a sort is active or to sort server-side within
+groups, and both are grouping changes, not chrome. Flagged for the owner.
+
 ### The grouping toggle stayed a toggle
 
 Scope asked for "segmented `k-filter-chip`s". A Quasar `ui.toggle` already

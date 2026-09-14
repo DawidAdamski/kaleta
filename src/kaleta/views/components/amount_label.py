@@ -54,7 +54,12 @@ def amount_body_cell_slot(*, type_field: str = "type") -> str:
     """Vue ``body-cell-amount`` slot with semantic amount colouring."""
     return (
         '<q-td :props="props" class="text-right">'
-        f"<span :class=\"props.row.{type_field} === 'income' ? '{AMOUNT_INCOME}' : "
+        # Same zero rule as ``amount_cell_slot``: a row that sends an
+        # ``amount_value`` and it is zero moved nothing, so it takes neither
+        # colour. Tables that send none fall through to the type.
+        f'<span :class="props.row.amount_value != null '
+        f"&& Number(props.row.amount_value) === 0 ? '{AMOUNT_NEUTRAL}' : "
+        f"props.row.{type_field} === 'income' ? '{AMOUNT_INCOME}' : "
         f"props.row.{type_field} === 'expense' ? '{AMOUNT_EXPENSE}' : '{AMOUNT_NEUTRAL}'\">"
         "{{ props.row.amount }}</span></q-td>"
     )
