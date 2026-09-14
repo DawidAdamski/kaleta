@@ -121,14 +121,15 @@ def test_a_row_paid_in_full_early_says_so(page: Page, base_url: str) -> None:
     expect(row).to_be_visible(timeout=10000)
     expect(row).to_contain_text(f"Paid in full on {month_start.day:02d}.{month_start.month:02d}")
 
-    # The budget is used up exactly, so the bar is full and the pace is ahead
-    # of the month — amber, not the terracotta of an overspend. Asserting the
-    # colour it *is* rather than one it cannot be: at exactly 100 % used,
-    # `status` can never return OVER, so "not red" would pass on its own.
+    # The budget is used up exactly, so the bar is full and never terracotta.
+    # Which colour it *is* depends on the day: at 100 % used the row is a
+    # WARNING until the month itself passes 95 %, and ON_TRACK after that. So
+    # the shade is pinned by test_a_posted_rent_still_carries_its_note, which
+    # controls `today`; asserting it here would turn verify red on the 30th.
     fill = row.locator(".k-pace__fill")
     expect(fill).to_be_visible()
     assert _style_pct(fill, "width") == 100.0
-    assert "var(--k-warning)" in (fill.get_attribute("style") or "")
+    assert "var(--k-expense)" not in (fill.get_attribute("style") or "")
 
 
 def test_a_bill_still_to_come_is_named(page: Page, base_url: str) -> None:

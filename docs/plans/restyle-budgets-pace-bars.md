@@ -130,10 +130,10 @@ budget does not "cover" it — both are spending patterns, which the bar
 already describes. And an overspent row is never told what is still coming:
 "284,00 planned for 12.06" under a bar past 100 % reads as reassurance.
 
-### The note has four clauses, and each one is a way it could lie
+### The note is three equalities and a date, each a way it could lie
 
-"Paid in full" is three equalities and a date, and each one is a way the
-line could otherwise be false:
+"Paid in full" fires on three equalities and a date, and each one is a way
+the line could otherwise be false:
 
 - the occurrence is **due** (`bill.date <= today`) — a 2 000 bill dated the
   25th has not been paid on the 10th, whatever else was spent;
@@ -238,10 +238,14 @@ money did go out ahead of the month. What the row must not do is read as an
 **overspend**, and it does not: the fill is never `--k-expense` while the
 note stands, which is what KAL-BUD-012 asserts.
 
-The assertion names the colour the bar *is* (`--k-warning`) rather than one
-it is not. At exactly 100 % used, `status` cannot return OVER — the
-threshold is `> 100` — so "the fill is not `--k-expense`" would have been a
-step that could not fail, marked `@automated`.
+Which shade it *is* cannot be asserted from an e2e at all. At 100 % used the
+row is a WARNING until the month itself passes 95 % — `used_pct >
+elapsed_pct + 5` — and ON_TRACK on the last day or two, so pinning
+`--k-warning` in the browser would turn `verify.sh --e2e` red on the 30th of
+a 31-day month. The e2e asserts the property that holds on every day (full,
+and never terracotta); the shade is pinned by
+`test_a_posted_rent_still_carries_its_note`, which controls `today` and
+asserts `status is RealizationStatus.WARNING`.
 
 ### `PlannedOccurrence` gained a `category_id`
 
@@ -271,7 +275,7 @@ restyled ledger uses, and the natural one in Polish.
 The plan tags it "@automated via unit test on the service note", but
 `scripts/spec_coverage.py` only scans `tests/e2e` and `tests/integration`;
 a `Covers:` in `tests/unit` counts for nothing. The pure rule still has its
-unit tests (sixteen, counting the one that pins the note's own invariant) and the wiring has three more, but the scenario is
+unit tests (fifteen) and the wiring has three more, but the scenario is
 carried by `tests/e2e/test_budget_realization.py`.
 
 `KAL-BUD-013` and `KAL-BUD-014` are new; Scope was amended to list

@@ -1506,7 +1506,7 @@ Feature: Annual Budget Planning
     When I open the Realization tab
     Then the row's bar is full, whatever the month has elapsed
     And a line under it says the money was paid in full on that date
-    And the bar is painted as ahead of the month, not over the budget
+    And the bar is never painted as an overspend
 
   KAL-BUD-013 @automated
   Scenario: A pace bar replaces the status word
