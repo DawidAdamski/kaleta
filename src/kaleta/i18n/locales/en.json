@@ -1007,7 +1007,10 @@
     "history_heading": "File history",
     "history_empty": "No imports recorded yet.",
     "history_row": "{when} · {filename} → {account} · {imported} new, {skipped} skipped",
-    "mapping_notes": "Notes"
+    "mapping_notes": "Notes",
+    "auto_badge": "auto",
+    "parse_warning": "{count} rows could not be parsed: {rows} — check the Date and Amount columns",
+    "parse_warning_more": "{rows} and {extra} more"
   },
   "payees": {
     "title": "Payees",

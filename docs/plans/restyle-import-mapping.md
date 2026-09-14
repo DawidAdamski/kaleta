@@ -3,7 +3,7 @@ plan_id: restyle-import-mapping
 title: Restyle — Import progress line and side-by-side mapping with auto badges (artboard 2d)
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -91,4 +91,80 @@ behaviour unchanged).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Read this before reviewing the diff
+
+Fifth in a stack — theme-tokens → dashboard → transactions-filter-chips →
+budgets-pace-bars → budget-plan-grid → this one. None merged. This plan's
+own diff is:
+
+    git diff plan/restyle-budget-plan-grid...HEAD
+
+and its PR is opened with `--base plan/restyle-budget-plan-grid`.
+
+### Open questions — decisions taken
+
+1. **The parse-failure strip reads the whole file, not a sample.** The
+   question asked for a sample size, assuming the strip would run its own
+   parse. It does not: the file is already parsed by the time the mapping
+   step is on screen, and `ParseQueuedFileResult` was carrying the row
+   numbers as prose. They are structured now (`error_rows`), so the strip
+   costs nothing and covers every row rather than the first 200.
+2. **The sample shows raw strings**, mono, cut at 32 characters with the
+   whole value on hover — as the default said. Four rows, which is what
+   artboard 2d draws and few enough that the picker beside a column stays on
+   screen while you read it.
+
+### The auto badge needed no new state
+
+Scope asks for `detected: set[str]` on the mapping state and "a small schema
+change". None was needed. `CsvInspection` already carries
+`detected_mapping`, and a field is "auto" exactly while the picker still
+holds the column detection chose — `auto_detected_fields(detected, current)`
+compares the two. A manual change makes them differ, which is the badge
+going away, with nothing to keep in sync and nothing to persist.
+
+### The row numbers became numbers
+
+The strip wants "3 rows could not be parsed: 17, 42, 88". The parser knew
+those numbers and threw them into a sentence (`f"Row {line_no}: {exc}"`), so
+the view's options were scraping its own error strings with a regex or
+having the service keep them. `ImportResult.error_rows` and
+`ParseQueuedFileResult.error_rows` carry them; the prose messages stay,
+below the strip, in muted small text.
+
+### The progress line had to learn where it was
+
+`render_step_indicator()` took no arguments: six numbered pills, every one
+identical, telling the reader how many steps exist and nothing about where
+they stood. The page never had a "current step" either — it renders every
+section and hides the ones that do not apply.
+
+`current_step(active)` in `state.py` is that missing idea, and it reads the
+same conditions `_repaint_active` uses to show and hide, so the line cannot
+claim a step the page below it is not showing: `needs_mapping` → mapping,
+`ready` → settings until an account is chosen and preview after, `done` →
+confirm, and a failure lands on mapping for a generic file (its columns are
+the problem) or upload for a bank profile (the file is). Eight unit tests.
+
+### e2e: the step a fresh upload lands on is not fixed
+
+`test_the_progress_line_says_which_step_i_am_on` asserts that the line
+*moves* and that exactly one node is current, rather than naming a step
+number. Uploading can fill the settings step in on its own — a target
+account is inherited from another queued file or from the last import — so
+"three ticked" holds in a clean environment and not in a shared e2e
+database. The step numbers themselves are pinned by the unit tests, which
+own the state.
+
+### Three scenarios, not two
+
+`KAL-CSV-025` and `KAL-CSV-026` are the plan's. `KAL-CSV-027` is new: the
+progress line and the side-by-side layout are the other half of what
+artboard 2d changes, and Working Agreement §5 wants user-facing behaviour to
+have a scenario.
+
+### Not done
+
+The `[manual]` criterion — `test_import.csv` compared to artboard 2d in
+light and dark — is the owner's visual pass. Detection logic, bank profiles,
+the queue, and the preview and summary steps are untouched, as Scope says.

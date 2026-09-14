@@ -1007,7 +1007,10 @@
     "history_heading": "Historia plików",
     "history_empty": "Brak zapisanych importów.",
     "history_row": "{when} · {filename} → {account} · {imported} nowych, {skipped} pominiętych",
-    "mapping_notes": "Notatki"
+    "mapping_notes": "Notatki",
+    "auto_badge": "auto",
+    "parse_warning": "Nie udało się odczytać {count} wierszy: {rows} — sprawdź kolumny Data i Kwota",
+    "parse_warning_more": "{rows} i jeszcze {extra}"
   },
   "payees": {
     "title": "Odbiorcy",

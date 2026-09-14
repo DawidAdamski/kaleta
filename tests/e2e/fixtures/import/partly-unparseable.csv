@@ -1,0 +1,6 @@
+date,amount,description
+2024-03-01,-50.00,Biedronka Unparseable E2E
+2024-03-02,not-a-number,Zepsuta kwota E2E
+2024-03-03,-12.00,Zabka Unparseable E2E
+nie-data,-99.00,Zepsuta data E2E
+2024-03-05,-8.00,Kiosk Unparseable E2E

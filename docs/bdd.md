@@ -1249,6 +1249,26 @@ Feature: mBank CSV Import
     When I select account "Wise PLN"
     And I click "Import"
     Then the transactions are imported successfully
+
+  KAL-CSV-025 @automated
+  Scenario: Auto-detected columns are marked as such
+    Given I am on the Import page
+    When I upload a CSV whose headers name their columns
+    Then the fields the importer recognised carry an "auto" mark
+    And changing one of them by hand takes its mark away
+
+  KAL-CSV-026 @automated
+  Scenario: Parse failures are named on the mapping step
+    Given I am on the Import page
+    When I upload a CSV where some rows cannot be read
+    Then a strip above the pickers says how many, and which rows
+    And it names the columns to look at
+
+  KAL-CSV-027 @automated
+  Scenario: The progress line says which step I am on
+    Given I am on the Import page
+    Then the step I am on is filled and the ones behind it are ticked
+    And the file's sample sits beside the pickers that map it
 ```
 
 ## Feature: Transfer Recognition

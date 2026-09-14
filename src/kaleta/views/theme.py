@@ -93,6 +93,16 @@ PLAN_RULE = "k-plan-rule"
 #: A month cell you can click to edit. Square, so the tinted column is a band.
 PLAN_CELL_EDIT = "k-plan-cell"
 
+# ── Import wizard progress line (artboard 2d) ────────────────────────────────
+STEP_LINE = "k-steps"
+STEP_NODE = "k-step"
+STEP_LABEL = "k-step-label"
+STEP_LABEL_NOW = "k-step-label k-step-label--now"
+#: "auto" — this column came from detection, not from the user.
+AUTO_BADGE = "k-auto-badge"
+#: A warning that belongs to the step you are on, not a toast that flies past.
+WARNING_STRIP = "k-warning-strip"
+
 # Filled accent surface (banners, section headers, step markers) and the
 # text colour that sits on it — apricot in light, ink on apricot in dark.
 ACCENT_SURFACE = "k-accent-surface"
@@ -329,6 +339,54 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 /* An editable month outlines itself on hover: a fill would fight the
    current-month tint it has to work on top of. */
 .k-plan-cell:hover{outline:1px solid var(--k-border-strong);outline-offset:-1px}
+/* Import wizard: a hairline with six nodes on it. The connecting rule runs
+   behind the nodes, which sit on the page ground so it does not show through. */
+.k-steps{position:relative}
+.k-steps::before{
+  content:"";
+  position:absolute;
+  left:8%;
+  right:8%;
+  top:11px;
+  height:1px;
+  background:var(--k-hairline)
+}
+.k-step{
+  position:relative;
+  width:22px;
+  height:22px;
+  border-radius:999px;
+  border:1px solid var(--k-border-strong);
+  background:var(--k-surface);
+  color:var(--k-muted);
+  font-size:11px;
+  font-weight:600;
+  display:flex;
+  align-items:center;
+  justify-content:center
+}
+.k-step--done{background:var(--k-ink);border-color:var(--k-ink);color:var(--k-surface)}
+.k-step--now{background:var(--k-accent);border-color:var(--k-accent);color:#FFF}
+.k-step-label{font-size:11px;color:var(--k-muted);text-align:center;line-height:1.2}
+.k-step-label--now{color:var(--k-ink);font-weight:600}
+.k-auto-badge{
+  align-self:flex-start;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  color:var(--k-income);
+  border:1px solid var(--k-income);
+  border-radius:999px;
+  padding:0 6px;
+  line-height:15px
+}
+.k-warning-strip{
+  background:var(--k-surface-warm);
+  border-left:2px solid var(--k-warning);
+  color:var(--k-ink)
+}
+.k-warning-strip .q-icon{color:var(--k-warning)}
 .k-plan-total{border-top:1px solid var(--k-border-strong)}
 .k-plan-month-now{background:var(--k-plan-now)}
 .k-cat-row{border-bottom-color:var(--k-hairline)}

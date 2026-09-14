@@ -216,6 +216,8 @@ class ParseQueuedFileResult:
     profile: str
     rows: list[ParsedRow] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    #: Line numbers behind ``errors``, for the mapping step's warning strip.
+    error_rows: list[int] = field(default_factory=list)
     metadata: MBankFileMetadata | None = None
     ok: bool = False
     needs_mapping: bool = False
@@ -849,6 +851,10 @@ class ParsedRow:
 class ImportResult:
     rows: list[ParsedRow] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    #: Line numbers of rows that could not be parsed. The messages in
+    #: ``errors`` carry them too, but as prose; the mapping step needs them as
+    #: numbers to say "3 rows could not be parsed: 17, 42, 88".
+    error_rows: list[int] = field(default_factory=list)
     skipped: int = 0
 
 
@@ -913,6 +919,7 @@ class ImportService:
                 profile=resolved_profile,
                 rows=result.rows,
                 errors=result.errors,
+                error_rows=result.error_rows,
                 metadata=metadata,
                 ok=True,
             )
@@ -939,6 +946,7 @@ class ImportService:
                 profile=resolved_profile,
                 rows=rows,
                 errors=result.errors,
+                error_rows=result.error_rows,
                 metadata=metadata,
                 ok=True,
             )
@@ -966,6 +974,7 @@ class ImportService:
             return ParseQueuedFileResult(
                 profile=WISE_PROFILE,
                 errors=result.errors,
+                error_rows=result.error_rows,
                 error_key="import.qif_no_rows",
                 error_params={"skipped": result.skipped},
             )
@@ -973,6 +982,7 @@ class ImportService:
             profile=WISE_PROFILE,
             rows=result.rows,
             errors=result.errors,
+            error_rows=result.error_rows,
             metadata=WiseQifPreprocessor.extract_metadata(content, filename=filename),
             ok=True,
         )
@@ -1006,6 +1016,7 @@ class ImportService:
                 profile=profile,
                 rows=result.rows,
                 errors=result.errors or mapping_errors,
+                error_rows=result.error_rows,
                 needs_mapping=True,
                 error_key="import.no_rows" if not result.errors else None,
                 error_params={"skipped": result.skipped} if not result.errors else {},
@@ -1016,6 +1027,7 @@ class ImportService:
             profile=profile,
             rows=result.rows,
             errors=result.errors,
+            error_rows=result.error_rows,
             ok=True,
             inspection=inspection,
             column_mapping=effective,
@@ -1147,6 +1159,7 @@ class ImportService:
 
             except (ImportError_, KeyError) as exc:
                 result.errors.append(f"Row {line_no}: {exc}")
+                result.error_rows.append(line_no)
 
         return result
 

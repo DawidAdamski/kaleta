@@ -4,7 +4,8 @@
 Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
 KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022,
-KAL-CSV-023, KAL-CSV-024
+KAL-CSV-023, KAL-CSV-024, KAL-CSV-025, KAL-CSV-026,
+KAL-CSV-027
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -727,3 +728,67 @@ def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_u
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
     assert count_transactions(account_id) > 0
+
+
+# ---------------------------------------------------------------------------
+# Artboard 2d: the mapping step shows the file it is mapping
+# ---------------------------------------------------------------------------
+
+
+def test_auto_detected_columns_are_marked(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-025
+
+    The importer guesses date, amount and description from the headers, and
+    the one thing the old screen could not tell you was which fields it had
+    guessed. Changing a picker by hand takes its mark away.
+    """
+    page.goto(f"{base_url}/import")
+    page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
+    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=10000)
+
+    badges = page.locator(".k-auto-badge:visible")
+    expect(badges).to_have_count(3, timeout=10000)
+
+    # Point the description picker somewhere else: it is no longer the guess.
+    _select_import_option(page, "Description column", "1: date")
+    expect(badges).to_have_count(2, timeout=10000)
+
+
+def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-026
+
+    Two of five rows cannot be read. The strip says so where the columns that
+    caused it are being chosen, rather than at Preview, one step too late.
+    """
+    page.goto(f"{base_url}/import")
+    page.locator('input[type="file"]').set_input_files(str(FIXTURES / "partly-unparseable.csv"))
+    expect(page.get_by_text("partly-unparseable.csv").first).to_be_visible(timeout=10000)
+
+    strip = page.locator(".k-warning-strip")
+    expect(strip).to_be_visible(timeout=10000)
+    expect(strip).to_contain_text("2 rows could not be parsed")
+    expect(strip).to_contain_text("Date and Amount")
+
+
+def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-027"""
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    # Nothing uploaded: step 2 is the one you are on, step 1 is behind you.
+    expect(page.locator(".k-step--now")).to_have_count(1, timeout=5000)
+    expect(page.locator(".k-step--done")).to_have_count(1)
+
+    page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
+    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=10000)
+
+    # Parsed: the line moved on, and exactly one node is still the one you
+    # are standing on. How far it moved depends on what the page could infer
+    # (a single account fills the settings step in), so this asserts the
+    # movement rather than a step number the environment decides.
+    expect(page.locator(".k-step--done")).not_to_have_count(1, timeout=10000)
+    expect(page.locator(".k-step--now")).to_have_count(1)
+    assert page.locator(".k-step--done").count() > 1
+
+    # And the sample sits beside the pickers that map it, headers numbered.
+    expect(page.get_by_text("1: date", exact=True).first).to_be_visible(timeout=5000)

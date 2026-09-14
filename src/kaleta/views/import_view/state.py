@@ -40,9 +40,45 @@ class QueuedFile:
     remember_mapping: bool = True
     filename_pattern: str = ""
     from_bulk_default: bool = False
+    #: Line numbers that could not be parsed, for the mapping step's warning.
+    error_rows: list[int] = field(default_factory=list)
 
 
 TERMINAL_STATUSES = frozenset({"done", "failed"})
+
+#: The six steps the progress line draws, in order. 1-based, because the line
+#: numbers them for the reader.
+STEP_FORMAT = 1
+STEP_UPLOAD = 2
+STEP_MAPPING = 3
+STEP_SETTINGS = 4
+STEP_PREVIEW = 5
+STEP_CONFIRM = 6
+
+
+def current_step(active: QueuedFile | None) -> int:
+    """Which of the six steps the user is standing on.
+
+    The page shows every section at once and hides the ones that do not apply,
+    so "where am I" was only ever implied by which cards were visible. The
+    same conditions decide it here, in one place, so the progress line cannot
+    disagree with the page under it.
+    """
+    if active is None:
+        return STEP_UPLOAD
+    if active.status == "done":
+        return STEP_CONFIRM
+    if active.status == "needs_mapping":
+        return STEP_MAPPING
+    if active.status == "failed":
+        # A generic file that failed failed at its mapping; a bank profile
+        # failed at the file itself, which is the upload's problem.
+        return STEP_MAPPING if active.profile == "generic" else STEP_UPLOAD
+    if active.status == "ready":
+        # Ready means parsed. What is left is saying where the rows go, and
+        # then looking at them.
+        return STEP_PREVIEW if active.target_account_id is not None else STEP_SETTINGS
+    return STEP_UPLOAD
 
 
 def queue_is_terminal(queue: list[QueuedFile]) -> bool:

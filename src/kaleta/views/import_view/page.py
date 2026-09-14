@@ -36,6 +36,7 @@ from kaleta.views.import_view.settings_section import build_settings_section
 from kaleta.views.import_view.state import (
     QueuedFile,
     apply_settings_snapshot,
+    current_step,
     queue_is_terminal,
     settings_snapshot,
 )
@@ -107,6 +108,7 @@ async def import_page() -> None:
     async def _parse_file(queued_file: QueuedFile) -> None:
         queued_file.parsed_rows = []
         queued_file.parse_errors = []
+        queued_file.error_rows = []
         queued_file.metadata = None
         queued_file.status_msg = ""
         mapping = queued_file.column_mapping
@@ -126,6 +128,7 @@ async def import_page() -> None:
         if result.column_mapping is not None:
             queued_file.column_mapping = result.column_mapping
         queued_file.parse_errors = list(result.errors)
+        queued_file.error_rows = list(result.error_rows)
 
         if result.ok:
             queued_file.parsed_rows = result.rows
@@ -149,8 +152,15 @@ async def import_page() -> None:
             t(result.error_key, **result.error_params) if result.error_key else ""
         )
 
+    @ui.refreshable
+    def step_line() -> None:
+        render_step_indicator(current_step(_active()))
+
     def _repaint_active() -> None:
         active = _active()
+        # The line reads the same state the sections do, so it cannot claim a
+        # step the page below it is not showing.
+        step_line.refresh()
         profile_section.set_active_profile(active.profile if active else None)
 
         if active is None:
@@ -554,7 +564,7 @@ async def import_page() -> None:
 
     with page_layout(t("import.title")):
         ui.label(t("import.title")).classes("text-2xl font-bold")
-        render_step_indicator()
+        step_line()
 
         profile_section = build_profile_section(_select_profile)
         upload_section = build_upload_section()
