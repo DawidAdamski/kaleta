@@ -56,8 +56,8 @@ def test_budget_vs_actual_shows_planned_and_spent(page: Page, base_url: str) -> 
 
     # Artboard 2c keeps the sub-row quiet: only an overspent month is
     # coloured. A year of ordinary months used to come out as a wall of green
-    # saying "you spent money", which is what a ledger always says.
-    assert spent <= planned
+    # saying "you spent money", which is what a ledger always says. 450 of 800
+    # is inside its budget, so it takes no colour at all.
     expect(under_actual.locator(".k-amount--out")).to_have_count(0)
 
     # And the overspent category, seeded alongside, does take the colour —

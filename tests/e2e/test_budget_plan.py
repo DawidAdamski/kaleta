@@ -227,7 +227,9 @@ def test_the_grid_tints_the_current_month(page: Page, base_url: str) -> None:
     expect(row.locator(".k-plan-month-now")).to_have_count(2)
 
     # The actual sub-row sits under the plan, quiet and in mono, with its own
-    # tinted cell for the current month.
+    # tinted cell for the current month. It renders for a budgeted category
+    # even with nothing spent — ``PlanCategoryRow.show_actual_row`` is true
+    # when there is a plan, so the line is there to be filled in.
     actual_row = row.locator(".k-plan-actual")
     expect(actual_row).to_be_visible()
     expect(actual_row.locator(".k-mono").first).to_be_visible()

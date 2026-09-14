@@ -179,6 +179,14 @@ its own hairline and its own hover. Artboard 2c reads the pair as one
 category, so they sit inside one wrapper that carries the hairline, the
 hover and the right-click menu; the lines themselves carry neither.
 
+### The compare grid's category heading is a hairline
+
+It was a slate band; the first pass made it `PLAN_HEAD` + `k-eyebrow`, which
+put a strong rule under every category and uppercased user-entered names —
+"ŻYWNOŚĆ" with 0.2em of letter-spacing. The theme's own comment says the
+header and the totals band are the only strong rules, so the heading is a
+hairline row with the name in ink, spelled the way the user spelled it.
+
 ### The compare grid kept its actual sub-rows
 
 Scope says the compare grid has "no sub-rows (already shows two years)".
@@ -199,7 +207,8 @@ The grid picked four class strings off `app.storage.user["dark_mode"]`
 token that answers `.body--dark` on its own, so the flag, the branches and
 the `app` import are gone. The tinted column is a token like every
 other colour in the stylesheet — `--k-plan-now`, `#F0E5D4` from the artboard
-in the light block, the sunken surface in the dark one.
+in the light block and `#332F26` in the dark one (see "The dark tint is not
+the sunken surface" above).
 
 ### Not done
 

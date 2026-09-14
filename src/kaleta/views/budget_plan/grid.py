@@ -125,7 +125,11 @@ def _render_header(
             # the width twelve month columns need; the header says so, and the
             # per-row button keeps them reachable without a mouse button.
             with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
-                ui.icon("more_horiz", size="16px").tooltip(t("budget_plan.row_actions_hint"))
+                hint = ui.icon("more_horiz", size="16px")
+                hint.tooltip(t("budget_plan.row_actions_hint"))
+                # A tooltip nobody can focus is a tooltip only a mouse reads.
+                hint.props('tabindex="0"')
+                hint.props["aria-label"] = t("budget_plan.row_actions_hint")
 
 
 def _row_actions(
@@ -297,44 +301,48 @@ def _render_compare_grid(
         cat_label = row.name
         if row.is_child:
             cat_label = "   └ " + row.name
-        with ui.row().classes(f"{row_cls} {PLAN_HEAD} k-eyebrow mt-2"):
-            ui.label(cat_label).classes("px-3 py-1 flex-1")
+        # A hairline, and the name as the user typed it: `k-eyebrow` would
+        # uppercase "Żywność" and strong rules belong to the header and the
+        # totals band alone.
+        with ui.row().classes(f"{row_cls} {PLAN_ROW} mt-3"):
+            ui.label(cat_label).classes(f"text-sm font-medium {INK} px-3 py-1 flex-1")
 
         for slice_ in grid.slices:
             year_row = next(r for r in slice_.rows if r.category_id == row.category_id)
             rec_text, rec_color = recurring_display(year_row)
 
-            with (
-                ui.column().classes(f"w-full gap-0 {PLAN_ROW}"),
-                ui.row().classes(f"{row_cls} w-full"),
-            ):
-                ui.label(str(slice_.year)).classes(f"text-xs {MUTED} px-3 py-1 {MONO}").style(S_CAT)
-                ui.label(rec_text).classes(f"{cell_cls} font-medium {rec_color}").style(S_REC)
-                for cell in year_row.months:
-                    color = INK if cell.planned else MUTED
-                    ui.label(format_amount(cell.planned)).classes(
-                        f"{cell_cls} {MONO} {color}"
-                    ).style(S_MON)
-                ui.label(format_amount(year_row.total_planned or None)).classes(
-                    f"text-sm text-right px-3 py-1 font-medium {MONO} {INK}"
-                ).style(S_TOT)
+            with ui.column().classes(f"w-full gap-0 {PLAN_ROW}"):
+                with ui.row().classes(f"{row_cls} w-full"):
+                    ui.label(str(slice_.year)).classes(f"text-xs {MUTED} px-3 py-1 {MONO}").style(
+                        S_CAT
+                    )
+                    ui.label(rec_text).classes(f"{cell_cls} font-medium {rec_color}").style(S_REC)
+                    for cell in year_row.months:
+                        color = INK if cell.planned else MUTED
+                        ui.label(format_amount(cell.planned)).classes(
+                            f"{cell_cls} {MONO} {color}"
+                        ).style(S_MON)
+                    ui.label(format_amount(year_row.total_planned or None)).classes(
+                        f"text-sm text-right px-3 py-1 font-medium {MONO} {INK}"
+                    ).style(S_TOT)
 
-            # The actual line stays. Scope's "no sub-rows" reads two ways, and
-            # the reading that deletes a year's spending from the only screen
-            # that shows it is the wrong one to pick on your own.
-            with ui.row().classes(f"{row_cls} w-full {PLAN_ACTUAL_ROW}"):
-                ui.label(t("budget_plan.actual_row")).classes(
-                    f"text-[10.5px] {MUTED} px-3 py-0"
-                ).style(S_CAT)
-                ui.label("").style(S_REC)
-                for cell in year_row.months:
-                    act_color = actual_cell_color(cell.actual, cell.is_over_budget)
-                    ui.label(format_amount(cell.actual)).classes(
-                        f"text-[10.5px] {MONO} text-center py-0 px-1 {act_color}"
-                    ).style(S_MON)
-                ui.label(format_amount(year_row.total_actual or None)).classes(
-                    f"text-[10.5px] {MONO} {MUTED} text-right px-3 py-0"
-                ).style(S_TOT)
+                # The actual line stays, inside the pair. Scope's "no sub-rows"
+                # reads two ways, and the reading that deletes a year's
+                # spending from the only screen showing it beside another
+                # year's is the wrong one to pick on your own.
+                with ui.row().classes(f"{row_cls} w-full {PLAN_ACTUAL_ROW}"):
+                    ui.label(t("budget_plan.actual_row")).classes(
+                        f"text-[10.5px] {MUTED} px-3 py-0"
+                    ).style(S_CAT)
+                    ui.label("").style(S_REC)
+                    for cell in year_row.months:
+                        act_color = actual_cell_color(cell.actual, cell.is_over_budget)
+                        ui.label(format_amount(cell.actual)).classes(
+                            f"text-[10.5px] {MONO} text-center py-0 px-1 {act_color}"
+                        ).style(S_MON)
+                    ui.label(format_amount(year_row.total_actual or None)).classes(
+                        f"text-[10.5px] {MONO} {MUTED} text-right px-3 py-0"
+                    ).style(S_TOT)
 
     with ui.row().classes(f"{row_cls} {PLAN_TOTAL} {INK} font-medium"):
         ui.label(t("common.total")).classes("text-sm px-3 py-2").style(S_CAT)
