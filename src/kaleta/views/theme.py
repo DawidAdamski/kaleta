@@ -105,6 +105,12 @@ AUTO_BADGE = "k-auto-badge"
 #: A warning that belongs to the step you are on, not a toast that flies past.
 WARNING_STRIP = "k-warning-strip"
 
+# ── Balance-sheet bar (artboard 3b) ───────────────────────────────────────────
+#: One bar, three segments: held, owned, owed. The shape of the sheet, which a
+#: net figure cannot show — 10 000 owned outright and 200 000 against 190 000
+#: owed are the same number and not the same position.
+SPLIT_BAR = "k-split"
+
 # ── Loading (artboard 3a) ─────────────────────────────────────────────────────
 #: A page that answers on load shows the shape of the answer while it works.
 #: Sunken sand rather than Quasar's grey, so the wait looks like this app.
@@ -399,6 +405,19 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:0 6px;
   line-height:15px
 }
+/* Balance-sheet bar (artboard 3b) — segments meet with no gap, so their
+   widths are the only thing saying how big each side is. */
+.k-split{
+  display:flex;align-items:stretch;gap:0;
+  height:10px;border-radius:999px;overflow:hidden;
+  background:var(--k-surface-sunken)
+}
+.k-split-seg{height:100%}
+.k-split-dot{width:8px;height:8px;border-radius:999px;flex:none}
+.k-split--ink{background:var(--k-ink)}
+.k-split--neutral{background:var(--k-border-strong)}
+.k-split--owed{background:var(--k-expense)}
+
 /* Loading (artboard 3a) — a page that answers on load shows the shape of the
    answer while it works. `.q-skeleton.k-skeleton` rather than `!important`:
    two classes outrank Quasar's own one, whichever order the sheets land in. */

@@ -3,7 +3,7 @@ plan_id: restyle-net-worth
 title: Restyle — Net Worth left-aligned hero, proportional bar, labelled stacked chart (artboard 3b)
 area: net-worth
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#net-worth
 ---
 
@@ -87,4 +87,51 @@ generation, the account table columns.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — end labels.** `endLabel` on both line series. The
+  default: checked directly rather than by version number —
+  `nicegui/elements/echart/dist/` bundles a build that contains
+  `endLabel`, so the `markPoint` fallback was not needed. Each series is
+  annotated in its own colour with `{c}k`.
+
+- **`account_assets` is a property, not a subtraction in the view.** The
+  bar shows accounts and physical assets as separate segments, and
+  `total_assets` is their sum; having the view compute one by taking the
+  other away from the total is how the two drift apart. `total_assets`
+  is now defined as `account_assets + total_physical_assets`, which is
+  what it already added up to.
+
+- **A side below zero is drawn as nothing, not as negative width.** An
+  overdrawn current account is still an asset-kind account, so
+  `account_assets` can be negative. Letting that into the denominator
+  gives the other two segments more than 100% of the bar between them,
+  and a segment cannot point backwards. `balance_sheet_split` clamps
+  each side at zero before totalling; the legend still prints the real
+  (negative) amount beside a 0% segment. Unit-tested.
+
+- **Zero total → `None`, not three zeroes.** A sheet with nothing on it
+  has no proportions; returning `BalanceSheetSplit | None` means the
+  view has one branch to take rather than three divisions to guard.
+
+- **The bar is a plain `div`, not a `ui.row`.** `.nicegui-row` sets a
+  default `gap`, and a gap between the segments would read as a fourth
+  segment. `.k-split` declares its own `display:flex; gap:0`.
+
+- **`KAL-INV-005` is covered by an integration test, not a unit test.**
+  The plan said "@automated, unit", but `scripts/spec_coverage.py` only
+  scans `tests/e2e` and `tests/integration`, so a `Covers:` line in
+  `tests/unit` counts for nothing and the tag would be reported as
+  uncovered. `tests/integration/test_net_worth_split.py` builds the
+  accounts and the asset through the services against a real database
+  and asserts the scenario's literals (60 / 20 / 20); the zero-total and
+  below-zero cases stay in the unit tests, which claim no scenario.
+
+- **The stacked chart keeps its stack.** It was not a bug: the top edge
+  is deliberately assets *plus* liabilities, so both sides can be sized
+  at a glance. What was missing was it saying so — the legend now names
+  the upper series "Liabilities (stacked on assets)", and the y-axis
+  starts at 0 so a steady sheet no longer looks like a cliff.
+
+- **Stacking:** branched from `plan/restyle-forecast-on-load`, which is
+  itself unmerged. Open the PR with
+  `--base plan/restyle-forecast-on-load`; it must merge after every
+  branch below it.

@@ -1202,7 +1202,13 @@
     "other": "Inne",
     "delete_asset_confirm": "Usunąć \"{name}\"?",
     "cannot_undo": "Tej operacji nie można cofnąć.",
-    "thousand_pln": "tys. PLN"
+    "thousand_pln": "tys. PLN",
+    "split_accounts": "Na kontach",
+    "split_physical": "Majątek rzeczowy",
+    "split_liabilities": "Zadłużenie",
+    "chart_liabilities_stacked": "Zobowiązania (na aktywach)",
+    "loans_footnote": "Pożyczki prywatne, których udzielasz, nie są tu liczone.",
+    "loans_footnote_link": "Pożyczki prywatne"
   },
   "reports": {
     "title": "Raporty",

@@ -18,7 +18,13 @@ from kaleta.schemas.currency_rate import CurrencyRateCreate
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services import AccountService, CategoryService, NetWorthService, TransactionService
 from kaleta.services.currency_rate_service import CurrencyRateService
-from kaleta.services.net_worth_service import AccountSnapshot, MonthlyNetWorth, NetWorthSummary
+from kaleta.services.net_worth_service import (
+    AccountSnapshot,
+    MonthlyNetWorth,
+    NetWorthSummary,
+    PhysicalAssetSnapshot,
+    balance_sheet_split,
+)
 
 TODAY = datetime.date.today()
 
@@ -281,6 +287,90 @@ class TestNetWorthSummaryAggregates:
             prev_month_net_worth=Decimal("1000.00"),
         )
         assert summary.monthly_change == Decimal("-200.00")
+
+
+# ── balance_sheet_split ───────────────────────────────────────────────────────
+
+
+class TestBalanceSheetSplit:
+    """What the proportional bar is allowed to claim (artboard 3b)."""
+
+    def _summary(
+        self,
+        accounts_spec: list[tuple[Decimal, AccountType]],
+        physical: list[Decimal] | None = None,
+    ) -> NetWorthSummary:
+        accounts = [
+            AccountSnapshot(
+                id=i,
+                name=f"Acc{i}",
+                type=t,
+                institution_name=None,
+                balance=b,
+                balance_in_default=b,
+            )
+            for i, (b, t) in enumerate(accounts_spec, start=1)
+        ]
+        assets = [
+            PhysicalAssetSnapshot(id=i, name=f"Asset{i}", type="other", value=v, description="")
+            for i, v in enumerate(physical or [], start=1)
+        ]
+        return NetWorthSummary(
+            accounts=accounts, physical_assets=assets, history=[], prev_month_net_worth=None
+        )
+
+    def test_the_three_sides_are_percentages_of_everything_on_the_sheet(self):
+        summary = self._summary(
+            [
+                (Decimal("6000.00"), AccountType.CHECKING),
+                (Decimal("-2000.00"), AccountType.CREDIT),
+            ],
+            physical=[Decimal("2000.00")],
+        )
+        split = balance_sheet_split(summary)
+        assert split is not None
+        assert (split.accounts, split.physical, split.liabilities) == (60.0, 20.0, 20.0)
+
+    def test_an_empty_sheet_has_no_bar_at_all(self):
+        # Nothing held, owned or owed is 0/0 three times over; the view is
+        # given nothing to draw rather than three zeroes to guard against.
+        assert balance_sheet_split(self._summary([])) is None
+
+    def test_a_sheet_of_nothing_but_zero_balances_has_no_bar_either(self):
+        assert balance_sheet_split(self._summary([(Decimal("0.00"), AccountType.CHECKING)])) is None
+
+    def test_a_side_below_zero_is_drawn_as_nothing_held(self):
+        # An overdrawn current account is still an asset-kind account. Letting
+        # its negative into the total would give the other segments more than
+        # 100% of it between them, and a segment cannot have negative width.
+        summary = self._summary(
+            [
+                (Decimal("-500.00"), AccountType.CHECKING),
+                (Decimal("-1000.00"), AccountType.CREDIT),
+            ],
+            physical=[Decimal("3000.00")],
+        )
+        split = balance_sheet_split(summary)
+        assert split is not None
+        assert split.accounts == 0.0
+        assert split.physical == 75.0
+        assert split.liabilities == 25.0
+        assert split.accounts + split.physical + split.liabilities == 100.0
+
+    def test_one_side_alone_takes_the_whole_bar(self):
+        summary = self._summary([(Decimal("1200.00"), AccountType.CHECKING)])
+        split = balance_sheet_split(summary)
+        assert split is not None
+        assert (split.accounts, split.physical, split.liabilities) == (100.0, 0.0, 0.0)
+
+    def test_account_assets_leaves_the_flat_and_the_car_out_of_it(self):
+        # The bar shows the two separately, so the view must not have to
+        # subtract one total from the other to get either.
+        summary = self._summary(
+            [(Decimal("800.00"), AccountType.CHECKING)], physical=[Decimal("200.00")]
+        )
+        assert summary.account_assets == Decimal("800.00")
+        assert summary.total_assets == Decimal("1000.00")
 
 
 # ── MonthlyNetWorth.label ─────────────────────────────────────────────────────

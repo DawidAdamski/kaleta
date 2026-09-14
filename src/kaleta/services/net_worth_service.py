@@ -80,6 +80,21 @@ class PhysicalAssetSnapshot:
     description: str
 
 
+@dataclass(frozen=True, slots=True)
+class BalanceSheetSplit:
+    """The three segments of the proportional bar, as percentages of the whole.
+
+    The whole is everything on the balance sheet — what the accounts hold,
+    what the physical assets are worth, and what is owed — not net worth.
+    The bar is about the *shape* of the sheet, and a net figure has no shape:
+    the same 10 000 can be 10 000 owned or 200 000 owned against 190 000 owed.
+    """
+
+    accounts: float
+    physical: float
+    liabilities: float
+
+
 @dataclass
 class NetWorthSummary:
     accounts: list[AccountSnapshot]
@@ -93,9 +108,17 @@ class NetWorthSummary:
         return sum((a.value for a in self.physical_assets), Decimal("0"))
 
     @property
+    def account_assets(self) -> Decimal:
+        """What the accounts hold, without the flat and the car.
+
+        The balance-sheet bar shows the two separately, and subtracting one
+        total from another in the view is how they drift apart.
+        """
+        return sum((a.asset_value for a in self.accounts), Decimal("0"))
+
+    @property
     def total_assets(self) -> Decimal:
-        account_assets = sum((a.asset_value for a in self.accounts), Decimal("0"))
-        return account_assets + self.total_physical_assets
+        return self.account_assets + self.total_physical_assets
 
     @property
     def total_liabilities(self) -> Decimal:
@@ -142,6 +165,37 @@ class NetWorthSummary:
     def has_unknown_rates(self) -> bool:
         """True if any foreign-currency account has no known exchange rate."""
         return any(not a.rate_known and a.currency != self.default_currency for a in self.accounts)
+
+
+def balance_sheet_split(summary: NetWorthSummary) -> BalanceSheetSplit | None:
+    """The bar's proportions, or ``None`` when there is no bar to draw.
+
+    A sheet with nothing on either side has no proportions — every segment
+    would be 0/0 — so the caller gets nothing to draw rather than three
+    zeroes to guard against.
+
+    A side that is below zero (overdrawn current accounts, which the model
+    still counts as asset-kind) is taken as nothing held rather than as a
+    negative width: a bar cannot point backwards, and letting the negative
+    into the total would push the other two segments past 100% of it.
+    """
+    parts = [
+        max(value, Decimal("0"))
+        for value in (
+            summary.account_assets,
+            summary.total_physical_assets,
+            summary.total_liabilities,
+        )
+    ]
+    total = sum(parts, Decimal("0"))
+    if total <= 0:
+        return None
+    accounts, physical, liabilities = parts
+    return BalanceSheetSplit(
+        accounts=float(accounts / total * 100),
+        physical=float(physical / total * 100),
+        liabilities=float(liabilities / total * 100),
+    )
 
 
 class NetWorthService:

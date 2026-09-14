@@ -2432,6 +2432,13 @@ Feature: Investment Tracking
     Given a 1000.00 transfer to my brokerage account
     When I link it to a purchase of "V80A" units
     Then the transfer is categorised as an investment contribution
+
+  KAL-INV-005 @automated
+  Scenario: The balance sheet splits into held, owned and owed
+    Given accounts holding 6000.00, physical assets worth 2000.00
+      And 2000.00 owed on a credit account
+    When I view the net worth summary
+    Then the balance-sheet bar reads 60% in accounts, 20% physical, 20% owed
 ```
 
 ## Feature: AI Insights

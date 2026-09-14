@@ -1202,7 +1202,13 @@
     "other": "Other",
     "delete_asset_confirm": "Delete \"{name}\"?",
     "cannot_undo": "This action cannot be undone.",
-    "thousand_pln": "tys. PLN"
+    "thousand_pln": "tys. PLN",
+    "split_accounts": "In accounts",
+    "split_physical": "Physical assets",
+    "split_liabilities": "Owed",
+    "chart_liabilities_stacked": "Liabilities (stacked on assets)",
+    "loans_footnote": "Personal loans you have given are not counted here.",
+    "loans_footnote_link": "Personal loans"
   },
   "reports": {
     "title": "Reports",
