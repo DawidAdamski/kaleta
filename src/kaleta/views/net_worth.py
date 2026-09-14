@@ -156,8 +156,9 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
     ui.echart(net_worth_chart_options(summary, dark)).classes("w-full h-64")
 
 
-#: How solid the two area fills are. They were 0.35, which made the upper
-#: band the loudest thing on the page and the lower one hard to read under it.
+#: How solid the two area fills are. They used to be solid enough that the
+#: upper band was the loudest thing on the page and the lower one was hard to
+#: read underneath it.
 _FILL_OPACITY = 0.22
 
 
