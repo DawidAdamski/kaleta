@@ -17,6 +17,7 @@ from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 from kaleta.services.categorised_flows import categorised_flows_selectable
+from kaleta.services.planned_transaction_service import PlannedTransactionService
 
 REALIZATION_WARNING_THRESHOLD_PCT: float = 5.0
 MONTHS_PER_YEAR = 12
@@ -158,6 +159,59 @@ class CategoryBudgetSummary:
         return self.actual_amount > self.budget_amount
 
 
+class RealizationNoteKind(Enum):
+    """The two things a schedule can say about a row whose bar looks wrong."""
+
+    PAID_IN_FULL = "paid_in_full"
+    PLANNED_ON = "planned_on"
+
+
+@dataclass(frozen=True, slots=True)
+class RealizationNote:
+    """One line explaining a row's pace, when the month's schedule can explain it."""
+
+    kind: RealizationNoteKind
+    date: datetime.date
+    amount: Decimal | None = None
+
+
+def realization_note(
+    *,
+    planned: Decimal,
+    actual: Decimal,
+    used_pct: float,
+    occurrences: builtins.list[tuple[datetime.date, Decimal]],
+    today: datetime.date,
+) -> RealizationNote | None:
+    """Explain a row's pace from the month's schedule, or say nothing.
+
+    A pace bar compares spending against the calendar, which is the wrong
+    comparison twice a month. Rent leaves on the 1st, so a bar that is full
+    on the 2nd is not an overspend — it is the only thing that was ever going
+    to happen. And a category whose bill falls on the 20th reads as
+    underspent all month for no reason at all.
+
+    Only those two cases get a line. Anything else the bar already says.
+    """
+    if not occurrences:
+        return None
+
+    # One occurrence, big enough to be the whole budget, and it has landed.
+    if planned > 0 and actual >= planned and len(occurrences) == 1:
+        when, amount = occurrences[0]
+        if amount >= planned:
+            return RealizationNote(RealizationNoteKind.PAID_IN_FULL, when)
+
+    # Still under budget with money scheduled to go out later this month.
+    if used_pct < 100:
+        upcoming = sorted(occ for occ in occurrences if occ[0] > today)
+        if upcoming:
+            when, amount = upcoming[0]
+            return RealizationNote(RealizationNoteKind.PLANNED_ON, when, amount)
+
+    return None
+
+
 @dataclass
 class CategoryRealization:
     category_id: int
@@ -168,6 +222,8 @@ class CategoryRealization:
     actual: Decimal
     elapsed_pct: float
     used_pct: float
+    #: Why the pace looks the way it does, when the schedule can say.
+    note: RealizationNote | None = None
 
     @property
     def remaining(self) -> Decimal:
@@ -621,6 +677,13 @@ class BudgetService:
                     cat.name,
                 )
 
+        # One pass over the month's schedule for every row, not one per row.
+        schedule = await self._expense_schedule(month_start, month_end)
+        # A note explains *pace*, and pace only means something while the month
+        # is still running: a finished month has nothing left to expect, and a
+        # future one has not started to fall behind.
+        explain = month_start <= today <= month_end
+
         rows: builtins.list[CategoryRealization] = []
         for cat_id, (parent_id, parent_name, name) in parent_lookup.items():
             planned_amt = planned.get(cat_id, Decimal("0"))
@@ -640,6 +703,17 @@ class BudgetService:
                     actual=actual_amt,
                     elapsed_pct=elapsed_pct,
                     used_pct=used_pct,
+                    note=(
+                        realization_note(
+                            planned=planned_amt,
+                            actual=actual_amt,
+                            used_pct=used_pct,
+                            occurrences=schedule.get(cat_id, []),
+                            today=today,
+                        )
+                        if explain
+                        else None
+                    ),
                 )
             )
 
@@ -650,6 +724,18 @@ class BudgetService:
         }
         rows.sort(key=lambda r: (status_order[r.status], -r.pace_delta, r.category_name))
         return rows
+
+    async def _expense_schedule(
+        self, start: datetime.date, end: datetime.date
+    ) -> dict[int, builtins.list[tuple[datetime.date, Decimal]]]:
+        """Planned expense occurrences in the window, keyed by category."""
+        occurrences = await PlannedTransactionService(self.session).get_occurrences(start, end)
+        schedule: dict[int, builtins.list[tuple[datetime.date, Decimal]]] = {}
+        for occ in occurrences:
+            if occ.type != TransactionType.EXPENSE or occ.category_id is None:
+                continue
+            schedule.setdefault(occ.category_id, []).append((occ.date, occ.amount))
+        return schedule
 
     async def range_summary(
         self, start: datetime.date, end: datetime.date

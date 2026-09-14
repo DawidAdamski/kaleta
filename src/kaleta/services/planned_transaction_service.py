@@ -67,6 +67,7 @@ class PlannedOccurrence:
     type: TransactionType
     account_id: int
     account_name: str
+    category_id: int | None
     category_name: str | None
 
 
@@ -431,5 +432,6 @@ class PlannedTransactionService:
             type=p.type,
             account_id=p.account_id,
             account_name=p.account.name if p.account else f"Account {p.account_id}",
+            category_id=p.category_id,
             category_name=p.category.name if p.category else None,
         )

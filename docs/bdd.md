@@ -1496,6 +1496,25 @@ Feature: Annual Budget Planning
     When I enter "-100" in a budget cell
     Then I see a validation error
     And the cell reverts to its previous value
+
+  # --- Realization pace ---
+
+  KAL-BUD-012 @automated
+  Scenario: A realization row explains an expected early payment
+    Given rent of 2000.00 is budgeted for this month and planned once for it
+    And the rent has already gone out
+    When I open the Realization tab
+    Then the row's bar is full while the month is barely elapsed
+    And a line under it says the money was paid in full on that date
+    And the row does not read as an overspend
+
+  KAL-BUD-013 @automated
+  Scenario: A pace bar replaces the status word
+    Given a category is budgeted for this month
+    When I open the Realization tab
+    Then each row ends with a bar filled to what was spent
+    And a tick on the bar marks how much of the month has elapsed
+    And the status word it replaced is still there on hover
 ```
 
 ## Feature: Budget Planning Comparisons

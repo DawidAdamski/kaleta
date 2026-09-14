@@ -828,11 +828,13 @@
       "col_remaining": "Pozostało",
       "col_used_pct": "Wykorzystano",
       "col_elapsed_pct": "Upłynęło",
-      "col_status": "Status",
+      "col_pace": "Tempo",
       "status_on_track": "Na plan",
       "status_warning": "Uwaga",
       "status_over": "Przekroczono",
-      "elapsed_hint": "Miesiąc upłynął w {pct}%"
+      "elapsed_hint": "Miesiąc upłynął w {pct}%",
+      "note_paid_in_full": "Opłacone w całości {date} — zgodnie z planem",
+      "note_planned_on": "{amount} zaplanowane na {date}"
     }
   },
   "budget_plan": {

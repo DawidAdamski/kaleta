@@ -11,18 +11,29 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
+from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 from kaleta.schemas.category import CategoryCreate
+from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
-from kaleta.services import AccountService, BudgetService, CategoryService, TransactionService
+from kaleta.services import (
+    AccountService,
+    BudgetService,
+    CategoryService,
+    PlannedTransactionService,
+    TransactionService,
+)
 from kaleta.services.budget_service import (
+    RealizationNote,
+    RealizationNoteKind,
     build_category_plan_row,
     category_yearly_total,
     date_range_for_key,
     format_date_range_label,
     per_month_from_yearly_total,
+    realization_note,
     uniform_monthly_amount,
 )
 
@@ -746,3 +757,195 @@ class TestSplitAwareAggregation:
 
         assert by_cat.get(groceries_id) == Decimal("180.00")
         assert by_cat.get(alcohol_id) == Decimal("34.50")
+
+
+class TestRealizationNoteWiring:
+    async def test_the_month_schedule_reaches_the_row(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        """Covers: KAL-BUD-012 — the row carries the note, not just the service.
+
+        The pure rule is tested below; this is the wiring that feeds it — the
+        planned occurrence has to be found, matched to its category, and
+        filtered to expenses.
+        """
+        rent_id = await _make_category(session, "Rent")
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=rent_id, amount=Decimal("2000.00"), month=4, year=2026)
+        )
+        await PlannedTransactionService(session).create(
+            PlannedTransactionCreate(
+                name="Rent",
+                amount=Decimal("2000.00"),
+                type=TransactionType.EXPENSE,
+                account_id=acc_id,
+                category_id=rent_id,
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2026, 4, 1),
+            )
+        )
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=rent_id,
+                amount=Decimal("2000.00"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2026, 4, 1),
+                description="Rent",
+            )
+        )
+
+        rows = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 4, 2))
+        row = next(r for r in rows if r.category_id == rent_id)
+
+        assert row.note == RealizationNote(
+            RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1)
+        )
+
+    async def test_a_finished_month_has_nothing_left_to_expect(
+        self, svc: BudgetService, session: AsyncSession
+    ):
+        """Covers: KAL-BUD-012 — a note explains pace, and a past month has none."""
+        rent_id = await _make_category(session, "Rent")
+        acc_id = await _make_account(session)
+        await svc.create(
+            BudgetCreate(category_id=rent_id, amount=Decimal("2000.00"), month=4, year=2026)
+        )
+        await PlannedTransactionService(session).create(
+            PlannedTransactionCreate(
+                name="Rent",
+                amount=Decimal("2000.00"),
+                type=TransactionType.EXPENSE,
+                account_id=acc_id,
+                category_id=rent_id,
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2026, 4, 1),
+            )
+        )
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=rent_id,
+                amount=Decimal("2000.00"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2026, 4, 1),
+                description="Rent",
+            )
+        )
+
+        rows = await svc.realization_for_month(2026, 4, today=datetime.date(2026, 6, 1))
+
+        assert next(r for r in rows if r.category_id == rent_id).note is None
+
+
+# ── realization_note ──────────────────────────────────────────────────────────
+
+
+class TestRealizationNote:
+    """The pure rule behind the line under a pace bar.
+
+    Covers: KAL-BUD-012 — a bar that is full on the 2nd of the month is an
+    overspend or a rent payment, and only the schedule knows which.
+    """
+
+    def test_a_single_occurrence_covering_the_budget_is_paid_in_full(self):
+        note = realization_note(
+            planned=Decimal("2000.00"),
+            actual=Decimal("2000.00"),
+            used_pct=100.0,
+            occurrences=[(datetime.date(2026, 4, 1), Decimal("2000.00"))],
+            today=datetime.date(2026, 4, 2),
+        )
+
+        assert note == RealizationNote(RealizationNoteKind.PAID_IN_FULL, datetime.date(2026, 4, 1))
+
+    def test_two_occurrences_explain_nothing(self):
+        # Half the budget arriving twice is a spending pattern, not a bill.
+        note = realization_note(
+            planned=Decimal("2000.00"),
+            actual=Decimal("2000.00"),
+            used_pct=100.0,
+            occurrences=[
+                (datetime.date(2026, 4, 1), Decimal("1000.00")),
+                (datetime.date(2026, 4, 15), Decimal("1000.00")),
+            ],
+            today=datetime.date(2026, 4, 20),
+        )
+
+        assert note is None
+
+    def test_an_occurrence_smaller_than_the_budget_explains_nothing(self):
+        note = realization_note(
+            planned=Decimal("2000.00"),
+            actual=Decimal("2000.00"),
+            used_pct=100.0,
+            occurrences=[(datetime.date(2026, 4, 1), Decimal("300.00"))],
+            today=datetime.date(2026, 4, 20),
+        )
+
+        assert note is None
+
+    def test_money_scheduled_later_this_month_is_named(self):
+        note = realization_note(
+            planned=Decimal("400.00"),
+            actual=Decimal("0.00"),
+            used_pct=0.0,
+            occurrences=[(datetime.date(2026, 4, 12), Decimal("284.00"))],
+            today=datetime.date(2026, 4, 3),
+        )
+
+        assert note == RealizationNote(
+            RealizationNoteKind.PLANNED_ON, datetime.date(2026, 4, 12), Decimal("284.00")
+        )
+
+    def test_the_nearest_upcoming_occurrence_wins(self):
+        note = realization_note(
+            planned=Decimal("400.00"),
+            actual=Decimal("0.00"),
+            used_pct=0.0,
+            occurrences=[
+                (datetime.date(2026, 4, 25), Decimal("100.00")),
+                (datetime.date(2026, 4, 12), Decimal("284.00")),
+            ],
+            today=datetime.date(2026, 4, 3),
+        )
+
+        assert note is not None
+        assert note.date == datetime.date(2026, 4, 12)
+
+    def test_an_occurrence_already_past_is_not_upcoming(self):
+        note = realization_note(
+            planned=Decimal("400.00"),
+            actual=Decimal("50.00"),
+            used_pct=12.5,
+            occurrences=[(datetime.date(2026, 4, 2), Decimal("50.00"))],
+            today=datetime.date(2026, 4, 20),
+        )
+
+        assert note is None
+
+    def test_an_overspent_row_is_not_told_what_is_still_coming(self):
+        # The bar is already past 100%: "284,00 planned for the 12th" would
+        # read as reassurance, which is the opposite of the truth.
+        note = realization_note(
+            planned=Decimal("400.00"),
+            actual=Decimal("460.00"),
+            used_pct=115.0,
+            occurrences=[(datetime.date(2026, 4, 12), Decimal("284.00"))],
+            today=datetime.date(2026, 4, 3),
+        )
+
+        assert note is None
+
+    def test_nothing_scheduled_says_nothing(self):
+        assert (
+            realization_note(
+                planned=Decimal("400.00"),
+                actual=Decimal("460.00"),
+                used_pct=115.0,
+                occurrences=[],
+                today=datetime.date(2026, 4, 3),
+            )
+            is None
+        )

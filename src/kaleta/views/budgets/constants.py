@@ -5,10 +5,11 @@ from __future__ import annotations
 
 from kaleta.services.budget_service import RealizationStatus
 
-STATUS_COLOUR: dict[RealizationStatus, str] = {
-    RealizationStatus.ON_TRACK: "positive",
-    RealizationStatus.WARNING: "amber-7",
-    RealizationStatus.OVER: "negative",
+#: The pace bar's fill, by the same threshold the status word used.
+PACE_FILL: dict[RealizationStatus, str] = {
+    RealizationStatus.ON_TRACK: "var(--k-income)",
+    RealizationStatus.WARNING: "var(--k-warning)",
+    RealizationStatus.OVER: "var(--k-expense)",
 }
 
 STATUS_LABEL_KEY: dict[RealizationStatus, str] = {

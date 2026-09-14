@@ -828,11 +828,13 @@
       "col_remaining": "Remaining",
       "col_used_pct": "Used",
       "col_elapsed_pct": "Elapsed",
-      "col_status": "Status",
+      "col_pace": "Pace",
       "status_on_track": "On track",
       "status_warning": "Warning",
       "status_over": "Over",
-      "elapsed_hint": "Month is {pct}% elapsed"
+      "elapsed_hint": "Month is {pct}% elapsed",
+      "note_paid_in_full": "Paid in full on {date} — expected",
+      "note_planned_on": "{amount} planned for {date}"
     }
   },
   "budget_plan": {
