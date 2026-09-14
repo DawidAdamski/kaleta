@@ -132,13 +132,31 @@ already describes. And an overspent row is never told what is still coming:
 
 ### The note has four clauses, and each one is a way it could lie
 
-"Paid in full" needs more than a big enough occurrence: the occurrence has
+"Paid in full" needs more than a big enough occurrence. The occurrence has
 to be **due** (`when <= today` — a 2 000 bill dated the 25th has not been
-paid on the 10th, whatever else was spent), and nothing may have been spent
-**on top of it** (`actual <= amount` — 3 000 against a 2 000 bill is not
-"as expected"). Both have unit tests. The field is called `note` rather
-than the plan's `explanation`, which reads better through `note_text` and
-the two i18n keys.
+paid on the 10th, whatever else was spent), and the row must not be **over**
+(`used_pct <= 100`), which covers both ways it can be: something spent on
+top of the bill, and a bill bigger than the budget it is charged to. Rent of
+2 000 against a budget of 1 900 is an overspend of 100, and a line reading
+"as expected" under a red bar is reassurance for exactly the row that should
+not get any. Each clause has its own unit test.
+
+A bill **due today and unpaid** counts as upcoming, not past — the one day
+the "planned for 12.09" line matters most. The paid case is taken by the
+branch above it, so the two cannot both fire.
+
+The field is called `note` rather than the plan's `explanation`, which reads
+better through `note_text` and the two i18n keys.
+
+### A bar the schedule explains still keeps its colour
+
+A rent row paid on the 1st is at 100 % used against a 5 % elapsed month, so
+`CategoryRealization.status` calls it WARNING and the bar is amber — the
+note explains it, but does not repaint it. That is deliberate: the
+thresholds are out of scope (Scope says so), and amber is not *wrong* — the
+money did go out ahead of the month. What the row must not do is read as an
+**overspend**, and it does not: the fill is never `--k-expense` while the
+note stands, which is what KAL-BUD-012 asserts and how its step is worded.
 
 ### `PlannedOccurrence` gained a `category_id`
 

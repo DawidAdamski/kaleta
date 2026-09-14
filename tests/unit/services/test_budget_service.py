@@ -886,6 +886,32 @@ class TestRealizationNote:
 
         assert note is None
 
+    def test_a_bill_bigger_than_the_budget_is_an_overspend(self):
+        # Rent of 2 000 against a budget of 1 900: the bar is over, and a line
+        # saying "as expected" under it would be reassurance for an overspend.
+        note = realization_note(
+            planned=Decimal("1900.00"),
+            actual=Decimal("2000.00"),
+            used_pct=105.26,
+            occurrences=[(datetime.date(2026, 4, 1), Decimal("2000.00"))],
+            today=datetime.date(2026, 4, 2),
+        )
+
+        assert note is None
+
+    def test_a_bill_due_today_and_unpaid_is_still_upcoming(self):
+        note = realization_note(
+            planned=Decimal("400.00"),
+            actual=Decimal("0.00"),
+            used_pct=0.0,
+            occurrences=[(datetime.date(2026, 4, 12), Decimal("284.00"))],
+            today=datetime.date(2026, 4, 12),
+        )
+
+        assert note == RealizationNote(
+            RealizationNoteKind.PLANNED_ON, datetime.date(2026, 4, 12), Decimal("284.00")
+        )
+
     def test_a_bill_not_yet_due_has_not_been_paid(self):
         # 2 000 of groceries by the 10th, against a 2 000 bill due on the 25th:
         # the money that went out is not that bill.

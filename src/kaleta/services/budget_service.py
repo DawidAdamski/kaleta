@@ -196,18 +196,22 @@ def realization_note(
     if not occurrences:
         return None
 
-    # One occurrence, big enough to be the whole budget, already due, and
-    # nothing spent on top of it. Every clause is a way the line could
-    # otherwise be false: a bill due on the 25th has not been paid on the
-    # 10th, and 3 000 spent against a 2 000 bill is not "as expected".
-    if planned > 0 and actual >= planned and len(occurrences) == 1:
+    # One occurrence, big enough to be the whole budget, already due, and the
+    # budget used up exactly. Every clause is a way the line could otherwise
+    # be false: a bill due on the 25th has not been paid on the 10th, and a
+    # row that went *over* — because the bill is bigger than the budget, or
+    # because something was spent on top of it — is an overspend, not
+    # "as expected".
+    if planned > 0 and actual >= planned and used_pct <= 100 and len(occurrences) == 1:
         when, amount = occurrences[0]
-        if amount >= planned and when <= today and actual <= amount:
+        if amount >= planned and when <= today:
             return RealizationNote(RealizationNoteKind.PAID_IN_FULL, when)
 
-    # Still under budget with money scheduled to go out later this month.
+    # Still under budget with money scheduled to go out. Today counts as
+    # upcoming: a bill due today and not yet paid is the day the line matters
+    # most, and the branch above has already taken the paid case.
     if used_pct < 100:
-        upcoming = sorted(occ for occ in occurrences if occ[0] > today)
+        upcoming = sorted(occ for occ in occurrences if occ[0] >= today)
         if upcoming:
             when, amount = upcoming[0]
             return RealizationNote(RealizationNoteKind.PLANNED_ON, when, amount)
@@ -683,12 +687,13 @@ class BudgetService:
                     cat.name,
                 )
 
-        # One pass over the month's schedule for every row, not one per row.
-        schedule = await self._expense_schedule(month_start, month_end)
         # A note explains *pace*, and pace only means something while the month
         # is still running: a finished month has nothing left to expect, and a
-        # future one has not started to fall behind.
+        # future one has not started to fall behind. Deciding that first keeps
+        # every other month from expanding a schedule it will not read.
         explain = month_start <= today <= month_end
+        # One pass over the month's schedule for every row, not one per row.
+        schedule = await self._expense_schedule(month_start, month_end) if explain else {}
 
         rows: builtins.list[CategoryRealization] = []
         for cat_id, (parent_id, parent_name, name) in parent_lookup.items():
