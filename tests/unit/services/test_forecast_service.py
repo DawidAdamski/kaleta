@@ -620,14 +620,20 @@ class TestForecastKpis:
         """Covers: KAL-FCT-011
 
         The figures are read off the same result the chart is drawn from, so
-        a what-if that lifts the line lifts them by exactly as much.
+        a what-if that lifts the line lifts them by exactly as much. Every
+        expected figure below is the literal from the scenario.
         """
         result = _result(
             _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
             _point(30, 900.0, lower=800.0, upper=1000.0, forecast=True),
             _point(60, 800.0, lower=600.0, upper=1000.0, forecast=True),
         )
+
         before = forecast_kpis(result)
+        assert before.balance_today == 1000.00
+        assert before.predicted == 800.00
+        assert before.change == -200.00
+        assert before.confidence == 200.00
 
         shifted = apply_scenarios(
             result,
@@ -635,10 +641,10 @@ class TestForecastKpis:
         )
         after = forecast_kpis(shifted)
 
-        assert after.predicted == before.predicted + 5000.0
-        assert after.change == before.change + 5000.0
+        assert after.predicted == 5800.00
+        assert after.change == 4800.00
         # The interval moved with the line, so the ± is unchanged.
-        assert after.confidence == before.confidence
+        assert after.confidence == 200.00
 
     def test_a_scenario_after_the_horizon_leaves_the_figures_alone(self) -> None:
         result = _result(
@@ -772,15 +778,16 @@ class TestScenarioDatesThatDoNothing:
             self._series(), [ScenarioShift(label="Now", date=not_a_point, amount=5000.0)]
         )
 
-        assert forecast_kpis(shifted).predicted == forecast_kpis(self._series()).predicted
+        # Unmoved: the horizon figure is what it was without the scenario.
+        assert forecast_kpis(shifted).predicted == 980.00
 
     def test_the_date_the_dialog_offers_moves_every_later_figure(self) -> None:
         offered = default_scenario_date(self._series(), datetime.date(2026, 1, 1))
-        assert offered is not None
+        assert offered == datetime.date(2026, 1, 2)
+
         shifted = apply_scenarios(
             self._series(), [ScenarioShift(label="Soon", date=offered, amount=5000.0)]
         )
 
-        before = forecast_kpis(self._series())
-        after = forecast_kpis(shifted)
-        assert after.predicted == before.predicted + 5000.0
+        # 980.00 at the horizon, plus the 5000.00 the scenario adds.
+        assert forecast_kpis(shifted).predicted == 5980.00

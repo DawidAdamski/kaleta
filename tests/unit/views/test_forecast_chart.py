@@ -192,7 +192,12 @@ class TestStaleAction:
         assert self._act(running=True, controls_match=False) == "leave"
 
     def test_a_page_with_nothing_drawn_keeps_the_message_it_has(self) -> None:
-        # A failure, or too little history: the line already says something
-        # truer than "press Re-run", and it is not the user's doing.
+        # A failure, or too little history, under controls nobody touched:
+        # the line already says something truer than "press Re-run", and it
+        # is not the reader's doing.
         assert self._act(drawn=False, controls_match=True) == "leave"
-        assert self._act(drawn=False, controls_match=False) == "leave"
+
+    def test_but_that_message_stops_being_true_when_the_selection_moves(self) -> None:
+        # "Insufficient transaction history" was about account A. Pick B and
+        # it is no longer an answer to anything on screen.
+        assert self._act(drawn=False, controls_match=False) == "mark"

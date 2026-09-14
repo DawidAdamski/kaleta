@@ -2231,10 +2231,31 @@ Feature: Account Balance Forecast
 
   KAL-FCT-011 @automated
   Scenario: The figures include the scenario shifts the chart draws
-    Given a forecast whose predicted balance at the horizon is known
-    When a what-if scenario adds an amount before that horizon
-    Then the predicted figure moves by that amount
-    And the change figure moves with it
+    Given a forecast that starts from a balance of 1000.00
+    And its predicted balance at the horizon is 800.00, a change of -200.00
+    When a what-if scenario adds 5000.00 on a date before that horizon
+    Then the predicted figure reads 5800.00
+    And the change figure reads 4800.00
+    And the confidence stays at ± 200.00, because the interval moved too
+
+  KAL-FCT-012 @manual
+  Scenario: A slow forecaster asks before spending a run
+    Given Kaleta is installed with the optional Prophet extra
+    And I am on the Forecast page with a chart on screen
+    When I change the account or the horizon
+    Then the chart stays as it was
+    And a hint says the controls changed and Re-run will apply them
+    And the Re-run button is raised
+    When I change the control back to what the chart answers
+    Then the hint and the raised button go away
+    When I instead press Re-run
+    Then the chart and its four figures answer the new selection
+
+  KAL-FCT-013 @automated
+  Scenario: A what-if never waits for a re-run
+    Given I am on the Forecast page with a chart on screen
+    When I add a what-if scenario
+    Then the figures and the chart move at once, with no forecast run
 ```
 
 ## Feature: Credit Calculator

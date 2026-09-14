@@ -3,7 +3,7 @@
 
 Maps scenarios from docs/bdd.md — Feature: Account Balance Forecast.
 Covers: KAL-FCT-001, KAL-FCT-002, KAL-FCT-003, KAL-FCT-007, KAL-FCT-010,
-KAL-FCT-011
+KAL-FCT-011, KAL-FCT-013
 Page URL: /forecast
 """
 
@@ -139,7 +139,7 @@ def test_run_90_day_forecast(page: Page, base_url: str) -> None:
     # "Extends 90 days beyond today" — the horizon the figure is dated at.
     # The forecast runs from the day after the last *transaction*, and
     # `seed_many_transactions` posts one today, so here that is today + 90.
-    horizon = (datetime.date.today() + datetime.timedelta(days=90)).isoformat()
+    horizon = (datetime.date.today() + datetime.timedelta(days=90)).strftime("%d.%m.%Y")
     expect(page.locator('[data-kpi="predicted"]')).to_contain_text(horizon, timeout=10000)
 
 
@@ -199,7 +199,7 @@ def test_warning_shown_for_insufficient_history(page: Page, base_url: str) -> No
 
 
 def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> None:
-    """Covers: KAL-FCT-011
+    """Covers: KAL-FCT-011, KAL-FCT-013
 
     The figures are read off the same series the chart is drawn from, so a
     what-if that lifts the line lifts them by exactly as much. The prototype
@@ -232,7 +232,13 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     dialog.get_by_label("Amount (zł; negative for expenses)").fill("10000")
     dialog.get_by_role("button", name="Save").click()
 
+    # KAL-FCT-013: no forecast run, so no skeleton and no "Running…" — the
+    # figures simply move. Asserted by the *absence* of a re-run: the chart
+    # element is never torn down, so the one on screen now is the one that
+    # was there before the scenario was added.
     expect(_kpi(page, "predicted")).not_to_have_text(before_text, timeout=_RUN_TIMEOUT)
+    expect(page.locator(".q-skeleton")).to_have_count(0)
+    expect(page.get_by_text("Running forecast...")).to_have_count(0)
     assert _figure(page, "predicted") == pytest.approx(before_predicted + 10000, abs=0.01)
     assert _figure(page, "change") == pytest.approx(before_change + 10000, abs=0.01)
 

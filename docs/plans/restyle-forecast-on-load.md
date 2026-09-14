@@ -414,6 +414,35 @@ its default date off the *previous* account's forecast, so it can offer a
 date that shifts nothing once Re-run lands. Narrow, and only on the stale
 path; the fix belongs with whatever settles how a stale page behaves.
 
+### Round eight: the exemption has an end
+
+`stale_action` left the mark alone whenever nothing was drawn, which is right
+while the controls have not moved — a failure or too little history is not
+the reader's doing, and "press Re-run" would blame them for it. But it is
+wrong the moment the selection changes: account A's "Insufficient
+transaction history" is not an answer about account B. The exemption now
+applies only when the controls still match, and the match is measured
+against what the last run was *asked* (recorded before the await) rather than
+what it returned, so a failed run is still something the controls can be
+compared with.
+
+Three scenarios came out of this round rather than one. `KAL-FCT-011` now
+carries literal figures — 1000.00 opening, 800.00 at the horizon, +5000.00
+scenario, 5800.00 and 4800.00 after — because Working Agreement §11 wants
+verification tests to assert literals from the scenario, and the old test
+computed its expectations by calling `forecast_kpis` twice. `KAL-FCT-012` is
+`@manual`: the Prophet stale/Re-run behaviour is user-facing and cannot be
+automated where Prophet is not installed, so §5 wants it written down for the
+owner's pass rather than left in these notes. `KAL-FCT-013` says a what-if
+never waits for a run, and the e2e asserts it by the absence of a skeleton
+and of the "Running…" line.
+
+The horizon hint prints `13.12.2026` rather than `2026-12-13`, the format the
+rest of the app writes dates in. The figures themselves still use the
+app-wide `,` thousands separator, which reads oddly in Polish — the same
+Chore-inbox candidate the import-mapping plan recorded, not something to fix
+one page at a time.
+
 ### A run outlives the page it was started for
 
 `test_every_nav_entry_routes` clicks every sidebar entry in turn, and failed

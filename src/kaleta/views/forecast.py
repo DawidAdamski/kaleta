@@ -216,6 +216,9 @@ def _forecast_chart(
 #: How long a control change waits before it re-runs itself.
 _DEBOUNCE_SECONDS = 0.3
 
+#: Dates the reader sees, in the format the rest of the app writes them.
+_DATE_FMT = "%d.%m.%Y"
+
 
 @dataclass
 class _RunState:
@@ -259,12 +262,21 @@ def stale_action(
 
     - the naive path, whose re-run lands within the debounce;
     - a run in flight, whose recorded account is still the *previous* one;
-    - nothing successfully drawn, where the line already says something truer
-      than "press Re-run" — a failure, or too little history.
+    - a failure or too little history under controls nobody has touched,
+      where the line already says something truer than "press Re-run".
+
+    That last exemption ends the moment the selection moves on: A's
+    "Insufficient transaction history" is no longer true of B, so the mark
+    goes up whether or not anything was drawn.
     """
-    if not prophet_available or running or not drawn:
+    if not prophet_available or running:
         return "leave"
-    return "clear" if controls_match else "mark"
+    if controls_match:
+        # Nothing drawn and nothing changed: a failure or too little history,
+        # and the line already says so. Saying "press Re-run" over it would
+        # blame the reader for it.
+        return "clear" if drawn else "leave"
+    return "mark"
 
 
 def _saved_horizon() -> int:
@@ -401,10 +413,14 @@ def register() -> None:
                 run_btn.props(remove="flat")
 
             def _controls_match_last_run() -> bool:
-                return (
-                    run_state.raw is not None
-                    and run_state.account == account_sel.value
-                    and run_state.horizon == int(horizon_sel.value)
+                """Is what is on screen an answer to what is selected now?
+
+                Measured against what the last run was *asked*, not what it
+                returned: a run that failed for account A still answers the
+                question "is A what you have selected?".
+                """
+                return run_state.account == account_sel.value and run_state.horizon == int(
+                    horizon_sel.value
                 )
 
             def _sync_stale() -> None:
@@ -643,6 +659,11 @@ def register() -> None:
                 chosen = account_sel.value
                 acct_id = None if chosen == "all" else int(chosen)
                 horizon = int(horizon_sel.value)
+                # Recorded before the run, not after: whatever it returns —
+                # a result, nothing, or an error — the page now shows an
+                # answer to *these* controls.
+                run_state.account = chosen
+                run_state.horizon = horizon
 
                 async def _ask(session: Any) -> ForecastResult:
                     result: ForecastResult = await ForecastService(session).forecast_account(
@@ -673,8 +694,6 @@ def register() -> None:
                     raise
 
                 run_state.raw = raw
-                run_state.account = chosen
-                run_state.horizon = horizon
                 if not _redraw_from_last_run() and _page_is_live():
                     _clear_and_say(t("forecast.insufficient"))
 
@@ -743,7 +762,10 @@ def register() -> None:
                         _money(kpis.predicted),
                         "trending_flat",
                         hint=(
-                            t("forecast.kpi_at_date", date=str(kpis.horizon_date))
+                            t(
+                                "forecast.kpi_at_date",
+                                date=kpis.horizon_date.strftime(_DATE_FMT),
+                            )
                             if kpis.horizon_date
                             else ""
                         ),
