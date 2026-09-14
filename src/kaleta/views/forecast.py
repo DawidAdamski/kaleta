@@ -747,20 +747,17 @@ def register() -> None:
                         t("forecast.kpi_balance_today"),
                         _money(kpis.balance_today),
                         "account_balance",
+                        # Dated like the predicted figure beside it: history
+                        # ends at the last transaction, so on a quiet account
+                        # "today" is not today.
+                        hint=_at_date(kpis.balance_date),
                     )
                     _kpi(
                         "predicted",
                         t("forecast.kpi_predicted"),
                         _money(kpis.predicted),
                         "trending_flat",
-                        hint=(
-                            t(
-                                "forecast.kpi_at_date",
-                                date=kpis.horizon_date.strftime(_DATE_FMT),
-                            )
-                            if kpis.horizon_date
-                            else ""
-                        ),
+                        hint=_at_date(kpis.horizon_date),
                     )
                     change_tone = (
                         net_tone(Decimal(str(kpis.change))) if kpis.change is not None else MUTED
@@ -918,6 +915,11 @@ def register() -> None:
             # the user had already answered by navigating here.
             _render_skeleton()
             ui.timer(0.05, run_forecast, once=True)
+
+
+def _at_date(day: datetime.date | None) -> str:
+    """ "on 13.12.2026" — the date a figure belongs to, or nothing."""
+    return "" if day is None else t("forecast.kpi_at_date", date=day.strftime(_DATE_FMT))
 
 
 def _display_date(iso: object) -> str:

@@ -478,6 +478,25 @@ scenario or preset change redraws the *previous* selection's chart with the
 new scenario on it. The mark says the page is stale, so it is not silent, but
 `KAL-FCT-012`'s "the chart stays as it was" is loose about which chart.
 
+### Round ten: both figures are dated
+
+"Balance today" is the last *historical* point, and history ends at the last
+transaction — so on an account quiet for a fortnight it is a fortnight-old
+balance under a label that says today, and the change beside it spans more
+than the chosen horizon. `ForecastKpis.balance_date` carries the day, and the
+card prints it the way the predicted card prints its horizon. The same
+mismatch that got `KAL-FCT-002` reworded.
+
+Two timeouts came down. The scenario redraw waits 5 s, not 60: it needs no
+forecaster at all, which is the whole of `KAL-FCT-013`, and a long wait would
+sit through a regression instead of failing on it. The insufficient-history
+check is back to 30 s — a seven-day account is turned away for want of
+history and never reaches the slow path.
+
+`KAL-FCT-012` says *which* chart stays as it was: the one answering the
+previous selection. That is the known stale-path behaviour recorded above,
+now stated where it can be checked rather than implied.
+
 ### A run outlives the page it was started for
 
 `test_every_nav_entry_routes` clicks every sidebar entry in turn, and failed

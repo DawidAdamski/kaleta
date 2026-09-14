@@ -203,6 +203,11 @@ class ForecastKpis:
     """
 
     balance_today: float | None
+    #: The day ``balance_today`` is from. Not necessarily today: history ends
+    #: at the last transaction, so a quiet account's "balance today" is its
+    #: balance as of whenever something last happened, and the figure should
+    #: say so rather than let the label speak for it.
+    balance_date: datetime.date | None
     predicted: float | None
     change: float | None
     #: Half the prediction interval at the horizon — the "± X" a reader can
@@ -221,13 +226,15 @@ def forecast_kpis(result: ForecastResult) -> ForecastKpis:
     history = result.historical
     forecast = result.forecast
     balance_today = history[-1].value if history else None
+    balance_date = history[-1].date if history else None
     if not forecast:
-        return ForecastKpis(balance_today, None, None, None, None)
+        return ForecastKpis(balance_today, balance_date, None, None, None, None)
 
     horizon = forecast[-1]
     change = None if balance_today is None else round(horizon.value - balance_today, 2)
     return ForecastKpis(
         balance_today=balance_today,
+        balance_date=balance_date,
         predicted=horizon.value,
         change=change,
         confidence=round((horizon.upper - horizon.lower) / 2, 2),

@@ -20,6 +20,11 @@ from tests.e2e.seed_helpers import seed_account, seed_category, seed_many_transa
 #: page answers on its own, so the wait is for an answer, not for a click.
 _RUN_TIMEOUT = 60000
 
+#: For what does not need a forecaster at all — a scenario shifting a result
+#: already in hand. Short on purpose: if this ever starts a run again, the
+#: test should notice rather than wait it out.
+_REDRAW_TIMEOUT = 5000
+
 
 def _control(page: Page, label: str):
     """The select named by its aria-label — Quasar puts it on the control div."""
@@ -185,8 +190,10 @@ def test_warning_shown_for_insufficient_history(page: Page, base_url: str) -> No
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "New Acct Forecast Insuf E2E")
 
+    # A seven-day account never reaches the forecaster's slow path — it is
+    # turned away for want of history — so this does not need the long wait.
     expect(page.get_by_text("Insufficient transaction history for forecasting.")).to_be_visible(
-        timeout=_RUN_TIMEOUT
+        timeout=30000
     )
     # And no chart is displayed — the figures go with it.
     expect(page.locator(".nicegui-echart")).to_have_count(0)
@@ -245,7 +252,7 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     dialog.get_by_label("Amount (zł; negative for expenses)").fill("5000")
     dialog.get_by_role("button", name="Save").click()
 
-    expect(_kpi(page, "predicted")).not_to_have_text(before_text, timeout=_RUN_TIMEOUT)
+    expect(_kpi(page, "predicted")).not_to_have_text(before_text, timeout=_REDRAW_TIMEOUT)
     assert _figure(page, "predicted") == pytest.approx(before_predicted + 5000, abs=0.01)
     assert _figure(page, "change") == pytest.approx(before_change + 5000, abs=0.01)
     # The interval moved with the line, so the ± did not move at all.
@@ -258,4 +265,4 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
     # Take it away again — both so the figure comes back, and so the scenario
     # does not follow the session into the next test.
     page.locator('[aria-label="Remove scenario Bonus E2E"]').click()
-    expect(_kpi(page, "predicted")).to_have_text(before_text, timeout=_RUN_TIMEOUT)
+    expect(_kpi(page, "predicted")).to_have_text(before_text, timeout=_REDRAW_TIMEOUT)

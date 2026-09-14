@@ -607,6 +607,7 @@ class TestForecastKpis:
         assert kpis.predicted == 700.0
         assert kpis.change == -300.0
         assert kpis.horizon_date == datetime.date(2026, 4, 1)
+        assert kpis.balance_date == datetime.date(2026, 1, 1)
 
     def test_confidence_is_half_the_interval_at_the_horizon(self) -> None:
         result = _result(
@@ -664,8 +665,19 @@ class TestForecastKpis:
         kpis = forecast_kpis(result)
 
         assert kpis.balance_today is None
+        assert kpis.balance_date is None
         assert kpis.change is None
         assert kpis.predicted == 900.0
+
+    def test_the_balance_is_dated_by_its_last_transaction_not_by_today(self) -> None:
+        # A quiet account's "balance today" is its balance as of whenever
+        # something last happened, and the card says which day that was.
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(3, 995.0, lower=900.0, upper=1090.0, forecast=True),
+        )
+
+        assert forecast_kpis(result).balance_date == datetime.date(2026, 1, 1)
 
     def test_no_forecast_leaves_every_figure_past_today_empty(self) -> None:
         result = _result(_point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False))
@@ -673,6 +685,7 @@ class TestForecastKpis:
         kpis = forecast_kpis(result)
 
         assert kpis.balance_today == 1000.0
+        assert kpis.balance_date == datetime.date(2026, 1, 1)
         assert kpis.predicted is None
         assert kpis.change is None
         assert kpis.confidence is None

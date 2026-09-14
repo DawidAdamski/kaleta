@@ -2244,7 +2244,7 @@ Feature: Account Balance Forecast
     Given Kaleta is installed with the optional Prophet extra
     And I am on the Forecast page with a chart on screen
     When I change the account or the horizon
-    Then the chart stays as it was
+    Then the chart on screen still answers the previous selection
     And a hint says the controls changed and Re-run will apply them
     And the Re-run button is raised
     When I change the control back to what the chart answers
