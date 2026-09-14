@@ -354,6 +354,15 @@ itself lists. Choosing the wrong date format on a thousand-row file put a
 thousand muted labels under a strip that had already counted them, burying
 the pickers it was pointing at.
 
+### The message reads its own row number
+
+Seventh review round. `message_is_summarised` tried every row the strip knew
+against every message — quadratic, on the exact input this screen exists
+for: the wrong date format on a large export, where every row fails. A 5,000
+-row file meant millions of prefix comparisons on the event loop, on every
+picker change. `row_error_line` is the inverse of `row_error_prefix`: the
+message says which row it is about, once, and the view looks it up in a set.
+
 ### What the auto mark means, exactly
 
 The mark says the picker holds the column the importer put there — not that

@@ -68,14 +68,25 @@ def auto_decode(raw: bytes) -> str:
     return decode_upload(raw)[0]
 
 
-def row_error_prefix(line_no: int) -> str:
-    """How a parse error names the line it happened on.
+#: How a parse error names the line it happened on, and how to read it back.
+#: Shared with the mapping step, which uses them to tell a message the warning
+#: strip already summarises from one that stands alone.
+_ROW_ERROR_RE = re.compile(r"^Row (\d+):")
 
-    Shared with the mapping step, which uses it to tell a message the warning
-    strip already summarises from one that stands alone, so the two cannot
-    drift apart.
-    """
+
+def row_error_prefix(line_no: int) -> str:
+    """How a parse error names the line it happened on."""
     return f"Row {line_no}:"
+
+
+def row_error_line(message: str) -> int | None:
+    """The line a parse error names, or ``None`` when it names none.
+
+    The inverse of :func:`row_error_prefix`. A caller asking "is this message
+    about row 42" reads the number once instead of trying every row it knows.
+    """
+    match = _ROW_ERROR_RE.match(message)
+    return int(match.group(1)) if match else None
 
 
 def digits_only(value: str) -> str:

@@ -4,14 +4,18 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Container
 from dataclasses import dataclass
 from typing import Any
 
 from nicegui import background_tasks, ui
 
 from kaleta.i18n import plural_key, t
-from kaleta.services.import_service import ColumnMapping, CsvInspection, row_error_prefix
+from kaleta.services.import_service import (
+    ColumnMapping,
+    CsvInspection,
+    row_error_line,
+)
 from kaleta.views.import_view.state import QueuedFile
 from kaleta.views.theme import (
     AUTO_BADGE,
@@ -129,15 +133,20 @@ def truncate_cell(value: str) -> str:
     return value[: SAMPLE_CELL_CHARS - 1] + "…"
 
 
-def message_is_summarised(message: str, error_rows: list[int]) -> bool:
+def message_is_summarised(message: str, error_rows: Container[int]) -> bool:
     """Is the strip above already saying what this message says?
 
     A message naming a row the strip lists is detail behind it, and reads as
     a muted footnote. One with no row behind it — "Date column is required" —
     is the thing standing between the user and an import, and keeps its
     prominence even when other rows failed too.
+
+    The message's row is read once, rather than tried against every row the
+    strip knows: a file whose every row fails is exactly the case this
+    screen exists for, and it is the case a per-row scan would choke on.
     """
-    return any(message.startswith(row_error_prefix(n)) for n in error_rows)
+    line = row_error_line(message)
+    return line is not None and line in error_rows
 
 
 def row_count_label(count: int) -> str:
@@ -349,10 +358,11 @@ class MappingSection:
         self.warning_strip.set_visibility(bool(error_rows))
 
         self.errors_column.clear()
+        listed = frozenset(error_rows)
         with self.errors_column:
             shown_detail = 0
             for err in errors:
-                if message_is_summarised(err, error_rows):
+                if message_is_summarised(err, listed):
                     # The strip already counts them all and lists the first
                     # few. A thousand muted repetitions under it would bury
                     # the pickers the strip is pointing at.
