@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The dashboard's amount strings follow the ledger's sign convention.
 
-Covers: KAL-TXN-015 — the ledger and the dashboard read the same money, so
+Covers: KAL-TXN-017 — the ledger and the dashboard read the same money, so
 they must not disagree about what a sign means, zero included. The card
 helper delegates to ``TransactionService``; these pin what that buys.
 """
@@ -31,6 +31,7 @@ class TestFormatSignedAmount:
         assert format_signed_amount(128.74, TransactionType.EXPENSE) == "-128.74"
 
     def test_zero_carries_no_sign(self) -> None:
+        """Covers: KAL-TXN-017"""
         assert format_signed_amount(Decimal("0"), TransactionType.EXPENSE) == "0.00"
         assert format_signed_amount(Decimal("0"), TransactionType.INCOME) == "0.00"
 
@@ -43,6 +44,7 @@ class TestTone:
         assert signed_amount_class(Decimal("9240.00"), TransactionType.INCOME) == AMOUNT_INCOME
 
     def test_a_zero_row_is_neutral_whatever_its_type(self) -> None:
+        """Covers: KAL-TXN-017"""
         assert signed_amount_class(Decimal("0"), TransactionType.EXPENSE) == AMOUNT_NEUTRAL
         assert signed_amount_class(Decimal("0"), TransactionType.INCOME) == AMOUNT_NEUTRAL
 

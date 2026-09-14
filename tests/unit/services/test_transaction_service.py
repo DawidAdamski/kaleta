@@ -1212,7 +1212,7 @@ class TestTransactionDisplayHelpers:
         assert TransactionService.net_of_rows(rows) == Decimal("-128.74")
 
     def test_zero_carries_no_sign_on_a_row_either(self):
-        """Covers: KAL-TXN-015 — nothing moved, so neither figure claims a way."""
+        """Covers: KAL-TXN-017 — nothing moved, so the row claims no direction."""
         assert (
             TransactionService.format_signed_amount(Decimal("0"), TransactionType.EXPENSE) == "0.00"
         )

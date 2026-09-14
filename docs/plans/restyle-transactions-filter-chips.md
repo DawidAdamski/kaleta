@@ -270,6 +270,16 @@ or deriving it from the pair at write time), which is a model change this
 restyle has no business making. It is listed under **Not done** below, for
 the owner to file.
 
+### The total is computed by a service method, not in the view
+
+Scope says the selection total is "computed in the view from the rows already
+loaded — no service call", and the point of that sentence is the second half:
+no query. `net_of_rows` is a pure static method that touches no session, so
+it costs nothing the view would not have spent adding the figures itself —
+and it is the same function the group separator uses, which is the only way
+the two can be guaranteed to agree. Business rules about what counts as
+money moved belong in the service either way.
+
 ### The separator net is muted, not an amount colour
 
 Scope says the group net is shown "(`k-amount`, signed)". Artboard 2a draws

@@ -39,9 +39,9 @@ def amount_cell_slot() -> str:
     return (
         '<q-td key="amount" :props="props" class="text-right">'
         # A zero moved nothing, so it is neither income nor expense — the
-        # server-side rule is ``signed_amount_class``. Other tables reuse this
-        # slot and send no ``amount_value`` at all; those fall through to the
-        # type, and the null guard keeps an explicit null from reading as zero.
+        # server-side rule is ``signed_amount_class``. A row that carries no
+        # ``amount_value`` gives NaN and falls through to the type; the null
+        # guard keeps a row that sends an explicit null from reading as zero.
         f'<span :class="props.row.amount_value != null '
         f"&& Number(props.row.amount_value) === 0 ? '{AMOUNT_NEUTRAL}' : "
         f"props.row.type === 'income' ? '{AMOUNT_INCOME}' : "
