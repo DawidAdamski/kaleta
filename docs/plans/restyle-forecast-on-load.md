@@ -484,10 +484,25 @@ the suite returns 73 failures that all read `401 Unauthorized`. Worth a
 Chore inbox line: bind an ephemeral port, or fail when 8081 is already
 taken.
 
+### The Prophet pass turns one test red, and should
+
+`test_the_fallback_projection_is_a_footnote_not_a_banner` (KAL-FCT-009)
+asserts what the page does when Prophet is *absent*: a footnote instead of a
+banner, and no preset toggle. That is CI's environment and this repo's, so
+the scenario is checked rather than assumed. It is also the one test that
+must fail when the owner installs the forecast extra to do the KAL-FCT-012
+pass — with Prophet there is no footnote and the toggle is there. The
+docstring says so. It is not skipped: a conditional that passed either way
+would stop checking the thing the scenario is about.
+
 ### Not done
 
 The `[manual]` criterion — `/forecast` on seed data compared to artboard `3a`
-in light and dark, with and without Prophet — is the owner's visual pass.
+in light and dark, with and without Prophet — is the owner's visual pass, and
+`KAL-FCT-012` rides with it: it is tagged `@planned` until that pass happens,
+and should be retagged `@manual` before the PR merges (AGENTS.md cycle
+step 4). Running the suite with the forecast extra also reddens KAL-FCT-009,
+as the section above explains.
 This repo's dev environment has no Prophet, so the stale-then-Re-run branch
 of open question 1 is exercised by reading, not by running: it is part of
 that manual pass. Forecaster models, presets and scenario semantics are

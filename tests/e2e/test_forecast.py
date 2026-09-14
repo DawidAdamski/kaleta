@@ -299,6 +299,13 @@ def test_the_fallback_projection_is_a_footnote_not_a_banner(page: Page, base_url
     environment the scenario describes — so it is checked rather than taken
     on trust. Artboard 3a demotes the amber banner to a footnote: the simple
     projection still works, and the page is not an error page.
+
+    **Precondition: Prophet is not installed.** That is true of CI and of a
+    plain ``uv sync --group dev``, and false under ``uv sync --extra
+    forecast``. Running the suite with the forecast extra — which the owner's
+    manual KAL-FCT-012 pass needs — turns this test red, correctly: with
+    Prophet there is no footnote and the preset toggle is on screen. Read a
+    failure here as "the extra is installed", not as a regression.
     """
     acc_id = seed_account("PKO Forecast Fallback E2E")
     cat_id = seed_category("Forecast Fallback Cat E2E")
