@@ -22,8 +22,13 @@ _RUN_TIMEOUT = 60000
 
 
 def _answered(page: Page):
-    """The page has finished: either four figures, or a reason there are none."""
-    return page.get_by_text("Balance today").or_(
+    """The page has finished — with figures, or with a reason there are none.
+
+    Only for the all-accounts view, whose data is whatever the shared e2e
+    database happens to hold. A test that seeds its own account asserts the
+    figures themselves.
+    """
+    return page.locator('[data-kpi="predicted"]').or_(
         page.get_by_text("Insufficient transaction history for forecasting.")
     )
 
@@ -62,13 +67,21 @@ def test_the_forecast_runs_without_being_asked(page: Page, base_url: str) -> Non
     """
     acc_id = seed_account("PKO Forecast OnLoad E2E")
     cat_id = seed_category("Forecast OnLoad Cat E2E")
-    seed_many_transactions(acc_id, cat_id, n_days=90)
+    seed_many_transactions(acc_id, cat_id, n_days=120)
 
+    # Chosen on a first visit, so the account is this test's own and the page
+    # is remembered as such. Nothing is clicked after the reload below.
     page.goto(f"{base_url}/forecast")
+    _choose(page, "Account", "PKO Forecast OnLoad E2E")
+    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
+
+    page.reload()
 
     expect(page.get_by_text("Balance Forecast", exact=True)).to_be_visible(timeout=5000)
-    # Nothing is clicked between the goto above and this assertion.
-    expect(_answered(page)).to_be_visible(timeout=_RUN_TIMEOUT)
+    # A chart and its four figures, with no click between the reload and here.
+    for key in ("balance_today", "predicted", "change", "confidence"):
+        expect(_kpi(page, key)).to_be_visible(timeout=_RUN_TIMEOUT)
+    expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
 
     # And the button is there for afterwards, as a re-run rather than a run.
     expect(page.get_by_role("button", name="Re-run")).to_be_visible()
@@ -83,12 +96,19 @@ def test_the_four_figures_stand_above_the_chart(page: Page, base_url: str) -> No
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "PKO Forecast Kpis E2E")
 
-    expect(page.get_by_text("Balance today")).to_be_visible(timeout=_RUN_TIMEOUT)
-    for figure in ("Predicted", "Change", "Confidence"):
-        expect(page.get_by_text(figure, exact=True).first).to_be_visible(timeout=5000)
+    # By `data-kpi`, not by title text: "Predicted", "Change" and
+    # "Confidence" all appear again in the legend and the table below.
+    for key in ("balance_today", "predicted", "change", "confidence"):
+        expect(_kpi(page, key)).to_be_visible(timeout=_RUN_TIMEOUT)
 
-    # The chart is under them, not behind a button.
-    expect(page.locator(".echarts, .nicegui-echart").first).to_be_visible(timeout=10000)
+    chart = page.locator(".nicegui-echart").first
+    expect(chart).to_be_visible(timeout=10000)
+
+    # Above the chart, which is what "above" means.
+    figures = page.locator('[data-kpi="predicted"]').first.bounding_box()
+    chart_box = chart.bounding_box()
+    assert figures is not None and chart_box is not None
+    assert figures["y"] + figures["height"] <= chart_box["y"], (figures, chart_box)
 
 
 # ---------------------------------------------------------------------------
@@ -100,13 +120,17 @@ def test_run_30_day_forecast_single_account(page: Page, base_url: str) -> None:
     """Covers: KAL-FCT-001"""
     acc_id = seed_account("PKO Forecast 30d E2E")
     cat_id = seed_category("Forecast Expense 30d E2E")
-    seed_many_transactions(acc_id, cat_id, n_days=90)
+    seed_many_transactions(acc_id, cat_id, n_days=120)
 
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "PKO Forecast 30d E2E")
     _choose(page, "Forecast horizon (days)", "30 days")
 
-    expect(_answered(page)).to_be_visible(timeout=_RUN_TIMEOUT)
+    # The scenario asks for a chart and a predicted balance, so the test asks
+    # for those and not for "either that or a warning".
+    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
+    expect(_kpi(page, "confidence")).to_be_visible()
+    expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
 
 
 # ---------------------------------------------------------------------------
@@ -118,13 +142,16 @@ def test_run_90_day_forecast(page: Page, base_url: str) -> None:
     """Covers: KAL-FCT-002"""
     acc_id = seed_account("PKO Forecast 90d E2E")
     cat_id = seed_category("Forecast Expense 90d E2E")
-    seed_many_transactions(acc_id, cat_id, n_days=90)
+    seed_many_transactions(acc_id, cat_id, n_days=120)
 
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "PKO Forecast 90d E2E")
     _choose(page, "Forecast horizon (days)", "90 days")
 
-    expect(_answered(page)).to_be_visible(timeout=_RUN_TIMEOUT)
+    expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
+    # "Extends 90 days beyond today" — the horizon the figure is dated at.
+    horizon = (datetime.date.today() + datetime.timedelta(days=90)).isoformat()
+    expect(page.locator('[data-kpi="predicted"]')).to_contain_text(horizon, timeout=10000)
 
 
 # ---------------------------------------------------------------------------

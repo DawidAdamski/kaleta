@@ -1092,7 +1092,8 @@
     "kpi_at_date": "na {date}",
     "kpi_confidence_hint": "Połowa 80% przedziału na koniec horyzontu",
     "fallback_footnote": "Prophet nie jest zainstalowany — projekcja uproszczona.",
-    "scenario_remove": "Usuń scenariusz {label}"
+    "scenario_remove": "Usuń scenariusz {label}",
+    "failed": "Nie udało się policzyć prognozy. Spróbuj ponownie."
   },
   "payment_calendar": {
     "title": "Kalendarz płatności",

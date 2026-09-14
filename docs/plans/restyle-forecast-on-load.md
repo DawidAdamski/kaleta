@@ -97,6 +97,18 @@ chart, note it there).
 
 ## Implementation notes
 
+### Read this before reviewing the diff
+
+Sixth in a stack — theme-tokens → dashboard → transactions-filter-chips →
+budgets-pace-bars → budget-plan-grid → import-mapping → this one. None
+merged. This plan's own diff is:
+
+    git diff plan/restyle-import-mapping...HEAD
+
+and its PR is opened with `--base plan/restyle-import-mapping`. Against
+`main` it would carry six other plans' work and break the one-issue,
+one-branch, one-PR rule.
+
 ### Open questions, resolved
 
 1. **Auto-run on control change, or an explicit Re-run?** Plan default, taken
@@ -140,6 +152,28 @@ from — after `apply_preset` and `apply_scenarios` — so a what-if that lifts
 the line lifts the figures by exactly as much, and the interval that moved
 with it leaves the ± unchanged. Recomputing them from the raw forecast was
 the prototype's mistake.
+
+### A scenario never costs a forecast
+
+The first version sent a scenario change down the same path as a control
+change — stale-and-Re-run under Prophet — which meant adding a windfall and
+watching nothing move, the opposite of what `KAL-FCT-011` promises. Both
+`apply_preset` and `apply_scenarios` are pure post-processing on a result the
+forecaster has already produced, so the page keeps that result and redraws
+from it: a scenario or a preset is instant whichever forecaster is installed,
+and only the account and the horizon are worth a new run. That widens open
+question 1 slightly — the preset is a title-row control but never marks the
+chart stale — and it is the better answer for the same reason the plan gives.
+
+### One run at a time, and a failure that does not strand the page
+
+The on-load timer, the debounce and the Re-run button can all ask for a run
+at once, and two in flight end with the last to *finish* on screen rather
+than the last one asked for — the race the debounce exists to prevent. A
+flag in `_run_state` refuses a second start. The run also catches its own
+failure now: the skeleton is the whole page once the page draws on load, and
+a `try/finally` with no `except` would have left it standing there for good.
+`forecast.failed` is the new key.
 
 ### One timer, and a dialog that outlives its own Save
 
@@ -195,6 +229,16 @@ rather than left behind as cruft.
 per-view `bg-blue-500/10 text-blue-600` triplets, and `.k-skeleton` so the
 wait looks like this app rather than Quasar's grey. Both in `theme.py` with
 the rest.
+
+### The e2e server binds a fixed port
+
+Not a finding about this plan, but it cost an hour: `tests/e2e/conftest.py`
+starts its server on 8081 and waits for *a* server to answer there. Two
+concurrent e2e sessions therefore do not fail loudly — the second one talks
+to the first one's server, whose database holds a different API token, and
+the suite returns 73 failures that all read `401 Unauthorized`. Worth a
+Chore inbox line: bind an ephemeral port, or fail when 8081 is already
+taken.
 
 ### Not done
 

@@ -1092,7 +1092,8 @@
     "kpi_at_date": "on {date}",
     "kpi_confidence_hint": "Half the 80% interval at the horizon",
     "fallback_footnote": "Prophet is not installed — simple projection.",
-    "scenario_remove": "Remove scenario {label}"
+    "scenario_remove": "Remove scenario {label}",
+    "failed": "The forecast could not be run. Try again."
   },
   "payment_calendar": {
     "title": "Payment Calendar",

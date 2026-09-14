@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 from decimal import Decimal
 from typing import Any
 
@@ -85,7 +86,10 @@ def _forecast_chart(
 
     accent = chart_accent_color(is_dark)
     grid_color = chart_grid_color(is_dark)
-    band_color = CHART_BAND if not is_dark else chart_accent_fill(is_dark)
+    # The plan's colours exactly: #EFCDB2 in light, and in dark the accent at
+    # 0.18 — which `chart_accent_fill` already carries as an rgba, so neither
+    # needs an opacity of its own.
+    band_color = chart_accent_fill(is_dark) if is_dark else CHART_BAND
 
     legend_data = [
         t("forecast.actual"),
@@ -143,7 +147,7 @@ def _forecast_chart(
                 "lineStyle": {"opacity": 0},
                 "showSymbol": False,
                 "stack": "confidence",
-                "areaStyle": {"color": band_color, "opacity": 1 if is_dark else 0.55},
+                "areaStyle": {"color": band_color},
                 "z": 1,
             },
             {
@@ -195,6 +199,8 @@ def _forecast_chart(
 
     return apply_dark(_opts, is_dark)
 
+
+logger = logging.getLogger(__name__)
 
 #: How long a control change waits before it re-runs itself.
 _DEBOUNCE_SECONDS = 0.3
@@ -314,19 +320,34 @@ def register() -> None:
                 ui.label(t("forecast.scenarios_title")).classes(SECTION_TITLE)
                 scenario_row = ui.row().classes("items-center gap-2 flex-wrap mt-2")
 
+            #: What the last run returned, so a preset or a scenario can be
+            #: applied to it without asking the forecaster again.
+            _run_state: dict[str, Any] = {"raw": None, "horizon": 60, "running": False}
+
             def _mark_stale() -> None:
                 """Prophet runs are slow, so a change asks before spending one."""
                 status.set_text(t("forecast.stale_hint"))
                 run_btn.props(add="color=primary", remove="flat")
 
             def _on_controls_changed() -> None:
+                """The account or the horizon changed — that needs a new run."""
                 app.storage.user["forecast_account"] = account_sel.value
                 app.storage.user["forecast_horizon"] = horizon_sel.value
-                if preset_toggle is not None:
-                    app.storage.user["forecast_preset"] = preset_toggle.value
                 if prophet_available:
                     _mark_stale()
                 else:
+                    _debounced_run()
+
+            def _on_preset_changed() -> None:
+                """A preset leans on bands the forecaster already produced.
+
+                It is `apply_preset` over the run in hand, so it redraws at
+                once whichever forecaster is installed — there is nothing to
+                wait for, and nothing to mark stale.
+                """
+                if preset_toggle is not None:
+                    app.storage.user["forecast_preset"] = preset_toggle.value
+                if not _redraw_from_last_run():
                     _debounced_run()
 
             async def _debounce_tick() -> None:
@@ -379,11 +400,15 @@ def register() -> None:
                     add.on("click", lambda: _open_add_scenario_dialog())
 
             def _on_scenarios_changed() -> None:
-                # A scenario is cheap to apply — it shifts the series that is
-                # already computed — so it never waits for a Re-run.
-                if prophet_available:
-                    _mark_stale()
-                else:
+                """A scenario never costs a forecast.
+
+                ``apply_scenarios`` shifts the series that has already been
+                computed, so the figures and the chart can be redrawn from the
+                run in hand. Sending this down the stale/Re-run path would
+                have meant adding a windfall and watching nothing move, which
+                is the opposite of what KAL-FCT-011 promises.
+                """
+                if not _redraw_from_last_run():
                     _debounced_run()
 
             def _save_scenario() -> None:
@@ -437,6 +462,16 @@ def register() -> None:
                     ui.skeleton().classes(f"{SKELETON} w-full h-96 rounded-xl")
 
             async def run_forecast() -> None:
+                """Ask the forecaster, then draw what it said.
+
+                One run at a time: the on-load timer, the debounce and the
+                Re-run button can all ask at once, and two runs in flight end
+                with the last to *finish* on screen rather than the last one
+                asked for — the very race the debounce exists to prevent.
+                """
+                if _run_state["running"]:
+                    return
+                _run_state["running"] = True
                 _render_skeleton()
                 status.set_text(
                     t("forecast.running_prophet")
@@ -456,16 +491,40 @@ def register() -> None:
 
                 try:
                     raw = await with_session(_run_forecast)
+                except Exception:
+                    # The skeleton is the whole page now that it draws on
+                    # load, so a failure must not leave it standing there.
+                    logger.exception("Forecast run failed")
+                    chart_container.clear()
+                    kpi_row.clear()
+                    status.set_text(t("forecast.failed"))
+                    return
                 finally:
                     run_btn.props(remove="loading")
-                run_btn.props(add="flat", remove="color=primary")
-                run_btn.props(add="color=primary")
+                    # Whatever the run said, the controls are no longer ahead
+                    # of the chart, so the button drops back to its quiet state.
+                    run_btn.props(add="flat")
+                    _run_state["running"] = False
 
-                if raw.insufficient_data or not raw.points:
+                _run_state["raw"] = raw
+                _run_state["horizon"] = horizon
+                if not _redraw_from_last_run():
                     chart_container.clear()
                     kpi_row.clear()
                     status.set_text(t("forecast.insufficient"))
-                    return
+
+            def _redraw_from_last_run() -> bool:
+                """Redraw from the run in hand, with the preset and scenarios on.
+
+                Both are pure post-processing — ``apply_preset`` blends toward
+                a band the forecaster already gave us, ``apply_scenarios``
+                adds a constant from a date onward — so neither is worth a
+                second trip to Prophet. Returns False when there is nothing to
+                draw, which is the caller's cue to say why.
+                """
+                raw = _run_state["raw"]
+                if raw is None or raw.insufficient_data or not raw.points:
+                    return False
 
                 shifts = _scenario_shifts(scenarios)
                 preset_value = (
@@ -476,9 +535,7 @@ def register() -> None:
                 preset = ForecastPreset(preset_value or ForecastPreset.BASELINE.value)
                 result = apply_scenarios(apply_preset(raw, preset), shifts)
                 baseline = (
-                    apply_scenarios(raw, shifts)
-                    if prophet_available and preset is not ForecastPreset.BASELINE
-                    else None
+                    apply_scenarios(raw, shifts) if preset is not ForecastPreset.BASELINE else None
                 )
 
                 status.set_text(
@@ -486,12 +543,12 @@ def register() -> None:
                         "forecast.status_running",
                         account=result.account_name,
                         days=len(result.historical),
-                        horizon=horizon,
+                        horizon=_run_state["horizon"],
                     )
                 )
-
                 _render_kpis(forecast_kpis(result))
                 _render_chart(result, baseline, shifts)
+                return True
 
             def _render_kpis(kpis: ForecastKpis) -> None:
                 kpi_row.clear()
@@ -661,7 +718,7 @@ def register() -> None:
             for control in (account_sel, horizon_sel):
                 control.on_value_change(lambda _: _on_controls_changed())
             if preset_toggle is not None:
-                preset_toggle.on_value_change(lambda _: _on_controls_changed())
+                preset_toggle.on_value_change(lambda _: _on_preset_changed())
             run_btn.on("click", run_forecast)
 
             # The page answers before it is asked: a forecast is what this

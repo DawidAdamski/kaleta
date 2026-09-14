@@ -397,6 +397,15 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:0 6px;
   line-height:15px
 }
+/* Loading (artboard 3a) — a page that answers on load shows the shape of the
+   answer while it works. `.q-skeleton.k-skeleton` rather than `!important`:
+   two classes outrank Quasar's own one, whichever order the sheets land in. */
+.q-skeleton.k-skeleton{
+  background:var(--k-surface-sunken);
+  border:1px solid var(--k-hairline)
+}
+.q-skeleton.k-skeleton::after{background:var(--k-surface);opacity:.35}
+
 .k-warning-strip{
   background:var(--k-surface-warm);
   border-left:2px solid var(--k-warning);
@@ -455,11 +464,6 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   font-size:12.5px;line-height:1.2;
   cursor:pointer
 }
-.k-skeleton{
-  background:var(--k-surface-sunken)!important;
-  border:1px solid var(--k-hairline)
-}
-.k-skeleton::after{background:var(--k-surface)!important;opacity:.35}
 .k-filter-chip--empty{
   background:transparent;
   border:1px dashed var(--k-chip-dash);
