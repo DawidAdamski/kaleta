@@ -40,8 +40,21 @@ class TestCurrentStep:
     def test_a_parsed_file_with_nowhere_to_go_is_on_settings(self) -> None:
         assert current_step(_file(status="ready")) == STEP_SETTINGS
 
-    def test_a_parsed_file_with_an_account_is_on_preview(self) -> None:
-        assert current_step(_file(status="ready", target_account_id=7)) == STEP_PREVIEW
+    def test_a_parsed_file_with_every_setting_chosen_is_on_preview(self) -> None:
+        ready = _file(status="ready", target_account_id=7, expense_cat_id=1, income_cat_id=2)
+        assert current_step(ready) == STEP_PREVIEW
+
+    def test_an_account_without_categories_has_not_finished_settings(self) -> None:
+        # The Import button refuses with select_expense_cat_hint until both
+        # defaults are chosen, so ticking settings here would have the line
+        # claiming a step the page below it is still asking for.
+        assert current_step(_file(status="ready", target_account_id=7)) == STEP_SETTINGS
+        half = _file(status="ready", target_account_id=7, expense_cat_id=1)
+        assert current_step(half) == STEP_SETTINGS
+
+    def test_categories_without_an_account_are_not_enough_either(self) -> None:
+        part = _file(status="ready", expense_cat_id=1, income_cat_id=2)
+        assert current_step(part) == STEP_SETTINGS
 
     def test_a_file_being_imported_has_not_gone_backwards(self) -> None:
         # A bulk import repaints whenever the user clicks another queue file,

@@ -811,6 +811,16 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
     expect(page.locator(".k-step--now")).to_have_count(1)
     assert page.locator(".k-step--done").count() > 1
 
+    # "The ones behind it are ticked" is a claim about order, not a count:
+    # every ticked node comes before the one being stood on.
+    states = page.eval_on_selector_all(
+        ".k-step",
+        "nodes => nodes.map(n => n.classList.contains('k-step--now') ? 'now'"
+        " : n.classList.contains('k-step--done') ? 'done' : 'ahead')",
+    )
+    assert states.index("now") == states.count("done"), states
+    assert "done" not in states[states.index("now") :], states
+
     # And the sample sits *beside* the pickers that map it, headers numbered
     # the way the pickers number them — not above them, as it used to.
     # Scoped to the sample table: the Date picker renders its value the same

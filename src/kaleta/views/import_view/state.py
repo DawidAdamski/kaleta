@@ -93,9 +93,27 @@ def current_step(active: QueuedFile | None) -> int:
         return STEP_UPLOAD
     if active.status == "ready":
         # Ready means parsed, and both cards are on screen. The step is what
-        # the user still has to *do*: say where the rows go, then look at them.
-        return STEP_PREVIEW if active.target_account_id is not None else STEP_SETTINGS
+        # the user still has to *do*: say where the rows go, then look at
+        # them. An account alone is not "where they go" — the import is
+        # blocked until both default categories are chosen too, and ticking
+        # settings while the Import button refuses is the line lying about
+        # the page under it.
+        return STEP_PREVIEW if settings_are_complete(active) else STEP_SETTINGS
     return STEP_UPLOAD
+
+
+def settings_are_complete(file: QueuedFile) -> bool:
+    """Everything the settings step asks for, chosen.
+
+    The same three fields ``validate_import_readiness`` blocks the import on,
+    minus the currency check, which is about the file rather than a setting
+    the user can still fill in.
+    """
+    return (
+        file.target_account_id is not None
+        and file.expense_cat_id is not None
+        and file.income_cat_id is not None
+    )
 
 
 def queue_is_terminal(queue: list[QueuedFile]) -> bool:

@@ -354,6 +354,28 @@ itself lists. Choosing the wrong date format on a thousand-row file put a
 thousand muted labels under a strip that had already counted them, burying
 the pickers it was pointing at.
 
+### Settings is done when settings are done
+
+Eighth review round, and a second real bug. `current_step` ticked Settings
+as soon as an account was chosen, but `validate_import_readiness` also
+requires both default categories — so the line could show Settings behind
+the user while the Import button still refused with
+`select_expense_cat_hint`. `settings_are_complete` asks for the same three
+fields the import is blocked on (the currency check is about the file, not
+a setting anyone can fill in), and three unit tests cover the halves.
+
+KAL-CSV-025 now says the mark goes on "the fields the importer filled in",
+and names the rule and inherited cases, rather than leaving the wider
+reading only in these notes. And KAL-CSV-027's "the ones behind it are
+ticked" is asserted as the claim about order it is: every ticked node comes
+before the one being stood on, not merely more than one of them exists.
+
+Left as it is: the view reads a row number back out of the parse message
+(`row_error_line`) rather than the service returning `(line, message)`
+pairs. Both sides share the two helpers and both are unit-tested, and
+restructuring `ImportResult.errors` would reach every caller of it —
+outside this plan.
+
 ### The message reads its own row number
 
 Seventh review round. `message_is_summarised` tried every row the strip knew
