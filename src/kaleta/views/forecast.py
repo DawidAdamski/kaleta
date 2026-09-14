@@ -19,8 +19,9 @@ from kaleta.services.forecast_service import (
     ScenarioShift,
     apply_preset,
     apply_scenarios,
-    first_point_from,
+    first_shiftable_date,
     forecast_kpis,
+    point_shifted_by,
 )
 from kaleta.services.forecasters import is_prophet_available
 from kaleta.views.chart_utils import (
@@ -119,7 +120,9 @@ def _forecast_chart(
                 "lineStyle": {"color": accent, "type": "dotted"},
             }
         )
-        pin = first_point_from(result, shift.date)
+        # Exact, because `apply_scenarios` is exact: a pin on a point the
+        # shift did not move would say the line bent where it did not.
+        pin = point_shifted_by(result, shift.date)
         if pin is not None:
             mark_points.append(
                 {"coord": [str(pin.date), pin.value], "name": shift.label, "value": shift.label}
@@ -352,6 +355,18 @@ def register() -> None:
                 scenario_row = ui.row().classes("items-center gap-2 flex-wrap mt-2")
 
             run_state = _RunState()
+            client = ui.context.client
+
+            def _page_is_live() -> bool:
+                """Is anyone still looking at this page?
+
+                The page starts a run on its own now, and a run outlives a
+                click on the next nav entry. Drawing into a torn-down page
+                raises out of a background task ("the parent element this
+                slot belongs to has been deleted") for a result nobody can
+                see.
+                """
+                return not client.is_deleted
 
             def _mark_stale() -> None:
                 """Prophet runs are slow, so a change asks before spending one."""
@@ -380,7 +395,7 @@ def register() -> None:
                 controls to be ahead *of*, and the line already says
                 something truer than "press Re-run".
                 """
-                if not prophet_available or run_state.raw is None:
+                if not prophet_available or run_state.raw is None or run_state.running:
                     return
                 if _controls_match_last_run():
                     run_btn.props(add="flat")
@@ -443,22 +458,30 @@ def register() -> None:
                             ui.label(f"{amt:+,.0f} zł").classes(
                                 f"{MONO} text-xs {net_tone(Decimal(str(amt)))}"
                             )
-                            remove = ui.icon("close", size="14px").classes("cursor-pointer")
+                            remove = (
+                                ui.icon("close", size="14px")
+                                .classes("cursor-pointer")
+                                .props('tabindex="0" role="button"')
+                            )
                             remove.props["aria-label"] = t("forecast.scenario_remove", label=label)
 
-                            def _remove(_: Any, i: int = idx) -> None:
+                            def _remove(_: Any = None, i: int = idx) -> None:
                                 scenarios.pop(i)
                                 app.storage.user["forecast_scenarios"] = scenarios
                                 _render_scenarios()
                                 _on_scenarios_changed()
 
                             remove.on("click", _remove)
+                            remove.on("keydown.enter", _remove)
+                            remove.on("keydown.space.prevent", _remove)
 
                     add = ui.row().classes(f"{FILTER_CHIP} {FILTER_CHIP_EMPTY} gap-1")
+                    add.props('tabindex="0" role="button"')
                     with add:
                         ui.icon("add", size="14px")
                         ui.label(t("forecast.scenario_add")).classes("text-xs")
-                    add.on("click", lambda: _open_add_scenario_dialog())
+                    for event in ("click", "keydown.enter", "keydown.space.prevent"):
+                        add.on(event, _open_add_scenario_dialog)
 
             def _on_scenarios_changed() -> None:
                 """A scenario never costs a forecast.
@@ -523,7 +546,11 @@ def register() -> None:
 
             def _open_add_scenario_dialog() -> None:
                 label_input.value = ""
-                date_input.value = datetime.date.today().isoformat()
+                # Tomorrow, not today: the forecast starts tomorrow, and a
+                # scenario dated today shifts nothing at all. Defaulting to a
+                # date that does nothing is a trap, and scenario semantics are
+                # out of this plan's scope to change.
+                date_input.value = first_shiftable_date().isoformat()
                 amount_input.value = 0
                 add_dialog.open()
 
@@ -567,6 +594,8 @@ def register() -> None:
                     _sync_stale()
 
             async def _run_once() -> None:
+                if not _page_is_live():
+                    return
                 _render_skeleton()
                 status.set_text(
                     t("forecast.running_prophet")
@@ -606,7 +635,7 @@ def register() -> None:
                 run_state.raw = raw
                 run_state.account = chosen
                 run_state.horizon = horizon
-                if not _redraw_from_last_run():
+                if not _redraw_from_last_run() and _page_is_live():
                     _clear_and_say(t("forecast.insufficient"))
 
             def _clear_and_say(message: str) -> None:
@@ -626,6 +655,10 @@ def register() -> None:
                 raw = run_state.raw
                 if raw is None or raw.insufficient_data or not raw.points:
                     return False
+                if not _page_is_live():
+                    # Nothing to draw into, and the caller's "False" would be
+                    # read as "no data"; say the draw happened and stop.
+                    return True
 
                 shifts = _scenario_shifts(scenarios)
                 preset_value = (
@@ -859,4 +892,7 @@ def _kpi(
         with ui.column().classes("gap-1 min-w-0 flex-1"):
             ui.label(title).classes(SECTION_TITLE)
             ui.label(value).classes(f"{KPI_VALUE} {value_cls}")
-            ui.label(hint or "—").classes(f"{MUTED} text-xs")
+            # A blank line, not an em dash: "—" is what `_money` prints for a
+            # missing figure, and under a figure that has one it would read as
+            # "no data" rather than "nothing more to say".
+            ui.label(hint or "\u00a0").classes(f"{MUTED} text-xs")

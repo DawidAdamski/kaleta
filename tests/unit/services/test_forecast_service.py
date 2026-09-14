@@ -33,8 +33,9 @@ from kaleta.services.forecast_service import (
     apply_preset,
     apply_scenarios,
     clear_forecast_cache,
-    first_point_from,
+    first_shiftable_date,
     forecast_kpis,
+    point_shifted_by,
 )
 from kaleta.services.forecasters import (
     NaiveForecaster,
@@ -672,8 +673,8 @@ class TestForecastKpis:
         assert kpis.horizon_date is None
 
 
-class TestFirstPointFrom:
-    """Where a scenario's marker sits — the same rule that moved the line."""
+class TestPointShiftedBy:
+    """Which point a scenario moves — and therefore where its marker belongs."""
 
     def _series(self) -> ForecastResult:
         return _result(
@@ -682,32 +683,63 @@ class TestFirstPointFrom:
             _point(5, 950.0, lower=800.0, upper=1100.0, forecast=True),
         )
 
-    def test_an_exact_date_finds_its_own_point(self) -> None:
-        point = first_point_from(self._series(), datetime.date(2026, 1, 6))
+    def test_a_date_on_a_forecast_point_finds_it(self) -> None:
+        point = point_shifted_by(self._series(), datetime.date(2026, 1, 6))
 
         assert point is not None
         assert point.value == 950.0
 
-    def test_a_date_between_points_snaps_forward(self) -> None:
-        # The wizard defaults a scenario to today, and the forecast starts
-        # tomorrow: matching exactly left those with a line and no marker.
-        point = first_point_from(self._series(), datetime.date(2026, 1, 3))
+    def test_a_date_between_points_moves_nothing_so_marks_nothing(self) -> None:
+        # `apply_scenarios` keys its deltas by exact date, so a scenario here
+        # shifts no point at all. Snapping the marker to the next one would
+        # say the line bent where it did not.
+        assert point_shifted_by(self._series(), datetime.date(2026, 1, 3)) is None
 
-        assert point is not None
-        assert point.date == datetime.date(2026, 1, 6)
-
-    def test_today_snaps_to_the_first_forecast_point(self) -> None:
-        point = first_point_from(self._series(), datetime.date(2026, 1, 1))
-
-        assert point is not None
-        assert point.date == datetime.date(2026, 1, 2)
+    def test_today_is_not_a_forecast_point(self) -> None:
+        assert point_shifted_by(self._series(), datetime.date(2026, 1, 1)) is None
 
     def test_a_date_past_the_horizon_has_no_point(self) -> None:
-        assert first_point_from(self._series(), datetime.date(2027, 1, 1)) is None
+        assert point_shifted_by(self._series(), datetime.date(2027, 1, 1)) is None
 
-    def test_history_is_never_a_landing_place(self) -> None:
-        # Only forecast points carry a shift, so only they can carry its pin.
-        point = first_point_from(self._series(), datetime.date(2025, 1, 1))
 
-        assert point is not None
-        assert point.is_forecast is True
+class TestFirstShiftableDate:
+    def test_a_scenario_has_to_be_dated_tomorrow_at_the_earliest(self) -> None:
+        # The forecast starts tomorrow, so today is the one date the add
+        # dialog must not offer by default.
+        assert first_shiftable_date(datetime.date(2026, 1, 1)) == datetime.date(2026, 1, 2)
+
+    def test_it_follows_the_real_today_when_not_told_one(self) -> None:
+        assert first_shiftable_date() == datetime.date.today() + datetime.timedelta(days=1)
+
+
+class TestScenarioDatesThatDoNothing:
+    """The exact-date rule, asserted where a reader will look for it.
+
+    Scenario semantics are out of scope for the 3a restyle, so this pins the
+    behaviour the view has to work around rather than changing it.
+    """
+
+    def _series(self) -> ForecastResult:
+        return _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(1, 990.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(2, 980.0, lower=880.0, upper=1080.0, forecast=True),
+        )
+
+    def test_a_scenario_dated_today_moves_no_figure(self) -> None:
+        today = datetime.date(2026, 1, 1)
+        shifted = apply_scenarios(
+            self._series(), [ScenarioShift(label="Now", date=today, amount=5000.0)]
+        )
+
+        assert forecast_kpis(shifted).predicted == forecast_kpis(self._series()).predicted
+
+    def test_a_scenario_dated_tomorrow_moves_every_later_figure(self) -> None:
+        tomorrow = first_shiftable_date(datetime.date(2026, 1, 1))
+        shifted = apply_scenarios(
+            self._series(), [ScenarioShift(label="Soon", date=tomorrow, amount=5000.0)]
+        )
+
+        before = forecast_kpis(self._series())
+        after = forecast_kpis(shifted)
+        assert after.predicted == before.predicted + 5000.0

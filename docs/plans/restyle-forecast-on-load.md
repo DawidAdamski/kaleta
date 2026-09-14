@@ -269,13 +269,6 @@ The Re-run button keeps `color=primary` in both states and toggles only
 raises, a request that arrived while it was in flight is re-armed on the way
 out rather than dropped with the loop.
 
-### The snap rule lives with the shift rule
-
-`first_point_from` moved into `forecast_service`, next to `apply_scenarios`,
-whose on-or-after rule it repeats: the marker pins the first point the shift
-actually moved. Five unit tests, including the commonest case — a scenario
-dated today, which the dialog defaults to.
-
 ### What "never costs a forecast" actually means
 
 Third review round. The claim had two holes. With a run in flight, a scenario
@@ -308,13 +301,31 @@ AGENTS.md, which says views catch `KaletaError` and call
 first, because the skeleton is the whole page once the page draws on load,
 and is then re-raised as the bug it is.
 
-### A pin needs a point to sit on
+### A scenario dated today does nothing, and the dialog stops offering it
 
-`markPoint` only drew where a scenario's date matched a forecast point
-exactly. The dialog defaults to today and the forecast starts tomorrow, so a
-scenario saved with the default date got its line and no pin — half of what
-Scope asks for. `_first_point_from` snaps to the first forecast point on or
-after the date.
+Rounds three to five, one finding chasing its own tail, and worth writing
+down properly.
+
+`markPoint` originally drew only where a scenario's date matched a forecast
+point exactly, so a scenario saved with the dialog's default — today — got a
+line and no pin. The obvious fix was to snap the pin to the next point. That
+was wrong, and worse than the symptom: `apply_scenarios` keys its deltas by
+**exact** date (`deltas.get(p.date)`), so a scenario dated today shifts
+nothing at all. A snapped pin would have marked a bend in a line that never
+bent, and `KAL-FCT-011` — "the predicted figure moves by that amount" —
+would have been false for the commonest scenario there is.
+
+Scenario semantics are out of scope here, so the rule stays and the view
+stops walking into it: `point_shifted_by` mirrors the exact-date rule from
+`forecast_service`, where it can be read next to the function it mirrors, and
+the add dialog defaults to `first_shiftable_date()` — tomorrow, the first
+date that actually moves the line. A date that moves nothing still gets its
+`markLine`, because the user put it there, but no pin claims otherwise.
+
+The exact-date rule is brittle for a feature meant to answer "what if I buy a
+car in March": `wizard-what-if-scenarios` should widen it to on-or-after when
+it builds on this chart, which is a decision for that plan and not this one.
+Chore-inbox candidate either way.
 
 ### KAL-FCT-003 says what the app does
 
@@ -323,6 +334,32 @@ series". No such series exists, here or in the plan's list of them, and the
 test never checked for it — an `@automated` tag over a clause nothing
 verifies. It now says the four figures describe the combined balance, which
 is what the page shows and what the test asserts.
+
+### Smaller things from round five
+
+`_sync_stale()` does nothing while a run is in flight: the state it compares
+against still describes the *previous* run, so changing the controls back to
+that run's values mid-flight replaced "Running Prophet…" with a status line
+describing a chart that was not on screen.
+
+The KPI hint line falls back to a non-breaking space rather than an em dash —
+"—" is what `_money` prints for a missing figure, so under a figure that has
+one it read as "no data".
+
+The scenario chips carry `role="button"` and `tabindex="0"` and answer Enter
+and Space, like the filter chips from artboard 2a.
+
+### A run outlives the page it was started for
+
+`test_every_nav_entry_routes` clicks every sidebar entry in turn, and failed
+once in four full suite runs after this page started running on load. The
+mechanism is real even if the flake was not reproduced: the on-load timer
+fires ~50 ms after connect, the click on the next entry can land while the
+run is still out at the forecaster, and `_render_skeleton` then builds
+elements inside a `kpi_row` that no longer exists — "the parent element this
+slot belongs to has been deleted", raised out of a background task, for a
+result nobody can see. `_page_is_live()` checks `client.is_deleted` before
+each draw. Three full suite runs since, all green.
 
 ### The e2e server binds a fixed port
 

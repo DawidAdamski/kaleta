@@ -155,16 +155,23 @@ def apply_scenarios(
     return out
 
 
-def first_point_from(result: ForecastResult, date: datetime.date) -> ForecastPoint | None:
-    """The first forecast point on or after ``date``.
+#: The first date a scenario can be dated and have any effect. The forecast
+#: is daily from tomorrow, so today — and anything before it — shifts nothing.
+def first_shiftable_date(today: datetime.date | None = None) -> datetime.date:
+    """The earliest date a scenario can carry and still move the line."""
+    return (today or datetime.date.today()) + datetime.timedelta(days=1)
 
-    The same on-or-after rule :func:`apply_scenarios` uses to decide which
-    points a shift touches, so the marker a view pins for that shift lands on
-    the first point the shift actually moved. A scenario's date rarely falls
-    exactly on a forecast point — the wizard defaults to today, and the
-    forecast starts tomorrow.
+
+def point_shifted_by(result: ForecastResult, date: datetime.date) -> ForecastPoint | None:
+    """The forecast point a scenario dated ``date`` actually moves, if any.
+
+    :func:`apply_scenarios` keys its deltas by exact date
+    (``deltas.get(p.date)``), so a scenario lands on the point sharing its
+    date and on nothing else — not on the nearest one after it. A view
+    marking a shift must use the same rule, or it pins a marker to a point
+    that never moved.
     """
-    return next((p for p in result.forecast if p.date >= date), None)
+    return next((p for p in result.forecast if p.date == date), None)
 
 
 @dataclass(frozen=True, slots=True)
