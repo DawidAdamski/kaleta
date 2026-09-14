@@ -258,6 +258,14 @@ ticked — the two figures cannot disagree.
 Zero comes out unsigned (`0.00`, not `+0.00`) and painted neutral. Nothing
 moved, so there is no direction to show and none to colour.
 
+The accepted cost: ticking a transfer leg on its own reads
+"Selected total 0.00", which a user may read as a total that is simply
+wrong rather than one that is declining to guess. That is the better of the
+two errors — a confident wrong sign is worse than a silent zero — but it is
+a gap, and closing it properly means giving a leg its direction (a column,
+or deriving it from the pair at write time), which is a model change this
+restyle has no business making. Filed as such.
+
 ### The separator net is muted, not an amount colour
 
 Scope says the group net is shown "(`k-amount`, signed)". Artboard 2a draws

@@ -971,7 +971,8 @@ Feature: Transaction Pagination and Grouping
     When I group the ledger by week
     Then that week's separator shows +9,111.26 beside its label
     And the figure is the net of the rows on this page
-    And a transfer whose other leg is on the page is left out of it
+    And transfers are left out of it, the same way the selection total
+      leaves them out
 ```
 
 ## Feature: mBank CSV Import

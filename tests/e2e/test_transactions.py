@@ -742,3 +742,12 @@ def test_a_chip_opens_from_the_keyboard(page: Page, base_url: str) -> None:
     opener.press(" ")
 
     expect(page.locator(".q-menu").last).to_be_visible(timeout=5000)
+
+    # Enter is Quasar's own anchor handling, not ours — which is exactly why
+    # it needs a test: an upgrade could take it away and nothing here would
+    # notice, while the scenario still promises a chip opens from the keyboard.
+    page.keyboard.press("Escape")
+    expect(page.locator(".q-menu")).to_have_count(0, timeout=5000)
+    opener.focus()
+    opener.press("Enter")
+    expect(page.locator(".q-menu").last).to_be_visible(timeout=5000)
