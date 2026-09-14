@@ -5,22 +5,30 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from kaleta.schemas.transaction import TransactionType
+from kaleta.services import TransactionService
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, amount_class
 
 
 def format_signed_amount(amount: Decimal | float, tx_type: str) -> str:
-    """Format amount with leading sign for display (income +, expense -)."""
-    value = Decimal(str(amount))
-    if tx_type == "income":
-        return f"+{abs(value):,.2f}"
-    return f"-{abs(value):,.2f}"
+    """Format an amount with its sign, for callers holding the type as a string.
+
+    The convention itself lives in ``TransactionService`` — the dashboard and
+    the ledger must not disagree about what a minus sign means, or about
+    whether a zero carries one.
+    """
+    return TransactionService.format_signed_amount(Decimal(str(amount)), TransactionType(tx_type))
 
 
 def amount_cell_slot() -> str:
     """Vue ``q-td`` fragment for a colour-coded amount column in ``ui.table`` body slots."""
     return (
         '<q-td key="amount" :props="props" class="text-right">'
-        f"<span :class=\"props.row.type === 'income' ? '{AMOUNT_INCOME}' : "
+        # A zero moved nothing, so it is neither income nor expense. Rows
+        # without an ``amount_value`` (other tables reuse this slot) give NaN,
+        # which is not zero, and fall through to the type as before.
+        f"<span :class=\"Number(props.row.amount_value) === 0 ? '{AMOUNT_NEUTRAL}' : "
+        f"props.row.type === 'income' ? '{AMOUNT_INCOME}' : "
         f"props.row.type === 'expense' ? '{AMOUNT_EXPENSE}' : '{AMOUNT_NEUTRAL}'\">"
         "{{ props.row.amount }}</span></q-td>"
     )

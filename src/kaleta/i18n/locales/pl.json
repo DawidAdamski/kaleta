@@ -223,6 +223,7 @@
     "clear_filter": "Wyczyść: {field}",
     "selected_count": "Zaznaczono: {count}",
     "selected_total": "Suma zaznaczonych",
+    "selected_net": "Bilans zaznaczonych wierszy, bez przelewów",
     "clear_selection": "Wyczyść zaznaczenie",
     "group_net": "Bilans na tej stronie, bez przelewów",
     "filter_chip_search": "Szukaj: {text}",

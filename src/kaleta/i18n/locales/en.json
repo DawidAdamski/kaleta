@@ -223,6 +223,7 @@
     "clear_filter": "Clear {field}",
     "selected_count": "{count} selected",
     "selected_total": "Selected total",
+    "selected_net": "Net of the selected rows, transfers excluded",
     "clear_selection": "Clear selection",
     "group_net": "Net on this page, transfers excluded",
     "filter_chip_search": "Search: {text}",

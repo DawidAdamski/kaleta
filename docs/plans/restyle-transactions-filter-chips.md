@@ -309,11 +309,18 @@ formatted string so a total never has to parse a display string back into a
 number — as `str(Decimal)`, not a float: it crosses to the browser as JSON
 and comes back through `Decimal(str(...))` with the cents it left with.
 
-Zero carries no sign in either place. `format_signed_amount` goes through
+Zero carries no sign, and no colour. `format_signed_amount` goes through
 `format_net`, so a zero-amount expense reads `0.00` rather than the `-0.00`
 it used to (or the `+0.00` that `-abs()` would otherwise produce, since
-`Decimal` negates zero to a positive zero). Nothing moved, so there is no
-direction to show.
+`Decimal` negates zero to a positive zero), and the amount cell paints a
+zero neutral instead of taking the row's type at its word. Nothing moved,
+so there is no direction to show and none to colour.
+
+`views/components/amount_label.py` had a second `format_signed_amount` of
+its own, which the dashboard's recent-transactions and upcoming-planned
+cards use. It delegates to the service now: two copies of a sign convention
+is one too many, and the ledger and the dashboard were about to disagree
+about zero.
 
 ### The Payees page shares the selection bar
 

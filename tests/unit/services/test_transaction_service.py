@@ -1548,10 +1548,10 @@ class TestBuildTableRowSplits:
 
         rows = TransactionService.build_table_rows(txs, "month")
 
-        assert rows[0]["amount_value"] == str(
-            TransactionService.signed_amount(txs[0].amount, txs[0].type)
-        )
-        assert rows[0]["date_short"] == TODAY.strftime("%d.%m")
+        by_description = {row["description"]: row for row in rows}
+        assert by_description["Salary"]["amount_value"] == "9240.00"
+        assert by_description["Lidl"]["amount_value"] == "-128.74"
+        assert by_description["Lidl"]["date_short"] == f"{TODAY.day:02d}.{TODAY.month:02d}"
         # One month, both rows: 9240.00 in, 128.74 out.
         assert rows[0]["sep_net"] == "+9,111.26"
 
