@@ -403,7 +403,8 @@ class TransactionService:
 
     @staticmethod
     def format_signed_amount(amount: Decimal, tx_type: TransactionType) -> str:
-        return f"{TransactionService.signed_amount(amount, tx_type):+,.2f}"
+        """The row's figure, signed — except zero, which has no direction."""
+        return TransactionService.format_net(TransactionService.signed_amount(amount, tx_type))
 
     @staticmethod
     def format_net(net: Decimal) -> str:

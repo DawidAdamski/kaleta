@@ -9,7 +9,13 @@ from kaleta.i18n import t
 from kaleta.schemas.payee import PayeeCreate, PayeeResponse, PayeeUpdate
 from kaleta.services import PayeeService, with_session
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import BODY_MUTED, DIALOG_TITLE, PAGE_TITLE, TABLE_SURFACE
+from kaleta.views.theme import (
+    BODY_MUTED,
+    DIALOG_TITLE,
+    PAGE_TITLE,
+    SELECTION_BAR,
+    TABLE_SURFACE,
+)
 
 
 def register() -> None:
@@ -192,7 +198,7 @@ def register() -> None:
         def selection_bar() -> None:
             if len(selected_ids) >= 2:
                 with ui.row().classes(
-                    "k-selection-bar w-full items-center gap-2 px-1 py-2 rounded"
+                    f"{SELECTION_BAR} w-full items-center gap-2 px-1 py-2 rounded"
                 ):
                     ui.label(t("payees.selected_count", count=len(selected_ids))).classes(
                         "text-sm flex-1"

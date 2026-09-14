@@ -53,7 +53,9 @@ def render_table_actions(
             clear_button.tooltip(t("transactions.clear_selection"))
             clear_button.props["aria-label"] = t("transactions.clear_selection")
             ui.space()
-            ui.label(t("transactions.selected_total")).classes("k-muted text-[12px]")
+            ui.label(t("transactions.selected_total")).classes("k-muted text-[12px]").tooltip(
+                t("transactions.group_net")
+            )
             # A selection of transfers nets to zero — which is neither money
             # in nor money out, and must not be painted as either.
             if total > 0:

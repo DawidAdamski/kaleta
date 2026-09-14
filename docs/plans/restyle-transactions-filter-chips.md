@@ -304,9 +304,26 @@ the menu on its way to clearing the filter.
 `TransactionService.signed_amount` is new and `format_signed_amount` now goes
 through it. Three things need the same sign convention — the amount column,
 a group's net, and the selection total — and the only way they cannot
-disagree is to have one function decide. Rows carry `amount_value` (a float
-beside the formatted string) so a total never has to parse a display string
-back into a number.
+disagree is to have one function decide. Rows carry `amount_value` beside the
+formatted string so a total never has to parse a display string back into a
+number — as `str(Decimal)`, not a float: it crosses to the browser as JSON
+and comes back through `Decimal(str(...))` with the cents it left with.
+
+Zero carries no sign in either place. `format_signed_amount` goes through
+`format_net`, so a zero-amount expense reads `0.00` rather than the `-0.00`
+it used to (or the `+0.00` that `-abs()` would otherwise produce, since
+`Decimal` negates zero to a positive zero). Nothing moved, so there is no
+direction to show.
+
+### The Payees page shares the selection bar
+
+`.k-selection-bar` is not the ledger's alone — `views/payees.py` renders its
+own bulk-selection row with the same class, so the warmer
+`--k-surface-warm-strong` reaches that page too. That is the intended
+reading of a shared token (one selection bar, one colour), so the class was
+left shared rather than forked; `payees.py` now uses the `SELECTION_BAR`
+constant instead of repeating the literal, which is how the next person
+finds out it is shared.
 
 `date_short` joins `date` on the row for the same reason: the ledger shows
 `DD.MM` but the column still sorts on the ISO value, and the full date is a

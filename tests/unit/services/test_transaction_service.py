@@ -1211,6 +1211,12 @@ class TestTransactionDisplayHelpers:
 
         assert TransactionService.net_of_rows(rows) == Decimal("-128.74")
 
+    def test_zero_carries_no_sign_on_a_row_either(self):
+        """Covers: KAL-TXN-015 — nothing moved, so neither figure claims a way."""
+        assert (
+            TransactionService.format_signed_amount(Decimal("0"), TransactionType.EXPENSE) == "0.00"
+        )
+
     def test_format_net_leaves_zero_unsigned(self):
         """Covers: KAL-TXN-015 — nothing moved, so there is no direction."""
         assert TransactionService.format_net(Decimal("0")) == "0.00"
@@ -1514,6 +1520,40 @@ class TestBuildTableRowSplits:
         row = TransactionService.build_table_row(txs[0], None, "none")
         assert row["has_splits"] is True
         assert row["split_count"] == 2
+
+    async def test_grouped_rows_carry_the_figures_the_nets_read(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PAG-005
+
+        The separator net and the selection total both read ``amount_value``
+        off the row and tolerate its absence, so a renamed key would leave
+        every net quietly reading 0.00 with the unit suite still green. This
+        pins the keys on a real row, and the net a real group adds up to.
+        """
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session, "Groceries")
+        income_cat = await _make_category(session, "Salary", CategoryType.INCOME)
+        await svc.create(_tx(acc_id, cat_id, amount=Decimal("128.74"), description="Lidl"))
+        await svc.create(
+            _tx(
+                acc_id,
+                income_cat,
+                amount=Decimal("9240.00"),
+                type=TransactionType.INCOME,
+                description="Salary",
+            )
+        )
+        txs = await svc.list()
+
+        rows = TransactionService.build_table_rows(txs, "month")
+
+        assert rows[0]["amount_value"] == str(
+            TransactionService.signed_amount(txs[0].amount, txs[0].type)
+        )
+        assert rows[0]["date_short"] == TODAY.strftime("%d.%m")
+        # One month, both rows: 9240.00 in, 128.74 out.
+        assert rows[0]["sep_net"] == "+9,111.26"
 
 
 # ── Notes ─────────────────────────────────────────────────────────────────────
