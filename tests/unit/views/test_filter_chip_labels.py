@@ -1,6 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for the transactions ledger chrome (artboard 2a).
 
+Covers: KAL-TXN-016 — the label logic behind "the chip reads that account's
+name" and "the link beside the chips offers to clear 2 filters". The e2e
+tests drive the same scenario through the browser; these pin the strings.
+
 A chip has to say what is filtered, in the words of artboard 2a:
 ``01.06.2026 → 03.07.2026``, ``PKO Konto Główne +2``, ``Expense``. Every
 expected string below is quoted from that artboard.
@@ -69,6 +73,7 @@ class TestSelectionSummary:
 
 class TestChipLabels:
     def test_accounts_chip_matches_the_artboard(self) -> None:
+        """Covers: KAL-TXN-016 — the chip reads the account's name."""
         assert _label("accounts", account_ids=[1, 2, 3]) == ("PKO Konto Główne", "+2")
 
     def test_type_chip_reads_the_label_not_the_enum(self) -> None:
@@ -101,6 +106,7 @@ class TestChipLabels:
 
 class TestActiveFilterCount:
     def test_counts_the_three_chips_the_artboard_fills(self) -> None:
+        """Covers: KAL-TXN-016 — the link counts the chips, not the fields."""
         filters = {
             "date_from": datetime.date(2026, 6, 1),
             "date_to": datetime.date(2026, 7, 3),

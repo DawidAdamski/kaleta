@@ -264,7 +264,8 @@ wrong rather than one that is declining to guess. That is the better of the
 two errors — a confident wrong sign is worse than a silent zero — but it is
 a gap, and closing it properly means giving a leg its direction (a column,
 or deriving it from the pair at write time), which is a model change this
-restyle has no business making. Filed as such.
+restyle has no business making. It is listed under **Not done** below, for
+the owner to file.
 
 ### The separator net is muted, not an amount colour
 
@@ -323,3 +324,14 @@ where the control lives, which is the point.
 `docs/design/screenshot.png` still shows the pre-restyle ledger, and the two
 `[manual]` criteria (the 2a comparison in light and dark, and the selection
 bar with week grouping on) are the owner's visual pass.
+
+Two findings were left for the owner to file rather than fixed here, both
+out of this plan's scope:
+
+- **A transfer leg carries no direction**, so a net cannot say anything
+  about one on its own (above). Closing it means a column on the row, or
+  deriving the direction from the pair at write time.
+- **"Clear all N" still costs one query per set filter.** Each chip's own
+  `×` was fixed to cost one; `_clear_filters` calls `set_value` on four
+  selects and each fires its own `on_change`. Pre-existing, and untouched
+  because bulk clearing is not what this plan changed.

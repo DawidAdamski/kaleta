@@ -136,8 +136,8 @@ class FilterBarWidgets:
     refresh_chips: Callable[[dict[str, Any]], None]
 
 
-def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> tuple[_Chip, Any]:
-    """A pill plus the element a menu should hang from to open on click."""
+def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> _Chip:
+    """A pill whose ``opener`` is the element a menu hangs from to open on click."""
     with ui.row().classes(f"{FILTER_CHIP} k-chip-{field_name}") as shell:
         opener = ui.row().classes("items-center gap-1.5 no-wrap cursor-pointer")
         with opener:
@@ -159,17 +159,14 @@ def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> t
         # translation holding a quote would break out of it, and Vue binds the
         # attribute verbatim — an escaped entity would be read aloud as one.
         clear_icon.props["aria-label"] = t("transactions.clear_filter", field=t(name_key))
-    return (
-        _Chip(
-            shell=shell,
-            opener=opener,
-            add_icon=add_icon,
-            name_label=name_label,
-            value_label=value_label,
-            extra_label=extra_label,
-            clear_icon=clear_icon,
-        ),
-        opener,
+    return _Chip(
+        shell=shell,
+        opener=opener,
+        add_icon=add_icon,
+        name_label=name_label,
+        value_label=value_label,
+        extra_label=extra_label,
+        clear_icon=clear_icon,
     )
 
 
@@ -229,8 +226,8 @@ def render_filter_bar(
         ui.icon("filter_list", size="18px").classes("k-muted")
         ui.label(t(filters_title_key)).classes("k-eyebrow mr-1")
 
-        chips["date"], date_opener = _new_chip("date", date_range_key, _clear_date)
-        with date_opener:
+        chips["date"] = _new_chip("date", date_range_key, _clear_date)
+        with chips["date"].opener:
             date_menu = ui.menu().classes("p-3")
         with date_menu, ui.column().classes("gap-2"):
             widgets["date_from"] = (
@@ -255,8 +252,9 @@ def render_filter_bar(
             handler: Callable[[Any], None],
             width: str,
         ) -> ui.select:
-            chips[field_name], opener = _new_chip(field_name, label_key, _clear_select(field_name))
-            with opener:
+            chip = _new_chip(field_name, label_key, _clear_select(field_name))
+            chips[field_name] = chip
+            with chip.opener:
                 menu = ui.menu().classes("p-3")
                 with menu:
                     widget = (
@@ -283,8 +281,8 @@ def render_filter_bar(
         )
         tag_filter = _select_chip("tags", tags_key, tag_options, on_tag_change, "w-48")
 
-        chips["search"], search_opener = _new_chip("search", search_key, _clear_search)
-        with search_opener:
+        chips["search"] = _new_chip("search", search_key, _clear_search)
+        with chips["search"].opener:
             search_menu = ui.menu().classes("p-3")
         with search_menu:
             widgets["search"] = (

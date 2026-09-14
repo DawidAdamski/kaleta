@@ -223,7 +223,7 @@
     "clear_filter": "Clear {field}",
     "selected_count": "{count} selected",
     "selected_total": "Selected total",
-    "group_net": "Net on this page",
+    "group_net": "Net on this page, transfers excluded",
     "filter_chip_search": "Search: {text}",
     "group_none": "None",
     "group_week": "Week",
