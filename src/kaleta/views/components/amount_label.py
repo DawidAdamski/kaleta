@@ -10,14 +10,14 @@ from kaleta.services import TransactionService
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, amount_class
 
 
-def format_signed_amount(amount: Decimal | float, tx_type: str) -> str:
-    """Format an amount with its sign, for callers holding the type as a string.
+def format_signed_amount(amount: Decimal | float, tx_type: TransactionType) -> str:
+    """Format an amount with its sign, for views holding a plain number.
 
     The convention itself lives in ``TransactionService`` — the dashboard and
     the ledger must not disagree about what a minus sign means, or about
     whether a zero carries one.
     """
-    return TransactionService.format_signed_amount(Decimal(str(amount)), TransactionType(tx_type))
+    return TransactionService.format_signed_amount(Decimal(str(amount)), tx_type)
 
 
 def amount_cell_slot() -> str:

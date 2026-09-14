@@ -135,8 +135,11 @@ the two below it.
 1. **Chip popovers reuse the existing controls.** Each chip opens a
    `ui.menu` holding the same `ui.select` / `ui.input` as before, with the
    same `on_change` handlers, so no filter semantics moved. `FilterBarWidgets`
-   still hands the page the same seven widgets, which is why `_clear_filters`
-   in `page.py` is unchanged.
+   still hands the page the same seven widgets, so `_clear_filters` still
+   clears them the same way — it gained `_drop_selection()` and the chip
+   repaint, both of which are about what a redraw leaves behind, not about
+   what a filter means. The dataclass did change shape: `badge_label` became
+   `clear_all_button`, and `refresh_chips` is new.
 2. **Group net is page-scoped.** `attach_group_nets` sums the rows it was
    given — the page the user is looking at — and the separator's tooltip says
    so ("Net on this page"). Summing the whole result set would mean a second

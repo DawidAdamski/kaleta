@@ -81,7 +81,7 @@ async def render_recent_transactions(session: AsyncSession, is_dark: bool) -> No
                 "desc": (tx.description or "—")[:45],
                 "category": tx.category.name if tx.category else "—",
                 "type": tx.type.value,
-                "amount": format_signed_amount(tx.amount, tx.type.value),
+                "amount": format_signed_amount(tx.amount, tx.type),
             }
             for tx in recent
         ]

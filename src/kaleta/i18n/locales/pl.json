@@ -221,6 +221,7 @@
     "grouping": "Grupuj wg",
     "clear_all_n": "Wyczyść wszystkie ({count})",
     "clear_filter": "Wyczyść: {field}",
+    "open_filter": "Filtruj według: {field}",
     "selected_count": "Zaznaczono: {count}",
     "selected_total": "Suma zaznaczonych",
     "selected_net": "Bilans zaznaczonych wierszy, bez przelewów",

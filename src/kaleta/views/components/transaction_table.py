@@ -187,7 +187,7 @@ def render_transaction_table(
     on_selection: Callable[[object], None],
     on_split: Callable[[Any], Awaitable[None]] | None = None,
     colspan: int = 9,
-) -> Any:
+) -> ui.table:
     """Render the transactions data table and wire edit/selection/split events."""
     tbl = (
         ui.table(columns=transaction_columns(), rows=rows, row_key="id")

@@ -85,6 +85,8 @@ class _Chip:
     value_label: ui.label
     extra_label: ui.label
     clear_icon: ui.icon
+    #: The translated field name, kept for the opener's accessible name.
+    field_label: str
 
     def open_with_keyboard(self, menu: ui.menu) -> None:
         """Let the chip be reached and opened without a mouse.
@@ -103,6 +105,13 @@ class _Chip:
     def show(self, main: str, extra: str) -> None:
         """Paint the chip for a value, or fall back to the dashed empty state."""
         filled = bool(main)
+        # A filled chip hides the field name, so the only thing left to
+        # announce would be the value — "PKO Konto Główne +2", with nothing
+        # saying it is the account filter. The name says "filter by" rather
+        # than repeating the field's own label, which belongs to the control
+        # inside the menu.
+        opens = t("transactions.open_filter", field=self.field_label)
+        self.opener.props["aria-label"] = f"{opens}: {main} {extra}".strip() if filled else opens
         self.shell.classes(
             add=FILTER_CHIP_EMPTY if not filled else "",
             remove=FILTER_CHIP_EMPTY if filled else "",
@@ -166,6 +175,7 @@ def _new_chip(field_name: str, name_key: str, on_clear: Callable[[], None]) -> _
         value_label=value_label,
         extra_label=extra_label,
         clear_icon=clear_icon,
+        field_label=t(name_key),
     )
 
 

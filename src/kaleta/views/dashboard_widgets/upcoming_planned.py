@@ -46,10 +46,8 @@ async def render_upcoming_planned(session: AsyncSession, is_dark: bool) -> None:
         with ui.column().classes("w-full gap-1 mt-1"):
             for occ in occs[:6]:
                 is_income = occ.type == TransactionType.INCOME
-                tx_type = (
-                    TransactionType.INCOME.value if is_income else TransactionType.EXPENSE.value
-                )
-                amount_cls = amount_css_class(tx_type)
+                tx_type = TransactionType.INCOME if is_income else TransactionType.EXPENSE
+                amount_cls = amount_css_class(tx_type.value)
                 with ui.row().classes("w-full items-center justify-between gap-2"):
                     with ui.column().classes("gap-0 flex-1"):
                         ui.label(occ.name).classes("text-sm")

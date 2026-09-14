@@ -64,7 +64,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
     #: screen rather than asking the service for them again.
     selected_rows: list[dict[str, Any]] = []
     #: The live table, so the bar's "x" can untick the rows it refers to.
-    table_holder: dict[str, Any] = {}
+    table_holder: dict[str, ui.table] = {}
     #: This page's rows by id. The selection event arrives from the browser;
     #: the figures the bar adds up come from here, so the total is the
     #: server's own view of the page either way.
