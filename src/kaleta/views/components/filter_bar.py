@@ -127,9 +127,8 @@ class FilterBarWidgets:
     type_filter: Any
     search_input: Any
     tag_filter: Any
-    #: The "Clear all N" link. Still called ``badge_label`` because the page
-    #: sets its text and visibility the same way it did when it was a badge.
-    badge_label: Any
+    #: The "Clear all N" link, whose text the page rewrites as filters change.
+    clear_all_button: ui.button
     #: Repaint the chips after a filter changed. The page owns the filter dict,
     #: so only it can say when the labels went stale. Required: a default no-op
     #: would let a caller lose the repaint without anything saying so.
@@ -299,12 +298,12 @@ def render_filter_bar(
         ).tooltip(t(manage_tags_tooltip_key))
 
         ui.space()
-        badge_label = (
+        clear_all_button = (
             ui.button("", on_click=lambda: on_clear())
             .props("flat dense no-caps size=sm")
             .classes("k-clear-all text-[12px] font-medium")
         )
-        badge_label.set_visibility(False)
+        clear_all_button.set_visibility(False)
 
     def _refresh_chips(filters: dict[str, Any]) -> None:
         for field_name, chip in chips.items():
@@ -329,7 +328,7 @@ def render_filter_bar(
         type_filter=type_filter,
         search_input=widgets["search"],
         tag_filter=tag_filter,
-        badge_label=badge_label,
+        clear_all_button=clear_all_button,
         refresh_chips=_refresh_chips,
     )
 

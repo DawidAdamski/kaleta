@@ -291,8 +291,9 @@ wrong one: the controls live *inside* the chips, so a refresh mid-selection
 would destroy the open multi-select the user was still picking from. Instead
 each chip keeps handles to its own labels and icons, and
 `FilterBarWidgets.refresh_chips(filters)` sets text and toggles the dashed
-empty state in place. The page already called `_update_badge()` on every
-filter change, so that is where the repaint hangs.
+empty state in place. The page already repainted the "Clear all N"
+link on every filter change (`_repaint_filter_row`), so that is where the
+chip repaint hangs.
 
 Clearing one chip is its `×`, which is a sibling of the element the menu
 hangs from — not a child. A close icon inside the opener would have opened

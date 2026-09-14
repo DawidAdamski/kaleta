@@ -89,11 +89,11 @@ async def transactions_page(*, open_new: bool = False) -> None:
     table_actions_ui: Any
     filter_widgets: Any
 
-    def _update_badge() -> None:
+    def _repaint_filter_row() -> None:
         """Repaint the chips and the "Clear all N" link for the current filters."""
         count = active_filter_count(filters)
-        filter_widgets.badge_label.set_text(t("transactions.clear_all_n", count=count))
-        filter_widgets.badge_label.set_visibility(count > 0)
+        filter_widgets.clear_all_button.set_text(t("transactions.clear_all_n", count=count))
+        filter_widgets.clear_all_button.set_visibility(count > 0)
         filter_widgets.refresh_chips(filters)
 
     def _drop_selection() -> None:
@@ -124,7 +124,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         _drop_selection()
         transaction_table.refresh()
         table_actions_ui.refresh()
-        _update_badge()
+        _repaint_filter_row()
 
     add_dialog_ctx = build_add_dialog(
         account_options,
@@ -198,10 +198,12 @@ async def transactions_page(*, open_new: bool = False) -> None:
             selected_tx_ids.clear()
             selected_rows.clear()
             rows_list = getattr(e, "args", None) or []
-            selected_tx_ids.extend(r["id"] for r in rows_list)
-            selected_rows.extend(
-                page_rows[tx_id] for tx_id in selected_tx_ids if tx_id in page_rows
-            )
+            # The browser sends the ids; the figures come from the server's own
+            # rows. An id the page no longer holds — a stale event arriving
+            # after a redraw — is dropped from both, so the count, the total
+            # and the delete button cannot end up describing different rows.
+            selected_tx_ids.extend(r["id"] for r in rows_list if r["id"] in page_rows)
+            selected_rows.extend(page_rows[tx_id] for tx_id in selected_tx_ids)
             table_actions_ui.refresh()
 
         table_holder["table"] = render_transaction_table(
@@ -280,7 +282,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filter_widgets.tag_filter.set_value([])
         filter_widgets.search_input.set_value("")
         _drop_selection()
-        _update_badge()
+        _repaint_filter_row()
         transaction_table.refresh()
         table_actions_ui.refresh()
 

@@ -614,7 +614,7 @@ def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> No
     # sends the whole selection back on the next click.
     ticked = page.locator('.q-table tbody .q-checkbox[aria-checked="true"]')
     expect(ticked).to_have_count(2)
-    bar.get_by_role("button").last.click()
+    bar.get_by_role("button", name="Clear selection").click()
     expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
     expect(ticked).to_have_count(0, timeout=10000)
 
