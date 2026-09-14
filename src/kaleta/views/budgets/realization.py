@@ -15,7 +15,7 @@ from kaleta.services.budget_service import (
 )
 from kaleta.views.budgets.constants import PACE_FILL, STATUS_LABEL_KEY
 from kaleta.views.budgets.helpers import fmt_pct
-from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_NEUTRAL, INK, ROW_HOVER
+from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_NEUTRAL, INK, MONO, ROW_HOVER
 
 #: The note line and the parent name share this; both are asides to the row.
 _ASIDE = "k-muted text-[12px]"
@@ -68,7 +68,7 @@ def render_realization_row(row: CategoryRealization) -> None:
             f"flex-1 text-right text-sm font-medium {AMOUNT_NEUTRAL}"
         )
         ui.label(f"{row.remaining:,.2f}").classes(f"flex-1 text-right text-sm {remaining_cls}")
-        ui.label(fmt_pct(row.used_pct)).classes("flex-1 text-right text-sm k-mono")
+        ui.label(fmt_pct(row.used_pct)).classes(f"flex-1 text-right text-sm {MONO}")
         # pt-1.5 drops the 7px track onto the text's own line: the row aligns
         # to the top now, because a wrapped note must not shift the figures.
         with ui.column().classes("w-56 gap-1 min-w-0 pt-1.5"):

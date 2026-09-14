@@ -84,8 +84,9 @@ def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
     expect(tooltip).to_contain_text("elapsed")
 
     # The header names the column after the bar, not after the badge.
-    expect(page.get_by_text("Pace", exact=True).first).to_be_visible()
-    expect(page.get_by_text("Status", exact=True)).to_have_count(0)
+    header = page.locator("div.row").filter(has_text="Remaining").first
+    expect(header.get_by_text("Pace", exact=True)).to_be_visible()
+    expect(header.get_by_text("Status", exact=True)).to_have_count(0)
 
 
 def test_a_row_paid_in_full_early_says_so(page: Page, base_url: str) -> None:
@@ -155,3 +156,9 @@ def test_a_bill_still_to_come_is_named(page: Page, base_url: str) -> None:
     row = _row_for(page, category)
     expect(row).to_be_visible(timeout=10000)
     expect(row).to_contain_text(f"284.00 planned for {today.day:02d}.{today.month:02d}")
+
+    # Nothing spent: an empty bar, and a row that is on track rather than
+    # thrifty — which is the whole reason the line is there.
+    assert _style_pct(row.locator(".k-pace__fill"), "width") == 0.0
+    row.locator(".k-pace").hover()
+    expect(page.locator(".q-tooltip").last).to_contain_text("On track", timeout=5000)

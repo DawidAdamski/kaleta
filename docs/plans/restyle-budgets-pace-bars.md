@@ -170,6 +170,16 @@ branch above it, so the two cannot both fire.
 The field is called `note` rather than the plan's `explanation`, which reads
 better through `note_text` and the two i18n keys.
 
+### A bill that will overshoot is still named
+
+"Planned on" fires whenever the row is under budget, including when the
+upcoming bill will take it over — 300 spent of 400 with a 284 bill on the
+20th still reads "284,00 planned for 20.09". That looks like the
+reassurance the paid-in-full branch is careful to withhold, and it is not:
+the line states a fact about the month, and the row heading for 184 over is
+exactly the one where knowing is worth most. The bar is what passes
+judgement; the line only says what is scheduled.
+
 ### A deactivated plan loses its note
 
 `_expense_schedule` reads `get_occurrences` with the default
@@ -240,7 +250,9 @@ a `Covers:` in `tests/unit` counts for nothing. The pure rule still has its
 unit tests (fifteen of them) and the wiring has three more, but the scenario is
 carried by `tests/e2e/test_budget_realization.py`.
 
-`KAL-BUD-013` and `KAL-BUD-014` are new and not in the plan. Replacing the
+`KAL-BUD-013` and `KAL-BUD-014` are new; Scope was amended to list
+`KAL-BUD-013` alongside `KAL-BUD-012`, and `KAL-BUD-014` is outside the plan
+as written. Replacing the
 status word with a bar and putting a "284,00 planned for 12.09" line under
 it are both user-facing behaviour, and Working Agreement §5 wants a scenario
 for each. KAL-BUD-014 seeds its bill as due **today**, which is a date every

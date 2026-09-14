@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
@@ -1002,6 +1003,12 @@ class TestRealizationNote:
         )
 
         assert note is None
+
+    def test_a_planned_on_note_cannot_exist_without_its_amount(self):
+        # The view formats the figure straight out of the note, so a note
+        # without one would render "0.00 planned for 12.09".
+        with pytest.raises(ValidationError):
+            RealizationNote(RealizationNoteKind.PLANNED_ON, datetime.date(2026, 4, 12))
 
     def test_a_posted_bill_still_explains_the_row(self):
         # The realistic path: the rent plan was posted, which is *how* the

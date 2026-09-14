@@ -1509,14 +1509,6 @@ Feature: Annual Budget Planning
     And the bar is not painted as an overspend — ahead of the month is not
       over the budget
 
-  KAL-BUD-014 @automated
-  Scenario: An under-budget row names the bill still to come
-    Given 400.00 is budgeted for a category this month
-    And a bill of 284.00 for it is due and not yet paid
-    When I open the Realization tab
-    Then a line under the empty bar names the amount and the date
-    And the row does not read as underspending
-
   KAL-BUD-013 @automated
   Scenario: A pace bar replaces the status word
     Given a category is budgeted for this month
@@ -1524,6 +1516,14 @@ Feature: Annual Budget Planning
     Then each row ends with a bar filled to what was spent
     And a tick on the bar marks how much of the month has elapsed
     And the status word it replaced is still there on hover
+
+  KAL-BUD-014 @automated
+  Scenario: An under-budget row names the bill still to come
+    Given 400.00 is budgeted for a category this month
+    And a bill of 284.00 for it is due and not yet paid
+    When I open the Realization tab
+    Then a line under the empty bar names the amount and the date
+    And the bar is empty and still reads as on track
 ```
 
 ## Feature: Budget Planning Comparisons
