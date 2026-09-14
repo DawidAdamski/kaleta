@@ -2,7 +2,8 @@
 """E2E tests for Feature: Manual Transaction Entry.
 
 Covers: KAL-TXN-001, KAL-TXN-009, KAL-TXN-010, KAL-TXN-011, KAL-TXN-012,
-KAL-TXN-013, KAL-TXN-014, KAL-TXN-015, KAL-TXN-016, KAL-PAG-005
+KAL-TXN-013, KAL-TXN-014, KAL-TXN-015, KAL-TXN-016, KAL-TXN-017,
+KAL-PAG-005
 
 Maps the q3-test-safety-net flow: add, edit, and split a transaction.
 Page URL: /transactions
@@ -571,11 +572,11 @@ def test_editing_a_transfer_has_no_payee_field(page: Page, base_url: str) -> Non
 LEDGER_TOKEN = "LedgerChipsE2E"
 
 
-def _filter_by_search(page: Page, base_url: str, token: str) -> None:
-    """Narrow the ledger to the two rows a scenario seeded."""
+def _filter_by_search(page: Page, base_url: str, token: str, rows: int = 2) -> None:
+    """Narrow the ledger to the rows a scenario seeded."""
     page.goto(f"{base_url}/transactions")
     search_ledger(page, token)
-    expect(page.locator(".q-table tbody tr")).to_have_count(2, timeout=10000)
+    expect(page.locator(".q-table tbody tr")).to_have_count(rows, timeout=10000)
 
 
 def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> None:
@@ -752,3 +753,21 @@ def test_a_chip_opens_from_the_keyboard(page: Page, base_url: str) -> None:
     opener.focus()
     opener.press("Enter")
     expect(page.locator(".q-menu").last).to_be_visible(timeout=5000)
+
+
+def test_a_zero_amount_row_has_no_direction(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-017
+
+    Nothing moved, so the row shows no sign and takes neither amount colour —
+    the same rule the group separator and the selection total follow.
+    """
+    token = "LedgerZeroE2E"
+    account_id = seed_account("PKO Ledger Zero E2E")
+    category_id = seed_category("Zywnosc Zero E2E")
+    seed_transaction(account_id, category_id, 0.00, description=f"Korekta {token}")
+
+    _filter_by_search(page, base_url, token, rows=1)
+
+    amount = page.locator(".q-table tbody tr span.k-amount")
+    expect(amount).to_have_text("0.00", timeout=10000)
+    expect(amount).to_have_class(re.compile(r"k-amount--neutral"))

@@ -824,6 +824,13 @@ Feature: Manual Transaction Entry
     And a leg on its own counts for nothing either — a transfer records no
       direction, so the net cannot claim one
 
+  KAL-TXN-017 @automated
+  Scenario: A zero amount has no direction
+    Given a transaction of 0.00
+    When I look at it in the ledger
+    Then the amount reads 0.00, with no sign
+    And it is painted neither as money in nor as money out
+
   KAL-TXN-016 @automated
   Scenario: A filter chip says what it filters
     Given I have narrowed the ledger to my own rows with a search

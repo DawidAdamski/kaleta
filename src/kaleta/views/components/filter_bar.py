@@ -209,6 +209,12 @@ def render_filter_bar(
     chips: dict[str, _Chip] = {}
     widgets: dict[str, Any] = {}
 
+    # The two shapes of clearing below are not interchangeable. A select is
+    # cleared by ``set_value`` alone, which fires its ``on_change``; the date
+    # and search inputs listen on the *client* event ``update:model-value``,
+    # which ``set_value`` does not fire, so those handlers call the page
+    # themselves. Move an input to ``on_change`` and it will run the query
+    # twice.
     def _clear_date() -> None:
         # Both ends go, then the page is told once — clearing a chip should
         # cost one query, not one per field behind it.
