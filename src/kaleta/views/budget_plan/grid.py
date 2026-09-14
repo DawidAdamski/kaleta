@@ -204,7 +204,7 @@ def _render_single_year_grid(
                     tint = PLAN_MONTH_NOW if cell.month == this_month else ""
                     (
                         ui.label(format_amount(cell.planned))
-                        .classes(f"{cell_cls} cursor-pointer rounded {color} {tint}")
+                        .classes(f"{cell_cls} {MONO} cursor-pointer rounded {color} {tint}")
                         .style(S_MON)
                         .on(
                             "click",
@@ -218,7 +218,7 @@ def _render_single_year_grid(
                     )
 
                 ui.label(format_amount(row.total_planned or None)).classes(
-                    f"text-sm text-right px-3 py-2 font-medium {INK}"
+                    f"text-sm text-right px-3 py-2 font-medium {MONO} {INK}"
                 ).style(S_TOT)
 
                 with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
@@ -262,9 +262,9 @@ def _render_single_year_grid(
         ui.label("").style(S_REC)
         for index, tot in enumerate(slice_.month_planned_totals, start=1):
             tint = PLAN_MONTH_NOW if index == this_month else ""
-            ui.label(format_amount(tot or None)).classes(f"{cell_cls} {tint}").style(S_MON)
+            ui.label(format_amount(tot or None)).classes(f"{cell_cls} {MONO} {tint}").style(S_MON)
         ui.label(format_amount(slice_.grand_planned or None)).classes(
-            "text-sm text-right px-3 py-2"
+            f"text-sm text-right px-3 py-2 {MONO}"
         ).style(S_TOT)
         ui.label("").style(S_ACT)
 
@@ -307,11 +307,11 @@ def _render_compare_grid(
                 ui.label(rec_text).classes(f"{cell_cls} font-medium {rec_color}").style(S_REC)
                 for cell in year_row.months:
                     color = INK if cell.planned else MUTED
-                    ui.label(format_amount(cell.planned)).classes(f"{cell_cls} {color}").style(
-                        S_MON
-                    )
+                    ui.label(format_amount(cell.planned)).classes(
+                        f"{cell_cls} {MONO} {color}"
+                    ).style(S_MON)
                 ui.label(format_amount(year_row.total_planned or None)).classes(
-                    f"text-sm text-right px-3 py-1 font-medium {INK}"
+                    f"text-sm text-right px-3 py-1 font-medium {MONO} {INK}"
                 ).style(S_TOT)
 
     with ui.row().classes(f"{row_cls} {PLAN_TOTAL} {INK} font-medium"):
@@ -319,7 +319,7 @@ def _render_compare_grid(
         ui.label("").style(S_REC)
         if grid.compare_month_totals is not None:
             for tot in grid.compare_month_totals:
-                ui.label(format_amount(tot or None)).classes(cell_cls).style(S_MON)
+                ui.label(format_amount(tot or None)).classes(f"{cell_cls} {MONO}").style(S_MON)
         overall = grid.compare_grand_total or Decimal("0")
         ui.label(format_amount(overall or None)).classes("text-sm text-right px-3 py-2").style(
             S_TOT

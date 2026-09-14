@@ -1453,8 +1453,7 @@ Feature: Annual Budget Planning
     Given there are transactions in the current month
     And budget targets are set for the current month
     And I am on the Budget Plan page
-    When I select view mode "Budget vs Actual"
-    Then each category cell shows both the budgeted amount and the amount actually spent
+    Then each category shows its actual line under its plan, month by month
     And a month that went over its budget is highlighted
     And a month that stayed inside it is not — spending as planned is not news
 
@@ -1487,6 +1486,7 @@ Feature: Annual Budget Planning
     When I enable "Show previous year"
     Then each cell shows the current year budget and the previous year budget side by side
     And the difference (positive or negative) is displayed
+    But no actual spending is shown — comparing years is about what was planned
 
   # --- Validation ---
 

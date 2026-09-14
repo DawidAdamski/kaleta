@@ -202,7 +202,7 @@ BASE_CSS = """
   --k-warning:#E3B457;
 
   --k-row-hover:#262420;
-  --k-plan-now:#2A2822;
+  --k-plan-now:#332F26;
   --k-chip-dash:#453F34;
   --k-card-shadow:none;
   --k-on-accent:#241C13

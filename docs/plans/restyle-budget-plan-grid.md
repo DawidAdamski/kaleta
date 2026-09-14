@@ -143,6 +143,25 @@ it. It now reads "a month that stayed inside its budget is not [highlighted]
 — spending as planned is not news", and its e2e asserts the absence of the
 expense colour rather than the presence of green.
 
+### The dark tint is not the sunken surface
+
+Scope names the sunken surface for the dark current-month column. In dark
+mode `--k-surface-sunken` and `--k-hairline` are the same colour
+(`#2A2822`), so the tinted cell would have painted over the row's own rule
+and left a 52px gap in every hairline, once per row, straight down the
+middle of the grid. `--k-plan-now` is `#332F26` in dark instead: a step
+above the hairline, still clearly a tint against the `#201F1A` ground.
+
+### Both lines of a category are mono
+
+Scope asks for the planned row "in ink, `k-amount`". It reads `k-ink` and
+`k-mono` rather than `k-amount`: `k-amount` is `k-mono` plus a semantic
+colour, and the plan figures have their own colour rule already (ink,
+accent when a month overrides the recurring figure, muted when empty). What
+mattered was the mono half — the actual line under each plan was mono and
+the plan line was not, so the two rows of one category used different
+typefaces and their digits did not line up column by column.
+
 ### A category is one row, not two
 
 The plan line and its actual line used to be two independent rows, each with

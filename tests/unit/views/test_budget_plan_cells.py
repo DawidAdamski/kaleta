@@ -8,6 +8,7 @@ these pin the rule itself, including the cases a browser test never seeds.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 from kaleta.services.budget_service import PlanCategoryRow, PlanMonthCell
@@ -19,27 +20,25 @@ from kaleta.views.budget_plan.helpers import (
 )
 from kaleta.views.theme import ACCENT_TEXT, AMOUNT_EXPENSE, INK, MUTED
 
+_EMPTY_ROW = PlanCategoryRow(
+    category_id=1,
+    name="Żywność",
+    parent_id=None,
+    is_child=False,
+    uniform_monthly=None,
+    has_any_plan=False,
+    has_any_actual=False,
+    months=tuple(
+        PlanMonthCell(month=m, planned=None, actual=None, is_override=False, is_over_budget=False)
+        for m in range(1, 13)
+    ),
+    total_planned=Decimal("0"),
+    total_actual=Decimal("0"),
+)
 
-def _row(**kwargs: object) -> PlanCategoryRow:
-    defaults: dict[str, object] = {
-        "category_id": 1,
-        "name": "Żywność",
-        "parent_id": None,
-        "is_child": False,
-        "uniform_monthly": None,
-        "has_any_plan": False,
-        "has_any_actual": False,
-        "months": tuple(
-            PlanMonthCell(
-                month=m, planned=None, actual=None, is_override=False, is_over_budget=False
-            )
-            for m in range(1, 13)
-        ),
-        "total_planned": Decimal("0"),
-        "total_actual": Decimal("0"),
-    }
-    defaults.update(kwargs)
-    return PlanCategoryRow(**defaults)  # type: ignore[arg-type]
+
+def _row(*, uniform_monthly: Decimal | None = None, has_any_plan: bool = False) -> PlanCategoryRow:
+    return replace(_EMPTY_ROW, uniform_monthly=uniform_monthly, has_any_plan=has_any_plan)
 
 
 class TestActualCellColour:

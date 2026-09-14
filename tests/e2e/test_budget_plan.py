@@ -228,7 +228,7 @@ def test_the_grid_tints_the_current_month(page: Page, base_url: str) -> None:
 
     # The actual sub-row sits under the plan, quiet and in mono, with its own
     # tinted cell for the current month.
-    actual_row = page.locator(".k-plan-actual").first
+    actual_row = row.locator(".k-plan-actual")
     expect(actual_row).to_be_visible()
     expect(actual_row.locator(".k-mono").first).to_be_visible()
     expect(actual_row.locator(".k-plan-month-now")).to_have_count(1)
