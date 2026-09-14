@@ -9,9 +9,11 @@ from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_service import (
     ColumnMapping,
     CsvInspection,
+    ImportReadinessCheck,
     MBankFileMetadata,
     ParsedRow,
     QueueSettingsSnapshot,
+    validate_import_readiness,
 )
 
 
@@ -102,18 +104,31 @@ def current_step(active: QueuedFile | None) -> int:
     return STEP_UPLOAD
 
 
+#: The one thing the import can refuse for that no setting will fix — the
+#: file's currency is not the account's. Everything else the readiness check
+#: blocks on is a field on the settings card, chosen or not.
+_NOT_A_SETTING = "import.currency_mismatch_block"
+
+
 def settings_are_complete(file: QueuedFile) -> bool:
     """Everything the settings step asks for, chosen.
 
-    The same three fields ``validate_import_readiness`` blocks the import on,
-    minus the currency check, which is about the file rather than a setting
-    the user can still fill in.
+    Asked of ``validate_import_readiness`` rather than copied from it: the
+    settings node is ticked exactly when the Import button would stop
+    refusing, so a rule added to the service later cannot leave the line
+    claiming a step the page below it is still asking for.
     """
-    return (
-        file.target_account_id is not None
-        and file.expense_cat_id is not None
-        and file.income_cat_id is not None
+    error_key, _ = validate_import_readiness(
+        ImportReadinessCheck(
+            target_account_id=file.target_account_id,
+            expense_cat_id=file.expense_cat_id,
+            income_cat_id=file.income_cat_id,
+            profile=file.profile,
+            metadata=file.metadata,
+            account_currency=None,
+        )
     )
+    return error_key is None or error_key == _NOT_A_SETTING
 
 
 def queue_is_terminal(queue: list[QueuedFile]) -> bool:

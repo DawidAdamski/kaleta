@@ -354,6 +354,25 @@ itself lists. Choosing the wrong date format on a thousand-row file put a
 thousand muted labels under a strip that had already counted them, burying
 the pickers it was pointing at.
 
+### The tick asks the service rather than copying it
+
+Ninth review round. `settings_are_complete` had copied the three field
+checks out of `validate_import_readiness`, which is how the previous round's
+bug would come back the next time a readiness rule is added. It calls the
+service now and ticks exactly when the Import button would stop refusing;
+the currency mismatch is the one refusal no setting can fix, so it is the
+one key exempted.
+
+`render_step_indicator(current: int = 1)` lost its default, which no caller
+used and which disagreed with `current_step(None) == 2`, and it no longer
+returns a row nobody kept.
+
+KAL-CSV-025 says what the e2e test proves — the fields the importer filled
+in are marked, and a hand change takes the mark away. The saved-rule and
+inherited cases are the same one-line adoption, covered by unit tests on
+`apply_settings_snapshot`, and described here rather than claimed by an
+`@automated` tag no end-to-end test reaches.
+
 ### Settings is done when settings are done
 
 Eighth review round, and a second real bug. `current_step` ticked Settings

@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The "auto" mark on a mapping picker (artboard 2d).
 
-Covers: KAL-CSV-025 — "the fields the importer recognised carry an auto mark,
-and changing one of them by hand takes its mark away". The rule needs no
-state of its own: a field is auto exactly while it still holds the guess.
+Covers: KAL-CSV-025 — "the fields the importer filled in carry an auto mark,
+and changing one of them by hand takes its mark away". A field is auto
+exactly while the picker still holds what the importer put there, which the
+file records as ``auto_mapping``: header detection, a saved import rule, or
+a mapping inherited from another queued file.
 """
 
 from __future__ import annotations

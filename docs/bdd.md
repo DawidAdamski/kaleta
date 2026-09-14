@@ -1255,7 +1255,6 @@ Feature: mBank CSV Import
     Given I am on the Import page
     When I upload a CSV whose headers name their columns
     Then the fields the importer filled in carry an "auto" mark
-    And a mapping it took from a saved rule or another queued file is marked too
     And changing one of them by hand takes its mark away
 
   KAL-CSV-026 @automated

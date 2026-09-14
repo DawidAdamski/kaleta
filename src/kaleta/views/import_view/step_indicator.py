@@ -20,7 +20,7 @@ def _step_labels() -> list[str]:
     ]
 
 
-def render_step_indicator(current: int = 1) -> ui.row:
+def render_step_indicator(current: int) -> None:
     """Six nodes on a hairline: done, the one you are on, and the rest.
 
     Six numbered pills separated by arrows told the reader how many steps
@@ -29,8 +29,10 @@ def render_step_indicator(current: int = 1) -> ui.row:
     number, and the rest are outlines — which is the whole state of the
     wizard at a glance.
     """
+    # No default: a line drawn without a step would have to invent one, and
+    # the invented one disagreed with ``current_step(None)``.
     labels = _step_labels()
-    with ui.row().classes(f"{STEP_LINE} w-full items-start gap-0 mb-3 no-wrap") as line:
+    with ui.row().classes(f"{STEP_LINE} w-full items-start gap-0 mb-3 no-wrap"):
         for index, label in enumerate(labels, start=1):
             done = index < current
             now = index == current
@@ -50,4 +52,3 @@ def render_step_indicator(current: int = 1) -> ui.row:
                 ui.label(label).classes(STEP_LABEL_NOW if now else STEP_LABEL)
             if now:
                 node.props["aria-current"] = "step"
-    return line
