@@ -196,10 +196,13 @@ def realization_note(
     if not occurrences:
         return None
 
-    # One occurrence, big enough to be the whole budget, and it has landed.
+    # One occurrence, big enough to be the whole budget, already due, and
+    # nothing spent on top of it. Every clause is a way the line could
+    # otherwise be false: a bill due on the 25th has not been paid on the
+    # 10th, and 3 000 spent against a 2 000 bill is not "as expected".
     if planned > 0 and actual >= planned and len(occurrences) == 1:
         when, amount = occurrences[0]
-        if amount >= planned:
+        if amount >= planned and when <= today and actual <= amount:
             return RealizationNote(RealizationNoteKind.PAID_IN_FULL, when)
 
     # Still under budget with money scheduled to go out later this month.
@@ -222,7 +225,10 @@ class CategoryRealization:
     actual: Decimal
     elapsed_pct: float
     used_pct: float
-    #: Why the pace looks the way it does, when the schedule can say.
+    #: Why the pace looks the way it does, when the schedule can say. Named
+    #: ``note`` rather than the plan's ``explanation``: the view renders it as
+    #: one line, and ``note_text`` / ``note_paid_in_full`` read better than
+    #: ``explanation_text`` / ``explanation_paid_in_full``.
     note: RealizationNote | None = None
 
     @property

@@ -71,6 +71,8 @@ CARD_SUBTITLE = "k-card-subtitle"
 FILTER_CHIP = "k-filter-chip"
 FILTER_CHIP_EMPTY = "k-filter-chip--empty"
 SELECTION_BAR = "k-selection-bar"
+#: Hover tint for a hand-built row (one that is not inside a ``k-table``).
+ROW_HOVER = "k-row-hover"
 
 # Filled accent surface (banners, section headers, step markers) and the
 # text colour that sits on it — apricot in light, ink on apricot in dark.
@@ -291,6 +293,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   line-height:1.3
 }
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
+.k-row-hover:hover{background:var(--k-row-hover)}
 .k-cat-row{border-bottom-color:var(--k-hairline)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}

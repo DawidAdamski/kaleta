@@ -46,7 +46,8 @@ Depends on `restyle-theme-tokens` (`.k-pace*` classes).
   `budgets.realization.note_paid_in_full`,
   `budgets.realization.note_planned_on`.
 - BDD: `KAL-BUD-012` "realization row explains an expected early
-  payment" (@automated via unit test on the service note).
+  payment" and `KAL-BUD-013` "a pace bar replaces the status word",
+  both @automated by e2e (see Implementation notes).
 
 Out of scope: threshold values (`REALIZATION_WARNING_THRESHOLD_PCT`
 unchanged); the Overview tab chart; budget editing.
@@ -54,7 +55,7 @@ unchanged); the Overview tab chart; budget editing.
 ## Acceptance criteria
 
 - `uv run pytest tests/unit/services/test_budget_service.py -q`
-- `uv run pytest tests/e2e/test_budget_vs_actual.py -q`
+- `uv run pytest tests/e2e/test_budget_realization.py -q`
 - `grep -q "k-pace" src/kaleta/views/budgets/realization.py`
 - `grep -q "KAL-BUD-012" docs/bdd.md`
 - `grep -q "note_planned_on" src/kaleta/i18n/locales/pl.json`
@@ -73,7 +74,7 @@ unchanged); the Overview tab chart; budget editing.
 - `src/kaleta/services/planned_transaction_service.py` (read-only use)
 - `src/kaleta/i18n/locales/en.json`, `pl.json`
 - `docs/bdd.md`, `tests/unit/services/test_budget_service.py`,
-  `tests/e2e/test_budget_vs_actual.py`
+  `tests/e2e/test_budget_realization.py` (new)
 
 ## Open questions
 
@@ -129,12 +130,30 @@ budget does not "cover" it — both are spending patterns, which the bar
 already describes. And an overspent row is never told what is still coming:
 "284,00 planned for 12.06" under a bar past 100 % reads as reassurance.
 
+### The note has four clauses, and each one is a way it could lie
+
+"Paid in full" needs more than a big enough occurrence: the occurrence has
+to be **due** (`when <= today` — a 2 000 bill dated the 25th has not been
+paid on the 10th, whatever else was spent), and nothing may have been spent
+**on top of it** (`actual <= amount` — 3 000 against a 2 000 bill is not
+"as expected"). Both have unit tests. The field is called `note` rather
+than the plan's `explanation`, which reads better through `note_text` and
+the two i18n keys.
+
 ### `PlannedOccurrence` gained a `category_id`
 
 Touchpoints call the planned service "read-only use", and this is the one
 thing added to it: the occurrence carried `category_name` but not the id, and
 matching a row to its schedule by name would break the moment two parents
 have a "Subscriptions" child. One additive field, one construction site.
+
+### Amounts keep the page's format, without a currency
+
+The plan writes the note as "284,00 zł planned for the 12th". The figure
+uses `,.2f` like every other cell in the row, and carries no `zł`: the row's
+Planned, Actual and Remaining columns do not, the account currency is
+configurable, and a hard-coded suffix under a column of bare numbers would
+be the only place on the page claiming to know it.
 
 ### Dates, not ordinals
 
@@ -166,6 +185,20 @@ the badge is gone.
 
 `col_status` became `col_pace` rather than gaining a sibling — the column is
 the bar now, and a leftover key is a key someone re-adds a badge for.
+
+### The note wraps, and the row aligns to the top
+
+The pace column was `w-40` (160px) and the note was `truncate`, which cut
+"Opłacone w całości 01.09 — zgodnie z planem" in half — and an e2e
+`to_contain_text` passes on text hidden by CSS, so no test would have caught
+it. The column is `w-56` and the line wraps. The row aligns `items-start` so
+a two-line note does not shove the figures down, with the bar dropped
+`pt-1.5` onto the text's own line.
+
+Row hover moved from the hard-coded `hover:bg-slate-50` to a `ROW_HOVER`
+token class. The old name was already remapped to `--k-row-hover` in
+`theme.py`, dark mode included, so this is not a fix — it is the rest of the
+row's move to tokens finishing the job.
 
 ### One test outside this plan had to be fixed
 

@@ -886,6 +886,30 @@ class TestRealizationNote:
 
         assert note is None
 
+    def test_a_bill_not_yet_due_has_not_been_paid(self):
+        # 2 000 of groceries by the 10th, against a 2 000 bill due on the 25th:
+        # the money that went out is not that bill.
+        note = realization_note(
+            planned=Decimal("2000.00"),
+            actual=Decimal("2000.00"),
+            used_pct=100.0,
+            occurrences=[(datetime.date(2026, 4, 25), Decimal("2000.00"))],
+            today=datetime.date(2026, 4, 10),
+        )
+
+        assert note is None
+
+    def test_spending_on_top_of_the_bill_is_not_as_expected(self):
+        note = realization_note(
+            planned=Decimal("2000.00"),
+            actual=Decimal("3000.00"),
+            used_pct=150.0,
+            occurrences=[(datetime.date(2026, 4, 1), Decimal("2000.00"))],
+            today=datetime.date(2026, 4, 10),
+        )
+
+        assert note is None
+
     def test_money_scheduled_later_this_month_is_named(self):
         note = realization_note(
             planned=Decimal("400.00"),

@@ -13,7 +13,7 @@ from kaleta.services.budget_service import (
 )
 from kaleta.views.budgets.constants import PACE_FILL, STATUS_LABEL_KEY
 from kaleta.views.budgets.helpers import fmt_pct
-from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_NEUTRAL, INK
+from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_NEUTRAL, INK, ROW_HOVER
 
 #: The note line and the parent name share this; both are asides to the row.
 _ASIDE = "k-muted text-[12px]"
@@ -54,7 +54,7 @@ def render_pace_bar(row: CategoryRealization) -> None:
 
 def render_realization_row(row: CategoryRealization) -> None:
     remaining_cls = AMOUNT_EXPENSE if row.remaining < 0 else AMOUNT_NEUTRAL
-    with ui.row().classes("w-full items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-50"):
+    with ui.row().classes(f"w-full items-start gap-3 py-2 px-3 rounded-lg {ROW_HOVER}"):
         with ui.column().classes("flex-[2] min-w-0 gap-0"):
             ui.label(row.category_name).classes(f"{INK} text-[13.5px] font-medium truncate")
             if row.parent_name:
@@ -65,10 +65,15 @@ def render_realization_row(row: CategoryRealization) -> None:
         )
         ui.label(f"{row.remaining:,.2f}").classes(f"flex-1 text-right text-sm {remaining_cls}")
         ui.label(fmt_pct(row.used_pct)).classes("flex-1 text-right text-sm k-mono")
-        with ui.column().classes("w-40 gap-1 min-w-0"):
+        # pt-1.5 drops the 7px track onto the text's own line: the row aligns
+        # to the top now, because a wrapped note must not shift the figures.
+        with ui.column().classes("w-56 gap-1 min-w-0 pt-1.5"):
             render_pace_bar(row)
             if row.note is not None:
-                ui.label(note_text(row.note)).classes(f"{_ASIDE} truncate")
+                # The line wraps rather than truncating: "Opłacone w całości
+                # 01.09 — zgodnie z planem" does not fit one 224px line, and a
+                # half-shown explanation explains nothing.
+                ui.label(note_text(row.note)).classes(f"{_ASIDE} leading-tight")
 
 
 def render_realization_header() -> None:
@@ -78,7 +83,7 @@ def render_realization_header() -> None:
         ui.label(t("budgets.realization.col_actual")).classes("flex-1 text-right")
         ui.label(t("budgets.realization.col_remaining")).classes("flex-1 text-right")
         ui.label(t("budgets.realization.col_used_pct")).classes("flex-1 text-right")
-        ui.label(t("budgets.realization.col_pace")).classes("w-40")
+        ui.label(t("budgets.realization.col_pace")).classes("w-56")
 
 
 def render_realization_flat(rows: list[CategoryRealization]) -> None:
