@@ -161,9 +161,10 @@ def test_run_forecast_all_accounts(page: Page, base_url: str) -> None:
     # Every account's history at once is more than enough to forecast, so
     # this asserts the figures rather than "those or a warning".
     expect(_kpi(page, "predicted")).to_be_visible(timeout=_RUN_TIMEOUT)
-    # And they describe the combined balance: the status line under the
-    # controls names the account the figures belong to.
-    expect(page.get_by_text("All Accounts", exact=False).first).to_be_visible()
+    # And they describe the combined balance: the chart they stand above
+    # names the account they belong to. (The select's own value says the same
+    # thing, which is why that is not what this asserts.)
+    expect(page.get_by_text("Balance forecast — All Accounts")).to_be_visible(timeout=10000)
     expect(page.locator(".nicegui-echart").first).to_be_visible(timeout=10000)
 
 
@@ -185,7 +186,8 @@ def test_warning_shown_for_insufficient_history(page: Page, base_url: str) -> No
         timeout=_RUN_TIMEOUT
     )
     # And no chart is displayed — the figures go with it.
-    expect(page.get_by_text("Balance today")).to_have_count(0)
+    expect(page.locator(".nicegui-echart")).to_have_count(0)
+    expect(page.locator("[data-kpi]")).to_have_count(0)
 
 
 # ---------------------------------------------------------------------------

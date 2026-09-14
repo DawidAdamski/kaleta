@@ -250,6 +250,29 @@ per-view `bg-blue-500/10 text-blue-600` triplets, and `.k-skeleton` so the
 wait looks like this app rather than Quasar's grey. Both in `theme.py` with
 the rest.
 
+### What "never costs a forecast" actually means
+
+Third review round. The claim had two holes. With a run in flight, a scenario
+change redrew the *previous* run over the skeleton and replaced the
+"Running…" line — and pointlessly, since the run reads the scenarios when it
+draws. With no usable run behind us, the same change started a full forecast,
+Prophet included; but a scenario does not turn insufficient history into
+sufficient history. `_redraw_now` does nothing in both cases, and the chips
+update either way.
+
+A failed run used to leave the previous account's result in `run_state.raw`,
+so the next scenario or preset drew the old account's chart under the new
+selection — the very mismatch the previous round set out to fix. The failure
+path clears it.
+
+`_on_controls_changed` asks `_sync_stale()` rather than asserting
+`_mark_stale()`: changing the account and changing it straight back leaves
+the chart answering the controls again, and the hint has to go with it.
+
+The two band series are `tooltip: {show: false}`. The band's own value is its
+*height*, so hovering listed "200" in a column of zł figures as though it
+were a balance.
+
 ### Errors are domain errors
 
 The first version caught bare `Exception` and wrote a muted "Try again" into

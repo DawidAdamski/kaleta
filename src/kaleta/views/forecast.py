@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import datetime
-import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -152,6 +151,7 @@ def _forecast_chart(
                 "showSymbol": False,
                 "stack": "confidence",
                 "silent": True,
+                "tooltip": {"show": False},
                 "z": 1,
             },
             {
@@ -162,6 +162,9 @@ def _forecast_chart(
                 "showSymbol": False,
                 "stack": "confidence",
                 "areaStyle": {"color": band_color},
+                # Its value is the band's *height*, not a balance — "200"
+                # under a column of zł figures would read as one.
+                "tooltip": {"show": False},
                 "z": 1,
             },
             {
@@ -214,8 +217,6 @@ def _forecast_chart(
     return apply_dark(_opts, is_dark)
 
 
-logger = logging.getLogger(__name__)
-
 #: How long a control change waits before it re-runs itself.
 _DEBOUNCE_SECONDS = 0.3
 
@@ -254,9 +255,14 @@ def _saved_horizon() -> int:
 
 
 def _saved_account(options: dict[int | str, str]) -> int | str:
+    """The remembered account, if it is still one of the offered ones.
+
+    Storage round-trips through JSON, so an id saved as ``7`` can come back
+    as ``"7"``; both spellings are tried before giving up on it.
+    """
     raw = app.storage.user.get("forecast_account", "all")
-    if raw in options:
-        return raw  # type: ignore[no-any-return]
+    if isinstance(raw, int | str) and raw in options:
+        return raw
     try:
         as_int = int(raw)
     except (TypeError, ValueError):
@@ -388,7 +394,10 @@ def register() -> None:
                 app.storage.user["forecast_account"] = account_sel.value
                 app.storage.user["forecast_horizon"] = horizon_sel.value
                 if prophet_available:
-                    _mark_stale()
+                    # Asked, not asserted: changing the account and changing
+                    # it straight back leaves the chart answering the controls
+                    # again, and the mark has to go with it.
+                    _sync_stale()
                 else:
                     _debounced_run()
 
@@ -401,8 +410,7 @@ def register() -> None:
                 """
                 if preset_toggle is not None:
                     app.storage.user["forecast_preset"] = preset_toggle.value
-                if not _redraw_from_last_run():
-                    _debounced_run()
+                _redraw_now()
 
             async def _debounce_tick() -> None:
                 debounce.deactivate()
@@ -462,8 +470,22 @@ def register() -> None:
                 have meant adding a windfall and watching nothing move, which
                 is the opposite of what KAL-FCT-011 promises.
                 """
-                if not _redraw_from_last_run():
-                    _debounced_run()
+                _redraw_now()
+
+            def _redraw_now() -> None:
+                """Redraw for something that costs no forecast, if it can.
+
+                Two cases where it cannot, and neither is worth a run: while
+                one is in flight, the run reads the scenarios and the preset
+                as it draws, so it will already show them — redrawing here
+                would paint the previous account over the skeleton and take
+                the "Running…" line with it. And with no usable run behind us
+                there is nothing to shift: a scenario does not turn
+                insufficient history into sufficient history.
+                """
+                if run_state.running:
+                    return
+                _redraw_from_last_run()
 
             def _save_scenario() -> None:
                 label = (label_input.value or "").strip()
@@ -562,6 +584,10 @@ def register() -> None:
                 try:
                     raw = await with_session(_ask)
                 except KaletaError as exc:
+                    # The previous account's result goes with it: keeping it
+                    # would let the next scenario or preset redraw the old
+                    # account's chart under the new selection.
+                    run_state.raw = None
                     _clear_and_say(t("forecast.failed"))
                     notify_kaleta_error(exc)
                     return
@@ -569,6 +595,7 @@ def register() -> None:
                     # Not a domain error and not ours to explain away: clear
                     # the skeleton, which is the whole page now that the page
                     # draws on load, then let the bug reach the logs as one.
+                    run_state.raw = None
                     _clear_and_say(t("forecast.failed"))
                     raise
 
