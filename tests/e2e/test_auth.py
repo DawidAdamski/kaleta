@@ -11,7 +11,6 @@ import httpx
 from playwright.sync_api import Page, expect
 
 from tests.e2e.conftest import E2E_PASSWORD, E2E_USERNAME
-from tests.e2e.seed_helpers import seed_account, seed_category, seed_transaction
 
 
 def test_login_success(page_no_auth: Page, base_url: str) -> None:
@@ -68,32 +67,41 @@ def test_login_panel_counts_and_says_nothing_more(page_no_auth: Page, base_url: 
     The panel is read before anyone has proved who they are. Counts are a
     deliberate decision (`AUTH_PANEL_STATS`); an amount, a name or a payee
     leaking onto it would not be.
-    """
-    account_id = seed_account("Auth Panel E2E Account")
-    category_id = seed_category("Auth Panel E2E Category")
-    seed_transaction(account_id, category_id, 1234.56, description="auth panel e2e payee")
 
+    Nothing is seeded here on purpose: the suite shares one database and this
+    runs first, so an account created for this test would lengthen the
+    account pickers every later test has to choose from. By the time it runs
+    the ledger has whatever earlier runs left in it, and what is asserted is
+    that the panel shows counts and nothing else whatever is in there.
+    """
     page_no_auth.set_viewport_size({"width": 1360, "height": 900})
     page_no_auth.goto(f"{base_url}/login")
     panel = page_no_auth.locator(".k-auth-panel")
     expect(panel).to_be_visible(timeout=10000)
 
-    # Three counts, each a plain integer, under the three labels that say
-    # what they count. The values themselves are not asserted: they are
-    # cached for a minute by design, so a freshly seeded row need not have
-    # reached the panel yet — what must hold is that only counts are there.
     figures = panel.locator(".k-auth-figure")
     expect(figures).to_have_count(3)
-    for index in range(3):
-        assert figures.nth(index).inner_text().replace("\u00a0", "").replace(" ", "").isdigit()
-    for label in ("Transactions", "Accounts", "Months of history"):
+    labels = ["Transactions", "Accounts", "Months of history"]
+    for label in labels:
         expect(panel.get_by_text(label, exact=True)).to_be_visible()
 
-    text = panel.inner_text()
-    assert "1234.56" not in text and "1 234,56" not in text and "1,234.56" not in text
-    assert "Auth Panel E2E Account" not in text
-    assert "auth panel e2e payee" not in text
-    assert "PLN" not in text
+    # Whatever the panel says, it is the copy, the three labels and three
+    # plain integers — take those away and there must be nothing left. That
+    # is a stronger claim than hunting for particular leaks, and it needs no
+    # data of its own to make it.
+    # Case-folded: the labels are uppercased by CSS, so what comes back from
+    # the DOM is not the string the locale file holds.
+    remaining = panel.inner_text().casefold()
+    for label in labels:
+        remaining = remaining.replace(label.casefold(), "", 1)
+    for index in range(3):
+        figure = figures.nth(index).inner_text()
+        assert figure.replace("\u00a0", "").replace(" ", "").isdigit(), figure
+        remaining = remaining.replace(figure.casefold(), "", 1)
+    copy_line = "Your ledger, on your own machine. No cloud account, no one else reading it."
+    assert copy_line.casefold() in remaining
+    remaining = remaining.replace(copy_line.casefold(), "", 1)
+    assert remaining.strip() == "", f"the panel says more than counts: {remaining!r}"
 
 
 def test_guard_redirects_unauthenticated_deep_link(page_no_auth: Page, base_url: str) -> None:
