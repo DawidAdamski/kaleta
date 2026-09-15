@@ -21,13 +21,19 @@ from kaleta.views.dashboard_widgets.layout import (
     resolve_user_widgets,
 )
 from kaleta.views.dashboard_widgets.registry import (
+    BAND_ORDER,
     DEFAULT_WIDGETS,
+    HERO_WIDGET,
     LEGACY_KPI_WIDGETS,
     MERGED_KPI_WIDGETS,
     WIDGETS,
+    Band,
     Widget,
     WidgetSize,
+    band_of,
+    bands_for_layout,
     cycle_size,
+    mobile_layout,
     register,
     selectable_widgets,
 )
@@ -48,6 +54,7 @@ from . import (  # noqa: F401
     predicted_30d,
     quick_actions,
     recent_transactions,
+    safe_to_spend,
     savings_rate_kpi,
     savings_rate_trend,
     top_merchants,
@@ -58,7 +65,13 @@ from . import (  # noqa: F401
 )
 
 __all__ = [
+    "BAND_ORDER",
     "DEFAULT_WIDGETS",
+    "HERO_WIDGET",
+    "Band",
+    "band_of",
+    "bands_for_layout",
+    "mobile_layout",
     "LEGACY_KPI_WIDGETS",
     "MERGED_KPI_WIDGETS",
     "LayoutEntry",

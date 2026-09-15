@@ -19,6 +19,7 @@ The full layout — widget order *and* per-widget size — is persisted in
 from __future__ import annotations
 
 import datetime
+import logging
 from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
@@ -30,17 +31,33 @@ if TYPE_CHECKING:
 from kaleta.i18n import t
 from kaleta.services import with_session
 from kaleta.views.dashboard_widgets import (
+    BAND_ORDER,
     DEFAULT_WIDGETS,
     WIDGETS,
+    Band,
     Widget,
+    bands_for_layout,
     default_layout,
+    mobile_layout,
     resolve_user_layout,
     selectable_widgets,
 )
+from kaleta.views.dashboard_widgets.helpers import fmt_number
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import DASH_PAGE_CONTAINER, PAGE_TITLE
+from kaleta.views.theme import (
+    BAND_TITLE,
+    DASH_PAGE_CONTAINER,
+    PAGE_TITLE,
+    WATCH_FIGURE,
+    WATCH_LABEL,
+)
+
+logger = logging.getLogger(__name__)
 
 _GRID_COLUMNS = 4
+
+#: Below this the dashboard is stacked bands, not a grid (Tailwind `md`).
+_MOBILE_MAX_WIDTH = 768
 
 _SORTABLE_SCRIPT = '<script src="/static/vendor/sortable.min.js"></script>'
 
@@ -306,6 +323,84 @@ def _period_eyebrow() -> str:
     )
 
 
+async def _viewport_is_mobile() -> bool:
+    """Which dashboard to build, decided once, server-side.
+
+    Rendering both trees and hiding one with CSS would run every widget's
+    queries twice on every load, which is exactly what a phone cannot afford.
+    So the page waits for the socket and asks the browser how wide it is.
+    A client that never connects — a crawler, a tab closed mid-load — gets
+    the desktop grid, which is also what a resize after load leaves you on:
+    the choice is made when the page is built, not while you hold it.
+    """
+    client = ui.context.client
+    try:
+        await client.connected(timeout=10.0)
+        width = await ui.run_javascript("window.innerWidth", timeout=5.0)
+    except Exception:  # noqa: BLE001 — a dashboard beats no dashboard
+        logger.debug("Viewport width unavailable; rendering the desktop grid", exc_info=True)
+        return False
+    return isinstance(width, int | float) and width < _MOBILE_MAX_WIDTH
+
+
+async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
+    """The four slow figures of the Watch band, as (label, value).
+
+    They are not widgets: the four the artboard names were merged into the
+    month and balance cards by ``restyle-dashboard`` and marked legacy, so
+    there is nothing left to band. Plain type on the ground is what the band
+    is for anyway — these are figures you glance at, not cards you work in.
+    """
+    from kaleta.services import ReportService
+    from kaleta.services.forecast_service import ForecastService
+    from kaleta.services.net_worth_service import NetWorthService
+
+    reports = ReportService(session)
+    net_worth = await NetWorthService(session).get_summary(history_months=2)
+    ytd = await reports.ytd_summary()
+    month = await reports.current_month_point()
+    forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
+    predicted = forecast.predicted_balance_30d
+    rate = month.rate_pct
+    return [
+        (t("dashboard_widgets.net_worth"), fmt_number(net_worth.net_worth)),
+        (t("dashboard.balance_30"), "—" if predicted is None else fmt_number(predicted)),
+        (t("reports_lib.savings_rate"), "—" if rate is None else f"{float(rate):.1f}%"),
+        (t("dashboard.watch_ytd_net"), fmt_number(ytd.net)),
+    ]
+
+
+async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_dark: bool) -> None:
+    """The phone dashboard: three stacked bands, no grid, no dragging.
+
+    Band order is fixed — it is the argument the layout is making — so the
+    stored desktop layout is read for *which* widgets and in what order
+    within a band, and never for position.
+    """
+    grouped = bands_for_layout(mobile_layout(layout))
+    for band, title_key in BAND_ORDER:
+        entries = grouped[band]
+        is_watch = band is Band.WATCH
+        if not entries and not is_watch:
+            continue
+        with ui.column().classes("w-full gap-3").props(f'data-band="{band.value}"'):
+            ui.label(t(title_key)).classes(BAND_TITLE)
+            if is_watch:
+                await _render_watch_band(session)
+            for entry in entries:
+                widget = WIDGETS[entry["id"]]
+                with ui.element("div").classes("w-full").props(f'data-widget-id="{widget.id}"'):
+                    await widget.render(session, is_dark)
+
+
+async def _render_watch_band(session: AsyncSession) -> None:
+    with ui.grid().classes("w-full grid-cols-2 gap-x-6 gap-y-4"):
+        for label, value in await _watch_figures(session):
+            with ui.column().classes("gap-0.5 min-w-0"):
+                ui.label(label).classes(WATCH_LABEL)
+                ui.label(value).classes(WATCH_FIGURE)
+
+
 def register() -> None:
     _register_layout_endpoint()
 
@@ -322,25 +417,40 @@ def register() -> None:
         ui.add_head_html(_INIT_JS)
 
         with page_layout(t("dashboard.title"), container=DASH_PAGE_CONTAINER):
+            is_mobile = await _viewport_is_mobile()
+
             with ui.row().classes("w-full items-center justify-between"):
                 with ui.column().classes("gap-1"):
                     ui.label(_period_eyebrow()).classes("k-eyebrow")
                     ui.label(t("dashboard.title")).classes(PAGE_TITLE)
                 with ui.row().classes("items-center gap-2"):
-                    with ui.button(
-                        on_click=lambda: ui.run_javascript("window.__kaletaToggleDashEdit()")
-                    ).props("flat color=primary"):
-                        ui.icon("drag_indicator")
-                        ui.label(t("dashboard_widgets.edit_layout")).props(
-                            f'id="dash-edit-btn-label" '
-                            f'data-label-edit="{t("dashboard_widgets.edit_layout")}" '
-                            f'data-label-done="{t("dashboard_widgets.done_editing")}"'
-                        )
+                    # Edit mode drags cards around a grid there is no room for
+                    # on a phone; the bands are ordered by what they are, not
+                    # by what was dropped where. Customize still applies —
+                    # which widgets you want is not a question about width.
+                    if not is_mobile:
+                        with ui.button(
+                            on_click=lambda: ui.run_javascript("window.__kaletaToggleDashEdit()")
+                        ).props("flat color=primary"):
+                            ui.icon("drag_indicator")
+                            ui.label(t("dashboard_widgets.edit_layout")).props(
+                                f'id="dash-edit-btn-label" '
+                                f'data-label-edit="{t("dashboard_widgets.edit_layout")}" '
+                                f'data-label-done="{t("dashboard_widgets.done_editing")}"'
+                            )
                     ui.button(
                         t("dashboard_widgets.customize"),
                         icon="tune",
                         on_click=lambda: _open_customize_dialog(layout),
                     ).props("flat color=primary")
+
+            if is_mobile:
+
+                async def _render_mobile(session: AsyncSession) -> None:
+                    await _render_bands(session, layout, is_dark)
+
+                await with_session(_render_mobile)
+                return
 
             with ui.row().classes(
                 "dash-edit-banner w-full items-center gap-2 p-3 mb-3 rounded "

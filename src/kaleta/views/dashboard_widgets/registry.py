@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -89,6 +90,85 @@ LEGACY_KPI_WIDGETS: tuple[str, ...] = tuple(MERGED_KPI_FOR_LEGACY)
 
 #: What those seven become.
 MERGED_KPI_WIDGETS: tuple[str, ...] = tuple(dict.fromkeys(MERGED_KPI_FOR_LEGACY.values()))
+
+
+class Band(StrEnum):
+    """The three stacked bands of the phone dashboard (artboard 1f).
+
+    A phone cannot show a 4-column grid, and a single column of equal cards
+    is a scroll with no shape. The bands give it one: what is happening
+    *now*, how the *month* is going, and the slow figures you only *watch*.
+    """
+
+    NOW = "now"
+    MONTH = "month"
+    WATCH = "watch"
+
+
+#: Which band a widget belongs to on a phone. Anything unlisted falls into
+#: ``MONTH`` — the band for "how is this month going", which is what most of
+#: the catalog is about, and the safe place for a widget added later.
+BAND_OF: dict[str, Band] = {
+    "safe_to_spend": Band.NOW,
+    "wizard_actions": Band.NOW,
+    "quick_actions": Band.NOW,
+    "ytd_summary": Band.WATCH,
+    "net_worth_trend": Band.WATCH,
+    "savings_rate_trend": Band.WATCH,
+}
+
+#: Band order on the page, top to bottom, with the i18n key of each heading.
+BAND_ORDER: tuple[tuple[Band, str], ...] = (
+    (Band.NOW, "dashboard.band_now"),
+    (Band.MONTH, "dashboard.band_month"),
+    (Band.WATCH, "dashboard.band_watch"),
+)
+
+
+def band_of(widget_id: str) -> Band:
+    """The band *widget_id* belongs to; ``MONTH`` when nothing says."""
+    return BAND_OF.get(widget_id, Band.MONTH)
+
+
+def bands_for_layout(layout: list[dict[str, Any]]) -> dict[Band, list[dict[str, Any]]]:
+    """Group a stored layout into the three bands, keeping its order.
+
+    Legacy widgets are dropped rather than banded: they are the seven
+    single-figure KPIs that ``restyle-dashboard`` merged into two cards, kept
+    alive only so an old stored layout still renders on the desktop grid. The
+    phone layout is new and starts without that debt — and the Watch band
+    already says three of the four figures they carried.
+    """
+    grouped: dict[Band, list[dict[str, Any]]] = {band: [] for band, _key in BAND_ORDER}
+    for entry in layout:
+        widget_id = entry.get("id")
+        widget = WIDGETS.get(widget_id) if isinstance(widget_id, str) else None
+        if widget is None or widget.legacy:
+            continue
+        grouped[band_of(widget.id)].append(entry)
+    return grouped
+
+
+#: The hero the phone dashboard always leads with, whether or not the stored
+#: (desktop) layout carries it — see ``mobile_layout``.
+HERO_WIDGET = "safe_to_spend"
+
+
+def mobile_layout(layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The stored layout with the safe-to-spend hero guaranteed at its head.
+
+    The hero is off by default on the desktop grid (it is a phone answer to a
+    phone question), so a phone would otherwise never show it. Prepending it
+    here rather than rendering it separately keeps it an ordinary banded
+    widget — it cannot then appear twice for someone who did switch it on.
+    """
+    if any(entry.get("id") == HERO_WIDGET for entry in layout):
+        return list(layout)
+    hero = WIDGETS[HERO_WIDGET]
+    return [
+        {"id": HERO_WIDGET, "cols": hero.default_size[0], "rows": hero.default_size[1]},
+        *layout,
+    ]
 
 
 def selectable_widgets() -> list[str]:
