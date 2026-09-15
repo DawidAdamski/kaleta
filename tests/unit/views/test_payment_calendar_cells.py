@@ -15,7 +15,12 @@ from decimal import Decimal
 from kaleta.schemas.transaction import TransactionType
 from kaleta.schemas.wizard_projections import SubscriptionCharge
 from kaleta.services.planned_transaction_service import DayAggregate, PlannedOccurrence
-from kaleta.views.payment_calendar import DOT_CAP, actually_overdue, day_marks
+from kaleta.views.payment_calendar import (
+    DOT_CAP,
+    actually_overdue,
+    day_marks,
+    overdue_age_label,
+)
 from kaleta.views.theme import CALENDAR_DOT_FLAT, CALENDAR_DOT_IN, CALENDAR_DOT_OUT
 
 DAY = datetime.date(2025, 3, 14)
@@ -144,3 +149,48 @@ class TestActuallyOverdue:
         recent = _occ("10.00", TransactionType.EXPENSE, today - datetime.timedelta(days=2))
         old = _occ("10.00", TransactionType.EXPENSE, today - datetime.timedelta(days=20))
         assert actually_overdue([recent, old], today) == [old, recent]
+
+
+class TestOverdueAgeLabel:
+    """How long a thing has been waiting, in a language with three plurals."""
+
+    def test_one_day_is_singular(self) -> None:
+        today = datetime.date(2025, 3, 14)
+        assert overdue_age_label(today - datetime.timedelta(days=1), today) == "1 day late"
+
+    def test_more_than_one_is_not(self) -> None:
+        today = datetime.date(2025, 3, 14)
+        assert overdue_age_label(today - datetime.timedelta(days=12), today) == "12 days late"
+
+    def test_today_is_not_late_at_all(self) -> None:
+        # The strip never shows it (see actually_overdue), but the label must
+        # not read "-0 days" if something ever hands it one.
+        today = datetime.date(2025, 3, 14)
+        assert overdue_age_label(today, today) == "0 days late"
+
+    def test_polish_has_a_form_for_each_count(self) -> None:
+        # dzień / dni. `t()` takes the language from NiceGUI's per-user
+        # storage, which a unit test has not got, so the locale file itself is
+        # what is asserted: the key the helper asks for must exist and read
+        # correctly for all three shapes.
+        forms = _pl_forms()
+        assert forms[1].format(days=1) == "1 dzień po terminie"
+        assert forms[3].format(days=3) == "3 dni po terminie"
+        assert forms[22].format(days=22) == "22 dni po terminie"
+
+
+def _pl_forms() -> dict[int, str]:
+    """The Polish string ``overdue_age_label`` would pick, per count."""
+    import json
+    from pathlib import Path
+
+    import kaleta.i18n
+    from kaleta.i18n import plural_key
+
+    # Resolved from the package, not the working directory.
+    path = Path(kaleta.i18n.__file__).parent / "locales" / "pl.json"
+    locale = json.loads(path.read_text(encoding="utf-8"))["payment_calendar"]
+    return {
+        n: locale[plural_key("payment_calendar.overdue_age", n).rsplit(".", 1)[1]]
+        for n in (1, 3, 22)
+    }

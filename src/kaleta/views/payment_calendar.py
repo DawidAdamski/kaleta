@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Payment Calendar — month-grid view of planned transactions.
 
-Each cell shows the day's inflow/outflow totals. Clicking a cell opens a
-side-sheet with the day's occurrences and a Quick Add form. Overdue items
-(planned in the trailing 30 days that have not happened yet) are pinned
-above the selected day's list.
+Each cell shows the day's net and one dot per thing happening on it; the
+month's totals live in the KPI row above, where there is room for them.
+Clicking a cell tints it and opens a side-sheet with the day's occurrences
+and a Quick Add form. Everything already late is listed in a strip above the
+grid, visible from any month without opening a day.
 
 The flat list remains available via the 'List view' link — it navigates
 back to the existing /planned page.
@@ -57,7 +58,7 @@ from kaleta.views.theme import (
     CALENDAR_DOT_OUT,
     HAIRLINE_ROW,
     INK,
-    KPI_VALUE,
+    KPI_VALUE_COMPACT,
     MONO,
     MUTED,
     PAGE_TITLE,
@@ -443,7 +444,7 @@ def register() -> None:
             def _kpi(title: str, value_cls: str) -> ui.label:
                 with ui.column().classes(f"{TOOLBAR_CARD} flex-1 min-w-44 gap-0.5"):
                     ui.label(title).classes(SECTION_TITLE)
-                    return ui.label("").classes(f"{KPI_VALUE} text-2xl {value_cls}")
+                    return ui.label("").classes(f"{KPI_VALUE_COMPACT} {value_cls}")
 
             with ui.row().classes("w-full gap-3 flex-wrap items-stretch"):
                 kpi_in = _kpi(t("payment_calendar.month_in"), AMOUNT_INCOME)

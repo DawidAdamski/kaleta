@@ -55,6 +55,11 @@ DIALOG_TITLE = "k-heading text-lg font-medium"
 BODY_MUTED = "k-muted text-sm"
 
 KPI_VALUE = "k-mono text-3xl font-medium tracking-tight"
+#: The same figure in a toolbar row rather than its own card. Appending a
+#: smaller size to ``KPI_VALUE`` would not work: Tailwind resolves conflicting
+#: utilities by stylesheet order, not by their order in the class string, so
+#: ``text-3xl`` would win wherever it appeared.
+KPI_VALUE_COMPACT = "k-mono text-2xl font-medium tracking-tight"
 KPI_TREND_POSITIVE = "k-trend--pos"
 KPI_TREND_NEGATIVE = "k-trend--neg"
 KPI_TREND_NEUTRAL = "k-trend--neutral"
