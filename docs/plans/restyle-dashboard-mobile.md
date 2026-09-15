@@ -148,6 +148,14 @@ has a phone artboard, planned in `restyle-login-split`).
   both trees would have run every widget's queries twice on the device
   least able to pay for it.
 
+- **`SafeToSpend` carries a day and derives the month, and rounds its own
+  money.** Storing both allowed a pair that disagree, which `days_left`
+  then had to mask with a silent `1`; the only sensible answer to "what
+  is left of March, on a day in June?" is that the question is wrong, so
+  `month` is a property of `today`. `per_day` and
+  `trailing_avg_per_day` quantize to the grosz in the service rather
+  than leaving 28 digits for whatever formats them.
+
 - **`safe_to_spend` takes a day, not a month.** Scope writes
   `safe_to_spend(month)`, but `days_left` and "still due" are both
   questions about a *day*: a month argument alone leaves `days_left`
@@ -315,13 +323,16 @@ has a phone artboard, planned in `restyle-login-split`).
   large is the open chore-inbox item it already was.
 
 - **The (date, amount) subscription de-duplication has a known edge, and
-  a test.** An unrelated subscription billing 49.99 on the same day as a
+  tests.** An unrelated subscription billing 49.99 on the same day as a
   49.99 plan is taken for the same payment and counted once, which
   overstates what is safe to spend. No transaction carries a
   subscription id and a projected charge carries no account, so a date
-  and an amount are all the two share. Both halves of the rule are now
-  unit-tested, with a comment saying to undo it if the two ever gain a
-  real link.
+  and an amount are all the two share. It matches one-to-one — a tally
+  consumed a charge at a time, not a set: review caught that membership
+  let one plan cancel *every* charge sharing its day and amount, so one
+  plan and two 49.99 subscriptions committed 49.99 instead of 99.98.
+  All three cases are unit-tested, with a comment saying to undo the
+  whole thing if the two ever gain a real link.
 
 - **The hero says "zł", like the rest of the app.** `fmt_amount` has
   hardcoded the suffix since long before this branch and accounts carry

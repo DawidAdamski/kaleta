@@ -89,8 +89,26 @@ def test_add_opens_the_new_transaction_form(page: Page, base_url: str) -> None:
     expect(page.get_by_role("dialog")).to_be_visible(timeout=10000)
 
 
+def _reset_widgets(page: Page) -> None:
+    """Put the shared user storage back to the default widget set.
+
+    The suite shares one NiceGUI user storage, so the stored layout this test
+    reads is whatever the files before it left behind. Resetting first makes
+    the claim about the hero — that it is on the page although Customize does
+    not have it ticked — a claim about the defaults rather than about test
+    order, and leaves the storage cleaner than it found it.
+    """
+    page.get_by_role("button", name="Customize").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog.get_by_text("Customize Dashboard", exact=True)).to_be_visible(timeout=5000)
+    dialog.get_by_role("button", name="Reset widgets").click()
+    expect(dialog).to_be_hidden(timeout=10000)
+
+
 def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) -> None:
     """Covers: KAL-DSH-007"""
+    _open_phone_dashboard(page, base_url)
+    _reset_widgets(page)
     _open_phone_dashboard(page, base_url)
 
     for band, heading in (("now", "Now"), ("month", "This month"), ("watch", "Watch")):

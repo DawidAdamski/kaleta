@@ -18,8 +18,9 @@ from __future__ import annotations
 
 import calendar
 import datetime
+from collections import Counter
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from sqlalchemy import func, select
@@ -33,6 +34,9 @@ from kaleta.models.category import Category
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.categorised_flows import categorised_flows_selectable
+
+#: Money is rounded to the grosz here, not in whatever formats it.
+_CENT = Decimal("0.01")
 
 # ── Shared dataclasses ────────────────────────────────────────────────────────
 
@@ -233,9 +237,10 @@ class SafeToSpend:
     positive magnitude; the sign lives in the arithmetic, not in the fields.
     """
 
-    #: First day of the month these figures stand for.
-    month: datetime.date
-    #: The day they were computed for — ``days_left`` counts from it.
+    #: The day these figures were computed for. The month is the one it falls
+    #: in — a separate field for it would allow a pair that disagree, and the
+    #: only sensible answer to "what is left of March, on a day in June?" is
+    #: that the question is wrong.
     today: datetime.date
     #: Posted, non-transfer income this month.
     income: Decimal
@@ -253,21 +258,24 @@ class SafeToSpend:
         return self.income - self.committed - self.spent
 
     @property
+    def month(self) -> datetime.date:
+        """First day of the month these figures stand for."""
+        return self.today.replace(day=1)
+
+    @property
     def days_left(self) -> int:
-        """Days still to live through, today included — never below 1.
+        """Days still to live through, today included.
 
         Today counts: the month is not over while you can still spend in it,
         and a zero here would make ``per_day`` undefined on the 31st.
         """
-        last_day = calendar.monthrange(self.month.year, self.month.month)[1]
-        if self.today.year != self.month.year or self.today.month != self.month.month:
-            return 1
-        return max(last_day - self.today.day + 1, 1)
+        last_day = calendar.monthrange(self.today.year, self.today.month)[1]
+        return last_day - self.today.day + 1
 
     @property
     def per_day(self) -> Decimal:
-        """What ``free`` comes to per remaining day."""
-        return self.free / self.days_left
+        """What ``free`` comes to per remaining day, to the grosz."""
+        return (self.free / self.days_left).quantize(_CENT, rounding=ROUND_HALF_UP)
 
     @property
     def spendable(self) -> bool:
@@ -478,7 +486,6 @@ class ReportService:
         income, spent = await self._month_summary(ref.year, ref.month)
         committed = await self._committed_rest_of_month(ref)
         return SafeToSpend(
-            month=ref.replace(day=1),
             today=ref,
             income=income,
             committed=committed,
@@ -515,9 +522,11 @@ class ReportService:
         )
         planned = [occ for occ in occurrences if occ.type == TransactionType.EXPENSE]
         committed = sum((occ.amount for occ in planned), Decimal("0.00"))
-        # A set, for the subscription check below only — summed from the list,
-        # because two 50 zł plans falling on the same day are two payments.
-        planned_keys = {(occ.date, occ.amount) for occ in planned}
+        # A tally, not a set, and consumed one charge at a time below: one plan
+        # can stand in for one subscription charge, not for every charge that
+        # happens to share its day and amount. Two 50 zł plans on one day are
+        # two payments, and so are two 50 zł subscriptions.
+        unmatched = Counter((occ.date, occ.amount) for occ in planned)
 
         projection = await WizardProjectionService(self.session).get_payment_calendar_sources(
             ref, end
@@ -525,7 +534,9 @@ class ReportService:
         for charge in projection.subscription_charges:
             # A subscription that is *also* a planned transaction would
             # otherwise be promised twice on the same day for the same money.
-            if (charge.date, charge.amount) in planned_keys:
+            key = (charge.date, charge.amount)
+            if unmatched[key]:
+                unmatched[key] -= 1
                 continue
             committed += charge.amount
         return committed
@@ -547,7 +558,8 @@ class ReportService:
             )
         )
         total = result.scalar()
-        return (Decimal(str(total)) if total else Decimal("0.00")) / days
+        spent = Decimal(str(total)) if total else Decimal("0.00")
+        return (spent / days).quantize(_CENT, rounding=ROUND_HALF_UP)
 
     async def month_net_delta(self) -> KpiPeriodDelta:
         """Current calendar month net vs the previous month."""

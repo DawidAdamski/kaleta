@@ -90,7 +90,6 @@ class TestWatchBandTakesNoWidgets:
 #: A zero month on the 10th of a 30-day one; every test states only what it
 #: changes. ``replace`` keeps the builder typed, which a dict spread could not.
 _BLANK = SafeToSpend(
-    month=datetime.date(2026, 6, 1),
     today=datetime.date(2026, 6, 10),
     income=Decimal("0.00"),
     committed=Decimal("0.00"),

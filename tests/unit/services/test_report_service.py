@@ -996,6 +996,31 @@ class TestSafeToSpend:
 
         assert result.committed == Decimal("49.99")
 
+    async def test_one_plan_stands_in_for_one_charge_not_for_every_match(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """The other half of the same lesson the two-plans test teaches.
+
+        One 49.99 plan and two unrelated 49.99 subscriptions on the 20th is
+        two payments, not one: the plan can account for one of the charges
+        and no more. Matching by membership let one plan cancel every charge
+        that shared its day and amount, which overstates what is free.
+        """
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("49.99"),
+            date=datetime.date(2026, 6, 20),
+            name="Gym",
+        )
+        for name in ("Streaming", "Music"):
+            await _seed_subscription(session, name, Decimal("49.99"), datetime.date(2026, 6, 20))
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("99.98")
+
     async def test_a_subscription_on_its_own_day_is_committed(
         self, svc: ReportService, session: AsyncSession
     ) -> None:
@@ -1038,7 +1063,6 @@ class TestSafeToSpend:
 #: what it changes. ``replace`` keeps the builder typed, which a dict spread
 #: could not.
 BLANK_MONTH = SafeToSpend(
-    month=datetime.date(2026, 6, 1),
     today=datetime.date(2026, 6, 10),
     income=Decimal("0.00"),
     committed=Decimal("0.00"),

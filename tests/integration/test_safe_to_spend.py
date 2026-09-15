@@ -82,4 +82,5 @@ async def test_safe_to_spend_is_income_less_committed_less_spent(session: AsyncS
     assert result.committed == Decimal("2200.00")
     assert result.free == Decimal("2300.00")
     assert result.days_left == 21
-    assert round(result.per_day, 2) == Decimal("109.52")
+    # The service rounds to the grosz itself; no formatter has to.
+    assert result.per_day == Decimal("109.52")

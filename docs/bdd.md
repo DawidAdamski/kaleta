@@ -3036,6 +3036,7 @@ Feature: Dashboard Customization
     And there is no widget grid and no Edit layout button
     And the safe-to-spend hero is there although Customize does not have it ticked
     And the page does not scroll sideways
+    And a 1360 pixel window still gets the widget grid and no tab bar
 ```
 
 ## Feature: Wizard Action Items
