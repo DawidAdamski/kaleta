@@ -42,7 +42,11 @@ class AuthLandingStats:
     months: int
 
 
-_cache: tuple[float, AuthLandingStats] | None = None
+#: (read at, counts) — the counts may be ``None``, which is a cached answer
+#: too: a database that is not there will not be there a second later either,
+#: and re-asking on every hit of an unauthenticated page is how a broken
+#: install turns into a log full of the same warning.
+_cache: tuple[float, AuthLandingStats | None] | None = None
 
 
 def reset_auth_stats_cache() -> None:
@@ -71,11 +75,16 @@ class AuthStatsService:
         if _cache is not None and now - _cache[0] < _CACHE_SECONDS:
             return _cache[1]
 
+        stats: AuthLandingStats | None
         try:
             stats = await self._read()
         except Exception:  # noqa: BLE001 — a login page must render regardless
-            logger.debug("Login panel stats unavailable", exc_info=True)
-            return None
+            # Warning, not debug: before setup this is expected and harmless,
+            # but a broken query here looks exactly the same from outside, and
+            # a panel that quietly shows nothing forever is not a thing anyone
+            # would go looking for. Once per cache window, not per request.
+            logger.warning("Login panel stats unavailable", exc_info=True)
+            stats = None
 
         _cache = (now, stats)
         return stats

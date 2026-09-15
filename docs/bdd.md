@@ -2642,6 +2642,13 @@ Feature: Single-user authentication
     When I submit a wrong password
     Then the message "Invalid username or password." is shown
       And the Log in button is exactly where it was before I clicked it
+
+  KAL-AUTH-012 @automated
+  Scenario: The login panel counts, and says nothing more
+    Given there are transactions in the ledger
+    When I open the login page without logging in
+    Then the panel shows how many transactions, accounts and months there are
+      And it shows no amount, no account name and no payee
 ```
 
 ## Feature: Demo instance

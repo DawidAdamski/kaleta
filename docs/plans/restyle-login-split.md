@@ -138,6 +138,26 @@ biometric login.
   shows its copy alone — a login page that will not render because the
   app has not been set up yet is worse than one without three numbers.
 
+- **`KAL-AUTH-012` covers the disclosure decision, beyond the one
+  scenario Scope lists.** Scope names only `KAL-AUTH-011`, but the panel
+  is new user-facing behaviour on a page seen before anyone has logged
+  in — Working Agreement §5 asks for a scenario, and the Open Question
+  that put the counts there is exactly the kind of decision that should
+  be auditable. The test asserts three integer counts under their three
+  labels and that no amount, account name or payee is on the panel. The
+  count *values* are deliberately not asserted: they are cached for a
+  minute by design, so a freshly seeded row need not have reached the
+  panel yet.
+
+- **A failing read is cached and logged at warning.** Two blanket
+  catches guard the page (the service's own read, and not getting a
+  session at all), which between them could have turned a real query bug
+  into a panel that silently showed nothing for ever. Both log at
+  warning with a traceback now, and the failure goes into the same
+  60-second cache as a success — so a broken install produces one
+  warning a minute rather than one per unauthenticated request, and a
+  real bug is visible in the log.
+
 - **Stacking:** branched from `plan/restyle-reports-sentence`, which is
   itself unmerged. Open the PR with
   `--base plan/restyle-reports-sentence`; it must merge after every

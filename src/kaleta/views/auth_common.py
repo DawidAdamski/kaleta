@@ -9,6 +9,7 @@ from the ledger. Below ``md`` the panel is gone and the form has the screen.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from nicegui import ui
@@ -28,6 +29,8 @@ from kaleta.views.theme import (
     apply_brand,
     theme_css,
 )
+
+logger = logging.getLogger(__name__)
 
 #: Every control on an auth page is at least this tall. On a phone the form
 #: is the whole screen, and a 40px field in the middle of it is a target the
@@ -78,6 +81,11 @@ async def _landing_stats() -> AuthLandingStats | None:
     try:
         return await with_session(_read)
     except Exception:  # noqa: BLE001 — see the docstring
+        # The service catches its own read; this catches not getting a session
+        # at all, which is what a database that has never been created looks
+        # like. Logged so the two are told apart in a log rather than both
+        # showing up as a panel with no numbers on it.
+        logger.warning("Login panel stats could not be read", exc_info=True)
         return None
 
 
