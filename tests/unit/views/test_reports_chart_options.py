@@ -30,12 +30,27 @@ class TestBarOptions:
         assert options["yAxis"]["type"] == "category"
         assert options["xAxis"]["type"] == "value"
 
-    def test_the_largest_bar_is_at_the_top(self) -> None:
+    def test_the_first_row_lands_at_the_top(self) -> None:
         # ECharts fills a category axis bottom-up, so both the labels and the
-        # data are reversed — the chart then reads in the table's order.
+        # data are reversed here — the chart then reads in the same order as
+        # the rows it was given. Which row comes first is the query's business
+        # (`ORDER BY metric DESC` in the service), not this function's.
         options = report_chart_options(_result(), "bar", is_dark=False)
         assert options["yAxis"]["data"] == ["Fun", "Rent", "Food"]
         assert [d["value"] for d in options["series"][0]["data"]] == [200.0, 500.0, 300.0]
+
+    def test_a_label_keeps_the_value_it_arrived_with(self) -> None:
+        # The reversal pairs labels and values by position; getting it wrong
+        # would put every number against the wrong name.
+        options = report_chart_options(_result(), "bar", is_dark=False)
+        paired = dict(
+            zip(
+                options["yAxis"]["data"],
+                [d["value"] for d in options["series"][0]["data"]],
+                strict=True,
+            )
+        )
+        assert paired == {"Food": 300.0, "Rent": 500.0, "Fun": 200.0}
 
     def test_each_bar_carries_its_value_and_its_share(self) -> None:
         options = report_chart_options(_result(), "bar", is_dark=False)

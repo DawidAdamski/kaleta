@@ -1278,8 +1278,6 @@
     "sentence_to_date": "do {date}",
     "chart_title": "{types} — {dimension} · {period}",
     "unsaved": "Raport niezapisany",
-    "n_accounts": "kont: {count}",
-    "n_categories": "kategorii: {count}",
     "clear_filter": "Wyczyść ten filtr",
     "pick_hint": "Wybierz dowolną liczbę",
     "chart_bar": "Słupki",
@@ -1287,7 +1285,13 @@
     "chart_pie": "Kołowy",
     "chart_donut": "Pierścień",
     "chart_table": "Tabela",
-    "sentence_end": ""
+    "sentence_end": "",
+    "n_accounts_one": "{count} konto",
+    "n_accounts_few": "{count} konta",
+    "n_accounts_many": "{count} kont",
+    "n_categories_one": "{count} kategoria",
+    "n_categories_few": "{count} kategorie",
+    "n_categories_many": "{count} kategorii"
   },
   "reports_lib": {
     "title": "Biblioteka raportów",

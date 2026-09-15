@@ -168,6 +168,15 @@ storage; canned reports (`reports_canned/`); Money Flow.
   browser) and `reports/chart_options.py` (above). Both are siblings of
   the rewritten `config_zone.py` rather than new layers.
 
+- **The error line lost its "Error:" prefix.** It is now a red warning
+  icon and the message in the negative tone, which says the same thing
+  in the app's own vocabulary; the word was doing the job the colour and
+  the icon now do.
+
+- **The filter chips count in both languages.** "1 accounts" was the
+  first wording; `plural_key` already exists for this, so the chip reads
+  "1 account" / "3 accounts" and "1 konto" / "3 konta" / "7 kont".
+
 - **Stacking:** branched from `plan/restyle-wizard-index`, which is
   itself unmerged. Open the PR with `--base plan/restyle-wizard-index`;
   it must merge after every branch below it.

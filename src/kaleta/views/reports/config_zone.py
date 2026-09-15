@@ -16,7 +16,7 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.views.reports.constants import CHART_TYPES, DATE_PRESETS, DIMENSIONS, METRICS, TX_TYPES
 from kaleta.views.reports.sentence import slot_labels
 from kaleta.views.theme import (
@@ -144,7 +144,7 @@ def build_config_zone(
                     field="account_ids",
                     options=account_options,
                     empty_key="reports.filter_accounts",
-                    chosen_key="reports.n_accounts",
+                    chosen_prefix="reports.n_accounts",
                     on_set=on_set,
                 )
             if category_options:
@@ -153,7 +153,7 @@ def build_config_zone(
                     field="category_ids",
                     options=category_options,
                     empty_key="reports.filter_categories",
-                    chosen_key="reports.n_categories",
+                    chosen_prefix="reports.n_categories",
                     on_set=on_set,
                 )
 
@@ -166,7 +166,7 @@ def _list_filter(
     field: str,
     options: dict[int, str],
     empty_key: str,
-    chosen_key: str,
+    chosen_prefix: str,
     on_set: Callable[[str, Any], None],
 ) -> None:
     """One chip standing for a list filter: "+ Filter accounts" or "2 accounts ×".
@@ -189,7 +189,9 @@ def _list_filter(
     # and a click anywhere in it opens that menu — including on the ×.
     with ui.row().classes("items-center gap-1 no-wrap"):
         with ui.element("div").classes(FILTER_CHIP):
-            ui.label(t(chosen_key, count=len(chosen)))
+            # "1 account", not "1 accounts" — and Polish wants a third form
+            # again at five, which is what `plural_key` is for.
+            ui.label(t(plural_key(chosen_prefix, len(chosen)), count=len(chosen)))
             _options_menu(state, field=field, options=options, on_set=on_set)
         ui.icon("close", size="15px").classes(f"{MUTED} cursor-pointer").on(
             "click", lambda f=field: on_set(f, [])

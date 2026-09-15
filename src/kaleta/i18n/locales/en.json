@@ -1278,8 +1278,6 @@
     "sentence_to_date": "until {date}",
     "chart_title": "{types} by {dimension} · {period}",
     "unsaved": "Unsaved report",
-    "n_accounts": "{count} accounts",
-    "n_categories": "{count} categories",
     "clear_filter": "Clear this filter",
     "pick_hint": "Pick any number",
     "chart_bar": "Bars",
@@ -1287,7 +1285,13 @@
     "chart_pie": "Pie",
     "chart_donut": "Donut",
     "chart_table": "Table",
-    "sentence_end": "."
+    "sentence_end": ".",
+    "n_accounts_one": "{count} account",
+    "n_accounts_few": "{count} accounts",
+    "n_accounts_many": "{count} accounts",
+    "n_categories_one": "{count} category",
+    "n_categories_few": "{count} categories",
+    "n_categories_many": "{count} categories"
   },
   "reports_lib": {
     "title": "Reports Library",
