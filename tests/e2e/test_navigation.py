@@ -11,6 +11,7 @@ default, and every sidebar entry routing to its page.
 from __future__ import annotations
 
 from playwright.sync_api import Locator, Page, expect
+from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 # (group label, [(item label, path), ...]) — mirrors NAV_GROUPS in views/layout.py.
 GROUPS: list[tuple[str, list[tuple[str, str]]]] = [
@@ -64,6 +65,40 @@ def _drawer(page: Page) -> Locator:
     return page.locator("aside.q-drawer")
 
 
+def _connected(page: Page) -> None:
+    """Wait until this document's socket has finished its NiceGUI handshake.
+
+    A nav entry is clickable as soon as Vue mounts, which is before the
+    socket is up; an event fired in that window is queued client-side and
+    only replayed once the socket connects. Waiting for the handshake means
+    the click is going to a client that is already live.
+    """
+    page.wait_for_function("() => window.did_handshake === true", timeout=20000)
+
+
+def _click_nav(page: Page, label: str, path: str, base_url: str) -> None:
+    """Click one drawer entry and assert it lands on its page.
+
+    A nav entry is a ``ui.item`` with a *server-side* handler: the click
+    travels to the server, which answers with a navigate message. That round
+    trip occasionally does not complete — a socket that drops between the two
+    halves leaves the page sitting where it was, most often on the first
+    click after a fresh document — and the whole run then fails on whichever
+    entry happened to be first. One retry covers a dropped round trip; the
+    URL assertion below it is unchanged, so a genuinely broken route still
+    fails here as loudly as before.
+    """
+    entry = _drawer(page).get_by_text(label, exact=True)
+    expect(entry).to_be_visible(timeout=10000)
+    entry.click()
+    try:
+        page.wait_for_url(f"{base_url}{path}", timeout=5000)
+    except PlaywrightTimeoutError:
+        _connected(page)
+        _drawer(page).get_by_text(label, exact=True).click()
+    expect(page).to_have_url(f"{base_url}{path}", timeout=10000)
+
+
 def _ensure_group_expanded(page: Page, group_label: str, probe_item: str) -> None:
     """Expand a collapsed nav group by clicking its header (no-op when expanded).
 
@@ -115,10 +150,10 @@ def test_every_nav_entry_routes(page: Page, base_url: str) -> None:
     """
     page.goto(f"{base_url}/")
     for label, path in PINNED:
-        _drawer(page).get_by_text(label, exact=True).click()
-        expect(page).to_have_url(f"{base_url}{path}", timeout=10000)
+        _connected(page)
+        _click_nav(page, label, path, base_url)
     for group_label, items in GROUPS:
         for label, path in items:
+            _connected(page)
             _ensure_group_expanded(page, group_label, items[0][0])
-            _drawer(page).get_by_text(label, exact=True).click()
-            expect(page).to_have_url(f"{base_url}{path}", timeout=10000)
+            _click_nav(page, label, path, base_url)

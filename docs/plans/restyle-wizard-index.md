@@ -129,6 +129,22 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
   1400px the routines index computes to two 502px columns with a 0px
   row gap and Setup to `repeat(4, …)`; at 500px the index is one column.
 
+- **`test_every_nav_entry_routes` was flaky before this branch and is
+  fixed here.** It failed twice under `verify.sh --e2e` on this plan and
+  once on `restyle-payment-calendar`, always the same way: expecting
+  `/wizard` and finding `/`. That signature is not about the wizard —
+  `/wizard` is simply the first pinned entry whose URL differs from the
+  one the test starts on, so *any* lost first click surfaces as exactly
+  this. A nav entry is a `ui.item` with a server-side handler: the click
+  travels to the server and the server answers with a navigate message,
+  and that round trip occasionally does not complete. `_click_nav` waits
+  for the NiceGUI handshake, clicks, and retries once if the URL has not
+  moved in five seconds; the `to_have_url` assertion under it is
+  unchanged, so a genuinely broken route still fails as loudly. Three
+  consecutive clean `verify.sh --e2e` runs since. It reproduces only in
+  the full suite, never in the file alone, and the server log carries no
+  exception — nothing in this diff touches the drawer.
+
 - **Stacking:** branched from `plan/restyle-payment-calendar`, which is
   itself unmerged. Open the PR with
   `--base plan/restyle-payment-calendar`; it must merge after every
