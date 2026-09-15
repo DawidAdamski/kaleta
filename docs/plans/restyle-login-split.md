@@ -158,6 +158,21 @@ biometric login.
   warning a minute rather than one per unauthenticated request, and a
   real bug is visible in the log.
 
+- **The counts use a space thousands separator, deliberately.** The app
+  elsewhere writes `f"{n:,}"`, which produces `1,234` — correct in
+  English and wrong in Polish, where the separator is a space and the
+  comma is the decimal mark. These three figures are the largest plain
+  integers in the app and are read in both languages, so they take the
+  space. The wider inconsistency (`import_view/mapping_section.py` and
+  others still use the comma in both locales) is a chore-inbox line, not
+  something to fix from an auth branch.
+
+- **The cache is a module-level global, on purpose and only here.** The
+  rest of the service layer is per-session by design; this one is
+  per-process, because it is answering the same three questions for
+  every unauthenticated request including bots, and there is exactly one
+  user to answer them for. A multi-tenant mode would have to revisit it.
+
 - **Stacking:** branched from `plan/restyle-reports-sentence`, which is
   itself unmerged. Open the PR with
   `--base plan/restyle-reports-sentence`; it must merge after every
