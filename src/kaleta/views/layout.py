@@ -124,6 +124,19 @@ TAB_BAR_ENTRIES: list[tuple[str, str | None, str]] = [
 ]
 
 
+def nav_active(nav_path: str, current_path: str) -> bool:
+    """Is *current_path* "at" *nav_path*?
+
+    One rule for both nav surfaces: the drawer and the tab bar disagreeing
+    about where you are is worse than either being wrong. Entries in
+    ``_NAV_EXACT`` match exactly because their sub-pages have entries of
+    their own; everything else claims its sub-paths.
+    """
+    if nav_path in _NAV_EXACT:
+        return current_path == nav_path
+    return current_path == nav_path or current_path.startswith(f"{nav_path}/")
+
+
 def _tab_bar(drawer: ui.left_drawer, current_path: str) -> None:
     """The phone's navigation. Hidden above ``md`` by ``.k-tabbar``'s own rule.
 
@@ -135,7 +148,7 @@ def _tab_bar(drawer: ui.left_drawer, current_path: str) -> None:
     with ui.element("nav").classes(TAB_BAR).props(f'aria-label="{t("nav.navigation")}"'):
         for icon, path, key in TAB_BAR_ENTRIES:
             is_add = key == "nav.tab_add"
-            active = path is not None and not is_add and current_path == path
+            active = path is not None and not is_add and nav_active(path, current_path)
             item = (
                 ui.element("button")
                 .classes(f"{TAB_BAR_ITEM} {TAB_BAR_ITEM_ACTIVE if active else ''}".strip())
@@ -208,9 +221,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     current_path = ui.context.client.request.url.path if ui.context.client else "/"
 
     def _nav_active(nav_path: str) -> bool:
-        if nav_path in _NAV_EXACT:
-            return current_path == nav_path
-        return current_path == nav_path or current_path.startswith(f"{nav_path}/")
+        return nav_active(nav_path, current_path)
 
     with ui.header().classes(f"{HEADER} items-center px-4 gap-4 h-[60px]"):
         ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(

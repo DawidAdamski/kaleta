@@ -226,10 +226,12 @@ has a phone artboard, planned in `restyle-login-split`).
   `no-wrap` with a `shrink-0` button, so the message column collapsed to
   one word per line beside a button that would not give up any width.
   Flex items shrink before their row wraps, so removing `no-wrap` alone
-  changed nothing; the column needed a `min-w-[180px]` floor. On a
-  desktop everything still fits on one line, so nothing changes there.
-  Two class changes in a widget this plan's Now band names — the chore
-  rule covers it.
+  changed nothing; the column needed a `min-w-[180px]` floor. Unlike the
+  month card's, this floor is unconditional — and it can be, because
+  both of the banner's allowed sizes are four columns wide, so on a
+  desktop grid it is always the full width of the page and the floor
+  never bites. Two class changes in a widget this plan's Now band names;
+  the chore rule covers it.
 
 - **`--k-neutral-bar` was defined and unused.** The token has sat in
   `:root` since the theme pass with no reader; the spent segment is its
@@ -389,6 +391,37 @@ has a phone artboard, planned in `restyle-login-split`).
   every tap — on a phone that is the latency the tab bar exists to
   remove. The active tab carries `aria-current="page"` so the bar still
   says where you are.
+
+- **Zero is spendable.** `spendable` was `free > 0`, so an empty ledger —
+  and the first of any month before anything posts — got `0.00 zł over`
+  in the expense colour, which is the wrong thing to tell somebody who
+  has not spent anything, and is what the app would have said on first
+  run. It is `>= 0`, with the boundary and one grosz either side of it
+  unit-tested.
+
+- **The subscription source is the projection service, not
+  `subscription_service`.** Touchpoints name the latter;
+  `WizardProjectionService.get_payment_calendar_sources` is what the
+  payment calendar already uses to put charges on days, and re-deriving
+  the same walk here would be a second answer to one question. It
+  projects forward from `first_seen_at` by cadence, so a charge that
+  drifts and posts early can sit in both `spent` and `committed` until
+  its projected date — the same safe-side error as the same-day and
+  early-posted-plan cases, and it goes the same way if the two ever gain
+  a real link.
+
+- **One rule for "where you are".** The tab bar started with an exact
+  path match while the drawer claimed its sub-paths, so a page under
+  `/transactions/` would have lit no tab. `nav_active` is now shared:
+  two nav surfaces disagreeing about where you are is worse than either
+  being wrong.
+
+- **The Watch band's percentage is formatted the way the app formats
+  percentages.** Review suggested a locale-aware formatter; there is no
+  such helper — `f"{pct:.1f}%"` is what `ytd_summary`,
+  `savings_rate_kpi`, `reports_canned` and `budgets` all write. A
+  locale-aware percentage would be right, and would be a change to all
+  of them, which is a chore-inbox line beside the thousands separator.
 
 - **Stacking:** branched from `plan/restyle-login-split`, which is itself
   unmerged. Open the PR with `--base plan/restyle-login-split`; it must

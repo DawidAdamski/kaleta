@@ -150,3 +150,20 @@ class TestOverspentMonth:
 
     def test_a_month_with_something_left_is(self) -> None:
         assert _stats(income=Decimal("1000.00")).spendable is True
+
+    def test_an_empty_month_is_spendable_at_zero(self) -> None:
+        """An empty ledger, or the 1st before anything has posted.
+
+        `0.00 zł over`, in red, is the wrong thing to tell somebody who has
+        not spent anything — and it is what the whole app says on first run.
+        """
+        stats = _stats()
+
+        assert stats.free == Decimal("0.00")
+        assert stats.spendable is True
+
+    def test_a_month_exactly_at_its_limit_is_spendable(self) -> None:
+        assert _stats(income=Decimal("500.00"), spent=Decimal("500.00")).spendable is True
+
+    def test_one_grosz_past_the_limit_is_not(self) -> None:
+        assert _stats(income=Decimal("500.00"), spent=Decimal("500.01")).spendable is False

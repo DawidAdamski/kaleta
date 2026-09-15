@@ -274,8 +274,14 @@ class SafeToSpend:
 
     @property
     def spendable(self) -> bool:
-        """Is there anything left at all? A hero with nothing free says so."""
-        return self.free > 0
+        """Is there anything left, or is the month already past its end?
+
+        Zero counts as spendable. It is the state of an empty ledger and of
+        the first of the month before anything has posted, and telling
+        somebody with nothing in the app that they are ``0.00 over`` is a
+        worse answer than telling them they have ``0.00 a day``.
+        """
+        return self.free >= 0
 
 
 @dataclass
