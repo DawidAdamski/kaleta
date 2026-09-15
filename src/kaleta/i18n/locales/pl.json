@@ -1668,7 +1668,11 @@
     "username_required": "Nazwa użytkownika jest wymagana.",
     "password_too_short": "Hasło musi mieć co najmniej 8 znaków.",
     "password_mismatch": "Hasła nie są identyczne.",
-    "secure_failed": "Nie udało się zaktualizować danych logowania. Spróbuj innej nazwy użytkownika."
+    "secure_failed": "Nie udało się zaktualizować danych logowania. Spróbuj innej nazwy użytkownika.",
+    "panel_copy": "Twoje finanse na Twoim komputerze. Bez konta w chmurze, bez cudzych oczu.",
+    "panel_count_transactions": "Transakcji",
+    "panel_count_accounts": "Kont",
+    "panel_count_months": "Miesięcy historii"
   },
   "setup": {
     "welcome": "Witaj w Kalecie",

@@ -129,6 +129,20 @@ AUTO_BADGE = "k-auto-badge"
 #: A warning that belongs to the step you are on, not a toast that flies past.
 WARNING_STRIP = "k-warning-strip"
 
+# ── Auth (artboard 3f) ────────────────────────────────────────────────────────
+#: The ink panel beside the login form. Ink ground, paper text — the inverse
+#: of every other surface in the app, because it is the one panel that is not
+#: holding any of the user's figures.
+AUTH_PANEL = "k-auth-panel"
+#: A line kept for a message that is usually not there. Reserving it is the
+#: difference between a failed login telling you something and a failed login
+#: moving the button out from under the pointer.
+ERROR_SLOT = "min-h-[20px] leading-5"
+#: A count on that panel: large, mono, and paper-coloured.
+AUTH_PANEL_FIGURE = "k-auth-figure"
+#: Its label underneath, dimmed against the ink rather than muted on paper.
+AUTH_PANEL_LABEL = "k-auth-label"
+
 # ── Payment calendar (artboard 3c) ────────────────────────────────────────────
 #: One day. Thirty-one of them fit on a screen only if each carries a figure
 #: and a row of dots instead of three stacked numbers.
@@ -453,6 +467,24 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:0 6px;
   line-height:15px
 }
+/* Auth (artboard 3f) — the one ink surface in the app. Its own text colours
+   rather than the tokens, which are all defined against paper. */
+/* The panel's own breakpoint. `hidden md:flex` leaves which rule wins to
+   utility ordering, and on this page `hidden` won at every width. */
+.k-auth-panel{display:none;background:var(--k-ink);color:var(--k-surface)}
+@media (min-width:768px){
+  .k-auth-panel{display:flex;flex-direction:column}
+}
+.k-auth-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:30px;line-height:1.1;font-weight:400;color:var(--k-surface)
+}
+.k-auth-label{
+  font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--k-surface);opacity:.6
+}
+
 /* Payment calendar (artboard 3c) — the grid is 31 small cells, so every
    pixel of border and padding is charged 31 times. */
 .k-cal-day{

@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Single-user authentication.
 
-Covers: KAL-AUTH-001, KAL-AUTH-002, KAL-AUTH-003, KAL-AUTH-004, KAL-AUTH-005, KAL-AUTH-006
+Covers: KAL-AUTH-001, KAL-AUTH-002, KAL-AUTH-003, KAL-AUTH-004, KAL-AUTH-005,
+KAL-AUTH-006, KAL-AUTH-011
 """
 
 from __future__ import annotations
@@ -33,6 +34,31 @@ def test_login_wrong_password(page_no_auth: Page, base_url: str) -> None:
 
     expect(page_no_auth).to_have_url(f"{base_url}/login", timeout=5000)
     expect(page_no_auth.get_by_text("Invalid username or password.")).to_be_visible(timeout=5000)
+
+
+def test_failed_login_does_not_move_the_button(page_no_auth: Page, base_url: str) -> None:
+    """Covers: KAL-AUTH-011
+
+    The message used to be a label that appeared, which pushed the button
+    down by its own height at the moment the user was reaching for it again —
+    so the second attempt landed on nothing.
+    """
+    page_no_auth.goto(f"{base_url}/login")
+    button = page_no_auth.get_by_role("button", name="Log in")
+    expect(button).to_be_visible(timeout=10000)
+    before = button.bounding_box()
+    assert before is not None
+
+    page_no_auth.get_by_label("Username", exact=True).fill(E2E_USERNAME)
+    page_no_auth.get_by_label("Password", exact=True).fill("definitely-wrong-too")
+    button.click()
+
+    expect(page_no_auth.get_by_text("Invalid username or password.")).to_be_visible(timeout=5000)
+    after = button.bounding_box()
+    assert after is not None
+    assert after["y"] == before["y"], (
+        f"the button moved from y={before['y']} to y={after['y']} when the message appeared"
+    )
 
 
 def test_guard_redirects_unauthenticated_deep_link(page_no_auth: Page, base_url: str) -> None:

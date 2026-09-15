@@ -2635,6 +2635,13 @@ Feature: Single-user authentication
     And the JSON body reports unauthorized
     When I POST "/api/v1/accounts/" with a bearer token
     Then the response status is 201
+
+  KAL-AUTH-011 @automated
+  Scenario: A failed login does not move the submit button
+    Given I am on the login page
+    When I submit a wrong password
+    Then the message "Invalid username or password." is shown
+      And the Log in button is exactly where it was before I clicked it
 ```
 
 ## Feature: Demo instance

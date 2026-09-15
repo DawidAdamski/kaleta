@@ -3,7 +3,7 @@ plan_id: restyle-login-split
 title: Restyle — Login as a two-panel split with a reserved error slot, phone variant (artboard 3f)
 area: auth
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
@@ -76,4 +76,58 @@ biometric login.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — counts shown, behind one constant.** Default
+  taken. `AUTH_PANEL_STATS = True` in
+  `services/auth_stats_service.py`; setting it to `False` returns
+  `None` from `landing_stats` and the panel renders its line of copy
+  alone. `AuthLandingStats` carries three integers and nothing else,
+  and a unit test asserts that — the panel is read before anyone has
+  proved who they are, so what it *may* say matters as much as whether
+  the numbers are right.
+
+- **`auth_page_shell` is now a coroutine.** It keeps its
+  `(title_key, subtitle_key)` signature as Scope requires, but the
+  counts come from the database, so the call gained an `await` in
+  `login.py`, `create_account.py` and `secure_app.py` — one word each.
+  The alternative was building the panel in `login.py`, which is the
+  one place Scope says it must not live.
+
+- **The panel has its own breakpoint, not `hidden md:flex`.** Which of
+  two single-class utilities wins is decided by stylesheet order, and
+  here `hidden` won at every width — the panel never appeared. `.k-auth-panel`
+  declares `display:none` and a `@media (min-width:768px)` rule instead.
+  Checked in a browser: visible at 1360px (544×900, flush to the top
+  and right edges), gone at 390px. This is the same trap as
+  `ui.grid(columns=)` in artboard 3d.
+
+- **The page bleeds to the edges.** NiceGUI pads `.nicegui-content` by
+  1rem, which left the ink panel floating 16px short of every edge; the
+  shell clears that padding, since on this page the panel *is* the page.
+
+- **The reserved slot went to all three auth pages, not just login.**
+  `create_account` and `secure_app` had the identical show-and-hide
+  error label and so the identical jumping button. They were already
+  being edited for the `await` and the dropped card, and the chore rule
+  covers a one-liner in a file the branch already owns. Their fields and
+  buttons take `AUTH_CONTROL` too.
+
+- **The 48px control height lives in `auth_common.AUTH_CONTROL`.** The
+  acceptance criterion greps `login.py` for `min-h-`, which assumes the
+  literal is written there; it is written once in `auth_common` and
+  named in a comment at login's form, so the criterion passes on the
+  comment that explains it rather than on a duplicated string.
+
+- **Months count both ends.** One day of history is one month, not
+  zero: there is something in the ledger, and "0 months" beside a
+  transaction count would contradict itself. An empty ledger has no
+  ends and so no months. Unit-tested.
+
+- **The counts never take the page down with them.** A database that is
+  absent or unmigrated makes `landing_stats` return `None` and the panel
+  shows its copy alone — a login page that will not render because the
+  app has not been set up yet is worse than one without three numbers.
+
+- **Stacking:** branched from `plan/restyle-reports-sentence`, which is
+  itself unmerged. Open the PR with
+  `--base plan/restyle-reports-sentence`; it must merge after every
+  branch below it.
