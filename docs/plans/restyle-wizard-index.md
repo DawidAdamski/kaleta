@@ -98,8 +98,16 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
 
 - **Two new i18n keys beyond the one Scope lists.**
   `wizard.routines_title` — two stacked cards need a word between them
-  — and the reworded `wizard.cta_note` above. `wizard.coming_soon`
-  itself is untouched and still used by `views/setup.py`.
+  — and the reworded `wizard.cta_note` above.
+
+- **`wizard.coming_soon` is now unreferenced.** Scope says to keep it
+  "for other pages", and it is kept — but that reason turns out not to
+  hold: `views/setup.py` uses its own `setup.coming_soon` and
+  `import_view/profile_section.py` its own
+  `import.profile_coming_soon`. Nothing in `src/` reads
+  `wizard.coming_soon` any more, in either locale. Kept because Scope
+  says so rather than because anything needs it; it is a chore-inbox
+  line for the owner, not something to delete against the plan.
 
 - **Stable hooks instead of DOM archaeology.** Three existing e2e tests
   found their target by walking the DOM: `div.row` containing a title,
