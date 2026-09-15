@@ -49,9 +49,9 @@ biometric login.
 ## Acceptance criteria
 
 - `uv run pytest tests/e2e/test_auth.py -q`
-- `uv run pytest tests/unit/auth -q`
+- `uv run pytest tests/unit/auth tests/unit/services/test_auth_stats_service.py -q`
 - `grep -q "KAL-AUTH-011" docs/bdd.md`
-- `grep -q "min-h-" src/kaleta/views/login.py`
+- `grep -q "min-h-" src/kaleta/views/auth_common.py`
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
 - `[manual]` 1360px: split layout matches artboard `3f`; 390px: stacked
@@ -111,11 +111,22 @@ biometric login.
   covers a one-liner in a file the branch already owns. Their fields and
   buttons take `AUTH_CONTROL` too.
 
-- **The 48px control height lives in `auth_common.AUTH_CONTROL`.** The
-  acceptance criterion greps `login.py` for `min-h-`, which assumes the
-  literal is written there; it is written once in `auth_common` and
-  named in a comment at login's form, so the criterion passes on the
-  comment that explains it rather than on a duplicated string.
+- **Two acceptance criteria were corrected, not worked around.** The
+  first greped `login.py` for `min-h-`; the literal is written once in
+  `auth_common.AUTH_CONTROL` and shared by all three auth pages, so the
+  criterion now greps `auth_common.py` — where the thing it is checking
+  for actually is. The second ran `tests/unit/auth`, which never touches
+  the new `AuthStatsService` tests; those live in
+  `tests/unit/services/test_auth_stats_service.py` per the naming
+  convention, and the criterion now names them too. Both were passing
+  before the correction, which is the problem with both.
+
+- **The error slot carries its own colour.** It was
+  `f"{ERROR_SLOT} text-sm k-trend--neg"` at three call sites — a raw
+  token string repeated, and a name (`k-trend--neg`) that is about KPI
+  trends rather than errors. `ERROR_SLOT` is now the class `k-error-slot`
+  and declares its own height, leading and tone, so a caller reserves a
+  line without having to remember what an error looks like.
 
 - **Months count both ends.** One day of history is one month, not
   zero: there is something in the ledger, and "0 months" beside a

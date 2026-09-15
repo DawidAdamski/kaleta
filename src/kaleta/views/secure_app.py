@@ -52,7 +52,7 @@ def register() -> None:
             )
             # The same reserved line the login page uses: a message that
             # appears must not move the button out from under the pointer.
-            error = ui.label("").classes(f"{ERROR_SLOT} text-sm k-trend--neg")
+            error = ui.label("").classes(ERROR_SLOT)
 
             async def _submit() -> None:
                 error.set_text("")

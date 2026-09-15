@@ -136,8 +136,9 @@ WARNING_STRIP = "k-warning-strip"
 AUTH_PANEL = "k-auth-panel"
 #: A line kept for a message that is usually not there. Reserving it is the
 #: difference between a failed login telling you something and a failed login
-#: moving the button out from under the pointer.
-ERROR_SLOT = "min-h-[20px] leading-5"
+#: moving the button out from under the pointer. Carries its own colour, so
+#: no caller has to remember which tone an error wears.
+ERROR_SLOT = "k-error-slot"
 #: A count on that panel: large, mono, and paper-coloured.
 AUTH_PANEL_FIGURE = "k-auth-figure"
 #: Its label underneath, dimmed against the ink rather than muted on paper.
@@ -467,6 +468,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:0 6px;
   line-height:15px
 }
+.k-error-slot{
+  min-height:20px;line-height:20px;font-size:13px;
+  color:var(--k-expense)
+}
+
 /* Auth (artboard 3f) — the one ink surface in the app. Its own text colours
    rather than the tokens, which are all defined against paper. */
 /* The panel's own breakpoint. `hidden md:flex` leaves which rule wins to

@@ -73,7 +73,7 @@ def register() -> None:
             # moved the button down under the pointer at the moment the user
             # was clicking it again — which is how a second attempt became a
             # misclick.
-            error = ui.label("").classes(f"{ERROR_SLOT} text-sm k-trend--neg")
+            error = ui.label("").classes(ERROR_SLOT)
 
             async def _submit() -> None:
                 error.set_text("")
