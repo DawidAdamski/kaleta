@@ -276,7 +276,9 @@ def register() -> None:
                         size="1.4rem",
                     ).classes(MUTED)
 
-                cards = ui.grid(columns=2).classes("w-full gap-3 md:grid-cols-4")
+                # No `columns=`: NiceGUI writes that as an inline
+                # grid-template-columns, which an `md:` class can never beat.
+                cards = ui.grid().classes("w-full grid-cols-2 md:grid-cols-4").style("gap:0.75rem")
                 cards.set_visibility(onboarding_open)
 
                 def _toggle_onboarding() -> None:
@@ -296,7 +298,11 @@ def register() -> None:
             # ── Routines index ────────────────────────────────────────────────
             with ui.card().classes(f"{SECTION_CARD} gap-3"):
                 ui.label(t("wizard.routines_title")).classes(SECTION_HEADING)
-                with ui.grid(columns=1).classes("w-full gap-0 md:grid-cols-2 md:gap-x-6"):
+                with (
+                    ui.grid()
+                    .classes("w-full grid-cols-1 md:grid-cols-2")
+                    .style("row-gap:0;column-gap:1.5rem")
+                ):
                     for step in ordered_steps():
                         _render_step_row(step)
 

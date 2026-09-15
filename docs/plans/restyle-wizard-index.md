@@ -120,6 +120,15 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
   written against an earlier state of the routes table; the split is
   worth checking against `_STEP_ROUTES`, not against the number here.
 
+- **`ui.grid(columns=N)` cannot be made responsive.** NiceGUI writes
+  `columns=` as an inline `grid-template-columns`, and an inline style
+  beats a stylesheet rule whatever its media query — so `md:grid-cols-4`
+  never applied and both grids were frozen at their starting count.
+  Both now take their columns from Tailwind classes and their gaps from
+  an explicit style. Checked in a browser rather than by reading: at
+  1400px the routines index computes to two 502px columns with a 0px
+  row gap and Setup to `repeat(4, …)`; at 500px the index is one column.
+
 - **Stacking:** branched from `plan/restyle-payment-calendar`, which is
   itself unmerged. Open the PR with
   `--base plan/restyle-payment-calendar`; it must merge after every
