@@ -54,22 +54,27 @@ async def reports_page() -> None:
             state["running"] = False
         chart_zone.refresh()
 
-    async def save_report(name: str) -> None:
+    async def save_report(name: str) -> bool:
+        """Save the current query. ``False`` when there was nothing to save."""
         if not name.strip():
             ui.notify(t("reports.name_required"), type="warning")
-            return
+            return False
         config = report_config_from_builder_state(state)
 
-        async def _create(session: Any) -> None:
-            await SavedReportService(session).create(
+        async def _create(session: Any) -> Any:
+            return await SavedReportService(session).create(
                 SavedReportCreate(name=name.strip(), config=json.dumps(config.to_dict()))
             )
 
-        await with_session(_create)
+        created = await with_session(_create)
         ui.notify(t("reports.saved_ok"), type="positive")
-        state["report_name"] = name.strip()
+        # The id, not just the name: nothing stops two saved reports sharing
+        # a name, and the header has to know which row it is standing for.
+        state["report_id"] = created.id
+        state["report_name"] = created.name
         header.refresh()
         palette_zone.refresh()
+        return True
 
     async def load_report(report_id: int) -> None:
         async def _get(session: Any) -> Any:
@@ -91,6 +96,7 @@ async def reports_page() -> None:
             category_ids=list(cfg.category_ids),
             top_n=cfg.top_n,
         )
+        state["report_id"] = report.id
         state["report_name"] = report.name
         header.refresh()
         palette_zone.refresh()
@@ -98,18 +104,16 @@ async def reports_page() -> None:
         await run_report()
 
     async def delete_report(report_id: int) -> None:
-        async def _get_and_delete(session: Any) -> Any:
-            service = SavedReportService(session)
-            report = await service.get(report_id)
-            await service.delete(report_id)
-            return report
+        async def _delete(session: Any) -> None:
+            await SavedReportService(session).delete(report_id)
 
-        deleted = await with_session(_get_and_delete)
+        await with_session(_delete)
         ui.notify(t("reports.deleted"), type="positive")
         # Deleting the report that is open leaves the header naming a record
-        # that no longer exists — and the next Save would recreate it under
-        # that name rather than asking for a new one.
-        if deleted is not None and deleted.name == state["report_name"]:
+        # that no longer exists. Matched by id: two saved reports may share a
+        # name, and the header stands for one row, not for a word.
+        if state["report_id"] == report_id:
+            state["report_id"] = None
             state["report_name"] = ""
             header.refresh()
         palette_zone.refresh()
@@ -192,8 +196,9 @@ async def reports_page() -> None:
         ).classes("w-full")
 
         async def _save_and_close() -> None:
-            await save_report(name_inp.value or "")
-            save_dialog.close()
+            # A refused name keeps the dialog — and what was typed into it.
+            if await save_report(name_inp.value or ""):
+                save_dialog.close()
 
         with ui.row().classes("w-full justify-end gap-2"):
             ui.button(t("common.cancel"), on_click=save_dialog.close).props("flat")

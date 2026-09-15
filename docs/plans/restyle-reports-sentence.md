@@ -209,6 +209,14 @@ storage; canned reports (`reports_canned/`); Money Flow.
   them, and they are in the area this branch already owns. `top_n`
   stays: it labels the number field in the menu.
 
+- **The open report is tracked by id, not by name.** Nothing stops two
+  saved reports sharing a name — `save_report` always creates — so
+  clearing the header on a name match would clear it for a duplicate
+  that is still open. `state["report_id"]` is set when a report is
+  loaded or saved and compared on delete. A refused (blank) name now
+  keeps the dialog and what was typed into it, instead of closing over
+  a warning toast.
+
 - **Stacking:** branched from `plan/restyle-wizard-index`, which is
   itself unmerged. Open the PR with `--base plan/restyle-wizard-index`;
   it must merge after every branch below it.

@@ -56,7 +56,9 @@ BUILDER_STATE_DEFAULTS: dict[str, object] = {
     "account_ids": [],
     "category_ids": [],
     "top_n": 10,
-    # The name of the saved report in hand, or "" while it is unsaved.
+    # The saved report in hand — its id and name, or None / "" while the
+    # query is unsaved. The id is what identifies it: names are not unique.
+    "report_id": None,
     "report_name": "",
     "dragging": None,
     "dragging_grp": None,
