@@ -8,7 +8,7 @@ The BDD feature describes the "Na start" onboarding section at /wizard.
 
 from __future__ import annotations
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e import seed_helpers as sh
 
@@ -20,7 +20,7 @@ def _ensure_onboarding_expanded(page: Page) -> None:
         expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
 
 
-def _setup_card(page: Page, key: str):
+def _setup_card(page: Page, key: str) -> Locator:
     """One of the four Setup done-cards, by its own hook rather than DOM shape."""
     return page.locator(f"[data-setup-step='{key}']")
 

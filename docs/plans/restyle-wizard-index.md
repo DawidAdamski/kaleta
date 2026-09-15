@@ -66,6 +66,8 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
 ## Touchpoints
 
 - `src/kaleta/views/wizard.py`
+- `src/kaleta/views/theme.py` (`ACCENT_RULE` for the mentor card's left
+  rule, `HAIRLINE_BOTTOM` for the index row separator)
 - `src/kaleta/i18n/locales/en.json`, `pl.json`
 - `docs/product/financial-wizard.md` (page structure paragraph)
 - `docs/plans/wizard-unplanned-radar.md` (drop the badge rider if this
