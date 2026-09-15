@@ -360,7 +360,6 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     reports = ReportService(session)
     net_worth = await NetWorthService(session).get_summary(history_months=2)
     ytd = await reports.ytd_summary()
-    month = await reports.current_month_point()
     # No guard around the forecast: the forecaster already swallows a model
     # that will not fit and answers with no prediction, which arrives here as
     # ``None`` and reads as an em dash. A guard here would have caught only
@@ -368,11 +367,14 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     # unguarded anyway, which is the dashboard-wide per-widget isolation gap.
     forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
     predicted = forecast.predicted_balance_30d
-    rate = month.rate_pct
+    # The year's rate, not this month's: a month three days old has kept
+    # whatever happened to land in it, and a figure that swings that far is
+    # not something you watch. The month's own rate is on the month card.
+    rate = ytd.savings_rate_pct
     return [
         (t("dashboard_widgets.net_worth"), fmt_number(net_worth.net_worth)),
         (t("dashboard.balance_30"), "—" if predicted is None else fmt_number(predicted)),
-        (t("reports_lib.savings_rate"), "—" if rate is None else f"{float(rate):.1f}%"),
+        (t("dashboard.watch_savings_rate"), "—" if rate is None else f"{float(rate):.1f}%"),
         (t("dashboard.watch_ytd_net"), fmt_number(ytd.net)),
     ]
 

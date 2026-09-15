@@ -132,7 +132,8 @@
     "band_month": "Ten miesiąc",
     "band_watch": "Obserwuj",
     "watch_ytd_net": "Wynik od początku roku",
-    "sts_over": "{amount} zł ponad stan"
+    "sts_over": "{amount} zł ponad stan",
+    "watch_savings_rate": "Stopa oszczędzania od początku roku"
   },
   "dashboard_widgets": {
     "customize": "Personalizuj",

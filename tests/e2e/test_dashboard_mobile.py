@@ -105,7 +105,12 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     expect(now.get_by_text("Safe to spend", exact=True).first).to_be_visible()
 
     watch = page.locator('[data-band="watch"]')
-    for label in ("Net Worth", "Balance in 30 days", "Savings Rate", "Net year to date"):
+    for label in (
+        "Net Worth",
+        "Balance in 30 days",
+        "Savings rate year to date",
+        "Net year to date",
+    ):
         expect(watch.get_by_text(label, exact=True).first).to_be_visible()
     # Plain type on the ground: a card here would repeat what the figure above
     # it already says, and the year-to-date net would appear twice.
@@ -116,6 +121,16 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     expect(page.locator("#dash-grid")).to_have_count(0)
     expect(page.locator("#dash-edit-btn-label")).to_have_count(0)
     expect(page.get_by_role("button", name="Customize")).to_be_visible()
+
+    # The hero is above whether or not the stored layout carries it — and it
+    # does not, so the claim is about the layout this dialog actually holds.
+    page.get_by_role("button", name="Customize").click()
+    dialog = page.get_by_role("dialog")
+    hero_row = dialog.locator('[data-customize-row="safe_to_spend"]')
+    expect(hero_row).to_be_visible(timeout=5000)
+    expect(hero_row.locator('[role="checkbox"]')).to_have_attribute(
+        "aria-checked", "false", timeout=5000
+    )
 
     widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
     assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"

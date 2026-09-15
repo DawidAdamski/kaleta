@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -1033,31 +1034,32 @@ class TestSafeToSpend:
         assert result.trailing_avg_per_day == Decimal("30.00")
 
 
+#: A zero month on the 10th of a 30-day one — every test below states only
+#: what it changes. ``replace`` keeps the builder typed, which a dict spread
+#: could not.
+BLANK_MONTH = SafeToSpend(
+    month=datetime.date(2026, 6, 1),
+    today=datetime.date(2026, 6, 10),
+    income=Decimal("0.00"),
+    committed=Decimal("0.00"),
+    spent=Decimal("0.00"),
+    trailing_avg_per_day=Decimal("0.00"),
+)
+
+
 class TestSafeToSpendArithmetic:
     """The derived properties, without a database behind them."""
 
-    def _stub(self, **kwargs: Decimal | datetime.date) -> SafeToSpend:
-        base: dict[str, object] = {
-            "month": datetime.date(2026, 6, 1),
-            "today": datetime.date(2026, 6, 10),
-            "income": Decimal("0.00"),
-            "committed": Decimal("0.00"),
-            "spent": Decimal("0.00"),
-            "trailing_avg_per_day": Decimal("0.00"),
-        }
-        base.update(kwargs)
-        return SafeToSpend(**base)  # type: ignore[arg-type]
-
     def test_the_last_day_of_the_month_still_has_one_day_left(self) -> None:
         """Today counts — and a zero divisor would make ``per_day`` undefined."""
-        result = self._stub(today=datetime.date(2026, 6, 30), income=Decimal("210.00"))
+        result = replace(BLANK_MONTH, today=datetime.date(2026, 6, 30), income=Decimal("210.00"))
 
         assert result.days_left == 1
         assert result.per_day == Decimal("210.00")
 
     def test_overspending_is_reported_not_clamped(self) -> None:
         """A hero that cannot say "you are 300 over" is not worth reading."""
-        result = self._stub(income=Decimal("1000.00"), spent=Decimal("1300.00"))
+        result = replace(BLANK_MONTH, income=Decimal("1000.00"), spent=Decimal("1300.00"))
 
         assert result.free == Decimal("-300.00")
         assert result.spendable is False

@@ -132,7 +132,8 @@
     "band_month": "This month",
     "band_watch": "Watch",
     "watch_ytd_net": "Net year to date",
-    "sts_over": "{amount} zł over"
+    "sts_over": "{amount} zł over",
+    "watch_savings_rate": "Savings rate year to date"
   },
   "dashboard_widgets": {
     "customize": "Customize",

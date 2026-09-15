@@ -122,7 +122,13 @@ TAB_BAR_ENTRIES: list[tuple[str, str | None, str]] = [
 
 
 def _tab_bar(drawer: ui.left_drawer, current_path: str) -> None:
-    """The phone's navigation. Hidden above ``md`` by ``.k-tabbar``'s own rule."""
+    """The phone's navigation. Hidden above ``md`` by ``.k-tabbar``'s own rule.
+
+    Buttons rather than links: an ``<a href>`` would give long-press and
+    open-in-new-tab, at the cost of a full document load on every tap, and on
+    a phone that is the difference the tab bar exists to remove. The active
+    tab carries ``aria-current`` so the bar still says where you are.
+    """
     with ui.element("nav").classes(TAB_BAR).props(f'aria-label="{t("nav.navigation")}"'):
         for icon, path, key in TAB_BAR_ENTRIES:
             is_add = key == "nav.tab_add"
@@ -130,7 +136,10 @@ def _tab_bar(drawer: ui.left_drawer, current_path: str) -> None:
             item = (
                 ui.element("button")
                 .classes(f"{TAB_BAR_ITEM} {TAB_BAR_ITEM_ACTIVE if active else ''}".strip())
-                .props(f'data-tab="{key}" aria-label="{t(key)}"')
+                .props(
+                    f'data-tab="{key}" aria-label="{t(key)}"'
+                    + (' aria-current="page"' if active else "")
+                )
             )
             with item:
                 if is_add:

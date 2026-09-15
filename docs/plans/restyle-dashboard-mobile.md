@@ -330,6 +330,42 @@ has a phone artboard, planned in `restyle-login-split`).
   is a change across every widget — the chore-inbox line that already
   exists for the thousands separator belongs here too.
 
+- **Every desktop dashboard now waits for the socket.** The layout is
+  chosen from a width the browser reports, so nothing below
+  `page_layout` ships in the first response any more — on a desktop too.
+  The wait is a websocket handshake and one JS round trip on a local
+  connection; the 10s/5s figures are the ceilings before the fallback,
+  not the cost. Recorded because "desktop rendering is untouched" is
+  about what is drawn, not about when.
+
+- **The Watch band's savings rate is the year's, not this month's.**
+  Review pointed out that a month three days old has kept whatever
+  happened to land in it, which is not a figure you *watch*. It reads
+  `ytd_summary().savings_rate_pct` and says so in its label; the month's
+  own rate is on the month card's pace bar, where it belongs. One fewer
+  service call, too.
+
+- **The month card wraps on a phone and nowhere else.** Measured in a
+  browser at 800, 900, 1024, 1100, 1280 and 1360px with six-figure
+  amounts: three 26px figures on one line at every one of them, and no
+  page scroll. Above `md` the column floor reverts to `min-w-0`, so the
+  items shrink exactly as they did before this branch rather than
+  wrapping — the change is confined to the phone.
+
+- **A plan posted early still has its subscription twin committed.** The
+  de-duplication matches an unposted planned occurrence, so a plan dated
+  the 20th that was posted on the 12th leaves the matching subscription
+  charge in `committed` until the 20th — counted once in `spent` and
+  once in `committed`. The error is on the safe side (the hero shows
+  less than is free), which is the same trade the same-day case takes,
+  and it disappears the moment the two gain a real link.
+
+- **The tabs are buttons, not links.** An `<a href>` would give
+  long-press and open-in-new-tab, at the cost of a full document load on
+  every tap — on a phone that is the latency the tab bar exists to
+  remove. The active tab carries `aria-current="page"` so the bar still
+  says where you are.
+
 - **Stacking:** branched from `plan/restyle-login-split`, which is itself
   unmerged. Open the PR with `--base plan/restyle-login-split`; it must
   merge after every branch below it.

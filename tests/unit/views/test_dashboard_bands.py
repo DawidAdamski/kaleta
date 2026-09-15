@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+from dataclasses import replace
 from decimal import Decimal
 
 from kaleta.services.report_service import SafeToSpend
@@ -86,17 +87,20 @@ class TestWatchBandTakesNoWidgets:
         assert grouped[Band.WATCH] == []
 
 
-def _stats(**kwargs: Decimal) -> SafeToSpend:
-    base: dict[str, object] = {
-        "month": datetime.date(2026, 6, 1),
-        "today": datetime.date(2026, 6, 10),
-        "income": Decimal("0.00"),
-        "committed": Decimal("0.00"),
-        "spent": Decimal("0.00"),
-        "trailing_avg_per_day": Decimal("0.00"),
-    }
-    base.update(kwargs)
-    return SafeToSpend(**base)  # type: ignore[arg-type]
+#: A zero month on the 10th of a 30-day one; every test states only what it
+#: changes. ``replace`` keeps the builder typed, which a dict spread could not.
+_BLANK = SafeToSpend(
+    month=datetime.date(2026, 6, 1),
+    today=datetime.date(2026, 6, 10),
+    income=Decimal("0.00"),
+    committed=Decimal("0.00"),
+    spent=Decimal("0.00"),
+    trailing_avg_per_day=Decimal("0.00"),
+)
+
+
+def _stats(**kwargs: Decimal | datetime.date) -> SafeToSpend:
+    return replace(_BLANK, **kwargs)
 
 
 class TestHeroSplit:
