@@ -87,7 +87,9 @@ has a phone artboard, planned in `restyle-login-split`).
 - `[manual]` 390×844 viewport on seed data: hero first, bands stacked in
   Now / Month / Watch, bottom tab bar with centre add button, no
   horizontal scroll, every tap target ≥ 44px. Compare to artboard `1f`.
-  Desktop at 1360px is unchanged from `restyle-dashboard`.
+  Desktop at 1360px is unchanged from `restyle-dashboard` — in
+  particular the month card's three figures are still 26px on one line,
+  and no page has gained space at its foot.
 
 ## Touchpoints
 
@@ -284,7 +286,9 @@ has a phone artboard, planned in `restyle-login-split`).
   the hero back regardless, so unticking it changes only the desktop
   grid. Hiding the row on a phone would make the same dialog say
   different things on two devices about one stored layout, which is
-  worse. `KAL-DSH-007` says it out loud instead.
+  worse. `KAL-DSH-007` says it out loud instead — as the case the e2e
+  actually checks (the hero is there although Customize has it
+  unticked); the other direction is a unit test on `mobile_layout`.
 
 - **The spacer is `display:none` above the breakpoint, not zero-height.**
   The page column is a flex container with a gap, so a zero-height last
@@ -298,12 +302,17 @@ has a phone artboard, planned in `restyle-login-split`).
   portrait) on the desktop side. A desktop grid with phone padding is
   neither, so `.k-dash-page` now ends at 767.98px like the rest.
 
-- **The Watch band's forecast fails alone.** It is the only reader on
-  the page that fits a model rather than running a query, and it is the
-  last band; a Prophet that will not fit now costs its own em dash and a
-  warning in the log rather than the whole phone dashboard. (Per-widget
-  error isolation for the grid at large is still the open chore-inbox
-  item it was.)
+- **The Watch band's forecast needs no guard, and the first one written
+  here was a lie.** A `try/except` went in around it on the strength of
+  "a Prophet that will not fit should not take the page down", and
+  review pointed out that `month_card` — a default widget in the band
+  *above* — makes the same call unguarded, so the claim held only for
+  layouts without it. Looking properly: `ProphetForecaster.run` already
+  swallows a model that will not fit and returns nothing, which arrives
+  as `predicted_balance_30d is None` and reads as an em dash. The guard
+  was catching something that does not happen and hiding everything
+  that does; it is gone. Per-widget error isolation for the dashboard at
+  large is the open chore-inbox item it already was.
 
 - **The (date, amount) subscription de-duplication has a known edge, and
   a test.** An unrelated subscription billing 49.99 on the same day as a

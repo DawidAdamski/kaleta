@@ -361,15 +361,13 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     net_worth = await NetWorthService(session).get_summary(history_months=2)
     ytd = await reports.ytd_summary()
     month = await reports.current_month_point()
-    try:
-        forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
-        predicted = forecast.predicted_balance_30d
-    except Exception:  # noqa: BLE001 — one figure, not the whole dashboard
-        # The forecast is the only reader here that runs a model rather than a
-        # query, and it is the last band on the page. A Prophet that will not
-        # fit should cost its own em dash, not everything above it.
-        logger.warning("Watch band forecast unavailable", exc_info=True)
-        predicted = None
+    # No guard around the forecast: the forecaster already swallows a model
+    # that will not fit and answers with no prediction, which arrives here as
+    # ``None`` and reads as an em dash. A guard here would have caught only
+    # what `month_card` — a default widget in the band above — leaves
+    # unguarded anyway, which is the dashboard-wide per-widget isolation gap.
+    forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
+    predicted = forecast.predicted_balance_30d
     rate = month.rate_pct
     return [
         (t("dashboard_widgets.net_worth"), fmt_number(net_worth.net_worth)),

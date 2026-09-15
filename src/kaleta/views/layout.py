@@ -121,7 +121,7 @@ TAB_BAR_ENTRIES: list[tuple[str, str | None, str]] = [
 ]
 
 
-def _tab_bar(drawer: Any, current_path: str) -> None:
+def _tab_bar(drawer: ui.left_drawer, current_path: str) -> None:
     """The phone's navigation. Hidden above ``md`` by ``.k-tabbar``'s own rule."""
     with ui.element("nav").classes(TAB_BAR).props(f'aria-label="{t("nav.navigation")}"'):
         for icon, path, key in TAB_BAR_ENTRIES:

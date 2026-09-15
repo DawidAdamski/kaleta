@@ -3034,7 +3034,7 @@ Feature: Dashboard Customization
       and the year-to-date net as plain figures
     And the Watch band carries no widget cards at all
     And there is no widget grid and no Edit layout button
-    And the safe-to-spend hero is there whether or not Customize has it ticked
+    And the safe-to-spend hero is there although Customize does not have it ticked
     And the page does not scroll sideways
 ```
 
