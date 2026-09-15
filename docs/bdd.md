@@ -2948,6 +2948,16 @@ Feature: Workflow-based navigation
     Given I am signed in
     When I click Subscriptions, Monthly Readiness, Safety Funds, or Personal Loans in the sidebar
     Then I land on the corresponding page under /wizard/ without visiting the Wizard hub first
+
+  KAL-NAV-006 @automated
+  Scenario: A bottom tab bar replaces the drawer on a narrow viewport
+    Given I am signed in
+    When I open the dashboard on a 390 pixel wide viewport
+    Then a bar fixed to the foot of the screen shows Home, Ledger, Add, Plan and More
+    And every tab is at least 44 pixels tall
+    And the sidebar is not covering the page
+    And tapping More opens the sidebar over it
+    And tapping Add opens the new-transaction form
 ```
 
 ## Feature: Dashboard Customization
@@ -3002,6 +3012,28 @@ Feature: Dashboard Customization
     And an eyebrow above the page title says which month and day these figures stand at
     And a budget-variance row past 110% of its plan reads in the expense colour,
       one below it in the warning colour
+
+  KAL-DSH-006 @automated
+  Scenario: Safe to spend is income minus what is committed minus what is spent
+    Given it is the 10th of a 30-day month
+    And 6000.00 of income has posted this month
+    And 1500.00 of expenses have posted this month
+    And a planned rent of 2200.00 falls on the 28th and has not been posted
+    When the dashboard works out what is safe to spend
+    Then the free figure reads 2300.00
+    And 21 days are left to spread it over
+    And the per-day figure reads 109.52
+
+  KAL-DSH-007 @automated
+  Scenario: The phone dashboard stacks into Now, This month and Watch
+    Given I am signed in
+    When I open the dashboard on a 390 pixel wide viewport
+    Then the widgets are stacked in three bands headed Now, This month and Watch
+    And the safe-to-spend hero is the first thing in the Now band
+    And the Watch band carries net worth, the 30-day balance, the savings rate
+      and the year-to-date net as plain figures
+    And there is no widget grid and no Edit layout button
+    And the page does not scroll sideways
 ```
 
 ## Feature: Wizard Action Items

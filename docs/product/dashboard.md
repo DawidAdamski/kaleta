@@ -78,6 +78,62 @@ Report-backed widgets:
   stores a reference to the report spec (or a snapshot if the user
   wants a frozen view). See *Reports as widgets* in the roadmap.
 
+## Safe to spend
+
+The one figure the phone dashboard leads with (artboard `1f`). A balance
+cannot answer "am I on track this month?", because a balance does not
+know that the rent leaves on the 28th.
+
+```
+free = income − committed − spent
+```
+
+- **income** — income posted this month, internal transfers excluded.
+- **spent** — expenses posted this month, internal transfers excluded.
+- **committed** — what is still due between today and the end of the
+  month: unposted planned occurrences (expenses only) plus projected
+  subscription charges. Planned occurrences are de-duplicated against
+  the transactions that posted them; a subscription charge is assumed
+  paid once its date is behind us, because no transaction carries a
+  subscription id. A charge that lands on the same day for the same
+  amount as a planned occurrence is counted once.
+- **days_left** — days remaining including today, never below 1.
+- **per_day** — `free / days_left`, shown beside the actual mean daily
+  spend over the last 30 days so the two can be compared.
+
+Planned *income* is never committed and never counted: money is income
+once it has landed. `free` may be negative, and is reported as such —
+only the bar clamps it, because a negative width has nowhere to go.
+
+Read by `ReportService.safe_to_spend`; scenario `KAL-DSH-006`.
+
+## Phone layout
+
+Below 768px the grid is replaced by three stacked bands, and the drawer
+by a bottom tab bar (artboard `1f`).
+
+- **Now** — the safe-to-spend hero (added even when the stored desktop
+  layout has not enabled it), the Needs-attention banner, quick actions.
+- **This month** — everything without a band of its own.
+- **Watch** — four slow figures as plain type on the ground, no cards:
+  net worth, the 30-day balance, the savings rate, the year-to-date net.
+  They are not widgets; the four the artboard names were merged into the
+  month and balance cards and marked legacy.
+
+Band assignment is `BAND_OF` in `dashboard_widgets/registry.py`. Band
+order is fixed — it is the argument the layout is making — so drag and
+drop is off below the breakpoint and the stored layout is read for
+*which* widgets and their order within a band, never for position. The
+choice of layout is made once, server-side, from the viewport width the
+browser reports on connect: rendering both trees and hiding one would
+run every widget's queries twice, which is what a phone can least
+afford.
+
+The tab bar carries Home, Ledger, Add, Plan and More at 44px minimum.
+Add goes to `/transactions?new=1`, the same route the Alt+N shortcut
+uses from another page. More opens the drawer, which keeps the long tail
+of setup pages that five slots will never hold.
+
 ## Customisation UX
 
 - **"Edit dashboard"** toggle at the top of the page. Entering edit
@@ -118,8 +174,9 @@ Report-backed widgets:
   First feels better; second is simpler to implement.
 - **Widget plugin API:** do we let advanced users define custom
   widgets (e.g. a filter + chart template), or is the catalog closed?
-- **Mobile:** same grid collapsed to single column, or a fundamentally
-  different navigation (tabs per zone)?
+- ~~**Mobile:** same grid collapsed to single column, or a fundamentally
+  different navigation (tabs per zone)?~~ **Answered** by artboard `1f`:
+  three stacked bands and a bottom tab bar — see *Phone layout* above.
 - **Theming:** a widget showing red expense numbers should use the
   same red token as Transactions. Tie to the
   "consistent semantic colours" principle in the roadmap.

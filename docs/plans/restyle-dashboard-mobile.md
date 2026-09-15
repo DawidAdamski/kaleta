@@ -3,7 +3,7 @@ plan_id: restyle-dashboard-mobile
 title: Restyle — phone dashboard: safe-to-spend hero, stacked bands, bottom tab bar (artboard 1f)
 area: dashboard
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
@@ -62,9 +62,11 @@ Depends on `restyle-dashboard` (merged cards, drawer) and
 - `app.storage.user` keys unchanged.
 - i18n: `dashboard.safe_to_spend*`, `dashboard.band_now/month/watch`,
   `nav.tab_*`.
-- BDD: `KAL-DSH-005` "safe to spend equals income minus committed minus
-  spent" (@automated, unit) and `KAL-NAV-006` "bottom tab bar on narrow
-  viewport" (@automated, e2e with a mobile viewport).
+- BDD: ~~`KAL-DSH-005`~~ **`KAL-DSH-006`** "safe to spend equals income
+  minus committed minus spent" (@automated — `KAL-DSH-005` was taken by
+  `restyle-dashboard`, and a unit test cannot claim a scenario) and
+  `KAL-NAV-006` "bottom tab bar on narrow viewport" (@automated, e2e
+  with a mobile viewport).
 - `docs/product/dashboard.md`: new section "Safe to spend" with the
   formula.
 
@@ -75,9 +77,10 @@ has a phone artboard, planned in `restyle-login-split`).
 ## Acceptance criteria
 
 - `uv run pytest tests/unit/services/test_report_service.py -q`
-- `uv run pytest tests/e2e/test_navigation.py tests/e2e/test_dashboard_customize.py -q`
+- `uv run pytest tests/integration/test_safe_to_spend.py -q`
+- `uv run pytest tests/e2e/test_navigation.py tests/e2e/test_dashboard_customize.py tests/e2e/test_dashboard_mobile.py -q`
 - `grep -q "def safe_to_spend" src/kaleta/services/report_service.py`
-- `grep -q "KAL-DSH-005" docs/bdd.md`
+- `grep -q "KAL-DSH-006" docs/bdd.md`
 - `grep -q "KAL-NAV-006" docs/bdd.md`
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
@@ -112,4 +115,112 @@ has a phone artboard, planned in `restyle-login-split`).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — committed.** Default taken: unposted planned
+  occurrences due between today and month end, plus projected
+  subscription charges in the same window. Expenses only — planned
+  *income* is never promised money, and counting it would let a hero
+  say you can spend a salary that has not arrived. The two
+  de-duplications are not the same: a planned occurrence knows which
+  transaction posted it (`exclude_posted`), whereas no transaction
+  carries a subscription id, so a subscription charge can only be
+  assumed paid once its date is behind us — which is also why the
+  window starts at today and not at the 1st. A charge landing on the
+  same day for the same amount as a planned occurrence is counted once;
+  two *planned* items of the same amount on one day are still two
+  payments, and there is a test saying so.
+
+- **Open question 2 — the hero on desktop.** Default taken: registered,
+  selectable in Customize, absent from `DEFAULT_WIDGETS`. That left a
+  hole — the phone reads the same stored layout, so a hero nobody has
+  enabled would never appear on the phone either. `mobile_layout()`
+  prepends it when the stored layout does not already carry it, which
+  keeps it an ordinary banded widget and means it cannot appear twice
+  for someone who did switch it on.
+
+- **Open question 3 — the breakpoint, and how it is detected.** Default
+  taken: 768px, measured server-side. The page awaits the socket and
+  reads `window.innerWidth`, then builds one tree. A client that never
+  connects gets the desktop grid. The consequence, accepted: the layout
+  is chosen when the page is built, so dragging a desktop window below
+  768px does not turn it into a phone until the next load. Rendering
+  both trees would have run every widget's queries twice on the device
+  least able to pay for it.
+
+- **`safe_to_spend` takes a day, not a month.** Scope writes
+  `safe_to_spend(month)`, but `days_left` and "still due" are both
+  questions about a *day*: a month argument alone leaves `days_left`
+  undefined for every month but the current one. The method takes an
+  optional `today` instead — which is also what lets the scenario be
+  tested against fixed dates rather than against whatever today is.
+
+- **`KAL-DSH-005` was already taken, and a unit test cannot claim a
+  scenario.** Scope asks for `KAL-DSH-005` "@automated, unit". That id
+  belongs to `restyle-dashboard`'s merged-cards scenario, so the new one
+  is `KAL-DSH-006` — and the acceptance criterion greping for
+  `KAL-DSH-005` would have passed without checking anything. It also
+  cannot be a unit test: `scripts/spec_coverage.py` reads only
+  `tests/e2e` and `tests/integration`, so the scenario is claimed by
+  `tests/integration/test_safe_to_spend.py`, over a real database, with
+  every number a literal from the scenario. The unit tests beside it
+  cover the edges (the last day of the month, an overspent month,
+  planned income, the trailing-average divisor).
+
+- **`KAL-DSH-007`, beyond the two scenarios Scope lists.** The bands and
+  the disappearance of the grid are the plan's largest user-facing
+  change and Working Agreement §5 asks for a scenario. It asserts the
+  three bands, the hero at the head of Now, the four Watch figures, the
+  absence of a grid and of an Edit-layout button, and that the page does
+  not scroll sideways — and a companion test that a 1360px window still
+  gets the grid, because "desktop rendering is untouched" is a claim
+  worth a guard now that one code path chooses between two layouts.
+
+- **The Watch band is figures, not widgets.** Scope names net worth,
+  predicted 30d, savings rate and YTD net. Three of those four are
+  widgets `restyle-dashboard` merged into the month and balance cards
+  and marked `legacy` — kept alive only so an old stored layout still
+  renders — so there was nothing left to band. The band reads them from
+  the services directly and draws them as plain type on the ground,
+  which is what the artboard shows anyway. `bands_for_layout` drops
+  legacy widgets rather than banding them: the phone layout is new and
+  starts without that debt, and three of the four figures they carried
+  are in the Watch band already.
+
+- **The drawer was opening itself over the phone.** `page_layout` built
+  it with `value=True`, which below Quasar's breakpoint means an overlay
+  covering the page you just asked for. Dropping the argument lets
+  NiceGUI set `show-if-above`, so the drawer opens on a desktop and
+  waits behind "More" on a phone. This is a one-line change in the file
+  the tab bar lives in, and the tab bar is unusable without it.
+
+- **The tab bar has its own breakpoint.** `md:hidden` leaves which of
+  two utilities wins to stylesheet order, which is how the auth panel in
+  `restyle-login-split` came to be invisible at every width. `.k-tabbar`
+  declares `display:none` and a `@media (max-width:767.98px)` rule
+  instead. Checked in a browser at 390×844 (five 78×60 tabs flush to the
+  foot of the viewport, no horizontal scroll) and at 1360×900 (bar gone,
+  spacer 0px high, grid intact).
+
+- **There is no quick-add dialog to call into.** Scope says the centre
+  button "opens the quick-add dialog already used by `quick_actions`".
+  `quick_actions` has no dialog — it navigates to `/transactions`. The
+  dialog belongs to the transactions page and is opened on arrival by
+  `?new=1`, which is exactly how the global Alt+N shortcut reaches it
+  from another page. The tab uses the same route.
+
+- **The Needs-attention banner could not be read at 390px.** Its row was
+  `no-wrap` with a `shrink-0` button, so the message column collapsed to
+  one word per line beside a button that would not give up any width.
+  Flex items shrink before their row wraps, so removing `no-wrap` alone
+  changed nothing; the column needed a `min-w-[180px]` floor. On a
+  desktop everything still fits on one line, so nothing changes there.
+  Two class changes in a widget this plan's Now band names — the chore
+  rule covers it.
+
+- **`--k-neutral-bar` was defined and unused.** The token has sat in
+  `:root` since the theme pass with no reader; the spent segment is its
+  first. It has no dark override and does not need one — it is a warm
+  mid grey that reads on both grounds.
+
+- **Stacking:** branched from `plan/restyle-login-split`, which is itself
+  unmerged. Open the PR with `--base plan/restyle-login-split`; it must
+  merge after every branch below it.
