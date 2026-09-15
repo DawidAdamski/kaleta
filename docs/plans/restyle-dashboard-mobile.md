@@ -278,6 +278,49 @@ has a phone artboard, planned in `restyle-login-split`).
   could own. Left as a known nit rather than a new service method with
   one caller.
 
+- **The hero cannot be switched off on a phone.** Customize is still
+  offered there (which widgets you want is not a question about width)
+  and still lists the safe-to-spend checkbox, but `mobile_layout` puts
+  the hero back regardless, so unticking it changes only the desktop
+  grid. Hiding the row on a phone would make the same dialog say
+  different things on two devices about one stored layout, which is
+  worse. `KAL-DSH-007` says it out loud instead.
+
+- **The spacer is `display:none` above the breakpoint, not zero-height.**
+  The page column is a flex container with a gap, so a zero-height last
+  child still added a gap's worth of space to the foot of every desktop
+  page — 44px on the dashboard, 24px elsewhere. That is not "desktop
+  rendering untouched".
+
+- **One breakpoint, not two that disagree at 768px.** `.k-dash-page`
+  switched to phone padding at `max-width:768px` inclusive, while the
+  tab bar and the layout choice both put a 768px-wide window (an iPad in
+  portrait) on the desktop side. A desktop grid with phone padding is
+  neither, so `.k-dash-page` now ends at 767.98px like the rest.
+
+- **The Watch band's forecast fails alone.** It is the only reader on
+  the page that fits a model rather than running a query, and it is the
+  last band; a Prophet that will not fit now costs its own em dash and a
+  warning in the log rather than the whole phone dashboard. (Per-widget
+  error isolation for the grid at large is still the open chore-inbox
+  item it was.)
+
+- **The (date, amount) subscription de-duplication has a known edge, and
+  a test.** An unrelated subscription billing 49.99 on the same day as a
+  49.99 plan is taken for the same payment and counted once, which
+  overstates what is safe to spend. No transaction carries a
+  subscription id and a projected charge carries no account, so a date
+  and an amount are all the two share. Both halves of the rule are now
+  unit-tested, with a comment saying to undo it if the two ever gain a
+  real link.
+
+- **The hero says "zł", like the rest of the app.** `fmt_amount` has
+  hardcoded the suffix since long before this branch and accounts carry
+  a `currency` the dashboard has never read. Making three new strings
+  the exception would not make the page right, and making the page right
+  is a change across every widget — the chore-inbox line that already
+  exists for the thousands separator belongs here too.
+
 - **Stacking:** branched from `plan/restyle-login-split`, which is itself
   unmerged. Open the PR with `--base plan/restyle-login-split`; it must
   merge after every branch below it.

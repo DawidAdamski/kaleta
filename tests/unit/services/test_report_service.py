@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
+from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate
@@ -883,6 +884,26 @@ async def _make_planned(
     )
 
 
+async def _seed_subscription(
+    session: AsyncSession,
+    name: str,
+    amount: Decimal,
+    next_expected_at: datetime.date,
+) -> None:
+    """An active subscription billing every 30 days, anchored on *next_expected_at*."""
+    session.add(
+        Subscription(
+            name=name,
+            amount=amount,
+            cadence_days=30,
+            first_seen_at=next_expected_at,
+            next_expected_at=next_expected_at,
+            status=SubscriptionStatus.ACTIVE,
+        )
+    )
+    await session.flush()
+
+
 class TestSafeToSpend:
     """The phone hero's one question: what is left of the month?
 
@@ -890,53 +911,6 @@ class TestSafeToSpend:
     The scenario itself is claimed over a real database in
     ``tests/integration/test_safe_to_spend.py``; these are its edges.
     """
-
-    async def test_income_minus_committed_minus_spent(
-        self, svc: ReportService, session: AsyncSession
-    ) -> None:
-        """The scenario's own arithmetic.
-
-        ``KAL-DSH-006`` is claimed by
-        ``tests/integration/test_safe_to_spend.py`` — a ``Covers:`` in a unit
-        test counts for nothing, since ``scripts/spec_coverage.py`` reads only
-        ``tests/e2e`` and ``tests/integration``.
-        """
-        acc = await _make_account(session)
-        salary = await _make_category(session, "Salary", CategoryType.INCOME)
-        food = await _make_category(session, "Food")
-        today = datetime.date(2026, 6, 10)
-
-        await _make_tx(
-            session,
-            account_id=acc,
-            category_id=salary,
-            amount=Decimal("6000.00"),
-            tx_type=TransactionType.INCOME,
-            date=datetime.date(2026, 6, 1),
-        )
-        await _make_tx(
-            session,
-            account_id=acc,
-            category_id=food,
-            amount=Decimal("1500.00"),
-            tx_type=TransactionType.EXPENSE,
-            date=datetime.date(2026, 6, 5),
-        )
-        await _make_planned(
-            session,
-            account_id=acc,
-            amount=Decimal("2200.00"),
-            date=datetime.date(2026, 6, 28),
-        )
-
-        result = await svc.safe_to_spend(today=today)
-
-        assert result.income == Decimal("6000.00")
-        assert result.spent == Decimal("1500.00")
-        assert result.committed == Decimal("2200.00")
-        assert result.free == Decimal("2300.00")
-        assert result.days_left == 21
-        assert round(result.per_day, 2) == Decimal("109.52")
 
     async def test_a_plan_already_behind_us_is_not_still_due(
         self, svc: ReportService, session: AsyncSession
@@ -994,6 +968,50 @@ class TestSafeToSpend:
         result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
 
         assert result.committed == Decimal("100.00")
+
+    async def test_a_subscription_matching_a_plan_by_day_and_amount_is_dropped(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """A known limit, pinned so it cannot change unnoticed.
+
+        The only thing a projected subscription charge and a planned
+        occurrence share is a date and an amount — no transaction carries a
+        subscription id — so an unrelated subscription billing 49.99 on the
+        same day as a 49.99 plan is taken for the same payment and counted
+        once. Overstating what is safe to spend is the error this figure
+        exists to avoid, so if the two ever gain a real link, undo this.
+        """
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("49.99"),
+            date=datetime.date(2026, 6, 20),
+            name="Gym",
+        )
+        await _seed_subscription(session, "Streaming", Decimal("49.99"), datetime.date(2026, 6, 20))
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("49.99")
+
+    async def test_a_subscription_on_its_own_day_is_committed(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """The other half of the rule above: no collision, no drop."""
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("49.99"),
+            date=datetime.date(2026, 6, 20),
+            name="Gym",
+        )
+        await _seed_subscription(session, "Streaming", Decimal("49.99"), datetime.date(2026, 6, 21))
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("99.98")
 
     async def test_trailing_average_divides_by_the_window_not_by_busy_days(
         self, svc: ReportService, session: AsyncSession

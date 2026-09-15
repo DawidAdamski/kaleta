@@ -111,9 +111,11 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     # it already says, and the year-to-date net would appear twice.
     expect(watch.locator("[data-widget-id]")).to_have_count(0)
 
-    # No grid, and nothing offering to drag cards around one.
+    # No grid, and nothing offering to drag cards around one. Customize
+    # stays — which widgets you want is not a question about width.
     expect(page.locator("#dash-grid")).to_have_count(0)
     expect(page.locator("#dash-edit-btn-label")).to_have_count(0)
+    expect(page.get_by_role("button", name="Customize")).to_be_visible()
 
     widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
     assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"

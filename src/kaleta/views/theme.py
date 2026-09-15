@@ -414,7 +414,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-table .q-table td{font-size:13.5px;color:var(--k-ink)}
 .k-table .q-table tbody tr:hover{background:var(--k-row-hover)}
 .k-dash-page{padding:36px 40px 44px;gap:44px}
-@media (max-width:768px){.k-dash-page{padding:20px 16px 28px;gap:28px}}
+/* 767.98px, not 768px: the tab bar and the server-side layout choice both
+   put a 768px-wide window (an iPad in portrait) on the desktop side, and a
+   desktop grid with phone padding is neither. */
+@media (max-width:767.98px){.k-dash-page{padding:20px 16px 28px;gap:28px}}
 .k-dash-card{border-radius:14px;padding:26px 28px}
 .k-account-chip{background:var(--k-surface-sunken)}
 /* Hairline above a card's slow figures (month card footer, artboard 1c). */
@@ -556,6 +559,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 /* Phone dashboard (artboard 1f) — the bar is the navigation below `md`, and
    the drawer is what "More" opens. Its own breakpoint, for the same reason
    `.k-auth-panel` has one. */
+/* `display:none`, not a zero height: the page column is a flex container with
+   a gap, and a zero-height child still takes a gap's worth of space at the
+   foot of every desktop page. */
+.k-tabbar-spacer{display:none}
 .k-tabbar{
   display:none;
   position:fixed;left:0;right:0;bottom:0;z-index:2100;
@@ -565,7 +572,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 @media (max-width:767.98px){
   .k-tabbar{display:flex;align-items:stretch;justify-content:space-around}
-  .k-tabbar-spacer{height:calc(64px + env(safe-area-inset-bottom))}
+  .k-tabbar-spacer{display:block;height:calc(64px + env(safe-area-inset-bottom))}
 }
 .k-tabbar-item{
   flex:1 1 0;min-width:0;min-height:44px;

@@ -3032,7 +3032,9 @@ Feature: Dashboard Customization
     And the safe-to-spend hero is the first thing in the Now band
     And the Watch band carries net worth, the 30-day balance, the savings rate
       and the year-to-date net as plain figures
+    And the Watch band carries no widget cards at all
     And there is no widget grid and no Edit layout button
+    And the safe-to-spend hero is there whether or not Customize has it ticked
     And the page does not scroll sideways
 ```
 

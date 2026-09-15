@@ -340,7 +340,7 @@ async def _viewport_is_mobile() -> bool:
     except TimeoutError:
         # The only failure worth swallowing: nobody answered. Anything else is
         # a bug that should be seen rather than quietly served a desktop grid.
-        logger.debug("Viewport width unavailable; rendering the desktop grid", exc_info=True)
+        logger.info("Viewport width unavailable; rendering the desktop grid", exc_info=True)
         return False
     return isinstance(width, int | float) and width < _MOBILE_MAX_WIDTH
 
@@ -361,8 +361,15 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     net_worth = await NetWorthService(session).get_summary(history_months=2)
     ytd = await reports.ytd_summary()
     month = await reports.current_month_point()
-    forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
-    predicted = forecast.predicted_balance_30d
+    try:
+        forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
+        predicted = forecast.predicted_balance_30d
+    except Exception:  # noqa: BLE001 — one figure, not the whole dashboard
+        # The forecast is the only reader here that runs a model rather than a
+        # query, and it is the last band on the page. A Prophet that will not
+        # fit should cost its own em dash, not everything above it.
+        logger.warning("Watch band forecast unavailable", exc_info=True)
+        predicted = None
     rate = month.rate_pct
     return [
         (t("dashboard_widgets.net_worth"), fmt_number(net_worth.net_worth)),
