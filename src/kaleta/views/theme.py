@@ -77,6 +77,12 @@ CARD_SUBTITLE = "k-card-subtitle"
 # dashed one when it has none to show.
 FILTER_CHIP = "k-filter-chip"
 FILTER_CHIP_EMPTY = "k-filter-chip--empty"
+#: A word inside a sentence that is also a control (artboard 3e). Reads as
+#: prose until the pointer is over it, so the query stays legible while every
+#: part of it stays editable.
+SENTENCE_SLOT = "k-slot"
+#: The slot while a rail field is being dragged towards it.
+SENTENCE_SLOT_TARGET = "k-slot--target"
 SELECTION_BAR = "k-selection-bar"
 #: Hover tint for a hand-built row (one that is not inside a ``k-table``).
 ROW_HOVER = "k-row-hover"
@@ -545,6 +551,20 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   color:var(--k-ink-2);
   font-size:12.5px;line-height:1.2;
   cursor:pointer
+}
+.k-slot{
+  display:inline-flex;align-items:center;gap:.25rem;
+  padding:1px 4px;margin:0 1px;border-radius:5px;
+  color:var(--k-accent-text);
+  border-bottom:1px dashed var(--k-chip-dash);
+  cursor:pointer;
+  transition:background-color .12s ease
+}
+.k-slot:hover{background:var(--k-surface-sunken);border-bottom-color:transparent}
+.k-slot--target{
+  background:var(--k-surface-warm);
+  border:1px dashed var(--k-accent);
+  border-radius:5px
 }
 .k-filter-chip--empty{
   background:transparent;

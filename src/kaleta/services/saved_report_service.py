@@ -4,7 +4,7 @@ from __future__ import annotations
 import builtins
 import datetime
 from dataclasses import dataclass, field
-from typing import Any, Literal, cast
+from typing import Any, Literal
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -471,71 +471,3 @@ class SavedReportService:
                 True,
             )
         return (func.coalesce(Category.name, "Uncategorised"), [], "Category", False)
-
-
-def build_echart_option(
-    result: ReportResult,
-    chart_type: ChartType,
-    is_dark: bool = False,
-) -> dict[str, Any]:
-    """Convert a ReportResult into an Apache ECharts option dict."""
-    labels = result.labels
-    values = result.values
-    text_color = "#e5e7eb" if is_dark else "#374151"
-    tooltip_bg = "#1f2937" if is_dark else "#ffffff"
-
-    base: dict[str, Any] = {
-        "backgroundColor": "transparent",
-        "textStyle": {"color": text_color},
-        "tooltip": {"backgroundColor": tooltip_bg, "textStyle": {"color": text_color}},
-    }
-
-    if chart_type in ("pie", "donut"):
-        radius = ["40%", "70%"] if chart_type == "donut" else "65%"
-        base["tooltip"]["trigger"] = "item"
-        base["tooltip"]["formatter"] = "{b}: {c} ({d}%)"
-        base["legend"] = {
-            "orient": "vertical",
-            "left": "left",
-            "textStyle": {"color": text_color},
-        }
-        base["series"] = [
-            {
-                "type": "pie",
-                "radius": radius,
-                "data": [{"name": lbl, "value": v} for lbl, v in zip(labels, values, strict=False)],
-                "emphasis": {
-                    "itemStyle": {
-                        "shadowBlur": 10,
-                        "shadowOffsetX": 0,
-                        "shadowColor": "rgba(0,0,0,0.5)",
-                    }
-                },
-                "label": {"color": text_color},
-            }
-        ]
-        return base
-
-    if chart_type in ("bar", "line"):
-        base["tooltip"]["trigger"] = "axis"
-        base["grid"] = {"containLabel": True, "left": "3%", "right": "4%", "bottom": "12%"}
-        base["xAxis"] = {
-            "type": "category",
-            "data": labels,
-            "axisLabel": {"rotate": 30 if len(labels) > 6 else 0, "color": text_color},
-            "axisLine": {"lineStyle": {"color": text_color}},
-        }
-        base["yAxis"] = {"type": "value", "axisLabel": {"color": text_color}}
-        base["series"] = [
-            {
-                "type": chart_type,
-                "data": values,
-                "smooth": chart_type == "line",
-                "itemStyle": {"color": "#3b82f6"},
-                "areaStyle": {"opacity": 0.15} if chart_type == "line" else None,
-            }
-        ]
-        return base
-
-    # table — return empty; table is rendered as HTML
-    return cast(dict[str, Any], {})

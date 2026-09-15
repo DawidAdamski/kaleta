@@ -3,7 +3,7 @@ plan_id: restyle-reports-sentence
 title: Restyle — Report builder as a clickable sentence with the chart first (artboard 3e)
 area: reports
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#reports
 ---
 
@@ -97,4 +97,77 @@ storage; canned reports (`reports_canned/`); Money Flow.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — Polish grammar: fixed slot order, colon
+  connectors.** The default forbids per-locale reordering, and the real
+  obstacle is not order but case: every slot label is a nominative noun
+  from the existing i18n keys ("Suma kwot", "Kategoria"), and Polish
+  connectors want the genitive or accusative. Inflecting them would mean
+  either a second set of labels per slot or grammar logic in the view.
+  So English reads as prose — *Show Total Amount grouped by Category for
+  Expense over This Year, top 10.* — and Polish reads as a labelled line
+  — *Pokaż: Suma kwot · grupowanie: Kategoria · typ: Wydatek · okres:
+  Bieżący rok · limit: 10* — where a nominative after a colon is
+  correct. Same order, same slots, no grammar logic. `sentence_end`
+  carries the full stop so Polish can end with nothing.
+
+- **Open question 2 — drops kept.** The measure and dimension slots take
+  a drop and outline themselves while a rail row is being dragged
+  (`SENTENCE_SLOT_TARGET`); `drop_dimension` / `drop_metric` are
+  unchanged. Clicking a rail row does the same thing through the new
+  `set_field`, which is the shorter path.
+
+- **The slot labels are the menu labels.** A slot reads exactly like the
+  option you picked in its menu, because both come from the same
+  `reports.*` key. The manual criterion quotes "Sum of amount" and
+  lowercase "expenses"; `reports.metric_sum` is "Total Amount" and
+  `reports.type_expense` is "Expense", so the real sentence is *Show
+  Total Amount grouped by Category for Expense over This Year, top 10.*
+  The criterion was written from the artboard, not from the locale file.
+  Sentence-case duplicates of nine existing keys would have bought the
+  artboard's exact wording at the price of the slot and its menu
+  disagreeing.
+
+- **"N transactions in scope" is omitted, as Scope allows.**
+  `ReportResult` carries `labels`, `values` and two headers — group
+  counts, not a transaction count — and the plan says to omit the figure
+  if the service does not expose it. The header carries the saved
+  report's name, or "Unsaved report", and nothing it cannot back up.
+
+- **`Export CSV` is not in the header.** Scope calls Export CSV and Save
+  report "existing handlers". Save exists; Export does not — there is no
+  CSV export anywhere in `views/reports/` or `saved_report_service`.
+  Building one is new behaviour, not a restyle, and the report engine is
+  out of scope. The header ships Run and Save; Export is a chore-inbox
+  line for the owner.
+
+- **`build_echart_option` moved out of the service and into the view.**
+  It drew ECharts' default blue (`#3b82f6`) against grey axes — the one
+  chart in the app that had never met the palette — and a chart option
+  dict is presentation, not business logic (AGENTS.md: services hold
+  business logic, views stay thin). It is now
+  `views/reports/chart_options.py`, built on `chart_utils.chart_palette`
+  and `apply_dark`, and unit-tested. Nothing else imported it and no
+  test covered it; `build_report_table_data` stays where it was.
+
+- **Bars run left to right, largest at the top.** Vertical bars rotated
+  the category names 30° as soon as there were more than six, and a
+  rotated name is slower to read than the number beside it. ECharts
+  fills a category axis bottom-up, so both the labels and the data are
+  reversed — the chart then reads in the same order as the table. Each
+  bar carries its value and its share; `share_percents` takes each
+  value's magnitude, so a dimension that can go negative still gives
+  shares that sum to 100, and a total of zero yields zeroes rather than
+  a division that happens to survive.
+
+- **`saved_section.py` is gone.** Saved reports are the rail's third
+  group now, which is where Scope puts them; the module had no other
+  caller.
+
+- **New files beyond the Touchpoints list:** `reports/sentence.py` (the
+  pure label helpers, so what each slot says is unit-testable without a
+  browser) and `reports/chart_options.py` (above). Both are siblings of
+  the rewritten `config_zone.py` rather than new layers.
+
+- **Stacking:** branched from `plan/restyle-wizard-index`, which is
+  itself unmerged. Open the PR with `--base plan/restyle-wizard-index`;
+  it must merge after every branch below it.

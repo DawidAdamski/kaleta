@@ -17,7 +17,7 @@ from kaleta.views.reports.chart_zone import build_chart_zone
 from kaleta.views.reports.config_zone import build_config_zone
 from kaleta.views.reports.constants import BUILDER_STATE_DEFAULTS
 from kaleta.views.reports.palette import build_palette_zone
-from kaleta.views.reports.saved_section import build_saved_section
+from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_TITLE
 
 
 async def reports_page() -> None:
@@ -67,7 +67,9 @@ async def reports_page() -> None:
 
         await with_session(_create)
         ui.notify(t("reports.saved_ok"), type="positive")
-        saved_section.refresh()
+        state["report_name"] = name.strip()
+        header.refresh()
+        palette_zone.refresh()
 
     async def load_report(report_id: int) -> None:
         async def _get(session: Any) -> Any:
@@ -89,6 +91,8 @@ async def reports_page() -> None:
             category_ids=list(cfg.category_ids),
             top_n=cfg.top_n,
         )
+        state["report_name"] = report.name
+        header.refresh()
         palette_zone.refresh()
         config_zone.refresh()
         await run_report()
@@ -99,7 +103,7 @@ async def reports_page() -> None:
 
         await with_session(_delete)
         ui.notify(t("reports.deleted"), type="positive")
-        saved_section.refresh()
+        palette_zone.refresh()
 
     def on_dragstart(key: str, grp: str) -> None:
         state["dragging"] = key
@@ -121,6 +125,17 @@ async def reports_page() -> None:
         palette_zone.refresh()
         config_zone.refresh()
 
+    def set_field(field: str, value: Any) -> None:
+        """Every sentence slot and rail row lands here.
+
+        The state the slots write is exactly the state the old selects and
+        drop zones wrote, so a saved report round-trips through the sentence
+        unchanged — which is the one thing this rewrite must not break.
+        """
+        state[field] = value
+        palette_zone.refresh()
+        config_zone.refresh()
+
     def set_chart(chart_type: str) -> None:
         state["chart_type"] = chart_type
         config_zone.refresh()
@@ -135,7 +150,13 @@ async def reports_page() -> None:
             state["transaction_types"].append(type_key)
         config_zone.refresh()
 
-    palette_zone = build_palette_zone(state, on_dragstart=on_dragstart)
+    palette_zone = build_palette_zone(
+        state,
+        on_dragstart=on_dragstart,
+        on_set=set_field,
+        on_load=load_report,
+        on_delete=delete_report,
+    )
     config_zone = build_config_zone(
         state,
         account_options=account_options,
@@ -144,30 +165,48 @@ async def reports_page() -> None:
         on_drop_metric=drop_metric,
         on_set_chart=set_chart,
         on_toggle_type=toggle_type,
+        on_set=set_field,
     )
-    saved_section = build_saved_section(on_load=load_report, on_delete=delete_report)
 
-    with page_layout(t("reports.title")):
-        ui.label(t("reports.title")).classes("text-2xl font-bold")
-        await saved_section()
-        ui.separator().classes("my-4")
-        ui.label(t("reports.builder_title")).classes("text-lg font-semibold mb-3")
+    save_dialog = ui.dialog()
+    with save_dialog, ui.card().classes("w-96 gap-3"):
+        ui.label(t("reports.save")).classes(SECTION_TITLE)
+        name_inp = ui.input(
+            t("reports.report_name"), placeholder=t("reports.name_placeholder")
+        ).classes("w-full")
 
-        with ui.row().classes("w-full gap-4 items-start"):
-            palette_zone()
-            with ui.element("div").classes("flex-1 min-w-0"):
-                config_zone()
-                with ui.row().classes("items-center gap-3 mb-4 flex-wrap"):
-                    name_inp = ui.input(
-                        t("reports.report_name"),
-                        placeholder=t("reports.name_placeholder"),
-                    ).classes("flex-1 min-w-40")
-                    ui.button(t("reports.run"), icon="play_arrow", on_click=run_report).props(
-                        "color=primary"
-                    )
-                    ui.button(
-                        t("reports.save"),
-                        icon="save",
-                        on_click=lambda: save_report(name_inp.value or ""),
-                    ).props("outline color=primary")
-                chart_zone()
+        async def _save_and_close() -> None:
+            await save_report(name_inp.value or "")
+            save_dialog.close()
+
+        with ui.row().classes("w-full justify-end gap-2"):
+            ui.button(t("common.cancel"), on_click=save_dialog.close).props("flat")
+            ui.button(t("common.save"), on_click=_save_and_close).props("color=primary")
+
+    def _open_save() -> None:
+        name_inp.set_value(state["report_name"] or "")
+        save_dialog.open()
+
+    @ui.refreshable
+    def header() -> None:
+        with ui.row().classes("w-full items-center justify-between gap-3 flex-wrap"):
+            with ui.column().classes("gap-0 min-w-0"):
+                ui.label(state["report_name"] or t("reports.unsaved")).classes(PAGE_TITLE)
+                ui.label(t("reports.builder_title")).classes(BODY_MUTED)
+            with ui.row().classes("items-center gap-2"):
+                ui.button(t("reports.run"), icon="play_arrow", on_click=run_report).props(
+                    "color=primary unelevated"
+                )
+                ui.button(t("reports.save"), icon="save", on_click=_open_save).props(
+                    "flat color=primary"
+                )
+
+    with page_layout(t("reports.title"), wide=True):
+        header()
+        with ui.row().classes("w-full gap-6 items-start flex-wrap lg:flex-nowrap"):
+            await palette_zone()
+            with ui.column().classes("flex-1 min-w-0 gap-4"):
+                with ui.card().classes(f"{SECTION_CARD} gap-3"):
+                    config_zone()
+                with ui.card().classes(f"{SECTION_CARD} gap-2"):
+                    chart_zone()

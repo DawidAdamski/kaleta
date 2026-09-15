@@ -56,6 +56,8 @@ BUILDER_STATE_DEFAULTS: dict[str, object] = {
     "account_ids": [],
     "category_ids": [],
     "top_n": 10,
+    # The name of the saved report in hand, or "" while it is unsaved.
+    "report_name": "",
     "dragging": None,
     "dragging_grp": None,
     "result": None,

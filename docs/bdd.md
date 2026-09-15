@@ -2474,6 +2474,31 @@ Feature: AI Insights
     Then the summary highlights the electricity anomaly with the comparison
 ```
 
+## Feature: Report Builder
+
+The ad-hoc builder: the query reads as a sentence, and every part of the
+sentence is the control that changes it.
+
+```gherkin
+Feature: Report Builder
+  As a user
+  I want to read my report query as a sentence before I run it
+  So that I can see what I am about to ask without reading a form
+
+  KAL-RPT-001 @automated
+  Scenario: The sentence reflects the state and a saved report comes back
+    Given I am on the report builder
+    Then the sentence reads "Total Amount", "Category", "Expense", "This Year", "10"
+    When I change the grouping to "Account"
+      And I run the report
+    Then the chart is titled by account
+    When I save the report as "Spend by account"
+      And I open the builder afresh
+      And I open "Spend by account" from the rail
+    Then the sentence reads "Account" again
+      And the header carries the saved report's name
+```
+
 ## Feature: Money Flow
 
 How income feeds expenses through the budget — a Sankey of the period.
