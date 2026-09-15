@@ -153,6 +153,15 @@ lookback setting, subscriptions.
   first; the overdue KPI takes the same filter, so the count and the
   strip cannot disagree. Unit-tested.
 
+- **One amount rule for both rows.** `occurrence_amount()` gives the
+  figure and its tone, and the strip and the day sheet both read it. The
+  sheet's row had been treating every non-income occurrence as an
+  expense, so a planned transfer showed in red with a minus sign while
+  the same item's dot in the day cell was already flat. Money between
+  the user's own accounts did not leave. Fixed in place rather than
+  filed, per the chore rule for a one-liner in a file the branch already
+  owns.
+
 - **Stacking:** branched from `plan/restyle-net-worth`, which is itself
   unmerged. Open the PR with `--base plan/restyle-net-worth`; it must
   merge after every branch below it.

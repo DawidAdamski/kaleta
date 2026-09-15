@@ -138,6 +138,20 @@ def actually_overdue(
     return sorted((o for o in occurrences if o.date < today), key=lambda o: o.date)
 
 
+def occurrence_amount(occ: PlannedOccurrence) -> tuple[str, str]:
+    """The amount as it should be read: ``("+210.00", tone class)``.
+
+    A transfer moves money between the user's own accounts, so it gets a
+    bare figure in the neutral tone — the same rule the day cell's dots
+    follow. Signing it as an expense would say money left, which it did not.
+    """
+    if occ.type == TransactionType.INCOME:
+        return f"+{_fmt(abs(occ.amount))}", AMOUNT_INCOME
+    if occ.type == TransactionType.EXPENSE:
+        return f"-{_fmt(abs(occ.amount))}", AMOUNT_EXPENSE
+    return _fmt(abs(occ.amount)), AMOUNT_NEUTRAL
+
+
 def overdue_age_label(occ_date: datetime.date, today: datetime.date) -> str:
     """ "3 days" — how long the item has been waiting, in Polish-aware plurals."""
     days = (today - occ_date).days
@@ -324,9 +338,7 @@ def register() -> None:
             await _refresh()
 
         def _render_occurrence_row(occ: PlannedOccurrence, *, muted: bool = False) -> None:
-            is_income = occ.type == TransactionType.INCOME
-            amt_cls = AMOUNT_INCOME if is_income else AMOUNT_EXPENSE
-            sign = "+" if is_income else "-"
+            amount, amt_cls = occurrence_amount(occ)
             row_cls = f"{HAIRLINE_ROW} w-full items-center justify-between p-2 rounded-lg" + (
                 " opacity-70" if muted else ""
             )
@@ -339,9 +351,7 @@ def register() -> None:
                         sub_parts.append(occ.category_name)
                     ui.label(" · ".join(sub_parts)).classes(f"{MUTED} text-xs")
                 with ui.row().classes("items-center gap-2"):
-                    ui.label(f"{sign}{_fmt(abs(occ.amount))}").classes(
-                        f"{amt_cls} text-sm font-semibold"
-                    )
+                    ui.label(amount).classes(f"{amt_cls} {MONO} text-sm")
                     if can_post:
                         ui.button(
                             t("payment_calendar.post"),
@@ -515,13 +525,11 @@ def register() -> None:
                         _render_overdue_row(occ, today)
 
             def _render_overdue_row(occ: PlannedOccurrence, today: datetime.date) -> None:
-                is_income = occ.type == TransactionType.INCOME
-                sign = "+" if is_income else "-"
-                amt_cls = AMOUNT_INCOME if is_income else AMOUNT_EXPENSE
+                amount, amt_cls = occurrence_amount(occ)
                 with ui.row().classes("w-full items-center gap-3 flex-wrap"):
                     ui.label(occ.name).classes("text-sm flex-1 min-w-32")
                     ui.label(overdue_age_label(occ.date, today)).classes(f"{MUTED} text-xs")
-                    ui.label(f"{sign}{_fmt(abs(occ.amount))}").classes(f"{amt_cls} {MONO} text-sm")
+                    ui.label(amount).classes(f"{amt_cls} {MONO} text-sm")
                     ui.button(
                         t("payment_calendar.post"),
                         icon="publish",

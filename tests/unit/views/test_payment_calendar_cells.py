@@ -19,9 +19,17 @@ from kaleta.views.payment_calendar import (
     DOT_CAP,
     actually_overdue,
     day_marks,
+    occurrence_amount,
     overdue_age_label,
 )
-from kaleta.views.theme import CALENDAR_DOT_FLAT, CALENDAR_DOT_IN, CALENDAR_DOT_OUT
+from kaleta.views.theme import (
+    AMOUNT_EXPENSE,
+    AMOUNT_INCOME,
+    AMOUNT_NEUTRAL,
+    CALENDAR_DOT_FLAT,
+    CALENDAR_DOT_IN,
+    CALENDAR_DOT_OUT,
+)
 
 DAY = datetime.date(2025, 3, 14)
 
@@ -194,3 +202,31 @@ def _pl_forms() -> dict[int, str]:
         n: locale[plural_key("payment_calendar.overdue_age", n).rsplit(".", 1)[1]]
         for n in (1, 3, 22)
     }
+
+
+class TestOccurrenceAmount:
+    """One rule for the figure, read the same way in the strip and the sheet."""
+
+    def test_income_is_signed_up(self) -> None:
+        assert occurrence_amount(_occ("210.00", TransactionType.INCOME)) == (
+            "+210.00",
+            AMOUNT_INCOME,
+        )
+
+    def test_an_expense_is_signed_down(self) -> None:
+        assert occurrence_amount(_occ("210.00", TransactionType.EXPENSE)) == (
+            "-210.00",
+            AMOUNT_EXPENSE,
+        )
+
+    def test_a_transfer_is_neither(self) -> None:
+        # Money between the user's own accounts did not leave, so signing it
+        # as an expense would say something that did not happen — and the
+        # day cell's dot for the same item is already flat.
+        assert occurrence_amount(_occ("500.00", TransactionType.TRANSFER)) == (
+            "500.00",
+            AMOUNT_NEUTRAL,
+        )
+
+    def test_a_negative_amount_is_read_by_its_kind_not_its_sign(self) -> None:
+        assert occurrence_amount(_occ("-80.00", TransactionType.EXPENSE))[0] == "-80.00"
