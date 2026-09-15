@@ -11,23 +11,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
+from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.payee import PayeeCreate
+from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import (
     AccountService,
     BudgetService,
     CategoryService,
     PayeeService,
+    PlannedTransactionService,
     TransactionService,
 )
 from kaleta.services.report_service import (
     BudgetVarianceRow,
     CategoryAmount,
     ReportService,
+    SafeToSpend,
     SavingsRatePoint,
     SpendingByCategory,
     YoYComparison,
@@ -853,3 +857,189 @@ class TestSavingsRatePointTarget:
 
         assert point.rate_pct is None
         assert point.meets_target(Decimal("20")) is False
+
+
+# ── safe_to_spend (artboard 1f) ───────────────────────────────────────────────
+
+
+async def _make_planned(
+    session: AsyncSession,
+    *,
+    account_id: int,
+    amount: Decimal,
+    date: datetime.date,
+    tx_type: TransactionType = TransactionType.EXPENSE,
+    name: str = "Rent",
+) -> None:
+    await PlannedTransactionService(session).create(
+        PlannedTransactionCreate(
+            name=name,
+            amount=amount,
+            type=tx_type,
+            account_id=account_id,
+            frequency=RecurrenceFrequency.ONCE,
+            start_date=date,
+        )
+    )
+
+
+class TestSafeToSpend:
+    """The phone hero's one question: what is left of the month?
+
+    Every figure below is a literal from KAL-DSH-006, not a re-derivation.
+    The scenario itself is claimed over a real database in
+    ``tests/integration/test_safe_to_spend.py``; these are its edges.
+    """
+
+    async def test_income_minus_committed_minus_spent(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """The scenario's own arithmetic.
+
+        ``KAL-DSH-006`` is claimed by
+        ``tests/integration/test_safe_to_spend.py`` — a ``Covers:`` in a unit
+        test counts for nothing, since ``scripts/spec_coverage.py`` reads only
+        ``tests/e2e`` and ``tests/integration``.
+        """
+        acc = await _make_account(session)
+        salary = await _make_category(session, "Salary", CategoryType.INCOME)
+        food = await _make_category(session, "Food")
+        today = datetime.date(2026, 6, 10)
+
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("6000.00"),
+            tx_type=TransactionType.INCOME,
+            date=datetime.date(2026, 6, 1),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("1500.00"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2026, 6, 5),
+        )
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("2200.00"),
+            date=datetime.date(2026, 6, 28),
+        )
+
+        result = await svc.safe_to_spend(today=today)
+
+        assert result.income == Decimal("6000.00")
+        assert result.spent == Decimal("1500.00")
+        assert result.committed == Decimal("2200.00")
+        assert result.free == Decimal("2300.00")
+        assert result.days_left == 21
+        assert round(result.per_day, 2) == Decimal("109.52")
+
+    async def test_a_plan_already_behind_us_is_not_still_due(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """Committed looks forward from today, not back over the whole month.
+
+        A plan dated the 5th has either posted (and is in ``spent``) or been
+        missed; either way promising the money again would count it twice.
+        """
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("300.00"),
+            date=datetime.date(2026, 6, 5),
+        )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("0.00")
+
+    async def test_planned_income_is_not_committed(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """Only money leaving is promised. Income counts once it has landed."""
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("900.00"),
+            date=datetime.date(2026, 6, 20),
+            tx_type=TransactionType.INCOME,
+            name="Refund",
+        )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("0.00")
+        assert result.income == Decimal("0.00")
+
+    async def test_two_plans_of_the_same_amount_on_one_day_are_two_payments(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """The subscription de-duplication must not swallow a real duplicate."""
+        acc = await _make_account(session)
+        for name in ("Rent A", "Rent B"):
+            await _make_planned(
+                session,
+                account_id=acc,
+                amount=Decimal("50.00"),
+                date=datetime.date(2026, 6, 20),
+                name=name,
+            )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("100.00")
+
+    async def test_trailing_average_divides_by_the_window_not_by_busy_days(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """900 zł over one day of a 30-day window is 30 zł a day, not 900."""
+        acc = await _make_account(session)
+        food = await _make_category(session, "Food")
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("900.00"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2026, 6, 3),
+        )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.trailing_avg_per_day == Decimal("30.00")
+
+
+class TestSafeToSpendArithmetic:
+    """The derived properties, without a database behind them."""
+
+    def _stub(self, **kwargs: Decimal | datetime.date) -> SafeToSpend:
+        base: dict[str, object] = {
+            "month": datetime.date(2026, 6, 1),
+            "today": datetime.date(2026, 6, 10),
+            "income": Decimal("0.00"),
+            "committed": Decimal("0.00"),
+            "spent": Decimal("0.00"),
+            "trailing_avg_per_day": Decimal("0.00"),
+        }
+        base.update(kwargs)
+        return SafeToSpend(**base)  # type: ignore[arg-type]
+
+    def test_the_last_day_of_the_month_still_has_one_day_left(self) -> None:
+        """Today counts — and a zero divisor would make ``per_day`` undefined."""
+        result = self._stub(today=datetime.date(2026, 6, 30), income=Decimal("210.00"))
+
+        assert result.days_left == 1
+        assert result.per_day == Decimal("210.00")
+
+    def test_overspending_is_reported_not_clamped(self) -> None:
+        """A hero that cannot say "you are 300 over" is not worth reading."""
+        result = self._stub(income=Decimal("1000.00"), spent=Decimal("1300.00"))
+
+        assert result.free == Decimal("-300.00")
+        assert result.spendable is False

@@ -16,6 +16,7 @@ Reports layer architecture:
 
 from __future__ import annotations
 
+import calendar
 import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -222,6 +223,58 @@ class KpiPeriodDelta:
         return self.absolute is not None or self.rate_points is not None
 
 
+@dataclass(frozen=True)
+class SafeToSpend:
+    """What is left of this month once what is already promised is set aside.
+
+    The dashboard hero (artboard 1f) answers one question — *am I on track
+    this month?* — and a balance cannot answer it, because a balance does not
+    know that the rent leaves on the 28th. Everything here is stated as a
+    positive magnitude; the sign lives in the arithmetic, not in the fields.
+    """
+
+    #: First day of the month these figures stand for.
+    month: datetime.date
+    #: The day they were computed for — ``days_left`` counts from it.
+    today: datetime.date
+    #: Posted, non-transfer income this month.
+    income: Decimal
+    #: Still due before the month ends: unposted planned expenses and
+    #: projected subscription charges.
+    committed: Decimal
+    #: Posted, non-transfer expenses this month.
+    spent: Decimal
+    #: Mean daily spend over the 30 days ending today.
+    trailing_avg_per_day: Decimal
+
+    @property
+    def free(self) -> Decimal:
+        """Income minus what is promised minus what is gone. May be negative."""
+        return self.income - self.committed - self.spent
+
+    @property
+    def days_left(self) -> int:
+        """Days still to live through, today included — never below 1.
+
+        Today counts: the month is not over while you can still spend in it,
+        and a zero here would make ``per_day`` undefined on the 31st.
+        """
+        last_day = calendar.monthrange(self.month.year, self.month.month)[1]
+        if self.today.year != self.month.year or self.today.month != self.month.month:
+            return 1
+        return max(last_day - self.today.day + 1, 1)
+
+    @property
+    def per_day(self) -> Decimal:
+        """What ``free`` comes to per remaining day."""
+        return self.free / self.days_left
+
+    @property
+    def spendable(self) -> bool:
+        """Is there anything left at all? A hero with nothing free says so."""
+        return self.free > 0
+
+
 @dataclass
 class MerchantSpend:
     name: str
@@ -413,6 +466,83 @@ class ReportService:
         today = datetime.date.today()
         income, expenses = await self._month_summary(today.year, today.month)
         return SavingsRatePoint(today.year, today.month, income, expenses)
+
+    async def safe_to_spend(self, *, today: datetime.date | None = None) -> SafeToSpend:
+        """Income minus what is already promised minus what is already gone.
+
+        The reference day, not a month, is the argument: ``days_left`` and
+        "still due" are both questions about a *day*, and a month on its own
+        cannot answer either. The month is the one *today* falls in.
+        """
+        ref = today or datetime.date.today()
+        income, spent = await self._month_summary(ref.year, ref.month)
+        committed = await self._committed_rest_of_month(ref)
+        return SafeToSpend(
+            month=ref.replace(day=1),
+            today=ref,
+            income=income,
+            committed=committed,
+            spent=spent,
+            trailing_avg_per_day=await self._trailing_avg_spend_per_day(ref),
+        )
+
+    async def _committed_rest_of_month(self, ref: datetime.date) -> Decimal:
+        """Money this month is already spoken for, from *ref* to month end.
+
+        Two sources, both windowed from *ref* forward so nothing already
+        posted is counted twice: planned occurrences (asked for with
+        ``exclude_posted``, which is the real de-duplication — a planned
+        transaction knows which transaction posted it) and projected
+        subscription charges (which know nothing of the kind: no transaction
+        carries a subscription id, so a charge dated before today is the only
+        one that can be assumed paid).
+        """
+        from kaleta.services.planned_transaction_service import PlannedTransactionService
+        from kaleta.services.wizard_projection_service import WizardProjectionService
+
+        last_day = calendar.monthrange(ref.year, ref.month)[1]
+        end = datetime.date(ref.year, ref.month, last_day)
+        if end < ref:
+            return Decimal("0.00")
+
+        occurrences = await PlannedTransactionService(self.session).get_occurrences(
+            ref, end, account_id=None, active_only=True, exclude_posted=True
+        )
+        planned = [occ for occ in occurrences if occ.type == TransactionType.EXPENSE]
+        committed = sum((occ.amount for occ in planned), Decimal("0.00"))
+        # A set, for the subscription check below only — summed from the list,
+        # because two 50 zł plans falling on the same day are two payments.
+        planned_keys = {(occ.date, occ.amount) for occ in planned}
+
+        projection = await WizardProjectionService(self.session).get_payment_calendar_sources(
+            ref, end
+        )
+        for charge in projection.subscription_charges:
+            # A subscription that is *also* a planned transaction would
+            # otherwise be promised twice on the same day for the same money.
+            if (charge.date, charge.amount) in planned_keys:
+                continue
+            committed += charge.amount
+        return committed
+
+    async def _trailing_avg_spend_per_day(self, ref: datetime.date, days: int = 30) -> Decimal:
+        """Mean posted expense per day over the *days* ending on *ref*.
+
+        The divisor is the window, not the number of days that had spending:
+        a day you spent nothing on is a day you spent nothing on, and it is
+        what makes this comparable to the hero's per-day figure.
+        """
+        since = ref - datetime.timedelta(days=days - 1)
+        result = await self.session.execute(
+            select(func.sum(Transaction.amount)).where(
+                Transaction.date >= since,
+                Transaction.date <= ref,
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.is_internal_transfer == False,  # noqa: E712
+            )
+        )
+        total = result.scalar()
+        return (Decimal(str(total)) if total else Decimal("0.00")) / days
 
     async def month_net_delta(self) -> KpiPeriodDelta:
         """Current calendar month net vs the previous month."""
