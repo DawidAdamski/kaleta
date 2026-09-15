@@ -95,10 +95,16 @@ async def render_wizard_actions(session: AsyncSession, is_dark: bool) -> None:  
     shown = items[:MAX_ROWS]
     with (
         ui.element("div").classes(f"{ACCENT_SURFACE} k-banner w-full rounded-[14px]"),
-        ui.row().classes("w-full items-center gap-4 no-wrap px-6 py-4"),
+        # Wraps rather than `no-wrap`: on a phone the banner is full width and
+        # `no-wrap` squeezed the message into a two-word column beside a button
+        # that kept its own width. With room it still sits on one line.
+        ui.row().classes("w-full items-center gap-4 px-6 py-4"),
     ):
         ui.icon("auto_awesome", size="1.3rem").classes(ON_ACCENT)
-        with ui.column().classes("gap-0.5 min-w-0 flex-1"):
+        # A floor, not `min-w-0`: a flex item shrinks before its row wraps, so
+        # with nothing to stop it the message column collapsed to one word per
+        # line beside a button that would not give up any width.
+        with ui.column().classes("gap-0.5 flex-1 min-w-[180px]"):
             ui.label(t("dashboard_widgets.wizard_actions")).classes(f"k-eyebrow {ON_ACCENT}")
             with ui.row().classes("items-baseline gap-2 flex-wrap wizard-actions-list"):
                 for index, item in enumerate(shown):

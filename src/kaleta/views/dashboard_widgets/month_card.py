@@ -41,9 +41,18 @@ def _footer_stat(label: str, value: str) -> None:
 
 
 def _figure(label: str, value: str, amount_cls: str) -> None:
-    with ui.column().classes("gap-1 min-w-0 flex-1"):
+    """One of the three month figures.
+
+    The floor and the smaller type below ``md`` are what keep the row inside
+    a 390px screen: a mono figure does not shrink with its column, so with
+    ``min-w-0`` alone the third one simply hung over the edge. Above ``md``
+    both revert and the card is the 1c card unchanged.
+    """
+    with ui.column().classes("gap-1 flex-1 min-w-[120px] md:min-w-0"):
         ui.label(label).classes(CARD_SUBTITLE)
-        ui.label(value).classes(f"k-mono {amount_cls} text-[26px] font-medium tracking-tight")
+        ui.label(value).classes(
+            f"k-mono {amount_cls} text-[22px] md:text-[26px] font-medium tracking-tight"
+        )
 
 
 def _pace_bar(point: SavingsRatePoint) -> None:
@@ -89,7 +98,11 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
     with ui.card().classes(f"{DASH_CARD} justify-between"):
         with ui.column().classes("gap-1 w-full"):
             ui.label(t("dashboard_widgets.month_card")).classes("k-eyebrow")
-            with ui.row().classes("w-full gap-6 mt-2 no-wrap"):
+            # No `no-wrap`: three 26px figures held on one line pushed the
+            # card past the edge of a 390px screen — by a single pixel, which
+            # is still a page that scrolls sideways. With room they stay on
+            # one line, so nothing changes on a desktop.
+            with ui.row().classes("w-full gap-x-6 gap-y-2 mt-2"):
                 _figure(t("common.income"), fmt_number(income), AMOUNT_INCOME)
                 _figure(t("common.expense"), fmt_number(expenses), AMOUNT_EXPENSE)
                 _figure(t("dashboard.net"), fmt_number(net), INK)
