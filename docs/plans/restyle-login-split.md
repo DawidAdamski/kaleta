@@ -147,7 +147,15 @@ biometric login.
   labels and that no amount, account name or payee is on the panel. The
   count *values* are deliberately not asserted: they are cached for a
   minute by design, so a freshly seeded row need not have reached the
-  panel yet.
+  panel yet. It seeds nothing either. The first version created an
+  account and a transaction, and since `test_auth.py` runs first in a
+  suite that shares one database, that one extra account lengthened the
+  account picker `test_transfer_detection` chooses from — a virtualised
+  list whose own comment already warns about exactly this — and broke
+  it. The test now subtracts the copy, the three labels and the three
+  figures from the panel's text and requires nothing to be left: a
+  stronger claim than hunting for particular leaks, and one that needs
+  no data of its own to make.
 
 - **A failing read is cached and logged at warning.** Two blanket
   catches guard the page (the service's own read, and not getting a
