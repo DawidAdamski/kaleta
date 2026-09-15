@@ -127,11 +127,12 @@
     "sts_spent": "Spent",
     "sts_free": "Free",
     "sts_per_day": "{amount} zł a day",
-    "sts_trailing": "you average {amount} zł",
+    "sts_trailing": "you average {amount} zł a day",
     "band_now": "Now",
     "band_month": "This month",
     "band_watch": "Watch",
-    "watch_ytd_net": "Net year to date"
+    "watch_ytd_net": "Net year to date",
+    "sts_over": "{amount} zł over"
   },
   "dashboard_widgets": {
     "customize": "Customize",

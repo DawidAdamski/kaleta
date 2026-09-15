@@ -96,7 +96,11 @@ free = income − committed − spent
   the transactions that posted them; a subscription charge is assumed
   paid once its date is behind us, because no transaction carries a
   subscription id. A charge that lands on the same day for the same
-  amount as a planned occurrence is counted once.
+  amount as a planned occurrence is counted once. The window starts
+  today, so a subscription billed *and paid* today is counted in both
+  `spent` and `committed` for that day — the alternative drops a charge
+  due today that has not been paid, which is the worse error for a
+  figure meant to stop you overspending.
 - **days_left** — days remaining including today, never below 1.
 - **per_day** — `free / days_left`, shown beside the actual mean daily
   spend over the last 30 days so the two can be compared.
@@ -115,7 +119,8 @@ by a bottom tab bar (artboard `1f`).
 - **Now** — the safe-to-spend hero (added even when the stored desktop
   layout has not enabled it), the Needs-attention banner, quick actions.
 - **This month** — everything without a band of its own.
-- **Watch** — four slow figures as plain type on the ground, no cards:
+- **Watch** — four slow figures as plain type on the ground, no cards
+  and no widgets at all (`BAND_OF` maps nothing here):
   net worth, the 30-day balance, the savings rate, the year-to-date net.
   They are not widgets; the four the artboard names were merged into the
   month and balance cards and marked legacy.

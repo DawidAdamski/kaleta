@@ -221,6 +221,63 @@ has a phone artboard, planned in `restyle-login-split`).
   first. It has no dark override and does not need one — it is a warm
   mid grey that reads on both grounds.
 
+- **Nothing is assigned to the Watch band.** The first cut sent
+  `ytd_summary`, `net_worth_trend` and `savings_rate_trend` there as
+  slow-moving things. All three are default widgets, so a default phone
+  layout got a YTD card and two trend charts drawn directly under the
+  four figures that summarise them — with the year-to-date net said
+  twice — which is the opposite of the Scope line "four slow-moving
+  figures as plain type on the ground … with no cards". They fall to
+  *Month* with everything else, `BAND_OF` maps nothing to `WATCH`, and
+  both a unit test and the e2e now assert the band carries no
+  `data-widget-id` at all.
+
+- **The Watch band and the month card do repeat two figures, cheaply.**
+  `month_card`'s footer already carries the predicted 30-day balance and
+  net worth, so on a phone they are read twice. The expensive half —
+  fitting Prophet — is not: `forecast_service` already caches the
+  forecaster's rows in a module-level cache keyed by account, horizon,
+  history and model, so the second call re-runs a couple of queries and
+  the post-processing, not the fit. A session-scoped memo was written
+  and then reverted as redundant. The visible repetition stands: the
+  month card states them as a footnote to the month, the Watch band as
+  two of the four figures the artboard names.
+
+- **A subscription billed today is counted twice for one day.** The
+  committed window starts at today inclusive, and no transaction carries
+  a subscription id, so a charge that billed and posted this morning is
+  in `spent` and in `committed`. Starting the window tomorrow instead
+  would drop a charge due today that has *not* been paid. For a figure
+  whose job is to stop you overspending, being told you have less than
+  you do for part of one day is the better of the two errors. Written
+  into the method's docstring and into `docs/product/dashboard.md`.
+
+- **An overspent month does not get a negative per-day figure.**
+  `-14.29 zł a day` is not a budget. `SafeToSpend.spendable` — which was
+  carrying nothing but a unit test — now decides the line: with money
+  left it reads `X zł a day`, without it reads `X zł over` in the
+  expense tone.
+
+- **The month card was widened to fit a phone, which the Touchpoints did
+  not anticipate.** Its three 26px mono figures hung one pixel over the
+  edge of a 390px screen, and the plan's own manual criterion asks for
+  no horizontal scroll. A mono figure does not shrink with its column,
+  so `min-w-0` could not help; the column has a floor and the type is
+  smaller below `md`, and both revert above it — verified in a browser
+  at 1360px (26px figures, `min-width: 0px`). Same chore-rule reasoning
+  as the Needs-attention banner.
+
+- **`_viewport_is_mobile` catches only `TimeoutError`.** That is the one
+  failure worth swallowing — nobody answered, so build the desktop grid.
+  A blanket catch would have turned any other bug into a phone silently
+  served the wrong layout.
+
+- **`_watch_figures` stays in the view.** It reads four services and
+  turns each answer into a label and a formatted string; the formatting
+  is the whole of it, and there is no rule being applied that a service
+  could own. Left as a known nit rather than a new service method with
+  one caller.
+
 - **Stacking:** branched from `plan/restyle-login-split`, which is itself
   unmerged. Open the PR with `--base plan/restyle-login-split`; it must
   merge after every branch below it.

@@ -108,13 +108,15 @@ class Band(StrEnum):
 #: Which band a widget belongs to on a phone. Anything unlisted falls into
 #: ``MONTH`` — the band for "how is this month going", which is what most of
 #: the catalog is about, and the safe place for a widget added later.
+#:
+#: Nothing maps to ``WATCH`` on purpose: that band is four figures in plain
+#: type, not cards (see ``dashboard._render_watch_band``). Sending the slow
+#: widgets there put a YTD card and two trend charts under the very figures
+#: that summarise them, and said the year-to-date net twice.
 BAND_OF: dict[str, Band] = {
     "safe_to_spend": Band.NOW,
     "wizard_actions": Band.NOW,
     "quick_actions": Band.NOW,
-    "ytd_summary": Band.WATCH,
-    "net_worth_trend": Band.WATCH,
-    "savings_rate_trend": Band.WATCH,
 }
 
 #: Band order on the page, top to bottom, with the i18n key of each heading.

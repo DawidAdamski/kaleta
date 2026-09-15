@@ -25,6 +25,7 @@ from kaleta.services.report_service import SafeToSpend
 from kaleta.views.dashboard_widgets.helpers import fmt_number, hero_figure
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
+    AMOUNT_EXPENSE,
     CARD_SUBTITLE,
     DASH_CARD,
     INK,
@@ -106,9 +107,15 @@ def render_hero(stats: SafeToSpend) -> None:
                     ui.label(fmt_number(amount)).classes(f"{MONO} text-xs")
 
     with ui.row().classes("w-full items-baseline justify-between gap-3 mt-4 flex-wrap"):
-        ui.label(t("dashboard.sts_per_day", amount=fmt_number(stats.per_day))).classes(
-            f"{MONO} {INK} text-[17px] font-medium"
-        )
+        # "-14.29 zł a day" is not a budget, it is an overdraft. A month with
+        # nothing left says how far past the end it is instead.
+        if stats.spendable:
+            headline = t("dashboard.sts_per_day", amount=fmt_number(stats.per_day))
+            tone = INK
+        else:
+            headline = t("dashboard.sts_over", amount=fmt_number(-stats.free))
+            tone = AMOUNT_EXPENSE
+        ui.label(headline).classes(f"{MONO} {tone} text-[17px] font-medium")
         ui.label(
             t("dashboard.sts_trailing", amount=fmt_number(stats.trailing_avg_per_day))
         ).classes(CARD_SUBTITLE)

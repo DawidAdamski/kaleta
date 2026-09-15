@@ -496,14 +496,19 @@ class ReportService:
         subscription charges (which know nothing of the kind: no transaction
         carries a subscription id, so a charge dated before today is the only
         one that can be assumed paid).
+
+        The window starts at *ref* inclusive, so a subscription that bills
+        today and has already been paid today is counted in both ``spent`` and
+        ``committed``. The alternative — starting tomorrow — drops a charge
+        due today that has *not* been paid, and for a figure whose job is to
+        stop you overspending, being told you have less than you do for part
+        of one day is the better of the two errors.
         """
         from kaleta.services.planned_transaction_service import PlannedTransactionService
         from kaleta.services.wizard_projection_service import WizardProjectionService
 
         last_day = calendar.monthrange(ref.year, ref.month)[1]
         end = datetime.date(ref.year, ref.month, last_day)
-        if end < ref:
-            return Decimal("0.00")
 
         occurrences = await PlannedTransactionService(self.session).get_occurrences(
             ref, end, account_id=None, active_only=True, exclude_posted=True

@@ -7,7 +7,12 @@ import datetime
 from decimal import Decimal
 
 from kaleta.services.report_service import SafeToSpend
-from kaleta.views.dashboard_widgets import Band, bands_for_layout, mobile_layout
+from kaleta.views.dashboard_widgets import (
+    DEFAULT_WIDGETS,
+    Band,
+    bands_for_layout,
+    mobile_layout,
+)
 from kaleta.views.dashboard_widgets.registry import HERO_WIDGET, LEGACY_KPI_WIDGETS, WIDGETS
 from kaleta.views.dashboard_widgets.safe_to_spend import days_left_label, hero_split
 
@@ -72,6 +77,15 @@ class TestMobileLayout:
         assert _ids(grouped[Band.NOW]) == [HERO_WIDGET]
 
 
+class TestWatchBandTakesNoWidgets:
+    def test_no_widget_is_assigned_to_watch(self) -> None:
+        """The band is four figures in plain type; a card under them would
+        repeat what they already say."""
+        grouped = bands_for_layout([_entry(wid) for wid in DEFAULT_WIDGETS])
+
+        assert grouped[Band.WATCH] == []
+
+
 def _stats(**kwargs: Decimal) -> SafeToSpend:
     base: dict[str, object] = {
         "month": datetime.date(2026, 6, 1),
@@ -120,3 +134,16 @@ class TestDaysLeftLabel:
 
     def test_more_than_one_reads_plural(self) -> None:
         assert days_left_label(_stats()) == "21 days left this month"
+
+
+class TestOverspentMonth:
+    """`spendable` is what the hero reads to decide which line to print."""
+
+    def test_a_month_with_nothing_left_is_not_spendable(self) -> None:
+        stats = _stats(income=Decimal("1000.00"), spent=Decimal("1300.00"))
+
+        assert stats.spendable is False
+        assert stats.free == Decimal("-300.00")
+
+    def test_a_month_with_something_left_is(self) -> None:
+        assert _stats(income=Decimal("1000.00")).spendable is True

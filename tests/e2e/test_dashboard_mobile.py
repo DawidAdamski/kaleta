@@ -107,6 +107,9 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     watch = page.locator('[data-band="watch"]')
     for label in ("Net Worth", "Balance in 30 days", "Savings Rate", "Net year to date"):
         expect(watch.get_by_text(label, exact=True).first).to_be_visible()
+    # Plain type on the ground: a card here would repeat what the figure above
+    # it already says, and the year-to-date net would appear twice.
+    expect(watch.locator("[data-widget-id]")).to_have_count(0)
 
     # No grid, and nothing offering to drag cards around one.
     expect(page.locator("#dash-grid")).to_have_count(0)

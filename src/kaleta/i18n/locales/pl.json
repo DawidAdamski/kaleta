@@ -127,11 +127,12 @@
     "sts_spent": "Wydane",
     "sts_free": "Wolne",
     "sts_per_day": "{amount} zł dziennie",
-    "sts_trailing": "średnio wydajesz {amount} zł",
+    "sts_trailing": "średnio wydajesz {amount} zł dziennie",
     "band_now": "Teraz",
     "band_month": "Ten miesiąc",
     "band_watch": "Obserwuj",
-    "watch_ytd_net": "Wynik od początku roku"
+    "watch_ytd_net": "Wynik od początku roku",
+    "sts_over": "{amount} zł ponad stan"
   },
   "dashboard_widgets": {
     "customize": "Personalizuj",

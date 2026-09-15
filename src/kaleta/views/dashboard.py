@@ -337,7 +337,9 @@ async def _viewport_is_mobile() -> bool:
     try:
         await client.connected(timeout=10.0)
         width = await ui.run_javascript("window.innerWidth", timeout=5.0)
-    except Exception:  # noqa: BLE001 — a dashboard beats no dashboard
+    except TimeoutError:
+        # The only failure worth swallowing: nobody answered. Anything else is
+        # a bug that should be seen rather than quietly served a desktop grid.
         logger.debug("Viewport width unavailable; rendering the desktop grid", exc_info=True)
         return False
     return isinstance(width, int | float) and width < _MOBILE_MAX_WIDTH
