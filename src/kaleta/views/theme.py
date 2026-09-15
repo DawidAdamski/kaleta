@@ -75,6 +75,9 @@ FILTER_CHIP_EMPTY = "k-filter-chip--empty"
 SELECTION_BAR = "k-selection-bar"
 #: Hover tint for a hand-built row (one that is not inside a ``k-table``).
 ROW_HOVER = "k-row-hover"
+#: A hand-built row's own outline — the same hairline the tables draw, so a
+#: list built out of rows sits at the same weight as one built out of a table.
+HAIRLINE_ROW = "k-hairline-row"
 #: Accent-coloured text — the recurring column, a link that is not an <a>.
 ACCENT_TEXT = "k-accent-text"
 
@@ -104,6 +107,27 @@ STEP_LABEL_NOW = "k-step-label k-step-label--now"
 AUTO_BADGE = "k-auto-badge"
 #: A warning that belongs to the step you are on, not a toast that flies past.
 WARNING_STRIP = "k-warning-strip"
+
+# ── Payment calendar (artboard 3c) ────────────────────────────────────────────
+#: One day. Thirty-one of them fit on a screen only if each carries a figure
+#: and a row of dots instead of three stacked numbers.
+CALENDAR_DAY = "k-cal-day"
+#: Today, found without reading a single number.
+CALENDAR_DAY_TODAY = "k-cal-day--today"
+#: The day whose sheet is open — the page says where you are, warm not loud.
+CALENDAR_DAY_SELECTED = "k-cal-day--selected"
+#: A cell belonging to the month either side. Paper, not a day.
+CALENDAR_DAY_BLANK = "k-cal-day--blank"
+#: The day number on a working day. Weekends take plain ``MUTED`` and today
+#: takes ``INK``, so the three read as three levels without a second tint.
+CALENDAR_DAY_NUM = "k-cal-num"
+#: One dot per thing happening that day, coloured by which way the money goes.
+CALENDAR_DOT = "k-cal-dot"
+CALENDAR_DOT_IN = "k-cal-dot--in"
+CALENDAR_DOT_OUT = "k-cal-dot--out"
+#: Neither in nor out: a transfer between your own accounts, or a projected
+#: subscription charge that is not a planned transaction you can post.
+CALENDAR_DOT_FLAT = "k-cal-dot--flat"
 
 # ── Balance-sheet bar (artboard 3b) ───────────────────────────────────────────
 #: One bar, three segments: held, owned, owed. The shape of the sheet, which a
@@ -345,6 +369,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
 .k-row-hover:hover{background:var(--k-row-hover)}
+.k-hairline-row{border:1px solid var(--k-hairline)}
 .k-accent-text{color:var(--k-accent-text)}
 /* Budget plan grid: no card, no shadow — hairlines, and the paper is the
    table. The header and the totals band are the only strong rules. */
@@ -405,6 +430,30 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:0 6px;
   line-height:15px
 }
+/* Payment calendar (artboard 3c) — the grid is 31 small cells, so every
+   pixel of border and padding is charged 31 times. */
+.k-cal-day{
+  border:1px solid var(--k-hairline);
+  border-radius:10px;
+  background:var(--k-surface);
+  cursor:pointer;
+  transition:background-color .12s ease,border-color .12s ease
+}
+.k-cal-day:hover{background:var(--k-row-hover)}
+.k-cal-day--today{border:2px solid var(--k-ink)}
+.k-cal-day--selected{background:var(--k-surface-warm)}
+.k-cal-day--selected:hover{background:var(--k-surface-warm-strong)}
+.k-cal-day--blank{
+  border:1px dashed var(--k-hairline);
+  border-radius:10px;
+  background:transparent
+}
+.k-cal-num{color:var(--k-muted-strong)}
+.k-cal-dot{width:6px;height:6px;border-radius:999px;flex:none}
+.k-cal-dot--in{background:var(--k-income)}
+.k-cal-dot--out{background:var(--k-expense)}
+.k-cal-dot--flat{background:var(--k-border-strong)}
+
 /* Balance-sheet bar (artboard 3b) — segments meet with no gap, so their
    widths are the only thing saying how big each side is. */
 .k-split{

@@ -14,13 +14,15 @@ from __future__ import annotations
 
 import calendar
 import datetime
+from collections.abc import Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
 from nicegui import app, ui
 
 from kaleta.exceptions import KaletaError
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, RecurrenceFrequency
 from kaleta.schemas.transaction import TransactionType
 from kaleta.schemas.wizard_projections import SubscriptionCharge
@@ -42,13 +44,88 @@ from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAY
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
+    AMOUNT_NEUTRAL,
+    BODY_MUTED,
+    CALENDAR_DAY,
+    CALENDAR_DAY_BLANK,
+    CALENDAR_DAY_NUM,
+    CALENDAR_DAY_SELECTED,
+    CALENDAR_DAY_TODAY,
+    CALENDAR_DOT,
+    CALENDAR_DOT_FLAT,
+    CALENDAR_DOT_IN,
+    CALENDAR_DOT_OUT,
+    HAIRLINE_ROW,
     INK,
+    KPI_VALUE,
+    MONO,
+    MUTED,
     PAGE_TITLE,
     SECTION_CARD,
+    SECTION_TITLE,
     TOOLBAR_CARD,
+    WARNING_STRIP,
 )
 
 _WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+
+#: How many dots fit in a cell before the rest become a "+N" tail. Eight is
+#: what a cell holds at the narrowest column width without wrapping to a
+#: second row and pushing the grid taller.
+DOT_CAP = 8
+
+
+@dataclass(frozen=True, slots=True)
+class DayMarks:
+    """What one day cell draws: a net figure, and one dot per thing happening.
+
+    The cell used to stack an inflow line, an outflow line and a count badge —
+    three numbers, thirty-one times over, none of which could be compared
+    across a row at a glance. The net says which way the day goes; the dots
+    say how busy it is, which is what the counts were really for.
+    """
+
+    net: Decimal
+    dots: tuple[str, ...]
+    overflow: int
+
+    @property
+    def is_empty(self) -> bool:
+        return not self.dots
+
+
+def day_marks(
+    cell: DayAggregate | None,
+    subscriptions: Sequence[SubscriptionCharge],
+    *,
+    cap: int = DOT_CAP,
+) -> DayMarks:
+    """Reduce a day's occurrences and subscription charges to net plus dots.
+
+    A transfer is drawn flat, not as an outflow: the service counts it in
+    neither inflow nor outflow, so colouring it would give the day a
+    direction its own net does not have. Projected subscription charges are
+    flat too — they are the only items in the cell you cannot post.
+    """
+    dots: list[str] = []
+    for occ in cell.occurrences if cell else ():
+        if occ.type == TransactionType.INCOME:
+            dots.append(CALENDAR_DOT_IN)
+        elif occ.type == TransactionType.EXPENSE:
+            dots.append(CALENDAR_DOT_OUT)
+        else:
+            dots.append(CALENDAR_DOT_FLAT)
+    dots.extend(CALENDAR_DOT_FLAT for _ in subscriptions)
+
+    subs_total = sum((s.amount for s in subscriptions), Decimal("0"))
+    net = (cell.net if cell else Decimal("0")) - subs_total
+    return DayMarks(net=net, dots=tuple(dots[:cap]), overflow=max(0, len(dots) - cap))
+
+
+def overdue_age_label(occ_date: datetime.date, today: datetime.date) -> str:
+    """ "3 days" — how long the item has been waiting, in Polish-aware plurals."""
+    days = (today - occ_date).days
+    return t(plural_key("payment_calendar.overdue_age", days), days=days)
 
 
 def _fmt(amount: Decimal) -> str:
@@ -76,6 +153,9 @@ def register() -> None:
             "selected": today,
             # dict[date, list[SubscriptionCharge]] — populated on refresh.
             "subs_by_day": {},
+            # The month in hand, and the cell element for each of its days.
+            "grid": None,
+            "cells": {},
         }
 
         async def _load_refs(session: Any) -> tuple[dict[int, str], dict[int, str]]:
@@ -121,7 +201,7 @@ def register() -> None:
                 label=t("planned.frequency"),
                 value=RecurrenceFrequency.ONCE,
             ).classes("w-full")
-            q_date_label = ui.label("").classes("text-sm text-slate-500")
+            q_date_label = ui.label("").classes(BODY_MUTED)
 
             async def _quick_submit() -> None:
                 name = (q_name.value or "").strip()
@@ -161,7 +241,7 @@ def register() -> None:
                 )
 
         def _open_quick_add(date: datetime.date) -> None:
-            state["selected"] = date
+            _select_day(date)
             q_name.set_value("")
             q_account.set_value(next(iter(account_opts), None))
             q_type.set_value(TransactionType.EXPENSE)
@@ -175,7 +255,7 @@ def register() -> None:
         day_dialog = ui.dialog().props("position=right")
         with day_dialog, ui.card().classes("w-[420px] h-screen gap-3 p-5"):
             day_header = ui.label("").classes("text-lg font-bold")
-            day_totals = ui.label("").classes("text-sm text-slate-500")
+            day_totals = ui.label("").classes(f"{BODY_MUTED} {MONO}")
             ui.separator()
             day_content = ui.column().classes("w-full gap-2 flex-1 overflow-y-auto")
             with ui.row().classes("w-full justify-between items-center mt-2"):
@@ -231,8 +311,8 @@ def register() -> None:
             is_income = occ.type == TransactionType.INCOME
             amt_cls = AMOUNT_INCOME if is_income else AMOUNT_EXPENSE
             sign = "+" if is_income else "-"
-            row_cls = "w-full items-center justify-between p-2 rounded-lg border " + (
-                "border-slate-200/60 opacity-70" if muted else "border-slate-200/60"
+            row_cls = f"{HAIRLINE_ROW} w-full items-center justify-between p-2 rounded-lg" + (
+                " opacity-70" if muted else ""
             )
             can_post = occ.date <= datetime.date.today()
             with ui.row().classes(row_cls):
@@ -241,7 +321,7 @@ def register() -> None:
                     sub_parts = [occ.account_name]
                     if occ.category_name:
                         sub_parts.append(occ.category_name)
-                    ui.label(" · ".join(sub_parts)).classes("text-xs text-slate-500")
+                    ui.label(" · ".join(sub_parts)).classes(f"{MUTED} text-xs")
                 with ui.row().classes("items-center gap-2"):
                     ui.label(f"{sign}{_fmt(abs(occ.amount))}").classes(
                         f"{amt_cls} text-sm font-semibold"
@@ -255,19 +335,32 @@ def register() -> None:
 
         def _render_subscription_row(ch: SubscriptionCharge) -> None:
             with ui.row().classes(
-                "w-full items-center justify-between p-2 rounded-lg border border-slate-200/60"
+                f"{HAIRLINE_ROW} w-full items-center justify-between p-2 rounded-lg"
             ):
                 with ui.row().classes("items-center gap-2 flex-1"):
                     ui.icon("subscriptions", size="1rem").classes("text-primary")
                     ui.label(ch.name).classes("text-sm font-medium")
                 ui.label(f"-{_fmt(ch.amount)}").classes(f"{AMOUNT_EXPENSE} text-sm font-semibold")
 
-        def _open_day(
-            date: datetime.date,
-            cell: DayAggregate | None,
-            overdue: list[PlannedOccurrence],
-        ) -> None:
+        def _select_day(date: datetime.date) -> None:
+            """Move the warm tint to ``date`` without redrawing the grid.
+
+            Redrawing would clear ``grid_container`` from inside the click
+            handler of a cell that lives in it, and NiceGUI raises once the
+            slot a running handler belongs to has been deleted. Two class
+            toggles are also cheaper than thirty-one cells.
+            """
+            cells: dict[datetime.date, ui.element] = state["cells"]
+            previous = cells.get(state["selected"])
+            if previous is not None:
+                previous.classes(remove=CALENDAR_DAY_SELECTED)
             state["selected"] = date
+            current = cells.get(date)
+            if current is not None:
+                current.classes(add=CALENDAR_DAY_SELECTED)
+
+        def _open_day(date: datetime.date, cell: DayAggregate | None) -> None:
+            _select_day(date)
             day_header.set_text(t("payment_calendar.day_header", date=date.isoformat()))
             if cell:
                 day_totals.set_text(
@@ -282,30 +375,18 @@ def register() -> None:
 
             day_content.clear()
             with day_content:
-                if overdue:
-                    ui.label(t("payment_calendar.overdue_title")).classes(
-                        "text-xs font-semibold uppercase tracking-wide k-trend--neg"
-                    )
-                    for occ in overdue:
-                        _render_occurrence_row(occ, muted=True)
-                    ui.separator().classes("my-2")
-
-                ui.label(t("payment_calendar.day_items")).classes(
-                    "text-xs font-semibold uppercase tracking-wide text-slate-500"
-                )
+                # Overdue items live in the strip above the grid now, where
+                # they are visible without opening any day at all.
+                ui.label(t("payment_calendar.day_items")).classes(SECTION_TITLE)
                 if cell and cell.occurrences:
                     for occ in cell.occurrences:
                         _render_occurrence_row(occ)
                 elif not subs_for_day:
-                    ui.label(t("payment_calendar.day_empty")).classes(
-                        "text-sm text-slate-500 italic"
-                    )
+                    ui.label(t("payment_calendar.day_empty")).classes(f"{BODY_MUTED} italic")
 
                 if subs_for_day:
                     ui.separator().classes("my-2")
-                    ui.label(t("payment_calendar.subscription_charges")).classes(
-                        "text-xs font-semibold uppercase tracking-wide text-slate-500"
-                    )
+                    ui.label(t("payment_calendar.subscription_charges")).classes(SECTION_TITLE)
                     for ch in subs_for_day:
                         _render_subscription_row(ch)
             day_add_btn.set_text(t("payment_calendar.add_for_day_short", date=date.isoformat()))
@@ -343,20 +424,20 @@ def register() -> None:
                         on_click=lambda: ui.navigate.to("/planned"),
                     ).props("flat color=primary dense")
 
-            # Summary KPIs
-            with ui.row().classes("w-full gap-3 flex-wrap"):
-                kpi_in = ui.label("").classes(
-                    f"{TOOLBAR_CARD} flex-1 min-w-48 {AMOUNT_INCOME} text-lg font-semibold"
-                )
-                kpi_out = ui.label("").classes(
-                    f"{TOOLBAR_CARD} flex-1 min-w-48 {AMOUNT_EXPENSE} text-lg font-semibold"
-                )
-                kpi_net = ui.label("").classes(
-                    f"{TOOLBAR_CARD} flex-1 min-w-48 text-lg font-semibold"
-                )
-                kpi_overdue = ui.label("").classes(
-                    f"{TOOLBAR_CARD} flex-1 min-w-48 text-lg font-semibold k-trend--warn"
-                )
+            # Summary KPIs — the totals the day cells no longer carry
+            def _kpi(title: str, value_cls: str) -> ui.label:
+                with ui.column().classes(f"{TOOLBAR_CARD} flex-1 min-w-44 gap-0.5"):
+                    ui.label(title).classes(SECTION_TITLE)
+                    return ui.label("").classes(f"{KPI_VALUE} text-2xl {value_cls}")
+
+            with ui.row().classes("w-full gap-3 flex-wrap items-stretch"):
+                kpi_in = _kpi(t("payment_calendar.month_in"), AMOUNT_INCOME)
+                kpi_out = _kpi(t("payment_calendar.month_out"), AMOUNT_EXPENSE)
+                kpi_net = _kpi(t("payment_calendar.month_net"), AMOUNT_NEUTRAL)
+                kpi_overdue = _kpi(t("payment_calendar.overdue_count"), "k-trend--warn")
+
+            # Overdue strip — above the grid, not buried in the day-1 cell
+            overdue_strip = ui.column().classes("w-full gap-0")
 
             # Calendar grid container
             grid_container = ui.column().classes(f"{SECTION_CARD} gap-2")
@@ -384,17 +465,56 @@ def register() -> None:
                     subs_by_day.setdefault(ch.date, []).append(ch)
                 state["subs_by_day"] = subs_by_day
 
-                kpi_in.set_text(f"{t('payment_calendar.month_in')}: +{_fmt(grid.total_inflow())}")
-                kpi_out.set_text(
-                    f"{t('payment_calendar.month_out')}: -{_fmt(grid.total_outflow())}"
-                )
-                kpi_net.set_text(f"{t('payment_calendar.month_net')}: {_fmt(grid.total_net())}")
-                kpi_overdue.set_text(f"{t('payment_calendar.overdue_count')}: {len(grid.overdue)}")
+                kpi_in.set_text(f"+{_fmt(grid.total_inflow())}")
+                kpi_out.set_text(f"-{_fmt(grid.total_outflow())}")
+                net = grid.total_net()
+                kpi_net.set_text(f"{'+' if net > 0 else ''}{_fmt(net)}")
+                kpi_overdue.set_text(str(len(grid.overdue)))
 
+                state["grid"] = grid
+                _draw_overdue_strip(grid.overdue)
                 _draw_grid(grid)
 
-            def _draw_grid(grid: MonthGrid) -> None:
+            def _draw_overdue_strip(overdue: list[PlannedOccurrence]) -> None:
+                """Everything already late, listed above the month.
+
+                It used to hang off the day-1 cell, which meant an item three
+                weeks overdue was invisible until you clicked a day it had
+                nothing to do with — and invisible altogether from any other
+                month.
+                """
+                overdue_strip.clear()
+                if not overdue:
+                    return
+                today = datetime.date.today()
+                with (
+                    overdue_strip,
+                    ui.column().classes(f"{WARNING_STRIP} w-full rounded-xl p-4 gap-2"),
+                ):
+                    with ui.row().classes("items-center gap-2"):
+                        ui.icon("schedule", size="1rem")
+                        ui.label(t("payment_calendar.overdue_title")).classes(SECTION_TITLE)
+                    for occ in overdue:
+                        _render_overdue_row(occ, today)
+
+            def _render_overdue_row(occ: PlannedOccurrence, today: datetime.date) -> None:
+                is_income = occ.type == TransactionType.INCOME
+                sign = "+" if is_income else "-"
+                amt_cls = AMOUNT_INCOME if is_income else AMOUNT_EXPENSE
+                with ui.row().classes("w-full items-center gap-3 flex-wrap"):
+                    ui.label(occ.name).classes("text-sm flex-1 min-w-32")
+                    ui.label(overdue_age_label(occ.date, today)).classes(f"{MUTED} text-xs")
+                    ui.label(f"{sign}{_fmt(abs(occ.amount))}").classes(f"{amt_cls} {MONO} text-sm")
+                    ui.button(
+                        t("payment_calendar.post"),
+                        icon="publish",
+                        on_click=lambda _e=None, o=occ: _post_occurrence(o),
+                    ).props("flat dense color=primary size=sm")
+
+            def _draw_grid(grid: MonthGrid | None) -> None:
                 grid_container.clear()
+                if grid is None:
+                    return
                 y, m = grid.year, grid.month
                 first = datetime.date(y, m, 1)
                 last_day = calendar.monthrange(y, m)[1]
@@ -404,13 +524,13 @@ def register() -> None:
                 trailing = (7 - total_cells % 7) % 7
                 total_cells += trailing
 
+                state["cells"] = {}
                 with grid_container:
                     # Weekday header
                     with ui.grid(columns=7).classes("w-full gap-1"):
                         for key in _WEEKDAY_KEYS:
                             ui.label(t(f"payment_calendar.wd_{key}")).classes(
-                                "text-[11px] font-semibold uppercase tracking-wide "
-                                "text-slate-500 text-center"
+                                f"{SECTION_TITLE} text-center"
                             )
 
                     # Day cells
@@ -418,63 +538,69 @@ def register() -> None:
                         for idx in range(total_cells):
                             day_num = idx - leading + 1
                             if day_num < 1 or day_num > last_day:
-                                ui.element("div").classes(
-                                    "min-h-20 rounded-lg bg-slate-50/40 "
-                                    "border border-dashed border-slate-200/40"
-                                )
+                                ui.element("div").classes(f"{CALENDAR_DAY_BLANK} min-h-20")
                                 continue
                             date = datetime.date(y, m, day_num)
-                            cell = grid.days.get(date)
-                            is_today = date == datetime.date.today()
                             _draw_day_cell(
                                 date=date,
-                                cell=cell,
-                                overdue=grid.overdue if day_num == 1 else [],
-                                is_today=is_today,
+                                cell=grid.days.get(date),
+                                is_today=date == datetime.date.today(),
+                                is_selected=date == state["selected"],
                             )
 
             def _draw_day_cell(
                 *,
                 date: datetime.date,
                 cell: DayAggregate | None,
-                overdue: list[PlannedOccurrence],
                 is_today: bool,
+                is_selected: bool,
             ) -> None:
-                border_cls = (
-                    "border-primary ring-1 ring-primary/40" if is_today else "border-slate-200/70"
-                )
-                col = ui.column().classes(
-                    "min-h-20 p-2 rounded-lg border "
-                    f"{border_cls} bg-white/70 cursor-pointer "
-                    "hover:bg-slate-50 transition-colors gap-1"
-                )
-                col.on(
-                    "click",
-                    lambda _e=None, d=date, c=cell, ov=overdue: _open_day(d, c, ov),
-                )
                 subs_for_day = state["subs_by_day"].get(date, [])
-                subs_outflow = sum((s.amount for s in subs_for_day), Decimal("0"))
-                total_count = (len(cell.occurrences) if cell else 0) + len(subs_for_day)
-                combined_outflow = (cell.outflow if cell else Decimal("0")) + subs_outflow
+                marks = day_marks(cell, subs_for_day)
+
+                classes = [CALENDAR_DAY, "min-h-20 p-2 gap-1"]
+                if is_today:
+                    classes.append(CALENDAR_DAY_TODAY)
+                if is_selected:
+                    classes.append(CALENDAR_DAY_SELECTED)
+                col = ui.column().classes(" ".join(classes))
+                col.on("click", lambda _e=None, d=date, c=cell: _open_day(d, c))
+                state["cells"][date] = col
+
+                # Three reading levels for the day number and no second tint:
+                # today in ink, a working day in muted-strong, a weekend
+                # quieter still. Tinting whole weekend columns would stripe
+                # the grid and compete with the selected day.
+                if is_today:
+                    day_cls = f"{INK} font-semibold"
+                elif date.weekday() >= 5:
+                    day_cls = MUTED
+                else:
+                    day_cls = CALENDAR_DAY_NUM
 
                 with col:
-                    with ui.row().classes("w-full items-center justify-between"):
-                        ui.label(str(date.day)).classes(
-                            "k-mono text-base font-bold " + (INK if is_today else "text-slate-500")
+                    with ui.row().classes("w-full items-center justify-between no-wrap"):
+                        ui.label(str(date.day)).classes(f"{MONO} text-base {day_cls}")
+                        if is_today:
+                            ui.label(t("payment_calendar.today_marker")).classes(
+                                f"{SECTION_TITLE} text-[9px]"
+                            )
+
+                    if marks.net:
+                        tone = AMOUNT_INCOME if marks.net > 0 else AMOUNT_EXPENSE
+                        sign = "+" if marks.net > 0 else "-"
+                        ui.label(f"{sign}{_fmt(abs(marks.net))}").classes(
+                            f"{tone} {MONO} text-sm leading-tight"
                         )
-                        if total_count > 0:
-                            ui.badge(str(total_count)).props("color=primary rounded").classes(
-                                "text-xs font-semibold"
-                            )
-                    if cell or subs_for_day:
-                        if cell and cell.inflow > 0:
-                            ui.label(f"+{_fmt(cell.inflow)}").classes(
-                                f"{AMOUNT_INCOME} text-sm font-bold leading-tight"
-                            )
-                        if combined_outflow > 0:
-                            ui.label(f"-{_fmt(combined_outflow)}").classes(
-                                f"{AMOUNT_EXPENSE} text-sm font-bold leading-tight"
-                            )
+
+                    if not marks.is_empty:
+                        with ui.row().classes("items-center gap-1 flex-wrap mt-auto"):
+                            for tone in marks.dots:
+                                ui.element("div").classes(f"{CALENDAR_DOT} {tone}")
+                            if marks.overflow:
+                                ui.label(
+                                    t("payment_calendar.more_items", count=marks.overflow)
+                                ).classes(f"{MUTED} {MONO} text-[10px] leading-none")
 
             def _shift_month(delta: int) -> None:
                 new_first = _add_months(datetime.date(state["year"], state["month"], 1), delta)

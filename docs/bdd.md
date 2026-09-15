@@ -1798,6 +1798,15 @@ Feature: Planned and Recurring Transactions
     When I open the app and land on any authenticated page
     Then a transaction for "Netflix" is created
     And opening another page in the same session does not create a duplicate
+
+  KAL-PLN-020 @automated
+  Scenario: Overdue occurrences are listed in a strip above the calendar
+    Given there is an unposted planned expense "Prad Zalegly" of 210
+      And its occurrence fell 5 days before the first of this month
+    When I open the Payment Calendar
+    Then a strip above the month grid lists "Prad Zalegly"
+      And the strip says how many days late it is
+      And the item can be posted from the strip without opening a day
 ```
 
 ## Feature: Recurring Payment Detection

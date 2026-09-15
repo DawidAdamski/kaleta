@@ -1108,7 +1108,7 @@
     "day_empty": "Nothing planned for this day.",
     "subscription_charges": "Subscription charges",
     "day_empty_totals": "No planned activity.",
-    "overdue_title": "Overdue (last 30 days)",
+    "overdue_title": "Overdue",
     "overdue_count": "Overdue",
     "post": "Post",
     "post_all_due": "Post all due",
@@ -1139,7 +1139,12 @@
     "month_9": "September",
     "month_10": "October",
     "month_11": "November",
-    "month_12": "December"
+    "month_12": "December",
+    "today_marker": "Today",
+    "overdue_age_one": "{days} day late",
+    "overdue_age_few": "{days} days late",
+    "overdue_age_many": "{days} days late",
+    "more_items": "+{count}"
   },
   "planned": {
     "title": "Planned Transactions",

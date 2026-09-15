@@ -1108,7 +1108,7 @@
     "day_empty": "Brak zaplanowanych pozycji na ten dzień.",
     "subscription_charges": "Opłaty subskrypcji",
     "day_empty_totals": "Brak zaplanowanej aktywności.",
-    "overdue_title": "Zaległe (ostatnie 30 dni)",
+    "overdue_title": "Zaległe",
     "overdue_count": "Zaległe",
     "post": "Zaksięguj",
     "post_all_due": "Zaksięguj wszystkie zaległe",
@@ -1139,7 +1139,12 @@
     "month_9": "Wrzesień",
     "month_10": "Październik",
     "month_11": "Listopad",
-    "month_12": "Grudzień"
+    "month_12": "Grudzień",
+    "today_marker": "Dziś",
+    "overdue_age_one": "{days} dzień po terminie",
+    "overdue_age_few": "{days} dni po terminie",
+    "overdue_age_many": "{days} dni po terminie",
+    "more_items": "+{count}"
   },
   "planned": {
     "title": "Planowane transakcje",
