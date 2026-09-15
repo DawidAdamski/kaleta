@@ -19,6 +19,11 @@ from kaleta.views.theme import (
     NAV_ITEM_ACTIVE,
     PAGE_CONTAINER,
     PAGE_SHELL,
+    TAB_BAR,
+    TAB_BAR_ADD,
+    TAB_BAR_ITEM,
+    TAB_BAR_ITEM_ACTIVE,
+    TAB_BAR_SPACER,
     apply_brand,
     theme_css,
 )
@@ -98,6 +103,46 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
         ],
     ),
 ]
+
+
+# ── Bottom tab bar (artboard 1f) ──────────────────────────────────────────────
+# Five tabs, the middle one an add button. The drawer stays — "More" is what
+# opens it — because the long tail of setup pages does not fit five slots and
+# never will. ``None`` as the path means the entry is not a route.
+TAB_BAR_ENTRIES: list[tuple[str, str | None, str]] = [
+    ("home", "/", "nav.tab_home"),
+    ("receipt_long", "/transactions", "nav.tab_transactions"),
+    # The dialog the Alt+N shortcut opens, reached the way that shortcut
+    # reaches it from another page. There is no standalone quick-add dialog to
+    # call into — ``quick_actions`` navigates here too.
+    ("add", "/transactions?new=1", "nav.tab_add"),
+    ("calendar_month", "/payment-calendar", "nav.tab_plan"),
+    ("menu", None, "nav.tab_more"),
+]
+
+
+def _tab_bar(drawer: Any, current_path: str) -> None:
+    """The phone's navigation. Hidden above ``md`` by ``.k-tabbar``'s own rule."""
+    with ui.element("nav").classes(TAB_BAR).props(f'aria-label="{t("nav.navigation")}"'):
+        for icon, path, key in TAB_BAR_ENTRIES:
+            is_add = key == "nav.tab_add"
+            active = path is not None and not is_add and current_path == path
+            item = (
+                ui.element("button")
+                .classes(f"{TAB_BAR_ITEM} {TAB_BAR_ITEM_ACTIVE if active else ''}".strip())
+                .props(f'data-tab="{key}" aria-label="{t(key)}"')
+            )
+            with item:
+                if is_add:
+                    with ui.element("div").classes(TAB_BAR_ADD):
+                        ui.icon(icon, size="1.4rem")
+                else:
+                    ui.icon(icon, size="1.35rem")
+                    ui.label(t(key))
+            if path is None:
+                item.on("click", lambda: drawer.toggle())
+            else:
+                item.on("click", lambda p=path: ui.navigate.to(p))
 
 
 @contextmanager
@@ -224,7 +269,11 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
             on_click=close_dialog.open,
         ).props("flat round dense color=primary").tooltip(t("common.close_db"))
 
-    with ui.left_drawer(value=True).props(_DRAWER_WIDTH).classes(DRAWER) as drawer:
+    # No explicit value: NiceGUI then sets Quasar's `show-if-above`, which
+    # opens the drawer on a desktop and leaves it shut on a phone. Forcing it
+    # open (`value=True`) covered the whole page below the breakpoint, where
+    # the drawer is an overlay and "More" in the tab bar is what opens it.
+    with ui.left_drawer().props(_DRAWER_WIDTH).classes(DRAWER) as drawer:
         if is_mini:
             drawer.props(_MINI_PROPS)
         # Pinned entries — always visible, above the workflow groups.
@@ -328,6 +377,8 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
 
     ui.keyboard(on_key=_global_key, active=True)
 
+    _tab_bar(drawer, current_path)
+
     width_cls = "max-w-screen-2xl" if wide else "max-w-7xl"
     with ui.column().classes(f"{container or PAGE_CONTAINER} {width_cls}"):
         if settings.demo and not app.storage.user.get("demo_banner_dismissed", False):
@@ -346,3 +397,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                     on_click=_dismiss_demo_banner,
                 ).props("flat dense round").tooltip(t("common.demo_dismiss"))
         yield
+        # Room for the tab bar, which is fixed over the foot of the page and
+        # would otherwise sit on the last card. Zero height above `md`.
+        ui.element("div").classes(TAB_BAR_SPACER)

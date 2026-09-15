@@ -32,7 +32,12 @@
     "safety_funds": "Fundusze bezpieczeństwa",
     "personal_loans": "Pożyczki prywatne",
     "payees": "Odbiorcy",
-    "rules": "Reguły"
+    "rules": "Reguły",
+    "tab_home": "Start",
+    "tab_transactions": "Księga",
+    "tab_add": "Dodaj",
+    "tab_plan": "Plan",
+    "tab_more": "Więcej"
   },
   "common": {
     "save": "Zapisz",
@@ -113,7 +118,20 @@
     "savings_kept_none": "Brak przychodu w tym miesiącu",
     "savings_target": "Cel {pct}%",
     "period_eyebrow": "{month} {year} · dzień {day}",
-    "other_accounts": "Pozostałe konta ({count})"
+    "other_accounts": "Pozostałe konta ({count})",
+    "safe_to_spend": "Można wydać",
+    "sts_days_left_one": "Został {days} dzień w tym miesiącu",
+    "sts_days_left_few": "Zostały {days} dni w tym miesiącu",
+    "sts_days_left_many": "Zostało {days} dni w tym miesiącu",
+    "sts_committed": "Zarezerwowane",
+    "sts_spent": "Wydane",
+    "sts_free": "Wolne",
+    "sts_per_day": "{amount} zł dziennie",
+    "sts_trailing": "średnio wydajesz {amount} zł",
+    "band_now": "Teraz",
+    "band_month": "Ten miesiąc",
+    "band_watch": "Obserwuj",
+    "watch_ytd_net": "Wynik od początku roku"
   },
   "dashboard_widgets": {
     "customize": "Personalizuj",
@@ -185,7 +203,8 @@
     "wizard_actions": "Wymaga uwagi",
     "wizard_actions_empty": "Wszystko gotowe — nic nie wymaga uwagi.",
     "wizard_actions_more": "+{count} więcej",
-    "wizard_actions_open": "Otwórz kreator finansowy"
+    "wizard_actions_open": "Otwórz kreator finansowy",
+    "safe_to_spend": "Można wydać"
   },
   "wizard_actions": {
     "subscription_renewal_due_title": "Odnowienie {name} jest należne",

@@ -32,7 +32,12 @@
     "safety_funds": "Safety Funds",
     "personal_loans": "Personal Loans",
     "payees": "Payees",
-    "rules": "Rules"
+    "rules": "Rules",
+    "tab_home": "Home",
+    "tab_transactions": "Ledger",
+    "tab_add": "Add",
+    "tab_plan": "Plan",
+    "tab_more": "More"
   },
   "common": {
     "save": "Save",
@@ -113,7 +118,20 @@
     "savings_kept_none": "No income yet this month",
     "savings_target": "Target {pct}%",
     "period_eyebrow": "{month} {year} · day {day}",
-    "other_accounts": "Other accounts ({count})"
+    "other_accounts": "Other accounts ({count})",
+    "safe_to_spend": "Safe to spend",
+    "sts_days_left_one": "{days} day left this month",
+    "sts_days_left_few": "{days} days left this month",
+    "sts_days_left_many": "{days} days left this month",
+    "sts_committed": "Committed",
+    "sts_spent": "Spent",
+    "sts_free": "Free",
+    "sts_per_day": "{amount} zł a day",
+    "sts_trailing": "you average {amount} zł",
+    "band_now": "Now",
+    "band_month": "This month",
+    "band_watch": "Watch",
+    "watch_ytd_net": "Net year to date"
   },
   "dashboard_widgets": {
     "customize": "Customize",
@@ -185,7 +203,8 @@
     "wizard_actions": "Needs attention",
     "wizard_actions_empty": "All clear — nothing needs attention.",
     "wizard_actions_more": "+{count} more",
-    "wizard_actions_open": "Open financial wizard"
+    "wizard_actions_open": "Open financial wizard",
+    "safe_to_spend": "Safe to spend"
   },
   "wizard_actions": {
     "subscription_renewal_due_title": "{name} renewal is due",

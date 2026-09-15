@@ -144,6 +144,28 @@ AUTH_PANEL_FIGURE = "k-auth-figure"
 #: Its label underneath, dimmed against the ink rather than muted on paper.
 AUTH_PANEL_LABEL = "k-auth-label"
 
+# ── Phone dashboard (artboard 1f) ─────────────────────────────────────────────
+#: The bottom tab bar. It has its own breakpoint rather than `md:hidden`: which
+#: of two utilities wins is stylesheet order, and the auth panel already lost
+#: that argument once (see `.k-auth-panel`).
+TAB_BAR = "k-tabbar"
+#: One tab. 44px is the floor, not the look — a thumb is not a pointer.
+TAB_BAR_ITEM = "k-tabbar-item"
+#: The tab you are on.
+TAB_BAR_ITEM_ACTIVE = "k-tabbar-item--active"
+#: The centre add button: filled accent, raised above the bar's own line.
+TAB_BAR_ADD = "k-tabbar-add"
+#: Room at the foot of every page so the bar never sits on the last card.
+TAB_BAR_SPACER = "k-tabbar-spacer"
+
+#: A band heading on the phone dashboard — Now, Month, Watch. Plain type on
+#: the ground, no card behind it: the bands are how the page is read, not
+#: three more boxes.
+BAND_TITLE = "k-band-title"
+#: A figure in the Watch band: label above, number below, nothing around it.
+WATCH_FIGURE = "k-watch-figure"
+WATCH_LABEL = "k-watch-label"
+
 # ── Payment calendar (artboard 3c) ────────────────────────────────────────────
 #: One day. Thirty-one of them fit on a screen only if each carries a figure
 #: and a row of dots instead of three stacked numbers.
@@ -527,6 +549,52 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-split--ink{background:var(--k-ink)}
 .k-split--neutral{background:var(--k-border-strong)}
 .k-split--owed{background:var(--k-expense)}
+/* Safe-to-spend (artboard 1f): what is promised, what is gone, what is left. */
+.k-split--spent{background:var(--k-neutral-bar)}
+.k-split--free{background:var(--k-accent-light)}
+
+/* Phone dashboard (artboard 1f) — the bar is the navigation below `md`, and
+   the drawer is what "More" opens. Its own breakpoint, for the same reason
+   `.k-auth-panel` has one. */
+.k-tabbar{
+  display:none;
+  position:fixed;left:0;right:0;bottom:0;z-index:2100;
+  background:var(--k-surface);
+  border-top:1px solid var(--k-border);
+  padding-bottom:env(safe-area-inset-bottom)
+}
+@media (max-width:767.98px){
+  .k-tabbar{display:flex;align-items:stretch;justify-content:space-around}
+  .k-tabbar-spacer{height:calc(64px + env(safe-area-inset-bottom))}
+}
+.k-tabbar-item{
+  flex:1 1 0;min-width:0;min-height:44px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  padding:8px 4px;cursor:pointer;
+  color:var(--k-muted);
+  font-size:10px;letter-spacing:.04em;
+  background:none;border:none
+}
+.k-tabbar-item--active{color:var(--k-accent-text)}
+.k-tabbar-add{
+  min-width:44px;min-height:44px;
+  align-self:center;
+  border-radius:999px;
+  background:var(--k-accent);color:var(--k-on-accent);
+  display:flex;align-items:center;justify-content:center;
+  border:none;cursor:pointer
+}
+
+.k-band-title{
+  font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--k-muted)
+}
+.k-watch-label{font-size:11px;color:var(--k-muted)}
+.k-watch-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:19px;font-weight:500;line-height:1.2;color:var(--k-ink)
+}
 
 /* Loading (artboard 3a) — a page that answers on load shows the shape of the
    answer while it works. `.q-skeleton.k-skeleton` rather than `!important`:
