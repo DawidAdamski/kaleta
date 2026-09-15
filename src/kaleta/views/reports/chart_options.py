@@ -85,7 +85,10 @@ def _bar_options(result: ReportResult, is_dark: bool) -> dict[str, Any]:
     # reversed — the result reads top-down, largest first, like the table.
     labels = list(reversed(result.labels))
     data = [
-        {"value": value, "share": share}
+        # Rounded here and not in `share_percents`: the shares are exact for
+        # anyone who sums them, and a label reading "33.333333333333336%"
+        # would be precision the chart does not have.
+        {"value": value, "share": round(share, 1)}
         for value, share in reversed(list(zip(result.values, shares, strict=False)))
     ]
     options: dict[str, Any] = {

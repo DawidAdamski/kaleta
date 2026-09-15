@@ -47,9 +47,16 @@ def build_config_zone(
     def config_zone() -> None:
         labels = slot_labels(state)
 
-        def _word(text: str, *, tight: bool = False) -> None:
-            """A connector. ``tight`` pulls it against the slot before it, so a
-            leading comma or a full stop does not float a space away from it."""
+        def _word(text: str) -> None:
+            """A connector, pulled against the slot before it when it opens with
+            punctuation.
+
+            English hangs a comma off the previous slot (", top"); Polish opens
+            the same connector with a bullet ("· limit:") that wants its space.
+            The rule is the first character, so neither locale needs the call
+            site to know which it is.
+            """
+            tight = text[:1] in ",.;:!?"
             ui.label(text).classes(f"{_SENTENCE} {MUTED}" + (" -ml-1" if tight else ""))
 
         def _slot(text: str, *, drop: Callable[[], None] | None = None) -> Any:
@@ -99,7 +106,7 @@ def build_config_zone(
             with _slot(labels.period):
                 _pick("date_preset", list(DATE_PRESETS))
 
-            _word(t("reports.sentence_top"), tight=True)
+            _word(t("reports.sentence_top"))
             with _slot(labels.top_n), ui.menu() as top_menu:
                 for count in (5, 10, 20, 50, 0):
                     ui.menu_item(
@@ -133,7 +140,7 @@ def build_config_zone(
             # English ends the sentence with a full stop; Polish reads as a
             # labelled line and ends with nothing, so the key may be empty.
             if end := t("reports.sentence_end"):
-                _word(end, tight=True)
+                _word(end)
 
         if state["date_preset"] == "custom":
             with ui.row().classes("gap-3 items-center"):

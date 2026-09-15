@@ -78,6 +78,8 @@ storage; canned reports (`reports_canned/`); Money Flow.
 - `src/kaleta/views/reports/config_zone.py` (rewrite), `page.py`,
   `chart_zone.py`, `saved_section.py`, `palette.py`, `constants.py`
 - `src/kaleta/views/chart_utils.py`
+- `src/kaleta/views/theme.py` (`SENTENCE_SLOT` / `SENTENCE_SLOT_TARGET`
+  for the clickable words, `DRAGGING_BODY` for the drag highlight)
 - `src/kaleta/i18n/locales/en.json`, `pl.json`
   (`reports.sentence_show`, `reports.sentence_grouped_by`,
   `reports.sentence_for`, `reports.sentence_over`, `reports.sentence_top`,
@@ -166,7 +168,9 @@ storage; canned reports (`reports_canned/`); Money Flow.
 - **New files beyond the Touchpoints list:** `reports/sentence.py` (the
   pure label helpers, so what each slot says is unit-testable without a
   browser) and `reports/chart_options.py` (above). Both are siblings of
-  the rewritten `config_zone.py` rather than new layers.
+  the rewritten `config_zone.py` rather than new layers. `theme.py` is
+  also touched, for the three tokens the sentence needs; it has been
+  added to Touchpoints above.
 
 - **The error line lost its "Error:" prefix.** It is now a red warning
   icon and the message in the negative tone, which says the same thing

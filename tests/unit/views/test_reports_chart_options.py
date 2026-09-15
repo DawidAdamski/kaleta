@@ -55,7 +55,7 @@ class TestBarOptions:
     def test_each_bar_carries_its_value_and_its_share(self) -> None:
         options = report_chart_options(_result(), "bar", is_dark=False)
         data = options["series"][0]["data"]
-        assert [round(d["share"]) for d in data] == [20, 50, 30]
+        assert [d["share"] for d in data] == [20.0, 50.0, 30.0]
         assert "{@value}" in options["series"][0]["label"]["formatter"]
         assert "{@share}" in options["series"][0]["label"]["formatter"]
 
@@ -97,3 +97,11 @@ class TestOtherTypes:
         for chart_type in ("bar", "line", "pie", "donut"):
             options = report_chart_options(_result(), chart_type, is_dark=False)
             assert options["color"] == chart_palette(False)
+
+
+class TestShareRounding:
+    def test_a_third_is_not_labelled_to_fifteen_decimal_places(self) -> None:
+        # The label prints the share verbatim, so an exact float would read
+        # "33.333333333333336%" — precision the chart does not have.
+        options = report_chart_options(_result(["A", "B", "C"], [1.0, 1.0, 1.0]), "bar", False)
+        assert [d["share"] for d in options["series"][0]["data"]] == [33.3, 33.3, 33.3]
