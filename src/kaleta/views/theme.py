@@ -81,8 +81,13 @@ FILTER_CHIP_EMPTY = "k-filter-chip--empty"
 #: prose until the pointer is over it, so the query stays legible while every
 #: part of it stays editable.
 SENTENCE_SLOT = "k-slot"
-#: The slot while a rail field is being dragged towards it.
-SENTENCE_SLOT_TARGET = "k-slot--target"
+#: A slot that accepts a dragged field. Carried at all times and lit only
+#: while ``body`` has ``k-dragging`` — a drag highlight must not cost a server
+#: round trip, because rebuilding the slot mid-drag destroys the drop target
+#: the browser is aiming at.
+SENTENCE_SLOT_TARGET = "k-slot--drop"
+#: Set on ``body`` by the rail's own dragstart handler, cleared on dragend.
+DRAGGING_BODY = "k-dragging"
 SELECTION_BAR = "k-selection-bar"
 #: Hover tint for a hand-built row (one that is not inside a ``k-table``).
 ROW_HOVER = "k-row-hover"
@@ -561,9 +566,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   transition:background-color .12s ease
 }
 .k-slot:hover{background:var(--k-surface-sunken);border-bottom-color:transparent}
-.k-slot--target{
+body.k-dragging .k-slot--drop{
   background:var(--k-surface-warm);
   border:1px dashed var(--k-accent);
+  border-bottom-color:var(--k-accent);
   border-radius:5px
 }
 .k-filter-chip--empty{

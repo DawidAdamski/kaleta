@@ -98,14 +98,30 @@ async def reports_page() -> None:
         await run_report()
 
     async def delete_report(report_id: int) -> None:
-        async def _delete(session: Any) -> None:
-            await SavedReportService(session).delete(report_id)
+        async def _get_and_delete(session: Any) -> Any:
+            service = SavedReportService(session)
+            report = await service.get(report_id)
+            await service.delete(report_id)
+            return report
 
-        await with_session(_delete)
+        deleted = await with_session(_get_and_delete)
         ui.notify(t("reports.deleted"), type="positive")
+        # Deleting the report that is open leaves the header naming a record
+        # that no longer exists — and the next Save would recreate it under
+        # that name rather than asking for a new one.
+        if deleted is not None and deleted.name == state["report_name"]:
+            state["report_name"] = ""
+            header.refresh()
         palette_zone.refresh()
 
     def on_dragstart(key: str, grp: str) -> None:
+        """Remember what is being dragged. Deliberately no refresh.
+
+        The slots light up through a body class the rail sets in the browser,
+        not through a rebuild: repainting the sentence mid-drag destroys the
+        very element the browser is aiming the drop at, and the drop is then
+        never delivered.
+        """
         state["dragging"] = key
         state["dragging_grp"] = grp
 

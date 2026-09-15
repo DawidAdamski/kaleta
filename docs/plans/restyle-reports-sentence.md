@@ -177,6 +177,34 @@ storage; canned reports (`reports_canned/`); Money Flow.
   first wording; `plural_key` already exists for this, so the chip reads
   "1 account" / "3 accounts" and "1 konto" / "3 konta" / "7 kont".
 
+- **The drop highlight is a body class, not a repaint.** The first
+  version refreshed the sentence on `dragstart` so the slots could
+  outline themselves — which destroys the very element the browser is
+  aiming the drop at, and the drop is then never delivered. The rail's
+  `dragstart` now adds `k-dragging` to `body` in the browser
+  (`js_handler` alongside the Python handler) and removes it on
+  `dragend`; the slots carry `k-slot--drop` at all times and are lit by
+  CSS. Verified in a browser: both slots light up during a drag, the
+  class is gone afterwards, and dragging *Account* and *Count* onto
+  their slots sets them.
+
+- **`top_n` keeps its full range.** The slot menu offers 5 / 10 / 20 /
+  50 / no limit, and under a separator a number field for anything else
+  — the control it replaced took 0–100, and 15 or 100 must stay
+  reachable. The field applies on Enter or on blur, never per keystroke:
+  setting the state repaints the sentence, and a repaint mid-number
+  would take the field away after the first digit.
+
+- **Deleting the open report clears the header.** It was left naming a
+  record that no longer existed, and the next Save would have recreated
+  it under that stale name.
+
+- **Nine dead `reports.*` keys removed from both locales** (`dimensions`,
+  `measures`, `filters`, `tx_types`, `date_range`, `top_n_hint`,
+  `all_accounts`, `all_categories`, `drop_here`) — the rewrite orphaned
+  them, and they are in the area this branch already owns. `top_n`
+  stays: it labels the number field in the menu.
+
 - **Stacking:** branched from `plan/restyle-wizard-index`, which is
   itself unmerged. Open the PR with `--base plan/restyle-wizard-index`;
   it must merge after every branch below it.

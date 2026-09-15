@@ -54,7 +54,7 @@ def build_config_zone(
 
         def _slot(text: str, *, drop: Callable[[], None] | None = None) -> Any:
             classes = f"{SENTENCE_SLOT} {_SENTENCE}"
-            if drop is not None and state["dragging"] is not None:
+            if drop is not None:
                 classes += f" {SENTENCE_SLOT_TARGET}"
             with ui.element("span").classes(classes) as slot:
                 if drop is not None:
@@ -100,12 +100,36 @@ def build_config_zone(
                 _pick("date_preset", list(DATE_PRESETS))
 
             _word(t("reports.sentence_top"), tight=True)
-            with _slot(labels.top_n), ui.menu().props("auto-close"):
+            with _slot(labels.top_n), ui.menu() as top_menu:
                 for count in (5, 10, 20, 50, 0):
                     ui.menu_item(
                         str(count) if count else t("reports.sentence_no_limit"),
                         on_click=lambda c=count: on_set("top_n", c),
                     ).props("dense")
+                ui.separator()
+                # The quick values are the common ones, not the only ones:
+                # the control they replace took any number from 0 to 100, and
+                # 15 or 100 must stay reachable.
+                with ui.row().classes("items-center gap-2 px-3 py-2 no-wrap"):
+                    ui.label(t("reports.top_n")).classes(f"{MUTED} text-xs")
+                    top_input = (
+                        ui.number(value=int(state["top_n"] or 0), min=0, max=100, step=1)
+                        .props("dense outlined")
+                        .classes("w-20")
+                    )
+                    # Applied on Enter or on leaving the field, not on every
+                    # keystroke: setting the state repaints the sentence, and
+                    # a repaint mid-number would take the field away after the
+                    # first digit.
+                    top_input.on("keydown.enter", lambda: _set_top_n(top_input.value))
+                    top_input.on("blur", lambda: _set_top_n(top_input.value))
+
+            def _set_top_n(raw: float | None) -> None:
+                value = max(0, min(100, int(raw or 0)))
+                top_menu.close()
+                if value != int(state["top_n"] or 0):
+                    on_set("top_n", value)
+
             # English ends the sentence with a full stop; Polish reads as a
             # labelled line and ends with nothing, so the key may be empty.
             if end := t("reports.sentence_end"):

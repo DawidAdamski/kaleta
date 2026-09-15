@@ -17,9 +17,16 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import SavedReportService, with_session
-from kaleta.services.saved_report_service import chart_type_icon
+from kaleta.services.saved_report_service import ReportConfig, chart_type_icon
 from kaleta.views.reports.constants import DIMENSIONS, METRICS
-from kaleta.views.theme import ACCENT_TEXT, INK, MUTED, ROW_HOVER, SECTION_TITLE
+from kaleta.views.theme import (
+    ACCENT_TEXT,
+    DRAGGING_BODY,
+    INK,
+    MUTED,
+    ROW_HOVER,
+    SECTION_TITLE,
+)
 
 #: Wide enough for the longest dimension name, narrow enough that the chart
 #: beside it keeps the page.
@@ -48,7 +55,19 @@ def build_palette_zone(
             active = state[field] == key
             row = ui.row().classes(_ROW)
             row.props("draggable=true")
-            row.on("dragstart", lambda k=key, g=drag_group: on_dragstart(k, g))
+            # The body class is set in the browser so the slots can light up
+            # without a round trip; the server still hears the dragstart, so
+            # it knows what to put in the slot when the drop lands.
+            row.on(
+                "dragstart",
+                lambda k=key, g=drag_group: on_dragstart(k, g),
+                js_handler=f"(...args) => {{ document.body.classList.add('{DRAGGING_BODY}');"
+                " emit(...args) }",
+            )
+            row.on(
+                "dragend",
+                js_handler=f"() => document.body.classList.remove('{DRAGGING_BODY}')",
+            )
             row.on("click", lambda k=key, f=field: on_set(f, k))
             with row:
                 ui.icon(icon, size="16px").classes(ACCENT_TEXT if active else MUTED)
@@ -72,12 +91,12 @@ def build_palette_zone(
                 ui.space().classes("h-2")
                 ui.label(t("reports.saved")).classes(f"{SECTION_TITLE} px-2")
                 for report in saved:
-                    config = json.loads(report.config)
+                    # Read through the same schema the page loads it with, so
+                    # the icon cannot disagree with the report it opens.
+                    config = ReportConfig.from_dict(json.loads(report.config))
                     with ui.row().classes(_ROW) as row:
                         row.on("click", lambda rid=report.id: on_load(rid))
-                        ui.icon(
-                            chart_type_icon(str(config.get("chart_type", "bar"))), size="16px"
-                        ).classes(MUTED)
+                        ui.icon(chart_type_icon(config.chart_type), size="16px").classes(MUTED)
                         ui.label(report.name).classes(f"text-[13px] {INK} flex-1 truncate")
                         ui.icon("close", size="15px").classes(f"{MUTED} cursor-pointer").on(
                             "click.stop", lambda rid=report.id: on_delete(rid)

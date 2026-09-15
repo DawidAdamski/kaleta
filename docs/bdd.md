@@ -2490,7 +2490,9 @@ Feature: Report Builder
     Given I am on the report builder
     Then the sentence reads "Total Amount", "Category", "Expense", "This Year", "10"
     When I change the grouping to "Account"
-      And I run the report
+      And I drag "Count" from the rail onto the measure slot
+    Then the sentence reads "Count" grouped by "Account"
+    When I run the report
     Then the chart is titled by account
     When I save the report as "Spend by account"
       And I open the builder afresh

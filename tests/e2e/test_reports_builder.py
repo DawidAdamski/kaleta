@@ -45,7 +45,9 @@ def test_sentence_reflects_state_and_a_saved_report_comes_back(page: Page, base_
     sh.seed_transaction(account_id, category_id, 120.0, description="reports builder e2e")
 
     page.goto(f"{base_url}{BUILDER}")
-    expect(page.get_by_text("Unsaved report")).to_be_visible(timeout=10000)
+    # The header arrives before the sentence card below it, so wait for the
+    # sentence itself rather than for the page around it.
+    expect(_slots(page).first).to_be_visible(timeout=10000)
 
     # The defaults, read off the page rather than assumed.
     expect(_slots(page)).to_have_count(5)
@@ -59,6 +61,12 @@ def test_sentence_reflects_state_and_a_saved_report_comes_back(page: Page, base_
     _pick(page, 1, "Account")
     expect(_slots(page).nth(1)).to_contain_text("Account", timeout=5000)
 
+    # And so does dragging a field from the rail onto its slot, which is the
+    # affordance the old drop zones had.
+    page.get_by_text("Count", exact=True).first.drag_to(_slots(page).nth(0))
+    expect(_slots(page).nth(0)).to_contain_text("Count", timeout=5000)
+    assert _slot_text(page, 1) == "Account", "the drop leaves the other slots alone"
+
     page.get_by_role("button", name="Run").click()
     expect(page.get_by_text("by Account", exact=False).first).to_be_visible(timeout=10000)
 
@@ -71,11 +79,13 @@ def test_sentence_reflects_state_and_a_saved_report_comes_back(page: Page, base_
     expect(page.get_by_text("Report saved", exact=False).first).to_be_visible(timeout=10000)
 
     page.goto(f"{base_url}{BUILDER}")
-    expect(page.get_by_text("Unsaved report")).to_be_visible(timeout=10000)
+    expect(_slots(page).first).to_be_visible(timeout=10000)
     assert _slot_text(page, 1) == "Category", "a fresh builder starts from the defaults"
+    assert _slot_text(page, 0) == "Total Amount"
 
     page.get_by_text(REPORT_NAME, exact=True).click()
 
     # The saved state comes back through the same sentence that wrote it.
     expect(_slots(page).nth(1)).to_contain_text("Account", timeout=10000)
+    expect(_slots(page).nth(0)).to_contain_text("Count")
     expect(page.get_by_text(REPORT_NAME, exact=True).first).to_be_visible()
