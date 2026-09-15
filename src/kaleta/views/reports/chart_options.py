@@ -15,10 +15,6 @@ from kaleta.services.saved_report_service import ReportResult
 from kaleta.views.chart_utils import apply_dark, chart_ink_color, chart_palette, chart_text_color
 from kaleta.views.reports.sentence import share_percents
 
-#: Bars run left to right, so a category's name is read as a word and not as
-#: a rotated label — which is what the vertical bars needed at seven items.
-_BAR_LABEL_FMT = "{c}"
-
 
 def report_chart_options(
     result: ReportResult,
