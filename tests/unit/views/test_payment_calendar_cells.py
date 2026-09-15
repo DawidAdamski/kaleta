@@ -15,15 +15,15 @@ from decimal import Decimal
 from kaleta.schemas.transaction import TransactionType
 from kaleta.schemas.wizard_projections import SubscriptionCharge
 from kaleta.services.planned_transaction_service import DayAggregate, PlannedOccurrence
-from kaleta.views.payment_calendar import DOT_CAP, day_marks
+from kaleta.views.payment_calendar import DOT_CAP, actually_overdue, day_marks
 from kaleta.views.theme import CALENDAR_DOT_FLAT, CALENDAR_DOT_IN, CALENDAR_DOT_OUT
 
 DAY = datetime.date(2025, 3, 14)
 
 
-def _occ(amount: str, kind: TransactionType) -> PlannedOccurrence:
+def _occ(amount: str, kind: TransactionType, date: datetime.date = DAY) -> PlannedOccurrence:
     return PlannedOccurrence(
-        date=DAY,
+        date=date,
         planned_id=1,
         name="Item",
         amount=Decimal(amount),
@@ -115,3 +115,32 @@ class TestDayMarks:
         marks = day_marks(cell, [])
         assert marks.net == Decimal("0")
         assert not marks.is_empty
+
+
+class TestActuallyOverdue:
+    """Covers the strip's window (artboard 3c).
+
+    ``grid_for_month`` windows its overdue bucket against the browsed month,
+    not against today. The strip has to correct for that or it prints ages
+    for occurrences that have not happened yet.
+    """
+
+    def test_an_occurrence_still_to_come_is_not_late(self) -> None:
+        today = datetime.date(2025, 3, 14)
+        future = _occ("10.00", TransactionType.EXPENSE, today + datetime.timedelta(days=5))
+        assert actually_overdue([future], today) == []
+
+    def test_todays_own_occurrence_is_not_late_yet(self) -> None:
+        today = datetime.date(2025, 3, 14)
+        assert actually_overdue([_occ("10.00", TransactionType.EXPENSE, today)], today) == []
+
+    def test_yesterdays_is(self) -> None:
+        today = datetime.date(2025, 3, 14)
+        late = _occ("10.00", TransactionType.EXPENSE, today - datetime.timedelta(days=1))
+        assert actually_overdue([late], today) == [late]
+
+    def test_the_oldest_debt_is_listed_first(self) -> None:
+        today = datetime.date(2025, 3, 14)
+        recent = _occ("10.00", TransactionType.EXPENSE, today - datetime.timedelta(days=2))
+        old = _occ("10.00", TransactionType.EXPENSE, today - datetime.timedelta(days=20))
+        assert actually_overdue([recent, old], today) == [old, recent]

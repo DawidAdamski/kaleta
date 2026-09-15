@@ -122,6 +122,21 @@ def day_marks(
     return DayMarks(net=net, dots=tuple(dots[:cap]), overflow=max(0, len(dots) - cap))
 
 
+def actually_overdue(
+    occurrences: Sequence[PlannedOccurrence], today: datetime.date
+) -> list[PlannedOccurrence]:
+    """The ones that are genuinely late, in date order.
+
+    ``grid_for_month`` windows its overdue bucket against the *browsed*
+    month, not against today: it returns the unposted occurrences in the
+    thirty days before the first of whichever month is on screen. Page
+    forward one month and that window lands in the future, where nothing can
+    be late — and an age computed from it would read "-5 days late". The
+    strip and the overdue count both take this filter, so they agree.
+    """
+    return sorted((o for o in occurrences if o.date < today), key=lambda o: o.date)
+
+
 def overdue_age_label(occ_date: datetime.date, today: datetime.date) -> str:
     """ "3 days" — how long the item has been waiting, in Polish-aware plurals."""
     days = (today - occ_date).days
@@ -469,10 +484,11 @@ def register() -> None:
                 kpi_out.set_text(f"-{_fmt(grid.total_outflow())}")
                 net = grid.total_net()
                 kpi_net.set_text(f"{'+' if net > 0 else ''}{_fmt(net)}")
-                kpi_overdue.set_text(str(len(grid.overdue)))
+                overdue = actually_overdue(grid.overdue, datetime.date.today())
+                kpi_overdue.set_text(str(len(overdue)))
 
                 state["grid"] = grid
-                _draw_overdue_strip(grid.overdue)
+                _draw_overdue_strip(overdue)
                 _draw_grid(grid)
 
             def _draw_overdue_strip(overdue: list[PlannedOccurrence]) -> None:

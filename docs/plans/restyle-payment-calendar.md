@@ -38,8 +38,13 @@ Depends on `restyle-theme-tokens`.
   otherwise `Post` only — see open question). Day 1 no longer receives
   the overdue list.
 - **Day sheet** (`_open_day`): keeps totals / planned / subscription /
-  quick-add structure; restyle to tokens; overdue items reachable there
-  too (unchanged).
+  quick-add structure; restyle to tokens. ~~overdue items reachable
+  there too (unchanged)~~ — **corrected during implementation**: this
+  contradicted the bullet above it. The sheet only ever received the
+  overdue list from the day-1 cell, so "day 1 no longer receives the
+  overdue list" and "reachable in the sheet, unchanged" cannot both
+  hold. The strip is the one place they live now; see Implementation
+  notes.
 - **KPI row**: month in / out / net / overdue count — already exists;
   restyle with mono figures.
 - `payment_calendar_overdue_days` storage key unchanged.
@@ -128,10 +133,25 @@ lookback setting, subscriptions.
   its own age, so the heading does not need the window at all. The
   setting itself is untouched, as the plan requires.
 
-- **The day sheet no longer lists overdue items.** They are in the strip,
+- **The day sheet no longer lists overdue items, and the Scope bullet
+  saying it would has been struck through.** Two Scope bullets
+  contradicted each other: "Day 1 no longer receives the overdue list"
+  and "overdue items reachable there too (unchanged)". The day-1 cell
+  was the *only* route by which `_open_day` ever received them, so
+  removing the first removes the second. They live in the strip now,
   which is visible without opening any day and from any month — the
   point of the change. The sheet keeps totals, planned items,
   subscription charges and quick-add.
+
+- **The strip shows what is late *today*, not what the browsed month
+  says.** `grid_for_month` windows its overdue bucket against the month
+  on screen — the thirty days before its first. Page forward one month
+  with the existing arrows and that window lands in the future, and an
+  age computed from it reads "-5 days late". The day-1 cell never
+  printed an age, so this was harmless until the strip started showing
+  one. `actually_overdue()` filters to `date < today` and sorts oldest
+  first; the overdue KPI takes the same filter, so the count and the
+  strip cannot disagree. Unit-tested.
 
 - **Stacking:** branched from `plan/restyle-net-worth`, which is itself
   unmerged. Open the PR with `--base plan/restyle-net-worth`; it must
