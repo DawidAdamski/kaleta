@@ -355,7 +355,7 @@
     "step_scenarios_desc": "Symuluje skutki spadku dochodów, dużych zakupów lub nowych cyklicznych wydatków na miesięczne saldo i długość funduszu awaryjnego.",
     "step_personal_loans": "Pożyczki prywatne",
     "step_personal_loans_desc": "Śledzi pieniądze pożyczone od lub dla rodziny i znajomych — kto komu jest winien, terminy spłaty, spłaty częściowe.",
-    "cta_note": "Te funkcje są zaplanowane. Każda będzie interaktywnym przewodnikiem — nie tylko raportem.",
+    "cta_note": "Kroki oznaczone „W planach” nie są jeszcze gotowe. Każdy będzie interaktywnym przewodnikiem — nie tylko raportem.",
     "setup_title": "Na start — skonfiguruj swoje finanse",
     "setup_subtitle": "Uzupełnij te 4 kroki, żeby Kaleta mogła poprawnie liczyć salda i budżety.",
     "setup_all_done": "Gotowe!",
@@ -392,7 +392,9 @@
     "mentor_no_planned_cta": "Otwórz Planowane",
     "mentor_logos_title": "Dodaj logo do instytucji",
     "mentor_logos_body": "{count} instytucja/e nie ma jeszcze logo. Logo ułatwia rozpoznawanie kont.",
-    "mentor_logos_cta": "Otwórz Instytucje"
+    "mentor_logos_cta": "Otwórz Instytucje",
+    "not_built": "W planach",
+    "routines_title": "Rutyny"
   },
   "budget_builder": {
     "title": "Kreator budżetu",

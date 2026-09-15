@@ -83,8 +83,13 @@ ROW_HOVER = "k-row-hover"
 #: A hand-built row's own outline — the same hairline the tables draw, so a
 #: list built out of rows sits at the same weight as one built out of a table.
 HAIRLINE_ROW = "k-hairline-row"
+#: One rule under a row, for a list that is separated rather than boxed.
+HAIRLINE_BOTTOM = "k-hairline-bottom"
 #: Accent-coloured text — the recurring column, a link that is not an <a>.
 ACCENT_TEXT = "k-accent-text"
+#: A 3px accent rule down a card's left edge. One card on a page may say
+#: "read this first"; two would say nothing.
+ACCENT_RULE = "k-accent-rule"
 
 # ── Budget plan grid (artboard 2c) ────────────────────────────────────────────
 #: The annual grid is not a card: hairlines only, and the paper is the table.
@@ -375,7 +380,9 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
 .k-row-hover:hover{background:var(--k-row-hover)}
 .k-hairline-row{border:1px solid var(--k-hairline)}
+.k-hairline-bottom{border-bottom:1px solid var(--k-hairline)}
 .k-accent-text{color:var(--k-accent-text)}
+.k-accent-rule{border-left:3px solid var(--k-accent)}
 /* Budget plan grid: no card, no shadow — hairlines, and the paper is the
    table. The header and the totals band are the only strong rules. */
 .k-plan-grid{background:transparent}

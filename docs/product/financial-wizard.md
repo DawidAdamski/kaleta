@@ -1,8 +1,16 @@
 # Financial Wizard — Assistant Model
 
 > Status: product concept. Some scaffolding in `views/wizard.py`;
-> sections below are coming-soon placeholders.
+> sections below that have no page yet are labelled "Planned" on it.
 > Parent: [roadmap](../roadmap.md).
+
+**The `/wizard` page** reads top to bottom as: hero, then one mentor
+suggestion in an accent-ruled card, then Setup as four compact
+done-cards (collapsed once all four are ticked), then a single
+two-column index of every routine below — the ones with a page behind
+them first, each with an `Open` link; the rest muted and marked
+"Planned". The sections below are eyebrow labels inside that index, not
+six coloured cards.
 
 ## Intent
 
@@ -23,7 +31,8 @@ without any AI.
 
 ### 1. Getting Started
 
-Already live as the collapsible onboarding card.
+Already live as the collapsible Setup card — four done-cards, collapsed
+by default once all four are ticked.
 
 - **Purpose redefined:** not only "create your first account", but
   also a *mentor* that recommends which dashboard / view is the right

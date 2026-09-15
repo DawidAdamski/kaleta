@@ -355,7 +355,7 @@
     "step_scenarios_desc": "Simulates the impact of income drops, big purchases, or new recurring expenses on your monthly balance and emergency fund runway.",
     "step_personal_loans": "Personal loans tracker",
     "step_personal_loans_desc": "Tracks money lent to and borrowed from friends and family outside the bank ledger — who owes what, due dates, partial repayments.",
-    "cta_note": "These features are planned. Each will be a guided, interactive walkthrough — not just a report.",
+    "cta_note": "The steps marked Planned are not built yet. Each will be a guided, interactive walkthrough — not just a report.",
     "setup_title": "Getting started — set up your finances",
     "setup_subtitle": "Complete these 4 steps so Kaleta can correctly calculate balances and budgets.",
     "setup_all_done": "All done!",
@@ -392,7 +392,9 @@
     "mentor_no_planned_cta": "Open Planned",
     "mentor_logos_title": "Add logos to your institutions",
     "mentor_logos_body": "{count} institution(s) still have no logo. A logo makes accounts easier to scan at a glance.",
-    "mentor_logos_cta": "Open Institutions"
+    "mentor_logos_cta": "Open Institutions",
+    "not_built": "Planned",
+    "routines_title": "Routines"
   },
   "budget_builder": {
     "title": "Budget Builder",

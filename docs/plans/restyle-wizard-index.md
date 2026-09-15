@@ -3,7 +3,7 @@ plan_id: restyle-wizard-index
 title: Restyle — Financial Wizard as mentor card + setup done-cards + a plain two-column routines index (artboard 3d)
 area: wizard
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
 ---
 
@@ -79,4 +79,48 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — wording: "Planned"** (`wizard.not_built`, PL "W
+  planach"). Default taken. The footer note still said "These features
+  are planned", which was true when nothing was built and is now wrong
+  on a page where eleven of thirteen open; `wizard.cta_note` was
+  reworded to point at the marked rows instead.
+
+- **The done-card keeps its way in.** Scope describes the card as
+  "icon, title, ✓ / `Open`". Read as either/or that removes the Edit
+  button from a finished step — and a ticked step is the one a user
+  most wants to revisit, since it is where their institutions and
+  accounts are. `test_setup_wizard.py` covers that navigation under
+  KAL-ONB-001/002. The card shows the ✓ *and* the action (Edit when
+  done, Go when not), plus the existing count / hint line: a tooltip was
+  tried first and it hid information the old card showed in the open.
+
+- **Two new i18n keys beyond the one Scope lists.**
+  `wizard.routines_title` — two stacked cards need a word between them
+  — and the reworded `wizard.cta_note` above. `wizard.coming_soon`
+  itself is untouched and still used by `views/setup.py`.
+
+- **Stable hooks instead of DOM archaeology.** Three existing e2e tests
+  found their target by walking the DOM: `div.row` containing a title,
+  or `xpath=ancestor::div[contains(@class,'items-start')][1]`. Both
+  broke on the new layout and would break on the next one. Each Setup
+  card now carries `data-setup-step` and each routine row `data-step`,
+  and the tests name those. No assertion was weakened: the salary test
+  still checks the row is not marked as unbuilt and still clicks
+  through to the panel — it clicks a link rather than a button, because
+  the row's action is a link now.
+
+- **`_SECTION_ICONS` went with `_SECTION_COLORS`.** Each row carries its
+  own step icon, so the six section icons had no place left to render
+  and nothing else imported them.
+
+- **The manual criterion's counts are stale.** It expects "five `Open →`
+  rows in ink and eight muted rows". `_STEP_ROUTES` has eleven entries
+  against thirteen steps, so the page shows **eleven** open rows and
+  **two** marked Planned (`unplanned`, `scenarios`). The plan text was
+  written against an earlier state of the routes table; the split is
+  worth checking against `_STEP_ROUTES`, not against the number here.
+
+- **Stacking:** branched from `plan/restyle-payment-calendar`, which is
+  itself unmerged. Open the PR with
+  `--base plan/restyle-payment-calendar`; it must merge after every
+  branch below it.

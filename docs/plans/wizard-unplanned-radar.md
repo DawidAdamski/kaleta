@@ -58,9 +58,10 @@ nothing surfaces them ahead of time.
   candidate detected from seeded history; dismiss persists; convert
   creates a planned transaction linked to source occurrences. Retag
   `@planned` → `@automated` as tests land.
-- **Cleanup rider**: drop the global "Coming soon" badge next to the
-  wizard page title (`views/wizard.py` header) — 10 of 13 tiles are
-  live and the badge misleads; per-tile badges stay.
+- ~~**Cleanup rider**: drop the global "Coming soon" badge next to the
+  wizard page title~~ — **already done** by `restyle-wizard-index`
+  (artboard 3d), which shipped first. The per-tile badges it mentions
+  are now the muted "Planned" label on each unrouted row.
 
 Out of scope: notification/reminder channel (product doc "Shared
 wizard patterns" — separate infrastructure), AI classification (paid

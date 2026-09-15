@@ -1,6 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+"""Financial Wizard — the index of everything the app can walk you through.
+
+Hero, then one mentor suggestion, then Setup as four done-cards, then the
+routines as a single list ranked by what you can actually open today. The
+page used to rank them by topic across six cards in six colours, which meant
+the five working steps were scattered among eight that were not built yet.
+"""
+
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
 from nicegui import app, ui
@@ -16,7 +25,19 @@ from kaleta.services import (
 )
 from kaleta.services.wizard_mentor_service import MentorSuggestion, WizardMentorService
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import ACCENT_SURFACE, ON_ACCENT
+from kaleta.views.theme import (
+    ACCENT_RULE,
+    ACCENT_TEXT,
+    BODY_MUTED,
+    HAIRLINE_BOTTOM,
+    HAIRLINE_ROW,
+    INK,
+    MUTED,
+    PAGE_TITLE,
+    SECTION_CARD,
+    SECTION_HEADING,
+    SECTION_TITLE,
+)
 
 # (icon, step_key, section)  — section groups them visually
 _STEPS: list[tuple[str, str, str]] = [
@@ -41,25 +62,8 @@ _STEPS: list[tuple[str, str, str]] = [
     ("handshake", "personal_loans", "loans"),
 ]
 
-_SECTION_ICONS = {
-    "monthly": "calendar_month",
-    "subscriptions": "subscriptions",
-    "funds": "savings",
-    "income": "account_balance_wallet",
-    "budget": "bar_chart",
-    "loans": "handshake",
-}
-
-_SECTION_COLORS = {
-    "monthly": "blue-6",
-    "subscriptions": "indigo-7",
-    "funds": "green-7",
-    "income": "orange-7",
-    "budget": "purple-7",
-    "loans": "cyan-7",
-}
-
-# Steps that link out to a working page — everything else shows "Coming soon".
+# Steps that link out to a working page. Everything else is listed too, so the
+# index says what the app will do — but plainly, and below what it does now.
 _STEP_ROUTES: dict[str, str] = {
     "budget_builder": "/wizard/budget-builder",
     "emergency": "/wizard/safety-funds",
@@ -74,35 +78,77 @@ _STEP_ROUTES: dict[str, str] = {
     "salary": "/wizard/pay-yourself",
 }
 
-# (icon, title_key, desc_key, url, done_hint_key)
-_ONBOARDING: list[tuple[str, str, str, str, str]] = [
-    (
-        "account_balance",
-        "wizard.setup_institution",
-        "wizard.setup_institution_desc",
-        "/institutions",
-        "wizard.setup_institution_hint",
+
+@dataclass(frozen=True, slots=True)
+class WizardStep:
+    """One row of the routines index."""
+
+    icon: str
+    key: str
+    section: str
+    route: str | None
+
+    @property
+    def is_open(self) -> bool:
+        """Whether there is a page behind it today."""
+        return self.route is not None
+
+
+def ordered_steps() -> list[WizardStep]:
+    """Every routine, the ones you can open today first.
+
+    The page used to group these by topic across six cards, which scattered
+    the five working steps among eight that are not built yet — so the index
+    read as a roadmap rather than as a list of things to do. Section order is
+    kept inside each half, so a reader who knows where a step lives still
+    finds it near the ones beside it.
+    """
+    steps = [
+        WizardStep(icon=icon, key=key, section=section, route=_STEP_ROUTES.get(key))
+        for icon, key, section in _STEPS
+    ]
+    return [s for s in steps if s.is_open] + [s for s in steps if not s.is_open]
+
+
+@dataclass(frozen=True, slots=True)
+class SetupStep:
+    """One of the four things that must exist before the ledger adds up."""
+
+    key: str
+    icon: str
+    title_key: str
+    url: str
+    hint_key: str
+
+
+_ONBOARDING: list[SetupStep] = [
+    SetupStep(
+        key="institution",
+        icon="account_balance",
+        title_key="wizard.setup_institution",
+        url="/institutions",
+        hint_key="wizard.setup_institution_hint",
     ),
-    (
-        "account_balance_wallet",
-        "wizard.setup_account",
-        "wizard.setup_account_desc",
-        "/accounts",
-        "wizard.setup_account_hint",
+    SetupStep(
+        key="account",
+        icon="account_balance_wallet",
+        title_key="wizard.setup_account",
+        url="/accounts",
+        hint_key="wizard.setup_account_hint",
     ),
-    (
-        "category",
-        "wizard.setup_categories",
-        "wizard.setup_categories_desc",
-        "/categories",
-        "wizard.setup_categories_hint",
+    SetupStep(
+        key="categories",
+        icon="category",
+        title_key="wizard.setup_categories",
+        url="/categories",
+        hint_key="wizard.setup_categories_hint",
     ),
-    (
-        "upload_file",
-        "wizard.setup_import",
-        "wizard.setup_import_desc",
-        "/import",
-        "wizard.setup_import_hint",
+    SetupStep(
+        key="import",
+        icon="upload_file",
+        title_key="wizard.setup_import",
+        url="/import",
+        hint_key="wizard.setup_import_hint",
     ),
 ]
 
@@ -152,113 +198,22 @@ def register() -> None:
         all_done = all(done_flags)
 
         with page_layout(t("nav.wizard")):
-            # Hero
+            # ── Hero ──────────────────────────────────────────────────────────
             with ui.row().classes("w-full items-center gap-4"):
-                ui.icon("auto_awesome", size="3rem").classes("text-primary")
-                with ui.column().classes("gap-1"):
-                    with ui.row().classes("items-center gap-3"):
-                        ui.label(t("wizard.title")).classes("text-2xl font-bold")
-                        ui.badge(t("wizard.coming_soon"), color="orange").classes("text-xs")
-                    ui.label(t("wizard.subtitle")).classes("text-sm text-slate-500 max-w-2xl")
+                ui.icon("auto_awesome", size="2.2rem").classes(ACCENT_TEXT)
+                with ui.column().classes("gap-1 min-w-0"):
+                    ui.label(t("wizard.title")).classes(PAGE_TITLE)
+                    ui.label(t("wizard.subtitle")).classes(f"{BODY_MUTED} max-w-2xl")
 
-            # ── Onboarding section ────────────────────────────────────────────
-            # Collapsible: default open while incomplete, default closed once all done.
-            # Per-user override persisted in app.storage.user.
-            onboarding_open: bool = app.storage.user.get("wizard_onboarding_open", not all_done)
-
-            with ui.card().classes("w-full p-0 overflow-hidden"):
-                # Clickable header → toggles the steps column below.
-                with ui.row().classes(
-                    f"items-center gap-3 px-5 py-4 {ACCENT_SURFACE} cursor-pointer select-none"
-                ) as onboarding_header:
-                    ui.icon("rocket_launch", size="1.4rem").classes(ON_ACCENT)
-                    with ui.column().classes("gap-0 flex-1"):
-                        ui.label(t("wizard.setup_title")).classes(
-                            f"{ON_ACCENT} font-semibold text-base"
-                        )
-                        ui.label(t("wizard.setup_subtitle")).classes(
-                            f"{ON_ACCENT} text-xs opacity-80"
-                        )
-                    if all_done:
-                        ui.badge(t("wizard.setup_all_done"), color="green").classes("text-xs")
-                    chevron = ui.icon(
-                        "keyboard_arrow_up" if onboarding_open else "keyboard_arrow_down",
-                        size="1.6rem",
-                    ).classes(ON_ACCENT)
-
-                # Steps (collapsed away when onboarding_open is False)
-                steps_col = ui.column().classes("gap-0 w-full")
-                steps_col.set_visibility(onboarding_open)
-
-                def _toggle_onboarding() -> None:
-                    new_open = not app.storage.user.get("wizard_onboarding_open", not all_done)
-                    app.storage.user["wizard_onboarding_open"] = new_open
-                    steps_col.set_visibility(new_open)
-                    chevron.props(
-                        "name=" + ("keyboard_arrow_up" if new_open else "keyboard_arrow_down")
-                    )
-
-                onboarding_header.on("click", _toggle_onboarding)
-
-                with steps_col:
-                    for i, (icon, title_key, desc_key, url, hint_key) in enumerate(_ONBOARDING):
-                        done = done_flags[i]
-                        count_text = done_counts[i]
-                        border = "" if i == len(_ONBOARDING) - 1 else "border-b"
-                        bg = "bg-green-1" if done else ""
-
-                        with ui.row().classes(f"items-center gap-4 px-5 py-4 {border} {bg} w-full"):
-                            # Step number / checkmark
-                            with ui.element("div").classes(
-                                "flex-shrink-0 w-8 h-8 rounded-full flex items-center"
-                                " justify-center text-sm font-bold "
-                                + (
-                                    "bg-green-6 text-white"
-                                    if done
-                                    else "bg-slate-200 text-slate-500"
-                                )
-                            ):
-                                if done:
-                                    ui.icon("check", size="1.1rem").classes("text-white")
-                                else:
-                                    ui.label(str(i + 1)).classes("text-sm font-bold")
-
-                            ui.icon(icon, size="1.5rem").classes(
-                                "flex-shrink-0 " + ("k-trend--pos" if done else "text-slate-400")
-                            )
-
-                            with ui.column().classes("gap-0.5 flex-1"):
-                                ui.label(t(title_key)).classes(
-                                    "font-medium text-sm " + ("k-trend--pos" if done else "")
-                                )
-                                ui.label(t(desc_key)).classes(
-                                    "text-xs text-slate-500 leading-relaxed"
-                                )
-                                if done:
-                                    ui.label(count_text).classes(
-                                        "text-xs k-trend--pos font-medium mt-0.5"
-                                    )
-                                else:
-                                    ui.label(t(hint_key)).classes("text-xs k-trend--warn mt-0.5")
-
-                            ui.button(
-                                t("wizard.setup_go") if not done else t("wizard.setup_edit"),
-                                icon="arrow_forward" if not done else "edit",
-                                on_click=lambda u=url: ui.navigate.to(u),
-                            ).props(
-                                "color=primary unelevated size=sm"
-                                if not done
-                                else "color=grey-4 flat size=sm"
-                            ).classes("flex-shrink-0")
-
-            # ── Mentor (post-setup) ───────────────────────────────────────────
+            # ── Mentor ────────────────────────────────────────────────────────
+            # One suggestion, above everything else, because it is the only
+            # thing on the page that knows what this particular ledger needs.
             if all_done:
                 dismissed: set[str] = set(app.storage.user.get("wizard_mentor_dismissed", []))
                 visible = [s for s in mentor_suggestions if s.key not in dismissed]
 
-                mentor_card = ui.card().classes("w-full p-0 overflow-hidden")
-                with mentor_card:
-                    mentor_slot = ui.column().classes("w-full gap-0")
+                with ui.card().classes(f"{SECTION_CARD} {ACCENT_RULE} gap-2"):
+                    mentor_slot = ui.column().classes("w-full gap-2")
 
                 def _dismiss(key: str) -> None:
                     dismissed.add(key)
@@ -270,99 +225,131 @@ def register() -> None:
                     mentor_slot.clear()
                     with mentor_slot:
                         if not visible:
-                            with ui.row().classes(
-                                "items-center gap-3 px-5 py-4 bg-slate-50 w-full"
-                            ):
-                                ui.icon("check_circle", size="1.4rem").classes("k-trend--pos")
-                                ui.label(t("wizard.mentor_all_quiet")).classes(
-                                    "text-sm text-slate-600"
-                                )
+                            with ui.row().classes("items-center gap-2"):
+                                ui.icon("check_circle", size="1.1rem").classes("k-trend--pos")
+                                ui.label(t("wizard.mentor_all_quiet")).classes(BODY_MUTED)
                             return
 
                         suggestion: MentorSuggestion = visible[0]
-                        with ui.row().classes("items-center gap-3 px-5 py-3 bg-indigo-1 w-full"):
-                            ui.icon("lightbulb", size="1.2rem").classes("text-indigo-7")
-                            ui.label(t("wizard.mentor_heading")).classes(
-                                "text-indigo-8 font-semibold text-sm uppercase tracking-wide"
-                            )
-                        with ui.row().classes("items-start gap-4 px-5 py-4 w-full"):
-                            ui.icon(suggestion.icon, size="1.8rem").classes(
-                                "text-indigo-7 flex-shrink-0 mt-1"
-                            )
-                            with ui.column().classes("gap-1 flex-1"):
-                                ui.label(t(suggestion.title_key, **suggestion.params)).classes(
-                                    "font-semibold text-base"
-                                )
-                                ui.label(t(suggestion.body_key, **suggestion.params)).classes(
-                                    "text-sm text-slate-600 leading-relaxed"
-                                )
-                                with ui.row().classes("gap-2 mt-2"):
-                                    ui.button(
-                                        t(suggestion.cta_key, **suggestion.params),
-                                        icon="arrow_forward",
-                                        on_click=lambda u=suggestion.cta_url: ui.navigate.to(u),
-                                    ).props("color=primary unelevated size=sm")
-                                    ui.button(
-                                        t("wizard.mentor_dismiss"),
-                                        icon="close",
-                                        on_click=lambda k=suggestion.key: _dismiss(k),
-                                    ).props("flat size=sm").tooltip(
-                                        t("wizard.mentor_dismiss_tooltip")
-                                    )
+                        with ui.row().classes("items-center gap-2"):
+                            ui.icon("lightbulb", size="1rem").classes(ACCENT_TEXT)
+                            ui.label(t("wizard.mentor_heading")).classes(SECTION_TITLE)
+                        ui.label(t(suggestion.title_key, **suggestion.params)).classes(
+                            SECTION_HEADING
+                        )
+                        ui.label(t(suggestion.body_key, **suggestion.params)).classes(
+                            f"{BODY_MUTED} leading-relaxed max-w-3xl"
+                        )
+                        with ui.row().classes("gap-2 mt-1"):
+                            ui.button(
+                                t(suggestion.cta_key, **suggestion.params),
+                                icon="arrow_forward",
+                                on_click=lambda u=suggestion.cta_url: ui.navigate.to(u),
+                            ).props("color=primary unelevated size=sm")
+                            ui.button(
+                                t("wizard.mentor_dismiss"),
+                                icon="close",
+                                on_click=lambda k=suggestion.key: _dismiss(k),
+                            ).props("flat size=sm").tooltip(t("wizard.mentor_dismiss_tooltip"))
 
                 _render_mentor()
 
-            # ── Planning sections (coming soon) ───────────────────────────────
-            # Group steps by section
-            sections: dict[str, list[tuple[str, str]]] = {}
-            for icon, step_key, section in _STEPS:
-                sections.setdefault(section, []).append((icon, step_key))
+            # ── Setup ─────────────────────────────────────────────────────────
+            # Four done-cards. Collapsed by default once they are all ticked,
+            # open by default while they are not; the user's own choice wins.
+            onboarding_open: bool = app.storage.user.get("wizard_onboarding_open", not all_done)
 
-            section_order = ["monthly", "subscriptions", "funds", "income", "budget", "loans"]
+            with ui.card().classes(f"{SECTION_CARD} gap-3"):
+                with ui.row().classes(
+                    "w-full items-center gap-3 cursor-pointer select-none"
+                ) as onboarding_header:
+                    ui.icon("rocket_launch", size="1.2rem").classes(MUTED)
+                    with ui.column().classes("gap-0 flex-1 min-w-0"):
+                        ui.label(t("wizard.setup_title")).classes(SECTION_HEADING)
+                        ui.label(t("wizard.setup_subtitle")).classes(f"{MUTED} text-xs")
+                    if all_done:
+                        ui.label(t("wizard.setup_all_done")).classes(
+                            "k-trend--pos text-xs font-medium"
+                        )
+                    chevron = ui.icon(
+                        "keyboard_arrow_up" if onboarding_open else "keyboard_arrow_down",
+                        size="1.4rem",
+                    ).classes(MUTED)
 
-            with ui.grid(columns=2).classes("w-full gap-4"):
-                for section in section_order:
-                    steps = sections.get(section, [])
-                    color = _SECTION_COLORS[section]
-                    sec_icon = _SECTION_ICONS[section]
+                cards = ui.grid(columns=2).classes("w-full gap-3 md:grid-cols-4")
+                cards.set_visibility(onboarding_open)
 
-                    with ui.card().classes("p-0 overflow-hidden"):
-                        # Section header bar
-                        with ui.row().classes(f"items-center gap-3 px-4 py-3 bg-{color}"):
-                            ui.icon(sec_icon, size="1.4rem").classes("text-white")
-                            ui.label(t(f"wizard.section_{section}")).classes(
-                                "text-white font-semibold text-sm uppercase tracking-wide"
-                            )
+                def _toggle_onboarding() -> None:
+                    new_open = not app.storage.user.get("wizard_onboarding_open", not all_done)
+                    app.storage.user["wizard_onboarding_open"] = new_open
+                    cards.set_visibility(new_open)
+                    chevron.props(
+                        "name=" + ("keyboard_arrow_up" if new_open else "keyboard_arrow_down")
+                    )
 
-                        with ui.column().classes("gap-0"):
-                            for i, (step_icon, step_key) in enumerate(steps):
-                                border = "" if i == len(steps) - 1 else "border-b"
-                                route = _STEP_ROUTES.get(step_key)
-                                with ui.row().classes(f"items-start gap-4 px-4 py-4 {border}"):
-                                    ui.icon(step_icon, size="1.6rem").classes(
-                                        f"text-{color} flex-shrink-0 mt-0.5"
-                                    )
-                                    with ui.column().classes("gap-1 flex-1"):
-                                        ui.label(t(f"wizard.step_{step_key}")).classes(
-                                            "font-medium text-sm"
-                                        )
-                                        ui.label(t(f"wizard.step_{step_key}_desc")).classes(
-                                            "text-xs text-slate-500 leading-relaxed"
-                                        )
-                                        if route is None:
-                                            ui.badge(
-                                                t("wizard.coming_soon"), color="grey-4"
-                                            ).classes("text-xs w-fit mt-1").props("outline")
-                                    if route is not None:
-                                        ui.button(
-                                            t("wizard.open"),
-                                            icon="arrow_forward",
-                                            on_click=lambda r=route: ui.navigate.to(r),
-                                        ).props("color=primary unelevated size=sm").classes(
-                                            "flex-shrink-0"
-                                        )
+                onboarding_header.on("click", _toggle_onboarding)
+
+                with cards:
+                    for i, setup in enumerate(_ONBOARDING):
+                        _render_setup_card(setup, done=done_flags[i], status=done_counts[i])
+
+            # ── Routines index ────────────────────────────────────────────────
+            with ui.card().classes(f"{SECTION_CARD} gap-3"):
+                ui.label(t("wizard.routines_title")).classes(SECTION_HEADING)
+                with ui.grid(columns=1).classes("w-full gap-0 md:grid-cols-2 md:gap-x-6"):
+                    for step in ordered_steps():
+                        _render_step_row(step)
 
             # Footer note
-            with ui.row().classes("items-center gap-2 text-slate-400 mt-2"):
-                ui.icon("info_outline", size="1.1rem")
-                ui.label(t("wizard.cta_note")).classes("text-xs")
+            with ui.row().classes("items-center gap-2 mt-2"):
+                ui.icon("info_outline", size="1rem").classes(MUTED)
+                ui.label(t("wizard.cta_note")).classes(f"{MUTED} text-xs")
+
+
+def _render_setup_card(setup: SetupStep, *, done: bool, status: str) -> None:
+    """One compact done-card: what it is, where it stands, and the way in.
+
+    The way in stays on a finished card. A ticked step is the one a user is
+    most likely to want to revisit — it is where their institutions and
+    accounts are — and a card with nothing to click would be a dead end.
+    """
+    tone = INK if done else MUTED
+    with ui.column().classes(
+        f"{HAIRLINE_ROW} rounded-lg items-center text-center gap-1.5 p-3"
+    ) as card:
+        card.props["data-setup-step"] = setup.key
+        with ui.row().classes("items-center gap-1.5"):
+            ui.icon(setup.icon, size="1.3rem").classes(tone)
+            if done:
+                ui.icon("check_circle", size="1rem").classes("k-trend--pos")
+        ui.label(t(setup.title_key)).classes(f"text-xs font-medium {tone} leading-tight")
+        ui.label(status if done else t(setup.hint_key)).classes(
+            f"{MUTED} text-[10.5px] leading-tight"
+        )
+        ui.button(
+            t("wizard.setup_edit") if done else t("wizard.setup_go"),
+            on_click=lambda u=setup.url: ui.navigate.to(u),
+        ).props("size=sm dense " + ("flat color=grey-7" if done else "color=primary unelevated"))
+
+
+def _render_step_row(step: WizardStep) -> None:
+    """One routine: what it is, and either a way in or a note that there is none."""
+    tone = INK if step.is_open else MUTED
+    with ui.row().classes(f"{HAIRLINE_BOTTOM} w-full items-start gap-3 py-3 no-wrap") as row:
+        row.props["data-step"] = step.key
+        ui.icon(step.icon, size="1.3rem").classes(f"{tone} flex-none mt-0.5")
+        with ui.column().classes("gap-0.5 flex-1 min-w-0"):
+            ui.label(t(f"wizard.section_{step.section}")).classes(f"{SECTION_TITLE} text-[9px]")
+            ui.label(t(f"wizard.step_{step.key}")).classes(f"text-sm font-medium {tone}")
+            ui.label(t(f"wizard.step_{step.key}_desc")).classes(
+                f"{MUTED} text-[11.5px] leading-relaxed"
+            )
+        if step.route is not None:
+            # The arrow is a glyph, not a word — it does not want translating.
+            ui.link(f"{t('wizard.open')} \u2192", step.route).classes(
+                f"{ACCENT_TEXT} text-xs font-medium flex-none mt-0.5 no-underline"
+            )
+        else:
+            ui.label(t("wizard.not_built")).classes(
+                f"{SECTION_TITLE} text-[10.5px] flex-none mt-0.5"
+            )

@@ -14,10 +14,15 @@ from tests.e2e import seed_helpers as sh
 
 
 def _ensure_onboarding_expanded(page: Page) -> None:
-    """Expand the collapsible onboarding card when steps are hidden (e.g. all done)."""
+    """Expand the collapsible Setup card when its done-cards are hidden (all done)."""
     if not page.get_by_text("Add an institution").is_visible():
         page.get_by_text("Getting started — set up your finances", exact=True).click()
         expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
+
+
+def _setup_card(page: Page, key: str):
+    """One of the four Setup done-cards, by its own hook rather than DOM shape."""
+    return page.locator(f"[data-setup-step='{key}']")
 
 
 # ---------------------------------------------------------------------------
@@ -121,11 +126,9 @@ def test_wizard_institution_go_button_navigates(page: Page, base_url: str) -> No
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
-    # Each onboarding step is a ui.row() (div.row) that contains a label with the
-    # step title AND a button. Using `has=` finds the row that *contains* the exact
-    # title text, then we click the single button inside that row.
-    row = page.locator("div.row").filter(has=page.get_by_text("Add an institution", exact=True))
-    row.get_by_role("button").click()
+    # Each Setup step is a done-card carrying its own data-setup-step hook, so
+    # the test names the card rather than reconstructing it from DOM shape.
+    _setup_card(page, "institution").get_by_role("button").click()
 
     expect(page).to_have_url(f"{base_url}/institutions", timeout=5000)
 
@@ -135,10 +138,7 @@ def test_wizard_account_go_button_navigates(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
-    row = page.locator("div.row").filter(
-        has=page.get_by_text("Create an account with opening balance", exact=True)
-    )
-    row.get_by_role("button").click()
+    _setup_card(page, "account").get_by_role("button").click()
 
     expect(page).to_have_url(f"{base_url}/accounts", timeout=5000)
 
@@ -148,10 +148,7 @@ def test_wizard_categories_go_button_navigates(page: Page, base_url: str) -> Non
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
-    row = page.locator("div.row").filter(
-        has=page.get_by_text("Create expense and income categories", exact=True)
-    )
-    row.get_by_role("button").click()
+    _setup_card(page, "categories").get_by_role("button").click()
 
     expect(page).to_have_url(f"{base_url}/categories", timeout=5000)
 
@@ -161,10 +158,7 @@ def test_wizard_import_go_button_navigates(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
-    row = page.locator("div.row").filter(
-        has=page.get_by_text("Import or add transactions", exact=True)
-    )
-    row.get_by_role("button").click()
+    _setup_card(page, "import").get_by_role("button").click()
 
     expect(page).to_have_url(f"{base_url}/import", timeout=5000)
 
