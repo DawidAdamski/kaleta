@@ -2958,6 +2958,7 @@ Feature: Workflow-based navigation
     And the sidebar is not covering the page
     And tapping More opens the sidebar over it
     And tapping Add opens the new-transaction form
+    And a 900 pixel window keeps the sidebar open and shows no tab bar
 ```
 
 ## Feature: Dashboard Customization

@@ -35,6 +35,9 @@ except Exception:
 
 # Drawer geometry from the design handoff: 236px expanded, 64px collapsed.
 _DRAWER_WIDTH = "width=236"
+# The drawer stops being furniture and becomes an overlay at the same width
+# the tab bar appears at — Quasar would otherwise hand over at 1023px.
+_DRAWER_BREAKPOINT = "breakpoint=767"
 _MINI_PROPS = "mini mini-to-overlay mini-width=64"
 _MINI_PROPS_OFF = "mini mini-to-overlay mini-width"
 
@@ -282,7 +285,11 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     # opens the drawer on a desktop and leaves it shut on a phone. Forcing it
     # open (`value=True`) covered the whole page below the breakpoint, where
     # the drawer is an overlay and "More" in the tab bar is what opens it.
-    with ui.left_drawer().props(_DRAWER_WIDTH).classes(DRAWER) as drawer:
+    #
+    # `breakpoint=767` because Quasar's own default is 1023: left alone, a
+    # window 768–1023px wide got neither an open drawer nor a tab bar. All
+    # three breakpoints — drawer, tab bar, dashboard layout — now agree.
+    with ui.left_drawer().props(f"{_DRAWER_WIDTH} {_DRAWER_BREAKPOINT}").classes(DRAWER) as drawer:
         if is_mini:
             drawer.props(_MINI_PROPS)
         # Pinned entries — always visible, above the workflow groups.
@@ -407,5 +414,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                 ).props("flat dense round").tooltip(t("common.demo_dismiss"))
         yield
         # Room for the tab bar, which is fixed over the foot of the page and
-        # would otherwise sit on the last card. Zero height above `md`.
+        # would otherwise sit on the last card. `display:none` above the
+        # breakpoint — a zero-height child still costs the column a gap.
         ui.element("div").classes(TAB_BAR_SPACER)

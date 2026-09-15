@@ -156,6 +156,11 @@ has a phone artboard, planned in `restyle-login-split`).
   `trailing_avg_per_day` quantize to the grosz in the service rather
   than leaving 28 digits for whatever formats them.
 
+- **`SafeToSpend` has no `month`.** It had one as a property after the
+  field went; nothing read it, so it went too — `days_left` asks `today`
+  directly. `band_of` and `HERO_WIDGET` came off the package's export
+  list for the same reason.
+
 - **`safe_to_spend` takes a day, not a month.** Scope writes
   `safe_to_spend(month)`, but `days_left` and "still due" are both
   questions about a *day*: a month argument alone leaves `days_left`
@@ -304,11 +309,19 @@ has a phone artboard, planned in `restyle-login-split`).
   page — 44px on the dashboard, 24px elsewhere. That is not "desktop
   rendering untouched".
 
-- **One breakpoint, not two that disagree at 768px.** `.k-dash-page`
-  switched to phone padding at `max-width:768px` inclusive, while the
-  tab bar and the layout choice both put a 768px-wide window (an iPad in
-  portrait) on the desktop side. A desktop grid with phone padding is
-  neither, so `.k-dash-page` now ends at 767.98px like the rest.
+- **One breakpoint, and it took two passes to find them all.**
+  `.k-dash-page` switched to phone padding at `max-width:768px`
+  inclusive, while the tab bar and the layout choice both put a
+  768px-wide window (an iPad in portrait) on the desktop side; it now
+  ends at 767.98px like the rest. The worse one was Quasar's: dropping
+  `value=True` hands the drawer to *its* breakpoint, which is 1023px, so
+  a window between 768 and 1023 got a shut drawer **and** no tab bar —
+  navigable only through the header hamburger, where before this branch
+  the drawer stood open. `breakpoint=767` on the drawer aligns all
+  three. Measured at 390, 600, 767, 768, 900, 1023, 1024 and 1360px:
+  overlay drawer with a tab bar below 768, open drawer with no tab bar
+  from 768 up, no sideways scroll at any of them. An e2e at 900px
+  guards it.
 
 - **The Watch band's forecast needs no guard, and the first one written
   here was a lie.** A `try/except` went in around it on the strength of

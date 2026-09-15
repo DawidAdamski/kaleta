@@ -237,10 +237,10 @@ class SafeToSpend:
     positive magnitude; the sign lives in the arithmetic, not in the fields.
     """
 
-    #: The day these figures were computed for. The month is the one it falls
-    #: in — a separate field for it would allow a pair that disagree, and the
-    #: only sensible answer to "what is left of March, on a day in June?" is
-    #: that the question is wrong.
+    #: The day these figures were computed for; the month is the one it falls
+    #: in. A field for the month as well would allow a pair that disagree, and
+    #: the only sensible answer to "what is left of March, on a day in June?"
+    #: is that the question is wrong.
     today: datetime.date
     #: Posted, non-transfer income this month.
     income: Decimal
@@ -256,11 +256,6 @@ class SafeToSpend:
     def free(self) -> Decimal:
         """Income minus what is promised minus what is gone. May be negative."""
         return self.income - self.committed - self.spent
-
-    @property
-    def month(self) -> datetime.date:
-        """First day of the month these figures stand for."""
-        return self.today.replace(day=1)
 
     @property
     def days_left(self) -> int:

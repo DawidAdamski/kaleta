@@ -50,6 +50,12 @@ def test_a_narrow_viewport_gets_a_bottom_tab_bar(page: Page, base_url: str) -> N
         box = tab.bounding_box()
         assert box is not None
         assert box["height"] >= MIN_TAP_TARGET, f"{label} is {box['height']}px tall"
+        assert box["width"] >= MIN_TAP_TARGET, f"{label} is {box['width']}px wide"
+
+    # The centre circle is the one target that is not a full-width column.
+    add = bar.locator(".k-tabbar-add").bounding_box()
+    assert add is not None
+    assert min(add["width"], add["height"]) >= MIN_TAP_TARGET, add
 
     # Only "Add" is an icon alone; the other four are labelled.
     for _data_tab, label in TABS:
@@ -103,6 +109,22 @@ def _reset_widgets(page: Page) -> None:
     expect(dialog.get_by_text("Customize Dashboard", exact=True)).to_be_visible(timeout=5000)
     dialog.get_by_role("button", name="Reset widgets").click()
     expect(dialog).to_be_hidden(timeout=10000)
+
+
+def test_no_width_is_stranded_between_the_two_layouts(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-006
+
+    Quasar hands the drawer over to overlay mode at 1023px by default, while
+    the tab bar appears below 768px. Left alone, a window between the two got
+    neither: a shut drawer and no tab bar. The drawer carries its own
+    breakpoint so all three — drawer, bar, dashboard layout — change at once.
+    """
+    page.set_viewport_size({"width": 900, "height": 900})
+    page.goto(f"{base_url}/transactions")
+    page.wait_for_function("() => window.did_handshake === true", timeout=20000)
+
+    expect(page.locator("aside.q-drawer")).to_be_visible(timeout=10000)
+    expect(page.locator(".k-tabbar")).to_be_hidden()
 
 
 def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) -> None:
