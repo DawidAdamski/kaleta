@@ -116,14 +116,16 @@ def test_no_width_is_stranded_between_the_two_layouts(page: Page, base_url: str)
 
     Quasar hands the drawer over to overlay mode at 1023px by default, while
     the tab bar appears below 768px. Left alone, a window between the two got
-    neither: a shut drawer and no tab bar. The drawer carries its own
-    breakpoint so all three — drawer, bar, dashboard layout — change at once.
+    neither: a shut drawer and no tab bar. Since artboard `1e` the drawer is
+    an overlay at every width and the top bar is the wide navigation, so the
+    one line that must not have a gap in it is 768px: below it the tab bar,
+    above it the top bar, and never a window with neither.
     """
     page.set_viewport_size({"width": 900, "height": 900})
     page.goto(f"{base_url}/transactions")
     page.wait_for_function("() => window.did_handshake === true", timeout=20000)
 
-    expect(page.locator("aside.q-drawer")).to_be_visible(timeout=10000)
+    expect(page.locator(".k-topnav")).to_be_visible(timeout=10000)
     expect(page.locator(".k-tabbar")).to_be_hidden()
 
 
@@ -133,7 +135,12 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     _reset_widgets(page)
     _open_phone_dashboard(page, base_url)
 
-    for band, heading in (("now", "Now"), ("month", "This month"), ("watch", "Watch")):
+    for band, heading in (
+        ("now", "Now"),
+        ("month", "This month"),
+        ("watch", "Watch"),
+        ("latest", "Latest"),
+    ):
         section = page.locator(f'[data-band="{band}"]')
         expect(section).to_be_visible(timeout=10000)
         expect(section.get_by_text(heading, exact=True).first).to_be_visible()
@@ -147,9 +154,9 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     watch = page.locator('[data-band="watch"]')
     for label in (
         "Net Worth",
+        "Savings rate, 6-mo avg",
         "Balance in 30 days",
-        "Savings rate year to date",
-        "Net year to date",
+        "Safety fund cover",
     ):
         expect(watch.get_by_text(label, exact=True).first).to_be_visible()
     # Plain type on the ground: a card here would repeat what the figure above
@@ -162,31 +169,34 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     expect(page.locator("#dash-edit-btn-label")).to_have_count(0)
     expect(page.get_by_role("button", name="Customize")).to_be_visible()
 
-    # The hero is above whether or not the stored layout carries it — and it
-    # does not, so the claim is about the layout this dialog actually holds.
+    # The hero is a default widget since artboard `1e`, so a reset profile has
+    # it ticked — the case of a layout stored before it existed is what
+    # ``with_hero`` covers, and where its unit tests pin it.
     page.get_by_role("button", name="Customize").click()
     dialog = page.get_by_role("dialog")
     hero_row = dialog.locator('[data-customize-row="safe_to_spend"]')
     expect(hero_row).to_be_visible(timeout=5000)
     expect(hero_row.locator('[role="checkbox"]')).to_have_attribute(
-        "aria-checked", "false", timeout=5000
+        "aria-checked", "true", timeout=5000
     )
 
     widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
     assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"
 
 
-def test_the_desktop_grid_is_untouched(page: Page, base_url: str) -> None:
+def test_a_wide_window_does_not_get_the_phone_layout(page: Page, base_url: str) -> None:
     """Covers: KAL-DSH-007
 
     The phone layout is chosen once, server-side, from the viewport width —
     so the guard that a wide window still gets the grid belongs next to the
-    test that a narrow one does not.
+    test that a narrow one does not. Both widths read in bands since artboard
+    `1e`; what separates them is the grid and the tab bar. What the wide
+    window does with its bands is KAL-DSH-008, in
+    ``test_dashboard_desktop.py``.
     """
     page.set_viewport_size({"width": 1360, "height": 900})
     page.goto(f"{base_url}/")
     page.wait_for_function("() => window.did_handshake === true", timeout=20000)
 
     expect(page.locator("#dash-grid")).to_be_visible(timeout=20000)
-    expect(page.locator("[data-band]")).to_have_count(0)
     expect(page.locator(".k-tabbar")).to_be_hidden()

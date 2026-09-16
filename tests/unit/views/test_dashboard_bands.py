@@ -12,7 +12,7 @@ from kaleta.views.dashboard_widgets import (
     DEFAULT_WIDGETS,
     Band,
     bands_for_layout,
-    mobile_layout,
+    with_hero,
 )
 from kaleta.views.dashboard_widgets.registry import HERO_WIDGET, LEGACY_KPI_WIDGETS, WIDGETS
 from kaleta.views.dashboard_widgets.safe_to_spend import days_left_label, hero_split
@@ -60,7 +60,7 @@ class TestBandsForLayout:
 class TestMobileLayout:
     def test_the_hero_leads_a_layout_that_does_not_carry_it(self) -> None:
         """It is off by default on the desktop grid, so a phone must add it."""
-        result = mobile_layout([_entry("cashflow_chart")])
+        result = with_hero([_entry("cashflow_chart")])
 
         assert _ids(result) == [HERO_WIDGET, "cashflow_chart"]
 
@@ -68,12 +68,12 @@ class TestMobileLayout:
         """Twice on one screen is worse than once in the wrong place."""
         layout = [_entry("cashflow_chart"), _entry(HERO_WIDGET)]
 
-        result = mobile_layout(layout)
+        result = with_hero(layout)
 
         assert _ids(result) == ["cashflow_chart", HERO_WIDGET]
 
     def test_the_hero_lands_in_the_now_band(self) -> None:
-        grouped = bands_for_layout(mobile_layout([_entry("cashflow_chart")]))
+        grouped = bands_for_layout(with_hero([_entry("cashflow_chart")]))
 
         assert _ids(grouped[Band.NOW]) == [HERO_WIDGET]
 
