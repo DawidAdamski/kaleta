@@ -599,6 +599,9 @@ async def import_page() -> None:
                 _repaint_active()
         finally:
             state["importing"] = False
+            # Whatever ended the run, the button that started it stops
+            # being drawn disabled.
+            wizard_footer.refresh()
 
         if state["queue"]:
             state["last_settings"] = settings_snapshot(state["queue"][-1])

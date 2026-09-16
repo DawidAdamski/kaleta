@@ -241,6 +241,14 @@ separate plan.
   multi-file drop has to decode, parse and re-render once per file before
   either is true. Nothing that was 5s and stayed the same assertion was
   raised; those that had been went back down.
+- **Three i18n keys beyond the plan's list**: `import.blocked_no_file`
+  and `import.blocked_step` are what the footer says when it refuses with
+  nothing better to say, and `import.eyebrow_no_file` is the header
+  before a file exists. Both locales have all three.
+- **The progress line is walkable by keyboard.** A node is a `ui.column`,
+  not a `q-btn`, so being a link means saying so: `role="button"`,
+  `tabindex="0"` and Enter/Space of its own. Without it Open question 1's
+  answer — you may walk back — was true only with a mouse.
 - **`data-*` hooks** (`data-step`, `data-step-panel`, `data-wizard-footer`,
   `data-continue`, `data-blocked-reason`, `data-import-run`,
   `data-file-switcher`, `data-page-eyebrow`, `data-queue-row`) are how
@@ -300,6 +308,9 @@ separate plan.
   settings. The file now fails the way the branch it covers actually
   fires — the target account is deleted between choosing it on step 4
   and importing into it on step 5, so the insert cannot be written and
-  `_import_one`'s `except` marks the file failed. That keeps the
-  import-time failure path covered rather than swapping it for a parse
-  failure.
+  `_import_one`'s `except` marks the file failed. What rejects it is
+  SQLite's own foreign key on `transactions.account_id`, which
+  `db/session.py` turns on for every connection (`PRAGMA
+  foreign_keys=ON`); nothing in the import checks that the account is
+  still there. That keeps the import-time failure path covered rather
+  than swapping it for a parse failure.

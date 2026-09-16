@@ -203,9 +203,10 @@ class TestWizardNavigation:
         worst thing this wizard could do."""
         # Nothing blocked: there is a finished step ahead.
         assert continue_blocked_reason(_file(status="ready"), STEP_UPLOAD, STEP_SETTINGS) is None
-        # No file at all — the upload step is waiting on one.
-        assert continue_blocked_reason(None, STEP_UPLOAD, STEP_UPLOAD) == t(
-            "import.blocked_no_file"
+        # No file at all — the upload step is waiting on one. The literal
+        # is the scenario's (rule 11), not the key's own lookup.
+        assert (
+            continue_blocked_reason(None, STEP_UPLOAD, STEP_UPLOAD) == "Upload a file to continue."
         )
         # Mapping refuses in the file's own words.
         needs = _file(status="needs_mapping", status_msg="Date column is required.")
@@ -220,9 +221,12 @@ class TestWizardNavigation:
         blocked = settings_block_reason(ready)
         assert blocked is not None
         assert blocked[0] == "import.select_account_hint"
-        assert continue_blocked_reason(
-            ready, STEP_SETTINGS, STEP_SETTINGS, settings_reason=t(blocked[0])
-        ) == t("import.select_account_hint")
+        assert (
+            continue_blocked_reason(
+                ready, STEP_SETTINGS, STEP_SETTINGS, settings_reason=t(blocked[0])
+            )
+            == "Select a target account."
+        )
         done = _file(status="ready", target_account_id=7, expense_cat_id=1, income_cat_id=2)
         assert settings_block_reason(done) is None
 

@@ -94,5 +94,12 @@ def render_step_indicator(
                 step.props["aria-current"] = "step"
             walkable = index <= current if steps is None else index in steps
             if on_step is not None and walkable:
+                # A link by keyboard as well as by mouse: the node is not a
+                # `q-btn`, so the role, the stop on the tab order and the
+                # two keys a button answers to are all its own.
                 step.classes(add="cursor-pointer")
+                step.props["role"] = "button"
+                step.props["tabindex"] = "0"
                 step.on("click", lambda _e=None, i=index: on_step(i))
+                step.on("keydown.enter", lambda _e=None, i=index: on_step(i))
+                step.on("keydown.space.prevent", lambda _e=None, i=index: on_step(i))

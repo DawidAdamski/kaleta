@@ -1060,6 +1060,11 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
     expect(page.locator(".k-step--reading")).to_have_count(1)
     expect(page.locator(".k-step--now")).to_have_count(1)
 
+    # Walkable by keyboard as well: the node takes focus and answers Enter.
+    page.locator('[data-step="3"]').focus()
+    page.keyboard.press("Enter")
+    expect(_panel(page, STEP_MAPPING)).to_be_visible(timeout=5000)
+
     # And a step the file has already passed is clickable, in either
     # direction — including back to the format picker, which is step one.
     _step(page, STEP_FORMAT)
