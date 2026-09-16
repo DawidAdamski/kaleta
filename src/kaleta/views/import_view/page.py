@@ -685,7 +685,7 @@ async def import_page() -> None:
         @ui.refreshable
         def page_header() -> None:
             with ui.column().classes("w-full gap-1"):
-                ui.label(_eyebrow()).classes("k-eyebrow")
+                ui.label(_eyebrow()).classes("k-eyebrow").props("data-page-eyebrow")
                 ui.label(t("import.title")).classes(PAGE_TITLE)
 
         @ui.refreshable

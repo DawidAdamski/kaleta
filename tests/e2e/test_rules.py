@@ -72,6 +72,13 @@ def test_create_categorisation_rule(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Groceries").first).to_be_visible(timeout=5000)
 
 
+def _import_step(page: Page, step: int) -> None:
+    """Walk the import wizard to *step* — it shows one at a time."""
+    page.keyboard.press("Escape")
+    page.locator(f'[data-step="{step}"]').click()
+    expect(page.locator(f'[data-step-panel="{step}"]')).to_be_visible(timeout=5000)
+
+
 def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
     """Covers: KAL-RUL-002
 
@@ -103,14 +110,21 @@ def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
         )
 
         page.locator('input[type="file"]').set_input_files(str(csv_path))
-        expect(page.get_by_text("LIDL Warszawa", exact=False).first).to_be_visible(timeout=5000)
+        expect(page.locator("[data-page-eyebrow]")).to_contain_text(csv_path.name, timeout=10000)
 
+        # The import page is a wizard: settings on step 4, the import itself
+        # from the preview's footer on step 5.
+        _import_step(page, 4)
         _select_option(page, "Target account", _account_option(account_name))
         _select_option(page, "Default expense category", expense_default)
         _select_option(page, "Default income category", income_cat)
 
-        page.get_by_role("button", name="Import 1 file").click()
-        expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=10000)
+        _import_step(page, 5)
+        expect(
+            page.locator('[data-step-panel="5"]').get_by_text("LIDL Warszawa", exact=False).first
+        ).to_be_visible(timeout=5000)
+        page.locator("[data-import-run]").click()
+        expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
 
         page.goto(f"{base_url}/transactions")
         search_ledger(page, "LIDL")

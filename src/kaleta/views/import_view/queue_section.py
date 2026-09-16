@@ -54,7 +54,9 @@ class QueueSection:
         classes = "w-full items-start gap-3 p-2 rounded cursor-pointer border-l-4 " + (
             "border-primary" if is_active else "border-transparent"
         )
-        with ui.row().classes(classes).on("click", lambda _e, fid=queued_file.id: on_select(fid)):
+        row = ui.row().classes(classes).on("click", lambda _e, fid=queued_file.id: on_select(fid))
+        row.props["data-queue-row"] = queued_file.filename
+        with row:
             colour = STATUS_COLOR.get(queued_file.status, "grey-6")
             ui.icon(
                 "check_circle"
