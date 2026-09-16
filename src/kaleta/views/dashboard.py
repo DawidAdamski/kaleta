@@ -245,7 +245,11 @@ def _validate_layout(
 
     Rules:
     - each ``id`` must exist in WIDGETS
-    - ``(cols, rows)`` must be in the widget's ``allowed_sizes``
+    - a ``(cols, rows)`` outside the widget's ``allowed_sizes`` — or missing
+      altogether — falls back to its ``default_size``, the same answer
+      ``resolve_user_layout`` gives on the way in. Dropping the row instead
+      is how a widget disappears from a dashboard for no reason its owner
+      can see: the size is the layout's business, the widget is theirs.
     - duplicates collapsed to first occurrence
     - empty result falls back to ``stored``
     """
@@ -258,11 +262,10 @@ def _validate_layout(
         w = WIDGETS[wid]
         cols = entry.get("cols")
         rows = entry.get("rows")
-        if not isinstance(cols, int) or not isinstance(rows, int):
-            continue
-        if (cols, rows) not in w.allowed_sizes:
-            continue
-        cleaned.append({"id": wid, "cols": cols, "rows": rows})
+        size = (cols, rows) if isinstance(cols, int) and isinstance(rows, int) else None
+        if size not in w.allowed_sizes:
+            size = w.default_size
+        cleaned.append({"id": wid, "cols": size[0], "rows": size[1]})
         seen.add(wid)
     return cleaned or list(stored)
 
@@ -446,9 +449,7 @@ async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_
             if is_watch:
                 await _render_watch_band(session, columns=2)
             for entry in entries:
-                widget = WIDGETS[entry["id"]]
-                with ui.element("div").classes("w-full").props(f'data-widget-id="{widget.id}"'):
-                    await widget.render(session, is_dark)
+                await _render_banded_widget(entry, session, is_dark)
 
 
 async def _render_desktop_bands(
@@ -480,7 +481,7 @@ async def _render_desktop_bands(
                     await _render_watch_band(session, columns=4)
                 else:
                     for entry in entries:
-                        await _render_banded_widget(WIDGETS[entry["id"]], session, is_dark)
+                        await _render_banded_widget(entry, session, is_dark)
 
 
 def _band_header(band: Band, title_key: str) -> None:
@@ -502,9 +503,25 @@ def _band_header(band: Band, title_key: str) -> None:
                 )
 
 
-async def _render_banded_widget(widget: Widget, session: AsyncSession, is_dark: bool) -> None:
-    """A widget outside the Month band: rendered, addressable, not draggable."""
-    with ui.element("div").classes("w-full").props(f'data-widget-id="{widget.id}"'):
+async def _render_banded_widget(
+    entry: dict[str, Any], session: AsyncSession, is_dark: bool
+) -> None:
+    """A widget outside the Month band: rendered, addressable, not draggable.
+
+    It carries ``data-cols``/``data-rows`` although nothing lays it out with
+    them: ``__kaletaPostDashLayout`` serialises every banded widget, and a
+    node with no size posts as 1×1 — a size none of these widgets allows, so
+    the endpoint dropped the hero, the banner and the Latest list from
+    storage on the first drag in the band next door.
+    """
+    widget = WIDGETS[entry["id"]]
+    with (
+        ui.element("div")
+        .classes("w-full")
+        .props(
+            f'data-widget-id="{widget.id}" data-cols="{entry["cols"]}" data-rows="{entry["rows"]}"'
+        )
+    ):
         await widget.render(session, is_dark)
 
 
@@ -522,11 +539,11 @@ async def _render_now_band(
     hero, rest = entries[0], entries[1:]
     with ui.row().classes("w-full gap-5 items-stretch flex-wrap lg:flex-nowrap"):
         with ui.column().classes("flex-[2] min-w-[320px] gap-4"):
-            await _render_banded_widget(WIDGETS[hero["id"]], session, is_dark)
+            await _render_banded_widget(hero, session, is_dark)
         if rest:
             with ui.column().classes("flex-1 min-w-[280px] gap-4"):
                 for entry in rest:
-                    await _render_banded_widget(WIDGETS[entry["id"]], session, is_dark)
+                    await _render_banded_widget(entry, session, is_dark)
 
 
 async def _render_month_grid(
