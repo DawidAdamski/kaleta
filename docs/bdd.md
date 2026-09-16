@@ -2970,6 +2970,7 @@ Feature: Workflow-based navigation
     And the section holding the page I am on is marked
     And opening a section and choosing an entry navigates to that page
     And at 768 pixels, the width it takes over at, the bar still reads on one line
+    And the browser tab carries the page's name, which the header no longer shows
 
   KAL-NAV-008 @automated
   Scenario: The command palette reaches any page by name

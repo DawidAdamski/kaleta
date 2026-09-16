@@ -122,10 +122,13 @@ for, rather than a wall of equal cards:
 - **This month** — everything without a band of its own.
 - **Watch** — four slow figures as plain type on the ground, no cards
   and no widgets at all (`BAND_OF` maps nothing here): net worth, the
-  six-month average savings rate, the 30-day balance and the emergency
-  fund's months of cover. Two columns on a phone, four on a desktop. A
-  figure with no answer — no fund, an empty one, nothing recent to
-  measure against — reads "—" rather than inventing a zero.
+  six-month average savings rate, the 30-day balance and the months the
+  emergency funds cover between them
+  (`ReserveFundService.emergency_cover` — every fund divides by the same
+  trailing monthly spend, so two funds cover the sum of their months).
+  Two columns on a phone, four on a desktop. A figure with no answer — no
+  fund, an empty one, no income in six months, nothing recent to measure
+  against — reads "—" rather than inventing a zero.
 - **Latest** — the recent-transactions list, which is a log and not a
   metric, and belongs under everything that is.
 

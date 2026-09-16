@@ -56,8 +56,11 @@ decision to stop waiting.
   unchanged; only the container classes differ.
 - **Drag-and-drop scoped to the Month band.** The SortableJS instance
   binds to the Month band's container instead of `#dash-grid`; the
-  `/\_dashboard/layout` endpoint, `_validate_layout` and the legacy
-  migration are untouched, and a widget outside Month is not draggable.
+  `/\_dashboard/layout` endpoint and the legacy migration are untouched,
+  and a widget outside Month is not draggable. ~~`_validate_layout` is
+  untouched~~ — it had to change, and the reason is under *Found by the
+  second review*: with every banded widget now posted, a size it did not
+  recognise deleted the widget instead of correcting it.
 - **The hero joins the desktop default.** `safe_to_spend` goes into
   `DEFAULT_WIDGETS` at the head, which also makes `mobile_layout`'s
   prepend a no-op for new users.
@@ -83,6 +86,11 @@ payees or categories (routes only); touching `app.storage.user` keys;
 - `grep -q "KAL-DSH-008" docs/bdd.md`
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
+- `[owner]` Open question 2 was decided **against** this plan's stated
+  default: the `1f` tab bar keeps Home / Ledger / + / Plan / More rather
+  than becoming the five sections. The reasoning is in Implementation
+  notes §2; it is a one-file change to `TAB_BAR_ENTRIES` if the owner
+  wants the default after all.
 - `[manual]` 1360px on seed data: matches artboard `1e` — five sections
   in the top bar, no drawer, hero carrying the page, Now / Month / Watch
   / Latest, and a card dragged inside Month stays inside it. 390px is
