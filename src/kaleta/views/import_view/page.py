@@ -8,7 +8,7 @@ from typing import Any
 
 from nicegui import events, ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.services import (
     AccountService,
     CategoryService,
@@ -34,22 +34,39 @@ from kaleta.views.import_view.profile_section import build_profile_section
 from kaleta.views.import_view.queue_section import build_queue_section
 from kaleta.views.import_view.settings_section import build_settings_section
 from kaleta.views.import_view.state import (
+    STEP_CONFIRM,
+    STEP_MAPPING,
+    STEP_PREVIEW,
+    STEP_SETTINGS,
+    STEP_UPLOAD,
     QueuedFile,
     apply_settings_snapshot,
     current_step,
+    import_button_label,
     queue_is_terminal,
+    settings_block_reason,
     settings_snapshot,
 )
 from kaleta.views.import_view.step_indicator import render_step_indicator
 from kaleta.views.import_view.summary_section import build_summary_section
 from kaleta.views.import_view.transfer_section import build_transfer_section
 from kaleta.views.import_view.upload_section import build_upload_section
+from kaleta.views.import_view.wizard import (
+    STEP_LABEL_KEYS,
+    can_continue,
+    clamp_viewed,
+    continue_blocked_reason,
+    next_step,
+    prev_step,
+    steps_for,
+)
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.user_prefs import (
     get_import_skip_duplicates_default,
     get_transfer_amount_tolerance,
     get_transfer_pairing_days,
 )
+from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD
 
 
 async def import_page() -> None:
@@ -87,6 +104,10 @@ async def import_page() -> None:
     state: dict[str, Any] = {
         "queue": [],
         "active_id": None,
+        # The step on screen. ``current_step`` says where the *work* is; this
+        # says where the reader is, which is behind it whenever they walk back.
+        "step": STEP_UPLOAD,
+        "importing": False,
         "last_settings": None,
         "bulk_account_id": None,
         "activity_rows": activity_rows,
@@ -164,15 +185,15 @@ async def import_page() -> None:
         account = next((a for a in accounts if a.id == active.target_account_id), None)
         return account.currency if account else None
 
-    @ui.refreshable
-    def step_line() -> None:
-        render_step_indicator(current_step(_active(), account_currency=_active_account_currency()))
-
     def _repaint_active() -> None:
+        """Load the active file into every section, and re-decide the step.
+
+        Unchanged in what it does: each section still decides *whether* it
+        applies to this file. What is new is the last line — the shell then
+        decides which of them is in front of the reader, so an edit that
+        sends the work backwards takes the reader with it.
+        """
         active = _active()
-        # The line reads the same state the sections do, so it cannot claim a
-        # step the page below it is not showing.
-        step_line.refresh()
         profile_section.set_active_profile(active.profile if active else None)
 
         if active is None:
@@ -182,6 +203,7 @@ async def import_page() -> None:
             preview_section.set_visible(False)
             transfer_section.set_visible(False)
             upload_section.set_hint(t("import.upload_hint_generic"))
+            _sync_step()
             return
 
         upload_section.set_hint(
@@ -211,6 +233,7 @@ async def import_page() -> None:
         settings_section.set_visible(show_settings)
         preview_section.set_visible(active.status in {"ready", "done", "needs_mapping"})
         transfer_section.set_visible(active.profile == "generic" and active.status == "ready")
+        _sync_step()
 
     def _render_queue() -> None:
         queue_section.render(
@@ -244,6 +267,7 @@ async def import_page() -> None:
         upload_section.upload_widget.reset()
         _render_queue()
         _repaint_active()
+        _sync_step(follow=True)
 
     async def _select_profile(key: str) -> None:
         active = _active()
@@ -256,6 +280,9 @@ async def import_page() -> None:
         await _parse_file(active)
         _repaint_active()
         _render_queue()
+        # mbank/pko/wise have no mapping step: the one the reader is on may
+        # have just stopped existing.
+        _sync_step()
 
     async def _auto_match_account(queued_file: QueuedFile) -> bool:
         if queued_file.profile != "mbank" or not queued_file.metadata:
@@ -370,6 +397,9 @@ async def import_page() -> None:
         summary_section.hide()
         _render_queue()
         _repaint_active()
+        # A fresh file moves the reader to whatever it needs — the whole
+        # point of a wizard is not having to go and find the next question.
+        _sync_step(follow=True)
 
     def _on_settings_change() -> None:
         if settings_section._loading:
@@ -381,8 +411,8 @@ async def import_page() -> None:
         active.from_bulk_default = False
         settings_section.update_currency_warning(active, accounts)
         # Choosing the account is what the Settings step is for, so the line
-        # has to move when it happens.
-        step_line.refresh()
+        # and the Continue button both have to move when it happens.
+        _sync_step()
 
     async def _on_mapping_change() -> None:
         active = _active()
@@ -522,21 +552,27 @@ async def import_page() -> None:
             ui.notify(t("import.no_files_to_import"), type="warning")
             return
 
-        queue_section.import_all_btn.props("disable")
+        # The footer reads this rather than being poked: it is rebuilt on
+        # every step change anyway, and one source for "can you press it" is
+        # one place for that answer to be wrong.
+        state["importing"] = True
+        wizard_footer.refresh()
         try:
             for queued_file in eligible:
                 await _import_one(queued_file)
                 _render_queue()
                 _repaint_active()
         finally:
-            ready = sum(1 for f in state["queue"] if f.status == "ready")
-            queue_section.update_import_button(ready)
+            state["importing"] = False
 
         if state["queue"]:
             state["last_settings"] = settings_snapshot(state["queue"][-1])
         summary_section.render(state["queue"])
         summary_section.show()
         await _refresh_coverage()
+        # Every file has finished, so the work is on Confirm; the reader goes
+        # with it rather than being left on a preview of rows already in.
+        _sync_step(follow=True)
 
     async def _refresh_coverage() -> None:
         async def _load(session: Any) -> tuple[Any, Any]:
@@ -580,25 +616,202 @@ async def import_page() -> None:
         _render_queue()
         _repaint_active()
 
-    with page_layout(t("import.title")):
-        ui.label(t("import.title")).classes("text-2xl font-bold")
-        step_line()
+    # ── The wizard shell ─────────────────────────────────────────────────
+    #
+    # ``current_step`` has always known which step the file is waiting on;
+    # until now only the progress line acted on it, over a page showing all
+    # six steps at once. These three functions are what make the page agree
+    # with its own line: one panel on screen, a footer that moves, and a
+    # reader who may walk back without the work moving with them.
 
-        profile_section = build_profile_section(_select_profile)
-        upload_section = build_upload_section()
-        coverage_section = build_coverage_section()
-        coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
-        queue_section = build_queue_section(account_options)
-        metadata_section = build_metadata_section()
-        mapping_section = build_mapping_section()
-        settings_section = build_settings_section(
-            account_options,
-            expense_cat_opts,
-            income_cat_opts,
+    def _reachable() -> int:
+        return current_step(_active(), account_currency=_active_account_currency())
+
+    def _settings_reason(active: QueuedFile | None) -> str | None:
+        """The settings step's own refusal, translated."""
+        if active is None:
+            return None
+        blocked = settings_block_reason(active, account_currency=_active_account_currency())
+        return None if blocked is None else t(blocked[0], **blocked[1])
+
+    def _sync_step(*, follow: bool = False) -> None:
+        """Show the viewed step's panel and nothing else.
+
+        ``follow`` puts the reader where the work is — what an upload or a
+        finished import should do. Otherwise the reader stays put, clamped
+        to a step that still exists and that the work has reached.
+        """
+        active = _active()
+        steps = steps_for(active)
+        reachable = _reachable()
+        viewed = reachable if follow else clamp_viewed(state["step"], reachable, steps)
+        state["step"] = viewed
+        for step, panel in step_panels.items():
+            panel.set_visibility(step == viewed)
+        step_line.refresh()
+        page_header.refresh()
+        file_switcher.refresh()
+        wizard_footer.refresh()
+
+    def _goto(step: int) -> None:
+        state["step"] = step
+        _sync_step()
+
+    def _go_back() -> None:
+        _goto(prev_step(state["step"], steps_for(_active())))
+
+    def _go_forward() -> None:
+        _goto(next_step(state["step"], steps_for(_active())))
+
+    def _eyebrow() -> str:
+        """The file this screen is about, and how big it is (artboard 2d)."""
+        active = _active()
+        if active is None:
+            return t("import.eyebrow_no_file")
+        rows = (
+            active.inspection.total_rows
+            if active.inspection is not None
+            else len(active.parsed_rows)
         )
-        preview_section = build_preview_section()
-        transfer_section = build_transfer_section(run_detect)
-        summary_section = build_summary_section()
+        return f"{active.filename} · {t(plural_key('import.rows_count', rows), count=rows)}"
+
+    def _select_file_at(index: int) -> None:
+        queue = state["queue"]
+        if 0 <= index < len(queue):
+            _set_active(queue[index].id)
+
+    with page_layout(t("import.title")):
+
+        @ui.refreshable
+        def page_header() -> None:
+            with ui.column().classes("w-full gap-1"):
+                ui.label(_eyebrow()).classes("k-eyebrow")
+                ui.label(t("import.title")).classes(PAGE_TITLE)
+
+        @ui.refreshable
+        def file_switcher() -> None:
+            """``< File 2 of 4 >`` — the queue, on the steps that act on one file.
+
+            The queue card itself belongs to Upload: a list of files under the
+            mapping step is the scroll this wizard exists to remove. What is
+            left of it here is the one thing those steps need, which is a way
+            to reach the next file without going back.
+            """
+            queue = state["queue"]
+            if state["step"] not in {STEP_MAPPING, STEP_SETTINGS, STEP_PREVIEW} or len(queue) < 2:
+                return
+            active = _active()
+            index = next((i for i, f in enumerate(queue) if active and f.id == active.id), 0)
+            with ui.row().classes("w-full items-center gap-2").props("data-file-switcher"):
+                back = ui.button(icon="chevron_left", on_click=lambda: _select_file_at(index - 1))
+                back.props("flat dense round color=primary")
+                if index == 0:
+                    back.props("disable")
+                ui.label(t("import.file_n_of_m", n=index + 1, m=len(queue))).classes(BODY_MUTED)
+                fwd = ui.button(icon="chevron_right", on_click=lambda: _select_file_at(index + 1))
+                fwd.props("flat dense round color=primary")
+                if index >= len(queue) - 1:
+                    fwd.props("disable")
+
+        @ui.refreshable
+        def step_line() -> None:
+            render_step_indicator(
+                _reachable(),
+                viewed=state["step"],
+                reachable=_reachable(),
+                on_step=_goto,
+            )
+
+        @ui.refreshable
+        def wizard_footer() -> None:
+            """``Back`` and ``Continue to <step>`` — or, on Preview, ``Import``.
+
+            The import used to run from a button in the queue card's header,
+            which on a six-card page was as good a place as any. On a wizard
+            it belongs at the end of the last step you can still change your
+            mind on, where ``Continue`` would otherwise be.
+            """
+            viewed = state["step"]
+            active = _active()
+            steps = steps_for(active)
+            reachable = _reachable()
+            with ui.row().classes("w-full items-center gap-3 mt-1").props("data-wizard-footer"):
+                back = ui.button(t("import.back"), icon="chevron_left", on_click=_go_back)
+                back.props("flat no-caps color=primary")
+                if prev_step(viewed, steps) == viewed:
+                    back.props("disable")
+                ui.space()
+                if viewed == STEP_PREVIEW:
+                    ready = sum(1 for f in state["queue"] if f.status == "ready")
+                    run = ui.button(
+                        import_button_label(ready), icon="upload", on_click=do_import_all
+                    ).props("unelevated no-caps color=primary")
+                    run.props["data-import-run"] = "true"
+                    if ready <= 0 or state["importing"]:
+                        run.props("disable")
+                    return
+                reason = continue_blocked_reason(
+                    active, viewed, reachable, settings_reason=_settings_reason(active)
+                )
+                if reason:
+                    ui.label(reason).classes(BODY_MUTED).props("data-blocked-reason")
+                if viewed == STEP_CONFIRM:
+                    return
+                nxt = next_step(viewed, steps)
+                # `icon-right` is a Quasar prop taking an icon *name*, not a
+                # `ui.button` argument — the same trap the top bar's chevrons
+                # fell into (see `restyle-dashboard-rethink`).
+                forward = ui.button(
+                    t("import.continue_to", step=t(STEP_LABEL_KEYS[nxt])),
+                    on_click=_go_forward,
+                ).props("unelevated no-caps color=primary icon-right=chevron_right")
+                forward.props["data-continue"] = "true"
+                if not can_continue(viewed, reachable, steps):
+                    forward.props("disable")
+
+        page_header()
+        step_line()
+        file_switcher()
+
+        step_panels: dict[int, ui.column] = {}
+
+        def _panel(step: int) -> ui.column:
+            panel = ui.column().classes("w-full gap-4").props(f'data-step-panel="{step}"')
+            step_panels[step] = panel
+            return panel
+
+        with _panel(1):
+            profile_section = build_profile_section(_select_profile)
+            # Coverage and history are not steps — they are what you consult
+            # before choosing a format, and a card each on the way to every
+            # import is how the old page got long.
+            with ui.expansion(t("import.reference_panels")).classes(f"{SECTION_CARD} w-full"):
+                coverage_section = build_coverage_section()
+                coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
+
+        with _panel(STEP_UPLOAD):
+            upload_section = build_upload_section()
+            metadata_section = build_metadata_section()
+            queue_section = build_queue_section(account_options)
+
+        with _panel(STEP_MAPPING):
+            mapping_section = build_mapping_section()
+
+        with _panel(STEP_SETTINGS):
+            settings_section = build_settings_section(
+                account_options,
+                expense_cat_opts,
+                income_cat_opts,
+            )
+
+        with _panel(STEP_PREVIEW):
+            preview_section = build_preview_section()
+            transfer_section = build_transfer_section(run_detect)
+
+        with _panel(STEP_CONFIRM):
+            summary_section = build_summary_section()
+
+        wizard_footer()
 
         mapping_section.bind(on_change=_on_mapping_change)
         settings_section.bind(
@@ -610,8 +823,8 @@ async def import_page() -> None:
         )
         queue_section.bulk_account_sel.on("update:model-value", _on_bulk_account_change)
         upload_section.upload_widget.on_upload(handle_upload)
-        queue_section.import_all_btn.on("click", do_import_all)
         summary_section.bind_start_new(_start_new_import)
 
         _render_queue()
         _repaint_active()
+        _sync_step(follow=True)

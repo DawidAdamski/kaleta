@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_service import (
@@ -118,7 +119,19 @@ def settings_are_complete(file: QueuedFile, *, account_currency: str | None = No
     caller passes the chosen account's currency; without one there is
     nothing to disagree with.
     """
-    error_key, _ = validate_import_readiness(
+    return settings_block_reason(file, account_currency=account_currency) is None
+
+
+def settings_block_reason(
+    file: QueuedFile, *, account_currency: str | None = None
+) -> tuple[str, dict[str, Any]] | None:
+    """What the settings step is still missing, as ``(i18n key, params)``.
+
+    ``None`` when nothing is. This is the message the footer puts beside a
+    refusing ``Continue``: "Choose an account", not the file's last piece of
+    news ("Loaded 2 rows."), which answers a question nobody asked.
+    """
+    error_key, params = validate_import_readiness(
         ImportReadinessCheck(
             target_account_id=file.target_account_id,
             expense_cat_id=file.expense_cat_id,
@@ -128,7 +141,7 @@ def settings_are_complete(file: QueuedFile, *, account_currency: str | None = No
             account_currency=account_currency,
         )
     )
-    return error_key is None
+    return None if error_key is None else (error_key, params)
 
 
 def queue_is_terminal(queue: list[QueuedFile]) -> bool:

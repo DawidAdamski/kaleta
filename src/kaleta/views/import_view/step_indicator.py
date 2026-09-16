@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from nicegui import ui
 
 from kaleta.i18n import t
@@ -13,6 +15,7 @@ from kaleta.views.theme import (
     STEP_NODE,
     STEP_NODE_DONE,
     STEP_NODE_NOW,
+    STEP_NODE_READING,
 )
 
 
@@ -27,7 +30,13 @@ def _step_labels() -> list[str]:
     ]
 
 
-def render_step_indicator(current: int) -> None:
+def render_step_indicator(
+    current: int,
+    *,
+    viewed: int | None = None,
+    reachable: int | None = None,
+    on_step: Callable[[int], None] | None = None,
+) -> None:
     """Six nodes on a hairline: done, the one you are on, and the rest.
 
     Six numbered pills separated by arrows told the reader how many steps
@@ -35,14 +44,24 @@ def render_step_indicator(current: int) -> None:
     ink circle with a tick, the current one is filled accent and keeps its
     number, and the rest are outlines — which is the whole state of the
     wizard at a glance.
+
+    ``current`` is where the *work* is (``state.current_step``); ``viewed``
+    is the step on screen, which is behind it whenever the reader has walked
+    back. The line marks the work and rings the step being read, so a reader
+    three steps back can still see what the file is waiting on. Nodes up to
+    ``reachable`` call ``on_step`` — a wizard you can only walk forward
+    through is one you restart to fix a typo.
     """
     # No default: a line drawn without a step would have to invent one, and
     # the invented one disagreed with ``current_step(None)``.
     labels = _step_labels()
+    here = current if viewed is None else viewed
+    limit = current if reachable is None else reachable
     with ui.row().classes(f"{STEP_LINE} w-full items-start gap-0 mb-3 no-wrap"):
         for index, label in enumerate(labels, start=1):
             done = index < current
             now = index == current
+            reading = index == here
             with ui.column().classes("items-center gap-1 flex-1 min-w-0") as step:
                 node = ui.element("div").classes(STEP_NODE)
                 # The node holds a number or a tick; the label is its sibling,
@@ -60,8 +79,14 @@ def render_step_indicator(current: int) -> None:
                 else:
                     with node:
                         ui.label(str(index))
-                ui.label(label).classes(STEP_LABEL_NOW if now else STEP_LABEL)
+                if reading and not now:
+                    node.classes(add=STEP_NODE_READING)
+                ui.label(label).classes(STEP_LABEL_NOW if reading else STEP_LABEL)
+            step.props["data-step"] = str(index)
             if now:
                 # On the element that carries both the node and its label,
                 # which together are the step.
                 step.props["aria-current"] = "step"
+            if on_step is not None and index <= limit:
+                step.classes(add="cursor-pointer")
+                step.on("click", lambda _e=None, i=index: on_step(i))
