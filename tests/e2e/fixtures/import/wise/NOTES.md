@@ -51,12 +51,3 @@ fee rows as separate lines (not covered by the current sample).
 - TransferWise transaction IDs kept as opaque tokens (no PII)
 - The Wise `<account_id>` segment of the download name identifies the real
   wallet, so tests use an anonymized `12345678` rather than the real one
-
-## `truncated-download-sample.qif`
-
-Not an export: a hand-written stub holding the Wise QIF header and one
-record with no date, amount or payee — what a download interrupted
-mid-record leaves behind. It is here because it is the shortest way to a
-file that *fails* rather than one that merely needs mapping (the QIF
-branch has no generic fallback), which is what `KAL-CSV-021` needs to
-show a failed run being cleared. No real data, so nothing to anonymize.

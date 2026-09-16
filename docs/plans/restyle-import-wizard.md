@@ -169,6 +169,15 @@ separate plan.
   import with ("Select a target account."), and the footer shows that on
   the settings step. Mapping keeps using `status_msg`, which there *is*
   the answer ("Map the required columns to continue.").
+- **An upload never takes a step away from the reader.** Every upload
+  handler ends by putting the page where its file is, which on a
+  multi-file drop meant the fourth file yanking the reader off a step
+  they had just walked to. `state["step_token"]` is bumped whenever the
+  reader chooses a step; an upload follows only if the token is
+  unchanged since it began. A new run (`Start new import`) and a
+  finished import bump it themselves — those are the page's to place.
+- **The eyebrow's row count is a figure**: `k-mono`, and `f"{count:,}"`,
+  which is the same call `mapping_caption` makes for the same number.
 - **The mBank/Wise metadata banner moved to Upload**, with the file it
   describes and the queue it belongs to. It is not a step of its own and
   it is not part of the mapping card the artboard draws.
@@ -197,8 +206,10 @@ separate plan.
   undone by the next file landing. `_wait_for_queue` waits for the queue
   to stop growing (`data-queue-row`), and `_step` retries once.
 - KAL-CSV-021 used to make a file fail by importing it with no target
-  account. The wizard will not let that happen — `Continue` refuses at
-  settings — so the failing file is now a truncated Wise QIF
-  (`wise/truncated-download-sample.qif`), which fails at parse. The
-  import-time failure path (an exception during persistence) is still
-  there; nothing e2e can reach it any more.
+  account, which the wizard will not let you do: `Continue` refuses at
+  settings. The file now fails the way the branch it covers actually
+  fires — the target account is deleted between choosing it on step 4
+  and importing into it on step 5, so the insert cannot be written and
+  `_import_one`'s `except` marks the file failed. That keeps the
+  import-time failure path covered rather than swapping it for a parse
+  failure.

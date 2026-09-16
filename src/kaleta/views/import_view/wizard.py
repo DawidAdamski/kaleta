@@ -14,6 +14,7 @@ there is a finished step in front of you.
 
 from __future__ import annotations
 
+from kaleta.i18n import t
 from kaleta.views.import_view.state import (
     STEP_CONFIRM,
     STEP_FORMAT,
@@ -115,8 +116,6 @@ def continue_blocked_reason(
     it is the service's own readiness check, which is what decides whether
     the step is finished in the first place.
     """
-    from kaleta.i18n import t
-
     if viewed < reachable:
         return None
     if viewed >= ALL_STEPS[-1]:

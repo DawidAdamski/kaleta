@@ -133,6 +133,8 @@ FORMAT_CHIP_ON = "k-format-chip--on"
 #: Quasar's uploader, whose header is a solid brand bar by default — the
 #: loudest thing on a page whose whole job is the step you are on.
 UPLOADER = "k-uploader"
+#: A disclosure for what is not a step: a line you open, not a card.
+DISCLOSURE = "k-disclosure"
 #: "auto" — this column came from detection, not from the user.
 AUTO_BADGE = "k-auto-badge"
 #: A warning that belongs to the step you are on, not a toast that flies past.
@@ -537,6 +539,13 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   background:var(--k-accent-soft);
   color:var(--k-accent-text)
 }
+.k-disclosure > .q-expansion-item__container > .q-item{
+  background:transparent;
+  border-radius:10px;
+  color:var(--k-ink-2);
+  min-height:44px
+}
+.k-disclosure > .q-expansion-item__container > .q-item:hover{background:var(--k-surface-warm)}
 /* The drop zone is a zone, not a banner: Quasar paints its header with the
    brand colour, which on this page shouted over the step itself. */
 .k-uploader .q-uploader__header{

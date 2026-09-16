@@ -35,6 +35,7 @@ from kaleta.views.import_view.queue_section import build_queue_section
 from kaleta.views.import_view.settings_section import build_settings_section
 from kaleta.views.import_view.state import (
     STEP_CONFIRM,
+    STEP_FORMAT,
     STEP_MAPPING,
     STEP_PREVIEW,
     STEP_SETTINGS,
@@ -66,7 +67,7 @@ from kaleta.views.settings.user_prefs import (
     get_transfer_amount_tolerance,
     get_transfer_pairing_days,
 )
-from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD
+from kaleta.views.theme import BODY_MUTED, DISCLOSURE, MONO, PAGE_TITLE
 
 
 async def import_page() -> None:
@@ -107,6 +108,9 @@ async def import_page() -> None:
         # The step on screen. ``current_step`` says where the *work* is; this
         # says where the reader is, which is behind it whenever they walk back.
         "step": STEP_UPLOAD,
+        # Bumped whenever the reader chooses a step. An upload that finishes
+        # after that must not drag them off it — see `_sync_step`.
+        "step_token": 0,
         "importing": False,
         "last_settings": None,
         "bulk_account_id": None,
@@ -185,13 +189,15 @@ async def import_page() -> None:
         account = next((a for a in accounts if a.id == active.target_account_id), None)
         return account.currency if account else None
 
-    def _repaint_active() -> None:
+    def _repaint_active(*, sync: bool = True) -> None:
         """Load the active file into every section, and re-decide the step.
 
         Unchanged in what it does: each section still decides *whether* it
         applies to this file. What is new is the last line — the shell then
         decides which of them is in front of the reader, so an edit that
-        sends the work backwards takes the reader with it.
+        sends the work backwards takes the reader with it. Callers that
+        follow with their own ``_sync_step`` pass ``sync=False``: four
+        refreshables rebuilt twice per event is four too many.
         """
         active = _active()
         profile_section.set_active_profile(active.profile if active else None)
@@ -203,7 +209,8 @@ async def import_page() -> None:
             preview_section.set_visible(False)
             transfer_section.set_visible(False)
             upload_section.set_hint(t("import.upload_hint_generic"))
-            _sync_step()
+            if sync:
+                _sync_step()
             return
 
         upload_section.set_hint(
@@ -233,7 +240,8 @@ async def import_page() -> None:
         settings_section.set_visible(show_settings)
         preview_section.set_visible(active.status in {"ready", "done", "needs_mapping"})
         transfer_section.set_visible(active.profile == "generic" and active.status == "ready")
-        _sync_step()
+        if sync:
+            _sync_step()
 
     def _render_queue() -> None:
         queue_section.render(
@@ -266,7 +274,9 @@ async def import_page() -> None:
         summary_section.hide()
         upload_section.upload_widget.reset()
         _render_queue()
-        _repaint_active()
+        # A new run is the page's to place: the reader asked for it.
+        state["step_token"] += 1
+        _repaint_active(sync=False)
         _sync_step(follow=True)
 
     async def _select_profile(key: str) -> None:
@@ -278,7 +288,7 @@ async def import_page() -> None:
             active.column_mapping = None
             active.auto_mapping = None
         await _parse_file(active)
-        _repaint_active()
+        _repaint_active(sync=False)
         _render_queue()
         # mbank/pko/wise have no mapping step: the one the reader is on may
         # have just stopped existing.
@@ -349,6 +359,12 @@ async def import_page() -> None:
             if had_failed:
                 ui.notify(t("import.queue_reset_failed"), type="info")
 
+        # Where the reader stood when this file started uploading. A
+        # multi-file drop runs one handler per file, and a reader who walks to
+        # a step while the third one is still parsing must not be dragged off
+        # it when the fourth lands.
+        token = state["step_token"]
+
         content, encoding = decode_upload(await e.file.read())
         suggested = ImportRuleService.suggest_filename_pattern(e.file.name)
         queued_file = QueuedFile(
@@ -396,10 +412,11 @@ async def import_page() -> None:
         state["active_id"] = queued_file.id
         summary_section.hide()
         _render_queue()
-        _repaint_active()
+        _repaint_active(sync=False)
         # A fresh file moves the reader to whatever it needs — the whole
-        # point of a wizard is not having to go and find the next question.
-        _sync_step(follow=True)
+        # point of a wizard is not having to go and find the next question —
+        # unless they have chosen a step for themselves in the meantime.
+        _sync_step(follow=state["step_token"] == token)
 
     def _on_settings_change() -> None:
         if settings_section._loading:
@@ -572,6 +589,7 @@ async def import_page() -> None:
         await _refresh_coverage()
         # Every file has finished, so the work is on Confirm; the reader goes
         # with it rather than being left on a preview of rows already in.
+        state["step_token"] += 1
         _sync_step(follow=True)
 
     async def _refresh_coverage() -> None:
@@ -654,7 +672,9 @@ async def import_page() -> None:
         wizard_footer.refresh()
 
     def _goto(step: int) -> None:
+        """The reader picks a step, and keeps it until they pick another."""
         state["step"] = step
+        state["step_token"] += 1
         _sync_step()
 
     def _go_back() -> None:
@@ -663,17 +683,24 @@ async def import_page() -> None:
     def _go_forward() -> None:
         _goto(next_step(state["step"], steps_for(_active())))
 
-    def _eyebrow() -> str:
-        """The file this screen is about, and how big it is (artboard 2d)."""
+    def _eyebrow() -> None:
+        """The file this screen is about, and how big it is (artboard 2d).
+
+        The count is a figure, so it is set in the app's figure face and
+        separator — the same call the mapping caption makes, which is the
+        other place the same number appears.
+        """
         active = _active()
         if active is None:
-            return t("import.eyebrow_no_file")
+            ui.label(t("import.eyebrow_no_file"))
+            return
         rows = (
             active.inspection.total_rows
             if active.inspection is not None
             else len(active.parsed_rows)
         )
-        return f"{active.filename} · {t(plural_key('import.rows_count', rows), count=rows)}"
+        ui.label(f"{active.filename} ·")
+        ui.label(t(plural_key("import.rows_count", rows), count=f"{rows:,}")).classes(MONO)
 
     def _select_file_at(index: int) -> None:
         queue = state["queue"]
@@ -685,7 +712,8 @@ async def import_page() -> None:
         @ui.refreshable
         def page_header() -> None:
             with ui.column().classes("w-full gap-1"):
-                ui.label(_eyebrow()).classes("k-eyebrow").props("data-page-eyebrow")
+                with ui.row().classes("k-eyebrow items-baseline gap-1").props("data-page-eyebrow"):
+                    _eyebrow()
                 ui.label(t("import.title")).classes(PAGE_TITLE)
 
         @ui.refreshable
@@ -780,12 +808,13 @@ async def import_page() -> None:
             step_panels[step] = panel
             return panel
 
-        with _panel(1):
+        with _panel(STEP_FORMAT):
             profile_section = build_profile_section(_select_profile)
             # Coverage and history are not steps — they are what you consult
             # before choosing a format, and a card each on the way to every
             # import is how the old page got long.
-            with ui.expansion(t("import.reference_panels")).classes(f"{SECTION_CARD} w-full"):
+            # No card of its own: what it opens onto is two cards already.
+            with ui.expansion(t("import.reference_panels")).classes(f"{DISCLOSURE} w-full"):
                 coverage_section = build_coverage_section()
                 coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
 

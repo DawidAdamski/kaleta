@@ -27,6 +27,7 @@ from playwright.sync_api import FilePayload, Locator, Page, expect
 from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     count_transactions,
+    delete_account,
     list_import_rules,
     seed_account,
     seed_category,
@@ -55,10 +56,7 @@ WISE_JPY_QIF = FIXTURES / "wise" / "jpy-travel-sample.qif"
 # anonymized here as it is in the fixtures — it identifies a real wallet.
 WISE_QIF_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
 AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
-# A download that stopped mid-record: the QIF branch has no generic
-# fallback, so the file fails outright rather than reaching the mapping
-# step with a garbled table.
-TRUNCATED_QIF = FIXTURES / "wise" / "truncated-download-sample.qif"
+AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
 
 # The six steps, as the page numbers them.
 STEP_FORMAT = 1
@@ -96,25 +94,18 @@ def _step(page: Page, step: int) -> None:
     """Walk to *step* by clicking its node on the progress line.
 
     Only nodes the work has reached are clickable, so the class assertion
-    doubles as one that the file really did get that far. The second click
-    is for a multi-file drop: every upload handler that lands puts the page
-    where its own file is, which can move the reader off a step they were
-    just taken to.
+    doubles as one that the file really did get that far.
     """
     page.keyboard.press("Escape")
     node = page.locator(f'[data-step="{step}"]')
-    expect(node).to_have_class(re.compile(r"cursor-pointer"), timeout=10000)
+    expect(node).to_have_class(re.compile(r"cursor-pointer"), timeout=5000)
     node.click()
-    try:
-        expect(_panel(page, step)).to_be_visible(timeout=3000)
-    except AssertionError:
-        node.click()
-        expect(_panel(page, step)).to_be_visible(timeout=5000)
+    expect(_panel(page, step)).to_be_visible(timeout=5000)
 
 
 def _continue(page: Page) -> None:
     button = page.locator("[data-continue]")
-    expect(button).to_be_enabled(timeout=10000)
+    expect(button).to_be_enabled(timeout=5000)
     button.click()
 
 
@@ -124,7 +115,7 @@ def _blocked_reason(page: Page) -> Locator:
 
 def _wait_for_queue(page: Page, count: int) -> None:
     """Every file of a multi-file drop has joined the queue."""
-    expect(page.locator("[data-queue-row]")).to_have_count(count, timeout=15000)
+    expect(page.locator("[data-queue-row]")).to_have_count(count, timeout=10000)
 
 
 def _wait_for_file(page: Page, filename: str) -> None:
@@ -135,7 +126,7 @@ def _wait_for_file(page: Page, filename: str) -> None:
 def _run_import(page: Page) -> None:
     """Press the import button, which lives in the Preview footer."""
     run = page.locator("[data-import-run]")
-    expect(run).to_be_enabled(timeout=10000)
+    expect(run).to_be_enabled(timeout=5000)
     run.click()
 
 
@@ -235,7 +226,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
     _select_import_option(page, "Description column", "3: Note")
 
     # Mapped: the step behind is finished, so Continue stops refusing.
-    expect(page.locator("[data-continue]")).to_be_enabled(timeout=10000)
+    expect(page.locator("[data-continue]")).to_be_enabled(timeout=5000)
     _continue(page)
 
     _select_import_option(page, "Target account", _account_option(account_name))
@@ -306,7 +297,7 @@ def test_invalid_mapping_blocks_import(page: Page, base_url: str) -> None:
 
     # The work fell back to this step, so there is nothing in front of the
     # reader to continue to — and the refusal says which column it wants.
-    expect(page.get_by_text("Date column is required.")).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Date column is required.")).to_be_visible(timeout=5000)
     expect(_blocked_reason(page)).to_have_text("Map the required columns to continue.")
     expect(page.locator("[data-continue]")).to_be_disabled()
     expect(page.locator("[data-import-run]")).to_have_count(0)
@@ -430,12 +421,31 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
     A failed file is terminal, so it is cleared with the rest of the run — but
     the user is told, so the failure cannot pass for a silent success.
     """
+    account_name = "Import Failure Account"
+    expense_cat = "Other Expenses Import Failure"
+    income_cat = "Other Income Import Failure"
+    account_id = seed_account(account_name)
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
     page.goto(f"{base_url}/import")
     expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
 
-    # A truncated QIF download: the branch that reads it has no generic
-    # fallback, so the file fails outright rather than asking to be mapped.
-    page.locator('input[type="file"]').set_input_files(str(TRUNCATED_QIF))
+    page.locator('input[type="file"]').set_input_files(str(AUTORESET_FAILING))
+    _wait_for_file(page, "autoreset-failing.csv")
+    _step(page, STEP_SETTINGS)
+    _select_import_option(page, "Target account", _account_option(account_name))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    # The account goes away between choosing it and importing into it, which
+    # is the only way left to reach the import's own failure branch: the
+    # wizard refuses every readiness problem a step earlier. The rows cannot
+    # be written, so the file fails where it used to fail — during the run.
+    _step(page, STEP_PREVIEW)
+    delete_account(account_id)
+    _run_import(page)
+
     _step(page, STEP_UPLOAD)
     queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
     expect(queue_card.get_by_text("Failed", exact=True).first).to_be_visible(timeout=10000)
@@ -450,7 +460,7 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
 
     _step(page, STEP_UPLOAD)
     expect(queue_card.get_by_text("autoreset-second.csv").first).to_be_visible(timeout=5000)
-    expect(queue_card.get_by_text("truncated-download-sample.qif")).to_have_count(0)
+    expect(queue_card.get_by_text("autoreset-failing.csv")).to_have_count(0)
 
 
 def test_skipped_duplicates_listed_with_help(page: Page, base_url: str) -> None:
@@ -1080,14 +1090,14 @@ def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: 
     expect(_blocked_reason(page)).to_contain_text("Select a")
 
     _select_import_option(page, "Target account", _account_option(account_name))
-    expect(_blocked_reason(page)).to_contain_text("Select a default", timeout=10000)
+    expect(_blocked_reason(page)).to_contain_text("Select a default", timeout=5000)
     _select_import_option(page, "Default expense category", "Other Expenses Refuses")
-    expect(_blocked_reason(page)).to_contain_text("Select a default income", timeout=10000)
+    expect(_blocked_reason(page)).to_contain_text("Select a default income", timeout=5000)
     _select_import_option(page, "Default income category", "Other Income Refuses")
 
     # Everything chosen: the step is finished, so Continue stops refusing and
     # the reason it was giving is gone.
-    expect(page.locator("[data-continue]")).to_be_enabled(timeout=10000)
+    expect(page.locator("[data-continue]")).to_be_enabled(timeout=5000)
     expect(_blocked_reason(page)).to_have_count(0)
     _continue(page)
     expect(_panel(page, STEP_PREVIEW)).to_be_visible(timeout=5000)
