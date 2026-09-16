@@ -3,8 +3,9 @@ plan_id: restyle-dashboard-rethink
 title: Restyle — desktop rethink: five top-nav sections, ⌘K palette, bands on desktop (artboard 1e)
 area: dashboard
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#dashboard
+status: archived
+archived_at: 2026-09-16
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Restyle — desktop rethink (top nav, command palette, bands)
@@ -364,3 +365,195 @@ Layout claims were checked in a real browser at 1360px rather than
 reasoned about, with a throwaway probe under `tests/e2e/` (deleted).
 That is what caught the apricot bar, the reversed chevrons, and the
 drawer gutter.
+
+## Implementation
+
+Landed on 2026-09-16 (PR #89).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `80a06d5` | Dawid Adamski | 2026-09-16 | Merge pull request #89 from DawidAdamski/plan/restyle-dashboard-rethink |
+
+**Files changed:**
+- docs/adr/009-per-user-settings-via-appstorageuser.md
+- docs/architecture.md
+- docs/bdd.md
+- docs/design/restyle/README.md
+- docs/plans/README.md
+- docs/plans/restyle-budget-plan-grid.md
+- docs/plans/restyle-budgets-pace-bars.md
+- docs/plans/restyle-dashboard-mobile.md
+- docs/plans/restyle-dashboard-rethink.md
+- docs/plans/restyle-dashboard.md
+- docs/plans/restyle-forecast-on-load.md
+- docs/plans/restyle-import-mapping.md
+- docs/plans/restyle-import-wizard.md
+- docs/plans/restyle-login-split.md
+- docs/plans/restyle-net-worth.md
+- docs/plans/restyle-payment-calendar.md
+- docs/plans/restyle-reports-sentence.md
+- docs/plans/restyle-theme-tokens.md
+- docs/plans/restyle-transactions-filter-chips.md
+- docs/plans/restyle-wizard-index.md
+- docs/plans/wizard-unplanned-radar.md
+- docs/plans/wizard-what-if-scenarios.md
+- docs/product/dashboard.md
+- docs/product/financial-wizard.md
+- src/kaleta/i18n/__init__.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/pwa.py
+- src/kaleta/services/account_service.py
+- src/kaleta/services/auth_stats_service.py
+- src/kaleta/services/budget_service.py
+- src/kaleta/services/forecast_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/net_worth_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/report_service.py
+- src/kaleta/services/reserve_fund_service.py
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/static/fonts/LICENSE.txt
+- src/kaleta/static/fonts/ibm-plex-mono-400.woff2
+- src/kaleta/static/fonts/ibm-plex-mono-500.woff2
+- src/kaleta/static/fonts/libre-franklin-var.woff2
+- src/kaleta/static/manifest.json
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/budget_builder.py
+- src/kaleta/views/budget_plan/grid.py
+- src/kaleta/views/budget_plan/helpers.py
+- src/kaleta/views/budgets/chart.py
+- src/kaleta/views/budgets/constants.py
+- src/kaleta/views/budgets/overview.py
+- src/kaleta/views/budgets/realization.py
+- src/kaleta/views/categories.py
+- src/kaleta/views/chart_utils.py
+- src/kaleta/views/components/amount_label.py
+- src/kaleta/views/components/filter_bar.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/credit_calculator.py
+- src/kaleta/views/dashboard.py
+- src/kaleta/views/dashboard_widgets/__init__.py
+- src/kaleta/views/dashboard_widgets/balance_card.py
+- src/kaleta/views/dashboard_widgets/budget_variance_month.py
+- src/kaleta/views/dashboard_widgets/cashflow_chart.py
+- src/kaleta/views/dashboard_widgets/constants.py
+- src/kaleta/views/dashboard_widgets/helpers.py
+- src/kaleta/views/dashboard_widgets/layout.py
+- src/kaleta/views/dashboard_widgets/month_card.py
+- src/kaleta/views/dashboard_widgets/month_expenses.py
+- src/kaleta/views/dashboard_widgets/month_income.py
+- src/kaleta/views/dashboard_widgets/month_net.py
+- src/kaleta/views/dashboard_widgets/net_worth.py
+- src/kaleta/views/dashboard_widgets/net_worth_trend.py
+- src/kaleta/views/dashboard_widgets/predicted_30d.py
+- src/kaleta/views/dashboard_widgets/recent_transactions.py
+- src/kaleta/views/dashboard_widgets/registry.py
+- src/kaleta/views/dashboard_widgets/safe_to_spend.py
+- src/kaleta/views/dashboard_widgets/savings_rate_kpi.py
+- src/kaleta/views/dashboard_widgets/savings_rate_trend.py
+- src/kaleta/views/dashboard_widgets/total_balance.py
+- src/kaleta/views/dashboard_widgets/upcoming_planned.py
+- src/kaleta/views/dashboard_widgets/wizard_actions.py
+- src/kaleta/views/dashboard_widgets/ytd_summary.py
+- src/kaleta/views/forecast.py
+- src/kaleta/views/import_view/mapping_section.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/settings_section.py
+- src/kaleta/views/import_view/state.py
+- src/kaleta/views/import_view/step_indicator.py
+- src/kaleta/views/import_view/transfer_section.py
+- src/kaleta/views/institution_avatar.py
+- src/kaleta/views/layout.py
+- src/kaleta/views/login.py
+- src/kaleta/views/net_worth.py
+- src/kaleta/views/payees.py
+- src/kaleta/views/payment_calendar.py
+- src/kaleta/views/reports/chart_options.py
+- src/kaleta/views/reports/chart_zone.py
+- src/kaleta/views/reports/config_zone.py
+- src/kaleta/views/reports/constants.py
+- src/kaleta/views/reports/page.py
+- src/kaleta/views/reports/palette.py
+- src/kaleta/views/reports/saved_section.py
+- src/kaleta/views/reports/sentence.py
+- src/kaleta/views/reports_canned/budget_variance.py
+- src/kaleta/views/reports_canned/cash_flow.py
+- src/kaleta/views/reports_canned/income_statement.py
+- src/kaleta/views/reports_canned/money_flow.py
+- src/kaleta/views/reports_canned/savings_rate.py
+- src/kaleta/views/reports_canned/top_merchants.py
+- src/kaleta/views/reports_canned/yoy.py
+- src/kaleta/views/safety_funds.py
+- src/kaleta/views/secure_app.py
+- src/kaleta/views/settings/appearance_tab.py
+- src/kaleta/views/theme.py
+- src/kaleta/views/transactions/add_dialog.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/transactions/table_actions.py
+- src/kaleta/views/wizard.py
+- src/kaleta/views/wizard_salary.py
+- tests/e2e/fixtures/import/partly-unparseable.csv
+- tests/e2e/ledger.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_auth.py
+- tests/e2e/test_budget_plan.py
+- tests/e2e/test_budget_realization.py
+- tests/e2e/test_budget_vs_actual.py
+- tests/e2e/test_categories.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_dashboard_customize.py
+- tests/e2e/test_dashboard_desktop.py
+- tests/e2e/test_dashboard_mobile.py
+- tests/e2e/test_debt_tracking.py
+- tests/e2e/test_forecast.py
+- tests/e2e/test_money_flow.py
+- tests/e2e/test_navigation.py
+- tests/e2e/test_pay_yourself_salary.py
+- tests/e2e/test_planned_transactions.py
+- tests/e2e/test_reports_builder.py
+- tests/e2e/test_rules.py
+- tests/e2e/test_setup_wizard.py
+- tests/e2e/test_subscriptions.py
+- tests/e2e/test_transactions.py
+- tests/e2e/test_transfer_detection.py
+- tests/integration/test_net_worth_split.py
+- tests/integration/test_safe_to_spend.py
+- tests/unit/i18n/__init__.py
+- tests/unit/i18n/test_plural.py
+- tests/unit/services/test_account_service.py
+- tests/unit/services/test_auth_stats_service.py
+- tests/unit/services/test_budget_service.py
+- tests/unit/services/test_forecast_service.py
+- tests/unit/services/test_import_service.py
+- tests/unit/services/test_net_worth_service.py
+- tests/unit/services/test_report_service.py
+- tests/unit/services/test_reserve_fund_service.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/test_pwa.py
+- tests/unit/views/test_amount_label.py
+- tests/unit/views/test_budget_plan_cells.py
+- tests/unit/views/test_chart_utils.py
+- tests/unit/views/test_dashboard_bands.py
+- tests/unit/views/test_dashboard_cards.py
+- tests/unit/views/test_dashboard_layout.py
+- tests/unit/views/test_filter_chip_labels.py
+- tests/unit/views/test_forecast_chart.py
+- tests/unit/views/test_import_mapping_badges.py
+- tests/unit/views/test_import_wizard_step.py
+- tests/unit/views/test_nav_destinations.py
+- tests/unit/views/test_net_worth_chart.py
+- tests/unit/views/test_payment_calendar_cells.py
+- tests/unit/views/test_realization_note.py
+- tests/unit/views/test_reports_chart_options.py
+- tests/unit/views/test_reports_sentence.py
+- tests/unit/views/test_theme.py
+- tests/unit/views/test_wizard_index.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
