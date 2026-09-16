@@ -321,8 +321,15 @@ class TestEmergencyCover:
         assert ReserveFundService.emergency_cover([_fund(ReserveFundKind.VACATION, "4.0")]) is None
 
     def test_a_fund_with_nothing_to_measure_against(self) -> None:
-        """No spending in the window — the service answers None, so do we."""
+        """No spending in the window — `with_progress` answers None, so do we."""
         assert ReserveFundService.emergency_cover([_fund(ReserveFundKind.EMERGENCY, None)]) is None
+
+    def test_an_empty_fund_covers_zero_months_and_says_so(self) -> None:
+        """Not the same as having no answer: a fund with nothing in it, on a
+        ledger that has spending, covers exactly zero months."""
+        assert ReserveFundService.emergency_cover(
+            [_fund(ReserveFundKind.EMERGENCY, "0.0")]
+        ) == Decimal("0.0")
 
     def test_one_fund_reads_its_own_cover(self) -> None:
         assert ReserveFundService.emergency_cover(

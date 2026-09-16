@@ -131,6 +131,27 @@ def _open_palette(page: Page) -> Locator:
     return dialog
 
 
+def test_the_palette_opens_from_inside_a_text_field(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-008
+
+    A search box is exactly where "take me to another page" gets asked, and
+    ``ui.keyboard`` ignores ``input`` by default — so the shortcut was inert
+    in the one place it is most wanted. It is a document listener now, which
+    also lets it call ``preventDefault`` before Chrome takes Ctrl+K for its
+    own search box.
+    """
+    _open_desktop(page, base_url, "/credit-calculator")
+
+    field = page.locator("input").first
+    expect(field).to_be_visible(timeout=10000)
+    field.click()
+    expect(field).to_be_focused()
+
+    page.keyboard.press("Control+k")
+
+    expect(page.get_by_role("dialog")).to_be_visible(timeout=10000)
+
+
 def test_the_palette_reaches_a_page_by_name(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-008"""
     _open_desktop(page, base_url)
@@ -207,7 +228,7 @@ def test_only_the_month_band_is_inside_the_grid(page: Page, base_url: str) -> No
     the Month band" is the claim that nothing else is inside it.
     """
     _open_desktop(page, base_url)
-    page.wait_for_selector("#dash-grid", timeout=20000)
+    _wait_for_bands_settled(page)
 
     in_grid = page.evaluate(
         """() => [...document.querySelectorAll('#dash-grid [data-widget-id]')]
