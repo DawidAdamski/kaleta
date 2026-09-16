@@ -418,7 +418,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
 
     open_palette = _build_palette()
 
-    with ui.header().classes(f"{HEADER} items-center px-4 gap-3 h-[60px]"):
+    with ui.header().classes(f"{HEADER} items-center px-4 h-[60px]"):
         # The hamburger is the phone's, where the drawer is the long tail and
         # the tab bar's "More" opens the same thing. Above the breakpoint the
         # top bar is the navigation and a hamburger beside it is noise. The

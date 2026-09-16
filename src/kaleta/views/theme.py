@@ -590,6 +590,9 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
    `.k-topnav-search` carries the rule too: the button is a sibling of the
    row, not a child of it, so hiding the row leaves the phone with a wide
    "Jump to…" pill *and* the `.k-phone-search` icon opening the same dialog. */
+/* The header's own gap: set here rather than with a `gap-3` utility, so
+   the narrow-window rule below can tighten it without an `!important`. */
+.k-header{gap:12px}
 .k-topnav,.q-btn.k-topnav-search{display:none}
 @media (min-width:768px){
   .k-topnav{display:flex}
@@ -647,7 +650,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
      at 768px. The bar's first entry is the dashboard, which is the same
      anchor the wordmark was. */
   .k-header .k-wordmark{display:none}
-  .k-header{gap:8px!important}
+  .k-header{gap:8px}
   .q-btn.k-topnav-pin .q-btn__content > .q-icon,
   .q-btn.k-topnav-search .q-btn__content > .q-icon{margin:0}
 }
