@@ -140,12 +140,12 @@ payees or categories (routes only); touching `app.storage.user` keys;
 1. **Watch figures** — took the artboard's four: net worth, savings rate
    (6-month average), balance in 30 days, safety-fund cover. `1f` moved
    with them in the same branch, so the two widths cannot disagree, and
-   `KAL-DSH-007` was re-pointed to match. Cover is the first
-   `EMERGENCY` fund's `months_of_coverage` from
-   `ReserveFundService.list_with_progress()`; `None` — no fund, an empty
-   one, or no spending in 90 days to measure against — reads "—" rather
-   than a zero, because no fund and zero months of cover are not the
-   same news.
+   `KAL-DSH-007` was re-pointed to match. Cover comes from
+   `ReserveFundService.emergency_cover`, which sums across the emergency
+   funds (see the third review round); `None` — no emergency fund, or no
+   spending in 90 days to measure one against — reads "—" rather than a
+   zero, because no fund and zero months of cover are not the same news.
+   A fund with nothing in it *does* cover zero months, and reads `0.0 mo`.
 2. **The `1f` tab bar** — **not** changed to Overview / Money / + /
    Plan / Insight, against this plan's stated default. The Scope section
    — the binding contract — does not list the tab bar, and the change
@@ -288,6 +288,29 @@ payees or categories (routes only); touching `app.storage.user` keys;
   pins it.
 - Stale copy: the Customize dialog still said "Use Edit layout", and
   `KAL-NAV-005` still described a sidebar at any width.
+
+### Found by the fifth and sixth reviews
+
+- **Ctrl+K was the wrong hands.** `ui.keyboard` never calls
+  `preventDefault`, and Chrome and Firefox claim Ctrl+K for their own
+  search box — the palette opened while the focus went to the omnibox and
+  the typing with it. It also ignores `input`/`textarea` by default, so
+  the shortcut was inert inside a search field, which is exactly where
+  "take me to another page" gets asked. A document-level listener
+  (`_PALETTE_KEY_JS`) handles the key now and clicks the header's own
+  palette button; `?` and Alt+N keep `ui.keyboard` and its ignore list,
+  which is right for them.
+- The Now band gave two thirds to `entries[0]`. With the hero an ordinary
+  widget you can untick, that handed a column sized for a 54px figure to
+  the needs-attention banner; the wide column belongs to `HERO_WIDGET` by
+  name, and without it the band is equal columns.
+- `emergency_cover` is `ReserveFundService`'s, not the view's — the rule
+  that two funds' months add up is only true because `with_progress`
+  divides both by the same trailing spend. It costs only the emergency
+  funds now: this figure is on the dashboard's first paint, and a sinking
+  fund cannot change the answer.
+- "No answer" is not "empty": a fund with nothing in it, on a ledger with
+  spending, covers `0.0` months and says so. Three docs claimed otherwise.
 
 ### Housekeeping
 

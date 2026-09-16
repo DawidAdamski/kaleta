@@ -127,8 +127,10 @@ for, rather than a wall of equal cards:
   (`ReserveFundService.emergency_cover` — every fund divides by the same
   trailing monthly spend, so two funds cover the sum of their months).
   Two columns on a phone, four on a desktop. A figure with no answer — no
-  fund, an empty one, no income in six months, nothing recent to measure
-  against — reads "—" rather than inventing a zero.
+  emergency fund, no income in the last six months, no recent spending to
+  measure cover against — reads "—" rather than inventing a zero. A fund
+  with nothing *in* it is a different matter: on a ledger with spending it
+  covers 0.0 months, and says so.
 - **Latest** — the recent-transactions list, which is a log and not a
   metric, and belongs under everything that is.
 
