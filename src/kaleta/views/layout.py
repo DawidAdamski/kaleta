@@ -36,6 +36,7 @@ from kaleta.views.theme import (
     TOP_NAV_MENU,
     TOP_NAV_PIN,
     TOP_NAV_SEARCH,
+    WORDMARK,
     apply_brand,
     theme_css,
 )
@@ -258,7 +259,10 @@ def _top_nav(current_path: str, open_palette: Callable[[], None]) -> None:
                         ui.icon(icon, size="1.1rem").classes(MUTED)
                         ui.label(t(key)).classes("text-sm")
 
-    ui.space()
+    # No spacer of its own: the pill belongs to the navigation and follows
+    # the sections. `page_layout` puts the one spacer in the header just
+    # after this call, which is what pushes the account controls right —
+    # two spacers split the free space and left the pill floating mid-header.
     ui.button(t("nav.palette_open"), icon="search", on_click=open_palette).props(
         "flat no-caps dense"
     ).classes(TOP_NAV_SEARCH).props("data-palette-open")
@@ -397,7 +401,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
             ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(
                 "flat round dense color=primary"
             )
-        ui.label("Kaleta").classes("k-heading text-[17px] font-semibold tracking-tight")
+        ui.label("Kaleta").classes(f"{WORDMARK} k-heading text-[17px] font-semibold tracking-tight")
         _top_nav(current_path, open_palette)
         ui.space()
         ui.button(icon="search", on_click=open_palette).props(

@@ -160,6 +160,9 @@ TOP_NAV_SEARCH = "k-topnav-search"
 #: bar can afford to drop when the window is narrow: their icons are the two
 #: nobody has to read, and five section names cannot go anywhere.
 TOP_NAV_PIN = "k-topnav-pin"
+#: "Kaleta" in the header. Stood down below 1024px, where the bar needs the
+#: width more than the header needs to say the app's name twice.
+WORDMARK = "k-wordmark"
 
 #: The hamburger + mini pair, and the header's search icon: phone-side
 #: controls that a desktop top bar makes redundant.
@@ -638,6 +641,13 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   .q-btn.k-topnav-pin .q-btn__content > .q-icon,
   .q-btn.k-topnav-search .q-btn__content > .q-icon{font-size:1.3rem}
   .q-btn.k-topnav-pin,.q-btn.k-topnav-search{padding:0 9px}
+  .q-btn.k-topnav-item{padding:0 8px}
+  /* The wordmark and the header's roomier gaps are what the five sections,
+     the pill and the three account controls need back to stay on one line
+     at 768px. The bar's first entry is the dashboard, which is the same
+     anchor the wordmark was. */
+  .k-header .k-wordmark{display:none}
+  .k-header{gap:8px!important}
   .q-btn.k-topnav-pin .q-btn__content > .q-icon,
   .q-btn.k-topnav-search .q-btn__content > .q-icon{margin:0}
 }
