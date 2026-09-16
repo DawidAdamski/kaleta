@@ -129,9 +129,11 @@ for, rather than a wall of equal cards:
 - **Latest** — the recent-transactions list, which is a log and not a
   metric, and belongs under everything that is.
 
-Band assignment is `BAND_OF` in `dashboard_widgets/registry.py`, and
-`with_hero` guarantees the hero leads a layout stored before the hero
-existed. Band order is fixed — it is the argument the layout is making —
+Band assignment is `BAND_OF` in `dashboard_widgets/registry.py`. The hero
+is an ordinary widget in it, first in `DEFAULT_WIDGETS`: a new profile and
+a *Reset widgets* both lead with it, and a profile stored before it
+existed gets it by ticking it once in Customize — nothing puts a widget on
+the page that its owner has taken off. Band order is fixed — it is the argument the layout is making —
 so the stored layout is read for *which* widgets and their order within
 a band, never for position. The choice of phone-or-desktop tree is made
 once, server-side, from the viewport width the browser reports on

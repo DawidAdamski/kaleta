@@ -230,6 +230,25 @@ payees or categories (routes only); touching `app.storage.user` keys;
   in every label. It is a no-op until something is typed.
 - `docs/adr/009` still listed `sidebar_mini` as a live key.
 
+### Found by the second review
+
+- **The first resize or drag in Month deleted the other bands.** The layout
+  POST serialises every banded widget, but a widget outside the grid
+  carried no `data-cols`, so it posted as 1×1 — a size none of the hero,
+  the banner or the Latest list allows — and the endpoint *dropped* those
+  rows. The wrapper carries its size now, and `_validate_layout` falls back
+  to `default_size` instead of dropping a widget, which is what
+  `resolve_user_layout` already does on the way in: the size is the
+  layout's business, the widget is the user's. Two of its unit tests
+  changed with the contract. An e2e now fires a real resize, re-reads
+  storage and checks the other bands are still there.
+- `page_layout(title)` had no reader left after the header lost its page
+  title, while its docstring claimed the argument still named the page —
+  so it names the browser tab now (`ui.page_title`), which is the one
+  place a page's name was never shown.
+- `dashboard_widgets.edit_layout` was orphaned by the Month band's own
+  button; deleted from both locales.
+
 ### Verification
 
 Layout claims were checked in a real browser at 1360px rather than
