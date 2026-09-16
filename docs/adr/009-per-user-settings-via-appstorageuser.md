@@ -13,7 +13,8 @@ status: accepted
 - **Consequence**: Preferences persist within a session but reset on server restart.
   ECharts charts have explicit colour overrides via `views/chart_utils.py:apply_dark()`
   since ECharts does not auto-adapt to Quasar's dark mode. All persisted keys are
-  enumerated in the `views/settings.py` module docstring. A key dropped from
+  enumerated in the table below — `views/settings.py` became the
+  `views/settings/` package and no longer carries the list. A key dropped from
   this table is left unread rather than migrated away — `sidebar_mini` went
   with the docked drawer (artboard `1e`) and may still sit in an older
   session's storage, where nothing now looks at it:

@@ -328,6 +328,16 @@ payees or categories (routes only); touching `app.storage.user` keys;
   - the palette's field takes focus when the dialog's transition ends, so
     a very fast typist loses the first characters after ⌘K.
 
+### Not this plan's, and not on this branch
+
+`scripts/review_gate.sh` and `docs/goal-mode.md` carry uncommitted
+working-tree changes to the goal-mode review harness (a tool allowlist, a
+resume-on-no-verdict fallback, `KALETA_REVIEW_MAX_TURNS`). They were made
+during this plan's session because the gate could not otherwise be run to
+completion, but they belong to the harness, not to artboard `1e` — so
+they are deliberately left uncommitted for the owner to land separately.
+Every review round flagged them; this note is the answer.
+
 ### Verification
 
 Layout claims were checked in a real browser at 1360px rather than

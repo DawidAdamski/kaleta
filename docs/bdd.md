@@ -2980,6 +2980,7 @@ Feature: Workflow-based navigation
     And pressing Enter opens the first of them
     And a name that matches nothing says so instead of listing everything
     And pressing Enter with nothing typed leaves me where I am
+    And the shortcut works while a text field has the caret, where I most need it
 ```
 
 ## Feature: Dashboard Customization
