@@ -37,7 +37,15 @@
     "tab_transactions": "Księga",
     "tab_add": "Dodaj",
     "tab_plan": "Plan",
-    "tab_more": "Więcej"
+    "tab_more": "Więcej",
+    "section_capture": "Zapis",
+    "section_monthly": "Miesiąc",
+    "section_plans": "Plany",
+    "section_insight": "Analizy",
+    "section_setup": "Ustawienia",
+    "palette_open": "Przejdź do…",
+    "palette_placeholder": "Przejdź do strony…",
+    "palette_empty": "Nie ma takiej strony."
   },
   "common": {
     "save": "Zapisz",
@@ -57,7 +65,6 @@
     "institution": "Instytucja",
     "none": "Brak",
     "toggle_dark": "Tryb ciemny",
-    "toggle_sidebar": "Zwiń / rozwiń menu",
     "demo_banner": "Instancja demo — dane resetowane codziennie.",
     "demo_dismiss": "Ukryj",
     "error_with_event_id": "{message}\nID zdarzenia: {event_id} — dołącz je przy zgłaszaniu błędu.",
@@ -131,9 +138,12 @@
     "band_now": "Teraz",
     "band_month": "Ten miesiąc",
     "band_watch": "Obserwuj",
-    "watch_ytd_net": "Wynik od początku roku",
     "sts_over": "{amount} zł ponad stan",
-    "watch_savings_rate": "Stopa oszczędzania od początku roku"
+    "watch_savings_rate": "Stopa oszczędzania, śr. 6 mies.",
+    "watch_safety_cover": "Pokrycie z funduszu awaryjnego",
+    "watch_months": "{months} mies.",
+    "band_latest": "Ostatnie",
+    "band_edit_month": "Edytuj ten pas"
   },
   "dashboard_widgets": {
     "customize": "Personalizuj",
@@ -1598,10 +1608,6 @@
     "theme_light": "Jasny",
     "theme_dark": "Ciemny",
     "theme_hint": "Dubluje przełącznik w nagłówku. Przeładowuje stronę.",
-    "sidebar": "Panel boczny",
-    "sidebar_expanded": "Rozwinięty",
-    "sidebar_collapsed": "Zwinięty",
-    "sidebar_hint": "Stan domyślny przy wejściu na stronę; można nadal przełączać z nagłówka.",
     "wizard_title": "Finansowy Asystent",
     "wizard_hint": "Zresetuj karty „Pierwsze kroki” i ponownie otwórz kartę wprowadzającą w Asystencie.",
     "wizard_reset_btn": "Zresetuj Pierwsze kroki",

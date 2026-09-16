@@ -37,7 +37,15 @@
     "tab_transactions": "Ledger",
     "tab_add": "Add",
     "tab_plan": "Plan",
-    "tab_more": "More"
+    "tab_more": "More",
+    "section_capture": "Capture",
+    "section_monthly": "Month",
+    "section_plans": "Plans",
+    "section_insight": "Insight",
+    "section_setup": "Setup",
+    "palette_open": "Jump to…",
+    "palette_placeholder": "Jump to a page…",
+    "palette_empty": "No page by that name."
   },
   "common": {
     "save": "Save",
@@ -57,7 +65,6 @@
     "institution": "Institution",
     "none": "None",
     "toggle_dark": "Toggle dark mode",
-    "toggle_sidebar": "Collapse / expand sidebar",
     "demo_banner": "Demo instance — data resets daily.",
     "demo_dismiss": "Dismiss",
     "error_with_event_id": "{message}\nEvent ID: {event_id} — include this when reporting a bug.",
@@ -131,9 +138,12 @@
     "band_now": "Now",
     "band_month": "This month",
     "band_watch": "Watch",
-    "watch_ytd_net": "Net year to date",
     "sts_over": "{amount} zł over",
-    "watch_savings_rate": "Savings rate year to date"
+    "watch_savings_rate": "Savings rate, 6-mo avg",
+    "watch_safety_cover": "Safety fund cover",
+    "watch_months": "{months} mo",
+    "band_latest": "Latest",
+    "band_edit_month": "Edit this band"
   },
   "dashboard_widgets": {
     "customize": "Customize",
@@ -1598,10 +1608,6 @@
     "theme_light": "Light",
     "theme_dark": "Dark",
     "theme_hint": "Mirrors the header toggle. Reloads the page.",
-    "sidebar": "Sidebar",
-    "sidebar_expanded": "Expanded",
-    "sidebar_collapsed": "Collapsed",
-    "sidebar_hint": "Default state when the page loads; you can still toggle from the header.",
     "wizard_title": "Financial Wizard",
     "wizard_hint": "Reset the \"Getting Started\" mentor cards and re-open the onboarding card on the Wizard page.",
     "wizard_reset_btn": "Reset Getting Started",

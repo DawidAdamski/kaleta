@@ -144,6 +144,28 @@ AUTH_PANEL_FIGURE = "k-auth-figure"
 #: Its label underneath, dimmed against the ink rather than muted on paper.
 AUTH_PANEL_LABEL = "k-auth-label"
 
+# ── Top bar (artboard 1e) ─────────────────────────────────────────────────────
+#: The desktop navigation, in the header. Its own breakpoint rather than
+#: `hidden md:flex`, for the reason `.k-auth-panel` and `.k-tabbar` have one.
+TOP_NAV = "k-topnav"
+#: One pinned link or one section button in that bar.
+TOP_NAV_ITEM = "k-topnav-item"
+#: The section (or page) you are on.
+TOP_NAV_ITEM_ACTIVE = "k-topnav-item--active"
+#: The menu a section drops.
+TOP_NAV_MENU = "k-topnav-menu"
+#: "Jump to… ⌘K" — a search field's clothes on a button that opens a dialog.
+TOP_NAV_SEARCH = "k-topnav-search"
+
+#: The hamburger + mini pair, and the header's search icon: phone-side
+#: controls that a desktop top bar makes redundant.
+DRAWER_CONTROLS = "k-drawer-controls"
+PHONE_SEARCH = "k-phone-search"
+
+#: The command palette dialog, and one row in it.
+PALETTE_CARD = "k-palette"
+PALETTE_ROW = "k-palette-row"
+
 # ── Phone dashboard (artboard 1f) ─────────────────────────────────────────────
 #: The bottom tab bar. It has its own breakpoint rather than `md:hidden`: which
 #: of two utilities wins is stylesheet order, and the auth panel already lost
@@ -555,6 +577,59 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 /* Safe-to-spend (artboard 1f): what is promised, what is gone, what is left. */
 .k-split--spent{background:var(--k-neutral-bar)}
 .k-split--free{background:var(--k-accent-light)}
+
+/* Top bar (artboard 1e) — five sections and a search where a 24-item drawer
+   used to be. Below the breakpoint the tab bar and the drawer take over. */
+.k-topnav{display:none}
+@media (min-width:768px){
+  .k-topnav{display:flex}
+}
+/* `.q-btn.k-topnav-item`, two classes: NiceGUI gives every button
+   `color=primary`, and a single-class rule loses to Quasar's `.text-primary`
+   — the same trick `.q-skeleton.k-skeleton` uses, and for the same reason. */
+.q-btn.k-topnav-item{
+  border-radius:8px;
+  color:var(--k-muted-strong);
+  font-weight:500;
+  letter-spacing:0;
+  min-height:34px;
+  padding:0 10px
+}
+.q-btn.k-topnav-item:hover{background:var(--k-surface-warm)}
+.q-btn.k-topnav-item.k-topnav-item--active{
+  color:var(--k-accent-text);
+  background:var(--k-surface-warm)
+}
+.k-topnav-menu{
+  background:var(--k-surface);
+  border:1px solid var(--k-border);
+  border-radius:12px;
+  box-shadow:var(--k-card-shadow)
+}
+.q-btn.k-topnav-search{
+  border:1px solid var(--k-border);
+  border-radius:999px;
+  color:var(--k-muted);
+  min-height:34px;
+  padding:0 14px
+}
+.q-btn.k-topnav-search:hover{background:var(--k-surface-warm)}
+.k-drawer-controls,.k-phone-search{display:flex}
+@media (min-width:768px){
+  .k-drawer-controls,.k-phone-search{display:none}
+}
+.k-palette{
+  background:var(--k-surface);
+  border:1px solid var(--k-border);
+  border-radius:14px;
+  padding:14px
+}
+.k-palette-row{
+  border-radius:8px;
+  color:var(--k-ink);
+  padding:9px 10px
+}
+.k-palette-row:hover{background:var(--k-row-hover)}
 
 /* Phone dashboard (artboard 1f) — the bar is the navigation below `md`, and
    the drawer is what "More" opens. Its own breakpoint, for the same reason

@@ -10,20 +10,31 @@ from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
 from kaleta.views.theme import (
+    BODY_MUTED,
     DRAWER,
+    DRAWER_CONTROLS,
     HEADER,
     INK,
+    MUTED,
     NAV_GROUP,
     NAV_GROUP_ROW,
     NAV_ITEM,
     NAV_ITEM_ACTIVE,
     PAGE_CONTAINER,
     PAGE_SHELL,
+    PALETTE_CARD,
+    PALETTE_ROW,
+    PHONE_SEARCH,
     TAB_BAR,
     TAB_BAR_ADD,
     TAB_BAR_ITEM,
     TAB_BAR_ITEM_ACTIVE,
     TAB_BAR_SPACER,
+    TOP_NAV,
+    TOP_NAV_ITEM,
+    TOP_NAV_ITEM_ACTIVE,
+    TOP_NAV_MENU,
+    TOP_NAV_SEARCH,
     apply_brand,
     theme_css,
 )
@@ -35,11 +46,11 @@ except Exception:
 
 # Drawer geometry from the design handoff: 236px expanded, 64px collapsed.
 _DRAWER_WIDTH = "width=236"
-# The drawer stops being furniture and becomes an overlay at the same width
-# the tab bar appears at — Quasar would otherwise hand over at 1023px.
-_DRAWER_BREAKPOINT = "breakpoint=767"
-_MINI_PROPS = "mini mini-to-overlay mini-width=64"
-_MINI_PROPS_OFF = "mini mini-to-overlay mini-width"
+# An overlay at every width, closed until something opens it. With artboard
+# `1e` the top bar is the desktop navigation, so a drawer standing open beside
+# it would be the same 24 links twice — and a drawer Quasar considers
+# "desktop" reserves 236px of page gutter whether or not you can see it.
+_DRAWER_BREAKPOINT = "breakpoint=99999"
 
 # Pinned entries rendered above the groups: (icon, path, label_key).
 # See docs/ux/feature-categorization-audit.md (Phase A) for the rationale.
@@ -108,6 +119,32 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
 ]
 
 
+# ── Top bar sections (artboard 1e) ────────────────────────────────────────────
+# The five `NAV_GROUPS` keys, with a short label each: "Monthly cycle" and
+# "Plans & funds" are names for a sidebar heading, not for a bar that has to
+# fit five of them and a search field on one 60px line.
+NAV_SECTIONS: list[tuple[str, str]] = [
+    ("nav.group_capture", "nav.section_capture"),
+    ("nav.group_monthly", "nav.section_monthly"),
+    ("nav.group_plans", "nav.section_plans"),
+    ("nav.group_insight", "nav.section_insight"),
+    ("nav.group_setup", "nav.section_setup"),
+]
+
+
+def nav_destinations() -> list[tuple[str, str, str]]:
+    """Every place the app can navigate to, as (icon, path, label_key).
+
+    The palette's whole content, and the only list of routes that claims to
+    be complete — the pinned pair first, then each group in bar order.
+    """
+    destinations = list(NAV_PINNED)
+    groups = dict(NAV_GROUPS)
+    for group_key, _label_key in NAV_SECTIONS:
+        destinations.extend(groups.get(group_key, []))
+    return destinations
+
+
 # ── Bottom tab bar (artboard 1f) ──────────────────────────────────────────────
 # Five tabs, the middle one an add button. The drawer stays — "More" is what
 # opens it — because the long tail of setup pages does not fit five slots and
@@ -170,9 +207,125 @@ def _tab_bar(drawer: ui.left_drawer, current_path: str) -> None:
                 item.on("click", lambda p=path: ui.navigate.to(p))
 
 
+def _top_nav(current_path: str, open_palette: Callable[[], None]) -> None:
+    """The desktop navigation: two pinned links, five section menus, a search.
+
+    Hidden below the breakpoint by `.k-topnav`'s own rule, where the tab bar
+    and the drawer take over — the same trap as `.k-tabbar`, and avoided the
+    same way rather than with `hidden md:flex`.
+    """
+    groups = dict(NAV_GROUPS)
+    with ui.row().classes(f"{TOP_NAV} items-center gap-1 min-w-0"):
+        for icon, path, key in NAV_PINNED:
+            active = nav_active(path, current_path)
+            # `color=None`: Quasar's colour helpers are `!important`, so a
+            # button that keeps NiceGUI's default `primary` cannot be given
+            # the bar's own muted ink by any stylesheet rule.
+            item = ui.button(
+                t(key), icon=icon, on_click=lambda p=path: ui.navigate.to(p), color=None
+            ).props("flat no-caps dense")
+            item.classes(f"{TOP_NAV_ITEM} {TOP_NAV_ITEM_ACTIVE if active else ''}".strip())
+            item.props["data-nav"] = key
+            if active:
+                item.props["aria-current"] = "page"
+
+        for group_key, label_key in NAV_SECTIONS:
+            items = groups.get(group_key, [])
+            active = any(nav_active(path, current_path) for _icon, path, _key in items)
+            # `icon-right=<name>` rather than `icon=`: Quasar's `icon` prop is
+            # the left slot, and `icon-right` is a name, not a flag — passing
+            # it as one put every chevron in front of its label.
+            section = ui.button(t(label_key), color=None).props(
+                "flat no-caps dense icon-right=expand_more"
+            )
+            section.classes(f"{TOP_NAV_ITEM} {TOP_NAV_ITEM_ACTIVE if active else ''}".strip())
+            section.props["data-section"] = group_key
+            if active:
+                section.props["aria-current"] = "page"
+            with section, ui.menu().props("auto-close").classes(TOP_NAV_MENU):
+                for icon, path, key in items:
+                    ui.menu_item(t(key), on_click=lambda p=path: ui.navigate.to(p)).props(
+                        f'icon={icon} data-nav="{key}"'
+                    )
+
+    ui.space()
+    ui.button(t("nav.palette_open"), icon="search", on_click=open_palette).props(
+        "flat no-caps dense"
+    ).classes(TOP_NAV_SEARCH).props("data-palette-open")
+
+
+def _build_palette() -> Callable[[], None]:
+    """⌘K. Returns the callable that opens it.
+
+    Routes only — the long tail of pages that five sections cannot show at
+    once. Deliberately not a search over transactions or payees: a palette
+    that sometimes answers with data and sometimes with a page is a palette
+    you have to read before you trust it.
+    """
+    destinations = nav_destinations()
+    rows: list[tuple[ui.element, str]] = []
+
+    with ui.dialog() as dialog, ui.card().classes(f"{PALETTE_CARD} w-[520px] max-w-[92vw] gap-0"):
+        query = (
+            ui.input(placeholder=t("nav.palette_placeholder"))
+            .props("autofocus borderless dense clearable")
+            .classes("w-full px-1")
+        )
+        listing = ui.column().classes("w-full gap-0 mt-2 max-h-[52vh] overflow-y-auto")
+        empty = ui.label(t("nav.palette_empty")).classes(f"{BODY_MUTED} px-2 py-3")
+        empty.set_visibility(False)
+
+        with listing:
+            for icon, path, key in destinations:
+                row = ui.row().classes(f"{PALETTE_ROW} w-full items-center gap-3 cursor-pointer")
+                row.props["data-palette-row"] = key
+                row.on("click", lambda p=path: _go(dialog, p))
+                with row:
+                    ui.icon(icon, size="1.1rem").classes(MUTED)
+                    ui.label(t(key)).classes("text-sm")
+                rows.append((row, t(key).casefold()))
+
+    def _filter() -> None:
+        needle = (query.value or "").strip().casefold()
+        shown = 0
+        for row, label in rows:
+            match = needle in label
+            row.set_visibility(match)
+            shown += match
+        empty.set_visibility(shown == 0)
+
+    def _first_match() -> str | None:
+        needle = (query.value or "").strip().casefold()
+        for (_row, label), (_icon, path, _key) in zip(rows, destinations, strict=True):
+            if needle in label:
+                return path
+        return None
+
+    query.on_value_change(lambda _e: _filter())
+    query.on("keydown.enter", lambda: _go(dialog, _first_match()))
+
+    def _open() -> None:
+        query.set_value("")
+        _filter()
+        dialog.open()
+
+    return _open
+
+
+def _go(dialog: ui.dialog, path: str | None) -> None:
+    if path is None:
+        return
+    dialog.close()
+    ui.navigate.to(path)
+
+
 @contextmanager
 def page_layout(title: str, *, wide: bool = False, container: str | None = None) -> Generator[None]:
-    """Shared layout: header + left drawer + main content area.
+    """Shared layout: header + top nav + left drawer + main content area.
+
+    ``title`` still names the page for the document and for callers; it left
+    the header itself with artboard `1e`, where the active section says where
+    you are and a 60px bar has five sections and a search to fit.
 
     ``container`` swaps the content column's classes — the dashboard asks for
     its own padding and band gap (``DASH_PAGE_CONTAINER``); every other page
@@ -194,27 +347,16 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     ui.timer(0.01, maybe_auto_post_due, once=True)
 
     is_dark: bool = app.storage.user.get("dark_mode", False)
-    is_mini: bool = app.storage.user.get("sidebar_mini", False)
 
     dark_mode = ui.dark_mode(value=is_dark)
     drawer: Any
     toggle_btn: Any
-    mini_btn: Any
     close_dialog: Any
 
     def toggle_dark() -> None:
         dark_mode.toggle()
         app.storage.user["dark_mode"] = dark_mode.value
         toggle_btn.props(f"icon={'light_mode' if dark_mode.value else 'dark_mode'}")
-
-    def toggle_mini() -> None:
-        new_mini = not app.storage.user.get("sidebar_mini", False)
-        app.storage.user["sidebar_mini"] = new_mini
-        if new_mini:
-            drawer.props(_MINI_PROPS)
-        else:
-            drawer.props(remove=_MINI_PROPS_OFF)
-        mini_btn.props(f"icon={'chevron_right' if new_mini else 'chevron_left'}")
 
     ui.query("body").classes(PAGE_SHELL)
 
@@ -223,21 +365,24 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     def _nav_active(nav_path: str) -> bool:
         return nav_active(nav_path, current_path)
 
-    with ui.header().classes(f"{HEADER} items-center px-4 gap-4 h-[60px]"):
-        ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(
-            "flat round dense color=primary"
-        )
-        mini_btn = (
-            ui.button(
-                icon="chevron_right" if is_mini else "chevron_left",
-                on_click=toggle_mini,
+    open_palette = _build_palette()
+
+    with ui.header().classes(f"{HEADER} items-center px-4 gap-3 h-[60px]"):
+        # The hamburger is the phone's, where the drawer is the long tail and
+        # the tab bar's "More" opens the same thing. Above the breakpoint the
+        # top bar is the navigation and a hamburger beside it is noise. The
+        # mini toggle went with it: there is no docked drawer left to shrink,
+        # and `sidebar_mini` is now read by nothing.
+        with ui.row().classes(f"{DRAWER_CONTROLS} items-center gap-1"):
+            ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(
+                "flat round dense color=primary"
             )
-            .props("flat round dense color=primary")
-            .tooltip(t("common.toggle_sidebar"))
-        )
         ui.label("Kaleta").classes("k-heading text-[17px] font-semibold tracking-tight")
+        _top_nav(current_path, open_palette)
         ui.space()
-        ui.label(title).classes("text-sm text-slate-500")
+        ui.button(icon="search", on_click=open_palette).props(
+            "flat round dense color=primary"
+        ).classes(PHONE_SEARCH).tooltip(t("nav.palette_open"))
         toggle_btn = (
             ui.button(
                 icon="light_mode" if is_dark else "dark_mode",
@@ -297,12 +442,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     # open (`value=True`) covered the whole page below the breakpoint, where
     # the drawer is an overlay and "More" in the tab bar is what opens it.
     #
-    # `breakpoint=767` because Quasar's own default is 1023: left alone, a
-    # window 768–1023px wide got neither an open drawer nor a tab bar. All
-    # three breakpoints — drawer, tab bar, dashboard layout — now agree.
     with ui.left_drawer().props(f"{_DRAWER_WIDTH} {_DRAWER_BREAKPOINT}").classes(DRAWER) as drawer:
-        if is_mini:
-            drawer.props(_MINI_PROPS)
         # Pinned entries — always visible, above the workflow groups.
         for icon, path, key in NAV_PINNED:
             active = _nav_active(path)
@@ -395,7 +535,13 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
         key = getattr(e, "key", None)
         no_mod = not getattr(e.modifiers, "ctrl", False) and not getattr(e.modifiers, "alt", False)
         alt_only = getattr(e.modifiers, "alt", False) and not getattr(e.modifiers, "ctrl", False)
-        if key == "?" and no_mod:
+        if key in ("k", "K") and (
+            getattr(e.modifiers, "meta", False) or getattr(e.modifiers, "ctrl", False)
+        ):
+            # ⌘K on a Mac, Ctrl+K elsewhere. The browser only claims ⌘K while
+            # the address bar has focus, so a page-level handler is safe here.
+            open_palette()
+        elif key == "?" and no_mod:
             shortcuts_dialog.open()
         elif key == "n" and alt_only:
             is_tx_page = await ui.run_javascript("window.location.pathname === '/transactions'")
