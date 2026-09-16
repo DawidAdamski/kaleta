@@ -547,7 +547,9 @@ def test_accounts_page_last_activity(page: Page, base_url: str) -> None:
     )
 
     page.goto(f"{base_url}/accounts")
-    expect(page.get_by_text("Accounts", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_role("main").get_by_text("Accounts", exact=True).first).to_be_visible(
+        timeout=5000
+    )
     expect(page.get_by_text("Last activity").first).to_be_visible()
     expect(page.get_by_text(loaded).first).to_be_visible()
     expect(page.get_by_text("2024-06-15").first).to_be_visible()

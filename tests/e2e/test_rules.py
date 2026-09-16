@@ -55,7 +55,9 @@ def test_create_categorisation_rule(page: Page, base_url: str) -> None:
     get_or_seed_category("Groceries")
 
     page.goto(f"{base_url}/rules")
-    expect(page.get_by_text("Rules", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
+        timeout=5000
+    )
 
     page.get_by_role("button", name="Add Rule").click()
     dialog = page.get_by_role("dialog")

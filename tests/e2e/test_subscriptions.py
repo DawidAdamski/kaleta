@@ -27,7 +27,9 @@ def test_subscriptions_listed_with_cadence_and_price(page: Page, base_url: str) 
     seed_subscription("Domain SUB E2E", 120.00, cadence_days=365)
 
     page.goto(f"{base_url}/wizard/subscriptions")
-    expect(page.get_by_text("Subscriptions", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_role("main").get_by_text("Subscriptions", exact=True).first).to_be_visible(
+        timeout=5000
+    )
 
     active_section = page.locator(".q-card").filter(has_text="All subscriptions")
     expect(active_section.get_by_text("Netflix SUB E2E", exact=True).first).to_be_visible(
