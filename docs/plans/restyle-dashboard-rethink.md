@@ -249,6 +249,34 @@ payees or categories (routes only); touching `app.storage.user` keys;
 - `dashboard_widgets.edit_layout` was orphaned by the Month band's own
   button; deleted from both locales.
 
+### Found by the third review
+
+- **The bar wrapped at 768px**, the very width it takes over at: five
+  sections, two pinned entries, a pill and three icon buttons do not fit
+  one 60px line, and "Setup" ended up on a second one the header has no
+  room for. Below 1024px the two pinned entries and the pill keep their
+  icons and drop their words. The words are dropped with `font-size:0`,
+  not `display:none`: the label is a Quasar-rendered `span.block` that a
+  display rule in this stylesheet does not win against, and zero type
+  collapses it just as well while leaving the name in the document for a
+  screen reader. An e2e asserts one line at 768px.
+- **The section menus rendered without their icons.** `q-item` has no
+  `icon` prop, so `ui.menu_item(...).props("icon=…")` set an attribute
+  Quasar ignores — while the palette beside it, which builds rows out of
+  `ui.icon`, showed the same icons correctly. The entries build their own
+  row now.
+- `_safety_fund_cover` took the first emergency fund the service happened
+  to return. Every fund's cover divides by the same trailing monthly
+  spend, so two emergency funds cover the *sum* of their months; the rule
+  is a pure `_emergency_cover` with unit tests.
+- `nav_destinations` calls itself the only complete list of routes and
+  nothing asserted it: a group added to `NAV_GROUPS` without a
+  `NAV_SECTIONS` row would vanish from the bar *and* the palette, which
+  since `1e` means off the desktop entirely. `test_nav_destinations.py`
+  pins it.
+- Stale copy: the Customize dialog still said "Use Edit layout", and
+  `KAL-NAV-005` still described a sidebar at any width.
+
 ### Verification
 
 Layout claims were checked in a real browser at 1360px rather than

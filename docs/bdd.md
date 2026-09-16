@@ -2945,7 +2945,7 @@ Feature: Workflow-based navigation
 
   KAL-NAV-005 @automated
   Scenario: Wizard sub-pages are reachable from the sidebar
-    Given I am signed in
+    Given I am signed in on a narrow viewport
     When I click Subscriptions, Monthly Readiness, Safety Funds, or Personal Loans in the sidebar
     Then I land on the corresponding page under /wizard/ without visiting the Wizard hub first
 
@@ -2958,6 +2958,7 @@ Feature: Workflow-based navigation
     And the sidebar is not covering the page
     And tapping More opens the sidebar over it
     And tapping Add opens the new-transaction form
+    And the header offers one way into the palette, not the wide bar's as well
     And a 900 pixel window navigates from the top bar and shows no tab bar
 
   KAL-NAV-007 @automated
@@ -2968,6 +2969,7 @@ Feature: Workflow-based navigation
     And the sidebar is not on the page
     And the section holding the page I am on is marked
     And opening a section and choosing an entry navigates to that page
+    And at 768 pixels, the width it takes over at, the bar still reads on one line
 
   KAL-NAV-008 @automated
   Scenario: The command palette reaches any page by name
@@ -2976,6 +2978,7 @@ Feature: Workflow-based navigation
     Then only the pages matching what I typed are listed
     And pressing Enter opens the first of them
     And a name that matches nothing says so instead of listing everything
+    And pressing Enter with nothing typed leaves me where I am
 ```
 
 ## Feature: Dashboard Customization
