@@ -62,6 +62,9 @@ def test_a_wide_viewport_navigates_from_the_top_bar(page: Page, base_url: str) -
         "aria-current", "page"
     )
 
+    # The page's name left the header with artboard `1e`; the tab has it.
+    assert page.title() == "Transactions · Kaleta", page.title()
+
 
 def test_the_bar_fits_on_one_line_at_its_narrowest(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-007
