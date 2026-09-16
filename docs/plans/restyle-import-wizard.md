@@ -105,15 +105,23 @@ separate plan.
 ## Touchpoints
 
 - `src/kaleta/views/import_view/page.py` (the shell and the footer),
-  `state.py` (`current_step` gains nothing; the shell reads it),
+  `wizard.py` (new: which steps a file has, and how you move between
+  them), `state.py` (`current_step` gains nothing; the shell reads it,
+  and `settings_block_reason` says what the settings step is missing),
+  `step_indicator.py` (the line marks the work and rings the reader),
   `profile_section.py`, `upload_section.py`, `queue_section.py`,
-  `preview_section.py`, `summary_section.py`, `coverage_section.py`
-- `src/kaleta/views/theme.py` (a wizard footer token, if the row needs
-  one)
+  `preview_section.py`, `summary_section.py`, `coverage_section.py`,
+  `metadata_section.py`, `settings_section.py`, `transfer_section.py`
+- `src/kaleta/views/theme.py` (the wizard footer's tokens, and the ones
+  for what Quasar paints itself: `FORMAT_CHIP`, `UPLOADER`,
+  `DISCLOSURE`, `STEP_NODE_READING`)
 - `src/kaleta/i18n/locales/en.json`, `pl.json`
 - `docs/bdd.md`, `docs/product/` (no import doc exists — add one only if
   the wizard needs explaining beyond the scenarios)
-- `tests/e2e/test_csv_import.py`, `tests/unit/views/test_import_wizard_step.py`
+- `tests/e2e/test_csv_import.py`, `tests/unit/views/test_import_wizard_step.py`,
+  and the two other suites that walk `/import`: `tests/e2e/test_rules.py`,
+  `tests/e2e/test_transfer_detection.py` (plus `seed_helpers.delete_account`,
+  which is how a file is made to fail during an import)
 
 ## Open questions
 
@@ -172,10 +180,16 @@ separate plan.
 - **An upload never takes a step away from the reader.** Every upload
   handler ends by putting the page where its file is, which on a
   multi-file drop meant the fourth file yanking the reader off a step
-  they had just walked to. `state["step_token"]` is bumped whenever the
-  reader chooses a step; an upload follows only if the token is
-  unchanged since it began. A new run (`Start new import`) and a
-  finished import bump it themselves — those are the page's to place.
+  they had just walked to. The rule is now: a file dropped while the
+  reader is on the upload step moves them to its first unanswered
+  question, and so does any file that lands while the page — not the
+  reader — is choosing the step (`state["step_chosen"]`). A reader
+  standing anywhere else keeps their step. A new run and a finished
+  import clear the flag: those are the page's to place.
+
+  An earlier attempt keyed this on a token captured when each handler
+  began, which loses to a handler that *starts* after the click — the
+  browser issues one POST per file and the server takes them in turn.
 - **A node for a step the file does not have is not a link.** The mapping
   node stays drawn and ticked for a bank profile (decision 2), but
   `render_step_indicator` now takes the file's own `steps_for()` and
@@ -194,6 +208,12 @@ separate plan.
   though the plan's list did not name them. They are steps 4 and 5 of the
   same wizard; leaving two cards in the pre-restyle style between three
   restyled ones is worse than not restyling at all. Own commit.
+- **Waits on the new route are 10s, not 5s.** `_wait_for_file` and
+  `_wait_for_queue` wait on things that were not waited on before — the
+  header naming a parsed file, a queue that has stopped growing — and a
+  multi-file drop has to decode, parse and re-render once per file before
+  either is true. Nothing that was 5s and stayed the same assertion was
+  raised; those that had been went back down.
 - **`data-*` hooks** (`data-step`, `data-step-panel`, `data-wizard-footer`,
   `data-continue`, `data-blocked-reason`, `data-import-run`,
   `data-file-switcher`, `data-page-eyebrow`, `data-queue-row`) are how
@@ -205,6 +225,18 @@ separate plan.
   on the generic path: `_parse_file` passes the mapping, so detection
   never runs and the file keeps a mapping step it does not need. Nothing
   to do with this plan's shell — for the chore inbox.
+- Row counts are formatted `f"{n:,}"`, which is right in English and wrong
+  in Polish ("1,234 wierszy" for what should be "1 234"). It is wrong in
+  the mapping caption too, and `auth_common` solves it a third way
+  (`.replace(",", " ")` for both locales). One locale-aware integer
+  formatter would fix all three; that is a repo-wide change, not this
+  plan's — for the chore inbox.
+- `do_import_all`'s double-click guard has no test: a second click inside
+  a websocket round trip is not something the e2e suite can time. Nor is
+  a click landing *during* a multi-file upload storm — every refresh of
+  the progress line replaces its nodes, so a click aimed at one that is
+  being replaced is dropped. The `step_chosen` rule is covered at a
+  slower beat instead: choose a step, drop another file, keep the step.
 
 ### What the e2e rewrite turned up
 

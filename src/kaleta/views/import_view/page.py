@@ -108,9 +108,10 @@ async def import_page() -> None:
         # The step on screen. ``current_step`` says where the *work* is; this
         # says where the reader is, which is behind it whenever they walk back.
         "step": STEP_UPLOAD,
-        # Bumped whenever the reader chooses a step. An upload that finishes
-        # after that must not drag them off it — see `_sync_step`.
-        "step_token": 0,
+        # True once the reader has picked a step for themselves. An upload
+        # that finishes afterwards must not drag them off it — see
+        # `handle_upload`.
+        "step_chosen": False,
         "importing": False,
         "last_settings": None,
         "bulk_account_id": None,
@@ -275,7 +276,7 @@ async def import_page() -> None:
         upload_section.upload_widget.reset()
         _render_queue()
         # A new run is the page's to place: the reader asked for it.
-        state["step_token"] += 1
+        state["step_chosen"] = False
         _repaint_active(sync=False)
         _sync_step(follow=True)
 
@@ -359,12 +360,6 @@ async def import_page() -> None:
             if had_failed:
                 ui.notify(t("import.queue_reset_failed"), type="info")
 
-        # Where the reader stood when this file started uploading. A
-        # multi-file drop runs one handler per file, and a reader who walks to
-        # a step while the third one is still parsing must not be dragged off
-        # it when the fourth lands.
-        token = state["step_token"]
-
         content, encoding = decode_upload(await e.file.read())
         suggested = ImportRuleService.suggest_filename_pattern(e.file.name)
         queued_file = QueuedFile(
@@ -414,9 +409,12 @@ async def import_page() -> None:
         _render_queue()
         _repaint_active(sync=False)
         # A fresh file moves the reader to whatever it needs — the whole
-        # point of a wizard is not having to go and find the next question —
-        # unless they have chosen a step for themselves in the meantime.
-        _sync_step(follow=state["step_token"] == token)
+        # point of a wizard is not having to go and find the next question.
+        # But a multi-file drop runs one handler per file, and a reader who
+        # walks off while the third is still parsing keeps the step they
+        # chose: dropping a file from the upload step is an invitation to be
+        # moved, standing somewhere else is not.
+        _sync_step(follow=not state["step_chosen"] or state["step"] == STEP_UPLOAD)
 
     def _on_settings_change() -> None:
         if settings_section._loading:
@@ -595,7 +593,7 @@ async def import_page() -> None:
         await _refresh_coverage()
         # Every file has finished, so the work is on Confirm; the reader goes
         # with it rather than being left on a preview of rows already in.
-        state["step_token"] += 1
+        state["step_chosen"] = False
         _sync_step(follow=True)
 
     async def _refresh_coverage() -> None:
@@ -678,9 +676,9 @@ async def import_page() -> None:
         wizard_footer.refresh()
 
     def _goto(step: int) -> None:
-        """The reader picks a step, and keeps it until they pick another."""
+        """The reader picks a step, and keeps it until the page may move."""
         state["step"] = step
-        state["step_token"] += 1
+        state["step_chosen"] = True
         _sync_step()
 
     def _go_back() -> None:
@@ -752,7 +750,6 @@ async def import_page() -> None:
             render_step_indicator(
                 _reachable(),
                 viewed=state["step"],
-                reachable=_reachable(),
                 on_step=_goto,
                 steps=steps_for(_active()),
             )

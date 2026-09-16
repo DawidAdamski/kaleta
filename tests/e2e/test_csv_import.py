@@ -1080,6 +1080,36 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
     expect(page.locator('[data-step="3"]')).not_to_have_class(re.compile(r"cursor-pointer"))
 
 
+def test_a_late_upload_does_not_take_the_step_you_chose(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-028
+
+    A multi-file drop runs one upload handler per file, and each one ends by
+    putting the page where its own file is. A reader who walks to a step
+    while the rest are still parsing keeps it: the page follows the work
+    only while nobody has chosen for themselves.
+    """
+    page.goto(f"{base_url}/import")
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=10000)
+
+    page.locator('input[type="file"]').set_input_files(str(OTHER_A))
+    _wait_for_file(page, "other-a.csv")
+
+    # The reader goes somewhere of their own choosing.
+    _step(page, STEP_FORMAT)
+
+    # A second file lands. The queue and the header take it — the page is
+    # not pretending it did not arrive — but the step is the reader's.
+    page.locator('input[type="file"]').set_input_files(str(OTHER_B))
+    _wait_for_queue(page, 2)
+    _wait_for_file(page, "other-b.csv")
+
+    visible = page.eval_on_selector_all(
+        "[data-step-panel]",
+        "nodes => nodes.filter(n => n.offsetParent !== null).map(n => n.dataset.stepPanel)",
+    )
+    assert visible == [str(STEP_FORMAT)], visible
+
+
 def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: str) -> None:
     """Covers: KAL-CSV-029
 

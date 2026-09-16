@@ -34,7 +34,6 @@ def render_step_indicator(
     current: int,
     *,
     viewed: int | None = None,
-    reachable: int | None = None,
     on_step: Callable[[int], None] | None = None,
     steps: tuple[int, ...] | None = None,
 ) -> None:
@@ -49,9 +48,10 @@ def render_step_indicator(
     ``current`` is where the *work* is (``state.current_step``); ``viewed``
     is the step on screen, which is behind it whenever the reader has walked
     back. The line marks the work and rings the step being read, so a reader
-    three steps back can still see what the file is waiting on. Nodes up to
-    ``reachable`` call ``on_step`` — a wizard you can only walk forward
-    through is one you restart to fix a typo.
+    three steps back can still see what the file is waiting on. Every node up
+    to ``current`` calls ``on_step`` — how far you may walk is where the work
+    has got to, and a wizard you can only walk forward through is one you
+    restart to fix a typo.
 
     ``steps`` is the steps this file actually has: a bank profile's mapping
     node is drawn and ticked, because the columns *were* mapped, but it is
@@ -61,7 +61,6 @@ def render_step_indicator(
     # the invented one disagreed with ``current_step(None)``.
     labels = _step_labels()
     here = current if viewed is None else viewed
-    limit = current if reachable is None else reachable
     with ui.row().classes(f"{STEP_LINE} w-full items-start gap-0 mb-3 no-wrap"):
         for index, label in enumerate(labels, start=1):
             done = index < current
@@ -93,6 +92,6 @@ def render_step_indicator(
                 # which together are the step.
                 step.props["aria-current"] = "step"
             walkable = steps is None or index in steps
-            if on_step is not None and index <= limit and walkable:
+            if on_step is not None and index <= current and walkable:
                 step.classes(add="cursor-pointer")
                 step.on("click", lambda _e=None, i=index: on_step(i))

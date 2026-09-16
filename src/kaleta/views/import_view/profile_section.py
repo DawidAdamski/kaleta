@@ -19,8 +19,10 @@ class ProfileSection:
 
     def set_active_profile(self, profile: str | None) -> None:
         for key, btn in self.buttons.items():
-            is_active = profile is not None and profile == key
-            btn.classes(add=FORMAT_CHIP_ON) if is_active else btn.classes(remove=FORMAT_CHIP_ON)
+            if profile is not None and profile == key:
+                btn.classes(add=FORMAT_CHIP_ON)
+            else:
+                btn.classes(remove=FORMAT_CHIP_ON)
 
 
 def build_profile_section(
