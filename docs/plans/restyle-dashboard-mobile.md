@@ -295,15 +295,20 @@ has a phone artboard, planned in `restyle-login-split`).
   could own. Left as a known nit rather than a new service method with
   one caller.
 
-- **The hero cannot be switched off on a phone.** Customize is still
+- **The hero could not be switched off on a phone.** Customize was still
   offered there (which widgets you want is not a question about width)
-  and still lists the safe-to-spend checkbox, but `mobile_layout` puts
-  the hero back regardless, so unticking it changes only the desktop
-  grid. Hiding the row on a phone would make the same dialog say
-  different things on two devices about one stored layout, which is
-  worse. `KAL-DSH-007` says it out loud instead — as the case the e2e
-  actually checks (the hero is there although Customize has it
-  unticked); the other direction is a unit test on `mobile_layout`.
+  and still listed the safe-to-spend checkbox, but `mobile_layout` put
+  the hero back regardless, so unticking it changed only the desktop
+  grid — the hero was off by default on that grid, and a phone would
+  otherwise never have shown it.
+
+  **Superseded by `restyle-dashboard-rethink` (`1e`), which is stacked on
+  this branch.** There the hero joins `DEFAULT_WIDGETS`, so the prepend
+  had nothing left to do for a new profile — and for an old one it made
+  the checkbox a lie at *both* widths and let the first drag write the
+  hero back into storage. `mobile_layout` / `with_hero` is gone; the hero
+  is an ordinary default widget you can untick, and `KAL-DSH-007` lost
+  the line that described the prepend.
 
 - **The spacer is `display:none` above the breakpoint, not zero-height.**
   The page column is a flex container with a gap, so a zero-height last

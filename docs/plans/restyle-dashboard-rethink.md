@@ -38,8 +38,12 @@ decision to stop waiting.
   `nav_active` rule the drawer and the tab bar already share. Pinned
   Dashboard and Wizard keep their places. The header stays 60px.
 - **Drawer**: no longer the desktop navigation, but not deleted — it
-  remains the phone's "More" surface (`1f`) and the `sidebar_mini`
-  storage key keeps working. Above the breakpoint it is hidden.
+  remains the phone's "More" surface (`1f`). Above the breakpoint it is
+  hidden. ~~and the `sidebar_mini` storage key keeps working~~ — see
+  Implementation notes §3: with no docked drawer there is nothing left to
+  collapse, so the mini toggle and its Settings → Appearance card went
+  with it. The *key* is untouched, as "Out of scope" requires: it is left
+  unread in whatever storage already holds it, not migrated or deleted.
 - **Command palette** (`⌘K` / `Ctrl+K`, and the header's "Jump to…"
   field): a dialog listing every nav destination — the five groups'
   entries plus the pinned pair — filtered as you type, Enter navigates,
@@ -276,6 +280,18 @@ payees or categories (routes only); touching `app.storage.user` keys;
   pins it.
 - Stale copy: the Customize dialog still said "Use Edit layout", and
   `KAL-NAV-005` still described a sidebar at any width.
+
+### Housekeeping
+
+- The Settings → Appearance sidebar card that went with the mini toggle
+  was never in `docs/bdd.md` — there is no `KAL-` scenario describing a
+  sidebar default state, so there was nothing to retag. Recorded here
+  rather than left as a silent removal.
+- **Chore-inbox sized, not filed:** palette rows are clickable `div`s
+  with no `role="option"` and no focus, so a keyboard reaches only the
+  first match (via Enter); and the palette's field takes focus when the
+  dialog's transition ends, so a very fast typist loses the first
+  characters after ⌘K.
 
 ### Verification
 
