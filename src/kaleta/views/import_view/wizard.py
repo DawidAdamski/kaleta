@@ -80,12 +80,21 @@ def clamp_viewed(viewed: int, reachable: int, steps: tuple[int, ...]) -> int:
     work backwards — unmapping a column on a file that was ready drops
     ``current_step`` from Preview to Mapping, and a Preview card for a file
     that no longer parses is a page lying about itself.
+
+    The nearest allowed step *forward* wins where there is one, which is the
+    profile case: switching the file switcher from a generic file on Mapping
+    to a bank-profile file lands on Settings rather than dropping back to
+    Upload, where the switcher they just used is not even shown. Falling
+    back is for the other case, where there is nothing ahead to fall to.
     """
     allowed = [step for step in steps if step <= reachable]
     if not allowed:
         return steps[0]
     if viewed in allowed:
         return viewed
+    later = [step for step in allowed if step > viewed]
+    if later:
+        return later[0]
     earlier = [step for step in allowed if step < viewed]
     return earlier[-1] if earlier else allowed[0]
 

@@ -179,8 +179,9 @@ def test_csv_import_with_account_mapping(page: Page, base_url: str) -> None:
     )
     _run_import(page)
 
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=5000)
+    # The summary's per-file line, not its heading: the heading renders for
+    # a failed run too, and "imported" alone matches "0 imported".
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text("3 imported", timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     for label in ("Biedronka", "Orlen", "Wyplata"):
@@ -238,10 +239,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
         timeout=5000
     )
     _run_import(page)
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(_panel(page, STEP_CONFIRM).get_by_text("imported", exact=False).first).to_be_visible(
-        timeout=5000
-    )
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text("3 imported", timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Coffee Shop")
@@ -750,10 +748,7 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
         _panel(page, STEP_PREVIEW).get_by_text("Japanpost Bank(245950) GIFU", exact=False).first
     ).to_be_visible(timeout=5000)
     _run_import(page)
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(_panel(page, STEP_CONFIRM).get_by_text("imported", exact=False).first).to_be_visible(
-        timeout=5000
-    )
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text("9 imported", timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Japanpost Bank(245950) GIFU")
@@ -821,10 +816,7 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
         _panel(page, STEP_PREVIEW).get_by_text("Japanpost Bank(245950) GIFU", exact=False).first
     ).to_be_visible(timeout=5000)
     _run_import(page)
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(_panel(page, STEP_CONFIRM).get_by_text("imported", exact=False).first).to_be_visible(
-        timeout=5000
-    )
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text("9 imported", timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Topped up account")
@@ -903,10 +895,7 @@ def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_u
     _select_import_option(page, "Default income category", income_cat)
 
     _import_now(page)
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(_panel(page, STEP_CONFIRM).get_by_text("imported", exact=False).first).to_be_visible(
-        timeout=5000
-    )
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text("9 imported", timeout=10000)
     assert count_transactions(account_id) > 0
 
 
@@ -1142,24 +1131,23 @@ def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: 
     expect(page.locator("[data-continue]")).to_be_disabled()
     expect(_blocked_reason(page)).to_have_text("Upload a file to continue.")
 
-    page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
-    _wait_for_file(page, "test_import.csv")
+    # Uploaded under a name no saved rule in this shared database matches,
+    # so nothing is pre-filled and each refusal can be quoted whole.
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(IMPORT_CSV, "kal-csv-029-refusals.csv")
+    )
+    _wait_for_file(page, "kal-csv-029-refusals.csv")
 
     # Parsed but with nowhere to put the rows: the settings step refuses in
     # the readiness check's own words, not with the file's last piece of news
-    # ("Loaded 3 rows.", which answers a question nobody asked). Which of the
-    # three it names depends on what the page could infer — a saved rule from
-    # an earlier test in this shared database fills the account in — so the
-    # claim is that the refusal names a setting, and moves on as each is made.
+    # ("Loaded 3 rows.", which answers a question nobody asked).
     _step(page, STEP_SETTINGS)
     expect(page.locator("[data-continue]")).to_be_disabled()
-    expect(_blocked_reason(page)).to_contain_text("Select a")
+    expect(_blocked_reason(page)).to_have_text("Select a target account.")
 
     _select_import_option(page, "Target account", _account_option(account_name))
-    expect(_blocked_reason(page)).to_contain_text("Select a default", timeout=5000)
+    expect(_blocked_reason(page)).to_have_text("Select a default expense category.", timeout=5000)
     _select_import_option(page, "Default expense category", "Other Expenses Refuses")
-    # The last one is asserted whole: by here nothing about the shared
-    # database can change which setting is missing.
     expect(_blocked_reason(page)).to_have_text("Select a default income category.", timeout=5000)
     _select_import_option(page, "Default income category", "Other Income Refuses")
 

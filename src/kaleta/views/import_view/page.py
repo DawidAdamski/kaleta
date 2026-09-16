@@ -269,6 +269,10 @@ async def import_page() -> None:
         state["queue"] = [q for q in state["queue"] if q.id != file_id]
         if state["active_id"] == file_id:
             state["active_id"] = state["queue"][0].id if state["queue"] else None
+        if not state["queue"]:
+            # Nothing left to report on, so there is no Confirm step either.
+            state["run_finished"] = False
+            summary_section.hide()
         _render_queue()
         _repaint_active()
 
@@ -662,6 +666,20 @@ async def import_page() -> None:
             return STEP_CONFIRM
         return current_step(_active(), account_currency=_active_account_currency())
 
+    def _walkable() -> tuple[int, ...]:
+        """The steps the reader may stand on, which is what the line links.
+
+        The file's own steps, up to the one the work has reached — plus
+        Confirm while a finished run's summary is on screen, which is the
+        one step that belongs to the run rather than to a file.
+        """
+        active = _active()
+        ceiling = current_step(active, account_currency=_active_account_currency())
+        walk = tuple(step for step in steps_for(active) if step <= ceiling)
+        if state["run_finished"] and STEP_CONFIRM not in walk:
+            walk += (STEP_CONFIRM,)
+        return walk
+
     def _settings_reason(active: QueuedFile | None) -> str | None:
         """The settings step's own refusal, translated."""
         if active is None:
@@ -764,7 +782,7 @@ async def import_page() -> None:
                 _reachable(),
                 viewed=state["step"],
                 on_step=_goto,
-                steps=steps_for(_active()),
+                steps=_walkable(),
             )
 
         @ui.refreshable

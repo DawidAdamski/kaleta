@@ -53,9 +53,10 @@ def render_step_indicator(
     has got to, and a wizard you can only walk forward through is one you
     restart to fix a typo.
 
-    ``steps`` is the steps this file actually has: a bank profile's mapping
-    node is drawn and ticked, because the columns *were* mapped, but it is
-    not a step you can stand on, so it is not a link either.
+    ``steps`` is the steps you may stand on — the ones this file has *and*
+    has reached. A bank profile's mapping node is drawn and ticked, because
+    the columns *were* mapped, but it is not a step you can stand on, so it
+    is not a link either; nor is a card the active file cannot show.
     """
     # No default: a line drawn without a step would have to invent one, and
     # the invented one disagreed with ``current_step(None)``.
@@ -91,7 +92,7 @@ def render_step_indicator(
                 # On the element that carries both the node and its label,
                 # which together are the step.
                 step.props["aria-current"] = "step"
-            walkable = steps is None or index in steps
-            if on_step is not None and index <= current and walkable:
+            walkable = index <= current if steps is None else index in steps
+            if on_step is not None and walkable:
                 step.classes(add="cursor-pointer")
                 step.on("click", lambda _e=None, i=index: on_step(i))

@@ -189,8 +189,14 @@ class TestWizardNavigation:
         assert clamp_viewed(STEP_FORMAT, STEP_PREVIEW, ALL_STEPS) == STEP_FORMAT
 
     def test_a_profile_change_cannot_leave_the_reader_on_a_missing_step(self) -> None:
+        # Forward, not back: this is the file switcher moving from a generic
+        # file's mapping step to a bank profile's, and Upload is where the
+        # switcher they just used is not even shown.
         steps = steps_for(_file(profile="mbank"))
-        assert clamp_viewed(STEP_MAPPING, STEP_CONFIRM, steps) == STEP_UPLOAD
+        assert clamp_viewed(STEP_MAPPING, STEP_CONFIRM, steps) == STEP_SETTINGS
+        # But when the work itself has fallen back there is nothing ahead to
+        # move to, and the reader goes with it.
+        assert clamp_viewed(STEP_PREVIEW, STEP_UPLOAD, steps) == STEP_UPLOAD
 
     def test_continue_says_why_it_refuses(self) -> None:
         """Covers: KAL-CSV-029 — a refusing button that stays silent is the

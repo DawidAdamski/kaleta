@@ -197,20 +197,29 @@ separate plan.
   browser issues one POST per file and the server takes them in turn.
 - **A node for a step the file does not have is not a link.** The mapping
   node stays drawn and ticked for a bank profile (decision 2), but
-  `render_step_indicator` now takes the file's own `steps_for()` and
-  wires `on_step` only for those — clicking it used to go through
-  `clamp_viewed` and land the reader somewhere they did not ask for.
+  `render_step_indicator` now takes the set of steps the reader may stand
+  on and wires `on_step` only for those — clicking one used to go through
+  `clamp_viewed` and land the reader somewhere they did not ask for. That
+  set is `_walkable()`: the file's own steps up to the one the work has
+  reached, so a failed file's mapping, settings and preview nodes — whose
+  cards are hidden — are not links either.
 - **A finished run's step is Confirm, whatever the active file did.**
   `current_step` answers for one file, and a failed one answers "Upload"
   — which after a run left the summary of everything that *did* happen
   on a step nobody could reach, since the line only links as far as the
   work has got. `state["run_finished"]` is set with the summary and
-  cleared by the next drop or a new run; while it is set, Confirm is
-  reachable.
+  cleared by the next drop, a new run, or the last file leaving the
+  queue; while it is set, Confirm is walkable.
 - **One import run per click.** `do_import_all` returns early while
   `state["importing"]` is set: the footer draws the button disabled, but
   that is a websocket round trip away, and a second click inside it
   started a second loop over the same files.
+- **Clamping moves forward first.** A reader on Mapping who uses
+  `< file n of m >` to open a bank-profile file has no mapping step to
+  stand on; falling back to Upload would take away the very control they
+  just used (it is shown on steps 3–5 only), so the clamp prefers the
+  nearest step *ahead* — Settings — and falls back only when the work
+  itself has moved backwards and there is nothing ahead to move to.
 - **The eyebrow's row count is a figure**: `k-mono`, and `f"{count:,}"`,
   which is the same call `mapping_caption` makes for the same number.
 - **The mBank/Wise metadata banner moved to Upload**, with the file it
@@ -257,9 +266,13 @@ separate plan.
 ### What the e2e rewrite turned up
 
 - `expect(get_by_text("Imported"))` was the queue's own status chip, which
-  is a step away from where an import now lands. The summary's per-file
-  line replaces it ("…: 3 imported, 0 duplicates skipped"), not the
-  summary heading, which renders for a failed run too.
+  is a step away from where an import now lands. What replaces it is the
+  summary's per-file line *with its count* ("3 imported") — not the
+  summary heading, which renders for a failed run too, and not a bare
+  "imported", which matches "0 imported".
+- KAL-CSV-029 uploads under a name no saved rule matches, so every
+  refusal it asserts is the scenario's own words rather than "whichever
+  setting this shared database left unfilled" (rule 11).
 
 - Several assertions were passing on hidden elements once the wizard
   existed: `not_to_be_visible` is true of a card that is merely on
