@@ -667,11 +667,16 @@ async def import_page() -> None:
         return current_step(_active(), account_currency=_active_account_currency())
 
     def _walkable() -> tuple[int, ...]:
-        """The steps the reader may stand on, which is what the line links.
+        """The steps the reader may stand on.
 
         The file's own steps, up to the one the work has reached — plus
         Confirm while a finished run's summary is on screen, which is the
         one step that belongs to the run rather than to a file.
+
+        One answer for all three ways of moving: the nodes the line links,
+        where ``Back`` and ``Continue`` go, and where the clamp puts a
+        reader whose step has gone out from under them. A step whose card
+        ``_repaint_active`` hides is in none of them.
         """
         active = _active()
         ceiling = current_step(active, account_currency=_active_account_currency())
@@ -694,10 +699,10 @@ async def import_page() -> None:
         finished import should do. Otherwise the reader stays put, clamped
         to a step that still exists and that the work has reached.
         """
-        active = _active()
-        steps = steps_for(active)
-        reachable = _reachable()
-        viewed = reachable if follow else clamp_viewed(state["step"], reachable, steps)
+        walkable = _walkable()
+        # The last walkable step *is* the one the work has reached: that is
+        # what `_walkable` is capped by.
+        viewed = walkable[-1] if follow else clamp_viewed(state["step"], walkable[-1], walkable)
         state["step"] = viewed
         for step, panel in step_panels.items():
             panel.set_visibility(step == viewed)
@@ -713,10 +718,10 @@ async def import_page() -> None:
         _sync_step()
 
     def _go_back() -> None:
-        _goto(prev_step(state["step"], steps_for(_active())))
+        _goto(prev_step(state["step"], _walkable()))
 
     def _go_forward() -> None:
-        _goto(next_step(state["step"], steps_for(_active())))
+        _goto(next_step(state["step"], _walkable()))
 
     def _eyebrow() -> None:
         """The file this screen is about, and how big it is (artboard 2d).
@@ -796,8 +801,8 @@ async def import_page() -> None:
             """
             viewed = state["step"]
             active = _active()
-            steps = steps_for(active)
-            reachable = _reachable()
+            steps = _walkable()
+            reachable = steps[-1]
             with ui.row().classes("w-full items-center gap-3 mt-1").props("data-wizard-footer"):
                 back = ui.button(t("import.back"), icon="chevron_left", on_click=_go_back)
                 back.props("flat no-caps color=primary")
@@ -810,6 +815,10 @@ async def import_page() -> None:
                         import_button_label(ready), icon="upload", on_click=do_import_all
                     ).props("unelevated no-caps color=primary")
                     run.props["data-import-run"] = "true"
+                    # The tooltip came with the button from the queue card:
+                    # a run skips what is not ready, and the count alone
+                    # does not say so.
+                    run.tooltip(t("import.import_btn_tooltip"))
                     if ready <= 0 or state["importing"]:
                         run.props("disable")
                     return

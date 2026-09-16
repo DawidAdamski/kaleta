@@ -451,6 +451,12 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
     expect(_panel(page, STEP_CONFIRM)).to_contain_text("autoreset-failing.csv")
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible()
 
+    # And Back from the summary lands on a step that has a card: a failed
+    # file shows no preview, so Preview is not a step it has.
+    page.locator("[data-wizard-footer]").get_by_role("button", name="Back").click()
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Files to import", exact=True)).to_be_visible()
+
     _step(page, STEP_UPLOAD)
     queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
     expect(queue_card.get_by_text("Failed", exact=True).first).to_be_visible(timeout=10000)
@@ -550,8 +556,10 @@ def test_multi_file_queue_keeps_per_file_account(page: Page, base_url: str) -> N
         )
         moved = step_forward if step_forward.is_enabled() else step_back
         moved.click()
-        # The switcher has moved when the header names the other file.
+        # The switcher has moved when the header names the other file — and
+        # it moves the file, not the step: the settings card stays up.
         expect(eyebrow).not_to_contain_text(active.split(" ·")[0], ignore_case=True)
+        expect(_panel(page, STEP_SETTINGS)).to_be_visible()
 
     # Both per-file account chips remain in the queue after switching.
     _step(page, STEP_UPLOAD)
@@ -1089,7 +1097,7 @@ def test_a_late_upload_does_not_take_the_step_you_chose(page: Page, base_url: st
     only while nobody has chosen for themselves.
     """
     page.goto(f"{base_url}/import")
-    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=10000)
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
 
     page.locator('input[type="file"]').set_input_files(str(OTHER_A))
     _wait_for_file(page, "other-a.csv")
@@ -1125,7 +1133,7 @@ def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: 
     seed_income_category("Other Income Refuses")
 
     page.goto(f"{base_url}/import")
-    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=10000)
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
 
     # Nothing uploaded: the upload step is waiting on a file, and says so.
     expect(page.locator("[data-continue]")).to_be_disabled()

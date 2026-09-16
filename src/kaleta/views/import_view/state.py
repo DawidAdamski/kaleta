@@ -66,12 +66,14 @@ STEP_CONFIRM = 6
 
 
 def current_step(active: QueuedFile | None, *, account_currency: str | None = None) -> int:
-    """Which of the six steps the user is standing on.
+    """Which of the six steps the *work* is on.
 
-    The page shows every section at once and hides the ones that do not apply,
-    so "where am I" was only ever implied by which cards were visible. The
-    same conditions decide it here, in one place, so the progress line cannot
-    disagree with the page under it.
+    The conditions are the ones each section uses to decide whether it
+    applies to this file, in one place — so the progress line cannot
+    disagree with the page under it. Since `restyle-import-wizard` the page
+    shows one step at a time and this is its ceiling: the reader may stand
+    anywhere up to here (see ``views.import_view.wizard``), and the shell
+    puts them here whenever the page, rather than the reader, is choosing.
 
     A bank profile (mbank, pko, wise) never shows the mapping card, and its
     node still reads as done once the file is parsed. That is not a lie: the

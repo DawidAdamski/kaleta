@@ -202,7 +202,10 @@ separate plan.
   `clamp_viewed` and land the reader somewhere they did not ask for. That
   set is `_walkable()`: the file's own steps up to the one the work has
   reached, so a failed file's mapping, settings and preview nodes — whose
-  cards are hidden — are not links either.
+  cards are hidden — are not links either. `Back`, `Continue` and the
+  clamp read the same set, so no way of moving can land on an empty
+  panel; `steps_for` on its own is only the shape of the file's journey,
+  not how far along it you may stand.
 - **A finished run's step is Confirm, whatever the active file did.**
   `current_step` answers for one file, and a failed one answers "Upload"
   — which after a run left the summary of everything that *did* happen
@@ -222,6 +225,9 @@ separate plan.
   itself has moved backwards and there is nothing ahead to move to.
 - **The eyebrow's row count is a figure**: `k-mono`, and `f"{count:,}"`,
   which is the same call `mapping_caption` makes for the same number.
+- **The import button kept its tooltip** when it moved out of the queue
+  card ("Imports every file in Ready state; pending and failed files are
+  skipped"): the count on the button does not say what a run skips.
 - **The mBank/Wise metadata banner moved to Upload**, with the file it
   describes and the queue it belongs to. It is not a step of its own and
   it is not part of the mapping card the artboard draws.
