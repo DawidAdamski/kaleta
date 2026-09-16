@@ -13,7 +13,10 @@ status: accepted
 - **Consequence**: Preferences persist within a session but reset on server restart.
   ECharts charts have explicit colour overrides via `views/chart_utils.py:apply_dark()`
   since ECharts does not auto-adapt to Quasar's dark mode. All persisted keys are
-  enumerated in the `views/settings.py` module docstring:
+  enumerated in the `views/settings.py` module docstring. A key dropped from
+  this table is left unread rather than migrated away — `sidebar_mini` went
+  with the docked drawer (artboard `1e`) and may still sit in an older
+  session's storage, where nothing now looks at it:
 
   | Key | Values / Type | Default |
   |-----|---------------|---------|
@@ -22,7 +25,6 @@ status: accepted
   | `date_format` | `"iso"` \| `"eu"` \| `"us"` | `"iso"` |
   | `week_start` | `"monday"` \| `"sunday"` | `"monday"` |
   | `dark_mode` | `bool` | `False` |
-  | `sidebar_mini` | `bool` | `False` |
   | `nav_collapsed` | `dict[str, bool]` | `{}` |
   | `wizard_onboarding_open` | `bool` | `True` |
   | `wizard_mentor_dismissed` | `list[str]` | `[]` |

@@ -2949,6 +2949,17 @@ Feature: Workflow-based navigation
     When I click Subscriptions, Monthly Readiness, Safety Funds, or Personal Loans in the sidebar
     Then I land on the corresponding page under /wizard/ without visiting the Wizard hub first
 
+  KAL-NAV-006 @automated
+  Scenario: A bottom tab bar replaces the drawer on a narrow viewport
+    Given I am signed in
+    When I open the dashboard on a 390 pixel wide viewport
+    Then a bar fixed to the foot of the screen shows Home, Ledger, Add, Plan and More
+    And every tab is at least 44 pixels tall
+    And the sidebar is not covering the page
+    And tapping More opens the sidebar over it
+    And tapping Add opens the new-transaction form
+    And a 900 pixel window navigates from the top bar and shows no tab bar
+
   KAL-NAV-007 @automated
   Scenario: A top bar replaces the sidebar on a wide viewport
     Given I am signed in
@@ -2965,17 +2976,6 @@ Feature: Workflow-based navigation
     Then only the pages matching what I typed are listed
     And pressing Enter opens the first of them
     And a name that matches nothing says so instead of listing everything
-
-  KAL-NAV-006 @automated
-  Scenario: A bottom tab bar replaces the drawer on a narrow viewport
-    Given I am signed in
-    When I open the dashboard on a 390 pixel wide viewport
-    Then a bar fixed to the foot of the screen shows Home, Ledger, Add, Plan and More
-    And every tab is at least 44 pixels tall
-    And the sidebar is not covering the page
-    And tapping More opens the sidebar over it
-    And tapping Add opens the new-transaction form
-    And a 900 pixel window navigates from the top bar and shows no tab bar
 ```
 
 ## Feature: Dashboard Customization
@@ -3042,18 +3042,8 @@ Feature: Dashboard Customization
     And 21 days are left to spread it over
     And the per-day figure reads 109.52
 
-  KAL-DSH-008 @automated
-  Scenario: The desktop dashboard reads in bands and only the Month band drags
-    Given I am signed in on a 1360 pixel wide viewport
-    When I open the dashboard
-    Then the page reads Now, This month, Watch and Latest in that order
-    And the safe-to-spend hero leads the Now band
-    And the widget grid holds the Month band's widgets and no others
-    And the hero and the Latest list are outside that grid, so nothing drags them
-    And the Month band's own header is what turns editing on
-
   KAL-DSH-007 @automated
-  Scenario: The phone dashboard stacks into Now, This month and Watch
+  Scenario: The phone dashboard stacks into Now, This month, Watch and Latest
     Given I am signed in
     When I open the dashboard on a 390 pixel wide viewport
     Then the widgets are stacked in bands headed Now, This month, Watch and Latest
@@ -3064,6 +3054,16 @@ Feature: Dashboard Customization
     And there is no widget grid and no Edit layout button
     And the page does not scroll sideways
     And a 1360 pixel window still gets the widget grid and no tab bar
+
+  KAL-DSH-008 @automated
+  Scenario: The desktop dashboard reads in bands and only the Month band drags
+    Given I am signed in on a 1360 pixel wide viewport
+    When I open the dashboard
+    Then the page reads Now, This month, Watch and Latest in that order
+    And the safe-to-spend hero leads the Now band
+    And the widget grid holds the Month band's widgets and no others
+    And the hero and the Latest list are outside that grid, so nothing drags them
+    And the Month band's own header is what turns editing on
 ```
 
 ## Feature: Wizard Action Items

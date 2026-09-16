@@ -172,11 +172,17 @@ payees or categories (routes only); touching `app.storage.user` keys;
   *Month*, where at desktop width a ten-row log sat among the metric
   cards. A log is not a metric; it now has its own band under
   everything that is. The phone picked the band up for free.
-- **`mobile_layout` → `with_hero`.** The hero is applied at both widths
-  now, and the name said "phone". It is also in `DEFAULT_WIDGETS`, so
-  `with_hero` only covers layouts stored before the hero existed —
+- **`mobile_layout` / `with_hero` is gone entirely.** `1f` prepended the
+  hero to whatever the stored layout held, because the hero was not a
+  default widget then. It is one now — so the prepend made the Customize
+  checkbox a lie at both widths (unticking `safe_to_spend` did nothing),
+  and, worse, the layout POST serialises `#dash-bands [data-widget-id]`,
+  so the first drag inside Month wrote the hero back into storage and
+  silently re-ticked it. The hero is an ordinary default widget now:
+  every new profile and every *Reset widgets* leads with it, and a
+  profile stored before it existed gets it by ticking it once.
   `KAL-DSH-007`'s "although Customize does not have it ticked" line went
-  with that, and the guarantee is pinned by unit tests instead.
+  with the prepend.
 - **Scoping the drag to Month took no JS changes.** `#dash-grid` *is*
   the drag scope: SortableJS, the resize button and the layout endpoint
   all key off that id, so moving the id to wrap the Month band alone
@@ -202,6 +208,27 @@ payees or categories (routes only); touching `app.storage.user` keys;
   `<body>`. The e2e tests wait for the caret; a person typing inside
   ~300ms of ⌘K would lose the first characters, which is a real if minor
   nit left for the chore inbox.
+
+### Found by review, after the first pass
+
+- The palette's "Jump to…" pill is a *sibling* of `.k-topnav`, not a child
+  of it, so hiding the row left a 390px header carrying both the pill and
+  the `.k-phone-search` icon — two controls for one dialog. The pill
+  carries the breakpoint itself now, and a phone test asserts there is
+  exactly one way in at each width.
+- Every band but Watch was skipped when empty, and Customize will happily
+  leave Month empty (it insists on one widget overall, not one per band).
+  That took the grid, the "Edit this band" button and the empty-state
+  placeholder off the page together. Month is now rendered empty too — it
+  is the drag scope and the empty state, not just a group of cards.
+- The Watch band formatted its savings rate unconditionally, and
+  `average_savings_rate_pct` answers `Decimal("0")` for no months at all:
+  a new ledger read "0.0%", a figure it does not have, two rows above a
+  "—" put there to avoid exactly that. `_watch_rate_label` is the pure
+  function that decides, with unit tests.
+- Enter on a freshly opened palette navigated, because an empty needle is
+  in every label. It is a no-op until something is typed.
+- `docs/adr/009` still listed `sidebar_mini` as a live key.
 
 ### Verification
 
