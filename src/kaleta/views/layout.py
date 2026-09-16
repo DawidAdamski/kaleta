@@ -331,9 +331,10 @@ def _go(dialog: ui.dialog, path: str | None) -> None:
 def page_layout(title: str, *, wide: bool = False, container: str | None = None) -> Generator[None]:
     """Shared layout: header + top nav + left drawer + main content area.
 
-    ``title`` still names the page for the document and for callers; it left
-    the header itself with artboard `1e`, where the active section says where
-    you are and a 60px bar has five sections and a search to fit.
+    ``title`` names the page for the browser tab. It left the header itself
+    with artboard `1e`, where the active section says where you are and a
+    60px bar has five sections and a search to fit — so it is set on the
+    document, which is the one place a page's name was never shown before.
 
     ``container`` swaps the content column's classes — the dashboard asks for
     its own padding and band gap (``DASH_PAGE_CONTAINER``); every other page
@@ -342,6 +343,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     from kaleta.config.setup_config import is_configured
     from kaleta.views.auto_post import maybe_auto_post_due
 
+    ui.page_title(f"{title} · Kaleta")
     ui.add_head_html(PWA_HEAD)
     ui.add_head_html(f"<style>{theme_css()}</style>")
     apply_brand()
