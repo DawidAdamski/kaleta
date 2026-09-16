@@ -78,11 +78,16 @@ def test_the_bar_fits_on_one_line_at_its_narrowest(page: Page, base_url: str) ->
 
     bar = page.locator(".k-topnav")
     expect(bar).to_be_visible(timeout=10000)
-    lines = page.evaluate(
-        """() => new Set([...document.querySelectorAll('.k-topnav .k-topnav-item')]
-                  .map(e => Math.round(e.getBoundingClientRect().top))).size"""
+    # Every control in the header, not only the bar's own: the sections fit
+    # first and pushed the dark, account and close buttons onto a second line
+    # instead, which a 60px header shows by not showing them.
+    tops = page.evaluate(
+        """() => [...document.querySelectorAll('.k-header > *')]
+                  .filter(e => e.getBoundingClientRect().width > 0
+                               && !e.classList.contains('q-space'))
+                  .map(e => Math.round(e.getBoundingClientRect().top))"""
     )
-    assert lines == 1, f"the top bar wrapped onto {lines} lines"
+    assert len(set(tops)) == 1, f"the header wrapped: control tops {sorted(set(tops))}"
 
     widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
     assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"
@@ -90,6 +95,9 @@ def test_the_bar_fits_on_one_line_at_its_narrowest(page: Page, base_url: str) ->
     # Dropping a word is not dropping the entry: the text stays in the
     # document, so the button keeps its name for anyone not reading pixels.
     expect(bar.locator('[data-nav="nav.wizard"]')).to_contain_text("Financial Wizard")
+    # …and every section still reads, because those five are the navigation.
+    for _group_key, label in SECTIONS:
+        expect(bar.get_by_text(label, exact=True)).to_be_visible()
 
 
 def test_a_section_menu_routes(page: Page, base_url: str) -> None:

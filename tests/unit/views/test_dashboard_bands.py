@@ -83,6 +83,23 @@ class TestWatchRateLabel:
             year=2026, month=6, income=Decimal(income), expenses=Decimal(expenses)
         )
 
+    def test_six_months_without_income_read_as_no_figure(self) -> None:
+        """What an empty ledger actually looks like.
+
+        ``savings_rate`` zero-fills, so it never answers with an empty list —
+        it answers with six months that have no rate, which average to zero.
+        """
+        points = [self._month("0", "0") for _ in range(6)]
+        assert all(point.rate_pct is None for point in points)
+
+        assert _watch_rate_label(points) == "—"
+
+    def test_a_month_with_income_among_months_without_is_averaged(self) -> None:
+        """Those zeroes are real: a month you earned nothing in kept nothing."""
+        points = [self._month("0", "0"), self._month("100", "50")]
+
+        assert _watch_rate_label(points) == "25.0%"
+
     def test_no_months_reads_as_no_figure(self) -> None:
         """The mean of nothing is not zero per cent — and the band says "—"
         for the same situation two rows down, at Safety fund cover."""
