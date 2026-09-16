@@ -3,7 +3,7 @@ plan_id: restyle-dashboard-rethink
 title: Restyle — desktop rethink: five top-nav sections, ⌘K palette, bands on desktop (artboard 1e)
 area: dashboard
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
@@ -123,4 +123,89 @@ payees or categories (routes only); touching `app.storage.user` keys;
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Open questions, as resolved
+
+1. **Watch figures** — took the artboard's four: net worth, savings rate
+   (6-month average), balance in 30 days, safety-fund cover. `1f` moved
+   with them in the same branch, so the two widths cannot disagree, and
+   `KAL-DSH-007` was re-pointed to match. Cover is the first
+   `EMERGENCY` fund's `months_of_coverage` from
+   `ReserveFundService.list_with_progress()`; `None` — no fund, an empty
+   one, or no spending in 90 days to measure against — reads "—" rather
+   than a zero, because no fund and zero months of cover are not the
+   same news.
+2. **The `1f` tab bar** — **not** changed to Overview / Money / + /
+   Plan / Insight, against this plan's stated default. The Scope section
+   — the binding contract — does not list the tab bar, and the change
+   would rewrite a shipped, covered screen (`KAL-NAV-006`). It would
+   also cost the phone its "More": the five sections are *menus*, and a
+   phone tab that opens a menu of eight setup pages is worse than a tab
+   that opens the drawer holding them. The palette is on the phone
+   header (`.k-phone-search`), so the long tail has a second way in
+   either way. **Left for the owner to call** — it is a one-file change
+   to `TAB_BAR_ENTRIES` if they want it.
+3. **Drawer on desktop** — gone as *navigation*, kept as the phone's
+   "More" surface. It is now an overlay at **every** width
+   (`breakpoint=99999`), not merely hidden: a drawer Quasar considers
+   "desktop" reserves 236px of page gutter whether or not you can see
+   it, and `1f`'s `breakpoint=767` would have stood it open beside the
+   top bar between 768px and 1023px. `sidebar_mini` did **not** survive:
+   with no docked drawer there is nothing to shrink, so the mini toggle,
+   `_MINI_PROPS`, `is_mini`, `toggle_mini`, the Settings → Appearance
+   sidebar card and the four now-orphaned i18n keys all went. No
+   storage migration — an unread key costs nothing.
+4. **⌘K** — bound alongside `Ctrl+K` in the existing `_global_key`
+   handler; `?` and `Alt+N` untouched. No collision observed: the
+   browser claims ⌘K only while the address bar has focus.
+
+### Decisions worth a reviewer's time
+
+- **Section labels are new keys, not the group headings.** `NAV_SECTIONS`
+  reuses the five `NAV_GROUPS` keys for grouping but labels them from
+  `nav.section_*`: "Monthly cycle" and "Plans & funds" are names for a
+  sidebar heading, not for a 60px bar that must hold five of them, a
+  search and the account controls. The canvas's own regrouping
+  (Overview / Money / Plan / Insight / Setup) was *not* adopted — it
+  would have moved pages between groups, which is a navigation-taxonomy
+  change this plan does not scope.
+- **`Band.LATEST` is new.** `1f` banded recent transactions into
+  *Month*, where at desktop width a ten-row log sat among the metric
+  cards. A log is not a metric; it now has its own band under
+  everything that is. The phone picked the band up for free.
+- **`mobile_layout` → `with_hero`.** The hero is applied at both widths
+  now, and the name said "phone". It is also in `DEFAULT_WIDGETS`, so
+  `with_hero` only covers layouts stored before the hero existed —
+  `KAL-DSH-007`'s "although Customize does not have it ticked" line went
+  with that, and the guarantee is pinned by unit tests instead.
+- **Scoping the drag to Month took no JS changes.** `#dash-grid` *is*
+  the drag scope: SortableJS, the resize button and the layout endpoint
+  all key off that id, so moving the id to wrap the Month band alone
+  moved all three. The one change needed was the *POST* query —
+  `__kaletaPostDashLayout` now serialises `#dash-bands [data-widget-id]`
+  rather than `#dash-grid …`, or a drag inside Month would have saved a
+  layout that had dropped the hero and the Latest list.
+
+### NiceGUI / Quasar findings
+
+- Quasar's colour helpers (`.text-primary`) are `!important`, and
+  `ui.button` defaults to `color='primary'` — so a top-bar button keeps
+  the brand apricot no matter what the stylesheet says. Every bar button
+  passes `color=None`.
+- `icon-right` is an icon **name**, not a flag: `icon=expand_more` plus
+  a bare `icon-right` put every chevron in front of its label.
+- Two-class selectors (`.q-btn.k-topnav-item`) beat Quasar's own
+  single-class rules without `!important`.
+- `hidden md:flex` loses to Quasar's stylesheet order; `.k-topnav`
+  carries its own `@media` rule at 768px, like `.k-tabbar` before it.
+- The palette's field takes focus when the dialog's transition *ends*,
+  not when it mounts — type before that and the keystrokes land on
+  `<body>`. The e2e tests wait for the caret; a person typing inside
+  ~300ms of ⌘K would lose the first characters, which is a real if minor
+  nit left for the chore inbox.
+
+### Verification
+
+Layout claims were checked in a real browser at 1360px rather than
+reasoned about, with a throwaway probe under `tests/e2e/` (deleted).
+That is what caught the apricot bar, the reversed chevrons, and the
+drawer gutter.

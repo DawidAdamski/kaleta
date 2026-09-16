@@ -2919,15 +2919,15 @@ Feature: Workflow-based navigation
 
   KAL-NAV-001 @automated
   Scenario: Sidebar shows pinned entries and workflow groups
-    Given I am signed in
-    When I open any page
+    Given I am signed in on a narrow viewport
+    When I open the sidebar from the tab bar's More
     Then the sidebar shows Dashboard and Financial Wizard pinned at the top
     And below them the groups Capture, Monthly cycle, Plans & funds, Insight, and Setup
 
   KAL-NAV-002 @automated
   Scenario: Setup group is collapsed by default
     Given I am signed in with no stored sidebar preferences
-    When I open the dashboard
+    When I open the sidebar on a narrow viewport
     Then the Setup group header is visible
     And the items inside Setup are hidden until I click the group header
 
@@ -2939,7 +2939,7 @@ Feature: Workflow-based navigation
 
   KAL-NAV-004 @automated
   Scenario: Every sidebar entry routes to its page
-    Given I am signed in
+    Given I am signed in on a narrow viewport
     When I click each sidebar entry in turn
     Then each click navigates to the entry's page URL
 
@@ -2948,6 +2948,23 @@ Feature: Workflow-based navigation
     Given I am signed in
     When I click Subscriptions, Monthly Readiness, Safety Funds, or Personal Loans in the sidebar
     Then I land on the corresponding page under /wizard/ without visiting the Wizard hub first
+
+  KAL-NAV-007 @automated
+  Scenario: A top bar replaces the sidebar on a wide viewport
+    Given I am signed in
+    When I open any page on a 1360 pixel wide viewport
+    Then the top bar shows Dashboard and Financial Wizard, then five sections
+    And the sidebar is not on the page
+    And the section holding the page I am on is marked
+    And opening a section and choosing an entry navigates to that page
+
+  KAL-NAV-008 @automated
+  Scenario: The command palette reaches any page by name
+    Given I am signed in on a wide viewport
+    When I press Ctrl+K and type part of a page's name
+    Then only the pages matching what I typed are listed
+    And pressing Enter opens the first of them
+    And a name that matches nothing says so instead of listing everything
 
   KAL-NAV-006 @automated
   Scenario: A bottom tab bar replaces the drawer on a narrow viewport
@@ -2958,7 +2975,7 @@ Feature: Workflow-based navigation
     And the sidebar is not covering the page
     And tapping More opens the sidebar over it
     And tapping Add opens the new-transaction form
-    And a 900 pixel window keeps the sidebar open and shows no tab bar
+    And a 900 pixel window navigates from the top bar and shows no tab bar
 ```
 
 ## Feature: Dashboard Customization
@@ -3025,17 +3042,26 @@ Feature: Dashboard Customization
     And 21 days are left to spread it over
     And the per-day figure reads 109.52
 
+  KAL-DSH-008 @automated
+  Scenario: The desktop dashboard reads in bands and only the Month band drags
+    Given I am signed in on a 1360 pixel wide viewport
+    When I open the dashboard
+    Then the page reads Now, This month, Watch and Latest in that order
+    And the safe-to-spend hero leads the Now band
+    And the widget grid holds the Month band's widgets and no others
+    And the hero and the Latest list are outside that grid, so nothing drags them
+    And the Month band's own header is what turns editing on
+
   KAL-DSH-007 @automated
   Scenario: The phone dashboard stacks into Now, This month and Watch
     Given I am signed in
     When I open the dashboard on a 390 pixel wide viewport
-    Then the widgets are stacked in three bands headed Now, This month and Watch
+    Then the widgets are stacked in bands headed Now, This month, Watch and Latest
     And the safe-to-spend hero is the first thing in the Now band
-    And the Watch band carries net worth, the 30-day balance, the savings rate
-      and the year-to-date net as plain figures
+    And the Watch band carries net worth, the six-month average savings rate,
+      the 30-day balance and the safety-fund cover as plain figures
     And the Watch band carries no widget cards at all
     And there is no widget grid and no Edit layout button
-    And the safe-to-spend hero is there although Customize does not have it ticked
     And the page does not scroll sideways
     And a 1360 pixel window still gets the widget grid and no tab bar
 ```
