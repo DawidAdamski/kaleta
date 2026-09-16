@@ -63,6 +63,35 @@ def test_a_wide_viewport_navigates_from_the_top_bar(page: Page, base_url: str) -
     )
 
 
+def test_the_bar_fits_on_one_line_at_its_narrowest(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-007
+
+    768px is where the bar takes over from the tab bar, and it has five
+    sections, two pinned entries, a pill and three icon buttons to fit on one
+    60px line. It did not: the row wrapped and "Setup" went under the header.
+    The two pinned entries and the pill keep their icons and drop their words
+    below 1024px.
+    """
+    page.set_viewport_size({"width": 768, "height": 900})
+    page.goto(f"{base_url}/transactions")
+    page.wait_for_function("() => window.did_handshake === true", timeout=20000)
+
+    bar = page.locator(".k-topnav")
+    expect(bar).to_be_visible(timeout=10000)
+    lines = page.evaluate(
+        """() => new Set([...document.querySelectorAll('.k-topnav .k-topnav-item')]
+                  .map(e => Math.round(e.getBoundingClientRect().top))).size"""
+    )
+    assert lines == 1, f"the top bar wrapped onto {lines} lines"
+
+    widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
+    assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"
+
+    # Dropping a word is not dropping the entry: the text stays in the
+    # document, so the button keeps its name for anyone not reading pixels.
+    expect(bar.locator('[data-nav="nav.wizard"]')).to_contain_text("Financial Wizard")
+
+
 def test_a_section_menu_routes(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-007"""
     _open_desktop(page, base_url)
@@ -70,6 +99,8 @@ def test_a_section_menu_routes(page: Page, base_url: str) -> None:
     page.locator('.k-topnav [data-section="nav.group_insight"]').click()
     entry = page.locator('[data-nav="nav.net_worth"]')
     expect(entry).to_be_visible(timeout=10000)
+    # `q-item` has no `icon` prop, so an entry given one renders bare.
+    expect(entry.locator(".q-icon")).to_have_text("pie_chart")
     entry.click()
 
     expect(page).to_have_url(f"{base_url}/net-worth", timeout=10000)

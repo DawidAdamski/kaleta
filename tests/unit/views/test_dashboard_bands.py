@@ -7,8 +7,13 @@ import datetime
 from dataclasses import replace
 from decimal import Decimal
 
+from kaleta.schemas.reserve_fund import (
+    ReserveFundBackingMode,
+    ReserveFundKind,
+    ReserveFundWithProgress,
+)
 from kaleta.services.report_service import SafeToSpend, SavingsRatePoint
-from kaleta.views.dashboard import _watch_rate_label
+from kaleta.views.dashboard import _emergency_cover, _watch_rate_label
 from kaleta.views.dashboard_widgets import (
     DEFAULT_WIDGETS,
     Band,
@@ -181,3 +186,46 @@ class TestOverspentMonth:
 
     def test_one_grosz_past_the_limit_is_not(self) -> None:
         assert _stats(income=Decimal("500.00"), spent=Decimal("500.01")).spendable is False
+
+
+def _fund(kind: ReserveFundKind, cover: str | None) -> ReserveFundWithProgress:
+    """A fund carrying only what the Watch band reads off it."""
+    return ReserveFundWithProgress.model_validate(
+        {
+            "id": 1,
+            "name": "Fund",
+            "kind": kind,
+            "target_amount": Decimal("0.00"),
+            "backing_mode": ReserveFundBackingMode.ACCOUNT,
+            "backing_account_id": 1,
+            "emergency_multiplier": 6,
+            "current_balance": Decimal("0.00"),
+            "progress_pct": Decimal("0.00"),
+            "months_of_coverage": None if cover is None else Decimal(cover),
+        }
+    )
+
+
+class TestEmergencyCover:
+    def test_no_funds_at_all(self) -> None:
+        assert _emergency_cover([]) is None
+
+    def test_a_fund_of_another_kind_does_not_count(self) -> None:
+        assert _emergency_cover([_fund(ReserveFundKind.VACATION, "4.0")]) is None
+
+    def test_a_fund_with_nothing_to_measure_against(self) -> None:
+        """No spending in the window — the service answers None, so do we."""
+        assert _emergency_cover([_fund(ReserveFundKind.EMERGENCY, None)]) is None
+
+    def test_one_fund_reads_its_own_cover(self) -> None:
+        assert _emergency_cover([_fund(ReserveFundKind.EMERGENCY, "4.6")]) == Decimal("4.6")
+
+    def test_two_funds_cover_the_sum_of_their_months(self) -> None:
+        """Both divide by the same monthly spend, so the months add up —
+        answering with the first would have left the other fund out."""
+        funds = [
+            _fund(ReserveFundKind.EMERGENCY, "4.6"),
+            _fund(ReserveFundKind.EMERGENCY, "1.4"),
+        ]
+
+        assert _emergency_cover(funds) == Decimal("6.0")
