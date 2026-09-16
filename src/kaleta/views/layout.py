@@ -341,6 +341,33 @@ def _go(dialog: ui.dialog, path: str | None) -> None:
     ui.navigate.to(path)
 
 
+#: ⌘K / Ctrl+K, handled in the document rather than by ``ui.keyboard``.
+#:
+#: Two reasons, both of which ``ui.keyboard`` cannot answer. Chrome and
+#: Firefox claim **Ctrl+K** for their own search box, and NiceGUI's keyboard
+#: component never calls ``preventDefault`` — so the palette opened while the
+#: focus jumped to the omnibox and the typing went there. And
+#: ``ui.keyboard`` ignores ``input``/``textarea``/``select``/``button`` by
+#: default, which is right for ``?`` and wrong for this: a search field is
+#: exactly where "take me to another page" gets asked.
+#:
+#: The listener clicks the header's own palette button rather than reaching
+#: for the server: the button is already bound to ``open_palette``, and a
+#: programmatic click works whether or not the button is on screen — on a
+#: phone it is hidden by ``.k-topnav-search``'s breakpoint.
+_PALETTE_KEY_JS = """
+<script>
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+    e.preventDefault();
+    const btn = document.querySelector('[data-palette-open]');
+    if (btn) btn.click();
+  }
+}, true);
+</script>
+"""
+
+
 @contextmanager
 def page_layout(title: str, *, wide: bool = False, container: str | None = None) -> Generator[None]:
     """Shared layout: header + top nav + left drawer + main content area.
@@ -559,13 +586,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
         key = getattr(e, "key", None)
         no_mod = not getattr(e.modifiers, "ctrl", False) and not getattr(e.modifiers, "alt", False)
         alt_only = getattr(e.modifiers, "alt", False) and not getattr(e.modifiers, "ctrl", False)
-        if key in ("k", "K") and (
-            getattr(e.modifiers, "meta", False) or getattr(e.modifiers, "ctrl", False)
-        ):
-            # ⌘K on a Mac, Ctrl+K elsewhere. The browser only claims ⌘K while
-            # the address bar has focus, so a page-level handler is safe here.
-            open_palette()
-        elif key == "?" and no_mod:
+        if key == "?" and no_mod:
             shortcuts_dialog.open()
         elif key == "n" and alt_only:
             is_tx_page = await ui.run_javascript("window.location.pathname === '/transactions'")
@@ -573,6 +594,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                 ui.navigate.to("/transactions?new=1")
 
     ui.keyboard(on_key=_global_key, active=True)
+    ui.add_head_html(_PALETTE_KEY_JS)
 
     _tab_bar(drawer, current_path)
 
