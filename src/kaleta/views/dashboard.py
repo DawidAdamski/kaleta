@@ -360,21 +360,18 @@ _NO_FIGURE = "—"
 def _watch_rate_label(points: list[SavingsRatePoint]) -> str:
     """The savings-rate figure, or ``—`` when no month has a rate at all.
 
-    ``savings_rate`` zero-fills, so it always answers with six months and the
-    list is never empty: a ledger with no income at all arrives here as six
-    points whose ``rate_pct`` is ``None``, which
-    ``average_savings_rate_pct`` averages to ``0`` — and a band that reads
-    "0.0%" for a rate nobody has is stating a figure it does not have, the
-    very thing "—" exists to avoid two rows down at Safety fund cover.
-
-    One month with income among six is a different matter: those are real
-    zeroes, and an average over half a year is what the label promises.
+    ``savings_rate`` zero-fills, so it always answers with as many months as
+    it was asked for and the list is never empty: a ledger with no income
+    arrives here as points whose ``rate_pct`` is ``None``, and a band that
+    reads "0.0%" for a rate nobody has is stating a figure it does not have
+    — the very thing "—" exists to avoid two rows down at Safety fund cover.
+    :meth:`ReportService.mean_savings_rate_pct` averages the months that have
+    an answer and says ``None`` when none do.
     """
     from kaleta.services import ReportService
 
-    if not points or all(point.rate_pct is None for point in points):
-        return _NO_FIGURE
-    return f"{float(ReportService.average_savings_rate_pct(points)):.1f}%"
+    rate = ReportService.mean_savings_rate_pct(points)
+    return _NO_FIGURE if rate is None else f"{float(rate):.1f}%"
 
 
 async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
@@ -397,7 +394,11 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     # Six months, not this month and not the year: the artboard labels it
     # "6-mo avg", and an average over half a year is the one savings figure
     # that neither swings with a fresh month nor drags a whole year behind it.
-    rate_label = _watch_rate_label(await reports.savings_rate(months=6))
+    # Seven asked for, the last dropped: the current month is in progress, and
+    # on the 3rd — before the salary lands — it would drag the mean down by a
+    # sixth and put it back a week later. That is the swing this figure was
+    # chosen to avoid.
+    rate_label = _watch_rate_label((await reports.savings_rate(months=7))[:-1])
     # No guard around the forecast: the forecaster already swallows a model
     # that will not fit and answers with no prediction, which arrives here as
     # ``None`` and reads as an em dash. A guard here would have caught only
@@ -525,7 +526,7 @@ async def _render_now_band(
     The wide column belongs to the hero *by name*. It is an ordinary widget
     the user can untick, and a band that gave two thirds to whatever came
     first would hand a column sized for a 54px figure to the needs-attention
-    banner. Without the hero the band is equal columns.
+    banner. Without the hero the band is one column of stacked widgets.
     """
     hero = next((entry for entry in entries if entry["id"] == HERO_WIDGET), None)
     rest = [entry for entry in entries if entry is not hero]
@@ -558,8 +559,13 @@ async def _render_month_grid(
             _render_empty_placeholder()
 
 
+#: Two figures abreast on a phone, four on a desktop — written out, because
+#: a class name composed at runtime is one no scan of this source can see.
+_WATCH_COLUMNS = {2: "grid-cols-2", 4: "grid-cols-4"}
+
+
 async def _render_watch_band(session: AsyncSession, *, columns: int) -> None:
-    with ui.grid().classes(f"w-full grid-cols-{columns} gap-x-6 gap-y-4"):
+    with ui.grid().classes(f"w-full {_WATCH_COLUMNS[columns]} gap-x-6 gap-y-4"):
         for label, value in await _watch_figures(session):
             with ui.column().classes("gap-0.5 min-w-0"):
                 ui.label(label).classes(WATCH_LABEL)

@@ -398,6 +398,23 @@ class ReportService:
         total = sum((p.rate_pct or Decimal("0") for p in points), start=Decimal("0"))
         return total / len(points)
 
+    @staticmethod
+    def mean_savings_rate_pct(points: list[SavingsRatePoint]) -> Decimal | None:
+        """Mean over the months that *have* a rate, or ``None`` when none do.
+
+        The difference from :meth:`average_savings_rate_pct` is what a month
+        with no income means. That method reads it as a real 0% — right for a
+        chart of a ledger you have been keeping. This one reads it as no
+        answer, which is what a headline figure needs: ``savings_rate``
+        zero-fills, so a ledger one month old arrives as five months that
+        predate it plus one real one, and counting the five as zeroes turns a
+        20% month into "3.3%" — a figure for a period the user did not have.
+        """
+        rated = [point.rate_pct for point in points if point.rate_pct is not None]
+        if not rated:
+            return None
+        return sum(rated, start=Decimal("0")) / len(rated)
+
     # ── Legacy helpers (used by Dashboard) ───────────────────────────────────
 
     async def total_balance(self) -> Decimal:
