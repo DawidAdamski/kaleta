@@ -60,7 +60,7 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(MBANK_CSV))
 
-    expect(page.locator("[data-page-eyebrow]")).to_contain_text("mbank_transfer.csv", timeout=10000)
+    expect(page.locator("[data-page-eyebrow]")).to_contain_text("mbank_transfer.csv", timeout=5000)
 
     _step(page, 4)
     expect(page.get_by_text("Import settings", exact=True)).to_be_visible(timeout=5000)

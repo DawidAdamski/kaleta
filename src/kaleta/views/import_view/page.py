@@ -564,6 +564,12 @@ async def import_page() -> None:
             ui.notify(t("import.rule_save_failed", error=str(exc)), type="warning")
 
     async def do_import_all() -> None:
+        if state["importing"]:
+            # The footer draws the button disabled while a run is going, but
+            # that is a websocket round trip away; a second click inside it
+            # would otherwise start a second loop over the same files.
+            return
+
         eligible = [f for f in state["queue"] if f.status == "ready"]
         if not eligible:
             ui.notify(t("import.no_files_to_import"), type="warning")
@@ -748,6 +754,7 @@ async def import_page() -> None:
                 viewed=state["step"],
                 reachable=_reachable(),
                 on_step=_goto,
+                steps=steps_for(_active()),
             )
 
         @ui.refreshable

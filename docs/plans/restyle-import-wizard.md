@@ -93,7 +93,7 @@ separate plan.
 - `uv run pytest tests/e2e/test_transfer_detection.py tests/e2e/test_rules.py -q`
 - `grep -q "KAL-CSV-028" docs/bdd.md`
 - `grep -q "KAL-CSV-029" docs/bdd.md`
-- `grep -qv "text-2xl font-bold" src/kaleta/views/import_view/page.py`
+- `! grep -q "text-2xl font-bold" src/kaleta/views/import_view/page.py`
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
 - `[manual]` Upload `test_import.csv` at 1360px: step 3 shows the sample
@@ -176,6 +176,15 @@ separate plan.
   reader chooses a step; an upload follows only if the token is
   unchanged since it began. A new run (`Start new import`) and a
   finished import bump it themselves — those are the page's to place.
+- **A node for a step the file does not have is not a link.** The mapping
+  node stays drawn and ticked for a bank profile (decision 2), but
+  `render_step_indicator` now takes the file's own `steps_for()` and
+  wires `on_step` only for those — clicking it used to go through
+  `clamp_viewed` and land the reader somewhere they did not ask for.
+- **One import run per click.** `do_import_all` returns early while
+  `state["importing"]` is set: the footer draws the button disabled, but
+  that is a websocket round trip away, and a second click inside it
+  started a second loop over the same files.
 - **The eyebrow's row count is a figure**: `k-mono`, and `f"{count:,}"`,
   which is the same call `mapping_caption` makes for the same number.
 - **The mBank/Wise metadata banner moved to Upload**, with the file it
@@ -190,6 +199,13 @@ separate plan.
   `data-file-switcher`, `data-page-eyebrow`, `data-queue-row`) are how
   the e2e suite walks a page whose cards are no longer all on screen.
 
+### Noticed, not fixed (out of scope)
+
+- A saved import rule that carries a column mapping keeps an mBank file
+  on the generic path: `_parse_file` passes the mapping, so detection
+  never runs and the file keeps a mapping step it does not need. Nothing
+  to do with this plan's shell — for the chore inbox.
+
 ### What the e2e rewrite turned up
 
 - Several assertions were passing on hidden elements once the wizard
@@ -201,10 +217,12 @@ separate plan.
   and an earlier test's "Remember this mapping" leaves one. The test now
   disables every rule of that pattern, which is the premise it always
   meant.
-- A multi-file drop moves the page under the reader: each upload handler
-  ends with `_sync_step(follow=True)`, so a click on a step node can be
-  undone by the next file landing. `_wait_for_queue` waits for the queue
-  to stop growing (`data-queue-row`), and `_step` retries once.
+- A multi-file drop moved the page under the reader: each upload handler
+  ended with `_sync_step(follow=True)`, so a click on a step node was
+  undone by the next file landing. The tests first worked around it with
+  a second click; the fix is `step_token` (above), and what the tests
+  keep is `_wait_for_queue`, which waits for the queue to stop growing
+  (`data-queue-row`) before asking anything of it.
 - KAL-CSV-021 used to make a file fail by importing it with no target
   account, which the wizard will not let you do: `Continue` refuses at
   settings. The file now fails the way the branch it covers actually

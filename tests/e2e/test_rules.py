@@ -110,7 +110,7 @@ def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
         )
 
         page.locator('input[type="file"]').set_input_files(str(csv_path))
-        expect(page.locator("[data-page-eyebrow]")).to_contain_text(csv_path.name, timeout=10000)
+        expect(page.locator("[data-page-eyebrow]")).to_contain_text(csv_path.name, timeout=5000)
 
         # The import page is a wizard: settings on step 4, the import itself
         # from the preview's footer on step 5.

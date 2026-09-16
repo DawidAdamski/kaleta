@@ -535,7 +535,8 @@ def test_multi_file_queue_keeps_per_file_account(page: Page, base_url: str) -> N
     expect(switcher).to_contain_text("of 2", timeout=5000)
     for _ in range(2):
         # The eyebrow is upper-cased by the stylesheet, not by the page.
-        active = page.locator("[data-page-eyebrow]").inner_text().lower()
+        eyebrow = page.locator("[data-page-eyebrow]")
+        active = eyebrow.inner_text().lower()
         wanted = mbank if "mbank" in active else pko
         _select_import_option(page, "Target account", _account_option(wanted))
         step_back, step_forward = (
@@ -544,7 +545,8 @@ def test_multi_file_queue_keeps_per_file_account(page: Page, base_url: str) -> N
         )
         moved = step_forward if step_forward.is_enabled() else step_back
         moved.click()
-        page.wait_for_timeout(400)
+        # The switcher has moved when the header names the other file.
+        expect(eyebrow).not_to_contain_text(active.split(" ·")[0], ignore_case=True)
 
     # Both per-file account chips remain in the queue after switching.
     _step(page, STEP_UPLOAD)
@@ -1038,6 +1040,11 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
     _step(page, STEP_MAPPING)
     assert visible_panels() == [str(STEP_MAPPING)], visible_panels()
 
+    # Something to lose: a column mapped by hand on the step being left.
+    _select_import_option(page, "Date column", "1: Txn Day")
+    date_picker = page.locator(".q-select").filter(has_text="Date column")
+    expect(date_picker).to_contain_text("1: Txn Day")
+
     # Back walks to the step before it, and the file survives the walk.
     page.locator("[data-wizard-footer]").get_by_role("button", name="Back").click()
     expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
@@ -1056,6 +1063,21 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
     expect(page.locator("[data-wizard-footer]").get_by_role("button", name="Back")).to_be_disabled()
     _step(page, STEP_MAPPING)
     assert visible_panels() == [str(STEP_MAPPING)], visible_panels()
+    # And the column mapped before the walk is still mapped after it.
+    expect(date_picker).to_contain_text("1: Txn Day")
+
+    # A bank profile has no mapping step — its columns are the profile's —
+    # so that node is ticked but not a link: clicking it would land the
+    # reader on a step the file does not have. Uploaded under a name no
+    # saved rule in this shared database matches, since a rule that fills
+    # the mapping in is a rule that keeps the file on the generic path.
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(WISE_JPY_QIF, "kal-csv-028-wise-statement.qif")
+    )
+    _wait_for_queue(page, 2)
+    _wait_for_file(page, "kal-csv-028-wise-statement.qif")
+    expect(page.locator('[data-step="2"]')).to_have_class(re.compile(r"cursor-pointer"))
+    expect(page.locator('[data-step="3"]')).not_to_have_class(re.compile(r"cursor-pointer"))
 
 
 def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: str) -> None:
@@ -1092,7 +1114,9 @@ def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: 
     _select_import_option(page, "Target account", _account_option(account_name))
     expect(_blocked_reason(page)).to_contain_text("Select a default", timeout=5000)
     _select_import_option(page, "Default expense category", "Other Expenses Refuses")
-    expect(_blocked_reason(page)).to_contain_text("Select a default income", timeout=5000)
+    # The last one is asserted whole: by here nothing about the shared
+    # database can change which setting is missing.
+    expect(_blocked_reason(page)).to_have_text("Select a default income category.", timeout=5000)
     _select_import_option(page, "Default income category", "Other Income Refuses")
 
     # Everything chosen: the step is finished, so Continue stops refusing and

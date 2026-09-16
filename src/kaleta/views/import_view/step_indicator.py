@@ -36,6 +36,7 @@ def render_step_indicator(
     viewed: int | None = None,
     reachable: int | None = None,
     on_step: Callable[[int], None] | None = None,
+    steps: tuple[int, ...] | None = None,
 ) -> None:
     """Six nodes on a hairline: done, the one you are on, and the rest.
 
@@ -51,6 +52,10 @@ def render_step_indicator(
     three steps back can still see what the file is waiting on. Nodes up to
     ``reachable`` call ``on_step`` — a wizard you can only walk forward
     through is one you restart to fix a typo.
+
+    ``steps`` is the steps this file actually has: a bank profile's mapping
+    node is drawn and ticked, because the columns *were* mapped, but it is
+    not a step you can stand on, so it is not a link either.
     """
     # No default: a line drawn without a step would have to invent one, and
     # the invented one disagreed with ``current_step(None)``.
@@ -87,6 +92,7 @@ def render_step_indicator(
                 # On the element that carries both the node and its label,
                 # which together are the step.
                 step.props["aria-current"] = "step"
-            if on_step is not None and index <= limit:
+            walkable = steps is None or index in steps
+            if on_step is not None and index <= limit and walkable:
                 step.classes(add="cursor-pointer")
                 step.on("click", lambda _e=None, i=index: on_step(i))

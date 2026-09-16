@@ -1277,14 +1277,15 @@ Feature: mBank CSV Import
     Then only the column mapping is on screen, under the file's name
     And "Back" returns me to the step before it without losing my work
     And a step the file has already passed is clickable on the progress line
+    And a step this file does not have is ticked but is not a link
 
   KAL-CSV-029 @automated
   Scenario: Continue refuses a step that is not finished, and says why
     Given I am on the Import page with no file uploaded
-    Then "Continue" is disabled and the page says a file is needed
+    Then "Continue" is disabled and says "Upload a file to continue."
     When I upload a CSV and reach the settings step
     Then "Continue" stays disabled until I choose where the rows go
-    And the reason beside it is the one the import itself would give
+    And the last thing it asks for is "Select a default income category."
 ```
 
 ## Feature: Transfer Recognition
