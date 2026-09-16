@@ -12,6 +12,7 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.services.import_service import currency_mismatch_warning
 from kaleta.views.import_view.state import QueuedFile
+from kaleta.views.theme import BODY_MUTED, CARD_TITLE, MUTED, SECTION_CARD
 
 
 @dataclass
@@ -104,10 +105,10 @@ def build_settings_section(
     expense_cat_opts: dict[int, str],
     income_cat_opts: dict[int, str],
 ) -> SettingsSection:
-    card = ui.card().classes("w-full")
+    card = ui.card().classes(f"{SECTION_CARD} gap-0")
     card.set_visibility(False)
     with card:
-        ui.label(t("import.settings_section")).classes("text-lg font-semibold mb-3")
+        ui.label(t("import.settings_section")).classes(f"{CARD_TITLE} mb-3")
         ui.label("").classes("text-sm k-trend--pos")
         currency_warn_label = ui.label("").classes("text-sm k-trend--warn")
         with ui.row().classes("w-full gap-4 flex-wrap"):
@@ -122,12 +123,12 @@ def build_settings_section(
             ).classes("flex-1 min-w-48")
         with ui.row().classes("items-center gap-1"):
             skip_dupes_cb = ui.checkbox(t("import.skip_duplicates"), value=True)
-            ui.icon("help_outline", size="1rem").classes("text-slate-500 cursor-help").tooltip(
+            ui.icon("help_outline", size="1rem").classes(f"{MUTED} cursor-help").tooltip(
                 t("import.skip_duplicates_help")
             )
         with ui.column().classes("w-full gap-1 mt-2"):
             remember_cb = ui.checkbox(t("import.remember_mapping"), value=True)
-            ui.label(t("import.remember_mapping_hint")).classes("text-xs text-slate-500")
+            ui.label(t("import.remember_mapping_hint")).classes(f"{BODY_MUTED} text-xs")
             pattern_input = ui.input(t("import.filename_pattern")).classes("w-full max-w-md")
     return SettingsSection(
         card=card,
