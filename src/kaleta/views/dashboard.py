@@ -359,16 +359,21 @@ _NO_FIGURE = "—"
 
 
 def _watch_rate_label(points: list[SavingsRatePoint]) -> str:
-    """The savings-rate figure, or ``—`` when there is nothing to average.
+    """The savings-rate figure, or ``—`` when no month has a rate at all.
 
-    ``average_savings_rate_pct`` answers ``0`` for an empty list, and a band
-    that reads "0.0%" on a ledger with no months in it is stating a figure it
-    does not have — the very thing "—" exists to avoid two rows down, at
-    Safety fund cover.
+    ``savings_rate`` zero-fills, so it always answers with six months and the
+    list is never empty: a ledger with no income at all arrives here as six
+    points whose ``rate_pct`` is ``None``, which
+    ``average_savings_rate_pct`` averages to ``0`` — and a band that reads
+    "0.0%" for a rate nobody has is stating a figure it does not have, the
+    very thing "—" exists to avoid two rows down at Safety fund cover.
+
+    One month with income among six is a different matter: those are real
+    zeroes, and an average over half a year is what the label promises.
     """
     from kaleta.services import ReportService
 
-    if not points:
+    if not points or all(point.rate_pct is None for point in points):
         return _NO_FIGURE
     return f"{float(ReportService.average_savings_rate_pct(points)):.1f}%"
 
