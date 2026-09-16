@@ -118,9 +118,14 @@ independent of each other unless noted.
 | 11 | [restyle-wizard-index](restyle-wizard-index.md) | `3d` | draft | 1 |
 | 12 | [restyle-reports-sentence](restyle-reports-sentence.md) | `3e` | draft | 1 |
 | 13 | [restyle-dashboard-mobile](restyle-dashboard-mobile.md) | `1f` | draft | 4 (needs a safe-to-spend service method) |
+| 14 | [restyle-dashboard-rethink](restyle-dashboard-rethink.md) | `1e` | draft | 4, 13 |
 
-Not planned: `1a` (before-picture), `1b` (superseded by 4), `1e` desktop
-rethink (revisit after living with 4).
+Not planned: `1a` (before-picture), `1b` (superseded by 4).
+
+`1e` was held back until 4 had been lived with; plan 14 writes it down
+so the decision to start is a decision, not an omission. Most of what it
+needs — `safe_to_spend`, the hero, `Band` / `BAND_OF` /
+`bands_for_layout` — arrived with 13.
 
 ### Q4 2026 — Open-source launch (execute in this order)
 
