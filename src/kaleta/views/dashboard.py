@@ -544,12 +544,17 @@ async def _render_month_grid(
 ) -> None:
     """The four-column grid, now holding one band instead of the whole page."""
     with ui.element("div").props('id="dash-grid"'):
+        rendered = 0
         for entry in entries:
             widget = WIDGETS.get(entry["id"])
             if widget is None:
                 continue
             await _render_wrapped(widget, session, is_dark, entry["cols"], entry["rows"])
-        if not entries:
+            rendered += 1
+        # What was drawn, not what was asked for: a band of ids this build
+        # no longer knows is as empty as a band of none, and the placeholder
+        # is the only thing telling you where the widgets went.
+        if not rendered:
             _render_empty_placeholder()
 
 
