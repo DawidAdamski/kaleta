@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from kaleta.services.report_service import SavingsRatePoint
 
 from kaleta.i18n import t
+from kaleta.schemas.reserve_fund import ReserveFundKind, ReserveFundWithProgress
 from kaleta.services import with_session
 from kaleta.views.dashboard_widgets import (
     BAND_ORDER,
@@ -413,22 +414,32 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     ]
 
 
-async def _safety_fund_cover(session: AsyncSession) -> Decimal | None:
-    """Months the emergency fund covers, or ``None`` when there is no answer.
+def _emergency_cover(funds: list[ReserveFundWithProgress]) -> Decimal | None:
+    """Months the emergency funds cover between them, or ``None``.
+
+    Every fund's cover is its balance over the *same* trailing monthly
+    spend, so two emergency funds cover the sum of their months. Taking the
+    first the service returned would have answered with whichever id
+    happened to be lower, and left the other fund out of a figure that is
+    meant to say "how long could I live on this".
 
     ``None`` means one of three things and deliberately reads the same way:
     no emergency fund, an empty one, or no spending in the last 90 days to
     measure it against. The band says "—" rather than inventing a zero,
     because zero months of cover and no fund at all are not the same news.
     """
-    from kaleta.schemas.reserve_fund import ReserveFundKind
+    covers = [
+        fund.months_of_coverage
+        for fund in funds
+        if fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None
+    ]
+    return sum(covers, Decimal("0")) if covers else None
+
+
+async def _safety_fund_cover(session: AsyncSession) -> Decimal | None:
     from kaleta.services.reserve_fund_service import ReserveFundService
 
-    funds = await ReserveFundService(session).list_with_progress()
-    for fund in funds:
-        if fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None:
-            return fund.months_of_coverage
-    return None
+    return _emergency_cover(await ReserveFundService(session).list_with_progress())
 
 
 async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_dark: bool) -> None:
