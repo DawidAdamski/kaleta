@@ -1278,6 +1278,7 @@ Feature: mBank CSV Import
     And "Back" returns me to the step before it without losing my work
     And a step the file has already passed is clickable on the progress line
     And a step this file does not have is ticked but is not a link
+    And the steps I can walk to answer the keyboard as well as the mouse
 
   KAL-CSV-029 @automated
   Scenario: Continue refuses a step that is not finished, and says why

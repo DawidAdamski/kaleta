@@ -9,6 +9,7 @@ Page URL: /import (preview) and /transactions (verification)
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from playwright.sync_api import Page, expect
@@ -82,7 +83,9 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     page.locator("[data-import-run]").click()
     # The heading renders for a failed run too, so the claim is the file's
     # own line in the summary.
-    expect(page.locator('[data-step-panel="6"]')).to_contain_text("3 imported", timeout=10000)
+    expect(page.locator('[data-step-panel="6"]')).to_contain_text(
+        re.compile(r"\b3 imported"), timeout=10000
+    )
 
     page.goto(f"{base_url}/transactions")
 

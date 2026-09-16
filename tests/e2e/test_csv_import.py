@@ -181,7 +181,7 @@ def test_csv_import_with_account_mapping(page: Page, base_url: str) -> None:
 
     # The summary's per-file line, not its heading: the heading renders for
     # a failed run too, and "imported" alone matches "0 imported".
-    expect(_panel(page, STEP_CONFIRM)).to_contain_text("3 imported", timeout=10000)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b3 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     for label in ("Biedronka", "Orlen", "Wyplata"):
@@ -239,7 +239,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
         timeout=5000
     )
     _run_import(page)
-    expect(_panel(page, STEP_CONFIRM)).to_contain_text("3 imported", timeout=10000)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b3 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Coffee Shop")
@@ -756,7 +756,7 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
         _panel(page, STEP_PREVIEW).get_by_text("Japanpost Bank(245950) GIFU", exact=False).first
     ).to_be_visible(timeout=5000)
     _run_import(page)
-    expect(_panel(page, STEP_CONFIRM)).to_contain_text("9 imported", timeout=10000)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Japanpost Bank(245950) GIFU")
@@ -824,7 +824,7 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
         _panel(page, STEP_PREVIEW).get_by_text("Japanpost Bank(245950) GIFU", exact=False).first
     ).to_be_visible(timeout=5000)
     _run_import(page)
-    expect(_panel(page, STEP_CONFIRM)).to_contain_text("9 imported", timeout=10000)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Topped up account")
@@ -903,7 +903,7 @@ def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_u
     _select_import_option(page, "Default income category", income_cat)
 
     _import_now(page)
-    expect(_panel(page, STEP_CONFIRM)).to_contain_text("9 imported", timeout=10000)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
     assert count_transactions(account_id) > 0
 
 

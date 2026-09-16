@@ -596,7 +596,11 @@ async def import_page() -> None:
             for queued_file in eligible:
                 await _import_one(queued_file)
                 _render_queue()
-                _repaint_active()
+                # `sync=False`: a file that fails mid-run drops its own
+                # `current_step` to Upload, and clamping to it would walk the
+                # reader off Preview and back again when the run ends. Where
+                # they stand is settled once, at the end.
+                _repaint_active(sync=False)
         finally:
             state["importing"] = False
             # Whatever ended the run, the button that started it stops

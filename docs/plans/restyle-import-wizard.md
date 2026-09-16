@@ -213,6 +213,11 @@ separate plan.
   work has got. `state["run_finished"]` is set with the summary and
   cleared by the next drop, a new run, or the last file leaving the
   queue; while it is set, Confirm is walkable.
+- **A run does not move the reader while it is running.** Each file's
+  repaint inside the loop used to re-clamp the step, so a file failing
+  mid-run dropped `current_step` to Upload and took the reader off
+  Preview, only to put them on Confirm a moment later. Where they stand
+  is settled once, when the run ends.
 - **One import run per click.** `do_import_all` returns early while
   `state["importing"]` is set: the footer draws the button disabled, but
   that is a websocket round trip away, and a second click inside it
