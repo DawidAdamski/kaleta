@@ -11,13 +11,13 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.views.components.empty_state import table_no_data_slot
 from kaleta.views.import_view.constants import STATUS_COLOR
-from kaleta.views.import_view.state import QueuedFile, import_button_label
+from kaleta.views.import_view.state import QueuedFile
+from kaleta.views.theme import BODY_MUTED, CARD_TITLE, SECTION_CARD
 
 
 @dataclass
 class QueueSection:
     container: ui.column
-    import_all_btn: ui.button
     bulk_account_sel: ui.select
     account_options: dict[int, str]
 
@@ -33,7 +33,6 @@ class QueueSection:
         with self.container:
             if not queue:
                 ui.html(table_no_data_slot("import.queue_empty"), sanitize=False).classes("py-2")
-                self.update_import_button(0)
                 return
             for queued_file in queue:
                 self._render_row(
@@ -42,15 +41,6 @@ class QueueSection:
                     on_select=on_select,
                     on_remove=on_remove,
                 )
-        ready = sum(1 for f in queue if f.status == "ready")
-        self.update_import_button(ready)
-
-    def update_import_button(self, ready_count: int) -> None:
-        self.import_all_btn.set_text(import_button_label(ready_count))
-        if ready_count <= 0:
-            self.import_all_btn.props("disable")
-        else:
-            self.import_all_btn.props(remove="disable")
 
     def _render_row(
         self,
@@ -112,19 +102,15 @@ class QueueSection:
         elif queued_file.status_msg:
             parts.append(queued_file.status_msg)
         if parts:
-            ui.label(" · ".join(parts)).classes("text-xs text-slate-500")
+            ui.label(" · ".join(parts)).classes(f"{BODY_MUTED} text-xs")
 
 
 def build_queue_section(account_options: dict[int, str]) -> QueueSection:
-    with ui.card().classes("w-full"):
-        with ui.row().classes("w-full items-center justify-between mb-2"):
-            ui.label(t("import.queue_section")).classes("text-lg font-semibold")
-            import_all_btn = (
-                ui.button(t("import.import_btn_zero"), icon="upload")
-                .props("color=primary unelevated disable")
-                .tooltip(t("import.import_btn_tooltip"))
-            )
-        ui.label(t("import.queue_active_hint")).classes("text-xs text-slate-500 mb-2")
+    with ui.card().classes(f"{SECTION_CARD} gap-0"):
+        # No import button here any more: it runs from the Preview footer,
+        # the last step you can still change your mind on.
+        ui.label(t("import.queue_section")).classes(CARD_TITLE)
+        ui.label(t("import.queue_active_hint")).classes(f"{BODY_MUTED} mb-2")
         with ui.row().classes("w-full items-end gap-3 mb-3 flex-wrap"):
             bulk_account_sel = (
                 ui.select(
@@ -135,11 +121,10 @@ def build_queue_section(account_options: dict[int, str]) -> QueueSection:
                 .classes("min-w-64 flex-1")
                 .props("clearable")
             )
-            ui.label(t("import.bulk_account_hint")).classes("text-xs text-slate-500 pb-2")
+            ui.label(t("import.bulk_account_hint")).classes(f"{BODY_MUTED} pb-2")
         container = ui.column().classes("w-full gap-1")
     return QueueSection(
         container=container,
-        import_all_btn=import_all_btn,
         bulk_account_sel=bulk_account_sel,
         account_options=account_options,
     )
