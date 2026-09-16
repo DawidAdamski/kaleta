@@ -173,10 +173,10 @@ class ReserveFundService:
         happened to be lower and leave the other fund out of a figure that
         means "how long could I live on this".
 
-        ``None`` means one of three things, and they read the same way on
-        purpose: no emergency fund, an empty one, or no spending in the
-        trailing window to measure it against. Zero months of cover and no
-        fund at all are not the same news, so neither is reported as zero.
+        ``None`` means there is no answer to give: no emergency fund, or no
+        spending in the trailing window to measure one against. It is not
+        the same as zero — a fund with nothing in it, on a ledger that has
+        spending, covers ``0.0`` months and says so.
         """
         covers = [
             fund.months_of_coverage
@@ -186,8 +186,15 @@ class ReserveFundService:
         return sum(covers, Decimal("0")) if covers else None
 
     async def emergency_cover_months(self, *, today: datetime.date | None = None) -> Decimal | None:
-        """The dashboard's Safety-fund-cover figure. See :meth:`emergency_cover`."""
-        return self.emergency_cover(await self.list_with_progress(today=today))
+        """The dashboard's Safety-fund-cover figure. See :meth:`emergency_cover`.
+
+        Only the emergency funds are costed: :meth:`with_progress` runs a
+        balance query per fund and the trailing-spend aggregate per emergency
+        one, and this figure is on the dashboard's first paint. A sinking fund
+        cannot change the answer, so it is not worth a query.
+        """
+        funds = [f for f in await self.list() if f.kind == ReserveFundKind.EMERGENCY]
+        return self.emergency_cover([await self.with_progress(f, today=today) for f in funds])
 
 
 __all__ = ["ReserveFundService", "TRAILING_WINDOW_DAYS"]
