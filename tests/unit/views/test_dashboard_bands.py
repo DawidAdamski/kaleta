@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for the phone dashboard's band grouping and hero bar (1f)."""
+"""Unit tests for the dashboard's band grouping, hero bar and Watch figures."""
 
 from __future__ import annotations
 
@@ -7,14 +7,14 @@ import datetime
 from dataclasses import replace
 from decimal import Decimal
 
-from kaleta.services.report_service import SafeToSpend
+from kaleta.services.report_service import SafeToSpend, SavingsRatePoint
+from kaleta.views.dashboard import _watch_rate_label
 from kaleta.views.dashboard_widgets import (
     DEFAULT_WIDGETS,
     Band,
     bands_for_layout,
-    with_hero,
 )
-from kaleta.views.dashboard_widgets.registry import HERO_WIDGET, LEGACY_KPI_WIDGETS, WIDGETS
+from kaleta.views.dashboard_widgets.registry import LEGACY_KPI_WIDGETS, WIDGETS
 from kaleta.views.dashboard_widgets.safe_to_spend import days_left_label, hero_split
 
 
@@ -57,25 +57,39 @@ class TestBandsForLayout:
         assert all(entries == [] for entries in grouped.values())
 
 
-class TestMobileLayout:
-    def test_the_hero_leads_a_layout_that_does_not_carry_it(self) -> None:
-        """It is off by default on the desktop grid, so a phone must add it."""
-        result = with_hero([_entry("cashflow_chart")])
-
-        assert _ids(result) == [HERO_WIDGET, "cashflow_chart"]
-
-    def test_a_layout_that_already_has_it_is_left_alone(self) -> None:
-        """Twice on one screen is worse than once in the wrong place."""
-        layout = [_entry("cashflow_chart"), _entry(HERO_WIDGET)]
-
-        result = with_hero(layout)
-
-        assert _ids(result) == ["cashflow_chart", HERO_WIDGET]
-
+class TestHeroIsAnOrdinaryWidget:
     def test_the_hero_lands_in_the_now_band(self) -> None:
-        grouped = bands_for_layout(with_hero([_entry("cashflow_chart")]))
+        grouped = bands_for_layout([_entry("safe_to_spend"), _entry("cashflow_chart")])
 
-        assert _ids(grouped[Band.NOW]) == [HERO_WIDGET]
+        assert _ids(grouped[Band.NOW]) == ["safe_to_spend"]
+
+    def test_a_layout_without_it_does_not_get_one(self) -> None:
+        """It is a default widget, so Customize is what decides — at both
+        widths. Prepending it behind the user's back made the checkbox a lie
+        and let the first drag write it back into storage."""
+        grouped = bands_for_layout([_entry("cashflow_chart")])
+
+        assert grouped[Band.NOW] == []
+
+
+class TestWatchRateLabel:
+    def _month(self, income: str, expenses: str) -> SavingsRatePoint:
+        return SavingsRatePoint(
+            year=2026, month=6, income=Decimal(income), expenses=Decimal(expenses)
+        )
+
+    def test_no_months_reads_as_no_figure(self) -> None:
+        """The mean of nothing is not zero per cent — and the band says "—"
+        for the same situation two rows down, at Safety fund cover."""
+        assert _watch_rate_label([]) == "—"
+
+    def test_one_month_reads_its_own_rate(self) -> None:
+        assert _watch_rate_label([self._month("1000", "785")]) == "21.5%"
+
+    def test_months_are_averaged(self) -> None:
+        points = [self._month("100", "90"), self._month("100", "80")]
+
+        assert _watch_rate_label(points) == "15.0%"
 
 
 class TestWatchBandTakesNoWidgets:

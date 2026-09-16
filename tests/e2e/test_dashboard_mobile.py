@@ -69,6 +69,20 @@ def test_a_narrow_viewport_gets_a_bottom_tab_bar(page: Page, base_url: str) -> N
     assert round(box["y"] + box["height"]) == PHONE["height"]
 
 
+def test_the_phone_header_has_one_way_into_the_palette(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-006
+
+    The "Jump to…" pill is a sibling of the top-bar row, not a child of it,
+    so hiding the row is not enough to hide the pill — left alone, a 390px
+    header carried both it and the search icon, opening the same dialog.
+    """
+    _open_phone_dashboard(page, base_url)
+
+    expect(page.locator(".k-phone-search")).to_be_visible(timeout=10000)
+    expect(page.locator(".k-topnav-search")).to_be_hidden()
+    expect(page.locator(".k-topnav")).to_be_hidden()
+
+
 def test_the_drawer_waits_behind_more(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-006
 
@@ -100,8 +114,7 @@ def _reset_widgets(page: Page) -> None:
 
     The suite shares one NiceGUI user storage, so the stored layout this test
     reads is whatever the files before it left behind. Resetting first makes
-    the claim about the hero — that it is on the page although Customize does
-    not have it ticked — a claim about the defaults rather than about test
+    the band claims below claims about the defaults rather than about test
     order, and leaves the storage cleaner than it found it.
     """
     page.get_by_role("button", name="Customize").click()
@@ -129,7 +142,7 @@ def test_no_width_is_stranded_between_the_two_layouts(page: Page, base_url: str)
     expect(page.locator(".k-tabbar")).to_be_hidden()
 
 
-def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) -> None:
+def test_the_phone_dashboard_stacks_into_bands(page: Page, base_url: str) -> None:
     """Covers: KAL-DSH-007"""
     _open_phone_dashboard(page, base_url)
     _reset_widgets(page)
@@ -170,8 +183,7 @@ def test_the_phone_dashboard_stacks_into_three_bands(page: Page, base_url: str) 
     expect(page.get_by_role("button", name="Customize")).to_be_visible()
 
     # The hero is a default widget since artboard `1e`, so a reset profile has
-    # it ticked — the case of a layout stored before it existed is what
-    # ``with_hero`` covers, and where its unit tests pin it.
+    # it ticked — and unticking it is the user's to do, at either width.
     page.get_by_role("button", name="Customize").click()
     dialog = page.get_by_role("dialog")
     hero_row = dialog.locator('[data-customize-row="safe_to_spend"]')

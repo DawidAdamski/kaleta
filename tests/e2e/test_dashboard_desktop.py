@@ -48,8 +48,11 @@ def test_a_wide_viewport_navigates_from_the_top_bar(page: Page, base_url: str) -
         expect(section).to_contain_text(label)
 
     # The drawer is the phone's long tail now; a desktop has no way to open it
-    # and no gutter reserved for it.
+    # and no gutter reserved for it. The palette's pill is the desktop's way
+    # in, and the phone's icon is not beside it.
     expect(page.locator("aside.q-drawer")).to_be_hidden()
+    expect(page.locator(".k-topnav-search")).to_be_visible()
+    expect(page.locator(".k-phone-search")).to_be_hidden()
 
     # /transactions lives in Capture, so Capture is the section you are in.
     expect(bar.locator('[data-section="nav.group_capture"]')).to_have_attribute(
@@ -118,6 +121,22 @@ def test_the_palette_says_when_nothing_matches(page: Page, base_url: str) -> Non
     expect(dialog.locator("[data-palette-row]:visible")).to_have_count(0)
 
 
+def test_enter_on_an_empty_palette_stays_put(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-008
+
+    An empty needle is in every label, so the "first match" of nothing typed
+    is whatever happens to be first — ⌘K and a stray Enter must not be a
+    navigation.
+    """
+    _open_desktop(page, base_url, "/transactions")
+
+    dialog = _open_palette(page)
+    page.keyboard.press("Enter")
+
+    expect(dialog).to_be_visible()
+    expect(page).to_have_url(f"{base_url}/transactions")
+
+
 def test_the_desktop_dashboard_reads_in_bands(page: Page, base_url: str) -> None:
     """Covers: KAL-DSH-008"""
     _open_desktop(page, base_url)
@@ -168,3 +187,46 @@ def test_only_the_month_band_is_inside_the_grid(page: Page, base_url: str) -> No
     )
     assert "safe_to_spend" in posted
     assert set(in_grid) <= set(posted)
+
+
+def _post_layout(page: Page, entries: list[dict[str, object]]) -> None:
+    """Persist *entries* through the endpoint the drag handler posts to."""
+    with page.expect_response("**/_dashboard/layout") as response_info:
+        page.evaluate(
+            """(entries) => fetch('/_dashboard/layout', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({entries}),
+            })""",
+            entries,
+        )
+    assert response_info.value.ok, "layout POST did not succeed"
+
+
+def test_a_month_band_with_nothing_in_it_still_says_so(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-008
+
+    Customize will happily leave the Month band empty — one widget overall is
+    all it insists on. Every other band is skipped when empty, but Month is
+    the drag scope and the empty state: without it the page loses the grid,
+    the Edit button and the only line telling you where the widgets went.
+    """
+    _open_desktop(page, base_url)
+    page.wait_for_selector("#dash-grid", timeout=20000)
+    _post_layout(page, [{"id": "recent_transactions", "cols": 4, "rows": 2}])
+
+    _open_desktop(page, base_url)
+    month = page.locator('[data-band="month"]')
+    expect(month).to_be_visible(timeout=20000)
+    expect(month.locator("#dash-grid")).to_be_visible()
+    expect(month.locator("[data-widget-id]")).to_have_count(0)
+    expect(month.get_by_text("No widgets here. Open Customize to add one.")).to_be_visible()
+    expect(month.locator("#dash-edit-btn-label")).to_be_visible()
+
+    # Leave the shared storage back at its defaults for the files after this.
+    page.get_by_role("button", name="Customize").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog.get_by_text("Customize Dashboard", exact=True)).to_be_visible(timeout=5000)
+    dialog.get_by_role("button", name="Reset widgets").click()
+    expect(dialog).to_be_hidden(timeout=10000)
+    page.wait_for_selector("#dash-grid [data-widget-id]", timeout=20000)
