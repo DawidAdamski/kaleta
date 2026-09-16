@@ -446,6 +446,13 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
     delete_account(account_id)
     _run_import(page)
 
+    # The run is over, so its summary is the step — a failed file's own
+    # status would put the reader back on Upload, with the report of
+    # everything that did happen on a step nobody could reach.
+    expect(_panel(page, STEP_CONFIRM)).to_be_visible(timeout=10000)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text("autoreset-failing.csv")
+    expect(page.get_by_text("Import summary", exact=True)).to_be_visible()
+
     _step(page, STEP_UPLOAD)
     queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
     expect(queue_card.get_by_text("Failed", exact=True).first).to_be_visible(timeout=10000)
@@ -1075,6 +1082,10 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
         _upload_as(WISE_JPY_QIF, "kal-csv-028-wise-statement.qif")
     )
     _wait_for_queue(page, 2)
+    # Dropped from a step of the reader's own choosing, so it waits in the
+    # queue until they click it.
+    _step(page, STEP_UPLOAD)
+    page.locator('[data-queue-row="kal-csv-028-wise-statement.qif"]').click()
     _wait_for_file(page, "kal-csv-028-wise-statement.qif")
     expect(page.locator('[data-step="2"]')).to_have_class(re.compile(r"cursor-pointer"))
     expect(page.locator('[data-step="3"]')).not_to_have_class(re.compile(r"cursor-pointer"))
@@ -1097,17 +1108,20 @@ def test_a_late_upload_does_not_take_the_step_you_chose(page: Page, base_url: st
     # The reader goes somewhere of their own choosing.
     _step(page, STEP_FORMAT)
 
-    # A second file lands. The queue and the header take it — the page is
-    # not pretending it did not arrive — but the step is the reader's.
+    # A second file lands. It joins the queue — the page is not pretending
+    # it did not arrive — but it takes neither the step nor the screen: a
+    # reader reading one file does not want another swapped in under them.
     page.locator('input[type="file"]').set_input_files(str(OTHER_B))
     _wait_for_queue(page, 2)
-    _wait_for_file(page, "other-b.csv")
 
     visible = page.eval_on_selector_all(
         "[data-step-panel]",
         "nodes => nodes.filter(n => n.offsetParent !== null).map(n => n.dataset.stepPanel)",
     )
     assert visible == [str(STEP_FORMAT)], visible
+    expect(page.locator("[data-page-eyebrow]")).to_contain_text("other-a.csv", ignore_case=True)
+    _step(page, STEP_UPLOAD)
+    expect(page.get_by_text("other-b.csv").first).to_be_visible()
 
 
 def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: str) -> None:

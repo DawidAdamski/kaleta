@@ -112,6 +112,11 @@ async def import_page() -> None:
         # that finishes afterwards must not drag them off it — see
         # `handle_upload`.
         "step_chosen": False,
+        # True while the summary of a finished run is on screen. The run's
+        # own step is Confirm even when the active file failed, which its
+        # `current_step` alone would answer with Upload — leaving the
+        # summary of everything else on a step nobody could reach.
+        "run_finished": False,
         "importing": False,
         "last_settings": None,
         "bulk_account_id": None,
@@ -272,6 +277,7 @@ async def import_page() -> None:
             state["last_settings"] = settings_snapshot(state["queue"][-1])
         state["queue"] = []
         state["active_id"] = None
+        state["run_finished"] = False
         summary_section.hide()
         upload_section.upload_widget.reset()
         _render_queue()
@@ -404,17 +410,21 @@ async def import_page() -> None:
             if auto and not rule_applied:
                 ui.notify(t("import.queue_inherited"), type="info")
 
-        state["active_id"] = queued_file.id
-        summary_section.hide()
-        _render_queue()
-        _repaint_active(sync=False)
         # A fresh file moves the reader to whatever it needs — the whole
         # point of a wizard is not having to go and find the next question.
         # But a multi-file drop runs one handler per file, and a reader who
-        # walks off while the third is still parsing keeps the step they
-        # chose: dropping a file from the upload step is an invitation to be
-        # moved, standing somewhere else is not.
-        _sync_step(follow=not state["step_chosen"] or state["step"] == STEP_UPLOAD)
+        # walks off while the third is still parsing keeps what they were
+        # looking at: dropping a file from the upload step is an invitation
+        # to be taken to it, standing somewhere else is not. The file still
+        # joins the queue, and the switcher on steps 3–5 still counts it.
+        takes_focus = not state["step_chosen"] or state["step"] == STEP_UPLOAD
+        if takes_focus or state["active_id"] is None:
+            state["active_id"] = queued_file.id
+        state["run_finished"] = False
+        summary_section.hide()
+        _render_queue()
+        _repaint_active(sync=False)
+        _sync_step(follow=takes_focus)
 
     def _on_settings_change() -> None:
         if settings_section._loading:
@@ -590,6 +600,7 @@ async def import_page() -> None:
             state["last_settings"] = settings_snapshot(state["queue"][-1])
         summary_section.render(state["queue"])
         summary_section.show()
+        state["run_finished"] = True
         await _refresh_coverage()
         # Every file has finished, so the work is on Confirm; the reader goes
         # with it rather than being left on a preview of rows already in.
@@ -647,6 +658,8 @@ async def import_page() -> None:
     # reader who may walk back without the work moving with them.
 
     def _reachable() -> int:
+        if state["run_finished"]:
+            return STEP_CONFIRM
         return current_step(_active(), account_currency=_active_account_currency())
 
     def _settings_reason(active: QueuedFile | None) -> str | None:

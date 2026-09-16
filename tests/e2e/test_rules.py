@@ -124,7 +124,9 @@ def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
             page.locator('[data-step-panel="5"]').get_by_text("LIDL Warszawa", exact=False).first
         ).to_be_visible(timeout=5000)
         page.locator("[data-import-run]").click()
-        expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
+        # The heading renders for a failed run too, so the claim is the
+        # file's own line in the summary.
+        expect(page.locator('[data-step-panel="6"]')).to_contain_text("1 imported", timeout=10000)
 
         page.goto(f"{base_url}/transactions")
         search_ledger(page, "LIDL")

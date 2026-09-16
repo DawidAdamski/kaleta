@@ -187,6 +187,11 @@ separate plan.
   standing anywhere else keeps their step. A new run and a finished
   import clear the flag: those are the page's to place.
 
+  It is the file as well as the step: a drop that does not take the step
+  does not take the screen either, so a reader reading file A does not
+  get file B swapped in under them. B joins the queue, the switcher on
+  steps 3–5 counts it, and clicking it in the queue is how it is reached.
+
   An earlier attempt keyed this on a token captured when each handler
   began, which loses to a handler that *starts* after the click — the
   browser issues one POST per file and the server takes them in turn.
@@ -195,6 +200,13 @@ separate plan.
   `render_step_indicator` now takes the file's own `steps_for()` and
   wires `on_step` only for those — clicking it used to go through
   `clamp_viewed` and land the reader somewhere they did not ask for.
+- **A finished run's step is Confirm, whatever the active file did.**
+  `current_step` answers for one file, and a failed one answers "Upload"
+  — which after a run left the summary of everything that *did* happen
+  on a step nobody could reach, since the line only links as far as the
+  work has got. `state["run_finished"]` is set with the summary and
+  cleared by the next drop or a new run; while it is set, Confirm is
+  reachable.
 - **One import run per click.** `do_import_all` returns early while
   `state["importing"]` is set: the footer draws the button disabled, but
   that is a websocket round trip away, and a second click inside it
@@ -221,6 +233,10 @@ separate plan.
 
 ### Noticed, not fixed (out of scope)
 
+- Step 1 does nothing before step 2: with no file uploaded, choosing a
+  format has nothing to apply to (`_select_profile` returns early). The
+  wizard now presents Format as the first step, which makes that more
+  visible than it was — for the chore inbox.
 - A saved import rule that carries a column mapping keeps an mBank file
   on the generic path: `_parse_file` passes the mapping, so detection
   never runs and the file keeps a mapping step it does not need. Nothing
@@ -240,6 +256,11 @@ separate plan.
 
 ### What the e2e rewrite turned up
 
+- `expect(get_by_text("Imported"))` was the queue's own status chip, which
+  is a step away from where an import now lands. The summary's per-file
+  line replaces it ("…: 3 imported, 0 duplicates skipped"), not the
+  summary heading, which renders for a failed run too.
+
 - Several assertions were passing on hidden elements once the wizard
   existed: `not_to_be_visible` is true of a card that is merely on
   another step. Those became `to_have_count(0)` scoped to the card the
@@ -252,7 +273,7 @@ separate plan.
 - A multi-file drop moved the page under the reader: each upload handler
   ended with `_sync_step(follow=True)`, so a click on a step node was
   undone by the next file landing. The tests first worked around it with
-  a second click; the fix is `step_token` (above), and what the tests
+  a second click; the fix is `step_chosen` (above), and what the tests
   keep is `_wait_for_queue`, which waits for the queue to stop growing
   (`data-queue-row`) before asking anything of it.
 - KAL-CSV-021 used to make a file fail by importing it with no target

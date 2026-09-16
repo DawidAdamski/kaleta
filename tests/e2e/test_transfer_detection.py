@@ -80,7 +80,9 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     expect(preview.get_by_role("cell", name="Income", exact=True).first).to_be_visible(timeout=5000)
 
     page.locator("[data-import-run]").click()
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
+    # The heading renders for a failed run too, so the claim is the file's
+    # own line in the summary.
+    expect(page.locator('[data-step-panel="6"]')).to_contain_text("3 imported", timeout=10000)
 
     page.goto(f"{base_url}/transactions")
 
