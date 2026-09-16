@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from enum import StrEnum
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +24,10 @@ class Widget:
     default_size: WidgetSize
     allowed_sizes: tuple[WidgetSize, ...]
     render: RenderFn = field(repr=False)
+    #: Superseded by a merged card. Still rendered when a stored layout names
+    #: it, so no saved dashboard breaks, but hidden from the Customize picker
+    #: so nobody adds one back. Deleted once no stored layout references them.
+    legacy: bool = False
 
 
 WIDGETS: dict[str, Widget] = {}
@@ -34,6 +39,8 @@ def register(
     icon: str,
     default_size: WidgetSize,
     allowed_sizes: tuple[WidgetSize, ...] | None = None,
+    *,
+    legacy: bool = False,
 ) -> Callable[[RenderFn], RenderFn]:
     sizes = allowed_sizes or (default_size,)
     if default_size not in sizes:
@@ -47,6 +54,7 @@ def register(
             default_size=default_size,
             allowed_sizes=sizes,
             render=fn,
+            legacy=legacy,
         )
         return fn
 
@@ -62,14 +70,109 @@ def cycle_size(current: WidgetSize, allowed: tuple[WidgetSize, ...]) -> WidgetSi
     return allowed[(idx + 1) % len(allowed)]
 
 
+#: Which merged card each of the seven single-figure KPI widgets became, in
+#: the order they used to appear. A stored layout naming any of these is
+#: migrated on read (see ``layout.migrate_legacy_kpis``). The mapping is what
+#: keeps the migration faithful: a user who kept only the month tiles gets the
+#: month card, not both.
+MERGED_KPI_FOR_LEGACY: dict[str, str] = {
+    "total_balance": "balance_card",
+    "month_income": "month_card",
+    "month_expenses": "month_card",
+    "month_net": "month_card",
+    "predicted_30d": "month_card",
+    "net_worth": "month_card",
+    "savings_rate_kpi": "month_card",
+}
+
+#: The seven, as a tuple — the order above is the dashboard's old default.
+LEGACY_KPI_WIDGETS: tuple[str, ...] = tuple(MERGED_KPI_FOR_LEGACY)
+
+#: What those seven become.
+MERGED_KPI_WIDGETS: tuple[str, ...] = tuple(dict.fromkeys(MERGED_KPI_FOR_LEGACY.values()))
+
+
+class Band(StrEnum):
+    """The stacked bands the dashboard reads in (artboards 1f and 1e).
+
+    A phone cannot show a 4-column grid, and a single column of equal cards
+    is a scroll with no shape. The bands give it one, and a wide window the
+    same argument at its own proportions: what is happening *now*, how the
+    *month* is going, the slow figures you only *watch*, and *latest* — the
+    log, which is not a metric and belongs under everything that is.
+    """
+
+    NOW = "now"
+    MONTH = "month"
+    WATCH = "watch"
+    LATEST = "latest"
+
+
+#: Which band a widget belongs to — the same map at both widths. Anything
+#: unlisted falls into ``MONTH``, the band for "how is this month going",
+#: which is what most of the catalog is about and the safe place for a
+#: widget added later.
+#:
+#: Nothing maps to ``WATCH`` on purpose: that band is four figures in plain
+#: type, not cards (see ``dashboard._render_watch_band``). Sending the slow
+#: widgets there put a YTD card and two trend charts under the very figures
+#: that summarise them, and said the year-to-date net twice.
+BAND_OF: dict[str, Band] = {
+    "safe_to_spend": Band.NOW,
+    "wizard_actions": Band.NOW,
+    "quick_actions": Band.NOW,
+    "recent_transactions": Band.LATEST,
+}
+
+#: Band order on the page, top to bottom, with the i18n key of each heading.
+BAND_ORDER: tuple[tuple[Band, str], ...] = (
+    (Band.NOW, "dashboard.band_now"),
+    (Band.MONTH, "dashboard.band_month"),
+    (Band.WATCH, "dashboard.band_watch"),
+    (Band.LATEST, "dashboard.band_latest"),
+)
+
+
+def band_of(widget_id: str) -> Band:
+    """The band *widget_id* belongs to; ``MONTH`` when nothing says."""
+    return BAND_OF.get(widget_id, Band.MONTH)
+
+
+def bands_for_layout(layout: list[dict[str, Any]]) -> dict[Band, list[dict[str, Any]]]:
+    """Group a stored layout into the four bands, keeping its order.
+
+    Legacy widgets are dropped rather than banded: they are the seven
+    single-figure KPIs that ``restyle-dashboard`` merged into two cards, kept
+    alive so an old stored layout does not lose a card it names. The banded
+    layout is new and starts without that debt — and the Watch band already
+    says three of the four figures they carried.
+    """
+    grouped: dict[Band, list[dict[str, Any]]] = {band: [] for band, _key in BAND_ORDER}
+    for entry in layout:
+        widget_id = entry.get("id")
+        widget = WIDGETS.get(widget_id) if isinstance(widget_id, str) else None
+        if widget is None or widget.legacy:
+            continue
+        grouped[band_of(widget.id)].append(entry)
+    return grouped
+
+
+#: The widget the Now band gives its wide column to, when the layout has it.
+#: It is an ordinary default widget — tick it off and the band is three
+#: equal cards, rather than the banner inheriting a column sized for a
+#: 54px figure.
+HERO_WIDGET = "safe_to_spend"
+
+
+def selectable_widgets() -> list[str]:
+    """Widget ids offered in the Customize picker — everything but legacy."""
+    return [wid for wid, w in WIDGETS.items() if not w.legacy]
+
+
 DEFAULT_WIDGETS: list[str] = [
-    "total_balance",
-    "month_income",
-    "month_expenses",
-    "month_net",
-    "predicted_30d",
-    "net_worth",
-    "savings_rate_kpi",
+    "safe_to_spend",
+    "balance_card",
+    "month_card",
     "wizard_actions",
     "cashflow_chart",
     "budget_variance_month",

@@ -33,6 +33,9 @@ from kaleta.services.forecast_service import (
     apply_preset,
     apply_scenarios,
     clear_forecast_cache,
+    default_scenario_date,
+    forecast_kpis,
+    point_shifted_by,
 )
 from kaleta.services.forecasters import (
     NaiveForecaster,
@@ -567,3 +570,237 @@ class TestApplyScenarios:
             [ScenarioShift(label="x", date=orig.forecast[0].date, amount=50.0)],
         )
         assert [p.value for p in orig.forecast] == before
+
+
+# ── KPIs above the chart (artboard 3a) ───────────────────────────────────────
+
+
+def _point(day: int, value: float, *, lower: float, upper: float, forecast: bool) -> ForecastPoint:
+    return ForecastPoint(
+        date=datetime.date(2026, 1, 1) + datetime.timedelta(days=day),
+        value=value,
+        lower=lower,
+        upper=upper,
+        is_forecast=forecast,
+    )
+
+
+def _result(*points: ForecastPoint) -> ForecastResult:
+    return ForecastResult(account_name="PKO", points=list(points))
+
+
+class TestForecastKpis:
+    """Covers: KAL-FCT-011 — the figures read the series the chart draws."""
+
+    def test_the_horizon_is_the_last_forecast_point_not_day_thirty(self) -> None:
+        # A 90-day horizon answered with day 30 is the chart and the figures
+        # answering different questions.
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(30, 900.0, lower=800.0, upper=1000.0, forecast=True),
+            _point(90, 700.0, lower=500.0, upper=900.0, forecast=True),
+        )
+
+        kpis = forecast_kpis(result)
+
+        assert kpis.balance_today == 1000.0
+        assert kpis.predicted == 700.0
+        assert kpis.change == -300.0
+        assert kpis.horizon_date == datetime.date(2026, 4, 1)
+        assert kpis.balance_date == datetime.date(2026, 1, 1)
+
+    def test_confidence_is_half_the_interval_at_the_horizon(self) -> None:
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(60, 900.0, lower=700.0, upper=1100.0, forecast=True),
+        )
+
+        assert forecast_kpis(result).confidence == 200.0
+
+    def test_a_scenario_moves_the_predicted_and_change_figures(self) -> None:
+        """Covers: KAL-FCT-011
+
+        The figures are read off the same result the chart is drawn from, so
+        a what-if that lifts the line lifts them by exactly as much. Every
+        expected figure below is the literal from the scenario.
+        """
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(30, 900.0, lower=800.0, upper=1000.0, forecast=True),
+            _point(60, 800.0, lower=600.0, upper=1000.0, forecast=True),
+        )
+
+        before = forecast_kpis(result)
+        assert before.balance_today == 1000.00
+        assert before.predicted == 800.00
+        assert before.change == -200.00
+        assert before.confidence == 200.00
+
+        shifted = apply_scenarios(
+            result,
+            [ScenarioShift(label="Bonus", date=datetime.date(2026, 1, 31), amount=5000.0)],
+        )
+        after = forecast_kpis(shifted)
+
+        assert after.predicted == 5800.00
+        assert after.change == 4800.00
+        # The interval moved with the line, so the ± is unchanged.
+        assert after.confidence == 200.00
+
+    def test_a_scenario_after_the_horizon_leaves_the_figures_alone(self) -> None:
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(30, 900.0, lower=800.0, upper=1000.0, forecast=True),
+        )
+        shifted = apply_scenarios(
+            result,
+            [ScenarioShift(label="Later", date=datetime.date(2026, 6, 1), amount=5000.0)],
+        )
+
+        assert forecast_kpis(shifted).predicted == 900.0
+
+    def test_no_history_means_no_balance_today_and_no_change(self) -> None:
+        result = _result(_point(30, 900.0, lower=800.0, upper=1000.0, forecast=True))
+
+        kpis = forecast_kpis(result)
+
+        assert kpis.balance_today is None
+        assert kpis.balance_date is None
+        assert kpis.change is None
+        assert kpis.predicted == 900.0
+
+    def test_the_balance_is_dated_by_its_last_transaction_not_by_today(self) -> None:
+        # A quiet account's "balance today" is its balance as of whenever
+        # something last happened, and the card says which day that was.
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(3, 995.0, lower=900.0, upper=1090.0, forecast=True),
+        )
+
+        assert forecast_kpis(result).balance_date == datetime.date(2026, 1, 1)
+
+    def test_no_forecast_leaves_every_figure_past_today_empty(self) -> None:
+        result = _result(_point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False))
+
+        kpis = forecast_kpis(result)
+
+        assert kpis.balance_today == 1000.0
+        assert kpis.balance_date == datetime.date(2026, 1, 1)
+        assert kpis.predicted is None
+        assert kpis.change is None
+        assert kpis.confidence is None
+        assert kpis.horizon_date is None
+
+
+class TestPointShiftedBy:
+    """Which point a scenario moves — and therefore where its marker belongs."""
+
+    def _series(self) -> ForecastResult:
+        return _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(1, 990.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(5, 950.0, lower=800.0, upper=1100.0, forecast=True),
+        )
+
+    def test_a_date_on_a_forecast_point_finds_it(self) -> None:
+        point = point_shifted_by(self._series(), datetime.date(2026, 1, 6))
+
+        assert point is not None
+        assert point.value == 950.0
+
+    def test_a_date_between_points_moves_nothing_so_marks_nothing(self) -> None:
+        # `apply_scenarios` keys its deltas by exact date, so a scenario here
+        # shifts no point at all. Snapping the marker to the next one would
+        # say the line bent where it did not.
+        assert point_shifted_by(self._series(), datetime.date(2026, 1, 3)) is None
+
+    def test_today_is_not_a_forecast_point(self) -> None:
+        assert point_shifted_by(self._series(), datetime.date(2026, 1, 1)) is None
+
+    def test_a_date_past_the_horizon_has_no_point(self) -> None:
+        assert point_shifted_by(self._series(), datetime.date(2027, 1, 1)) is None
+
+
+class TestDefaultScenarioDate:
+    """The date the add dialog can offer without offering a no-op.
+
+    Which dates shift anything is a property of the data, not the calendar:
+    the forecast runs from the day after the last *transaction*.
+    """
+
+    def test_a_busy_account_starts_its_forecast_tomorrow(self) -> None:
+        result = _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(1, 990.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(2, 980.0, lower=880.0, upper=1080.0, forecast=True),
+        )
+
+        assert default_scenario_date(result, datetime.date(2026, 1, 1)) == datetime.date(2026, 1, 2)
+
+    def test_a_quiet_account_may_be_forecast_from_before_today(self) -> None:
+        # Last transaction three days ago: the forecast already covers today,
+        # so today is a point, and the first one from today onward is today.
+        result = _result(
+            _point(-4, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(-3, 995.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(0, 990.0, lower=880.0, upper=1080.0, forecast=True),
+            _point(3, 980.0, lower=860.0, upper=1090.0, forecast=True),
+        )
+
+        assert default_scenario_date(result, datetime.date(2026, 1, 1)) == datetime.date(2026, 1, 1)
+
+    def test_a_forecast_entirely_behind_us_still_offers_a_point(self) -> None:
+        result = _result(
+            _point(-9, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(-8, 995.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(-7, 990.0, lower=880.0, upper=1080.0, forecast=True),
+        )
+
+        assert default_scenario_date(result, datetime.date(2026, 1, 1)) == datetime.date(
+            2025, 12, 24
+        )
+
+    def test_nothing_to_forecast_means_nothing_to_offer(self) -> None:
+        assert default_scenario_date(None) is None
+        assert (
+            default_scenario_date(_result(_point(0, 1.0, lower=1.0, upper=1.0, forecast=False)))
+            is None
+        )
+
+
+class TestScenarioDatesThatDoNothing:
+    """The exact-date rule, asserted where a reader will look for it.
+
+    Scenario semantics are out of scope for the 3a restyle, so this pins the
+    behaviour the view has to work around rather than changing it.
+    """
+
+    def _series(self) -> ForecastResult:
+        return _result(
+            _point(0, 1000.0, lower=1000.0, upper=1000.0, forecast=False),
+            _point(1, 990.0, lower=900.0, upper=1080.0, forecast=True),
+            _point(2, 980.0, lower=880.0, upper=1080.0, forecast=True),
+        )
+
+    def test_a_date_that_is_not_a_forecast_point_moves_no_figure(self) -> None:
+        # Here the series starts tomorrow, so today is such a date. On a
+        # quiet account it would not be — which is exactly why the dialog
+        # reads its default off the forecast rather than off the calendar.
+        not_a_point = datetime.date(2026, 1, 1)
+        shifted = apply_scenarios(
+            self._series(), [ScenarioShift(label="Now", date=not_a_point, amount=5000.0)]
+        )
+
+        # Unmoved: the horizon figure is what it was without the scenario.
+        assert forecast_kpis(shifted).predicted == 980.00
+
+    def test_the_date_the_dialog_offers_moves_every_later_figure(self) -> None:
+        offered = default_scenario_date(self._series(), datetime.date(2026, 1, 1))
+        assert offered == datetime.date(2026, 1, 2)
+
+        shifted = apply_scenarios(
+            self._series(), [ScenarioShift(label="Soon", date=offered, amount=5000.0)]
+        )
+
+        # 980.00 at the horizon, plus the 5000.00 the scenario adds.
+        assert forecast_kpis(shifted).predicted == 5980.00

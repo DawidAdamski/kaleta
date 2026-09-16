@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Report builder configuration panel — drop zones and filters."""
+"""The report query as a sentence you can click through (artboard 3e).
+
+Two drop zones and a tall filter panel said what the controls were; they
+never said what the question was. The same state now reads as one line —
+*Show Total Amount grouped by Category for Expense over This Year, top 10.* —
+with each underlined part opening the menu that changes it. The measure and
+dimension slots still accept a field dragged from the rail; clicking a rail
+row does the same thing and is the shorter path.
+"""
 
 from __future__ import annotations
 
@@ -8,8 +16,20 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.views.reports.constants import CHART_TYPES, DATE_PRESETS, DIMENSIONS, METRICS, TX_TYPES
+from kaleta.views.reports.sentence import slot_labels
+from kaleta.views.theme import (
+    FILTER_CHIP,
+    FILTER_CHIP_EMPTY,
+    MUTED,
+    SECTION_TITLE,
+    SENTENCE_SLOT,
+    SENTENCE_SLOT_TARGET,
+)
+
+#: The sentence's own size. Prose, not a form label.
+_SENTENCE = "text-[15px] leading-8"
 
 
 def build_config_zone(
@@ -21,133 +41,216 @@ def build_config_zone(
     on_drop_metric: Callable[[], None],
     on_set_chart: Callable[[str], None],
     on_toggle_type: Callable[[str], None],
+    on_set: Callable[[str, Any], None],
 ) -> Any:
     @ui.refreshable
     def config_zone() -> None:
-        hdr_cls = "text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"
+        labels = slot_labels(state)
 
-        with ui.row().classes("gap-4 mb-4 flex-wrap"):
-            dz_dim_cls = (
-                "p-3 rounded-lg border-2 border-dashed min-w-40 cursor-pointer "
-                "border-primary bg-primary-50"
-            )
-            with (
-                ui.element("div")
-                .classes(dz_dim_cls)
-                .props('ondragover="event.preventDefault()"') as dz_dim
-            ):
-                dz_dim.on("drop", on_drop_dimension)
-                ui.label(t("reports.group_by")).classes(hdr_cls)
-                dim_label = next(
-                    (t(label_key) for key, label_key, _ in DIMENSIONS if key == state["dimension"]),
-                    "—",
-                )
-                dim_icon = next(
-                    (icon for key, _, icon in DIMENSIONS if key == state["dimension"]),
-                    "category",
-                )
-                with ui.row().classes("items-center gap-1"):
-                    ui.icon(dim_icon, color="primary")
-                    ui.label(dim_label).classes("font-semibold text-primary")
-                ui.label(t("reports.drop_here")).classes("text-xs text-slate-400 mt-1")
+        def _word(text: str) -> None:
+            """A connector, pulled against the slot before it when it opens with
+            punctuation.
 
-            dz_met_cls = (
-                "p-3 rounded-lg border-2 border-dashed min-w-40 cursor-pointer "
-                "border-secondary bg-secondary-50"
-            )
-            with (
-                ui.element("div")
-                .classes(dz_met_cls)
-                .props('ondragover="event.preventDefault()"') as dz_met
-            ):
-                dz_met.on("drop", on_drop_metric)
-                ui.label(t("reports.measure")).classes(hdr_cls)
-                met_label = next(
-                    (t(label_key) for key, label_key, _ in METRICS if key == state["metric"]),
-                    "—",
-                )
-                met_icon = next(
-                    (icon for key, _, icon in METRICS if key == state["metric"]),
-                    "functions",
-                )
-                with ui.row().classes("items-center gap-1"):
-                    ui.icon(met_icon, color="secondary")
-                    ui.label(met_label).classes("font-semibold text-secondary")
-                ui.label(t("reports.drop_here")).classes("text-xs text-slate-400 mt-1")
+            English hangs a comma off the previous slot (", top"); Polish opens
+            the same connector with a bullet ("· limit:") that wants its space.
+            The rule is the first character, so neither locale needs the call
+            site to know which it is.
+            """
+            tight = text[:1] in ",.;:!?"
+            ui.label(text).classes(f"{_SENTENCE} {MUTED}" + (" -ml-1" if tight else ""))
 
-        with ui.row().classes("items-center gap-2 mb-4 flex-wrap"):
-            ui.label(t("reports.chart_type")).classes(hdr_cls + " my-0")
-            for chart_type, icon in CHART_TYPES:
-                active = state["chart_type"] == chart_type
-                (
-                    ui.button(icon=icon, on_click=lambda c=chart_type: on_set_chart(c))
-                    .props(f"{'color=primary' if active else 'outline color=grey-7'} round dense")
-                    .tooltip(chart_type.capitalize())
-                )
+        def _slot(text: str, *, drop: Callable[[], None] | None = None) -> Any:
+            classes = f"{SENTENCE_SLOT} {_SENTENCE}"
+            if drop is not None:
+                classes += f" {SENTENCE_SLOT_TARGET}"
+            with ui.element("span").classes(classes) as slot:
+                if drop is not None:
+                    # Without preventDefault on dragover the browser refuses
+                    # the drop and the slot never hears about it.
+                    slot.props('ondragover="event.preventDefault()"')
+                    slot.on("drop", drop)
+                ui.label(text)
+                ui.icon("expand_more", size="15px")
+            return slot
 
-        exp = ui.expansion(t("reports.filters"), icon="filter_list")
-        exp.classes("w-full mb-4")
-        with exp, ui.element("div").classes("flex flex-col gap-3 pt-2"):
-            ui.label(t("reports.tx_types")).classes(hdr_cls)
-            with ui.row().classes("gap-2"):
-                for type_key, label_key, icon, color in TX_TYPES:
-                    active = type_key in state["transaction_types"]
-                    ui.button(
-                        t(label_key),
-                        icon=icon,
-                        on_click=lambda k=type_key: on_toggle_type(k),
-                    ).props(
-                        (f"color={color}" if active else "outline color=grey-7") + " dense rounded"
+        def _pick(key: str, options: list[tuple[str, ...]]) -> None:
+            """A menu of the same options the rail and the old selects offered."""
+            with ui.menu().props("auto-close"):
+                for row in options:
+                    ui.menu_item(t(row[1]), on_click=lambda k=row[0], f=key: on_set(f, k)).props(
+                        "dense"
                     )
 
-            ui.label(t("reports.date_range")).classes(hdr_cls)
-            preset_opts = {key: t(label_key) for key, label_key in DATE_PRESETS}
-            ui.select(
-                preset_opts,
-                value=state["date_preset"],
-                on_change=lambda e: state.update(date_preset=e.value) or config_zone.refresh(),
-            ).classes("w-56")
-            if state["date_preset"] == "custom":
-                with ui.row().classes("gap-3"):
-                    ui.input(
-                        t("transactions.date_from"),
-                        value=state["date_from"],
-                        on_change=lambda e: state.update(date_from=e.value),
-                    ).props("type=date").classes("w-44")
-                    ui.input(
-                        t("transactions.date_to"),
-                        value=state["date_to"],
-                        on_change=lambda e: state.update(date_to=e.value),
-                    ).props("type=date").classes("w-44")
+        # ── The sentence ──────────────────────────────────────────────────
+        with ui.row().classes("items-center gap-x-1 gap-y-1 flex-wrap w-full"):
+            _word(t("reports.sentence_show"))
+            with _slot(labels.metric, drop=on_drop_metric):
+                _pick("metric", list(METRICS))
 
-            ui.label(t("reports.top_n")).classes(hdr_cls)
-            ui.number(
-                t("reports.top_n_hint"),
-                value=state["top_n"],
-                min=0,
-                max=100,
-                step=5,
-                on_change=lambda e: state.update(top_n=int(e.value or 0)),
-            ).classes("w-32").props("dense")
+            _word(t("reports.sentence_grouped_by"))
+            with _slot(labels.dimension, drop=on_drop_dimension):
+                _pick("dimension", list(DIMENSIONS))
+
+            _word(t("reports.sentence_for"))
+            with _slot(labels.types), ui.menu():
+                for type_key, label_key, icon, _colour in TX_TYPES:
+                    active = type_key in state["transaction_types"]
+                    with (
+                        ui.menu_item(on_click=lambda k=type_key: on_toggle_type(k)).props("dense"),
+                        ui.row().classes("items-center gap-2 no-wrap"),
+                    ):
+                        ui.icon("check" if active else icon, size="16px")
+                        ui.label(t(label_key))
+
+            _word(t("reports.sentence_over"))
+            with _slot(labels.period):
+                _pick("date_preset", list(DATE_PRESETS))
+
+            _word(t("reports.sentence_top"))
+            with _slot(labels.top_n), ui.menu() as top_menu:
+                for count in (5, 10, 20, 50, 0):
+                    ui.menu_item(
+                        str(count) if count else t("reports.sentence_no_limit"),
+                        on_click=lambda c=count: on_set("top_n", c),
+                    ).props("dense")
+                ui.separator()
+                # The quick values are the common ones, not the only ones:
+                # the control they replace took any number from 0 to 100, and
+                # 15 or 100 must stay reachable.
+                with ui.row().classes("items-center gap-2 px-3 py-2 no-wrap"):
+                    ui.label(t("reports.top_n")).classes(f"{MUTED} text-xs")
+                    top_input = (
+                        ui.number(value=int(state["top_n"] or 0), min=0, max=100, step=1)
+                        .props("dense outlined")
+                        .classes("w-20")
+                    )
+                    # Applied on Enter or on leaving the field, not on every
+                    # keystroke: setting the state repaints the sentence, and
+                    # a repaint mid-number would take the field away after the
+                    # first digit.
+                    top_input.on("keydown.enter", lambda: _set_top_n(top_input.value))
+                    top_input.on("blur", lambda: _set_top_n(top_input.value))
+
+            def _set_top_n(raw: float | None) -> None:
+                value = max(0, min(100, int(raw or 0)))
+                top_menu.close()
+                if value != int(state["top_n"] or 0):
+                    on_set("top_n", value)
+
+            # English ends the sentence with a full stop; Polish reads as a
+            # labelled line and ends with nothing, so the key may be empty.
+            if end := t("reports.sentence_end"):
+                _word(end)
+
+        if state["date_preset"] == "custom":
+            with ui.row().classes("gap-3 items-center"):
+                ui.input(
+                    t("transactions.date_from"),
+                    value=state["date_from"],
+                    on_change=lambda e: on_set("date_from", e.value or ""),
+                ).props("type=date dense").classes("w-44")
+                ui.input(
+                    t("transactions.date_to"),
+                    value=state["date_to"],
+                    on_change=lambda e: on_set("date_to", e.value or ""),
+                ).props("type=date dense").classes("w-44")
+
+        # ── Chart type and the two list filters ───────────────────────────
+        with ui.row().classes("items-center gap-3 flex-wrap w-full"):
+            with ui.row().classes("items-center gap-1"):
+                for chart_type, icon in CHART_TYPES:
+                    active = state["chart_type"] == chart_type
+                    (
+                        ui.button(icon=icon, on_click=lambda c=chart_type: on_set_chart(c))
+                        .props(
+                            "dense flat round size=sm "
+                            + ("color=primary" if active else "color=grey-7")
+                        )
+                        .tooltip(t(f"reports.chart_{chart_type}"))
+                    )
 
             if account_options:
-                ui.label(t("reports.filter_accounts")).classes(hdr_cls)
-                ui.select(
-                    account_options,
-                    multiple=True,
-                    value=state["account_ids"],
-                    label=t("reports.all_accounts"),
-                    on_change=lambda e: state.update(account_ids=e.value or []),
-                ).classes("w-full").props("use-chips")
-
+                _list_filter(
+                    state,
+                    field="account_ids",
+                    options=account_options,
+                    empty_key="reports.filter_accounts",
+                    chosen_prefix="reports.n_accounts",
+                    on_set=on_set,
+                )
             if category_options:
-                ui.label(t("reports.filter_categories")).classes(hdr_cls)
-                ui.select(
-                    category_options,
-                    multiple=True,
-                    value=state["category_ids"],
-                    label=t("reports.all_categories"),
-                    on_change=lambda e: state.update(category_ids=e.value or []),
-                ).classes("w-full").props("use-chips")
+                _list_filter(
+                    state,
+                    field="category_ids",
+                    options=category_options,
+                    empty_key="reports.filter_categories",
+                    chosen_prefix="reports.n_categories",
+                    on_set=on_set,
+                )
 
     return config_zone
+
+
+def _list_filter(
+    state: dict[str, Any],
+    *,
+    field: str,
+    options: dict[int, str],
+    empty_key: str,
+    chosen_prefix: str,
+    on_set: Callable[[str, Any], None],
+) -> None:
+    """One chip standing for a list filter: "+ Filter accounts" or "2 accounts ×".
+
+    The chip says how many are chosen rather than naming them: the point of
+    the sentence above is that the query fits on one line, and a chip that
+    grew with every account chosen would undo that. It is the shared
+    ``k-filter-chip`` surface (``FILTER_CHIP``) — the same one the
+    transactions filter bar wears, so the two read as the same control.
+    """
+    chosen: list[int] = list(state[field])
+    if not chosen:
+        with ui.element("div").classes(f"{FILTER_CHIP} {FILTER_CHIP_EMPTY}"):
+            ui.icon("add", size="14px")
+            ui.label(t(empty_key))
+            _options_menu(state, field=field, options=options, on_set=on_set)
+        return
+
+    # The × sits outside the chip, not inside it: the chip carries the menu,
+    # and a click anywhere in it opens that menu — including on the ×.
+    with ui.row().classes("items-center gap-1 no-wrap"):
+        with ui.element("div").classes(FILTER_CHIP):
+            # "1 account", not "1 accounts" — and Polish wants a third form
+            # again at five, which is what `plural_key` is for.
+            ui.label(t(plural_key(chosen_prefix, len(chosen)), count=len(chosen)))
+            _options_menu(state, field=field, options=options, on_set=on_set)
+        ui.icon("close", size="15px").classes(f"{MUTED} cursor-pointer").on(
+            "click", lambda f=field: on_set(f, [])
+        ).tooltip(t("reports.clear_filter"))
+
+
+def _options_menu(
+    state: dict[str, Any],
+    *,
+    field: str,
+    options: dict[int, str],
+    on_set: Callable[[str, Any], None],
+) -> None:
+    def _toggle(option_id: int) -> None:
+        chosen = list(state[field])
+        if option_id in chosen:
+            chosen.remove(option_id)
+        else:
+            chosen.append(option_id)
+        on_set(field, chosen)
+
+    with ui.menu().classes("max-h-80"):
+        ui.label(t("reports.pick_hint")).classes(f"{SECTION_TITLE} px-3 pt-2")
+        for option_id, label in options.items():
+            active = option_id in state[field]
+            with (
+                ui.menu_item(on_click=lambda i=option_id: _toggle(i)).props("dense"),
+                ui.row().classes("items-center gap-2 no-wrap"),
+            ):
+                ui.icon("check_box" if active else "check_box_outline_blank", size="16px")
+                ui.label(label)

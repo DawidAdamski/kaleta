@@ -14,6 +14,7 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.views.dashboard_widgets.helpers import fmt_amount, mini_stat, section_card
 from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, INK
 
 
 @register(
@@ -32,9 +33,9 @@ async def render_ytd_summary(session: AsyncSession, is_dark: bool) -> None:  # n
         ),
         ui.row().classes("w-full gap-4 flex-wrap mt-1"),
     ):
-        mini_stat(t("reports_lib.ytd_income"), fmt_amount(rep.income), "green-7")
-        mini_stat(t("reports_lib.ytd_expenses"), fmt_amount(rep.expenses), "red-7")
-        mini_stat(t("reports_lib.ytd_net"), fmt_amount(rep.net), "blue-7")
+        mini_stat(t("reports_lib.ytd_income"), fmt_amount(rep.income), AMOUNT_INCOME)
+        mini_stat(t("reports_lib.ytd_expenses"), fmt_amount(rep.expenses), AMOUNT_EXPENSE)
+        mini_stat(t("reports_lib.ytd_net"), fmt_amount(rep.net), INK)
         rate = rep.savings_rate_pct
         rate_txt = "—" if rate is None else f"{float(rate):.1f}%"
-        mini_stat(t("reports_lib.savings_rate"), rate_txt, "purple-7")
+        mini_stat(t("reports_lib.savings_rate"), rate_txt, INK)

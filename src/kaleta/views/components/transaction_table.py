@@ -43,6 +43,9 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("common.date"),
             "field": "date",
             "sortable": True,
+            # QTable right-aligns by default; the amount is the only column
+            # that reads better that way.
+            "align": "left",
             "style": "width: 95px; min-width: 95px",
         },
         {
@@ -101,12 +104,24 @@ def transaction_columns() -> list[dict[str, Any]]:
     ]
 
 
-def _body_slot(colspan: int, *, edit_label: str, split_label: str, notes_label: str) -> str:
+def _body_slot(
+    colspan: int,
+    *,
+    edit_label: str,
+    split_label: str,
+    notes_label: str,
+    group_net_label: str,
+) -> str:
     return (
-        '<tr v-if="props.row.sep_label" class="bg-slate-50">'
-        f'<td colspan="{colspan}" style="font-weight:500;border-bottom:1px solid #e0e0e0"'
-        ' class="text-caption text-slate-600 q-px-md q-py-xs">'
-        "{{ props.row.sep_label }}"
+        '<tr v-if="props.row.sep_label">'
+        f'<td colspan="{colspan}" class="k-sep-row q-px-md q-py-xs">'
+        '<div class="row items-center justify-between no-wrap">'
+        "<span>{{ props.row.sep_label }}</span>"
+        '<span v-if="props.row.sep_net" class="k-mono k-muted">'
+        f"<q-tooltip>{group_net_label}</q-tooltip>"
+        "{{ props.row.sep_net }}"
+        "</span>"
+        "</div>"
         "</td>"
         "</tr>"
         '<q-tr :props="props">'
@@ -114,7 +129,10 @@ def _body_slot(colspan: int, *, edit_label: str, split_label: str, notes_label: 
         '<q-checkbox dense :model-value="props.selected"'
         ' @update:model-value="val => props.selected = val" color="primary" />'
         "</q-td>"
-        '<q-td key="date" :props="props">{{ props.row.date }}</q-td>'
+        '<q-td key="date" :props="props" class="k-mono k-muted text-[12px]">'
+        "{{ props.row.date_short }}"
+        "<q-tooltip>{{ props.row.date }}</q-tooltip>"
+        "</q-td>"
         '<q-td key="account" :props="props">{{ props.row.account }}</q-td>'
         '<q-td key="description" :props="props">'
         '<div class="row items-center no-wrap q-gutter-xs">'
@@ -128,14 +146,22 @@ def _body_slot(colspan: int, *, edit_label: str, split_label: str, notes_label: 
         "</q-td>"
         '<q-td key="category" :props="props">'
         '<div class="row items-center no-wrap q-gutter-xs">'
-        '<q-icon v-if="props.row.has_splits" name="call_split" size="xs" color="primary"'
+        '<q-icon v-if="props.row.has_splits" name="call_split" size="xs"'
         ' class="split-row-icon">'
         "<q-tooltip>{{ props.row.split_tooltip }}</q-tooltip>"
         "</q-icon>"
-        "<span>{{ props.row.category }}</span>"
+        # A pill is a category's badge. A split row already has its own icon
+        # and label, and a transfer or an uncategorised row has an em dash —
+        # neither is a category, so neither gets a pill drawn around it.
+        "<span :class=\"props.row.has_splits || props.row.category === '—'"
+        " ? '' : 'k-cat-pill'\">"
+        "{{ props.row.category }}"
+        "</span>"
         "</div>"
         "</q-td>"
-        '<q-td key="type" :props="props">{{ props.row.type_label }}</q-td>'
+        '<q-td key="type" :props="props" class="k-muted text-[12px]">'
+        "{{ props.row.type_label }}"
+        "</q-td>"
         f"{amount_cell_slot()}"
         '<q-td key="tags" :props="props">'
         '<q-chip v-for="tag in props.row.tags_data" :key="tag.id"'
@@ -165,7 +191,7 @@ def render_transaction_table(
     on_selection: Callable[[object], None],
     on_split: Callable[[Any], Awaitable[None]] | None = None,
     colspan: int = 9,
-) -> Any:
+) -> ui.table:
     """Render the transactions data table and wire edit/selection/split events."""
     tbl = (
         ui.table(columns=transaction_columns(), rows=rows, row_key="id")
@@ -181,6 +207,7 @@ def render_transaction_table(
             edit_label=t("common.edit"),
             split_label=t("transactions.split"),
             notes_label=t("transactions.has_notes_tooltip"),
+            group_net_label=t("transactions.group_net"),
         ),
     )
     tbl.on("edit_tx", on_edit)
@@ -205,7 +232,7 @@ def render_pagination_bar(
     start_n = current_page * page_size + 1
     end_n = min(start_n + page_size - 1, total)
 
-    with ui.row().classes("w-full items-center justify-between px-2 pt-2 text-sm text-slate-600"):
+    with ui.row().classes("w-full items-center justify-between px-2 pt-2 text-sm k-muted"):
         if total == 0:
             pagination_empty_label()
         else:
@@ -213,7 +240,7 @@ def render_pagination_bar(
 
         with ui.row().classes("gap-3 items-center"):
             with ui.row().classes("gap-1 items-center"):
-                ui.label(t("transactions.grouping")).classes("text-xs text-slate-500")
+                ui.label(t("transactions.grouping")).classes("k-muted text-xs")
                 ui.toggle(
                     {
                         "none": t("transactions.group_none"),
@@ -222,7 +249,7 @@ def render_pagination_bar(
                     },
                     value=grouping,
                     on_change=lambda e: on_grouping_change(e.value),
-                ).props("dense")
+                ).props("dense unelevated no-caps").classes("k-group-toggle")
 
             ui.select(
                 {s: str(s) for s in PAGE_SIZES},

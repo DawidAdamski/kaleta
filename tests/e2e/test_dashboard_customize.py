@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Dashboard Customization.
 
-Covers: KAL-DSH-001, KAL-DSH-002, KAL-DSH-003
+Covers: KAL-DSH-001, KAL-DSH-002, KAL-DSH-003, KAL-DSH-004
 
 Drives the two reset buttons in the Customize dialog against a dashboard
 that has one widget switched off and one widget resized away from its
@@ -14,6 +14,19 @@ from playwright.sync_api import Page, expect
 
 _CASHFLOW = '[data-widget-id="cashflow_chart"]'
 _TREND = '[data-widget-id="net_worth_trend"]'
+_BALANCE = '[data-widget-id="balance_card"]'
+_MONTH = '[data-widget-id="month_card"]'
+
+#: The seven single-figure KPI widgets a pre-restyle profile still stores.
+_LEGACY_KPIS = (
+    "total_balance",
+    "month_income",
+    "month_expenses",
+    "month_net",
+    "predicted_30d",
+    "net_worth",
+    "savings_rate_kpi",
+)
 
 
 def _open_customize(page: Page) -> Page:
@@ -74,6 +87,20 @@ def _cycle_size(page: Page, widget_id: str) -> str:
     return str(applied)
 
 
+def _post_layout(page: Page, entries: list[dict[str, object]]) -> None:
+    """Persist *entries* through the same endpoint the drag handler posts to."""
+    with page.expect_response("**/_dashboard/layout") as response_info:
+        page.evaluate(
+            """(entries) => fetch('/_dashboard/layout', {
+              method: 'POST',
+              headers: {'Content-Type': 'application/json'},
+              body: JSON.stringify({entries}),
+            })""",
+            entries,
+        )
+    assert response_info.value.ok, "layout POST did not succeed"
+
+
 def test_reset_layout_then_reset_widgets(page: Page, base_url: str) -> None:
     """Covers: KAL-DSH-001, KAL-DSH-002
 
@@ -87,10 +114,11 @@ def test_reset_layout_then_reset_widgets(page: Page, base_url: str) -> None:
     # ── Given: net_worth_trend toggled off ────────────────────────────────
     dialog = _open_customize(page)
     dialog.locator('[data-customize-row="net_worth_trend"] .q-checkbox').click()
-    dialog.get_by_role("button", name="Save").click()
-    # Save closes the dialog and re-navigates to "/"; land on a settled page
-    # before touching the grid.
-    page.goto(f"{base_url}/")
+    # Save closes the dialog and re-navigates to "/" itself. Racing it with an
+    # explicit goto aborts whichever load loses (net::ERR_ABORTED); wait for
+    # the navigation Save starts, then let the grid settle.
+    with page.expect_navigation(wait_until="load", timeout=15000):
+        dialog.get_by_role("button", name="Save").click()
     _wait_for_grid_settled(page)
     expect(page.locator(_CASHFLOW)).to_have_attribute("data-cols", "4", timeout=10000)
     expect(page.locator(_TREND)).to_have_count(0)
@@ -144,6 +172,50 @@ def test_reset_layout_honours_unsaved_toggle(page: Page, base_url: str) -> None:
     _wait_for_grid_settled(page)
     expect(page.locator(_TREND)).to_have_count(0, timeout=10000)
     expect(page.locator(_CASHFLOW)).to_have_attribute("data-cols", "4")
+
+    # Leave the shared e2e session's dashboard back at its defaults.
+    dialog = _open_customize(page)
+    dialog.get_by_role("button", name="Reset widgets").click()
+    _wait_for_grid_settled(page)
+    expect(page.locator(_TREND)).to_have_count(1, timeout=10000)
+
+
+def test_legacy_kpi_layout_migrates_to_merged_cards(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-004
+
+    Stores the pre-restyle layout — the seven single-figure KPI widgets —
+    straight through the layout endpoint, then loads the dashboard twice:
+    once to see them replaced by the two merged cards in the position the
+    first of them held, once to prove the migration does not stack up.
+    """
+    page.goto(f"{base_url}/")
+    _wait_for_grid_settled(page)
+
+    # ── Given: the seven KPI widgets, with a chart sitting in front ───────
+    legacy = [{"id": wid, "cols": 2, "rows": 1} for wid in _LEGACY_KPIS]
+    _post_layout(page, [{"id": "cashflow_chart", "cols": 4, "rows": 2}, *legacy])
+
+    # ── When: the dashboard loads ─────────────────────────────────────────
+    page.goto(f"{base_url}/")
+    _wait_for_grid_settled(page)
+
+    # ── Then: the merged cards are there and the seven are not ────────────
+    expect(page.locator(_BALANCE)).to_have_count(1, timeout=10000)
+    expect(page.locator(_MONTH)).to_have_count(1)
+    for wid in _LEGACY_KPIS:
+        expect(page.locator(f'[data-widget-id="{wid}"]')).to_have_count(0)
+
+    # ── And: they took the first KPI widget's place, behind the chart ─────
+    order = page.locator("#dash-grid [data-widget-id]").evaluate_all(
+        "els => els.map(e => e.dataset.widgetId)"
+    )
+    assert order == ["cashflow_chart", "balance_card", "month_card"], order
+
+    # ── And: a second load does not add a second copy ─────────────────────
+    page.goto(f"{base_url}/")
+    _wait_for_grid_settled(page)
+    expect(page.locator(_BALANCE)).to_have_count(1, timeout=10000)
+    expect(page.locator(_MONTH)).to_have_count(1)
 
     # Leave the shared e2e session's dashboard back at its defaults.
     dialog = _open_customize(page)

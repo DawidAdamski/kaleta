@@ -391,10 +391,28 @@ class TransactionService:
         return label if (tx_date.year, tx_date.month) != (prev_date.year, prev_date.month) else ""
 
     @staticmethod
-    def format_signed_amount(amount: Decimal, tx_type: TransactionType) -> str:
+    def signed_amount(amount: Decimal, tx_type: TransactionType) -> Decimal:
+        """Money in as positive, everything else as negative.
+
+        The one place the ledger's sign convention lives, so a total under a
+        column of figures cannot disagree with the figures themselves.
+        """
         if tx_type == TransactionType.INCOME:
-            return f"+{abs(amount):,.2f}"
-        return f"-{abs(amount):,.2f}"
+            return abs(amount)
+        return -abs(amount)
+
+    @staticmethod
+    def format_signed_amount(amount: Decimal, tx_type: TransactionType) -> str:
+        """The row's figure, signed — except zero, which has no direction."""
+        return TransactionService.format_net(TransactionService.signed_amount(amount, tx_type))
+
+    @staticmethod
+    def format_net(net: Decimal) -> str:
+        """A group's net, signed the same way its rows are.
+
+        Zero carries no sign: nothing moved, so there is no direction to show.
+        """
+        return f"{net:,.2f}" if net == 0 else f"{net:+,.2f}"
 
     @staticmethod
     def split_balance(
@@ -423,6 +441,8 @@ class TransactionService:
         return {
             "id": transaction.id,
             "date": str(transaction.date),
+            # The ledger shows DD.MM; the ISO value stays for sorting and tooltips.
+            "date_short": transaction.date.strftime("%d.%m"),
             "account": transaction.account.name if transaction.account else "—",
             "description": (transaction.description or "—")[:55],
             "notes": transaction.notes or "",
@@ -433,6 +453,11 @@ class TransactionService:
             "split_tooltip": split_tooltip,
             "type": transaction.type.value,
             "amount": TransactionService.format_signed_amount(transaction.amount, transaction.type),
+            # Kept beside the formatted string so a selection total can be summed
+            # without parsing it back out of the display.
+            "amount_value": str(
+                TransactionService.signed_amount(transaction.amount, transaction.type)
+            ),
             "tags": "",
             "tags_data": [
                 {
@@ -457,4 +482,54 @@ class TransactionService:
         for i, tx in enumerate(transactions):
             prev_tx = transactions[i - 1] if i > 0 else None
             rows.append(TransactionService.build_table_row(tx, prev_tx, grouping))
+        return TransactionService.attach_group_nets(rows)
+
+    @staticmethod
+    def attach_group_nets(rows: builtins.list[dict[str, Any]]) -> builtins.list[dict[str, Any]]:
+        """Give every separator row the net of the group it opens.
+
+        Page-scoped on purpose: the rows handed in are the page the user is
+        looking at, and summing anything else would mean a second query for a
+        figure that sits inside the page's own scroll.
+        """
+        start: int | None = None
+        for i, row in enumerate(rows):
+            if not row.get("sep_label"):
+                continue
+            if start is not None:
+                rows[start]["sep_net"] = TransactionService.format_net(
+                    TransactionService.net_of_rows(rows[start:i])
+                )
+            start = i
+        if start is not None:
+            rows[start]["sep_net"] = TransactionService.format_net(
+                TransactionService.net_of_rows(rows[start:])
+            )
         return rows
+
+    @staticmethod
+    def net_of_rows(rows: builtins.list[dict[str, Any]]) -> Decimal:
+        """What a set of ledger rows did to the user's money.
+
+        Transfers are left out of it entirely. Both legs of an internal
+        transfer are stored the same way — type ``transfer``, a positive
+        amount, no direction — so the ledger cannot say whether a leg it is
+        holding sent the money or received it, and paints both as outflows.
+        Counting a lone leg would therefore be right for half of them and
+        wrong for the other half; counting both would show money leaving
+        twice when it only moved between the user's own accounts. A net that
+        says nothing about a transfer is honest, and the rule is the same
+        wherever it is read, so the group separator and the selection bar
+        cannot disagree.
+        """
+        return sum(
+            (
+                # ``or 0`` and not a ``get`` default: a separator row carries
+                # no figure at all, and a row can carry an explicit ``None``.
+                # ``Decimal("None")`` would raise and take the whole bar down.
+                Decimal(str(row.get("amount_value") or 0))
+                for row in rows
+                if row.get("type") != TransactionType.TRANSFER.value
+            ),
+            Decimal("0"),
+        )

@@ -21,6 +21,7 @@ from kaleta.views.dashboard_widgets.registry import register
     "insights",
     (2, 1),
     ((1, 1), (2, 1)),
+    legacy=True,
 )
 async def render_predicted_30d(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     total = await ReportService(session).total_balance()

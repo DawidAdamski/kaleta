@@ -27,7 +27,9 @@ def test_debts_panel_shows_balance_per_person(page: Page, base_url: str) -> None
     seed_personal_loan("Ania DBT E2E", 150.0, direction="incoming")
 
     page.goto(f"{base_url}/wizard/personal-loans")
-    expect(page.get_by_text("Personal Loans", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_role("main").get_by_text("Personal Loans", exact=True).first).to_be_visible(
+        timeout=5000
+    )
 
     expect(page.get_by_text("They owe you", exact=True)).to_be_visible(timeout=5000)
     expect(page.get_by_text("You owe", exact=True)).to_be_visible(timeout=5000)

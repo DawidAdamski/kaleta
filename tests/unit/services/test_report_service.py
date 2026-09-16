@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -11,22 +12,28 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
+from kaleta.models.planned_transaction import RecurrenceFrequency
+from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.payee import PayeeCreate
+from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import (
     AccountService,
     BudgetService,
     CategoryService,
     PayeeService,
+    PlannedTransactionService,
     TransactionService,
 )
 from kaleta.services.report_service import (
+    BudgetVarianceRow,
     CategoryAmount,
     ReportService,
+    SafeToSpend,
     SavingsRatePoint,
     SpendingByCategory,
     YoYComparison,
@@ -200,6 +207,85 @@ class TestCashFlowStatement:
 
 
 # ── budget_variance ────────────────────────────────────────────────────────────
+
+
+class TestBudgetVarianceRowArithmetic:
+    """The two signs a variance row carries, kept apart on purpose.
+
+    Figures are the three over-budget rows drawn in artboard 1c.
+    """
+
+    def test_overspend_is_positive_when_past_plan(self) -> None:
+        row = BudgetVarianceRow(
+            category="Żywność", planned=Decimal("1400.00"), actual=Decimal("1612.30")
+        )
+
+        assert row.overspend == Decimal("212.30")
+        assert row.variance == Decimal("-212.30")
+        assert row.over_budget is True
+
+    def test_spent_pct_counts_up_from_the_plan(self) -> None:
+        row = BudgetVarianceRow(
+            category="Rozrywka", planned=Decimal("300.00"), actual=Decimal("418.00")
+        )
+
+        # 139% of plan — not the -39% that variance_pct reports.
+        assert round(row.spent_pct or Decimal("0")) == Decimal("139")
+        assert round(row.variance_pct or Decimal("0")) == Decimal("-39")
+
+    def test_a_row_just_past_plan(self) -> None:
+        row = BudgetVarianceRow(
+            category="Transport", planned=Decimal("350.00"), actual=Decimal("372.40")
+        )
+
+        assert round(row.spent_pct or Decimal("0")) == Decimal("106")
+        assert row.overspend == Decimal("22.40")
+
+    def test_an_unbudgeted_row_has_no_percentage(self) -> None:
+        row = BudgetVarianceRow(category="Fun", planned=Decimal("0"), actual=Decimal("50"))
+
+        assert row.spent_pct is None
+        assert row.over_budget is False
+        # Not "over" its plan and not severely over it either — one row, one answer.
+        assert row.is_severely_over(Decimal("110")) is False
+
+
+class TestBudgetVarianceSeverity:
+    """Where a row falls against a threshold — artboard 1c's three rows."""
+
+    def test_fifteen_percent_over_is_severe(self) -> None:
+        row = BudgetVarianceRow(
+            category="Żywność", planned=Decimal("1400.00"), actual=Decimal("1612.30")
+        )
+
+        assert row.is_severely_over(Decimal("110")) is True
+
+    def test_thirty_nine_percent_over_is_severe(self) -> None:
+        row = BudgetVarianceRow(
+            category="Rozrywka", planned=Decimal("300.00"), actual=Decimal("418.00")
+        )
+
+        assert row.is_severely_over(Decimal("110")) is True
+
+    def test_six_percent_over_is_not(self) -> None:
+        row = BudgetVarianceRow(
+            category="Transport", planned=Decimal("350.00"), actual=Decimal("372.40")
+        )
+
+        assert row.is_severely_over(Decimal("110")) is False
+
+    def test_exactly_at_the_threshold_is_severe(self) -> None:
+        row = BudgetVarianceRow(category="x", planned=Decimal("100"), actual=Decimal("110"))
+
+        assert row.is_severely_over(Decimal("110")) is True
+
+    def test_the_signed_variance_cannot_be_mistaken_for_it(self) -> None:
+        # variance_pct is negative when over budget: comparing *it* against the
+        # threshold classified every over-budget row as a warning.
+        row = BudgetVarianceRow(category="x", planned=Decimal("1400.00"), actual=Decimal("1612.30"))
+
+        assert (row.variance_pct or Decimal("0")) < Decimal("110")
+        assert row.is_severely_over(Decimal("110")) is True
 
 
 class TestBudgetVariance:
@@ -545,6 +631,31 @@ class TestLargestTransactions:
 
 
 class TestReportDisplayHelpers:
+    def test_mean_savings_rate_pct_skips_months_with_no_rate(self) -> None:
+        """The headline figure's rule: a month with no income is no answer,
+        not a real zero — five zero-filled pre-ledger months must not turn a
+        20% month into 3.3%."""
+        points = [
+            SavingsRatePoint(year=2026, month=m, income=Decimal("0"), expenses=Decimal("0"))
+            for m in range(1, 6)
+        ]
+        points.append(
+            SavingsRatePoint(year=2026, month=6, income=Decimal("5000"), expenses=Decimal("4000"))
+        )
+
+        assert ReportService.mean_savings_rate_pct(points) == Decimal("20")
+
+    def test_mean_savings_rate_pct_without_a_single_rate(self) -> None:
+        points = [
+            SavingsRatePoint(year=2026, month=m, income=Decimal("0"), expenses=Decimal("0"))
+            for m in range(1, 7)
+        ]
+
+        assert ReportService.mean_savings_rate_pct(points) is None
+
+    def test_mean_savings_rate_pct_of_nothing(self) -> None:
+        assert ReportService.mean_savings_rate_pct([]) is None
+
     def test_average_savings_rate_pct_empty(self) -> None:
         assert ReportService.average_savings_rate_pct([]) == Decimal("0")
 
@@ -696,3 +807,308 @@ class TestKpiDeltas:
 
         delta = await svc.savings_rate_delta()
         assert delta.rate_points == Decimal("20.0")
+
+
+class TestCurrentMonthPoint:
+    """The month card reads this month as one point rather than re-deriving it."""
+
+    async def test_carries_income_expenses_savings_and_rate(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        today = datetime.date.today()
+        acc = await _make_account(session)
+        salary = await _make_category(session, "Salary", CategoryType.INCOME)
+        food = await _make_category(session, "Food", CategoryType.EXPENSE)
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=salary,
+            amount=Decimal("5000"),
+            tx_type=TransactionType.INCOME,
+            date=today.replace(day=1),
+        )
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("4000"),
+            tx_type=TransactionType.EXPENSE,
+            date=today.replace(day=1),
+        )
+
+        point = await svc.current_month_point()
+
+        assert (point.year, point.month) == (today.year, today.month)
+        assert point.income == Decimal("5000")
+        assert point.expenses == Decimal("4000")
+        assert point.savings == Decimal("1000")
+        assert point.rate_pct == Decimal("20")
+
+    async def test_no_income_yet_means_no_rate(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        today = datetime.date.today()
+        acc = await _make_account(session)
+        food = await _make_category(session, "Food", CategoryType.EXPENSE)
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("120"),
+            tx_type=TransactionType.EXPENSE,
+            date=today.replace(day=1),
+        )
+
+        point = await svc.current_month_point()
+
+        assert point.income == Decimal("0.00")
+        assert point.rate_pct is None
+
+
+class TestSavingsRatePointTarget:
+    """`meets_target` is what colours the month card's savings bar."""
+
+    def test_at_the_target_counts_as_met(self) -> None:
+        point = SavingsRatePoint(2026, 7, Decimal("1000"), Decimal("800"))
+
+        assert point.rate_pct == Decimal("20")
+        assert point.meets_target(Decimal("20")) is True
+
+    def test_below_the_target_does_not(self) -> None:
+        point = SavingsRatePoint(2026, 7, Decimal("1000"), Decimal("900"))
+
+        assert point.meets_target(Decimal("20")) is False
+
+    def test_a_month_with_no_income_has_not_met_it(self) -> None:
+        point = SavingsRatePoint(2026, 7, Decimal("0"), Decimal("120"))
+
+        assert point.rate_pct is None
+        assert point.meets_target(Decimal("20")) is False
+
+
+# ── safe_to_spend (artboard 1f) ───────────────────────────────────────────────
+
+
+async def _make_planned(
+    session: AsyncSession,
+    *,
+    account_id: int,
+    amount: Decimal,
+    date: datetime.date,
+    tx_type: TransactionType = TransactionType.EXPENSE,
+    name: str = "Rent",
+) -> None:
+    await PlannedTransactionService(session).create(
+        PlannedTransactionCreate(
+            name=name,
+            amount=amount,
+            type=tx_type,
+            account_id=account_id,
+            frequency=RecurrenceFrequency.ONCE,
+            start_date=date,
+        )
+    )
+
+
+async def _seed_subscription(
+    session: AsyncSession,
+    name: str,
+    amount: Decimal,
+    next_expected_at: datetime.date,
+) -> None:
+    """An active subscription billing every 30 days, anchored on *next_expected_at*."""
+    session.add(
+        Subscription(
+            name=name,
+            amount=amount,
+            cadence_days=30,
+            first_seen_at=next_expected_at,
+            next_expected_at=next_expected_at,
+            status=SubscriptionStatus.ACTIVE,
+        )
+    )
+    await session.flush()
+
+
+class TestSafeToSpend:
+    """The phone hero's one question: what is left of the month?
+
+    Every figure below is a literal from KAL-DSH-006, not a re-derivation.
+    The scenario itself is claimed over a real database in
+    ``tests/integration/test_safe_to_spend.py``; these are its edges.
+    """
+
+    async def test_a_plan_already_behind_us_is_not_still_due(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """Committed looks forward from today, not back over the whole month.
+
+        A plan dated the 5th has either posted (and is in ``spent``) or been
+        missed; either way promising the money again would count it twice.
+        """
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("300.00"),
+            date=datetime.date(2026, 6, 5),
+        )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("0.00")
+
+    async def test_planned_income_is_not_committed(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """Only money leaving is promised. Income counts once it has landed."""
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("900.00"),
+            date=datetime.date(2026, 6, 20),
+            tx_type=TransactionType.INCOME,
+            name="Refund",
+        )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("0.00")
+        assert result.income == Decimal("0.00")
+
+    async def test_two_plans_of_the_same_amount_on_one_day_are_two_payments(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """The subscription de-duplication must not swallow a real duplicate."""
+        acc = await _make_account(session)
+        for name in ("Rent A", "Rent B"):
+            await _make_planned(
+                session,
+                account_id=acc,
+                amount=Decimal("50.00"),
+                date=datetime.date(2026, 6, 20),
+                name=name,
+            )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("100.00")
+
+    async def test_a_subscription_matching_a_plan_by_day_and_amount_is_dropped(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """A known limit, pinned so it cannot change unnoticed.
+
+        The only thing a projected subscription charge and a planned
+        occurrence share is a date and an amount — no transaction carries a
+        subscription id — so an unrelated subscription billing 49.99 on the
+        same day as a 49.99 plan is taken for the same payment and counted
+        once. Overstating what is safe to spend is the error this figure
+        exists to avoid, so if the two ever gain a real link, undo this.
+        """
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("49.99"),
+            date=datetime.date(2026, 6, 20),
+            name="Gym",
+        )
+        await _seed_subscription(session, "Streaming", Decimal("49.99"), datetime.date(2026, 6, 20))
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("49.99")
+
+    async def test_one_plan_stands_in_for_one_charge_not_for_every_match(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """The other half of the same lesson the two-plans test teaches.
+
+        One 49.99 plan and two unrelated 49.99 subscriptions on the 20th is
+        two payments, not one: the plan can account for one of the charges
+        and no more. Matching by membership let one plan cancel every charge
+        that shared its day and amount, which overstates what is free.
+        """
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("49.99"),
+            date=datetime.date(2026, 6, 20),
+            name="Gym",
+        )
+        for name in ("Streaming", "Music"):
+            await _seed_subscription(session, name, Decimal("49.99"), datetime.date(2026, 6, 20))
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("99.98")
+
+    async def test_a_subscription_on_its_own_day_is_committed(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """The other half of the rule above: no collision, no drop."""
+        acc = await _make_account(session)
+        await _make_planned(
+            session,
+            account_id=acc,
+            amount=Decimal("49.99"),
+            date=datetime.date(2026, 6, 20),
+            name="Gym",
+        )
+        await _seed_subscription(session, "Streaming", Decimal("49.99"), datetime.date(2026, 6, 21))
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.committed == Decimal("99.98")
+
+    async def test_trailing_average_divides_by_the_window_not_by_busy_days(
+        self, svc: ReportService, session: AsyncSession
+    ) -> None:
+        """900 zł over one day of a 30-day window is 30 zł a day, not 900."""
+        acc = await _make_account(session)
+        food = await _make_category(session, "Food")
+        await _make_tx(
+            session,
+            account_id=acc,
+            category_id=food,
+            amount=Decimal("900.00"),
+            tx_type=TransactionType.EXPENSE,
+            date=datetime.date(2026, 6, 3),
+        )
+
+        result = await svc.safe_to_spend(today=datetime.date(2026, 6, 10))
+
+        assert result.trailing_avg_per_day == Decimal("30.00")
+
+
+#: A zero month on the 10th of a 30-day one — every test below states only
+#: what it changes. ``replace`` keeps the builder typed, which a dict spread
+#: could not.
+BLANK_MONTH = SafeToSpend(
+    today=datetime.date(2026, 6, 10),
+    income=Decimal("0.00"),
+    committed=Decimal("0.00"),
+    spent=Decimal("0.00"),
+    trailing_avg_per_day=Decimal("0.00"),
+)
+
+
+class TestSafeToSpendArithmetic:
+    """The derived properties, without a database behind them."""
+
+    def test_the_last_day_of_the_month_still_has_one_day_left(self) -> None:
+        """Today counts — and a zero divisor would make ``per_day`` undefined."""
+        result = replace(BLANK_MONTH, today=datetime.date(2026, 6, 30), income=Decimal("210.00"))
+
+        assert result.days_left == 1
+        assert result.per_day == Decimal("210.00")
+
+    def test_overspending_is_reported_not_clamped(self) -> None:
+        """A hero that cannot say "you are 300 over" is not worth reading."""
+        result = replace(BLANK_MONTH, income=Decimal("1000.00"), spent=Decimal("1300.00"))
+
+        assert result.free == Decimal("-300.00")
+        assert result.spendable is False

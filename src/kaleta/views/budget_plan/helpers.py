@@ -6,15 +6,20 @@ from __future__ import annotations
 from decimal import Decimal
 
 from kaleta.services.budget_service import PlanCategoryRow
+from kaleta.views.theme import ACCENT_TEXT, AMOUNT_EXPENSE, INK, MUTED
 
 
 def recurring_display(row: PlanCategoryRow) -> tuple[str, str]:
-    """Return label text and colour class for the recurring/monthly column."""
+    """Return label text and colour class for the recurring/monthly column.
+
+    Accent, not ink: a figure here is the one that generated the twelve to its
+    right, and artboard 2c says so by colour.
+    """
     if row.uniform_monthly is not None:
-        return f"{row.uniform_monthly:,.0f}", "text-primary"
+        return f"{row.uniform_monthly:,.0f}", ACCENT_TEXT
     if row.has_any_plan:
-        return "~", "text-orange-8"
-    return "—", "text-slate-400"
+        return "~", ACCENT_TEXT
+    return "—", MUTED
 
 
 def format_amount(amount: Decimal | None) -> str:
@@ -22,16 +27,18 @@ def format_amount(amount: Decimal | None) -> str:
 
 
 def plan_cell_color(amount: Decimal | None, is_override: bool) -> str:
+    """A month that was typed over the recurring figure is the accent one."""
     if is_override:
-        return "text-orange-8"
+        return ACCENT_TEXT
     if amount:
-        return "text-primary"
-    return "text-slate-400"
+        return INK
+    return MUTED
 
 
 def actual_cell_color(actual: Decimal | None, is_over: bool) -> str:
-    if is_over:
-        return "text-red-6"
-    if actual:
-        return "text-green-6"
-    return "text-slate-400"
+    """The sub-row is quiet: only an overspent month gets a colour.
+
+    It used to paint every month with spending green, which made a wall of
+    green that said only "you spent money" — the thing a ledger always says.
+    """
+    return AMOUNT_EXPENSE if is_over else MUTED

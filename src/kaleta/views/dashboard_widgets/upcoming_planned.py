@@ -16,7 +16,7 @@ from kaleta.i18n import t
 from kaleta.schemas.transaction import TransactionType
 from kaleta.services import PlannedTransactionService, with_session
 from kaleta.services.planned_transaction_service import PlannedOccurrence
-from kaleta.views.components.amount_label import amount_css_class, format_signed_amount
+from kaleta.views.components.amount_label import format_signed_amount, signed_amount_class
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.error_handling import notify_kaleta_error
@@ -46,10 +46,8 @@ async def render_upcoming_planned(session: AsyncSession, is_dark: bool) -> None:
         with ui.column().classes("w-full gap-1 mt-1"):
             for occ in occs[:6]:
                 is_income = occ.type == TransactionType.INCOME
-                tx_type = (
-                    TransactionType.INCOME.value if is_income else TransactionType.EXPENSE.value
-                )
-                amount_cls = amount_css_class(tx_type)
+                tx_type = TransactionType.INCOME if is_income else TransactionType.EXPENSE
+                amount_cls = signed_amount_class(occ.amount, tx_type)
                 with ui.row().classes("w-full items-center justify-between gap-2"):
                     with ui.column().classes("gap-0 flex-1"):
                         ui.label(occ.name).classes("text-sm")

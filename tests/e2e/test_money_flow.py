@@ -25,7 +25,11 @@ def test_money_flow_page_loads_with_kpis(page: Page, base_url: str) -> None:
     acc = seed_account("Money Flow Checking E2E")
     salary = seed_income_category("MF Salary E2E")
     food = seed_category("MF Food E2E")
-    seed_transaction(acc, salary, 5000.0, tx_type="income", date=today, description="salary")
+    # KAL-FLW-002's precondition is "income > expenses", and the KPI is
+    # computed over the whole month — every other test's seeded expenses
+    # included. The income has to be big enough to establish that precondition
+    # against the suite, not just against this test's own 1 200.
+    seed_transaction(acc, salary, 500_000.0, tx_type="income", date=today, description="salary")
     seed_transaction(acc, food, 1200.0, tx_type="expense", date=today, description="food")
 
     page.goto(f"{base_url}/reports/money-flow")

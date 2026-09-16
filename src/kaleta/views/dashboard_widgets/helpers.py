@@ -11,12 +11,13 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.services.report_service import KpiPeriodDelta
 from kaleta.views.theme import (
+    CARD_SUBTITLE,
+    CARD_TITLE,
+    DASH_CARD,
     KPI_TREND_NEGATIVE,
     KPI_TREND_NEUTRAL,
     KPI_TREND_POSITIVE,
     KPI_VALUE,
-    SECTION_CARD,
-    SECTION_HEADING,
     SECTION_TITLE,
     kpi_card_classes,
 )
@@ -24,6 +25,16 @@ from kaleta.views.theme import (
 
 def fmt_amount(amount: Decimal | float | int) -> str:
     return f"{float(amount):,.2f} zł"
+
+
+def fmt_number(amount: Decimal | float | int) -> str:
+    """The same figure without its currency suffix.
+
+    Cards that label a whole column "zł" repeat the suffix on every row for
+    nothing. Derived from :func:`fmt_amount` so the two cannot drift apart if
+    the currency or the thousands separator ever changes.
+    """
+    return fmt_amount(amount).removesuffix(" zł")
 
 
 def _month_short_name(month: int) -> str:
@@ -48,7 +59,8 @@ def _format_reference(delta: KpiPeriodDelta) -> str:
     return ""
 
 
-def _trend_color(delta: KpiPeriodDelta, *, is_rate: bool) -> str:
+def trend_class(delta: KpiPeriodDelta, *, is_rate: bool = False) -> str:
+    """Token class colouring a trend line up / down / flat."""
     value = delta.rate_points if is_rate else delta.absolute
     if value is None or value == Decimal("0"):
         return KPI_TREND_NEUTRAL
@@ -111,23 +123,51 @@ def kpi_card(
                 trend_cls = KPI_TREND_NEUTRAL
             else:
                 trend_text = format_kpi_trend(delta, is_rate=is_rate)
-                trend_cls = _trend_color(delta, is_rate=is_rate) if delta else KPI_TREND_NEUTRAL
+                trend_cls = trend_class(delta, is_rate=is_rate) if delta else KPI_TREND_NEUTRAL
             ui.label(trend_text).classes(f"text-xs kpi-trend {trend_cls}")
 
 
 def section_card(title: str, *, subtitle: str | None = None) -> Any:
-    card = ui.card().classes(SECTION_CARD)
+    card = ui.card().classes(DASH_CARD)
     with card:
-        ui.label(title).classes(SECTION_TITLE)
+        ui.label(title).classes(CARD_TITLE)
         if subtitle:
-            ui.label(subtitle).classes(f"{SECTION_HEADING} mb-3")
+            ui.label(subtitle).classes(f"{CARD_SUBTITLE} mb-3")
+        else:
+            ui.element("div").classes("mb-2")
     return card
 
 
-def mini_stat(label: str, value: str, color: str) -> None:
-    with ui.column().classes("gap-0 min-w-28"):
-        ui.label(label).classes("text-xs text-slate-500 uppercase tracking-wide")
-        ui.label(value).classes(f"text-lg font-semibold text-{color}")
+def split_amount(amount: Decimal | float | int) -> tuple[str, str]:
+    """Split a formatted amount into (whole, fraction) for the hero treatment.
+
+    Derived from :func:`fmt_amount` so the two cannot drift: the hero reads
+    the same string every other figure on the page does, then peels off the
+    decimal group. ``64,648.01 zł`` → ``("64,648", ".01")``.
+    """
+    numeric = fmt_number(amount)
+    whole, sep, frac = numeric.rpartition(".")
+    return (whole, sep + frac) if sep else (numeric, "")
+
+
+def hero_figure(amount: Decimal | float | int, *, size: str = "text-[54px]") -> None:
+    """Hero amount with its decimals muted, per the handoff type scale.
+
+    The split is what keeps a 54px figure from shouting its cents.
+    """
+    whole, frac = split_amount(amount)
+    base = f"{size} font-medium tracking-[-.035em] leading-none"
+    with ui.row().classes("items-baseline gap-0 no-wrap"):
+        ui.label(whole).classes(f"k-mono k-ink {base}")
+        if frac:
+            ui.label(frac).classes(f"k-mono k-muted {base}")
+
+
+def mini_stat(label: str, value: str, amount_cls: str) -> None:
+    """Label over a figure — ``amount_cls`` is a theme amount token, not a hue."""
+    with ui.column().classes("gap-0.5 min-w-28"):
+        ui.label(label).classes(CARD_SUBTITLE)
+        ui.label(value).classes(f"k-mono {amount_cls} text-[19px] font-medium tracking-tight")
 
 
 def quick_btn(icon: str, label: str, route: str) -> None:

@@ -155,6 +155,93 @@ def apply_scenarios(
     return out
 
 
+def default_scenario_date(
+    result: ForecastResult | None, today: datetime.date | None = None
+) -> datetime.date | None:
+    """A date a scenario can be offered that will actually move the line.
+
+    :func:`apply_scenarios` keys its deltas by exact date, so only a date
+    that *is* a forecast point does anything at all. Which dates those are
+    depends on the data, not on the calendar: the forecast runs from the day
+    after the last **transaction**, so on an account with something posted
+    today it starts tomorrow, and on one quiet for a month it started weeks
+    ago.
+
+    The first point from today onward, then, and the first point at all when
+    the whole forecast is already behind us. ``None`` when there is no
+    forecast to put a scenario on.
+    """
+    if result is None or not result.forecast:
+        return None
+    day = today or datetime.date.today()
+    return next((p.date for p in result.forecast if p.date >= day), result.forecast[0].date)
+
+
+def point_shifted_by(result: ForecastResult, date: datetime.date) -> ForecastPoint | None:
+    """The forecast point a scenario dated ``date`` actually moves, if any.
+
+    :func:`apply_scenarios` keys its deltas by exact date
+    (``deltas.get(p.date)``), so a scenario lands on the point sharing its
+    date and on nothing else — not on the nearest one after it. A view
+    marking a shift must use the same rule, or it pins a marker to a point
+    that never moved.
+    """
+    return next((p for p in result.forecast if p.date == date), None)
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastKpis:
+    """The four figures artboard 3a puts above the chart.
+
+    Read off the same :class:`ForecastResult` the chart draws, and only that
+    one: a preset or a scenario that moves the line moves these with it. The
+    alternative — recomputing from the raw forecast — gives numbers that
+    quietly disagree with the picture beside them.
+
+    ``None`` where the result has nothing to read: a forecast with no
+    history has no balance today, and one with no points has no horizon.
+    """
+
+    balance_today: float | None
+    #: The day ``balance_today`` is from. Not necessarily today: history ends
+    #: at the last transaction, so a quiet account's "balance today" is its
+    #: balance as of whenever something last happened, and the figure should
+    #: say so rather than let the label speak for it.
+    balance_date: datetime.date | None
+    predicted: float | None
+    change: float | None
+    #: Half the prediction interval at the horizon — the "± X" a reader can
+    #: put either side of ``predicted``.
+    confidence: float | None
+    horizon_date: datetime.date | None
+
+
+def forecast_kpis(result: ForecastResult) -> ForecastKpis:
+    """Today, the horizon, the distance between them, and how sure we are.
+
+    The horizon is the last forecast point rather than a fixed 30 days:
+    asking for 90 and being told about day 30 is the chart and the figures
+    answering different questions.
+    """
+    history = result.historical
+    forecast = result.forecast
+    balance_today = history[-1].value if history else None
+    balance_date = history[-1].date if history else None
+    if not forecast:
+        return ForecastKpis(balance_today, balance_date, None, None, None, None)
+
+    horizon = forecast[-1]
+    change = None if balance_today is None else round(horizon.value - balance_today, 2)
+    return ForecastKpis(
+        balance_today=balance_today,
+        balance_date=balance_date,
+        predicted=horizon.value,
+        change=change,
+        confidence=round((horizon.upper - horizon.lower) / 2, 2),
+        horizon_date=horizon.date,
+    )
+
+
 class ForecastService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session

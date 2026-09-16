@@ -14,6 +14,7 @@ from pathlib import Path
 
 from playwright.sync_api import Page, expect
 
+from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     get_or_seed_category,
     seed_account,
@@ -54,7 +55,9 @@ def test_create_categorisation_rule(page: Page, base_url: str) -> None:
     get_or_seed_category("Groceries")
 
     page.goto(f"{base_url}/rules")
-    expect(page.get_by_text("Rules", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
+        timeout=5000
+    )
 
     page.get_by_role("button", name="Add Rule").click()
     dialog = page.get_by_role("dialog")
@@ -110,9 +113,7 @@ def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
         expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=10000)
 
         page.goto(f"{base_url}/transactions")
-        search = page.get_by_label("Search description")
-        search.click(click_count=3)
-        search.fill("LIDL")
+        search_ledger(page, "LIDL")
         expect(page.get_by_text("LIDL Warszawa").first).to_be_visible(timeout=5000)
         row = page.locator(".q-table tbody tr").filter(has_text="LIDL Warszawa")
         expect(row.get_by_text("Groceries").first).to_be_visible(timeout=5000)

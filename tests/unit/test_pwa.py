@@ -33,7 +33,7 @@ class TestPwaHead:
         assert 'href="/static/icons/icon.svg"' in PWA_HEAD
 
     def test_theme_color_meta_present(self):
-        assert '<meta name="theme-color" content="#1976d2">' in PWA_HEAD
+        assert '<meta name="theme-color" content="#F3EFE7">' in PWA_HEAD
 
     def test_mobile_web_app_capable_meta_present(self):
         assert '<meta name="mobile-web-app-capable" content="yes">' in PWA_HEAD
@@ -160,7 +160,7 @@ class TestManifestJson:
 
     def test_manifest_has_theme_color(self, manifest: dict):
         assert "theme_color" in manifest
-        assert manifest["theme_color"] == "#1976d2"
+        assert manifest["theme_color"] == "#F3EFE7"
 
     def test_manifest_has_background_color(self, manifest: dict):
         assert "background_color" in manifest

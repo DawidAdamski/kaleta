@@ -2,7 +2,8 @@
 """E2E tests for Feature: Manual Transaction Entry.
 
 Covers: KAL-TXN-001, KAL-TXN-009, KAL-TXN-010, KAL-TXN-011, KAL-TXN-012,
-KAL-TXN-013
+KAL-TXN-013, KAL-TXN-014, KAL-TXN-015, KAL-TXN-016, KAL-TXN-017,
+KAL-PAG-005
 
 Maps the q3-test-safety-net flow: add, edit, and split a transaction.
 Page URL: /transactions
@@ -10,14 +11,18 @@ Page URL: /transactions
 
 from __future__ import annotations
 
-from playwright.sync_api import Page, expect
+import re
 
+from playwright.sync_api import Locator, Page, expect
+
+from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     get_transaction,
     seed_account,
     seed_category,
     seed_payee,
     seed_transaction,
+    seed_transfer_pair,
 )
 
 
@@ -25,6 +30,32 @@ def _fill_number(scope: Page, label: str, value: str) -> None:
     field = scope.get_by_role("spinbutton", name=label, exact=True)
     field.click(click_count=3)
     field.fill(value)
+
+
+def _set_split_amount(field: Locator, value: str) -> None:
+    """Type a split line's amount and commit it.
+
+    NiceGUI syncs a number input on `change`, so a `fill` that is never blurred
+    leaves the server still holding the old figure — and "Fill last", which
+    balances against the server's model, then writes a last line that does not
+    add up to the total. The Save button stays disabled for good, 30s of
+    Playwright auto-waiting included. Tab commits the value first.
+    """
+    field.click(click_count=3)
+    field.fill(value)
+    field.press("Tab")
+
+
+def _save_when_balanced(dialog: Page) -> None:
+    """Save once the dialog agrees the split lines add up.
+
+    Save is disabled while they do not, and it is re-enabled over the
+    websocket, so clicking it in the same breath as "Fill last" races that
+    round trip.
+    """
+    save = dialog.get_by_role("button", name="Save")
+    expect(save).to_be_enabled(timeout=10000)
+    save.click()
 
 
 def _pick_open_menu_option(page: Page, option: str) -> None:
@@ -63,9 +94,7 @@ def _select_labeled(page: Page, dialog: Page, label: str, option: str) -> None:
 
 def _find_row(page: Page, description: str):  # noqa: ANN201
     """Locate a ledger row by description, filtering so paging cannot hide it."""
-    search = page.get_by_label("Search description")
-    search.click(click_count=3)
-    search.fill(description)
+    search_ledger(page, description)
     return page.locator(".q-table tbody tr").filter(has_text=description)
 
 
@@ -138,11 +167,10 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     split_amount_fields = dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.first.click(click_count=3)
-    split_amount_fields.first.fill("60")
+    _set_split_amount(split_amount_fields.first, "60")
     dialog.get_by_role("button", name="Fill last").click()
 
-    dialog.get_by_role("button", name="Save").click()
+    _save_when_balanced(dialog)
 
     expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
@@ -165,11 +193,9 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     split_amount_fields = split_edit_dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.nth(0).click(click_count=3)
-    split_amount_fields.nth(0).fill("70")
-    split_amount_fields.nth(1).click(click_count=3)
-    split_amount_fields.nth(1).fill("30")
-    split_edit_dialog.get_by_role("button", name="Save").click()
+    _set_split_amount(split_amount_fields.nth(0), "70")
+    _set_split_amount(split_amount_fields.nth(1), "30")
+    _save_when_balanced(split_edit_dialog)
 
     expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
@@ -221,10 +247,9 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
     split_amount_fields = dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.first.click(click_count=3)
-    split_amount_fields.first.fill("60")
+    _set_split_amount(split_amount_fields.first, "60")
     dialog.get_by_role("button", name="Fill last").click()
-    dialog.get_by_role("button", name="Save").click()
+    _save_when_balanced(dialog)
 
     split_row = page.locator(".q-table tbody tr").filter(has_text="Split Ind E2E")
     plain_row = page.locator(".q-table tbody tr").filter(has_text="Plain Ind E2E")
@@ -281,10 +306,9 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     split_amount_fields = edit_dialog.locator(".split-cat-select").locator(
         "xpath=ancestor::div[contains(@class,'row')][1]//input[@type='number']"
     )
-    split_amount_fields.first.click(click_count=3)
-    split_amount_fields.first.fill("50")
+    _set_split_amount(split_amount_fields.first, "50")
     edit_dialog.get_by_role("button", name="Fill last").click()
-    edit_dialog.get_by_role("button", name="Save").click()
+    _save_when_balanced(edit_dialog)
 
     updated = page.locator(".q-table tbody tr").filter(has_text="Arm Split E2E")
     expect(updated.get_by_text("Split (2)", exact=True)).to_be_visible(timeout=5000)
@@ -543,3 +567,214 @@ def test_editing_a_transfer_has_no_payee_field(page: Page, base_url: str) -> Non
     expect(page.get_by_text("Transaction updated.").first).to_be_visible(timeout=5000)
 
     assert get_transaction(tx_id)["payee_id"] == payee_id
+
+
+LEDGER_TOKEN = "LedgerChipsE2E"
+
+
+def _tick_every_row(page: Page) -> None:
+    """Tick each row, waiting for the bar to count it before ticking the next.
+
+    The first tick inserts the selection bar above the table, which moves every
+    row down. Clicking straight on through the shift can put the second click
+    where the checkbox no longer is, and the bar then never reaches the count
+    the scenario asserts.
+    """
+    for n, checkbox in enumerate(page.locator(".q-table tbody .q-checkbox").all(), start=1):
+        checkbox.click()
+        expect(page.get_by_text(f"{n} selected", exact=True)).to_be_visible(timeout=10000)
+
+
+def _filter_by_search(page: Page, base_url: str, token: str, rows: int = 2) -> None:
+    """Narrow the ledger to the rows a scenario seeded."""
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, token)
+    expect(page.locator(".q-table tbody tr")).to_have_count(rows, timeout=10000)
+
+
+def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-014
+
+    Two rows from artboard 2a — Lidl at -128,74 and a salary at +9 240,00 —
+    net out to +9 111,26 in the selection bar.
+    """
+    account_id = seed_account("PKO Ledger Total E2E")
+    expense_cat = seed_category("Zywnosc Ledger E2E")
+    income_cat = seed_category("Wynagrodzenie Ledger E2E", cat_type="income")
+    seed_transaction(account_id, expense_cat, 128.74, description=f"Lidl {LEDGER_TOKEN}")
+    seed_transaction(
+        account_id,
+        income_cat,
+        9240.00,
+        tx_type="income",
+        description=f"Salary {LEDGER_TOKEN}",
+    )
+
+    _filter_by_search(page, base_url, LEDGER_TOKEN)
+
+    # The chip says what it filtered, and the clear-all link counts it.
+    expect(page.locator(".k-chip-search")).to_contain_text(LEDGER_TOKEN)
+    expect(page.get_by_text("Clear all 1", exact=True)).to_be_visible()
+
+    _tick_every_row(page)
+
+    # The scenario's own words, kept in the test that covers it.
+    expect(page.get_by_text("2 selected", exact=True)).to_be_visible()
+    bar = page.locator(".k-selection-bar")
+    expect(bar.get_by_text("+9,111.26", exact=True)).to_be_visible(timeout=10000)
+
+    # Dismissing the bar leaves the ledger standing, so it has to take the
+    # ticks off the rows itself — a row that still looks selected under no bar
+    # sends the whole selection back on the next click.
+    ticked = page.locator('.q-table tbody .q-checkbox[aria-checked="true"]')
+    expect(ticked).to_have_count(2)
+    bar.get_by_role("button", name="Clear selection").click()
+    expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
+    expect(ticked).to_have_count(0, timeout=10000)
+
+    # Clearing the filters redraws the table with nothing ticked — the bar must
+    # go with it, or its delete button still points at rows nobody selected.
+    _tick_every_row(page)
+    page.get_by_role("button", name="Clear all 1").click()
+    expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
+
+
+def test_week_separator_shows_the_group_net(page: Page, base_url: str) -> None:
+    """Covers: KAL-PAG-005
+
+    The same two rows, grouped by week: the separator carries their net.
+    """
+    token = "LedgerWeekE2E"
+    account_id = seed_account("PKO Ledger Week E2E")
+    expense_cat = seed_category("Zywnosc Week E2E")
+    income_cat = seed_category("Wynagrodzenie Week E2E", cat_type="income")
+    seed_transaction(account_id, expense_cat, 128.74, description=f"Lidl {token}")
+    seed_transaction(
+        account_id, income_cat, 9240.00, tx_type="income", description=f"Salary {token}"
+    )
+
+    _filter_by_search(page, base_url, token)
+
+    # Selecting first: regrouping redraws the table with nothing ticked, so
+    # the bar must not survive it holding ids nobody can see are selected.
+    _tick_every_row(page)
+
+    page.get_by_role("button", name="Week", exact=True).click()
+
+    expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
+    separator = page.locator(".k-sep-row")
+    expect(separator.first).to_be_visible(timeout=10000)
+    expect(separator.first).to_contain_text("+9,111.26")
+
+
+def test_a_transfer_pair_nets_to_nothing(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-015
+
+    Both legs of an internal transfer are booked, so the column shows two
+    outflows — but nothing left the user, and the total has to say so.
+    """
+    token = "LedgerTransferE2E"
+    out_account = seed_account("PKO Ledger Transfer E2E")
+    in_account = seed_account("mBank Ledger Transfer E2E")
+    category_id = seed_category("Przelewy Ledger E2E")
+    seed_transfer_pair(out_account, in_account, category_id, 1500.00, f"Own {token}")
+
+    _filter_by_search(page, base_url, token)
+
+    _tick_every_row(page)
+
+    total = page.locator(".k-selection-bar").get_by_text("0.00", exact=True)
+    expect(total).to_be_visible(timeout=10000)
+    expect(total).to_have_class(re.compile(r"k-amount--neutral"))
+
+    # One leg on its own says nothing either: the row does not record which
+    # way the money went, so the net must not claim a direction for it.
+    page.locator(".q-table tbody .q-checkbox").first.click()
+    expect(page.get_by_text("1 selected", exact=True)).to_be_visible(timeout=10000)
+    expect(total).to_be_visible()
+    expect(total).to_have_class(re.compile(r"k-amount--neutral"))
+
+
+def test_account_chip_filters_shows_its_value_and_clears(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-005, KAL-TXN-016
+
+    The account filter is a multi-select inside a chip's menu now, so this
+    drives the whole path: open the chip, pick an account, read the value off
+    the chip, and clear it from the chip's own ``×``.
+    """
+    token = "LedgerAccountE2E"
+    mine = f"PKO Chip {token}"
+    other = f"mBank Chip {token}"
+    mine_id = seed_account(mine)
+    other_id = seed_account(other)
+    category_id = seed_category(f"Zywnosc Chip {token}")
+    seed_transaction(mine_id, category_id, 10.00, description=f"Mine {token}")
+    seed_transaction(other_id, category_id, 20.00, description=f"Theirs {token}")
+
+    _filter_by_search(page, base_url, token)
+
+    chip = page.locator(".k-chip-accounts")
+    expect(chip).to_contain_text("Accounts")
+    chip.click()
+    # The chip's menu holds the select; the select opens a menu of its own.
+    page.locator(".q-menu").last.locator(".q-select").click()
+    _pick_open_menu_option(page, mine)
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")
+
+    # The chip says which account, and the ledger holds only its row.
+    expect(chip).to_contain_text(mine, timeout=10000)
+    expect(page.locator(".q-table tbody tr")).to_have_count(1, timeout=10000)
+    expect(page.get_by_text(f"Mine {token}")).to_be_visible()
+    # The search chip and the account chip: two filters, one link.
+    expect(page.get_by_role("button", name="Clear all 2")).to_be_visible()
+
+    chip.locator(".q-icon", has_text="close").click()
+
+    expect(chip).to_contain_text("Accounts", timeout=10000)
+    expect(page.locator(".q-table tbody tr")).to_have_count(2, timeout=10000)
+
+
+def test_a_chip_opens_from_the_keyboard(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-016
+
+    Every filter moved behind a chip, so a keyboard user has to be able to
+    open one — the chips carry tabindex and answer Space, and Quasar's own
+    anchor handling answers Enter.
+    """
+    page.goto(f"{base_url}/transactions")
+    chip = page.locator(".k-chip-types")
+    expect(chip).to_be_visible(timeout=10000)
+
+    opener = chip.locator('[role="button"]').first
+    opener.focus()
+    opener.press(" ")
+
+    expect(page.locator(".q-menu").last).to_be_visible(timeout=5000)
+
+    # Enter is Quasar's own anchor handling, not ours — which is exactly why
+    # it needs a test: an upgrade could take it away and nothing here would
+    # notice, while the scenario still promises a chip opens from the keyboard.
+    page.keyboard.press("Escape")
+    expect(page.locator(".q-menu")).to_have_count(0, timeout=5000)
+    opener.focus()
+    opener.press("Enter")
+    expect(page.locator(".q-menu").last).to_be_visible(timeout=5000)
+
+
+def test_a_zero_amount_row_has_no_direction(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-017
+
+    Nothing moved, so the row shows no sign and takes neither amount colour —
+    the same rule the group separator and the selection total follow.
+    """
+    token = "LedgerZeroE2E"
+    account_id = seed_account("PKO Ledger Zero E2E")
+    category_id = seed_category("Zywnosc Zero E2E")
+    seed_transaction(account_id, category_id, 0.00, description=f"Korekta {token}")
+
+    _filter_by_search(page, base_url, token, rows=1)
+
+    amount = page.locator(".q-table tbody tr span.k-amount")
+    expect(amount).to_have_text("0.00", timeout=10000)
+    expect(amount).to_have_class(re.compile(r"k-amount--neutral"))

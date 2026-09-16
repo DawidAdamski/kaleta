@@ -7,7 +7,8 @@ from nicegui import ui
 
 from kaleta.schemas.institution import InstitutionResponse
 
-_DEFAULT_COLOR = "#64748b"  # slate-500
+# Reads the token at render time, so it cannot drift from theme.py.
+_DEFAULT_COLOR = "var(--k-muted)"
 
 
 def institution_avatar(inst: InstitutionResponse | None, size: int = 32) -> None:
@@ -15,7 +16,7 @@ def institution_avatar(inst: InstitutionResponse | None, size: int = 32) -> None
 
     - If ``inst.logo_path`` is set, render it as an image.
     - Otherwise render a circular badge with the first letter of the name
-      coloured with ``inst.color`` (or a neutral slate fallback).
+      coloured with ``inst.color`` (or the muted token as a fallback).
     - If ``inst`` is ``None``, render an empty slot of matching size.
     """
     if inst is None:

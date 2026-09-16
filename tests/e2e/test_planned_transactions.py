@@ -316,3 +316,47 @@ def test_post_due_from_planned_list(page: Page, base_url: str) -> None:
 
     page.goto(f"{base_url}/transactions")
     expect(page.get_by_text("Netflix PostDue Test").first).to_be_visible(timeout=5000)
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Overdue occurrences are listed in a strip above the calendar
+# ---------------------------------------------------------------------------
+
+
+def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-020
+
+    The overdue list used to hang off the day-1 cell, so an item three weeks
+    late was invisible until the user clicked a day it had nothing to do with.
+    """
+    today = datetime.date.today()
+    first_of_month = today.replace(day=1)
+    due = first_of_month - datetime.timedelta(days=5)
+    acc_id = seed_account("PKO Main Calendar Overdue")
+    seed_planned_transaction(
+        name="Prad Zalegly",
+        amount=210,
+        account_id=acc_id,
+        frequency="once",
+        is_active=True,
+        start_date=due,
+    )
+
+    page.goto(f"{base_url}/payment-calendar")
+
+    strip = page.locator(".k-warning-strip")
+    expect(strip).to_be_visible(timeout=10000)
+    expect(strip).to_contain_text("Prad Zalegly")
+    # The age, so "overdue" is a length of time and not just a flag.
+    expect(strip).to_contain_text(f"{(today - due).days} days late")
+
+    # Posting works from the strip itself — no day has to be opened first.
+    # Scoped to this item's own row: the suite shares one database, so other
+    # tests' overdue items may be listed above it.
+    row = strip.locator(".nicegui-row").filter(has_text="Prad Zalegly")
+    row.get_by_role("button", name="Post").click()
+    expect(page.get_by_text('Posted "Prad Zalegly".')).to_be_visible(timeout=10000)
+    # Once posted it is no longer late, so it leaves the strip.
+    expect(page.locator(".k-warning-strip").get_by_text("Prad Zalegly")).to_have_count(
+        0, timeout=10000
+    )

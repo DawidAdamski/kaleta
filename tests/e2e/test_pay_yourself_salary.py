@@ -61,10 +61,12 @@ def test_panel_renders_the_proposal_and_the_action(page: Page, base_url: str) ->
 
 def test_wizard_tile_opens_the_panel(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/wizard")
-    tile = page.get_by_text("Pay yourself a salary", exact=True)
-    row = tile.locator("xpath=ancestor::div[contains(@class,'items-start')][1]")
-    expect(row.get_by_text("Coming soon")).to_have_count(0)
-    row.get_by_role("button", name="Open").click()
+    # The routines index gives each row its own hook, so the test names the
+    # row rather than walking up the DOM to guess which ancestor it is.
+    row = page.locator("[data-step='salary']")
+    expect(row).to_contain_text("Pay yourself a salary")
+    expect(row.get_by_text("Planned")).to_have_count(0)
+    row.get_by_role("link", name="Open").click()
 
     page.wait_for_url(f"{base_url}/wizard/pay-yourself", timeout=10000)
     expect(page.get_by_text("Proposed salary", exact=True)).to_be_visible(timeout=5000)

@@ -163,5 +163,38 @@ class ReserveFundService:
         funds = await self.list(include_archived=include_archived)
         return [await self.with_progress(f, today=today) for f in funds]
 
+    @staticmethod
+    def emergency_cover(funds: builtins.list[ReserveFundWithProgress]) -> Decimal | None:
+        """Months the emergency funds cover between them, or ``None``.
+
+        Every fund's cover is its balance over the *same* trailing monthly
+        spend (see :meth:`with_progress`), so two emergency funds cover the
+        sum of their months. Answering with the first would pick whichever id
+        happened to be lower and leave the other fund out of a figure that
+        means "how long could I live on this".
+
+        ``None`` means there is no answer to give: no emergency fund, or no
+        spending in the trailing window to measure one against. It is not
+        the same as zero — a fund with nothing in it, on a ledger that has
+        spending, covers ``0.0`` months and says so.
+        """
+        covers = [
+            fund.months_of_coverage
+            for fund in funds
+            if fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None
+        ]
+        return sum(covers, Decimal("0")) if covers else None
+
+    async def emergency_cover_months(self, *, today: datetime.date | None = None) -> Decimal | None:
+        """The dashboard's Safety-fund-cover figure. See :meth:`emergency_cover`.
+
+        Only the emergency funds are costed: :meth:`with_progress` runs a
+        balance query per fund and the trailing-spend aggregate per emergency
+        one, and this figure is on the dashboard's first paint. A sinking fund
+        cannot change the answer, so it is not worth a query.
+        """
+        funds = [f for f in await self.list() if f.kind == ReserveFundKind.EMERGENCY]
+        return self.emergency_cover([await self.with_progress(f, today=today) for f in funds])
+
 
 __all__ = ["ReserveFundService", "TRAILING_WINDOW_DAYS"]

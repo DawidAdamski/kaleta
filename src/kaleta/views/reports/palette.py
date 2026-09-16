@@ -1,68 +1,105 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Dimension and metric palette for the report builder."""
+"""The left rail: the fields a report can be built from (artboard 3e).
+
+Three quiet groups under eyebrow labels — what to group by, what to measure,
+and what has been saved. A row can be dragged onto its slot in the sentence,
+which is the affordance the old chips had; clicking it does the same thing
+and is the shorter path, so the rail is a list and not a card of chips.
+"""
 
 from __future__ import annotations
 
-from collections.abc import Callable
+import json
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from nicegui import ui
 
 from kaleta.i18n import t
+from kaleta.services import SavedReportService, with_session
+from kaleta.services.saved_report_service import ReportConfig, chart_type_icon
 from kaleta.views.reports.constants import DIMENSIONS, METRICS
+from kaleta.views.theme import (
+    ACCENT_TEXT,
+    DRAGGING_BODY,
+    INK,
+    MUTED,
+    ROW_HOVER,
+    SECTION_TITLE,
+)
+
+#: Wide enough for the longest dimension name, narrow enough that the chart
+#: beside it keeps the page.
+RAIL = "w-[220px] flex-none"
+
+_ROW = f"{ROW_HOVER} w-full items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer no-wrap"
 
 
 def build_palette_zone(
     state: dict[str, Any],
     *,
     on_dragstart: Callable[[str, str], None],
+    on_set: Callable[[str, Any], None],
+    on_load: Callable[[int], Awaitable[None]],
+    on_delete: Callable[[int], Awaitable[None]],
 ) -> Any:
-    @ui.refreshable
-    def palette_zone() -> None:
-        with ui.card().classes("p-4 w-60 flex-shrink-0"):
-            ui.label(t("reports.dimensions")).classes(
-                "text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"
+    def _group(
+        title_key: str,
+        rows: list[tuple[str, str, str]],
+        *,
+        field: str,
+        drag_group: str,
+    ) -> None:
+        ui.label(t(title_key)).classes(f"{SECTION_TITLE} px-2")
+        for key, label_key, icon in rows:
+            active = state[field] == key
+            row = ui.row().classes(_ROW)
+            row.props("draggable=true")
+            # The body class is set in the browser so the slots can light up
+            # without a round trip; the server still hears the dragstart, so
+            # it knows what to put in the slot when the drop lands.
+            row.on(
+                "dragstart",
+                lambda k=key, g=drag_group: on_dragstart(k, g),
+                js_handler=f"(...args) => {{ document.body.classList.add('{DRAGGING_BODY}');"
+                " emit(...args) }",
             )
-            for key, label_key, icon in DIMENSIONS:
-                is_active = state["dimension"] == key
-                chip_cls = "cursor-grab mb-1 w-full justify-start " + (
-                    "opacity-100" if is_active else "opacity-70 hover:opacity-100"
+            row.on(
+                "dragend",
+                js_handler=f"() => document.body.classList.remove('{DRAGGING_BODY}')",
+            )
+            row.on("click", lambda k=key, f=field: on_set(f, k))
+            with row:
+                ui.icon(icon, size="16px").classes(ACCENT_TEXT if active else MUTED)
+                ui.label(t(label_key)).classes(
+                    f"text-[13px] {INK} font-medium" if active else f"text-[13px] {MUTED}"
                 )
-                with ui.row().classes("w-full"):
-                    chip = (
-                        ui.chip(
-                            t(label_key),
-                            icon=icon,
-                            color="primary" if is_active else "grey-7",
-                        )
-                        .classes(chip_cls)
-                        .props("draggable=true")
-                    )
-                    chip.on("dragstart", lambda k=key: on_dragstart(k, "dimension"))
-                    if is_active:
-                        ui.icon("check_circle", color="primary").classes("text-base")
 
-            ui.separator().classes("my-3")
-            ui.label(t("reports.measures")).classes(
-                "text-xs font-bold text-slate-500 uppercase tracking-wide mb-2"
-            )
-            for key, label_key, icon in METRICS:
-                is_active = state["metric"] == key
-                chip_cls = "cursor-grab mb-1 w-full justify-start " + (
-                    "opacity-100" if is_active else "opacity-70 hover:opacity-100"
-                )
-                with ui.row().classes("w-full"):
-                    chip = (
-                        ui.chip(
-                            t(label_key),
-                            icon=icon,
-                            color="secondary" if is_active else "grey-7",
-                        )
-                        .classes(chip_cls)
-                        .props("draggable=true")
-                    )
-                    chip.on("dragstart", lambda k=key: on_dragstart(k, "metric"))
-                    if is_active:
-                        ui.icon("check_circle", color="secondary").classes("text-base")
+    @ui.refreshable
+    async def palette_zone() -> None:
+        async def _list(session: Any) -> Any:
+            return await SavedReportService(session).list()
+
+        saved = await with_session(_list)
+
+        with ui.column().classes(f"{RAIL} gap-1"):
+            _group("reports.group_by", list(DIMENSIONS), field="dimension", drag_group="dimension")
+            ui.space().classes("h-2")
+            _group("reports.measure", list(METRICS), field="metric", drag_group="metric")
+
+            if saved:
+                ui.space().classes("h-2")
+                ui.label(t("reports.saved")).classes(f"{SECTION_TITLE} px-2")
+                for report in saved:
+                    # Read through the same schema the page loads it with, so
+                    # the icon cannot disagree with the report it opens.
+                    config = ReportConfig.from_dict(json.loads(report.config))
+                    with ui.row().classes(_ROW) as row:
+                        row.on("click", lambda rid=report.id: on_load(rid))
+                        ui.icon(chart_type_icon(config.chart_type), size="16px").classes(MUTED)
+                        ui.label(report.name).classes(f"text-[13px] {INK} flex-1 truncate")
+                        ui.icon("close", size="15px").classes(f"{MUTED} cursor-pointer").on(
+                            "click.stop", lambda rid=report.id: on_delete(rid)
+                        ).tooltip(t("common.delete"))
 
     return palette_zone

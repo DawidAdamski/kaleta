@@ -12,7 +12,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services.net_worth_service import NetWorthService
-from kaleta.views.chart_utils import CHART_TEAL, CHART_TEAL_FILL, apply_dark
+from kaleta.views.chart_utils import apply_dark, chart_accent_color, chart_accent_fill
 from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import BODY_MUTED
@@ -53,9 +53,9 @@ async def render_net_worth_trend(session: AsyncSession, is_dark: bool) -> None:
                     "type": "line",
                     "data": net_values,
                     "smooth": True,
-                    "areaStyle": {"color": CHART_TEAL_FILL},
-                    "itemStyle": {"color": CHART_TEAL},
-                    "lineStyle": {"width": 2, "color": CHART_TEAL},
+                    "areaStyle": {"color": chart_accent_fill(is_dark)},
+                    "itemStyle": {"color": chart_accent_color(is_dark)},
+                    "lineStyle": {"width": 2, "color": chart_accent_color(is_dark)},
                     "symbol": "circle",
                     "symbolSize": 5,
                 }

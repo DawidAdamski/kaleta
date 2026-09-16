@@ -12,7 +12,8 @@ from kaleta.auth.session import is_authenticated, login_session
 from kaleta.exceptions import ValidationError
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
-from kaleta.views.auth_common import auth_page_shell
+from kaleta.views.auth_common import AUTH_CONTROL, auth_page_shell
+from kaleta.views.theme import ERROR_SLOT
 
 
 def register() -> None:
@@ -27,38 +28,46 @@ def register() -> None:
         if not await with_session(_guard):
             return RedirectResponse("/login")
 
-        shell = auth_page_shell("auth.secure_title", "auth.secure_subtitle")
+        shell = await auth_page_shell("auth.secure_title", "auth.secure_subtitle")
 
-        with shell, ui.card().classes("w-full max-w-md p-6"), ui.column().classes("w-full gap-4"):
-            username = ui.input(t("auth.username")).props("autofocus").classes("w-full")
-            password = ui.input(
-                t("auth.password"), password=True, password_toggle_button=True
-            ).classes("w-full")
-            confirm = ui.input(
-                t("auth.password_confirm"),
-                password=True,
-                password_toggle_button=True,
-            ).classes("w-full")
-            error = ui.label("").classes("text-sm text-negative")
-            error.set_visibility(False)
+        with shell, ui.column().classes("w-full gap-3"):
+            username = (
+                ui.input(t("auth.username"))
+                .props("autofocus outlined")
+                .classes(f"w-full {AUTH_CONTROL}")
+            )
+            password = (
+                ui.input(t("auth.password"), password=True, password_toggle_button=True)
+                .props("outlined")
+                .classes(f"w-full {AUTH_CONTROL}")
+            )
+            confirm = (
+                ui.input(
+                    t("auth.password_confirm"),
+                    password=True,
+                    password_toggle_button=True,
+                )
+                .props("outlined")
+                .classes(f"w-full {AUTH_CONTROL}")
+            )
+            # The same reserved line the login page uses: a message that
+            # appears must not move the button out from under the pointer.
+            error = ui.label("").classes(ERROR_SLOT)
 
             async def _submit() -> None:
-                error.set_visibility(False)
+                error.set_text("")
                 name = (username.value or "").strip()
                 pwd = password.value or ""
                 pwd2 = confirm.value or ""
 
                 if not name:
                     error.set_text(t("auth.username_required"))
-                    error.set_visibility(True)
                     return
                 if len(pwd) < 8:
                     error.set_text(t("auth.password_too_short"))
-                    error.set_visibility(True)
                     return
                 if pwd != pwd2:
                     error.set_text(t("auth.password_mismatch"))
-                    error.set_visibility(True)
                     return
 
                 async def _secure(session: Any) -> tuple[bool, str, int | None]:
@@ -73,7 +82,6 @@ def register() -> None:
                 ok, message, user_id = await with_session(_secure)
                 if not ok or user_id is None:
                     error.set_text(message)
-                    error.set_visibility(True)
                     return
 
                 login_session(user_id=user_id, username=message)
@@ -84,6 +92,6 @@ def register() -> None:
                 t("auth.secure_button"),
                 icon="lock",
                 on_click=_submit,
-            ).props("color=primary unelevated").classes("w-full")
+            ).props("color=primary unelevated").classes(f"w-full {AUTH_CONTROL}")
 
         return None

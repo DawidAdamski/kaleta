@@ -13,7 +13,8 @@ from kaleta.auth.login_rate_limit import login_rate_limiter
 from kaleta.auth.session import is_authenticated, login_session
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
-from kaleta.views.auth_common import auth_page_shell
+from kaleta.views.auth_common import AUTH_CONTROL, auth_page_shell
+from kaleta.views.theme import ERROR_SLOT
 
 
 def _safe_redirect(path: str) -> str:
@@ -51,24 +52,34 @@ def register() -> None:
 
         target = _safe_redirect(redirect_to)
         rate_key = _client_key(request)
-        shell = auth_page_shell("auth.login_title", "auth.login_subtitle")
+        shell = await auth_page_shell("auth.login_title", "auth.login_subtitle")
 
-        with shell, ui.card().classes("w-full max-w-md p-6"), ui.column().classes("w-full gap-4"):
-            username = ui.input(t("auth.username")).props("autofocus").classes("w-full")
+        # `AUTH_CONTROL` is `min-h-[48px]`, shared by all three auth pages: on
+        # a phone this form is the whole screen, and a 40px field in the
+        # middle of it is a target the thumb has to aim at.
+        with shell, ui.column().classes("w-full gap-3"):
+            username = (
+                ui.input(t("auth.username"))
+                .props("autofocus outlined")
+                .classes(f"w-full {AUTH_CONTROL}")
+            )
             password = (
                 ui.input(t("auth.password"), password=True, password_toggle_button=True)
-                .classes("w-full")
+                .props("outlined")
+                .classes(f"w-full {AUTH_CONTROL}")
                 .on("keydown.enter", lambda: None)
             )
-            error = ui.label("").classes("text-sm text-negative")
-            error.set_visibility(False)
+            # A reserved line, not a label that appears. Showing and hiding it
+            # moved the button down under the pointer at the moment the user
+            # was clicking it again — which is how a second attempt became a
+            # misclick.
+            error = ui.label("").classes(ERROR_SLOT)
 
             async def _submit() -> None:
-                error.set_visibility(False)
+                error.set_text("")
                 if login_rate_limiter.is_locked(rate_key):
                     secs = login_rate_limiter.remaining_lock_seconds(rate_key)
                     error.set_text(t("auth.login_rate_limited", seconds=secs))
-                    error.set_visibility(True)
                     return
 
                 name = (username.value or "").strip()
@@ -91,7 +102,6 @@ def register() -> None:
                         error.set_text(t("auth.login_rate_limited", seconds=secs))
                     else:
                         error.set_text(t("auth.login_failed"))
-                    error.set_visibility(True)
                     return
 
                 login_rate_limiter.clear(rate_key)
@@ -103,6 +113,6 @@ def register() -> None:
                 t("auth.login_button"),
                 icon="login",
                 on_click=_submit,
-            ).props("color=primary unelevated").classes("w-full")
+            ).props("color=primary unelevated").classes(f"w-full {AUTH_CONTROL}")
 
         return None

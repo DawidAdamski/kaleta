@@ -369,8 +369,11 @@ Nothing in this redesign changes app behaviour except where called out. Specific
 - Filter, sort, group-by, pagination and bulk-select semantics are unchanged; only their
   presentation changes.
 - `app.storage.user` keys (`dark_mode`, `forecast_preset`, `forecast_scenarios`,
-  `wizard_onboarding_open`, `wizard_mentor_dismissed`, `sidebar_mini`,
-  `payment_calendar_overdue_days`) all keep working.
+  `wizard_onboarding_open`, `wizard_mentor_dismissed`,
+  `payment_calendar_overdue_days`) all keep working. The one exception is
+  `sidebar_mini`, which `1e` left unread: with the top bar there is no docked
+  drawer to collapse. An older session may still carry the key; nothing looks
+  at it.
 - Transitions: `transition-colors` on nav and rows, as now. No new animation.
 - Hover: rows lift to `#FAF4E9`, nav items to `#FCFAF6`, icon buttons to the sunken surface.
 

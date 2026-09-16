@@ -175,45 +175,64 @@ out of sequence in the original monolithic document).
 
 ## UI Colour Schema
 
-All UI tokens live in `src/kaleta/views/theme.py`. Typography uses self-hosted
-**Inter** (`static/fonts/inter-var.woff2`, SIL OFL). Dark mode is driven by
-NiceGUI's `ui.dark_mode()` (Quasar plugin), which adds `body--dark` to
-`<body>`; overrides are in `DARK_CSS` (loaded via `theme_css()`).
+All UI tokens live in `src/kaleta/views/theme.py`. The visual language is the
+"sand" palette from `docs/design/restyle/README.md`: warm paper, deep ink,
+apricot accent, forest/terracotta for money in and out. Typography is
+self-hosted **Libre Franklin** for UI text and **IBM Plex Mono** for every
+number (`static/fonts/`, both SIL OFL). Dark mode is driven by NiceGUI's
+`ui.dark_mode()` (Quasar plugin), which adds `body--dark` to `<body>`.
 
 ### Rules
 
-**Do NOT use bare Quasar palette classes** (`bg-grey-1`, `text-grey-7`, etc.) for
-structural chrome or text.
+**Do NOT use bare Quasar or Tailwind palette classes** (`bg-grey-1`,
+`text-green-7`, `text-teal-600`, …) for structural chrome, text or figures.
 
-**DO use Tailwind slate/teal tokens** or shared constants from `theme.py`.
+**DO use the `.k-*` classes and shared constants from `theme.py`.** Each one
+reads a CSS custom property, so it is written once and follows the mode.
 
-| Role | Light | Dark (`.body--dark`) |
-|---|---|---|
-| Page background | `bg-slate-50` | `rgb(10, 14, 23)` |
-| Card / surface | `bg-white/80`, `rounded-xl`, no shadow | `rgb(21, 25, 34)` |
-| Card border | `border-slate-200/70` | `rgb(36, 42, 54)` |
-| Brand / primary accent | `--q-primary: #0d9488` (teal-600) | `--q-primary: #14b8a6` (teal-500) |
-| Nav active item | teal left bar + tint | teal left bar + `rgba(20,184,166,.1)` |
-| Secondary / muted text | `text-slate-500` | `rgb(148, 163, 184)` |
-| KPI trend (positive) | `text-teal-600` | `rgb(94, 234, 212)` |
-| Income / expense amounts | `text-green-7` / `text-red-7` | boosted in `DARK_CSS` |
+Every colour is a custom property declared on `:root` and re-declared on
+`.body--dark` — a `.k-*` class never needs a second dark-mode copy.
 
-### Shared tokens (theme.py)
+| Token | Light | Dark | Used for |
+|---|---|---|---|
+| `--k-ground` | `#F3EFE7` | `#171613` | body and drawer background |
+| `--k-surface` | `#FCFAF6` | `#201F1A` | cards, header bar, table bodies |
+| `--k-surface-sunken` | `#F3EFE7` | `#2A2822` | inset chips and mini-panels |
+| `--k-ink` / `--k-ink-2` | `#1C1A15` / `#4A443A` | `#F0EBDF` / `#CFC7B6` | headings / body copy |
+| `--k-muted` / `--k-muted-strong` | `#6B6353` / `#6E6656` | `#A8A08D` / `#A19781` | captions / eyebrows |
+| `--k-hairline` / `--k-border` | `#EDE7DA` / `#E2DBCC` | `#2A2822` / `#322F27` | row dividers / card edges |
+| `--k-accent` / `--k-accent-text` | `#B4591F` / `#9A4E1F` | `#E8935B` | accent surfaces / links |
+| `--k-income` / `--k-expense` | `#36684D` / `#A44631` | `#6FAF87` / `#DE8672` | money in / out |
+| `--k-warning` | `#8A5A12` | `#E3B457` | at-risk state |
+| `--k-card-shadow` | `0 1px 2px rgba(28,26,21,.05)` | `none` | the only shadow in the system |
+
+Quasar brand variables follow the same palette: `--q-primary: #B4591F`
+(`#E8935B` dark), `--q-positive: #36684D`, `--q-negative: #A44631`.
+
+### Shared classes and constants (theme.py)
 
 | Token | Purpose |
 |---|---|
-| `SECTION_CARD` | Flat card panel; adapts to dark via `.k-surface` |
-| `TOOLBAR_CARD` | Compact version of SECTION_CARD |
-| `TABLE_SURFACE` | Applied to every `ui.table` |
-| `KPI_VALUE` / `KPI_TREND_*` | KPI card typography and trend colours |
-| `NAV_ITEM_ACTIVE` | Active sidebar route highlight |
-| `theme_css()` | Inter font + Quasar brand + `DARK_CSS` |
+| `SECTION_CARD` / `TOOLBAR_CARD` | Paper panel on ground — `.k-surface`, 1px shadow, no border |
+| `TABLE_SURFACE` | `.k-table`; applied to every `ui.table` |
+| `PAGE_TITLE` / `SECTION_HEADING` / `SECTION_TITLE` | 32px light ink title, 500-weight heading, eyebrow |
+| `AMOUNT_*` / `amount_class()` | `.k-amount` — IBM Plex Mono, tabular figures, income/expense colour |
+| `MONO` | `.k-mono` for non-amount numbers (dates, counts, the version string) |
+| `KPI_VALUE` / `KPI_TREND_*` | KPI typography and `.k-trend--pos/neg/warn/neutral` |
+| `ACCENT_SURFACE` / `ON_ACCENT` | Filled accent banner and the text colour that sits on it |
+| `NAV_ITEM_ACTIVE` | Active sidebar route — paper card, ink label, accent icon |
+| `.k-pace*` / `.k-filter-chip*` | Shared pace bar and filter chip primitives |
+| `theme_css()` | Fonts + tokens + `DARK_CSS` |
 
 ### Guidelines
 
-- **Brand teal (`text-primary`, `color=primary`) is not income green** — amounts
-  use `amount_class()` / semantic green-red tokens.
-- **ECharts** series colours live in `views/chart_utils.py` (`CHART_TEAL`, etc.);
-  always pass `is_dark` and call `apply_dark()`.
+- **The accent (`text-primary`, `color=primary`) is for actions** — links,
+  "Open →", active nav icons. It must not colour headings or figures; those
+  are ink (`.k-heading`), and amounts use `amount_class()`.
+- **Every number is monospace.** Amounts get `AMOUNT_*`; other figures get
+  `MONO`, both with `font-variant-numeric: tabular-nums` so columns align.
+- **ECharts** series colours live in `views/chart_utils.py` (`CHART_PALETTE`,
+  `chart_palette(is_dark)`, `CHART_INK`, `CHART_ACCENT`, …); always pass
+  `is_dark` and call `apply_dark()`.
 - **KPI trend rows** use `KpiPeriodDelta` from `ReportService` and
   `format_kpi_trend()` in `dashboard_widgets/helpers.py`.

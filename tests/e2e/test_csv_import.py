@@ -4,7 +4,8 @@
 Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
 KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022,
-KAL-CSV-023, KAL-CSV-024
+KAL-CSV-023, KAL-CSV-024, KAL-CSV-025, KAL-CSV-026,
+KAL-CSV-027
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -16,8 +17,9 @@ import datetime
 import re
 from pathlib import Path
 
-from playwright.sync_api import FilePayload, Page, expect
+from playwright.sync_api import FilePayload, Locator, Page, expect
 
+from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     count_transactions,
     list_import_rules,
@@ -115,10 +117,8 @@ def test_csv_import_with_account_mapping(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
     for label in ("Biedronka", "Orlen", "Wyplata"):
-        search.click(click_count=3)
-        search.fill(label)
+        search_ledger(page, label)
         expect(page.get_by_text(label).first).to_be_visible(timeout=5000)
 
 
@@ -164,8 +164,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
-    search.fill("Coffee Shop")
+    search_ledger(page, "Coffee Shop")
     expect(page.get_by_text("Coffee Shop").first).to_be_visible(timeout=5000)
 
 
@@ -548,7 +547,9 @@ def test_accounts_page_last_activity(page: Page, base_url: str) -> None:
     )
 
     page.goto(f"{base_url}/accounts")
-    expect(page.get_by_text("Accounts", exact=True).first).to_be_visible(timeout=5000)
+    expect(page.get_by_role("main").get_by_text("Accounts", exact=True).first).to_be_visible(
+        timeout=5000
+    )
     expect(page.get_by_text("Last activity").first).to_be_visible()
     expect(page.get_by_text(loaded).first).to_be_visible()
     expect(page.get_by_text("2024-06-15").first).to_be_visible()
@@ -589,8 +590,7 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
-    search.fill("Japanpost Bank(245950) GIFU")
+    search_ledger(page, "Japanpost Bank(245950) GIFU")
     expect(page.get_by_text("Japanpost Bank(245950) GIFU").first).to_be_visible(timeout=5000)
 
 
@@ -653,8 +653,7 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
 
     page.goto(f"{base_url}/transactions")
-    search = page.get_by_label("Search description")
-    search.fill("Topped up account")
+    search_ledger(page, "Topped up account")
     expect(page.get_by_text("Topped up account").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Jan Kowalski", exact=False)).to_have_count(0)
 
@@ -731,3 +730,112 @@ def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_u
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
     expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
     assert count_transactions(account_id) > 0
+
+
+# ---------------------------------------------------------------------------
+# Artboard 2d: the mapping step shows the file it is mapping
+# ---------------------------------------------------------------------------
+
+
+def test_auto_detected_columns_are_marked(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-025
+
+    The importer guesses date, amount and description from the headers, and
+    the one thing the old screen could not tell you was which fields it had
+    guessed. Changing a picker by hand takes its mark away.
+    """
+    page.goto(f"{base_url}/import")
+    page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
+    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=10000)
+
+    # Asserted per field rather than as a total: a saved import rule from an
+    # earlier test in this shared database can fill the mapping instead of
+    # detection, which changes how many pills there are but not which fields
+    # the importer filled in.
+    def badge(field: str) -> Locator:
+        return page.locator(f'.k-auto-badge[data-auto-field="{field}"]')
+
+    for field in ("date", "amount", "description"):
+        expect(badge(field)).to_be_visible(timeout=10000)
+
+    # Point the description picker somewhere else: it is no longer the guess.
+    _select_import_option(page, "Description column", "1: date")
+    expect(badge("description")).to_be_hidden(timeout=10000)
+    # And only that one: the pills are per field, not a single switch.
+    expect(badge("date")).to_be_visible()
+    expect(badge("amount")).to_be_visible()
+
+
+def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-026
+
+    Two of five rows cannot be read. The strip says so where the columns that
+    caused it are being chosen, rather than at Preview, one step too late.
+    """
+    page.goto(f"{base_url}/import")
+    page.locator('input[type="file"]').set_input_files(str(FIXTURES / "partly-unparseable.csv"))
+    expect(page.get_by_text("partly-unparseable.csv").first).to_be_visible(timeout=10000)
+
+    # Rows 3 and 5 of the file: the bad amount and the bad date. The numbers
+    # are the point — "some rows failed" sends the reader back to the file to
+    # find out which.
+    strip = page.locator(".k-warning-strip")
+    expect(strip).to_be_visible(timeout=10000)
+    expect(strip).to_contain_text("Rows that could not be parsed (2): 3, 5")
+    # And it points at the step it is standing on: the columns being mapped.
+    expect(strip).to_contain_text("columns you mapped")
+
+    # Above the pickers, which is the whole point of moving it off Preview —
+    # it is read on the way into the thing it is asking you to change.
+    strip_box = strip.bounding_box()
+    picker_box = page.locator(".q-select").filter(has_text="Date column").first.bounding_box()
+    assert strip_box is not None and picker_box is not None
+    assert strip_box["y"] + strip_box["height"] <= picker_box["y"], (strip_box, picker_box)
+
+
+def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-027"""
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    # Nothing uploaded: step 2 is the one you are on, step 1 is behind you.
+    expect(page.locator(".k-step--now")).to_have_count(1, timeout=5000)
+    # And the node says which step it is, not just its number: a screen
+    # reader on "2" would otherwise be told nothing at all.
+    expect(page.locator('.k-step--now[aria-label="Upload"]')).to_have_count(1)
+    expect(page.locator(".k-step--done")).to_have_count(1)
+
+    page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
+    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=10000)
+
+    # Parsed: the line moved on, and exactly one node is still the one you
+    # are standing on. How far it moved depends on what the page could infer
+    # (a single account fills the settings step in), so this asserts the
+    # movement rather than a step number the environment decides.
+    expect(page.locator(".k-step--done")).not_to_have_count(1, timeout=10000)
+    expect(page.locator(".k-step--now")).to_have_count(1)
+    assert page.locator(".k-step--done").count() > 1
+
+    # "The ones behind it are ticked" is a claim about order, not a count:
+    # every ticked node comes before the one being stood on.
+    states = page.eval_on_selector_all(
+        ".k-step",
+        "nodes => nodes.map(n => n.classList.contains('k-step--now') ? 'now'"
+        " : n.classList.contains('k-step--done') ? 'done' : 'ahead')",
+    )
+    assert states.index("now") == states.count("done"), states
+    assert "done" not in states[states.index("now") :], states
+
+    # And the sample sits *beside* the pickers that map it, headers numbered
+    # the way the pickers number them — not above them, as it used to.
+    # Scoped to the sample table: the Date picker renders its value the same
+    # way, so an unscoped match would compare the picker against itself.
+    header_cell = page.locator(".k-table thead").get_by_text("1: date", exact=True).first
+    expect(header_cell).to_be_visible(timeout=5000)
+    sample_box = header_cell.bounding_box()
+    picker_box = page.locator(".q-select").filter(has_text="Date column").first.bounding_box()
+    assert sample_box is not None and picker_box is not None
+    assert sample_box["x"] + sample_box["width"] <= picker_box["x"], (sample_box, picker_box)
+    # Side by side means they share vertical space, not that one follows the
+    # other down the page.
+    assert sample_box["y"] < picker_box["y"] + picker_box["height"]

@@ -60,6 +60,15 @@ async def transactions_page(*, open_new: bool = False) -> None:
     payee_options: dict[int, str] = {p.id: p.name for p in payees}
     accounts_by_id = {a.id: a for a in accounts}
     selected_tx_ids: list[int] = []
+    #: The selected rows themselves — the bar totals the figures already on
+    #: screen rather than asking the service for them again.
+    selected_rows: list[dict[str, Any]] = []
+    #: The live table, so the bar's "x" can untick the rows it refers to.
+    table_holder: dict[str, ui.table] = {}
+    #: This page's rows by id. The selection event arrives from the browser;
+    #: the figures the bar adds up come from here, so the total is the
+    #: server's own view of the page either way.
+    page_rows: dict[int, dict[str, Any]] = {}
 
     filters: dict[str, Any] = {
         "date_from": None,
@@ -80,17 +89,42 @@ async def transactions_page(*, open_new: bool = False) -> None:
     table_actions_ui: Any
     filter_widgets: Any
 
-    def _update_badge() -> None:
+    def _repaint_filter_row() -> None:
+        """Repaint the chips and the "Clear all N" link for the current filters."""
         count = active_filter_count(filters)
-        filter_widgets.badge_label.set_text(str(count))
-        filter_widgets.badge_label.set_visibility(count > 0)
+        filter_widgets.clear_all_button.set_text(t("transactions.clear_all_n", count=count))
+        filter_widgets.clear_all_button.set_visibility(count > 0)
+        filter_widgets.refresh_chips(filters)
+
+    def _drop_selection() -> None:
+        """Forget what was ticked, because the redraw about to happen unticks it.
+
+        Every path that refreshes the table has to come through here: a bar
+        left saying "2 selected" over a table with nothing ticked still has
+        two real ids behind its delete button.
+        """
+        selected_tx_ids.clear()
+        selected_rows.clear()
+
+    def _untick_table() -> None:
+        """Clear the checkboxes too, for the paths that keep the table standing.
+
+        Dismissing the bar does not redraw the ledger, so the ticks have to be
+        taken off the rows the user can still see — otherwise the bar is gone
+        while the rows look selected, and the next tick sends all of them back.
+        """
+        _drop_selection()
+        table = table_holder.get("table")
+        if table is not None:
+            table.selected = []
+            table.update()
 
     def _apply_filters() -> None:
         filters["page"] = 0
-        selected_tx_ids.clear()
+        _drop_selection()
         transaction_table.refresh()
         table_actions_ui.refresh()
-        _update_badge()
+        _repaint_filter_row()
 
     add_dialog_ctx = build_add_dialog(
         account_options,
@@ -151,6 +185,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
         rows = attach_split_labels(
             attach_type_labels(TransactionService.build_table_rows(txs, grouping))
         )
+        page_rows.clear()
+        page_rows.update({row["id"]: row for row in rows if row.get("id") is not None})
 
         async def _handle_edit(e: Any) -> None:
             await edit_dialog_ctx.open_for_id(e.args)
@@ -160,11 +196,17 @@ async def transactions_page(*, open_new: bool = False) -> None:
 
         def _on_selection(e: object) -> None:
             selected_tx_ids.clear()
+            selected_rows.clear()
             rows_list = getattr(e, "args", None) or []
-            selected_tx_ids.extend(r["id"] for r in rows_list)
+            # The browser sends the ids; the figures come from the server's own
+            # rows. An id the page no longer holds — a stale event arriving
+            # after a redraw — is dropped from both, so the count, the total
+            # and the delete button cannot end up describing different rows.
+            selected_tx_ids.extend(r["id"] for r in rows_list if r["id"] in page_rows)
+            selected_rows.extend(page_rows[tx_id] for tx_id in selected_tx_ids)
             table_actions_ui.refresh()
 
-        render_transaction_table(
+        table_holder["table"] = render_transaction_table(
             rows,
             on_edit=_handle_edit,
             on_split=_handle_split,
@@ -183,19 +225,23 @@ async def transactions_page(*, open_new: bool = False) -> None:
 
     def _go_page(page: int) -> None:
         filters["page"] = page
-        selected_tx_ids.clear()
+        _drop_selection()
         transaction_table.refresh()
         table_actions_ui.refresh()
 
     def _set_grouping(value: str) -> None:
         filters["grouping"] = value
         filters["page"] = 0
+        _drop_selection()
         transaction_table.refresh()
+        table_actions_ui.refresh()
 
     def _set_page_size(value: int) -> None:
         filters["page_size"] = value
         filters["page"] = 0
+        _drop_selection()
         transaction_table.refresh()
+        table_actions_ui.refresh()
 
     def _set_filter(key: str, value: object) -> None:
         filters[key] = value
@@ -203,6 +249,12 @@ async def transactions_page(*, open_new: bool = False) -> None:
 
     def _set_list_filter(key: str, value: list[Any]) -> None:
         filters[key] = value
+        _apply_filters()
+
+    def _clear_dates() -> None:
+        """Both ends of the date chip at once — one apply, not two."""
+        filters["date_from"] = None
+        filters["date_to"] = None
         _apply_filters()
 
     def _set_date_from(value: str | None) -> None:
@@ -229,8 +281,10 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filter_widgets.type_filter.set_value([])
         filter_widgets.tag_filter.set_value([])
         filter_widgets.search_input.set_value("")
-        _update_badge()
+        _drop_selection()
+        _repaint_filter_row()
         transaction_table.refresh()
+        table_actions_ui.refresh()
 
     type_options = {tx.value: t(f"common.{tx.value}") for tx in TransactionType}
 
@@ -258,11 +312,14 @@ async def transactions_page(*, open_new: bool = False) -> None:
             on_search_change=lambda v: _set_filter("search", v),
             on_tag_change=lambda v: _set_list_filter("tag_ids", v),
             on_clear=_clear_filters,
+            on_clear_dates=_clear_dates,
         )
 
         table_actions_ui = render_table_actions(
             selected_tx_ids,
+            selected_rows,
             on_delete=confirm_delete_selected,
+            on_clear=_untick_table,
             refresh=lambda: table_actions_ui.refresh(),
         )
 

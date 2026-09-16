@@ -804,6 +804,41 @@ Feature: Manual Transaction Entry
     When I edit that transfer
     Then there is no payee field, just as there is no category field
     And saving leaves whatever the importer attached to the leg alone
+
+  KAL-TXN-014 @automated
+  Scenario: The selection bar totals what I picked
+    Given a ledger holding an expense of 128.74 and an income of 9240.00
+    And I am on the Transactions page
+    When I select both rows
+    Then the bar says 2 are selected
+    And the selected total reads +9,111.26
+    And dismissing the bar unticks the rows it counted
+    And clearing the filters leaves no selection bar behind
+
+  KAL-TXN-015 @automated
+  Scenario: A transfer between my own accounts nets to nothing
+    Given both legs of an internal transfer are on the page
+    When I select them
+    Then the selected total reads 0.00, with no sign
+    And the figure is neither money-in nor money-out
+    And a leg on its own counts for nothing either — a transfer records no
+      direction, so the net cannot claim one
+
+  KAL-TXN-016 @automated
+  Scenario: A filter chip says what it filters
+    Given I have narrowed the ledger to my own rows with a search
+    When I pick an account from its chip
+    Then the chip reads that account's name in place of the field name
+    And the link beside the chips offers to clear 2 filters
+    And clearing the chip from its own "x" brings the searched rows back
+    And a chip opens from the keyboard, without a mouse
+
+  KAL-TXN-017 @automated
+  Scenario: A zero amount has no direction
+    Given a transaction of 0.00
+    When I look at it in the ledger
+    Then the amount reads 0.00, with no sign
+    And it is painted neither as money in nor as money out
 ```
 
 ## Feature: Quick Entry
@@ -935,6 +970,16 @@ Feature: Transaction Pagination and Grouping
     When I click the next page button
     Then I see the next 25 transactions
     And the pagination shows "Page 2 / 3"
+
+  KAL-PAG-005 @automated
+  Scenario: A group separator carries that group's net
+    Given one week holds an income of 9240.00 and an expense of 128.74
+    And I am on the Transactions page
+    When I group the ledger by week
+    Then that week's separator shows +9,111.26 beside its label
+    And the figure is the net of the rows on this page
+    And transfers are left out of it, the same way the selection total
+      leaves them out
 ```
 
 ## Feature: mBank CSV Import
@@ -1204,6 +1249,26 @@ Feature: mBank CSV Import
     When I select account "Wise PLN"
     And I click "Import"
     Then the transactions are imported successfully
+
+  KAL-CSV-025 @automated
+  Scenario: Auto-detected columns are marked as such
+    Given I am on the Import page
+    When I upload a CSV whose headers name their columns
+    Then the fields the importer filled in carry an "auto" mark
+    And changing one of them by hand takes its mark away
+
+  KAL-CSV-026 @automated
+  Scenario: Parse failures are named on the mapping step
+    Given I am on the Import page
+    When I upload a CSV where some rows cannot be read
+    Then a strip above the pickers says how many, and which rows
+    And it points at the column mapping as the thing to look at
+
+  KAL-CSV-027 @automated
+  Scenario: The progress line says which step I am on
+    Given I am on the Import page
+    Then the step I am on is filled and the ones behind it are ticked
+    And the file's sample sits beside the pickers that map it
 ```
 
 ## Feature: Transfer Recognition
@@ -1408,10 +1473,9 @@ Feature: Annual Budget Planning
     Given there are transactions in the current month
     And budget targets are set for the current month
     And I am on the Budget Plan page
-    When I select view mode "Budget vs Actual"
-    Then each category cell shows both the budgeted amount and the amount actually spent
-    And over-budget categories are highlighted in red
-    And under-budget categories are highlighted in green
+    Then each category shows its actual line under its plan, month by month
+    And a month that went over its budget is highlighted
+    And a month that stayed inside it is not — spending as planned is not news
 
   KAL-BUD-007 @manual
   Scenario: View execution percentage per category
@@ -1451,6 +1515,46 @@ Feature: Annual Budget Planning
     When I enter "-100" in a budget cell
     Then I see a validation error
     And the cell reverts to its previous value
+
+  # --- Realization pace ---
+
+  KAL-BUD-012 @automated
+  Scenario: A realization row explains an expected early payment
+    Given rent of 2000.00 is budgeted for this month and planned once for it
+    And the rent has already gone out
+    When I open the Realization tab
+    Then the row's bar is full, whatever the month has elapsed
+    And a line under it says the money was paid in full on that date
+    And the bar is never painted as an overspend
+
+  KAL-BUD-013 @automated
+  Scenario: A pace bar replaces the status word
+    Given a category is budgeted for this month
+    When I open the Realization tab
+    Then each row ends with a bar filled to what was spent
+    And a tick on the bar marks how much of the month has elapsed
+    And the status word it replaced is still there on hover
+
+  KAL-BUD-014 @automated
+  Scenario: An under-budget row names the bill still to come
+    Given 400.00 is budgeted for a category this month
+    And a bill of 284.00 for it is due and not yet paid
+    When I open the Realization tab
+    Then a line under the empty bar names the amount and the date
+    And the bar is empty and still reads as on track
+
+  KAL-BUD-015 @automated
+  Scenario: Budget plan row actions are reachable from the row context menu
+    Given I am on the Budget Plan page for the current year
+    When I right-click a category row
+    Then the two row actions are offered — set from yearly, and clear the row
+    And the same actions open from the row's own button, for touch
+
+  KAL-BUD-016 @automated
+  Scenario: The plan grid marks the month I am in
+    Given I am on the Budget Plan page for the current year
+    Then the current month's column is tinted, header and cells alike
+    And the tint runs down the category's plan line and its actual line both
 ```
 
 ## Feature: Budget Planning Comparisons
@@ -1694,6 +1798,15 @@ Feature: Planned and Recurring Transactions
     When I open the app and land on any authenticated page
     Then a transaction for "Netflix" is created
     And opening another page in the same session does not create a duplicate
+
+  KAL-PLN-020 @automated
+  Scenario: Overdue occurrences are listed in a strip above the calendar
+    Given there is an unposted planned expense "Prad Zalegly" of 210
+      And its occurrence fell 5 days before the first of this month
+    When I open the Payment Calendar
+    Then a strip above the month grid lists "Prad Zalegly"
+      And the strip says how many days late it is
+      And the item can be posted from the strip without opening a day
 ```
 
 ## Feature: Recurring Payment Detection
@@ -2032,9 +2145,8 @@ Feature: Account Balance Forecast
     And I am on the Forecast page
     When I select account "PKO Main"
     And I set horizon to "30 days"
-    And I click "Run forecast"
     Then I see a chart with historical balance and a predicted balance line
-    And the predicted balance for day 30 is displayed
+    And the predicted balance at the horizon is displayed
     And a shaded confidence interval surrounds the prediction
 
   KAL-FCT-002 @automated
@@ -2043,8 +2155,7 @@ Feature: Account Balance Forecast
     And I am on the Forecast page
     When I select account "PKO Main"
     And I set horizon to "90 days"
-    And I click "Run forecast"
-    Then the forecast chart extends 90 days beyond today
+    Then the forecast chart extends 90 days past the last balance it knows
 
   # --- Multi-account forecast ---
 
@@ -2054,9 +2165,8 @@ Feature: Account Balance Forecast
     And I am on the Forecast page
     When I select "All accounts"
     And I set horizon to "30 days"
-    And I click "Run forecast"
-    Then the forecast chart shows the combined balance of all three accounts
-    And individual account lines are shown as secondary series
+    Then the forecast chart is titled for all accounts together
+    And all four figures are shown for that selection
 
   KAL-FCT-004 @manual
   Scenario: Run a forecast for a selected subset of accounts
@@ -2097,7 +2207,6 @@ Feature: Account Balance Forecast
     Given there is an account "New Account" with only 7 days of transactions
     And I am on the Forecast page
     When I select account "New Account"
-    And I click "Run forecast"
     Then I see a warning "Insufficient history for a reliable forecast"
     And no chart is displayed
 
@@ -2110,16 +2219,57 @@ Feature: Account Balance Forecast
     Then the chart highlights the date the balance is predicted to reach zero
     And I see a warning "Balance may reach zero on [date]"
 
-  KAL-FCT-009 @manual
+  KAL-FCT-009 @automated
   Scenario: Fallback projection when Prophet is not installed
     Given Kaleta is installed without the optional forecast extra
     And I am on the Forecast page
-    Then I see a banner "Advanced forecasting (Prophet) not installed — using simple projection"
+    Then a footnote under the chart title says the simple projection is in use
     And a link to install instructions is visible
     And the Prophet-only preset selector is hidden
-    When I click "Run Forecast"
-    Then I see a chart with historical balance and a predicted balance line
+    And I see a chart with historical balance and a predicted balance line
     And a shaded confidence interval surrounds the prediction
+
+  # --- Runs on load (artboard 3a) ---
+
+  KAL-FCT-010 @automated
+  Scenario: The forecast page shows a baseline without pressing Run
+    Given there is an account with sufficient history
+    When I open the Forecast page
+    Then a chart and its four figures appear without my clicking anything
+    And the Run button reads "Re-run", for after I change something
+
+  KAL-FCT-011 @automated
+  Scenario: The figures include the scenario shifts the chart draws
+    Given I am on the Forecast page with a chart on screen
+    When a what-if scenario adds 5000.00 on a date before the horizon
+    Then the predicted figure is 5000.00 higher
+    And the change figure is 5000.00 higher
+    And the confidence is unchanged, because the interval moved with the line
+    When I remove the scenario
+    Then every figure is what it was
+
+  KAL-FCT-012 @planned
+  Scenario: A slow forecaster asks before spending a run
+    # Implemented, but not yet verified by hand: this needs an environment
+    # with the optional Prophet extra installed. Retag @manual after the
+    # owner's pass.
+    Given Kaleta is installed with the optional Prophet extra
+    And I am on the Forecast page with a chart on screen
+    When I change the account or the horizon
+    Then the chart on screen still answers the previous selection
+    And a hint says the controls changed and Re-run will apply them
+    And the Re-run button is raised
+    When I change the control back to what the chart answers
+    Then the hint and the raised button go away
+    When I instead press Re-run
+    Then the chart and its four figures answer the new selection
+
+  KAL-FCT-013 @automated
+  Scenario: A what-if never waits for a re-run
+    Given I am on the Forecast page with a chart on screen
+    When I add a what-if scenario
+    Then the figures move without my pressing anything
+    And the loading skeleton never appears, because no forecast was run
 ```
 
 ## Feature: Credit Calculator
@@ -2291,6 +2441,13 @@ Feature: Investment Tracking
     Given a 1000.00 transfer to my brokerage account
     When I link it to a purchase of "V80A" units
     Then the transfer is categorised as an investment contribution
+
+  KAL-INV-005 @automated
+  Scenario: The balance sheet splits into held, owned and owed
+    Given accounts holding 6000.00, physical assets worth 2000.00
+      And 2000.00 owed on a credit account
+    When I view the net worth summary
+    Then the balance-sheet bar reads 60% in accounts, 20% physical, 20% owed
 ```
 
 ## Feature: AI Insights
@@ -2315,6 +2472,33 @@ Feature: AI Insights
     Given electricity spending doubled versus its 6-month average
     When the monthly summary is generated
     Then the summary highlights the electricity anomaly with the comparison
+```
+
+## Feature: Report Builder
+
+The ad-hoc builder: the query reads as a sentence, and every part of the
+sentence is the control that changes it.
+
+```gherkin
+Feature: Report Builder
+  As a user
+  I want to read my report query as a sentence before I run it
+  So that I can see what I am about to ask without reading a form
+
+  KAL-RPT-001 @automated
+  Scenario: The sentence reflects the state and a saved report comes back
+    Given I am on the report builder
+    Then the sentence reads "Total Amount", "Category", "Expense", "This Year", "10"
+    When I change the grouping to "Account"
+      And I drag "Count" from the rail onto the measure slot
+    Then the sentence reads "Count" grouped by "Account"
+    When I run the report
+    Then the chart is titled by account
+    When I save the report as "Spend by account"
+      And I open the builder afresh
+      And I open "Spend by account" from the rail
+    Then the sentence reads "Account" again
+      And the header carries the saved report's name
 ```
 
 ## Feature: Money Flow
@@ -2451,6 +2635,20 @@ Feature: Single-user authentication
     And the JSON body reports unauthorized
     When I POST "/api/v1/accounts/" with a bearer token
     Then the response status is 201
+
+  KAL-AUTH-011 @automated
+  Scenario: A failed login does not move the submit button
+    Given I am on the login page
+    When I submit a wrong password
+    Then the message "Invalid username or password." is shown
+      And the Log in button is exactly where it was before I clicked it
+
+  KAL-AUTH-012 @automated
+  Scenario: The login panel counts, and says nothing more
+    Given there are transactions in the ledger
+    When I open the login page without logging in
+    Then the panel shows how many transactions, accounts and months there are
+      And it shows no amount, no account name and no payee
 ```
 
 ## Feature: Demo instance
@@ -2721,15 +2919,15 @@ Feature: Workflow-based navigation
 
   KAL-NAV-001 @automated
   Scenario: Sidebar shows pinned entries and workflow groups
-    Given I am signed in
-    When I open any page
+    Given I am signed in on a narrow viewport
+    When I open the sidebar from the tab bar's More
     Then the sidebar shows Dashboard and Financial Wizard pinned at the top
     And below them the groups Capture, Monthly cycle, Plans & funds, Insight, and Setup
 
   KAL-NAV-002 @automated
   Scenario: Setup group is collapsed by default
     Given I am signed in with no stored sidebar preferences
-    When I open the dashboard
+    When I open the sidebar on a narrow viewport
     Then the Setup group header is visible
     And the items inside Setup are hidden until I click the group header
 
@@ -2741,15 +2939,48 @@ Feature: Workflow-based navigation
 
   KAL-NAV-004 @automated
   Scenario: Every sidebar entry routes to its page
-    Given I am signed in
+    Given I am signed in on a narrow viewport
     When I click each sidebar entry in turn
     Then each click navigates to the entry's page URL
 
   KAL-NAV-005 @automated
   Scenario: Wizard sub-pages are reachable from the sidebar
-    Given I am signed in
+    Given I am signed in on a narrow viewport
     When I click Subscriptions, Monthly Readiness, Safety Funds, or Personal Loans in the sidebar
     Then I land on the corresponding page under /wizard/ without visiting the Wizard hub first
+
+  KAL-NAV-006 @automated
+  Scenario: A bottom tab bar replaces the drawer on a narrow viewport
+    Given I am signed in
+    When I open the dashboard on a 390 pixel wide viewport
+    Then a bar fixed to the foot of the screen shows Home, Ledger, Add, Plan and More
+    And every tab is at least 44 pixels tall
+    And the sidebar is not covering the page
+    And tapping More opens the sidebar over it
+    And tapping Add opens the new-transaction form
+    And the header offers one way into the palette, not the wide bar's as well
+    And a 900 pixel window navigates from the top bar and shows no tab bar
+
+  KAL-NAV-007 @automated
+  Scenario: A top bar replaces the sidebar on a wide viewport
+    Given I am signed in
+    When I open any page on a 1360 pixel wide viewport
+    Then the top bar shows Dashboard and Financial Wizard, then five sections
+    And the sidebar is not on the page
+    And the section holding the page I am on is marked
+    And opening a section and choosing an entry navigates to that page
+    And at 768 pixels, the width it takes over at, the bar still reads on one line
+    And the browser tab carries the page's name, which the header no longer shows
+
+  KAL-NAV-008 @automated
+  Scenario: The command palette reaches any page by name
+    Given I am signed in on a wide viewport
+    When I press Ctrl+K and type part of a page's name
+    Then only the pages matching what I typed are listed
+    And pressing Enter opens the first of them
+    And a name that matches nothing says so instead of listing everything
+    And pressing Enter with nothing typed leaves me where I am
+    And the shortcut works while a text field has the caret, where I most need it
 ```
 
 ## Feature: Dashboard Customization
@@ -2782,6 +3013,62 @@ Feature: Dashboard Customization
     And I am in the Customize dialog
     When I untick "Net Worth Trend" and click "Reset layout" without saving
     Then the "Net Worth Trend" widget is absent from the dashboard
+
+  KAL-DSH-004 @automated
+  Scenario: Legacy KPI layout migrates to the merged cards
+    Given my saved dashboard still lists the seven single-figure KPI widgets
+    When the dashboard loads
+    Then those seven are replaced by the "Total balance" and "This month" cards
+    And each merged card takes the position of the first widget it replaced
+    And the widgets I had placed after them keep their order
+    And loading the dashboard again does not add a second copy
+
+  KAL-DSH-005 @manual
+  Scenario: The merged cards say what they leave out
+    Given I have five accounts and income booked this month
+    When I open the dashboard
+    Then the "Total balance" card names my three largest accounts by size
+    And one more tile reads "Other accounts (2)" carrying their combined balance
+    And the tiles plus that one add up to the hero figure above them
+    And the "This month" card fills its savings bar to the share of income I kept
+    And a tick on that bar marks the 20% target
+    And an eyebrow above the page title says which month and day these figures stand at
+    And a budget-variance row past 110% of its plan reads in the expense colour,
+      one below it in the warning colour
+
+  KAL-DSH-006 @automated
+  Scenario: Safe to spend is income minus what is committed minus what is spent
+    Given it is the 10th of a 30-day month
+    And 6000.00 of income has posted this month
+    And 1500.00 of expenses have posted this month
+    And a planned rent of 2200.00 falls on the 28th and has not been posted
+    When the dashboard works out what is safe to spend
+    Then the free figure reads 2300.00
+    And 21 days are left to spread it over
+    And the per-day figure reads 109.52
+
+  KAL-DSH-007 @automated
+  Scenario: The phone dashboard stacks into Now, This month, Watch and Latest
+    Given I am signed in
+    When I open the dashboard on a 390 pixel wide viewport
+    Then the widgets are stacked in bands headed Now, This month, Watch and Latest
+    And the safe-to-spend hero is the first thing in the Now band
+    And the Watch band carries net worth, the six-month average savings rate,
+      the 30-day balance and the safety-fund cover as plain figures
+    And the Watch band carries no widget cards at all
+    And there is no widget grid and no Edit layout button
+    And the page does not scroll sideways
+    And a 1360 pixel window still gets the widget grid and no tab bar
+
+  KAL-DSH-008 @automated
+  Scenario: The desktop dashboard reads in bands and only the Month band drags
+    Given I am signed in on a 1360 pixel wide viewport
+    When I open the dashboard
+    Then the page reads Now, This month, Watch and Latest in that order
+    And the safe-to-spend hero leads the Now band
+    And the widget grid holds the Month band's widgets and no others
+    And the hero and the Latest list are outside that grid, so nothing drags them
+    And the Month band's own header is what turns editing on
 ```
 
 ## Feature: Wizard Action Items
@@ -2821,10 +3108,11 @@ Feature: Wizard Action Items
     And inside one severity the newest item comes first
 
   KAL-WAC-005 @manual
-  Scenario: The widget renders at both sizes
-    Given the "Needs attention" widget is on the dashboard
-    When I resize it between 2x2 and 4x2 in edit mode
-    Then both sizes render the list without clipping
+  Scenario: The banner renders at both sizes
+    Given the "Needs attention" banner is on the dashboard
+    When I resize it between 4x1 and 4x2 in edit mode
+    Then both sizes render the actions without clipping
+    And each action still shows its severity
 ```
 
 ---

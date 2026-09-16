@@ -12,7 +12,7 @@ from kaleta.i18n import t
 from kaleta.schemas.transaction import TransactionType
 from kaleta.services import with_session
 from kaleta.services.report_service import ReportService, YoYComparison
-from kaleta.views.chart_utils import apply_dark
+from kaleta.views.chart_utils import CHART_NEUTRAL_BAR, apply_dark, chart_ink_color
 from kaleta.views.layout import page_layout
 from kaleta.views.reports_canned.formatters import csv_download, fmt, fmt_pct
 from kaleta.views.reports_canned.scaffold import export_button, kpi, loading_label, report_header
@@ -103,13 +103,13 @@ def register() -> None:
                                         "name": str(rep.year),
                                         "type": "bar",
                                         "data": [float(r.this_year) for r in rep.rows],
-                                        "itemStyle": {"color": "#1976d2"},
+                                        "itemStyle": {"color": chart_ink_color(is_dark)},
                                     },
                                     {
                                         "name": str(rep.year - 1),
                                         "type": "bar",
                                         "data": [float(r.last_year) for r in rep.rows],
-                                        "itemStyle": {"color": "#bdbdbd"},
+                                        "itemStyle": {"color": CHART_NEUTRAL_BAR},
                                     },
                                 ],
                             },

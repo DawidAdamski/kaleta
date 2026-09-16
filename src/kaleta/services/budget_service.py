@@ -17,6 +17,7 @@ from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import TransactionType
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 from kaleta.services.categorised_flows import categorised_flows_selectable
+from kaleta.services.planned_transaction_service import PlannedTransactionService
 
 REALIZATION_WARNING_THRESHOLD_PCT: float = 5.0
 MONTHS_PER_YEAR = 12
@@ -158,6 +159,85 @@ class CategoryBudgetSummary:
         return self.actual_amount > self.budget_amount
 
 
+class RealizationNoteKind(Enum):
+    """The two things a schedule can say about a row whose bar looks wrong."""
+
+    PAID_IN_FULL = "paid_in_full"
+    PLANNED_ON = "planned_on"
+
+
+@dataclass(frozen=True, slots=True)
+class ScheduledExpense:
+    """One planned expense in a month, and whether it has been booked yet."""
+
+    date: datetime.date
+    amount: Decimal
+    posted: bool
+
+
+@dataclass(frozen=True, slots=True)
+class RealizationNote:
+    """One line explaining a row's pace, when the month's schedule can explain it."""
+
+    kind: RealizationNoteKind
+    date: datetime.date
+    #: The bill this note is about. Required for both kinds: "planned for
+    #: 12.09" has to name a figure, and the paid-in-full branch has the same
+    #: figure to hand, so a note without one cannot be built at all.
+    amount: Decimal
+
+
+def realization_note(
+    *,
+    planned: Decimal,
+    actual: Decimal,
+    used_pct: float,
+    occurrences: builtins.list[ScheduledExpense],
+    today: datetime.date,
+) -> RealizationNote | None:
+    """Explain a row's pace from the month's schedule, or say nothing.
+
+    A pace bar compares spending against the calendar, which is the wrong
+    comparison twice a month. Rent leaves on the 1st, so a bar that is full
+    on the 2nd is not an overspend — it is the only thing that was ever going
+    to happen. And a category whose bill falls on the 20th reads as
+    underspent all month for no reason at all.
+
+    Only those two cases get a line. Anything else the bar already says.
+    """
+    if not occurrences:
+        return None
+
+    # One occurrence, equal to the budget, already due, and the budget used up
+    # exactly. Each clause is a way the line could otherwise be false: a bill
+    # dated the 25th has not been paid on the 10th; 2 000 spent against a
+    # 2 100 bill is a bill still partly outstanding; and a row that went over
+    # — a bill bigger than its budget, or something spent on top of it — is an
+    # overspend, not "as expected". Hence equalities and not ranges: one
+    # coffee charged to the rent category and the row really is over.
+    if planned > 0 and actual == planned and len(occurrences) == 1:
+        bill = occurrences[0]
+        if bill.amount == planned and bill.date <= today:
+            return RealizationNote(RealizationNoteKind.PAID_IN_FULL, bill.date, bill.amount)
+
+    # Still under budget with money scheduled to go out and not yet booked.
+    # A posted occurrence is already in the actuals, so naming it as still to
+    # come would count the same money twice. Today counts as upcoming: a bill
+    # due today and unpaid is the day the line matters most, and the branch
+    # above has already taken the paid case.
+    if used_pct < 100:
+        upcoming = sorted(
+            (occ for occ in occurrences if occ.date >= today and not occ.posted),
+            key=lambda occ: occ.date,
+        )
+        if upcoming:
+            return RealizationNote(
+                RealizationNoteKind.PLANNED_ON, upcoming[0].date, upcoming[0].amount
+            )
+
+    return None
+
+
 @dataclass
 class CategoryRealization:
     category_id: int
@@ -168,6 +248,11 @@ class CategoryRealization:
     actual: Decimal
     elapsed_pct: float
     used_pct: float
+    #: Why the pace looks the way it does, when the schedule can say. Named
+    #: ``note`` rather than the plan's ``explanation``: the view renders it as
+    #: one line, and ``note_text`` / ``note_paid_in_full`` read better than
+    #: ``explanation_text`` / ``explanation_paid_in_full``.
+    note: RealizationNote | None = None
 
     @property
     def remaining(self) -> Decimal:
@@ -621,6 +706,14 @@ class BudgetService:
                     cat.name,
                 )
 
+        # A note explains *pace*, and pace only means something while the month
+        # is still running: a finished month has nothing left to expect, and a
+        # future one has not started to fall behind. Deciding that first keeps
+        # every other month from expanding a schedule it will not read.
+        explain = month_start <= today <= month_end
+        # One pass over the month's schedule for every row, not one per row.
+        schedule = await self._expense_schedule(month_start, month_end) if explain else {}
+
         rows: builtins.list[CategoryRealization] = []
         for cat_id, (parent_id, parent_name, name) in parent_lookup.items():
             planned_amt = planned.get(cat_id, Decimal("0"))
@@ -640,6 +733,17 @@ class BudgetService:
                     actual=actual_amt,
                     elapsed_pct=elapsed_pct,
                     used_pct=used_pct,
+                    note=(
+                        realization_note(
+                            planned=planned_amt,
+                            actual=actual_amt,
+                            used_pct=used_pct,
+                            occurrences=schedule.get(cat_id, []),
+                            today=today,
+                        )
+                        if explain
+                        else None
+                    ),
                 )
             )
 
@@ -650,6 +754,38 @@ class BudgetService:
         }
         rows.sort(key=lambda r: (status_order[r.status], -r.pace_delta, r.category_name))
         return rows
+
+    async def _expense_schedule(
+        self, start: datetime.date, end: datetime.date
+    ) -> dict[int, builtins.list[ScheduledExpense]]:
+        """Planned expenses in the window, by category, each marked posted or not.
+
+        Both halves matter. The whole schedule says *what the month is for* —
+        a rent row is explained by the rent being due on the 1st, whether or
+        not that occurrence has since been booked. Only the unbooked ones can
+        be announced as still to come: a posted occurrence is already in the
+        actuals, and naming it would count the same money twice. The planned
+        service keeps that bookkeeping itself, so neither half needs the
+        amount-and-date guesswork open question 1 rules out.
+        """
+        planned_svc = PlannedTransactionService(self.session)
+        occurrences = await planned_svc.get_occurrences(start, end)
+        outstanding = {
+            (occ.planned_id, occ.date)
+            for occ in await planned_svc.get_occurrences(start, end, exclude_posted=True)
+        }
+        schedule: dict[int, builtins.list[ScheduledExpense]] = {}
+        for occ in occurrences:
+            if occ.type != TransactionType.EXPENSE or occ.category_id is None:
+                continue
+            schedule.setdefault(occ.category_id, []).append(
+                ScheduledExpense(
+                    date=occ.date,
+                    amount=occ.amount,
+                    posted=(occ.planned_id, occ.date) not in outstanding,
+                )
+            )
+        return schedule
 
     async def range_summary(
         self, start: datetime.date, end: datetime.date

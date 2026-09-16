@@ -198,3 +198,70 @@ class TestAccountServiceListWithActivity:
             today=today,
         )
         assert not AccountService.is_stale(today, today=today)
+
+
+class TestBalanceBreakdown:
+    """What the dashboard's balance card names, and what it folds away."""
+
+    async def _seed(self, svc: AccountService, *pairs: tuple[str, str]) -> None:
+        for name, balance in pairs:
+            await svc.create(
+                AccountCreate(
+                    name=name,
+                    type=AccountType.CHECKING,
+                    balance=Decimal(balance),
+                )
+            )
+
+    async def test_fewer_accounts_than_the_limit_hide_nothing(self, svc: AccountService) -> None:
+        await self._seed(svc, ("PKO", "1200.00"), ("Revolut", "300.00"))
+
+        breakdown = await svc.balance_breakdown(3)
+
+        assert [a.name for a in breakdown.shown] == ["PKO", "Revolut"]
+        assert breakdown.hidden_count == 0
+        assert breakdown.hidden_total == Decimal("0")
+
+    async def test_the_largest_lead_regardless_of_name(self, svc: AccountService) -> None:
+        await self._seed(
+            svc, ("Alfa", "10.00"), ("Beta", "9000.00"), ("Gamma", "500.00"), ("Delta", "40.00")
+        )
+
+        breakdown = await svc.balance_breakdown(3)
+
+        assert [a.name for a in breakdown.shown] == ["Beta", "Gamma", "Delta"]
+
+    async def test_the_remainder_is_counted_and_summed(self, svc: AccountService) -> None:
+        await self._seed(
+            svc, ("A", "100.00"), ("B", "90.00"), ("C", "80.00"), ("D", "7.50"), ("E", "2.50")
+        )
+
+        breakdown = await svc.balance_breakdown(3)
+
+        assert [a.name for a in breakdown.shown] == ["A", "B", "C"]
+        assert breakdown.hidden_count == 2
+        assert breakdown.hidden_total == Decimal("10.00")
+        # The tiles must add up to the hero above them: 270 + 10 = 280.
+        assert sum(a.balance for a in breakdown.shown) + breakdown.hidden_total == Decimal("280.00")
+
+    async def test_a_large_debt_is_named_not_hidden(self, svc: AccountService) -> None:
+        await self._seed(
+            svc,
+            ("Karta", "-4000.00"),
+            ("Konto", "3000.00"),
+            ("Oszczędności", "2000.00"),
+            ("Drobne", "50.00"),
+        )
+
+        breakdown = await svc.balance_breakdown(3)
+
+        assert [a.name for a in breakdown.shown] == ["Karta", "Konto", "Oszczędności"]
+        assert breakdown.hidden_count == 1
+        assert breakdown.hidden_total == Decimal("50.00")
+
+    async def test_no_accounts_at_all(self, svc: AccountService) -> None:
+        breakdown = await svc.balance_breakdown(3)
+
+        assert breakdown.shown == []
+        assert breakdown.hidden_count == 0
+        assert breakdown.hidden_total == Decimal("0")

@@ -48,6 +48,23 @@ def t(key: str, **kwargs: object) -> str:
     return value.format(**kwargs) if kwargs else value
 
 
+def plural_key(prefix: str, count: int) -> str:
+    """``prefix`` plus the plural suffix ``count`` needs: one, few or many.
+
+    English has two forms and Polish three, so the widest rule wins and a
+    two-form language simply gives ``few`` and ``many`` the same wording. The
+    Polish rule: 1 is ``one``; a count ending in 2-4 is ``few``, except the
+    teens 12-14; everything else, 0 included, is ``many``.
+
+    Keys are named ``<prefix>_one`` / ``_few`` / ``_many``.
+    """
+    if count == 1:
+        return f"{prefix}_one"
+    if count % 10 in (2, 3, 4) and count % 100 not in (12, 13, 14):
+        return f"{prefix}_few"
+    return f"{prefix}_many"
+
+
 def available_languages() -> dict[str, str]:
     """Return {code: native_name} for all locale files found."""
     result: dict[str, str] = {}

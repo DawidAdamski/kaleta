@@ -21,6 +21,7 @@ from kaleta.views.dashboard_widgets.registry import register
     "savings",
     (2, 1),
     ((1, 1), (2, 1)),
+    legacy=True,
 )
 async def render_savings_rate_kpi(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     svc = ReportService(session)

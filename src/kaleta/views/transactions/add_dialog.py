@@ -118,7 +118,7 @@ def build_add_dialog(
         fx_row.set_visibility(False)
         with fx_row:
             ui.label(t("transactions.cross_currency_transfer")).classes(
-                "text-sm font-semibold text-primary"
+                "k-heading text-sm font-semibold"
             )
             with ui.row().classes("w-full gap-2 items-end"):
                 fx_rate_input = ui.number(

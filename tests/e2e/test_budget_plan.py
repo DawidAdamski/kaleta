@@ -169,3 +169,68 @@ def test_zero_budget_amount_triggers_warning(page: Page, base_url: str) -> None:
 
     # The view emits a warning notification (amount must be > 0)
     expect(page.locator(".q-notification")).to_be_visible(timeout=5000)
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Row actions live in a context menu (artboard 2c)
+# ---------------------------------------------------------------------------
+
+
+def test_row_actions_open_from_right_click_and_from_the_button(page: Page, base_url: str) -> None:
+    """Covers: KAL-BUD-015
+
+    The two per-row buttons cost 76px of a grid that needs every pixel for
+    twelve month columns. They moved into a right-click menu — and kept a
+    button, because a touch screen has no right button and nobody discovers a
+    context menu on a table row by accident.
+    """
+    category = "Zywnosc Grid Menu E2E"
+    cat_id = seed_category(category)
+    seed_budget(cat_id, 500.0, CURRENT_MONTH, CURRENT_YEAR)
+
+    page.goto(f"{base_url}/budget-plan")
+    row = page.locator(".k-plan-row").filter(has_text=category).first
+    expect(row).to_be_visible(timeout=10000)
+
+    row.click(button="right")
+    menu = page.locator(".q-menu").last
+    expect(menu).to_be_visible(timeout=5000)
+    expect(menu.get_by_text("Set from yearly total", exact=True)).to_be_visible()
+    expect(menu.get_by_text("Clear all months", exact=True)).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(page.locator(".q-menu")).to_have_count(0, timeout=5000)
+
+    row.get_by_role("button", name=f"Row actions: {category}").click()
+    menu = page.locator(".q-menu").last
+    expect(menu).to_be_visible(timeout=5000)
+    expect(menu.get_by_text("Set from yearly total", exact=True)).to_be_visible()
+
+
+def test_the_grid_tints_the_current_month(page: Page, base_url: str) -> None:
+    """Covers: KAL-BUD-016
+
+    Twelve identical columns, and the one the user is living in has to be
+    findable without counting across from January.
+    """
+    category = "Zywnosc Grid Tint E2E"
+    cat_id = seed_category(category)
+    seed_budget(cat_id, 500.0, CURRENT_MONTH, CURRENT_YEAR)
+
+    page.goto(f"{base_url}/budget-plan")
+    row = page.locator(".k-plan-row").filter(has_text=category).first
+    expect(row).to_be_visible(timeout=10000)
+
+    # One tinted cell in the header, and one on each of the category's two
+    # lines — the plan and the actual under it, which render as one row.
+    header = page.locator(".k-plan-head").first
+    expect(header.locator(".k-plan-month-now")).to_have_count(1)
+    expect(row.locator(".k-plan-month-now")).to_have_count(2)
+
+    # The actual sub-row sits under the plan, quiet and in mono, with its own
+    # tinted cell for the current month. It renders for a budgeted category
+    # even with nothing spent — ``PlanCategoryRow.show_actual_row`` is true
+    # when there is a plan, so the line is there to be filled in.
+    actual_row = row.locator(".k-plan-actual")
+    expect(actual_row).to_be_visible()
+    expect(actual_row.locator(".k-mono").first).to_be_visible()
+    expect(actual_row.locator(".k-plan-month-now")).to_have_count(1)

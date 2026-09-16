@@ -3,7 +3,7 @@ plan_id: restyle-wizard-index
 title: Restyle — Financial Wizard as mentor card + setup done-cards + a plain two-column routines index (artboard 3d)
 area: wizard
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
 ---
 
@@ -66,6 +66,8 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
 ## Touchpoints
 
 - `src/kaleta/views/wizard.py`
+- `src/kaleta/views/theme.py` (`ACCENT_RULE` for the mentor card's left
+  rule, `HAIRLINE_BOTTOM` for the index row separator)
 - `src/kaleta/i18n/locales/en.json`, `pl.json`
 - `docs/product/financial-wizard.md` (page structure paragraph)
 - `docs/plans/wizard-unplanned-radar.md` (drop the badge rider if this
@@ -79,4 +81,81 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — wording: "Planned"** (`wizard.not_built`, PL "W
+  planach"). Default taken. The footer note still said "These features
+  are planned", which was true when nothing was built and is now wrong
+  on a page where eleven of thirteen open; `wizard.cta_note` was
+  reworded to point at the marked rows instead.
+
+- **The done-card keeps its way in.** Scope describes the card as
+  "icon, title, ✓ / `Open`". Read as either/or that removes the Edit
+  button from a finished step — and a ticked step is the one a user
+  most wants to revisit, since it is where their institutions and
+  accounts are. `test_setup_wizard.py` covers that navigation under
+  KAL-ONB-001/002. The card shows the ✓ *and* the action (Edit when
+  done, Go when not), plus the existing count / hint line: a tooltip was
+  tried first and it hid information the old card showed in the open.
+
+- **Two new i18n keys beyond the one Scope lists.**
+  `wizard.routines_title` — two stacked cards need a word between them
+  — and the reworded `wizard.cta_note` above.
+
+- **`wizard.coming_soon` is now unreferenced.** Scope says to keep it
+  "for other pages", and it is kept — but that reason turns out not to
+  hold: `views/setup.py` uses its own `setup.coming_soon` and
+  `import_view/profile_section.py` its own
+  `import.profile_coming_soon`. Nothing in `src/` reads
+  `wizard.coming_soon` any more, in either locale. Kept because Scope
+  says so rather than because anything needs it; it is a chore-inbox
+  line for the owner, not something to delete against the plan.
+
+- **Stable hooks instead of DOM archaeology.** Three existing e2e tests
+  found their target by walking the DOM: `div.row` containing a title,
+  or `xpath=ancestor::div[contains(@class,'items-start')][1]`. Both
+  broke on the new layout and would break on the next one. Each Setup
+  card now carries `data-setup-step` and each routine row `data-step`,
+  and the tests name those. No assertion was weakened: the salary test
+  still checks the row is not marked as unbuilt and still clicks
+  through to the panel — it clicks a link rather than a button, because
+  the row's action is a link now.
+
+- **`_SECTION_ICONS` went with `_SECTION_COLORS`.** Each row carries its
+  own step icon, so the six section icons had no place left to render
+  and nothing else imported them.
+
+- **The manual criterion's counts are stale.** It expects "five `Open →`
+  rows in ink and eight muted rows". `_STEP_ROUTES` has eleven entries
+  against thirteen steps, so the page shows **eleven** open rows and
+  **two** marked Planned (`unplanned`, `scenarios`). The plan text was
+  written against an earlier state of the routes table; the split is
+  worth checking against `_STEP_ROUTES`, not against the number here.
+
+- **`ui.grid(columns=N)` cannot be made responsive.** NiceGUI writes
+  `columns=` as an inline `grid-template-columns`, and an inline style
+  beats a stylesheet rule whatever its media query — so `md:grid-cols-4`
+  never applied and both grids were frozen at their starting count.
+  Both now take their columns from Tailwind classes and their gaps from
+  an explicit style. Checked in a browser rather than by reading: at
+  1400px the routines index computes to two 502px columns with a 0px
+  row gap and Setup to `repeat(4, …)`; at 500px the index is one column.
+
+- **`test_every_nav_entry_routes` was flaky before this branch and is
+  fixed here.** It failed twice under `verify.sh --e2e` on this plan and
+  once on `restyle-payment-calendar`, always the same way: expecting
+  `/wizard` and finding `/`. That signature is not about the wizard —
+  `/wizard` is simply the first pinned entry whose URL differs from the
+  one the test starts on, so *any* lost first click surfaces as exactly
+  this. A nav entry is a `ui.item` with a server-side handler: the click
+  travels to the server and the server answers with a navigate message,
+  and that round trip occasionally does not complete. `_click_nav` waits
+  for the NiceGUI handshake, clicks, and retries once if the URL has not
+  moved in five seconds; the `to_have_url` assertion under it is
+  unchanged, so a genuinely broken route still fails as loudly. Three
+  consecutive clean `verify.sh --e2e` runs since. It reproduces only in
+  the full suite, never in the file alone, and the server log carries no
+  exception — nothing in this diff touches the drawer.
+
+- **Stacking:** branched from `plan/restyle-payment-calendar`, which is
+  itself unmerged. Open the PR with
+  `--base plan/restyle-payment-calendar`; it must merge after every
+  branch below it.

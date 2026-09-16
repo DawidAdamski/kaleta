@@ -9,9 +9,11 @@ from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_service import (
     ColumnMapping,
     CsvInspection,
+    ImportReadinessCheck,
     MBankFileMetadata,
     ParsedRow,
     QueueSettingsSnapshot,
+    validate_import_readiness,
 )
 
 
@@ -20,11 +22,17 @@ class QueuedFile:
     id: str
     filename: str
     content: str
+    #: The encoding the upload decoded as, named in the mapping caption.
+    encoding: str = "UTF-8"
     profile: str = "generic"
     parsed_rows: list[ParsedRow] = field(default_factory=list)
     parse_errors: list[str] = field(default_factory=list)
     metadata: MBankFileMetadata | None = None
     column_mapping: ColumnMapping | None = None
+    #: The mapping the importer filled in by itself — header detection, a
+    #: saved rule, or another queued file — never the user's own edits. The
+    #: "auto" marks are what is left of it in the pickers.
+    auto_mapping: ColumnMapping | None = None
     inspection: CsvInspection | None = None
     target_account_id: int | None = None
     expense_cat_id: int | None = None
@@ -40,9 +48,87 @@ class QueuedFile:
     remember_mapping: bool = True
     filename_pattern: str = ""
     from_bulk_default: bool = False
+    #: Line numbers that could not be parsed, for the mapping step's warning.
+    error_rows: list[int] = field(default_factory=list)
 
 
 TERMINAL_STATUSES = frozenset({"done", "failed"})
+
+#: The six steps the progress line draws, in order. 1-based, because the line
+#: numbers them for the reader.
+STEP_FORMAT = 1
+STEP_UPLOAD = 2
+STEP_MAPPING = 3
+STEP_SETTINGS = 4
+STEP_PREVIEW = 5
+STEP_CONFIRM = 6
+
+
+def current_step(active: QueuedFile | None, *, account_currency: str | None = None) -> int:
+    """Which of the six steps the user is standing on.
+
+    The page shows every section at once and hides the ones that do not apply,
+    so "where am I" was only ever implied by which cards were visible. The
+    same conditions decide it here, in one place, so the progress line cannot
+    disagree with the page under it.
+
+    A bank profile (mbank, pko, wise) never shows the mapping card, and its
+    node still reads as done once the file is parsed. That is not a lie: the
+    columns *were* mapped — by the profile rather than by hand — so the step
+    is behind the user, which is what a done node means.
+    """
+    if active is None:
+        return STEP_UPLOAD
+    if active.status == "done":
+        return STEP_CONFIRM
+    if active.status == "importing":
+        # The rows are going in: the preview is behind the user and the
+        # confirmation is not there yet. Without this the line would drop
+        # back to upload the moment a bulk import repaints — clicking another
+        # queue file mid-import does exactly that.
+        return STEP_PREVIEW
+    if active.status == "needs_mapping":
+        return STEP_MAPPING
+    if active.status == "failed":
+        # A failed file shows no mapping, settings or preview card — the page
+        # hides all three — so the only place left to stand is the upload.
+        return STEP_UPLOAD
+    if active.status == "ready":
+        # Ready means parsed, and both cards are on screen. The step is what
+        # the user still has to *do*: say where the rows go, then look at
+        # them. An account alone is not "where they go" — the import is
+        # blocked until both default categories are chosen too, and ticking
+        # settings while the Import button refuses is the line lying about
+        # the page under it.
+        complete = settings_are_complete(active, account_currency=account_currency)
+        return STEP_PREVIEW if complete else STEP_SETTINGS
+    return STEP_UPLOAD
+
+
+def settings_are_complete(file: QueuedFile, *, account_currency: str | None = None) -> bool:
+    """Everything the settings step asks for, chosen.
+
+    Asked of ``validate_import_readiness`` rather than copied from it: the
+    settings node is ticked exactly when the Import button would stop
+    refusing, so a rule added to the service later cannot leave the line
+    claiming a step the page below it is still asking for.
+
+    That includes a currency mismatch, which is a settings problem after
+    all — the account it disagrees with is chosen on this very card. The
+    caller passes the chosen account's currency; without one there is
+    nothing to disagree with.
+    """
+    error_key, _ = validate_import_readiness(
+        ImportReadinessCheck(
+            target_account_id=file.target_account_id,
+            expense_cat_id=file.expense_cat_id,
+            income_cat_id=file.income_cat_id,
+            profile=file.profile,
+            metadata=file.metadata,
+            account_currency=account_currency,
+        )
+    )
+    return error_key is None
 
 
 def queue_is_terminal(queue: list[QueuedFile]) -> bool:
@@ -77,6 +163,8 @@ def apply_settings_snapshot(file: QueuedFile, snapshot: QueueSettingsSnapshot) -
     file.skip_duplicates = snapshot.skip_duplicates
     if snapshot.column_mapping is not None:
         file.column_mapping = snapshot.column_mapping
+        # Inherited, not typed: it carries the marks a fresh detection would.
+        file.auto_mapping = snapshot.column_mapping
 
 
 def import_button_label(ready_count: int) -> str:

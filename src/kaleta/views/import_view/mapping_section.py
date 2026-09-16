@@ -4,15 +4,30 @@
 from __future__ import annotations
 
 import inspect
-from collections.abc import Callable
+from collections.abc import Callable, Container
 from dataclasses import dataclass
 from typing import Any
 
 from nicegui import background_tasks, ui
 
-from kaleta.i18n import t
-from kaleta.services.import_service import ColumnMapping, CsvInspection
+from kaleta.i18n import plural_key, t
+from kaleta.services.import_service import (
+    ColumnMapping,
+    CsvInspection,
+    row_error_line,
+)
 from kaleta.views.import_view.state import QueuedFile
+from kaleta.views.theme import (
+    AUTO_BADGE,
+    BODY_MUTED,
+    MONO,
+    MUTED,
+    SECTION_CARD,
+    SECTION_HEADING,
+    SECTION_TITLE,
+    TABLE_SURFACE,
+    WARNING_STRIP,
+)
 
 _UNMAPPED = -1
 
@@ -39,12 +54,57 @@ _THOUSANDS_OPTIONS: dict[str, str] = {
 }
 
 
+def column_label(index: int, header: str) -> str:
+    """How a CSV column is named, wherever it is named.
+
+    The sample table and the pickers have to say the same thing about the
+    same column — that is the whole reason they sit side by side — and a
+    blank header is exactly where they used to disagree.
+    """
+    return f"{index + 1}: {header.strip() or t('import.mapping_empty_header', index=index + 1)}"
+
+
 def _col_options(headers: list[str]) -> dict[int, str]:
     options: dict[int, str] = {_UNMAPPED: t("import.mapping_unmapped")}
     for i, header in enumerate(headers):
-        label = header.strip() or t("import.mapping_empty_header", index=i + 1)
-        options[i] = f"{i + 1}: {label}"
+        options[i] = column_label(i, header)
     return options
+
+
+#: Attribute naming the field an ``auto`` pill belongs to.
+_BADGE_FIELD_ATTR = "data-auto-field"
+
+#: The ``ColumnMapping`` fields a picker can carry an ``auto`` pill for.
+_DETECTABLE_FIELDS: tuple[str, ...] = (
+    "date",
+    "amount",
+    "description",
+    "notes",
+    "payee",
+    "counterparty_account",
+    "debit",
+    "credit",
+)
+
+
+def auto_detected_fields(
+    detected: ColumnMapping | None, current: ColumnMapping | None
+) -> frozenset[str]:
+    """Which pickers still hold the column the importer put there.
+
+    ``detected`` is whatever the importer filled in by itself — header
+    detection, a saved import rule, or another file in the queue — recorded
+    on the file as ``auto_mapping``. A field is "auto" exactly while the
+    picker still holds that column; change it by hand and the two stop
+    matching, which is the badge going away.
+    """
+    if detected is None or current is None:
+        return frozenset()
+    return frozenset(
+        name
+        for name in _DETECTABLE_FIELDS
+        if getattr(detected, name) is not None and getattr(detected, name) == getattr(current, name)
+    )
 
 
 def _idx_to_widget(value: int | None) -> int:
@@ -57,12 +117,78 @@ def _widget_to_idx(value: Any) -> int | None:
     return int(value)
 
 
+#: Artboard 2d shows four rows of the file. Enough to recognise a column,
+#: few enough that the picker beside it stays on screen.
+SAMPLE_ROWS_SHOWN = 4
+#: A raw cell longer than this is cut, with the whole of it on hover.
+SAMPLE_CELL_CHARS = 32
+#: Row numbers spelled out in the warning before it says "and N more".
+_WARNING_ROWS_LISTED = 8
+
+
+def truncate_cell(value: str) -> str:
+    """Shorten a raw CSV value for the sample table, keeping an ellipsis."""
+    value = value.strip()
+    if len(value) <= SAMPLE_CELL_CHARS:
+        return value
+    return value[: SAMPLE_CELL_CHARS - 1] + "…"
+
+
+def message_is_summarised(message: str, error_rows: Container[int]) -> bool:
+    """Is the strip above already saying what this message says?
+
+    A message naming a row the strip lists is detail behind it, and reads as
+    a muted footnote. One with no row behind it — "Date column is required" —
+    is the thing standing between the user and an import, and keeps its
+    prominence even when other rows failed too.
+
+    The message's row is read once, rather than tried against every row the
+    strip knows: a file whose every row fails is exactly the case this
+    screen exists for, and it is the case a per-row scan would choke on.
+    """
+    line = row_error_line(message)
+    return line is not None and line in error_rows
+
+
+def row_count_label(count: int) -> str:
+    """The count in the app's number format, correctly plural: ``1,245 rows``.
+
+    Polish has three plural forms where English has two, and this is the one
+    number the caption exists to show — "3 wierszy" would be wrong. The rule
+    itself lives in :func:`kaleta.i18n.plural_key`; the formatting is the
+    app's usual ``,`` separator, so the caption reads like every other figure.
+    """
+    return t(plural_key("import.rows_count", count), count=f"{count:,}")
+
+
+def sample_body_slot() -> str:
+    """Vue body slot putting the whole of a cut cell behind a tooltip.
+
+    ``c0`` holds what is shown, ``t0`` what the file actually said; the
+    tooltip appears only where the two differ, so a short value does not grow
+    a tooltip repeating itself.
+    """
+    return (
+        '<q-tr :props="props">'
+        '<q-td v-for="col in props.cols" :key="col.name" :props="props">'
+        "{{ props.row[col.name] }}"
+        "<q-tooltip v-if=\"props.row['t' + col.name.slice(1)] !== props.row[col.name]\">"
+        "{{ props.row['t' + col.name.slice(1)] }}"
+        "</q-tooltip>"
+        "</q-td>"
+        "</q-tr>"
+    )
+
+
 @dataclass
 class MappingSection:
     card: ui.card
     meta_label: ui.label
     sample_table: ui.table
     errors_column: ui.column
+    warning_strip: ui.row
+    warning_label: ui.label
+    badges: dict[str, ui.element]
     date_sel: ui.select
     amount_sel: ui.select
     description_sel: ui.select
@@ -147,12 +273,14 @@ class MappingSection:
 
         if inspection is not None:
             delim = inspection.delimiter.replace("\t", "TAB")
+            # "; · UTF-8 · 1,245 rows" — what the file *is*, not what the
+            # table below happens to be showing of it.
             self.meta_label.set_text(
                 t(
-                    "import.mapping_meta",
+                    "import.mapping_sample_caption",
                     delimiter=delim,
-                    columns=len(inspection.headers),
-                    rows=len(inspection.sample_rows),
+                    encoding=file.encoding,
+                    rows=row_count_label(inspection.total_rows),
                 )
             )
             self._render_sample(inspection)
@@ -160,7 +288,8 @@ class MappingSection:
             self.meta_label.set_text("")
             self.sample_table.rows = []
 
-        self._render_errors(file.parse_errors)
+        self._render_badges(file.auto_mapping, mapping)
+        self._render_errors(file.parse_errors, file.error_rows)
 
     def mapping_from_widgets(self) -> ColumnMapping:
         return ColumnMapping(
@@ -181,79 +310,162 @@ class MappingSection:
     def sync_to_file(self, file: QueuedFile) -> None:
         file.column_mapping = self.mapping_from_widgets()
 
+    def _render_badges(self, auto_mapping: ColumnMapping | None, mapping: ColumnMapping) -> None:
+        auto = auto_detected_fields(auto_mapping, mapping)
+        for name, badge in self.badges.items():
+            badge.set_visibility(name in auto)
+
     def _render_sample(self, inspection: CsvInspection) -> None:
+        # "1: Data", "2: Opis" — the same numbering the pickers use, so a
+        # column in the sample and its picker name each other.
         columns = [
             {
                 "name": f"c{i}",
-                "label": h.strip() or f"#{i + 1}",
+                "label": column_label(i, h),
                 "field": f"c{i}",
                 "align": "left",
             }
             for i, h in enumerate(inspection.headers)
         ]
         rows: list[dict[str, Any]] = []
-        for r_idx, row in enumerate(inspection.sample_rows):
+        for r_idx, row in enumerate(inspection.sample_rows[:SAMPLE_ROWS_SHOWN]):
             entry: dict[str, Any] = {"idx": r_idx}
             for c_idx, _header in enumerate(inspection.headers):
-                entry[f"c{c_idx}"] = row[c_idx] if c_idx < len(row) else ""
+                raw = row[c_idx] if c_idx < len(row) else ""
+                entry[f"c{c_idx}"] = truncate_cell(raw)
+                entry[f"t{c_idx}"] = raw.strip()
             rows.append(entry)
         self.sample_table.columns = columns
         self.sample_table.rows = rows
         self.sample_table.update()
 
-    def _render_errors(self, errors: list[str]) -> None:
+    def _render_errors(self, errors: list[str], error_rows: list[int]) -> None:
+        """A strip naming the rows that failed, and the messages behind it.
+
+        The rows were only ever listed on the Preview step, which is one step
+        too late: the columns that caused them are being chosen right here.
+        """
+        if error_rows:
+            shown = ", ".join(str(n) for n in error_rows[:_WARNING_ROWS_LISTED])
+            if len(error_rows) > _WARNING_ROWS_LISTED:
+                shown = t(
+                    "import.parse_warning_more",
+                    rows=shown,
+                    extra=len(error_rows) - _WARNING_ROWS_LISTED,
+                )
+            self.warning_label.set_text(
+                t("import.parse_warning", count=len(error_rows), rows=shown)
+            )
+        self.warning_strip.set_visibility(bool(error_rows))
+
         self.errors_column.clear()
+        listed = frozenset(error_rows)
         with self.errors_column:
+            shown_detail = 0
             for err in errors:
-                ui.label(err).classes("text-sm text-negative")
+                if message_is_summarised(err, listed):
+                    # The strip already counts them all and lists the first
+                    # few. A thousand muted repetitions under it would bury
+                    # the pickers the strip is pointing at.
+                    if shown_detail >= _WARNING_ROWS_LISTED:
+                        continue
+                    shown_detail += 1
+                    ui.label(err).classes(f"text-xs {MUTED}")
+                else:
+                    ui.label(err).classes("text-sm text-negative")
 
 
 def build_mapping_section() -> MappingSection:
-    card = ui.card().classes("w-full")
+    badges: dict[str, ui.element] = {}
+
+    def _picker(label_key: str, field: str, *, width: str = "w-full") -> ui.select:
+        """One column picker, with the ``auto`` pill that says where it came from.
+
+        Every column picker has a field, and so a pill; the format and
+        separator selects below are not column pickers and build their own.
+        """
+        with ui.column().classes(f"{width} gap-0.5 min-w-0"):
+            select = ui.select({}, label=t(label_key)).classes("w-full")
+            badge = ui.label(t("import.auto_badge")).classes(AUTO_BADGE)
+            # Which picker the pill belongs to, on the pill itself: the mark
+            # is the only thing on screen that names its own field.
+            badge.props[_BADGE_FIELD_ATTR] = field
+            badge.set_visibility(False)
+            badges[field] = badge
+        return select
+
+    card = ui.card().classes(f"{SECTION_CARD} w-full")
     card.set_visibility(False)
     with card:
-        ui.label(t("import.mapping_section")).classes("text-lg font-semibold mb-1")
-        ui.label(t("import.mapping_hint")).classes("text-xs text-slate-500 mb-2")
-        meta_label = ui.label("").classes("text-xs text-slate-500 mb-2")
-        sample_table = (
-            ui.table(columns=[], rows=[], row_key="idx").classes("w-full mb-3").props("dense flat")
-        )
-        errors_column = ui.column().classes("w-full gap-1 mb-3")
+        ui.label(t("import.mapping_section")).classes(SECTION_HEADING)
+        ui.label(t("import.mapping_hint")).classes(f"{BODY_MUTED} mb-3")
 
-        ui.label(t("import.mapping_fields")).classes("text-sm font-medium mb-1")
-        with ui.row().classes("w-full gap-4 flex-wrap"):
-            date_sel = ui.select({}, label=t("import.mapping_date")).classes("flex-1 min-w-48")
-            amount_sel = ui.select({}, label=t("import.mapping_amount")).classes("flex-1 min-w-48")
-            description_sel = ui.select({}, label=t("import.mapping_description")).classes(
-                "flex-1 min-w-48"
-            )
-        with ui.row().classes("w-full gap-4 flex-wrap"):
-            notes_sel = ui.select({}, label=t("import.mapping_notes")).classes("flex-1 min-w-48")
-            payee_sel = ui.select({}, label=t("import.mapping_payee")).classes("flex-1 min-w-48")
-            counterparty_sel = ui.select({}, label=t("import.mapping_counterparty")).classes(
-                "flex-1 min-w-48"
-            )
-            debit_sel = ui.select({}, label=t("import.mapping_debit")).classes("flex-1 min-w-48")
-            credit_sel = ui.select({}, label=t("import.mapping_credit")).classes("flex-1 min-w-48")
+        # Two columns: the file on the left, the pickers on the right, so a
+        # column is mapped while its values are on screen. Under md they
+        # stack — `flex-col` really stacks them, where a wrapping row never
+        # would: two `min-w-0` children always fit on one line, however narrow
+        # it gets, and would have squeezed instead of wrapping.
+        with ui.row().classes("w-full gap-6 items-start no-wrap flex-col md:flex-row"):
+            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
+                meta_label = ui.label("").classes(f"{MONO} {MUTED} text-[11px]")
+                sample_table = (
+                    ui.table(columns=[], rows=[], row_key="idx")
+                    .classes(f"{TABLE_SURFACE} {MONO} text-[11px]")
+                    .props("dense flat")
+                )
+                sample_table.add_slot("body", sample_body_slot())
 
-        ui.label(t("import.mapping_formats")).classes("text-sm font-medium mb-1 mt-2")
-        with ui.row().classes("w-full gap-4 flex-wrap items-center"):
-            date_format_sel = ui.select(
-                _DATE_FORMAT_OPTIONS, label=t("import.mapping_date_format"), value=""
-            ).classes("flex-1 min-w-40")
-            decimal_sel = ui.select(
-                _DECIMAL_OPTIONS, label=t("import.mapping_decimal"), value=""
-            ).classes("flex-1 min-w-32")
-            thousands_sel = ui.select(
-                _THOUSANDS_OPTIONS, label=t("import.mapping_thousands"), value=""
-            ).classes("flex-1 min-w-32")
-            negative_expenses_cb = ui.checkbox(t("import.mapping_negative_expenses"), value=True)
+            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
+                # Above the pickers, not under the sample: what the strip says
+                # is which columns to go and change, and it is read on the way
+                # into them.
+                with ui.row().classes(
+                    f"{WARNING_STRIP} w-full items-start gap-2 px-3 py-2 rounded-lg"
+                ) as warning_strip:
+                    ui.icon("report_problem", size="16px")
+                    warning_label = ui.label("").classes("text-[12px] leading-snug")
+                warning_strip.set_visibility(False)
+                errors_column = ui.column().classes("w-full gap-0.5")
+                ui.label(t("import.mapping_fields")).classes(SECTION_TITLE)
+                with ui.row().classes("w-full gap-3 flex-wrap"):
+                    date_sel = _picker("import.mapping_date", "date", width="flex-1 min-w-40")
+                    amount_sel = _picker("import.mapping_amount", "amount", width="flex-1 min-w-40")
+                description_sel = _picker("import.mapping_description", "description")
+                with ui.row().classes("w-full gap-3 flex-wrap"):
+                    notes_sel = _picker("import.mapping_notes", "notes", width="flex-1 min-w-40")
+                    payee_sel = _picker("import.mapping_payee", "payee", width="flex-1 min-w-40")
+                with ui.row().classes("w-full gap-3 flex-wrap"):
+                    counterparty_sel = _picker(
+                        "import.mapping_counterparty",
+                        "counterparty_account",
+                        width="flex-1 min-w-40",
+                    )
+                    debit_sel = _picker("import.mapping_debit", "debit", width="flex-1 min-w-40")
+                    credit_sel = _picker("import.mapping_credit", "credit", width="flex-1 min-w-40")
+
+                ui.label(t("import.mapping_formats")).classes(f"{SECTION_TITLE} mt-2")
+                with ui.row().classes("w-full gap-3 flex-wrap items-center"):
+                    date_format_sel = ui.select(
+                        _DATE_FORMAT_OPTIONS, label=t("import.mapping_date_format"), value=""
+                    ).classes("flex-1 min-w-36")
+                    decimal_sel = ui.select(
+                        _DECIMAL_OPTIONS, label=t("import.mapping_decimal"), value=""
+                    ).classes("flex-1 min-w-28")
+                    thousands_sel = ui.select(
+                        _THOUSANDS_OPTIONS, label=t("import.mapping_thousands"), value=""
+                    ).classes("flex-1 min-w-28")
+                negative_expenses_cb = ui.checkbox(
+                    t("import.mapping_negative_expenses"), value=True
+                )
 
     return MappingSection(
         card=card,
         meta_label=meta_label,
         sample_table=sample_table,
         errors_column=errors_column,
+        warning_strip=warning_strip,
+        warning_label=warning_label,
+        badges=badges,
         date_sel=date_sel,
         amount_sel=amount_sel,
         description_sel=description_sel,

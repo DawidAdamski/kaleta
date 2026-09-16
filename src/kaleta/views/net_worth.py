@@ -14,8 +14,27 @@ from kaleta.services.net_worth_service import (
     AccountSnapshot,
     NetWorthSummary,
     PhysicalAssetSnapshot,
+    balance_sheet_split,
 )
+from kaleta.views.chart_utils import (
+    apply_dark,
+    chart_expense_color,
+    chart_income_color,
+)
+from kaleta.views.components.amount_label import format_net_amount, net_tone
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import (
+    AMOUNT_EXPENSE,
+    FILTER_CHIP,
+    INK,
+    MONO,
+    MUTED,
+    SECTION_CARD,
+    SECTION_HEADING,
+    SECTION_TITLE,
+    SPLIT_BAR,
+    TABLE_SURFACE,
+)
 
 
 def _type_label() -> dict[AccountType, str]:
@@ -40,32 +59,90 @@ def _fmt(amount: Decimal, currency: str = "PLN") -> str:
     return f"{amount:,.2f} {currency}"
 
 
+def split_figure(amount: Decimal, currency: str = "PLN") -> tuple[str, str]:
+    """The headline figure as (whole, remainder) — ``1,234,567`` and ``.89 PLN``.
+
+    At 54px the grosze are the least interesting thing on the page and the
+    loudest; splitting them off lets the decimals be muted without the two
+    halves ever disagreeing about rounding.
+    """
+    whole, _, cents = f"{amount:,.2f}".partition(".")
+    return whole, f".{cents} {currency}"
+
+
 def _delta_pill(label: str, delta: Decimal | None, currency: str) -> None:
-    """Renders a 'label: ±value' pill with an arrow indicating direction."""
-    with ui.row().classes("items-center gap-1"):
-        ui.label(label).classes("text-xs text-slate-500 uppercase tracking-wide")
+    """A 'label ±value' chip, in the same tones the ledger uses for direction."""
+    tone = MUTED if delta is None else net_tone(delta)
+    with ui.row().classes(f"{FILTER_CHIP} items-center gap-1.5"):
+        ui.label(label).classes(f"{MUTED} text-[11px]")
         if delta is None:
-            ui.label("—").classes("text-sm text-slate-400")
+            ui.label("—").classes(f"{MONO} text-xs {MUTED}")
             return
-        icon = "arrow_upward" if delta >= 0 else "arrow_downward"
-        color = "positive" if delta >= 0 else "negative"
-        sign = "+" if delta >= 0 else ""
-        ui.icon(icon).classes(f"text-{color} text-sm")
-        ui.label(f"{sign}{_fmt(delta, currency)}").classes(f"text-sm font-medium text-{color}")
+        ui.icon("arrow_upward" if delta >= 0 else "arrow_downward", size="13px").classes(tone)
+        ui.label(f"{format_net_amount(delta)} {currency}").classes(f"{MONO} text-xs {tone}")
 
 
 def _header_strip(summary: NetWorthSummary, currency: str) -> None:
-    """Top-of-page net-worth headline with 30d + YTD delta pills."""
-    color = "primary" if summary.net_worth >= 0 else "negative"
-    with (
-        ui.card().classes("w-full p-6"),
-        ui.column().classes("w-full items-center gap-2"),
-    ):
-        ui.label(t("net_worth.net_worth")).classes("text-sm text-slate-500 uppercase tracking-wide")
-        ui.label(_fmt(summary.net_worth, currency)).classes(f"text-4xl font-bold text-{color}")
-        with ui.row().classes("gap-6 mt-1 flex-wrap justify-center"):
-            _delta_pill(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)
-            _delta_pill(t("net_worth.vs_start_of_year"), summary.delta_ytd, currency)
+    """The headline, left-aligned, with its two deltas beside it.
+
+    Centred, the figure had nothing to line up with; against the left margin
+    it shares an edge with everything below it.
+    """
+    tone = INK if summary.net_worth >= 0 else AMOUNT_EXPENSE
+    whole, remainder = split_figure(summary.net_worth, currency)
+    with ui.column().classes("w-full gap-1"):
+        ui.label(t("net_worth.net_worth")).classes(SECTION_TITLE)
+        with ui.row().classes("items-baseline gap-2 flex-wrap"):
+            ui.label(whole).classes(f"{MONO} {tone} text-[54px] leading-none font-light")
+            ui.label(remainder).classes(f"{MONO} {MUTED} text-lg")
+            with ui.row().classes("items-center gap-2 ml-2 flex-wrap"):
+                _delta_pill(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)
+                _delta_pill(t("net_worth.vs_start_of_year"), summary.delta_ytd, currency)
+
+
+def _balance_sheet_bar(summary: NetWorthSummary, currency: str) -> None:
+    """One bar, three segments: what is held, what is owned, what is owed.
+
+    The shape of the sheet before any table — the same net worth can be
+    10 000 owned outright or 200 000 owned against 190 000 owed, and those
+    are not the same position.
+    """
+    split = balance_sheet_split(summary)
+    if split is None:
+        return
+
+    segments = (
+        (t("net_worth.split_accounts"), split.accounts, summary.account_assets, "k-split--ink"),
+        (
+            t("net_worth.split_physical"),
+            split.physical,
+            summary.total_physical_assets,
+            "k-split--neutral",
+        ),
+        (
+            t("net_worth.split_liabilities"),
+            split.liabilities,
+            summary.total_liabilities,
+            "k-split--owed",
+        ),
+    )
+
+    with ui.column().classes("w-full gap-2"):
+        # A plain div, not ui.row: nicegui-row puts a default gap between
+        # its children, and a gap here would be read as a fourth segment.
+        with ui.element("div").classes(f"{SPLIT_BAR} w-full"):
+            for label, pct, amount, tone in segments:
+                if pct <= 0:
+                    continue
+                seg = ui.element("div").classes(f"k-split-seg {tone}").style(f"width:{pct:.4f}%")
+                seg.props["aria-label"] = f"{label}: {_fmt(amount, currency)}"
+        with ui.row().classes("gap-5 flex-wrap"):
+            for label, pct, amount, tone in segments:
+                with ui.row().classes("items-center gap-1.5"):
+                    ui.element("div").classes(f"k-split-dot {tone}")
+                    ui.label(label).classes(f"{MUTED} text-xs")
+                    ui.label(_fmt(amount, currency)).classes(f"{MONO} text-xs")
+                    ui.label(f"{pct:.0f}%").classes(f"{MUTED} {MONO} text-xs")
 
 
 def _chart(summary: NetWorthSummary, dark: bool) -> None:
@@ -76,61 +153,75 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
     net-worth value in the header remains the difference. The intent is to
     convey the *size* of both sides at a glance.
     """
+    ui.echart(net_worth_chart_options(summary, dark)).classes("w-full h-64")
+
+
+#: How solid the two area fills are. They used to be solid enough that the
+#: upper band was the loudest thing on the page and the lower one was hard to
+#: read underneath it.
+_FILL_OPACITY = 0.22
+
+
+def net_worth_chart_options(summary: NetWorthSummary, dark: bool) -> dict[str, Any]:
+    """The stacked chart's options, separated so the stacking can be tested."""
     labels = [s.label for s in summary.history]
     assets_k = [round(float(s.total_assets) / 1000, 1) for s in summary.history]
     liabilities_k = [round(float(s.total_liabilities) / 1000, 1) for s in summary.history]
-    text_color = "#e0e0e0" if dark else "#555555"
+    assets_color = chart_income_color(dark)
+    liabilities_color = chart_expense_color(dark)
 
-    ui.echart(
-        {
-            "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-            "legend": {
-                "data": [t("net_worth.assets"), t("net_worth.liabilities")],
-                "textStyle": {"color": text_color},
-                "top": 0,
+    def _series(name: str, data: list[float], color: str) -> dict[str, Any]:
+        return {
+            "name": name,
+            "type": "line",
+            "stack": "total",
+            "data": data,
+            "smooth": True,
+            "symbol": "circle",
+            "symbolSize": 4,
+            "lineStyle": {"color": color, "width": 2},
+            "itemStyle": {"color": color},
+            "areaStyle": {"color": color, "opacity": _FILL_OPACITY},
+            # Each line says what it ends at, so the reader does not have to
+            # hover to find out where the chart leaves them.
+            "endLabel": {
+                "show": True,
+                "formatter": "{c}k",
+                "color": color,
+                "fontSize": 11,
             },
-            "grid": {"left": "10%", "right": "4%", "top": "12%", "bottom": "18%"},
-            "xAxis": {
-                "type": "category",
-                "data": labels,
-                "axisLabel": {"rotate": 45, "fontSize": 11, "color": text_color},
-                "axisLine": {"lineStyle": {"color": text_color}},
-            },
-            "yAxis": {
-                "type": "value",
-                "name": t("net_worth.thousand_pln"),
-                "nameTextStyle": {"color": text_color, "fontSize": 10},
-                "axisLabel": {"formatter": "{value}k", "color": text_color},
-                "splitLine": {"lineStyle": {"color": "#444444" if dark else "#e0e0e0"}},
-            },
-            "series": [
-                {
-                    "name": t("net_worth.assets"),
-                    "type": "line",
-                    "stack": "total",
-                    "data": assets_k,
-                    "smooth": True,
-                    "symbol": "circle",
-                    "symbolSize": 4,
-                    "lineStyle": {"color": "#2e7d32", "width": 2},
-                    "itemStyle": {"color": "#2e7d32"},
-                    "areaStyle": {"color": "#4caf50", "opacity": 0.35},
-                },
-                {
-                    "name": t("net_worth.liabilities"),
-                    "type": "line",
-                    "stack": "total",
-                    "data": liabilities_k,
-                    "smooth": True,
-                    "symbol": "circle",
-                    "symbolSize": 4,
-                    "lineStyle": {"color": "#c62828", "width": 2},
-                    "itemStyle": {"color": "#c62828"},
-                    "areaStyle": {"color": "#ef5350", "opacity": 0.35},
-                },
-            ],
         }
-    ).classes("w-full h-64")
+
+    options: dict[str, Any] = {
+        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+        "legend": {
+            # The upper edge is assets *plus* liabilities, not net worth. The
+            # legend says so rather than leaving the reader to infer it from a
+            # line that looks like a total.
+            "data": [t("net_worth.assets"), t("net_worth.chart_liabilities_stacked")],
+            "top": 0,
+        },
+        "grid": {"left": "10%", "right": "10%", "top": "12%", "bottom": "18%"},
+        "xAxis": {
+            "type": "category",
+            "data": labels,
+            "axisLabel": {"rotate": 45, "fontSize": 11},
+        },
+        "yAxis": {
+            "type": "value",
+            # From zero: a floating baseline makes a steady balance sheet look
+            # like a cliff.
+            "min": 0,
+            "name": t("net_worth.thousand_pln"),
+            "nameTextStyle": {"fontSize": 10},
+            "axisLabel": {"formatter": "{value}k"},
+        },
+        "series": [
+            _series(t("net_worth.assets"), assets_k, assets_color),
+            _series(t("net_worth.chart_liabilities_stacked"), liabilities_k, liabilities_color),
+        ],
+    }
+    return apply_dark(options, dark)
 
 
 def _account_table(
@@ -139,7 +230,7 @@ def _account_table(
     filtered = [a for a in accounts if a.is_asset == assets]
     filtered.sort(key=lambda a: abs(a.balance_in_default), reverse=True)
     if not filtered:
-        ui.label(t("common.none")).classes("text-slate-400 text-sm px-4 py-2")
+        ui.label(t("common.none")).classes(f"{MUTED} text-sm py-2")
         return
 
     columns = [
@@ -167,7 +258,23 @@ def _account_table(
         }
         for a in filtered
     ]
-    ui.table(columns=columns, rows=rows, row_key="name").classes("w-full").props("flat wrap-cells")
+    ui.table(columns=columns, rows=rows, row_key="name").classes(f"{TABLE_SURFACE} mt-2").props(
+        "flat wrap-cells"
+    )
+
+
+def _loans_footnote() -> None:
+    """What the two tables above deliberately leave out.
+
+    Money lent to a friend is an asset by any honest reckoning, but the app
+    tracks it on its own page and not in the balance sheet — so the tables
+    say where it lives instead of quietly under-counting.
+    """
+    with ui.row().classes("w-full items-center gap-1.5 flex-wrap"):
+        ui.label(t("net_worth.loans_footnote")).classes(f"{MUTED} text-xs")
+        ui.link(t("net_worth.loans_footnote_link"), "/wizard/personal-loans").classes(
+            f"{MUTED} text-xs underline"
+        )
 
 
 def _physical_assets_section(summary: NetWorthSummary) -> None:
@@ -179,7 +286,7 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
     @ui.refreshable
     def assets_ui() -> None:
         if not summary.physical_assets:
-            ui.label(t("net_worth.no_assets")).classes("text-slate-400 text-sm px-4 py-2")
+            ui.label(t("net_worth.no_assets")).classes(f"{MUTED} text-sm py-2")
             return
 
         asset_type_labels = _asset_type_label()
@@ -206,7 +313,11 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
             for a in summary.physical_assets
         ]
 
-        table = ui.table(columns=columns, rows=rows, row_key="id").classes("w-full").props("flat")
+        table = (
+            ui.table(columns=columns, rows=rows, row_key="id")
+            .classes(f"{TABLE_SURFACE} mt-2")
+            .props("flat dense")
+        )
         table.add_slot(
             "body-cell-actions",
             """
@@ -357,8 +468,8 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
         add_dlg.open()
 
     ui.button(t("net_worth.add_asset"), icon="add", on_click=_on_add).props(
-        "flat color=primary"
-    ).classes("mx-4 mb-2")
+        "flat dense color=primary size=sm"
+    ).classes("self-start mt-1")
 
 
 def register() -> None:
@@ -376,46 +487,47 @@ def register() -> None:
         summary = await with_session(_load_summary)
 
         with page_layout(t("net_worth.title")):
-            # ── Header strip: big net-worth number + delta pills ──────────────
-            _header_strip(summary, default_currency)
+            # ── Hero + physical assets side by side from lg up ────────────────
+            with ui.row().classes("w-full gap-4 items-start flex-wrap lg:flex-nowrap"):
+                with ui.card().classes(
+                    f"{SECTION_CARD} basis-full lg:basis-3/5 flex-1 min-w-0 gap-5"
+                ):
+                    _header_strip(summary, default_currency)
+                    _balance_sheet_bar(summary, default_currency)
 
-            # ── Physical assets ───────────────────────────────────────────────
-            with ui.card().classes("w-full p-0 overflow-hidden"):
-                with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
-                    ui.icon("home", color="primary").classes("text-xl")
-                    ui.label(t("net_worth.physical_assets")).classes("text-lg font-semibold flex-1")
-                    ui.label(_fmt(summary.total_physical_assets, default_currency)).classes(
-                        "font-bold text-primary text-sm"
-                    )
-                _physical_assets_section(summary)
+                with ui.card().classes(
+                    f"{SECTION_CARD} basis-full lg:basis-2/5 flex-1 min-w-0 gap-1"
+                ):
+                    with ui.row().classes("w-full items-baseline justify-between"):
+                        ui.label(t("net_worth.physical_assets")).classes(SECTION_HEADING)
+                        ui.label(_fmt(summary.total_physical_assets, default_currency)).classes(
+                            f"{MONO} {INK} text-sm"
+                        )
+                    _physical_assets_section(summary)
 
             # ── Stacked trend chart ───────────────────────────────────────────
-            with ui.card().classes("w-full"):
-                with ui.row().classes("items-center px-4 pt-4 pb-2"):
-                    ui.icon("show_chart").classes("text-primary text-xl")
-                    ui.label(t("net_worth.history")).classes("text-lg font-semibold ml-2")
+            with ui.card().classes(SECTION_CARD):
+                ui.label(t("net_worth.history")).classes(SECTION_HEADING)
                 _chart(summary, dark)
 
             # ── Assets / Liabilities two-column split ─────────────────────────
-            with ui.row().classes("w-full gap-4 flex-wrap"):
-                # Assets (left)
-                with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
-                    with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
-                        ui.icon("trending_up", color="positive").classes("text-xl")
-                        ui.label(t("net_worth.assets")).classes("text-lg font-semibold flex-1")
+            with ui.row().classes("w-full gap-4 items-start flex-wrap lg:flex-nowrap"):
+                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-80 gap-1"):
+                    with ui.row().classes("w-full items-baseline justify-between"):
+                        ui.label(t("net_worth.assets")).classes(SECTION_HEADING)
                         ui.label(_fmt(summary.total_assets, default_currency)).classes(
-                            "font-bold text-positive text-sm"
+                            f"{MONO} {INK} text-sm"
                         )
                     _account_table(summary.accounts, assets=True, default_currency=default_currency)
 
-                # Liabilities (right)
-                with ui.card().classes("flex-1 min-w-80 p-0 overflow-hidden"):
-                    with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
-                        ui.icon("trending_down", color="negative").classes("text-xl")
-                        ui.label(t("net_worth.liabilities")).classes("text-lg font-semibold flex-1")
+                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-80 gap-1"):
+                    with ui.row().classes("w-full items-baseline justify-between"):
+                        ui.label(t("net_worth.liabilities")).classes(SECTION_HEADING)
                         ui.label(_fmt(summary.total_liabilities, default_currency)).classes(
-                            "font-bold text-negative text-sm"
+                            f"{MONO} {AMOUNT_EXPENSE} text-sm"
                         )
                     _account_table(
                         summary.accounts, assets=False, default_currency=default_currency
                     )
+
+            _loans_footnote()

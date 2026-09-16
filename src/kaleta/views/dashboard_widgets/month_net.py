@@ -13,6 +13,7 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.views.dashboard_widgets.helpers import fmt_amount, kpi_card
 from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.theme import KPI_TREND_NEGATIVE, KPI_TREND_POSITIVE
 
 
 @register(
@@ -21,13 +22,14 @@ from kaleta.views.dashboard_widgets.registry import register
     "swap_vert",
     (2, 1),
     ((1, 1), (2, 1)),
+    legacy=True,
 )
 async def render_month_net(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     svc = ReportService(session)
     income, expenses = await svc.current_month_summary()
     net = income - expenses
     delta = await svc.month_net_delta()
-    color_cls = "text-green-700" if net >= 0 else "text-red-700"
+    color_cls = KPI_TREND_POSITIVE if net >= 0 else KPI_TREND_NEGATIVE
     kpi_card(
         t("dashboard.month_net"),
         fmt_amount(net),

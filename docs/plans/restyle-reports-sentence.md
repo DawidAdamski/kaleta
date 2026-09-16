@@ -3,7 +3,7 @@ plan_id: restyle-reports-sentence
 title: Restyle — Report builder as a clickable sentence with the chart first (artboard 3e)
 area: reports
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#reports
 ---
 
@@ -78,6 +78,8 @@ storage; canned reports (`reports_canned/`); Money Flow.
 - `src/kaleta/views/reports/config_zone.py` (rewrite), `page.py`,
   `chart_zone.py`, `saved_section.py`, `palette.py`, `constants.py`
 - `src/kaleta/views/chart_utils.py`
+- `src/kaleta/views/theme.py` (`SENTENCE_SLOT` / `SENTENCE_SLOT_TARGET`
+  for the clickable words, `DRAGGING_BODY` for the drag highlight)
 - `src/kaleta/i18n/locales/en.json`, `pl.json`
   (`reports.sentence_show`, `reports.sentence_grouped_by`,
   `reports.sentence_for`, `reports.sentence_over`, `reports.sentence_top`,
@@ -97,4 +99,124 @@ storage; canned reports (`reports_canned/`); Money Flow.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — Polish grammar: fixed slot order, colon
+  connectors.** The default forbids per-locale reordering, and the real
+  obstacle is not order but case: every slot label is a nominative noun
+  from the existing i18n keys ("Suma kwot", "Kategoria"), and Polish
+  connectors want the genitive or accusative. Inflecting them would mean
+  either a second set of labels per slot or grammar logic in the view.
+  So English reads as prose — *Show Total Amount grouped by Category for
+  Expense over This Year, top 10.* — and Polish reads as a labelled line
+  — *Pokaż: Suma kwot · grupowanie: Kategoria · typ: Wydatek · okres:
+  Bieżący rok · limit: 10* — where a nominative after a colon is
+  correct. Same order, same slots, no grammar logic. `sentence_end`
+  carries the full stop so Polish can end with nothing.
+
+- **Open question 2 — drops kept.** The measure and dimension slots take
+  a drop and outline themselves while a rail row is being dragged
+  (`SENTENCE_SLOT_TARGET`); `drop_dimension` / `drop_metric` are
+  unchanged. Clicking a rail row does the same thing through the new
+  `set_field`, which is the shorter path.
+
+- **The slot labels are the menu labels.** A slot reads exactly like the
+  option you picked in its menu, because both come from the same
+  `reports.*` key. The manual criterion quotes "Sum of amount" and
+  lowercase "expenses"; `reports.metric_sum` is "Total Amount" and
+  `reports.type_expense` is "Expense", so the real sentence is *Show
+  Total Amount grouped by Category for Expense over This Year, top 10.*
+  The criterion was written from the artboard, not from the locale file.
+  Sentence-case duplicates of nine existing keys would have bought the
+  artboard's exact wording at the price of the slot and its menu
+  disagreeing.
+
+- **"N transactions in scope" is omitted, as Scope allows.**
+  `ReportResult` carries `labels`, `values` and two headers — group
+  counts, not a transaction count — and the plan says to omit the figure
+  if the service does not expose it. The header carries the saved
+  report's name, or "Unsaved report", and nothing it cannot back up.
+
+- **`Export CSV` is not in the header.** Scope calls Export CSV and Save
+  report "existing handlers". Save exists; Export does not — there is no
+  CSV export anywhere in `views/reports/` or `saved_report_service`.
+  Building one is new behaviour, not a restyle, and the report engine is
+  out of scope. The header ships Run and Save; Export is a chore-inbox
+  line for the owner.
+
+- **`build_echart_option` moved out of the service and into the view.**
+  It drew ECharts' default blue (`#3b82f6`) against grey axes — the one
+  chart in the app that had never met the palette — and a chart option
+  dict is presentation, not business logic (AGENTS.md: services hold
+  business logic, views stay thin). It is now
+  `views/reports/chart_options.py`, built on `chart_utils.chart_palette`
+  and `apply_dark`, and unit-tested. Nothing else imported it and no
+  test covered it; `build_report_table_data` stays where it was.
+
+- **Bars run left to right, largest at the top.** Vertical bars rotated
+  the category names 30° as soon as there were more than six, and a
+  rotated name is slower to read than the number beside it. ECharts
+  fills a category axis bottom-up, so both the labels and the data are
+  reversed — the chart then reads in the same order as the table. Each
+  bar carries its value and its share; `share_percents` takes each
+  value's magnitude, so a dimension that can go negative still gives
+  shares that sum to 100, and a total of zero yields zeroes rather than
+  a division that happens to survive.
+
+- **`saved_section.py` is gone.** Saved reports are the rail's third
+  group now, which is where Scope puts them; the module had no other
+  caller.
+
+- **New files beyond the Touchpoints list:** `reports/sentence.py` (the
+  pure label helpers, so what each slot says is unit-testable without a
+  browser) and `reports/chart_options.py` (above). Both are siblings of
+  the rewritten `config_zone.py` rather than new layers. `theme.py` is
+  also touched, for the three tokens the sentence needs; it has been
+  added to Touchpoints above.
+
+- **The error line lost its "Error:" prefix.** It is now a red warning
+  icon and the message in the negative tone, which says the same thing
+  in the app's own vocabulary; the word was doing the job the colour and
+  the icon now do.
+
+- **The filter chips count in both languages.** "1 accounts" was the
+  first wording; `plural_key` already exists for this, so the chip reads
+  "1 account" / "3 accounts" and "1 konto" / "3 konta" / "7 kont".
+
+- **The drop highlight is a body class, not a repaint.** The first
+  version refreshed the sentence on `dragstart` so the slots could
+  outline themselves — which destroys the very element the browser is
+  aiming the drop at, and the drop is then never delivered. The rail's
+  `dragstart` now adds `k-dragging` to `body` in the browser
+  (`js_handler` alongside the Python handler) and removes it on
+  `dragend`; the slots carry `k-slot--drop` at all times and are lit by
+  CSS. Verified in a browser: both slots light up during a drag, the
+  class is gone afterwards, and dragging *Account* and *Count* onto
+  their slots sets them.
+
+- **`top_n` keeps its full range.** The slot menu offers 5 / 10 / 20 /
+  50 / no limit, and under a separator a number field for anything else
+  — the control it replaced took 0–100, and 15 or 100 must stay
+  reachable. The field applies on Enter or on blur, never per keystroke:
+  setting the state repaints the sentence, and a repaint mid-number
+  would take the field away after the first digit.
+
+- **Deleting the open report clears the header.** It was left naming a
+  record that no longer existed, and the next Save would have recreated
+  it under that stale name.
+
+- **Nine dead `reports.*` keys removed from both locales** (`dimensions`,
+  `measures`, `filters`, `tx_types`, `date_range`, `top_n_hint`,
+  `all_accounts`, `all_categories`, `drop_here`) — the rewrite orphaned
+  them, and they are in the area this branch already owns. `top_n`
+  stays: it labels the number field in the menu.
+
+- **The open report is tracked by id, not by name.** Nothing stops two
+  saved reports sharing a name — `save_report` always creates — so
+  clearing the header on a name match would clear it for a duplicate
+  that is still open. `state["report_id"]` is set when a report is
+  loaded or saved and compared on delete. A refused (blank) name now
+  keeps the dialog and what was typed into it, instead of closing over
+  a warning toast.
+
+- **Stacking:** branched from `plan/restyle-wizard-index`, which is
+  itself unmerged. Open the PR with `--base plan/restyle-wizard-index`;
+  it must merge after every branch below it.

@@ -174,6 +174,28 @@ def seed_transaction(
     return resp.json()["id"]
 
 
+def seed_transfer_pair(
+    out_account_id: int,
+    in_account_id: int,
+    category_id: int,
+    amount: float,
+    description: str,
+) -> tuple[int, int]:
+    """Create two transfer legs that point at each other; returns both ids."""
+    out_id = seed_transaction(
+        out_account_id, category_id, amount, tx_type="transfer", description=f"{description} out"
+    )
+    in_id = seed_transaction(
+        in_account_id, category_id, amount, tx_type="transfer", description=f"{description} in"
+    )
+    for tx_id, other in ((out_id, in_id), (in_id, out_id)):
+        resp = _client.put(
+            f"{API_BASE}/transactions/{tx_id}", json={"linked_transaction_id": other}
+        )
+        resp.raise_for_status()
+    return out_id, in_id
+
+
 def count_transactions(account_id: int) -> int:
     """Return the number of transactions currently booked on an account."""
     resp = _client.get(

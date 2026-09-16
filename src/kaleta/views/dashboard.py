@@ -18,6 +18,8 @@ The full layout — widget order *and* per-widget size — is persisted in
 
 from __future__ import annotations
 
+import datetime
+import logging
 from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
@@ -26,19 +28,38 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from kaleta.services.report_service import SavingsRatePoint
+
 from kaleta.i18n import t
 from kaleta.services import with_session
 from kaleta.views.dashboard_widgets import (
+    BAND_ORDER,
     DEFAULT_WIDGETS,
+    HERO_WIDGET,
     WIDGETS,
+    Band,
     Widget,
+    bands_for_layout,
     default_layout,
     resolve_user_layout,
+    selectable_widgets,
 )
+from kaleta.views.dashboard_widgets.helpers import fmt_number
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import PAGE_TITLE
+from kaleta.views.theme import (
+    BAND_TITLE,
+    DASH_PAGE_CONTAINER,
+    PAGE_TITLE,
+    WATCH_FIGURE,
+    WATCH_LABEL,
+)
+
+logger = logging.getLogger(__name__)
 
 _GRID_COLUMNS = 4
+
+#: Below this the dashboard is stacked bands, not a grid (Tailwind `md`).
+_MOBILE_MAX_WIDTH = 768
 
 _SORTABLE_SCRIPT = '<script src="/static/vendor/sortable.min.js"></script>'
 
@@ -48,7 +69,7 @@ _EDIT_MODE_STYLE = f"""
     display: grid;
     grid-template-columns: repeat({_GRID_COLUMNS}, minmax(0, 1fr));
     grid-auto-rows: minmax(120px, auto);
-    gap: 16px;
+    gap: 20px;
     width: 100%;
   }}
   @media (max-width: 768px) {{
@@ -76,8 +97,8 @@ _EDIT_MODE_STYLE = f"""
     display: none;
     padding: 2px 4px;
     border-radius: 6px;
-    color: #64748b;
-    background: rgba(148,163,184,0.14);
+    color: var(--k-muted);
+    background: var(--k-surface-sunken);
   }}
   .dash-widget-wrap .dash-drag-handle-icon {{
     right: 6px;
@@ -88,10 +109,10 @@ _EDIT_MODE_STYLE = f"""
     cursor: pointer;
   }}
   .dash-widget-wrap .dash-resize-btn:hover {{
-    background: rgba(148,163,184,0.28);
+    background: var(--k-surface-warm);
   }}
   body.dash-editing .dash-widget-wrap {{
-    outline: 1px dashed rgba(100,116,139,0.45);
+    outline: 1px dashed var(--k-border-strong);
     outline-offset: 4px;
     border-radius: 10px;
     cursor: grab;
@@ -102,7 +123,7 @@ _EDIT_MODE_STYLE = f"""
     display: block;
   }}
   body.dash-editing .dash-widget-wrap:focus-visible {{
-    outline: 2px solid rgb(59,130,246);
+    outline: 2px solid var(--k-accent);
   }}
   .dash-edit-banner {{ display: none; }}
   body.dash-editing .dash-edit-banner {{ display: flex; }}
@@ -137,8 +158,11 @@ window.__kaletaInitDashSortable = function() {
     document.body.classList.contains('dash-editing'));
 };
 window.__kaletaPostDashLayout = function() {
+  // Every band, not just the draggable one: the Month grid is the only
+  // thing Sortable reorders, but a layout that listed only its widgets
+  // would drop the hero and the banner from storage on the first drag.
   const entries = Array.from(
-    document.querySelectorAll('#dash-grid [data-widget-id]')
+    document.querySelectorAll('#dash-bands [data-widget-id]')
   ).map(e => ({
     id: e.dataset.widgetId,
     cols: parseInt(e.dataset.cols, 10) || 1,
@@ -221,7 +245,11 @@ def _validate_layout(
 
     Rules:
     - each ``id`` must exist in WIDGETS
-    - ``(cols, rows)`` must be in the widget's ``allowed_sizes``
+    - a ``(cols, rows)`` outside the widget's ``allowed_sizes`` — or missing
+      altogether — falls back to its ``default_size``, the same answer
+      ``resolve_user_layout`` gives on the way in. Dropping the row instead
+      is how a widget disappears from a dashboard for no reason its owner
+      can see: the size is the layout's business, the widget is theirs.
     - duplicates collapsed to first occurrence
     - empty result falls back to ``stored``
     """
@@ -234,11 +262,10 @@ def _validate_layout(
         w = WIDGETS[wid]
         cols = entry.get("cols")
         rows = entry.get("rows")
-        if not isinstance(cols, int) or not isinstance(rows, int):
-            continue
-        if (cols, rows) not in w.allowed_sizes:
-            continue
-        cleaned.append({"id": wid, "cols": cols, "rows": rows})
+        size = (cols, rows) if isinstance(cols, int) and isinstance(rows, int) else None
+        if size not in w.allowed_sizes:
+            size = w.default_size
+        cleaned.append({"id": wid, "cols": size[0], "rows": size[1]})
         seen.add(wid)
     return cleaned or list(stored)
 
@@ -293,6 +320,258 @@ def _register_layout_endpoint() -> None:
         return {"status": "ok"}
 
 
+def _period_eyebrow() -> str:
+    """ "Jul 2026 · day 3" — where in the month the figures below stand."""
+    today = datetime.date.today()
+    return t(
+        "dashboard.period_eyebrow",
+        month=t(f"common.month_short_{today.month}"),
+        year=today.year,
+        day=today.day,
+    )
+
+
+async def _viewport_is_mobile() -> bool:
+    """Which dashboard to build, decided once, server-side.
+
+    Rendering both trees and hiding one with CSS would run every widget's
+    queries twice on every load, which is exactly what a phone cannot afford.
+    So the page waits for the socket and asks the browser how wide it is.
+    A client that never connects — a crawler, a tab closed mid-load — gets
+    the desktop grid, which is also what a resize after load leaves you on:
+    the choice is made when the page is built, not while you hold it.
+    """
+    client = ui.context.client
+    try:
+        await client.connected(timeout=10.0)
+        width = await ui.run_javascript("window.innerWidth", timeout=5.0)
+    except TimeoutError:
+        # The only failure worth swallowing: nobody answered. Anything else is
+        # a bug that should be seen rather than quietly served a desktop grid.
+        logger.info("Viewport width unavailable; rendering the desktop grid", exc_info=True)
+        return False
+    return isinstance(width, int | float) and width < _MOBILE_MAX_WIDTH
+
+
+#: What a Watch figure reads when there is no answer to give.
+_NO_FIGURE = "—"
+
+
+def _watch_rate_label(points: list[SavingsRatePoint]) -> str:
+    """The savings-rate figure, or ``—`` when no month has a rate at all.
+
+    ``savings_rate`` zero-fills, so it always answers with as many months as
+    it was asked for and the list is never empty: a ledger with no income
+    arrives here as points whose ``rate_pct`` is ``None``, and a band that
+    reads "0.0%" for a rate nobody has is stating a figure it does not have
+    — the very thing "—" exists to avoid two rows down at Safety fund cover.
+    :meth:`ReportService.mean_savings_rate_pct` averages the months that have
+    an answer and says ``None`` when none do.
+    """
+    from kaleta.services import ReportService
+
+    rate = ReportService.mean_savings_rate_pct(points)
+    return _NO_FIGURE if rate is None else f"{float(rate):.1f}%"
+
+
+async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
+    """The four slow figures of the Watch band, as (label, value).
+
+    The four artboard ``1e`` names, which are not the four ``1f``'s Scope
+    named — see Open question 1. They are not widgets either: the ones the
+    handoff draws here were merged into the month and balance cards by
+    ``restyle-dashboard`` and marked legacy. Plain type on the ground is what
+    the band is for anyway; these are figures you glance at, not cards you
+    work in.
+    """
+    from kaleta.services import ReportService
+    from kaleta.services.forecast_service import ForecastService
+    from kaleta.services.net_worth_service import NetWorthService
+    from kaleta.services.reserve_fund_service import ReserveFundService
+
+    reports = ReportService(session)
+    net_worth = await NetWorthService(session).get_summary(history_months=2)
+    # Six months, not this month and not the year: the artboard labels it
+    # "6-mo avg", and an average over half a year is the one savings figure
+    # that neither swings with a fresh month nor drags a whole year behind it.
+    # Seven asked for, the last dropped: the current month is in progress, and
+    # on the 3rd — before the salary lands — it would drag the mean down by a
+    # sixth and put it back a week later. That is the swing this figure was
+    # chosen to avoid.
+    rate_label = _watch_rate_label((await reports.savings_rate(months=7))[:-1])
+    # No guard around the forecast: the forecaster already swallows a model
+    # that will not fit and answers with no prediction, which arrives here as
+    # ``None`` and reads as an em dash. A guard here would have caught only
+    # what `month_card` — a default widget in the band above — leaves
+    # unguarded anyway, which is the dashboard-wide per-widget isolation gap.
+    forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
+    predicted = forecast.predicted_balance_30d
+    cover = await ReserveFundService(session).emergency_cover_months()
+    return [
+        (t("dashboard_widgets.net_worth"), fmt_number(net_worth.net_worth)),
+        (t("dashboard.watch_savings_rate"), rate_label),
+        (t("dashboard.balance_30"), _NO_FIGURE if predicted is None else fmt_number(predicted)),
+        (
+            t("dashboard.watch_safety_cover"),
+            _NO_FIGURE
+            if cover is None
+            else t("dashboard.watch_months", months=f"{float(cover):.1f}"),
+        ),
+    ]
+
+
+async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_dark: bool) -> None:
+    """The phone dashboard: stacked bands, no grid, no dragging.
+
+    Band order is fixed — it is the argument the layout is making — so the
+    stored desktop layout is read for *which* widgets and in what order
+    within a band, and never for position.
+    """
+    grouped = bands_for_layout(layout)
+    for band, title_key in BAND_ORDER:
+        entries = grouped[band]
+        is_watch = band is Band.WATCH
+        if not entries and not is_watch:
+            continue
+        with ui.column().classes("w-full gap-3").props(f'data-band="{band.value}"'):
+            ui.label(t(title_key)).classes(BAND_TITLE)
+            if is_watch:
+                await _render_watch_band(session, columns=2)
+            for entry in entries:
+                await _render_banded_widget(entry, session, is_dark)
+
+
+async def _render_desktop_bands(
+    session: AsyncSession, layout: list[dict[str, Any]], is_dark: bool
+) -> None:
+    """The same bands at 1360px (artboard 1e).
+
+    The grid did not go away — it moved. ``#dash-grid`` now wraps the Month
+    band alone, which is the whole of "drag-and-drop scoped to the Month
+    band": SortableJS, the resize button and the layout endpoint all key off
+    that id and needed no changes to follow it.
+    """
+    grouped = bands_for_layout(layout)
+    with ui.element("div").props('id="dash-bands"').classes("w-full flex flex-col gap-11"):
+        for band, title_key in BAND_ORDER:
+            entries = grouped[band]
+            # Watch is figures rather than widgets, and Month is the drag
+            # scope and the empty state: both are rendered with nothing in
+            # them. A Now or Latest band with nothing in it is just a heading.
+            if not entries and band not in (Band.WATCH, Band.MONTH):
+                continue
+            with ui.column().classes("w-full gap-4").props(f'data-band="{band.value}"'):
+                _band_header(band, title_key)
+                if band is Band.NOW:
+                    await _render_now_band(session, entries, is_dark)
+                elif band is Band.MONTH:
+                    await _render_month_grid(session, entries, is_dark)
+                elif band is Band.WATCH:
+                    await _render_watch_band(session, columns=4)
+                else:
+                    for entry in entries:
+                        await _render_banded_widget(entry, session, is_dark)
+
+
+def _band_header(band: Band, title_key: str) -> None:
+    """The band's name, and on Month the button that unlocks dragging.
+
+    "Edit this band" rather than "Edit layout": the label is the honest one
+    now that only this band's cards move.
+    """
+    with ui.row().classes("w-full items-baseline justify-between gap-4"):
+        ui.label(t(title_key)).classes(BAND_TITLE)
+        if band is Band.MONTH:
+            with ui.button(
+                on_click=lambda: ui.run_javascript("window.__kaletaToggleDashEdit()")
+            ).props("flat dense color=primary"):
+                ui.label(t("dashboard.band_edit_month")).props(
+                    f'id="dash-edit-btn-label" '
+                    f'data-label-edit="{t("dashboard.band_edit_month")}" '
+                    f'data-label-done="{t("dashboard_widgets.done_editing")}"'
+                )
+
+
+async def _render_banded_widget(
+    entry: dict[str, Any], session: AsyncSession, is_dark: bool
+) -> None:
+    """A widget outside the Month band: rendered, addressable, not draggable.
+
+    It carries ``data-cols``/``data-rows`` although nothing lays it out with
+    them: ``__kaletaPostDashLayout`` serialises every banded widget, and a
+    node with no size posts as 1×1 — a size none of these widgets allows, so
+    the endpoint dropped the hero, the banner and the Latest list from
+    storage on the first drag in the band next door.
+    """
+    widget = WIDGETS[entry["id"]]
+    with (
+        ui.element("div")
+        .classes("w-full")
+        .props(
+            f'data-widget-id="{widget.id}" data-cols="{entry["cols"]}" data-rows="{entry["rows"]}"'
+        )
+    ):
+        await widget.render(session, is_dark)
+
+
+async def _render_now_band(
+    session: AsyncSession, entries: list[dict[str, Any]], is_dark: bool
+) -> None:
+    """The hero, and everything else in the band beside it.
+
+    Two thirds to one: the hero is the page's answer and the banner and the
+    actions are what you do about it. Under `lg` they stack, because a
+    54px figure and a list of buttons do not share 500px.
+
+    The wide column belongs to the hero *by name*. It is an ordinary widget
+    the user can untick, and a band that gave two thirds to whatever came
+    first would hand a column sized for a 54px figure to the needs-attention
+    banner. Without the hero the band is one column of stacked widgets.
+    """
+    hero = next((entry for entry in entries if entry["id"] == HERO_WIDGET), None)
+    rest = [entry for entry in entries if entry is not hero]
+    with ui.row().classes("w-full gap-5 items-stretch flex-wrap lg:flex-nowrap"):
+        if hero is not None:
+            with ui.column().classes("flex-[2] min-w-[320px] gap-4"):
+                await _render_banded_widget(hero, session, is_dark)
+        if rest:
+            with ui.column().classes("flex-1 min-w-[280px] gap-4"):
+                for entry in rest:
+                    await _render_banded_widget(entry, session, is_dark)
+
+
+async def _render_month_grid(
+    session: AsyncSession, entries: list[dict[str, Any]], is_dark: bool
+) -> None:
+    """The four-column grid, now holding one band instead of the whole page."""
+    with ui.element("div").props('id="dash-grid"'):
+        rendered = 0
+        for entry in entries:
+            widget = WIDGETS.get(entry["id"])
+            if widget is None:
+                continue
+            await _render_wrapped(widget, session, is_dark, entry["cols"], entry["rows"])
+            rendered += 1
+        # What was drawn, not what was asked for: a band of ids this build
+        # no longer knows is as empty as a band of none, and the placeholder
+        # is the only thing telling you where the widgets went.
+        if not rendered:
+            _render_empty_placeholder()
+
+
+#: Two figures abreast on a phone, four on a desktop — written out, because
+#: a class name composed at runtime is one no scan of this source can see.
+_WATCH_COLUMNS = {2: "grid-cols-2", 4: "grid-cols-4"}
+
+
+async def _render_watch_band(session: AsyncSession, *, columns: int) -> None:
+    with ui.grid().classes(f"w-full {_WATCH_COLUMNS[columns]} gap-x-6 gap-y-4"):
+        for label, value in await _watch_figures(session):
+            with ui.column().classes("gap-0.5 min-w-0"):
+                ui.label(label).classes(WATCH_LABEL)
+                ui.label(value).classes(WATCH_FIGURE)
+
+
 def register() -> None:
     _register_layout_endpoint()
 
@@ -308,24 +587,29 @@ def register() -> None:
         ui.add_head_html(_EDIT_MODE_STYLE)
         ui.add_head_html(_INIT_JS)
 
-        with page_layout(t("dashboard.title")):
-            with ui.row().classes("w-full items-center justify-between mb-2"):
-                ui.label(t("dashboard.title")).classes(PAGE_TITLE)
-                with ui.row().classes("items-center gap-2"):
-                    with ui.button(
-                        on_click=lambda: ui.run_javascript("window.__kaletaToggleDashEdit()")
-                    ).props("flat color=primary"):
-                        ui.icon("drag_indicator")
-                        ui.label(t("dashboard_widgets.edit_layout")).props(
-                            f'id="dash-edit-btn-label" '
-                            f'data-label-edit="{t("dashboard_widgets.edit_layout")}" '
-                            f'data-label-done="{t("dashboard_widgets.done_editing")}"'
-                        )
-                    ui.button(
-                        t("dashboard_widgets.customize"),
-                        icon="tune",
-                        on_click=lambda: _open_customize_dialog(layout),
-                    ).props("flat color=primary")
+        with page_layout(t("dashboard.title"), container=DASH_PAGE_CONTAINER):
+            is_mobile = await _viewport_is_mobile()
+
+            with ui.row().classes("w-full items-center justify-between"):
+                with ui.column().classes("gap-1"):
+                    ui.label(_period_eyebrow()).classes("k-eyebrow")
+                    ui.label(t("dashboard.title")).classes(PAGE_TITLE)
+                # Edit mode now lives in the Month band's own header, where
+                # the cards it moves are. Customize stays here: which widgets
+                # you want is not a question about a band or about width.
+                ui.button(
+                    t("dashboard_widgets.customize"),
+                    icon="tune",
+                    on_click=lambda: _open_customize_dialog(layout),
+                ).props("flat color=primary")
+
+            if is_mobile:
+
+                async def _render_mobile(session: AsyncSession) -> None:
+                    await _render_bands(session, layout, is_dark)
+
+                await with_session(_render_mobile)
+                return
 
             with ui.row().classes(
                 "dash-edit-banner w-full items-center gap-2 p-3 mb-3 rounded "
@@ -335,23 +619,10 @@ def register() -> None:
                 ui.icon("info")
                 ui.label(t("dashboard_widgets.edit_banner"))
 
-            async def _render_grid(session: AsyncSession) -> None:
-                with ui.element("div").props('id="dash-grid"'):
-                    for entry in layout:
-                        wid = entry["id"]
-                        if wid not in WIDGETS:
-                            continue
-                        await _render_wrapped(
-                            WIDGETS[wid],
-                            session,
-                            is_dark,
-                            entry["cols"],
-                            entry["rows"],
-                        )
-                    if not layout:
-                        _render_empty_placeholder()
+            async def _render_desktop(session: AsyncSession) -> None:
+                await _render_desktop_bands(session, layout, is_dark)
 
-            await with_session(_render_grid)
+            await with_session(_render_desktop)
 
             ui.run_javascript(
                 "window.__kaletaInitDashSortable && window.__kaletaInitDashSortable()"
@@ -417,7 +688,7 @@ def _open_customize_dialog(current_layout: list[dict[str, Any]]) -> None:
     this dialog only manages which widgets are shown.
     """
     enabled_ids = [e["id"] for e in current_layout]
-    disabled = [wid for wid in WIDGETS if wid not in enabled_ids]
+    disabled = [wid for wid in selectable_widgets() if wid not in enabled_ids]
     working = enabled_ids + disabled
     enabled: dict[str, bool] = {wid: (wid in enabled_ids) for wid in working}
 

@@ -1145,6 +1145,117 @@ class TestTransactionDisplayHelpers:
         assert TransactionService.group_separator_label(d2, None, "month") == "February 2025"
         assert TransactionService.group_separator_label(d2, d1, "month") == "February 2025"
 
+    def test_signed_amount_is_positive_only_for_income(self):
+        assert TransactionService.signed_amount(
+            Decimal("9240.00"), TransactionType.INCOME
+        ) == Decimal("9240.00")
+        assert TransactionService.signed_amount(
+            Decimal("128.74"), TransactionType.EXPENSE
+        ) == Decimal("-128.74")
+        assert TransactionService.signed_amount(
+            Decimal("1500.00"), TransactionType.TRANSFER
+        ) == Decimal("-1500.00")
+
+    def test_signed_amount_ignores_a_sign_already_on_the_figure(self):
+        # The column and any total under it must agree, whichever way the
+        # stored amount happens to be signed.
+        assert TransactionService.signed_amount(
+            Decimal("-9240.00"), TransactionType.INCOME
+        ) == Decimal("9240.00")
+
+    def test_net_of_rows_adds_up_what_is_on_screen(self):
+        """Covers: KAL-TXN-014"""
+        rows = [
+            {"amount_value": "-128.74", "type": "expense"},
+            {"amount_value": "9240.00", "type": "income"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("9111.26")
+
+    def test_net_of_rows_is_zero_for_nothing(self):
+        """Covers: KAL-TXN-014"""
+        assert TransactionService.net_of_rows([]) == Decimal("0")
+
+    def test_net_of_rows_skips_a_row_with_no_figure(self):
+        """Covers: KAL-TXN-014"""
+        rows = [{"id": 1, "type": "expense"}, {"amount_value": "-50.00", "type": "expense"}]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-50.00")
+
+    def test_net_of_rows_survives_a_row_whose_figure_is_none(self):
+        """Covers: KAL-PAG-005 — a missing figure is nothing, not a crash."""
+        rows = [
+            {"id": 1, "amount_value": None, "type": "expense"},
+            {"id": 2, "amount_value": "-50.00", "type": "expense"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-50.00")
+
+    def test_net_of_rows_leaves_a_transfer_out(self):
+        """Covers: KAL-PAG-005
+
+        Both legs of an internal transfer are booked and both display as
+        outflows, so counting them would show money leaving twice over when it
+        never left the user at all.
+        """
+        rows = [
+            {"id": 1, "amount_value": "-1500.00", "type": "transfer"},
+            {"id": 2, "amount_value": "-1500.00", "type": "transfer"},
+            {"id": 3, "amount_value": "-128.74", "type": "expense"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-128.74")
+
+    def test_net_of_rows_leaves_a_lone_transfer_leg_out_too(self):
+        """Covers: KAL-TXN-015
+
+        A leg carries no direction — the outgoing and the incoming half are
+        stored identically — so a leg without its counterpart is as likely to
+        be money arriving as money leaving, and the net says nothing about it.
+        """
+        rows = [
+            {"id": 1, "amount_value": "-1500.00", "type": "transfer"},
+            {"id": 3, "amount_value": "-128.74", "type": "expense"},
+        ]
+
+        assert TransactionService.net_of_rows(rows) == Decimal("-128.74")
+
+    def test_zero_carries_no_sign_on_a_row_either(self):
+        """Covers: KAL-TXN-017 — nothing moved, so the row claims no direction."""
+        assert (
+            TransactionService.format_signed_amount(Decimal("0"), TransactionType.EXPENSE) == "0.00"
+        )
+
+    def test_format_net_leaves_zero_unsigned(self):
+        """Covers: KAL-TXN-015 — nothing moved, so there is no direction."""
+        assert TransactionService.format_net(Decimal("0")) == "0.00"
+
+    def test_format_net_signs_a_total_that_moved(self):
+        """Covers: KAL-TXN-014, KAL-PAG-005"""
+        assert TransactionService.format_net(Decimal("9111.26")) == "+9,111.26"
+        assert TransactionService.format_net(Decimal("-287.40")) == "-287.40"
+
+    def test_group_net_sums_the_rows_of_each_group(self):
+        """Covers: KAL-PAG-005"""
+        rows = [
+            {"sep_label": "W27 2026", "amount_value": "9240.00", "type": "income"},
+            {"sep_label": "", "amount_value": "-128.74", "type": "expense"},
+            {"sep_label": "W26 2026", "amount_value": "-287.40", "type": "expense"},
+        ]
+
+        TransactionService.attach_group_nets(rows)
+
+        assert rows[0]["sep_net"] == "+9,111.26"
+        assert rows[2]["sep_net"] == "-287.40"
+
+    def test_group_net_is_absent_without_grouping(self):
+        """Covers: KAL-PAG-005"""
+        rows = [{"sep_label": "", "amount_value": "-128.74", "type": "expense"}]
+
+        TransactionService.attach_group_nets(rows)
+
+        assert "sep_net" not in rows[0]
+
     def test_split_balance_balanced(self):
         balanced, remaining = TransactionService.split_balance(
             Decimal("100.00"),
@@ -1421,6 +1532,40 @@ class TestBuildTableRowSplits:
         row = TransactionService.build_table_row(txs[0], None, "none")
         assert row["has_splits"] is True
         assert row["split_count"] == 2
+
+    async def test_grouped_rows_carry_the_figures_the_nets_read(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PAG-005
+
+        The separator net and the selection total both read ``amount_value``
+        off the row and tolerate its absence, so a renamed key would leave
+        every net quietly reading 0.00 with the unit suite still green. This
+        pins the keys on a real row, and the net a real group adds up to.
+        """
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session, "Groceries")
+        income_cat = await _make_category(session, "Salary", CategoryType.INCOME)
+        await svc.create(_tx(acc_id, cat_id, amount=Decimal("128.74"), description="Lidl"))
+        await svc.create(
+            _tx(
+                acc_id,
+                income_cat,
+                amount=Decimal("9240.00"),
+                type=TransactionType.INCOME,
+                description="Salary",
+            )
+        )
+        txs = await svc.list()
+
+        rows = TransactionService.build_table_rows(txs, "month")
+
+        by_description = {row["description"]: row for row in rows}
+        assert by_description["Salary"]["amount_value"] == "9240.00"
+        assert by_description["Lidl"]["amount_value"] == "-128.74"
+        assert by_description["Lidl"]["date_short"] == f"{TODAY.day:02d}.{TODAY.month:02d}"
+        # One month, both rows: 9240.00 in, 128.74 out.
+        assert rows[0]["sep_net"] == "+9,111.26"
 
 
 # ── Notes ─────────────────────────────────────────────────────────────────────

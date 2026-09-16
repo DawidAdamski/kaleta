@@ -37,14 +37,56 @@ from kaleta.services.rule_service import RuleService
 # ── File decoding ────────────────────────────────────────────────────────────
 
 
-def auto_decode(raw: bytes) -> str:
-    """Decode uploaded CSV bytes, trying common Polish/EU encodings first."""
-    for enc in ("utf-8-sig", "utf-8", "cp1250", "iso-8859-2"):
+#: Display names for the encodings :func:`decode_upload` tries, in order.
+_ENCODING_NAMES: dict[str, str] = {
+    "utf-8-sig": "UTF-8",
+    "utf-8": "UTF-8",
+    "cp1250": "CP1250",
+    "iso-8859-2": "ISO-8859-2",
+}
+
+
+def decode_upload(raw: bytes) -> tuple[str, str]:
+    """Decode uploaded CSV bytes, and say which encoding worked.
+
+    The mapping step names the encoding in its caption, and a file that only
+    decoded as CP1250 must not be captioned "UTF-8".
+    """
+    for enc, name in _ENCODING_NAMES.items():
         try:
-            return raw.decode(enc)
+            return raw.decode(enc), name
         except UnicodeDecodeError:
             continue
-    return raw.decode("utf-8", errors="replace")
+    # Unreachable in practice: ISO-8859-2 maps every byte, so the loop always
+    # returns. Kept so the function has no way to raise, and labelled UTF-8
+    # because a file that got here has no encoding worth naming.
+    return raw.decode("utf-8", errors="replace"), "UTF-8"
+
+
+def auto_decode(raw: bytes) -> str:
+    """Decode uploaded CSV bytes, trying common Polish/EU encodings first."""
+    return decode_upload(raw)[0]
+
+
+#: How a parse error names the line it happened on, and how to read it back.
+#: Shared with the mapping step, which uses them to tell a message the warning
+#: strip already summarises from one that stands alone.
+_ROW_ERROR_RE = re.compile(r"^Row (\d+):")
+
+
+def row_error_prefix(line_no: int) -> str:
+    """How a parse error names the line it happened on."""
+    return f"Row {line_no}:"
+
+
+def row_error_line(message: str) -> int | None:
+    """The line a parse error names, or ``None`` when it names none.
+
+    The inverse of :func:`row_error_prefix`. A caller asking "is this message
+    about row 42" reads the number once instead of trying every row it knows.
+    """
+    match = _ROW_ERROR_RE.match(message)
+    return int(match.group(1)) if match else None
 
 
 def digits_only(value: str) -> str:
@@ -209,6 +251,9 @@ class CsvInspection:
     headers: list[str]
     sample_rows: list[list[str]] = field(default_factory=list)
     detected_mapping: ColumnMapping = field(default_factory=ColumnMapping)
+    #: Data rows in the whole file, not just the sampled ones — the mapping
+    #: step's caption says how big the file is, and a sample size is not that.
+    total_rows: int = 0
 
 
 @dataclass
@@ -216,6 +261,8 @@ class ParseQueuedFileResult:
     profile: str
     rows: list[ParsedRow] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    #: Line numbers behind ``errors``, for the mapping step's warning strip.
+    error_rows: list[int] = field(default_factory=list)
     metadata: MBankFileMetadata | None = None
     ok: bool = False
     needs_mapping: bool = False
@@ -811,7 +858,13 @@ def inspect_csv(
     delimiter: str = "",
     sample_limit: int = 10,
 ) -> CsvInspection:
-    """Inspect CSV structure for the mapping step (headers + sample rows)."""
+    """Inspect CSV structure for the mapping step (headers + sample rows).
+
+    Reads the whole file: ``total_rows`` is the caption's figure and a sample
+    size is not it. The sample itself still stops at ``sample_limit``, but the
+    pass no longer does, and this runs on every re-parse — each picker change
+    on a generic file. Fine at the sizes a personal ledger imports.
+    """
     delim = delimiter or detect_delimiter(content)
     reader = csv.reader(io.StringIO(content), delimiter=delim)
     try:
@@ -821,15 +874,25 @@ def inspect_csv(
 
     headers = [h.strip() for h in headers]
     sample_rows: list[list[str]] = []
-    for i, row in enumerate(reader):
-        if i >= sample_limit:
-            break
-        sample_rows.append(list(row))
+    total_rows = 0
+    for row in reader:
+        # ``csv.reader`` yields a blank line as an empty row; ``DictReader``,
+        # which does the actual parsing, skips it. Counting it here would put
+        # a bigger number in the caption than the file has records — bank
+        # exports routinely end with a blank line. The test is ``not row``,
+        # exactly what ``DictReader`` uses: a delimiter-only line like ``;;;``
+        # is a record to both of them, empty fields and all.
+        if not row:
+            continue
+        total_rows += 1
+        if len(sample_rows) < sample_limit:
+            sample_rows.append(list(row))
     return CsvInspection(
         delimiter=delim,
         headers=headers,
         sample_rows=sample_rows,
         detected_mapping=detect_column_mapping(headers),
+        total_rows=total_rows,
     )
 
 
@@ -849,6 +912,10 @@ class ParsedRow:
 class ImportResult:
     rows: list[ParsedRow] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
+    #: Line numbers of rows that could not be parsed. The messages in
+    #: ``errors`` carry them too, but as prose; the mapping step needs them as
+    #: numbers to say "3 rows could not be parsed: 17, 42, 88".
+    error_rows: list[int] = field(default_factory=list)
     skipped: int = 0
 
 
@@ -913,6 +980,7 @@ class ImportService:
                 profile=resolved_profile,
                 rows=result.rows,
                 errors=result.errors,
+                error_rows=result.error_rows,
                 metadata=metadata,
                 ok=True,
             )
@@ -939,6 +1007,7 @@ class ImportService:
                 profile=resolved_profile,
                 rows=rows,
                 errors=result.errors,
+                error_rows=result.error_rows,
                 metadata=metadata,
                 ok=True,
             )
@@ -966,6 +1035,7 @@ class ImportService:
             return ParseQueuedFileResult(
                 profile=WISE_PROFILE,
                 errors=result.errors,
+                error_rows=result.error_rows,
                 error_key="import.qif_no_rows",
                 error_params={"skipped": result.skipped},
             )
@@ -973,6 +1043,7 @@ class ImportService:
             profile=WISE_PROFILE,
             rows=result.rows,
             errors=result.errors,
+            error_rows=result.error_rows,
             metadata=WiseQifPreprocessor.extract_metadata(content, filename=filename),
             ok=True,
         )
@@ -1006,6 +1077,7 @@ class ImportService:
                 profile=profile,
                 rows=result.rows,
                 errors=result.errors or mapping_errors,
+                error_rows=result.error_rows,
                 needs_mapping=True,
                 error_key="import.no_rows" if not result.errors else None,
                 error_params={"skipped": result.skipped} if not result.errors else {},
@@ -1016,6 +1088,7 @@ class ImportService:
             profile=profile,
             rows=result.rows,
             errors=result.errors,
+            error_rows=result.error_rows,
             ok=True,
             inspection=inspection,
             column_mapping=effective,
@@ -1084,7 +1157,11 @@ class ImportService:
             result.errors.append(f"Cannot find a date column. Headers: {headers}")
             return result
 
-        for line_no, row in enumerate(reader, start=2):
+        for row in reader:
+            # The physical line the record ends on, not its ordinal: a
+            # quoted field with a newline inside makes the two disagree,
+            # and the warning strip presents these as line numbers.
+            line_no = reader.line_num
             try:
                 date = _parse_date(row.get(date_key, ""), effective.date_format)
 
@@ -1146,7 +1223,8 @@ class ImportService:
                 )
 
             except (ImportError_, KeyError) as exc:
-                result.errors.append(f"Row {line_no}: {exc}")
+                result.errors.append(f"{row_error_prefix(line_no)} {exc}")
+                result.error_rows.append(line_no)
 
         return result
 

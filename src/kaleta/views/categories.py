@@ -208,7 +208,7 @@ def register() -> None:
                     # Header row
                     with ui.row().classes("items-center gap-2 px-4 py-3 border-b"):
                         ui.icon(icon, color=color).classes("text-xl")
-                        ui.label(label).classes("text-lg font-semibold text-primary flex-1")
+                        ui.label(label).classes("k-heading text-lg font-semibold flex-1")
                         ui.badge(str(total), color=color)
                         ui.button(
                             icon="add",
@@ -364,7 +364,7 @@ def register() -> None:
                         .on("click", _pick)
                     ):
                         ui.label(t(f"categories.template_name_{tmpl_key}")).classes(
-                            "font-medium text-primary"
+                            "k-heading font-medium"
                         )
                         ui.label(t(f"categories.template_desc_{tmpl_key}")).classes(
                             f"{BODY_MUTED} text-xs"
