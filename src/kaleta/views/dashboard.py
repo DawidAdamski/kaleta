@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import datetime
 import logging
-from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
@@ -32,7 +31,6 @@ if TYPE_CHECKING:
     from kaleta.services.report_service import SavingsRatePoint
 
 from kaleta.i18n import t
-from kaleta.schemas.reserve_fund import ReserveFundKind, ReserveFundWithProgress
 from kaleta.services import with_session
 from kaleta.views.dashboard_widgets import (
     BAND_ORDER,
@@ -391,6 +389,7 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     from kaleta.services import ReportService
     from kaleta.services.forecast_service import ForecastService
     from kaleta.services.net_worth_service import NetWorthService
+    from kaleta.services.reserve_fund_service import ReserveFundService
 
     reports = ReportService(session)
     net_worth = await NetWorthService(session).get_summary(history_months=2)
@@ -405,7 +404,7 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     # unguarded anyway, which is the dashboard-wide per-widget isolation gap.
     forecast = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
     predicted = forecast.predicted_balance_30d
-    cover = await _safety_fund_cover(session)
+    cover = await ReserveFundService(session).emergency_cover_months()
     return [
         (t("dashboard_widgets.net_worth"), fmt_number(net_worth.net_worth)),
         (t("dashboard.watch_savings_rate"), rate_label),
@@ -417,34 +416,6 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
             else t("dashboard.watch_months", months=f"{float(cover):.1f}"),
         ),
     ]
-
-
-def _emergency_cover(funds: list[ReserveFundWithProgress]) -> Decimal | None:
-    """Months the emergency funds cover between them, or ``None``.
-
-    Every fund's cover is its balance over the *same* trailing monthly
-    spend, so two emergency funds cover the sum of their months. Taking the
-    first the service returned would have answered with whichever id
-    happened to be lower, and left the other fund out of a figure that is
-    meant to say "how long could I live on this".
-
-    ``None`` means one of three things and deliberately reads the same way:
-    no emergency fund, an empty one, or no spending in the last 90 days to
-    measure it against. The band says "—" rather than inventing a zero,
-    because zero months of cover and no fund at all are not the same news.
-    """
-    covers = [
-        fund.months_of_coverage
-        for fund in funds
-        if fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None
-    ]
-    return sum(covers, Decimal("0")) if covers else None
-
-
-async def _safety_fund_cover(session: AsyncSession) -> Decimal | None:
-    from kaleta.services.reserve_fund_service import ReserveFundService
-
-    return _emergency_cover(await ReserveFundService(session).list_with_progress())
 
 
 async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_dark: bool) -> None:
@@ -550,8 +521,6 @@ async def _render_now_band(
     actions are what you do about it. Under `lg` they stack, because a
     54px figure and a list of buttons do not share 500px.
     """
-    if not entries:
-        return
     hero, rest = entries[0], entries[1:]
     with ui.row().classes("w-full gap-5 items-stretch flex-wrap lg:flex-nowrap"):
         with ui.column().classes("flex-[2] min-w-[320px] gap-4"):

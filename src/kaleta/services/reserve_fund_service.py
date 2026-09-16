@@ -163,5 +163,31 @@ class ReserveFundService:
         funds = await self.list(include_archived=include_archived)
         return [await self.with_progress(f, today=today) for f in funds]
 
+    @staticmethod
+    def emergency_cover(funds: builtins.list[ReserveFundWithProgress]) -> Decimal | None:
+        """Months the emergency funds cover between them, or ``None``.
+
+        Every fund's cover is its balance over the *same* trailing monthly
+        spend (see :meth:`with_progress`), so two emergency funds cover the
+        sum of their months. Answering with the first would pick whichever id
+        happened to be lower and leave the other fund out of a figure that
+        means "how long could I live on this".
+
+        ``None`` means one of three things, and they read the same way on
+        purpose: no emergency fund, an empty one, or no spending in the
+        trailing window to measure it against. Zero months of cover and no
+        fund at all are not the same news, so neither is reported as zero.
+        """
+        covers = [
+            fund.months_of_coverage
+            for fund in funds
+            if fund.kind == ReserveFundKind.EMERGENCY and fund.months_of_coverage is not None
+        ]
+        return sum(covers, Decimal("0")) if covers else None
+
+    async def emergency_cover_months(self, *, today: datetime.date | None = None) -> Decimal | None:
+        """The dashboard's Safety-fund-cover figure. See :meth:`emergency_cover`."""
+        return self.emergency_cover(await self.list_with_progress(today=today))
+
 
 __all__ = ["ReserveFundService", "TRAILING_WINDOW_DAYS"]
