@@ -3,7 +3,7 @@ plan_id: restyle-import-wizard
 title: Restyle — Import becomes the wizard its progress line already describes (artboard 2d)
 area: import
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -140,4 +140,65 @@ separate plan.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Open questions, all taken at their default
+
+1. **Back to a finished step: yes.** `wizard.py` walks the same steps in
+   both directions, and every node up to `current_step` is clickable on
+   the progress line. The reader's step and the work's step are separate:
+   the line marks where the work is (`k-step--now`) and rings where the
+   reader is (`k-step--reading`), so a reader three steps back can still
+   see what the file is waiting on.
+2. **A bank profile skips mapping in both directions.** `steps_for()`
+   drops `STEP_MAPPING` for a non-generic profile, so `Continue` from
+   Upload lands on Settings and `Back` from Settings returns to Upload.
+   The node stays ticked, which is what `current_step` already claimed.
+3. **No queue on steps 3–5.** The queue card lives on Upload; what those
+   steps get is `< File 2 of 4 >` (`data-file-switcher`), which is the
+   one thing they need from it.
+4. **Import runs from the Preview footer** (`data-import-run`), where
+   `Continue` would otherwise be, reading `Import N files`. The button is
+   gone from the queue card's header.
+5. **Transfers stay on Preview**, under the table.
+
+### Decisions the plan did not ask about
+
+- **`Continue`'s refusal is the readiness check's own message, not the
+  file's `status_msg`.** A ready file's status message is "Loaded 2
+  rows." — news, not an answer. `state.settings_block_reason()` returns
+  the `(key, params)` that `validate_import_readiness` would block the
+  import with ("Select a target account."), and the footer shows that on
+  the settings step. Mapping keeps using `status_msg`, which there *is*
+  the answer ("Map the required columns to continue.").
+- **The mBank/Wise metadata banner moved to Upload**, with the file it
+  describes and the queue it belongs to. It is not a step of its own and
+  it is not part of the mapping card the artboard draws.
+- **`settings_section` and `transfer_section` got the sand pass too**,
+  though the plan's list did not name them. They are steps 4 and 5 of the
+  same wizard; leaving two cards in the pre-restyle style between three
+  restyled ones is worse than not restyling at all. Own commit.
+- **`data-*` hooks** (`data-step`, `data-step-panel`, `data-wizard-footer`,
+  `data-continue`, `data-blocked-reason`, `data-import-run`,
+  `data-file-switcher`, `data-page-eyebrow`, `data-queue-row`) are how
+  the e2e suite walks a page whose cards are no longer all on screen.
+
+### What the e2e rewrite turned up
+
+- Several assertions were passing on hidden elements once the wizard
+  existed: `not_to_be_visible` is true of a card that is merely on
+  another step. Those became `to_have_count(0)` scoped to the card the
+  thing would be in.
+- `test_disabled_import_rule_stops_matching` depended on the shared
+  e2e database holding no *other* active rule with the same pattern —
+  and an earlier test's "Remember this mapping" leaves one. The test now
+  disables every rule of that pattern, which is the premise it always
+  meant.
+- A multi-file drop moves the page under the reader: each upload handler
+  ends with `_sync_step(follow=True)`, so a click on a step node can be
+  undone by the next file landing. `_wait_for_queue` waits for the queue
+  to stop growing (`data-queue-row`), and `_step` retries once.
+- KAL-CSV-021 used to make a file fail by importing it with no target
+  account. The wizard will not let that happen — `Continue` refuses at
+  settings — so the failing file is now a truncated Wise QIF
+  (`wise/truncated-download-sample.qif`), which fails at parse. The
+  import-time failure path (an exception during persistence) is still
+  there; nothing e2e can reach it any more.
