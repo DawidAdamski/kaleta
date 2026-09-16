@@ -579,10 +579,14 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-split--free{background:var(--k-accent-light)}
 
 /* Top bar (artboard 1e) — five sections and a search where a 24-item drawer
-   used to be. Below the breakpoint the tab bar and the drawer take over. */
-.k-topnav{display:none}
+   used to be. Below the breakpoint the tab bar and the drawer take over.
+   `.k-topnav-search` carries the rule too: the button is a sibling of the
+   row, not a child of it, so hiding the row leaves the phone with a wide
+   "Jump to…" pill *and* the `.k-phone-search` icon opening the same dialog. */
+.k-topnav,.q-btn.k-topnav-search{display:none}
 @media (min-width:768px){
   .k-topnav{display:flex}
+  .q-btn.k-topnav-search{display:inline-flex}
 }
 /* `.q-btn.k-topnav-item`, two classes: NiceGUI gives every button
    `color=primary`, and a single-class rule loses to Quasar's `.text-primary`

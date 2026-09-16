@@ -295,7 +295,15 @@ def _build_palette() -> Callable[[], None]:
         empty.set_visibility(shown == 0)
 
     def _first_match() -> str | None:
+        """The path Enter opens, or ``None`` while nothing has been typed.
+
+        An empty needle is in every label, so without this guard a stray
+        Enter on a freshly opened palette leaves the page for whatever
+        happens to be first.
+        """
         needle = (query.value or "").strip().casefold()
+        if not needle:
+            return None
         for (_row, label), (_icon, path, _key) in zip(rows, destinations, strict=True):
             if needle in label:
                 return path

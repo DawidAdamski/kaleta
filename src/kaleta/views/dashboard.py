@@ -29,6 +29,8 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from kaleta.services.report_service import SavingsRatePoint
+
 from kaleta.i18n import t
 from kaleta.services import with_session
 from kaleta.views.dashboard_widgets import (
@@ -41,7 +43,6 @@ from kaleta.views.dashboard_widgets import (
     default_layout,
     resolve_user_layout,
     selectable_widgets,
-    with_hero,
 )
 from kaleta.views.dashboard_widgets.helpers import fmt_number
 from kaleta.views.layout import page_layout
@@ -349,6 +350,25 @@ async def _viewport_is_mobile() -> bool:
     return isinstance(width, int | float) and width < _MOBILE_MAX_WIDTH
 
 
+#: What a Watch figure reads when there is no answer to give.
+_NO_FIGURE = "—"
+
+
+def _watch_rate_label(points: list[SavingsRatePoint]) -> str:
+    """The savings-rate figure, or ``—`` when there is nothing to average.
+
+    ``average_savings_rate_pct`` answers ``0`` for an empty list, and a band
+    that reads "0.0%" on a ledger with no months in it is stating a figure it
+    does not have — the very thing "—" exists to avoid two rows down, at
+    Safety fund cover.
+    """
+    from kaleta.services import ReportService
+
+    if not points:
+        return _NO_FIGURE
+    return f"{float(ReportService.average_savings_rate_pct(points)):.1f}%"
+
+
 async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     """The four slow figures of the Watch band, as (label, value).
 
@@ -368,7 +388,7 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     # Six months, not this month and not the year: the artboard labels it
     # "6-mo avg", and an average over half a year is the one savings figure
     # that neither swings with a fresh month nor drags a whole year behind it.
-    rate = ReportService.average_savings_rate_pct(await reports.savings_rate(months=6))
+    rate_label = _watch_rate_label(await reports.savings_rate(months=6))
     # No guard around the forecast: the forecaster already swallows a model
     # that will not fit and answers with no prediction, which arrives here as
     # ``None`` and reads as an em dash. A guard here would have caught only
@@ -379,11 +399,13 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     cover = await _safety_fund_cover(session)
     return [
         (t("dashboard_widgets.net_worth"), fmt_number(net_worth.net_worth)),
-        (t("dashboard.watch_savings_rate"), f"{float(rate):.1f}%"),
-        (t("dashboard.balance_30"), "—" if predicted is None else fmt_number(predicted)),
+        (t("dashboard.watch_savings_rate"), rate_label),
+        (t("dashboard.balance_30"), _NO_FIGURE if predicted is None else fmt_number(predicted)),
         (
             t("dashboard.watch_safety_cover"),
-            "—" if cover is None else t("dashboard.watch_months", months=f"{float(cover):.1f}"),
+            _NO_FIGURE
+            if cover is None
+            else t("dashboard.watch_months", months=f"{float(cover):.1f}"),
         ),
     ]
 
@@ -413,7 +435,7 @@ async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_
     stored desktop layout is read for *which* widgets and in what order
     within a band, and never for position.
     """
-    grouped = bands_for_layout(with_hero(layout))
+    grouped = bands_for_layout(layout)
     for band, title_key in BAND_ORDER:
         entries = grouped[band]
         is_watch = band is Band.WATCH
@@ -439,11 +461,14 @@ async def _render_desktop_bands(
     band": SortableJS, the resize button and the layout endpoint all key off
     that id and needed no changes to follow it.
     """
-    grouped = bands_for_layout(with_hero(layout))
+    grouped = bands_for_layout(layout)
     with ui.element("div").props('id="dash-bands"').classes("w-full flex flex-col gap-11"):
         for band, title_key in BAND_ORDER:
             entries = grouped[band]
-            if not entries and band is not Band.WATCH:
+            # Watch is figures rather than widgets, and Month is the drag
+            # scope and the empty state: both are rendered with nothing in
+            # them. A Now or Latest band with nothing in it is just a heading.
+            if not entries and band not in (Band.WATCH, Band.MONTH):
                 continue
             with ui.column().classes("w-full gap-4").props(f'data-band="{band.value}"'):
                 _band_header(band, title_key)

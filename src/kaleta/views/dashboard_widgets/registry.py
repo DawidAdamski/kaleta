@@ -93,11 +93,13 @@ MERGED_KPI_WIDGETS: tuple[str, ...] = tuple(dict.fromkeys(MERGED_KPI_FOR_LEGACY.
 
 
 class Band(StrEnum):
-    """The three stacked bands of the phone dashboard (artboard 1f).
+    """The stacked bands the dashboard reads in (artboards 1f and 1e).
 
     A phone cannot show a 4-column grid, and a single column of equal cards
-    is a scroll with no shape. The bands give it one: what is happening
-    *now*, how the *month* is going, and the slow figures you only *watch*.
+    is a scroll with no shape. The bands give it one, and a wide window the
+    same argument at its own proportions: what is happening *now*, how the
+    *month* is going, the slow figures you only *watch*, and *latest* — the
+    log, which is not a metric and belongs under everything that is.
     """
 
     NOW = "now"
@@ -106,9 +108,10 @@ class Band(StrEnum):
     LATEST = "latest"
 
 
-#: Which band a widget belongs to on a phone. Anything unlisted falls into
-#: ``MONTH`` — the band for "how is this month going", which is what most of
-#: the catalog is about, and the safe place for a widget added later.
+#: Which band a widget belongs to — the same map at both widths. Anything
+#: unlisted falls into ``MONTH``, the band for "how is this month going",
+#: which is what most of the catalog is about and the safe place for a
+#: widget added later.
 #:
 #: Nothing maps to ``WATCH`` on purpose: that band is four figures in plain
 #: type, not cards (see ``dashboard._render_watch_band``). Sending the slow
@@ -136,13 +139,13 @@ def band_of(widget_id: str) -> Band:
 
 
 def bands_for_layout(layout: list[dict[str, Any]]) -> dict[Band, list[dict[str, Any]]]:
-    """Group a stored layout into the three bands, keeping its order.
+    """Group a stored layout into the four bands, keeping its order.
 
     Legacy widgets are dropped rather than banded: they are the seven
     single-figure KPIs that ``restyle-dashboard`` merged into two cards, kept
-    alive only so an old stored layout still renders on the desktop grid. The
-    phone layout is new and starts without that debt — and the Watch band
-    already says three of the four figures they carried.
+    alive so an old stored layout does not lose a card it names. The banded
+    layout is new and starts without that debt — and the Watch band already
+    says three of the four figures they carried.
     """
     grouped: dict[Band, list[dict[str, Any]]] = {band: [] for band, _key in BAND_ORDER}
     for entry in layout:
@@ -152,30 +155,6 @@ def bands_for_layout(layout: list[dict[str, Any]]) -> dict[Band, list[dict[str, 
             continue
         grouped[band_of(widget.id)].append(entry)
     return grouped
-
-
-#: The hero every dashboard leads with, whether or not the stored layout
-#: carries it — see ``with_hero``.
-HERO_WIDGET = "safe_to_spend"
-
-
-def with_hero(layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The stored layout with the safe-to-spend hero guaranteed at its head.
-
-    It is in ``DEFAULT_WIDGETS`` now, so a new profile and a ``Reset widgets``
-    both put it in its canonical place. This covers the layouts stored before
-    it existed, at both widths: the hero is the page's answer to the question
-    the page asks, not a card you can mislay. Prepending it rather than
-    rendering it separately keeps it an ordinary banded widget — it cannot
-    then appear twice for someone whose layout already names it.
-    """
-    if any(entry.get("id") == HERO_WIDGET for entry in layout):
-        return list(layout)
-    hero = WIDGETS[HERO_WIDGET]
-    return [
-        {"id": HERO_WIDGET, "cols": hero.default_size[0], "rows": hero.default_size[1]},
-        *layout,
-    ]
 
 
 def selectable_widgets() -> list[str]:
