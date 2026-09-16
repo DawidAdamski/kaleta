@@ -119,8 +119,14 @@ independent of each other unless noted.
 | 12 | [restyle-reports-sentence](restyle-reports-sentence.md) | `3e` | draft | 1 |
 | 13 | [restyle-dashboard-mobile](restyle-dashboard-mobile.md) | `1f` | draft | 4 (needs a safe-to-spend service method) |
 | 14 | [restyle-dashboard-rethink](restyle-dashboard-rethink.md) | `1e` | in-progress | 4, 13 |
+| 15 | [restyle-import-wizard](restyle-import-wizard.md) | `2d` (the page `2d` sits on) | draft | 1, 5 |
 
 Not planned: `1a` (before-picture), `1b` (superseded by 4).
+
+Plan 15 has no artboard of its own: `2d` draws step 3 of the import
+wizard, and plan 5 built that step's contents. What `2d` also implies —
+one step on screen, `Back` / `Continue` under it — is the page those
+contents sit in, and plan 5 put it out of scope. Plan 15 is that page.
 
 `1e` was held back until 4 had been lived with; plan 14 writes it down
 so the decision to start is a decision, not an omission. Most of what it
