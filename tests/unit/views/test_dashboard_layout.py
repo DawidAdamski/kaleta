@@ -53,17 +53,23 @@ class TestValidateLayout:
         assert len(result) == 1
         assert result[0]["id"] == picked[0]
 
-    def test_size_not_in_allowed_rejected(self) -> None:
-        # total_balance allows (1,1) and (2,1); reject (4,4).
+    def test_size_not_in_allowed_falls_back_to_the_default(self) -> None:
+        """A widget is not dropped over its size.
+
+        The banded widgets outside the grid carry no layout of their own, so
+        a payload naming one with a size it does not allow used to delete it
+        from the stored dashboard — a card gone for a reason its owner could
+        not see. The size is the layout's business; the widget is theirs.
+        """
+        # total_balance allows (1,1) and (2,1); (4,4) is neither.
         payload: list[dict[str, Any]] = [
             {"id": "total_balance", "cols": 4, "rows": 4},
         ]
-        stored = default_layout()
+        default = WIDGETS["total_balance"].default_size
 
-        result = _validate_layout(payload, stored)
+        result = _validate_layout(payload, default_layout())
 
-        # Filtered out entirely → falls back to stored layout.
-        assert result == stored
+        assert result == [{"id": "total_balance", "cols": default[0], "rows": default[1]}]
 
     def test_duplicate_ids_collapse(self) -> None:
         payload: list[dict[str, Any]] = [
@@ -77,16 +83,17 @@ class TestValidateLayout:
         # Keeps the FIRST occurrence.
         assert result[0] == {"id": "total_balance", "cols": 2, "rows": 1}
 
-    def test_non_int_sizes_skipped(self) -> None:
+    def test_non_int_sizes_fall_back_to_the_default(self) -> None:
+        """Same rule as an out-of-range size: keep the widget, fix the size."""
         payload: list[dict[str, Any]] = [
             {"id": "total_balance", "cols": "2", "rows": 1},
             {"id": "total_balance", "cols": 2, "rows": None},
         ]
-        stored = default_layout()
+        default = WIDGETS["total_balance"].default_size
 
-        result = _validate_layout(payload, stored)
+        result = _validate_layout(payload, default_layout())
 
-        assert result == stored
+        assert result == [{"id": "total_balance", "cols": default[0], "rows": default[1]}]
 
     def test_empty_payload_falls_back_to_stored(self) -> None:
         stored = [{"id": "total_balance", "cols": 1, "rows": 1}]

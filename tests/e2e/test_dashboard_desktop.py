@@ -183,10 +183,14 @@ def test_only_the_month_band_is_inside_the_grid(page: Page, base_url: str) -> No
     # would save a layout that had lost the hero and the Latest list.
     posted = page.evaluate(
         """() => [...document.querySelectorAll('#dash-bands [data-widget-id]')]
-                  .map(e => e.dataset.widgetId)"""
+                  .map(e => [e.dataset.widgetId, e.dataset.cols, e.dataset.rows])"""
     )
-    assert "safe_to_spend" in posted
-    assert set(in_grid) <= set(posted)
+    ids = [wid for wid, _cols, _rows in posted]
+    assert "safe_to_spend" in ids
+    assert set(in_grid) <= set(ids)
+    # …and each of them with a size the endpoint will accept. A node with no
+    # size posts as 1x1, which none of the banded widgets allows.
+    assert all(cols and rows for _wid, cols, rows in posted), posted
 
 
 def _post_layout(page: Page, entries: list[dict[str, object]]) -> None:
@@ -230,3 +234,59 @@ def test_a_month_band_with_nothing_in_it_still_says_so(page: Page, base_url: str
     dialog.get_by_role("button", name="Reset widgets").click()
     expect(dialog).to_be_hidden(timeout=10000)
     page.wait_for_selector("#dash-grid [data-widget-id]", timeout=20000)
+
+
+def _wait_for_bands_settled(page: Page) -> None:
+    """Block until NiceGUI has finished streaming widgets into the bands.
+
+    Widgets arrive one at a time over the websocket, and the layout POST
+    serialises *whatever is in the DOM right now* — fire it mid-stream and it
+    persists a dashboard missing every widget yet to arrive. Wait for the
+    count to hold steady rather than guessing at a sleep.
+    """
+    page.wait_for_function(
+        """() => {
+          const bands = document.getElementById('dash-bands');
+          if (!bands) return false;
+          const n = bands.querySelectorAll('[data-widget-id]').length;
+          const s = window.__kaletaBandSettle || {count: -1, stable: 0};
+          s.stable = n > 0 && n === s.count ? s.stable + 1 : 0;
+          s.count = n;
+          window.__kaletaBandSettle = s;
+          return s.stable >= 3;
+        }""",
+        polling=200,
+        timeout=30000,
+    )
+
+
+def test_a_resize_in_month_does_not_delete_the_other_bands(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-008
+
+    The layout POST serialises every banded widget, not just the Month
+    grid's — so every banded widget has to survive the round trip. It did
+    not: a widget outside the grid carried no ``data-cols``, posted as 1x1,
+    and 1x1 is a size none of them allows. The first resize or drag deleted
+    the hero, the banner and the Latest list from storage, and the page came
+    back without them.
+    """
+    _open_desktop(page, base_url)
+    _wait_for_bands_settled(page)
+
+    with page.expect_response("**/_dashboard/layout") as response_info:
+        page.evaluate("() => window.__kaletaCycleDashSize('cashflow_chart')")
+    assert response_info.value.ok, "layout POST did not succeed"
+
+    _open_desktop(page, base_url)
+    page.wait_for_selector("#dash-bands", timeout=20000)
+    expect(page.locator('[data-band="now"] [data-widget-id="safe_to_spend"]')).to_have_count(1)
+    expect(
+        page.locator('[data-band="latest"] [data-widget-id="recent_transactions"]')
+    ).to_have_count(1)
+
+    # Put the sizes back for the files after this one.
+    page.get_by_role("button", name="Customize").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog.get_by_text("Customize Dashboard", exact=True)).to_be_visible(timeout=5000)
+    dialog.get_by_role("button", name="Reset layout").click()
+    expect(dialog).to_be_hidden(timeout=10000)
