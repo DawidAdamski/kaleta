@@ -89,11 +89,15 @@ class TestWatchRateLabel:
 
         assert _watch_rate_label(points) == "—"
 
-    def test_a_month_with_income_among_months_without_is_averaged(self) -> None:
-        """Those zeroes are real: a month you earned nothing in kept nothing."""
-        points = [self._month("0", "0"), self._month("100", "50")]
+    def test_a_young_ledger_reads_the_months_it_has(self) -> None:
+        """`savings_rate` zero-fills, so a ledger one month old arrives as
+        five months that predate it plus one real one. Counting those five as
+        real zeroes turned a 20% month into "3.3%" — a figure for a period the
+        user never had."""
+        points = [self._month("0", "0") for _ in range(5)]
+        points.append(self._month("5000", "4000"))
 
-        assert _watch_rate_label(points) == "25.0%"
+        assert _watch_rate_label(points) == "20.0%"
 
     def test_no_months_reads_as_no_figure(self) -> None:
         """The mean of nothing is not zero per cent — and the band says "—"

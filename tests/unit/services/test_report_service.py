@@ -631,6 +631,31 @@ class TestLargestTransactions:
 
 
 class TestReportDisplayHelpers:
+    def test_mean_savings_rate_pct_skips_months_with_no_rate(self) -> None:
+        """The headline figure's rule: a month with no income is no answer,
+        not a real zero — five zero-filled pre-ledger months must not turn a
+        20% month into 3.3%."""
+        points = [
+            SavingsRatePoint(year=2026, month=m, income=Decimal("0"), expenses=Decimal("0"))
+            for m in range(1, 6)
+        ]
+        points.append(
+            SavingsRatePoint(year=2026, month=6, income=Decimal("5000"), expenses=Decimal("4000"))
+        )
+
+        assert ReportService.mean_savings_rate_pct(points) == Decimal("20")
+
+    def test_mean_savings_rate_pct_without_a_single_rate(self) -> None:
+        points = [
+            SavingsRatePoint(year=2026, month=m, income=Decimal("0"), expenses=Decimal("0"))
+            for m in range(1, 7)
+        ]
+
+        assert ReportService.mean_savings_rate_pct(points) is None
+
+    def test_mean_savings_rate_pct_of_nothing(self) -> None:
+        assert ReportService.mean_savings_rate_pct([]) is None
+
     def test_average_savings_rate_pct_empty(self) -> None:
         assert ReportService.average_savings_rate_pct([]) == Decimal("0")
 

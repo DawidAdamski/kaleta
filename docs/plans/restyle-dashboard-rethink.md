@@ -328,6 +328,26 @@ payees or categories (routes only); touching `app.storage.user` keys;
   - the palette's field takes focus when the dialog's transition ends, so
     a very fast typist loses the first characters after ⌘K.
 
+### Found by the seventh review
+
+- **A young ledger read the wrong savings rate.** `savings_rate`
+  zero-fills, and `average_savings_rate_pct` counts a month with no income
+  as a real 0% — right for a chart of a ledger you have been keeping,
+  wrong for a headline figure, because a ledger one month old arrives as
+  five months that predate it plus one real one and a 20% month printed as
+  "3.3%". `ReportService.mean_savings_rate_pct` averages the months that
+  have an answer and says `None` when none do; the older method keeps its
+  callers and its meaning.
+- **And it swung with the month in progress.** On the 3rd, before the
+  salary lands, the current month contributed a zero and took a sixth off
+  the mean — the exact swing the figure was chosen to avoid. The band asks
+  for seven months and drops the last.
+- **Accepted cost:** `emergency_cover_months` runs `with_progress` per
+  emergency fund, and each recomputes the same 90-day spend aggregate.
+  Computing it once would mean duplicating the cover formula outside
+  `with_progress`, which is worse than N queries for an N that is one in
+  every ledger anybody has.
+
 ### Not this plan's, and not on this branch
 
 `scripts/review_gate.sh` and `docs/goal-mode.md` carry uncommitted
