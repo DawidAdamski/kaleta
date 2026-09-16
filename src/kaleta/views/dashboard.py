@@ -35,6 +35,7 @@ from kaleta.services import with_session
 from kaleta.views.dashboard_widgets import (
     BAND_ORDER,
     DEFAULT_WIDGETS,
+    HERO_WIDGET,
     WIDGETS,
     Band,
     Widget,
@@ -520,11 +521,18 @@ async def _render_now_band(
     Two thirds to one: the hero is the page's answer and the banner and the
     actions are what you do about it. Under `lg` they stack, because a
     54px figure and a list of buttons do not share 500px.
+
+    The wide column belongs to the hero *by name*. It is an ordinary widget
+    the user can untick, and a band that gave two thirds to whatever came
+    first would hand a column sized for a 54px figure to the needs-attention
+    banner. Without the hero the band is equal columns.
     """
-    hero, rest = entries[0], entries[1:]
+    hero = next((entry for entry in entries if entry["id"] == HERO_WIDGET), None)
+    rest = [entry for entry in entries if entry is not hero]
     with ui.row().classes("w-full gap-5 items-stretch flex-wrap lg:flex-nowrap"):
-        with ui.column().classes("flex-[2] min-w-[320px] gap-4"):
-            await _render_banded_widget(hero, session, is_dark)
+        if hero is not None:
+            with ui.column().classes("flex-[2] min-w-[320px] gap-4"):
+                await _render_banded_widget(hero, session, is_dark)
         if rest:
             with ui.column().classes("flex-1 min-w-[280px] gap-4"):
                 for entry in rest:

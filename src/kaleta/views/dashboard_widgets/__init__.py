@@ -23,6 +23,7 @@ from kaleta.views.dashboard_widgets.layout import (
 from kaleta.views.dashboard_widgets.registry import (
     BAND_ORDER,
     DEFAULT_WIDGETS,
+    HERO_WIDGET,
     LEGACY_KPI_WIDGETS,
     MERGED_KPI_WIDGETS,
     WIDGETS,
@@ -64,6 +65,7 @@ from . import (  # noqa: F401
 __all__ = [
     "BAND_ORDER",
     "DEFAULT_WIDGETS",
+    "HERO_WIDGET",
     "Band",
     "bands_for_layout",
     "LEGACY_KPI_WIDGETS",

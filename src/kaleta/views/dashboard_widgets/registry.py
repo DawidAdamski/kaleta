@@ -157,6 +157,13 @@ def bands_for_layout(layout: list[dict[str, Any]]) -> dict[Band, list[dict[str, 
     return grouped
 
 
+#: The widget the Now band gives its wide column to, when the layout has it.
+#: It is an ordinary default widget — tick it off and the band is three
+#: equal cards, rather than the banner inheriting a column sized for a
+#: 54px figure.
+HERO_WIDGET = "safe_to_spend"
+
+
 def selectable_widgets() -> list[str]:
     """Widget ids offered in the Customize picker — everything but legacy."""
     return [wid for wid, w in WIDGETS.items() if not w.legacy]
