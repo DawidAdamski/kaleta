@@ -103,6 +103,7 @@ class Band(StrEnum):
     NOW = "now"
     MONTH = "month"
     WATCH = "watch"
+    LATEST = "latest"
 
 
 #: Which band a widget belongs to on a phone. Anything unlisted falls into
@@ -117,6 +118,7 @@ BAND_OF: dict[str, Band] = {
     "safe_to_spend": Band.NOW,
     "wizard_actions": Band.NOW,
     "quick_actions": Band.NOW,
+    "recent_transactions": Band.LATEST,
 }
 
 #: Band order on the page, top to bottom, with the i18n key of each heading.
@@ -124,6 +126,7 @@ BAND_ORDER: tuple[tuple[Band, str], ...] = (
     (Band.NOW, "dashboard.band_now"),
     (Band.MONTH, "dashboard.band_month"),
     (Band.WATCH, "dashboard.band_watch"),
+    (Band.LATEST, "dashboard.band_latest"),
 )
 
 
@@ -151,18 +154,20 @@ def bands_for_layout(layout: list[dict[str, Any]]) -> dict[Band, list[dict[str, 
     return grouped
 
 
-#: The hero the phone dashboard always leads with, whether or not the stored
-#: (desktop) layout carries it — see ``mobile_layout``.
+#: The hero every dashboard leads with, whether or not the stored layout
+#: carries it — see ``with_hero``.
 HERO_WIDGET = "safe_to_spend"
 
 
-def mobile_layout(layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def with_hero(layout: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """The stored layout with the safe-to-spend hero guaranteed at its head.
 
-    The hero is off by default on the desktop grid (it is a phone answer to a
-    phone question), so a phone would otherwise never show it. Prepending it
-    here rather than rendering it separately keeps it an ordinary banded
-    widget — it cannot then appear twice for someone who did switch it on.
+    It is in ``DEFAULT_WIDGETS`` now, so a new profile and a ``Reset widgets``
+    both put it in its canonical place. This covers the layouts stored before
+    it existed, at both widths: the hero is the page's answer to the question
+    the page asks, not a card you can mislay. Prepending it rather than
+    rendering it separately keeps it an ordinary banded widget — it cannot
+    then appear twice for someone whose layout already names it.
     """
     if any(entry.get("id") == HERO_WIDGET for entry in layout):
         return list(layout)
@@ -179,6 +184,7 @@ def selectable_widgets() -> list[str]:
 
 
 DEFAULT_WIDGETS: list[str] = [
+    "safe_to_spend",
     "balance_card",
     "month_card",
     "wizard_actions",

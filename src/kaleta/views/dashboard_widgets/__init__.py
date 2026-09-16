@@ -31,9 +31,9 @@ from kaleta.views.dashboard_widgets.registry import (
     WidgetSize,
     bands_for_layout,
     cycle_size,
-    mobile_layout,
     register,
     selectable_widgets,
+    with_hero,
 )
 
 # Import widget modules to populate the registry.
@@ -67,7 +67,7 @@ __all__ = [
     "DEFAULT_WIDGETS",
     "Band",
     "bands_for_layout",
-    "mobile_layout",
+    "with_hero",
     "LEGACY_KPI_WIDGETS",
     "MERGED_KPI_WIDGETS",
     "LayoutEntry",
