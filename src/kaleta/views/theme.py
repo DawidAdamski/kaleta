@@ -156,6 +156,10 @@ TOP_NAV_ITEM_ACTIVE = "k-topnav-item--active"
 TOP_NAV_MENU = "k-topnav-menu"
 #: "Jump to… ⌘K" — a search field's clothes on a button that opens a dialog.
 TOP_NAV_SEARCH = "k-topnav-search"
+#: Dashboard and Financial Wizard. They are the two entries whose labels the
+#: bar can afford to drop when the window is narrow: their icons are the two
+#: nobody has to read, and five section names cannot go anywhere.
+TOP_NAV_PIN = "k-topnav-pin"
 
 #: The hamburger + mini pair, and the header's search icon: phone-side
 #: controls that a desktop top bar makes redundant.
@@ -618,6 +622,25 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:0 14px
 }
 .q-btn.k-topnav-search:hover{background:var(--k-surface-warm)}
+/* 768-1023px: the bar has five sections, two pinned entries, a pill and
+   three icon buttons to fit on one 60px line, and at 768px it wrapped onto
+   a second one the header has no room for — "Setup" ended up under the
+   others. The two pinned entries and the pill keep their icons and drop
+   their words until there is room for both. The `> *` rule reaches the
+   label Quasar puts inside `.q-btn__content`; the icon is the `.q-icon`. */
+@media (max-width:1023.98px){
+  /* `font-size:0` rather than `display:none`: the label is a Quasar-rendered
+     `span.block` this stylesheet cannot reach with a display rule, and a span
+     set to zero type collapses to zero width just the same. The icon takes
+     its size back on the next line. */
+  .q-btn.k-topnav-pin .q-btn__content,
+  .q-btn.k-topnav-search .q-btn__content{font-size:0}
+  .q-btn.k-topnav-pin .q-btn__content > .q-icon,
+  .q-btn.k-topnav-search .q-btn__content > .q-icon{font-size:1.3rem}
+  .q-btn.k-topnav-pin,.q-btn.k-topnav-search{padding:0 9px}
+  .q-btn.k-topnav-pin .q-btn__content > .q-icon,
+  .q-btn.k-topnav-search .q-btn__content > .q-icon{margin:0}
+}
 .k-drawer-controls,.k-phone-search{display:flex}
 @media (min-width:768px){
   .k-drawer-controls,.k-phone-search{display:none}

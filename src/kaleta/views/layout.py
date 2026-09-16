@@ -34,6 +34,7 @@ from kaleta.views.theme import (
     TOP_NAV_ITEM,
     TOP_NAV_ITEM_ACTIVE,
     TOP_NAV_MENU,
+    TOP_NAV_PIN,
     TOP_NAV_SEARCH,
     apply_brand,
     theme_css,
@@ -224,7 +225,10 @@ def _top_nav(current_path: str, open_palette: Callable[[], None]) -> None:
             item = ui.button(
                 t(key), icon=icon, on_click=lambda p=path: ui.navigate.to(p), color=None
             ).props("flat no-caps dense")
-            item.classes(f"{TOP_NAV_ITEM} {TOP_NAV_ITEM_ACTIVE if active else ''}".strip())
+            item.classes(
+                f"{TOP_NAV_ITEM} {TOP_NAV_PIN} {TOP_NAV_ITEM_ACTIVE if active else ''}".strip()
+            )
+            item.tooltip(t(key))
             item.props["data-nav"] = key
             if active:
                 item.props["aria-current"] = "page"
@@ -244,9 +248,15 @@ def _top_nav(current_path: str, open_palette: Callable[[], None]) -> None:
                 section.props["aria-current"] = "page"
             with section, ui.menu().props("auto-close").classes(TOP_NAV_MENU):
                 for icon, path, key in items:
-                    ui.menu_item(t(key), on_click=lambda p=path: ui.navigate.to(p)).props(
-                        f'icon={icon} data-nav="{key}"'
-                    )
+                    # The icon goes *inside* the item: `q-item` has no `icon`
+                    # prop, so passing one drew five menus of bare labels while
+                    # the palette beside them — which builds its rows out of
+                    # `ui.icon` — showed the same icons correctly.
+                    entry = ui.menu_item(on_click=lambda p=path: ui.navigate.to(p))
+                    entry.props["data-nav"] = key
+                    with entry, ui.row().classes("items-center gap-3 no-wrap"):
+                        ui.icon(icon, size="1.1rem").classes(MUTED)
+                        ui.label(t(key)).classes("text-sm")
 
     ui.space()
     ui.button(t("nav.palette_open"), icon="search", on_click=open_palette).props(
