@@ -114,8 +114,8 @@ def _reset_widgets(page: Page) -> None:
 
     The suite shares one NiceGUI user storage, so the stored layout this test
     reads is whatever the files before it left behind. Resetting first makes
-    the band claims below claims about the defaults rather than about test
-    order, and leaves the storage cleaner than it found it.
+    the claims below claims about the defaults rather than about test order,
+    and leaves the storage cleaner than it found it.
     """
     page.get_by_role("button", name="Customize").click()
     dialog = page.get_by_role("dialog")

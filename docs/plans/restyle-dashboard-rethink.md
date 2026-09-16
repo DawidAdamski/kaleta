@@ -318,11 +318,15 @@ payees or categories (routes only); touching `app.storage.user` keys;
   was never in `docs/bdd.md` — there is no `KAL-` scenario describing a
   sidebar default state, so there was nothing to retag. Recorded here
   rather than left as a silent removal.
-- **Chore-inbox sized, not filed:** palette rows are clickable `div`s
-  with no `role="option"` and no focus, so a keyboard reaches only the
-  first match (via Enter); and the palette's field takes focus when the
-  dialog's transition ends, so a very fast typist loses the first
-  characters after ⌘K.
+- **For the pinned Chore inbox issue** — two palette nits, left for the
+  owner to file rather than filed from here (this session does not write
+  to GitHub):
+  - palette rows are clickable `div`s with no `role="option"`, no
+    `tabindex` and no roving focus, so a keyboard reaches only the first
+    match (via Enter on the field) and a screen reader gets an
+    unannounced list;
+  - the palette's field takes focus when the dialog's transition ends, so
+    a very fast typist loses the first characters after ⌘K.
 
 ### Verification
 
