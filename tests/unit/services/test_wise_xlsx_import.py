@@ -320,6 +320,31 @@ class TestWiseXlsxFailureModes:
         assert result.needs_mapping is False
         assert result.error_key == "import.xlsx_no_rows"
 
+    def test_decimal_amounts_survive_the_float_openpyxl_returns(self) -> None:
+        """JPY has no minor unit, so the fixture cannot cover this.
+
+        A workbook stores amounts as numbers, and openpyxl hands back a float.
+        Rendering it with ``str`` round-trips exactly; handing the float to
+        ``Decimal`` would yield ``1811.56999999999993…`` instead.
+        """
+        openpyxl = pytest.importorskip("openpyxl")
+        workbook = openpyxl.Workbook()
+        sheet = workbook.active
+        sheet.append(["ID", "Date", "Amount", "Currency", "Description"])
+        for index, amount in enumerate((-1811.57, 44.2099, 1234567.89), start=1):
+            sheet.append(
+                [f"CARD-{index}", datetime.date(2026, 5, 17), amount, "EUR", f"Row {index}"]
+            )
+        buffer = io.BytesIO()
+        workbook.save(buffer)
+
+        rows = WiseXlsxPreprocessor.parse(buffer.getvalue()).rows
+        assert [row.amount for row in rows] == [
+            Decimal("-1811.57"),
+            Decimal("44.2099"),
+            Decimal("1234567.89"),
+        ]
+
     def test_a_row_without_a_date_is_skipped_not_an_error(self) -> None:
         openpyxl = pytest.importorskip("openpyxl")
         workbook = openpyxl.Workbook()

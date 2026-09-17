@@ -1029,6 +1029,11 @@ def _xlsx_cell_text(value: Any) -> str:
         return value.date().isoformat()
     if isinstance(value, datetime.date):
         return value.isoformat()
+    # ``str`` on purpose for the numeric cells openpyxl hands back as floats:
+    # since 3.1 ``repr`` is the shortest string that round-trips, so
+    # ``Decimal(str(44.2099))`` is exactly ``44.2099``. Passing the float to
+    # ``Decimal`` directly is what would corrupt it — that yields
+    # ``44.20989999999999753…``, the binary value. Do not "simplify" this.
     return str(value).strip()
 
 
