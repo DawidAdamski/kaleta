@@ -3,8 +3,9 @@ plan_id: restyle-import-wizard
 title: Restyle — Import becomes the wizard its progress line already describes (artboard 2d)
 area: import
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-17
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Restyle — Import becomes a wizard
@@ -319,3 +320,43 @@ separate plan.
   foreign_keys=ON`); nothing in the import checks that the account is
   still there. That keeps the import-time failure path covered rather
   than swapping it for a parse failure.
+
+## Implementation
+
+Landed on 2026-09-17 (PR #88).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `03f0ffb` | Dawid Adamski | 2026-09-17 | Merge pull request #88 from DawidAdamski/plan/restyle-import-wizard |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/restyle-import-wizard.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/import_view/coverage_section.py
+- src/kaleta/views/import_view/metadata_section.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/preview_section.py
+- src/kaleta/views/import_view/profile_section.py
+- src/kaleta/views/import_view/queue_section.py
+- src/kaleta/views/import_view/settings_section.py
+- src/kaleta/views/import_view/state.py
+- src/kaleta/views/import_view/step_indicator.py
+- src/kaleta/views/import_view/summary_section.py
+- src/kaleta/views/import_view/transfer_section.py
+- src/kaleta/views/import_view/upload_section.py
+- src/kaleta/views/import_view/wizard.py
+- src/kaleta/views/theme.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_rules.py
+- tests/e2e/test_transfer_detection.py
+- tests/unit/views/test_import_wizard_step.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
