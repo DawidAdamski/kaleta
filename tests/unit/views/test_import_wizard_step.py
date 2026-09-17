@@ -7,6 +7,7 @@ page decides what to show from the active file's status. Both read this.
 
 from __future__ import annotations
 
+from kaleta.i18n import t
 from kaleta.services.import_service import (
     ColumnMapping,
     MBankFileMetadata,
@@ -14,6 +15,7 @@ from kaleta.services.import_service import (
 )
 from kaleta.views.import_view.state import (
     STEP_CONFIRM,
+    STEP_FORMAT,
     STEP_MAPPING,
     STEP_PREVIEW,
     STEP_SETTINGS,
@@ -21,6 +23,16 @@ from kaleta.views.import_view.state import (
     QueuedFile,
     apply_settings_snapshot,
     current_step,
+    settings_block_reason,
+)
+from kaleta.views.import_view.wizard import (
+    ALL_STEPS,
+    can_continue,
+    clamp_viewed,
+    continue_blocked_reason,
+    next_step,
+    prev_step,
+    steps_for,
 )
 
 
@@ -135,3 +147,89 @@ class TestInheritedMappingIsStillAuto:
         apply_settings_snapshot(file, QueueSettingsSnapshot(file_id=file.id, profile="generic"))
 
         assert file.auto_mapping == ColumnMapping(date=0)
+
+
+class TestWizardNavigation:
+    """Covers: KAL-CSV-028 — one step on screen, and how you leave it.
+
+    ``current_step`` says where the *work* is; these say where the *reader*
+    may be, which is not the same thing on a wizard you can walk back
+    through. The page shows exactly one of the six panels, so every answer
+    here is a panel appearing or not appearing.
+    """
+
+    def test_a_generic_file_walks_all_six_steps(self) -> None:
+        assert steps_for(_file(profile="generic")) == ALL_STEPS
+        assert steps_for(None) == ALL_STEPS
+
+    def test_a_bank_profile_has_no_mapping_step(self) -> None:
+        # Its columns are the profile's, not the user's: Continue from Upload
+        # lands on Settings and Back from Settings returns to Upload.
+        steps = steps_for(_file(profile="mbank"))
+        assert STEP_MAPPING not in steps
+        assert next_step(STEP_UPLOAD, steps) == STEP_SETTINGS
+        assert prev_step(STEP_SETTINGS, steps) == STEP_UPLOAD
+
+    def test_the_ends_of_the_line_go_nowhere(self) -> None:
+        assert prev_step(STEP_FORMAT, ALL_STEPS) == STEP_FORMAT
+        assert next_step(STEP_CONFIRM, ALL_STEPS) == STEP_CONFIRM
+
+    def test_continue_is_enabled_exactly_while_a_finished_step_is_ahead(self) -> None:
+        assert can_continue(STEP_FORMAT, STEP_UPLOAD, ALL_STEPS) is True
+        assert can_continue(STEP_UPLOAD, STEP_UPLOAD, ALL_STEPS) is False
+        # Nothing ahead to continue to, however far the work has come.
+        assert can_continue(STEP_CONFIRM, STEP_CONFIRM, ALL_STEPS) is False
+
+    def test_a_reader_is_clamped_to_a_step_the_work_has_reached(self) -> None:
+        # Unmapping a column on a file that was ready drops current_step from
+        # Preview to Mapping, and a Preview panel for a file that no longer
+        # parses is a page lying about itself.
+        assert clamp_viewed(STEP_PREVIEW, STEP_MAPPING, ALL_STEPS) == STEP_MAPPING
+        # A step already behind the work is where the reader stays.
+        assert clamp_viewed(STEP_FORMAT, STEP_PREVIEW, ALL_STEPS) == STEP_FORMAT
+
+    def test_a_profile_change_cannot_leave_the_reader_on_a_missing_step(self) -> None:
+        # Forward, not back: this is the file switcher moving from a generic
+        # file's mapping step to a bank profile's, and Upload is where the
+        # switcher they just used is not even shown.
+        steps = steps_for(_file(profile="mbank"))
+        assert clamp_viewed(STEP_MAPPING, STEP_CONFIRM, steps) == STEP_SETTINGS
+        # But when the work itself has fallen back there is nothing ahead to
+        # move to, and the reader goes with it.
+        assert clamp_viewed(STEP_PREVIEW, STEP_UPLOAD, steps) == STEP_UPLOAD
+
+    def test_continue_says_why_it_refuses(self) -> None:
+        """Covers: KAL-CSV-029 — a refusing button that stays silent is the
+        worst thing this wizard could do."""
+        # Nothing blocked: there is a finished step ahead.
+        assert continue_blocked_reason(_file(status="ready"), STEP_UPLOAD, STEP_SETTINGS) is None
+        # No file at all — the upload step is waiting on one. The literal
+        # is the scenario's (rule 11), not the key's own lookup.
+        assert (
+            continue_blocked_reason(None, STEP_UPLOAD, STEP_UPLOAD) == "Upload a file to continue."
+        )
+        # Mapping refuses in the file's own words.
+        needs = _file(status="needs_mapping", status_msg="Date column is required.")
+        assert (
+            continue_blocked_reason(needs, STEP_MAPPING, STEP_MAPPING) == "Date column is required."
+        )
+
+    def test_the_settings_step_refuses_with_what_it_is_missing(self) -> None:
+        """Covers: KAL-CSV-029 — "Loaded 2 rows." answers a question nobody
+        asked; the readiness check knows the real one."""
+        ready = _file(status="ready", status_msg="Loaded 2 rows.")
+        blocked = settings_block_reason(ready)
+        assert blocked is not None
+        assert blocked[0] == "import.select_account_hint"
+        assert (
+            continue_blocked_reason(
+                ready, STEP_SETTINGS, STEP_SETTINGS, settings_reason=t(blocked[0])
+            )
+            == "Select a target account."
+        )
+        done = _file(status="ready", target_account_id=7, expense_cat_id=1, income_cat_id=2)
+        assert settings_block_reason(done) is None
+
+    def test_the_last_step_has_nothing_to_refuse(self) -> None:
+        imported = _file(status="done")
+        assert continue_blocked_reason(imported, STEP_CONFIRM, STEP_CONFIRM) is None

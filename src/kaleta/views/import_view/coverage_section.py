@@ -11,7 +11,7 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.schemas.account import AccountActivityResponse
 from kaleta.services.account_service import STALE_ACTIVITY_DAYS, AccountService
-from kaleta.views.theme import BODY_MUTED, SECTION_CARD
+from kaleta.views.theme import BODY_MUTED, CARD_TITLE, HAIRLINE_ROW, SECTION_CARD, SECTION_TITLE
 
 
 def _fmt_date(value: date | None) -> str:
@@ -55,12 +55,10 @@ class CoverageSection:
         sorted_rows = sorted(rows, key=_coverage_sort_key)
         with self.container:
             with ui.card().classes(f"{SECTION_CARD} w-full"):
-                ui.label(t("import.coverage_heading")).classes("text-lg font-medium")
+                ui.label(t("import.coverage_heading")).classes(CARD_TITLE)
                 ui.label(t("import.coverage_hint")).classes(f"{BODY_MUTED} text-sm mb-2")
 
-                with ui.row().classes(
-                    "w-full px-2 py-1 text-xs text-slate-500 font-medium border-b gap-2"
-                ):
+                with ui.row().classes(f"w-full px-2 py-1 gap-2 {SECTION_TITLE} {HAIRLINE_ROW}"):
                     ui.label(t("common.name")).classes("flex-1")
                     ui.label(t("import.coverage_last_activity")).classes("w-36")
                     ui.label(t("import.coverage_last_import")).classes("flex-1")
@@ -70,7 +68,9 @@ class CoverageSection:
                 else:
                     for row in sorted_rows:
                         stale = AccountService.is_stale(row.newest_transaction_date)
-                        with ui.row().classes("w-full px-2 py-2 items-center border-b gap-2"):
+                        with ui.row().classes(
+                            f"w-full px-2 py-2 items-center gap-2 {HAIRLINE_ROW}"
+                        ):
                             with ui.row().classes("flex-1 items-center gap-2 min-w-0"):
                                 ui.label(row.name).classes("font-medium truncate")
                                 if stale:
@@ -94,9 +94,7 @@ class CoverageSection:
                                     )
                                 ).classes("flex-1 text-sm truncate")
                             else:
-                                ui.label(t("import.coverage_never")).classes(
-                                    "flex-1 text-sm text-slate-500"
-                                )
+                                ui.label(t("import.coverage_never")).classes(f"flex-1 {BODY_MUTED}")
 
             with ui.expansion(t("import.history_heading"), icon="history").classes(
                 f"{SECTION_CARD} w-full mt-2"

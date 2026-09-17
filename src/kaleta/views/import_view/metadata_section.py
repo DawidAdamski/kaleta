@@ -9,6 +9,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services.import_service import MBankFileMetadata
+from kaleta.views.theme import SECTION_TITLE
 
 
 @dataclass
@@ -35,7 +36,7 @@ class MetadataSection:
                 ),
                 (t("import.detected_tx_count"), str(row_count)),
             ]:
-                ui.label(label).classes("text-xs text-slate-500 font-medium")
+                ui.label(label).classes(SECTION_TITLE)
                 ui.label(value).classes("text-sm")
         self.card.set_visibility(True)
 

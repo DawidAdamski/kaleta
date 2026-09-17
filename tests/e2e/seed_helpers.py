@@ -239,6 +239,12 @@ def seed_many_transactions(
         seed_transaction(account_id, category_id, amount, date=d)
 
 
+def delete_account(account_id: int) -> None:
+    """Delete an account via the REST API."""
+    resp = _client.delete(f"{API_BASE}/accounts/{account_id}")
+    resp.raise_for_status()
+
+
 def update_account(account_id: int, **fields: Any) -> dict:
     """PATCH-style update via PUT; only supplied fields are changed."""
     resp = _client.put(f"{API_BASE}/accounts/{account_id}", json=fields)

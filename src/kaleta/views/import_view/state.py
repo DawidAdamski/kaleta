@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_service import (
@@ -65,12 +66,14 @@ STEP_CONFIRM = 6
 
 
 def current_step(active: QueuedFile | None, *, account_currency: str | None = None) -> int:
-    """Which of the six steps the user is standing on.
+    """Which of the six steps the *work* is on.
 
-    The page shows every section at once and hides the ones that do not apply,
-    so "where am I" was only ever implied by which cards were visible. The
-    same conditions decide it here, in one place, so the progress line cannot
-    disagree with the page under it.
+    The conditions are the ones each section uses to decide whether it
+    applies to this file, in one place — so the progress line cannot
+    disagree with the page under it. Since `restyle-import-wizard` the page
+    shows one step at a time and this is its ceiling: the reader may stand
+    anywhere up to here (see ``views.import_view.wizard``), and the shell
+    puts them here whenever the page, rather than the reader, is choosing.
 
     A bank profile (mbank, pko, wise) never shows the mapping card, and its
     node still reads as done once the file is parsed. That is not a lie: the
@@ -118,7 +121,19 @@ def settings_are_complete(file: QueuedFile, *, account_currency: str | None = No
     caller passes the chosen account's currency; without one there is
     nothing to disagree with.
     """
-    error_key, _ = validate_import_readiness(
+    return settings_block_reason(file, account_currency=account_currency) is None
+
+
+def settings_block_reason(
+    file: QueuedFile, *, account_currency: str | None = None
+) -> tuple[str, dict[str, Any]] | None:
+    """What the settings step is still missing, as ``(i18n key, params)``.
+
+    ``None`` when nothing is. This is the message the footer puts beside a
+    refusing ``Continue``: "Choose an account", not the file's last piece of
+    news ("Loaded 2 rows."), which answers a question nobody asked.
+    """
+    error_key, params = validate_import_readiness(
         ImportReadinessCheck(
             target_account_id=file.target_account_id,
             expense_cat_id=file.expense_cat_id,
@@ -128,7 +143,7 @@ def settings_are_complete(file: QueuedFile, *, account_currency: str | None = No
             account_currency=account_currency,
         )
     )
-    return error_key is None
+    return None if error_key is None else (error_key, params)
 
 
 def queue_is_terminal(queue: list[QueuedFile]) -> bool:

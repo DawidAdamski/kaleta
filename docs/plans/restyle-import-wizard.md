@@ -3,7 +3,7 @@ plan_id: restyle-import-wizard
 title: Restyle — Import becomes the wizard its progress line already describes (artboard 2d)
 area: import
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -93,7 +93,7 @@ separate plan.
 - `uv run pytest tests/e2e/test_transfer_detection.py tests/e2e/test_rules.py -q`
 - `grep -q "KAL-CSV-028" docs/bdd.md`
 - `grep -q "KAL-CSV-029" docs/bdd.md`
-- `grep -qv "text-2xl font-bold" src/kaleta/views/import_view/page.py`
+- `! grep -q "text-2xl font-bold" src/kaleta/views/import_view/page.py`
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
 - `[manual]` Upload `test_import.csv` at 1360px: step 3 shows the sample
@@ -105,15 +105,23 @@ separate plan.
 ## Touchpoints
 
 - `src/kaleta/views/import_view/page.py` (the shell and the footer),
-  `state.py` (`current_step` gains nothing; the shell reads it),
+  `wizard.py` (new: which steps a file has, and how you move between
+  them), `state.py` (`current_step` gains nothing; the shell reads it,
+  and `settings_block_reason` says what the settings step is missing),
+  `step_indicator.py` (the line marks the work and rings the reader),
   `profile_section.py`, `upload_section.py`, `queue_section.py`,
-  `preview_section.py`, `summary_section.py`, `coverage_section.py`
-- `src/kaleta/views/theme.py` (a wizard footer token, if the row needs
-  one)
+  `preview_section.py`, `summary_section.py`, `coverage_section.py`,
+  `metadata_section.py`, `settings_section.py`, `transfer_section.py`
+- `src/kaleta/views/theme.py` (the wizard footer's tokens, and the ones
+  for what Quasar paints itself: `FORMAT_CHIP`, `UPLOADER`,
+  `DISCLOSURE`, `STEP_NODE_READING`)
 - `src/kaleta/i18n/locales/en.json`, `pl.json`
 - `docs/bdd.md`, `docs/product/` (no import doc exists — add one only if
   the wizard needs explaining beyond the scenarios)
-- `tests/e2e/test_csv_import.py`, `tests/unit/views/test_import_wizard_step.py`
+- `tests/e2e/test_csv_import.py`, `tests/unit/views/test_import_wizard_step.py`,
+  and the two other suites that walk `/import`: `tests/e2e/test_rules.py`,
+  `tests/e2e/test_transfer_detection.py` (plus `seed_helpers.delete_account`,
+  which is how a file is made to fail during an import)
 
 ## Open questions
 
@@ -140,4 +148,174 @@ separate plan.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Open questions, all taken at their default
+
+1. **Back to a finished step: yes.** `wizard.py` walks the same steps in
+   both directions, and every node up to `current_step` is clickable on
+   the progress line. The reader's step and the work's step are separate:
+   the line marks where the work is (`k-step--now`) and rings where the
+   reader is (`k-step--reading`), so a reader three steps back can still
+   see what the file is waiting on.
+2. **A bank profile skips mapping in both directions.** `steps_for()`
+   drops `STEP_MAPPING` for a non-generic profile, so `Continue` from
+   Upload lands on Settings and `Back` from Settings returns to Upload.
+   The node stays ticked, which is what `current_step` already claimed.
+3. **No queue on steps 3–5.** The queue card lives on Upload; what those
+   steps get is `< File 2 of 4 >` (`data-file-switcher`), which is the
+   one thing they need from it.
+4. **Import runs from the Preview footer** (`data-import-run`), where
+   `Continue` would otherwise be, reading `Import N files`. The button is
+   gone from the queue card's header.
+5. **Transfers stay on Preview**, under the table.
+
+### Decisions the plan did not ask about
+
+- **`Continue`'s refusal is the readiness check's own message, not the
+  file's `status_msg`.** A ready file's status message is "Loaded 2
+  rows." — news, not an answer. `state.settings_block_reason()` returns
+  the `(key, params)` that `validate_import_readiness` would block the
+  import with ("Select a target account."), and the footer shows that on
+  the settings step. Mapping keeps using `status_msg`, which there *is*
+  the answer ("Map the required columns to continue.").
+- **An upload never takes a step away from the reader.** Every upload
+  handler ends by putting the page where its file is, which on a
+  multi-file drop meant the fourth file yanking the reader off a step
+  they had just walked to. The rule is now: a file dropped while the
+  reader is on the upload step moves them to its first unanswered
+  question, and so does any file that lands while the page — not the
+  reader — is choosing the step (`state["step_chosen"]`). A reader
+  standing anywhere else keeps their step. A new run and a finished
+  import clear the flag: those are the page's to place.
+
+  It is the file as well as the step: a drop that does not take the step
+  does not take the screen either, so a reader reading file A does not
+  get file B swapped in under them. B joins the queue, the switcher on
+  steps 3–5 counts it, and clicking it in the queue is how it is reached.
+
+  An earlier attempt keyed this on a token captured when each handler
+  began, which loses to a handler that *starts* after the click — the
+  browser issues one POST per file and the server takes them in turn.
+- **A node for a step the file does not have is not a link.** The mapping
+  node stays drawn and ticked for a bank profile (decision 2), but
+  `render_step_indicator` now takes the set of steps the reader may stand
+  on and wires `on_step` only for those — clicking one used to go through
+  `clamp_viewed` and land the reader somewhere they did not ask for. That
+  set is `_walkable()`: the file's own steps up to the one the work has
+  reached, so a failed file's mapping, settings and preview nodes — whose
+  cards are hidden — are not links either. `Back`, `Continue` and the
+  clamp read the same set, so no way of moving can land on an empty
+  panel; `steps_for` on its own is only the shape of the file's journey,
+  not how far along it you may stand.
+- **A finished run's step is Confirm, whatever the active file did.**
+  `current_step` answers for one file, and a failed one answers "Upload"
+  — which after a run left the summary of everything that *did* happen
+  on a step nobody could reach, since the line only links as far as the
+  work has got. `state["run_finished"]` is set with the summary and
+  cleared by the next drop, a new run, or the last file leaving the
+  queue; while it is set, Confirm is walkable.
+- **A run does not move the reader while it is running.** Each file's
+  repaint inside the loop used to re-clamp the step, so a file failing
+  mid-run dropped `current_step` to Upload and took the reader off
+  Preview, only to put them on Confirm a moment later. Where they stand
+  is settled once, when the run ends.
+- **One import run per click.** `do_import_all` returns early while
+  `state["importing"]` is set: the footer draws the button disabled, but
+  that is a websocket round trip away, and a second click inside it
+  started a second loop over the same files.
+- **Clamping moves forward first.** A reader on Mapping who uses
+  `< file n of m >` to open a bank-profile file has no mapping step to
+  stand on; falling back to Upload would take away the very control they
+  just used (it is shown on steps 3–5 only), so the clamp prefers the
+  nearest step *ahead* — Settings — and falls back only when the work
+  itself has moved backwards and there is nothing ahead to move to.
+- **The eyebrow's row count is a figure**: `k-mono`, and `f"{count:,}"`,
+  which is the same call `mapping_caption` makes for the same number.
+- **The import button kept its tooltip** when it moved out of the queue
+  card ("Imports every file in Ready state; pending and failed files are
+  skipped"): the count on the button does not say what a run skips.
+- **The mBank/Wise metadata banner moved to Upload**, with the file it
+  describes and the queue it belongs to. It is not a step of its own and
+  it is not part of the mapping card the artboard draws.
+- **`settings_section` and `transfer_section` got the sand pass too**,
+  though the plan's list did not name them. They are steps 4 and 5 of the
+  same wizard; leaving two cards in the pre-restyle style between three
+  restyled ones is worse than not restyling at all. Own commit.
+- **Waits on the new route are 10s, not 5s.** `_wait_for_file` and
+  `_wait_for_queue` wait on things that were not waited on before — the
+  header naming a parsed file, a queue that has stopped growing — and a
+  multi-file drop has to decode, parse and re-render once per file before
+  either is true. Nothing that was 5s and stayed the same assertion was
+  raised; those that had been went back down.
+- **Three i18n keys beyond the plan's list**: `import.blocked_no_file`
+  and `import.blocked_step` are what the footer says when it refuses with
+  nothing better to say, and `import.eyebrow_no_file` is the header
+  before a file exists. Both locales have all three.
+- **The progress line is walkable by keyboard.** A node is a `ui.column`,
+  not a `q-btn`, so being a link means saying so: `role="button"`,
+  `tabindex="0"` and Enter/Space of its own. Without it Open question 1's
+  answer — you may walk back — was true only with a mouse.
+- **`data-*` hooks** (`data-step`, `data-step-panel`, `data-wizard-footer`,
+  `data-continue`, `data-blocked-reason`, `data-import-run`,
+  `data-file-switcher`, `data-page-eyebrow`, `data-queue-row`) are how
+  the e2e suite walks a page whose cards are no longer all on screen.
+
+### Noticed, not fixed (out of scope)
+
+- Step 1 does nothing before step 2: with no file uploaded, choosing a
+  format has nothing to apply to (`_select_profile` returns early). The
+  wizard now presents Format as the first step, which makes that more
+  visible than it was — for the chore inbox.
+- A saved import rule that carries a column mapping keeps an mBank file
+  on the generic path: `_parse_file` passes the mapping, so detection
+  never runs and the file keeps a mapping step it does not need. Nothing
+  to do with this plan's shell — for the chore inbox.
+- Row counts are formatted `f"{n:,}"`, which is right in English and wrong
+  in Polish ("1,234 wierszy" for what should be "1 234"). It is wrong in
+  the mapping caption too, and `auth_common` solves it a third way
+  (`.replace(",", " ")` for both locales). One locale-aware integer
+  formatter would fix all three; that is a repo-wide change, not this
+  plan's — for the chore inbox.
+- `do_import_all`'s double-click guard has no test: a second click inside
+  a websocket round trip is not something the e2e suite can time. Nor is
+  a click landing *during* a multi-file upload storm — every refresh of
+  the progress line replaces its nodes, so a click aimed at one that is
+  being replaced is dropped. The `step_chosen` rule is covered at a
+  slower beat instead: choose a step, drop another file, keep the step.
+
+### What the e2e rewrite turned up
+
+- `expect(get_by_text("Imported"))` was the queue's own status chip, which
+  is a step away from where an import now lands. What replaces it is the
+  summary's per-file line *with its count* ("3 imported") — not the
+  summary heading, which renders for a failed run too, and not a bare
+  "imported", which matches "0 imported".
+- KAL-CSV-029 uploads under a name no saved rule matches, so every
+  refusal it asserts is the scenario's own words rather than "whichever
+  setting this shared database left unfilled" (rule 11).
+
+- Several assertions were passing on hidden elements once the wizard
+  existed: `not_to_be_visible` is true of a card that is merely on
+  another step. Those became `to_have_count(0)` scoped to the card the
+  thing would be in.
+- `test_disabled_import_rule_stops_matching` depended on the shared
+  e2e database holding no *other* active rule with the same pattern —
+  and an earlier test's "Remember this mapping" leaves one. The test now
+  disables every rule of that pattern, which is the premise it always
+  meant.
+- A multi-file drop moved the page under the reader: each upload handler
+  ended with `_sync_step(follow=True)`, so a click on a step node was
+  undone by the next file landing. The tests first worked around it with
+  a second click; the fix is `step_chosen` (above), and what the tests
+  keep is `_wait_for_queue`, which waits for the queue to stop growing
+  (`data-queue-row`) before asking anything of it.
+- KAL-CSV-021 used to make a file fail by importing it with no target
+  account, which the wizard will not let you do: `Continue` refuses at
+  settings. The file now fails the way the branch it covers actually
+  fires — the target account is deleted between choosing it on step 4
+  and importing into it on step 5, so the insert cannot be written and
+  `_import_one`'s `except` marks the file failed. What rejects it is
+  SQLite's own foreign key on `transactions.account_id`, which
+  `db/session.py` turns on for every connection (`PRAGMA
+  foreign_keys=ON`); nothing in the import checks that the account is
+  still there. That keeps the import-time failure path covered rather
+  than swapping it for a parse failure.
