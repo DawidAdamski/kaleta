@@ -4,8 +4,7 @@ title: Seed — payees and tags coverage in example data
 area: seed
 effort: small
 roadmap_ref: ../roadmap.md#seed
-status: draft
-deferred_to: q4-2026
+status: in-progress
 ---
 
 # Seed — payees and tags coverage in example data
@@ -109,4 +108,76 @@ Out of scope:
    global seed at the top of the file).
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### Open questions — resolved with the plan defaults
+
+1. **Merchants per category** — the curated pools are exactly the ones
+   listed in Scope, grouped per expense category: 5 groceries, 5
+   restaurants, 3 transport, 3 fuel, 4 utilities, 1 rent, 3 health, 5
+   subscriptions, 3 online (reused across Elektronika / Rozrywka /
+   Odzież). 32 curated names + 5 generated ones = 37 payees.
+2. **Payee assignment frequency** — default taken: `PAYEE_ASSIGN_CHANCE
+   = 0.70` for curated categories, `FALLBACK_PAYEE_CHANCE = 0.30` for
+   the rest. 744 of ~1527 rows end up with a payee.
+3. **Tag fan-out for income** — default taken: none. Income rows carry
+   no tags, asserted by KAL-PLT-004.
+4. **Determinism** — the default asked for it, and it turned out the
+   file only had half of it: `random.seed(42)` pins the stdlib module,
+   but Faker draws from its own `Random`, so `fake.company()` /
+   `catch_phrase()` / `city()` were never pinned. Since the generated
+   payee names are now persisted under a unique constraint, the seed
+   script now also calls `Faker.seed(42)`. Two consecutive runs produce
+   byte-identical payee names and descriptions. Adding the new
+   `random.*` calls shifted the sequence once; it is stable from here.
+
+### Decisions
+
+- **Fallback merchants are a fixed pool, not one per call.** The plan
+  says to fall back to `fake.company()`; calling it per transaction
+  would create hundreds of one-transaction payees and break "roughly 25
+  named payees, each with a few transactions". Instead five company
+  names are generated once (deduped against the curated names, since
+  `Payee.name` is unique) and reused.
+- **Every non-cash expense gets `Card`.** Scope names a "Card
+  account", a "Cash account" and a "Credit account", but `AccountType`
+  has no `CARD` member: the seeded accounts are CHECKING, SAVINGS, CASH
+  and CREDIT. So the rule is by payment method — CASH → `Cash`,
+  everything else (CHECKING, CREDIT) → `Card` — which is what the
+  acceptance criterion "a `Card` / `Cash` chip for every expense" asks
+  for.
+- **Two categories are named "Subskrypcje".** The seed creates a flat
+  one from `EXPENSE_CATEGORIES` (used by the budgets and the random
+  expense loop) *and* the `is_subscriptions_root` tree. Only the flat
+  one ever receives transactions, so `subscription_cat_ids` covers
+  both it and the root's descendants — otherwise the
+  `Subscription` / `Recurring` rule would never fire. Moving the
+  transactions under the tree instead would have emptied the
+  "Subskrypcje" budget line, which is out of scope here. The duplicate
+  itself is pre-existing and left alone.
+- **Transactions are added to the session as they are built.** Tags are
+  already persistent when they are attached, so appending to a detached
+  transaction's collection emitted `SAWarning: Object of type
+  <Transaction> not in session` and would silently drop the link. The
+  bulk `session.add_all(all_tx)` at the end is therefore gone.
+- **Summary counters are kept as the rows are built.** Reading
+  `tx.tags` back after the loop would trigger a lazy load from sync
+  code (`MissingGreenlet`).
+- **Descriptions are untouched.** Naming the payee in the description
+  would be payee→description inference in reverse and is out of scope;
+  it would also interact with the demo `LIDL` categorisation rule.
+- Seed runtime is unchanged: 1.19 s before, 1.04 s after (local,
+  SQLite).
+
+### Coverage
+
+`KAL-PLT-003` (payees) and `KAL-PLT-004` (tags) are new in
+`docs/bdd.md`, both `@automated` by
+`tests/integration/test_seed_payees_tags.py`, which runs the real
+`scripts/seed.py` against a throwaway SQLite file once per module and
+asserts on the resulting rows.
+
+### Left for the owner
+
+The "spot-check the Transactions table / Payees page / by-payee report
+in the UI" half of the acceptance criteria is manual — the automated
+test asserts the same facts at the database and service level.

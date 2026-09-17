@@ -2696,6 +2696,33 @@ Feature: Demo instance banner
     And the database contains seeded demo data
 ```
 
+## Feature: Example seed data
+
+```gherkin
+Feature: Payees and tags in the example data
+  As someone trying Kaleta out on seeded data
+  I want merchants and tags on the example transactions
+  So that the Payees page, the by-payee report and the tag chips
+  are not empty on a fresh install
+
+  KAL-PLT-003 @automated
+  Scenario: Seeded transactions name their merchant
+    Given an empty configured database
+    When I run `uv run python scripts/seed.py`
+    Then the ledger has at least 25 payees
+    And every payee has at least 3 transactions
+    And the top-payees report for the seeded window is not empty
+
+  KAL-PLT-004 @automated
+  Scenario: Seeded transactions carry the canonical tags
+    Given an empty configured database
+    When I run `uv run python scripts/seed.py`
+    Then every expense carries either the "Card" or the "Cash" tag
+    And both legs of every internal transfer carry the "Transfer" tag
+    And every subscription expense carries "Subscription" and "Recurring"
+    And no income row is tagged
+```
+
 ## Feature: Anonymous error events
 
 ```gherkin
