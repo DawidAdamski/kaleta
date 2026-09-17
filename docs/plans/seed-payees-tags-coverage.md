@@ -4,7 +4,7 @@ title: Seed — payees and tags coverage in example data
 area: seed
 effort: small
 roadmap_ref: ../roadmap.md#seed
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 
