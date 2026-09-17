@@ -46,6 +46,13 @@ Out of scope:
 - `grep -q "WiseMt940" src/kaleta/services/import_service.py`
 - `uv run pytest tests/unit/services/test_import_profiles.py -q`
 
+## BDD scenarios
+
+- `KAL-CSV-030` — Wise MT940 statement imports through the same Wise
+  profile (`@automated`)
+- `KAL-CSV-031` — an MT940 states its own currency, so renaming it
+  changes nothing (`@automated`)
+
 ## Touchpoints
 
 - `src/kaleta/services/import_service.py` — MT940 tokenizer + Wise mapper
