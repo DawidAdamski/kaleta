@@ -1,13 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Parse the Wise MT940 statement export shape from the dogfood fixture.
 
-``jpy-travel-sample.mt940`` holds the same nine movements as the CSV and QIF
-fixtures beside it, in the SWIFT layout the maintainer's real Wise MT940 uses
-(see ``tests/e2e/fixtures/import/wise/NOTES.md`` for exactly which parts of
-that file are reproduced and which are reconstructed). Expected values here
-are literals read off the MT940 fixture itself — MT940 says different things
-than the other two exports, so nothing may be borrowed across them or
-computed by the parser under test.
+``jpy-travel-sample.mt940`` is the maintainer's real Wise MT940 export with
+only the wallet id, IBAN and SWIFT session id anonymized — every structural
+byte is the bank's own, down to the CRLF line endings and the ``{1:…}{4:``
+envelope. Expected values here are literals read off that file.
+
+MT940 says different things than the CSV and QIF exports of the same
+statement, so nothing may be borrowed across them. The clearest case:
+``CARD-3773297563`` is dated ``260509`` here and ``10-05-2026`` in the CSV,
+because MT940 states the *value* date where the CSV states the transaction
+date.
 """
 
 from __future__ import annotations
@@ -110,7 +113,21 @@ class TestMt940FieldTokenizer:
         assert tags[:5] == ["20", "25", "28C", "60F", "61"]
         assert tags[-1] == "62F"
         first_entry = next(lines for tag, lines in fields if tag == "61")
-        assert first_entry == ["260417C269000,FTRFNONREF", "TRANSFER-2081544402"]
+        assert first_entry == ["260517D51571,FMSCNONREF", "CARD-3802617048"]
+
+    def test_the_swift_envelope_is_not_read_as_a_field(self) -> None:
+        """The real export opens with ``{1:…}{2:…}{4:`` and closes with ``-}``."""
+        content = _content()
+        assert content.startswith("{1:F01TRWIGB2LAXXX")
+        assert content.rstrip().endswith("-}")
+        tags = [tag for tag, _ in iter_mt940_fields(content)]
+        assert tags[0] == "20"
+        assert len(list(iter_mt940_entries(content))) == 9
+
+    def test_the_real_export_is_crlf_and_parses_anyway(self) -> None:
+        raw = MT940_FIXTURE.read_bytes()
+        assert b"\r\n" in raw
+        assert len(WiseMt940Preprocessor.parse(raw.decode("ascii")).rows) == 9
 
     def test_lines_before_the_first_tag_belong_to_no_field(self) -> None:
         """A SWIFT envelope block ahead of the statement is not a continuation."""
@@ -120,9 +137,11 @@ class TestMt940FieldTokenizer:
     def test_entries_are_one_per_statement_line(self) -> None:
         entries = list(iter_mt940_entries(_content()))
         assert len(entries) == 9
-        assert entries[0].statement_line == "260417C269000,FTRFNONREF"
-        assert entries[0].details == "TRANSFER-2081544402"
-        assert entries[0].narrative == "/EXCH/44,2099/"
+        assert entries[0].statement_line == "260517D51571,FMSCNONREF"
+        assert entries[0].details == "CARD-3802617048"
+        assert entries[0].narrative == ""
+        assert entries[-1].details == "TRANSFER-2081544402"
+        assert entries[-1].narrative == "/EXCH/44,2099/"
 
     def test_a_card_entry_has_no_narrative(self) -> None:
         """Wise writes ``:86:`` on top-ups only — cards carry the id and nothing else."""
@@ -225,9 +244,20 @@ class TestWiseMt940Parsing:
         assert len(result.rows) == 9
 
     def test_two_digit_years_resolve_into_this_century(self) -> None:
+        """The real statement runs newest-first, so row 0 is the latest."""
         rows = _parse().rows
-        assert rows[0].date == datetime.date(2026, 4, 17)
-        assert rows[-1].date == datetime.date(2026, 5, 17)
+        assert rows[0].date == datetime.date(2026, 5, 17)
+        assert rows[-1].date == datetime.date(2026, 4, 17)
+
+    def test_the_value_date_is_not_the_csv_date_for_every_movement(self) -> None:
+        """MT940 books ``CARD-3773297563`` a day before the CSV's date.
+
+        Proof that expectations must never be carried across the two exports.
+        """
+        row = next(r for r in _parse().rows if r.description == "CARD-3773297563")
+        assert row.date == datetime.date(2026, 5, 9)
+        csv_text = (FIXTURES / "jpy-travel-sample.csv").read_text(encoding="utf-8")
+        assert "CARD-3773297563,10-05-2026" in csv_text
 
     def test_debits_are_expenses_and_credits_income(self) -> None:
         rows = _parse().rows
@@ -239,7 +269,7 @@ class TestWiseMt940Parsing:
     def test_the_transaction_id_is_the_description(self) -> None:
         """MT940 names no merchant at all — the Wise id is all there is."""
         rows = _parse().rows
-        assert rows[0].description == "TRANSFER-2081544402"
+        assert rows[0].description == "CARD-3802617048"
         assert {r.description for r in rows if r.description.startswith("CARD-")} == {
             "CARD-3773297563",
             "CARD-3773579244",
@@ -264,20 +294,20 @@ class TestWiseMt940Parsing:
         assert {row.notes for row in _parse().rows} == {""}
 
     def test_entry_order_in_the_file_is_not_assumed(self) -> None:
-        """Each entry dates itself, so a newest-first statement parses the same.
+        """Each entry dates itself, so flipping the statement parses the same.
 
-        The fixture runs oldest-first, the order MT940's opening and closing
-        balances imply; nothing in the parser depends on that.
+        Wise writes newest-first, against the oldest-first order the opening
+        and closing balances imply. Nothing in the parser depends on either.
         """
         lines = _content().splitlines()
-        first_entry = lines.index(":61:260417C269000,FTRFNONREF")
+        first_entry = next(i for i, line in enumerate(lines) if line.startswith(":61:"))
         head, body, tail = lines[:first_entry], lines[first_entry:-1], lines[-1:]
-        reversed_content = "\n".join([*head, *_reverse_entries(body), *tail])
+        flipped = "\n".join([*head, *_reverse_entries(body), *tail])
 
-        rows = WiseMt940Preprocessor.parse(reversed_content).rows
+        rows = WiseMt940Preprocessor.parse(flipped).rows
         assert len(rows) == 9
         assert [row.date for row in rows] == [row.date for row in reversed(_parse().rows)]
-        assert rows[0].description == "CARD-3802617048"
+        assert rows[0].description == "TRANSFER-2081544402"
 
     def test_the_customer_reference_names_a_row_that_has_no_detail_line(self) -> None:
         content = ":25:GB33TRWI23145600000123\n:61:260517D1811,FMSCINVOICE-42\n"
@@ -336,7 +366,16 @@ class TestWiseMt940Metadata:
         assert meta.account_number == "GB33TRWI23145600000123"
 
     def test_the_period_spans_the_oldest_and_newest_entry(self) -> None:
-        meta = WiseMt940Preprocessor.extract_metadata(_content())
+        """Not the balance dates, which carry the *requested* quarter.
+
+        The real export's ``:60F:`` is dated ``260331`` and its ``:62F:``
+        ``260630`` — the statement Wise was asked for. The banner must show
+        the days the movements actually cover.
+        """
+        content = _content()
+        assert ":60F:C260331JPY0," in content
+        assert ":62F:C260630JPY49171," in content
+        meta = WiseMt940Preprocessor.extract_metadata(content)
         assert meta.date_from == datetime.date(2026, 4, 17)
         assert meta.date_to == datetime.date(2026, 5, 17)
 

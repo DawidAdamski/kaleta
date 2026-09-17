@@ -34,7 +34,7 @@ metadata). QIF carries date, amount, payee, transaction id and memo only:
 Accounting-minimal. What it has that the QIF does not, and what it lacks:
 
 - **It states its own currency**, in the `:60F:` / `:62F:` balance fields
-  (`C260417JPY0,`). No download name has to be read for the currency-mismatch
+  (`C260331JPY0,`). No download name has to be read for the currency-mismatch
   guard to fire, so a renamed MT940 is guarded exactly as the original is —
   the one thing the QIF path cannot do.
 - **It names no merchant at all.** Where the CSV has `Japanpost Bank(245950)
@@ -48,37 +48,30 @@ Accounting-minimal. What it has that the QIF does not, and what it lacks:
 - Amounts use SWIFT's comma decimal separator and JPY has no decimal part, so
   they are written `51571,`.
 
-### Provenance — read before trusting this file field-for-field
+### Provenance
 
-Unlike the CSV and QIF fixtures, this one is **not** a byte-level
-anonymization of a full export. The maintainer supplied the per-tag shape of
-the real Wise MT940:
+The real export, with three identifying values replaced and nothing else
+touched — CRLF line endings, the `{1:…}{2:…}{4:` envelope, the trailing `-}`
+and the entry order are the bank's own bytes:
 
-```
-:25:GB33TRWI23145600000123
-:61:260517D51571,FMSCNONREF
-CARD-3802617048
-:86:/EXCH/43,5034/   ← on PLN→JPY top-ups only
-```
+| Replaced | With |
+|---|---|
+| Wise wallet id in `:20:` | `12345678/26/1` |
+| IBAN in `:25:` | `GB33TRWI23145600000123` |
+| SWIFT session id in `{2:` | `I940000012345678N` |
 
-Those lines are reproduced verbatim (with the IBAN anonymized, keeping the
-`GB..TRWI` + 16-digit shape). The rest of the file is built around them from
-the CSV fixture's nine movements, so:
+Three things the format does that are easy to guess wrong, all asserted in
+`tests/unit/services/test_wise_mt940_import.py`:
 
-- **Authentic:** the `:25:` account shape, the `:61:` layout and its `FMSC`
-  type code on card rows, `NONREF` as the customer reference, the detail line
-  holding the Wise id, `:86:/EXCH/…/` on top-ups, the dates and the amounts
-  (each matches the CSV row of the same id).
-- **Reconstructed:** `:20:` and `:28C:` values (placeholders), the `FTRF` type
-  code on the two top-ups, the `:60F:` / `:62F:` balances (derived from the
-  CSV's `Running Balance` column — 0 before the first top-up, 49171 after the
-  last card row), oldest-first entry order, and LF line endings.
-
-The parser is written so that none of the reconstructed parts matter: entry
-order, type codes and the balance amounts are never depended on, and
-`tests/unit/services/test_wise_mt940_import.py` asserts exactly that. When a
-full real export arrives, replace this file and only the authentic
-expectations above should need re-checking.
+- **Entries run newest-first**, against the oldest-first order the opening and
+  closing balances imply. The parser dates each entry from its own `:61:` and
+  never depends on the order.
+- **Every entry is `FMSC`**, top-ups included — the type code does not
+  distinguish a card purchase from a transfer, so nothing may be inferred from
+  it.
+- **The balance dates are the requested period** (`:60F:` 31 Mar, `:62F:`
+  30 Jun), not the first and last movement (17 Apr – 17 May). The metadata
+  banner takes its period from the entries.
 
 ## Export path in Wise
 
