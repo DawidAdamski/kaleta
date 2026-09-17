@@ -3,8 +3,9 @@ plan_id: seed-payees-tags-coverage
 title: Seed — payees and tags coverage in example data
 area: seed
 effort: small
-roadmap_ref: ../roadmap.md#seed
-status: in-progress
+roadmap_ref: ../../roadmap.md#seed
+status: archived
+archived_at: 2026-09-17
 ---
 
 # Seed — payees and tags coverage in example data
@@ -181,3 +182,25 @@ asserts on the resulting rows.
 The "spot-check the Transactions table / Payees page / by-payee report
 in the UI" half of the acceptance criteria is manual — the automated
 test asserts the same facts at the database and service level.
+
+## Implementation
+
+Landed on 2026-09-17 (PR #92).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4f000fa` | Dawid Adamski | 2026-09-17 | Merge pull request #92 from DawidAdamski/plan/seed-payees-tags-coverage |
+
+**Files changed:**
+- README.md
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/seed-payees-tags-coverage.md
+- scripts/seed.py
+- tests/integration/test_seed_payees_tags.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
