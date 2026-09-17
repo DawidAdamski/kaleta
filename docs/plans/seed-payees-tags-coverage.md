@@ -121,10 +121,14 @@ Out of scope:
    the rest. 744 of ~1527 rows end up with a payee.
 3. **Tag fan-out for income** — default taken: none. Income rows carry
    no tags, asserted by KAL-PLT-004.
-4. **Determinism** — unchanged; the global `random.seed(42)` plus the
-   Faker instance make every run identical. The new `random.*` calls sit
-   inside the existing per-month loop, so the sequence shifted once and
-   is stable from here on.
+4. **Determinism** — the default asked for it, and it turned out the
+   file only had half of it: `random.seed(42)` pins the stdlib module,
+   but Faker draws from its own `Random`, so `fake.company()` /
+   `catch_phrase()` / `city()` were never pinned. Since the generated
+   payee names are now persisted under a unique constraint, the seed
+   script now also calls `Faker.seed(42)`. Two consecutive runs produce
+   byte-identical payee names and descriptions. Adding the new
+   `random.*` calls shifted the sequence once; it is stable from here.
 
 ### Decisions
 

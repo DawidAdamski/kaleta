@@ -30,6 +30,10 @@ from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionType
 
 fake = Faker("pl_PL")
+# Both generators must be pinned: Faker draws from its own Random instance,
+# not the stdlib one, and the generated payee names are persisted under a
+# unique constraint.
+Faker.seed(42)
 random.seed(42)
 
 YEARS = 6
