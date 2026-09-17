@@ -2723,6 +2723,24 @@ Feature: Payees and tags in the example data
     And no income row is tagged
 ```
 
+```gherkin
+Feature: Planned transactions in the example data
+  As someone trying Kaleta out on seeded data
+  I want recurring commitments already planned
+  So that the payment calendar, the upcoming widget and the forecast
+  are not empty on a fresh install
+
+  KAL-PLT-005 @automated
+  Scenario: Seeded planned transactions fill the next 60 days
+    Given an empty configured database
+    When I run `uv run python scripts/seed.py`
+    Then the ledger has at least 12 planned transactions
+    And every planned transaction is active and repeats every 1 interval
+    And the payment calendar has occurrences on at least 9 distinct days
+      in the next 60 days
+    And the planned salary is among them as income
+```
+
 ## Feature: Anonymous error events
 
 ```gherkin
