@@ -899,6 +899,12 @@ class WiseMt940Preprocessor:
             try:
                 statement_line = parse_mt940_statement_line(entry.statement_line)
             except ImportError_ as exc:
+                # ``error_rows`` stays empty on purpose: it holds *file line
+                # numbers* for the mapping step's warning strip, and that step
+                # only ever renders for the generic profile. An entry index is
+                # not a line number, and naming one here would put a number
+                # nothing reads next to a message that already says which
+                # entry failed.
                 result.errors.append(f"MT940 entry {index}: {exc}")
                 continue
             raw = {

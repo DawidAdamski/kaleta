@@ -87,8 +87,13 @@ class TestWiseMt940Detection:
         assert is_wise_mt940_content(content) is True
 
     def test_an_iban_is_not_mistaken_for_a_bic(self) -> None:
-        """``TRWI2314`` inside an IBAN has digits where a BIC needs letters."""
-        content = ":25:GB33TRWI23145600000123\n"
+        """``TRWI2314`` inside an IBAN has digits where a BIC needs letters.
+
+        Written without a ``:25:`` tag so the account arm cannot fire and the
+        BIC arm is the only one left to claim the file — otherwise this would
+        pass for the wrong reason.
+        """
+        content = ":20:REF\n:61:260517D1,FMSCNONREF\nGB33TRWI23145600000123\n"
         assert is_wise_mt940_content(content) is False
 
     def test_wise_qif_and_csv_are_not_mistaken_for_mt940(self) -> None:
