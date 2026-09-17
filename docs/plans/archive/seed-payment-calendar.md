@@ -3,8 +3,9 @@ plan_id: seed-payment-calendar
 title: Seed — populate payment calendar with planned transactions
 area: seed
 effort: small
-roadmap_ref: ../roadmap.md#payment-calendar
-status: in-progress
+roadmap_ref: ../../roadmap.md#payment-calendar
+status: archived
+archived_at: 2026-09-17
 ---
 
 # Seed — populate payment calendar with planned transactions
@@ -153,3 +154,25 @@ The dashboard "upcoming" widget and the forecast chart edge are
 manual acceptance criteria: both read the same
 `PlannedTransaction` rows through their own services, but neither is
 asserted here.
+
+## Implementation
+
+Landed on 2026-09-17 (PR #94).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `824a2f4` | Dawid Adamski | 2026-09-17 | Merge pull request #94 from DawidAdamski/plan/seed-payment-calendar |
+
+**Files changed:**
+- README.md
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/seed-payment-calendar.md
+- scripts/seed.py
+- tests/integration/test_seed_payment_calendar.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
