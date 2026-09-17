@@ -493,10 +493,10 @@ async def seed() -> None:
                 description=f"Przelew własny ← konto główne {month:02d}/{year}",
                 is_internal_transfer=True,
             )
-            t_out.tags.append(tag_by_name["Transfer"])
-            t_in.tags.append(tag_by_name["Transfer"])
             session.add(t_out)
             session.add(t_in)
+            t_out.tags.append(tag_by_name["Transfer"])
+            t_in.tags.append(tag_by_name["Transfer"])
             await session.flush()
             t_out.linked_transaction_id = t_in.id
             t_in.linked_transaction_id = t_out.id
