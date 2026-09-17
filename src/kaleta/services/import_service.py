@@ -1436,6 +1436,11 @@ class ImportService:
         needs. XLSX is a ZIP, so *content* holds nothing readable for it and
         the bytes are the only thing that can identify or parse one. Callers
         with text-only formats may omit it.
+
+        A workbook in *raw* **outranks *profile***: no other branch could do
+        anything with ZIP bytes, so an XLSX uploaded under, say, the mBank
+        profile is still read as the Wise workbook it is rather than failing
+        as unreadable text.
         """
         if raw and WiseXlsxPreprocessor.is_wise_xlsx(raw):
             # Decided on the bytes before any text heuristic runs: a workbook

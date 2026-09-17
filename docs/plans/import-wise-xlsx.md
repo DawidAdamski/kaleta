@@ -3,7 +3,7 @@ plan_id: import-wise-xlsx
 title: Import — Wise XLSX statement format
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
