@@ -23,7 +23,8 @@ migrations. Later starts auto-upgrade the configured DB (from
 `~/.kaleta/config.json`) to the installed schema, with a SQLite safety copy
 under `~/.kaleta/backups` first. Create your account, then sign in. Optional
 demo data: `uv run python scripts/seed.py` — six years of transactions
-named by merchant and tagged by payment method, with budgets and assets.
+named by merchant and tagged by payment method, with budgets, assets and
+a payment calendar of recurring commitments.
 
 Manual migrate (targets the live DB — bare `alembic upgrade head` uses
 `KALETA_DB_URL` / cwd `kaleta.db`, which may differ from the configured one):

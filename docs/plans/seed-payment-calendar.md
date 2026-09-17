@@ -4,8 +4,7 @@ title: Seed — populate payment calendar with planned transactions
 area: seed
 effort: small
 roadmap_ref: ../roadmap.md#payment-calendar
-status: draft
-deferred_to: q4-2026
+status: in-progress
 ---
 
 # Seed — populate payment calendar with planned transactions
@@ -95,4 +94,62 @@ Out of scope:
    typically "planned" from the user's perspective.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### Open questions — resolved with the plan defaults
+
+1. **How many subscriptions?** Default taken: 5 — Netflix, Spotify,
+   YouTube Premium, iCloud, ChatGPT Plus, the same names the curated
+   payee pools use, on days 3 / 7 / 14 / 18 / 27 and amounts
+   22 / 23 / 35 / 8 / 99 zł.
+2. **Currency** — ignored, as the default says; the model has no
+   currency column.
+3. **Planned transfers** — default taken: none. The seeded plans are
+   expense-only apart from the salary (income).
+
+### Decisions
+
+- **Monthly series start in the *current* month, not next.** The plan
+  spells out a day-of-month for each entry but not which month it
+  starts in. `get_occurrences()` fast-forwards from `start_date`, so a
+  series anchored in the current month yields occurrences in the
+  window regardless of whether that day has already passed. Anchoring
+  in the next month instead would push some entries past the 60-day
+  edge. Rent keeps its explicitly specified `start_date` — the first
+  day of next month.
+- **`is_active` and `interval` come from the model defaults** rather
+  than being repeated on 13 constructors. Both are asserted on every
+  seeded row by KAL-PLT-005, so the plan's requirement is checked, not
+  assumed.
+- **13 entries, not 12** — the scope list adds up to 13 once the five
+  subscriptions are counted individually (the plan says "~12").
+- **Some entries deliberately fall outside the 60-day window**: the
+  yearly domain renewal (1 February next year) always, and the
+  quarterly insurance whenever the run date sits early in a quarter.
+  That is what the plan asks for, and it gives the calendar something
+  beyond the near edge.
+- **`month_offset(today, -1)` is used for "next month".** The helper
+  counts backwards, so a negative offset moves forward; it already
+  handles the year rollover, which is why it is reused instead of
+  hand-rolling the arithmetic.
+
+### Observed output
+
+Seeded on 2026-09-17: 13 planned transactions producing 22 occurrences
+across 19 distinct days in the next 60 days, including the salary as
+income on the 1st, the once-off doctor visit on day +9, and the
+quarterly insurance on 1 October. Seed runtime is unchanged (~1 s).
+
+### Coverage
+
+`KAL-PLT-005` is new in `docs/bdd.md`, `@automated` by
+`tests/integration/test_seed_payment_calendar.py`, which runs the real
+seed script against a throwaway SQLite file and asserts through
+`PlannedTransactionService.get_occurrences()` — the same call the
+Payment Calendar page makes.
+
+### Left for the owner
+
+The dashboard "upcoming" widget and the forecast chart edge are
+manual acceptance criteria: both read the same
+`PlannedTransaction` rows through their own services, but neither is
+asserted here.

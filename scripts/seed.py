@@ -26,6 +26,7 @@ from kaleta.models.categorisation_rule import CategorisationRule, RuleMatchMode
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.institution import Institution, InstitutionType
 from kaleta.models.payee import Payee
+from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionType
 
@@ -272,9 +273,15 @@ async def seed() -> None:
         )
         session.add_all(expense_cats + income_cats + [subscriptions_root])
         await session.flush()
+        subs_monthly = Category(
+            name="Miesięczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id
+        )
+        subs_yearly = Category(
+            name="Roczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id
+        )
         subscription_children = [
-            Category(name="Miesięczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
-            Category(name="Roczne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
+            subs_monthly,
+            subs_yearly,
             Category(name="Inne", type=CategoryType.EXPENSE, parent_id=subscriptions_root.id),
         ]
         session.add_all(subscription_children)
@@ -522,6 +529,128 @@ async def seed() -> None:
 
         session.add_all(all_budgets)
 
+        # ── Planned transactions (payment calendar) ───────────────────────────
+        # Monthly series start in the current month so that the calendar,
+        # the dashboard "upcoming" widget and the forecast all have
+        # occurrences across the next 60 days on a fresh install. Occurrences
+        # before today are simply skipped when the window is generated.
+        def this_month_on(day: int) -> datetime.date:
+            return datetime.date(today.year, today.month, day)
+
+        # month_offset counts backwards, so -1 is next month.
+        next_month_year, next_month = month_offset(today, -1)
+        next_quarter_month = (today.month - 1) // 3 * 3 + 4
+        next_quarter = (
+            datetime.date(today.year + 1, 1, 1)
+            if next_quarter_month > 12
+            else datetime.date(today.year, next_quarter_month, 1)
+        )
+
+        planned = [
+            PlannedTransaction(
+                name="Czynsz",
+                amount=BASE_BUDGETS["Mieszkanie & Czynsz"],
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=rent_cat.id,
+                description="Czynsz za mieszkanie — płatny na początku miesiąca",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(next_month_year, next_month, 1),
+            ),
+            PlannedTransaction(
+                name="Media (prąd, gaz, woda)",
+                amount=Decimal("280.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=cat_by_name["Media (prąd, gaz, woda)"].id,
+                description="Zbiorczy rachunek za media",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=this_month_on(12),
+            ),
+            PlannedTransaction(
+                name="Internet",
+                amount=Decimal("79.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=cat_by_name["Media (prąd, gaz, woda)"].id,
+                description="Abonament światłowodowy",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=this_month_on(8),
+            ),
+            PlannedTransaction(
+                name="Telefon",
+                amount=Decimal("49.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=subs_monthly.id,
+                description="Abonament komórkowy",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=this_month_on(22),
+            ),
+            PlannedTransaction(
+                name="Wynagrodzenie",
+                amount=salary_for_month(0),
+                type=TransactionType.INCOME,
+                account_id=checking.id,
+                category_id=salary_cat.id,
+                description="Pensja — przelew pierwszego dnia miesiąca",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=this_month_on(1),
+            ),
+            PlannedTransaction(
+                name="Ubezpieczenie",
+                amount=Decimal("420.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=cat_by_name["Inne wydatki"].id,
+                description="Składka kwartalna — ubezpieczenie mieszkania",
+                frequency=RecurrenceFrequency.QUARTERLY,
+                start_date=next_quarter,
+            ),
+            PlannedTransaction(
+                name="Domena",
+                amount=Decimal("60.00"),
+                type=TransactionType.EXPENSE,
+                account_id=credit.id,
+                category_id=subs_yearly.id,
+                description="Odnowienie domeny — raz w roku",
+                frequency=RecurrenceFrequency.YEARLY,
+                start_date=datetime.date(today.year + 1, 2, 1),
+            ),
+            PlannedTransaction(
+                name="Wizyta u lekarza",
+                amount=Decimal("180.00"),
+                type=TransactionType.EXPENSE,
+                account_id=cash.id,
+                category_id=cat_by_name["Zdrowie & Apteka"].id,
+                description="Umówiona wizyta — jednorazowo",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=today + datetime.timedelta(days=9),
+            ),
+        ]
+        # The five subscriptions mirror the curated subscription payees.
+        planned += [
+            PlannedTransaction(
+                name=name,
+                amount=amount,
+                type=TransactionType.EXPENSE,
+                account_id=credit.id,
+                category_id=subs_monthly.id,
+                description=f"Subskrypcja {name} — miesięcznie",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=this_month_on(day),
+            )
+            for name, amount, day in (
+                ("Netflix", Decimal("22.00"), 3),
+                ("Spotify", Decimal("23.00"), 7),
+                ("YouTube Premium", Decimal("35.00"), 14),
+                ("iCloud", Decimal("8.00"), 18),
+                ("ChatGPT Plus", Decimal("99.00"), 27),
+            )
+        ]
+        session.add_all(planned)
+        n_planned = len(planned)
+
         # Apply computed balances to accounts
         for account in accounts:
             account.balance = balance_delta[account.id]
@@ -570,6 +699,7 @@ async def seed() -> None:
         f"~{total_tx} transactions "
         f"({with_payee} with a payee, {tagged_tx} tagged), "
         f"{len(all_budgets)} budget entries ({YEARS} years), "
+        f"{n_planned} planned transactions, "
         f"{len(physical_assets)} physical assets."
     )
 

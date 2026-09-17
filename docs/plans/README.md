@@ -170,7 +170,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [transactions-notes-field](archive/transactions-notes-field.md) | archived | Transactions |
 | [wizard-action-items-widget](archive/wizard-action-items-widget.md) | archived | Wizard |
 | [seed-payees-tags-coverage](archive/seed-payees-tags-coverage.md) | archived | Seed |
-| [seed-payment-calendar](seed-payment-calendar.md) | draft (Q4) | Payment Calendar |
+| [seed-payment-calendar](seed-payment-calendar.md) | in-progress | Payment Calendar |
 | [settings-panel-color-fix](archive/settings-panel-color-fix.md) | archived | Settings — folded into views-refactor |
 | [credit-dark-mode-color-fix](archive/credit-dark-mode-color-fix.md) | archived | Credit — folded into views-refactor |
 | [dashboard-chart-fluid-height](archive/dashboard-chart-fluid-height.md) | archived | Dashboard — folded into views-refactor |
