@@ -68,6 +68,9 @@ def test_seed_attaches_payees_to_transactions(seeded_session: AsyncSession) -> N
     """Covers: KAL-PLT-003"""
 
     async def _check() -> None:
+        # INNER JOIN on purpose: a payee with no transactions must not be
+        # counted here, so seeding a dead payee shrinks the total below
+        # MIN_PAYEES instead of passing as a "thin" one.
         counts = (
             await seeded_session.execute(
                 select(Payee.name, func.count(Transaction.id))

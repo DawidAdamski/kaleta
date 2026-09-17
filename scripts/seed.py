@@ -341,8 +341,8 @@ async def seed() -> None:
         ) -> None:
             if payee is not None:
                 tx.payee_id = payee.id
-            # In the session before the tags are linked: the tags are already
-            # persistent, and appending to a detached row's collection would
+            # Add before linking the tags: the tags are already persistent,
+            # and appending to a row that is not in the session yet would
             # drop the association silently.
             session.add(tx)
             if payee is not None:
