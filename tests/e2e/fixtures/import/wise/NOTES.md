@@ -9,11 +9,11 @@ Anonymized from maintainer dogfood — Japan trip JPY wallet, Q2 2026.
 | **CSV** | Yes — select **Wise** profile (auto-detected from `TransferWise ID` header) |
 | **QIF** | Yes — same **Wise** profile (auto-detected from `!Type:Bank` + `NCARD-*` / `NTRANSFER-*` ids) |
 | **MT940** | Yes — same **Wise** profile (auto-detected from `:61:` statement lines + Wise's `TRWI` bank code in `:25:`) |
-| XLSX | Planned — [`import-wise-xlsx`](../../../../../docs/plans/import-wise-xlsx.md) |
+| **XLSX** | Yes — same **Wise** profile (auto-detected from the workbook's bytes: a ZIP carrying Wise's own column names) |
 
-Wise UI offers all four for the same statement; Kaleta's upload widget accepts
-`.csv`, `.qif` and `.mt940` (plus `.940` / `.sta`, the other extensions the same
-SWIFT statement arrives under). CSV has the richest columns (merchant, exchange
+Wise UI offers all four for the same statement, and Kaleta reads all four:
+the upload widget accepts `.csv`, `.qif`, `.mt940` (plus `.940` / `.sta`, the
+other extensions the same SWIFT statement arrives under) and `.xlsx`. CSV has the richest columns (merchant, exchange
 metadata). QIF carries date, amount, payee, transaction id and memo only:
 
 - **No currency anywhere in the file.** Wise puts it in the download name
@@ -80,11 +80,42 @@ order, type codes and the balance amounts are never depended on, and
 full real export arrives, replace this file and only the authentic
 expectations above should need re-checking.
 
+## XLSX (`jpy-travel-sample.xlsx`)
+
+The same nine movements as the CSV, in the only binary shape Wise offers. It
+is **not** the CSV with a different extension:
+
+- **The first column is `ID`**, not `TransferWise ID`, so the CSV's content
+  heuristic would never claim it. Detection reads the workbook's bytes and
+  looks for column names only Wise writes (`Running Balance`,
+  `Exchange To Amount`, `Transaction Details Type`).
+- **The column order differs.** `Total Fees` sits at index 11 where the CSV
+  has `Payer Name`, so columns are matched by header name, never by position.
+- **Descriptions are English** (`Card transaction of 50,220 JPY issued by …`)
+  where the CSV's are Polish. Neither reaches the ledger — the `Merchant`
+  column wins on both paths, and a top-up with no merchant falls back to the
+  description (`Topped up account`).
+- **Dates are Excel serials** (`46159`), resolved against the workbook's epoch.
+- **The sheet declares `<dimension ref="A1"/>`**, which is wrong. A read-only
+  openpyxl load trusts that and yields a single cell, so the parser uses the
+  normal loader.
+- The workbook carries no default style, so openpyxl warns on load; the parse
+  path silences that one warning.
+
+`openpyxl` lives in the optional `import-xlsx` extra, so a base install has no
+XLSX support and says so rather than failing obscurely.
+
+### Provenance
+
+The real export with two values replaced in `xl/sharedStrings.xml` — card
+holder → `Jan Kowalski`, card last four → `1234`, matching the CSV fixture.
+Every other part of the archive is copied byte-for-byte.
+
 ## Export path in Wise
 
-Statements → choose period → **CSV**, **QIF** or **MT940** → Generate.
+Statements → choose period → **CSV**, **QIF**, **MT940** or **XLSX** → Generate.
 
-All three sample files hold the same 9 transactions. The QIF export is
+All four sample files hold the same 9 transactions. The QIF export is
 **English-only** where the CSV is Polish (`Topped up account` vs
 `Doładowanie konta`), dates are US `MM/DD/YYYY` against the CSV's
 `DD-MM-YYYY`, amounts have no decimal part (`T-51571`), and the fields
@@ -96,8 +127,8 @@ fee rows as separate lines (not covered by the current sample).
 
 ## Anonymization applied
 
-- Card holder → `Jan Kowalski` (CSV `Card Holder Full Name`, QIF `M`; MT940
-  names no holder at all)
+- Card holder → `Jan Kowalski` (CSV and XLSX `Card Holder Full Name`, QIF
+  `M`; MT940 names no holder at all)
 - Card last four → `1234`
 - Nothing else altered: the QIF fixture is byte-identical to the real
   export on every `D` / `N` / `T` / `P` line

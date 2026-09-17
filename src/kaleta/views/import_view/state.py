@@ -23,6 +23,10 @@ class QueuedFile:
     id: str
     filename: str
     content: str
+    #: The upload's undecoded bytes. Only a binary format needs them — XLSX is
+    #: a ZIP, so ``content`` holds nothing readable for one — and every text
+    #: format ignores them.
+    raw: bytes = b""
     #: The encoding the upload decoded as, named in the mapping caption.
     encoding: str = "UTF-8"
     profile: str = "generic"
