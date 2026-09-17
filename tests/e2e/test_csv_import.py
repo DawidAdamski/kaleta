@@ -5,7 +5,7 @@ Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
 KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022,
 KAL-CSV-023, KAL-CSV-024, KAL-CSV-025, KAL-CSV-026,
-KAL-CSV-027, KAL-CSV-028, KAL-CSV-029
+KAL-CSV-027, KAL-CSV-028, KAL-CSV-029, KAL-CSV-030, KAL-CSV-031
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -55,6 +55,8 @@ WISE_JPY_QIF = FIXTURES / "wise" / "jpy-travel-sample.qif"
 # currency upload the fixture under that name. The account-id segment is
 # anonymized here as it is in the fixtures — it identifies a real wallet.
 WISE_QIF_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
+WISE_JPY_MT940 = FIXTURES / "wise" / "jpy-travel-sample.mt940"
+WISE_MT940_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.mt940"
 AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
 AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
 
@@ -830,6 +832,98 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     search_ledger(page, "Topped up account")
     expect(page.get_by_text("Topped up account").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Jan Kowalski", exact=False)).to_have_count(0)
+
+
+def test_wise_mt940_auto_detect_and_import(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-030
+
+    Wise MT940 auto-detects into the Wise profile, banners the account and the
+    period, and imports with the Wise transaction id as the description — the
+    format names no merchant anywhere.
+    """
+    account_name = "Wise JPY MT940"
+    expense_cat = "Other Expenses Wise MT940 E2E"
+    income_cat = "Other Income Wise MT940 E2E"
+
+    seed_account(account_name, currency="JPY")
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    _step(page, STEP_UPLOAD)
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(WISE_JPY_MT940, WISE_MT940_DOWNLOAD_NAME)
+    )
+    _wait_for_file(page, WISE_MT940_DOWNLOAD_NAME)
+
+    # Auto-detection promoted the upload to Wise, on the bank code in ``:25:``.
+    _step(page, STEP_FORMAT)
+    expect(page.get_by_role("button", name="Wise")).to_have_class(
+        re.compile(r"k-format-chip--on"), timeout=5000
+    )
+
+    # The banner reads the account and the period off the file itself; the
+    # period is the one the entries cover, not the quarter the name requests.
+    _step(page, STEP_UPLOAD)
+    banner = page.locator(".k-info-banner").first
+    expect(banner).to_contain_text("GB33TRWI23145600000123", timeout=5000)
+    expect(banner).to_contain_text("2026-04-17 – 2026-05-17")
+    expect(banner).not_to_contain_text("2026-06-30")
+
+    _step(page, STEP_SETTINGS)
+    _select_import_option(page, "Target account", _account_option(account_name, "JPY"))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    _step(page, STEP_PREVIEW)
+    expect(
+        _panel(page, STEP_PREVIEW).get_by_text("CARD-3802617048", exact=False).first
+    ).to_be_visible(timeout=5000)
+    _run_import(page)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
+
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, "TRANSFER-2134191896")
+    expect(page.get_by_text("TRANSFER-2134191896").first).to_be_visible(timeout=5000)
+
+
+def test_wise_mt940_states_its_own_currency_even_when_renamed(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-031
+
+    A renamed Wise QIF loses its currency, because only the download name had
+    it. MT940 states the currency in its balance fields, so the guard blocks a
+    JPY statement from a PLN account whatever the file is called.
+    """
+    account_name = "Wise PLN MT940 Guard"
+    expense_cat = "Other Expenses Wise MT940 Guard E2E"
+    income_cat = "Other Income Wise MT940 Guard E2E"
+
+    account_id = seed_account(account_name, currency="PLN")
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    page.locator('input[type="file"]').set_input_files(_upload_as(WISE_JPY_MT940, "foo.mt940"))
+    _wait_for_file(page, "foo.mt940")
+
+    _step(page, STEP_UPLOAD)
+    expect(page.locator(".k-info-banner").first).to_contain_text("JPY", timeout=5000)
+
+    _step(page, STEP_SETTINGS)
+    _select_import_option(page, "Target account", _account_option(account_name, "PLN"))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    expect(_blocked_reason(page)).to_contain_text(
+        "Import blocked: file currency (JPY) does not match account currency (PLN).",
+        timeout=10000,
+    )
+    expect(page.locator("[data-continue]")).to_be_disabled()
+    assert count_transactions(account_id) == 0
 
 
 def test_wise_qif_currency_from_name_blocks_the_wrong_account(page: Page, base_url: str) -> None:

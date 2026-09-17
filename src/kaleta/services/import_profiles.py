@@ -63,12 +63,41 @@ def is_wise_qif_content(content: str) -> bool:
     return _WISE_QIF_REFERENCE.search(content) is not None
 
 
+_MT940_STATEMENT_TAG = re.compile(r"^:61:", re.MULTILINE)
+# Wise's own bank code, as it appears in the account tag of a Wise MT940
+# (``:25:GB33TRWI23145600000123``) — ``TRWI`` is the bank identifier inside
+# every IBAN Wise issues, whatever the country prefix.
+_MT940_WISE_ACCOUNT = re.compile(r"^:25:.*TRWI", re.MULTILINE)
+# The same code as a BIC (``TRWIGB2L``): four letters, a country pair and a
+# location pair. The digits of an IBAN cannot satisfy the letter groups, so
+# this never re-matches the account tag above — it is a genuinely separate
+# piece of evidence, for files that name the bank rather than the account.
+_MT940_WISE_BIC = re.compile(r"\bTRWI[A-Z]{2}[A-Z0-9]{2}\b")
+
+
+def is_wise_mt940_content(content: str) -> bool:
+    """Heuristic: content looks like a Wise MT940 statement export.
+
+    MT940 is a shared banking format, so the SWIFT tags alone say nothing
+    about who wrote the file. As with QIF, the dialect is claimed only when
+    the file also carries Wise's own bank code — in the ``:25:`` account tag
+    or as a BIC. Any other bank's MT940 falls through unclaimed rather than
+    being parsed on a guess (generic MT940 is explicitly out of scope).
+    """
+    if _MT940_STATEMENT_TAG.search(content) is None:
+        return False
+    return (
+        _MT940_WISE_ACCOUNT.search(content) is not None
+        or _MT940_WISE_BIC.search(content) is not None
+    )
+
+
 def is_wise_content(content: str) -> bool:
-    """Heuristic: content looks like a Wise (TransferWise) CSV or QIF export."""
+    """Heuristic: content looks like a Wise (TransferWise) CSV, QIF or MT940 export."""
     sample = content[:512]
     if "TransferWise ID" in sample or "transferwise id" in sample.lower():
         return True
-    return is_wise_qif_content(content)
+    return is_wise_qif_content(content) or is_wise_mt940_content(content)
 
 
 @dataclass(frozen=True, slots=True)
