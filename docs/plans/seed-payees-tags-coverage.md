@@ -135,6 +135,13 @@ Out of scope:
   named payees, each with a few transactions". Instead five company
   names are generated once (deduped against the curated names, since
   `Payee.name` is unique) and reused.
+- **Every non-cash expense gets `Card`.** Scope names a "Card
+  account", a "Cash account" and a "Credit account", but `AccountType`
+  has no `CARD` member: the seeded accounts are CHECKING, SAVINGS, CASH
+  and CREDIT. So the rule is by payment method — CASH → `Cash`,
+  everything else (CHECKING, CREDIT) → `Card` — which is what the
+  acceptance criterion "a `Card` / `Cash` chip for every expense" asks
+  for.
 - **Two categories are named "Subskrypcje".** The seed creates a flat
   one from `EXPENSE_CATEGORIES` (used by the budgets and the random
   expense loop) *and* the `is_subscriptions_root` tree. Only the flat
