@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from nicegui import ui
 
 from kaleta.i18n import t
+from kaleta.views.theme import BODY_MUTED, CARD_TITLE, SECTION_CARD, UPLOADER
 
 
 @dataclass
@@ -20,11 +21,9 @@ class UploadSection:
 
 
 def build_upload_section() -> UploadSection:
-    with ui.card().classes("w-full"):
-        ui.label(t("import.upload_section")).classes("text-lg font-semibold mb-1")
-        hint_label = ui.label(t("import.upload_hint_generic")).classes(
-            "text-sm text-slate-500 mb-3"
-        )
+    with ui.card().classes(f"{SECTION_CARD} gap-0"):
+        ui.label(t("import.upload_section")).classes(CARD_TITLE)
+        hint_label = ui.label(t("import.upload_hint_generic")).classes(f"{BODY_MUTED} mb-3")
         upload_widget = (
             ui.upload(
                 label=t("import.drop_hint_generic"),
@@ -33,7 +32,7 @@ def build_upload_section() -> UploadSection:
                 max_files=20,
                 max_file_size=50 * 1024 * 1024,
             )
-            .props("accept=.csv,.qif flat bordered")
-            .classes("w-full mt-2")
+            .props("accept=.csv,.qif flat")
+            .classes(f"{UPLOADER} w-full mt-2")
         )
     return UploadSection(hint_label=hint_label, upload_widget=upload_widget)

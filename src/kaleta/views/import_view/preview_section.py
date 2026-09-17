@@ -15,6 +15,7 @@ from kaleta.services.import_service import (
 )
 from kaleta.views.components.amount_label import amount_body_cell_slot
 from kaleta.views.components.empty_state import table_no_data_slot
+from kaleta.views.theme import BODY_MUTED, CARD_TITLE, SECTION_CARD, TABLE_SURFACE
 
 
 @dataclass
@@ -46,11 +47,11 @@ class PreviewSection:
 
 
 def build_preview_section() -> PreviewSection:
-    card = ui.card().classes("w-full")
+    card = ui.card().classes(f"{SECTION_CARD} gap-0")
     card.set_visibility(False)
     with card:
-        ui.label(t("import.preview_section")).classes("text-lg font-semibold mb-1")
-        ui.label(t("import.preview_hint")).classes("text-xs text-slate-500 mb-2")
+        ui.label(t("import.preview_section")).classes(CARD_TITLE)
+        ui.label(t("import.preview_hint")).classes(f"{BODY_MUTED} mb-2")
         stats_row = ui.row().classes("gap-3 mb-3")
         preview_table = (
             ui.table(
@@ -83,8 +84,8 @@ def build_preview_section() -> PreviewSection:
                 rows=[],
                 row_key="idx",
             )
-            .classes("w-full")
-            .props("dense")
+            .classes(f"{TABLE_SURFACE}")
+            .props("dense flat")
         )
         preview_table.add_slot("body-cell-amount", amount_body_cell_slot())
         preview_table.add_slot("no-data", table_no_data_slot("import.preview_hint"))

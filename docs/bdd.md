@@ -1269,6 +1269,24 @@ Feature: mBank CSV Import
     Given I am on the Import page
     Then the step I am on is filled and the ones behind it are ticked
     And the file's sample sits beside the pickers that map it
+
+  KAL-CSV-028 @automated
+  Scenario: The import page shows one step at a time
+    Given I am on the Import page
+    When I upload a CSV whose columns are not recognised
+    Then only the column mapping is on screen, under the file's name
+    And "Back" returns me to the step before it without losing my work
+    And a step the file has already passed is clickable on the progress line
+    And a step this file does not have is ticked but is not a link
+    And the steps I can walk to answer the keyboard as well as the mouse
+
+  KAL-CSV-029 @automated
+  Scenario: Continue refuses a step that is not finished, and says why
+    Given I am on the Import page with no file uploaded
+    Then "Continue" is disabled and says "Upload a file to continue."
+    When I upload a CSV and reach the settings step
+    Then "Continue" stays disabled until I choose where the rows go
+    And the last thing it asks for is "Select a default income category."
 ```
 
 ## Feature: Transfer Recognition

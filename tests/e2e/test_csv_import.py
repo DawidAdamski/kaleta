@@ -5,10 +5,15 @@ Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
 KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022,
 KAL-CSV-023, KAL-CSV-024, KAL-CSV-025, KAL-CSV-026,
-KAL-CSV-027
+KAL-CSV-027, KAL-CSV-028, KAL-CSV-029
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
+
+Since `restyle-import-wizard` the page shows one step at a time, so every
+test here walks it: upload, then the step whose card holds the thing being
+asserted. ``_step`` is that walk. What each test claims is unchanged — the
+route through the page is.
 """
 
 from __future__ import annotations
@@ -22,6 +27,7 @@ from playwright.sync_api import FilePayload, Locator, Page, expect
 from tests.e2e.ledger import search_ledger
 from tests.e2e.seed_helpers import (
     count_transactions,
+    delete_account,
     list_import_rules,
     seed_account,
     seed_category,
@@ -52,6 +58,14 @@ WISE_QIF_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
 AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
 AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
 
+# The six steps, as the page numbers them.
+STEP_FORMAT = 1
+STEP_UPLOAD = 2
+STEP_MAPPING = 3
+STEP_SETTINGS = 4
+STEP_PREVIEW = 5
+STEP_CONFIRM = 6
+
 
 def _upload_as(path: Path, name: str) -> FilePayload:
     """Feed *path*'s bytes to the upload widget under a different *name*."""
@@ -72,6 +86,55 @@ def _account_option(name: str, currency: str = "PLN") -> str:
     return f"{name} ({currency})"
 
 
+def _panel(page: Page, step: int) -> Locator:
+    return page.locator(f'[data-step-panel="{step}"]')
+
+
+def _step(page: Page, step: int) -> None:
+    """Walk to *step* by clicking its node on the progress line.
+
+    Only nodes the work has reached are clickable, so the class assertion
+    doubles as one that the file really did get that far.
+    """
+    page.keyboard.press("Escape")
+    node = page.locator(f'[data-step="{step}"]')
+    expect(node).to_have_class(re.compile(r"cursor-pointer"), timeout=5000)
+    node.click()
+    expect(_panel(page, step)).to_be_visible(timeout=5000)
+
+
+def _continue(page: Page) -> None:
+    button = page.locator("[data-continue]")
+    expect(button).to_be_enabled(timeout=5000)
+    button.click()
+
+
+def _blocked_reason(page: Page) -> Locator:
+    return page.locator("[data-blocked-reason]")
+
+
+def _wait_for_queue(page: Page, count: int) -> None:
+    """Every file of a multi-file drop has joined the queue."""
+    expect(page.locator("[data-queue-row]")).to_have_count(count, timeout=10000)
+
+
+def _wait_for_file(page: Page, filename: str) -> None:
+    """The header eyebrow names the file the wizard is now about."""
+    expect(page.locator("[data-page-eyebrow]")).to_contain_text(filename, timeout=10000)
+
+
+def _run_import(page: Page) -> None:
+    """Press the import button, which lives in the Preview footer."""
+    run = page.locator("[data-import-run]")
+    expect(run).to_be_enabled(timeout=5000)
+    run.click()
+
+
+def _import_now(page: Page) -> None:
+    _step(page, STEP_PREVIEW)
+    _run_import(page)
+
+
 def _configure_and_upload(
     page: Page,
     base_url: str,
@@ -85,9 +148,8 @@ def _configure_and_upload(
 
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
 
-    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Biedronka", exact=False).first).to_be_visible(timeout=5000)
-
+    _wait_for_file(page, "test_import.csv")
+    _step(page, STEP_SETTINGS)
     _select_import_option(page, "Target account", _account_option(account))
     _select_import_option(page, "Default expense category", expense)
     _select_import_option(page, "Default income category", income)
@@ -111,10 +173,15 @@ def test_csv_import_with_account_mapping(page: Page, base_url: str) -> None:
         page, base_url, account=account_name, expense=expense_cat, income=income_cat
     )
 
-    page.get_by_role("button", name="Import 1 file").click()
+    _step(page, STEP_PREVIEW)
+    expect(_panel(page, STEP_PREVIEW).get_by_text("Biedronka", exact=False).first).to_be_visible(
+        timeout=5000
+    )
+    _run_import(page)
 
-    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=5000)
+    # The summary's per-file line, not its heading: the heading renders for
+    # a failed run too, and "imported" alone matches "0 imported".
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b3 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     for label in ("Biedronka", "Orlen", "Wyplata"):
@@ -138,30 +205,41 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
 
     page.goto(f"{base_url}/import")
     expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    _step(page, STEP_FORMAT)
     expect(
         page.get_by_text("Generic CSV — any CSV; you map the columns yourself in the next step.")
     ).to_be_visible()
 
+    _step(page, STEP_UPLOAD)
     page.locator('input[type="file"]').set_input_files(str(UNRECOGNISED_CSV))
-    expect(page.get_by_text("unrecognised_headers.csv")).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Column mapping", exact=True)).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Needs mapping", exact=True).first).to_be_visible(timeout=5000)
+
+    # Unrecognised headers park the file on the mapping step, and the page
+    # goes there with it — one card, and the reason Continue will not leave.
+    _wait_for_file(page, "unrecognised_headers.csv")
+    expect(_panel(page, STEP_MAPPING)).to_be_visible(timeout=10000)
+    expect(page.get_by_text("Column mapping", exact=True)).to_be_visible()
     expect(page.get_by_text("Date column is required.")).to_be_visible()
+    expect(_blocked_reason(page)).to_have_text("Map the required columns to continue.")
+    expect(page.locator("[data-continue]")).to_be_disabled()
 
     _select_import_option(page, "Date column", "1: Txn Day")
     _select_import_option(page, "Amount column", "2: Sum")
     _select_import_option(page, "Description column", "3: Note")
 
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Coffee Shop", exact=False).first).to_be_visible(timeout=5000)
+    # Mapped: the step behind is finished, so Continue stops refusing.
+    expect(page.locator("[data-continue]")).to_be_enabled(timeout=5000)
+    _continue(page)
 
     _select_import_option(page, "Target account", _account_option(account_name))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
 
-    page.get_by_role("button", name="Import 1 file").click()
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
+    _step(page, STEP_PREVIEW)
+    expect(_panel(page, STEP_PREVIEW).get_by_text("Coffee Shop", exact=False).first).to_be_visible(
+        timeout=5000
+    )
+    _run_import(page)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b3 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Coffee Shop")
@@ -181,10 +259,14 @@ def test_mapping_prefills_from_alias_detection(page: Page, base_url: str) -> Non
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
 
-    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Column mapping", exact=True)).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Biedronka", exact=False).first).to_be_visible(timeout=5000)
+    # Known aliases mean nothing to map by hand, so the page walks past the
+    # mapping step; it is still there, pre-filled, for whoever looks.
+    _wait_for_file(page, "test_import.csv")
+    _step(page, STEP_MAPPING)
+    expect(page.get_by_text("Column mapping", exact=True)).to_be_visible()
+    expect(_panel(page, STEP_MAPPING).get_by_text("Biedronka", exact=False).first).to_be_visible(
+        timeout=5000
+    )
 
     date_sel = page.locator(".q-select").filter(has_text="Date column")
     expect(date_sel).to_contain_text("1: date")
@@ -197,7 +279,8 @@ def test_mapping_prefills_from_alias_detection(page: Page, base_url: str) -> Non
 def test_invalid_mapping_blocks_import(page: Page, base_url: str) -> None:
     """Covers: KAL-CSV-007
 
-    Clearing a required mapping shows an inline error and keeps Import disabled.
+    Clearing a required mapping shows an inline error and keeps Continue
+    disabled — the import button is a step further on, and unreachable.
     """
     seed_account("Mapping Block Account")
     seed_category("Other Expenses Block")
@@ -205,14 +288,17 @@ def test_invalid_mapping_blocks_import(page: Page, base_url: str) -> None:
 
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    _wait_for_file(page, "test_import.csv")
 
+    _step(page, STEP_MAPPING)
     _select_import_option(page, "Date column", "— not mapped —")
 
+    # The work fell back to this step, so there is nothing in front of the
+    # reader to continue to — and the refusal says which column it wants.
     expect(page.get_by_text("Date column is required.")).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Needs mapping", exact=True).first).to_be_visible(timeout=5000)
-    import_btn = page.get_by_role("button", name="Import", exact=True)
-    expect(import_btn).to_be_disabled()
+    expect(_blocked_reason(page)).to_have_text("Map the required columns to continue.")
+    expect(page.locator("[data-continue]")).to_be_disabled()
+    expect(page.locator("[data-import-run]")).to_have_count(0)
 
 
 def test_start_new_import_without_reload(page: Page, base_url: str) -> None:
@@ -232,19 +318,22 @@ def test_start_new_import_without_reload(page: Page, base_url: str) -> None:
     _configure_and_upload(
         page, base_url, account=account_name, expense=expense_cat, income=income_cat
     )
-    page.get_by_role("button", name="Import 1 file").click()
+    _import_now(page)
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
     expect(page.get_by_role("button", name="Start new import")).to_be_visible()
 
     page.get_by_role("button", name="Start new import").click()
-    expect(page.get_by_text("Import summary", exact=True)).not_to_be_visible(timeout=5000)
+    # An empty queue can only be on the upload step, and the summary went
+    # with the run it summarised.
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Import summary", exact=True)).not_to_be_visible()
     expect(
         page.get_by_text("Drop one or more files above to build the import queue.")
     ).to_be_visible(timeout=5000)
 
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
-    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    _wait_for_file(page, "test_import.csv")
+    _step(page, STEP_SETTINGS)
     # Settings inherited from the previous session — categories may be pre-filled.
     # Re-select account if needed (generic profile does not copy account).
     account_sel = page.locator(".q-select").filter(has_text="Target account")
@@ -257,7 +346,7 @@ def test_start_new_import_without_reload(page: Page, base_url: str) -> None:
     if income_cat not in (income_sel.inner_text() or ""):
         _select_import_option(page, "Default income category", income_cat)
 
-    page.get_by_role("button", name="Import 1 file").click()
+    _import_now(page)
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
     expect(page.get_by_role("button", name="Start new import")).to_be_visible()
 
@@ -279,27 +368,31 @@ def test_upload_after_completed_run_starts_fresh_queue(page: Page, base_url: str
     _configure_and_upload(
         page, base_url, account=account_name, expense=expense_cat, income=income_cat
     )
-    page.get_by_role("button", name="Import 1 file").click()
+    _import_now(page)
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
     assert count_transactions(account_id) == 3
 
     # Drop the next file without clicking "Start new import".
     page.locator('input[type="file"]').set_input_files(str(AUTORESET_SECOND))
+    _wait_for_file(page, "autoreset-second.csv")
 
+    _step(page, STEP_UPLOAD)
     queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
     expect(queue_card.get_by_text("autoreset-second.csv").first).to_be_visible(timeout=5000)
     expect(queue_card.get_by_text("test_import.csv")).to_have_count(0)
-    expect(page.get_by_role("button", name="Import 1 file")).to_be_visible(timeout=5000)
     expect(page.get_by_text("Import summary", exact=True)).not_to_be_visible()
 
     # The generic profile inherits categories but never the account. Re-picking
     # all three is idempotent, so set them outright rather than inferring what
     # carried over from the rendered select labels.
+    _step(page, STEP_SETTINGS)
     _select_import_option(page, "Target account", _account_option(account_name))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
 
-    page.get_by_role("button", name="Import 1 file").click()
+    _step(page, STEP_PREVIEW)
+    expect(page.locator("[data-import-run]")).to_contain_text("Import 1 file")
+    _run_import(page)
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
 
     # Exactly the second file's two rows were added — the first file did not
@@ -309,10 +402,15 @@ def test_upload_after_completed_run_starts_fresh_queue(page: Page, base_url: str
     # Dropping several files at once onto the finished queue keeps all of them:
     # the fan-out of one handler per file must reset once, not once per file.
     page.locator('input[type="file"]').set_input_files([str(MBANK_OCT), str(PKO_OCT)])
+    _wait_for_queue(page, 2)
+    _step(page, STEP_UPLOAD)
     expect(queue_card.get_by_text("mbank-2025-10.csv").first).to_be_visible(timeout=5000)
     expect(queue_card.get_by_text("pko-2025-10.csv").first).to_be_visible(timeout=5000)
     expect(queue_card.get_by_text("autoreset-second.csv")).to_have_count(0)
-    expect(page.get_by_role("button", name="Import 2 files")).to_be_visible(timeout=5000)
+    # Both files are live in the queue, which is what the steps that act on
+    # one file say for themselves: "File 1 of 2".
+    _step(page, STEP_SETTINGS)
+    expect(page.locator("[data-file-switcher]")).to_contain_text("of 2", timeout=5000)
 
 
 def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> None:
@@ -321,14 +419,47 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
     A failed file is terminal, so it is cleared with the rest of the run — but
     the user is told, so the failure cannot pass for a silent success.
     """
+    account_name = "Import Failure Account"
+    expense_cat = "Other Expenses Import Failure"
+    income_cat = "Other Income Import Failure"
+    account_id = seed_account(account_name)
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
     page.goto(f"{base_url}/import")
     expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
 
-    # Import without picking a target account: the readiness check fails the file.
     page.locator('input[type="file"]').set_input_files(str(AUTORESET_FAILING))
-    expect(page.get_by_text("autoreset-failing.csv").first).to_be_visible(timeout=5000)
-    page.get_by_role("button", name="Import 1 file").click()
-    expect(page.get_by_text("Failed", exact=True).first).to_be_visible(timeout=10000)
+    _wait_for_file(page, "autoreset-failing.csv")
+    _step(page, STEP_SETTINGS)
+    _select_import_option(page, "Target account", _account_option(account_name))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    # The account goes away between choosing it and importing into it, which
+    # is the only way left to reach the import's own failure branch: the
+    # wizard refuses every readiness problem a step earlier. The rows cannot
+    # be written, so the file fails where it used to fail — during the run.
+    _step(page, STEP_PREVIEW)
+    delete_account(account_id)
+    _run_import(page)
+
+    # The run is over, so its summary is the step — a failed file's own
+    # status would put the reader back on Upload, with the report of
+    # everything that did happen on a step nobody could reach.
+    expect(_panel(page, STEP_CONFIRM)).to_be_visible(timeout=10000)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text("autoreset-failing.csv")
+    expect(page.get_by_text("Import summary", exact=True)).to_be_visible()
+
+    # And Back from the summary lands on a step that has a card: a failed
+    # file shows no preview, so Preview is not a step it has.
+    page.locator("[data-wizard-footer]").get_by_role("button", name="Back").click()
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+    expect(page.get_by_text("Files to import", exact=True)).to_be_visible()
+
+    _step(page, STEP_UPLOAD)
+    queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
+    expect(queue_card.get_by_text("Failed", exact=True).first).to_be_visible(timeout=10000)
 
     page.locator('input[type="file"]').set_input_files(str(AUTORESET_SECOND))
 
@@ -338,7 +469,7 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
         )
     ).to_be_visible(timeout=5000)
 
-    queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
+    _step(page, STEP_UPLOAD)
     expect(queue_card.get_by_text("autoreset-second.csv").first).to_be_visible(timeout=5000)
     expect(queue_card.get_by_text("autoreset-failing.csv")).to_have_count(0)
 
@@ -380,7 +511,7 @@ def test_skipped_duplicates_listed_with_help(page: Page, base_url: str) -> None:
         )
     ).to_be_visible(timeout=5000)
 
-    page.get_by_role("button", name="Import 1 file").click()
+    _import_now(page)
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
     expect(page.get_by_text("Skipped 1 duplicates", exact=True)).to_be_visible(timeout=5000)
 
@@ -401,21 +532,38 @@ def test_multi_file_queue_keeps_per_file_account(page: Page, base_url: str) -> N
 
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files([str(MBANK_OCT), str(PKO_OCT)])
+    _wait_for_queue(page, 2)
+    _step(page, STEP_UPLOAD)
     expect(page.get_by_text("mbank-2025-10.csv").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("pko-2025-10.csv").first).to_be_visible(timeout=5000)
 
-    page.get_by_text("mbank-2025-10.csv").first.click()
-    page.wait_for_timeout(400)
-    _select_import_option(page, "Target account", _account_option(mbank))
+    # The settings step acts on one file at a time, and the switcher in its
+    # header is how the other one is reached — the queue card stays behind on
+    # the upload step. Which file is active first depends on which upload
+    # handler finished first, so the eyebrow is asked rather than assumed.
+    _step(page, STEP_SETTINGS)
+    switcher = page.locator("[data-file-switcher]")
+    expect(switcher).to_contain_text("of 2", timeout=5000)
+    for _ in range(2):
+        # The eyebrow is upper-cased by the stylesheet, not by the page.
+        eyebrow = page.locator("[data-page-eyebrow]")
+        active = eyebrow.inner_text().lower()
+        wanted = mbank if "mbank" in active else pko
+        _select_import_option(page, "Target account", _account_option(wanted))
+        step_back, step_forward = (
+            switcher.get_by_role("button").first,
+            switcher.get_by_role("button").last,
+        )
+        moved = step_forward if step_forward.is_enabled() else step_back
+        moved.click()
+        # The switcher has moved when the header names the other file — and
+        # it moves the file, not the step: the settings card stays up.
+        expect(eyebrow).not_to_contain_text(active.split(" ·")[0], ignore_case=True)
+        expect(_panel(page, STEP_SETTINGS)).to_be_visible()
+
+    # Both per-file account chips remain in the queue after switching.
+    _step(page, STEP_UPLOAD)
     expect(page.get_by_text(_account_option(mbank)).first).to_be_visible(timeout=5000)
-
-    page.get_by_text("pko-2025-10.csv").first.click()
-    page.wait_for_timeout(400)
-    _select_import_option(page, "Target account", _account_option(pko))
-    expect(page.get_by_text(_account_option(pko)).first).to_be_visible(timeout=5000)
-
-    # Both per-file account chips remain visible in the queue after switching.
-    expect(page.get_by_text(_account_option(mbank)).first).to_be_visible()
     expect(page.get_by_text(_account_option(pko)).first).to_be_visible()
 
 
@@ -430,9 +578,9 @@ def test_remember_mapping_and_auto_apply_rule(page: Page, base_url: str) -> None
 
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(MBANK_OCT))
-    expect(page.get_by_text("mbank-2025-10.csv").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    _wait_for_file(page, "mbank-2025-10.csv")
 
+    _step(page, STEP_SETTINGS)
     _select_import_option(page, "Target account", _account_option(account_name))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
@@ -440,7 +588,7 @@ def test_remember_mapping_and_auto_apply_rule(page: Page, base_url: str) -> None
     pattern = page.get_by_label("Filename pattern")
     expect(pattern).to_have_value("mbank-*.csv")
 
-    page.get_by_role("button", name="Import 1 file").click()
+    _import_now(page)
     expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
 
     rules = list_import_rules()
@@ -448,8 +596,10 @@ def test_remember_mapping_and_auto_apply_rule(page: Page, base_url: str) -> None
 
     page.get_by_role("button", name="Start new import").click()
     page.locator('input[type="file"]').set_input_files(str(MBANK_NOV))
-    expect(page.get_by_text("mbank-2025-11.csv").first).to_be_visible(timeout=5000)
+    _wait_for_file(page, "mbank-2025-11.csv")
+    _step(page, STEP_UPLOAD)
     expect(page.get_by_text("Rule: mbank-*.csv").first).to_be_visible(timeout=5000)
+    _step(page, STEP_SETTINGS)
     expect(page.locator(".q-select").filter(has_text="Target account")).to_contain_text(
         account_name
     )
@@ -470,14 +620,23 @@ def test_disabled_import_rule_stops_matching(page: Page, base_url: str) -> None:
 
     update_import_rule(rule_id, is_active=False)
 
-    # Seed an active rule with the real pattern used by uploads, then disable it.
-    active_id = seed_import_rule("mbank-*.csv", account_id)
-    update_import_rule(active_id, is_active=False)
+    # Seed an active rule with the real pattern used by uploads, then disable
+    # it — along with any other rule of that pattern an earlier import in this
+    # shared database remembered, since one left active would match instead.
+    seed_import_rule("mbank-*.csv", account_id)
+    for rule in list_import_rules():
+        if rule["filename_pattern"] == "mbank-*.csv":
+            update_import_rule(int(rule["id"]), is_active=False)
 
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(MBANK_DEC))
-    expect(page.get_by_text("mbank-2025-12.csv").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Rule: mbank-*.csv")).not_to_be_visible(timeout=3000)
+    _wait_for_file(page, "mbank-2025-12.csv")
+    # On the step the queue lives on, so "not there" is the rule chip being
+    # absent rather than the whole card being off screen.
+    _step(page, STEP_UPLOAD)
+    queue_card = page.locator(".q-card").filter(has=page.get_by_text("Files to import", exact=True))
+    expect(queue_card.get_by_text("mbank-2025-12.csv").first).to_be_visible(timeout=5000)
+    expect(queue_card.get_by_text("Rule: mbank-*.csv")).to_have_count(0)
 
     page.goto(f"{base_url}/settings")
     page.get_by_role("tab", name="Import").click()
@@ -500,6 +659,8 @@ def test_bulk_default_skips_matched_rule(page: Page, base_url: str) -> None:
         [str(OTHER_A), str(OTHER_B), str(OTHER_C), str(BULK_MBANK)]
     )
 
+    _wait_for_queue(page, 4)
+    _step(page, STEP_UPLOAD)
     expect(page.get_by_text("other-a.csv").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("bulk-mbank-2025-10.csv").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Rule: bulk-mbank-*.csv").first).to_be_visible(timeout=5000)
@@ -520,10 +681,14 @@ def test_coverage_panel_after_import(page: Page, base_url: str) -> None:
     seed_income_category(income)
 
     _configure_and_upload(page, base_url, account=account, expense=expense, income=income)
-    page.get_by_role("button", name="Import 1 file").click()
+    _import_now(page)
     expect(page.get_by_text("Import summary")).to_be_visible(timeout=10000)
 
-    expect(page.get_by_text("Account coverage")).to_be_visible()
+    # Coverage and history are not steps: they wait behind one disclosure on
+    # the step with nothing else to do.
+    _step(page, STEP_FORMAT)
+    page.get_by_text("Account coverage and recent imports").click()
+    expect(page.get_by_text("Account coverage", exact=True)).to_be_visible(timeout=5000)
     expect(page.get_by_text(account).first).to_be_visible()
     expect(page.get_by_text("test_import.csv").first).to_be_visible()
     expect(page.get_by_text(empty).first).to_be_visible()
@@ -571,23 +736,27 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
 
     page.goto(f"{base_url}/import")
     expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    _step(page, STEP_FORMAT)
     expect(page.get_by_role("button", name="Wise")).to_be_visible()
 
+    _step(page, STEP_UPLOAD)
     page.locator('input[type="file"]').set_input_files(str(WISE_JPY))
-    expect(page.get_by_text("jpy-travel-sample.csv").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    _wait_for_file(page, "jpy-travel-sample.csv")
+    # The metadata banner belongs with the file, which is the upload step.
+    _step(page, STEP_UPLOAD)
     expect(page.get_by_text("JPY").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Japanpost Bank(245950) GIFU", exact=False).first).to_be_visible(
-        timeout=5000
-    )
 
+    _step(page, STEP_SETTINGS)
     _select_import_option(page, "Target account", _account_option(account_name, "JPY"))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
 
-    page.get_by_role("button", name="Import 1 file").click()
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
+    _step(page, STEP_PREVIEW)
+    expect(
+        _panel(page, STEP_PREVIEW).get_by_text("Japanpost Bank(245950) GIFU", exact=False).first
+    ).to_be_visible(timeout=5000)
+    _run_import(page)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Japanpost Bank(245950) GIFU")
@@ -613,27 +782,28 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/import")
     expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
 
+    _step(page, STEP_FORMAT)
     wise_button = page.get_by_role("button", name="Wise")
     expect(wise_button).to_be_visible()
 
+    _step(page, STEP_UPLOAD)
     page.locator('input[type="file"]').set_input_files(
         _upload_as(WISE_JPY_QIF, WISE_QIF_DOWNLOAD_NAME)
     )
-    expect(page.get_by_text(WISE_QIF_DOWNLOAD_NAME).first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    _wait_for_file(page, WISE_QIF_DOWNLOAD_NAME)
 
-    # Auto-detection promoted the upload to Wise: the selector tints that
-    # button (``color=primary``) and leaves the others grey.
-    expect(wise_button).to_have_class(re.compile(r"text-primary"), timeout=5000)
-    expect(page.get_by_role("button", name="Generic CSV")).to_have_class(re.compile(r"text-grey-4"))
-
-    expect(page.get_by_text("Japanpost Bank(245950) GIFU", exact=False).first).to_be_visible(
-        timeout=5000
+    # Auto-detection promoted the upload to Wise: the format picker fills
+    # that chip and leaves the others outlined.
+    _step(page, STEP_FORMAT)
+    expect(wise_button).to_have_class(re.compile(r"k-format-chip--on"), timeout=5000)
+    expect(page.get_by_role("button", name="Generic CSV")).not_to_have_class(
+        re.compile(r"k-format-chip--on")
     )
 
     # The QIF body names no currency; the download name does, and that is what
     # the banner shows. The period stays record-derived: the name asks for
     # 04-01 – 06-30, the transactions actually run 04-17 – 05-17.
+    _step(page, STEP_UPLOAD)
     banner = page.locator(".k-info-banner").first
     expect(banner).to_contain_text("2026-04-17 – 2026-05-17", timeout=5000)
     expect(banner).to_contain_text("JPY")
@@ -644,13 +814,17 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     # reach the preview, and below, not the ledger either.
     expect(page.get_by_text("Jan Kowalski", exact=False)).to_have_count(0)
 
+    _step(page, STEP_SETTINGS)
     _select_import_option(page, "Target account", _account_option(account_name, "JPY"))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
 
-    page.get_by_role("button", name="Import 1 file").click()
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
+    _step(page, STEP_PREVIEW)
+    expect(
+        _panel(page, STEP_PREVIEW).get_by_text("Japanpost Bank(245950) GIFU", exact=False).first
+    ).to_be_visible(timeout=5000)
+    _run_import(page)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
 
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "Topped up account")
@@ -678,20 +852,21 @@ def test_wise_qif_currency_from_name_blocks_the_wrong_account(page: Page, base_u
     page.locator('input[type="file"]').set_input_files(
         _upload_as(WISE_JPY_QIF, WISE_QIF_DOWNLOAD_NAME)
     )
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    _wait_for_file(page, WISE_QIF_DOWNLOAD_NAME)
 
+    _step(page, STEP_SETTINGS)
     _select_import_option(page, "Target account", _account_option(account_name, "PLN"))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
 
-    page.get_by_role("button", name="Import 1 file").click()
-
-    expect(
-        page.get_by_text(
-            "Import blocked: file currency (JPY) does not match account currency (PLN).",
-            exact=False,
-        ).first
-    ).to_be_visible(timeout=10000)
+    # The guard is the same one the import button used to hit; on a wizard it
+    # is hit a step earlier, on the card where the account was chosen, and
+    # the preview beyond it cannot be reached at all.
+    expect(_blocked_reason(page)).to_contain_text(
+        "Import blocked: file currency (JPY) does not match account currency (PLN).",
+        timeout=10000,
+    )
+    expect(page.locator("[data-continue]")).to_be_disabled()
     assert count_transactions(account_id) == 0
 
 
@@ -713,22 +888,22 @@ def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_u
     expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
 
     page.locator('input[type="file"]').set_input_files(_upload_as(WISE_JPY_QIF, "foo.qif"))
-    expect(page.get_by_text("foo.qif").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Ready", exact=True).first).to_be_visible(timeout=5000)
+    _wait_for_file(page, "foo.qif")
 
     # No name to read a currency off, so the banner leaves it blank — exactly
     # as it did before the guard learned to read download names.
+    _step(page, STEP_UPLOAD)
     banner = page.locator(".k-info-banner").first
     expect(banner).to_contain_text("2026-04-17 – 2026-05-17", timeout=5000)
     expect(banner).not_to_contain_text("JPY")
 
+    _step(page, STEP_SETTINGS)
     _select_import_option(page, "Target account", _account_option(account_name, "PLN"))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
 
-    page.get_by_role("button", name="Import 1 file").click()
-    expect(page.get_by_text("Import summary", exact=True)).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=5000)
+    _import_now(page)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
     assert count_transactions(account_id) > 0
 
 
@@ -746,7 +921,8 @@ def test_auto_detected_columns_are_marked(page: Page, base_url: str) -> None:
     """
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
-    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=10000)
+    _wait_for_file(page, "test_import.csv")
+    _step(page, STEP_MAPPING)
 
     # Asserted per field rather than as a total: a saved import rule from an
     # earlier test in this shared database can fill the mapping instead of
@@ -774,7 +950,8 @@ def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str)
     """
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(FIXTURES / "partly-unparseable.csv"))
-    expect(page.get_by_text("partly-unparseable.csv").first).to_be_visible(timeout=10000)
+    _wait_for_file(page, "partly-unparseable.csv")
+    _step(page, STEP_MAPPING)
 
     # Rows 3 and 5 of the file: the bad amount and the bad date. The numbers
     # are the point — "some rows failed" sends the reader back to the file to
@@ -806,7 +983,7 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
     expect(page.locator(".k-step--done")).to_have_count(1)
 
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
-    expect(page.get_by_text("test_import.csv").first).to_be_visible(timeout=10000)
+    _wait_for_file(page, "test_import.csv")
 
     # Parsed: the line moved on, and exactly one node is still the one you
     # are standing on. How far it moved depends on what the page could infer
@@ -828,6 +1005,7 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
 
     # And the sample sits *beside* the pickers that map it, headers numbered
     # the way the pickers number them — not above them, as it used to.
+    _step(page, STEP_MAPPING)
     # Scoped to the sample table: the Date picker renders its value the same
     # way, so an unscoped match would compare the picker against itself.
     header_cell = page.locator(".k-table thead").get_by_text("1: date", exact=True).first
@@ -839,3 +1017,156 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
     # Side by side means they share vertical space, not that one follows the
     # other down the page.
     assert sample_box["y"] < picker_box["y"] + picker_box["height"]
+
+
+def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
+    page: Page, base_url: str
+) -> None:
+    """Covers: KAL-CSV-028
+
+    The progress line said "step 3 of 6" over a scroll holding all six. Now
+    it names the one card that is there, and walking back is how you fix a
+    typo rather than starting the import again.
+    """
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    page.locator('input[type="file"]').set_input_files(str(UNRECOGNISED_CSV))
+    _wait_for_file(page, "unrecognised_headers.csv")
+
+    def visible_panels() -> list[str]:
+        return page.eval_on_selector_all(
+            "[data-step-panel]",
+            "nodes => nodes.filter(n => n.offsetParent !== null).map(n => n.dataset.stepPanel)",
+        )
+
+    # The mapping step, and that is the only card on screen.
+    _step(page, STEP_MAPPING)
+    assert visible_panels() == [str(STEP_MAPPING)], visible_panels()
+
+    # Something to lose: a column mapped by hand on the step being left.
+    _select_import_option(page, "Date column", "1: Txn Day")
+    date_picker = page.locator(".q-select").filter(has_text="Date column")
+    expect(date_picker).to_contain_text("1: Txn Day")
+
+    # Back walks to the step before it, and the file survives the walk.
+    page.locator("[data-wizard-footer]").get_by_role("button", name="Back").click()
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+    assert visible_panels() == [str(STEP_UPLOAD)], visible_panels()
+    expect(page.get_by_text("unrecognised_headers.csv").first).to_be_visible()
+
+    # The line keeps marking where the work is while ringing where the
+    # reader is, so a reader standing behind it can still see both.
+    expect(page.locator(".k-step--reading")).to_have_count(1)
+    expect(page.locator(".k-step--now")).to_have_count(1)
+
+    # Walkable by keyboard as well: the node takes focus and answers Enter.
+    page.locator('[data-step="3"]').focus()
+    page.keyboard.press("Enter")
+    expect(_panel(page, STEP_MAPPING)).to_be_visible(timeout=5000)
+
+    # And a step the file has already passed is clickable, in either
+    # direction — including back to the format picker, which is step one.
+    _step(page, STEP_FORMAT)
+    assert visible_panels() == [str(STEP_FORMAT)], visible_panels()
+    expect(page.locator("[data-wizard-footer]").get_by_role("button", name="Back")).to_be_disabled()
+    _step(page, STEP_MAPPING)
+    assert visible_panels() == [str(STEP_MAPPING)], visible_panels()
+    # And the column mapped before the walk is still mapped after it.
+    expect(date_picker).to_contain_text("1: Txn Day")
+
+    # A bank profile has no mapping step — its columns are the profile's —
+    # so that node is ticked but not a link: clicking it would land the
+    # reader on a step the file does not have. Uploaded under a name no
+    # saved rule in this shared database matches, since a rule that fills
+    # the mapping in is a rule that keeps the file on the generic path.
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(WISE_JPY_QIF, "kal-csv-028-wise-statement.qif")
+    )
+    _wait_for_queue(page, 2)
+    # Dropped from a step of the reader's own choosing, so it waits in the
+    # queue until they click it.
+    _step(page, STEP_UPLOAD)
+    page.locator('[data-queue-row="kal-csv-028-wise-statement.qif"]').click()
+    _wait_for_file(page, "kal-csv-028-wise-statement.qif")
+    expect(page.locator('[data-step="2"]')).to_have_class(re.compile(r"cursor-pointer"))
+    expect(page.locator('[data-step="3"]')).not_to_have_class(re.compile(r"cursor-pointer"))
+
+
+def test_a_late_upload_does_not_take_the_step_you_chose(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-028
+
+    A multi-file drop runs one upload handler per file, and each one ends by
+    putting the page where its own file is. A reader who walks to a step
+    while the rest are still parsing keeps it: the page follows the work
+    only while nobody has chosen for themselves.
+    """
+    page.goto(f"{base_url}/import")
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+
+    page.locator('input[type="file"]').set_input_files(str(OTHER_A))
+    _wait_for_file(page, "other-a.csv")
+
+    # The reader goes somewhere of their own choosing.
+    _step(page, STEP_FORMAT)
+
+    # A second file lands. It joins the queue — the page is not pretending
+    # it did not arrive — but it takes neither the step nor the screen: a
+    # reader reading one file does not want another swapped in under them.
+    page.locator('input[type="file"]').set_input_files(str(OTHER_B))
+    _wait_for_queue(page, 2)
+
+    visible = page.eval_on_selector_all(
+        "[data-step-panel]",
+        "nodes => nodes.filter(n => n.offsetParent !== null).map(n => n.dataset.stepPanel)",
+    )
+    assert visible == [str(STEP_FORMAT)], visible
+    expect(page.locator("[data-page-eyebrow]")).to_contain_text("other-a.csv", ignore_case=True)
+    _step(page, STEP_UPLOAD)
+    expect(page.get_by_text("other-b.csv").first).to_be_visible()
+
+
+def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-029
+
+    A disabled button that does not say why is the worst thing a wizard can
+    do — every refusal here is the message the import itself would give.
+    """
+    account_name = "Continue Refuses Account"
+    seed_account(account_name)
+    seed_category("Other Expenses Refuses")
+    seed_income_category("Other Income Refuses")
+
+    page.goto(f"{base_url}/import")
+    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+
+    # Nothing uploaded: the upload step is waiting on a file, and says so.
+    expect(page.locator("[data-continue]")).to_be_disabled()
+    expect(_blocked_reason(page)).to_have_text("Upload a file to continue.")
+
+    # Uploaded under a name no saved rule in this shared database matches,
+    # so nothing is pre-filled and each refusal can be quoted whole.
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(IMPORT_CSV, "kal-csv-029-refusals.csv")
+    )
+    _wait_for_file(page, "kal-csv-029-refusals.csv")
+
+    # Parsed but with nowhere to put the rows: the settings step refuses in
+    # the readiness check's own words, not with the file's last piece of news
+    # ("Loaded 3 rows.", which answers a question nobody asked).
+    _step(page, STEP_SETTINGS)
+    expect(page.locator("[data-continue]")).to_be_disabled()
+    expect(_blocked_reason(page)).to_have_text("Select a target account.")
+
+    _select_import_option(page, "Target account", _account_option(account_name))
+    expect(_blocked_reason(page)).to_have_text("Select a default expense category.", timeout=5000)
+    _select_import_option(page, "Default expense category", "Other Expenses Refuses")
+    expect(_blocked_reason(page)).to_have_text("Select a default income category.", timeout=5000)
+    _select_import_option(page, "Default income category", "Other Income Refuses")
+
+    # Everything chosen: the step is finished, so Continue stops refusing and
+    # the reason it was giving is gone.
+    expect(page.locator("[data-continue]")).to_be_enabled(timeout=5000)
+    expect(_blocked_reason(page)).to_have_count(0)
+    _continue(page)
+    expect(_panel(page, STEP_PREVIEW)).to_be_visible(timeout=5000)

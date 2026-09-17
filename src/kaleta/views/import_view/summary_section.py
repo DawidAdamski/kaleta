@@ -10,6 +10,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.views.import_view.state import QueuedFile
+from kaleta.views.theme import BODY_MUTED, CARD_TITLE, SECTION_CARD
 
 
 @dataclass
@@ -77,7 +78,7 @@ class SummarySection:
                         amount=f"{row.amount:.2f}",
                         description=row.description or "—",
                     )
-                ).classes("text-xs text-slate-500")
+                ).classes(f"{BODY_MUTED} text-xs")
 
     def show(self) -> None:
         self.card.set_visibility(True)
@@ -90,17 +91,17 @@ class SummarySection:
 
 
 def build_summary_section() -> SummarySection:
-    card = ui.card().classes("w-full")
+    card = ui.card().classes(f"{SECTION_CARD} gap-0")
     card.set_visibility(False)
     with card:
-        ui.label(t("import.summary_heading")).classes("text-lg font-semibold mb-2")
+        ui.label(t("import.summary_heading")).classes(f"{CARD_TITLE} mb-2")
         container = ui.column().classes("w-full gap-1")
-        totals_label = ui.label("").classes("text-sm font-semibold mt-2")
+        totals_label = ui.label("").classes("text-sm font-medium mt-2")
         with ui.row().classes("w-full mt-3") as actions_row:
             start_new_btn = ui.button(
                 t("import.start_new"),
                 icon="refresh",
-            ).props("color=primary unelevated")
+            ).props("unelevated no-caps")
     return SummarySection(
         card=card,
         container=container,

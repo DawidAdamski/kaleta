@@ -122,8 +122,19 @@ STEP_LINE = "k-steps"
 STEP_NODE = "k-step"
 STEP_NODE_DONE = "k-step--done"
 STEP_NODE_NOW = "k-step--now"
+#: A step the reader has walked back to. The work is elsewhere — that node
+#: keeps the accent — so this one is ringed rather than filled.
+STEP_NODE_READING = "k-step--reading"
 STEP_LABEL = "k-step-label"
 STEP_LABEL_NOW = "k-step-label k-step-label--now"
+#: One of the three file formats, as a pill you can switch between.
+FORMAT_CHIP = "k-format-chip"
+FORMAT_CHIP_ON = "k-format-chip--on"
+#: Quasar's uploader, whose header is a solid brand bar by default — the
+#: loudest thing on a page whose whole job is the step you are on.
+UPLOADER = "k-uploader"
+#: A disclosure for what is not a step: a line you open, not a card.
+DISCLOSURE = "k-disclosure"
 #: "auto" — this column came from detection, not from the user.
 AUTO_BADGE = "k-auto-badge"
 #: A warning that belongs to the step you are on, not a toast that flies past.
@@ -508,6 +519,46 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   border-color:var(--k-accent);
   color:var(--k-on-accent)
 }
+/* Walked back to: the work is on another node, so this one is ringed and
+   not filled — two filled discs would be two claims about where you are. */
+.k-step--reading{
+  border-color:var(--k-accent);
+  color:var(--k-accent-text);
+  box-shadow:0 0 0 3px var(--k-accent-soft)
+}
+.q-btn.k-format-chip{
+  border:1px solid var(--k-border);
+  border-radius:999px;
+  color:var(--k-muted-strong);
+  min-height:38px;
+  padding:0 16px
+}
+.q-btn.k-format-chip:hover{background:var(--k-surface-warm)}
+.q-btn.k-format-chip.k-format-chip--on{
+  border-color:var(--k-accent);
+  background:var(--k-accent-soft);
+  color:var(--k-accent-text)
+}
+.k-disclosure > .q-expansion-item__container > .q-item{
+  background:transparent;
+  border-radius:10px;
+  color:var(--k-ink-2);
+  min-height:44px
+}
+.k-disclosure > .q-expansion-item__container > .q-item:hover{background:var(--k-surface-warm)}
+/* The drop zone is a zone, not a banner: Quasar paints its header with the
+   brand colour, which on this page shouted over the step itself. */
+.k-uploader .q-uploader__header{
+  background:var(--k-surface-warm);
+  color:var(--k-muted-strong)
+}
+.k-uploader{
+  border:1px dashed var(--k-border-strong);
+  border-radius:12px;
+  box-shadow:none;
+  background:var(--k-surface)
+}
+.k-uploader .q-uploader__list{background:var(--k-surface)}
 .k-step-label{font-size:11px;color:var(--k-muted);text-align:center;line-height:1.2}
 .k-step-label--now{color:var(--k-ink);font-weight:600}
 .k-auto-badge{

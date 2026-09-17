@@ -9,6 +9,7 @@ Page URL: /import (preview) and /transactions (verification)
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from playwright.sync_api import Page, expect
@@ -38,6 +39,13 @@ def _select_import_option(page: Page, label: str, option: str) -> None:
     page.locator(".q-menu").last.get_by_text(option, exact=True).click()
 
 
+def _step(page: Page, step: int) -> None:
+    """Walk the import wizard to *step* — it shows one at a time."""
+    page.keyboard.press("Escape")
+    page.locator(f'[data-step="{step}"]').click()
+    expect(page.locator(f'[data-step-panel="{step}"]')).to_be_visible(timeout=5000)
+
+
 def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str) -> None:
     """Covers: KAL-CSV-004"""
     # Leading "AAA" keeps these near the top of Quasar's virtualised select list
@@ -53,14 +61,16 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     page.goto(f"{base_url}/import")
     page.locator('input[type="file"]').set_input_files(str(MBANK_CSV))
 
-    expect(page.get_by_text("mbank_transfer.csv")).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Loaded 3 rows", exact=False).first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Import settings", exact=True)).to_be_visible(timeout=5000)
+    expect(page.locator("[data-page-eyebrow]")).to_contain_text("mbank_transfer.csv", timeout=5000)
 
+    _step(page, 4)
+    expect(page.get_by_text("Import settings", exact=True)).to_be_visible(timeout=5000)
     _select_import_option(page, "Target account", _account_option(MAIN_ACCOUNT))
     _select_import_option(page, "Default expense category", expense_cat)
     _select_import_option(page, "Default income category", income_cat)
 
+    # The preview is its own step now, and the import runs from its footer.
+    _step(page, 5)
     preview = page.locator(".q-table")
     expect(preview.get_by_role("cell", name="Transfer", exact=True).first).to_be_visible(
         timeout=5000
@@ -70,8 +80,12 @@ def test_mbank_transfer_to_registered_account_detected(page: Page, base_url: str
     )
     expect(preview.get_by_role("cell", name="Income", exact=True).first).to_be_visible(timeout=5000)
 
-    page.get_by_role("button", name="Import 1 file").click()
-    expect(page.get_by_text("Imported", exact=True).first).to_be_visible(timeout=10000)
+    page.locator("[data-import-run]").click()
+    # The heading renders for a failed run too, so the claim is the file's
+    # own line in the summary.
+    expect(page.locator('[data-step-panel="6"]')).to_contain_text(
+        re.compile(r"\b3 imported"), timeout=10000
+    )
 
     page.goto(f"{base_url}/transactions")
 

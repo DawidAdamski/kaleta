@@ -917,6 +917,13 @@
   },
   "import": {
     "title": "Import Transactions",
+    "back": "Back",
+    "continue_to": "Continue to {step}",
+    "blocked_no_file": "Upload a file to continue.",
+    "blocked_step": "Finish this step to continue.",
+    "file_n_of_m": "File {n} of {m}",
+    "reference_panels": "Account coverage and recent imports",
+    "eyebrow_no_file": "No file yet",
     "profile_label": "Select file format",
     "profile_generic": "Generic CSV",
     "profile_mbank": "mBank",
