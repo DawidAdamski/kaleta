@@ -3,7 +3,7 @@ plan_id: import-wise-mt940
 title: Import — Wise MT940 statement format
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -80,3 +80,58 @@ CARD-3802617048
 ```
 
 Anonymize IBAN in fixture; keep length/checksum pattern plausible.
+
+### Decisions taken (2026-09-17)
+
+Both open questions were settled with the plan's own defaults:
+
+- **Descriptions are the Wise transaction id.** MT940 names no merchant
+  anywhere — `CARD-3802617048` on `:61:`'s second line is all the format
+  offers, so that is what the ledger gets. `:86:` holds only the
+  `/EXCH/…/` rate on top-ups; it is kept in the parsed row's `raw` and
+  never used as a description, because a rate does not say what was
+  bought. The customer reference is the documented fallback for an entry
+  with no detail line, except `NONREF` — SWIFT for "none given", which
+  names nothing.
+- **Same `WISE_PROFILE`, a third detect/parse arm.** `is_wise_content`
+  now covers CSV, QIF and MT940; `parse_queued_file` tries MT940 first
+  (most specific), then QIF, then CSV. No new profile key, no new i18n
+  profile label.
+
+Two things MT940 does better than the QIF path, both now covered:
+
+- **It states its own currency** in `:60F:` / `:62F:`, so `_parse_wise_mt940`
+  reads no filename at all. A renamed MT940 is guarded by
+  `validate_import_readiness` exactly as the original is — the gap the QIF
+  path closes with `parse_wise_filename` does not exist here.
+- **`:25:` gives the account**, so `MBankFileMetadata.account_number` and
+  `account_number_digits` are populated (the optional touchpoint). Queue
+  inheritance still keys Wise files on currency, as it did before; the
+  digits only feed the metadata banner today.
+
+### Fixture provenance — needs the maintainer's eye
+
+`jpy-travel-sample.mt940` is **not** a byte-level anonymization of a full
+export, unlike the CSV and QIF fixtures beside it. It reproduces the
+per-tag lines quoted above verbatim and reconstructs the rest around the
+CSV fixture's nine movements. `tests/e2e/fixtures/import/wise/NOTES.md`
+lists field by field what is authentic (`:61:` layout, `FMSC`, `NONREF`,
+the detail line, `:86:/EXCH/…/`, dates, amounts) and what is not (`:20:`
+and `:28C:` values, `FTRF` on top-ups, the `:60F:`/`:62F:` balances,
+oldest-first order). The parser depends on none of the reconstructed
+parts, and the unit tests assert that — entry order, type codes and
+balance amounts are all proven irrelevant.
+
+**Open for the maintainer:** confirm against a real download whether Wise
+writes entries oldest-first, and which extension it uses (`.mt940`,
+`.940` or `.sta` — the upload widget accepts all three). Neither changes
+behaviour; both would let the "reconstructed" list shrink.
+
+### Privacy flag (pre-existing, not introduced here)
+
+The IBAN quoted in the dogfood sample above (`GB65TRWI…`) looks like the
+maintainer's real Wise account number, and it is already committed to
+this repo. The fixture uses an anonymized `GB33TRWI23145600000123`
+instead, keeping the country, `TRWI` bank code and 22-character shape.
+Scrubbing the plan's own copy is left to the maintainer — it is their
+record, and it is in git history either way.

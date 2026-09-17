@@ -1287,6 +1287,43 @@ Feature: mBank CSV Import
     When I upload a CSV and reach the settings step
     Then "Continue" stays disabled until I choose where the rows go
     And the last thing it asks for is "Select a default income category."
+
+  KAL-CSV-030 @automated
+  Scenario: Wise MT940 statement imports through the same Wise profile
+    MT940 is the format accounting tools already batch-import, so the same
+    statement must go in without being converted to CSV first. It says less
+    than the CSV: there are no merchant names in it at all, only the Wise
+    transaction id, and that is what the ledger gets.
+
+    Given there is an account "Wise JPY" in JPY
+    And there is an expense category "Other Expenses"
+    And there is an income category "Other Income"
+    And I am on the Import page
+    When I upload a valid Wise MT940 file
+    Then the profile is auto-detected as "Wise"
+    And the banner shows the account the statement is for
+    And the metadata banner shows the statement period
+    When I select account "Wise JPY"
+    And I select default expense category "Other Expenses"
+    And I select default income category "Other Income"
+    Then the preview shows the Wise transaction id as the description
+    When I click "Import"
+    Then the transactions are imported successfully
+
+  KAL-CSV-031 @automated
+  Scenario: An MT940 states its own currency, so renaming it changes nothing
+    A Wise QIF hides its currency in the download name, which is why a renamed
+    QIF imports with no currency at all. MT940 carries the currency in its
+    balance fields, so the guard reads it off the file itself and a renamed
+    upload is guarded exactly as the original was.
+
+    Given there is an account "Wise PLN" in PLN
+    And I am on the Import page
+    When I upload that same Wise MT940 under a name that says nothing
+    Then the banner shows currency "JPY", read from the file itself
+    When I select account "Wise PLN"
+    Then the import is blocked
+    And I am told the file currency does not match the account currency
 ```
 
 ## Feature: Transfer Recognition

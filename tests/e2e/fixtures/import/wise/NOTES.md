@@ -8,12 +8,13 @@ Anonymized from maintainer dogfood — Japan trip JPY wallet, Q2 2026.
 |--------|----------------|
 | **CSV** | Yes — select **Wise** profile (auto-detected from `TransferWise ID` header) |
 | **QIF** | Yes — same **Wise** profile (auto-detected from `!Type:Bank` + `NCARD-*` / `NTRANSFER-*` ids) |
-| MT940 | Planned — [`import-wise-mt940`](../../../../../docs/plans/import-wise-mt940.md) |
+| **MT940** | Yes — same **Wise** profile (auto-detected from `:61:` statement lines + Wise's `TRWI` bank code in `:25:`) |
 | XLSX | Planned — [`import-wise-xlsx`](../../../../../docs/plans/import-wise-xlsx.md) |
 
 Wise UI offers all four for the same statement; Kaleta's upload widget accepts
-`.csv` and `.qif`. CSV has the richest columns (merchant, exchange metadata).
-QIF carries date, amount, payee, transaction id and memo only:
+`.csv`, `.qif` and `.mt940` (plus `.940` / `.sta`, the other extensions the same
+SWIFT statement arrives under). CSV has the richest columns (merchant, exchange
+metadata). QIF carries date, amount, payee, transaction id and memo only:
 
 - **No currency anywhere in the file.** Wise puts it in the download name
   (`statement_<id>_JPY_<from>_<to>.qif`), which `parse_wise_filename` reads —
@@ -28,26 +29,80 @@ QIF carries date, amount, payee, transaction id and memo only:
   (`Jan Kowalski 1234`), byte-identical on every card row, or a copy of the
   payee on top-ups. It is parsed but never persisted.
 
+## MT940 (`jpy-travel-sample.mt940`)
+
+Accounting-minimal. What it has that the QIF does not, and what it lacks:
+
+- **It states its own currency**, in the `:60F:` / `:62F:` balance fields
+  (`C260417JPY0,`). No download name has to be read for the currency-mismatch
+  guard to fire, so a renamed MT940 is guarded exactly as the original is —
+  the one thing the QIF path cannot do.
+- **It names no merchant at all.** Where the CSV has `Japanpost Bank(245950)
+  GIFU`, MT940 offers only the Wise transaction id on the second line of
+  `:61:` (`CARD-3802617048`). That id is what the ledger gets; the plan's open
+  question settled on accepting it for v1 rather than inventing a lookup.
+- **`:86:` appears on top-ups only**, as an exchange-rate hint
+  (`/EXCH/43,5034/` — the same 43.50340 the CSV's `Exchange Rate` column
+  carries for `TRANSFER-2134191896`). It is kept in the parsed row's `raw`,
+  never used as a description: a rate does not say what was bought.
+- Amounts use SWIFT's comma decimal separator and JPY has no decimal part, so
+  they are written `51571,`.
+
+### Provenance — read before trusting this file field-for-field
+
+Unlike the CSV and QIF fixtures, this one is **not** a byte-level
+anonymization of a full export. The maintainer supplied the per-tag shape of
+the real Wise MT940:
+
+```
+:25:GB33TRWI23145600000123
+:61:260517D51571,FMSCNONREF
+CARD-3802617048
+:86:/EXCH/43,5034/   ← on PLN→JPY top-ups only
+```
+
+Those lines are reproduced verbatim (with the IBAN anonymized, keeping the
+`GB..TRWI` + 16-digit shape). The rest of the file is built around them from
+the CSV fixture's nine movements, so:
+
+- **Authentic:** the `:25:` account shape, the `:61:` layout and its `FMSC`
+  type code on card rows, `NONREF` as the customer reference, the detail line
+  holding the Wise id, `:86:/EXCH/…/` on top-ups, the dates and the amounts
+  (each matches the CSV row of the same id).
+- **Reconstructed:** `:20:` and `:28C:` values (placeholders), the `FTRF` type
+  code on the two top-ups, the `:60F:` / `:62F:` balances (derived from the
+  CSV's `Running Balance` column — 0 before the first top-up, 49171 after the
+  last card row), oldest-first entry order, and LF line endings.
+
+The parser is written so that none of the reconstructed parts matter: entry
+order, type codes and the balance amounts are never depended on, and
+`tests/unit/services/test_wise_mt940_import.py` asserts exactly that. When a
+full real export arrives, replace this file and only the authentic
+expectations above should need re-checking.
+
 ## Export path in Wise
 
-Statements → choose period → **CSV** or **QIF** → Generate.
+Statements → choose period → **CSV**, **QIF** or **MT940** → Generate.
 
-Both sample files hold the same 9 transactions. The QIF export is
+All three sample files hold the same 9 transactions. The QIF export is
 **English-only** where the CSV is Polish (`Topped up account` vs
 `Doładowanie konta`), dates are US `MM/DD/YYYY` against the CSV's
 `DD-MM-YYYY`, amounts have no decimal part (`T-51571`), and the fields
-come in `D N T P M` order. Take expected values from the matching
-fixture, never across the two.
+come in `D N T P M` order, and MT940 says less than either (see above).
+Take expected values from the matching fixture, never across them.
 
 Optional: enable “Display transactions with fees shown separately” if you need
 fee rows as separate lines (not covered by the current sample).
 
 ## Anonymization applied
 
-- Card holder → `Jan Kowalski` (CSV `Card Holder Full Name`, QIF `M`)
+- Card holder → `Jan Kowalski` (CSV `Card Holder Full Name`, QIF `M`; MT940
+  names no holder at all)
 - Card last four → `1234`
 - Nothing else altered: the QIF fixture is byte-identical to the real
   export on every `D` / `N` / `T` / `P` line
+- Wise IBAN → `GB33TRWI23145600000123` (MT940 `:25:`), keeping the country,
+  bank-code and length shape of the real one
 - TransferWise transaction IDs kept as opaque tokens (no PII)
 - The Wise `<account_id>` segment of the download name identifies the real
   wallet, so tests use an anonymized `12345678` rather than the real one

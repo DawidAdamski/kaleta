@@ -29,6 +29,7 @@ from kaleta.services.import_profiles import (
     detect_bank_profile,
     is_mbank_content,
     is_wise_content,
+    is_wise_mt940_content,
     is_wise_qif_content,
     parse_wise_filename,
 )
@@ -698,6 +699,266 @@ class WiseQifPreprocessor:
         )
 
 
+# ── Wise MT940 preprocessor ──────────────────────────────────────────────────
+
+#: A SWIFT field line: ``:<tag>:<value>``. Anything else is a continuation of
+#: the field above it (``:61:``'s supplementary details, ``:86:``'s narrative).
+_MT940_FIELD = re.compile(r"^:(?P<tag>\d{2}[A-Z]?):(?P<value>.*)$")
+
+#: ``:61:`` statement line — value date, optional entry date (``MMDD``), the
+#: debit/credit mark with its optional funds code, the amount (SWIFT writes
+#: the decimal separator as a comma), the four-character transaction type id
+#: and the customer reference. Reversal marks (``RC`` / ``RD``) are
+#: deliberately *not* matched: no fixture proves how Wise writes them, and a
+#: line read with the wrong sign is worse than one reported as unparseable.
+_MT940_STATEMENT_LINE = re.compile(
+    r"^(?P<value_date>\d{6})(?:\d{4})?"
+    r"(?P<mark>[DC])(?P<funds_code>[A-Z])?"
+    r"(?P<amount>\d[\d,]*)"
+    r"(?P<type_code>[A-Z][A-Z0-9]{3})"
+    r"(?P<reference>.*)$"
+)
+
+#: ``:60F:`` / ``:62F:`` balance — mark, date, currency, amount. The currency
+#: an MT940 states here is the one thing the QIF export never had.
+_MT940_BALANCE = re.compile(
+    r"^(?P<mark>[DC])(?P<date>\d{6})(?P<currency>[A-Z]{3})(?P<amount>\d[\d,]*)$"
+)
+
+#: Balance tags in the order they are consulted for the file's currency:
+#: opening first, then closing, then their intermediate (paged) forms.
+_MT940_BALANCE_TAGS: tuple[str, ...] = ("60F", "62F", "60M", "62M")
+
+_MT940_DATE_FORMAT = "%y%m%d"
+
+#: SWIFT's "the customer gave no reference" placeholder. It names nothing, so
+#: it must never be offered as a description.
+_MT940_NO_REFERENCE = "NONREF"
+
+
+@dataclass
+class Mt940Entry:
+    """One ``:61:`` statement line with the two fields that hang off it.
+
+    *details* is the second line of ``:61:`` (SWIFT's supplementary details),
+    where Wise writes the transaction id that its CSV and QIF exports carry as
+    ``TransferWise ID`` / ``N``. *narrative* is the ``:86:`` field.
+    """
+
+    statement_line: str = ""
+    details: str = ""
+    narrative: str = ""
+
+
+def iter_mt940_fields(content: str) -> Iterable[tuple[str, list[str]]]:
+    """Split MT940 *content* into ``(tag, lines)`` pairs.
+
+    ``lines[0]`` is the text after the tag; the rest are its continuation
+    lines, in order. Lines before the first tag (a SWIFT envelope block, a
+    trailing ``-``) belong to no field and are dropped.
+    """
+    tag: str | None = None
+    lines: list[str] = []
+    for raw_line in content.splitlines():
+        stripped = raw_line.strip()
+        if not stripped:
+            continue
+        match = _MT940_FIELD.match(stripped)
+        if match is None:
+            if tag is not None:
+                lines.append(stripped)
+            continue
+        if tag is not None:
+            yield tag, lines
+        tag = match["tag"]
+        lines = [match["value"].strip()]
+    if tag is not None:
+        yield tag, lines
+
+
+def iter_mt940_entries(content: str) -> Iterable[Mt940Entry]:
+    """Yield one :class:`Mt940Entry` per ``:61:`` field, in file order.
+
+    An entry closes on the next field that is neither its own ``:61:`` nor the
+    ``:86:`` that describes it, so the closing balance flushes the last one
+    and a statement-level ``:86:`` cannot attach itself to it.
+    """
+    entry: Mt940Entry | None = None
+    for tag, lines in iter_mt940_fields(content):
+        if tag == "61":
+            if entry is not None:
+                yield entry
+            entry = Mt940Entry(
+                statement_line=lines[0],
+                details=" ".join(lines[1:]).strip(),
+            )
+        elif tag == "86":
+            if entry is not None:
+                entry.narrative = " ".join(lines).strip()
+        else:
+            if entry is not None:
+                yield entry
+            entry = None
+    if entry is not None:
+        yield entry
+
+
+@dataclass(frozen=True, slots=True)
+class Mt940StatementLine:
+    """The parsed fields of a ``:61:`` line. ``amount`` carries its sign."""
+
+    value_date: datetime.date
+    amount: Decimal
+    type_code: str
+    reference: str
+
+
+def parse_mt940_statement_line(line: str) -> Mt940StatementLine:
+    """Parse one ``:61:`` line, raising :class:`ImportError_` when it is not one."""
+    match = _MT940_STATEMENT_LINE.match(line.strip())
+    if match is None:
+        raise ImportError_(f"Cannot parse MT940 statement line: {line.strip()!r}")
+    amount = _parse_amount(match["amount"], decimal_separator=",")
+    return Mt940StatementLine(
+        value_date=_parse_date(match["value_date"], _MT940_DATE_FORMAT),
+        amount=-amount if match["mark"] == "D" else amount,
+        type_code=match["type_code"],
+        reference=match["reference"].split("//")[0].strip(),
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class Mt940Balance:
+    """A ``:60F:`` / ``:62F:`` balance — only its currency is used today."""
+
+    currency: str
+    amount: Decimal
+
+
+def parse_mt940_balance(value: str) -> Mt940Balance | None:
+    """Parse a balance field, returning ``None`` when it is not one."""
+    match = _MT940_BALANCE.match(value.strip())
+    if match is None:
+        return None
+    try:
+        amount = _parse_amount(match["amount"], decimal_separator=",")
+    except ImportError_:
+        return None
+    return Mt940Balance(
+        currency=match["currency"].upper(),
+        amount=-amount if match["mark"] == "D" else amount,
+    )
+
+
+class WiseMt940Preprocessor:
+    """Parses Wise MT940 statement exports.
+
+    MT940 is the SWIFT statement format Wise offers beside CSV and QIF, and
+    the one accounting tools already batch-import. It is neither CSV nor QIF,
+    so this path bypasses ``parse_csv`` and the column mapping entirely.
+
+    What it carries, against the other two Wise exports
+    (``tests/e2e/fixtures/import/wise/jpy-travel-sample.mt940``):
+
+    * **The currency, in the file itself** (``:60F:``/``:62F:``). The QIF had
+      it only in the download name; an MT940 needs no name read at all, so the
+      currency-mismatch guard works on a renamed upload too.
+    * **No merchant names.** Where the CSV has ``Japanpost Bank(245950)
+      GIFU``, MT940 offers only the Wise transaction id on ``:61:``'s second
+      line (``CARD-3802617048``). That id is the description — accounting-
+      minimal, as the plan's open question settled.
+    * **An exchange rate on top-ups**, as ``:86:/EXCH/43,5034/``. It is kept
+      in the row's ``raw`` beside the other fields, never as a description:
+      a rate does not say what was bought.
+    """
+
+    @staticmethod
+    def is_wise_mt940(content: str) -> bool:
+        """Quick heuristic — check if the file looks like a Wise MT940 export."""
+        return is_wise_mt940_content(content)
+
+    @staticmethod
+    def _description(entry: Mt940Entry, statement_line: Mt940StatementLine) -> str:
+        """The best name this format has for a movement.
+
+        Wise fills ``:61:``'s second line on every entry of the real export.
+        The customer reference is the documented fallback, and ``NONREF`` —
+        SWIFT for "none given" — names nothing, so it is not one.
+        """
+        if entry.details:
+            return entry.details
+        if statement_line.reference and statement_line.reference != _MT940_NO_REFERENCE:
+            return statement_line.reference
+        return ""
+
+    @staticmethod
+    def parse(content: str) -> ImportResult:
+        """Parse ``:61:`` entries into ``ParsedRow`` objects (positive = income)."""
+        result = ImportResult()
+        for index, entry in enumerate(iter_mt940_entries(content), start=1):
+            try:
+                statement_line = parse_mt940_statement_line(entry.statement_line)
+            except ImportError_ as exc:
+                # ``error_rows`` stays empty on purpose: it holds *file line
+                # numbers* for the mapping step's warning strip, and that step
+                # only ever renders for the generic profile. An entry index is
+                # not a line number, and naming one here would put a number
+                # nothing reads next to a message that already says which
+                # entry failed.
+                result.errors.append(f"MT940 entry {index}: {exc}")
+                continue
+            raw = {
+                "date": entry.statement_line[:6],
+                "amount": str(statement_line.amount),
+                "reference": entry.details,
+                "type_code": statement_line.type_code,
+                "narrative": entry.narrative,
+            }
+            result.rows.append(
+                ParsedRow(
+                    date=statement_line.value_date,
+                    amount=statement_line.amount,
+                    description=WiseMt940Preprocessor._description(entry, statement_line),
+                    raw={key: value for key, value in raw.items() if value},
+                )
+            )
+        return result
+
+    @staticmethod
+    def extract_metadata(content: str) -> MBankFileMetadata:
+        """Derive the Wise metadata banner fields from the MT940 fields.
+
+        Unlike the QIF path this reads no filename: ``:60F:``/``:62F:`` state
+        the currency, and ``:25:`` the account. The period still comes from
+        the entries rather than any header, so a statement requested for a
+        quarter banners the days its movements actually span.
+        """
+        currency = ""
+        account_number = ""
+        for tag, lines in iter_mt940_fields(content):
+            if tag == "25" and not account_number:
+                # Some dialects suffix the account with ``/<currency>``; the
+                # account is the part before it.
+                account_number = lines[0].split("/")[0].strip()
+            elif tag in _MT940_BALANCE_TAGS and not currency:
+                balance = parse_mt940_balance(lines[0])
+                if balance is not None:
+                    currency = balance.currency
+        dates: list[datetime.date] = []
+        for entry in iter_mt940_entries(content):
+            with contextlib.suppress(ImportError_):
+                dates.append(parse_mt940_statement_line(entry.statement_line).value_date)
+        return MBankFileMetadata(
+            client_name="",
+            account_type="Wise",
+            currency=currency,
+            account_number=account_number,
+            account_number_digits=digits_only(account_number),
+            date_from=min(dates) if dates else None,
+            date_to=max(dates) if dates else None,
+        )
+
+
 def _build_mbank_description(raw: dict[str, str]) -> str:
     """Build a human-readable description from mBank CSV row fields.
 
@@ -986,6 +1247,8 @@ class ImportService:
             )
 
         if resolved_profile == WISE_PROFILE:
+            if WiseMt940Preprocessor.is_wise_mt940(content):
+                return self._parse_wise_mt940(content)
             if WiseQifPreprocessor.is_wise_qif(content):
                 return self._parse_wise_qif(content, filename=filename)
             if not WisePreprocessor.is_wise_file(content):
@@ -1018,6 +1281,35 @@ class ImportService:
             content,
             mapping=mapping,
             profile=resolved_profile,
+        )
+
+    def _parse_wise_mt940(self, content: str) -> ParseQueuedFileResult:
+        """Parse a Wise MT940 upload.
+
+        As on the QIF branch there is no generic fallback: an MT940 that
+        yields no entry is not CSV, and handing it to the column-mapping step
+        would only show the user a garbled table.
+
+        No *filename* is taken. MT940 states its own currency in the balance
+        fields, so unlike the QIF this path never has to read a download name
+        to make the currency-mismatch guard work.
+        """
+        result = WiseMt940Preprocessor.parse(content)
+        if not result.rows:
+            return ParseQueuedFileResult(
+                profile=WISE_PROFILE,
+                errors=result.errors,
+                error_rows=result.error_rows,
+                error_key="import.mt940_no_rows",
+                error_params={"skipped": result.skipped},
+            )
+        return ParseQueuedFileResult(
+            profile=WISE_PROFILE,
+            rows=result.rows,
+            errors=result.errors,
+            error_rows=result.error_rows,
+            metadata=WiseMt940Preprocessor.extract_metadata(content),
+            ok=True,
         )
 
     def _parse_wise_qif(self, content: str, *, filename: str = "") -> ParseQueuedFileResult:

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""CSV / QIF upload drop zone for the import wizard."""
+"""CSV / QIF / MT940 upload drop zone for the import wizard."""
 
 from __future__ import annotations
 
@@ -32,7 +32,10 @@ def build_upload_section() -> UploadSection:
                 max_files=20,
                 max_file_size=50 * 1024 * 1024,
             )
-            .props("accept=.csv,.qif flat")
+            # Wise downloads its MT940 as ``.mt940``; ``.940`` and ``.sta`` are
+            # the other extensions the same SWIFT statement arrives under, and
+            # the parser reads the content either way.
+            .props("accept=.csv,.qif,.mt940,.940,.sta flat")
             .classes(f"{UPLOADER} w-full mt-2")
         )
     return UploadSection(hint_label=hint_label, upload_widget=upload_widget)
