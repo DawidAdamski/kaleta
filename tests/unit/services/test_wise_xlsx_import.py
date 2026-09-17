@@ -110,6 +110,47 @@ class TestWiseXlsxDetection:
         assert detect_bank_profile("") is None
 
 
+class TestWiseXlsxFixtureIsClean:
+    """A workbook is an archive: PII can hide in parts no sheet reader opens."""
+
+    #: What the anonymization replaced, plus the identifiers the other Wise
+    #: fixtures scrub. None of it may survive anywhere in the archive.
+    LEAKS = ("Dawid Adamski", "9456", "136577258", "GB65TRWI")
+
+    def test_no_part_of_the_archive_carries_pii(self) -> None:
+        with zipfile.ZipFile(io.BytesIO(_raw())) as archive:
+            for name in archive.namelist():
+                text = archive.read(name).decode("utf-8", errors="replace")
+                for leak in self.LEAKS:
+                    assert leak not in text, f"{leak!r} survives in {name}"
+
+    def test_the_document_properties_name_the_bank_not_a_person(self) -> None:
+        """``docProps`` is where a spreadsheet usually leaks its author."""
+        with zipfile.ZipFile(io.BytesIO(_raw())) as archive:
+            core = archive.read("docProps/core.xml").decode("utf-8")
+            app = archive.read("docProps/app.xml").decode("utf-8")
+        assert "<dc:creator>Wise</dc:creator>" in core
+        assert "lastModifiedBy" not in core
+        assert "<Application>Wise</Application>" in app
+
+    def test_the_archive_holds_no_parts_beyond_the_workbook_itself(self) -> None:
+        """No ``calcChain``, no printer settings, no custom properties."""
+        with zipfile.ZipFile(io.BytesIO(_raw())) as archive:
+            names = set(archive.namelist())
+        assert names == {
+            "_rels/.rels",
+            "[Content_Types].xml",
+            "docProps/app.xml",
+            "docProps/core.xml",
+            "xl/_rels/workbook.xml.rels",
+            "xl/sharedStrings.xml",
+            "xl/styles.xml",
+            "xl/workbook.xml",
+            "xl/worksheets/_rels/sheet1.xml.rels",
+            "xl/worksheets/sheet1.xml",
+        }
+
+
 class TestWiseXlsxParsing:
     def test_fixture_parses_nine_rows_under_the_wise_profile(self) -> None:
         result = _parse()
@@ -241,6 +282,18 @@ class TestWiseXlsxMetadata:
 
     def test_the_stated_currency_lets_the_right_account_through(self) -> None:
         assert self._readiness(account_currency="JPY")[0] is None
+
+
+class TestWiseXlsxWorkbookIsReadOnce:
+    def test_a_parse_opens_the_workbook_once_for_rows_and_banner(self) -> None:
+        """Opening it means decompressing a ZIP and parsing XML — not twice."""
+        real = WiseXlsxPreprocessor.read_records
+        with patch.object(WiseXlsxPreprocessor, "read_records", side_effect=real) as read_records:
+            result = _parse()
+        assert result.ok is True
+        assert result.metadata is not None
+        assert result.metadata.currency == "JPY"
+        assert read_records.call_count == 1
 
 
 class TestWiseXlsxFailureModes:

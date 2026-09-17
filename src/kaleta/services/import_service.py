@@ -1068,8 +1068,14 @@ class WiseXlsxPreprocessor:
         return importlib.util.find_spec("openpyxl") is not None
 
     @staticmethod
-    def _rows(raw: bytes) -> list[dict[str, str]]:
-        """Read the sheet into CSV-shaped dicts keyed by header name."""
+    def read_records(raw: bytes) -> list[dict[str, str]]:
+        """Read the sheet into CSV-shaped dicts keyed by header name.
+
+        Public because opening the workbook means decompressing a ZIP and
+        parsing its XML: a caller that needs both the rows and the metadata
+        reads once and hands the records to both, rather than paying for the
+        load twice (see :meth:`ImportService._parse_wise_xlsx`).
+        """
         import openpyxl  # noqa: PLC0415 — optional extra, imported where used
 
         with warnings.catch_warnings():
@@ -1102,9 +1108,17 @@ class WiseXlsxPreprocessor:
 
     @staticmethod
     def parse(raw: bytes) -> ImportResult:
-        """Parse sheet rows into ``ParsedRow`` objects (positive = income)."""
+        """Parse a workbook's rows into ``ParsedRow`` objects."""
+        return WiseXlsxPreprocessor.parse_records(WiseXlsxPreprocessor.read_records(raw))
+
+    @staticmethod
+    def parse_records(records: list[dict[str, str]]) -> ImportResult:
+        """Turn already-read sheet records into ``ParsedRow`` objects.
+
+        Positive amounts are income, as everywhere else in the importer.
+        """
         result = ImportResult()
-        for index, record in enumerate(WiseXlsxPreprocessor._rows(raw), start=1):
+        for index, record in enumerate(records, start=1):
             date_raw = record.get("Date", "")
             amount_raw = record.get("Amount", "")
             if not date_raw or not amount_raw:
@@ -1129,7 +1143,12 @@ class WiseXlsxPreprocessor:
 
     @staticmethod
     def extract_metadata(raw: bytes) -> MBankFileMetadata:
-        """Derive the Wise metadata banner fields from the sheet's own columns.
+        """Derive the Wise metadata banner fields from a workbook."""
+        return WiseXlsxPreprocessor.metadata_from_records(WiseXlsxPreprocessor.read_records(raw))
+
+    @staticmethod
+    def metadata_from_records(records: list[dict[str, str]]) -> MBankFileMetadata:
+        """Derive the metadata banner fields from already-read sheet records.
 
         Like the CSV path and unlike the QIF's, no filename is read: the
         ``Currency`` column states the currency, and the rows state the
@@ -1138,7 +1157,7 @@ class WiseXlsxPreprocessor:
         currency = ""
         holder = ""
         dates: list[datetime.date] = []
-        for record in WiseXlsxPreprocessor._rows(raw):
+        for record in records:
             if not currency:
                 currency = record.get("Currency", "")
             if not holder:
@@ -1506,7 +1525,10 @@ class ImportService:
                 profile=WISE_PROFILE,
                 error_key="import.xlsx_extra_missing",
             )
-        result = WiseXlsxPreprocessor.parse(raw)
+        # One workbook load for both the rows and the banner: opening it means
+        # decompressing a ZIP and parsing its XML, which is not worth doing twice.
+        records = WiseXlsxPreprocessor.read_records(raw)
+        result = WiseXlsxPreprocessor.parse_records(records)
         if not result.rows:
             return ParseQueuedFileResult(
                 profile=WISE_PROFILE,
@@ -1520,7 +1542,7 @@ class ImportService:
             rows=result.rows,
             errors=result.errors,
             error_rows=result.error_rows,
-            metadata=WiseXlsxPreprocessor.extract_metadata(raw),
+            metadata=WiseXlsxPreprocessor.metadata_from_records(records),
             ok=True,
         )
 
