@@ -147,11 +147,13 @@ scenario to my plan" is a future plan), gift planning (KAL-GFT).
 
 - **The chart is the Forecast page's, not a lookalike.**
   `views/forecast.py::_forecast_chart` moved verbatim to
-  `views/components/forecast_chart.py` as public `forecast_chart`;
-  `forecast.py` keeps `_forecast_chart = forecast_chart` so its call
-  sites and `tests/unit/views/test_forecast_chart.py` are untouched.
-  The before/after overlay is that function's existing `baseline=`
-  series, and the delta pins are its existing `scenarios=` markers.
+  `views/components/forecast_chart.py` as public `forecast_chart`. The
+  extraction commit kept a `_forecast_chart = forecast_chart` alias so the
+  move itself was reviewable as a pure move; the alias is gone again and the
+  call site and `tests/unit/views/test_forecast_chart.py` name the component
+  directly, so no compatibility shim lingers. The before/after overlay is
+  that function's existing `baseline=` series, and the delta pins are its
+  existing `scenarios=` markers.
 - **Deltas compile to dated cash events, not to a slope.** A new
   monthly bill is thirty-odd separate withdrawals handed to
   `forecast_service.apply_scenarios` — the same function the Forecast
@@ -242,11 +244,12 @@ become permanent.
   bill on the 31st clamped to the 28th in February and then stayed on the
   28th for the rest of the series. `_occurrence(start, cadence, n)` puts it
   back on the 31st in March, where its owner will be looking for it.
-- **The runway only counts deltas the horizon sees.** A purchase dated two
-  years out emits no events, so the line never steps — and it must not draw
-  the fund down either, or the figure and the chart beside it would describe
-  different scenarios. `simulate` passes `_runway_after` only the deltas that
-  compiled to something.
+- **Every figure counts only the deltas the horizon sees.** A purchase dated
+  two years out emits no events, so the line never steps — and it must not
+  draw the fund down or move the monthly-cashflow figure either, or the
+  verdict and the chart beside it would describe different scenarios.
+  `simulate` passes both `_runway_after` and `monthly_cashflow_delta` the
+  deltas that compiled to something.
 - **Both runway figures divide once.** The panel's `emergency_cover` sums each
   fund's months *after* rounding each to a tenth, so two funds at 1.04 months
   read 2.0 there while one division of the total reads 2.1 — and with no

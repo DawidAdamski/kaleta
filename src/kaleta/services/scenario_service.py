@@ -192,6 +192,11 @@ def monthly_cashflow_delta(deltas: list[ScenarioDelta], *, monthly_income: Decim
     A one-off is not part of a monthly rate — it is a single event, and
     spreading it over the horizon would make a car purchase look like a
     subscription.
+
+    *deltas* are the ones that reached the horizon (:meth:`ScenarioService.
+    simulate` filters the rest out), so every figure in the verdict describes
+    the same scenario the chart draws. A bill starting after the last forecast
+    point would otherwise change this number and nothing else on the page.
     """
     total = Decimal("0")
     for delta in deltas:
@@ -320,7 +325,7 @@ class ScenarioService:
         runway_before = self._runway(fund_balance, burn) if emergency else None
 
         verdict = ScenarioVerdict(
-            monthly_delta=monthly_cashflow_delta(deltas, monthly_income=monthly_income),
+            monthly_delta=monthly_cashflow_delta(effective, monthly_income=monthly_income),
             balance_before=_ending_balance(baseline),
             balance_after=_ending_balance(projected),
             first_negative_before=first_negative_date(baseline),

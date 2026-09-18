@@ -50,12 +50,6 @@ from kaleta.views.theme import (
     kpi_card_classes,
 )
 
-#: The chart now lives in ``views/components/forecast_chart.py`` so the
-#: what-if panel can draw the same one. Kept under its old private name
-#: here because this module's call sites and tests already know it.
-_forecast_chart = forecast_chart
-
-
 #: How long a control change waits before it re-runs itself.
 _DEBOUNCE_SECONDS = 0.3
 
@@ -656,7 +650,7 @@ def register() -> None:
                                     new_tab=True,
                                 ).classes("text-xs")
                         ui.echart(
-                            _forecast_chart(result, is_dark, baseline=baseline, scenarios=shifts)
+                            forecast_chart(result, is_dark, baseline=baseline, scenarios=shifts)
                         ).classes("w-full h-96 mt-3")
 
                     _render_upcoming(result)

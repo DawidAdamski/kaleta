@@ -1,6 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """What-if deltas compiled onto a baseline forecast.
 
+The arithmetic behind the KAL-WIF scenarios in ``docs/bdd.md``, which
+``tests/e2e/test_wizard_scenarios.py`` checks through the page:
+KAL-WIF-001 (an income drop shifts the balance), KAL-WIF-002 (the runway
+before and after), KAL-WIF-003 (the first-negative marker), KAL-WIF-005
+(removing a change restores the baseline exactly) and KAL-WIF-007 (income
+cannot be cut by more than all of it).
+
 The simulator is post-processing, not a forecaster: every expectation here is
 a literal read off a hand-built baseline, so a change in the forecasting
 engine cannot quietly move these numbers.
@@ -701,6 +708,18 @@ class TestSimulate:
         assert inside.verdict.runway_after == Decimal("4.0")
         assert outside.verdict.runway_after == outside.verdict.runway_before == Decimal("6.0")
         assert outside.pins == [], "and nothing is pinned for it either"
+
+    @pytest.mark.asyncio
+    async def test_a_delta_past_the_horizon_moves_no_figure_at_all(self, session: Any) -> None:
+        """Every figure in the verdict describes the scenario the chart draws."""
+        bill = _recurring("-4000", datetime.date(2030, 1, 1), label="Later")
+
+        verdict = (
+            await ScenarioService(session).simulate(_baseline(), [bill], today=TODAY)
+        ).verdict
+
+        assert verdict.monthly_delta == Decimal("0.00")
+        assert verdict.balance_after == verdict.balance_before
 
     @pytest.mark.asyncio
     async def test_no_emergency_fund_means_no_runway_to_report(self, session: Any) -> None:
