@@ -110,7 +110,7 @@ independent of each other unless noted.
 | 3 | [restyle-budgets-pace-bars](archive/restyle-budgets-pace-bars.md) | archived | draft | 1 |
 | 4 | [restyle-dashboard](archive/restyle-dashboard.md) | archived | draft | 1 |
 | 5 | [restyle-import-mapping](archive/restyle-import-mapping.md) | archived | draft | 1 |
-| 6 | [restyle-forecast-on-load](restyle-forecast-on-load.md) | `3a` | draft | 1 |
+| 6 | [restyle-forecast-on-load](archive/restyle-forecast-on-load.md) | archived | draft | 1 |
 | 7 | [restyle-login-split](restyle-login-split.md) | `3f` | draft | 1 |
 | 8 | [restyle-budget-plan-grid](archive/restyle-budget-plan-grid.md) | archived | draft | 1 |
 | 9 | [restyle-net-worth](restyle-net-worth.md) | `3b` | draft | 1 |
