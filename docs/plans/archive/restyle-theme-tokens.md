@@ -3,8 +3,9 @@ plan_id: restyle-theme-tokens
 title: Restyle — sand palette, fonts and mono amounts in theme.py (handoff step 1)
 area: theme
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#ux
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#ux
 ---
 
 # Restyle — sand palette, fonts and mono amounts in `theme.py`
@@ -428,3 +429,53 @@ buttons keep `--q-primary` would close it, and is worth a decision.
   `CHART_INK`. Five view modules import them; keeping teal-named aliases
   around would have re-introduced the vocabulary this plan removes. No series
   was rebuilt — only the colour each already asked for.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1860f2d` | Dawid (Ani) | 2026-09-12 | feat(theme): sand palette, Libre Franklin + IBM Plex Mono, design tokens |
+
+**Files changed:**
+- docs/architecture.md
+- docs/plans/restyle-theme-tokens.md
+- src/kaleta/pwa.py
+- src/kaleta/static/fonts/ibm-plex-mono-400.woff2
+- src/kaleta/static/fonts/ibm-plex-mono-500.woff2
+- src/kaleta/static/fonts/libre-franklin-var.woff2
+- src/kaleta/static/fonts/LICENSE.txt
+- src/kaleta/static/manifest.json
+- src/kaleta/views/budget_builder.py
+- src/kaleta/views/budget_plan/grid.py
+- src/kaleta/views/budget_plan/helpers.py
+- src/kaleta/views/categories.py
+- src/kaleta/views/chart_utils.py
+- src/kaleta/views/credit_calculator.py
+- src/kaleta/views/dashboard_widgets/cashflow_chart.py
+- src/kaleta/views/dashboard_widgets/month_net.py
+- src/kaleta/views/dashboard_widgets/net_worth_trend.py
+- src/kaleta/views/dashboard_widgets/savings_rate_trend.py
+- src/kaleta/views/import_view/settings_section.py
+- src/kaleta/views/import_view/transfer_section.py
+- src/kaleta/views/layout.py
+- src/kaleta/views/net_worth.py
+- src/kaleta/views/payees.py
+- src/kaleta/views/payment_calendar.py
+- src/kaleta/views/reports_canned/money_flow.py
+- src/kaleta/views/reports/config_zone.py
+- src/kaleta/views/safety_funds.py
+- src/kaleta/views/theme.py
+- src/kaleta/views/transactions/add_dialog.py
+- src/kaleta/views/wizard_salary.py
+- src/kaleta/views/wizard.py
+- tests/unit/test_pwa.py
+- tests/unit/views/test_chart_utils.py
+- tests/unit/views/test_theme.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
