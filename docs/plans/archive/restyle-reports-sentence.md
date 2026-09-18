@@ -3,8 +3,9 @@ plan_id: restyle-reports-sentence
 title: Restyle — Report builder as a clickable sentence with the chart first (artboard 3e)
 area: reports
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#reports
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#reports
 ---
 
 # Restyle — Report builder as a clickable sentence, chart first
@@ -220,3 +221,36 @@ storage; canned reports (`reports_canned/`); Money Flow.
 - **Stacking:** branched from `plan/restyle-wizard-index`, which is
   itself unmerged. Open the PR with `--base plan/restyle-wizard-index`;
   it must merge after every branch below it.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `72310ce` | Dawid (Ani) | 2026-09-15 | feat(reports): the query is a sentence you can read before you run it |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-reports-sentence.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/views/reports/chart_options.py
+- src/kaleta/views/reports/chart_zone.py
+- src/kaleta/views/reports/config_zone.py
+- src/kaleta/views/reports/constants.py
+- src/kaleta/views/reports/page.py
+- src/kaleta/views/reports/palette.py
+- src/kaleta/views/reports/saved_section.py
+- src/kaleta/views/reports/sentence.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_reports_builder.py
+- tests/unit/views/test_reports_chart_options.py
+- tests/unit/views/test_reports_sentence.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

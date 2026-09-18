@@ -3,8 +3,9 @@ plan_id: restyle-dashboard-mobile
 title: Restyle — phone dashboard: safe-to-spend hero, stacked bands, bottom tab bar (artboard 1f)
 area: dashboard
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#dashboard
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Restyle — phone dashboard (safe-to-spend hero, stacked bands, tab bar)
@@ -431,3 +432,22 @@ has a phone artboard, planned in `restyle-login-split`).
 - **Stacking:** branched from `plan/restyle-login-split`, which is itself
   unmerged. Open the PR with `--base plan/restyle-login-split`; it must
   merge after every branch below it.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1e714b2` | Dawid (Ani) | 2026-09-15 | feat(reports): a month has a figure for what is left of it |
+
+**Files changed:**
+- src/kaleta/services/report_service.py
+- tests/integration/test_safe_to_spend.py
+- tests/unit/services/test_report_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

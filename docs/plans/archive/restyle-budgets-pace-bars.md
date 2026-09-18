@@ -3,8 +3,9 @@ plan_id: restyle-budgets-pace-bars
 title: Restyle — Budgets/Realization pace bars with month-elapsed tick (artboard 2b)
 area: budgets
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Restyle — Budgets/Realization pace bars with month-elapsed tick
@@ -357,3 +358,30 @@ nothing.
 The `[manual]` criterion (seed data compared to artboard 2b in light and
 dark) is the owner's visual pass. The Overview tab, the four summary KPIs
 and the flat/by-parent toggle are untouched, as Scope says.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2f0c893` | Dawid (Ani) | 2026-09-14 | feat(budgets): the status word becomes a pace bar with a month tick |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-budgets-pace-bars.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/budget_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/views/budgets/constants.py
+- src/kaleta/views/budgets/realization.py
+- tests/e2e/test_budget_realization.py
+- tests/e2e/test_money_flow.py
+- tests/unit/services/test_budget_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

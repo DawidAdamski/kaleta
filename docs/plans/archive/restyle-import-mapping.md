@@ -3,8 +3,9 @@ plan_id: restyle-import-mapping
 title: Restyle — Import progress line and side-by-side mapping with auto badges (artboard 2d)
 area: import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Restyle — Import progress line and side-by-side mapping
@@ -455,3 +456,33 @@ had, and the mapping strip never shows for mBank anyway.
 The `[manual]` criterion — `test_import.csv` compared to artboard 2d in
 light and dark — is the owner's visual pass. Detection logic, bank profiles,
 the queue, and the preview and summary steps are untouched, as Scope says.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d92c88d` | Dawid (Ani) | 2026-09-14 | feat(import): the mapping step shows the file it is mapping |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-import-mapping.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/mapping_section.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/state.py
+- src/kaleta/views/import_view/step_indicator.py
+- src/kaleta/views/theme.py
+- tests/e2e/fixtures/import/partly-unparseable.csv
+- tests/e2e/test_csv_import.py
+- tests/unit/views/test_import_mapping_badges.py
+- tests/unit/views/test_import_wizard_step.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

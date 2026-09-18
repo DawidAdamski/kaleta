@@ -3,8 +3,9 @@ plan_id: restyle-dashboard
 title: Restyle — Dashboard in the sand palette, merged KPI cards, quiet drawer (artboards 1c/1d)
 area: dashboard
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#dashboard
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Restyle — Dashboard in the sand palette (1c light / 1d dark)
@@ -375,3 +376,46 @@ bar together, where it used to cost one small tile.
 `docs/design/screenshot.png` is still the pre-restyle dashboard. It is
 flagged `[manual]` in the acceptance criteria and needs a seeded
 1360px capture in both modes, which is the owner's visual pass.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `b9e3765` | Dawid (Ani) | 2026-09-13 | feat(dashboard): merge the seven KPI tiles into Balance and This month |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-dashboard.md
+- docs/product/dashboard.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/dashboard_widgets/__init__.py
+- src/kaleta/views/dashboard_widgets/balance_card.py
+- src/kaleta/views/dashboard_widgets/budget_variance_month.py
+- src/kaleta/views/dashboard_widgets/constants.py
+- src/kaleta/views/dashboard_widgets/helpers.py
+- src/kaleta/views/dashboard_widgets/layout.py
+- src/kaleta/views/dashboard_widgets/month_card.py
+- src/kaleta/views/dashboard_widgets/month_expenses.py
+- src/kaleta/views/dashboard_widgets/month_income.py
+- src/kaleta/views/dashboard_widgets/month_net.py
+- src/kaleta/views/dashboard_widgets/net_worth.py
+- src/kaleta/views/dashboard_widgets/predicted_30d.py
+- src/kaleta/views/dashboard_widgets/registry.py
+- src/kaleta/views/dashboard_widgets/savings_rate_kpi.py
+- src/kaleta/views/dashboard_widgets/total_balance.py
+- src/kaleta/views/dashboard_widgets/wizard_actions.py
+- src/kaleta/views/dashboard_widgets/ytd_summary.py
+- src/kaleta/views/dashboard.py
+- src/kaleta/views/layout.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_dashboard_customize.py
+- tests/unit/views/test_dashboard_layout.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

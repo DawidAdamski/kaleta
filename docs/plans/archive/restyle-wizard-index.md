@@ -3,8 +3,9 @@ plan_id: restyle-wizard-index
 title: Restyle — Financial Wizard as mentor card + setup done-cards + a plain two-column routines index (artboard 3d)
 area: wizard
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#q4-2026-open-source-launch
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#q4-2026-open-source-launch
 ---
 
 # Restyle — Financial Wizard: mentor card, setup done-cards, routines index
@@ -159,3 +160,29 @@ Out of scope: any wizard step page, mentor rules, new steps (the draft
   itself unmerged. Open the PR with
   `--base plan/restyle-payment-calendar`; it must merge after every
   branch below it.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `3359e35` | Dawid (Ani) | 2026-09-15 | feat(wizard): an index of what you can do, not a chart of six topics |
+
+**Files changed:**
+- docs/plans/restyle-wizard-index.md
+- docs/plans/wizard-unplanned-radar.md
+- docs/product/financial-wizard.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/theme.py
+- src/kaleta/views/wizard.py
+- tests/e2e/test_pay_yourself_salary.py
+- tests/e2e/test_setup_wizard.py
+- tests/unit/views/test_wizard_index.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

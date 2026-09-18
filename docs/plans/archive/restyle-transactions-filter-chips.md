@@ -3,8 +3,9 @@ plan_id: restyle-transactions-filter-chips
 title: Restyle — Transactions filter chips, selection total, week-group net (artboard 2a)
 area: transactions
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#transactions
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Restyle — Transactions filter chips, selection total, week-group net
@@ -402,3 +403,36 @@ out of this plan's scope:
   `×` was fixed to cost one; `_clear_filters` calls `set_value` on four
   selects and each fires its own `on_change`. Pre-existing, and untouched
   because bulk clearing is not what this plan changed.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `151c7c1` | Dawid (Ani) | 2026-09-14 | feat(transactions): the filter row becomes chips that show their value |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-transactions-filter-chips.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/components/filter_bar.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/theme.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/transactions/table_actions.py
+- tests/e2e/ledger.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_rules.py
+- tests/e2e/test_transactions.py
+- tests/e2e/test_transfer_detection.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/views/test_filter_chip_labels.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

@@ -3,8 +3,9 @@ plan_id: restyle-forecast-on-load
 title: Restyle — Forecast runs baseline on load, controls on the title row, one linear-axis chart (artboard 3a)
 area: forecast
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#forecast
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#forecast
 ---
 
 # Restyle — Forecast runs on load, one chart, four KPIs
@@ -507,3 +508,32 @@ This repo's dev environment has no Prophet, so the stale-then-Re-run branch
 of open question 1 is exercised by reading, not by running: it is part of
 that manual pass. Forecaster models, presets and scenario semantics are
 untouched, as Scope says.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `e04a0af` | Dawid (Ani) | 2026-09-14 | feat(forecast): the page answers before it is asked (artboard 3a) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-forecast-on-load.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/forecast_service.py
+- src/kaleta/views/forecast.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_forecast.py
+- tests/e2e/test_zz_probe.py
+- tests/unit/services/test_forecast_service.py
+- tests/unit/views/test_forecast_chart.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Still @planned in docs/bdd.md: KAL-FCT-012 — retag before or after archiving.

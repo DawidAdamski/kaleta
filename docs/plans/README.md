@@ -105,19 +105,19 @@ independent of each other unless noted.
 
 | # | Plan | Artboard | Status | Depends on |
 |---|---|---|---|---|
-| 1 | [restyle-theme-tokens](restyle-theme-tokens.md) | `1c`/`1d` tokens | draft | — |
-| 2 | [restyle-transactions-filter-chips](restyle-transactions-filter-chips.md) | `2a` | draft | 1 |
-| 3 | [restyle-budgets-pace-bars](restyle-budgets-pace-bars.md) | `2b` | draft | 1 |
-| 4 | [restyle-dashboard](restyle-dashboard.md) | `1c`/`1d` | draft | 1 |
-| 5 | [restyle-import-mapping](restyle-import-mapping.md) | `2d` | draft | 1 |
-| 6 | [restyle-forecast-on-load](restyle-forecast-on-load.md) | `3a` | draft | 1 |
-| 7 | [restyle-login-split](restyle-login-split.md) | `3f` | draft | 1 |
-| 8 | [restyle-budget-plan-grid](restyle-budget-plan-grid.md) | `2c` | draft | 1 |
-| 9 | [restyle-net-worth](restyle-net-worth.md) | `3b` | draft | 1 |
-| 10 | [restyle-payment-calendar](restyle-payment-calendar.md) | `3c` | draft | 1 |
-| 11 | [restyle-wizard-index](restyle-wizard-index.md) | `3d` | draft | 1 |
-| 12 | [restyle-reports-sentence](restyle-reports-sentence.md) | `3e` | draft | 1 |
-| 13 | [restyle-dashboard-mobile](restyle-dashboard-mobile.md) | `1f` | draft | 4 (needs a safe-to-spend service method) |
+| 1 | [restyle-theme-tokens](archive/restyle-theme-tokens.md) | archived | draft | — |
+| 2 | [restyle-transactions-filter-chips](archive/restyle-transactions-filter-chips.md) | archived | draft | 1 |
+| 3 | [restyle-budgets-pace-bars](archive/restyle-budgets-pace-bars.md) | archived | draft | 1 |
+| 4 | [restyle-dashboard](archive/restyle-dashboard.md) | archived | draft | 1 |
+| 5 | [restyle-import-mapping](archive/restyle-import-mapping.md) | archived | draft | 1 |
+| 6 | [restyle-forecast-on-load](archive/restyle-forecast-on-load.md) | archived | draft | 1 |
+| 7 | [restyle-login-split](archive/restyle-login-split.md) | archived | draft | 1 |
+| 8 | [restyle-budget-plan-grid](archive/restyle-budget-plan-grid.md) | archived | draft | 1 |
+| 9 | [restyle-net-worth](archive/restyle-net-worth.md) | archived | draft | 1 |
+| 10 | [restyle-payment-calendar](archive/restyle-payment-calendar.md) | archived | draft | 1 |
+| 11 | [restyle-wizard-index](archive/restyle-wizard-index.md) | archived | draft | 1 |
+| 12 | [restyle-reports-sentence](archive/restyle-reports-sentence.md) | archived | draft | 1 |
+| 13 | [restyle-dashboard-mobile](archive/restyle-dashboard-mobile.md) | archived | draft | 4 (needs a safe-to-spend service method) |
 | 14 | [restyle-dashboard-rethink](archive/restyle-dashboard-rethink.md) | `1e` | archived | 4, 13 |
 | 15 | [restyle-import-wizard](archive/restyle-import-wizard.md) | `2d` (the page `2d` sits on) | archived | 1, 5 |
 
