@@ -3,8 +3,9 @@ plan_id: restyle-net-worth
 title: Restyle — Net Worth left-aligned hero, proportional bar, labelled stacked chart (artboard 3b)
 area: net-worth
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#net-worth
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#net-worth
 ---
 
 # Restyle — Net Worth hero, proportional bar, labelled chart
@@ -143,3 +144,29 @@ generation, the account table columns.
   itself unmerged. Open the PR with
   `--base plan/restyle-forecast-on-load`; it must merge after every
   branch below it.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d0a6336` | Dawid (Ani) | 2026-09-15 | feat(net-worth): the shape of the sheet, not just the number |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-net-worth.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/net_worth_service.py
+- src/kaleta/views/net_worth.py
+- src/kaleta/views/theme.py
+- tests/integration/test_net_worth_split.py
+- tests/unit/services/test_net_worth_service.py
+- tests/unit/views/test_net_worth_chart.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
