@@ -18,7 +18,7 @@ from nicegui import app, ui
 from kaleta.exceptions import KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
 from kaleta.schemas.planned_transaction import RecurrenceFrequency
-from kaleta.schemas.scenario import ScenarioDelta, ScenarioDeltaKind
+from kaleta.schemas.scenario import FULL_INCOME_CUT, ScenarioDelta, ScenarioDeltaKind
 from kaleta.services import with_session
 from kaleta.services.forecast_service import ForecastResult, ForecastService
 from kaleta.services.scenario_service import (
@@ -58,10 +58,6 @@ _MAX_PINS = 6
 #: control re-runs the forecast on every change, and typing "24" would run it
 #: once for 2 months on the way. The widest is ``MAX_HORIZON_MONTHS``.
 _HORIZONS: tuple[int, ...] = (3, 6, 12, 24)
-
-#: A cut of 100% takes all of the income; anything beyond it would have the
-#: account paying to go to work.
-_FULL_CUT = Decimal("-100")
 
 #: The cadences a new bill realistically arrives on. Daily and weekly exist
 #: in ``RecurrenceFrequency`` and the service handles them, but offering
@@ -219,11 +215,10 @@ def register() -> None:
                     as_percent = mode_in is not None and mode_in.value == "percent"
                     try:
                         raw = parse_amount(amount_in.value)
-                        if as_percent and raw <= _FULL_CUT:
-                            # Caught here rather than left to the schema: the
-                            # schema's guard is a ``ValueError`` in English,
-                            # and this is the one shape rule a reader can
-                            # actually break by typing.
+                        if as_percent and raw < FULL_INCOME_CUT:
+                            # The schema owns the limit; this owns the
+                            # sentence. Schemas cannot translate, and this is
+                            # the one shape rule a reader breaks by typing.
                             raise ValidationError(t("scenarios.bad_percent"))
                         delta = ScenarioDelta(
                             kind=kind,

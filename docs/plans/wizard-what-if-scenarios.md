@@ -233,6 +233,11 @@ become permanent.
   collapsed two deltas that both took the dialog's default name; pins are now
   built per delta by `compile_delta`, so they are right by construction
   (`ScenarioSimulation.pins`).
+- **−100% is allowed.** The guard read `<= -100`, so the panel refused
+  "I lose all my income" — the exact case the emergency-fund runway exists
+  for. `FULL_INCOME_CUT` in `schemas/scenario.py` is now the single limit:
+  the schema enforces it, the view supplies the translated sentence (schemas
+  cannot translate). Boundary tests cover −100 accepted and −100.01 refused.
 - **A cadence counts from its start date, not from the previous firing.** A
   bill on the 31st clamped to the 28th in February and then stayed on the
   28th for the rest of the series. `_occurrence(start, cadence, n)` puts it

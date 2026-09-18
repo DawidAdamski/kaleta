@@ -130,14 +130,27 @@ class TestDeltaValidation:
                     cadence=RecurrenceFrequency.MONTHLY,
                 )
 
+    def test_losing_all_of_your_income_is_allowed(self) -> None:
+        """−100% is the case the emergency-fund runway exists for."""
+        delta = ScenarioDelta(
+            kind=ScenarioDeltaKind.INCOME_CHANGE,
+            label="Redundancy",
+            start_date=TODAY,
+            percent=Decimal("-100"),
+        )
+
+        assert delta.percent == Decimal("-100")
+
     def test_income_cannot_fall_by_more_than_everything(self) -> None:
-        with pytest.raises(ValueError, match="more than 100"):
-            ScenarioDelta(
-                kind=ScenarioDeltaKind.INCOME_CHANGE,
-                label="Ruin",
-                start_date=TODAY,
-                percent=Decimal("-120"),
-            )
+        """Past −100 the account would be paying to go to work."""
+        for percent in ("-100.01", "-120"):
+            with pytest.raises(ValueError, match="more than 100"):
+                ScenarioDelta(
+                    kind=ScenarioDeltaKind.INCOME_CHANGE,
+                    label="Ruin",
+                    start_date=TODAY,
+                    percent=Decimal(percent),
+                )
 
 
 class TestCompileDeltas:

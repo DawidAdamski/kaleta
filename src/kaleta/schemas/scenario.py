@@ -37,6 +37,11 @@ _PER_MONTH: dict[RecurrenceFrequency, Decimal] = {
 }
 
 
+#: Losing all of your income. Allowed, and the case the emergency-fund
+#: runway exists for; what cannot happen is losing more than all of it.
+FULL_INCOME_CUT = Decimal("-100")
+
+
 def occurrences_per_month(cadence: RecurrenceFrequency) -> Decimal:
     """How often *cadence* fires in an average month."""
     return _PER_MONTH[cadence]
@@ -80,7 +85,7 @@ class ScenarioDelta(BaseModel):
                 raise ValueError("A recurring delta needs a cadence")
         elif self.cadence is not None:
             raise ValueError(f"A {self.kind.value} delta does not repeat, so it has no cadence")
-        if self.percent is not None and self.percent <= Decimal("-100"):
+        if self.percent is not None and self.percent < FULL_INCOME_CUT:
             raise ValueError("Income cannot fall by more than 100%")
         return self
 
@@ -113,6 +118,7 @@ class ScenarioVerdict(BaseModel):
 
 
 __all__ = [
+    "FULL_INCOME_CUT",
     "ScenarioDelta",
     "ScenarioDeltaKind",
     "ScenarioVerdict",
