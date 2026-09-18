@@ -98,8 +98,12 @@ class ReserveFundService:
         bal = result.scalar_one_or_none()
         return bal if bal is not None else Decimal("0.00")
 
-    async def _trailing_monthly_expense(self, *, today: datetime.date | None = None) -> Decimal:
+    async def trailing_monthly_expense(self, *, today: datetime.date | None = None) -> Decimal:
         """Average monthly expense over the trailing 90-day window.
+
+        Public because the what-if simulator measures its runway against the
+        same burn this panel does. Two copies of the formula would let the
+        two screens disagree about how long the money lasts.
 
         Only non-transfer expense transactions count. Returns Decimal("0")
         when there is no history.
@@ -135,7 +139,7 @@ class ReserveFundService:
 
         months_of_coverage: Decimal | None = None
         if fund.kind == ReserveFundKind.EMERGENCY:
-            monthly = await self._trailing_monthly_expense(today=today)
+            monthly = await self.trailing_monthly_expense(today=today)
             if monthly > 0:
                 months_of_coverage = (balance / monthly).quantize(Decimal("0.1"))
 
