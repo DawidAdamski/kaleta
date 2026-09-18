@@ -8,7 +8,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from pydantic import BaseModel
 
-from kaleta.models.planned_transaction import RecurrenceFrequency
+from kaleta.schemas.planned_transaction import RecurrenceFrequency
 
 _CENTS = Decimal("0.01")
 

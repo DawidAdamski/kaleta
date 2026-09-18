@@ -265,6 +265,38 @@ class TestDetect:
 
         assert await UnplannedRadarService(session).detect(today=TODAY) == []
 
+    async def test_a_subscription_only_covers_its_own_payee(self, session: AsyncSession):
+        """Exclusion is by payee / merchant key, so an unrelated source stays.
+
+        Pins the boundary the notes describe: coverage is name-shaped, and a
+        subscription must not silence a different payee that merely looks
+        similar.
+        """
+        account_id, category_id, covered_payee_id = await _seed_yearly_car_service(session)
+        other = await _add_payee(session, "Dentysta")
+        for date in (datetime.date(2024, 9, 10), datetime.date(2025, 9, 10)):
+            await _add_expense(
+                session,
+                account_id=account_id,
+                category_id=category_id,
+                payee_id=other.id,
+                amount=Decimal("1300.00"),
+                date=date,
+            )
+        await SubscriptionService(session).create(
+            SubscriptionCreate(
+                name="Serwis Auto",
+                amount=Decimal("1300.00"),
+                cadence_days=365,
+                payee_id=covered_payee_id,
+            )
+        )
+
+        candidates = await UnplannedRadarService(session).detect(today=TODAY)
+
+        assert [c.source_name for c in candidates] == ["Dentysta"]
+        assert candidates[0].payee_id == other.id
+
     async def test_existing_planned_transaction_covers_the_source(self, session: AsyncSession):
         account_id, _, _ = await _seed_yearly_car_service(session)
         await PlannedTransactionService(session).create(

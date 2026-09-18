@@ -254,6 +254,22 @@ never an app-wide sweep. Nothing here changes those.
   `MIN_OCCURRENCES` qualifying gaps and a same-day pair has a gap of 0 —
   but it does mean the evidence trail is not exhaustive.
 
+### Third review pass
+
+- **`downgrade()` could fail on a duplicate key.** A source dismissed in
+  both panels holds a SUBSCRIPTION row and an UNPLANNED row differing
+  only by the column being dropped, so re-creating the narrower unique
+  constraint collided. The downgrade now deletes the UNPLANNED rows
+  first — also the honest reading, since the restored schema has no
+  concept of an unplanned dismissal.
+- `RecurrenceFrequency` in the radar schemas came from
+  `kaleta.models.planned_transaction`; it now comes from
+  `kaleta.schemas.planned_transaction`, the re-export the view already
+  used.
+- Added `test_a_subscription_only_covers_its_own_payee`, pinning that
+  exclusion is per payee / merchant key — a tracked subscription must
+  not silence an unrelated source alongside it.
+
 ### Pre-existing finding (not fixed here)
 
 `alembic check` against head reports four `remove_index` diffs on

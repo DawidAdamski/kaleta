@@ -40,6 +40,13 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    # The radar's dismissals have nowhere to live once ``kind`` is gone, and
+    # leaving them would collide: a source dismissed in both panels holds a
+    # SUBSCRIPTION row and an UNPLANNED row that differ only by the column
+    # being dropped, so re-creating the narrower unique constraint would fail
+    # on a duplicate key. Dropping them is also the honest reading — the
+    # schema being restored has no concept of an unplanned dismissal.
+    op.execute("DELETE FROM dismissed_candidate_patterns WHERE kind = 'UNPLANNED'")
     with op.batch_alter_table("dismissed_candidate_patterns", schema=None) as batch_op:
         batch_op.drop_constraint("uq_dismissed_candidate_pattern", type_="unique")
         batch_op.create_unique_constraint(
