@@ -115,7 +115,7 @@ Transfer detection via `Numer konta`; date alias `Data księgowania`.
 
 - [`import-wise-qif.md`](import-wise-qif.md)
 - [`import-wise-mt940.md`](import-wise-mt940.md)
-- [`import-wise-xlsx.md`](../import-wise-xlsx.md)
+- [`import-wise-xlsx.md`](import-wise-xlsx.md)
 
 **Future banks (PKO / Revolut):** use the fixture README checklist — one
 bank per PR; no standing plan required.

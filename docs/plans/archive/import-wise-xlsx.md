@@ -3,8 +3,9 @@ plan_id: import-wise-xlsx
 title: Import — Wise XLSX statement format
 area: import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — Wise XLSX statement format
@@ -121,3 +122,37 @@ criteria allowed — a stdlib `zipfile` + XML reader, no dependency at all —
 would work for everyone. It was not taken because the plan's stated
 preference is the extra. Worth revisiting if XLSX uploads turn out to be
 common, or when a second XLSX bank arrives.
+
+## Implementation
+
+Landed on 2026-09-18 (PR #99).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `b615134` | Dawid Adamski | 2026-09-18 | Merge pull request #99 from DawidAdamski/plan/import-wise-xlsx |
+
+**Files changed:**
+- docs/adr/034-openpyxl-as-an-optional-extra-for-xlsx-import.md
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/import-wise-xlsx.md
+- docs/tech-stack.md
+- pyproject.toml
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/state.py
+- src/kaleta/views/import_view/upload_section.py
+- tests/e2e/fixtures/import/wise/NOTES.md
+- tests/e2e/fixtures/import/wise/jpy-travel-sample.xlsx
+- tests/e2e/test_csv_import.py
+- tests/unit/services/test_import_profiles.py
+- tests/unit/services/test_wise_xlsx_import.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

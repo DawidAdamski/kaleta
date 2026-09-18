@@ -199,7 +199,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [import-bank-profiles](archive/import-bank-profiles.md) | archived | Import — registry + mBank (#63) + Wise (#64) |
 | [import-wise-qif](archive/import-wise-qif.md) | archived | Import — Wise QIF (after CSV) |
 | [import-wise-mt940](archive/import-wise-mt940.md) | archived | Import — Wise MT940 (after CSV) |
-| [import-wise-xlsx](import-wise-xlsx.md) | draft | Import — Wise XLSX (after CSV) |
+| [import-wise-xlsx](archive/import-wise-xlsx.md) | archived | Import — Wise XLSX (after CSV) |
 | [import-filename-currency-guard](archive/import-filename-currency-guard.md) | archived | Import — currency guard for QIF (after import-wise-qif) |
 | [import-mapping-wizard](archive/import-mapping-wizard.md) | archived | Import — dogfooding UX |
 | [import-history-account-coverage](archive/import-history-account-coverage.md) | archived | Import — dogfooding UX |
