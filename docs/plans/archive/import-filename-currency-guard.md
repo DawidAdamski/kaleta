@@ -63,7 +63,7 @@ Out of scope:
 - Filename parsing for any bank other than Wise. mBank carries its
   currency in the file header already.
 - MT940 / XLSX ([`import-wise-mt940`](import-wise-mt940.md),
-  [`import-wise-xlsx`](../import-wise-xlsx.md)) — both formats do name a
+  [`import-wise-xlsx`](import-wise-xlsx.md)) — both formats do name a
   currency in-band; if either turns out not to, extend this helper then,
   with a real fixture first.
 - Converting amounts between currencies, or warning when the filename
