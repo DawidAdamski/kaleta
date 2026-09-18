@@ -700,7 +700,7 @@
     "hint_one_off": "A single purchase or windfall on one date. Negative takes money out, positive puts it in.",
     "hint_recurring": "A new bill or a new income stream. Negative takes money out, positive puts it in.",
     "label": "Name",
-    "amount": "Amount",
+    "amount": "Amount (negative takes money out)",
     "start_date": "Starts on",
     "cadence": "Repeats",
     "as_percent": "Percent",

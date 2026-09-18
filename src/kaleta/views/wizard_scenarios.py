@@ -26,6 +26,7 @@ from kaleta.services.scenario_service import (
     MAX_HORIZON_MONTHS,
     ScenarioService,
     ScenarioSimulation,
+    horizon_days,
 )
 from kaleta.views.components.forecast_chart import forecast_chart
 from kaleta.views.layout import page_layout
@@ -47,10 +48,6 @@ if TYPE_CHECKING:  # annotation-only: keeps views out of the models layer at run
 
 _FORECAST_URL = "/forecast"
 _SAFETY_FUNDS_URL = "/wizard/safety-funds"
-
-#: The forecaster counts in days; a scenario is spoken in months ("from
-#: March, for a year"), so the horizon control asks in months and converts.
-_DAYS_PER_MONTH = 30
 
 #: A recurring delta compiles to one event per occurrence, and pinning every
 #: one of them would bury the chart under markers. The first few carry the
@@ -175,7 +172,10 @@ def register() -> None:
             account_id = None if account == "all" else int(account)
             baseline: ForecastResult = await ForecastService(session).forecast_account(
                 account_id,
-                horizon_days=int(state["horizon"]) * _DAYS_PER_MONTH,
+                # The control asks in months, because a scenario is spoken in
+                # months; the forecaster counts in days. The rule for turning
+                # one into the other lives beside the horizon constants.
+                horizon_days=horizon_days(int(state["horizon"])),
             )
             return await ScenarioService(session).simulate(baseline, deltas, account_id=account_id)
 

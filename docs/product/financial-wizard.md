@@ -246,14 +246,16 @@ account and horizon, and everything the panel does is laid on top of it.
 - **The verdict, in three figures.** Monthly cashflow; balance at the
   horizon before → after; and emergency-fund runway before → after,
   plus one sentence about whether — and when — the balance runs out.
-- **One runway, not two.** The runway is the Safety & Reserve Funds
-  definition (`balance ÷ monthly essential spend`), borrowed rather
-  than reimplemented. Two consequences follow, both deliberate: a
-  one-off purchase draws the fund down, because nothing records which
-  pot it comes out of; and an *income change does not move the runway*,
-  because the figure already asks "if income stopped, how long would
-  this last". An income change moves the projected balance instead,
-  which is where a reader sees it.
+- **One runway, not two — and it only ever gets worse.** The runway is
+  the Safety & Reserve Funds definition (`balance ÷ monthly essential
+  spend`), borrowed rather than reimplemented. Because the figure asks
+  "if income stopped, how long would this last", **nothing a scenario
+  adds to income can lengthen it** — not a raise, not a new recurring
+  income stream, not a windfall. Income has already stopped inside the
+  question; those all move the projected balance instead, which is
+  where a reader sees them. What shortens it is spending: a purchase
+  draws the fund down, because nothing records which pot it comes out
+  of, and a new bill raises the burn the fund is divided by.
 - **Horizon:** 12 months by default, 24 at most — the forecast's own
   scale, not a third one.
 - **No Prophet required.** The panel runs on whichever forecaster is

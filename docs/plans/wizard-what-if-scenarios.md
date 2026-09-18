@@ -117,12 +117,27 @@ scenario to my plan" is a future plan), gift planning (KAL-GFT).
 2. **Runway: the Safety Funds formula, borrowed not copied.**
    `ReserveFundService._trailing_monthly_expense` became public
    `trailing_monthly_expense` so the simulator measures against the
-   same burn the panel shows. Two consequences are deliberate and
-   documented on `ScenarioService._runway_after`: a one-off purchase
-   draws the fund down (nothing records which pot it comes from), and
-   an **income change does not move the runway** — that figure already
-   asks "if income stopped, how long would this last". An income change
-   moves the projected balance, which is where a reader sees it.
+   same burn the panel shows, and `emergency_progress()` was factored
+   out of `emergency_cover_months()` so the simulator can take the fund
+   *balances* rather than recover one from a ratio already rounded to a
+   tenth of a month (review finding: that loses up to 0.05 × burn, and a
+   small purchase would then shift the answer by the wrong amount).
+
+   The rule, documented on `ScenarioService._runway_after`: **a scenario
+   can only shorten the runway.** The figure asks "if income stopped,
+   how long would the fund last", so nothing added to income lengthens
+   it — not a raise, not a new recurring income stream, not a windfall.
+   The first draft had only income *changes* excluded, which let a
+   positive recurring delta lower the burn and stretch the runway while
+   an income change of the same size left it alone: two answers to one
+   question (review finding, now covered by four tests in `TestRunway`).
+   Spending still shortens it: a purchase draws the fund down, a new
+   bill raises the burn.
+
+   `runway_after` is `None` exactly when `runway_before` is — no
+   emergency fund, or nothing spent to measure against. That guard sits
+   in `simulate`, because `_runway_after` would see a zero balance and
+   answer "0.0 months", which is a figure where there is none.
 3. **Horizon: 12 months default, 24 max.** `DEFAULT_HORIZON_MONTHS` /
    `MAX_HORIZON_MONTHS`; the control asks in months and converts at 30
    days each, because the forecaster counts in days and a scenario is
@@ -186,6 +201,29 @@ feature plan. This page therefore notifies from the handler's own task — a
 local `notify_error`, carrying the reason — the way
 `views/budget_plan/dialogs.py` already does. Swap it back to the house rule
 once the helper is fixed.
+
+### Review findings addressed
+
+- **Removed assertions in `tests/unit/views/test_wizard_index.py`** (gate
+  warning, rule 4). `test_a_step_with_no_page_behind_it_says_so` asserted the
+  index still had an unrouted half to read its rule off. `scenarios` was the
+  last routine without a page, so that half is now empty and the premise is
+  gone. The rule itself — `is_open` is exactly "has a route" — is asserted on
+  a `WizardStep` built by hand, so it keeps holding for the next routine
+  added to `_STEPS` before its page exists, and a new
+  `test_every_routine_now_has_a_page` records the new fact. Nothing was
+  loosened: the file went from 5 assertions to 6.
+- **`_runway_after` no longer takes `monthly_income`** — it was dead state,
+  and its own docstring explained why it was ignored.
+- **The months→days horizon rule moved to `scenario_service.horizon_days`**,
+  beside `DEFAULT_HORIZON_MONTHS` / `MAX_HORIZON_MONTHS`, rather than sitting
+  in the view as `_DAYS_PER_MONTH`.
+- **`TRAILING_WINDOW_MONTHS`** is now a shared constant in
+  `reserve_fund_service`, so the burn and the income compared against it
+  cannot drift onto different numbers of months.
+- **The amount field carries the sign convention** ("Amount (negative takes
+  money out)"), so typing `50000` for a car is not silently a windfall. A
+  full expense/income toggle would widen the builder past the plan.
 
 ### Not done, on purpose
 

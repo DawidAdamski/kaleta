@@ -410,18 +410,28 @@ class TestMonthlyCashflowDelta:
 
 
 class TestRunway:
-    """The Safety Funds definition, borrowed whole: balance / monthly burn."""
+    """The Safety Funds definition, borrowed whole: balance / monthly burn.
+
+    12,000 set aside against 2,000 a month is six months, which is what every
+    case below starts from.
+    """
 
     @staticmethod
-    def _after(deltas: list[ScenarioDelta], *, runway: str = "6.0", burn: str = "2000") -> Decimal:
-        value = ScenarioService._runway_after(
-            deltas,
-            runway_before=Decimal(runway),
-            burn=Decimal(burn),
-            monthly_income=Decimal("5000"),
-        )
+    def _after(
+        deltas: list[ScenarioDelta], *, balance: str = "12000", burn: str = "2000"
+    ) -> Decimal:
+        value = ScenarioService._runway_after(deltas, balance=Decimal(balance), burn=Decimal(burn))
         assert value is not None
         return value
+
+    @staticmethod
+    def _income(percent: str = "-30") -> ScenarioDelta:
+        return ScenarioDelta(
+            kind=ScenarioDeltaKind.INCOME_CHANGE,
+            label=f"{percent}%",
+            start_date=TODAY,
+            percent=Decimal(percent),
+        )
 
     def test_no_deltas_leave_the_runway_where_it_was(self) -> None:
         assert self._after([]) == Decimal("6.0")
@@ -434,34 +444,42 @@ class TestRunway:
         """12000 against 2500 a month is 4.8 months."""
         assert self._after([_recurring("-500", TODAY)]) == Decimal("4.8")
 
-    def test_an_income_change_does_not_move_the_runway(self) -> None:
+    # ── The runway is a floor: a scenario can only shorten it ──────────────
+
+    def test_an_income_cut_does_not_move_the_runway(self) -> None:
         """The figure already assumes income stopped — see the docstring."""
-        cut = ScenarioDelta(
-            kind=ScenarioDeltaKind.INCOME_CHANGE,
-            label="−30%",
-            start_date=TODAY,
-            percent=Decimal("-30"),
-        )
-        assert self._after([cut]) == Decimal("6.0")
+        assert self._after([self._income("-30")]) == Decimal("6.0")
+
+    def test_a_raise_does_not_lengthen_the_runway(self) -> None:
+        assert self._after([self._income("+50")]) == Decimal("6.0")
+
+    def test_a_new_income_stream_does_not_lengthen_the_runway(self) -> None:
+        """Money that arrives monthly is income, and income has stopped.
+
+        It would otherwise lower the burn and stretch the runway, while an
+        income change of the same size left it alone — two answers to the
+        same question.
+        """
+        assert self._after([_recurring("+500", TODAY, label="Lodger")]) == Decimal("6.0")
+
+    def test_a_windfall_does_not_top_the_fund_up(self) -> None:
+        """Nothing says a windfall lands in the emergency fund."""
+        assert self._after([_one_off("+4000", TODAY, label="Bonus")]) == Decimal("6.0")
+
+    def test_spending_still_counts_when_a_windfall_is_beside_it(self) -> None:
+        assert self._after(
+            [_one_off("+4000", TODAY, label="Bonus"), _one_off("-4000", TODAY)]
+        ) == Decimal("4.0")
+
+    # ── Edges ─────────────────────────────────────────────────────────────
 
     def test_a_purchase_bigger_than_the_fund_empties_it_rather_than_going_negative(self) -> None:
         assert self._after([_one_off("-99000", TODAY)]) == Decimal("0.0")
 
-    def test_no_emergency_fund_means_no_runway_to_report(self) -> None:
-        assert (
-            ScenarioService._runway_after(
-                [], runway_before=None, burn=Decimal("2000"), monthly_income=Decimal("5000")
-            )
-            is None
-        )
-
     def test_nothing_spent_means_no_runway_to_report(self) -> None:
         """Dividing by a zero burn would claim infinite cover."""
         assert (
-            ScenarioService._runway_after(
-                [], runway_before=Decimal("6"), burn=Decimal("0"), monthly_income=Decimal("5000")
-            )
-            is None
+            ScenarioService._runway_after([], balance=Decimal("12000"), burn=Decimal("0")) is None
         )
 
 
@@ -544,3 +562,26 @@ class TestTrailingIncome:
         assert await svc.trailing_monthly_income(account_id=1, today=TODAY) == Decimal("1000")
         assert await svc.trailing_monthly_income(account_id=2, today=TODAY) == Decimal("9000")
         assert await svc.trailing_monthly_income(today=TODAY) == Decimal("10000")
+
+
+class TestSimulate:
+    """The whole pass, end to end, on an empty ledger."""
+
+    @pytest.mark.asyncio
+    async def test_no_emergency_fund_means_no_runway_to_report(self, session: Any) -> None:
+        """``None`` is "no answer to give", and a scenario cannot conjure one.
+
+        The guard lives in ``simulate`` rather than in ``_runway_after``,
+        which sees a balance of zero and would answer 0.0 months — a figure,
+        where there is none.
+        """
+        simulation = await ScenarioService(session).simulate(
+            _baseline(), [_one_off("-1000", TODAY)], today=TODAY
+        )
+
+        assert simulation.verdict.runway_before is None
+        assert simulation.verdict.runway_after is None
+        # The rest of the verdict still answers, which is the point of a floor
+        # that is allowed to be missing.
+        assert simulation.verdict.balance_after == Decimal("0.00")
+        assert simulation.verdict.balance_before == Decimal("1000.00")

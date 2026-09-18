@@ -36,7 +36,11 @@ from kaleta.services.forecast_service import (
     ScenarioShift,
     apply_scenarios,
 )
-from kaleta.services.reserve_fund_service import TRAILING_WINDOW_DAYS, ReserveFundService
+from kaleta.services.reserve_fund_service import (
+    TRAILING_WINDOW_DAYS,
+    TRAILING_WINDOW_MONTHS,
+    ReserveFundService,
+)
 
 _CENTS = Decimal("0.01")
 _TENTHS = Decimal("0.1")
@@ -45,6 +49,16 @@ _TENTHS = Decimal("0.1")
 #: on matching the forecast presets rather than inventing a third scale.
 DEFAULT_HORIZON_MONTHS = 12
 MAX_HORIZON_MONTHS = 24
+
+#: Days to a month, for turning a horizon into the days the forecaster counts
+#: in. Approximate on purpose: the horizon is a reading window, not a date.
+_DAYS_PER_MONTH = 30
+
+
+def horizon_days(months: int) -> int:
+    """The forecast horizon in days, for a horizon asked for in months."""
+    return max(1, min(months, MAX_HORIZON_MONTHS)) * _DAYS_PER_MONTH
+
 
 #: A guard on compiling a cadence into dated events. A daily delta over a
 #: two-year horizon is ~730 events, so this only trips on a cadence that
@@ -223,7 +237,7 @@ class ScenarioService:
             stmt = stmt.where(Transaction.account_id == account_id)
         result = await self.session.execute(stmt)
         total = result.scalar_one() or Decimal("0")
-        return Decimal(total) / Decimal(3)
+        return Decimal(total) / TRAILING_WINDOW_MONTHS
 
     async def simulate(
         self,
@@ -254,7 +268,12 @@ class ScenarioService:
         projected = apply_scenarios(baseline, shifts)
 
         funds = ReserveFundService(self.session)
-        runway_before = await funds.emergency_cover_months(today=ref)
+        # Balances as well as the ratio: recovering a balance from a figure
+        # already rounded to a tenth of a month loses up to 0.05 × burn, which
+        # a small purchase would then shift by the wrong amount.
+        emergency = await funds.emergency_progress(today=ref)
+        runway_before = ReserveFundService.emergency_cover(emergency)
+        fund_balance = sum((f.current_balance for f in emergency), Decimal("0"))
         burn = await funds.trailing_monthly_expense(today=ref)
 
         verdict = ScenarioVerdict(
@@ -264,11 +283,12 @@ class ScenarioService:
             first_negative_before=first_negative_date(baseline),
             first_negative_after=first_negative_date(projected),
             runway_before=runway_before,
-            runway_after=self._runway_after(
-                deltas,
-                runway_before=runway_before,
-                burn=burn,
-                monthly_income=monthly_income,
+            # ``None`` means "no answer to give" — no emergency fund, or no
+            # spending to measure one against. A scenario cannot conjure one.
+            runway_after=(
+                None
+                if runway_before is None
+                else self._runway_after(deltas, balance=fund_balance, burn=burn)
             ),
         )
         return ScenarioSimulation(
@@ -279,49 +299,51 @@ class ScenarioService:
     def _runway_after(
         deltas: list[ScenarioDelta],
         *,
-        runway_before: Decimal | None,
+        balance: Decimal,
         burn: Decimal,
-        monthly_income: Decimal,
     ) -> Decimal | None:
         """Months of essentials the emergency funds still cover.
 
-        Same definition as the Safety Funds panel — ``balance / monthly
-        essential spend`` — so the app has one runway, not two. The panel
-        gives the ratio and the burn, which is enough to recover the balance
-        behind it (``balance = runway × burn``) without a second query.
+        Same definition as the Safety Funds panel — ``balance ÷ monthly
+        essential spend`` — so the app has one runway, not two.
 
-        Two consequences of borrowing that definition, both deliberate:
+        **A scenario can only shorten it.** The figure answers "if income
+        stopped, how long would the fund last", so nothing a scenario adds to
+        income can lengthen it: not an income change, not a new recurring
+        income stream, not a windfall. Income has already stopped inside the
+        question. Those all move the projected balance instead, which is where
+        a reader sees them.
 
-        * **An income change does not move the runway.** The figure answers
-          "if income stopped, how long would the fund last", and income has
-          already stopped in that question. It moves the projected balance
-          instead, which is where a reader sees it.
-        * **A one-off purchase draws the fund down.** Nothing records which
-          pot a purchase comes out of, and treating a 40k car as free of the
-          reserves would flatter the answer.
+        What does move it is spending: a purchase draws the fund down, because
+        nothing records which pot it comes out of and treating a 40k car as
+        free of the reserves would flatter the answer; and a new bill raises
+        the burn the fund is divided by.
         """
-        if runway_before is None or burn <= 0:
+        if burn <= 0:
             return None
-        balance = runway_before * burn
 
         spent = sum(
-            (-(d.amount or Decimal("0")) for d in deltas if d.kind is ScenarioDeltaKind.ONE_OFF),
+            (
+                -d.amount
+                for d in deltas
+                if d.kind is ScenarioDeltaKind.ONE_OFF and d.amount is not None and d.amount < 0
+            ),
             Decimal("0"),
         )
-        recurring_monthly = sum(
+        extra_burn = sum(
             (
-                -(d.amount or Decimal("0")) * occurrences_per_month(d.cadence)
+                -d.amount * occurrences_per_month(d.cadence)
                 for d in deltas
-                if d.kind is ScenarioDeltaKind.RECURRING and d.cadence is not None
+                if d.kind is ScenarioDeltaKind.RECURRING
+                and d.cadence is not None
+                and d.amount is not None
+                and d.amount < 0
             ),
             Decimal("0"),
         )
 
         balance_after = max(balance - spent, Decimal("0"))
-        burn_after = burn + recurring_monthly
-        if burn_after <= 0:
-            return None
-        return (balance_after / burn_after).quantize(_TENTHS, rounding=ROUND_HALF_UP)
+        return (balance_after / (burn + extra_burn)).quantize(_TENTHS, rounding=ROUND_HALF_UP)
 
 
 __all__ = [
@@ -331,5 +353,6 @@ __all__ = [
     "ScenarioSimulation",
     "compile_deltas",
     "first_negative_date",
+    "horizon_days",
     "monthly_cashflow_delta",
 ]

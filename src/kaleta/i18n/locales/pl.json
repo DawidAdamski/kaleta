@@ -700,7 +700,7 @@
     "hint_one_off": "Pojedynczy zakup lub wpływ w jednym dniu. Wartość ujemna zabiera pieniądze, dodatnia je dokłada.",
     "hint_recurring": "Nowy rachunek albo nowe źródło dochodu. Wartość ujemna zabiera pieniądze, dodatnia je dokłada.",
     "label": "Nazwa",
-    "amount": "Kwota",
+    "amount": "Kwota (ujemna zabiera pieniądze)",
     "start_date": "Od dnia",
     "cadence": "Powtarza się",
     "as_percent": "Procent",
