@@ -28,6 +28,7 @@ from kaleta.views.theme import (
     ACCENT_TEXT,
     AMOUNT_EXPENSE,
     BODY_MUTED,
+    HAIRLINE_BOTTOM,
     PAGE_TITLE,
     SECTION_CARD,
     SECTION_HEADING,
@@ -127,7 +128,7 @@ def _render_candidate_row(
     *,
     on_plan: Callable[[RadarCandidate], None],
 ) -> None:
-    with ui.row().classes("w-full items-center gap-3 py-2 border-b border-slate-100"):
+    with ui.row().classes(f"w-full items-center gap-3 py-2 {HAIRLINE_BOTTOM}"):
         ui.icon("search", size="1.3rem").classes(ACCENT_TEXT)
         with ui.column().classes("flex-1 gap-0"):
             ui.label(candidate.source_name).classes("text-sm font-medium")
@@ -188,7 +189,7 @@ def _render_planned_section(rows: list[RadarPlannedRow]) -> None:
             ui.label(t("unplanned_radar.planned_empty")).classes(f"{BODY_MUTED} mt-2")
             return
         for row in rows:
-            with ui.row().classes("w-full items-center gap-3 py-2 border-b border-slate-100"):
+            with ui.row().classes(f"w-full items-center gap-3 py-2 {HAIRLINE_BOTTOM}"):
                 ui.icon("event_repeat", size="1.3rem").classes(ACCENT_TEXT)
                 with ui.column().classes("flex-1 gap-0"):
                     ui.label(row.name).classes("text-sm font-medium")

@@ -110,6 +110,12 @@ class UnplannedRadarService:
                 Transaction.is_internal_transfer == False,  # noqa: E712
                 Transaction.date >= window_start,
                 Transaction.date <= ref,
+                # A charge already linked to a plan is that plan's evidence,
+                # not fresh proof of an unplanned rhythm. This is what retires
+                # a converted candidate when the user renamed the plan in the
+                # dialog: the name match below cannot see through a rename,
+                # but the link conversion wrote survives one.
+                Transaction.planned_transaction_id.is_(None),
             )
             .order_by(Transaction.date)
         )
@@ -350,6 +356,11 @@ class UnplannedRadarService:
         return payee_ids, keys
 
     async def _dismissed_sources(self) -> tuple[set[int], set[str]]:
+        # Deliberately coarser than the row that was dismissed: ``dismiss``
+        # records an ``amount_bucket`` because it is part of the uniqueness
+        # key, but suppression is by source alone. Re-offering the same cost
+        # because it got 40% dearer is exactly the nagging the dismiss button
+        # exists to stop. Same behaviour as the subscription detector.
         result = await self.session.execute(
             select(DismissedCandidate.payee_id, DismissedCandidate.merchant_key).where(
                 DismissedCandidate.kind == DismissedCandidateKind.UNPLANNED
@@ -405,6 +416,12 @@ def _candidate_from_occurrences(
     ordered = sorted(occurrences, key=lambda o: o.date)
 
     gaps = [(ordered[i].date - ordered[i - 1].date).days for i in range(1, len(ordered))]
+    # Known limitation: one bad gap drops the whole group, so a yearly cost
+    # with a skipped year (~730 days) is rejected even though its two most
+    # recent charges are a clean pair. Salvaging the trailing run would find
+    # it, at the cost of reading a rhythm into a history that broke one —
+    # left conservative on purpose, since a missed suggestion is cheaper than
+    # a wrong one the user has to dismiss.
     if any(gap < MIN_GAP_DAYS or gap > MAX_GAP_DAYS for gap in gaps):
         return None
 

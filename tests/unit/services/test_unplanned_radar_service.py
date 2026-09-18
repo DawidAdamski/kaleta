@@ -478,6 +478,21 @@ class TestCreatePlannedFromCandidate:
 
         assert await svc.detect(today=TODAY) == []
 
+    async def test_a_renamed_plan_still_retires_its_candidate(self, session: AsyncSession):
+        """Covers: KAL-REC-007
+
+        The dialog lets the user rename the plan. Name matching alone would
+        then find nothing to exclude and the radar would re-suggest a cost
+        the user just planned.
+        """
+        await _seed_yearly_car_service(session)
+        svc = UnplannedRadarService(session)
+        [candidate] = await svc.detect(today=TODAY)
+
+        await svc.create_planned_from_candidate(candidate, name="Serwis + opony")
+
+        assert await svc.detect(today=TODAY) == []
+
     async def test_planned_with_history_reports_the_link_count(self, session: AsyncSession):
         await _seed_yearly_car_service(session)
         svc = UnplannedRadarService(session)

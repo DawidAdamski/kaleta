@@ -212,6 +212,26 @@ This is the plan's own new view, not a drive-by — but note that the old
 classes remain in ~10 other views, so the restyle was per-artboard and
 never an app-wide sweep. Nothing here changes those.
 
+### Review findings fixed on this branch
+
+- **A renamed plan used to leave its candidate on the radar.** The only
+  exclusion signal was matching the plan's name against the payee key,
+  and the convert dialog lets the user edit that name — so planning
+  "Serwis Auto" as "Serwis + opony" made the candidate reappear on the
+  next scan, against KAL-REC-007. `detect()` now also skips charges
+  that already carry a `planned_transaction_id`: conversion writes that
+  link, and unlike a name it survives a rename. Regression test:
+  `test_a_renamed_plan_still_retires_its_candidate`.
+- **A skipped year drops the whole group.** One gap outside
+  [60, 450] days rejects every charge in it, so a yearly cost with a
+  missed year is not suggested even though its two most recent charges
+  qualify. Left conservative and commented at the check — a missed
+  suggestion costs less than a wrong one the user must dismiss.
+- **Dismissal is by source, not by amount bucket.** `dismiss()` records
+  a bucket because it belongs to the uniqueness key, but suppression
+  ignores it, matching the subscription detector. Commented so it does
+  not read as a bug.
+
 ### Pre-existing finding (not fixed here)
 
 `alembic check` against head reports four `remove_index` diffs on
