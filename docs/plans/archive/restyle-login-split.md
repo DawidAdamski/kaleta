@@ -3,8 +3,9 @@ plan_id: restyle-login-split
 title: Restyle — Login as a two-panel split with a reserved error slot, phone variant (artboard 3f)
 area: auth
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Restyle — Login two-panel split, reserved error slot, phone variant
@@ -185,3 +186,31 @@ biometric login.
   itself unmerged. Open the PR with
   `--base plan/restyle-reports-sentence`; it must merge after every
   branch below it.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `6206608` | Dawid (Ani) | 2026-09-15 | feat(auth): a split, and a message that does not move the button |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-login-split.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/auth_stats_service.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/login.py
+- src/kaleta/views/secure_app.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_auth.py
+- tests/unit/services/test_auth_stats_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

@@ -111,7 +111,7 @@ independent of each other unless noted.
 | 4 | [restyle-dashboard](archive/restyle-dashboard.md) | archived | draft | 1 |
 | 5 | [restyle-import-mapping](archive/restyle-import-mapping.md) | archived | draft | 1 |
 | 6 | [restyle-forecast-on-load](archive/restyle-forecast-on-load.md) | archived | draft | 1 |
-| 7 | [restyle-login-split](restyle-login-split.md) | `3f` | draft | 1 |
+| 7 | [restyle-login-split](archive/restyle-login-split.md) | archived | draft | 1 |
 | 8 | [restyle-budget-plan-grid](archive/restyle-budget-plan-grid.md) | archived | draft | 1 |
 | 9 | [restyle-net-worth](archive/restyle-net-worth.md) | archived | draft | 1 |
 | 10 | [restyle-payment-calendar](archive/restyle-payment-calendar.md) | archived | draft | 1 |
