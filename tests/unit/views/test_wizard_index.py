@@ -9,7 +9,7 @@ scenario claims it.
 
 from __future__ import annotations
 
-from kaleta.views.wizard import _STEP_ROUTES, _STEPS, ordered_steps
+from kaleta.views.wizard import _STEP_ROUTES, _STEPS, WizardStep, ordered_steps
 
 
 class TestOrderedSteps:
@@ -39,6 +39,18 @@ class TestOrderedSteps:
             assert by_key[key].is_open
 
     def test_a_step_with_no_page_behind_it_says_so(self) -> None:
-        unrouted = [s for s in ordered_steps() if not s.is_open]
-        assert unrouted, "the index has nothing left to promise — update this test"
-        assert all(s.route is None for s in unrouted)
+        """The rule, not a census: ``is_open`` is exactly "has a route".
+
+        This used to read the rule off the index's unrouted half. The
+        what-if panel was the last routine without a page, so the half is
+        empty and the rule is asserted on a step built by hand instead — it
+        has to keep holding for the next routine added to ``_STEPS`` before
+        its page exists.
+        """
+        unbuilt = WizardStep(icon="science", key="not_built_yet", section="budget", route=None)
+        assert unbuilt.is_open is False
+        assert all(s.route is None for s in ordered_steps() if not s.is_open)
+
+    def test_every_routine_now_has_a_page(self) -> None:
+        """The index stopped being a roadmap when the what-if panel landed."""
+        assert [s.key for s in ordered_steps() if not s.is_open] == []
