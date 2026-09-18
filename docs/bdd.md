@@ -2392,6 +2392,75 @@ Feature: Account Balance Forecast
     And the loading skeleton never appears, because no forecast was run
 ```
 
+## Feature: What-if Scenarios
+
+```gherkin
+Feature: What-if Scenarios
+  As a user
+  I want to lay changes over my balance forecast
+  So that I can answer "can I afford this?" without a spreadsheet
+
+  # The panel is deltas on top of the forecast, not a second forecaster:
+  # the baseline is whatever Forecast draws for the same account and
+  # horizon, and every figure below reads "before → after" against it.
+
+  KAL-WIF-001 @automated
+  Scenario: An income drop shifts the projected balance
+    Given there is an account with enough history to forecast
+    And I am on the What-if scenarios page for that account
+    When I add an income change of "-30" percent starting today
+    Then the projected balance at the horizon is lower than the baseline
+    And the monthly cashflow figure is negative, read against this
+      account's own income rather than the household total
+
+  KAL-WIF-002 @automated
+  Scenario: A one-off purchase shows the runway before and after
+    Given there is an account with enough history to forecast
+    And an emergency fund with money in it
+    And I am on the What-if scenarios page for that account
+    When I add a one-off amount of "-50000" today
+    Then the emergency fund runway is shown as months before and months after
+    And the runway after is shorter than the runway before
+
+  KAL-WIF-003 @automated
+  Scenario: A new recurring expense moves the first-negative marker
+    Given there is an account whose balance stays positive over the horizon
+    And I am on the What-if scenarios page for that account
+    Then the verdict says the balance stays positive
+    When I add a recurring amount of "-4000" monthly starting today
+    Then the verdict names the date the balance runs out
+
+  KAL-WIF-004 @automated
+  Scenario: The panel works without the optional Prophet extra
+    Given Kaleta is installed without the Prophet extra
+    And there is an account with enough history to forecast
+    When I open the What-if scenarios page
+    Then the baseline chart and the verdict appear
+    And nothing asks me to install a forecaster
+
+  KAL-WIF-005 @automated
+  Scenario: Removing a change restores the baseline exactly
+    Given I am on the What-if scenarios page with a verdict on screen
+    When I add a one-off amount of "-1000" today
+    Then the projected balance is exactly 1000.00 lower than the baseline
+    When I remove that change
+    Then the projected balance is the baseline again
+
+  KAL-WIF-007 @automated
+  Scenario: Income cannot be cut by more than all of it
+    Given I am on the What-if scenarios page with a verdict on screen
+    When I add an income change of "-150" percent
+    Then the change is refused with a message in my own language
+    And the change list is still empty
+
+  KAL-WIF-006 @manual
+  Scenario: Scenarios are not saved
+    # Session-only in v1 by design; a saved-scenarios table is a follow-up.
+    Given I have built a scenario with several changes
+    When I leave the page and come back
+    Then the change list is empty and the verdict is the plain baseline
+```
+
 ## Feature: Credit Calculator
 
 ```gherkin
