@@ -658,6 +658,30 @@ class TestSimulate:
         assert verdict.runway_before == Decimal("2.1")
 
     @pytest.mark.asyncio
+    async def test_a_purchase_past_the_horizon_does_not_shorten_the_runway(
+        self, session: Any
+    ) -> None:
+        """The runway and the chart have to agree about what is in the scenario.
+
+        A one-off dated after the last forecast point emits no events, so the
+        line never steps — and the fund must not be drawn down for it either.
+        """
+        await self._seed_expense(session, "6000")  # 2000 a month
+        await self._seed_emergency_fund(session, name="Fund", balance="12000")
+        svc = ScenarioService(session)
+
+        inside = await svc.simulate(
+            _baseline(), [_one_off("-4000", datetime.date(2026, 6, 1))], today=TODAY
+        )
+        outside = await svc.simulate(
+            _baseline(), [_one_off("-4000", datetime.date(2030, 6, 1))], today=TODAY
+        )
+
+        assert inside.verdict.runway_after == Decimal("4.0")
+        assert outside.verdict.runway_after == outside.verdict.runway_before == Decimal("6.0")
+        assert outside.pins == [], "and nothing is pinned for it either"
+
+    @pytest.mark.asyncio
     async def test_no_emergency_fund_means_no_runway_to_report(self, session: Any) -> None:
         """``None`` is "no answer to give", and a scenario cannot conjure one.
 

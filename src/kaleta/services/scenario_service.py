@@ -290,6 +290,11 @@ class ScenarioService:
         ]
         shifts = [shift for group in per_delta for shift in group]
         pins = [group[0] for group in per_delta if group]
+        # Only deltas the horizon actually sees. A purchase dated two years
+        # out, or a bill starting after the last forecast point, emits no
+        # events — so it must not shorten the runway either, or the figure
+        # would disagree with the line beside it.
+        effective = [delta for delta, group in zip(deltas, per_delta, strict=True) if group]
         projected = apply_scenarios(baseline, shifts)
 
         funds = ReserveFundService(self.session)
@@ -316,7 +321,7 @@ class ScenarioService:
             runway_after=(
                 None
                 if runway_before is None
-                else self._runway_after(deltas, balance=fund_balance, burn=burn)
+                else self._runway_after(effective, balance=fund_balance, burn=burn)
             ),
         )
         return ScenarioSimulation(
@@ -346,6 +351,10 @@ class ScenarioService:
         nothing records which pot it comes out of and treating a 40k car as
         free of the reserves would flatter the answer; and a new bill raises
         the burn the fund is divided by.
+
+        *deltas* are the ones that reached the horizon — :meth:`simulate`
+        filters out those that emitted no events, so this figure and the
+        chart never disagree about what is in the scenario.
         """
         if burn <= 0:
             return None

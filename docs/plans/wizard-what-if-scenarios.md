@@ -233,6 +233,11 @@ become permanent.
   collapsed two deltas that both took the dialog's default name; pins are now
   built per delta by `compile_delta`, so they are right by construction
   (`ScenarioSimulation.pins`).
+- **The runway only counts deltas the horizon sees.** A purchase dated two
+  years out emits no events, so the line never steps — and it must not draw
+  the fund down either, or the figure and the chart beside it would describe
+  different scenarios. `simulate` passes `_runway_after` only the deltas that
+  compiled to something.
 - **Both runway figures divide once.** The panel's `emergency_cover` sums each
   fund's months *after* rounding each to a tenth, so two funds at 1.04 months
   read 2.0 there while one division of the total reads 2.1 — and with no
@@ -259,6 +264,14 @@ and `TRAILING_WINDOW_MONTHS` replaced a bare `/ 3`. No behaviour changed —
 `emergency_cover_months` returns exactly what it did — and the existing
 reserve-fund unit and e2e tests pass unchanged. Flagged for the reviewer
 rather than buried.
+
+### Known and left alone
+
+A percentage income change on an account with no income in the trailing 90
+days resolves to zero and quietly does nothing — it appears in the change
+list and moves no figure. Warning about it needs the income figure in the
+dialog, before the simulation runs, which is more machinery than the case
+deserves in v1. Worth a look if anyone hits it.
 
 ### Not done, on purpose
 
