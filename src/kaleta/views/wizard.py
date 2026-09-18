@@ -76,6 +76,7 @@ _STEP_ROUTES: dict[str, str] = {
     "sub_cost_trends": "/wizard/subscriptions",
     "personal_loans": "/wizard/personal-loans",
     "salary": "/wizard/pay-yourself",
+    "unplanned": "/wizard/unplanned-radar",
 }
 
 

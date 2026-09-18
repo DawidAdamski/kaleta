@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.category import Category
-from kaleta.models.dismissed_candidate import DismissedCandidate
+from kaleta.models.dismissed_candidate import DismissedCandidate, DismissedCandidateKind
 from kaleta.models.payee import Payee
 from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import Transaction, TransactionType
@@ -263,7 +263,7 @@ class SubscriptionService:
             if payee_id is not None:
                 tracked_payee_ids.add(payee_id)
             if name:
-                tracked_merchant_keys.add(_merchant_key_from_description(name))
+                tracked_merchant_keys.add(merchant_key_from_description(name))
 
         # Dismissed patterns — user previously clicked "not a subscription".
         dismissed_result = await self.session.execute(
@@ -271,7 +271,7 @@ class SubscriptionService:
                 DismissedCandidate.payee_id,
                 DismissedCandidate.merchant_key,
                 DismissedCandidate.amount_bucket,
-            )
+            ).where(DismissedCandidate.kind == DismissedCandidateKind.SUBSCRIPTION)
         )
         dismissed_by_payee: set[tuple[int, str]] = set()
         dismissed_by_key: set[tuple[str, str]] = set()
@@ -336,7 +336,7 @@ class SubscriptionService:
         orphan_rows = await self.session.execute(stmt2)
         pass2_groups: dict[tuple[str, str], list[Transaction]] = defaultdict(list)
         for tx in orphan_rows.scalars().all():
-            key = _merchant_key_from_description(tx.description)
+            key = merchant_key_from_description(tx.description)
             if not key:
                 continue
             if key in tracked_merchant_keys:
@@ -363,6 +363,7 @@ class SubscriptionService:
                 DismissedCandidate.payee_id == candidate.payee_id,
                 DismissedCandidate.merchant_key == merchant_key,
                 DismissedCandidate.amount_bucket == bucket,
+                DismissedCandidate.kind == DismissedCandidateKind.SUBSCRIPTION,
             )
         )
         if existing.scalar_one_or_none() is not None:
@@ -372,19 +373,25 @@ class SubscriptionService:
                 payee_id=candidate.payee_id,
                 merchant_key=merchant_key,
                 amount_bucket=bucket,
+                kind=DismissedCandidateKind.SUBSCRIPTION,
             )
         )
         await self.session.commit()
 
     async def list_dismissed(self) -> builtins.list[DismissedCandidate]:
         result = await self.session.execute(
-            select(DismissedCandidate).order_by(DismissedCandidate.id)
+            select(DismissedCandidate)
+            .where(DismissedCandidate.kind == DismissedCandidateKind.SUBSCRIPTION)
+            .order_by(DismissedCandidate.id)
         )
         return list(result.scalars().all())
 
     async def undismiss(self, dismissed_id: int) -> bool:
         result = await self.session.execute(
-            select(DismissedCandidate).where(DismissedCandidate.id == dismissed_id)
+            select(DismissedCandidate).where(
+                DismissedCandidate.id == dismissed_id,
+                DismissedCandidate.kind == DismissedCandidateKind.SUBSCRIPTION,
+            )
         )
         row = result.scalar_one_or_none()
         if row is None:
@@ -464,7 +471,7 @@ class SubscriptionService:
                 continue
             if (
                 candidate.payee_id is None
-                and _merchant_key_from_description(tx.description) != candidate.payee_name
+                and merchant_key_from_description(tx.description) != candidate.payee_name
             ):
                 # Description-based candidate whose merchant-key doesn't match.
                 continue
@@ -528,7 +535,7 @@ class SubscriptionService:
             label = (
                 payee.name
                 if payee is not None
-                else _merchant_key_from_description(tx.description) or "—"
+                else merchant_key_from_description(tx.description) or "—"
             )
             amt = abs(tx.amount)
             key = (tx.category_id, label)
@@ -627,7 +634,7 @@ def _amount_bucket(amount: Decimal) -> str:
 _MERCHANT_KEY_MAX_LEN = 40
 
 
-def _merchant_key_from_description(desc: str | None) -> str:
+def merchant_key_from_description(desc: str | None) -> str:
     """Normalise a transaction description to a stable merchant-key.
 
     Keeps the first ``/``-delimited segment (service name before location),

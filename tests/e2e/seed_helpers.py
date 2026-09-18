@@ -386,6 +386,55 @@ def seed_recurring_payee_charges(
     return payee_id
 
 
+def seed_irregular_charges(
+    account_id: int,
+    category_id: int,
+    payee_name: str,
+    charges: list[tuple[int, float]],
+) -> int:
+    """Seed a payee with widely spaced charges for the unplanned-expenses radar.
+
+    ``charges`` is a list of ``(days_ago, amount)`` pairs.
+    """
+    payee_id = seed_payee(payee_name)
+    today = datetime.date.today()
+    for days_ago, amount in charges:
+        seed_transaction(
+            account_id,
+            category_id,
+            amount,
+            date=today - datetime.timedelta(days=days_ago),
+            description=f"{payee_name} charge",
+            payee_id=payee_id,
+        )
+    return payee_id
+
+
+def list_planned_transactions() -> list[dict[str, Any]]:
+    """Read every planned transaction back through the service layer."""
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.services import PlannedTransactionService
+
+    async def _read() -> list[dict[str, Any]]:
+        async with AsyncSessionFactory() as session:
+            rows = await PlannedTransactionService(session).list()
+            return [
+                {
+                    "id": pt.id,
+                    "name": pt.name,
+                    "amount": str(pt.amount),
+                    "frequency": pt.frequency.value,
+                    "interval": pt.interval,
+                    "start_date": pt.start_date.isoformat(),
+                    "account_id": pt.account_id,
+                    "category_id": pt.category_id,
+                }
+                for pt in rows
+            ]
+
+    return _run_async_worker(_read)
+
+
 def seed_personal_loan(
     counterparty: str,
     principal: float,
