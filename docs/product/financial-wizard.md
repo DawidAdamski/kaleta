@@ -222,6 +222,53 @@ the household budget stops swinging with the invoicing calendar.
 - **Degradation:** fewer than 3 complete months of income and the
   panel shows a hint instead of a proposal.
 
+### 8. What-if Scenarios {#8-what-if-scenarios}
+
+The panel (`/wizard/scenarios`) answers "can I afford this?" without a
+spreadsheet. It is **not** a second forecasting engine: the baseline is
+exactly what the [Forecast](../architecture.md) page draws for the same
+account and horizon, and everything the panel does is laid on top of it.
+
+- **Three changes, and only three.** An *income change* (±% or a fixed
+  amount from a date onward), a *one-off amount* (a purchase or a
+  windfall on one day), and a *recurring amount* (a new bill or a new
+  income stream, monthly / quarterly / yearly). Amounts are signed the
+  way the ledger is: negative takes money out.
+- **Compiled to dated events, not to a slope.** "A new 300 zł
+  subscription from March" becomes thirty-odd separate withdrawals on
+  the days they happen, so the projected line steps where the money
+  actually leaves rather than sagging smoothly through it.
+- **A percentage is read against real income.** The balance series
+  records what is left over, never what came in, so "−30%" has no
+  meaning on its own. It is read against the selected account's own
+  income over the same trailing window the runway uses — the household
+  total would apply a cut the account never took.
+- **The verdict, in three figures.** Monthly cashflow; balance at the
+  horizon before → after; and emergency-fund runway before → after,
+  plus one sentence about whether — and when — the balance runs out.
+- **One runway, not two.** The runway is the Safety & Reserve Funds
+  definition (`balance ÷ monthly essential spend`), borrowed rather
+  than reimplemented. Two consequences follow, both deliberate: a
+  one-off purchase draws the fund down, because nothing records which
+  pot it comes out of; and an *income change does not move the runway*,
+  because the figure already asks "if income stopped, how long would
+  this last". An income change moves the projected balance instead,
+  which is where a reader sees it.
+- **Horizon:** 12 months by default, 24 at most — the forecast's own
+  scale, not a third one.
+- **No Prophet required.** The panel runs on whichever forecaster is
+  installed; the optional extra changes the baseline's quality, never
+  the panel's availability.
+- **Nothing is saved (v1).** The change list lives as long as the page.
+  Named, persisted scenarios are a follow-up once the shape proves out.
+- **Boundary with Budget Builder:** the simulator only asks. Applying a
+  scenario to the plan — "make this my budget" — is a separate future
+  plan, not a button here.
+
+**Dependencies:** `forecast_service` (baseline, read-only),
+`reserve_fund_service` (runway maths, read-only), the shared forecast
+chart component.
+
 ## Shared wizard patterns
 
 - **Every section supports reminders** via the same notification

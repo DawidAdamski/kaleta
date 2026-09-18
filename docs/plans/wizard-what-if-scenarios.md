@@ -3,7 +3,7 @@ plan_id: wizard-what-if-scenarios
 title: Wizard — "what if" scenario simulator on top of the forecast engine
 area: wizard
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#forecast
 ---
 
@@ -108,4 +108,88 @@ scenario to my plan" is a future plan), gift planning (KAL-GFT).
 
 ## Implementation notes
 
-_Filled in as work progresses._
+### Open questions, resolved
+
+1. **Persistence: no.** Session-only in v1, as the default said. The
+   delta list is a local in the page function; leaving the page clears
+   it (`KAL-WIF-006`, `@manual`). A `saved_scenarios` table stays a
+   follow-up plan.
+2. **Runway: the Safety Funds formula, borrowed not copied.**
+   `ReserveFundService._trailing_monthly_expense` became public
+   `trailing_monthly_expense` so the simulator measures against the
+   same burn the panel shows. Two consequences are deliberate and
+   documented on `ScenarioService._runway_after`: a one-off purchase
+   draws the fund down (nothing records which pot it comes from), and
+   an **income change does not move the runway** — that figure already
+   asks "if income stopped, how long would this last". An income change
+   moves the projected balance, which is where a reader sees it.
+3. **Horizon: 12 months default, 24 max.** `DEFAULT_HORIZON_MONTHS` /
+   `MAX_HORIZON_MONTHS`; the control asks in months and converts at 30
+   days each, because the forecaster counts in days and a scenario is
+   spoken in months.
+
+### Decisions a reviewer should know
+
+- **The chart is the Forecast page's, not a lookalike.**
+  `views/forecast.py::_forecast_chart` moved verbatim to
+  `views/components/forecast_chart.py` as public `forecast_chart`;
+  `forecast.py` keeps `_forecast_chart = forecast_chart` so its call
+  sites and `tests/unit/views/test_forecast_chart.py` are untouched.
+  The before/after overlay is that function's existing `baseline=`
+  series, and the delta pins are its existing `scenarios=` markers.
+- **Deltas compile to dated cash events, not to a slope.** A new
+  monthly bill is thirty-odd separate withdrawals handed to
+  `forecast_service.apply_scenarios` — the same function the Forecast
+  page's own what-if pins already use. The line therefore steps where
+  the money leaves.
+- **`compile_deltas` clamps every start date to the forecast's first
+  point.** `apply_scenarios` keys its deltas by *exact* date, and the
+  forecast begins the day after the last transaction — so on an account
+  used today it begins tomorrow. Without the clamp the panel's own
+  default date ("today") would silently move nothing, on exactly the
+  accounts people use. This is the same rule `default_scenario_date`
+  already applies on the Forecast page.
+- **A percentage income change is read against the selected account's
+  income**, over the same 90-day window the runway uses
+  (`ScenarioService.trailing_monthly_income(account_id=...)`). The
+  balance series records what is left over, never what came in, so a
+  percentage has no meaning without it; and reading it against the
+  household total would apply a cut the account never took.
+- **Only monthly / quarterly / yearly cadences are offered.** The
+  service handles the whole `RecurrenceFrequency` enum, but daily and
+  weekly in this dialog invite a delta with 700 occurrences and no
+  reader behind it. `_MAX_OCCURRENCES = 1000` guards the service side.
+- **The verdict figures carry `data-verdict`**, the way the Forecast
+  KPIs carry `data-kpi`: all three read "before → after", so their own
+  text cannot say which one a reader — or a test — has landed on. The
+  chart card names its account for the same reason.
+- **Prophet is not required anywhere.** The e2e instance runs the dev
+  dependencies, which exclude the optional extra, so `KAL-WIF-004`
+  passing *is* the scenario rather than a claim about it.
+
+### Found on the way: `notify_kaleta_error` never reaches the browser
+
+Building the panel's "income cannot fall by more than 100%" guard turned up
+a defect in a shared helper, **not introduced here**:
+
+`views/error_handling.notify_kaleta_error` dispatches through
+`asyncio.create_task`, and NiceGUI keys its slot stack by asyncio *task id*
+(`nicegui.slot.Slot.stacks`). The new task therefore starts with an empty
+stack, `ui.context.client` raises inside it, and the toast never reaches the
+browser — the failure is swallowed as "Task exception was never retrieved".
+`getattr(ui.context, "client", None)` does not help: the default only
+covers a missing attribute, not an exception raised inside the property.
+
+Eleven view modules call it, so this is a cross-cutting fix that wants its
+own issue and branch (one issue = one branch = one PR), not a drive-by in a
+feature plan. This page therefore notifies from the handler's own task — a
+local `notify_error`, carrying the reason — the way
+`views/budget_plan/dialogs.py` already does. Swap it back to the house rule
+once the helper is fixed.
+
+### Not done, on purpose
+
+- Monte Carlo bands, AI-suggested scenarios and scenario → budget
+  writeback are the plan's Out of scope and stayed out.
+- `views/chart_utils.py` is listed as a touchpoint but needed no
+  change: the extracted chart already uses it.
