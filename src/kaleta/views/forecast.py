@@ -21,24 +21,14 @@ from kaleta.services.forecast_service import (
     apply_scenarios,
     default_scenario_date,
     forecast_kpis,
-    point_shifted_by,
 )
 from kaleta.services.forecasters import is_prophet_available
-from kaleta.views.chart_utils import (
-    CHART_BAND,
-    CHART_NEUTRAL_BAR,
-    apply_dark,
-    chart_accent_color,
-    chart_accent_fill,
-    chart_grid_color,
-    chart_ink_color,
-    chart_text_color,
-)
 from kaleta.views.components.amount_label import (
     format_net_amount,
     format_signed_amount,
     net_tone,
 )
+from kaleta.views.components.forecast_chart import forecast_chart
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
@@ -60,157 +50,10 @@ from kaleta.views.theme import (
     kpi_card_classes,
 )
 
-
-def _forecast_chart(
-    result: ForecastResult,
-    is_dark: bool = False,
-    baseline: ForecastResult | None = None,
-    scenarios: list[ScenarioShift] | None = None,
-) -> dict[str, Any]:
-    """One chart: what happened, what is predicted, and how sure that is.
-
-    The x-axis is ``time``, not ``category``. A category axis spaces points
-    evenly whichever dates they carry, so ninety days of history drawn beside
-    sixty daily forecast points came out compressed — the past looked like it
-    happened faster than the future. A time axis puts every point where its
-    date belongs.
-    """
-    today = datetime.date.today()
-    scenarios = scenarios or []
-
-    hist = [[str(p.date), p.value] for p in result.historical]
-    fore = [[str(p.date), p.value] for p in result.forecast]
-    lower = [[str(p.date), p.lower] for p in result.forecast]
-    # The band is drawn by stacking its height on top of its floor, so the
-    # floor is the *lower* bound: stacking on the upper one would have put the
-    # whole band above the prediction it is supposed to surround.
-    band = [[str(p.date), round(p.upper - p.lower, 2)] for p in result.forecast]
-    base_fore = [[str(p.date), p.value] for p in baseline.forecast] if baseline else []
-
-    # The prediction starts where the history stops, so the two lines meet
-    # instead of leaving a day-wide gap at today.
-    if hist and fore:
-        fore = [hist[-1], *fore]
-
-    accent = chart_accent_color(is_dark)
-    grid_color = chart_grid_color(is_dark)
-    # The plan's colours exactly: #EFCDB2 in light, and in dark the accent at
-    # 0.18 — which `chart_accent_fill` already carries as an rgba, so neither
-    # needs an opacity of its own.
-    band_color = chart_accent_fill(is_dark) if is_dark else CHART_BAND
-
-    legend_data = [
-        t("forecast.actual"),
-        t("forecast.predicted"),
-        t("forecast.confidence_band"),
-    ]
-    if base_fore:
-        legend_data.append(t("forecast.baseline_reference"))
-
-    mark_lines: list[dict[str, Any]] = [
-        {
-            "xAxis": str(today),
-            "name": t("forecast.today"),
-            "label": {"formatter": t("forecast.today"), "color": chart_text_color(is_dark)},
-        }
-    ]
-    mark_points: list[dict[str, Any]] = []
-    for shift in scenarios:
-        mark_lines.append(
-            {
-                "xAxis": str(shift.date),
-                "name": shift.label,
-                "label": {"formatter": shift.label, "color": accent},
-                "lineStyle": {"color": accent, "type": "dotted"},
-            }
-        )
-        # Exact, because `apply_scenarios` is exact: a pin on a point the
-        # shift did not move would say the line bent where it did not.
-        pin = point_shifted_by(result, shift.date)
-        if pin is not None:
-            mark_points.append(
-                {"coord": [str(pin.date), pin.value], "name": shift.label, "value": shift.label}
-            )
-
-    _opts: dict[str, Any] = {
-        "tooltip": {"trigger": "axis"},
-        "legend": {"data": legend_data, "bottom": 0},
-        "grid": {"left": "3%", "right": "4%", "bottom": "12%", "containLabel": True},
-        "xAxis": {"type": "time"},
-        "yAxis": {"type": "value", "axisLabel": {"formatter": "{value} zł"}},
-        "series": [
-            {
-                "name": t("forecast.lower"),
-                "type": "line",
-                "data": lower,
-                "lineStyle": {"opacity": 0},
-                "showSymbol": False,
-                "stack": "confidence",
-                "silent": True,
-                "tooltip": {"show": False},
-                "z": 1,
-            },
-            {
-                "name": t("forecast.confidence_band"),
-                "type": "line",
-                "data": band,
-                "lineStyle": {"opacity": 0},
-                "showSymbol": False,
-                "stack": "confidence",
-                "areaStyle": {"color": band_color},
-                # Its value is the band's *height*, not a balance — "200"
-                # under a column of zł figures would read as one.
-                "tooltip": {"show": False},
-                "z": 1,
-            },
-            {
-                "name": t("forecast.actual"),
-                "type": "line",
-                "data": hist,
-                "itemStyle": {"color": chart_ink_color(is_dark)},
-                "lineStyle": {"width": 2},
-                "showSymbol": False,
-                "z": 3,
-            },
-            {
-                "name": t("forecast.predicted"),
-                "type": "line",
-                "data": fore,
-                "itemStyle": {"color": accent},
-                "lineStyle": {"width": 2, "type": "dashed"},
-                "showSymbol": False,
-                "z": 3,
-                "markLine": {
-                    "symbol": "none",
-                    "silent": True,
-                    "lineStyle": {"color": grid_color, "type": "dashed"},
-                    "data": mark_lines,
-                },
-                "markPoint": {
-                    "symbol": "pin",
-                    "symbolSize": 34,
-                    "itemStyle": {"color": accent},
-                    "label": {"show": False},
-                    "data": mark_points,
-                },
-            },
-        ],
-    }
-
-    if base_fore:
-        _opts["series"].append(
-            {
-                "name": t("forecast.baseline_reference"),
-                "type": "line",
-                "data": base_fore,
-                "itemStyle": {"color": CHART_NEUTRAL_BAR},
-                "lineStyle": {"width": 1, "type": "dotted", "color": CHART_NEUTRAL_BAR},
-                "showSymbol": False,
-                "z": 2,
-            }
-        )
-
-    return apply_dark(_opts, is_dark)
+#: The chart now lives in ``views/components/forecast_chart.py`` so the
+#: what-if panel can draw the same one. Kept under its old private name
+#: here because this module's call sites and tests already know it.
+_forecast_chart = forecast_chart
 
 
 #: How long a control change waits before it re-runs itself.
