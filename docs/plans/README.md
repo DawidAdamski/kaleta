@@ -117,7 +117,7 @@ independent of each other unless noted.
 | 10 | [restyle-payment-calendar](archive/restyle-payment-calendar.md) | archived | draft | 1 |
 | 11 | [restyle-wizard-index](archive/restyle-wizard-index.md) | archived | draft | 1 |
 | 12 | [restyle-reports-sentence](archive/restyle-reports-sentence.md) | archived | draft | 1 |
-| 13 | [restyle-dashboard-mobile](restyle-dashboard-mobile.md) | `1f` | draft | 4 (needs a safe-to-spend service method) |
+| 13 | [restyle-dashboard-mobile](archive/restyle-dashboard-mobile.md) | archived | draft | 4 (needs a safe-to-spend service method) |
 | 14 | [restyle-dashboard-rethink](archive/restyle-dashboard-rethink.md) | `1e` | archived | 4, 13 |
 | 15 | [restyle-import-wizard](archive/restyle-import-wizard.md) | `2d` (the page `2d` sits on) | archived | 1, 5 |
 
