@@ -233,6 +233,10 @@ become permanent.
   collapsed two deltas that both took the dialog's default name; pins are now
   built per delta by `compile_delta`, so they are right by construction
   (`ScenarioSimulation.pins`).
+- **A cadence counts from its start date, not from the previous firing.** A
+  bill on the 31st clamped to the 28th in February and then stayed on the
+  28th for the rest of the series. `_occurrence(start, cadence, n)` puts it
+  back on the 31st in March, where its owner will be looking for it.
 - **The runway only counts deltas the horizon sees.** A purchase dated two
   years out emits no events, so the line never steps — and it must not draw
   the fund down either, or the figure and the chart beside it would describe

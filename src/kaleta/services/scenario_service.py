@@ -75,23 +75,30 @@ def _add_months(day: datetime.date, months: int) -> datetime.date:
     return day.replace(year=year, month=month, day=min(day.day, last))
 
 
-def _step(day: datetime.date, cadence: RecurrenceFrequency) -> datetime.date | None:
-    """The next date *cadence* fires after *day*, or ``None`` if it never does."""
+def _occurrence(start: datetime.date, cadence: RecurrenceFrequency, n: int) -> datetime.date | None:
+    """The *n*-th firing of *cadence* counted from *start* (``n = 0`` is start).
+
+    Counted from the start rather than stepped from the previous date, so a
+    short month cannot drag the rest of the series with it. A bill on the 31st
+    lands on the 28th in February — and back on the 31st in March, where its
+    owner will be looking for it. Stepping month by month would have left it
+    on the 28th forever.
+    """
     match cadence:
         case RecurrenceFrequency.DAILY:
-            return day + datetime.timedelta(days=1)
+            return start + datetime.timedelta(days=n)
         case RecurrenceFrequency.WEEKLY:
-            return day + datetime.timedelta(weeks=1)
+            return start + datetime.timedelta(weeks=n)
         case RecurrenceFrequency.BIWEEKLY:
-            return day + datetime.timedelta(weeks=2)
+            return start + datetime.timedelta(weeks=2 * n)
         case RecurrenceFrequency.MONTHLY:
-            return _add_months(day, 1)
+            return _add_months(start, n)
         case RecurrenceFrequency.QUARTERLY:
-            return _add_months(day, 3)
+            return _add_months(start, 3 * n)
         case RecurrenceFrequency.YEARLY:
-            return _add_months(day, 12)
+            return _add_months(start, 12 * n)
         case RecurrenceFrequency.ONCE:
-            return None
+            return start if n == 0 else None
 
 
 def monthly_amount(delta: ScenarioDelta, monthly_income: Decimal) -> Decimal:
@@ -151,10 +158,11 @@ def compile_delta(
 
     amount = float(per_occurrence.quantize(_CENTS, rounding=ROUND_HALF_UP))
     shifts: list[ScenarioShift] = []
-    day: datetime.date | None = start
-    while day is not None and day <= horizon_end and len(shifts) < _MAX_OCCURRENCES:
+    for n in range(_MAX_OCCURRENCES):
+        day = _occurrence(start, cadence, n)
+        if day is None or day > horizon_end:
+            break
         shifts.append(ScenarioShift(label=delta.label, date=day, amount=amount))
-        day = _step(day, cadence)
     return shifts
 
 

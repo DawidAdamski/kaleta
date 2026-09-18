@@ -203,19 +203,27 @@ class TestCompileDeltas:
         assert [s.date.month for s in shifts] == list(range(1, 13))
         assert all(s.amount == -300.0 for s in shifts)
 
-    def test_a_monthly_cadence_clamps_to_the_end_of_a_short_month(self) -> None:
-        """The 31st has no February, and must not roll into March."""
+    def test_a_monthly_cadence_clamps_to_a_short_month_without_dragging_the_rest(
+        self,
+    ) -> None:
+        """The 31st has no February, and must not roll into March — or stay there.
+
+        Each date is counted from the start, not stepped from the one before,
+        so February's clamp is February's alone. Stepping would have left the
+        bill on the 28th for the rest of its life.
+        """
         shifts = compile_deltas(
             [_recurring("-100", datetime.date(2026, 1, 31))],
             monthly_income=Decimal("5000"),
             horizon_start=TODAY,
-            horizon_end=datetime.date(2026, 4, 30),
+            horizon_end=datetime.date(2026, 5, 31),
         )
         assert [s.date for s in shifts] == [
             datetime.date(2026, 1, 31),
             datetime.date(2026, 2, 28),
-            datetime.date(2026, 3, 28),
-            datetime.date(2026, 4, 28),
+            datetime.date(2026, 3, 31),
+            datetime.date(2026, 4, 30),
+            datetime.date(2026, 5, 31),
         ]
 
     def test_a_yearly_cadence_fires_once_inside_a_one_year_horizon(self) -> None:
