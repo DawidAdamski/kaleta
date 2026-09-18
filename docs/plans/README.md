@@ -108,7 +108,7 @@ independent of each other unless noted.
 | 1 | [restyle-theme-tokens](archive/restyle-theme-tokens.md) | archived | draft | — |
 | 2 | [restyle-transactions-filter-chips](restyle-transactions-filter-chips.md) | `2a` | draft | 1 |
 | 3 | [restyle-budgets-pace-bars](restyle-budgets-pace-bars.md) | `2b` | draft | 1 |
-| 4 | [restyle-dashboard](restyle-dashboard.md) | `1c`/`1d` | draft | 1 |
+| 4 | [restyle-dashboard](archive/restyle-dashboard.md) | archived | draft | 1 |
 | 5 | [restyle-import-mapping](restyle-import-mapping.md) | `2d` | draft | 1 |
 | 6 | [restyle-forecast-on-load](restyle-forecast-on-load.md) | `3a` | draft | 1 |
 | 7 | [restyle-login-split](restyle-login-split.md) | `3f` | draft | 1 |
