@@ -3,8 +3,9 @@ plan_id: restyle-payment-calendar
 title: Restyle — Payment Calendar net-plus-dots day cells and a pinned overdue strip (artboard 3c)
 area: payment-calendar
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#payment-calendar
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#payment-calendar
 ---
 
 # Restyle — Payment Calendar: net + dots per day, pinned overdue strip
@@ -165,3 +166,27 @@ lookback setting, subscriptions.
 - **Stacking:** branched from `plan/restyle-net-worth`, which is itself
   unmerged. Open the PR with `--base plan/restyle-net-worth`; it must
   merge after every branch below it.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d3fa976` | Dawid (Ani) | 2026-09-15 | feat(payment-calendar): a day is a net and a row of dots |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-payment-calendar.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/payment_calendar.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_planned_transactions.py
+- tests/unit/views/test_payment_calendar_cells.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
