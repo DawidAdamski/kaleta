@@ -37,6 +37,10 @@ _TIMEOUT = 60000
 #: weekday to appear in the seasonal look-back.
 _HISTORY_DAYS = 30
 
+#: Thirty options a window, and the suite seeds a few hundred accounts
+#: across a session — generous, and it stops as soon as the list does.
+_MAX_OPTION_SCROLLS = 40
+
 DELTAS_HEADING = "Scenario changes"
 
 
@@ -60,8 +64,28 @@ def _seed_flat_account(name: str, *, balance: str, daily: float = 100.0) -> int:
 
 
 def _choose(page: Page, label: str, option: str) -> None:
+    """Pick an option from a select, scrolling its list until the option is in it.
+
+    Quasar renders a QSelect's options thirty at a time, so on the shared e2e
+    database — where the whole suite's accounts pile up in one alphabetical
+    list — the account a test just seeded is usually not in the first window.
+    Scrolling to it is what a reader does too; the alternative is naming test
+    accounts to sort early, which would pass by luck rather than by working.
+    """
     page.locator(f'[aria-label="{label}"]').click()
-    page.get_by_role("option", name=option, exact=True).click()
+    menu = page.locator(".q-menu").last
+    target = menu.get_by_role("option", name=option, exact=True)
+    for _ in range(_MAX_OPTION_SCROLLS):
+        if target.count():
+            break
+        rendered = menu.get_by_role("option")
+        last = rendered.last
+        before = rendered.count() and last.inner_text()
+        last.scroll_into_view_if_needed()
+        page.wait_for_timeout(100)
+        if menu.get_by_role("option").last.inner_text() == before:
+            break  # the list has stopped moving: this is the end of it
+    target.click()
 
 
 def _open(page: Page, base_url: str, account: str) -> None:
