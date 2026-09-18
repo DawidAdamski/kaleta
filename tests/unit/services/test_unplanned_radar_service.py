@@ -19,6 +19,7 @@ from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.subscription import SubscriptionCreate
+from kaleta.schemas.unplanned_radar import RadarSummary
 from kaleta.services import (
     AccountService,
     CategoryService,
@@ -26,7 +27,6 @@ from kaleta.services import (
     SubscriptionService,
     UnplannedRadarService,
 )
-from kaleta.services.unplanned_radar_service import summarise
 
 TODAY = datetime.date(2026, 9, 4)
 
@@ -335,14 +335,14 @@ class TestSummary:
             )
 
         candidates = await UnplannedRadarService(session).detect(today=TODAY)
-        summary = summarise(candidates)
+        summary = RadarSummary.from_candidates(candidates)
 
         assert summary.candidate_count == 2
         assert summary.yearly_total == Decimal("1450.00")
         assert summary.monthly_equivalent == Decimal("120.83")
 
     def test_summary_of_nothing_is_zero(self):
-        summary = summarise([])
+        summary = RadarSummary.from_candidates([])
 
         assert summary.candidate_count == 0
         assert summary.yearly_total == Decimal("0.00")

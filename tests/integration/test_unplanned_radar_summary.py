@@ -18,8 +18,8 @@ from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
+from kaleta.schemas.unplanned_radar import RadarSummary
 from kaleta.services import AccountService, CategoryService, UnplannedRadarService
-from kaleta.services.unplanned_radar_service import summarise
 
 pytestmark = pytest.mark.asyncio
 
@@ -78,7 +78,7 @@ async def test_fund_line_sums_the_yearly_estimates(session: AsyncSession) -> Non
     )
 
     candidates = await UnplannedRadarService(session).detect(today=TODAY)
-    summary = summarise(candidates)
+    summary = RadarSummary.from_candidates(candidates)
 
     assert summary.candidate_count == 2
     assert summary.yearly_total == Decimal("1450.00")

@@ -6,7 +6,7 @@ from __future__ import annotations
 import datetime
 from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nicegui import ui
 
@@ -21,7 +21,6 @@ from kaleta.services import (
     UnplannedRadarService,
     with_session,
 )
-from kaleta.services.unplanned_radar_service import summarise
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
@@ -33,6 +32,11 @@ from kaleta.views.theme import (
     SECTION_CARD,
     SECTION_HEADING,
 )
+
+if TYPE_CHECKING:  # annotation-only: keeps views out of the models layer at runtime
+    from kaleta.models.account import Account
+    from kaleta.models.category import Category
+
 
 _SAFETY_FUNDS_URL = "/wizard/safety-funds"
 _PAYMENT_CALENDAR_URL = "/payment-calendar"
@@ -56,7 +60,9 @@ def cadence_label(frequency: RecurrenceFrequency, interval: int) -> str:
 def register() -> None:
     @ui.page("/wizard/unplanned-radar")
     async def unplanned_radar_page() -> None:
-        async def _load(session: Any) -> tuple[Any, ...]:
+        async def _load(
+            session: Any,
+        ) -> tuple[list[RadarCandidate], list[RadarPlannedRow], list[Account], list[Category]]:
             svc = UnplannedRadarService(session)
             candidates = await svc.detect()
             planned_rows = await svc.planned_with_history()
@@ -66,7 +72,7 @@ def register() -> None:
 
         candidates, planned_rows, accounts, categories = await with_session(_load)
 
-        summary = summarise(candidates)
+        summary = RadarSummary.from_candidates(candidates)
         account_opts = {a.id: a.name for a in accounts}
         category_opts = CategoryService.build_option_labels(
             [c for c in categories if c.type == CategoryType.EXPENSE]

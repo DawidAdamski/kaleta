@@ -33,7 +33,7 @@ from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFreq
 from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
-from kaleta.schemas.unplanned_radar import RadarCandidate, RadarPlannedRow, RadarSummary
+from kaleta.schemas.unplanned_radar import RadarCandidate, RadarPlannedRow
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.subscription_service import merchant_key_from_description
 
@@ -67,18 +67,6 @@ class _Occurrence:
     amount: Decimal
     account_id: int
     category_id: int | None
-
-
-def summarise(candidates: list[RadarCandidate]) -> RadarSummary:
-    """Roll candidates up into the irregular-fund suggestion line."""
-    yearly = sum((c.yearly_estimate for c in candidates), Decimal("0"))
-    yearly = yearly.quantize(_CENTS, rounding=ROUND_HALF_UP)
-    monthly = (yearly / Decimal(12)).quantize(_CENTS, rounding=ROUND_HALF_UP)
-    return RadarSummary(
-        candidate_count=len(candidates),
-        yearly_total=yearly,
-        monthly_equivalent=monthly,
-    )
 
 
 class UnplannedRadarService:
@@ -467,4 +455,4 @@ def _dominant_category_id(occurrences: list[_Occurrence]) -> int | None:
     return counts.most_common(1)[0][0]
 
 
-__all__ = ["UnplannedRadarService", "summarise"]
+__all__ = ["UnplannedRadarService"]

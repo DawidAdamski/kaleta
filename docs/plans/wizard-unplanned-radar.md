@@ -232,6 +232,28 @@ never an app-wide sweep. Nothing here changes those.
   ignores it, matching the subscription detector. Commented so it does
   not read as a bug.
 
+### Second review pass
+
+- `_load` in the view returned `tuple[Any, ...]`, erasing four real
+  types. Now annotated; `Account` and `Category` come in under
+  `TYPE_CHECKING`, which import-linter excludes, so the view still does
+  not import the models layer at runtime.
+- `summarise()` was a module-level function, against AGENTS.md's
+  "no loose functions for features". It is now
+  `RadarSummary.from_candidates()` — the summary knows how to build
+  itself, and the service no longer exports a bare helper.
+- The product doc promised the radar "reports the median amount and the
+  amounts it saw". It reports the median and the *dates*;
+  `RadarCandidate` carries no per-charge amounts. Spec corrected to
+  what is built rather than the feature added — this is the spec-first
+  doc and must not promise unbuilt UI.
+- **Same-date duplicates, noted not fixed.** `_link_history` links at
+  most one charge per date, because `(planned_transaction_id, date)` is
+  unique. Two charges to the same payee on the same day therefore leave
+  one unlinked. It cannot reform a candidate on its own — that needs
+  `MIN_OCCURRENCES` qualifying gaps and a same-day pair has a gap of 0 —
+  but it does mean the evidence trail is not exhaustive.
+
 ### Pre-existing finding (not fixed here)
 
 `alembic check` against head reports four `remove_index` diffs on

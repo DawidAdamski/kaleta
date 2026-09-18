@@ -89,7 +89,8 @@ service, dentist, school fees, chimney sweep, insurance top-ups.
   dismissal is filtered out.
 - **Amount drift is expected, not suspicious.** A subscription that
   moves 5 % is news; a car service that moves 15 % is Tuesday. The
-  radar reports the median amount and the amounts it saw.
+  radar reports the median amount and the dates it saw it on, so the
+  rhythm is visible without the row turning into a ledger.
 - **Two actions per row.** *Plan it* opens a pre-filled planned
   transaction (name, median amount, inferred rhythm, the account and
   category the charges used, first occurrence at the estimated next

@@ -4,11 +4,13 @@
 from __future__ import annotations
 
 import datetime
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from pydantic import BaseModel
 
 from kaleta.models.planned_transaction import RecurrenceFrequency
+
+_CENTS = Decimal("0.01")
 
 __all__ = [
     "RadarCandidate",
@@ -48,6 +50,17 @@ class RadarSummary(BaseModel):
     candidate_count: int
     yearly_total: Decimal
     monthly_equivalent: Decimal
+
+    @classmethod
+    def from_candidates(cls, candidates: list[RadarCandidate]) -> RadarSummary:
+        """Total what the radar found, as a year and as a month of saving."""
+        yearly = sum((c.yearly_estimate for c in candidates), Decimal("0"))
+        yearly = yearly.quantize(_CENTS, rounding=ROUND_HALF_UP)
+        return cls(
+            candidate_count=len(candidates),
+            yearly_total=yearly,
+            monthly_equivalent=(yearly / Decimal(12)).quantize(_CENTS, rounding=ROUND_HALF_UP),
+        )
 
 
 class RadarPlannedRow(BaseModel):
