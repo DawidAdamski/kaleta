@@ -3,8 +3,9 @@ plan_id: import-wise-mt940
 title: Import — Wise MT940 statement format
 area: import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-17
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Import — Wise MT940 statement format
@@ -45,6 +46,13 @@ Out of scope:
 - `uv run pytest tests/unit/services/test_wise_mt940_import.py -q`
 - `grep -q "WiseMt940" src/kaleta/services/import_service.py`
 - `uv run pytest tests/unit/services/test_import_profiles.py -q`
+
+## BDD scenarios
+
+- `KAL-CSV-030` — Wise MT940 statement imports through the same Wise
+  profile (`@automated`)
+- `KAL-CSV-031` — an MT940 states its own currency, so renaming it
+  changes nothing (`@automated`)
 
 ## Touchpoints
 
@@ -135,3 +143,31 @@ this repo. The fixture uses an anonymized `GB33TRWI23145600000123`
 instead, keeping the country, `TRWI` bank code and 22-character shape.
 Scrubbing the plan's own copy is left to the maintainer — it is their
 record, and it is in git history either way.
+
+## Implementation
+
+Landed on 2026-09-17 (PR #96).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `11deaf4` | Dawid Adamski | 2026-09-17 | Merge pull request #96 from DawidAdamski/plan/import-wise-mt940 |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/import-wise-mt940.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/import_profiles.py
+- src/kaleta/services/import_service.py
+- src/kaleta/views/import_view/upload_section.py
+- tests/e2e/fixtures/import/wise/jpy-travel-sample.mt940
+- tests/e2e/fixtures/import/wise/NOTES.md
+- tests/e2e/test_csv_import.py
+- tests/unit/services/test_import_profiles.py
+- tests/unit/services/test_wise_mt940_import.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

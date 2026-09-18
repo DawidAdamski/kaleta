@@ -72,7 +72,11 @@ else
 fi
 
 # ── BDD retag check (warn only) ──────────────────────────────────────────
-planned=$(grep -oE 'KAL-[A-Z]{3,4}-[0-9]{3}' "$plan" | sort -u | while read -r id; do
+# A plan that names no scenario at all is normal — infrastructure, tooling and
+# fixture plans have none. Without the `|| true` that grep exits 1, `pipefail`
+# carries it out of the pipeline and `set -e` aborts the archive, so the check
+# labelled "warn only" would take the whole run down with it.
+planned=$({ grep -oE 'KAL-[A-Z]{3,4}-[0-9]{3}' "$plan" || true; } | sort -u | while read -r id; do
   grep -qE "^[[:space:]]*$id[[:space:]]+@planned" docs/bdd.md && echo "$id" || true; done)
 [ -n "$planned" ] && notes="$notes${notes:+ }Still @planned in docs/bdd.md: $(echo "$planned" | tr '\n' ' ')— retag before or after archiving."
 
