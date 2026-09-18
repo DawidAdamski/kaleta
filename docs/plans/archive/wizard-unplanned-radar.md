@@ -3,8 +3,9 @@ plan_id: wizard-unplanned-radar
 title: Wizard — unplanned expenses radar (detect irregular one-offs, convert to planned)
 area: wizard
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#payment-calendar
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#payment-calendar
 ---
 
 # Wizard — unplanned expenses radar
@@ -276,3 +277,40 @@ never an app-wide sweep. Nothing here changes those.
 `categorisation_rules`, `import_rules` and `import_runs` — model and
 migration disagree on indexes created before this branch. Unrelated to
 this plan and left untouched; worth a Chore-inbox line.
+
+## Implementation
+
+Landed on 2026-09-18 (PR #102).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2b236c6` | Dawid Adamski | 2026-09-18 | Merge pull request #102 from DawidAdamski/plan/wizard-unplanned-radar |
+
+**Files changed:**
+- alembic/versions/k5l6m7n8o9p0_dismissed_candidate_kind.py
+- docs/bdd.md
+- docs/plans/wizard-unplanned-radar.md
+- docs/product/financial-wizard.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/dismissed_candidate.py
+- src/kaleta/schemas/unplanned_radar.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/subscription_service.py
+- src/kaleta/services/unplanned_radar_service.py
+- src/kaleta/views/wizard.py
+- src/kaleta/views/wizard_unplanned_radar.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_unplanned_radar.py
+- tests/integration/test_unplanned_radar_summary.py
+- tests/unit/services/test_unplanned_radar_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Still @planned in docs/bdd.md: KAL-REC-002 KAL-REC-004 — retag before or after archiving.
