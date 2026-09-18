@@ -5,7 +5,8 @@ Covers: KAL-CSV-001, KAL-CSV-005, KAL-CSV-006, KAL-CSV-007, KAL-CSV-008,
 KAL-CSV-009, KAL-CSV-010, KAL-CSV-011, KAL-CSV-013, KAL-CSV-014, KAL-CSV-015,
 KAL-CSV-017, KAL-CSV-018, KAL-CSV-019, KAL-CSV-020, KAL-CSV-021, KAL-CSV-022,
 KAL-CSV-023, KAL-CSV-024, KAL-CSV-025, KAL-CSV-026,
-KAL-CSV-027, KAL-CSV-028, KAL-CSV-029, KAL-CSV-030, KAL-CSV-031
+KAL-CSV-027, KAL-CSV-028, KAL-CSV-029, KAL-CSV-030, KAL-CSV-031,
+KAL-CSV-032
 
 Maps the q3-test-safety-net CSV import flow using ``test_import.csv``.
 Page URL: /import
@@ -57,6 +58,8 @@ WISE_JPY_QIF = FIXTURES / "wise" / "jpy-travel-sample.qif"
 WISE_QIF_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.qif"
 WISE_JPY_MT940 = FIXTURES / "wise" / "jpy-travel-sample.mt940"
 WISE_MT940_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.mt940"
+WISE_JPY_XLSX = FIXTURES / "wise" / "jpy-travel-sample.xlsx"
+WISE_XLSX_DOWNLOAD_NAME = "statement_12345678_JPY_2026-04-01_2026-06-30.xlsx"
 AUTORESET_SECOND = FIXTURES / "autoreset-second.csv"
 AUTORESET_FAILING = FIXTURES / "autoreset-failing.csv"
 
@@ -887,6 +890,62 @@ def test_wise_mt940_auto_detect_and_import(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/transactions")
     search_ledger(page, "TRANSFER-2134191896")
     expect(page.get_by_text("TRANSFER-2134191896").first).to_be_visible(timeout=5000)
+
+
+def test_wise_xlsx_auto_detect_and_import(page: Page, base_url: str) -> None:
+    """Covers: KAL-CSV-032
+
+    Wise XLSX auto-detects on its bytes — a workbook decoded as text says
+    nothing — banners the currency the sheet states, and imports with the
+    merchant as the description rather than the English card wording.
+    """
+    account_name = "Wise JPY XLSX"
+    expense_cat = "Other Expenses Wise XLSX E2E"
+    income_cat = "Other Income Wise XLSX E2E"
+
+    seed_account(account_name, currency="JPY")
+    seed_category(expense_cat)
+    seed_income_category(income_cat)
+
+    page.goto(f"{base_url}/import")
+    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+
+    _step(page, STEP_UPLOAD)
+    page.locator('input[type="file"]').set_input_files(
+        _upload_as(WISE_JPY_XLSX, WISE_XLSX_DOWNLOAD_NAME)
+    )
+    _wait_for_file(page, WISE_XLSX_DOWNLOAD_NAME)
+
+    _step(page, STEP_FORMAT)
+    expect(page.get_by_role("button", name="Wise")).to_have_class(
+        re.compile(r"k-format-chip--on"), timeout=5000
+    )
+
+    _step(page, STEP_UPLOAD)
+    banner = page.locator(".k-info-banner").first
+    expect(banner).to_contain_text("JPY", timeout=5000)
+    expect(banner).to_contain_text("2026-04-17 – 2026-05-17")
+
+    _step(page, STEP_SETTINGS)
+    _select_import_option(page, "Target account", _account_option(account_name, "JPY"))
+    _select_import_option(page, "Default expense category", expense_cat)
+    _select_import_option(page, "Default income category", income_cat)
+
+    # The merchant column wins over the sheet's "Card transaction of …" prose,
+    # exactly as it does on the CSV path.
+    _step(page, STEP_PREVIEW)
+    preview = _panel(page, STEP_PREVIEW)
+    expect(preview.get_by_text("Japanpost Bank(245950) GIFU", exact=False).first).to_be_visible(
+        timeout=5000
+    )
+    expect(preview.get_by_text("Card transaction of", exact=False)).to_have_count(0)
+
+    _run_import(page)
+    expect(_panel(page, STEP_CONFIRM)).to_contain_text(re.compile(r"\b9 imported"), timeout=10000)
+
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, "Bellmart NAGOYA")
+    expect(page.get_by_text("Bellmart NAGOYA").first).to_be_visible(timeout=5000)
 
 
 def test_wise_mt940_states_its_own_currency_even_when_renamed(page: Page, base_url: str) -> None:

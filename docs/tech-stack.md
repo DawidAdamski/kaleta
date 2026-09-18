@@ -31,6 +31,27 @@ Without the extra, the Forecast page uses a lightweight seasonal-naive projectio
 (same result schema: yhat / lower / upper) and shows an informational banner.
 Both backends run CPU work in a thread pool via `asyncio.run_in_executor`.
 
+## Bank statement import
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| CSV / QIF / MT940 | stdlib (`csv`, `re`, `zipfile`) | Text statement formats; no dependency |
+| XLSX | openpyxl (optional `import-xlsx` extra) | Excel statements; resolves Excel serial dates |
+
+Install XLSX support:
+
+```bash
+uv sync --extra import-xlsx
+```
+
+Without the extra, uploading a workbook fails with a message naming the extra.
+Every bank Kaleta supports also offers CSV, so XLSX is a convenience rather
+than the only way in — which is why it is an extra and not a base dependency
+(see [ADR-034](adr/034-openpyxl-as-an-optional-extra-for-xlsx-import.md)).
+
+Profiles live in `services/import_profiles.py`; adding one needs a real
+anonymized fixture first (`tests/e2e/fixtures/import/README.md`).
+
 ## Database
 
 | Option           | Use Case                                      |

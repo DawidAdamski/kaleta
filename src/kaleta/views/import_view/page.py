@@ -151,6 +151,7 @@ async def import_page() -> None:
                 queued_file.profile,
                 mapping=mapping,
                 filename=queued_file.filename,
+                raw=queued_file.raw,
             )
 
         result = await with_session(_run_parse)
@@ -370,12 +371,14 @@ async def import_page() -> None:
             if had_failed:
                 ui.notify(t("import.queue_reset_failed"), type="info")
 
-        content, encoding = decode_upload(await e.file.read())
+        raw = await e.file.read()
+        content, encoding = decode_upload(raw)
         suggested = ImportRuleService.suggest_filename_pattern(e.file.name)
         queued_file = QueuedFile(
             id=str(uuid.uuid4()),
             filename=e.file.name,
             content=content,
+            raw=raw,
             encoding=encoding,
             filename_pattern=suggested,
             skip_duplicates=get_import_skip_duplicates_default(),

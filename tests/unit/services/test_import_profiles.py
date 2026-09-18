@@ -80,6 +80,7 @@ class TestBankProfileRegistry:
         assert (wise / "jpy-travel-sample.csv").is_file()
         assert (wise / "jpy-travel-sample.qif").is_file()
         assert (wise / "jpy-travel-sample.mt940").is_file()
+        assert (wise / "jpy-travel-sample.xlsx").is_file()
 
     def test_fixture_contribution_readme_exists(self) -> None:
         readme = FIXTURES_IMPORT / "README.md"

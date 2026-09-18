@@ -1324,6 +1324,27 @@ Feature: mBank CSV Import
     When I select account "Wise PLN"
     Then the import is blocked
     And I am told the file currency does not match the account currency
+
+  KAL-CSV-032 @automated
+  Scenario: Wise XLSX statement imports through the same Wise profile
+    The fourth shape Wise offers for one statement, and the only binary one.
+    A workbook decoded as text is noise, so the upload is recognised by its
+    bytes rather than by anything the importer can read as characters.
+
+    Given there is an account "Wise JPY" in JPY
+    And there is an expense category "Other Expenses"
+    And there is an income category "Other Income"
+    And I am on the Import page
+    When I upload a valid Wise XLSX file
+    Then the profile is auto-detected as "Wise"
+    And the banner shows currency "JPY", read from the sheet
+    And the metadata banner shows the statement period
+    When I select account "Wise JPY"
+    And I select default expense category "Other Expenses"
+    And I select default income category "Other Income"
+    Then the preview shows the merchant, not the English card wording
+    When I click "Import"
+    Then the transactions are imported successfully
 ```
 
 ## Feature: Transfer Recognition

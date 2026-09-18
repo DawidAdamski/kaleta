@@ -3,7 +3,7 @@ plan_id: import-wise-xlsx
 title: Import — Wise XLSX statement format
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -70,3 +70,54 @@ Dogfood XLSX shared strings include English descriptions (`Card
 transaction of …`, `Topped up account`) and same transaction ids as CSV.
 Anonymize before commit; keep sheet structure byte-identical aside from
 PII cells.
+
+### Decisions taken (2026-09-18)
+
+Both open questions settled with the plan's defaults:
+
+- **`openpyxl` in a new `import-xlsx` extra**, not a base dependency —
+  one bank offers XLSX and every one of them also offers CSV. It is also
+  in the `dev` group, or the acceptance-criteria tests could not run.
+  When the extra is absent the upload fails with `import.xlsx_extra_missing`
+  naming it, instead of an `ImportError` traceback.
+- **Excel serial dates** are resolved by openpyxl against the workbook's
+  own epoch — the single job that justifies the dependency. `46159` →
+  2026-05-17, matching the CSV row of the same id. No timezone handling is
+  needed: the `Date` column is a whole-day serial; `Date Time` carries the
+  fractional part and is not read.
+
+### What the real workbook taught us
+
+The fixture is the maintainer's real export (`test_data/`), anonymized in
+`xl/sharedStrings.xml` only. Four things the plan could not have known,
+each now asserted in `tests/unit/services/test_wise_xlsx_import.py`:
+
+- **The first column is `ID`, not `TransferWise ID`** — the existing CSV
+  content heuristic would never have claimed the file.
+- **The column order is not the CSV's.** `Total Fees` sits at index 11
+  where the CSV has `Payer Name`, so columns are matched by header name.
+- **The sheet declares `<dimension ref="A1"/>`**, which is false. A
+  `read_only=True` openpyxl load trusts it and yields one cell and zero
+  rows; the normal loader is used instead.
+- **openpyxl writes no `sharedStrings.xml` for a small workbook**, inlining
+  strings in the sheet instead. The detector therefore searches the string
+  table *and* the worksheets, or a Wise-shaped book from another writer
+  would go unrecognised.
+
+### Binary uploads in a text pipeline
+
+`parse_queued_file` took only decoded text, which a ZIP has none of. It now
+also takes `raw: bytes` (default `b""`), and `QueuedFile` carries the
+upload's undecoded bytes beside `content`. The XLSX check runs first and on
+the bytes alone, before any text heuristic — a workbook decoded as a string
+could match nothing anyway. Every text format ignores the new argument.
+
+### Concern for the maintainer
+
+An optional extra means **XLSX import is off in a default install**: the
+user uploads `.xlsx`, and is told to install something. For an import
+format that is a poor first encounter, and the alternative the acceptance
+criteria allowed — a stdlib `zipfile` + XML reader, no dependency at all —
+would work for everyone. It was not taken because the plan's stated
+preference is the extra. Worth revisiting if XLSX uploads turn out to be
+common, or when a second XLSX bank arrives.

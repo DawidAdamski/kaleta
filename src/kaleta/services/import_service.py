@@ -6,8 +6,11 @@ from __future__ import annotations
 import contextlib
 import csv
 import datetime
+import importlib.util
 import io
 import re
+import warnings
+import zipfile
 from collections.abc import Iterable
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
@@ -959,6 +962,226 @@ class WiseMt940Preprocessor:
         )
 
 
+# ── Wise XLSX preprocessor ───────────────────────────────────────────────────
+
+#: Every XLSX is a ZIP; the magic bytes settle "is this even a workbook"
+#: before anything is unpacked.
+_XLSX_MAGIC = b"PK\x03\x04"
+
+#: The Wise sheet's own column names. Its first header is a bare ``ID`` — not
+#: the CSV's ``TransferWise ID`` — so the dialect is recognised by the columns
+#: only Wise writes, the same way the QIF and MT940 arms key off their own
+#: distinctive fields.
+_WISE_XLSX_MARKERS: tuple[str, ...] = (
+    "Transaction Details Type",
+    "Running Balance",
+    "Exchange To Amount",
+)
+
+#: Header → the ``raw`` key the Wise description helper already reads, so an
+#: XLSX row and a CSV row name their merchant the same way.
+_WISE_XLSX_COLUMNS: tuple[str, ...] = (
+    "ID",
+    "Date",
+    "Amount",
+    "Currency",
+    "Description",
+    "Merchant",
+    "Payee Name",
+    "Card Holder Full Name",
+)
+
+
+def is_wise_xlsx_bytes(raw: bytes) -> bool:
+    """Heuristic: *raw* is a Wise XLSX statement export.
+
+    Takes bytes, not text: a workbook is a ZIP, and decoding one as a string
+    yields nothing a content heuristic could read. That is also why this is
+    not a :class:`BankProfileSpec` ``detect`` callable — those are typed for
+    the text path — and is called explicitly instead.
+    """
+    if not raw.startswith(_XLSX_MAGIC):
+        return False
+    try:
+        with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+            names = archive.namelist()
+            if "xl/workbook.xml" not in names:
+                return False
+            # A header can live in the shared string table or inline in the
+            # sheet — writers differ, and openpyxl emits no string table at
+            # all for a small workbook — so both are searched.
+            parts = [
+                name
+                for name in names
+                if name == "xl/sharedStrings.xml" or name.startswith("xl/worksheets/")
+            ]
+            text = "".join(archive.read(name).decode("utf-8", errors="replace") for name in parts)
+    except (zipfile.BadZipFile, KeyError, OSError):
+        return False
+    return all(marker in text for marker in _WISE_XLSX_MARKERS)
+
+
+def _xlsx_cell_text(value: Any) -> str:
+    """Render a cell as the string the CSV path would have held."""
+    if value is None:
+        return ""
+    if isinstance(value, datetime.datetime):
+        return value.date().isoformat()
+    if isinstance(value, datetime.date):
+        return value.isoformat()
+    # ``str`` on purpose for the numeric cells openpyxl hands back as floats:
+    # since 3.1 ``repr`` is the shortest string that round-trips, so
+    # ``Decimal(str(44.2099))`` is exactly ``44.2099``. Passing the float to
+    # ``Decimal`` directly is what would corrupt it — that yields
+    # ``44.20989999999999753…``, the binary value. Do not "simplify" this.
+    return str(value).strip()
+
+
+class WiseXlsxPreprocessor:
+    """Parses Wise XLSX statement exports.
+
+    The fourth shape Wise offers for one statement, and the only binary one,
+    so this path takes the upload's bytes rather than its decoded text.
+
+    Against the CSV of the same statement
+    (``tests/e2e/fixtures/import/wise/jpy-travel-sample.xlsx``):
+
+    * **The columns are not in the CSV's order** and the first one is named
+      ``ID``, not ``TransferWise ID``. Columns are therefore matched by
+      header name, never by position.
+    * **Descriptions are English** (``Card transaction of 50,220 JPY issued
+      by …``) where the CSV's are Polish. Neither reaches the ledger: the
+      merchant column wins, exactly as on the CSV path.
+    * **Dates are Excel serials**, which openpyxl resolves to ``datetime``
+      against the workbook's own epoch — the one job worth a dependency.
+
+    ``openpyxl`` ships in the ``import-xlsx`` extra, so a base install has no
+    XLSX support. The parse path says so plainly instead of raising
+    ``ImportError``.
+    """
+
+    _SHEET_HEADER_ROW = 1
+
+    @staticmethod
+    def is_wise_xlsx(raw: bytes) -> bool:
+        """Quick heuristic — check if the bytes look like a Wise XLSX export."""
+        return is_wise_xlsx_bytes(raw)
+
+    @staticmethod
+    def is_available() -> bool:
+        """Whether the ``import-xlsx`` extra is installed."""
+        return importlib.util.find_spec("openpyxl") is not None
+
+    @staticmethod
+    def read_records(raw: bytes) -> list[dict[str, str]]:
+        """Read the sheet into CSV-shaped dicts keyed by header name.
+
+        Public because opening the workbook means decompressing a ZIP and
+        parsing its XML: a caller that needs both the rows and the metadata
+        reads once and hands the records to both, rather than paying for the
+        load twice (see :meth:`ImportService._parse_wise_xlsx`).
+        """
+        import openpyxl  # noqa: PLC0415 — optional extra, imported where used
+
+        with warnings.catch_warnings():
+            # Wise writes no default style; openpyxl warns and supplies one.
+            warnings.simplefilter("ignore", UserWarning)
+            # Not ``read_only``: Wise declares ``<dimension ref="A1"/>``, and a
+            # read-only sheet trusts that declaration and yields one cell. The
+            # normal loader scans the rows that are actually there.
+            workbook = openpyxl.load_workbook(io.BytesIO(raw), data_only=True)
+        try:
+            sheet = workbook.worksheets[0]
+            rows = sheet.iter_rows(values_only=True)
+            try:
+                header_row = next(rows)
+            except StopIteration:
+                return []
+            headers = [_xlsx_cell_text(cell) for cell in header_row]
+            out: list[dict[str, str]] = []
+            for row in rows:
+                record = {
+                    header: _xlsx_cell_text(value)
+                    for header, value in zip(headers, row, strict=False)
+                    if header
+                }
+                if any(record.values()):
+                    out.append(record)
+            return out
+        finally:
+            workbook.close()
+
+    @staticmethod
+    def parse(raw: bytes) -> ImportResult:
+        """Parse a workbook's rows into ``ParsedRow`` objects."""
+        return WiseXlsxPreprocessor.parse_records(WiseXlsxPreprocessor.read_records(raw))
+
+    @staticmethod
+    def parse_records(records: list[dict[str, str]]) -> ImportResult:
+        """Turn already-read sheet records into ``ParsedRow`` objects.
+
+        Positive amounts are income, as everywhere else in the importer.
+        """
+        result = ImportResult()
+        for index, record in enumerate(records, start=1):
+            date_raw = record.get("Date", "")
+            amount_raw = record.get("Amount", "")
+            if not date_raw or not amount_raw:
+                result.skipped += 1
+                continue
+            try:
+                date = _parse_date(date_raw)
+                amount = _parse_amount(amount_raw, decimal_separator=".")
+            except ImportError_ as exc:
+                result.errors.append(f"XLSX row {index}: {exc}")
+                continue
+            raw_row = {key: record.get(key, "") for key in _WISE_XLSX_COLUMNS}
+            result.rows.append(
+                ParsedRow(
+                    date=date,
+                    amount=amount,
+                    description=_build_wise_description(raw_row),
+                    raw={key: value for key, value in raw_row.items() if value},
+                )
+            )
+        return result
+
+    @staticmethod
+    def extract_metadata(raw: bytes) -> MBankFileMetadata:
+        """Derive the Wise metadata banner fields from a workbook."""
+        return WiseXlsxPreprocessor.metadata_from_records(WiseXlsxPreprocessor.read_records(raw))
+
+    @staticmethod
+    def metadata_from_records(records: list[dict[str, str]]) -> MBankFileMetadata:
+        """Derive the metadata banner fields from already-read sheet records.
+
+        Like the CSV path and unlike the QIF's, no filename is read: the
+        ``Currency`` column states the currency, and the rows state the
+        period they actually cover.
+        """
+        currency = ""
+        holder = ""
+        dates: list[datetime.date] = []
+        for record in records:
+            if not currency:
+                currency = record.get("Currency", "")
+            if not holder:
+                holder = record.get("Card Holder Full Name", "")
+            date_raw = record.get("Date", "")
+            if date_raw:
+                with contextlib.suppress(ImportError_):
+                    dates.append(_parse_date(date_raw))
+        return MBankFileMetadata(
+            client_name=holder,
+            account_type="Wise",
+            currency=currency,
+            account_number="",
+            account_number_digits="",
+            date_from=min(dates) if dates else None,
+            date_to=max(dates) if dates else None,
+        )
+
+
 def _build_mbank_description(raw: dict[str, str]) -> str:
     """Build a human-readable description from mBank CSV row fields.
 
@@ -1194,6 +1417,7 @@ class ImportService:
         *,
         mapping: ColumnMapping | None = None,
         filename: str = "",
+        raw: bytes = b"",
     ) -> ParseQueuedFileResult:
         """Parse queued CSV content, auto-detecting a bank profile when generic.
 
@@ -1207,7 +1431,22 @@ class ImportService:
         *filename* is the name of the upload. Content always wins; the name is
         consulted only for what the format cannot express — today that is the
         Wise QIF's currency. Callers that have no name may omit it.
+
+        *raw* is the upload's undecoded bytes, which only a binary format
+        needs. XLSX is a ZIP, so *content* holds nothing readable for it and
+        the bytes are the only thing that can identify or parse one. Callers
+        with text-only formats may omit it.
+
+        A workbook in *raw* **outranks *profile***: no other branch could do
+        anything with ZIP bytes, so an XLSX uploaded under, say, the mBank
+        profile is still read as the Wise workbook it is rather than failing
+        as unreadable text.
         """
+        if raw and WiseXlsxPreprocessor.is_wise_xlsx(raw):
+            # Decided on the bytes before any text heuristic runs: a workbook
+            # decoded as a string is noise, and could match nothing anyway.
+            return self._parse_wise_xlsx(raw)
+
         resolved_profile = profile
         if profile == GENERIC_PROFILE:
             detected = detect_bank_profile(content)
@@ -1281,6 +1520,40 @@ class ImportService:
             content,
             mapping=mapping,
             profile=resolved_profile,
+        )
+
+    def _parse_wise_xlsx(self, raw: bytes) -> ParseQueuedFileResult:
+        """Parse a Wise XLSX upload.
+
+        No generic fallback, as on the other two non-CSV Wise branches: a
+        workbook cannot be handed to the column-mapping step, which reads
+        text. When the ``import-xlsx`` extra is absent the upload fails with
+        a message naming it, rather than an ``ImportError`` traceback.
+        """
+        if not WiseXlsxPreprocessor.is_available():
+            return ParseQueuedFileResult(
+                profile=WISE_PROFILE,
+                error_key="import.xlsx_extra_missing",
+            )
+        # One workbook load for both the rows and the banner: opening it means
+        # decompressing a ZIP and parsing its XML, which is not worth doing twice.
+        records = WiseXlsxPreprocessor.read_records(raw)
+        result = WiseXlsxPreprocessor.parse_records(records)
+        if not result.rows:
+            return ParseQueuedFileResult(
+                profile=WISE_PROFILE,
+                errors=result.errors,
+                error_rows=result.error_rows,
+                error_key="import.xlsx_no_rows",
+                error_params={"skipped": result.skipped},
+            )
+        return ParseQueuedFileResult(
+            profile=WISE_PROFILE,
+            rows=result.rows,
+            errors=result.errors,
+            error_rows=result.error_rows,
+            metadata=WiseXlsxPreprocessor.metadata_from_records(records),
+            ok=True,
         )
 
     def _parse_wise_mt940(self, content: str) -> ParseQueuedFileResult:
