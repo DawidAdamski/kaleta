@@ -24,7 +24,14 @@ from kaleta.services import (
 from kaleta.services.unplanned_radar_service import summarise
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import AMOUNT_EXPENSE, BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
+from kaleta.views.theme import (
+    ACCENT_TEXT,
+    AMOUNT_EXPENSE,
+    BODY_MUTED,
+    PAGE_TITLE,
+    SECTION_CARD,
+    SECTION_HEADING,
+)
 
 _SAFETY_FUNDS_URL = "/wizard/safety-funds"
 _PAYMENT_CALENDAR_URL = "/payment-calendar"
@@ -95,7 +102,7 @@ def _render_summary(summary: RadarSummary) -> None:
     ):
         with ui.column().classes("gap-1 flex-1"):
             with ui.row().classes("items-center gap-2"):
-                ui.icon("build_circle", size="1.4rem").classes("text-primary")
+                ui.icon("build_circle", size="1.4rem").classes(ACCENT_TEXT)
                 ui.label(t("unplanned_radar.summary_heading")).classes(SECTION_HEADING)
             if summary.candidate_count:
                 ui.label(
@@ -121,7 +128,7 @@ def _render_candidate_row(
     on_plan: Callable[[RadarCandidate], None],
 ) -> None:
     with ui.row().classes("w-full items-center gap-3 py-2 border-b border-slate-100"):
-        ui.icon("search", size="1.3rem").classes("text-primary")
+        ui.icon("search", size="1.3rem").classes(ACCENT_TEXT)
         with ui.column().classes("flex-1 gap-0"):
             ui.label(candidate.source_name).classes("text-sm font-medium")
             ui.label(
@@ -130,20 +137,20 @@ def _render_candidate_row(
                     count=candidate.occurrences,
                     date=_fmt_date(candidate.last_seen_at),
                 )
-            ).classes("text-xs text-slate-500")
+            ).classes(f"{BODY_MUTED} text-xs")
             ui.label(
                 t(
                     "unplanned_radar.occurrence_dates",
                     dates=", ".join(_fmt_date(d) for d in candidate.occurrence_dates),
                 )
-            ).classes("text-xs text-slate-400")
+            ).classes(f"{BODY_MUTED} text-xs")
         with ui.column().classes("gap-0 items-end w-40"):
             ui.label(cadence_label(candidate.frequency, candidate.interval)).classes(
-                "text-xs text-slate-500"
+                f"{BODY_MUTED} text-xs"
             )
             ui.label(
                 t("unplanned_radar.next_expected", date=_fmt_date(candidate.next_expected_at))
-            ).classes("text-xs text-slate-500")
+            ).classes(f"{BODY_MUTED} text-xs")
         with ui.column().classes("gap-0 items-end w-32"):
             ui.label(_fmt_amount(candidate.typical_amount)).classes(f"{AMOUNT_EXPENSE} text-sm")
             ui.label(
@@ -151,7 +158,7 @@ def _render_candidate_row(
                     "unplanned_radar.yearly_estimate",
                     amount=_fmt_amount(candidate.yearly_estimate),
                 )
-            ).classes("text-xs text-slate-500")
+            ).classes(f"{BODY_MUTED} text-xs")
         ui.button(
             t("unplanned_radar.plan_it"),
             icon="event_repeat",
@@ -182,24 +189,24 @@ def _render_planned_section(rows: list[RadarPlannedRow]) -> None:
             return
         for row in rows:
             with ui.row().classes("w-full items-center gap-3 py-2 border-b border-slate-100"):
-                ui.icon("event_repeat", size="1.3rem").classes("text-primary")
+                ui.icon("event_repeat", size="1.3rem").classes(ACCENT_TEXT)
                 with ui.column().classes("flex-1 gap-0"):
                     ui.label(row.name).classes("text-sm font-medium")
                     ui.label(t("unplanned_radar.planned_linked", count=row.linked_count)).classes(
-                        "text-xs text-slate-500"
+                        f"{BODY_MUTED} text-xs"
                     )
                     ui.label(
                         t(
                             "unplanned_radar.occurrence_dates",
                             dates=", ".join(_fmt_date(d) for d in row.linked_dates),
                         )
-                    ).classes("text-xs text-slate-400")
+                    ).classes(f"{BODY_MUTED} text-xs")
                 ui.label(cadence_label(row.frequency, row.interval)).classes(
-                    "text-xs text-slate-500 w-40 text-right"
+                    f"{BODY_MUTED} text-xs w-40 text-right"
                 )
                 ui.label(
                     t("unplanned_radar.planned_starts", date=_fmt_date(row.start_date))
-                ).classes("text-xs text-slate-500 w-40 text-right")
+                ).classes(f"{BODY_MUTED} text-xs w-40 text-right")
                 ui.label(_fmt_amount(row.amount)).classes(
                     f"{AMOUNT_EXPENSE} text-sm w-24 text-right"
                 )

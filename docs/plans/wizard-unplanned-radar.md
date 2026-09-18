@@ -191,6 +191,27 @@ The naive forms ("{count} charges", "{count} wydatki") read wrong at
 1 and, in Polish, at 5+. If more of these appear, the fix is plural
 support in `kaleta.i18n`, not more careful wording.
 
+### Rebase onto current main (2026-09-18)
+
+The work was written on 2026-09-05 and sat unpushed while `main` moved
+**238 commits**, most of them the restyle programme. Rebased rather than
+rewritten; two conflicts, both in files where each side had added
+something:
+
+- `main.py` and `_STEP_ROUTES` in `wizard.py` — additive on both sides,
+  both entries kept.
+- The wizard hero in `wizard.py` — the branch predates
+  `restyle-wizard-index` and carried the old teal/slate markup.
+  **`main`'s restyled version won**; taking the branch's would have
+  silently reverted a shipped artboard.
+
+One follow-on change: the radar page still used raw `text-primary` /
+`text-slate-*` classes from before the sand palette. They are now the
+`ACCENT_TEXT` and `BODY_MUTED` tokens the same file already imported.
+This is the plan's own new view, not a drive-by — but note that the old
+classes remain in ~10 other views, so the restyle was per-artboard and
+never an app-wide sweep. Nothing here changes those.
+
 ### Pre-existing finding (not fixed here)
 
 `alembic check` against head reports four `remove_index` diffs on
