@@ -112,7 +112,7 @@ independent of each other unless noted.
 | 5 | [restyle-import-mapping](restyle-import-mapping.md) | `2d` | draft | 1 |
 | 6 | [restyle-forecast-on-load](restyle-forecast-on-load.md) | `3a` | draft | 1 |
 | 7 | [restyle-login-split](restyle-login-split.md) | `3f` | draft | 1 |
-| 8 | [restyle-budget-plan-grid](restyle-budget-plan-grid.md) | `2c` | draft | 1 |
+| 8 | [restyle-budget-plan-grid](archive/restyle-budget-plan-grid.md) | archived | draft | 1 |
 | 9 | [restyle-net-worth](restyle-net-worth.md) | `3b` | draft | 1 |
 | 10 | [restyle-payment-calendar](restyle-payment-calendar.md) | `3c` | draft | 1 |
 | 11 | [restyle-wizard-index](restyle-wizard-index.md) | `3d` | draft | 1 |

@@ -3,8 +3,9 @@ plan_id: restyle-budget-plan-grid
 title: Restyle — Budget Plan grid on bare paper with actual sub-rows and a row context menu (artboard 2c)
 area: budget-plan
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets
+status: archived
+archived_at: 2026-09-18
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Restyle — Budget Plan grid: hairlines, actual sub-rows, context menu
@@ -217,3 +218,28 @@ and dark, with a real year of data — is the owner's visual pass, and it is
 where the compare-grid question above gets settled. The toolbar was left
 alone beyond what the page ground gives it; Scope calls it "restyled only",
 and it already reads as the artboard does.
+
+## Implementation
+
+Landed on 2026-09-18.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `b5d23df` | Dawid (Ani) | 2026-09-14 | feat(budget-plan): the grid drops its card for hairlines, and its buttons for a menu |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/restyle-budget-plan-grid.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/budget_plan/grid.py
+- src/kaleta/views/budget_plan/helpers.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_budget_plan.py
+- tests/e2e/test_budget_vs_actual.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
