@@ -94,6 +94,18 @@ def _step(day: datetime.date, cadence: RecurrenceFrequency) -> datetime.date | N
             return None
 
 
+def monthly_amount(delta: ScenarioDelta, monthly_income: Decimal) -> Decimal:
+    """What *delta* is worth in a month, with a percentage read against income.
+
+    The one place that resolution happens. Written twice — once for the chart
+    and once for the "Monthly cashflow" figure — it would eventually give the
+    two of them different answers to the same question.
+    """
+    if delta.amount is not None:
+        return delta.amount
+    return monthly_income * (delta.percent or Decimal("0")) / Decimal("100")
+
+
 def compile_deltas(
     deltas: list[ScenarioDelta],
     *,
@@ -136,11 +148,7 @@ def compile_deltas(
             # An income change is a monthly rate change, so it compiles the
             # same way a monthly recurring delta does — once the percentage
             # has been read against real income.
-            per_occurrence = (
-                delta.amount
-                if delta.amount is not None
-                else (monthly_income * (delta.percent or Decimal("0")) / Decimal("100"))
-            )
+            per_occurrence = monthly_amount(delta, monthly_income)
             cadence = RecurrenceFrequency.MONTHLY
         else:
             per_occurrence = delta.amount or Decimal("0")
@@ -172,14 +180,27 @@ def monthly_cashflow_delta(deltas: list[ScenarioDelta], *, monthly_income: Decim
         if delta.kind is ScenarioDeltaKind.ONE_OFF:
             continue
         if delta.kind is ScenarioDeltaKind.INCOME_CHANGE:
-            total += (
-                delta.amount
-                if delta.amount is not None
-                else monthly_income * (delta.percent or Decimal("0")) / Decimal("100")
-            )
+            total += monthly_amount(delta, monthly_income)
         elif delta.cadence is not None and delta.amount is not None:
             total += delta.amount * occurrences_per_month(delta.cadence)
     return total.quantize(_CENTS, rounding=ROUND_HALF_UP)
+
+
+def first_occurrences(shifts: list[ScenarioShift]) -> list[ScenarioShift]:
+    """The first event of each delta, in the order the deltas were added.
+
+    What the chart pins. Taking the first *n* events instead would let one
+    recurring delta — a dozen dated withdrawals — use up the whole budget and
+    leave a later car purchase with no marker at all. One pin per delta says
+    the same thing in less ink: the line itself carries the repetitions.
+    """
+    seen: set[str] = set()
+    firsts: list[ScenarioShift] = []
+    for shift in shifts:
+        if shift.label not in seen:
+            seen.add(shift.label)
+            firsts.append(shift)
+    return firsts
 
 
 def first_negative_date(result: ForecastResult) -> datetime.date | None:
@@ -353,6 +374,8 @@ __all__ = [
     "ScenarioSimulation",
     "compile_deltas",
     "first_negative_date",
+    "first_occurrences",
     "horizon_days",
+    "monthly_amount",
     "monthly_cashflow_delta",
 ]

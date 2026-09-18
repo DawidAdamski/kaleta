@@ -2446,19 +2446,19 @@ Feature: What-if Scenarios
     When I remove that change
     Then the projected balance is the baseline again
 
-  KAL-WIF-007 @automated
-  Scenario: Income cannot be cut by more than all of it
-    Given I am on the What-if scenarios page with a verdict on screen
-    When I add an income change of "-150" percent
-    Then the change is refused with a message in my own language
-    And the change list is still empty
-
   KAL-WIF-006 @manual
   Scenario: Scenarios are not saved
     # Session-only in v1 by design; a saved-scenarios table is a follow-up.
     Given I have built a scenario with several changes
     When I leave the page and come back
     Then the change list is empty and the verdict is the plain baseline
+
+  KAL-WIF-007 @automated
+  Scenario: Income cannot be cut by more than all of it
+    Given I am on the What-if scenarios page with a verdict on screen
+    When I add an income change of "-150" percent
+    Then the change is refused with a message in my own language
+    And the change list is still empty
 ```
 
 ## Feature: Credit Calculator

@@ -26,6 +26,7 @@ from kaleta.services.scenario_service import (
     ScenarioService,
     compile_deltas,
     first_negative_date,
+    first_occurrences,
     monthly_cashflow_delta,
 )
 
@@ -104,6 +105,30 @@ class TestDeltaValidation:
     def test_a_one_off_needs_an_amount(self) -> None:
         with pytest.raises(ValueError, match="needs an amount"):
             ScenarioDelta(kind=ScenarioDeltaKind.ONE_OFF, label="Car", start_date=TODAY)
+
+    def test_a_percentage_belongs_to_an_income_change_alone(self) -> None:
+        """Ignoring it would apply half the delta and say nothing about the rest."""
+        for kind in (ScenarioDeltaKind.ONE_OFF, ScenarioDeltaKind.RECURRING):
+            with pytest.raises(ValueError, match="not a percentage"):
+                ScenarioDelta(
+                    kind=kind,
+                    label="Car",
+                    start_date=TODAY,
+                    amount=Decimal("-40000"),
+                    percent=Decimal("-30"),
+                    cadence=RecurrenceFrequency.MONTHLY,
+                )
+
+    def test_only_a_recurring_delta_carries_a_cadence(self) -> None:
+        for kind in (ScenarioDeltaKind.ONE_OFF, ScenarioDeltaKind.INCOME_CHANGE):
+            with pytest.raises(ValueError, match="no cadence"):
+                ScenarioDelta(
+                    kind=kind,
+                    label="Car",
+                    start_date=TODAY,
+                    amount=Decimal("-40000"),
+                    cadence=RecurrenceFrequency.MONTHLY,
+                )
 
     def test_income_cannot_fall_by_more_than_everything(self) -> None:
         with pytest.raises(ValueError, match="more than 100"):
@@ -585,3 +610,28 @@ class TestSimulate:
         # that is allowed to be missing.
         assert simulation.verdict.balance_after == Decimal("0.00")
         assert simulation.verdict.balance_before == Decimal("1000.00")
+
+
+class TestChartPins:
+    def test_one_pin_per_delta_in_the_order_they_were_added(self) -> None:
+        """A recurring delta must not use up the budget a later one needs."""
+        shifts = compile_deltas(
+            [
+                _recurring("-300", TODAY, label="Gym"),
+                _one_off("-40000", datetime.date(2026, 6, 1), label="Car"),
+            ],
+            monthly_income=Decimal("5000"),
+            horizon_start=TODAY,
+            horizon_end=HORIZON_END,
+        )
+        assert len(shifts) == 13, "twelve gym payments and one car"
+
+        pins = first_occurrences(shifts)
+
+        assert [(p.label, p.date) for p in pins] == [
+            ("Gym", TODAY),
+            ("Car", datetime.date(2026, 6, 1)),
+        ]
+
+    def test_no_deltas_pin_nothing(self) -> None:
+        assert first_occurrences([]) == []

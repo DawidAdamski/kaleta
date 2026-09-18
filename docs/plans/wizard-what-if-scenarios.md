@@ -202,6 +202,10 @@ local `notify_error`, carrying the reason — the way
 `views/budget_plan/dialogs.py` already does. Swap it back to the house rule
 once the helper is fixed.
 
+**Not yet filed.** Opening the issue is the maintainer's call, not this
+branch's — flagged in the PR description so the workaround does not quietly
+become permanent.
+
 ### Review findings addressed
 
 - **Removed assertions in `tests/unit/views/test_wizard_index.py`** (gate
@@ -221,6 +225,14 @@ once the helper is fixed.
 - **`TRAILING_WINDOW_MONTHS`** is now a shared constant in
   `reserve_fund_service`, so the burn and the income compared against it
   cannot drift onto different numbers of months.
+- **One chart pin per delta**, not the first six events. A recurring delta
+  compiles to a dozen dated withdrawals and used up the whole budget, leaving
+  a later car purchase unmarked (`first_occurrences`).
+- **`monthly_amount` resolves percent → amount in one place.** Written twice,
+  the chart and the "Monthly cashflow" figure would eventually disagree.
+- **The schema rejects a field the kind cannot use** — `percent` on a one-off
+  or recurring delta, `cadence` on either of the others. Ignoring it silently
+  would apply half a delta and say nothing about the rest.
 - **The amount field carries the sign convention** ("Amount (negative takes
   money out)"), so typing `50000` for a car is not silently a windfall. A
   full expense/income toggle would widen the builder past the plan.

@@ -61,13 +61,25 @@ class ScenarioDelta(BaseModel):
 
     @model_validator(mode="after")
     def _check_shape(self) -> ScenarioDelta:
+        """Reject a delta that carries a field its kind cannot use.
+
+        Silently ignoring an extra ``percent`` or ``cadence`` would let a
+        caller believe a scenario it never built: "40,000 off, −30%" would
+        apply only the 40,000, and say nothing about the rest.
+        """
         if self.kind is ScenarioDeltaKind.INCOME_CHANGE:
             if (self.amount is None) == (self.percent is None):
                 raise ValueError("An income change needs exactly one of amount or percent")
-        elif self.amount is None:
-            raise ValueError(f"A {self.kind.value} delta needs an amount")
-        if self.kind is ScenarioDeltaKind.RECURRING and self.cadence is None:
-            raise ValueError("A recurring delta needs a cadence")
+        else:
+            if self.amount is None:
+                raise ValueError(f"A {self.kind.value} delta needs an amount")
+            if self.percent is not None:
+                raise ValueError(f"A {self.kind.value} delta is an amount, not a percentage")
+        if self.kind is ScenarioDeltaKind.RECURRING:
+            if self.cadence is None:
+                raise ValueError("A recurring delta needs a cadence")
+        elif self.cadence is not None:
+            raise ValueError(f"A {self.kind.value} delta does not repeat, so it has no cadence")
         if self.percent is not None and self.percent <= Decimal("-100"):
             raise ValueError("Income cannot fall by more than 100%")
         return self
