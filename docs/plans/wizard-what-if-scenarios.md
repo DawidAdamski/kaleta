@@ -216,7 +216,9 @@ become permanent.
   a `WizardStep` built by hand, so it keeps holding for the next routine
   added to `_STEPS` before its page exists, and a new
   `test_every_routine_now_has_a_page` records the new fact. Nothing was
-  loosened: the file went from 5 assertions to 6.
+  loosened: the file went from 5 assertions to 7, and the surviving
+  `all(... if not s.is_open)` — which now iterates an empty list and can never
+  fail — was replaced by a positive `is_open` case on a hand-built step.
 - **`_runway_after` no longer takes `monthly_income`** — it was dead state,
   and its own docstring explained why it was ignored.
 - **The months→days horizon rule moved to `scenario_service.horizon_days`**,
@@ -227,7 +229,17 @@ become permanent.
   cannot drift onto different numbers of months.
 - **One chart pin per delta**, not the first six events. A recurring delta
   compiles to a dozen dated withdrawals and used up the whole budget, leaving
-  a later car purchase unmarked (`first_occurrences`).
+  a later car purchase unmarked. The first fix deduped by label, which
+  collapsed two deltas that both took the dialog's default name; pins are now
+  built per delta by `compile_delta`, so they are right by construction
+  (`ScenarioSimulation.pins`).
+- **Both runway figures divide once.** The panel's `emergency_cover` sums each
+  fund's months *after* rounding each to a tenth, so two funds at 1.04 months
+  read 2.0 there while one division of the total reads 2.1 — and with no
+  deltas at all the verdict showed a change. Both ends of the pair now go
+  through `ScenarioService._runway`, which makes them comparable; the Safety
+  Funds headline stays that panel's to define. Covered by a two-fund
+  no-deltas invariant test.
 - **`monthly_amount` resolves percent → amount in one place.** Written twice,
   the chart and the "Monthly cashflow" figure would eventually disagree.
 - **The schema rejects a field the kind cannot use** — `percent` on a one-off
@@ -236,6 +248,17 @@ become permanent.
 - **The amount field carries the sign convention** ("Amount (negative takes
   money out)"), so typing `50000` for a car is not silently a windfall. A
   full expense/income toggle would widen the builder past the plan.
+
+### Beyond the plan's touchpoints
+
+`reserve_fund_service` is listed as "runway maths — read only". Three changes
+landed in it anyway, all so the simulator could borrow the definition instead
+of copying it: `_trailing_monthly_expense` became public, `emergency_progress`
+was factored out of `emergency_cover_months` (same result, balances exposed),
+and `TRAILING_WINDOW_MONTHS` replaced a bare `/ 3`. No behaviour changed —
+`emergency_cover_months` returns exactly what it did — and the existing
+reserve-fund unit and e2e tests pass unchanged. Flagged for the reviewer
+rather than buried.
 
 ### Not done, on purpose
 

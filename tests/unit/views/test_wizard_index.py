@@ -49,7 +49,9 @@ class TestOrderedSteps:
         """
         unbuilt = WizardStep(icon="science", key="not_built_yet", section="budget", route=None)
         assert unbuilt.is_open is False
-        assert all(s.route is None for s in ordered_steps() if not s.is_open)
+        assert WizardStep(
+            icon="science", key="built", section="budget", route="/wizard/scenarios"
+        ).is_open
 
     def test_every_routine_now_has_a_page(self) -> None:
         """The index stopped being a roadmap when the what-if panel landed."""

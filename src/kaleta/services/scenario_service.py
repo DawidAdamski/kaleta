@@ -106,21 +106,21 @@ def monthly_amount(delta: ScenarioDelta, monthly_income: Decimal) -> Decimal:
     return monthly_income * (delta.percent or Decimal("0")) / Decimal("100")
 
 
-def compile_deltas(
-    deltas: list[ScenarioDelta],
+def compile_delta(
+    delta: ScenarioDelta,
     *,
     monthly_income: Decimal,
     horizon_start: datetime.date,
     horizon_end: datetime.date,
 ) -> list[ScenarioShift]:
-    """Turn typed deltas into the dated cash events the forecast understands.
+    """One delta's dated cash events, in the order they happen.
 
     *monthly_income* is what a percentage income change is read against: the
     balance series records what is left over, never what came in, so a
     "−30%" has no meaning without it.
 
-    *horizon_start* is the forecast's **first** point, and every delta starts
-    no earlier. ``apply_scenarios`` keys its deltas by exact date, so an event
+    *horizon_start* is the forecast's **first** point, and the delta starts no
+    earlier. ``apply_scenarios`` keys its deltas by exact date, so an event
     dated before the forecast begins moves nothing at all — and the forecast
     begins the day after the last transaction, which on an account used today
     is tomorrow. Without the clamp, the panel's own default date ("today")
@@ -129,43 +129,53 @@ def compile_deltas(
     Events past *horizon_end* are not emitted — they would be dropped by
     ``apply_scenarios`` anyway, and generating them first only costs time.
     """
+    start = max(delta.start_date, horizon_start)
+
+    if delta.kind is ScenarioDeltaKind.ONE_OFF:
+        if start > horizon_end or delta.amount is None:
+            return []
+        return [ScenarioShift(label=delta.label, date=start, amount=float(delta.amount))]
+
+    if delta.kind is ScenarioDeltaKind.INCOME_CHANGE:
+        # An income change is a monthly rate change, so it compiles the same
+        # way a monthly recurring delta does — once the percentage has been
+        # read against real income.
+        per_occurrence = monthly_amount(delta, monthly_income)
+        cadence = RecurrenceFrequency.MONTHLY
+    else:
+        per_occurrence = delta.amount or Decimal("0")
+        cadence = delta.cadence or RecurrenceFrequency.MONTHLY
+
+    if per_occurrence == 0:
+        return []
+
+    amount = float(per_occurrence.quantize(_CENTS, rounding=ROUND_HALF_UP))
     shifts: list[ScenarioShift] = []
-    for delta in deltas:
-        start = max(delta.start_date, horizon_start)
-
-        if delta.kind is ScenarioDeltaKind.ONE_OFF:
-            if start <= horizon_end and delta.amount is not None:
-                shifts.append(
-                    ScenarioShift(
-                        label=delta.label,
-                        date=start,
-                        amount=float(delta.amount),
-                    )
-                )
-            continue
-
-        if delta.kind is ScenarioDeltaKind.INCOME_CHANGE:
-            # An income change is a monthly rate change, so it compiles the
-            # same way a monthly recurring delta does — once the percentage
-            # has been read against real income.
-            per_occurrence = monthly_amount(delta, monthly_income)
-            cadence = RecurrenceFrequency.MONTHLY
-        else:
-            per_occurrence = delta.amount or Decimal("0")
-            cadence = delta.cadence or RecurrenceFrequency.MONTHLY
-
-        if per_occurrence == 0:
-            continue
-
-        amount = float(per_occurrence.quantize(_CENTS, rounding=ROUND_HALF_UP))
-        day: datetime.date | None = start
-        emitted = 0
-        while day is not None and day <= horizon_end and emitted < _MAX_OCCURRENCES:
-            shifts.append(ScenarioShift(label=delta.label, date=day, amount=amount))
-            emitted += 1
-            day = _step(day, cadence)
-
+    day: datetime.date | None = start
+    while day is not None and day <= horizon_end and len(shifts) < _MAX_OCCURRENCES:
+        shifts.append(ScenarioShift(label=delta.label, date=day, amount=amount))
+        day = _step(day, cadence)
     return shifts
+
+
+def compile_deltas(
+    deltas: list[ScenarioDelta],
+    *,
+    monthly_income: Decimal,
+    horizon_start: datetime.date,
+    horizon_end: datetime.date,
+) -> list[ScenarioShift]:
+    """Every delta's events, flattened. See :func:`compile_delta`."""
+    return [
+        shift
+        for delta in deltas
+        for shift in compile_delta(
+            delta,
+            monthly_income=monthly_income,
+            horizon_start=horizon_start,
+            horizon_end=horizon_end,
+        )
+    ]
 
 
 def monthly_cashflow_delta(deltas: list[ScenarioDelta], *, monthly_income: Decimal) -> Decimal:
@@ -184,23 +194,6 @@ def monthly_cashflow_delta(deltas: list[ScenarioDelta], *, monthly_income: Decim
         elif delta.cadence is not None and delta.amount is not None:
             total += delta.amount * occurrences_per_month(delta.cadence)
     return total.quantize(_CENTS, rounding=ROUND_HALF_UP)
-
-
-def first_occurrences(shifts: list[ScenarioShift]) -> list[ScenarioShift]:
-    """The first event of each delta, in the order the deltas were added.
-
-    What the chart pins. Taking the first *n* events instead would let one
-    recurring delta — a dozen dated withdrawals — use up the whole budget and
-    leave a later car purchase with no marker at all. One pin per delta says
-    the same thing in less ink: the line itself carries the repetitions.
-    """
-    seen: set[str] = set()
-    firsts: list[ScenarioShift] = []
-    for shift in shifts:
-        if shift.label not in seen:
-            seen.add(shift.label)
-            firsts.append(shift)
-    return firsts
 
 
 def first_negative_date(result: ForecastResult) -> datetime.date | None:
@@ -223,6 +216,12 @@ class ScenarioSimulation:
     projected: ForecastResult
     verdict: ScenarioVerdict
     shifts: list[ScenarioShift]
+    #: The first event of each delta, in the order the deltas were added —
+    #: what the chart pins. Built per delta rather than deduped out of
+    #: ``shifts``: two deltas can carry the same label (the dialog falls back
+    #: to a default one when the name is left blank), and one recurring delta
+    #: would otherwise use up a budget a later purchase needs.
+    pins: list[ScenarioShift]
 
 
 class ScenarioService:
@@ -280,22 +279,32 @@ class ScenarioService:
         horizon_end = baseline.forecast[-1].date if baseline.forecast else ref
 
         monthly_income = await self.trailing_monthly_income(account_id=account_id, today=ref)
-        shifts = compile_deltas(
-            deltas,
-            monthly_income=monthly_income,
-            horizon_start=horizon_start,
-            horizon_end=horizon_end,
-        )
+        per_delta = [
+            compile_delta(
+                delta,
+                monthly_income=monthly_income,
+                horizon_start=horizon_start,
+                horizon_end=horizon_end,
+            )
+            for delta in deltas
+        ]
+        shifts = [shift for group in per_delta for shift in group]
+        pins = [group[0] for group in per_delta if group]
         projected = apply_scenarios(baseline, shifts)
 
         funds = ReserveFundService(self.session)
-        # Balances as well as the ratio: recovering a balance from a figure
-        # already rounded to a tenth of a month loses up to 0.05 × burn, which
-        # a small purchase would then shift by the wrong amount.
+        # The balances, not the panel's cover figure. That figure sums each
+        # fund's months *after* rounding each to a tenth, so with two funds at
+        # 1.04 months it reads 2.0 while one division of the total reads 2.1 —
+        # and "before" and "after" would then differ with no delta at all.
+        # Both ends of the pair go through `_runway`, so they are comparable;
+        # the panel's own headline stays the panel's to define.
         emergency = await funds.emergency_progress(today=ref)
-        runway_before = ReserveFundService.emergency_cover(emergency)
         fund_balance = sum((f.current_balance for f in emergency), Decimal("0"))
         burn = await funds.trailing_monthly_expense(today=ref)
+        # No emergency fund at all means there is no answer to give, which is
+        # not the same as a fund holding nothing.
+        runway_before = self._runway(fund_balance, burn) if emergency else None
 
         verdict = ScenarioVerdict(
             monthly_delta=monthly_cashflow_delta(deltas, monthly_income=monthly_income),
@@ -304,8 +313,6 @@ class ScenarioService:
             first_negative_before=first_negative_date(baseline),
             first_negative_after=first_negative_date(projected),
             runway_before=runway_before,
-            # ``None`` means "no answer to give" — no emergency fund, or no
-            # spending to measure one against. A scenario cannot conjure one.
             runway_after=(
                 None
                 if runway_before is None
@@ -313,7 +320,7 @@ class ScenarioService:
             ),
         )
         return ScenarioSimulation(
-            baseline=baseline, projected=projected, verdict=verdict, shifts=shifts
+            baseline=baseline, projected=projected, verdict=verdict, shifts=shifts, pins=pins
         )
 
     @staticmethod
@@ -363,8 +370,19 @@ class ScenarioService:
             Decimal("0"),
         )
 
-        balance_after = max(balance - spent, Decimal("0"))
-        return (balance_after / (burn + extra_burn)).quantize(_TENTHS, rounding=ROUND_HALF_UP)
+        return ScenarioService._runway(balance - spent, burn + extra_burn)
+
+    @staticmethod
+    def _runway(balance: Decimal, burn: Decimal) -> Decimal | None:
+        """``balance ÷ burn``, in months. ``None`` when nothing was spent.
+
+        Both ends of the before/after pair go through here, so the pair is
+        always comparable: a scenario that changes neither figure's inputs
+        cannot make them differ.
+        """
+        if burn <= 0:
+            return None
+        return (max(balance, Decimal("0")) / burn).quantize(_TENTHS, rounding=ROUND_HALF_UP)
 
 
 __all__ = [
@@ -372,9 +390,9 @@ __all__ = [
     "MAX_HORIZON_MONTHS",
     "ScenarioService",
     "ScenarioSimulation",
+    "compile_delta",
     "compile_deltas",
     "first_negative_date",
-    "first_occurrences",
     "horizon_days",
     "monthly_amount",
     "monthly_cashflow_delta",

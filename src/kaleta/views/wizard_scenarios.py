@@ -26,7 +26,6 @@ from kaleta.services.scenario_service import (
     MAX_HORIZON_MONTHS,
     ScenarioService,
     ScenarioSimulation,
-    first_occurrences,
     horizon_days,
 )
 from kaleta.views.components.forecast_chart import forecast_chart
@@ -51,8 +50,8 @@ _FORECAST_URL = "/forecast"
 _SAFETY_FUNDS_URL = "/wizard/safety-funds"
 
 #: How many deltas get a marker on the chart. One pin each (see
-#: ``first_occurrences``); past half a dozen the chart is more label than
-#: line, and the delta list below already names them all.
+#: ``ScenarioSimulation.pins``); past half a dozen the chart is more label
+#: than line, and the delta list below already names them all.
 _MAX_PINS = 6
 
 #: The horizons offered, in months. Presets rather than a typed number: the
@@ -361,7 +360,7 @@ def register() -> None:
                         # Without deltas the two lines are identical, and a
                         # dotted twin under the prediction only reads as noise.
                         baseline=simulation.baseline if deltas else None,
-                        scenarios=first_occurrences(simulation.shifts)[:_MAX_PINS],
+                        scenarios=simulation.pins[:_MAX_PINS],
                     )
                 ).classes("w-full h-96")
                 ui.link(t("scenarios.forecast_link"), _FORECAST_URL).classes(

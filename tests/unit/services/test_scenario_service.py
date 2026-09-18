@@ -24,9 +24,9 @@ from kaleta.schemas.scenario import (
 from kaleta.services.forecast_service import ForecastPoint, ForecastResult, apply_scenarios
 from kaleta.services.scenario_service import (
     ScenarioService,
+    compile_delta,
     compile_deltas,
     first_negative_date,
-    first_occurrences,
     monthly_cashflow_delta,
 )
 
@@ -590,7 +590,72 @@ class TestTrailingIncome:
 
 
 class TestSimulate:
-    """The whole pass, end to end, on an empty ledger."""
+    """The whole pass, end to end, against a real session."""
+
+    @staticmethod
+    async def _seed_emergency_fund(session: Any, *, name: str, balance: str) -> None:
+        """One emergency fund, backed by an account holding *balance*."""
+        from kaleta.models.account import Account
+        from kaleta.models.reserve_fund import (
+            ReserveFund,
+            ReserveFundBackingMode,
+            ReserveFundKind,
+        )
+
+        s: Any = session
+        account = Account(name=f"{name} backing", balance=Decimal(balance))
+        s.add(account)
+        await s.flush()
+        s.add(
+            ReserveFund(
+                name=name,
+                kind=ReserveFundKind.EMERGENCY,
+                target_amount=Decimal("100000"),
+                backing_mode=ReserveFundBackingMode.ACCOUNT,
+                backing_account_id=account.id,
+                emergency_multiplier=3,
+            )
+        )
+        await s.flush()
+
+    @staticmethod
+    async def _seed_expense(session: Any, amount: str) -> None:
+        from kaleta.models.account import Account
+        from kaleta.models.transaction import Transaction, TransactionType
+
+        s: Any = session
+        spender = Account(name="Spender", balance=Decimal("0"))
+        s.add(spender)
+        await s.flush()
+        s.add(
+            Transaction(
+                account_id=spender.id,
+                amount=Decimal(amount),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                description="rent",
+            )
+        )
+        await s.flush()
+
+    @pytest.mark.asyncio
+    async def test_two_funds_and_no_deltas_leave_the_runway_untouched(self, session: Any) -> None:
+        """The before/after pair has to be comparable, with any number of funds.
+
+        The panel's own cover figure sums each fund's months *after* rounding
+        each to a tenth, so two funds at 1.04 months read 2.0 there while one
+        division of the total reads 2.1 — and the verdict would show a change
+        no delta caused.
+        """
+        await self._seed_expense(session, "6000")  # 6000 over 90 days → 2000 a month
+        await self._seed_emergency_fund(session, name="Fund A", balance="2080")
+        await self._seed_emergency_fund(session, name="Fund B", balance="2080")
+
+        verdict = (await ScenarioService(session).simulate(_baseline(), [], today=TODAY)).verdict
+
+        assert verdict.runway_before == verdict.runway_after
+        # 4160 / 2000 = 2.08 → 2.1, divided once rather than summed rounded.
+        assert verdict.runway_before == Decimal("2.1")
 
     @pytest.mark.asyncio
     async def test_no_emergency_fund_means_no_runway_to_report(self, session: Any) -> None:
@@ -613,25 +678,59 @@ class TestSimulate:
 
 
 class TestChartPins:
+    """``simulation.pins`` — the first event of each delta, in order."""
+
+    @staticmethod
+    def _pins(deltas: list[ScenarioDelta]) -> list[tuple[str, datetime.date]]:
+        per_delta = [
+            compile_delta(
+                d,
+                monthly_income=Decimal("5000"),
+                horizon_start=TODAY,
+                horizon_end=HORIZON_END,
+            )
+            for d in deltas
+        ]
+        return [(g[0].label, g[0].date) for g in per_delta if g]
+
     def test_one_pin_per_delta_in_the_order_they_were_added(self) -> None:
         """A recurring delta must not use up the budget a later one needs."""
-        shifts = compile_deltas(
-            [
-                _recurring("-300", TODAY, label="Gym"),
-                _one_off("-40000", datetime.date(2026, 6, 1), label="Car"),
-            ],
-            monthly_income=Decimal("5000"),
-            horizon_start=TODAY,
-            horizon_end=HORIZON_END,
-        )
-        assert len(shifts) == 13, "twelve gym payments and one car"
+        deltas = [
+            _recurring("-300", TODAY, label="Gym"),
+            _one_off("-40000", datetime.date(2026, 6, 1), label="Car"),
+        ]
+        assert (
+            len(
+                compile_deltas(
+                    deltas,
+                    monthly_income=Decimal("5000"),
+                    horizon_start=TODAY,
+                    horizon_end=HORIZON_END,
+                )
+            )
+            == 13
+        ), "twelve gym payments and one car"
 
-        pins = first_occurrences(shifts)
-
-        assert [(p.label, p.date) for p in pins] == [
+        assert self._pins(deltas) == [
             ("Gym", TODAY),
             ("Car", datetime.date(2026, 6, 1)),
         ]
 
-    def test_no_deltas_pin_nothing(self) -> None:
-        assert first_occurrences([]) == []
+    def test_two_deltas_sharing_a_label_still_get_a_pin_each(self) -> None:
+        """The dialog falls back to the same default name when one is blank.
+
+        Deduping by label would have collapsed these into one pin and left the
+        second purchase unmarked.
+        """
+        deltas = [
+            _one_off("-1000", datetime.date(2026, 2, 1), label="One-off amount"),
+            _one_off("-2000", datetime.date(2026, 8, 1), label="One-off amount"),
+        ]
+
+        assert self._pins(deltas) == [
+            ("One-off amount", datetime.date(2026, 2, 1)),
+            ("One-off amount", datetime.date(2026, 8, 1)),
+        ]
+
+    def test_a_delta_that_emits_nothing_gets_no_pin(self) -> None:
+        assert self._pins([_one_off("-500", datetime.date(2030, 1, 1))]) == []
