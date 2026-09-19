@@ -23,6 +23,10 @@ def search_ledger(page: Page, text: str) -> None:
     search.click(click_count=3)
     search.fill(text)
     page.keyboard.press("Escape")
+    # The chip's menu overlays the table it filtered. A test that clicks a row
+    # straight after typing can land on the menu instead and wait out the
+    # actionability timeout, so the rows are not touchable until it is gone.
+    expect(page.locator(".q-menu")).to_have_count(0, timeout=10000)
 
 
 def pick_open_menu_option(page: Page, option: str) -> None:

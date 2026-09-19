@@ -1841,6 +1841,16 @@ Feature: Planned and Recurring Transactions
     And it offers to open the Planned Transactions page
     And the regular transaction editor does not open
 
+  KAL-PLN-025 @automated
+  Scenario: An upcoming row whose plan has since been deleted says so
+    Given "Show upcoming planned transactions" is set to "7 days"
+    And there is an active planned weekly expense "Netflix" due in 3 days
+    And I am on the Transactions page
+    When the plan is deleted elsewhere
+    And I click the "Netflix" upcoming row
+    Then I am told the planned transaction no longer exists
+    And no detail dialog opens
+
   KAL-PLN-023 @automated
   Scenario: An occurrence already posted is not promised a second time
     Given there is an active planned monthly expense "Rent" of 2500 due on the 5th

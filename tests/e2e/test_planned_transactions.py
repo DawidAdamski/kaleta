@@ -13,7 +13,12 @@ import re
 from playwright.sync_api import Page, expect
 
 from tests.e2e.ledger import filter_ledger_by_account, search_ledger
-from tests.e2e.seed_helpers import seed_account, seed_category, seed_planned_transaction
+from tests.e2e.seed_helpers import (
+    delete_planned_transaction,
+    seed_account,
+    seed_category,
+    seed_planned_transaction,
+)
 
 # ---------------------------------------------------------------------------
 # Scenario: Create a monthly recurring expense
@@ -385,6 +390,33 @@ def test_clicking_an_upcoming_row_opens_the_plan_behind_it(page: Page, base_url:
     dialog.get_by_role("button", name="Open in Planned Transactions").click()
     page.wait_for_url(lambda url: url.endswith("/planned"), timeout=10000)
     expect(page.get_by_text("Netflix Click Test").first).to_be_visible(timeout=10000)
+
+
+def test_a_row_whose_plan_is_gone_says_so(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-025"""
+    acc_id = seed_account("PKO Main Upcoming Stale")
+    plan_id = seed_planned_transaction(
+        name="Netflix Stale Test",
+        amount=49,
+        account_id=acc_id,
+        frequency="weekly",
+        start_date=datetime.date.today() + datetime.timedelta(days=3),
+    )
+
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, "Netflix Stale Test")
+    row = _ledger_row(page, "Netflix Stale Test")
+    expect(row).to_have_count(1, timeout=10000)
+
+    # The plan goes while the row is still on screen — the click that follows
+    # has nothing left to open.
+    assert delete_planned_transaction(plan_id) is True
+
+    row.click()
+    expect(page.get_by_text("That planned transaction no longer exists.").first).to_be_visible(
+        timeout=5000
+    )
+    expect(page.get_by_text("Upcoming planned transaction", exact=True)).to_have_count(0)
 
 
 # ---------------------------------------------------------------------------

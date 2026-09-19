@@ -222,7 +222,8 @@ Out of scope:
   not change.
 - A plan deleted between the page being drawn and the row being clicked now
   raises a toast (`transactions.planned_gone`) instead of a click that does
-  nothing.
+  nothing. KAL-PLN-025 stages exactly that race, deleting the plan behind the
+  browser's back through the new `delete_planned_transaction` seed helper.
 - A group made only of upcoming rows shows no net at all rather than `0.00`:
   `0.00` would claim the month came out even, which is a different statement
   from "nothing is recorded in it yet". A group of transfers still reads
@@ -264,11 +265,24 @@ Out of scope:
   alone rather than crippled to match — worth an inbox line if the ledger's
   own search is ever made Unicode-aware.
 
+- `search_ledger` now waits for the filter chip's menu to close before it
+  returns. The menu overlays the table it just filtered, so a test that clicks
+  a row straight after typing could land on the menu and wait out Playwright's
+  actionability timeout. KAL-PLN-022 and KAL-PLN-025 both click a row, and
+  KAL-PLN-025 caught it intermittently.
+
 ### Verification
 
 `./scripts/verify.sh --e2e` green on the branch: ruff, ruff format, mypy,
-import-linter (4 contracts kept), 2283 unit + integration tests, spec coverage
-(323 scenarios, 204 covered), doc links, SPDX, and 159 e2e.
+import-linter (4 contracts kept), 2292 unit + integration tests, spec coverage
+(324 scenarios, 205 covered), doc links, SPDX, and 160 e2e. The e2e suite was
+then run three more times end to end, all green, to confirm the
+`search_ledger` fix above settled the flake it exposed.
+
+Note on the local environment: the e2e suite assumes `uv sync --group dev`.
+With the optional `forecast` extra also installed, six `test_forecast.py`
+scenarios and `test_wizard_scenarios.py::test_the_panel_works_without_prophet`
+fail on `main` too — that last one asserts the extra is *absent*.
 
 ### BDD
 
