@@ -222,6 +222,13 @@ gets accepted or sent back.
   the class had `--k-surface-sunken`. The height is a modifier
   (`.k-split--hero`, 9px on a 5px radius) because `3b` draws the same bar at
   12px on 6px.
+- **`chart_utils.py`, outside the Touchpoints list.** `1c` draws the
+  cashflow net line in `--k-accent-light` (`#DE7B45`), a shade up from the
+  accent a surface is filled with, and its symbols paper-filled — so
+  `CHART_ACCENT_SERIES`, `CHART_SURFACE` and two helpers were added there.
+  Dark has one apricot, so `chart_series_accent_color` and
+  `chart_accent_color` agree in `1d`. Nothing that already read
+  `chart_accent_color` changed.
 - **`KAL-NAV-009`, new.** The avatar's menu holds log out and "close
   database", which had buttons of their own; a menu is where that behaviour
   now lives, so it gets a scenario and an e2e test rather than being a

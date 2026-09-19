@@ -126,16 +126,35 @@ def test_the_drawer_collapses_to_a_rail_and_stays_one(page: Page, base_url: str)
 def test_settings_offers_the_same_drawer_choice(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-007
 
-    The header's chevron flips `sidebar_mini` for now; Settings - Appearance
-    is where it is chosen as a default, and the two read the same key.
+    The header's chevron and Settings - Appearance write the same
+    `sidebar_mini` key, so choosing "Collapsed" here has to reach the drawer
+    on the next page. Asserting the toggle is on screen says nothing about
+    that wiring: `set_user_key("sidebar_mini", ...)` is the whole claim.
     """
     _open_desktop(page, base_url, "/settings")
     page.get_by_role("tab", name="Appearance").click()
 
-    card = page.get_by_text("Sidebar", exact=True)
-    expect(card).to_be_visible(timeout=10000)
-    expect(page.get_by_role("button", name="Expanded")).to_be_visible()
-    expect(page.get_by_role("button", name="Collapsed")).to_be_visible()
+    expect(page.get_by_text("Sidebar", exact=True)).to_be_visible(timeout=10000)
+    collapsed = page.get_by_role("button", name="Collapsed")
+    expanded = page.get_by_role("button", name="Expanded")
+    expect(collapsed).to_be_visible()
+    expect(expanded).to_be_visible()
+
+    collapsed.click()
+    # The toggle saves and toasts; the drawer it is choosing for is the next
+    # page's, so that is where the choice has to show up.
+    expect(page.get_by_text("Settings saved.").first).to_be_visible(timeout=10000)
+    _open_desktop(page, base_url)
+    expect(page.locator(".q-drawer--mini")).to_have_count(1, timeout=10000)
+    _wait_for_drawer_width(page, MINI_WIDTH)
+
+    # …and back, so the files after this one find the drawer expanded.
+    _open_desktop(page, base_url, "/settings")
+    page.get_by_role("tab", name="Appearance").click()
+    page.get_by_role("button", name="Expanded").click()
+    expect(page.get_by_text("Settings saved.").first).to_be_visible(timeout=10000)
+    _open_desktop(page, base_url)
+    _wait_for_drawer_width(page, DRAWER_WIDTH)
 
 
 def test_the_avatar_menu_carries_the_account_actions(page: Page, base_url: str) -> None:

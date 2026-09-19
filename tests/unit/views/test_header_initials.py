@@ -23,6 +23,11 @@ from kaleta.views.layout import _initials
         ("a.b.c", "AB"),
         ("DAWID", "DA"),
         ("user42", "US"),
+        # This is a Polish app: an ASCII-only class read "Ł" as a separator
+        # and put "UK" on the disc.
+        ("Łukasz", "ŁU"),
+        ("Żaneta Kowalska", "ŻK"),
+        ("żółw", "ŻÓ"),
     ],
 )
 def test_initials_read_the_account_name(username: str, expected: str) -> None:

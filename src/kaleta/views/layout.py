@@ -266,14 +266,18 @@ def _build_palette() -> Callable[[], None]:
 
 
 def _initials(username: str) -> str:
-    """Up to two letters for the header's avatar disc, as the artboards draw it.
+    r"""Up to two letters for the header's avatar disc, as the artboards draw it.
 
     A single account name, not a person's two — so "demo" reads "DE" and
     "dawid.adamski" reads "DA": the first letter of each of the first two
     word-ish parts, upper-cased. An empty name falls back to the app's own
     letter rather than an empty disc.
+
+    ``[\W_]+`` rather than ``[^0-9A-Za-z]+``: ``\W`` is unicode-aware, and
+    this is a Polish app — an ASCII class reads "Łukasz" as a separator
+    followed by "ukasz" and puts "UK" on the disc.
     """
-    parts = [part for part in re.split(r"[^0-9A-Za-z]+", username) if part]
+    parts = [part for part in re.split(r"[\W_]+", username, flags=re.UNICODE) if part]
     if not parts:
         return "K"
     if len(parts) == 1:

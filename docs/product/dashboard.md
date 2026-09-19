@@ -166,6 +166,12 @@ stored layout does not carry it, so the phone always leads with the one
 figure it exists to answer; a profile that *has* ticked it on gets it
 once, not twice.
 
+That cuts both ways, and deliberately: **unticking the hero in Customize
+does not take it off the phone.** The stored layout is the desktop grid's,
+where the hero is off by default, so "absent" there cannot be read as "the
+user said no" — it is what every profile looks like. The phone is the one
+width at which this figure is the page's answer, and it leads with it.
+
 ## Navigation
 
 Below 768px: a bottom tab bar carrying Home, Ledger, Add, Plan and More

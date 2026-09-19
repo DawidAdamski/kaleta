@@ -86,8 +86,11 @@ async def render_recent_transactions(session: AsyncSession, is_dark: bool) -> No
         ]
         rows = [
             {
-                # "09-26": the year is the same six times over in a card
-                # showing the last ten movements.
+                # "09-26", as the artboard sets it. The year goes: ten rows
+                # of the same four digits, in a card whose whole claim is
+                # that these are the *recent* ones. A ledger quiet enough
+                # for ten rows to cross a new year is the case this costs,
+                # and "View all" is one click away with the full date on it.
                 "date": tx.date.strftime("%m-%d"),
                 "account": tx.account.name if tx.account else "—",
                 "desc": (tx.description or "—")[:45],
