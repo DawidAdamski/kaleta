@@ -3,7 +3,6 @@
 
 from __future__ import annotations
 
-import datetime
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
@@ -21,22 +20,6 @@ _AMOUNT_CLS = "text-xl font-semibold k-mono"
 def _frequency_label(frequency: RecurrenceFrequency, interval: int) -> str:
     base = t(f"planned.freq_{frequency.value}")
     return base if interval == 1 else f"{t('planned.every')} {interval} × {base}"
-
-
-def parse_planned_row_key(row_key: str) -> tuple[int, datetime.date] | None:
-    """Split a planned row's ``planned:<id>:<date>`` key back into its parts.
-
-    The browser sends back whatever the row carried, so a key that is not one
-    of ours — a stale event, a hand-edited payload — has to come back as
-    ``None`` rather than raise inside the click handler.
-    """
-    parts = row_key.split(":") if isinstance(row_key, str) else []
-    if len(parts) != 3 or parts[0] != "planned":
-        return None
-    try:
-        return int(parts[1]), datetime.date.fromisoformat(parts[2])
-    except ValueError:
-        return None
 
 
 @dataclass
@@ -78,7 +61,7 @@ def build_planned_dialog() -> PlannedDialogContext:
             ui.label(value).classes("text-sm")
 
     async def open_for_row_key(event: Any) -> None:
-        parsed = parse_planned_row_key(getattr(event, "args", event))
+        parsed = PlannedTransactionService.parse_planned_row_key(getattr(event, "args", event))
         if parsed is None:
             return
         planned_id, occurrence_date = parsed

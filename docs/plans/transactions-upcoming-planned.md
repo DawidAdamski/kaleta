@@ -116,6 +116,16 @@ Out of scope:
   on top of it (`upcoming_window`, `upcoming_for_ledger`) plus
   the row builder. No post/convert helpers.
 - `src/kaleta/i18n/locales/{en,pl}.json` — new keys.
+- Also touched, all accounted for in Implementation notes:
+  `services/transaction_service.py` (the merge, and the net that
+  skips promises), `views/transactions/planned_dialog.py` (new —
+  the read-only detail dialog),
+  `views/components/transaction_table.py` (the planned row's
+  rendering and its relative-date label),
+  `views/settings/constants.py` + `views/settings/user_prefs.py`
+  (the new key and its reader), `views/theme.py`
+  (`.k-planned-row`, `.k-planned-chip`, `.k-upcoming-when`),
+  and `tests/e2e/ledger.py` (shared filter helpers).
 - `tests/unit/services/test_planned_transaction_service.py`
   and a new `tests/integration/test_transactions_upcoming.py`
   (`tests/integration/` has no `views/` package; the file sits
@@ -222,6 +232,14 @@ Out of scope:
   `tests/e2e/test_transactions.py`, where it was private) and
   `filter_ledger_by_account`. The new account-filter scenario needs the same
   virtual-scroll handling, and a second copy of it would be the worse answer.
+
+- `PlannedTransactionService` imports `TransactionService` for the two amount
+  formatters, so a row's figure is signed and formatted by the one rule the
+  ledger uses. The dependency runs one way only — `TransactionService` knows
+  nothing about plans — so there is no import cycle to break.
+- The `planned:<id>:<date>` row key is built *and* parsed in the service
+  (`planned_row_key` / `parse_planned_row_key`), so the format the browser
+  hands back is defined in one place rather than split across two layers.
 
 ### Verification
 

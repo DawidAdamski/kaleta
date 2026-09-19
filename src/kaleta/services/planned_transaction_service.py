@@ -316,6 +316,32 @@ class PlannedTransactionService:
         ]
 
     @staticmethod
+    def planned_row_key(planned_id: int, occurrence_date: datetime.date) -> str:
+        """The id an upcoming row carries: ``planned:<plan id>:<ISO date>``.
+
+        A string, so it can never be mistaken for a transaction id by anything
+        that deletes or totals by id. Built and parsed in one place, because
+        the browser hands the key straight back on a click.
+        """
+        return f"planned:{planned_id}:{occurrence_date.isoformat()}"
+
+    @staticmethod
+    def parse_planned_row_key(row_key: object) -> tuple[int, datetime.date] | None:
+        """Split a planned row's key back into its parts, or ``None``.
+
+        The browser sends back whatever the row carried, so a key that is not
+        one of ours — a stale event, a hand-edited payload — has to come back
+        as ``None`` rather than raise inside a click handler.
+        """
+        parts = row_key.split(":") if isinstance(row_key, str) else []
+        if len(parts) != 3 or parts[0] != "planned":
+            return None
+        try:
+            return int(parts[1]), datetime.date.fromisoformat(parts[2])
+        except ValueError:
+            return None
+
+    @staticmethod
     def build_upcoming_rows(
         occurrences: builtins.list[PlannedOccurrence],
         today: datetime.date,
@@ -332,7 +358,7 @@ class PlannedTransactionService:
         for occ in occurrences:
             rows.append(
                 {
-                    "id": f"planned:{occ.planned_id}:{occ.date.isoformat()}",
+                    "id": PlannedTransactionService.planned_row_key(occ.planned_id, occ.date),
                     "planned_id": occ.planned_id,
                     "is_planned": True,
                     "days_ahead": (occ.date - today).days,

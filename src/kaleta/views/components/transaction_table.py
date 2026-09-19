@@ -49,6 +49,10 @@ def attach_upcoming_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if days <= 0:
             row["upcoming_label"] = t("transactions.upcoming_today")
         elif days == 1:
+            # "Tomorrow" beats "In 1 day", so the ``_one`` plural form of
+            # ``upcoming_in_days`` is never reached from here. It stays in both
+            # locales because ``plural_key`` can still return it, and a key with
+            # only two of its three forms is the bug that helper exists to stop.
             row["upcoming_label"] = t("transactions.upcoming_tomorrow")
         else:
             row["upcoming_label"] = t(plural_key("transactions.upcoming_in_days", days), days=days)

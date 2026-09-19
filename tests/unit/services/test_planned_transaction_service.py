@@ -929,3 +929,31 @@ class TestUpcomingWindow:
             )
             is None
         )
+
+
+class TestPlannedRowKey:
+    """Covers: KAL-PLN-022"""
+
+    def test_the_key_round_trips(self) -> None:
+        key = PlannedTransactionService.planned_row_key(9, datetime.date(2026, 3, 13))
+        assert key == "planned:9:2026-03-13"
+        assert PlannedTransactionService.parse_planned_row_key(key) == (
+            9,
+            datetime.date(2026, 3, 13),
+        )
+
+    @pytest.mark.parametrize(
+        "row_key",
+        [
+            17,
+            None,
+            "17",
+            "planned:9",
+            "planned:9:2026-03-13:extra",
+            "tx:9:2026-03-13",
+            "planned:nine:2026-03-13",
+            "planned:9:not-a-date",
+        ],
+    )
+    def test_anything_that_is_not_one_of_ours_comes_back_as_none(self, row_key: object) -> None:
+        assert PlannedTransactionService.parse_planned_row_key(row_key) is None
