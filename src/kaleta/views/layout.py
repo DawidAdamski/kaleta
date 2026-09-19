@@ -477,7 +477,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     # opens the drawer on a desktop and leaves it shut on a phone. Forcing it
     # open (`value=True`) covered the whole page below the breakpoint, where
     # the drawer is an overlay and "More" in the tab bar is what opens it.
-    #
     with ui.left_drawer().props(f"{_DRAWER_WIDTH} {_DRAWER_BREAKPOINT}").classes(DRAWER) as drawer:
         if is_mini:
             drawer.props(_MINI_PROPS)

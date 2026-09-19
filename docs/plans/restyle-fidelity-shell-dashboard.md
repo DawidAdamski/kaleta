@@ -233,6 +233,13 @@ gets accepted or sent back.
   database", which had buttons of their own; a menu is where that behaviour
   now lives, so it gets a scenario and an e2e test rather than being a
   silent move.
+- **`KAL-DSH-009`, new — the recent-transactions card drops the year.**
+  Artboard `1c` dates its rows `07-03`, and transcribing the artboard is
+  what this plan is, so the card now reads `%m-%d` where it read the full
+  date. It is a user-facing change and not only a colour, so it is written
+  down as a scenario rather than left in a code comment: the cost is a
+  ledger quiet enough for ten rows to cross a new year, where two Decembers
+  read alike, and "View all" is one click from the full date.
 - **The category pill is filled with `--k-hairline`, not
   `--k-surface-sunken`.** The two are one colour in dark, so only light
   told them apart: `1c` and `2a` both draw the pill `#EDE7DA`, which is the

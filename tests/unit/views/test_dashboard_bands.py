@@ -14,7 +14,12 @@ from kaleta.views.dashboard_widgets import (
     Band,
     bands_for_layout,
 )
-from kaleta.views.dashboard_widgets.registry import LEGACY_KPI_WIDGETS, WIDGETS
+from kaleta.views.dashboard_widgets.registry import (
+    HERO_WIDGET,
+    LEGACY_KPI_WIDGETS,
+    WIDGETS,
+    mobile_layout,
+)
 from kaleta.views.dashboard_widgets.safe_to_spend import days_left_label, hero_split
 
 
@@ -64,12 +69,52 @@ class TestHeroIsAnOrdinaryWidget:
         assert _ids(grouped[Band.NOW]) == ["safe_to_spend"]
 
     def test_a_layout_without_it_does_not_get_one(self) -> None:
-        """It is a default widget, so Customize is what decides — at both
-        widths. Prepending it behind the user's back made the checkbox a lie
-        and let the first drag write it back into storage."""
+        """Banding adds nothing: it groups what the layout names and no more.
+
+        The phone's hero comes from ``mobile_layout``, which runs before
+        this — so a grid built straight off a stored layout stays the
+        layout the user has, and a drag cannot write the hero into it.
+        """
         grouped = bands_for_layout([_entry("cashflow_chart")])
 
         assert grouped[Band.NOW] == []
+
+
+class TestMobileLayout:
+    """Covers: KAL-DSH-007
+
+    The hero is out of the desktop defaults (`KAL-DSH-008`), so the phone
+    has to put it back — once, and at the head.
+    """
+
+    def test_a_layout_without_the_hero_is_given_one_at_its_head(self) -> None:
+        widened = mobile_layout([_entry("cashflow_chart")])
+
+        assert _ids(widened) == [HERO_WIDGET, "cashflow_chart"]
+
+    def test_a_layout_that_already_has_it_is_left_alone(self) -> None:
+        """Whoever ticked it in Customize decides where it sits."""
+        layout = [_entry("cashflow_chart"), _entry(HERO_WIDGET)]
+
+        widened = mobile_layout(layout)
+
+        assert _ids(widened) == ["cashflow_chart", HERO_WIDGET]
+
+    def test_an_empty_layout_is_the_hero_alone(self) -> None:
+        assert _ids(mobile_layout([])) == [HERO_WIDGET]
+
+    def test_the_stored_layout_is_not_mutated(self) -> None:
+        """It is the user's row in the database, not scratch space."""
+        layout = [_entry("cashflow_chart")]
+
+        mobile_layout(layout)
+
+        assert _ids(layout) == ["cashflow_chart"]
+
+    def test_the_hero_is_given_its_registered_size(self) -> None:
+        hero = mobile_layout([])[0]
+
+        assert (hero["cols"], hero["rows"]) == WIDGETS[HERO_WIDGET].default_size
 
 
 class TestWatchRateLabel:
