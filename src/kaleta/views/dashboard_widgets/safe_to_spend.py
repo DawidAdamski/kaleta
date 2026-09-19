@@ -78,7 +78,9 @@ def render_hero(stats: SafeToSpend) -> None:
     the desktop widget draw the same thing from the same data."""
     with ui.column().classes("w-full gap-1"):
         ui.label(t("dashboard.safe_to_spend")).classes("k-eyebrow")
-        hero_figure(stats.free, size="text-[54px] md:text-[64px]")
+        # 46px on a phone, where artboard `1f` sets this hero; the wider
+        # sizes are for a window that has the room.
+        hero_figure(stats.free, size="text-[46px] md:text-[64px]")
         ui.label(days_left_label(stats)).classes(CARD_SUBTITLE)
 
     split = hero_split(stats)

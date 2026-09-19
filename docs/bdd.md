@@ -3258,15 +3258,17 @@ Feature: Workflow-based navigation
     And a 900 pixel window navigates from the top bar and shows no tab bar
 
   KAL-NAV-007 @automated
-  Scenario: A top bar replaces the sidebar on a wide viewport
+  Scenario: The sidebar is docked on a wide viewport and remembers its width
     Given I am signed in
     When I open any page on a 1360 pixel wide viewport
-    Then the top bar shows Dashboard and Financial Wizard, then five sections
-    And the sidebar is not on the page
-    And the section holding the page I am on is marked
-    And opening a section and choosing an entry navigates to that page
-    And at 768 pixels, the width it takes over at, the bar still reads on one line
-    And the browser tab carries the page's name, which the header no longer shows
+    Then the sidebar stands beside the page, 236 pixels wide, without covering it
+    And the entry for the page I am on is marked
+    And the header reads the wordmark, a divider and the page's name
+    And the browser tab carries the page's name too
+    And there is no tab bar
+    When I collapse the sidebar from the header
+    Then it narrows to a 64 pixel rail of icons
+    And it is still a rail after I load another page
 
   KAL-NAV-008 @automated
   Scenario: The command palette reaches any page by name
@@ -3357,14 +3359,17 @@ Feature: Dashboard Customization
     And a 1360 pixel window still gets the widget grid and no tab bar
 
   KAL-DSH-008 @automated
-  Scenario: The desktop dashboard reads in bands and only the Month band drags
+  Scenario: The desktop dashboard is one grid, and all of it drags
     Given I am signed in on a 1360 pixel wide viewport
     When I open the dashboard
-    Then the page reads Now, This month, Watch and Latest in that order
-    And the safe-to-spend hero leads the Now band
-    And the widget grid holds the Month band's widgets and no others
-    And the hero and the Latest list are outside that grid, so nothing drags them
-    And the Month band's own header is what turns editing on
+    Then every widget I have enabled is inside one grid
+    And there are no bands
+    And the page leads with the Total balance and This month cards side by side,
+      then the full-width "Needs attention" banner
+    And the title row carries Edit layout beside Customize
+    And clicking Edit layout unlocks dragging for the whole grid
+    And the safe-to-spend hero is not there, because it is the phone's answer
+      and Customize is what adds it
 ```
 
 ## Feature: Wizard Action Items

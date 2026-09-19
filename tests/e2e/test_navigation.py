@@ -7,11 +7,11 @@ Guards the Phase A regroup from docs/ux/feature-categorization-audit.md:
 pinned Dashboard/Wizard entries, workflow groups, Setup collapsed by
 default, and every sidebar entry routing to its page.
 
-All of it now runs at phone width. Artboard `1e` made the top bar the
-desktop navigation and left the drawer as the phone's long tail, opened
-by the tab bar's "More" — so the sidebar these scenarios describe is a
-phone sidebar. The desktop bar has its own file,
-``test_dashboard_desktop.py``.
+All of it runs at phone width, where the drawer is an overlay opened by
+the tab bar's "More" — the one width at which every group can be expanded
+and clicked without the click racing a docked drawer's scroll. The same
+entries are what the docked desktop drawer shows; that it is docked, 236px
+and collapsible is KAL-NAV-007, in ``test_dashboard_desktop.py``.
 """
 
 from __future__ import annotations
@@ -79,9 +79,9 @@ def _drawer(page: Page) -> Locator:
 def _open_drawer(page: Page) -> None:
     """Tap "More" and wait for the overlay.
 
-    The drawer is an overlay at every width now, so it has to be asked for
-    before anything in it can be read or clicked — and it closes itself
-    again on navigation, which is why this runs before every click below.
+    Below 768px the drawer is an overlay, so it has to be asked for before
+    anything in it can be read or clicked — and it closes itself again on
+    navigation, which is why this runs before every click below.
     """
     drawer = _drawer(page)
     if drawer.is_visible():
@@ -123,9 +123,9 @@ def _navigated(page: Page, *, timeout: float) -> None:
 
     The URL alone cannot say this. Dashboard routes to ``/`` from ``/``, so
     ``wait_for_url`` returns before the load even starts — and the drawer,
-    an overlay since artboard `1e`, is then opened on a document about to be
-    thrown away, leaving the next click waiting on an element that vanishes
-    under it.
+    an overlay at this width, is then opened on a document about to be thrown
+    away, leaving the next click waiting on an element that vanishes under
+    it.
     """
     page.wait_for_function(f"() => window.{_NAV_PROBE} === undefined", timeout=timeout)
     _connected(page)

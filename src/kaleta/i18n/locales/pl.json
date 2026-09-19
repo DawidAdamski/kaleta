@@ -38,11 +38,6 @@
     "tab_add": "Dodaj",
     "tab_plan": "Plan",
     "tab_more": "Więcej",
-    "section_capture": "Zapis",
-    "section_monthly": "Miesiąc",
-    "section_plans": "Plany",
-    "section_insight": "Analizy",
-    "section_setup": "Ustawienia",
     "palette_open": "Przejdź do…",
     "palette_placeholder": "Przejdź do strony…",
     "palette_empty": "Nie ma takiej strony."
@@ -107,7 +102,8 @@
     "shortcut_new_tx": "Nowa transakcja",
     "shortcut_submit": "Zatwierdź formularz",
     "shortcut_close": "Zamknij dialog",
-    "shortcut_open_help": "Pokaż tę pomoc"
+    "shortcut_open_help": "Pokaż tę pomoc",
+    "toggle_sidebar": "Zwiń / rozwiń menu"
   },
   "dashboard": {
     "title": "Pulpit",
@@ -116,7 +112,7 @@
     "month_expenses": "Wydatki w miesiącu",
     "month_net": "Bilans miesiąca",
     "balance_30": "Saldo za 30 dni",
-    "cashflow_chart": "Przepływy pieniężne — ostatnie 6 miesięcy",
+    "cashflow_chart": "Przepływy, ostatnie 6 miesięcy",
     "recent_transactions": "Ostatnie transakcje",
     "view_all": "Zobacz wszystkie",
     "no_transactions": "Brak transakcji. Naciśnij Ctrl+N, aby dodać.",
@@ -143,12 +139,13 @@
     "watch_safety_cover": "Pokrycie z funduszu awaryjnego",
     "watch_months": "{months} mies.",
     "band_latest": "Ostatnie",
-    "band_edit_month": "Edytuj ten pas"
+    "month_in": "Wpływy",
+    "month_out": "Wydatki"
   },
   "dashboard_widgets": {
     "customize": "Personalizuj",
     "customize_title": "Personalizuj pulpit",
-    "customize_hint": "Włącz lub wyłącz widżety. Użyj „Edytuj ten pas” w pasie „Ten miesiąc”, aby zmienić kolejność. „Przywróć układ” odtwarza rozmiary i kolejność, „Przywróć widżety” przywraca wszystko.",
+    "customize_hint": "Włącz lub wyłącz widżety. Użyj „Edytuj układ”, aby zmienić kolejność. „Przywróć układ” odtwarza rozmiary i kolejność, „Przywróć widżety” przywraca wszystko.",
     "done_editing": "Gotowe",
     "edit_banner": "Edytujesz układ — przeciągaj karty, klikaj ikonę rozmiaru, aby zmienić wielkość. Kliknij „Gotowe”, gdy skończysz.",
     "drag_hint": "Przeciągnij, aby zmienić kolejność",
@@ -215,7 +212,8 @@
     "wizard_actions_empty": "Wszystko gotowe — nic nie wymaga uwagi.",
     "wizard_actions_more": "+{count} więcej",
     "wizard_actions_open": "Otwórz kreator finansowy",
-    "safe_to_spend": "Można wydać"
+    "safe_to_spend": "Można wydać",
+    "edit_layout": "Edytuj układ"
   },
   "wizard_actions": {
     "subscription_renewal_due_title": "Odnowienie {name} jest należne",
@@ -1772,7 +1770,11 @@
     "show_upcoming_hint": "Jak daleko w przód lista Transakcji szuka planowanych wystąpień i pokazuje je nad zaksięgowanymi wierszami.",
     "show_upcoming_off": "Wyłączone",
     "show_upcoming_7": "7 dni",
-    "show_upcoming_30": "30 dni"
+    "show_upcoming_30": "30 dni",
+    "sidebar": "Panel boczny",
+    "sidebar_expanded": "Rozwinięty",
+    "sidebar_collapsed": "Zwinięty",
+    "sidebar_hint": "Stan domyślny przy wejściu na stronę; można nadal przełączać z nagłówka."
   },
   "audit": {
     "title": "Historia zmian",

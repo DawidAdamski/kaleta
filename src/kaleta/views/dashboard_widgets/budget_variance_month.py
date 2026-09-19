@@ -24,6 +24,7 @@ from kaleta.views.theme import (
     BODY_MUTED,
     CARD_SUBTITLE,
     INK,
+    PACE_BAR_ROW,
 )
 
 
@@ -49,7 +50,7 @@ async def render_budget_variance_month(session: AsyncSession, is_dark: bool) -> 
             ui.label(t("dashboard_widgets.all_on_track")).classes(
                 "text-positive text-sm font-medium"
             )
-        with ui.column().classes("w-full gap-3.5 mt-1"):
+        with ui.column().classes("w-full gap-4 mt-1"):
             for row in over:
                 _variance_row(row)
 
@@ -70,8 +71,8 @@ def _variance_row(row: BudgetVarianceRow) -> None:
     with ui.column().classes("w-full gap-1.5"):
         with ui.row().classes("w-full items-baseline justify-between no-wrap gap-3"):
             ui.label(row.category).classes(f"{INK} text-[13px] truncate")
-            ui.label(f"+{fmt_number(row.overspend)}").classes(f"{amount_cls} text-[13px]")
-        with ui.element("div").classes("k-pace w-full"):
+            ui.label(f"+{fmt_number(row.overspend)}").classes(f"k-mono {amount_cls} text-[13px]")
+        with ui.element("div").classes(f"{PACE_BAR_ROW} w-full"):
             ui.element("div").classes("k-pace__fill").style(f"width:100%;background:{colour}")
         ui.label(f"{fmt_amount(row.actual)} / {fmt_amount(row.planned)} · {spent_txt}").classes(
             f"k-mono {CARD_SUBTITLE} text-[11px]"

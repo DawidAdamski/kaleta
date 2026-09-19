@@ -17,22 +17,34 @@ from kaleta.views.chart_utils import (
     apply_dark,
     chart_expense_color,
     chart_income_color,
-    chart_ink_color,
+    chart_series_accent_color,
+    chart_surface_color,
 )
-from kaleta.views.dashboard_widgets.helpers import section_card
 from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.theme import CARD_SUBTITLE, CARD_TITLE, DASH_CARD, LEGEND_DOT, LEGEND_LINE
+
+
+def _month_label(month: MonthCashflow) -> str:
+    """ "Jul" — the axis label artboard `1c` draws, not the ``2026-07`` key.
+
+    ``MonthCashflow.label`` is an identifier: sortable, unambiguous, and four
+    characters of noise repeated six times under a chart whose title already
+    says which six months these are.
+    """
+    return t(f"common.month_short_{month.month}")
 
 
 def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[str, Any]:
     opts: dict[str, Any] = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-        "legend": {
-            "data": [t("common.income"), t("common.expense"), t("dashboard.net")],
-            "bottom": 0,
-        },
-        "grid": {"left": "3%", "right": "4%", "bottom": "12%", "containLabel": True},
-        "xAxis": {"type": "category", "data": [m.label for m in months]},
-        "yAxis": {"type": "value", "axisLabel": {"formatter": "{value} zł"}},
+        # No ECharts legend: artboard `1c` puts the three keys on the card's
+        # title line, which is outside the chart's box — ``_legend`` draws
+        # them there, in the same swatches.
+        "grid": {"left": "3%", "right": "4%", "top": 12, "bottom": 8, "containLabel": True},
+        "xAxis": {"type": "category", "data": [_month_label(m) for m in months]},
+        # No "zł" suffix: the artboard's axis is bare figures, and the card
+        # is already a card about money.
+        "yAxis": {"type": "value"},
         "series": [
             {
                 "name": t("common.income"),
@@ -52,10 +64,16 @@ def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[st
                 "name": t("dashboard.net"),
                 "type": "line",
                 "data": [float(m.net) for m in months],
-                "itemStyle": {"color": chart_ink_color(is_dark)},
-                "lineStyle": {"width": 2},
+                # Paper-filled discs on an accent stroke, as the artboard
+                # draws them — a filled dot at this size reads as a bar.
+                "itemStyle": {
+                    "color": chart_surface_color(is_dark),
+                    "borderColor": chart_series_accent_color(is_dark),
+                    "borderWidth": 2.5,
+                },
+                "lineStyle": {"width": 2.5, "color": chart_series_accent_color(is_dark)},
                 "symbol": "circle",
-                "symbolSize": 6,
+                "symbolSize": 9,
             },
         ],
     }
@@ -71,5 +89,29 @@ def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[st
 )
 async def render_cashflow_chart(session: AsyncSession, is_dark: bool) -> None:
     months = await ReportService(session).cashflow_last_n_months(6)
-    with section_card(t("dashboard.cashflow_chart"), subtitle=t("dashboard_widgets.cashflow_sub")):
-        ui.echart(_build_cashflow_chart(months, is_dark)).classes("w-full h-72")
+    with ui.card().classes(DASH_CARD):
+        with ui.row().classes("w-full items-baseline justify-between gap-4 mb-[18px]"):
+            ui.label(t("dashboard.cashflow_chart")).classes(CARD_TITLE)
+            _legend(is_dark)
+        ui.echart(_build_cashflow_chart(months, is_dark)).classes("w-full h-60")
+
+
+def _legend(is_dark: bool) -> None:
+    """The three keys on the title line, as artboard `1c` draws them.
+
+    Two square swatches and a rule: the net is a line on the chart, so its
+    key is a line here and not a third block.
+    """
+    with ui.row().classes(f"{CARD_SUBTITLE} items-center gap-4 no-wrap"):
+        for label, colour in (
+            (t("common.income"), chart_income_color(is_dark)),
+            (t("common.expense"), chart_expense_color(is_dark)),
+        ):
+            with ui.row().classes("items-center gap-1.5 no-wrap"):
+                ui.element("span").classes(LEGEND_DOT).style(f"background:{colour}")
+                ui.label(label)
+        with ui.row().classes("items-center gap-1.5 no-wrap"):
+            ui.element("span").classes(LEGEND_LINE).style(
+                f"background:{chart_series_accent_color(is_dark)}"
+            )
+            ui.label(t("dashboard.net"))

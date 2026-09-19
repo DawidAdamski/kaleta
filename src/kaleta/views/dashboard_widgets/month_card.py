@@ -28,15 +28,17 @@ from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
+    CARD_CAPTION,
     CARD_SUBTITLE,
     DASH_CARD,
     INK,
+    PACE_BAR_MONTH,
 )
 
 
 def _footer_stat(label: str, value: str) -> None:
     with ui.column().classes("gap-0 min-w-0"):
-        ui.label(label).classes(CARD_SUBTITLE)
+        ui.label(label).classes(CARD_CAPTION)
         ui.label(value).classes(f"k-mono {INK} text-[17px] font-medium")
 
 
@@ -48,7 +50,7 @@ def _figure(label: str, value: str, amount_cls: str) -> None:
     ``min-w-0`` alone the third one simply hung over the edge. Above ``md``
     both revert and the card is the 1c card unchanged.
     """
-    with ui.column().classes("gap-1 flex-1 min-w-[120px] md:min-w-0"):
+    with ui.column().classes("gap-0.5 flex-1 min-w-[120px] md:min-w-0"):
         ui.label(label).classes(CARD_SUBTITLE)
         ui.label(value).classes(
             f"k-mono {amount_cls} text-[22px] md:text-[26px] font-medium tracking-tight"
@@ -69,10 +71,12 @@ def _pace_bar(point: SavingsRatePoint) -> None:
             t("dashboard.savings_kept_none")
             if rate is None
             else t("dashboard.savings_kept", pct=f"{float(rate):.1f}")
-        ).classes(CARD_SUBTITLE)
-        ui.label(t("dashboard.savings_target", pct=f"{target:.0f}")).classes(CARD_SUBTITLE)
+        ).classes(f"{CARD_SUBTITLE} !text-[11.5px]")
+        ui.label(t("dashboard.savings_target", pct=f"{target:.0f}")).classes(
+            f"{CARD_SUBTITLE} !text-[11.5px]"
+        )
 
-    with ui.element("div").classes("k-pace w-full mt-2"):
+    with ui.element("div").classes(f"{PACE_BAR_MONTH} w-full mt-1.5"):
         ui.element("div").classes("k-pace__fill").style(
             f"width:{filled:.2f}%;background:{fill_colour}"
         )
@@ -102,14 +106,17 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
             # card past the edge of a 390px screen — by a single pixel, which
             # is still a page that scrolls sideways. With room they stay on
             # one line, so nothing changes on a desktop.
-            with ui.row().classes("w-full gap-x-6 gap-y-2 mt-2"):
-                _figure(t("common.income"), fmt_number(income), AMOUNT_INCOME)
-                _figure(t("common.expense"), fmt_number(expenses), AMOUNT_EXPENSE)
+            with ui.row().classes("w-full gap-x-7 gap-y-2 mt-3.5"):
+                # "In" / "Out", not "Income" / "Expense": three figures share
+                # a half-width card, and the artboard spends the room on the
+                # figures rather than on the words above them.
+                _figure(t("dashboard.month_in"), fmt_number(income), AMOUNT_INCOME)
+                _figure(t("dashboard.month_out"), fmt_number(expenses), AMOUNT_EXPENSE)
                 _figure(t("dashboard.net"), fmt_number(net), INK)
 
         _pace_bar(point)
 
-        with ui.row().classes("w-full gap-6 pt-4 mt-4 k-card-footer flex-wrap"):
+        with ui.row().classes("w-full gap-6 pt-[18px] mt-4 k-card-footer flex-wrap"):
             _footer_stat(
                 t("dashboard.balance_30"),
                 "—" if predicted is None else fmt_number(predicted),

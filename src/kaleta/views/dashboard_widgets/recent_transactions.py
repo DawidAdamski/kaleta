@@ -15,10 +15,13 @@ from kaleta.services import ReportService, TransactionService
 from kaleta.views.components.amount_label import amount_body_cell_slot, format_signed_amount
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
+    ACCENT_TEXT,
     BODY_MUTED,
-    SECTION_CARD,
-    SECTION_HEADING,
-    SECTION_TITLE,
+    CARD_TITLE,
+    CELL_CHIP,
+    CELL_DATE,
+    DASH_CARD,
+    MUTED,
     TABLE_SURFACE,
 )
 
@@ -32,33 +35,40 @@ from kaleta.views.theme import (
 )
 async def render_recent_transactions(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     recent = await ReportService(session).recent_transactions(10)
-    with ui.card().classes(SECTION_CARD):
-        with ui.row().classes("w-full items-center justify-between mb-3"):
-            with ui.column().classes("gap-1"):
-                ui.label(t("dashboard.recent_transactions")).classes(SECTION_TITLE)
-                ui.label(t("dashboard_widgets.recent_transactions_sub")).classes(SECTION_HEADING)
+    with ui.card().classes(DASH_CARD):
+        # Title and link on one baseline, as artboard `1c` sets them. The
+        # card carried an eyebrow and a second line ("Last 10 movements")
+        # that the artboard does not: the title says what this is, and the
+        # row count is not a claim worth a line of its own.
+        with ui.row().classes("w-full items-baseline justify-between mb-4"):
+            ui.label(t("dashboard.recent_transactions")).classes(CARD_TITLE)
             ui.button(
                 t("dashboard.view_all"),
-                icon="arrow_forward",
                 on_click=lambda: ui.navigate.to("/transactions"),
-            ).props("flat dense")
+                color=None,
+            ).props("flat dense no-caps icon-right=arrow_forward").classes(
+                f"{ACCENT_TEXT} text-[12.5px] font-medium"
+            )
 
         if not recent:
             ui.label(t("dashboard.no_transactions")).classes(BODY_MUTED)
             return
 
+        # Date, Description, Account, Category, Amount — the artboard's order.
+        # Description before Account: the payee is what you scan a ledger for,
+        # and which of your own accounts it came out of is context.
         columns = [
             {"name": "date", "label": t("common.date"), "field": "date", "align": "left"},
-            {
-                "name": "account",
-                "label": t("common.account"),
-                "field": "account",
-                "align": "left",
-            },
             {
                 "name": "desc",
                 "label": t("common.description"),
                 "field": "desc",
+                "align": "left",
+            },
+            {
+                "name": "account",
+                "label": t("common.account"),
+                "field": "account",
                 "align": "left",
             },
             {
@@ -76,7 +86,9 @@ async def render_recent_transactions(session: AsyncSession, is_dark: bool) -> No
         ]
         rows = [
             {
-                "date": str(tx.date),
+                # "09-26": the year is the same six times over in a card
+                # showing the last ten movements.
+                "date": tx.date.strftime("%m-%d"),
                 "account": tx.account.name if tx.account else "—",
                 "desc": (tx.description or "—")[:45],
                 "category": tx.category.name if tx.category else "—",
@@ -89,3 +101,16 @@ async def render_recent_transactions(session: AsyncSession, is_dark: bool) -> No
         ]
         tbl = ui.table(columns=columns, rows=rows).classes(TABLE_SURFACE).props("dense flat")
         tbl.add_slot("body-cell-amount", amount_body_cell_slot())
+        tbl.add_slot(
+            "body-cell-date",
+            f'<q-td :props="props"><span class="{CELL_DATE}">'
+            "{{ props.row.date }}</span></q-td>",
+        )
+        # An em dash is the absence of a category, not a category — so it is
+        # not given a pill to sit in.
+        tbl.add_slot(
+            "body-cell-category",
+            '<q-td :props="props"><span v-if="props.row.category === \'—\'" '
+            f'class="{MUTED}">—</span>'
+            f'<span v-else class="{CELL_CHIP}">{{{{ props.row.category }}}}</span></q-td>',
+        )

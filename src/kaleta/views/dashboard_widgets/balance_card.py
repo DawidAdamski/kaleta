@@ -27,15 +27,15 @@ from kaleta.views.dashboard_widgets.helpers import (
     trend_class,
 )
 from kaleta.views.dashboard_widgets.registry import register
-from kaleta.views.theme import CARD_SUBTITLE, DASH_CARD, INK
+from kaleta.views.theme import CARD_CAPTION, DASH_CARD, INK
 
 #: Accounts named under the hero before the rest collapse into one tile.
 _MAX_ACCOUNT_TILES = 3
 
 
 def _account_chip(name: str, balance: Decimal) -> None:
-    with ui.column().classes("k-account-chip gap-0.5 rounded-lg px-3.5 py-3 flex-1 min-w-32"):
-        ui.label(name).classes(f"{CARD_SUBTITLE} truncate")
+    with ui.column().classes("k-account-chip gap-0.5 rounded-[10px] px-3.5 py-3 flex-1 min-w-32"):
+        ui.label(name).classes(f"{CARD_CAPTION} truncate")
         ui.label(fmt_number(balance)).classes(f"k-mono {INK} text-[16px] font-medium")
 
 
@@ -53,12 +53,16 @@ async def render_balance_card(session: AsyncSession, is_dark: bool) -> None:  # 
     accounts = await AccountService(session).balance_breakdown(_MAX_ACCOUNT_TILES)
 
     with ui.card().classes(f"{DASH_CARD} justify-between"):
-        with ui.column().classes("gap-1 w-full"):
+        # Explicit offsets rather than one column gap: artboard `1c` sets
+        # 12px under the eyebrow and 8px under the hero, which one gap cannot
+        # be both of.
+        with ui.column().classes("gap-0 w-full"):
             ui.label(t("dashboard_widgets.balance_card")).classes("k-eyebrow")
-            hero_figure(total)
-            ui.label(format_kpi_trend(delta)).classes(f"text-xs {trend_class(delta)}")
+            with ui.element("div").classes("mt-3"):
+                hero_figure(total)
+            ui.label(format_kpi_trend(delta)).classes(f"text-[13px] mt-2 {trend_class(delta)}")
 
-        with ui.row().classes("w-full gap-2.5 flex-wrap mt-5"):
+        with ui.row().classes("w-full gap-2.5 flex-wrap mt-[22px]"):
             for account in accounts.shown:
                 _account_chip(account.name, account.balance)
             if accounts.hidden_count:

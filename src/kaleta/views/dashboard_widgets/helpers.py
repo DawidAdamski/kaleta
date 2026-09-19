@@ -18,6 +18,7 @@ from kaleta.views.theme import (
     KPI_TREND_NEUTRAL,
     KPI_TREND_POSITIVE,
     KPI_VALUE,
+    MUTED_STRONG,
     SECTION_TITLE,
     kpi_card_classes,
 )
@@ -160,7 +161,9 @@ def hero_figure(amount: Decimal | float | int, *, size: str = "text-[54px]") -> 
     with ui.row().classes("items-baseline gap-0 no-wrap"):
         ui.label(whole).classes(f"k-mono k-ink {base}")
         if frac:
-            ui.label(frac).classes(f"k-mono k-muted {base}")
+            # `--k-muted-strong`, the warmer of the two: the artboards use it
+            # wherever muted type sits inside a figure rather than beside one.
+            ui.label(frac).classes(f"k-mono {MUTED_STRONG} {base}")
 
 
 def mini_stat(label: str, value: str, amount_cls: str) -> None:

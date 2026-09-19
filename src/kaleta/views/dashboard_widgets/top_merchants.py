@@ -13,9 +13,9 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import ReportService
-from kaleta.views.dashboard_widgets.helpers import fmt_amount, section_card
+from kaleta.views.dashboard_widgets.helpers import fmt_number, section_card
 from kaleta.views.dashboard_widgets.registry import register
-from kaleta.views.theme import BODY_MUTED
+from kaleta.views.theme import BODY_MUTED, HAIRLINE_BOTTOM, INK
 
 
 @register(
@@ -36,8 +36,16 @@ async def render_top_merchants(session: AsyncSession, is_dark: bool) -> None:  #
         if not merchants:
             ui.label(t("dashboard_widgets.no_merchants")).classes(BODY_MUTED)
             return
-        with ui.column().classes("w-full gap-1 mt-1"):
-            for m in merchants:
-                with ui.row().classes("w-full items-center justify-between"):
-                    ui.label(m.name).classes("text-sm truncate")
-                    ui.label(fmt_amount(m.amount)).classes("text-sm font-medium")
+        # A hairline under every row but the last, and no currency on the
+        # figures: artboard `1c` sets this card as a list, not a table, and
+        # a column of five "zł" says the same thing five times.
+        with ui.column().classes("w-full gap-0 mt-0.5"):
+            for index, m in enumerate(merchants):
+                rule = "" if index == len(merchants) - 1 else HAIRLINE_BOTTOM
+                with ui.row().classes(
+                    f"w-full items-center justify-between py-2.5 gap-3 no-wrap {rule}".strip()
+                ):
+                    ui.label(m.name).classes(f"{INK} text-[13.5px] truncate")
+                    ui.label(fmt_number(m.amount)).classes(
+                        f"k-mono {INK} text-[13.5px] font-medium"
+                    )

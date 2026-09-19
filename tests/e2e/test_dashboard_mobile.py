@@ -72,15 +72,15 @@ def test_a_narrow_viewport_gets_a_bottom_tab_bar(page: Page, base_url: str) -> N
 def test_the_phone_header_has_one_way_into_the_palette(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-006
 
-    The "Jump to…" pill is a sibling of the top-bar row, not a child of it,
-    so hiding the row is not enough to hide the pill — left alone, a 390px
-    header carried both it and the search icon, opening the same dialog.
+    A 390px header has room for one way into the palette. The wide window's
+    "Jump to…" pill and the mini toggle beside it are both desktop controls,
+    and both carry their own breakpoint rather than a `hidden md:` utility.
     """
     _open_phone_dashboard(page, base_url)
 
     expect(page.locator(".k-phone-search")).to_be_visible(timeout=10000)
-    expect(page.locator(".k-topnav-search")).to_be_hidden()
-    expect(page.locator(".k-topnav")).to_be_hidden()
+    expect(page.locator(".k-header-search")).to_be_hidden()
+    expect(page.locator("[data-drawer-mini-toggle]")).to_be_hidden()
 
 
 def test_the_drawer_waits_behind_more(page: Page, base_url: str) -> None:
@@ -129,16 +129,15 @@ def test_no_width_is_stranded_between_the_two_layouts(page: Page, base_url: str)
 
     Quasar hands the drawer over to overlay mode at 1023px by default, while
     the tab bar appears below 768px. Left alone, a window between the two got
-    neither: a shut drawer and no tab bar. Since artboard `1e` the drawer is
-    an overlay at every width and the top bar is the wide navigation, so the
-    one line that must not have a gap in it is 768px: below it the tab bar,
-    above it the top bar, and never a window with neither.
+    neither: a shut drawer and no tab bar. `breakpoint=767` is what makes the
+    two agree — below 768px the tab bar, above it the docked drawer, and
+    never a window with neither.
     """
     page.set_viewport_size({"width": 900, "height": 900})
     page.goto(f"{base_url}/transactions")
     page.wait_for_function("() => window.did_handshake === true", timeout=20000)
 
-    expect(page.locator(".k-topnav")).to_be_visible(timeout=10000)
+    expect(page.locator("aside.q-drawer")).to_be_visible(timeout=10000)
     expect(page.locator(".k-tabbar")).to_be_hidden()
 
 
@@ -182,15 +181,18 @@ def test_the_phone_dashboard_stacks_into_bands(page: Page, base_url: str) -> Non
     expect(page.locator("#dash-edit-btn-label")).to_have_count(0)
     expect(page.get_by_role("button", name="Customize")).to_be_visible()
 
-    # The hero is a default widget since artboard `1e`, so a reset profile has
-    # it ticked — and unticking it is the user's to do, at either width.
+    # The hero is off by default — it is a phone answer to a phone question,
+    # and the desktop grid does not carry it — so the phone prepends it
+    # rather than waiting for the user to tick a box they cannot see here.
     page.get_by_role("button", name="Customize").click()
     dialog = page.get_by_role("dialog")
     hero_row = dialog.locator('[data-customize-row="safe_to_spend"]')
     expect(hero_row).to_be_visible(timeout=5000)
     expect(hero_row.locator('[role="checkbox"]')).to_have_attribute(
-        "aria-checked", "true", timeout=5000
+        "aria-checked", "false", timeout=5000
     )
+    page.keyboard.press("Escape")
+    expect(dialog).to_be_hidden(timeout=10000)
 
     widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
     assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"
@@ -201,10 +203,8 @@ def test_a_wide_window_does_not_get_the_phone_layout(page: Page, base_url: str) 
 
     The phone layout is chosen once, server-side, from the viewport width —
     so the guard that a wide window still gets the grid belongs next to the
-    test that a narrow one does not. Both widths read in bands since artboard
-    `1e`; what separates them is the grid and the tab bar. What the wide
-    window does with its bands is KAL-DSH-008, in
-    ``test_dashboard_desktop.py``.
+    test that a narrow one does not. What the wide window does with that grid
+    is KAL-DSH-008, in ``test_dashboard_desktop.py``.
     """
     page.set_viewport_size({"width": 1360, "height": 900})
     page.goto(f"{base_url}/")

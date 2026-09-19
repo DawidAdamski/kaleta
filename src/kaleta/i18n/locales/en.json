@@ -38,11 +38,6 @@
     "tab_add": "Add",
     "tab_plan": "Plan",
     "tab_more": "More",
-    "section_capture": "Capture",
-    "section_monthly": "Month",
-    "section_plans": "Plans",
-    "section_insight": "Insight",
-    "section_setup": "Setup",
     "palette_open": "Jump to…",
     "palette_placeholder": "Jump to a page…",
     "palette_empty": "No page by that name."
@@ -107,7 +102,8 @@
     "shortcut_new_tx": "New transaction",
     "shortcut_submit": "Submit form",
     "shortcut_close": "Close dialog",
-    "shortcut_open_help": "Show this help"
+    "shortcut_open_help": "Show this help",
+    "toggle_sidebar": "Collapse / expand sidebar"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -116,9 +112,9 @@
     "month_expenses": "Month Expenses",
     "month_net": "Month Net",
     "balance_30": "Balance in 30 days",
-    "cashflow_chart": "Cashflow — last 6 months",
-    "recent_transactions": "Recent Transactions",
-    "view_all": "View All",
+    "cashflow_chart": "Cashflow, last 6 months",
+    "recent_transactions": "Recent transactions",
+    "view_all": "View all",
     "no_transactions": "No transactions yet. Press Ctrl+N to add one.",
     "net": "Net",
     "savings_kept": "Kept {pct}% of income",
@@ -143,12 +139,13 @@
     "watch_safety_cover": "Safety fund cover",
     "watch_months": "{months} mo",
     "band_latest": "Latest",
-    "band_edit_month": "Edit this band"
+    "month_in": "In",
+    "month_out": "Out"
   },
   "dashboard_widgets": {
     "customize": "Customize",
     "customize_title": "Customize Dashboard",
-    "customize_hint": "Toggle widgets on or off. Use Edit this band, in the This month band, to reorder. Reset layout restores sizes and order; Reset widgets brings everything back.",
+    "customize_hint": "Toggle widgets on or off. Use Edit layout to reorder. Reset layout restores sizes and order; Reset widgets brings everything back.",
     "done_editing": "Done",
     "edit_banner": "Editing layout — drag cards to reorder, click the resize icon to change size. Click Done when finished.",
     "drag_hint": "Drag to reorder",
@@ -172,11 +169,11 @@
     "cashflow_sub": "Last 6 months — income, expense, net",
     "savings_rate_trend": "Savings Rate Trend",
     "savings_rate_sub": "Last 6 months",
-    "budget_variance_month": "Budget Variances",
+    "budget_variance_month": "Budget variances",
     "budget_variance_sub": "Over-budget categories this month",
     "no_budgets": "No budgets set for this month.",
     "all_on_track": "All categories on track.",
-    "top_merchants": "Top Merchants",
+    "top_merchants": "Top merchants",
     "top_merchants_sub": "Highest spend, last 30 days",
     "no_merchants": "No payee-tagged spending in the last 30 days.",
     "ytd_summary": "Year-to-Date",
@@ -197,7 +194,7 @@
     "qa_net_worth": "Net Worth",
     "qa_budgets": "Budgets",
     "qa_import": "Import CSV",
-    "recent_transactions": "Recent Transactions",
+    "recent_transactions": "Recent transactions",
     "recent_transactions_sub": "Last 10 movements",
     "net_worth_trend": "Net Worth Trend",
     "net_worth_trend_sub": "12-month history",
@@ -215,7 +212,8 @@
     "wizard_actions_empty": "All clear — nothing needs attention.",
     "wizard_actions_more": "+{count} more",
     "wizard_actions_open": "Open financial wizard",
-    "safe_to_spend": "Safe to spend"
+    "safe_to_spend": "Safe to spend",
+    "edit_layout": "Edit layout"
   },
   "wizard_actions": {
     "subscription_renewal_due_title": "{name} renewal is due",
@@ -1772,7 +1770,11 @@
     "show_upcoming_hint": "How far ahead the Transactions list looks for planned occurrences and shows them above the recorded rows.",
     "show_upcoming_off": "Off",
     "show_upcoming_7": "7 days",
-    "show_upcoming_30": "30 days"
+    "show_upcoming_30": "30 days",
+    "sidebar": "Sidebar",
+    "sidebar_expanded": "Expanded",
+    "sidebar_collapsed": "Collapsed",
+    "sidebar_hint": "Default state when the page loads; you can still toggle from the header."
   },
   "audit": {
     "title": "Change History",

@@ -111,14 +111,38 @@ only the bar clamps it, because a negative width has nowhere to go.
 
 Read by `ReportService.safe_to_spend`; scenario `KAL-DSH-006`.
 
-## Bands
+## Two layouts, one widget set
 
-The dashboard reads in bands at every width — the shape the page argues
-for, rather than a wall of equal cards:
+The choice of desktop-or-phone tree is made once, server-side, from the
+viewport width the browser reports on connect: rendering both and hiding
+one would run every widget's queries twice, which is what a phone can
+least afford. Both read the same stored layout — `dashboard_layout`, a
+list of `{id, cols, rows}` — and disagree only about how to arrange it.
+
+### Above 768px: one grid (artboards `1c` / `1d`)
+
+A single four-column CSS grid, `#dash-grid`, holding every enabled
+widget in stored order at its stored size. The default order opens the
+way the artboard does: the **Total balance** and **This month** cards
+side by side at two columns each, then the full-width accent
+**Needs attention** banner, then the cashflow chart.
+
+**Dragging covers the whole grid.** SortableJS, the per-widget resize
+button and the layout endpoint all key off `#dash-grid`, and **Edit
+layout** on the title row is what unlocks them. The title row carries it
+beside **Customize**, both drawn as the artboard's paper pills.
+
+`safe_to_spend` is not in `DEFAULT_WIDGETS`: it is a phone answer to a
+phone question, and a wide window that wants it ticks it in Customize.
+
+### Below 768px: stacked bands (artboard `1f`)
+
+No grid, no dragging — a four-column grid has nowhere to go on a 390px
+screen, and a single column of equal cards is a scroll with no shape.
+The bands give it one:
 
 - **Now** — the safe-to-spend hero, the Needs-attention banner, quick
-  actions. On a wide window the hero takes two thirds of the row and the
-  rest shares the remaining third; under `lg` they stack.
+  actions.
 - **This month** — everything without a band of its own.
 - **Watch** — four slow figures as plain type on the ground, no cards
   and no widgets at all (`BAND_OF` maps nothing here): net worth, the
@@ -126,31 +150,21 @@ for, rather than a wall of equal cards:
   emergency funds cover between them
   (`ReserveFundService.emergency_cover` — every fund divides by the same
   trailing monthly spend, so two funds cover the sum of their months).
-  Two columns on a phone, four on a desktop. A figure with no answer — no
-  emergency fund, no income in the last six months, no recent spending to
-  measure cover against — reads "—" rather than inventing a zero. A fund
-  with nothing *in* it is a different matter: on a ledger with spending it
-  covers 0.0 months, and says so.
+  Two columns. A figure with no answer — no emergency fund, no income in
+  the last six months, no recent spending to measure cover against —
+  reads "—" rather than inventing a zero. A fund with nothing *in* it is
+  a different matter: on a ledger with spending it covers 0.0 months,
+  and says so.
 - **Latest** — the recent-transactions list, which is a log and not a
   metric, and belongs under everything that is.
 
-Band assignment is `BAND_OF` in `dashboard_widgets/registry.py`. The hero
-is an ordinary widget in it, first in `DEFAULT_WIDGETS`: a new profile and
-a *Reset widgets* both lead with it, and a profile stored before it
-existed gets it by ticking it once in Customize — nothing puts a widget on
-the page that its owner has taken off. Band order is fixed — it is the argument the layout is making —
-so the stored layout is read for *which* widgets and their order within
-a band, never for position. The choice of phone-or-desktop tree is made
-once, server-side, from the viewport width the browser reports on
-connect: rendering both and hiding one would run every widget's queries
-twice, which is what a phone can least afford.
-
-**Dragging is scoped to the Month band** (artboard `1e`). `#dash-grid`
-wraps that band alone, and since SortableJS, the resize button and the
-layout endpoint all key off that id, they follow it. The hero and the
-Latest list are outside it and cannot be dragged away from where the
-page needs them. Below the breakpoint there is no grid and no dragging
-at all.
+Band assignment is `BAND_OF` in `dashboard_widgets/registry.py`. Band
+order is fixed — it is the argument the layout is making — so the stored
+layout is read for *which* widgets and their order within a band, never
+for position. `mobile_layout` prepends the safe-to-spend hero when the
+stored layout does not carry it, so the phone always leads with the one
+figure it exists to answer; a profile that *has* ticked it on gets it
+once, not twice.
 
 ## Navigation
 
@@ -160,20 +174,29 @@ same route the Alt+N shortcut uses from another page. More opens the
 drawer, which keeps the long tail of setup pages that five slots will
 never hold.
 
-Above it: a top bar (artboard `1e`) with Dashboard and Financial Wizard
-pinned, then five section menus — Capture, Month, Plans, Insight,
-Setup — and a "Jump to…" palette on ⌘K / Ctrl+K that filters every route
-by name. The drawer is an overlay at every width and stands open at
-none: a docked drawer beside the top bar would be the same twenty-four
-links twice, and one Quasar considers "desktop" reserves 236px of page
-gutter whether or not you can see it.
+Above it: the same drawer, docked beside the page at 236px (artboard
+`1c`) — a quiet index on the ground, uppercase group eyebrows, the entry
+you are on lifted onto paper with an accent icon. The header's chevron
+collapses it to the 64px rail of icons every working screen is drawn
+with (artboard `2a`); that choice is one stored preference,
+`sidebar_mini`, not a per-page one, and Settings → Appearance sets its
+default. `breakpoint=767` is what makes the drawer and the tab bar agree
+on where they hand over.
+
+The header carries the wordmark, a hairline and the name of the page you
+are on, then a "Jump to…" pill, the dark toggle and the account avatar.
+The pill and ⌘K / Ctrl+K open the same palette, which filters every
+route by name — the artboard labels it "Search transactions, payees…",
+but what is behind it finds pages, so it keeps the honest label until a
+data search exists to put there.
 
 ## Customisation UX
 
-- **"Edit this band"** toggle in the Month band's own header —
-  the band whose cards it moves. Entering edit mode reveals drag handles
-  and per-widget resize; exiting saves. **Customize** stays in the page
-  header: which widgets you want is not a question about a band.
+- **"Edit layout"** on the title row, beside **Customize**. Entering
+  edit mode reveals drag handles and per-widget resize over the whole
+  grid; exiting saves. It is a desktop control: there is no grid to drag
+  below the breakpoint, while **Customize** applies at both widths —
+  which widgets you want is not a question about width.
 - **Add widget** opens a catalog modal grouped by category.
 - **Reorder** via drag-and-drop (grid snapping by size hint).
 - **Per-widget settings** (e.g. "last 6 months" → "last 12 months")

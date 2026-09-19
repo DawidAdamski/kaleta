@@ -3,7 +3,7 @@ plan_id: restyle-fidelity-shell-dashboard
 title: Restyle fidelity — the drawer shell back on desktop, dashboard to artboards 1c / 1d / 1f
 area: dashboard
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
@@ -136,4 +136,90 @@ Watch figures all stay for the phone; new widgets; artboards `1a`, `1b`, `1e`.
 
 ## Implementation notes
 
-_(filled in as work progresses)_
+### Open questions, resolved
+
+1. **The header's search pill** — default taken. The pill and ⌘K open the
+   same route palette and keep the honest `nav.palette_open` label
+   ("Jump to…"). Recorded as `deviation` row 3 of `1c.md`.
+2. **Stored layouts that gained `safe_to_spend`** — default taken. Nothing
+   deletes it from a saved layout; it is simply out of `DEFAULT_WIDGETS`, so
+   a new profile and *Reset widgets* do not add it, and anyone who has it can
+   untick it in Customize. `mobile_layout` prepends it on a phone only when
+   the stored layout does not already carry it, so it never appears twice.
+3. **Default drawer state** — default taken. Expanded for a new user, then
+   whatever `sidebar_mini` says; Settings → Appearance sets it, and the
+   header's chevron (`data-drawer-mini-toggle`) flips it. The shoot script
+   puts the drawer in each artboard's state through that attribute.
+
+### Decisions made while transcribing
+
+- **Icon face.** Every artboard draws Material Symbols Outlined; Quasar's
+  default is the *filled* `material-icons`, and a filled 19px glyph beside
+  13px type is a blob. NiceGUI already self-hosts all four Google Material
+  Icons styles, so one rule — `.q-icon.material-icons{font-family:'Material
+  Icons Outlined'}` — moves the whole app onto the outlined face without a
+  second font to fetch and without an `o_` prefix on several hundred
+  `ui.icon` calls (which would leave whichever were missed filled). It is a
+  `theme.py` change made for `1c`/`1d`/`1f`; it also moves the working
+  screens towards their own artboards, which `restyle-fidelity-screens`
+  will confirm.
+- **Two paddings.** NiceGUI pads `.nicegui-content` with 1rem and
+  `.k-dash-page` adds the artboard's 36/40/44 on top, which put the grid at
+  276+16px and narrowed the columns from 246 to 238. `.nicegui-content:has(>
+  .k-dash-page){padding:0;gap:0}` scopes the fix to the dashboard.
+- **`.k-drawer` is the content, not the aside.** NiceGUI puts a drawer's
+  classes on Quasar's `.q-drawer__content`, so the ground, the hairline and
+  the 22/24 padding live there — and have to out-specify
+  `.nicegui-drawer{padding:1rem}`, which is why the rule is
+  `.q-drawer__content.k-drawer`.
+- **The banner's pill needed `color=None`.** Quasar's colour helpers are
+  `!important`, so NiceGUI's default `primary` drew the accent on the
+  accent — a label, not a button. Same trick the drawer-mini toggle and the
+  title-row pills use.
+- **The account/header controls.** Artboards `1c` and `2a` end the header
+  with a 28px initials disc and nothing else, so "log out" and "close
+  database", which had buttons of their own, moved into the menu that disc
+  already dropped.
+- **Header on a phone.** The divider and the page name are `display:none`
+  below 768px. Kept, they pushed the avatar onto a second line that a header
+  fixed at 60px clips — visible in the first `1f` shot as the avatar sitting
+  over the page eyebrow.
+- **Sentence case.** `1c` sets card titles in sentence case, so
+  `dashboard_widgets.budget_variance_month`, `top_merchants` and
+  `recent_transactions`, plus `dashboard.cashflow_chart`/`view_all`, lost
+  their title case. `dashboard.month_in` / `month_out` are new: the artboard
+  labels the three month figures "In" and "Out", because three 26px figures
+  share a half-width card.
+- **`.k-table` header tracking stays at .14em.** `1c`'s transactions grid
+  says `.16em`, but that grid is the dashboard's copy of the ledger, and the
+  ledger's own header in `2a` says `.14em`. One table style, the ledger's.
+
+### Left for the owner, or for the next plan
+
+- **`1f`'s phone-only renderings.** The artboard re-draws two widgets for a
+  390px screen: "Needs attention" as a paper card of 44px rows with
+  chevrons, and "Latest" as two-line rows instead of a five-column table. A
+  widget's `render` is `(session, is_dark)` — it is never told the width —
+  so either would mean changing the signature every widget in the catalogue
+  is registered with. That is a registry change and new behaviour needing
+  its own `KAL-` scenario, not a restyle. Recorded as `deviation` rows 10
+  and 13 of `1f.md`.
+- **The phone tab bar.** Scope says the phone shell is unchanged here. `1f`
+  draws it 72px tall with a 52px ink centre disc; what shipped is 61px with
+  a 44px accent disc, and the labels differ (Home/Ledger/Plan/More against
+  Overview/Money/Plan/Insight). Recorded as `deviation` rows 15 and 16 of
+  `1f.md` for whichever plan next opens the phone shell.
+- **`.k-split`.** `1f` wants the safe-to-spend track at 9px/radius 5 on
+  `--k-border`; the class is shared with the net-worth balance sheet, which
+  `3b` owns. Left to `restyle-fidelity-screens`.
+
+### Behaviour this plan removes, by plan
+
+`KAL-NAV-007` and `KAL-DSH-008` were rewritten, and
+`tests/e2e/test_dashboard_desktop.py` with them: the five top-bar sections
+and the Month-band-only drag are gone, replaced by a docked drawer whose
+mini state persists and a grid that drags as a whole. `KAL-NAV-008` (⌘K) is
+unchanged. `nav.section_*` and `dashboard.band_edit_month` were dropped from
+both locales; `common.toggle_sidebar`, `settings.sidebar*` and
+`dashboard_widgets.edit_layout` came back.
+

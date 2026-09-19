@@ -43,8 +43,19 @@ CHART_PALETTE_DARK = [
     CHART_BAND,
 ]
 
+#: The accent as a *series* line, which the artboards draw a shade lighter
+#: than the accent a surface is filled with (`--k-accent-light`): a 2.5px
+#: stroke at #B4591F reads as brown on sand, not as the apricot beside it.
+#: Dark mode has one apricot for both.
+CHART_ACCENT_SERIES = "#DE7B45"
+
 CHART_ACCENT_FILL = "rgba(180, 89, 31, 0.18)"
 CHART_ACCENT_FILL_DARK = "rgba(232, 147, 91, 0.18)"
+
+#: Paper, for a symbol drawn *on* a card rather than filled with a series
+#: colour — ECharts cannot read `--k-surface`, so it is mirrored here too.
+CHART_SURFACE = "#FCFAF6"
+CHART_SURFACE_DARK = "#201F1A"
 
 # Axis labels, grid lines — muted / hairline in each mode.
 CHART_GRID_DARK = "#322F27"
@@ -80,6 +91,15 @@ def chart_expense_color(is_dark: bool) -> str:
 
 def chart_accent_color(is_dark: bool) -> str:
     return CHART_ACCENT_DARK if is_dark else CHART_ACCENT
+
+
+def chart_surface_color(is_dark: bool) -> str:
+    return CHART_SURFACE_DARK if is_dark else CHART_SURFACE
+
+
+def chart_series_accent_color(is_dark: bool) -> str:
+    """The accent for a line or a bar, as the artboards draw one."""
+    return CHART_ACCENT_DARK if is_dark else CHART_ACCENT_SERIES
 
 
 def chart_accent_fill(is_dark: bool) -> str:
