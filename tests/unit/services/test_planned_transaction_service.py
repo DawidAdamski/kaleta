@@ -863,3 +863,69 @@ class TestBuildUpcomingRows:
         occs = await svc.upcoming_for_ledger(datetime.date(2026, 3, 10), datetime.date(2026, 3, 17))
         rows = PlannedTransactionService.build_upcoming_rows(occs, datetime.date(2026, 3, 10))
         assert rows[0]["category"] == "—"
+
+
+WINDOW_TODAY = datetime.date(2026, 3, 10)
+
+
+class TestUpcomingWindow:
+    """Covers: KAL-PLN-011, KAL-PLN-012"""
+
+    def test_off_opens_no_window(self) -> None:
+        assert (
+            PlannedTransactionService.upcoming_window(
+                0, today=WINDOW_TODAY, date_from=None, date_to=None
+            )
+            is None
+        )
+
+    def test_seven_days_runs_from_today_to_the_seventh_day(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            7, today=WINDOW_TODAY, date_from=None, date_to=None
+        ) == (
+            datetime.date(2026, 3, 10),
+            datetime.date(2026, 3, 17),
+        )
+
+    def test_thirty_days_runs_to_the_thirtieth_day(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            30, today=WINDOW_TODAY, date_from=None, date_to=None
+        ) == (
+            datetime.date(2026, 3, 10),
+            datetime.date(2026, 4, 9),
+        )
+
+    def test_a_later_date_from_moves_the_start(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            30,
+            today=WINDOW_TODAY,
+            date_from=datetime.date(2026, 3, 20),
+            date_to=None,
+        ) == (datetime.date(2026, 3, 20), datetime.date(2026, 4, 9))
+
+    def test_a_date_from_in_the_past_does_not_open_the_window_backwards(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            7,
+            today=WINDOW_TODAY,
+            date_from=datetime.date(2026, 1, 1),
+            date_to=None,
+        ) == (WINDOW_TODAY, datetime.date(2026, 3, 17))
+
+    def test_an_earlier_date_to_clips_the_end(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            30,
+            today=WINDOW_TODAY,
+            date_from=None,
+            date_to=datetime.date(2026, 3, 12),
+        ) == (WINDOW_TODAY, datetime.date(2026, 3, 12))
+
+    def test_a_range_that_ends_in_the_past_opens_nothing(self) -> None:
+        assert (
+            PlannedTransactionService.upcoming_window(
+                7,
+                today=WINDOW_TODAY,
+                date_from=None,
+                date_to=datetime.date(2026, 2, 1),
+            )
+            is None
+        )

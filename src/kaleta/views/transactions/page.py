@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nicegui import ui
 
@@ -42,28 +42,8 @@ from kaleta.views.transactions.edit_dialog import build_edit_dialog
 from kaleta.views.transactions.planned_dialog import build_planned_dialog
 from kaleta.views.transactions.table_actions import render_table_actions
 
-
-def upcoming_window(
-    days: int,
-    *,
-    today: datetime.date,
-    date_from: datetime.date | None,
-    date_to: datetime.date | None,
-) -> tuple[datetime.date, datetime.date] | None:
-    """The stretch of days the ledger should look ahead over, or ``None``.
-
-    The window starts today — what fell before it either reached the ledger as
-    a real row or is overdue, which the Payment Calendar owns — and is clipped
-    to whatever date range the user has filtered down to, so a range that ends
-    in the past opens no window at all.
-    """
-    if days <= 0:
-        return None
-    start = max(today, date_from) if date_from else today
-    end = today + datetime.timedelta(days=days)
-    if date_to:
-        end = min(end, date_to)
-    return None if start > end else (start, end)
+if TYPE_CHECKING:  # import-linter excludes typing-only imports
+    from kaleta.services.planned_transaction_service import PlannedOccurrence
 
 
 async def transactions_page(*, open_new: bool = False) -> None:
@@ -187,7 +167,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         # promise the same money once per page. A tag filter rules them out
         # entirely: a plan carries no tags, so none of them can match.
         window = (
-            upcoming_window(
+            PlannedTransactionService.upcoming_window(
                 get_transactions_upcoming_days(),
                 today=today,
                 date_from=filters["date_from"],
@@ -197,7 +177,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             else None
         )
 
-        async def _fetch(session: Any) -> tuple[int, Any, Any]:
+        async def _fetch(session: Any) -> tuple[int, Any, list[PlannedOccurrence]]:
             svc = TransactionService(session)
             total = await svc.count(
                 account_ids=_list_or_none("account_ids"),
@@ -219,7 +199,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
                 limit=page_size,
                 offset=filters["page"] * page_size,
             )
-            upcoming: Any = []
+            upcoming: list[PlannedOccurrence] = []
             if window is not None:
                 upcoming = await PlannedTransactionService(session).upcoming_for_ledger(
                     window[0],

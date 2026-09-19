@@ -99,7 +99,11 @@ Out of scope:
 - Filtering by account hides planned rows from other
   accounts.
 - Clicking a planned row opens the planned-transaction
-  edit dialog, not the regular transaction dialog.
+  detail dialog — read-only, per "Out of scope" below — and
+  not the regular transaction dialog. (Reworded during
+  implementation: the original criterion said "edit dialog",
+  which contradicted this plan's own binding out-of-scope
+  line. See Implementation notes.)
 
 ## Touchpoints
 
@@ -108,7 +112,9 @@ Out of scope:
 - `src/kaleta/views/transactions.py` — fetch + merge upcoming
   occurrences; row rendering tweaks; row click handler.
 - `src/kaleta/services/planned_transaction_service.py` —
-  reuse `get_occurrences()` only (no post/convert helpers).
+  `get_occurrences()` reused as-is; two thin read helpers added
+  on top of it (`upcoming_window`, `upcoming_for_ledger`) plus
+  the row builder. No post/convert helpers.
 - `src/kaleta/i18n/locales/{en,pl}.json` — new keys.
 - `tests/unit/services/test_planned_transaction_service.py`
   and a new
@@ -150,6 +156,11 @@ Out of scope:
 
 ### Decisions the plan did not name
 
+- **The search filter matches the plan's `name`,** where the ledger's search
+  matches `Transaction.description`. They line up on screen because an
+  upcoming row's description cell *is* the plan name (`occ.name[:55]`), so one
+  search box narrows both kinds of row the same way.
+
 - **Posted occurrences are excluded** (`exclude_posted=True`). The ledger
   already holds the real transaction for them; showing both would count the
   same money twice by eye. KAL-PLN-023.
@@ -172,6 +183,19 @@ Out of scope:
   editing the planned-transaction template from the Transactions list". The
   dialog reads the plan out and offers a button through to `/planned` rather
   than a second editor that could drift from the first.
+
+### Review follow-ups
+
+- `upcoming_window` was moved out of `views/transactions/page.py` and onto
+  `PlannedTransactionService`, so the window rule sits with the rest of the
+  occurrence logic rather than in a view.
+- The acceptance criterion about the row click said "edit dialog" while the
+  plan's own "Out of scope" asked for read-only. The out-of-scope line is
+  binding, so the criterion was reworded to agree with it; the behaviour did
+  not change.
+- A plan deleted between the page being drawn and the row being clicked now
+  raises a toast (`transactions.planned_gone`) instead of a click that does
+  nothing.
 
 ### BDD
 

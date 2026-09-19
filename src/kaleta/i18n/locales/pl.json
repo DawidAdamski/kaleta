@@ -311,7 +311,8 @@
     "planned_detail_title": "Nadchodząca transakcja planowana",
     "planned_detail_hint": "Nic jeszcze nie zostało zaksięgowane. Sam plan zmienisz na stronie Transakcje planowane.",
     "planned_detail_frequency": "Powtarza się",
-    "planned_open_plan": "Otwórz w Transakcjach planowanych"
+    "planned_open_plan": "Otwórz w Transakcjach planowanych",
+    "planned_gone": "Ta transakcja planowana już nie istnieje."
   },
   "tags": {
     "title": "Tagi",

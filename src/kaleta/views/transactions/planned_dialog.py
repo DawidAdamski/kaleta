@@ -87,6 +87,9 @@ def build_planned_dialog() -> PlannedDialogContext:
 
         plan = await with_session(_load)
         if plan is None:
+            # The plan was deleted between the page being drawn and the row
+            # being clicked. Saying so beats a click that does nothing.
+            ui.notify(t("transactions.planned_gone"), type="warning")
             return
 
         name_label.set_text(plan.name)

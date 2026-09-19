@@ -254,6 +254,29 @@ class PlannedTransactionService:
 
     # ── Upcoming rows for the ledger ──────────────────────────────────────────
 
+    @staticmethod
+    def upcoming_window(
+        days: int,
+        *,
+        today: datetime.date,
+        date_from: datetime.date | None = None,
+        date_to: datetime.date | None = None,
+    ) -> tuple[datetime.date, datetime.date] | None:
+        """The stretch of days to look ahead over, or ``None`` for no window.
+
+        The window starts today — what fell before it either reached the ledger
+        as a real row or is overdue, which the Payment Calendar owns — and is
+        clipped to whatever date range the caller has filtered down to, so a
+        range that ends in the past opens no window at all.
+        """
+        if days <= 0:
+            return None
+        start = max(today, date_from) if date_from else today
+        end = today + datetime.timedelta(days=days)
+        if date_to:
+            end = min(end, date_to)
+        return None if start > end else (start, end)
+
     async def upcoming_for_ledger(
         self,
         start_date: datetime.date,
