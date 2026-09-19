@@ -114,6 +114,13 @@ async def transactions_page(*, open_new: bool = False) -> None:
         selected_tx_ids.clear()
         selected_rows.clear()
 
+    def _keep_selected_rows() -> None:
+        """Push the server's view of the selection back onto the live table."""
+        table = table_holder.get("table")
+        if table is not None:
+            table.selected = list(selected_rows)
+            table.update()
+
     def _untick_table() -> None:
         """Clear the checkboxes too, for the paths that keep the table standing.
 
@@ -254,6 +261,14 @@ async def transactions_page(*, open_new: bool = False) -> None:
             selected_tx_ids.extend(r["id"] for r in rows_list if r["id"] in page_rows)
             selected_rows.extend(page_rows[tx_id] for tx_id in selected_tx_ids)
             table_actions_ui.refresh()
+            if len(rows_list) != len(selected_tx_ids):
+                # The header's select-all ticks every row, planned ones
+                # included, and they have no checkbox of their own to show it.
+                # The server has already dropped them; handing the table back
+                # the rows it may actually keep stops the header from claiming
+                # a selection the bar underneath is not counting. Guarded by
+                # the length, so the echo of this write does not come round again.
+                _keep_selected_rows()
 
         table_holder["table"] = render_transaction_table(
             rows,

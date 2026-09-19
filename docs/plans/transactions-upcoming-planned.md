@@ -253,6 +253,17 @@ Out of scope:
   the dialog and the Planned Transactions page cannot end up spelling one
   plan's cadence two ways.
 
+- The table keeps `selection=multiple`, so the header's select-all still ticks
+  planned rows even though they render no checkbox. `_on_selection` drops them
+  and hands the table back the rows it may keep, so the header cannot claim a
+  selection the bar underneath is not counting.
+- The two searches fold case differently: the ledger's runs as SQLite `ILIKE`,
+  which is ASCII-only, while the plan-name match is Python `lower()`, which is
+  not. Typing `ż` finds a planned row spelled `Ż` and does not find a recorded
+  one. The planned side is the more forgiving of the two, so it was left
+  alone rather than crippled to match — worth an inbox line if the ledger's
+  own search is ever made Unicode-aware.
+
 ### Verification
 
 `./scripts/verify.sh --e2e` green on the branch: ruff, ruff format, mypy,
