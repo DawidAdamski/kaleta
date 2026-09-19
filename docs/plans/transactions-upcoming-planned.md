@@ -241,6 +241,18 @@ Out of scope:
   (`planned_row_key` / `parse_planned_row_key`), so the format the browser
   hands back is defined in one place rather than split across two layers.
 
+- The plan's prose calls the planned-transactions page
+  `/planned-transactions`; the route is and stays `/planned`. The dialog's
+  button and KAL-PLN-022 use the real one.
+- The occurrence date in the detail dialog is printed ISO, matching the
+  ledger's own date tooltip. The `date_format` setting in Settings → General
+  is written but not yet read by any view, and making this dialog its first
+  consumer is outside the plan's scope.
+- The cadence sentence ("Monthly", "every 2 × Weekly") is
+  `views/planned_transactions.freq_label`, made public rather than copied, so
+  the dialog and the Planned Transactions page cannot end up spelling one
+  plan's cadence two ways.
+
 ### Verification
 
 `./scripts/verify.sh --e2e` green on the branch: ruff, ruff format, mypy,

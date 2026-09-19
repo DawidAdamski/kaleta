@@ -10,16 +10,11 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.schemas.planned_transaction import RecurrenceFrequency
 from kaleta.services import PlannedTransactionService, with_session
 from kaleta.views.components.amount_label import format_signed_amount, signed_amount_class
+from kaleta.views.planned_transactions import freq_label
 
 _AMOUNT_CLS = "text-xl font-semibold k-mono"
-
-
-def _frequency_label(frequency: RecurrenceFrequency, interval: int) -> str:
-    base = t(f"planned.freq_{frequency.value}")
-    return base if interval == 1 else f"{t('planned.every')} {interval} × {base}"
 
 
 @dataclass
@@ -89,7 +84,7 @@ def build_planned_dialog() -> PlannedDialogContext:
             _detail(t("common.type"), t(f"common.{plan.type.value}"))
             _detail(
                 t("transactions.planned_detail_frequency"),
-                _frequency_label(plan.frequency, plan.interval),
+                freq_label(plan.frequency, plan.interval),
             )
             if plan.description:
                 _detail(t("common.description"), plan.description)
