@@ -1798,21 +1798,75 @@ Feature: Planned and Recurring Transactions
     Then "Old subscription" is no longer in the planned transactions list
 
   # --- Visibility in transactions ---
+  #
+  # How far ahead the ledger looks is a Settings → Features knob,
+  # "Show upcoming planned transactions": Off / 7 days / 30 days,
+  # defaulting to 7 days. Upcoming rows ride above the recorded ones in
+  # the same chronological feed.
 
-  KAL-PLN-011 @manual
-  Scenario: Planned transactions appear as upcoming in the Transactions page
-    Given there is an active planned monthly transaction "Netflix" starting next month
-    And I am on the Transactions page
-    When I enable the "Show planned" toggle
-    Then I see "Netflix" displayed as an upcoming transaction for next month
-    And it is visually distinct from recorded transactions
+  KAL-PLN-011 @automated
+  Scenario: Upcoming planned occurrences head the Transactions list
+    Given "Show upcoming planned transactions" is set to "7 days"
+    And there is an active planned weekly expense "Netflix" due in 3 days
+    When I open the Transactions page
+    Then I see "Netflix" above the recorded rows
+    And its row is italicised and carries a "Planned" chip
+    And its date cell reads "In 3 days"
+    And the count under the table says no recorded transactions matched
+      and one upcoming planned row did
 
   KAL-PLN-012 @automated
-  Scenario: Planned transaction does not appear in transactions without the toggle
-    Given there is an active planned transaction "Netflix"
-    And I am on the Transactions page
-    When the "Show planned" toggle is off
+  Scenario: Upcoming planned occurrences are hidden when the setting is off
+    Given there is an active planned expense "Netflix" due in 3 days
+    When I set "Show upcoming planned transactions" to "Off"
+    And I open the Transactions page
     Then I do not see "Netflix" in the transactions list
+
+  KAL-PLN-021 @automated
+  Scenario: The account filter applies to upcoming rows too
+    Given "Show upcoming planned transactions" is set to "7 days"
+    And there is an active planned expense "Netflix" on account "PKO Main" due in 3 days
+    And there is an active planned expense "Spotify" on account "mBank Savings" due in 3 days
+    When I open the Transactions page and filter by account "PKO Main"
+    Then I see "Netflix" as an upcoming row
+    And I do not see "Spotify"
+
+  KAL-PLN-022 @automated
+  Scenario: Clicking an upcoming row opens the plan behind it
+    Given "Show upcoming planned transactions" is set to "7 days"
+    And there is an active planned weekly expense "Netflix" due in 3 days
+    When I open the Transactions page
+    And I click the "Netflix" upcoming row
+    Then the planned-transaction detail dialog opens
+    And it offers to open the Planned Transactions page
+    And the regular transaction editor does not open
+
+  KAL-PLN-025 @automated
+  Scenario: An upcoming row whose plan has since been deleted says so
+    Given "Show upcoming planned transactions" is set to "7 days"
+    And there is an active planned weekly expense "Netflix" due in 3 days
+    And I am on the Transactions page
+    When the plan is deleted elsewhere
+    And I click the "Netflix" upcoming row
+    Then I am told the planned transaction no longer exists
+    And no detail dialog opens
+
+  KAL-PLN-023 @automated
+  Scenario: An occurrence already posted is not promised a second time
+    Given there is an active planned monthly expense "Rent" of 2500 due on the 5th
+    And the occurrence for the 5th has already been posted to the ledger
+    When the Transactions page looks 7 days ahead from the 3rd
+    Then no upcoming row for "Rent" is produced
+    And the posted transaction is the only "Rent" row
+
+  KAL-PLN-024 @automated
+  Scenario: Upcoming rows are left out of the group net
+    Given there is a recorded income of 9240 and a recorded expense of 128.74 this month
+    And an upcoming planned expense of 2500 falls in the same month
+    When the rows are grouped by month
+    Then the month separator shows a net of "+9,111.26"
+    And a month holding upcoming rows only shows no net at all,
+      because nothing in it has moved
 
   # --- Forecast integration ---
 
@@ -3049,6 +3103,14 @@ Feature: Settings — Data safety
     Given I am signed in
     When I open Settings and select the Features tab
     Then I see transfer pairing day and amount tolerance controls
+
+  KAL-SET-026 @automated
+  Scenario: The upcoming-planned window is a three-way Features knob
+    Given I am signed in
+    When I open Settings and select the Features tab
+    Then I see "Show upcoming planned transactions" offering Off, 7 days and 30 days
+    And 7 days is the option in force until I pick another
+    And picking "30 days" survives a reload of the Settings page
 ```
 
 ## Feature: Currency rates — NBP Table A

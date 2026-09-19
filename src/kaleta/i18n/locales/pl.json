@@ -256,7 +256,7 @@
     "selected_total": "Suma zaznaczonych",
     "selected_net": "Bilans zaznaczonych wierszy, bez przelewów",
     "clear_selection": "Wyczyść zaznaczenie",
-    "group_net": "Bilans na tej stronie, bez przelewów",
+    "group_net": "Bilans na tej stronie — bez przelewów i wierszy planowanych",
     "filter_chip_search": "Szukaj: {text}",
     "group_none": "Brak",
     "group_week": "Tydzień",
@@ -300,7 +300,22 @@
     "manage_tags": "Zarządzaj tagami",
     "notes": "Notatki",
     "notes_hint": "Dłuższy kontekst, trzymany osobno od opisu z banku — zwykły tekst.",
-    "has_notes_tooltip": "Ma notatki"
+    "has_notes_tooltip": "Ma notatki",
+    "planned_chip": "Planowana",
+    "planned_row_tooltip": "Planowana — jeszcze niezaksięgowana",
+    "upcoming_today": "Dziś",
+    "upcoming_tomorrow": "Jutro",
+    "upcoming_in_days_one": "Za {days} dzień",
+    "upcoming_in_days_few": "Za {days} dni",
+    "upcoming_in_days_many": "Za {days} dni",
+    "planned_detail_title": "Nadchodząca transakcja planowana",
+    "planned_detail_hint": "Nic jeszcze nie zostało zaksięgowane. Sam plan zmienisz na stronie Transakcje planowane.",
+    "planned_detail_frequency": "Powtarza się",
+    "planned_open_plan": "Otwórz w Transakcjach planowanych",
+    "planned_gone": "Ta transakcja planowana już nie istnieje.",
+    "upcoming_only_one": "Brak zaksięgowanych transakcji — {count} nadchodzący wiersz planowany",
+    "upcoming_only_few": "Brak zaksięgowanych transakcji — {count} nadchodzące wiersze planowane",
+    "upcoming_only_many": "Brak zaksięgowanych transakcji — {count} nadchodzących wierszy planowanych"
   },
   "tags": {
     "title": "Tagi",
@@ -1751,7 +1766,13 @@
     "about_host": "Host",
     "about_port": "Port",
     "about_github": "GitHub",
-    "about_docs": "Dokumentacja"
+    "about_docs": "Dokumentacja",
+    "show_upcoming_title": "Nadchodzące transakcje planowane",
+    "show_upcoming": "Pokazuj nadchodzące transakcje planowane",
+    "show_upcoming_hint": "Jak daleko w przód lista Transakcji szuka planowanych wystąpień i pokazuje je nad zaksięgowanymi wierszami.",
+    "show_upcoming_off": "Wyłączone",
+    "show_upcoming_7": "7 dni",
+    "show_upcoming_30": "30 dni"
   },
   "audit": {
     "title": "Historia zmian",

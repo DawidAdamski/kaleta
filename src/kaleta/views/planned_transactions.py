@@ -22,7 +22,12 @@ from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAY
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, TABLE_SURFACE
 
 
-def _freq_label(freq: RecurrenceFrequency, interval: int) -> str:
+def freq_label(freq: RecurrenceFrequency, interval: int) -> str:
+    """How often a plan repeats, in words — "Monthly", or "every 2 × Weekly".
+
+    Public because the ledger's upcoming-row dialog says the same thing about
+    the same plan, and two spellings of one cadence would be one too many.
+    """
     base = t(f"planned.freq_{freq.value}")
     return base if interval == 1 else f"{t('planned.every')} {interval} × {base}"
 
@@ -337,7 +342,7 @@ def register() -> None:
                         if row["pt"].type == TransactionType.INCOME
                         else f"-{abs(row['pt'].amount):,.2f}"
                     ),
-                    "freq": _freq_label(row["pt"].frequency, row["pt"].interval),
+                    "freq": freq_label(row["pt"].frequency, row["pt"].interval),
                     "next": str(row["next"]) if row["next"] else "—",
                     "active": row["pt"].is_active,
                     "is_active": row["pt"].is_active,

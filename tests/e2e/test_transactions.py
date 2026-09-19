@@ -15,7 +15,7 @@ import re
 
 from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.ledger import search_ledger
+from tests.e2e.ledger import pick_open_menu_option, search_ledger
 from tests.e2e.seed_helpers import (
     get_transaction,
     seed_account,
@@ -58,38 +58,16 @@ def _save_when_balanced(dialog: Page) -> None:
     save.click()
 
 
-def _pick_open_menu_option(page: Page, option: str) -> None:
-    """Pick an option from the open Quasar menu, scrolling virtual lists if needed."""
-    menu = page.locator(".q-menu").last
-    expect(menu).to_be_visible(timeout=3000)
-    target = menu.get_by_text(option, exact=True)
-    for _ in range(40):
-        if target.count() > 0:
-            target.first.click()
-            return
-        menu.evaluate(
-            """(el) => {
-              const scroller =
-                el.querySelector('.q-virtual-scroll__content')?.parentElement
-                || el.querySelector('.scroll')
-                || el;
-              scroller.scrollTop += 220;
-            }"""
-        )
-        page.wait_for_timeout(40)
-    raise AssertionError(f"Select option not found after scrolling: {option!r}")
-
-
 def _select_option(page: Page, dialog: Page, select_index: int, option: str) -> None:
     """Open a Quasar select by position and pick an option."""
     dialog.locator(".q-select").nth(select_index).click()
-    _pick_open_menu_option(page, option)
+    pick_open_menu_option(page, option)
 
 
 def _select_labeled(page: Page, dialog: Page, label: str, option: str) -> None:
     """Open a Quasar select by its label and pick an option."""
     dialog.get_by_label(label).click()
-    _pick_open_menu_option(page, option)
+    pick_open_menu_option(page, option)
 
 
 def _find_row(page: Page, description: str):  # noqa: ANN201
@@ -718,7 +696,7 @@ def test_account_chip_filters_shows_its_value_and_clears(page: Page, base_url: s
     chip.click()
     # The chip's menu holds the select; the select opens a menu of its own.
     page.locator(".q-menu").last.locator(".q-select").click()
-    _pick_open_menu_option(page, mine)
+    pick_open_menu_option(page, mine)
     page.keyboard.press("Escape")
     page.keyboard.press("Escape")
 

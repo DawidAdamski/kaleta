@@ -20,6 +20,7 @@ from kaleta.exceptions import NotFoundError
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
+from kaleta.services.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +251,142 @@ class PlannedTransactionService:
 
         occurrences.sort(key=lambda o: o.date)
         return occurrences
+
+    # ── Upcoming rows for the ledger ──────────────────────────────────────────
+
+    @staticmethod
+    def upcoming_window(
+        days: int,
+        *,
+        today: datetime.date,
+        date_from: datetime.date | None = None,
+        date_to: datetime.date | None = None,
+    ) -> tuple[datetime.date, datetime.date] | None:
+        """The stretch of days to look ahead over, or ``None`` for no window.
+
+        The window starts today — what fell before it either reached the ledger
+        as a real row or is overdue, which the Payment Calendar owns — and is
+        clipped to whatever date range the caller has filtered down to, so a
+        range that ends in the past opens no window at all.
+        """
+        if days <= 0:
+            return None
+        start = max(today, date_from) if date_from else today
+        end = today + datetime.timedelta(days=days)
+        if date_to:
+            end = min(end, date_to)
+        return None if start > end else (start, end)
+
+    async def upcoming_for_ledger(
+        self,
+        start_date: datetime.date,
+        end_date: datetime.date,
+        *,
+        account_ids: builtins.list[int] | None = None,
+        category_ids: builtins.list[int] | None = None,
+        tx_types: builtins.list[TransactionType] | None = None,
+        search: str | None = None,
+    ) -> builtins.list[PlannedOccurrence]:
+        """Occurrences in ``[start_date, end_date]`` that the ledger should show.
+
+        The filters the ledger applies to its actuals, applied to the
+        occurrences too — a list narrowed to one account must not grow a
+        planned row belonging to another. ``search`` is the one that is not
+        quite the same rule: a plan has no description, so it matches the
+        plan's name, and it folds case in Python where the ledger's own search
+        runs as SQL ``ILIKE``. On SQLite that makes this side the more
+        forgiving of the two over non-ASCII letters.
+
+        Already-posted occurrences are left out: the ledger is holding the
+        real transaction for them, and a row promising money that has already
+        moved would be counted twice by eye.
+        """
+        if start_date > end_date:
+            return []
+
+        occurrences = await self.get_occurrences(
+            start_date,
+            end_date,
+            active_only=True,
+            exclude_posted=True,
+        )
+
+        needle = (search or "").strip().lower()
+        return [
+            occ
+            for occ in occurrences
+            if (not account_ids or occ.account_id in account_ids)
+            and (not category_ids or occ.category_id in category_ids)
+            and (not tx_types or occ.type in tx_types)
+            and (not needle or needle in occ.name.lower())
+        ]
+
+    @staticmethod
+    def planned_row_key(planned_id: int, occurrence_date: datetime.date) -> str:
+        """The id an upcoming row carries: ``planned:<plan id>:<ISO date>``.
+
+        A string, so it can never be mistaken for a transaction id by anything
+        that deletes or totals by id. Built and parsed in one place, because
+        the browser hands the key straight back on a click.
+        """
+        return f"planned:{planned_id}:{occurrence_date.isoformat()}"
+
+    @staticmethod
+    def parse_planned_row_key(row_key: object) -> tuple[int, datetime.date] | None:
+        """Split a planned row's key back into its parts, or ``None``.
+
+        The browser sends back whatever the row carried, so a key that is not
+        one of ours — a stale event, a hand-edited payload — has to come back
+        as ``None`` rather than raise inside a click handler.
+        """
+        parts = row_key.split(":") if isinstance(row_key, str) else []
+        if len(parts) != 3 or parts[0] != "planned":
+            return None
+        try:
+            return int(parts[1]), datetime.date.fromisoformat(parts[2])
+        except ValueError:
+            return None
+
+    @staticmethod
+    def build_upcoming_rows(
+        occurrences: builtins.list[PlannedOccurrence],
+        today: datetime.date,
+    ) -> builtins.list[dict[str, Any]]:
+        """Shape occurrences like ledger rows so both can share one table.
+
+        The row carries everything the table's body slot reads, plus the marks
+        that tell a promise from a fact: ``is_planned``, the plan behind it and
+        how many days out it falls. The id is a string key of its own — a
+        planned row must never collide with a transaction id, because the
+        selection bar's delete button works off those ids.
+        """
+        rows: builtins.list[dict[str, Any]] = []
+        for occ in occurrences:
+            rows.append(
+                {
+                    "id": PlannedTransactionService.planned_row_key(occ.planned_id, occ.date),
+                    "planned_id": occ.planned_id,
+                    "is_planned": True,
+                    "days_ahead": (occ.date - today).days,
+                    "date": str(occ.date),
+                    "date_short": TransactionService.short_date(occ.date),
+                    "account": occ.account_name,
+                    "description": occ.name[:55],
+                    "notes": "",
+                    "has_notes": False,
+                    "category": occ.category_name or "—",
+                    "has_splits": False,
+                    "split_count": 0,
+                    "split_tooltip": "",
+                    "type": occ.type.value,
+                    "amount": TransactionService.format_signed_amount(occ.amount, occ.type),
+                    "amount_value": str(TransactionService.signed_amount(occ.amount, occ.type)),
+                    "tags": "",
+                    "tags_data": [],
+                    "sep_label": "",
+                }
+            )
+        return rows
 
     async def grid_for_month(
         self,

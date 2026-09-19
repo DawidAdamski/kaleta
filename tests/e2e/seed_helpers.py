@@ -410,6 +410,18 @@ def seed_irregular_charges(
     return payee_id
 
 
+def delete_planned_transaction(pt_id: int) -> bool:
+    """Delete a plan behind the browser's back, to stage a stale ledger row."""
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.services import PlannedTransactionService
+
+    async def _delete() -> bool:
+        async with AsyncSessionFactory() as session:
+            return await PlannedTransactionService(session).delete(pt_id)
+
+    return _run_async_worker(_delete)
+
+
 def list_planned_transactions() -> list[dict[str, Any]]:
     """Read every planned transaction back through the service layer."""
     from kaleta.db import AsyncSessionFactory

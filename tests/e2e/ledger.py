@@ -23,3 +23,44 @@ def search_ledger(page: Page, text: str) -> None:
     search.click(click_count=3)
     search.fill(text)
     page.keyboard.press("Escape")
+    # The chip's menu overlays the table it filtered. A test that clicks a row
+    # straight after typing can land on the menu instead and wait out the
+    # actionability timeout, so the rows are not touchable until it is gone.
+    expect(page.locator(".q-menu")).to_have_count(0, timeout=10000)
+
+
+def pick_open_menu_option(page: Page, option: str) -> None:
+    """Pick an option from the open Quasar menu, scrolling virtual lists if needed.
+
+    A select the suite has filled with dozens of rows renders only the slice
+    in view, so an option that exists is not necessarily in the DOM yet.
+    """
+    menu = page.locator(".q-menu").last
+    expect(menu).to_be_visible(timeout=3000)
+    target = menu.get_by_text(option, exact=True)
+    for _ in range(40):
+        if target.count() > 0:
+            target.first.click()
+            return
+        menu.evaluate(
+            """(el) => {
+              const scroller =
+                el.querySelector('.q-virtual-scroll__content')?.parentElement
+                || el.querySelector('.scroll')
+                || el;
+              scroller.scrollTop += 220;
+            }"""
+        )
+        page.wait_for_timeout(40)
+    raise AssertionError(f"Select option not found after scrolling: {option!r}")
+
+
+def filter_ledger_by_account(page: Page, account_name: str) -> None:
+    """Narrow the ledger to one account through the accounts chip."""
+    chip = page.locator(".k-chip-accounts")
+    expect(chip).to_be_visible(timeout=10000)
+    chip.click()
+    page.locator(".q-menu").last.locator(".q-select").click()
+    pick_open_menu_option(page, account_name)
+    page.keyboard.press("Escape")
+    page.keyboard.press("Escape")

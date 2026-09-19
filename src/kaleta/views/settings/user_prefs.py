@@ -15,8 +15,10 @@ from kaleta.views.settings.constants import (
     DEFAULT_IMPORT_SKIP_DUPLICATES,
     DEFAULT_NUMBER_FORMAT,
     DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE,
+    DEFAULT_TRANSACTIONS_UPCOMING_DAYS,
     DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
     DEFAULT_TRANSFER_PAIRING_DAYS,
+    TRANSACTIONS_UPCOMING_DAYS_CHOICES,
 )
 
 __all__ = [
@@ -29,6 +31,7 @@ __all__ = [
     "get_import_skip_duplicates_default",
     "get_number_format",
     "get_payee_dedupe_max_distance",
+    "get_transactions_upcoming_days",
     "get_transfer_amount_tolerance",
     "get_transfer_pairing_days",
 ]
@@ -115,3 +118,20 @@ def get_event_retention_days() -> int:
         return max(1, min(90, int(raw)))
     except (TypeError, ValueError):
         return DEFAULT_EVENT_RETENTION_DAYS
+
+
+def get_transactions_upcoming_days() -> int:
+    """How far ahead the ledger looks for planned occurrences; ``0`` is off.
+
+    Only the three windows the Settings toggle offers are honoured — a value
+    left in storage by an older build, or edited by hand, falls back to the
+    default rather than opening an arbitrary window on the ledger.
+    """
+    raw = app.storage.user.get("transactions_upcoming_days", DEFAULT_TRANSACTIONS_UPCOMING_DAYS)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_TRANSACTIONS_UPCOMING_DAYS
+    if value not in TRANSACTIONS_UPCOMING_DAYS_CHOICES:
+        return DEFAULT_TRANSACTIONS_UPCOMING_DAYS
+    return value

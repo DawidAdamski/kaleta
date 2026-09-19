@@ -671,3 +671,289 @@ class TestPostDue:
         await svc.post_occurrence(pt.id, datetime.date(2025, 5, 20))
         grid_after = await svc.grid_for_month(2025, 6, overdue_window_days=30)
         assert not any(o.planned_id == pt.id for o in grid_after.overdue)
+
+
+# ── Upcoming rows for the ledger ───────────────────────────────────────────────
+
+
+class TestUpcomingForLedger:
+    """Covers: KAL-PLN-011, KAL-PLN-021"""
+
+    async def test_the_window_holds_only_what_falls_inside_it(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2026, 3, 5),
+            )
+        )
+        occs = await svc.upcoming_for_ledger(datetime.date(2026, 3, 3), datetime.date(2026, 3, 10))
+        assert [o.date for o in occs] == [datetime.date(2026, 3, 5)]
+
+    async def test_the_wider_window_shows_the_repeats_the_narrow_one_cuts_off(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Groceries",
+                frequency=RecurrenceFrequency.WEEKLY,
+                start_date=datetime.date(2026, 3, 13),
+            )
+        )
+        seven = await svc.upcoming_for_ledger(
+            datetime.date(2026, 3, 10), datetime.date(2026, 3, 17)
+        )
+        thirty = await svc.upcoming_for_ledger(
+            datetime.date(2026, 3, 10), datetime.date(2026, 4, 9)
+        )
+
+        assert [o.date for o in seven] == [datetime.date(2026, 3, 13)]
+        assert [o.date for o in thirty] == [
+            datetime.date(2026, 3, 13),
+            datetime.date(2026, 3, 20),
+            datetime.date(2026, 3, 27),
+            datetime.date(2026, 4, 3),
+        ]
+
+    async def test_an_inverted_window_asks_the_database_for_nothing(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(_pt(acc_id, start_date=datetime.date(2026, 3, 5)))
+        assert (
+            await svc.upcoming_for_ledger(datetime.date(2026, 3, 10), datetime.date(2026, 3, 3))
+            == []
+        )
+
+    async def test_the_account_filter_hides_another_account_s_plan(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        mine = await _make_account(session, "PKO Main")
+        theirs = await _make_account(session, "mBank Savings")
+        await svc.create(_pt(mine, name="Mine", start_date=datetime.date(2026, 3, 5)))
+        await svc.create(_pt(theirs, name="Theirs", start_date=datetime.date(2026, 3, 6)))
+
+        occs = await svc.upcoming_for_ledger(
+            datetime.date(2026, 3, 1),
+            datetime.date(2026, 3, 31),
+            account_ids=[mine],
+        )
+        assert [o.name for o in occs] == ["Mine"]
+
+    async def test_the_type_filter_keeps_only_its_own_kind(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Salary",
+                type=TransactionType.INCOME,
+                start_date=datetime.date(2026, 3, 5),
+            )
+        )
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                type=TransactionType.EXPENSE,
+                start_date=datetime.date(2026, 3, 6),
+            )
+        )
+
+        occs = await svc.upcoming_for_ledger(
+            datetime.date(2026, 3, 1),
+            datetime.date(2026, 3, 31),
+            tx_types=[TransactionType.INCOME],
+        )
+        assert [o.name for o in occs] == ["Salary"]
+
+    async def test_the_search_matches_the_plan_name_case_insensitively(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(_pt(acc_id, name="Netflix", start_date=datetime.date(2026, 3, 5)))
+        await svc.create(_pt(acc_id, name="Rent", start_date=datetime.date(2026, 3, 6)))
+
+        occs = await svc.upcoming_for_ledger(
+            datetime.date(2026, 3, 1),
+            datetime.date(2026, 3, 31),
+            search="netfl",
+        )
+        assert [o.name for o in occs] == ["Netflix"]
+
+    async def test_an_inactive_plan_never_reaches_the_ledger(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(acc_id, name="Paused", is_active=False, start_date=datetime.date(2026, 3, 5))
+        )
+        assert (
+            await svc.upcoming_for_ledger(datetime.date(2026, 3, 1), datetime.date(2026, 3, 31))
+            == []
+        )
+
+    async def test_an_occurrence_already_posted_is_not_promised_again(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        plan = await svc.create(_pt(acc_id, name="Rent", start_date=datetime.date(2026, 3, 5)))
+        await svc.post_occurrence(plan.id, datetime.date(2026, 3, 5))
+
+        occs = await svc.upcoming_for_ledger(datetime.date(2026, 3, 1), datetime.date(2026, 3, 31))
+        assert occs == []
+
+
+class TestBuildUpcomingRows:
+    """Covers: KAL-PLN-011"""
+
+    async def test_a_row_carries_the_marks_that_tell_it_from_a_record(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session, "PKO Main")
+        cat_id = await _make_category(session, "Bills")
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                category_id=cat_id,
+                start_date=datetime.date(2026, 3, 13),
+                frequency=RecurrenceFrequency.WEEKLY,
+            )
+        )
+        occs = await svc.upcoming_for_ledger(datetime.date(2026, 3, 10), datetime.date(2026, 3, 17))
+        rows = PlannedTransactionService.build_upcoming_rows(occs, datetime.date(2026, 3, 10))
+
+        assert len(rows) == 1
+        row = rows[0]
+        assert row["is_planned"] is True
+        assert row["days_ahead"] == 3
+        assert row["date"] == "2026-03-13"
+        assert row["date_short"] == "13.03"
+        assert row["account"] == "PKO Main"
+        assert row["description"] == "Rent"
+        assert row["category"] == "Bills"
+        assert row["amount"] == "-2,500.00"
+        assert row["tags_data"] == []
+
+    async def test_the_row_id_can_never_be_mistaken_for_a_transaction_id(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        plan = await svc.create(_pt(acc_id, start_date=datetime.date(2026, 3, 13)))
+        occs = await svc.upcoming_for_ledger(datetime.date(2026, 3, 10), datetime.date(2026, 3, 17))
+        rows = PlannedTransactionService.build_upcoming_rows(occs, datetime.date(2026, 3, 10))
+
+        assert rows[0]["id"] == f"planned:{plan.id}:2026-03-13"
+        assert rows[0]["planned_id"] == plan.id
+
+    async def test_a_plan_with_no_category_shows_an_em_dash(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        await svc.create(_pt(acc_id, start_date=datetime.date(2026, 3, 13)))
+        occs = await svc.upcoming_for_ledger(datetime.date(2026, 3, 10), datetime.date(2026, 3, 17))
+        rows = PlannedTransactionService.build_upcoming_rows(occs, datetime.date(2026, 3, 10))
+        assert rows[0]["category"] == "—"
+
+
+WINDOW_TODAY = datetime.date(2026, 3, 10)
+
+
+class TestUpcomingWindow:
+    """Covers: KAL-PLN-011, KAL-PLN-012"""
+
+    def test_off_opens_no_window(self) -> None:
+        assert (
+            PlannedTransactionService.upcoming_window(
+                0, today=WINDOW_TODAY, date_from=None, date_to=None
+            )
+            is None
+        )
+
+    def test_seven_days_runs_from_today_to_the_seventh_day(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            7, today=WINDOW_TODAY, date_from=None, date_to=None
+        ) == (
+            datetime.date(2026, 3, 10),
+            datetime.date(2026, 3, 17),
+        )
+
+    def test_thirty_days_runs_to_the_thirtieth_day(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            30, today=WINDOW_TODAY, date_from=None, date_to=None
+        ) == (
+            datetime.date(2026, 3, 10),
+            datetime.date(2026, 4, 9),
+        )
+
+    def test_a_later_date_from_moves_the_start(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            30,
+            today=WINDOW_TODAY,
+            date_from=datetime.date(2026, 3, 20),
+            date_to=None,
+        ) == (datetime.date(2026, 3, 20), datetime.date(2026, 4, 9))
+
+    def test_a_date_from_in_the_past_does_not_open_the_window_backwards(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            7,
+            today=WINDOW_TODAY,
+            date_from=datetime.date(2026, 1, 1),
+            date_to=None,
+        ) == (WINDOW_TODAY, datetime.date(2026, 3, 17))
+
+    def test_an_earlier_date_to_clips_the_end(self) -> None:
+        assert PlannedTransactionService.upcoming_window(
+            30,
+            today=WINDOW_TODAY,
+            date_from=None,
+            date_to=datetime.date(2026, 3, 12),
+        ) == (WINDOW_TODAY, datetime.date(2026, 3, 12))
+
+    def test_a_range_that_ends_in_the_past_opens_nothing(self) -> None:
+        assert (
+            PlannedTransactionService.upcoming_window(
+                7,
+                today=WINDOW_TODAY,
+                date_from=None,
+                date_to=datetime.date(2026, 2, 1),
+            )
+            is None
+        )
+
+
+class TestPlannedRowKey:
+    """Covers: KAL-PLN-022"""
+
+    def test_the_key_round_trips(self) -> None:
+        key = PlannedTransactionService.planned_row_key(9, datetime.date(2026, 3, 13))
+        assert key == "planned:9:2026-03-13"
+        assert PlannedTransactionService.parse_planned_row_key(key) == (
+            9,
+            datetime.date(2026, 3, 13),
+        )
+
+    @pytest.mark.parametrize(
+        "row_key",
+        [
+            17,
+            None,
+            "17",
+            "planned:9",
+            "planned:9:2026-03-13:extra",
+            "tx:9:2026-03-13",
+            "planned:nine:2026-03-13",
+            "planned:9:not-a-date",
+        ],
+    )
+    def test_anything_that_is_not_one_of_ours_comes_back_as_none(self, row_key: object) -> None:
+        assert PlannedTransactionService.parse_planned_row_key(row_key) is None

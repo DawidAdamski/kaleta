@@ -391,6 +391,16 @@ class TransactionService:
         return label if (tx_date.year, tx_date.month) != (prev_date.year, prev_date.month) else ""
 
     @staticmethod
+    def short_date(day: datetime.date) -> str:
+        """The date as the ledger's narrow date column shows it.
+
+        One rule for every kind of row the column carries — a recorded one and
+        an upcoming planned one sit under the same heading, so they cannot be
+        allowed to drift into two formats.
+        """
+        return day.strftime("%d.%m")
+
+    @staticmethod
     def signed_amount(amount: Decimal, tx_type: TransactionType) -> Decimal:
         """Money in as positive, everything else as negative.
 
@@ -442,7 +452,7 @@ class TransactionService:
             "id": transaction.id,
             "date": str(transaction.date),
             # The ledger shows DD.MM; the ISO value stays for sorting and tooltips.
-            "date_short": transaction.date.strftime("%d.%m"),
+            "date_short": TransactionService.short_date(transaction.date),
             "account": transaction.account.name if transaction.account else "—",
             "description": (transaction.description or "—")[:55],
             "notes": transaction.notes or "",
@@ -485,6 +495,37 @@ class TransactionService:
         return TransactionService.attach_group_nets(rows)
 
     @staticmethod
+    def merge_upcoming_rows(
+        actual_rows: builtins.list[dict[str, Any]],
+        upcoming_rows: builtins.list[dict[str, Any]],
+        grouping: str,
+    ) -> builtins.list[dict[str, Any]]:
+        """One chronological feed of what happened and what is about to.
+
+        Both sides are already shaped as table rows, so the merge is a re-sort:
+        newest first, and on a day that holds both, the recorded rows come
+        before the promised ones. The group separators have to be worked out
+        again afterwards — they were computed over the actuals alone, and a
+        planned row can open a week or a month of its own.
+        """
+        if not upcoming_rows:
+            return actual_rows
+
+        merged = sorted(
+            [*actual_rows, *upcoming_rows],
+            key=lambda row: (row["date"], 0 if row.get("is_planned") else 1),
+            reverse=True,
+        )
+        prev_date: datetime.date | None = None
+        for row in merged:
+            row_date = datetime.date.fromisoformat(row["date"])
+            row["sep_label"] = TransactionService.group_separator_label(
+                row_date, prev_date, grouping
+            )
+            prev_date = row_date
+        return TransactionService.attach_group_nets(merged)
+
+    @staticmethod
     def attach_group_nets(rows: builtins.list[dict[str, Any]]) -> builtins.list[dict[str, Any]]:
         """Give every separator row the net of the group it opens.
 
@@ -497,15 +538,25 @@ class TransactionService:
             if not row.get("sep_label"):
                 continue
             if start is not None:
-                rows[start]["sep_net"] = TransactionService.format_net(
-                    TransactionService.net_of_rows(rows[start:i])
-                )
+                rows[start]["sep_net"] = TransactionService.group_net_label(rows[start:i])
             start = i
         if start is not None:
-            rows[start]["sep_net"] = TransactionService.format_net(
-                TransactionService.net_of_rows(rows[start:])
-            )
+            rows[start]["sep_net"] = TransactionService.group_net_label(rows[start:])
         return rows
+
+    @staticmethod
+    def group_net_label(group: builtins.list[dict[str, Any]]) -> str:
+        """A group's net as the separator shows it, or nothing at all.
+
+        A week made entirely of upcoming planned rows has no net to show: none
+        of that money has moved. Printing ``0.00`` there would claim the week
+        came out even, which is a different statement from "nothing is
+        recorded yet". A group that holds only transfers still reads ``0.00``,
+        because in that case nothing really did leave the user.
+        """
+        if group and all(row.get("is_planned") for row in group):
+            return ""
+        return TransactionService.format_net(TransactionService.net_of_rows(group))
 
     @staticmethod
     def net_of_rows(rows: builtins.list[dict[str, Any]]) -> Decimal:
@@ -521,6 +572,10 @@ class TransactionService:
         says nothing about a transfer is honest, and the rule is the same
         wherever it is read, so the group separator and the selection bar
         cannot disagree.
+
+        An upcoming planned row is left out for the same reason: the money has
+        not moved yet, and a net that mixed a forecast into a record of the
+        past would be neither.
         """
         return sum(
             (
@@ -529,7 +584,7 @@ class TransactionService:
                 # ``Decimal("None")`` would raise and take the whole bar down.
                 Decimal(str(row.get("amount_value") or 0))
                 for row in rows
-                if row.get("type") != TransactionType.TRANSFER.value
+                if row.get("type") != TransactionType.TRANSFER.value and not row.get("is_planned")
             ),
             Decimal("0"),
         )

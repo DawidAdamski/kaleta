@@ -8,10 +8,17 @@ Page URL: /planned
 from __future__ import annotations
 
 import datetime
+import re
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.seed_helpers import seed_account, seed_category, seed_planned_transaction
+from tests.e2e.ledger import filter_ledger_by_account, search_ledger
+from tests.e2e.seed_helpers import (
+    delete_planned_transaction,
+    seed_account,
+    seed_category,
+    seed_planned_transaction,
+)
 
 # ---------------------------------------------------------------------------
 # Scenario: Create a monthly recurring expense
@@ -250,23 +257,166 @@ def test_create_recurring_transaction_with_end_date(page: Page, base_url: str) -
 
 
 # ---------------------------------------------------------------------------
-# Scenario: Planned transaction does not appear in transactions without toggle
+# Scenario: Upcoming planned occurrences in the Transactions list
 # ---------------------------------------------------------------------------
 
+UPCOMING_CARD = "Upcoming planned transactions"
 
-def test_planned_not_shown_without_toggle(page: Page, base_url: str) -> None:
-    """Covers: KAL-PLN-012"""
-    acc_id = seed_account("PKO Main Planned NoToggle")
+
+def _set_upcoming_window(page: Page, base_url: str, option: str) -> None:
+    """Pick one of Off / 7 days / 30 days on Settings → Features.
+
+    Every e2e test shares one browser session, so it shares one
+    ``app.storage.user`` too: a test that moves this knob has to put it back
+    where it found it, or the next test reads a window it never asked for.
+    """
+    page.goto(f"{base_url}/settings")
+    page.get_by_role("tab", name="Features").click()
+    card = page.locator(".q-card").filter(has_text=UPCOMING_CARD)
+    expect(card).to_be_visible(timeout=10000)
+    card.get_by_role("button", name=option, exact=True).click()
+    expect(page.get_by_text("Settings saved").first).to_be_visible(timeout=5000)
+
+
+def _ledger_row(page: Page, text: str):  # noqa: ANN202 — Playwright locator
+    return page.locator(".q-table tbody tr").filter(has_text=text)
+
+
+def test_upcoming_planned_row_heads_the_ledger(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-011"""
+    acc_id = seed_account("PKO Main Upcoming Shown")
     seed_planned_transaction(
-        name="Netflix NoToggle Test",
+        name="Netflix Upcoming Test",
         amount=49,
         account_id=acc_id,
+        frequency="weekly",
         is_active=True,
+        start_date=datetime.date.today() + datetime.timedelta(days=3),
     )
 
     page.goto(f"{base_url}/transactions")
-    # Without the Show Planned toggle, planned items are not shown as real transactions
-    expect(page.get_by_text("Netflix NoToggle Test")).not_to_be_visible(timeout=3000)
+    search_ledger(page, "Netflix Upcoming Test")
+
+    row = _ledger_row(page, "Netflix Upcoming Test")
+    expect(row).to_have_count(1, timeout=10000)
+    expect(row).to_have_class(re.compile(r"k-planned-row"))
+    expect(row.get_by_text("Planned", exact=True)).to_be_visible()
+    expect(row.get_by_text("In 3 days", exact=True)).to_be_visible()
+    # A promise cannot be ticked for deletion — its id names no transaction.
+    expect(row.locator(".q-checkbox")).to_have_count(0)
+    # Nothing recorded matches this search, but the table is not empty: the
+    # count under it has to say which kind of row the reader is looking at.
+    expect(page.get_by_text("No recorded transactions — 1 upcoming planned row")).to_be_visible()
+
+
+def test_upcoming_rows_are_hidden_when_the_window_is_off(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-012"""
+    acc_id = seed_account("PKO Main Upcoming Off")
+    seed_planned_transaction(
+        name="Netflix Off Test",
+        amount=49,
+        account_id=acc_id,
+        frequency="weekly",
+        is_active=True,
+        start_date=datetime.date.today() + datetime.timedelta(days=3),
+    )
+
+    _set_upcoming_window(page, base_url, "Off")
+    try:
+        page.goto(f"{base_url}/transactions")
+        search_ledger(page, "Netflix Off Test")
+        expect(_ledger_row(page, "Netflix Off Test")).to_have_count(0, timeout=10000)
+    finally:
+        _set_upcoming_window(page, base_url, "7 days")
+
+
+def test_the_account_filter_applies_to_upcoming_rows(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-021"""
+    token = "UpcomingAccountE2E"
+    mine = f"PKO Main {token}"
+    theirs = f"mBank Savings {token}"
+    mine_id = seed_account(mine)
+    theirs_id = seed_account(theirs)
+    due = datetime.date.today() + datetime.timedelta(days=3)
+    seed_planned_transaction(
+        name=f"Netflix {token}",
+        amount=49,
+        account_id=mine_id,
+        frequency="weekly",
+        start_date=due,
+    )
+    seed_planned_transaction(
+        name=f"Spotify {token}",
+        amount=23,
+        account_id=theirs_id,
+        frequency="weekly",
+        start_date=due,
+    )
+
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, token)
+    expect(page.locator(".q-table tbody tr")).to_have_count(2, timeout=10000)
+
+    filter_ledger_by_account(page, mine)
+
+    expect(_ledger_row(page, f"Netflix {token}")).to_have_count(1, timeout=10000)
+    expect(_ledger_row(page, f"Spotify {token}")).to_have_count(0)
+
+
+def test_clicking_an_upcoming_row_opens_the_plan_behind_it(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-022"""
+    acc_id = seed_account("PKO Main Upcoming Click")
+    seed_planned_transaction(
+        name="Netflix Click Test",
+        amount=49,
+        account_id=acc_id,
+        frequency="weekly",
+        start_date=datetime.date.today() + datetime.timedelta(days=3),
+    )
+
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, "Netflix Click Test")
+
+    _ledger_row(page, "Netflix Click Test").click()
+
+    dialog = page.get_by_role("dialog")
+    expect(dialog.get_by_text("Upcoming planned transaction", exact=True)).to_be_visible(
+        timeout=5000
+    )
+    expect(dialog.get_by_text("Netflix Click Test", exact=True)).to_be_visible()
+    # The ledger's own editor must stay shut — an occurrence is not a row to edit.
+    expect(dialog.get_by_text("Edit Transaction", exact=True)).to_have_count(0)
+
+    dialog.get_by_role("button", name="Open in Planned Transactions").click()
+    page.wait_for_url(lambda url: url.endswith("/planned"), timeout=10000)
+    expect(page.get_by_text("Netflix Click Test").first).to_be_visible(timeout=10000)
+
+
+def test_a_row_whose_plan_is_gone_says_so(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-025"""
+    acc_id = seed_account("PKO Main Upcoming Stale")
+    plan_id = seed_planned_transaction(
+        name="Netflix Stale Test",
+        amount=49,
+        account_id=acc_id,
+        frequency="weekly",
+        start_date=datetime.date.today() + datetime.timedelta(days=3),
+    )
+
+    page.goto(f"{base_url}/transactions")
+    search_ledger(page, "Netflix Stale Test")
+    row = _ledger_row(page, "Netflix Stale Test")
+    expect(row).to_have_count(1, timeout=10000)
+
+    # The plan goes while the row is still on screen — the click that follows
+    # has nothing left to open.
+    assert delete_planned_transaction(plan_id) is True
+
+    row.click()
+    expect(page.get_by_text("That planned transaction no longer exists.").first).to_be_visible(
+        timeout=5000
+    )
+    expect(page.get_by_text("Upcoming planned transaction", exact=True)).to_have_count(0)
 
 
 # ---------------------------------------------------------------------------
