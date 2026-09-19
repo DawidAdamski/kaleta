@@ -23,6 +23,11 @@ from kaleta.schemas.reserve_fund import (
 
 TRAILING_WINDOW_DAYS = 90
 
+#: The window in months, for turning its total into a monthly figure. Shared
+#: so the burn and the income the what-if simulator compares it against
+#: cannot end up measured over different numbers of months.
+TRAILING_WINDOW_MONTHS = Decimal(3)
+
 
 class ReserveFundService:
     def __init__(self, session: AsyncSession) -> None:
@@ -98,8 +103,12 @@ class ReserveFundService:
         bal = result.scalar_one_or_none()
         return bal if bal is not None else Decimal("0.00")
 
-    async def _trailing_monthly_expense(self, *, today: datetime.date | None = None) -> Decimal:
+    async def trailing_monthly_expense(self, *, today: datetime.date | None = None) -> Decimal:
         """Average monthly expense over the trailing 90-day window.
+
+        Public because the what-if simulator measures its runway against the
+        same burn this panel does. Two copies of the formula would let the
+        two screens disagree about how long the money lasts.
 
         Only non-transfer expense transactions count. Returns Decimal("0")
         when there is no history.
@@ -115,8 +124,7 @@ class ReserveFundService:
             )
         )
         total = result.scalar_one() or Decimal("0")
-        # 90 days ≈ 3 months → divide by 3 to land on a monthly figure.
-        return Decimal(total) / Decimal(3)
+        return Decimal(total) / TRAILING_WINDOW_MONTHS
 
     async def with_progress(
         self, fund: ReserveFund, *, today: datetime.date | None = None
@@ -135,7 +143,7 @@ class ReserveFundService:
 
         months_of_coverage: Decimal | None = None
         if fund.kind == ReserveFundKind.EMERGENCY:
-            monthly = await self._trailing_monthly_expense(today=today)
+            monthly = await self.trailing_monthly_expense(today=today)
             if monthly > 0:
                 months_of_coverage = (balance / monthly).quantize(Decimal("0.1"))
 
@@ -185,16 +193,26 @@ class ReserveFundService:
         ]
         return sum(covers, Decimal("0")) if covers else None
 
-    async def emergency_cover_months(self, *, today: datetime.date | None = None) -> Decimal | None:
-        """The dashboard's Safety-fund-cover figure. See :meth:`emergency_cover`.
+    async def emergency_progress(
+        self, *, today: datetime.date | None = None
+    ) -> builtins.list[ReserveFundWithProgress]:
+        """The emergency funds, with their balances and cover.
 
         Only the emergency funds are costed: :meth:`with_progress` runs a
         balance query per fund and the trailing-spend aggregate per emergency
-        one, and this figure is on the dashboard's first paint. A sinking fund
-        cannot change the answer, so it is not worth a query.
+        one, and the cover figure is on the dashboard's first paint. A sinking
+        fund cannot change that answer, so it is not worth a query.
+
+        Callers that need the balances as well as the ratio — the what-if
+        simulator does — take this rather than recovering a balance from a
+        ratio already rounded to a tenth of a month.
         """
         funds = [f for f in await self.list() if f.kind == ReserveFundKind.EMERGENCY]
-        return self.emergency_cover([await self.with_progress(f, today=today) for f in funds])
+        return [await self.with_progress(f, today=today) for f in funds]
+
+    async def emergency_cover_months(self, *, today: datetime.date | None = None) -> Decimal | None:
+        """The dashboard's Safety-fund-cover figure. See :meth:`emergency_cover`."""
+        return self.emergency_cover(await self.emergency_progress(today=today))
 
 
-__all__ = ["ReserveFundService", "TRAILING_WINDOW_DAYS"]
+__all__ = ["TRAILING_WINDOW_DAYS", "TRAILING_WINDOW_MONTHS", "ReserveFundService"]

@@ -13,7 +13,8 @@ import datetime
 from typing import Any
 
 from kaleta.services.forecast_service import ForecastPoint, ForecastResult, ScenarioShift
-from kaleta.views.forecast import _forecast_chart, stale_action
+from kaleta.views.components.forecast_chart import forecast_chart
+from kaleta.views.forecast import stale_action
 
 TODAY = datetime.date.today()
 
@@ -49,10 +50,10 @@ class TestTheAxisIsTime:
         # A category axis spaces points evenly whatever dates they carry, so
         # ninety days of history beside sixty forecast points came out
         # compressed — the past appeared to happen faster than the future.
-        assert _forecast_chart(_result())["xAxis"]["type"] == "time"
+        assert forecast_chart(_result())["xAxis"]["type"] == "time"
 
     def test_every_point_carries_its_own_date(self) -> None:
-        options = _forecast_chart(_result())
+        options = forecast_chart(_result())
         actual = _series(options, "Actual")["data"]
 
         assert actual == [
@@ -63,13 +64,13 @@ class TestTheAxisIsTime:
 
 class TestTheBandSurroundsThePrediction:
     def test_the_band_floor_is_the_lower_bound(self) -> None:
-        options = _forecast_chart(_result())
+        options = forecast_chart(_result())
         floor = _series(options, "Lower bound")["data"]
 
         assert [v for _, v in floor] == [890.0, 830.0]
 
     def test_the_band_height_is_the_interval(self) -> None:
-        options = _forecast_chart(_result())
+        options = forecast_chart(_result())
         band = _series(options, "Confidence band")["data"]
 
         assert [v for _, v in band] == [200.0, 300.0]
@@ -77,14 +78,14 @@ class TestTheBandSurroundsThePrediction:
     def test_floor_plus_height_reaches_the_upper_bound(self) -> None:
         # Which is what "surrounds" means: the stack runs lower → upper, with
         # the prediction inside it, not above it.
-        options = _forecast_chart(_result())
+        options = forecast_chart(_result())
         floor = _series(options, "Lower bound")["data"]
         band = _series(options, "Confidence band")["data"]
 
         assert [f + b for (_, f), (_, b) in zip(floor, band, strict=True)] == [1090.0, 1130.0]
 
     def test_the_two_band_series_share_one_stack(self) -> None:
-        options = _forecast_chart(_result())
+        options = forecast_chart(_result())
 
         assert _series(options, "Lower bound")["stack"] == "confidence"
         assert _series(options, "Confidence band")["stack"] == "confidence"
@@ -94,7 +95,7 @@ class TestThePredictionMeetsTheHistory:
     def test_the_predicted_line_starts_where_the_actual_one_stops(self) -> None:
         # Two lines on a shared time axis leave a visible gap at today unless
         # the second one begins at the first one's last point.
-        options = _forecast_chart(_result())
+        options = forecast_chart(_result())
         actual = _series(options, "Actual")["data"]
         predicted = _series(options, "Predicted")["data"]
 
@@ -104,7 +105,7 @@ class TestThePredictionMeetsTheHistory:
 
 class TestScenarioMarkers:
     def test_today_is_marked_even_with_no_scenarios(self) -> None:
-        marks = _series(_forecast_chart(_result()), "Predicted")["markLine"]["data"]
+        marks = _series(forecast_chart(_result()), "Predicted")["markLine"]["data"]
 
         assert [m["xAxis"] for m in marks] == [str(TODAY)]
 
@@ -112,7 +113,7 @@ class TestScenarioMarkers:
         when = TODAY + datetime.timedelta(days=2)
         shift = ScenarioShift(label="Bonus", date=when, amount=5000.0)
 
-        predicted = _series(_forecast_chart(_result(), scenarios=[shift]), "Predicted")
+        predicted = _series(forecast_chart(_result(), scenarios=[shift]), "Predicted")
 
         assert [m["xAxis"] for m in predicted["markLine"]["data"]] == [str(TODAY), str(when)]
         assert predicted["markPoint"]["data"] == [
@@ -126,7 +127,7 @@ class TestScenarioMarkers:
         # bend that did not happen.
         shift = ScenarioShift(label="Today", date=TODAY, amount=1.0)
 
-        predicted = _series(_forecast_chart(_result(), scenarios=[shift]), "Predicted")
+        predicted = _series(forecast_chart(_result(), scenarios=[shift]), "Predicted")
 
         assert len(predicted["markLine"]["data"]) == 2
         assert predicted["markPoint"]["data"] == []
@@ -136,7 +137,7 @@ class TestScenarioMarkers:
         # worth drawing, because the user put it in.
         shift = ScenarioShift(label="Later", date=TODAY + datetime.timedelta(days=400), amount=1.0)
 
-        predicted = _series(_forecast_chart(_result(), scenarios=[shift]), "Predicted")
+        predicted = _series(forecast_chart(_result(), scenarios=[shift]), "Predicted")
 
         assert len(predicted["markLine"]["data"]) == 2
         assert predicted["markPoint"]["data"] == []
@@ -144,12 +145,12 @@ class TestScenarioMarkers:
 
 class TestTheBaselineReference:
     def test_no_baseline_series_when_none_is_given(self) -> None:
-        names = [s["name"] for s in _forecast_chart(_result())["series"]]
+        names = [s["name"] for s in forecast_chart(_result())["series"]]
 
         assert "Baseline (reference)" not in names
 
     def test_the_baseline_is_drawn_when_a_preset_moved_the_line(self) -> None:
-        options = _forecast_chart(_result(), baseline=_result())
+        options = forecast_chart(_result(), baseline=_result())
 
         assert _series(options, "Baseline (reference)")["lineStyle"]["type"] == "dotted"
 

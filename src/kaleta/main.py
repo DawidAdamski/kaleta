@@ -175,6 +175,7 @@ def _register_views() -> None:
         transactions,
         wizard,
         wizard_salary,
+        wizard_scenarios,
         wizard_unplanned_radar,
     )
 
@@ -209,6 +210,7 @@ def _register_views() -> None:
     rules.register()
     wizard.register()
     wizard_salary.register()
+    wizard_scenarios.register()
     wizard_unplanned_radar.register()
     settings.register()
 
