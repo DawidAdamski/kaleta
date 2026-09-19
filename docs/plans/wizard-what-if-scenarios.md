@@ -235,6 +235,13 @@ become permanent.
   collapsed two deltas that both took the dialog's default name; pins are now
   built per delta by `compile_delta`, so they are right by construction
   (`ScenarioSimulation.pins`).
+- **`parse_amount` rejects NaN and Infinity.** `Decimal` parses both happily.
+  A NaN then makes every later comparison raise `InvalidOperation` — an
+  `ArithmeticError`, which the save handler does not catch, so the dialog
+  would have failed with no toast at all; an infinity would have reached
+  `float()` and the forecast arithmetic. `tests/unit/views/
+  test_wizard_scenarios.py` covers the helpers' edges (decimal comma,
+  non-breaking space, malformed input) that the e2e pass only walks past.
 - **−100% is allowed.** The guard read `<= -100`, so the panel refused
   "I lose all my income" — the exact case the emergency-fund runway exists
   for. `FULL_INCOME_CUT` in `schemas/scenario.py` is now the single limit:

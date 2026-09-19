@@ -85,9 +85,17 @@ def parse_amount(raw: object) -> Decimal:
     """Read a typed amount, accepting the comma a Polish keyboard produces."""
     text = str(raw or "").replace("\u00a0", "").replace(" ", "").replace(",", ".")
     try:
-        return Decimal(text)
+        value = Decimal(text)
     except InvalidOperation as exc:
         raise ValidationError(t("scenarios.bad_amount")) from exc
+    if not value.is_finite():
+        # ``Decimal`` parses "NaN" and "Infinity" happily. A NaN then makes
+        # every later comparison raise ``InvalidOperation`` — an
+        # ``ArithmeticError``, which the save handler does not catch, so the
+        # dialog would fail with no toast at all; an infinity would reach
+        # ``float()`` and the forecast arithmetic.
+        raise ValidationError(t("scenarios.bad_amount"))
+    return value
 
 
 def parse_date(raw: object) -> datetime.date:
