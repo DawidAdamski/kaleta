@@ -3,8 +3,9 @@ plan_id: transactions-upcoming-planned
 title: Transactions — show upcoming planned items (next N days)
 area: transactions
 effort: medium
-roadmap_ref: ../roadmap.md#transactions
-status: in-progress
+roadmap_ref: ../../roadmap.md#transactions
+status: archived
+archived_at: 2026-09-19
 deferred_to: q4-2026
 ---
 
@@ -49,7 +50,7 @@ leaving the page.
     flow), not the Transaction edit dialog.
   - **"Post / convert to actual" is out of scope here.** That
     behaviour is owned by
-    [`planned-transactions-post-due.md`](archive/planned-transactions-post-due.md).
+    [`planned-transactions-post-due.md`](planned-transactions-post-due.md).
     After that plan ships, a thin follow-up may add a row-level
     Post button that calls the shared service — do not implement
     posting logic in this plan.
@@ -87,7 +88,7 @@ Out of scope:
 - Showing planned rows in the CSV export.
 - Posting / converting an occurrence to a real
   `Transaction` — see
-  [`planned-transactions-post-due.md`](archive/planned-transactions-post-due.md).
+  [`planned-transactions-post-due.md`](planned-transactions-post-due.md).
 
 ## Acceptance criteria
 
@@ -311,3 +312,42 @@ tests fail on `main` as well — six in `test_forecast.py` (the forecast never
 settles inside the 60s budget) and
 `test_wizard_scenarios.py::test_the_panel_works_without_prophet`, which asserts
 the extra is absent. Nothing on this branch touches them.
+
+## Implementation
+
+Landed on 2026-09-19 (PR #106).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `92ae01e` | Dawid Adamski | 2026-09-19 | Merge pull request #106 from DawidAdamski/plan/transactions-upcoming-planned |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/transactions-upcoming-planned.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/planned_transactions.py
+- src/kaleta/views/settings/constants.py
+- src/kaleta/views/settings/features_tab.py
+- src/kaleta/views/settings/user_prefs.py
+- src/kaleta/views/theme.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/transactions/planned_dialog.py
+- tests/e2e/ledger.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_planned_transactions.py
+- tests/e2e/test_settings_expansion.py
+- tests/e2e/test_transactions.py
+- tests/integration/test_transactions_upcoming.py
+- tests/unit/services/test_planned_transaction_service.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/views/test_upcoming_planned_rows.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
