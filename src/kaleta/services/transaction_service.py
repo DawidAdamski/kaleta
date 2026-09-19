@@ -528,15 +528,25 @@ class TransactionService:
             if not row.get("sep_label"):
                 continue
             if start is not None:
-                rows[start]["sep_net"] = TransactionService.format_net(
-                    TransactionService.net_of_rows(rows[start:i])
-                )
+                rows[start]["sep_net"] = TransactionService.group_net_label(rows[start:i])
             start = i
         if start is not None:
-            rows[start]["sep_net"] = TransactionService.format_net(
-                TransactionService.net_of_rows(rows[start:])
-            )
+            rows[start]["sep_net"] = TransactionService.group_net_label(rows[start:])
         return rows
+
+    @staticmethod
+    def group_net_label(group: builtins.list[dict[str, Any]]) -> str:
+        """A group's net as the separator shows it, or nothing at all.
+
+        A week made entirely of upcoming planned rows has no net to show: none
+        of that money has moved. Printing ``0.00`` there would claim the week
+        came out even, which is a different statement from "nothing is
+        recorded yet". A group that holds only transfers still reads ``0.00``,
+        because in that case nothing really did leave the user.
+        """
+        if group and all(row.get("is_planned") for row in group):
+            return ""
+        return TransactionService.format_net(TransactionService.net_of_rows(group))
 
     @staticmethod
     def net_of_rows(rows: builtins.list[dict[str, Any]]) -> Decimal:

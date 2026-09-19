@@ -24,13 +24,13 @@ leaving the page.
 ## Scope
 
 - **Settings — new field** in the Settings → Features tab
-  (`views/settings.py`):
+  (`views/settings/features_tab.py`):
   - Label: "Show upcoming planned transactions". Options:
     `Off / 7 days / 30 days`. Default: `7 days`.
   - Persisted in `app.storage.user["transactions_upcoming_days"]`
     (NiceGUI per-user storage; matches existing pattern of
     other Features-tab toggles).
-- **View — Transactions list** (`views/transactions.py`):
+- **View — Transactions list** (`views/transactions/page.py`):
   - On page load, read the setting; if non-zero, call
     `PlannedTransactionService.get_occurrences(today,
     today + N days)` and merge into the rendered rows.
@@ -107,9 +107,9 @@ Out of scope:
 
 ## Touchpoints
 
-- `src/kaleta/views/settings.py` — Features tab gains the
-  new tri-state toggle.
-- `src/kaleta/views/transactions.py` — fetch + merge upcoming
+- `src/kaleta/views/settings/features_tab.py` — Features tab
+  gains the new tri-state toggle.
+- `src/kaleta/views/transactions/page.py` — fetch + merge upcoming
   occurrences; row rendering tweaks; row click handler.
 - `src/kaleta/services/planned_transaction_service.py` —
   `get_occurrences()` reused as-is; two thin read helpers added
@@ -213,6 +213,21 @@ Out of scope:
 - A plan deleted between the page being drawn and the row being clicked now
   raises a toast (`transactions.planned_gone`) instead of a click that does
   nothing.
+- A group made only of upcoming rows shows no net at all rather than `0.00`:
+  `0.00` would claim the month came out even, which is a different statement
+  from "nothing is recorded in it yet". A group of transfers still reads
+  `0.00`, because there nothing really did leave the user
+  (`TransactionService.group_net_label`).
+- `tests/e2e/ledger.py` gained `pick_open_menu_option` (moved verbatim out of
+  `tests/e2e/test_transactions.py`, where it was private) and
+  `filter_ledger_by_account`. The new account-filter scenario needs the same
+  virtual-scroll handling, and a second copy of it would be the worse answer.
+
+### Verification
+
+`./scripts/verify.sh --e2e` green on the branch: ruff, ruff format, mypy,
+import-linter (4 contracts kept), 2283 unit + integration tests, spec coverage
+(323 scenarios, 204 covered), doc links, SPDX, and 159 e2e.
 
 ### BDD
 

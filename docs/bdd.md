@@ -1855,6 +1855,8 @@ Feature: Planned and Recurring Transactions
     And an upcoming planned expense of 2500 falls in the same month
     When the rows are grouped by month
     Then the month separator shows a net of "+9,111.26"
+    And a month holding upcoming rows only shows no net at all,
+      because nothing in it has moved
 
   # --- Forecast integration ---
 

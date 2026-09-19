@@ -1922,6 +1922,20 @@ class TestMergeUpcomingRows:
         )
         assert [row["sep_label"] for row in merged] == ["March 2026", "", ""]
 
+    def test_a_group_made_only_of_promises_shows_no_net_at_all(self):
+        """Covers: KAL-PLN-024
+
+        ``0.00`` would say the month came out even. Nothing is recorded in it.
+        """
+        merged = TransactionService.merge_upcoming_rows(
+            [self._actual("2026-03-09", "-128.74", tx_id=1)],
+            [self._planned("2026-04-01", "-2500.00")],
+            "month",
+        )
+        assert merged[0]["sep_label"] == "April 2026"
+        assert merged[0]["sep_net"] == ""
+        assert merged[1]["sep_net"] == "-128.74"
+
     def test_the_group_net_counts_what_moved_and_not_what_is_promised(self):
         merged = TransactionService.merge_upcoming_rows(
             [

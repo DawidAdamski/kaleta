@@ -379,9 +379,12 @@ def test_clicking_an_upcoming_row_opens_the_plan_behind_it(page: Page, base_url:
         timeout=5000
     )
     expect(dialog.get_by_text("Netflix Click Test", exact=True)).to_be_visible()
-    expect(dialog.get_by_role("button", name="Open in Planned Transactions")).to_be_visible()
     # The ledger's own editor must stay shut — an occurrence is not a row to edit.
     expect(dialog.get_by_text("Edit Transaction", exact=True)).to_have_count(0)
+
+    dialog.get_by_role("button", name="Open in Planned Transactions").click()
+    page.wait_for_url(lambda url: url.endswith("/planned"), timeout=10000)
+    expect(page.get_by_text("Netflix Click Test").first).to_be_visible(timeout=10000)
 
 
 # ---------------------------------------------------------------------------
