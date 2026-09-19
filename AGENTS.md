@@ -210,6 +210,17 @@ Every task, no exceptions:
 11. **Verification tests use BDD literals.** In verification tests,
     expected values must be literals taken from the BDD scenario — never
     computed by calling the service under test.
+12. **A screen with an artboard is built from the artboard, and looked at.**
+    When a plan names an artboard in `docs/design/restyle/artboards/`, that
+    file's markup is the spec — element order, nesting and every inline
+    value — and prose about it is commentary. Read it whole before writing
+    view code. The plan's criterion is
+    `uv run python scripts/restyle_fidelity.py check <id>`, never
+    `[manual]`: `shoot <id>`, open both pictures, write the comparison in
+    `docs/design/restyle/fidelity/<id>.md` with the values observed on each
+    side, fix what is `open`, shoot again. `deviation` needs a reason that
+    is not "close enough". Marking a row `match` without having looked at
+    the screenshots is green-washing (rule 4).
 
 ## Available Subagents
 

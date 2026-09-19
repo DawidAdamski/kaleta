@@ -65,6 +65,13 @@ Prose-only checks (visual review, UX judgement) must start with
 Supported command forms: `uv run …`, `./scripts/…`, `grep …`,
 `test …`, `python …`. Do not embed commands in prose paragraphs.
 
+**A screen that has an artboard is not a `[manual]` check.** "Matches
+artboard 2a" goes in as
+`uv run python scripts/restyle_fidelity.py check 2a` (Working Agreement
+§12), and the plan's Scope cites `docs/design/restyle/artboards/2a.html`,
+not the README's paragraph about it. The first restyle pass left all
+fifteen comparisons `[manual]`; none was ever made.
+
 ## Touchpoints
 Files, models, services, i18n keys, migrations likely to change.
 
@@ -132,6 +139,19 @@ contents sit in, and plan 5 put it out of scope. Plan 15 is that page.
 so the decision to start is a decision, not an omission. Most of what it
 needs — `safe_to_spend`, the hero, `Band` / `BAND_OF` /
 `bands_for_layout` — arrived with 13.
+
+### Restyle — fidelity pass (execute in this order)
+
+The programme above shipped behaviour, not the picture: plans were written
+from the handoff's prose, every comparison was left `[manual]`, and plan 14
+built `1e`, which is not a target. Targets are `1c` / `1d` / `1f`, `2a`–`2d`,
+`3a`–`3f`; see "Read this first" in the
+[handoff README](../design/restyle/README.md).
+
+| # | Plan | Artboards | Status | Depends on |
+|---|---|---|---|---|
+| 1 | [restyle-fidelity-shell-dashboard](restyle-fidelity-shell-dashboard.md) | shell, `1c`, `1d`, `1f` | draft | — |
+| 2 | [restyle-fidelity-screens](restyle-fidelity-screens.md) | `2a`–`2d`, `3a`–`3f` | draft | 1 |
 
 ### Q4 2026 — Open-source launch (execute in this order)
 

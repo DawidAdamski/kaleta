@@ -67,6 +67,21 @@ vacuum. The PR description must link the plan file in `docs/plans/`
       the PR changes structure, dependencies-of-record, or
       conventions.
 
+## 7. Design fidelity (plans that name an artboard)
+
+- [ ] The plan's criterion is `scripts/restyle_fidelity.py check <id>`,
+      not `[manual]`, and its output is in the PR description.
+- [ ] `docs/design/restyle/fidelity/<id>.md` names the artboard's real
+      elements with values observed on both sides — not the template's
+      generic rows, not "ok".
+- [ ] Spot-check three `match` rows against
+      `docs/design/restyle/artboards/<id>.html` and the view code: same
+      element, same order, same numbers. A `match` the markup contradicts
+      is a request-changes.
+- [ ] Every `deviation` has a reason that is not "close enough": sample
+      vs seed data, a sketch vs a real chart, a Quasar limit, or an owner
+      decision recorded in the plan.
+
 ## Reviewer output format
 
 For the automated reviewer: post one summary comment — verdict
