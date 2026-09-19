@@ -54,16 +54,15 @@ MAX_HORIZON_MONTHS = 24
 #: in. Approximate on purpose: the horizon is a reading window, not a date.
 _DAYS_PER_MONTH = 30
 
-
-def horizon_days(months: int) -> int:
-    """The forecast horizon in days, for a horizon asked for in months."""
-    return max(1, min(months, MAX_HORIZON_MONTHS)) * _DAYS_PER_MONTH
-
-
 #: A guard on compiling a cadence into dated events. A daily delta over a
 #: two-year horizon is ~730 events, so this only trips on a cadence that
 #: repeats faster than the forecast has days to put it on.
 _MAX_OCCURRENCES = 1000
+
+
+def horizon_days(months: int) -> int:
+    """The forecast horizon in days, for a horizon asked for in months."""
+    return max(1, min(months, MAX_HORIZON_MONTHS)) * _DAYS_PER_MONTH
 
 
 def _add_months(day: datetime.date, months: int) -> datetime.date:
