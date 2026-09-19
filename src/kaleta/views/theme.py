@@ -258,6 +258,8 @@ CALENDAR_DOT_FLAT = "k-cal-dot--flat"
 #: net figure cannot show — 10 000 owned outright and 200 000 against 190 000
 #: owed are the same number and not the same position.
 SPLIT_BAR = "k-split"
+#: The safe-to-spend hero's own weight (artboard `1f`): 9px on a 5px radius.
+SPLIT_BAR_HERO = "k-split k-split--hero"
 
 # ── Loading (artboard 3a) ─────────────────────────────────────────────────────
 #: A page that answers on load shows the shape of the answer while it works.
@@ -341,6 +343,11 @@ BASE_CSS = """
   --k-muted-strong:#6E6656;
   --k-disabled:#B5AB96;
   --k-hairline:#EDE7DA;
+  /* A divider that is meant to be read — a band's rule on the phone, the
+     separators in the mini drawer. A step down from a card's hairline and a
+     step up from the border a control is drawn with; eleven artboards use
+     it. */
+  --k-rule:#DCD4C2;
   --k-border:#E2DBCC;
   --k-border-strong:#C9BFA8;
   --k-accent:#B4591F;
@@ -376,6 +383,7 @@ BASE_CSS = """
   --k-muted-strong:#A19781;
   --k-disabled:#6E6656;
   --k-hairline:#2A2822;
+  --k-rule:#3D392F;
   --k-border:#322F27;
   --k-border-strong:#453F34;
   --k-accent:#E8935B;
@@ -537,8 +545,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 /* 767.98px, not 768px: the tab bar and the server-side layout choice both
    put a 768px-wide window (an iPad in portrait) on the desktop side, and a
    desktop grid with phone padding is neither. */
-@media (max-width:767.98px){.k-dash-page{padding:20px 16px 28px;gap:28px}}
+@media (max-width:767.98px){.k-dash-page{padding:20px 20px 28px;gap:28px}}
 .k-dash-card{border-radius:14px;padding:26px 28px}
+/* 16/18 below the breakpoint, where artboard `1f` tightens the same card for
+   a 390px page. */
+@media (max-width:767.98px){.k-dash-card{padding:16px 18px}}
 .k-account-chip{background:var(--k-surface-sunken)}
 /* Hairline above a card's slow figures (month card footer, artboard 1c). */
 .k-card-footer{border-top:1px solid var(--k-hairline)}
@@ -708,8 +719,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-split{
   display:flex;align-items:stretch;gap:0;
   height:10px;border-radius:999px;overflow:hidden;
-  background:var(--k-surface-sunken)
+  background:var(--k-border)
 }
+/* The safe-to-spend track, at the weight artboard `1f` draws it. */
+.k-split--hero{height:9px;border-radius:5px}
 .k-split-seg{height:100%}
 .k-split-dot{width:8px;height:8px;border-radius:999px;flex:none}
 .k-split--ink{background:var(--k-ink)}
@@ -853,7 +866,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   font-size:9.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
   color:var(--k-ink);
   padding-bottom:10px;
-  border-bottom:1px solid var(--k-border);
+  border-bottom:1px solid var(--k-rule);
   width:100%
 }
 .k-watch-label{font-size:11px;color:var(--k-muted)}

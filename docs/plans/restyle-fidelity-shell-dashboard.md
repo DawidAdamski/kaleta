@@ -92,6 +92,22 @@ Out of scope: the working screens (next plan); any service change —
 `ReportService.safe_to_spend`, `Band` / `BAND_OF` / `bands_for_layout` and the
 Watch figures all stay for the phone; new widgets; artboards `1a`, `1b`, `1e`.
 
+### Scope amendment — the two widgets `1f` redraws (agreed during implementation)
+
+`1f` draws **Needs attention** and **Latest** differently from `1c`: a paper
+card of 44px rows with chevrons, and 52px two-line rows instead of a
+five-column table. Neither is a restyle of the widget the app has — a
+widget's render signature is `(session, is_dark)` and is never told the
+width, so either means changing the signature every widget in the catalogue
+is registered with.
+
+That is a registry change and new behaviour needing its own `KAL-` scenario,
+so it is **deferred to [`restyle-fidelity-phone-widgets`]
+(restyle-fidelity-phone-widgets.md)**, which exists as a draft and names
+both. Rows 10 and 13 of `1f.md` are `deviation` against that plan, not
+against a preference. The `[owner]` criterion below is where the deferral
+gets accepted or sent back.
+
 ## Acceptance criteria
 
 - `uv run python scripts/restyle_fidelity.py check 1c`
@@ -193,25 +209,42 @@ Watch figures all stay for the phone; new widgets; artboards `1a`, `1b`, `1e`.
 - **`.k-table` header tracking stays at .14em.** `1c`'s transactions grid
   says `.16em`, but that grid is the dashboard's copy of the ledger, and the
   ledger's own header in `2a` says `.14em`. One table style, the ledger's.
+- **`--k-rule`, new.** `#DCD4C2` — the band rule on the phone, the mini
+  drawer's separators — appears on eleven artboards, which makes it a token
+  rather than an arbitrary value. It sits between `--k-hairline` (a card's
+  internal rule) and `--k-border` (what a control is drawn with); in dark it
+  is `#3D392F`, the value `1d` uses for the same job.
+- **Two heroes, one helper.** `hero_figure` now takes `weight` and
+  `tracking` beside `size`, because the artboards set two: `1c`'s balance
+  figure at 54px/500/-.035em and `1f`'s safe-to-spend at 46px/400/-.04em.
+- **`.k-split`'s track is `--k-border`.** Both artboards that draw one —
+  `1f`'s safe-to-spend and `3b`'s balance sheet — fill it with `#E2DBCC`;
+  the class had `--k-surface-sunken`. The height is a modifier
+  (`.k-split--hero`, 9px on a 5px radius) because `3b` draws the same bar at
+  12px on 6px.
+- **`KAL-NAV-009`, new.** The avatar's menu holds log out and "close
+  database", which had buttons of their own; a menu is where that behaviour
+  now lives, so it gets a scenario and an e2e test rather than being a
+  silent move.
 
 ### Left for the owner, or for the next plan
 
-- **`1f`'s phone-only renderings.** The artboard re-draws two widgets for a
-  390px screen: "Needs attention" as a paper card of 44px rows with
-  chevrons, and "Latest" as two-line rows instead of a five-column table. A
-  widget's `render` is `(session, is_dark)` — it is never told the width —
-  so either would mean changing the signature every widget in the catalogue
-  is registered with. That is a registry change and new behaviour needing
-  its own `KAL-` scenario, not a restyle. Recorded as `deviation` rows 10
-  and 13 of `1f.md`.
-- **The phone tab bar.** Scope says the phone shell is unchanged here. `1f`
-  draws it 72px tall with a 52px ink centre disc; what shipped is 61px with
-  a 44px accent disc, and the labels differ (Home/Ledger/Plan/More against
-  Overview/Money/Plan/Insight). Recorded as `deviation` rows 15 and 16 of
-  `1f.md` for whichever plan next opens the phone shell.
-- **`.k-split`.** `1f` wants the safe-to-spend track at 9px/radius 5 on
-  `--k-border`; the class is shared with the net-worth balance sheet, which
-  `3b` owns. Left to `restyle-fidelity-screens`.
+- **`1f`'s phone-only renderings.** Deferred by the scope amendment above
+  to [`restyle-fidelity-phone-widgets`](restyle-fidelity-phone-widgets.md),
+  drafted in this PR: "Needs attention" as a paper card of 44px rows with
+  chevrons, and "Latest" as two-line rows instead of a five-column table.
+  Recorded as `deviation` rows 10 and 13 of `1f.md`, each pointing at that
+  plan.
+- **The phone tab bar.** Scope excludes it in as many words ("Shell,
+  < `md`: unchanged"). `1f` draws it 72px tall with a 52px ink centre disc;
+  what shipped is 61px with a 44px accent disc, and the labels differ
+  (Home/Ledger/Plan/More against Overview/Money/Plan/Insight). Recorded as
+  `deviation` rows 15 and 16 of `1f.md` for whichever plan next opens the
+  phone shell.
+- **`scripts/restyle_fidelity.py` uses port 8082**, which is also
+  `tests/e2e/test_demo_banner.py`'s `DEMO_PORT`. A `shoot --base-url` app
+  left running fails that one e2e test with a login timeout that says
+  nothing about the collision. One line for the Chore inbox.
 
 ### Behaviour this plan removes, by plan
 

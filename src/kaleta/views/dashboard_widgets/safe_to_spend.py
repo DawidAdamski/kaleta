@@ -31,7 +31,7 @@ from kaleta.views.theme import (
     INK,
     MONO,
     MUTED,
-    SPLIT_BAR,
+    SPLIT_BAR_HERO,
 )
 
 #: The bar's three segments, in the order they are drawn. The tone classes are
@@ -78,9 +78,14 @@ def render_hero(stats: SafeToSpend) -> None:
     the desktop widget draw the same thing from the same data."""
     with ui.column().classes("w-full gap-1"):
         ui.label(t("dashboard.safe_to_spend")).classes("k-eyebrow")
-        # 46px on a phone, where artboard `1f` sets this hero; the wider
-        # sizes are for a window that has the room.
-        hero_figure(stats.free, size="text-[46px] md:text-[64px]")
+        # 46px/400 at -.04em on a phone, which is what artboard `1f` sets
+        # this hero at; the wider sizes are for a window that has the room.
+        hero_figure(
+            stats.free,
+            size="text-[46px] md:text-[64px]",
+            weight="font-normal",
+            tracking="tracking-[-.04em]",
+        )
         ui.label(days_left_label(stats)).classes(CARD_SUBTITLE)
 
     split = hero_split(stats)
@@ -95,7 +100,7 @@ def render_hero(stats: SafeToSpend) -> None:
         )
         # A plain div, not ui.row: `.nicegui-row` puts a gap between children
         # and a gap here would be read as a fourth segment.
-        with ui.element("div").classes(f"{SPLIT_BAR} w-full mt-4"):
+        with ui.element("div").classes(f"{SPLIT_BAR_HERO} w-full mt-4"):
             for (pct, amount), (label_key, tone) in zip(shares, _SEGMENTS, strict=True):
                 if pct <= 0:
                     continue

@@ -431,7 +431,7 @@ async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_
         is_watch = band is Band.WATCH
         if not entries and not is_watch:
             continue
-        with ui.column().classes("w-full gap-3").props(f'data-band="{band.value}"'):
+        with ui.column().classes("w-full gap-3.5").props(f'data-band="{band.value}"'):
             ui.label(t(title_key)).classes(BAND_TITLE)
             if is_watch:
                 await _render_watch_band(session)

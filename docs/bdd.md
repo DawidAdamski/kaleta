@@ -3269,6 +3269,15 @@ Feature: Workflow-based navigation
     When I collapse the sidebar from the header
     Then it narrows to a 64 pixel rail of icons
     And it is still a rail after I load another page
+    And Settings — Appearance offers the same expanded-or-collapsed choice
+
+  KAL-NAV-009 @automated
+  Scenario: The account avatar carries the account's own actions
+    Given I am signed in
+    When I open the menu behind the initials in the header
+    Then it names the account I am signed in as
+    And it offers to log out
+    And it offers to close the database
 
   KAL-NAV-008 @automated
   Scenario: The command palette reaches any page by name

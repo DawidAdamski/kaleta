@@ -151,13 +151,22 @@ def split_amount(amount: Decimal | float | int) -> tuple[str, str]:
     return (whole, sep + frac) if sep else (numeric, "")
 
 
-def hero_figure(amount: Decimal | float | int, *, size: str = "text-[54px]") -> None:
+def hero_figure(
+    amount: Decimal | float | int,
+    *,
+    size: str = "text-[54px]",
+    weight: str = "font-medium",
+    tracking: str = "tracking-[-.035em]",
+) -> None:
     """Hero amount with its decimals muted, per the handoff type scale.
 
-    The split is what keeps a 54px figure from shouting its cents.
+    The split is what keeps a 54px figure from shouting its cents. Size,
+    weight and tracking are per call because the artboards set two heroes:
+    the balance card's 54px/500/-.035em in `1c` and the safe-to-spend
+    figure's 46px/400/-.04em in `1f`.
     """
     whole, frac = split_amount(amount)
-    base = f"{size} font-medium tracking-[-.035em] leading-none"
+    base = f"{size} {weight} {tracking} leading-none"
     with ui.row().classes("items-baseline gap-0 no-wrap"):
         ui.label(whole).classes(f"k-mono k-ink {base}")
         if frac:

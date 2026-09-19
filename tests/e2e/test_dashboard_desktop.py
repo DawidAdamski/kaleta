@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for the wide viewport — docked drawer, palette, widget grid.
 
-Covers: KAL-NAV-007, KAL-NAV-008, KAL-DSH-008
+Covers: KAL-NAV-007, KAL-NAV-008, KAL-NAV-009, KAL-DSH-008
 
 Seeds nothing. The suite shares one database and one user storage, and
 none of these claims is about a figure: they are about which navigation a
@@ -121,6 +121,44 @@ def test_the_drawer_collapses_to_a_rail_and_stays_one(page: Page, base_url: str)
 
     # Leave the shared storage expanded for the files after this one.
     _set_mini(page, False)
+
+
+def test_settings_offers_the_same_drawer_choice(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-007
+
+    The header's chevron flips `sidebar_mini` for now; Settings - Appearance
+    is where it is chosen as a default, and the two read the same key.
+    """
+    _open_desktop(page, base_url, "/settings")
+    page.get_by_role("tab", name="Appearance").click()
+
+    card = page.get_by_text("Sidebar", exact=True)
+    expect(card).to_be_visible(timeout=10000)
+    expect(page.get_by_role("button", name="Expanded")).to_be_visible()
+    expect(page.get_by_role("button", name="Collapsed")).to_be_visible()
+
+
+def test_the_avatar_menu_carries_the_account_actions(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-009
+
+    The artboards end the header with a 28px initials disc and nothing else,
+    so the two buttons that used to sit beside it are inside the menu it
+    drops. Losing them there would be losing the only way to log out.
+    """
+    _open_desktop(page, base_url)
+
+    avatar = page.locator(".k-avatar")
+    expect(avatar).to_be_visible(timeout=10000)
+    # Two letters of the account name, which is what the disc is for.
+    assert len(avatar.inner_text().strip()) == 2, avatar.inner_text()
+    avatar.click()
+
+    menu = page.locator(".q-menu")
+    expect(menu).to_be_visible(timeout=10000)
+    expect(menu.get_by_text("Log out", exact=True)).to_be_visible()
+    expect(menu.get_by_text("Close database", exact=True)).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(menu).to_be_hidden(timeout=10000)
 
 
 def _open_palette(page: Page) -> Locator:
