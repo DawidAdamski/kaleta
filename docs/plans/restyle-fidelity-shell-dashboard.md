@@ -92,19 +92,20 @@ Out of scope: the working screens (next plan); any service change —
 `ReportService.safe_to_spend`, `Band` / `BAND_OF` / `bands_for_layout` and the
 Watch figures all stay for the phone; new widgets; artboards `1a`, `1b`, `1e`.
 
-### Scope amendment — the two widgets `1f` redraws (agreed during implementation)
+### Scope amendment — what `1f` redraws for a phone (agreed during implementation)
 
-`1f` draws **Needs attention** and **Latest** differently from `1c`: a paper
-card of 44px rows with chevrons, and 52px two-line rows instead of a
-five-column table. Neither is a restyle of the widget the app has — a
-widget's render signature is `(session, is_dark)` and is never told the
-width, so either means changing the signature every widget in the catalogue
-is registered with.
+`1f` draws three things differently from `1c`: **Needs attention** as a paper
+card of 44px rows with chevrons, **Latest** as 52px two-line rows instead of
+a five-column table, and **the Month band** with no cards at all — In/Out/Net
+as bare mono on the ground under a 120px chart sketch. None of the three is
+a restyle of the widget the app has — a widget's render signature is
+`(session, is_dark)` and is never told the width, so any of them means
+changing the signature every widget in the catalogue is registered with.
 
 That is a registry change and new behaviour needing its own `KAL-` scenario,
 so it is **deferred to [`restyle-fidelity-phone-widgets`]
-(restyle-fidelity-phone-widgets.md)**, which exists as a draft and names
-both. Rows 10 and 13 of `1f.md` are `deviation` against that plan, not
+(restyle-fidelity-phone-widgets.md)**, which exists as a draft and names all
+three. Rows 10, 11 and 13 of `1f.md` are `deviation` against that plan, not
 against a preference. The `[owner]` criterion below is where the deferral
 gets accepted or sent back.
 
@@ -259,9 +260,9 @@ gets accepted or sent back.
 - **`1f`'s phone-only renderings.** Deferred by the scope amendment above
   to [`restyle-fidelity-phone-widgets`](restyle-fidelity-phone-widgets.md),
   drafted in this PR: "Needs attention" as a paper card of 44px rows with
-  chevrons, and "Latest" as two-line rows instead of a five-column table.
-  Recorded as `deviation` rows 10 and 13 of `1f.md`, each pointing at that
-  plan.
+  chevrons, "Latest" as two-line rows instead of a five-column table, and
+  the Month band with no cards under it. Recorded as `deviation` rows 10,
+  11 and 13 of `1f.md`, each pointing at that plan.
 - **The phone tab bar.** Scope excludes it in as many words ("Shell,
   < `md`: unchanged"). `1f` draws it 72px tall with a 52px ink centre disc;
   what shipped is 61px with a 44px accent disc, and the labels differ

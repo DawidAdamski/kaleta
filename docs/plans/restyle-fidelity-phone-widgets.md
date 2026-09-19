@@ -1,19 +1,19 @@
 ---
 plan_id: restyle-fidelity-phone-widgets
-title: Restyle fidelity — the two widgets artboard 1f redraws for a phone
+title: Restyle fidelity — the widgets artboard 1f redraws for a phone
 area: dashboard
 effort: medium
 status: draft
 roadmap_ref: ../roadmap.md#dashboard
 ---
 
-# Restyle fidelity — the two widgets `1f` redraws for a phone
+# Restyle fidelity — the widgets `1f` redraws for a phone
 
 ## Intent
 
 `restyle-fidelity-shell-dashboard` took the dashboard to artboards `1c`,
 `1d` and `1f` and closed three rows of `1f.md` as `deviation` for one
-reason, recorded there and in that plan's Implementation notes: two
+reason, recorded there and in that plan's Implementation notes: some
 widgets are drawn differently on a phone, and a widget cannot tell how
 wide the page is.
 
@@ -25,6 +25,11 @@ wide the page is.
   app has. `1f` draws 52px two-line rows — payee over "03.07 · Żywność",
   amount right in mono — because five columns do not fit 350px of content
   width.
+- **The Month band** (`month_card`, and the cards beside it). `1c` gives
+  each its paper card. `1f` drops the cards: In/Out/Net as bare 500/18 mono
+  on the ground, a 120px chart sketch under them with month letters. At
+  390px a card's 18px of padding is 10% of the width, and the band heading
+  is already saying what the card's border would.
 
 A widget's render signature is `(session: AsyncSession, is_dark: bool)`.
 It is never told the width, so either treatment means changing the
@@ -41,11 +46,14 @@ than done half-way.
   the decision is binary and is made in one place.
 - Every `@register`ed render function updated to the new signature.
   Twenty-two of them; all but the two below ignore the new argument.
-- `wizard_actions.py` and `recent_transactions.py`: the `1f` treatments
-  above, behind that flag.
+- `wizard_actions.py`, `recent_transactions.py` and the Month band's
+  widgets: the `1f` treatments above, behind that flag. The Month band is
+  the one that needs a decision first — whether "no card" is a property of
+  the widget or of the band it is in — because it touches more than one
+  render function.
 - `docs/bdd.md`: `KAL-DSH-007` gains the two phone renderings; new tests
   in `tests/e2e/test_dashboard_mobile.py` with `Covers:` docstrings.
-- `docs/design/restyle/fidelity/1f.md`: rows 10 and 13 move from
+- `docs/design/restyle/fidelity/1f.md`: rows 10, 11 and 13 move from
   `deviation` to `match`, with the values read off both sides.
 
 Out of scope: the phone tab bar (`1f.md` rows 15 and 16 — `restyle-
