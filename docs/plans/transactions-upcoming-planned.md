@@ -271,18 +271,19 @@ Out of scope:
   actionability timeout. KAL-PLN-022 and KAL-PLN-025 both click a row, and
   KAL-PLN-025 caught it intermittently.
 
+- The two row builders are separate, so an integration test pins the planned
+  row's key set as a superset of the recorded row's. The table's body slot
+  reads one set of fields for both, and a key added to one and forgotten on
+  the other would render blank rather than fail.
+
 ### Verification
 
 `./scripts/verify.sh --e2e` green on the branch: ruff, ruff format, mypy,
-import-linter (4 contracts kept), 2292 unit + integration tests, spec coverage
+import-linter (4 contracts kept), 2293 unit + integration tests, spec coverage
 (324 scenarios, 205 covered), doc links, SPDX, and 160 e2e. The e2e suite was
 then run three more times end to end, all green, to confirm the
 `search_ledger` fix above settled the flake it exposed.
 
-Note on the local environment: the e2e suite assumes `uv sync --group dev`.
-With the optional `forecast` extra also installed, six `test_forecast.py`
-scenarios and `test_wizard_scenarios.py::test_the_panel_works_without_prophet`
-fail on `main` too — that last one asserts the extra is *absent*.
 
 ### BDD
 

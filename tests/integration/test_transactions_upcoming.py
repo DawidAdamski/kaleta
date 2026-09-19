@@ -144,3 +144,37 @@ async def test_the_month_net_counts_the_records_and_not_the_promise(
     assert [row.get("is_planned", False) for row in merged] == [True, False, False]
     assert merged[0]["sep_label"] == "March 2026"
     assert merged[0]["sep_net"] == "+9,111.26"
+
+
+async def test_a_planned_row_carries_every_key_a_recorded_row_does(
+    session: AsyncSession,
+) -> None:
+    """Covers: KAL-PLN-023
+
+    The two row builders are separate, and the table's body slot reads one set
+    of fields for both. A key added to a recorded row and forgotten on a
+    planned one would render as blank rather than fail, so the shapes are
+    pinned against each other here.
+    """
+    account_id = await _account(session)
+    await _rent_plan(session, account_id)
+    category_id = await _category(session, "Zywnosc", CategoryType.EXPENSE)
+
+    tx_svc = TransactionService(session)
+    await tx_svc.create(
+        TransactionCreate(
+            account_id=account_id,
+            category_id=category_id,
+            amount=Decimal("128.74"),
+            type=TransactionType.EXPENSE,
+            date=datetime.date(2026, 3, 2),
+            description="Lidl",
+        )
+    )
+
+    actual_row = TransactionService.build_table_rows(await tx_svc.list(), "none")[0]
+    upcoming = await PlannedTransactionService(session).upcoming_for_ledger(TODAY, WINDOW_END)
+    planned_row = PlannedTransactionService.build_upcoming_rows(upcoming, TODAY)[0]
+
+    missing = set(actual_row) - set(planned_row)
+    assert missing == set(), f"planned rows are missing ledger row keys: {sorted(missing)}"
