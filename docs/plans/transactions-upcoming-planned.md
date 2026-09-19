@@ -117,8 +117,9 @@ Out of scope:
   the row builder. No post/convert helpers.
 - `src/kaleta/i18n/locales/{en,pl}.json` — new keys.
 - `tests/unit/services/test_planned_transaction_service.py`
-  and a new
-  `tests/integration/views/test_transactions_upcoming.py`.
+  and a new `tests/integration/test_transactions_upcoming.py`
+  (`tests/integration/` has no `views/` package; the file sits
+  beside its siblings rather than creating one).
 
 ## Open questions
 
@@ -183,6 +184,22 @@ Out of scope:
   editing the planned-transaction template from the Transactions list". The
   dialog reads the plan out and offers a button through to `/planned` rather
   than a second editor that could drift from the first.
+
+### Deviations from the plan's wording
+
+- **The date cell reads "In 3 days" under the `dd.mm` short date, without a
+  weekday.** The plan sketched "In 3 days · Wed 14"; the ledger's date column
+  is 95px and already carries the full ISO date in a tooltip, so a weekday
+  would have to buy its space from the description column. The relative phrase
+  is the part the reader was after.
+- **"7 days" means today through today + 7,** eight calendar days inclusive.
+  The alternative — stopping at today + 6 — would make a plan due a week today
+  invisible under the setting named for it.
+- The integration test landed at `tests/integration/test_transactions_upcoming.py`
+  (see Touchpoints).
+- When the filters match no recorded rows but some upcoming ones, the count
+  under the table says so (`transactions.upcoming_only_*`) instead of "No
+  transactions match your filters" sitting under visible rows.
 
 ### Review follow-ups
 

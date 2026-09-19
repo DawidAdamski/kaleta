@@ -1812,6 +1812,8 @@ Feature: Planned and Recurring Transactions
     Then I see "Netflix" above the recorded rows
     And its row is italicised and carries a "Planned" chip
     And its date cell reads "In 3 days"
+    And the count under the table says no recorded transactions matched
+      and one upcoming planned row did
 
   KAL-PLN-012 @automated
   Scenario: Upcoming planned occurrences are hidden when the setting is off

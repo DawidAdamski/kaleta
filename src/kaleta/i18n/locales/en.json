@@ -312,7 +312,10 @@
     "planned_detail_hint": "Nothing has been recorded yet. Change the plan itself on the Planned Transactions page.",
     "planned_detail_frequency": "Repeats",
     "planned_open_plan": "Open in Planned Transactions",
-    "planned_gone": "That planned transaction no longer exists."
+    "planned_gone": "That planned transaction no longer exists.",
+    "upcoming_only_one": "No recorded transactions — {count} upcoming planned row",
+    "upcoming_only_few": "No recorded transactions — {count} upcoming planned rows",
+    "upcoming_only_many": "No recorded transactions — {count} upcoming planned rows"
   },
   "tags": {
     "title": "Tags",

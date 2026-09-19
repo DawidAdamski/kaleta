@@ -269,13 +269,27 @@ def render_pagination_bar(
     on_grouping_change: Callable[[str], None],
     on_page_size_change: Callable[[int], None],
     on_page_change: Callable[[int], None],
+    upcoming_count: int = 0,
 ) -> None:
-    """Pagination, grouping toggle, and result count below the table."""
+    """Pagination, grouping toggle, and result count below the table.
+
+    ``total`` counts recorded rows only — upcoming planned rows are not part
+    of any page. When the filters match none of the former and some of the
+    latter, "no results" would be sitting under visible rows, so the count
+    says which kind the reader is looking at instead.
+    """
     start_n = current_page * page_size + 1
     end_n = min(start_n + page_size - 1, total)
 
     with ui.row().classes("w-full items-center justify-between px-2 pt-2 text-sm k-muted"):
-        if total == 0:
+        if total == 0 and upcoming_count > 0:
+            ui.label(
+                t(
+                    plural_key("transactions.upcoming_only", upcoming_count),
+                    count=upcoming_count,
+                )
+            )
+        elif total == 0:
             pagination_empty_label()
         else:
             ui.label(t("transactions.showing", **{"from": start_n, "to": end_n, "total": total}))

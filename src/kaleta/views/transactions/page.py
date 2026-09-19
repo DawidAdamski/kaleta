@@ -271,6 +271,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             on_grouping_change=_set_grouping,
             on_page_size_change=_set_page_size,
             on_page_change=_go_page,
+            upcoming_count=len(upcoming),
         )
 
     def _go_page(page: int) -> None:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -41,7 +42,7 @@ def parse_planned_row_key(row_key: str) -> tuple[int, datetime.date] | None:
 @dataclass
 class PlannedDialogContext:
     dialog: ui.dialog
-    open_for_row_key: Any
+    open_for_row_key: Callable[[Any], Awaitable[None]]
 
 
 def build_planned_dialog() -> PlannedDialogContext:

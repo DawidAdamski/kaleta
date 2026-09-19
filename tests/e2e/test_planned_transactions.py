@@ -299,6 +299,9 @@ def test_upcoming_planned_row_heads_the_ledger(page: Page, base_url: str) -> Non
     expect(row.get_by_text("In 3 days", exact=True)).to_be_visible()
     # A promise cannot be ticked for deletion — its id names no transaction.
     expect(row.locator(".q-checkbox")).to_have_count(0)
+    # Nothing recorded matches this search, but the table is not empty: the
+    # count under it has to say which kind of row the reader is looking at.
+    expect(page.get_by_text("No recorded transactions — 1 upcoming planned row")).to_be_visible()
 
 
 def test_upcoming_rows_are_hidden_when_the_window_is_off(page: Page, base_url: str) -> None:
