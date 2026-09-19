@@ -350,10 +350,13 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     is_mini: bool = app.storage.user.get("sidebar_mini", False)
 
     dark_mode = ui.dark_mode(value=is_dark)
-    drawer: Any
-    toggle_btn: Any
-    mini_btn: Any
-    close_dialog: Any
+    # Forward declarations for the closures below, which are defined before
+    # the elements they reach for. Named types rather than `Any`: these are
+    # ordinary NiceGUI classes and there is nothing to erase.
+    drawer: ui.left_drawer
+    toggle_btn: ui.button
+    mini_btn: ui.button
+    close_dialog: ui.dialog
 
     def toggle_dark() -> None:
         dark_mode.toggle()

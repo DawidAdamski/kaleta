@@ -3379,6 +3379,14 @@ Feature: Dashboard Customization
     And clicking Edit layout unlocks dragging for the whole grid
     And the safe-to-spend hero is not there, because it is the phone's answer
       and Customize is what adds it
+
+  KAL-DSH-009 @automated
+  Scenario: The recent-transactions card dates its rows without the year
+    Given I am signed in on a 1360 pixel wide viewport
+    When I open the dashboard
+    Then each row in the recent-transactions card reads its date as month-day
+    And no row carries a year, because all ten are recent by construction
+    And "View all" opens the ledger, where the full date is
 ```
 
 ## Feature: Wizard Action Items

@@ -233,6 +233,19 @@ gets accepted or sent back.
   database", which had buttons of their own; a menu is where that behaviour
   now lives, so it gets a scenario and an e2e test rather than being a
   silent move.
+- **The category pill is filled with `--k-hairline`, not
+  `--k-surface-sunken`.** The two are one colour in dark, so only light
+  told them apart: `1c` and `2a` both draw the pill `#EDE7DA`, which is the
+  hairline. It was written against sunken sand (`#F3EFE7`) first, and the
+  row in `1c.md` said `match` over two different values — corrected in the
+  stylesheet, then re-measured (`rgb(237,231,218)`).
+- **Top merchants (row 30 of `1c.md`) was measured on a tagged ledger.**
+  The demo seed leaves every `payee_id` null, so the card renders its empty
+  line and `shoot` photographs that line. Five payees were written straight
+  into the ephemeral database over the expenses inside the 30-day window,
+  and the row's values are `getComputedStyle` off the five rows that then
+  rendered. The picture still shows the empty line, which is what the note
+  on the row says.
 
 ### Left for the owner, or for the next plan
 
@@ -252,6 +265,12 @@ gets accepted or sent back.
   `tests/e2e/test_demo_banner.py`'s `DEMO_PORT`. A `shoot --base-url` app
   left running fails that one e2e test with a login timeout that says
   nothing about the collision. One line for the Chore inbox.
+- **`tests/e2e/test_csv_import.py::test_multi_file_queue_keeps_per_file_account`
+  flaked once** on a full `--e2e` run of this branch (the file switcher
+  clicked, the eyebrow stayed on `pko-2025-10.csv`), then passed alone and
+  on the next full run. Nothing in this branch touches the import wizard's
+  switcher; recorded here so the next person who sees it knows it is not
+  new. One line for the Chore inbox.
 
 ### Behaviour this plan removes, by plan
 

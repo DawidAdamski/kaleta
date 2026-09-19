@@ -469,7 +469,12 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 }
 .k-nav-item .q-icon{font-size:19px}
 .k-nav-item:not(.k-nav-item--active) .q-icon{color:var(--k-muted)!important}
-.k-nav-item--active{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
+/* The artboard lifts this one row a hundredth harder than a card
+   (`rgba(28,26,21,.06)` against the `--k-card-shadow` token's .05), so it
+   carries the value rather than the token. Dark drops it, as every paper
+   surface does there. */
+.k-nav-item--active{background:var(--k-surface);box-shadow:0 1px 2px rgba(28,26,21,.06)}
+.body--dark .k-nav-item--active{box-shadow:none}
 .k-nav-item--active .q-item__label{color:var(--k-ink);font-weight:600}
 .k-nav-item--active .q-icon{color:var(--k-accent-text)!important}
 .k-app-version{color:var(--k-muted);padding:24px 24px 0;font-size:11px}
@@ -526,10 +531,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-table .q-table td{border-bottom:1px solid var(--k-hairline)}
 .k-table .q-table tbody tr:last-child td{border-bottom:none}
 .k-table .q-table tbody tr:hover{background:var(--k-row-hover)}
-/* A category, as a pill on sunken sand — the ledger's own chip, borrowed by
-   the dashboard's last card. */
+/* A category, as a pill — the ledger's own chip, borrowed by the dashboard's
+   last card. Hairline is the fill artboards `1c` and `2a` both draw it in:
+   a shade under the page, so the pill reads as a label and not a button. */
 .k-cell-chip{
-  background:var(--k-surface-sunken);
+  background:var(--k-hairline);
   border-radius:999px;
   color:var(--k-ink-2);
   font-size:11.5px;

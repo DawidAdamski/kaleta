@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for the wide viewport — docked drawer, palette, widget grid.
 
-Covers: KAL-NAV-007, KAL-NAV-008, KAL-NAV-009, KAL-DSH-008
+Covers: KAL-NAV-007, KAL-NAV-008, KAL-NAV-009, KAL-DSH-008, KAL-DSH-009
 
 Seeds nothing. The suite shares one database and one user storage, and
 none of these claims is about a figure: they are about which navigation a
@@ -10,6 +10,8 @@ on an empty ledger and on a full one.
 """
 
 from __future__ import annotations
+
+import re
 
 from playwright.sync_api import Locator, Page, expect
 
@@ -344,6 +346,26 @@ def test_edit_layout_unlocks_the_whole_grid(page: Page, base_url: str) -> None:
 
     label.click()
     expect(page.locator("body.dash-editing")).to_have_count(0, timeout=10000)
+
+
+def test_recent_transactions_dates_rows_month_day(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-009
+
+    The artboard sets `MM-DD`, and ten rows of the same four year digits say
+    nothing in a card whose whole claim is that these are the recent ones.
+    The cost is a ledger quiet enough for ten rows to cross a new year, so
+    the card says where the full date is.
+    """
+    _open_desktop(page, base_url)
+    _wait_for_grid_settled(page)
+
+    card = page.locator('[data-widget-id="recent_transactions"]')
+    expect(card).to_be_visible(timeout=10000)
+    dates = card.locator(".k-cell-date").all_inner_texts()
+    assert dates, "the card rendered no rows"
+    assert all(re.fullmatch(r"\d{2}-\d{2}", d.strip()) for d in dates), dates
+
+    expect(card.get_by_role("button", name="View all")).to_be_visible()
 
 
 def test_a_resize_keeps_every_other_widget(page: Page, base_url: str) -> None:
