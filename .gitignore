@@ -70,3 +70,6 @@ site/
 
 # Real bank exports for fixture work — live PII, never commit.
 test_data/
+
+# Restyle fidelity screenshots (scripts/restyle_fidelity.py shoot)
+.fidelity/

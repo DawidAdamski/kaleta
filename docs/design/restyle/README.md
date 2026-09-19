@@ -1,5 +1,45 @@
 # Handoff: Kaleta visual restyle ("sand" palette) + dashboard restructure
 
+## Read this first — how to build from this handoff
+
+Added after the first implementation pass, which followed the prose below and
+did not end up looking like the design. Where this section and the rest of the
+document disagree, this section wins.
+
+**Targets.** The owner picked these artboards; nothing else on the canvas is
+to be built:
+
+| Screen | Artboard |
+|---|---|
+| Dashboard — light / dark / phone | `1c` / `1d` / `1f` |
+| Transactions, Budgets → Realization, Budget Plan, Import step 3 | `2a`, `2b`, `2c`, `2d` |
+| Forecast, Net Worth, Payment Calendar, Wizard, Report builder, Login | `3a`, `3b`, `3c`, `3d`, `3e`, `3f` |
+
+`1a` is the before-picture, `1b` was superseded, and **`1e` is not a target** —
+it was built once by mistake and is being undone (see
+[`restyle-fidelity-shell-dashboard`](../../plans/restyle-fidelity-shell-dashboard.md)).
+Every desktop target has the same shell: a 60px paper header and a docked
+drawer, 236px on the dashboard and 64px mini on the working screens.
+
+**The markup is the spec.** Each target is cut out of the canvas into
+[`artboards/<id>.html`](artboards/) — static, 10–25 KB, readable whole. "Do
+not attempt to port the HTML" below means *do not paste HTML into a NiceGUI
+app*; it does not mean work from the prose. Reproduce the artboard's elements,
+their order and nesting, and every inline value (sizes, weights, spacing,
+radii, colours) in NiceGUI + `theme.py` tokens. The screen descriptions below
+explain *why* a screen changed; they leave out most of *what it looks like*.
+
+**Look at it.** `scripts/restyle_fidelity.py` puts the running app next to its
+artboard and gates on a written comparison:
+
+```bash
+uv run python scripts/restyle_fidelity.py split      # regenerate artboards/
+uv run python scripts/restyle_fidelity.py shoot 2a   # .fidelity/2a/index.html
+uv run python scripts/restyle_fidelity.py check 2a   # acceptance criterion
+```
+
+Reports live in `fidelity/<id>.md`. AGENTS.md, Working Agreement §12.
+
 ## Overview
 
 Kaleta today is a NiceGUI/Quasar app with the default teal-on-navy look: `--q-primary:#0d9488`,
