@@ -123,7 +123,8 @@ Out of scope:
   `views/components/transaction_table.py` (the planned row's
   rendering and its relative-date label),
   `views/settings/constants.py` + `views/settings/user_prefs.py`
-  (the new key and its reader), `views/theme.py`
+  (the new key and its reader), `views/planned_transactions.py`
+  (`_freq_label` made public as `freq_label`), `views/theme.py`
   (`.k-planned-row`, `.k-planned-chip`, `.k-upcoming-when`),
   and `tests/e2e/ledger.py` (shared filter helpers).
 - `tests/unit/services/test_planned_transaction_service.py`
@@ -275,6 +276,16 @@ Out of scope:
   row's key set as a superset of the recorded row's. The table's body slot
   reads one set of fields for both, and a key added to one and forgotten on
   the other would render blank rather than fail.
+
+- No documentation pass beyond `docs/bdd.md`: the six Features-tab knobs
+  already shipped (`payment_calendar_overdue_days`,
+  `subscriptions_detector_days`, `auto_post_due_on_startup` and the rest) are
+  described in the BDD scenarios and nowhere in `docs/` or `README.md`, so
+  documenting the seventh anywhere else would break with the others rather
+  than follow them.
+- `search_ledger`'s new wait was checked against all 17 of its callers: none
+  interacts with the filter menu after calling it, so none relied on the menu
+  staying open.
 
 ### Verification
 
