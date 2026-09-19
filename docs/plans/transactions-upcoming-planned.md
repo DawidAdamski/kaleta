@@ -4,7 +4,7 @@ title: Transactions — show upcoming planned items (next N days)
 area: transactions
 effort: medium
 roadmap_ref: ../roadmap.md#transactions
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 
@@ -130,4 +130,61 @@ Out of scope:
    purpose of grouping; verify in tests.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### Open questions — decisions taken
+
+1. **Inline merge**, as the plan's default. `TransactionService.merge_upcoming_rows`
+   concatenates and re-sorts newest-first; on a day holding both, the recorded
+   rows come before the promised ones.
+2. **Default 7 days**, as the plan's default. Stored under
+   `app.storage.user["transactions_upcoming_days"]`; only `0 / 7 / 30` are
+   honoured (`get_transactions_upcoming_days` falls back to 7 for anything
+   else), so a value left by an older build cannot open an arbitrary window.
+3. **Server-side merge**, as the plan's default. The service produces the rows;
+   `attach_upcoming_labels` in the view component adds the locale sentence.
+4. **Group separators are recomputed over the merged list.** They are worked
+   out from the actuals alone in `build_table_rows`, so a planned row that
+   opens a week or a month of its own would otherwise carry no label and the
+   first actual would keep a stale one. Covered by
+   `TestMergeUpcomingRows::test_the_separators_of_the_actuals_are_worked_out_again`.
+
+### Decisions the plan did not name
+
+- **Posted occurrences are excluded** (`exclude_posted=True`). The ledger
+  already holds the real transaction for them; showing both would count the
+  same money twice by eye. KAL-PLN-023.
+- **Upcoming rows are left out of the group net and the selection total.**
+  `net_of_rows` now skips `is_planned` rows for the same reason it skips
+  transfers: the money has not moved. The `transactions.group_net` tooltip was
+  reworded in both locales to say so. KAL-PLN-024.
+- **A planned row is not selectable.** Its id is the string key
+  `planned:<plan_id>:<ISO date>`, which names no transaction — the selection
+  bar deletes by id, so planned rows are kept out of `page_rows` and their
+  checkbox is not rendered.
+- **Upcoming rows ride on the first page only** (`filters["page"] == 0`), and a
+  tag filter suppresses them entirely — a plan carries no tags, so none could
+  match. Repeating them under every page number would promise the same money
+  once per page.
+- **The window starts today, never earlier.** Overdue occurrences belong to the
+  Payment Calendar's overdue strip (KAL-PLN-020), not to the ledger.
+- **The row click opens a read-only detail dialog**
+  (`views/transactions/planned_dialog.py`), per the plan's "Out of scope:
+  editing the planned-transaction template from the Transactions list". The
+  dialog reads the plan out and offers a button through to `/planned` rather
+  than a second editor that could drift from the first.
+
+### BDD
+
+`KAL-PLN-011` and `KAL-PLN-012` described a "Show planned" toggle on the
+Transactions page itself; both were rewritten around the Settings knob this
+plan specifies, and `KAL-PLN-011` moved from `@manual` to `@automated`.
+`KAL-PLN-021…024` and `KAL-SET-026` are new.
+
+### Test-environment note
+
+The e2e suite assumes the documented `uv sync --group dev` environment. With
+the optional `forecast` extra (Prophet) also installed, seven pre-existing e2e
+tests fail on `main` as well — six in `test_forecast.py` (the forecast never
+settles inside the 60s budget) and
+`test_wizard_scenarios.py::test_the_panel_works_without_prophet`, which asserts
+the extra is absent. Nothing on this branch touches them.

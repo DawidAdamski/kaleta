@@ -812,6 +812,12 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   letter-spacing:.04em;
   border-bottom:1px solid var(--k-hairline)
 }
+/* Upcoming planned rows: the same ledger, set back a step — a promise reads
+   lighter and in italics, so it is never mistaken for a recorded figure. */
+.k-planned-row{font-style:italic;color:var(--k-muted)}
+.k-planned-row:hover{background:var(--k-row-hover)}
+.k-planned-chip{border-color:var(--k-chip-dash);color:var(--k-muted);font-style:normal}
+.k-upcoming-when{font-style:normal;font-size:10.5px;color:var(--k-muted);white-space:nowrap}
 
 /* ── Shared utility classes (used by the per-screen restyle plans) ── */
 .k-pace{

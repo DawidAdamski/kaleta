@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime
 from typing import Any
 
 from nicegui import ui
@@ -13,6 +14,7 @@ from kaleta.services import (
     AccountService,
     CategoryService,
     PayeeService,
+    PlannedTransactionService,
     TagService,
     TransactionService,
     with_session,
@@ -26,16 +28,42 @@ from kaleta.views.components.transaction_table import (
     DEFAULT_PAGE_SIZE,
     attach_split_labels,
     attach_type_labels,
+    attach_upcoming_labels,
     render_pagination_bar,
     render_transaction_table,
 )
 from kaleta.views.layout import page_layout
+from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
 from kaleta.views.theme import PAGE_TITLE
 from kaleta.views.transactions.add_dialog import build_add_dialog
 from kaleta.views.transactions.constants import _KBD_CLS
 from kaleta.views.transactions.delete_dialog import build_delete_dialog
 from kaleta.views.transactions.edit_dialog import build_edit_dialog
+from kaleta.views.transactions.planned_dialog import build_planned_dialog
 from kaleta.views.transactions.table_actions import render_table_actions
+
+
+def upcoming_window(
+    days: int,
+    *,
+    today: datetime.date,
+    date_from: datetime.date | None,
+    date_to: datetime.date | None,
+) -> tuple[datetime.date, datetime.date] | None:
+    """The stretch of days the ledger should look ahead over, or ``None``.
+
+    The window starts today — what fell before it either reached the ledger as
+    a real row or is overdue, which the Payment Calendar owns — and is clipped
+    to whatever date range the user has filtered down to, so a range that ends
+    in the past opens no window at all.
+    """
+    if days <= 0:
+        return None
+    start = max(today, date_from) if date_from else today
+    end = today + datetime.timedelta(days=days)
+    if date_to:
+        end = min(end, date_to)
+    return None if start > end else (start, end)
 
 
 async def transactions_page(*, open_new: bool = False) -> None:
@@ -147,13 +175,29 @@ async def transactions_page(*, open_new: bool = False) -> None:
         selected_tx_ids,
         on_deleted=_apply_filters,
     )
+    planned_dialog_ctx = build_planned_dialog()
 
     @ui.refreshable
     async def transaction_table() -> None:
         page_size = filters["page_size"]
         grouping = filters["grouping"]
+        today = datetime.date.today()
+        # Upcoming rows belong at the head of a newest-first list, so they ride
+        # on the first page only — repeating them under every page number would
+        # promise the same money once per page. A tag filter rules them out
+        # entirely: a plan carries no tags, so none of them can match.
+        window = (
+            upcoming_window(
+                get_transactions_upcoming_days(),
+                today=today,
+                date_from=filters["date_from"],
+                date_to=filters["date_to"],
+            )
+            if filters["page"] == 0 and not filters["tag_ids"]
+            else None
+        )
 
-        async def _fetch(session: Any) -> tuple[int, Any]:
+        async def _fetch(session: Any) -> tuple[int, Any, Any]:
             svc = TransactionService(session)
             total = await svc.count(
                 account_ids=_list_or_none("account_ids"),
@@ -175,9 +219,19 @@ async def transactions_page(*, open_new: bool = False) -> None:
                 limit=page_size,
                 offset=filters["page"] * page_size,
             )
-            return total, txs
+            upcoming: Any = []
+            if window is not None:
+                upcoming = await PlannedTransactionService(session).upcoming_for_ledger(
+                    window[0],
+                    window[1],
+                    account_ids=_list_or_none("account_ids"),
+                    category_ids=_list_or_none("category_ids"),
+                    tx_types=_list_or_none("tx_types"),
+                    search=filters["search"] or None,
+                )
+            return total, txs, upcoming
 
-        total, txs = await with_session(_fetch)
+        total, txs, upcoming = await with_session(_fetch)
 
         total_pages = max(1, (total + page_size - 1) // page_size)
         filters["total_pages"] = total_pages
@@ -185,8 +239,23 @@ async def transactions_page(*, open_new: bool = False) -> None:
         rows = attach_split_labels(
             attach_type_labels(TransactionService.build_table_rows(txs, grouping))
         )
+        rows = TransactionService.merge_upcoming_rows(
+            rows,
+            attach_upcoming_labels(
+                attach_type_labels(PlannedTransactionService.build_upcoming_rows(upcoming, today))
+            ),
+            grouping,
+        )
         page_rows.clear()
-        page_rows.update({row["id"]: row for row in rows if row.get("id") is not None})
+        # Planned rows are deliberately left out: the selection bar totals and
+        # deletes by id, and a planned row's id names no transaction.
+        page_rows.update(
+            {
+                row["id"]: row
+                for row in rows
+                if row.get("id") is not None and not row.get("is_planned")
+            }
+        )
 
         async def _handle_edit(e: Any) -> None:
             await edit_dialog_ctx.open_for_id(e.args)
@@ -211,6 +280,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             on_edit=_handle_edit,
             on_split=_handle_split,
             on_selection=_on_selection,
+            on_open_planned=planned_dialog_ctx.open_for_row_key,
         )
         render_pagination_bar(
             total=total,

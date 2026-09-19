@@ -17,6 +17,7 @@ from kaleta.views.settings.constants import (
     DEFAULT_TRANSFER_PAIRING_DAYS,
 )
 from kaleta.views.settings.helpers import set_user_key
+from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
 
 
 def render_features_tab() -> None:
@@ -120,6 +121,23 @@ def render_features_tab() -> None:
                 value=auto_post,
                 on_change=lambda e: set_user_key("auto_post_due_on_startup", bool(e.value)),
             )
+
+        with ui.card().classes("p-6 w-full"):
+            with ui.row().classes("items-center gap-2 mb-1"):
+                ui.icon("schedule", color="primary").classes("text-xl")
+                ui.label(t("settings.show_upcoming_title")).classes("text-lg font-semibold")
+            ui.label(t("settings.show_upcoming_hint")).classes("text-xs text-slate-500 mb-4")
+
+            ui.label(t("settings.show_upcoming")).classes("text-sm mb-1")
+            ui.toggle(
+                {
+                    0: t("settings.show_upcoming_off"),
+                    7: t("settings.show_upcoming_7"),
+                    30: t("settings.show_upcoming_30"),
+                },
+                value=get_transactions_upcoming_days(),
+                on_change=lambda e: set_user_key("transactions_upcoming_days", int(e.value or 0)),
+            ).props("dense unelevated no-caps").classes("k-group-toggle")
 
         with ui.card().classes("p-6 w-full"):
             with ui.row().classes("items-center gap-2 mb-1"):

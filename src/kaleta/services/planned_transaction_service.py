@@ -20,6 +20,7 @@ from kaleta.exceptions import NotFoundError
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
+from kaleta.services.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
 
@@ -250,6 +251,87 @@ class PlannedTransactionService:
 
         occurrences.sort(key=lambda o: o.date)
         return occurrences
+
+    # ── Upcoming rows for the ledger ──────────────────────────────────────────
+
+    async def upcoming_for_ledger(
+        self,
+        start_date: datetime.date,
+        end_date: datetime.date,
+        *,
+        account_ids: builtins.list[int] | None = None,
+        category_ids: builtins.list[int] | None = None,
+        tx_types: builtins.list[TransactionType] | None = None,
+        search: str | None = None,
+    ) -> builtins.list[PlannedOccurrence]:
+        """Occurrences in ``[start_date, end_date]`` that the ledger should show.
+
+        The same filters the ledger applies to its actuals, applied to the
+        occurrences too — a list narrowed to one account must not grow a
+        planned row belonging to another. Already-posted occurrences are left
+        out: the ledger is holding the real transaction for them, and a row
+        promising money that has already moved would be counted twice by eye.
+        """
+        if start_date > end_date:
+            return []
+
+        occurrences = await self.get_occurrences(
+            start_date,
+            end_date,
+            active_only=True,
+            exclude_posted=True,
+        )
+
+        needle = (search or "").strip().lower()
+        return [
+            occ
+            for occ in occurrences
+            if (not account_ids or occ.account_id in account_ids)
+            and (not category_ids or occ.category_id in category_ids)
+            and (not tx_types or occ.type in tx_types)
+            and (not needle or needle in occ.name.lower())
+        ]
+
+    @staticmethod
+    def build_upcoming_rows(
+        occurrences: builtins.list[PlannedOccurrence],
+        today: datetime.date,
+    ) -> builtins.list[dict[str, Any]]:
+        """Shape occurrences like ledger rows so both can share one table.
+
+        The row carries everything the table's body slot reads, plus the marks
+        that tell a promise from a fact: ``is_planned``, the plan behind it and
+        how many days out it falls. The id is a string key of its own — a
+        planned row must never collide with a transaction id, because the
+        selection bar's delete button works off those ids.
+        """
+        rows: builtins.list[dict[str, Any]] = []
+        for occ in occurrences:
+            rows.append(
+                {
+                    "id": f"planned:{occ.planned_id}:{occ.date.isoformat()}",
+                    "planned_id": occ.planned_id,
+                    "is_planned": True,
+                    "days_ahead": (occ.date - today).days,
+                    "date": str(occ.date),
+                    "date_short": occ.date.strftime("%d.%m"),
+                    "account": occ.account_name,
+                    "description": occ.name[:55],
+                    "notes": "",
+                    "has_notes": False,
+                    "category": occ.category_name or "—",
+                    "has_splits": False,
+                    "split_count": 0,
+                    "split_tooltip": "",
+                    "type": occ.type.value,
+                    "amount": TransactionService.format_signed_amount(occ.amount, occ.type),
+                    "amount_value": str(TransactionService.signed_amount(occ.amount, occ.type)),
+                    "tags": "",
+                    "tags_data": [],
+                    "sep_label": "",
+                }
+            )
+        return rows
 
     async def grid_for_month(
         self,

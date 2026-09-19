@@ -256,7 +256,7 @@
     "selected_total": "Selected total",
     "selected_net": "Net of the selected rows, transfers excluded",
     "clear_selection": "Clear selection",
-    "group_net": "Net on this page, transfers excluded",
+    "group_net": "Net on this page — transfers and planned rows excluded",
     "filter_chip_search": "Search: {text}",
     "group_none": "None",
     "group_week": "Week",
@@ -300,7 +300,18 @@
     "manage_tags": "Manage tags",
     "notes": "Notes",
     "notes_hint": "Longer context kept apart from the bank description — plain text.",
-    "has_notes_tooltip": "Has notes"
+    "has_notes_tooltip": "Has notes",
+    "planned_chip": "Planned",
+    "planned_row_tooltip": "Planned — not recorded yet",
+    "upcoming_today": "Today",
+    "upcoming_tomorrow": "Tomorrow",
+    "upcoming_in_days_one": "In {days} day",
+    "upcoming_in_days_few": "In {days} days",
+    "upcoming_in_days_many": "In {days} days",
+    "planned_detail_title": "Upcoming planned transaction",
+    "planned_detail_hint": "Nothing has been recorded yet. Change the plan itself on the Planned Transactions page.",
+    "planned_detail_frequency": "Repeats",
+    "planned_open_plan": "Open in Planned Transactions"
   },
   "tags": {
     "title": "Tags",
@@ -1751,7 +1762,13 @@
     "about_host": "Host",
     "about_port": "Port",
     "about_github": "GitHub",
-    "about_docs": "Documentation"
+    "about_docs": "Documentation",
+    "show_upcoming_title": "Upcoming planned transactions",
+    "show_upcoming": "Show upcoming planned transactions",
+    "show_upcoming_hint": "How far ahead the Transactions list looks for planned occurrences and shows them above the recorded rows.",
+    "show_upcoming_off": "Off",
+    "show_upcoming_7": "7 days",
+    "show_upcoming_30": "30 days"
   },
   "audit": {
     "title": "Change History",

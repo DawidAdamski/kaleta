@@ -1850,3 +1850,85 @@ class TestUpdateWithPayeeName:
 
         assert updated is not None
         assert updated.tags == []
+
+
+class TestMergeUpcomingRows:
+    """Covers: KAL-PLN-011, KAL-PLN-012"""
+
+    @staticmethod
+    def _actual(date: str, amount: str, tx_type: str = "expense", tx_id: int = 1) -> dict:
+        return {
+            "id": tx_id,
+            "date": date,
+            "amount_value": amount,
+            "type": tx_type,
+            "sep_label": "",
+        }
+
+    @staticmethod
+    def _planned(date: str, amount: str, tx_type: str = "expense") -> dict:
+        return {
+            "id": f"planned:9:{date}",
+            "is_planned": True,
+            "date": date,
+            "amount_value": amount,
+            "type": tx_type,
+            "sep_label": "",
+        }
+
+    def test_nothing_upcoming_leaves_the_ledger_untouched(self):
+        rows = [self._actual("2026-03-09", "-128.74")]
+        assert TransactionService.merge_upcoming_rows(rows, [], "none") is rows
+
+    def test_the_promised_rows_land_above_the_recorded_ones(self):
+        merged = TransactionService.merge_upcoming_rows(
+            [
+                self._actual("2026-03-09", "-128.74", tx_id=2),
+                self._actual("2026-03-02", "-40.00", tx_id=1),
+            ],
+            [self._planned("2026-03-13", "-2500.00")],
+            "none",
+        )
+        assert [row["date"] for row in merged] == ["2026-03-13", "2026-03-09", "2026-03-02"]
+
+    def test_on_a_shared_day_the_record_comes_before_the_promise(self):
+        merged = TransactionService.merge_upcoming_rows(
+            [self._actual("2026-03-13", "-128.74", tx_id=2)],
+            [self._planned("2026-03-13", "-2500.00")],
+            "none",
+        )
+        assert [row.get("is_planned", False) for row in merged] == [False, True]
+
+    def test_a_planned_row_can_open_a_month_of_its_own(self):
+        merged = TransactionService.merge_upcoming_rows(
+            [self._actual("2026-03-09", "-128.74", tx_id=1)],
+            [self._planned("2026-04-01", "-2500.00")],
+            "month",
+        )
+        assert merged[0]["sep_label"] == "April 2026"
+        assert merged[1]["sep_label"] == "March 2026"
+
+    def test_the_separators_of_the_actuals_are_worked_out_again(self):
+        """A merge in the middle of a month must not leave a stale label behind."""
+        actuals = [
+            self._actual("2026-03-09", "-128.74", tx_id=2),
+            self._actual("2026-03-02", "-40.00", tx_id=1),
+        ]
+        actuals[0]["sep_label"] = "March 2026"
+        merged = TransactionService.merge_upcoming_rows(
+            actuals,
+            [self._planned("2026-03-13", "-2500.00")],
+            "month",
+        )
+        assert [row["sep_label"] for row in merged] == ["March 2026", "", ""]
+
+    def test_the_group_net_counts_what_moved_and_not_what_is_promised(self):
+        merged = TransactionService.merge_upcoming_rows(
+            [
+                self._actual("2026-03-09", "9240.00", tx_type="income", tx_id=2),
+                self._actual("2026-03-02", "-128.74", tx_id=1),
+            ],
+            [self._planned("2026-03-13", "-2500.00")],
+            "month",
+        )
+        assert merged[0]["sep_net"] == "+9,111.26"

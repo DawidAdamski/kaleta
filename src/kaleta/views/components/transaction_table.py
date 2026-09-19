@@ -8,7 +8,7 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.views.components.amount_label import amount_cell_slot
 from kaleta.views.components.empty_state import pagination_empty_label, table_no_data_slot
 from kaleta.views.theme import TABLE_SURFACE
@@ -32,6 +32,26 @@ def attach_split_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if row.get("has_splits"):
             count = int(row.get("split_count") or 0)
             row["category"] = t("transactions.split_category", count=count)
+    return rows
+
+
+def attach_upcoming_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Say when a planned row falls in words, next to the date it falls on.
+
+    A date alone makes the reader count days off a calendar; "In 3 days" is
+    the thing they were actually after. Built here and not in the service
+    because it is a sentence, and sentences belong to the locale.
+    """
+    for row in rows:
+        if not row.get("is_planned"):
+            continue
+        days = int(row.get("days_ahead") or 0)
+        if days <= 0:
+            row["upcoming_label"] = t("transactions.upcoming_today")
+        elif days == 1:
+            row["upcoming_label"] = t("transactions.upcoming_tomorrow")
+        else:
+            row["upcoming_label"] = t(plural_key("transactions.upcoming_in_days", days), days=days)
     return rows
 
 
@@ -111,6 +131,8 @@ def _body_slot(
     split_label: str,
     notes_label: str,
     group_net_label: str,
+    planned_label: str,
+    planned_tooltip: str,
 ) -> str:
     return (
         '<tr v-if="props.row.sep_label">'
@@ -124,13 +146,22 @@ def _body_slot(
         "</div>"
         "</td>"
         "</tr>"
-        '<q-tr :props="props">'
+        # A planned row is a promise, not a record: it cannot be ticked for
+        # deletion (its id belongs to no transaction), and clicking it opens
+        # the plan behind it rather than a ledger editor.
+        '<q-tr :props="props"'
+        " :class=\"props.row.is_planned ? 'k-planned-row cursor-pointer' : ''\""
+        ' @click="props.row.is_planned'
+        " && $parent.$emit('open_planned', props.row.id)\">"
         "<q-td auto-width>"
-        '<q-checkbox dense :model-value="props.selected"'
+        '<q-checkbox v-if="!props.row.is_planned" dense :model-value="props.selected"'
         ' @update:model-value="val => props.selected = val" color="primary" />'
         "</q-td>"
         '<q-td key="date" :props="props" class="k-mono k-muted text-[12px]">'
         "{{ props.row.date_short }}"
+        '<div v-if="props.row.upcoming_label" class="k-upcoming-when">'
+        "{{ props.row.upcoming_label }}"
+        "</div>"
         "<q-tooltip>{{ props.row.date }}</q-tooltip>"
         "</q-td>"
         '<q-td key="account" :props="props">{{ props.row.account }}</q-td>'
@@ -170,10 +201,16 @@ def _body_slot(
         ' class="q-mr-xs text-xs">{{ tag.name }}</q-chip>'
         "</q-td>"
         '<q-td key="actions" :props="props" auto-width>'
-        '<q-btn flat round dense icon="edit" size="sm" color="primary"'
+        '<q-chip v-if="props.row.is_planned" dense outline icon="schedule"'
+        ' class="text-xs k-planned-chip">'
+        f"{planned_label}"
+        f"<q-tooltip>{planned_tooltip}</q-tooltip>"
+        "</q-chip>"
+        '<q-btn v-if="!props.row.is_planned" flat round dense icon="edit" size="sm" color="primary"'
         f' aria-label="{edit_label}"'
         " @click=\"$parent.$emit('edit_tx', props.row.id)\" />"
-        "<q-btn v-if=\"!props.row.has_splits && props.row.type !== 'transfer'\""
+        '<q-btn v-if="!props.row.is_planned && !props.row.has_splits'
+        " && props.row.type !== 'transfer'\""
         ' flat round dense icon="call_split" size="sm" color="primary"'
         f' aria-label="{split_label}"'
         " @click=\"$parent.$emit('split_tx', props.row.id)\">"
@@ -190,6 +227,7 @@ def render_transaction_table(
     on_edit: Callable[[Any], Awaitable[None]],
     on_selection: Callable[[object], None],
     on_split: Callable[[Any], Awaitable[None]] | None = None,
+    on_open_planned: Callable[[Any], Awaitable[None]] | None = None,
     colspan: int = 9,
 ) -> ui.table:
     """Render the transactions data table and wire edit/selection/split events."""
@@ -208,11 +246,15 @@ def render_transaction_table(
             split_label=t("transactions.split"),
             notes_label=t("transactions.has_notes_tooltip"),
             group_net_label=t("transactions.group_net"),
+            planned_label=t("transactions.planned_chip"),
+            planned_tooltip=t("transactions.planned_row_tooltip"),
         ),
     )
     tbl.on("edit_tx", on_edit)
     if on_split is not None:
         tbl.on("split_tx", on_split)
+    if on_open_planned is not None:
+        tbl.on("open_planned", on_open_planned)
     tbl.on("update:selected", on_selection)
     return tbl
 
