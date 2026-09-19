@@ -289,11 +289,17 @@ class PlannedTransactionService:
     ) -> builtins.list[PlannedOccurrence]:
         """Occurrences in ``[start_date, end_date]`` that the ledger should show.
 
-        The same filters the ledger applies to its actuals, applied to the
+        The filters the ledger applies to its actuals, applied to the
         occurrences too — a list narrowed to one account must not grow a
-        planned row belonging to another. Already-posted occurrences are left
-        out: the ledger is holding the real transaction for them, and a row
-        promising money that has already moved would be counted twice by eye.
+        planned row belonging to another. ``search`` is the one that is not
+        quite the same rule: a plan has no description, so it matches the
+        plan's name, and it folds case in Python where the ledger's own search
+        runs as SQL ``ILIKE``. On SQLite that makes this side the more
+        forgiving of the two over non-ASCII letters.
+
+        Already-posted occurrences are left out: the ledger is holding the
+        real transaction for them, and a row promising money that has already
+        moved would be counted twice by eye.
         """
         if start_date > end_date:
             return []
