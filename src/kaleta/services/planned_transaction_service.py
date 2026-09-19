@@ -363,7 +363,7 @@ class PlannedTransactionService:
                     "is_planned": True,
                     "days_ahead": (occ.date - today).days,
                     "date": str(occ.date),
-                    "date_short": occ.date.strftime("%d.%m"),
+                    "date_short": TransactionService.short_date(occ.date),
                     "account": occ.account_name,
                     "description": occ.name[:55],
                     "notes": "",

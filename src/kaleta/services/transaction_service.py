@@ -391,6 +391,16 @@ class TransactionService:
         return label if (tx_date.year, tx_date.month) != (prev_date.year, prev_date.month) else ""
 
     @staticmethod
+    def short_date(day: datetime.date) -> str:
+        """The date as the ledger's narrow date column shows it.
+
+        One rule for every kind of row the column carries — a recorded one and
+        an upcoming planned one sit under the same heading, so they cannot be
+        allowed to drift into two formats.
+        """
+        return day.strftime("%d.%m")
+
+    @staticmethod
     def signed_amount(amount: Decimal, tx_type: TransactionType) -> Decimal:
         """Money in as positive, everything else as negative.
 
@@ -442,7 +452,7 @@ class TransactionService:
             "id": transaction.id,
             "date": str(transaction.date),
             # The ledger shows DD.MM; the ISO value stays for sorting and tooltips.
-            "date_short": transaction.date.strftime("%d.%m"),
+            "date_short": TransactionService.short_date(transaction.date),
             "account": transaction.account.name if transaction.account else "—",
             "description": (transaction.description or "—")[:55],
             "notes": transaction.notes or "",
