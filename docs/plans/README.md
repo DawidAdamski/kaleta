@@ -235,7 +235,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | Plan | Status | Roadmap ref |
 |---|---|---|
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
-| [wizard-what-if-scenarios](wizard-what-if-scenarios.md) | draft | Wizard / Forecast — dogfooding gap (Coming soon tile) |
+| [wizard-what-if-scenarios](archive/wizard-what-if-scenarios.md) | archived | Wizard / Forecast — dogfooding gap (Coming soon tile) |
 | [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
 | [funds-reservoir-view](funds-reservoir-view.md) | draft | Funds — reservoir view (after reports-money-flow) |
 | [dashboard-command-center](archive/dashboard-command-center.md) | archived | Dashboard |

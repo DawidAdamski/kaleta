@@ -3,8 +3,9 @@ plan_id: wizard-what-if-scenarios
 title: Wizard — "what if" scenario simulator on top of the forecast engine
 area: wizard
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#forecast
+status: archived
+archived_at: 2026-09-19
+roadmap_ref: ../../roadmap.md#forecast
 ---
 
 # Wizard — "what if" scenarios
@@ -298,3 +299,38 @@ deserves in v1. Worth a look if anyone hits it.
   writeback are the plan's Out of scope and stayed out.
 - `views/chart_utils.py` is listed as a touchpoint but needed no
   change: the extracted chart already uses it.
+
+## Implementation
+
+Landed on 2026-09-19 (PR #104).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `fa140ba` | Dawid Adamski | 2026-09-19 | Merge pull request #104 from DawidAdamski/plan/wizard-what-if-scenarios |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/wizard-what-if-scenarios.md
+- docs/product/financial-wizard.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/schemas/scenario.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/reserve_fund_service.py
+- src/kaleta/services/scenario_service.py
+- src/kaleta/views/components/forecast_chart.py
+- src/kaleta/views/forecast.py
+- src/kaleta/views/wizard.py
+- src/kaleta/views/wizard_scenarios.py
+- tests/e2e/test_wizard_scenarios.py
+- tests/unit/services/test_scenario_service.py
+- tests/unit/views/test_forecast_chart.py
+- tests/unit/views/test_wizard_index.py
+- tests/unit/views/test_wizard_scenarios.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
