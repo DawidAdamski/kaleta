@@ -116,6 +116,17 @@ class TestMobileLayout:
 
         assert (hero["cols"], hero["rows"]) == WIDGETS[HERO_WIDGET].default_size
 
+    def test_an_id_it_does_not_know_is_passed_through(self) -> None:
+        """A stored layout outlives the widget it names, and this function is
+        not the one that decides. It prepends and hands on; banding is what
+        drops what no longer exists."""
+        layout = [{"id": "widget_that_left", "cols": 1, "rows": 1}]
+
+        widened = mobile_layout(layout)
+
+        assert _ids(widened) == [HERO_WIDGET, "widget_that_left"]
+        assert _ids(bands_for_layout(widened)[Band.NOW]) == [HERO_WIDGET]
+
 
 class TestWatchRateLabel:
     def _month(self, income: str, expenses: str) -> SavingsRatePoint:

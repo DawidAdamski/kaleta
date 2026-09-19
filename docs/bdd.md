@@ -3385,7 +3385,8 @@ Feature: Dashboard Customization
     Given I am signed in on a 1360 pixel wide viewport
     When I open the dashboard
     Then each row in the recent-transactions card reads its date as month-day
-    And no row carries a year, because all ten are recent by construction
+    And the year is dropped on purpose, so ten rows either side of a new year
+      would read alike
     And "View all" opens the ledger, where the full date is
 ```
 
