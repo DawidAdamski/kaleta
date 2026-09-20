@@ -224,6 +224,20 @@ UPLOADER = "k-uploader"
 DISCLOSURE = "k-disclosure"
 #: "auto" — this column came from detection, not from the user.
 AUTO_BADGE = "k-auto-badge"
+#: One mapping row: what the importer wants on the left, the column it will
+#: read it from on the right (artboard `2d`).
+FIELD_ROW = "k-field-row"
+FIELD_LABEL = "k-field-label"
+#: The picker itself, drawn as a filled field rather than an underline — and
+#: in mono, because what it holds is a column out of the file.
+FIELD_SELECT = "k-field-select"
+#: A picker with nothing in it yet: paper rather than sunken sand, so the
+#: mapped rows are the ones that carry weight. A modifier on its own — it is
+#: added and removed at runtime, and a removal naming the base class too
+#: would take the field's whole shape away with it.
+FIELD_SELECT_UNSET = "k-field-select--unset"
+#: A hairline across a card, where one card holds two kinds of question.
+CARD_RULE = "k-card-rule"
 #: A warning that belongs to the step you are on, not a toast that flies past.
 WARNING_STRIP = "k-warning-strip"
 
@@ -1199,6 +1213,69 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   color:var(--k-ink)
 }
 .k-warning-strip .q-icon{color:var(--k-warning)}
+/* ── Import mapping (artboard 2d) ─────────────────────────────────── */
+.k-field-row{display:flex;align-items:center;gap:12px;width:100%}
+.k-field-label{width:104px;flex:none;font-size:12.5px;color:var(--k-ink-2)}
+.k-field-select .q-field__control{
+  background:var(--k-surface-sunken);
+  border:1px solid var(--k-border-strong);
+  border-radius:8px;
+  min-height:36px;
+  padding:0 12px
+}
+.k-field-select .q-field__control:before,
+.k-field-select .q-field__control:after{display:none}
+.k-field-select .q-field__native{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12.5px;
+  color:var(--k-ink);
+  min-height:36px;
+  padding:0
+}
+.k-field-select .q-field__marginal,
+.k-field-select .q-field__append{
+  height:36px;
+  color:var(--k-muted);
+  font-size:16px;
+  align-items:center;
+  gap:8px
+}
+/* Nothing mapped yet: paper on a plain hairline, and the app's own face —
+   "Not mapped" is a sentence, not a column name. */
+.k-field-select--unset .q-field__control{
+  background:var(--k-surface);
+  border-color:var(--k-border)
+}
+.k-field-select--unset .q-field__native{
+  font-family:'Libre Franklin',ui-sans-serif,system-ui,sans-serif;
+  color:var(--k-muted)
+}
+.k-card-rule{height:1px;background:var(--k-hairline);margin:20px 0;width:100%}
+/* The file on the left, the mapping on the right — the wider side is the one
+   you are reading from (artboard `2d`). Under `md` they stack. */
+.k-mapping-grid{
+  /* The tick on "negative amounts are expenses" is ink on this card, not the
+     accent: the accent is the step you are on, up on the step line. */
+  --q-info:var(--k-ink);
+  display:grid;
+  grid-template-columns:1.25fr 1fr;
+  gap:22px;
+  align-items:start
+}
+.k-mapping-grid > *{padding:22px 24px}
+@media (max-width:1023.98px){.k-mapping-grid{grid-template-columns:1fr}}
+/* The sample is a box inside the card, not a table on the card's own paper:
+   a hairline round it, a warm header row, and mono throughout. */
+.k-sample-table{border:1px solid var(--k-border);border-radius:8px;overflow:hidden}
+.k-sample-table .q-table th{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:9.5px;
+  letter-spacing:.06em;
+  background:var(--k-surface-warm);
+  padding:8px 12px
+}
+.k-sample-table .q-table td{font-size:11.5px;padding:8px 12px}
+.k-sample-table .q-table thead tr,.k-sample-table .q-table tbody td{height:auto}
 .k-plan-total{border-top:1px solid var(--k-border-strong)}
 .k-plan-month-now{background:var(--k-plan-now)}
 .k-cat-row{border-bottom-color:var(--k-hairline)}

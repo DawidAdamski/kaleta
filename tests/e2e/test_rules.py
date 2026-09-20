@@ -106,9 +106,7 @@ def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
 
     try:
         page.goto(f"{base_url}/import")
-        expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(
-            timeout=5000
-        )
+        expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
 
         page.locator('input[type="file"]').set_input_files(str(csv_path))
         expect(page.locator("[data-page-eyebrow]")).to_contain_text(csv_path.name, timeout=5000)

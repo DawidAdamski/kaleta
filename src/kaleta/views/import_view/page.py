@@ -67,7 +67,14 @@ from kaleta.views.settings.user_prefs import (
     get_transfer_amount_tolerance,
     get_transfer_pairing_days,
 )
-from kaleta.views.theme import BODY_MUTED, DISCLOSURE, MONO, PAGE_TITLE
+from kaleta.views.theme import (
+    BODY_MUTED,
+    DISCLOSURE,
+    MONO,
+    PAGE_CONTAINER,
+    PAGE_GAP_24,
+    PAGE_TITLE,
+)
 
 
 async def import_page() -> None:
@@ -757,7 +764,7 @@ async def import_page() -> None:
         if 0 <= index < len(queue):
             _set_active(queue[index].id)
 
-    with page_layout(t("import.title"), wide=True):
+    with page_layout(t("import.title"), wide=True, container=f"{PAGE_CONTAINER} {PAGE_GAP_24}"):
 
         @ui.refreshable
         def page_header() -> None:
