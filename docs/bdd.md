@@ -3364,6 +3364,8 @@ Feature: Dashboard Customization
     And the per-day sentence sits above the split bar, not below it
     And the first band carries no heading of its own
     And the widgets below it are stacked in bands headed This month, Watch and Latest
+    And the hero is there even though Customize shows it unticked, because the
+      tick is about the desktop grid and the phone leads with it either way
     And the Watch band carries net worth, the six-month average savings rate,
       the 30-day balance and the safety-fund cover as plain figures
     And the Watch band carries no widget cards at all
