@@ -32,6 +32,9 @@ from kaleta.services import (
     CategoryService,
     PlannedTransactionService,
     WizardProjectionService,
+    day_in,
+    day_net,
+    day_out,
     with_session,
 )
 from kaleta.services.planned_transaction_service import (
@@ -215,35 +218,6 @@ def _day_title(date: datetime.date) -> str:
 
 def _day_short(date: datetime.date) -> str:
     return f"{date.day:02d}.{date.month:02d}"
-
-
-def charged(subscriptions: Sequence[SubscriptionCharge]) -> Decimal:
-    """What the day's projected subscription charges come to.
-
-    One function for the one rule, because three readers of a day's
-    arithmetic — the cell in the grid, the sheet's Out, the sheet's Net —
-    have to agree about it or the screen disagrees with itself.
-    """
-    return sum((s.amount for s in subscriptions), Decimal("0"))
-
-
-def day_in(cell: DayAggregate | None) -> Decimal:
-    """What arrives on the day. A charge is never one of them."""
-    return cell.inflow if cell else Decimal("0")
-
-
-def day_out(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
-    """What leaves on the day, subscription charges included.
-
-    The cell in the grid counts them (`day_marks`), so the sheet has to as
-    well: a day drawn as `-12.99` that opened onto `Out 0.00` would be the
-    screen disagreeing with itself.
-    """
-    return (cell.outflow if cell else Decimal("0")) + charged(subscriptions)
-
-
-def day_net(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
-    return (cell.net if cell else Decimal("0")) - charged(subscriptions)
 
 
 def _signed(amount: Decimal, sign: str) -> str:

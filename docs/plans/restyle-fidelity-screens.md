@@ -235,10 +235,17 @@ If one screen alone is more than a day's work, split it out into
   which artboard `3c` draws with an item in it, had nothing to draw and
   the Subscriptions panel opened empty. Two rows, one of them on the
   14th beside a planned row, which is the day the shoot now opens.
-- **The day sheet's Out and Net count the charges.** The cell in the
-  grid always did (`day_marks`), so a day drawn `-12.99` opened onto
-  `Out 0.00` — the screen disagreeing with itself. `_out` and `_net`
-  take the day's charges.
+- **The day sheet's Out and Net count the charges, and the rule lives
+  in the service layer.** The cell in the grid always counted them
+  (`day_marks`), so a day drawn `-12.99` opened onto `Out 0.00` — the
+  screen disagreeing with itself. The fix was one rule for three
+  readers, and the rule is not the view's: a day's figures are
+  assembled from `PlannedTransactionService`'s `DayAggregate` and
+  `WizardProjectionService`'s charges, neither of which knows about the
+  other, and "what a day comes to" is the question they are both
+  answers to. `services/day_totals.py`, five unit tests in
+  `tests/unit/services/`. The same principle put `3e`'s result total in
+  `reports/sentence.py` rather than in the zone that draws it.
 - **Two more DOM hooks.** A calendar cell carries `data-day`, and each
   stat figure carries `data-kpi`, so the shoot and the tests open a day
   and read a count by what it is rather than by counting cells.
@@ -303,8 +310,11 @@ plan:
 - `3f`'s error says "Invalid username or password" without the artboard's
   "3 attempts left" (`LoginRateLimiter` keeps the count but nothing
   exposes it), and its third panel stat is months of history, not banks.
-- `3c`'s day sheet has no "Post this day"; each item carries the button
-  that posts it.
+- `3c`'s day sheet has no "Post this day". Instead each planned item in
+  it carries a `publish` button of its own, which the artboard does not
+  draw at all — an item listed in a sheet that could not be posted from
+  it would send the reader back to the strip. That is the one place
+  this plan added a control rather than moved one.
 - `2d` maps Counterparty, Debit and Credit as three rows where the
   artboard draws one "Debit / Credit" picker.
 The last three are choices rather than gaps, and can be reversed by
