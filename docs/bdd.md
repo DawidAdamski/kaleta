@@ -172,19 +172,19 @@ Feature: Onboarding Wizard
   Scenario: Wizard shows incomplete steps for a fresh database
     Given the database is empty
     And I am on the Financial Wizard page
-    Then I see the "Na start" onboarding section
-    And step "Add an institution" is marked as pending
-    And step "Add an account" is marked as pending
-    And step "Set up categories" is marked as pending
-    And step "Import or add transactions" is marked as pending
+    Then I see the "Setup" section
+    And step "Institutions" is marked as pending
+    And step "Accounts" is marked as pending
+    And step "Categories" is marked as pending
+    And step "First import" is marked as pending
 
   KAL-ONB-002 @automated
   Scenario: Wizard marks steps as done as data is added
     Given I have added an institution and an account
     And I am on the Financial Wizard page
-    Then step "Add an institution" is marked as done
-    And step "Add an account" is marked as done
-    And step "Set up categories" is marked as pending
+    Then step "Institutions" is marked as done
+    And step "Accounts" is marked as done
+    And step "Categories" is marked as pending
 ```
 
 ## Feature: Institution Management
@@ -1261,7 +1261,7 @@ Feature: mBank CSV Import
   Scenario: Parse failures are named on the mapping step
     Given I am on the Import page
     When I upload a CSV where some rows cannot be read
-    Then a strip above the pickers says how many, and which rows
+    Then a strip under the sample rows says how many, and which rows
     And it points at the column mapping as the thing to look at
 
   KAL-CSV-027 @automated
@@ -1939,7 +1939,7 @@ Feature: Planned and Recurring Transactions
       And the strip carries one button naming how many items are overdue
       And pressing it posts them without opening a day
 
-  KAL-PLN-021 @automated
+  KAL-PLN-026 @automated
   Scenario: The day sheet sits beside the month rather than over it
     Given I open the Payment Calendar
     Then a day sheet is open beside the grid, showing today

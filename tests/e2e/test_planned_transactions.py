@@ -521,7 +521,7 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
 
 
 def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
-    """Covers: KAL-PLN-021
+    """Covers: KAL-PLN-026
 
     The sheet used to slide in from the right and cover the grid it was
     about, so the one comparison the screen exists for — this day against

@@ -39,7 +39,9 @@ def _open_realization(page: Page, base_url: str) -> None:
 
 
 def _row_for(page: Page, category_name: str) -> Locator:
-    return page.locator("div.row").filter(has_text=category_name).last
+    # Artboard 2b's table is a CSS grid, not a stack of Quasar rows: a body
+    # row is one `.k-realization-body` element holding all six cells.
+    return page.locator("div.k-realization-body").filter(has_text=category_name).last
 
 
 def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
@@ -83,9 +85,10 @@ def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
     expect(tooltip).to_contain_text("On track")
     expect(tooltip).to_contain_text("elapsed")
 
-    # The header names the column after the bar, not after the badge.
-    header = page.locator("div.row").filter(has_text="Remaining").first
-    expect(header.get_by_text("Pace", exact=True)).to_be_visible()
+    # The header names the column after the bar, not after the badge — and
+    # says once, at the top, what the tick on every bar under it means.
+    header = page.locator("div.k-realization-head").first
+    expect(header).to_contain_text(f"Pace vs {elapsed:.0f}% elapsed")
     expect(header.get_by_text("Status", exact=True)).to_have_count(0)
 
 

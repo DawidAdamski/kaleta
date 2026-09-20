@@ -147,7 +147,7 @@ If one screen alone is more than a day's work, split it out into
 ### Behaviour that changed, and where it is written down
 
 - The Payment Calendar's day sheet is a panel beside the grid, open on
-  today, rather than a drawer over it — `KAL-PLN-021`, covered by
+  today, rather than a drawer over it — `KAL-PLN-026`, covered by
   `test_the_day_sheet_sits_beside_the_month`.
 - Its overdue strip reads as one line and carries one button that posts
   exactly the items it names (`_post_overdue`, not `post_due`, so the

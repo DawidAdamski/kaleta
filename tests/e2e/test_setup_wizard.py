@@ -3,26 +3,35 @@
 
 Maps scenarios from docs/bdd.md — Feature: Initial Setup Wizard.
 
-The BDD feature describes the "Na start" onboarding section at /wizard.
+The BDD feature describes the Setup section at /wizard, which artboard 3d
+heads with a rule and four done-cards.
 """
 
 from __future__ import annotations
+
+import re
 
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e import seed_helpers as sh
 
 
-def _ensure_onboarding_expanded(page: Page) -> None:
-    """Expand the collapsible Setup card when its done-cards are hidden (all done)."""
-    if not page.get_by_text("Add an institution").is_visible():
-        page.get_by_text("Getting started — set up your finances", exact=True).click()
-        expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
+def _setup_header(page: Page) -> Locator:
+    """The rule artboard 3d heads the four setup cards with."""
+    return page.locator('[data-section="setup"]')
 
 
 def _setup_card(page: Page, key: str) -> Locator:
     """One of the four Setup done-cards, by its own hook rather than DOM shape."""
     return page.locator(f"[data-setup-step='{key}']")
+
+
+def _ensure_onboarding_expanded(page: Page) -> None:
+    """Expand the collapsible Setup section when its cards are hidden (all done)."""
+    expect(_setup_header(page)).to_be_visible(timeout=5000)
+    if not _setup_card(page, "institution").is_visible():
+        _setup_header(page).click()
+        expect(_setup_card(page, "institution")).to_be_visible(timeout=5000)
 
 
 # ---------------------------------------------------------------------------
@@ -48,7 +57,7 @@ def test_wizard_page_loads_with_onboarding_section(page: Page, base_url: str) ->
     page.goto(f"{base_url}/wizard")
 
     expect(page.get_by_text("Financial Wizard", exact=True).first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Getting started — set up your finances")).to_be_visible(timeout=5000)
+    expect(_setup_header(page)).to_contain_text("Setup", timeout=5000)
 
 
 # ---------------------------------------------------------------------------
@@ -61,10 +70,15 @@ def test_wizard_shows_all_four_setup_steps(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
-    expect(page.get_by_text("Add an institution")).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Create an account with opening balance")).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Create expense and income categories")).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Import or add transactions")).to_be_visible(timeout=5000)
+    # Scoped to each card: "Accounts" and "Categories" are also sidebar
+    # entries, so an unscoped match would pass with the section collapsed.
+    for key, title in (
+        ("institution", "Institutions"),
+        ("account", "Accounts"),
+        ("categories", "Categories"),
+        ("import", "First import"),
+    ):
+        expect(_setup_card(page, key)).to_contain_text(title, timeout=5000)
 
 
 # ---------------------------------------------------------------------------
@@ -78,9 +92,11 @@ def test_wizard_institution_hint_shown_when_no_institutions(page: Page, base_url
     _ensure_onboarding_expanded(page)
 
     # Either the hint text OR the count text will be visible depending on DB state.
-    hint = page.get_by_text("You can't add an account without an institution.")
-    count = page.get_by_text("institutions.", exact=False)
-    expect(hint.or_(count).first).to_be_visible(timeout=5000)
+    card = _setup_card(page, "institution")
+    expect(card).to_contain_text(
+        re.compile(r"You can't add an account without an institution\.|\d+ institutions?"),
+        timeout=5000,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -95,9 +111,10 @@ def test_wizard_institution_step_marked_done(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
-    # When at least one institution exists the count label is shown.
-    # It reads "You have N institutions."
-    expect(page.get_by_text("institutions.", exact=False).first).to_be_visible(timeout=5000)
+    # When at least one institution exists the card carries the count.
+    expect(_setup_card(page, "institution")).to_contain_text(
+        re.compile(r"\d+ institutions?"), timeout=5000
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +130,7 @@ def test_wizard_account_step_marked_done(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/wizard")
     _ensure_onboarding_expanded(page)
 
-    expect(page.get_by_text("accounts.", exact=False).first).to_be_visible(timeout=5000)
+    expect(_setup_card(page, "account")).to_contain_text(re.compile(r"\d+ accounts?"), timeout=5000)
 
 
 # ---------------------------------------------------------------------------
@@ -171,8 +188,9 @@ def test_wizard_import_go_button_navigates(page: Page, base_url: str) -> None:
 def test_wizard_all_done_badge_when_setup_complete(page: Page, base_url: str) -> None:
     """Covers: KAL-ONB-002
 
-    The live app surfaces an "All done!" badge on /wizard once all onboarding steps
-    are satisfied (institution, account, categories, transactions).
+    The live app says "All four done" beside the Setup rule on /wizard once
+    all onboarding steps are satisfied (institution, account, categories,
+    transactions).
     """
     inst_id = seed_institution("All Done Wizard E2E Bank")
     acc_id = seed_account("All Done Wizard E2E Account", institution_id=inst_id)
@@ -181,4 +199,4 @@ def test_wizard_all_done_badge_when_setup_complete(page: Page, base_url: str) ->
     sh.seed_transaction(acc_id, exp_id, 10.0, description="wizard e2e seed")
 
     page.goto(f"{base_url}/wizard")
-    expect(page.get_by_text("All done!")).to_be_visible(timeout=5000)
+    expect(_setup_header(page)).to_contain_text("All four done", timeout=5000)

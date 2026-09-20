@@ -44,12 +44,14 @@ def _summary() -> NetWorthSummary:
 
 
 class TestChartOptions:
-    def test_the_legend_says_the_liabilities_are_stacked_on_the_assets(self) -> None:
+    def test_the_series_name_says_the_liabilities_are_stacked_on_the_assets(self) -> None:
         # Without this the upper line reads as a total the user never has.
+        # The chart's own legend moved to the card's title line (artboard
+        # `3b`), so the name is what carries the fact into the tooltip.
         options = net_worth_chart_options(_summary(), dark=False)
         names = [s["name"] for s in options["series"]]
-        assert options["legend"]["data"] == names
         assert "stacked" in names[1].lower()
+        assert "legend" not in options, "the keys are drawn on the card, not in the frame"
 
     def test_both_series_share_one_stack(self) -> None:
         options = net_worth_chart_options(_summary(), dark=False)
