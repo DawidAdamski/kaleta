@@ -13,6 +13,7 @@ from typing import Any
 from kaleta.views.reports.constants import BUILDER_STATE_DEFAULTS
 from kaleta.views.reports.sentence import (
     period_label,
+    result_total,
     share_percents,
     slot_labels,
     top_n_label,
@@ -97,6 +98,21 @@ class TestTopNLabel:
         # `report_config_from_builder_state` turns 0 into None, which means
         # "every row" — so "top 0" would say the exact opposite.
         assert top_n_label(_state(top_n=0)) == "no limit"
+
+
+class TestResultTotal:
+    """The figure on the result card's title line (artboard 3e)."""
+
+    def test_it_adds_the_rows_up_and_spaces_the_thousands(self) -> None:
+        assert result_total([24279.31, 5522.40, 5091.53]) == "34 893.24"
+
+    def test_a_negative_row_is_subtracted_rather_than_counted(self) -> None:
+        # Unlike a share, a total keeps its signs: a net dimension that comes
+        # to nothing has to say nothing, not say twice its largest row.
+        assert result_total([900.0, -900.0]) == "0.00"
+
+    def test_no_rows_at_all(self) -> None:
+        assert result_total([]) == "0.00"
 
 
 class TestSharePercents:

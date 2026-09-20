@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from kaleta.i18n import t
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.reports.constants import DATE_PRESETS, DIMENSIONS, METRICS, TX_TYPES
 
 
@@ -109,6 +110,17 @@ def chart_title(state: dict[str, Any]) -> str:
         dimension=dimension_label(state),
         period=period_label(state),
     )
+
+
+def result_total(values: list[float]) -> str:
+    """What the card's title line says the result adds up to.
+
+    Beside `share_percents`, because the two are the same question asked
+    twice — what the rows come to, and what each one is of that — and a
+    caption's arithmetic sitting inline in the zone that draws it is
+    arithmetic no test can reach.
+    """
+    return spaced_thousands(f"{sum(values):,.2f}")
 
 
 def share_percents(values: list[float]) -> list[float]:

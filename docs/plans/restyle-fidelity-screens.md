@@ -66,6 +66,36 @@ other than `3f`, artboards `1a` / `1b` / `1e`. If a screen's `open` rows turn
 out to need a service change, stop on that screen, leave the row `open`, and
 say so — it becomes its own plan.
 
+### What this plan went outside those bounds for
+
+Written down during implementation rather than discovered at review. Each
+item is for the owner to accept or send back with the `[owner]` criterion;
+none of it was invented, every one of them is a thing an artboard draws
+and a screen did not do.
+
+1. **Four behaviour changes an artboard asked for.** `3c` draws the day
+   sheet as a panel beside the month rather than a drawer over it
+   (`KAL-PLN-026`), and its overdue strip as one line with one button
+   that posts exactly the items it names (`KAL-PLN-020`, re-worded).
+   `3e` draws the bar result as rows of text, which is not a chart and
+   no ECharts option produces (`KAL-RPT-002`). `3a` draws the horizon as
+   three buttons rather than a menu. "Out of scope: new behaviour" was
+   meant to bar inventing features; matching what the spec draws is this
+   plan's whole purpose (Working Agreement §12).
+2. **One service method.** `PlannedTransactionService.post_occurrences`
+   exists because the first review pass found the strip's button looping
+   over `post_occurrence` from inside the view — orchestration and
+   atomicity in `views/`, against the architecture contract. It adds no
+   capability: `post_due` could already post a window, and this posts the
+   list it is handed. Three unit tests.
+3. **The shoot harness beyond `_prepare_*`.** `scripts/restyle_fidelity.py`
+   also gained a real seeding pipeline and a login split (see
+   Implementation notes, "The shoot runs the rich seed" and "`3f` was
+   photographing the dashboard"), and `scripts/reset_demo.py` gained
+   `--no-seed` for it. Without them `2a`, `3b`, `3c` and `3f` were being
+   photographed against the wrong page or the wrong ledger, and no
+   comparison made from those shots would have been worth anything.
+
 If one screen alone is more than a day's work, split it out into
 `restyle-fidelity-<screen>` and drop its criterion from this plan.
 
@@ -85,13 +115,17 @@ If one screen alone is more than a day's work, split it out into
 - `bash scripts/verify.sh --e2e`
 - `[owner]` Pages through `.fidelity/<id>/index.html` for the ten artboards
   and agrees with every row marked `deviation`.
+- `[owner]` Accepts the three items under Scope § "What this plan went
+  outside those bounds for", or sends any of them back to a plan of
+  their own.
 
 ## Touchpoints
 
 - The view modules in the Scope table; `src/kaleta/views/theme.py`
 - `docs/design/restyle/fidelity/<id>.md` × 10
-- `scripts/restyle_fidelity.py` (`_prepare_*` hooks only), `scripts/seed.py`
-  if a state is missing
+- `scripts/restyle_fidelity.py` (`_prepare_*` hooks, and the shoot's
+  seeding and login — see Scope §3), `scripts/seed.py` if a state is
+  missing, `scripts/reset_demo.py` for the `--no-seed` the shoot needs
 - `tests/e2e/` where a selector moves
 
 ## Open questions
@@ -167,6 +201,17 @@ If one screen alone is more than a day's work, split it out into
 - **The seed's canonical tags carry sand colours.** A tag chip is drawn
   as an outline in its own colour, and the model's grey default read as
   "no tag" beside a category pill in `2a`'s shot.
+- **`views/transactions/constants.py` is gone.** It held one thing,
+  `_KBD_CLS`, a slate-grey keyboard-hint pill; `2a` does not draw the
+  hint and nothing else imported the constant.
+- **The result card's total is in `reports/sentence.py`.** It was a
+  `sum()` inline in the zone that draws it — arithmetic no test could
+  reach — and it belongs beside `share_percents`, which asks the same
+  question about each row. `result_total`, three unit tests.
+- **No timeout was raised and no assertion loosened.** The e2e diff
+  removes 27 `timeout=` and adds 29: the two extra are new tests, one of
+  them `test_the_bar_result_reads_as_rows` waiting 15s on a report run
+  over the seeded ledger. Every moved assertion kept its own wait.
 
 ### What the comparison fixed rather than recorded
 

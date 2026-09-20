@@ -11,7 +11,7 @@ from kaleta.i18n import t
 from kaleta.services.saved_report_service import ReportResult, build_report_table_data
 from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.reports.chart_options import report_chart_options
-from kaleta.views.reports.sentence import chart_title, share_percents
+from kaleta.views.reports.sentence import chart_title, result_total, share_percents
 from kaleta.views.theme import (
     BODY_MUTED,
     CARD_TITLE,
@@ -55,10 +55,9 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
         with ui.row().classes("w-full items-baseline justify-between gap-3 flex-wrap mb-5"):
             ui.label(chart_title(state)).classes(CARD_TITLE)
             if result.values:
-                total = sum(result.values)
-                ui.label(
-                    t("reports.result_total", amount=spaced_thousands(f"{total:,.2f}"))
-                ).classes(RESULT_TOTAL)
+                ui.label(t("reports.result_total", amount=result_total(result.values))).classes(
+                    RESULT_TOTAL
+                )
 
         if not result.labels:
             ui.label(t("reports.no_data")).classes(f"{BODY_MUTED} text-center py-12 w-full")
