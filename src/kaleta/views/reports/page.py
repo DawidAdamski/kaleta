@@ -8,27 +8,46 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.schemas.report import SavedReportCreate
-from kaleta.services import AccountService, CategoryService, SavedReportService, with_session
+from kaleta.services import (
+    AccountService,
+    CategoryService,
+    SavedReportService,
+    TransactionService,
+    with_session,
+)
 from kaleta.services.saved_report_service import ReportConfig, report_config_from_builder_state
 from kaleta.views.layout import page_layout
 from kaleta.views.reports.chart_zone import build_chart_zone
 from kaleta.views.reports.config_zone import build_config_zone
 from kaleta.views.reports.constants import BUILDER_STATE_DEFAULTS
 from kaleta.views.reports.palette import build_palette_zone
-from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_TITLE
+from kaleta.views.theme import (
+    PAGE_CONTAINER,
+    PAGE_EYEBROW,
+    PAGE_FLUSH,
+    PAGE_GAP_22,
+    PAGE_TITLE,
+    SECTION_CARD,
+    SECTION_TITLE,
+    TITLE_ACTION,
+    TITLE_ACTION_PRIMARY,
+)
 
 
 async def reports_page() -> None:
     is_dark: bool = app.storage.user.get("dark_mode", False)
 
-    async def _load_reference(session: Any) -> tuple[Any, Any]:
+    async def _load_reference(session: Any) -> tuple[Any, Any, int]:
         accounts = await AccountService(session).list()
         categories = await CategoryService(session).list()
-        return accounts, categories
+        # What the sentence is asking of: the eyebrow says how much ledger
+        # there is before the reader spends a Run finding out.
+        n_transactions = await TransactionService(session).count()
+        return accounts, categories, n_transactions
 
-    accounts, categories = await with_session(_load_reference)
+    accounts, categories, n_transactions = await with_session(_load_reference)
     account_options = {account.id: account.name for account in accounts}
     category_options = CategoryService.build_option_labels(
         [category for category in categories if category.type.value == "expense"]
@@ -208,26 +227,42 @@ async def reports_page() -> None:
         name_inp.set_value(state["report_name"] or "")
         save_dialog.open()
 
+    def _eyebrow() -> str:
+        """ "Unsaved report · 1 527 transactions in the ledger".
+
+        The report's name moved off the title and onto the line above it:
+        artboard `3e` titles the screen "Reports" and lets the eyebrow say
+        which report is in hand, the way every other screen does.
+        """
+        which = state["report_name"] or t("reports.unsaved")
+        scope = t(
+            plural_key("reports.eyebrow_scope", n_transactions),
+            count=f"{n_transactions:,}".replace(",", " "),
+        )
+        return f"{which} · {scope}"
+
     @ui.refreshable
     def header() -> None:
-        with ui.row().classes("w-full items-center justify-between gap-3 flex-wrap"):
+        with ui.row().classes("w-full items-end justify-between gap-4 flex-wrap"):
             with ui.column().classes("gap-0 min-w-0"):
-                ui.label(state["report_name"] or t("reports.unsaved")).classes(PAGE_TITLE)
-                ui.label(t("reports.builder_title")).classes(BODY_MUTED)
-            with ui.row().classes("items-center gap-2"):
-                ui.button(t("reports.run"), icon="play_arrow", on_click=run_report).props(
-                    "color=primary unelevated"
-                )
-                ui.button(t("reports.save"), icon="save", on_click=_open_save).props(
-                    "flat color=primary"
-                )
+                ui.label(_eyebrow()).classes(PAGE_EYEBROW).props("data-page-eyebrow")
+                ui.label(t("reports.title")).classes(PAGE_TITLE)
+            with ui.row().classes("items-center gap-[9px]"):
+                # The ink pill is the primary action, and on this screen that
+                # is Run: artboard `3e` puts Save on the ink because it draws
+                # a report that has already been run.
+                ui.button(
+                    t("reports.save"), icon="bookmark", on_click=_open_save, color=None
+                ).props("flat no-caps dense").classes(TITLE_ACTION)
+                ui.button(
+                    t("reports.run"), icon="play_arrow", on_click=run_report, color=None
+                ).props("flat no-caps dense").classes(TITLE_ACTION_PRIMARY)
 
-    with page_layout(t("reports.title"), wide=True):
-        header()
-        with ui.row().classes("w-full gap-6 items-start flex-wrap lg:flex-nowrap"):
-            await palette_zone()
-            with ui.column().classes("flex-1 min-w-0 gap-4"):
-                with ui.card().classes(f"{SECTION_CARD} gap-3"):
-                    config_zone()
-                with ui.card().classes(f"{SECTION_CARD} gap-2"):
-                    chart_zone()
+    with page_layout(t("reports.title"), wide=True, container=f"{PAGE_CONTAINER} {PAGE_FLUSH}"):
+        await palette_zone()
+        with ui.column().classes(f"{PAGE_CONTAINER} {PAGE_GAP_22} flex-1 min-w-0"):
+            header()
+            with ui.card().classes(f"{SECTION_CARD} gap-0 w-full"):
+                config_zone()
+            with ui.card().classes(f"{SECTION_CARD} gap-0 w-full"):
+                chart_zone()

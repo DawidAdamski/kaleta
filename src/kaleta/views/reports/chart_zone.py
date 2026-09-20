@@ -8,16 +8,21 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.services.saved_report_service import build_report_table_data
+from kaleta.services.saved_report_service import ReportResult, build_report_table_data
 from kaleta.views.reports.chart_options import report_chart_options
-from kaleta.views.reports.sentence import chart_title
+from kaleta.views.reports.sentence import chart_title, share_percents
 from kaleta.views.theme import (
-    AMOUNT_NEUTRAL,
     BODY_MUTED,
+    INK,
     MONO,
     MUTED,
-    SECTION_HEADING,
+    REPORT_BAR_FILL,
+    REPORT_BAR_ROW,
+    REPORT_BAR_TRACK,
+    RESULT_TITLE,
+    RESULT_TOTAL,
     TABLE_SURFACE,
+    bar_ramp,
 )
 
 
@@ -46,14 +51,20 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
 
         # The title says what the chart is of, so the chart can be read
         # without looking back up at the sentence that asked for it.
-        with ui.row().classes("w-full items-baseline justify-between gap-3 flex-wrap"):
-            ui.label(chart_title(state)).classes(SECTION_HEADING)
+        with ui.row().classes("w-full items-baseline justify-between gap-3 flex-wrap mb-5"):
+            ui.label(chart_title(state)).classes(RESULT_TITLE)
             if result.values:
                 total = sum(result.values)
-                ui.label(f"{total:,.2f}").classes(f"{AMOUNT_NEUTRAL} {MONO} text-sm")
+                ui.label(
+                    t("reports.result_total", amount=f"{total:,.2f}".replace(",", " "))
+                ).classes(RESULT_TOTAL)
 
         if not result.labels:
             ui.label(t("reports.no_data")).classes(f"{BODY_MUTED} text-center py-12 w-full")
+            return
+
+        if state["chart_type"] == "bar":
+            _bar_rows(result)
             return
 
         if state["chart_type"] == "table":
@@ -64,8 +75,34 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
             return
 
         option = report_chart_options(result, state["chart_type"], is_dark)
-        # Horizontal bars need room per bar; the other types do not grow.
-        height = max(280, 34 * len(result.labels)) if state["chart_type"] == "bar" else 380
-        ui.echart(option).classes("w-full").style(f"height: {height}px")
+        ui.echart(option).classes("w-full").style("height: 380px")
 
     return chart_zone
+
+
+def _bar_rows(result: ReportResult) -> None:
+    """The ranking as rows, the way artboard `3e` draws it.
+
+    A chart library was drawing ten labelled bars inside a canvas that could
+    not be selected, searched or read by a screen reader, and whose type was
+    never the app's own. These are four columns of text and one div: name,
+    track, value, share — ranked, and shaded darkest first so the order
+    survives without a legend.
+    """
+    shares = share_percents(result.values)
+    widest = max((abs(v) for v in result.values), default=0.0)
+    with ui.column().classes("w-full gap-[13px]"):
+        for rank, (label, value, share) in enumerate(
+            zip(result.labels, result.values, shares, strict=False)
+        ):
+            width = abs(value) / widest * 100 if widest else 0.0
+            with ui.element("div").classes(f"{REPORT_BAR_ROW} w-full"):
+                ui.label(label).classes(f"{INK} text-[13px] truncate")
+                with ui.element("span").classes(REPORT_BAR_TRACK):
+                    ui.element("span").classes(REPORT_BAR_FILL).style(
+                        f"width:{width:.2f}%;background:{bar_ramp(rank, len(result.labels))}"
+                    )
+                ui.label(f"{value:,.2f}".replace(",", " ")).classes(
+                    f"{MONO} {INK} text-[13px] font-medium text-right"
+                )
+                ui.label(f"{share:.0f}%").classes(f"{MONO} {MUTED} text-[12px] text-right")

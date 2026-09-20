@@ -1403,8 +1403,7 @@
   },
   "reports": {
     "title": "Raporty",
-    "builder_title": "Kreator raportów",
-    "saved": "Zapisane raporty",
+    "saved": "Zapisane",
     "saved_ok": "Raport zapisany.",
     "deleted": "Raport usunięty.",
     "name_required": "Podaj nazwę raportu.",
@@ -1466,7 +1465,12 @@
     "n_accounts_many": "{count} kont",
     "n_categories_one": "{count} kategoria",
     "n_categories_few": "{count} kategorie",
-    "n_categories_many": "{count} kategorii"
+    "n_categories_many": "{count} kategorii",
+    "eyebrow_scope_one": "{count} transakcja w księdze",
+    "eyebrow_scope_few": "{count} transakcje w księdze",
+    "eyebrow_scope_many": "{count} transakcji w księdze",
+    "chart_eyebrow": "Wykres",
+    "result_total": "razem {amount}"
   },
   "reports_lib": {
     "title": "Biblioteka raportów",

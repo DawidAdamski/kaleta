@@ -130,7 +130,13 @@ ARTBOARDS: tuple[Artboard, ...] = (
         (f"{VIEWS}/wizard.py",),
         prepare="wizard_setup_open",
     ),
-    Artboard("3e", "Report builder", "/reports/builder", (f"{VIEWS}/reports",)),
+    Artboard(
+        "3e",
+        "Report builder",
+        "/reports/builder",
+        (f"{VIEWS}/reports",),
+        prepare="report_run",
+    ),
     Artboard(
         "3f",
         "Login, desktop and phone",
@@ -554,6 +560,14 @@ class Shooter:
             return
         page.locator('[data-section="setup"]').click()
         cards.wait_for(timeout=5000)
+
+    @staticmethod
+    def _prepare_report_run(page: Page) -> None:
+        """Run the report: artboard `3e` draws the answer, not the empty frame."""
+        page.get_by_role("button", name="Run").click()
+        page.locator(".k-report-bar-row").first.wait_for(timeout=15000)
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(400)
 
     @staticmethod
     def _prepare_realization_tab(page: Page) -> None:

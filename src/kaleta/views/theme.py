@@ -44,6 +44,9 @@ PAGE_GAP_22 = "k-page--gap-22"
 PAGE_GAP_24 = "k-page--gap-24"
 #: Artboard `3d`, which breathes like the dashboard but two pixels tighter.
 PAGE_GAP_26 = "k-page--gap-26"
+#: Artboard `3e`: no page padding at all, and the page lies on its side so a
+#: rail can hug the drawer.
+PAGE_FLUSH = "k-page--flush"
 #: Artboard `2c`, whose twelve month columns need the four pixels a side.
 PAGE_TIGHT = "k-page--tight"
 #: Artboards `3b` and `3d` breathe like the dashboard — 36/40/44 and a wider
@@ -395,6 +398,45 @@ ROUTINE_DESC = "k-routine-desc"
 #: and a lightbulb, because it is the one thing that knows this ledger.
 MENTOR_EYEBROW = "k-mentor-eyebrow"
 
+# ── Report builder (artboard 3e) ──────────────────────────────────────────────
+#: The field rail: its own column against the drawer, not a card on the page.
+REPORT_RAIL = "k-report-rail"
+#: An eyebrow inside that rail — tighter tracking than a page eyebrow, because
+#: it labels a list two words wide and not a screen.
+RAIL_EYEBROW = "k-rail-eyebrow"
+#: One draggable field. The chosen one is the only paper in the rail.
+RAIL_ROW = "k-rail-row"
+RAIL_ROW_ON = "k-rail-row--on"
+#: A saved report: a name you click, with no surface of its own.
+RAIL_SAVED = "k-rail-saved"
+#: One of the five chart-type squares. The chosen one goes ink.
+CHART_PICK = "k-chart-pick"
+CHART_PICK_ON = "k-chart-pick--on"
+#: The rule between the sentence and the controls that qualify it.
+SENTENCE_FOOT = "k-sentence-foot"
+#: One row of the bar result: name, track, value, share.
+REPORT_BAR_ROW = "k-report-bar-row"
+REPORT_BAR_TRACK = "k-report-bar-track"
+REPORT_BAR_FILL = "k-report-bar-fill"
+#: The result card's own title line and the total beside it.
+RESULT_TITLE = "k-result-title"
+RESULT_TOTAL = "k-result-total"
+
+#: How many steps the bar ramp has. Artboard `3e` shades ten bars with six
+#: greens, darkest first — a ranking you can read without a legend.
+BAR_RAMP_STEPS = 6
+
+
+def bar_ramp(rank: int, total: int) -> str:
+    """The fill colour for the bar at ``rank`` out of ``total``, darkest first.
+
+    A CSS variable rather than a hex, so the ramp follows the theme: on ink
+    the same six steps run the other way and still read as one series.
+    """
+    step = 1 if total <= 1 else min(BAR_RAMP_STEPS, 1 + rank * BAR_RAMP_STEPS // total)
+    return f"var(--k-ramp-{step})"
+
+
 # ── Net worth (artboard 3b) ──────────────────────────────────────────────────
 #: The hero figure, which on this one screen is 60px and sits on the ground
 #: rather than on paper: it is the page's subject, not a card's.
@@ -510,6 +552,12 @@ BASE_CSS = """
      separators in the mini drawer. A step down from a card's hairline and a
      step up from the border a control is drawn with; eleven artboards use
      it. */
+  --k-ramp-1:#36684D;
+  --k-ramp-2:#4A8064;
+  --k-ramp-3:#5E9377;
+  --k-ramp-4:#77A78C;
+  --k-ramp-5:#8FB8A1;
+  --k-ramp-6:#A8C8B6;
   --k-rule:#DCD4C2;
   --k-border:#E2DBCC;
   --k-border-strong:#C9BFA8;
@@ -558,6 +606,12 @@ BASE_CSS = """
   --k-muted-strong:#A19781;
   --k-disabled:#6E6656;
   --k-hairline:#2A2822;
+  --k-ramp-1:#4E8567;
+  --k-ramp-2:#5E9377;
+  --k-ramp-3:#6EA184;
+  --k-ramp-4:#7EAF92;
+  --k-ramp-5:#8EBD9F;
+  --k-ramp-6:#9ECBAD;
   --k-rule:#3D392F;
   --k-border:#322F27;
   --k-border-strong:#453F34;
@@ -831,6 +885,9 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-page--tight{padding-left:32px;padding-right:32px}
 .k-page--roomy{padding:36px 40px 44px;gap:28px}
 .k-page--roomy.k-page--gap-26{gap:26px}
+/* Artboard `3e`: the field rail is a column against the drawer, not a card
+   on the page, so the page itself carries no padding and lies on its side. */
+.k-page--flush{padding:0;gap:0;flex-direction:row;align-items:stretch}
 @media (max-width:767.98px){.k-page,.k-page--roomy{padding:20px 20px 28px;gap:20px}}
 .nicegui-content:has(> .k-page){padding:0;gap:0}
 /* 6px under the eyebrow, which is the artboards' own measure between it and
@@ -1126,6 +1183,61 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-mentor-eyebrow{
   font-size:10px;font-weight:600;letter-spacing:.2em;
   text-transform:uppercase;color:var(--k-banner-btn-ink)
+}
+
+/* ── Report builder (artboard 3e) ─────────────────────────────────── */
+.k-report-rail{
+  width:214px;flex:none;align-self:stretch;
+  background:var(--k-ground);
+  border-right:1px solid var(--k-border);
+  padding:26px 18px
+}
+.k-rail-eyebrow{
+  font-size:10px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--k-muted-strong)
+}
+.k-rail-row{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:7px 10px;border-radius:7px;
+  font-size:12.5px;color:var(--k-ink-2);
+  cursor:pointer;flex-wrap:nowrap
+}
+.k-rail-row:hover{background:var(--k-surface-warm)}
+.k-rail-row--on{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  font-weight:500;color:var(--k-ink)
+}
+.k-rail-saved{
+  display:flex;align-items:center;gap:8px;
+  font-size:12.5px;color:var(--k-ink-2);cursor:pointer
+}
+.k-chart-pick{
+  display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;min-height:34px;padding:0;
+  border:1px solid var(--k-border-strong);border-radius:8px;
+  background:transparent;color:var(--k-ink-2)
+}
+.k-chart-pick--on{
+  background:var(--k-ink);border-color:var(--k-ink);color:var(--k-ground)
+}
+.k-sentence-foot{
+  margin-top:18px;padding-top:16px;
+  border-top:1px solid var(--k-hairline)
+}
+.k-report-bar-row{
+  display:grid;grid-template-columns:196px 1fr 108px 62px;
+  align-items:center;gap:14px
+}
+.k-report-bar-track{
+  height:22px;border-radius:3px;background:var(--k-hairline);overflow:hidden
+}
+.k-report-bar-fill{display:block;height:100%;border-radius:3px}
+.k-result-title{font-size:17px;font-weight:500;color:var(--k-ink)}
+.k-result-total{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:12.5px;color:var(--k-muted)
 }
 
 /* ── Net worth (artboard 3b) ──────────────────────────────────────── */
@@ -1661,19 +1773,19 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   cursor:pointer
 }
 .k-slot{
-  display:inline-flex;align-items:center;gap:.25rem;
-  padding:1px 4px;margin:0 1px;border-radius:5px;
-  color:var(--k-accent-text);
-  border-bottom:1px dashed var(--k-chip-dash);
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 12px;border-radius:8px;
+  background:var(--k-surface-sunken);
+  border:1px solid var(--k-border-strong);
+  font-weight:500;color:var(--k-ink);
   cursor:pointer;
-  transition:background-color .12s ease
+  transition:border-color .12s ease,background-color .12s ease
 }
-.k-slot:hover{background:var(--k-surface-sunken);border-bottom-color:transparent}
+.k-slot:hover{border-color:var(--k-accent)}
+.k-slot .q-icon{color:var(--k-muted);font-size:15px}
 body.k-dragging .k-slot--drop{
   background:var(--k-surface-warm);
-  border:1px dashed var(--k-accent);
-  border-bottom-color:var(--k-accent);
-  border-radius:5px
+  border:1px dashed var(--k-accent)
 }
 .k-filter-chip--empty{
   background:transparent;

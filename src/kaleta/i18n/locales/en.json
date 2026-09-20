@@ -1403,8 +1403,7 @@
   },
   "reports": {
     "title": "Reports",
-    "builder_title": "Report Builder",
-    "saved": "Saved Reports",
+    "saved": "Saved",
     "saved_ok": "Report saved.",
     "deleted": "Report deleted.",
     "name_required": "Enter a report name.",
@@ -1466,7 +1465,12 @@
     "n_accounts_many": "{count} accounts",
     "n_categories_one": "{count} category",
     "n_categories_few": "{count} categories",
-    "n_categories_many": "{count} categories"
+    "n_categories_many": "{count} categories",
+    "eyebrow_scope_one": "{count} transaction in the ledger",
+    "eyebrow_scope_few": "{count} transactions in the ledger",
+    "eyebrow_scope_many": "{count} transactions in the ledger",
+    "chart_eyebrow": "Chart",
+    "result_total": "total {amount}"
   },
   "reports_lib": {
     "title": "Reports Library",
