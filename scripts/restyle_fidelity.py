@@ -123,7 +123,13 @@ ARTBOARDS: tuple[Artboard, ...] = (
         prepare="rest_pointer",
     ),
     Artboard("3b", "Net Worth", "/net-worth", (f"{VIEWS}/net_worth.py",)),
-    Artboard("3c", "Payment Calendar", "/payment-calendar", (f"{VIEWS}/payment_calendar.py",)),
+    Artboard(
+        "3c",
+        "Payment Calendar",
+        "/payment-calendar",
+        (f"{VIEWS}/payment_calendar.py",),
+        prepare="calendar_day",
+    ),
     Artboard(
         "3d",
         "Financial Wizard",
@@ -577,6 +583,20 @@ class Shooter:
         """Run the report: artboard `3e` draws the answer, not the empty frame."""
         page.get_by_role("button", name="Run").click()
         page.locator(".k-report-bar-row").first.wait_for(timeout=15000)
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(400)
+
+    @staticmethod
+    def _prepare_calendar_day(page: Page) -> None:
+        """Open the 14th: a planned row and a subscription charge, as `3c` draws.
+
+        Today is whatever day the shoot runs on and usually has nothing on
+        it, so the sheet would be photographed empty. The 14th is the day the
+        seed puts one of each on, which is the sheet the artboard is a
+        picture of - both its sections, with something under each.
+        """
+        page.locator('[data-day$="-14"]').click()
+        page.locator(".k-day-panel .k-day-item").first.wait_for(timeout=5000)
         page.mouse.move(0, 0)
         page.wait_for_timeout(400)
 

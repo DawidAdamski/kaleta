@@ -222,12 +222,20 @@ def _in(cell: DayAggregate | None) -> Decimal:
     return cell.inflow if cell else Decimal("0")
 
 
-def _out(cell: DayAggregate | None) -> Decimal:
-    return cell.outflow if cell else Decimal("0")
+def _out(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
+    """What leaves on the day, subscription charges included.
+
+    The cell in the grid counts them (`day_marks`), so the sheet has to as
+    well: a day drawn as `-12.99` that opened onto `Out 0.00` would be the
+    screen disagreeing with itself.
+    """
+    charged = sum((s.amount for s in subscriptions), Decimal("0"))
+    return (cell.outflow if cell else Decimal("0")) + charged
 
 
-def _net(cell: DayAggregate | None) -> Decimal:
-    return cell.net if cell else Decimal("0")
+def _net(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
+    charged = sum((s.amount for s in subscriptions), Decimal("0"))
+    return (cell.net if cell else Decimal("0")) - charged
 
 
 def _signed(amount: Decimal, sign: str) -> str:
@@ -433,13 +441,18 @@ def register() -> None:
                     )
 
         def _render_subscription_row(ch: SubscriptionCharge) -> None:
+            """A charge: the glyph, the name and the amount.
+
+            No sub-line. Artboard `3c` writes the account and the cadence
+            under the name ("Revolut - renews monthly") and
+            `SubscriptionCharge` carries neither; repeating the section's own
+            heading under every row instead said nothing twice.
+            """
             with ui.element("div").classes(f"{DAY_ITEM} w-full"):
                 ui.icon("subscriptions", size="17px").classes(f"{ACCENT_TEXT} flex-none")
-                with ui.column().classes("gap-0 flex-1 min-w-0"):
-                    ui.label(ch.name).classes(f"{INK} text-[13.5px] font-medium truncate")
-                    ui.label(t("payment_calendar.subscription_charges")).classes(
-                        f"{MUTED} text-[11.5px] mt-0.5"
-                    )
+                ui.label(ch.name).classes(
+                    f"{INK} text-[13.5px] font-medium truncate flex-1 min-w-0"
+                )
                 ui.label(f"-{_fmt(ch.amount)}").classes(
                     f"{AMOUNT_EXPENSE} {MONO} text-[13.5px] font-semibold"
                 )
@@ -490,17 +503,30 @@ def register() -> None:
                     ).tooltip(t("payment_calendar.day_sheet_close"))
                 with ui.row().classes("w-full gap-[18px] mt-2.5 pb-4 flex-wrap k-hairline-bottom"):
                     _day_total(t("payment_calendar.in"), _signed(_in(cell), "+"), AMOUNT_INCOME)
-                    _day_total(t("payment_calendar.out"), _signed(_out(cell), "-"), AMOUNT_EXPENSE)
-                    _day_total(t("payment_calendar.net"), _fmt(_net(cell)), AMOUNT_NEUTRAL)
+                    _day_total(
+                        t("payment_calendar.out"),
+                        _signed(_out(cell, subs_for_day), "-"),
+                        AMOUNT_EXPENSE,
+                    )
+                    _day_total(
+                        t("payment_calendar.net"), _fmt(_net(cell, subs_for_day)), AMOUNT_NEUTRAL
+                    )
 
                 # Overdue items live in the strip above the grid now, where
                 # they are visible without opening any day at all.
-                ui.label(t("payment_calendar.day_planned")).classes(f"{RAIL_EYEBROW} mt-4 mb-2.5")
                 if cell and cell.occurrences:
+                    ui.label(t("payment_calendar.day_planned")).classes(
+                        f"{RAIL_EYEBROW} mt-4 mb-2.5"
+                    )
                     with ui.column().classes("w-full gap-[9px]"):
                         for occ in cell.occurrences:
                             _render_occurrence_row(occ)
                 elif not subs_for_day:
+                    # The eyebrow goes with the list: a heading over nothing
+                    # reads as a section that failed to load.
+                    ui.label(t("payment_calendar.day_planned")).classes(
+                        f"{RAIL_EYEBROW} mt-4 mb-2.5"
+                    )
                     ui.label(t("payment_calendar.day_empty")).classes(BODY_MUTED)
 
                 if subs_for_day:
@@ -567,30 +593,38 @@ def register() -> None:
                     ).props("flat no-caps dense").classes(TITLE_ACTION_PRIMARY)
 
             # Summary KPIs — the totals the day cells no longer carry
-            def _kpi(title: str, value_cls: str, *, warm: bool = False) -> ui.label:
+            def _kpi(title: str, value_cls: str, *, key: str, warm: bool = False) -> ui.label:
+                """One stat card. `key` names the figure on the figure itself,
+                so a reader of the DOM finds it by what it counts rather than
+                by which of four cards it happens to be."""
                 surface = STAT_CARD_WARM if warm else STAT_CARD
                 with ui.column().classes(f"{surface} {STAT_CARD_SM} gap-0"):
                     ui.label(title).classes(RAIL_EYEBROW if warm else "k-eyebrow")
                     if not warm:
-                        return ui.label("").classes(
+                        plain = ui.label("").classes(
                             f"{STAT_CARD_FIGURE} {STAT_FIGURE_SM} {value_cls}"
                         )
+                        plain.props["data-kpi"] = key
+                        return plain
                     # The overdue card is not a figure to read but a thing to
                     # do something about, so the count carries its own words.
                     with ui.row().classes("items-baseline gap-2"):
                         figure = ui.label("").classes(
                             f"{STAT_CARD_FIGURE} {STAT_FIGURE_SM} {value_cls}"
                         )
+                        figure.props["data-kpi"] = key
                         ui.label(t("payment_calendar.overdue_hint")).classes(
                             f"{value_cls} text-[12px]"
                         )
                     return figure
 
             with ui.row().classes("w-full gap-[18px] flex-wrap items-stretch"):
-                kpi_in = _kpi(t("payment_calendar.month_in"), AMOUNT_INCOME)
-                kpi_out = _kpi(t("payment_calendar.month_out"), AMOUNT_EXPENSE)
-                kpi_net = _kpi(t("payment_calendar.month_net"), AMOUNT_NEUTRAL)
-                kpi_overdue = _kpi(t("payment_calendar.overdue_count"), WARM_ACCENT, warm=True)
+                kpi_in = _kpi(t("payment_calendar.month_in"), AMOUNT_INCOME, key="in")
+                kpi_out = _kpi(t("payment_calendar.month_out"), AMOUNT_EXPENSE, key="out")
+                kpi_net = _kpi(t("payment_calendar.month_net"), AMOUNT_NEUTRAL, key="net")
+                kpi_overdue = _kpi(
+                    t("payment_calendar.overdue_count"), WARM_ACCENT, key="overdue", warm=True
+                )
 
             # Overdue strip — above the grid, not buried in the day-1 cell
             overdue_strip = ui.column().classes("w-full gap-0")
@@ -724,6 +758,10 @@ def register() -> None:
                 if is_selected:
                     classes.append(CALENDAR_DAY_SELECTED)
                 col = ui.column().classes(" ".join(classes))
+                # The cell says which day it is, so a reader of the DOM - a
+                # test, the fidelity shoot - can open one without counting
+                # cells and guessing which column the month starts in.
+                col.props["data-day"] = date.isoformat()
                 col.on("click", lambda _e=None, d=date, c=cell: _open_day(d, c))
                 state["cells"][date] = col
 

@@ -14,6 +14,7 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e.ledger import filter_ledger_by_account, search_ledger
 from tests.e2e.seed_helpers import (
+    count_transactions,
     delete_planned_transaction,
     seed_account,
     seed_category,
@@ -512,12 +513,20 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
     listed = strip.locator(".k-overdue-text").count()
     assert label == f"Post {listed}", (label, listed)
 
+    # Exactly those: this account holds one overdue plan and nothing else, so
+    # one press has to leave exactly one new row on it.
+    before = count_transactions(acc_id)
+
     # Posting works from the strip itself — no day has to be opened first.
     post.click()
-    # Once posted it is no longer late, so it leaves the strip.
-    expect(page.locator(".k-overdue-strip").get_by_text("Prad Zalegly")).to_have_count(
-        0, timeout=10000
-    )
+
+    # Every item the button named is posted, so nothing is left to be late
+    # and the strip goes with its last row — not only the one this test
+    # seeded. That is the whole of "posts exactly the items it names": the
+    # named ones all go, and the count on this account shows no others did.
+    expect(page.locator(".k-overdue-strip")).to_have_count(0, timeout=10000)
+    expect(page.locator('[data-kpi="overdue"]')).to_have_text("0")
+    assert count_transactions(acc_id) == before + 1
 
 
 def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:

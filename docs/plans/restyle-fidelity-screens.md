@@ -212,6 +212,19 @@ If one screen alone is more than a day's work, split it out into
   removes 27 `timeout=` and adds 29: the two extra are new tests, one of
   them `test_the_bar_result_reads_as_rows` waiting 15s on a report run
   over the seeded ledger. Every moved assertion kept its own wait.
+- **The seed grows two tracked subscriptions.** A `Subscription` is
+  what the detector writes down when it recognises a repeating charge,
+  and the seed had never made one — so the day sheet's second section,
+  which artboard `3c` draws with an item in it, had nothing to draw and
+  the Subscriptions panel opened empty. Two rows, one of them on the
+  14th beside a planned row, which is the day the shoot now opens.
+- **The day sheet's Out and Net count the charges.** The cell in the
+  grid always did (`day_marks`), so a day drawn `-12.99` opened onto
+  `Out 0.00` — the screen disagreeing with itself. `_out` and `_net`
+  take the day's charges.
+- **Two more DOM hooks.** A calendar cell carries `data-day`, and each
+  stat figure carries `data-kpi`, so the shoot and the tests open a day
+  and read a count by what it is rather than by counting cells.
 
 ### What the comparison fixed rather than recorded
 
@@ -274,6 +287,16 @@ missing capability rather than a design choice:
   that posts it.
 - `2d` maps Counterparty, Debit and Credit as three rows where the
   artboard draws one "Debit / Credit" picker.
+- `3c` leaves a day outside the month on the page ground with a dashed
+  hairline, where the artboard fills it `#F8F4EB`. This one is a taste
+  call rather than a missing capability and is here for that reason: a
+  filled cell for a day that is not in the month reads as a day. Say so
+  and it becomes a fill.
+- `3c`'s sheet item names the account and the category under a planned
+  row, where the artboard's third part is the recurrence, and its
+  subscription row carries no sub-line at all. `PlannedOccurrence` has
+  no recurrence and `SubscriptionCharge` has neither an account nor a
+  cadence; both are service changes.
 
 All five are new behaviour or service changes, which this plan's Scope
 puts out of bounds.

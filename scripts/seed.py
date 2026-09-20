@@ -28,6 +28,7 @@ from kaleta.models.category import Category, CategoryType
 from kaleta.models.institution import Institution, InstitutionType
 from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
+from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionType
 
@@ -652,6 +653,31 @@ async def seed() -> None:
                 ("ChatGPT Plus", Decimal("99.00"), 27),
             )
         ]
+        # Two tracked subscriptions. These are not planned transactions: a
+        # `Subscription` is what the detector writes down when it recognises
+        # a repeating charge, and it is what the payment calendar's day sheet
+        # lists under "Subscription charges" and what the Subscriptions panel
+        # reads. A seed with none of them leaves both empty — and artboard
+        # `3c` draws a day with one.
+        session.add_all(
+            [
+                Subscription(
+                    name=name,
+                    amount=amount,
+                    cadence_days=30,
+                    first_seen_at=this_month_on(day) - datetime.timedelta(days=90),
+                    next_expected_at=this_month_on(day),
+                    status=SubscriptionStatus.ACTIVE,
+                    category_id=subs_monthly.id,
+                    auto_renew=True,
+                )
+                for name, amount, day in (
+                    ("iCloud 200 GB", Decimal("12.99"), 14),
+                    ("Allegro Smart", Decimal("10.75"), 23),
+                )
+            ]
+        )
+
         # Two that are already late. The payment calendar's overdue strip and
         # its Overdue card exist for exactly this state, and a seed in which
         # nothing is ever late leaves both of them untestable — and unseen in
