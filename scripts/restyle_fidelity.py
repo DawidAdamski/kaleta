@@ -133,6 +133,7 @@ ARTBOARDS: tuple[Artboard, ...] = (
         viewports=((1360, 900), (390, 844)),
         needs_login=False,
         drawer=None,
+        prepare="login_error",
     ),
 )
 BY_ID = {a.id: a for a in ARTBOARDS}
@@ -517,6 +518,22 @@ class Shooter:
         for index in range(min(3, boxes.count())):
             boxes.nth(index).click()
         page.wait_for_timeout(400)
+
+    @staticmethod
+    def _prepare_login_error(page: Page) -> None:
+        """A failed attempt, which is the state artboard `3f` is drawn in.
+
+        The reserved strip is the point of that artboard: it is what keeps the
+        button from moving out from under a second try, and an empty one says
+        nothing about whether it works.
+        """
+        page.get_by_label("Username", exact=True).fill("dawid")
+        page.get_by_label("Password", exact=True).fill("not-the-password")
+        page.get_by_role("button", name="Log in").click()
+        # Off the button before the shutter: a pointer left resting on it
+        # photographs its hover state, which is not what the artboard draws.
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(1200)
 
     @staticmethod
     def _prepare_realization_tab(page: Page) -> None:

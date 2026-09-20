@@ -183,6 +183,8 @@ YEAR_CHIP_ON = "k-year-chip k-year-chip--on"
 #: An ink button that is not on a title row: square corners, not round. The
 #: title row's pill is the page's one action; this is a control inside it.
 BUTTON_INK = "k-btn-ink"
+#: The same ink, full width and a size up — the one button on a login page.
+BUTTON_INK_WIDE = "k-btn-ink k-btn-ink--wide"
 
 #: A page's tab row: quiet type on a rule, the tab you are on underlined in
 #: ink. Artboard `2b` puts the screen's own controls on the same line.
@@ -251,10 +253,25 @@ AUTH_PANEL = "k-auth-panel"
 #: moving the button out from under the pointer. Carries its own colour, so
 #: no caller has to remember which tone an error wears.
 ERROR_SLOT = "k-error-slot"
+#: The same slot with nothing to say: it keeps its height and drops its tint.
+ERROR_SLOT_EMPTY = "k-error-slot--empty"
 #: A count on that panel: large, mono, and paper-coloured.
 AUTH_PANEL_FIGURE = "k-auth-figure"
 #: Its label underneath, dimmed against the ink rather than muted on paper.
 AUTH_PANEL_LABEL = "k-auth-label"
+#: The hairline above those counts, on ink rather than on paper.
+AUTH_PANEL_RULE = "k-auth-rule"
+#: "Welcome back" — the one line on the page set as a title.
+AUTH_TITLE = "k-auth-title"
+AUTH_SUBTITLE = "k-auth-subtitle"
+#: The eyebrow over a field, which is where artboard `3f` puts a field's
+#: name: above it, not floating inside it.
+AUTH_FIELD_LABEL = "k-auth-field-label"
+#: The field itself: paper in a hairline box, and the box goes ink when the
+#: cursor is in it.
+AUTH_FIELD = "k-auth-field"
+#: The version and licence, at the foot of the form column.
+AUTH_FOOT = "k-auth-foot"
 
 # ── Header (artboards 1c / 2a) ────────────────────────────────────────────────
 #: "Kaleta" in the header, first thing on the line.
@@ -467,7 +484,16 @@ BASE_CSS = """
   --k-on-accent:#FCFAF6;
   /* The pill on the accent banner: paper with deep accent ink in light,
      ink with paper on it in dark. Neither pair is any other token's. */
-  --k-banner-btn-ink:#8E4718
+  --k-banner-btn-ink:#8E4718;
+  /* A failed login, as artboard `3f` draws it: a warm pink strip with its
+     own ink. Neither is any other token's — the expense colour is for
+     figures, and this is a sentence about the page. */
+  --k-error-soft:#F6E2DC;
+  --k-error-ink:#8A3826;
+  /* On the ink panel: a rule that reads on ink, and the caption colour under
+     a figure there. The paper tokens are all defined against paper. */
+  --k-ink-rule:#3A362C;
+  --k-on-ink-muted:#B0A692
 }
 .body--dark{
   --q-primary:#E8935B;
@@ -500,7 +526,11 @@ BASE_CSS = """
   --k-chip-dash:#453F34;
   --k-card-shadow:none;
   --k-on-accent:#241C13;
-  --k-banner-btn-ink:#F0EBDF
+  --k-banner-btn-ink:#F0EBDF;
+  --k-error-soft:#3A2622;
+  --k-error-ink:#DE8672;
+  --k-ink-rule:#3A362C;
+  --k-on-ink-muted:#B0A692
 }
 body,.q-body--layout{
   font-family:'Libre Franklin',ui-sans-serif,system-ui,sans-serif
@@ -887,10 +917,20 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:0 6px;
   line-height:15px
 }
+/* The line kept for a failed login. It is a strip, not a sentence: artboard
+   `3f` draws a tinted box with an icon, and an empty one still holds its
+   place so the button never moves out from under a second attempt. */
 .k-error-slot{
-  min-height:20px;line-height:20px;font-size:13px;
-  color:var(--k-expense)
+  display:flex;align-items:center;gap:9px;
+  min-height:42px;padding:11px 13px;border-radius:8px;
+  font-size:12.5px;line-height:1.3;
+  color:var(--k-error-ink);
+  background:var(--k-error-soft)
 }
+.k-error-slot .q-icon{font-size:17px;color:var(--k-error-ink)}
+/* Nothing to say: the strip keeps its height and shows none of its clothes. */
+.k-error-slot--empty{background:transparent}
+.k-error-slot--empty .q-icon{display:none}
 
 /* Auth (artboard 3f) — the one ink surface in the app. Its own text colours
    rather than the tokens, which are all defined against paper. */
@@ -903,11 +943,50 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-auth-figure{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-variant-numeric:tabular-nums;
-  font-size:30px;line-height:1.1;font-weight:400;color:var(--k-surface)
+  font-size:22px;line-height:1.1;font-weight:400;color:var(--k-ground)
 }
-.k-auth-label{
-  font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--k-surface);opacity:.6
+/* Lowercase, and quiet: on ink the label is a caption under a figure, not a
+   heading over one, so it takes neither caps nor letter-spacing. */
+.k-auth-label{font-size:11px;color:var(--k-on-ink-muted)}
+.k-auth-rule{border-top:1px solid var(--k-ink-rule);padding-top:22px;margin-top:26px}
+.k-auth-title{
+  font-size:30px;font-weight:300;line-height:1.2;
+  letter-spacing:-.02em;color:var(--k-ink)
+}
+.k-auth-subtitle{font-size:13.5px;line-height:1.6;color:var(--k-ink-2);max-width:340px}
+.k-auth-field-label{
+  font-size:10px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--k-muted-strong);margin-bottom:7px
+}
+.k-auth-field .q-field__control{
+  background:var(--k-surface);
+  border:1px solid var(--k-border-strong);
+  border-radius:9px;
+  min-height:48px;
+  padding:0 14px
+}
+.k-auth-field .q-field__control:before,
+.k-auth-field .q-field__control:after{display:none}
+.k-auth-field .q-field__native{font-size:14px;color:var(--k-ink);padding:0}
+/* A masked password is a row of marks, not words: mono and spaced, as
+   artboard `3f` sets it, so the count of what you typed is readable. */
+.k-auth-field input[type="password"]{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  letter-spacing:.12em
+}
+.k-auth-field .q-field__marginal,.k-auth-field .q-field__append{
+  height:48px;color:var(--k-muted);font-size:19px
+}
+/* The field the cursor is in takes an ink outline rather than the accent
+   ring Quasar draws: the accent on this page is the wordmark alone. */
+.k-auth-field .q-field--focused .q-field__control,
+.k-auth-field.q-field--focused .q-field__control{
+  border:1.5px solid var(--k-ink);
+  padding:0 13.5px
+}
+.k-auth-foot{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11.5px;color:var(--k-muted)
 }
 
 /* Payment calendar (artboard 3c) — the grid is 31 small cells, so every
@@ -1140,6 +1219,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .q-btn.k-btn-ink .q-icon{color:var(--k-ground);font-size:15px}
 .q-btn.k-btn-ink:hover{background:var(--k-ink-2)}
+.q-btn.k-btn-ink--wide{border-radius:9px;font-size:13.5px;padding:13px 0}
 /* The same control with corners: artboards `2b` and `2c` set their month and
    year pickers on an 8px radius, where `3a`'s account picker is fully round.
    A picker beside a table is squarer than one beside a chart. */

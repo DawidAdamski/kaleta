@@ -1826,8 +1826,8 @@
     "username": "Nazwa użytkownika",
     "password": "Hasło",
     "password_confirm": "Potwierdź hasło",
-    "login_title": "Zaloguj się",
-    "login_subtitle": "Podaj dane logowania do Kalety.",
+    "login_title": "Witaj ponownie",
+    "login_subtitle": "Twoje dane zostają na tym komputerze. Nic nie jest nigdzie wysyłane.",
     "login_button": "Zaloguj",
     "login_failed": "Nieprawidłowa nazwa użytkownika lub hasło.",
     "login_rate_limited": "Zbyt wiele nieudanych prób logowania. Spróbuj ponownie za {seconds} s.",
@@ -1843,10 +1843,10 @@
     "password_too_short": "Hasło musi mieć co najmniej 8 znaków.",
     "password_mismatch": "Hasła nie są identyczne.",
     "secure_failed": "Nie udało się zaktualizować danych logowania. Spróbuj innej nazwy użytkownika.",
-    "panel_copy": "Twoje finanse na Twoim komputerze. Bez konta w chmurze, bez cudzych oczu.",
-    "panel_count_transactions": "Transakcji",
-    "panel_count_accounts": "Kont",
-    "panel_count_months": "Miesięcy historii"
+    "panel_copy": "Sześć lat własnych wyciągów, budżet w ośmiu kategoriach, prognoza na sześćdziesiąt dni.",
+    "panel_count_transactions": "transakcji",
+    "panel_count_accounts": "kont",
+    "panel_count_months": "miesięcy historii"
   },
   "setup": {
     "welcome": "Witaj w Kalecie",
