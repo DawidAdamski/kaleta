@@ -120,6 +120,7 @@ ARTBOARDS: tuple[Artboard, ...] = (
         "/forecast",
         (f"{VIEWS}/forecast.py", f"{VIEWS}/chart_utils.py"),
         settle_ms=6000,
+        prepare="rest_pointer",
     ),
     Artboard("3b", "Net Worth", "/net-worth", (f"{VIEWS}/net_worth.py",)),
     Artboard("3c", "Payment Calendar", "/payment-calendar", (f"{VIEWS}/payment_calendar.py",)),
@@ -546,6 +547,16 @@ class Shooter:
         # photographs its hover state, which is not what the artboard draws.
         page.mouse.move(0, 0)
         page.wait_for_timeout(1200)
+
+    @staticmethod
+    def _prepare_rest_pointer(page: Page) -> None:
+        """Take the pointer off whatever it landed on.
+
+        A shot taken with the cursor parked over a drawer button photographs
+        that button's tooltip, which is not on any artboard.
+        """
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(400)
 
     @staticmethod
     def _prepare_wizard_setup_open(page: Page) -> None:

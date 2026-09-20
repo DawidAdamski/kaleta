@@ -391,6 +391,20 @@ OVERDUE_STRIP = "k-overdue-strip"
 #: Type on a warm card, which takes the banner's burnt ink rather than the
 #: page's — the muted grey the paper cards use disappears against sand.
 WARM_ACCENT = "k-warm-accent"
+
+# ── Forecast (artboard 3a) ────────────────────────────────────────────────────
+#: One key in the chart's legend: a swatch and a word, on the card's title
+#: line rather than inside the frame, where it costs the chart no height.
+CHART_KEY = "k-chart-key"
+#: The four swatch shapes the forecast chart draws with.
+CHART_KEY_LINE = "k-chart-key--line"
+CHART_KEY_DASH = "k-chart-key--dash"
+CHART_KEY_BAND = "k-chart-key--band"
+CHART_KEY_DOT = "k-chart-key--dot"
+#: The two tables under the chart: a header rule over rows of figures, set as
+#: a grid so the columns line up without a table's chrome.
+FORECAST_HEAD = "k-forecast-head"
+FORECAST_ROW = "k-forecast-row"
 #: One late item's words on that strip, and the figure beside them.
 OVERDUE_TEXT = "k-overdue-text"
 OVERDUE_AMOUNT = "k-overdue-amount"
@@ -575,6 +589,7 @@ BASE_CSS = """
      separators in the mini drawer. A step down from a card's hairline and a
      step up from the border a control is drawn with; eleven artboards use
      it. */
+  --k-band:#EFCDB2;
   --k-warm-ink:#4A2A0F;
   --k-warm-rule:#DDCBB4;
   --k-ramp-1:#36684D;
@@ -631,6 +646,7 @@ BASE_CSS = """
   --k-muted-strong:#A19781;
   --k-disabled:#6E6656;
   --k-hairline:#2A2822;
+  --k-band:rgba(232,147,91,.22);
   --k-warm-ink:#EBD9C4;
   --k-warm-rule:#4A4237;
   --k-ramp-1:#4E8567;
@@ -1157,6 +1173,41 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-overdue-strip .q-icon{color:var(--k-banner-btn-ink)}
 .k-warm-accent{color:var(--k-banner-btn-ink)}
+
+/* ── Forecast (artboard 3a) ───────────────────────────────────────── */
+.k-chart-key{
+  display:flex;align-items:center;gap:6px;
+  font-size:11.5px;color:var(--k-muted)
+}
+.k-chart-key::before{content:"";display:block;width:16px;flex:none}
+.k-chart-key--line::before{height:2px;background:var(--k-ink)}
+.k-chart-key--dash::before{height:0;border-top:2px dashed var(--k-accent)}
+.k-chart-key--band::before{width:12px;height:9px;background:var(--k-band)}
+.k-chart-key--dot::before{height:0;border-top:1.5px dotted var(--k-muted)}
+.k-forecast-head{
+  display:grid;align-items:center;
+  font-size:10px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--k-muted-strong);
+  padding-bottom:9px;
+  border-bottom:1px solid var(--k-border)
+}
+.k-forecast-row{
+  display:grid;align-items:center;
+  font-size:12.5px;
+  padding:9px 0;
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-forecast-row:last-child{border-bottom:0}
+.k-forecast-head > *,.k-forecast-row > *{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* `minmax(0, …)`, not a bare `fr`: an auto-sized track takes its minimum
+   from its content, so a long category name widened its own row's columns
+   and every figure in the card landed at a different x. */
+.k-cols-upcoming{
+  grid-template-columns:88px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px
+}
+.k-cols-planned{
+  grid-template-columns:72px minmax(0,1.2fr) minmax(0,1fr) 104px;gap:10px
+}
 .k-overdue-text{font-size:12.5px;font-weight:500;color:var(--k-warm-ink)}
 .k-overdue-amount{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
