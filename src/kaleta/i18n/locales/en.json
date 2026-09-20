@@ -989,7 +989,10 @@
       "status_over": "Over",
       "elapsed_hint": "Month is {pct}% elapsed",
       "note_paid_in_full": "Paid in full on {date} — expected",
-      "note_planned_on": "{amount} planned for {date}"
+      "note_planned_on": "{amount} planned for {date}",
+      "col_pace_vs": "Pace vs {pct}% elapsed",
+      "total": "Total",
+      "used_of_over": "Used · {over} of {total} over"
     }
   },
   "budget_plan": {

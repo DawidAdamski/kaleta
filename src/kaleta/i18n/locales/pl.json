@@ -989,7 +989,10 @@
       "status_over": "Przekroczono",
       "elapsed_hint": "Miesiąc upłynął w {pct}%",
       "note_paid_in_full": "Opłacone w całości dnia {date} — zgodnie z planem",
-      "note_planned_on": "{amount} zaplanowane na {date}"
+      "note_planned_on": "{amount} zaplanowane na {date}",
+      "col_pace_vs": "Tempo wobec {pct}% miesiąca",
+      "total": "Razem",
+      "used_of_over": "Wykorzystano · {over} z {total} przekroczone"
     }
   },
   "budget_plan": {

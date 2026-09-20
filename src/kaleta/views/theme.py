@@ -154,6 +154,31 @@ ACCENT_TEXT = "k-accent-text"
 #: "read this first"; two would say nothing.
 ACCENT_RULE = "k-accent-rule"
 
+# ── Budget realization (artboard 2b) ─────────────────────────────────────────
+#: One paper card holding the whole table: a header rule, a row per category,
+#: a Total row. Five of six columns are figures, so only the name is elastic.
+REALIZATION_GRID = "k-realization"
+REALIZATION_HEAD = "k-realization-row k-realization-head"
+REALIZATION_ROW = "k-realization-row k-realization-body"
+#: The month added up, under a rule a shade stronger than the row hairlines.
+REALIZATION_TOTAL = "k-realization-row k-realization-total"
+#: A parent's name over the rows it owns — a heading, not a row of figures.
+REALIZATION_GROUP = "k-realization-group"
+#: The line under a pace bar, and a row's parent name: both are asides.
+REALIZATION_NOTE = "k-realization-note"
+#: A figure with an eyebrow over it and nothing else — the four cards that
+#: open `2b`, and the four that open `3a` and `3c`.
+STAT_CARD = "k-stat-card"
+STAT_CARD_FIGURE = "k-stat-figure"
+#: The same card in warm sand rather than paper: one of four that is not a
+#: figure to read but a thing to do something about (`3c`'s overdue count).
+STAT_CARD_WARM = "k-stat-card k-stat-card--warm"
+
+#: A page's tab row: quiet type on a rule, the tab you are on underlined in
+#: ink. Artboard `2b` puts the screen's own controls on the same line.
+TABS = "k-tabs"
+TAB_ROW = "k-tab-row"
+
 # ── Budget plan grid (artboard 2c) ────────────────────────────────────────────
 #: The annual grid is not a card: hairlines only, and the paper is the table.
 PLAN_GRID = "k-plan-grid"
@@ -257,6 +282,8 @@ SEGMENT = "k-segment"
 #: A select drawn as a pill rather than a field — the month and year pickers
 #: on `2b`, the account picker on `3a`, the "copy into" month on `2c`.
 SELECT_PILL = "k-select-pill"
+#: The same pill with 8px corners (artboards `2b`, `2c`).
+SELECT_PILL_SQUARE = "k-select-pill k-select-pill--square"
 
 # ── Phone dashboard (artboard 1f) ─────────────────────────────────────────────
 #: The bottom tab bar. It has its own breakpoint rather than `md:hidden`: which
@@ -594,6 +621,88 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-table .q-table td{border-bottom:1px solid var(--k-hairline)}
 .k-table .q-table tbody tr:last-child td{border-bottom:none}
 .k-table .q-table tbody tr:hover{background:var(--k-row-hover)}
+/* ── Budget realization (artboard 2b) ─────────────────────────────── */
+.k-realization{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:6px 0;
+  width:100%
+}
+.k-realization-row{
+  display:grid;
+  grid-template-columns:1.7fr 118px 118px 118px 78px 200px;
+  align-items:center;
+  padding:13px 22px;
+  font-size:13.5px;
+  color:var(--k-ink);
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-realization-head{
+  padding:12px 22px;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--k-muted-strong);
+  border-bottom:1px solid var(--k-border)
+}
+/* The Total sits under the stronger rule, so it reads as a summary and not
+   as one more category. */
+.k-realization-total{
+  padding:14px 22px;
+  font-weight:600;
+  border-bottom:none;
+  border-top:1px solid var(--k-border)
+}
+.k-realization-group{padding:14px 22px 4px}
+.k-realization-note{font-size:10.5px;color:var(--k-muted)}
+/* One figure under an eyebrow (artboards `2b`, `3a`, `3c`). No icon, no
+   trend line: four of these across a page are the page's opening sentence,
+   and anything else in them is a second one. */
+.k-stat-card{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:20px 22px;
+  flex:1;
+  min-width:0
+}
+.k-stat-card--warm{background:var(--k-surface-warm-strong);box-shadow:none}
+.k-stat-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:28px;
+  font-weight:500;
+  line-height:1.15;
+  color:var(--k-ink);
+  margin-top:6px
+}
+/* A page's tabs: a rule across the row, the tab you are on underlined in ink
+   rather than sitting in a grey box. Quasar's indicator is turned off in the
+   props; this draws the artboard's 2px one on the tab itself. */
+.k-tab-row{border-bottom:1px solid var(--k-rule)}
+.k-tabs{min-height:0}
+.k-tabs .q-tab{
+  min-height:0;
+  padding:0 2px 12px;
+  margin-right:26px;
+  font-size:13.5px;
+  font-weight:400;
+  color:var(--k-muted)
+}
+.k-tabs .q-tab__content{min-width:0;padding:0;gap:8px;flex-direction:row}
+.k-tabs .q-tab__icon{font-size:18px;margin:0}
+.k-tabs .q-tab__label{font-size:13.5px;line-height:1}
+.k-tabs .q-tab--active{color:var(--k-ink);font-weight:600}
+.k-tabs .q-tab--active:after{
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:-1px;
+  height:2px;
+  background:var(--k-ink)
+}
+.k-tabs .q-focus-helper,.k-tabs .q-tab__indicator{display:none}
 /* A category, as a pill — the ledger's own chip, borrowed by the dashboard's
    last card. Hairline is the fill artboards `1c` and `2a` both draw it in:
    a shade under the page, so the pill reads as a label and not a button. */
@@ -973,6 +1082,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-select-pill .q-field__append{color:var(--k-muted);padding-left:4px}
 .k-select-pill .q-field__marginal{height:32px}
+/* The same control with corners: artboards `2b` and `2c` set their month and
+   year pickers on an 8px radius, where `3a`'s account picker is fully round.
+   A picker beside a table is squarer than one beside a chart. */
+.k-select-pill--square .q-field__control{border-radius:8px}
 
 /* Phone dashboard (artboard 1f) — the bar is the navigation below `md`, and
    the drawer is what "More" opens. Its own breakpoint, for the same reason
