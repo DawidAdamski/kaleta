@@ -219,9 +219,16 @@ If one screen alone is more than a day's work, split it out into
   reach — and it belongs beside `share_percents`, which asks the same
   question about each row. `result_total`, three unit tests.
 - **No timeout was raised and no assertion loosened.** The e2e diff
-  removes 27 `timeout=` and adds 29: the two extra are new tests, one of
-  them `test_the_bar_result_reads_as_rows` waiting 15s on a report run
-  over the seeded ledger. Every moved assertion kept its own wait.
+  removes 28 `timeout=` lines and adds 30; the two extra belong to new
+  tests, one of them `test_the_bar_result_reads_as_rows` waiting 15s on
+  a report run over the seeded ledger. Every moved assertion kept the
+  wait it already had.
+- **One selector moved in about a dozen places for one word.** The
+  Import page's title is "Import" rather than "Import Transactions" —
+  the drawer and the header already say which screen it is (`2d`, row
+  2) — so every `get_by_text("Import Transactions")` in
+  `tests/e2e/test_csv_import.py` became `get_by_text("Import",
+  exact=True).first`. No `KAL-CSV` scenario quotes the old title.
 - **The seed grows two tracked subscriptions.** A `Subscription` is
   what the detector writes down when it recognises a repeating charge,
   and the seed had never made one — so the day sheet's second section,
