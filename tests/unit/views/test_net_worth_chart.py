@@ -14,7 +14,7 @@ import pytest
 
 from kaleta.schemas.account import AccountType
 from kaleta.services.net_worth_service import AccountSnapshot, MonthlyNetWorth, NetWorthSummary
-from kaleta.views.net_worth import net_worth_chart_options, split_figure
+from kaleta.views.net_worth import net_worth_chart_options, sheet_balance, split_figure
 
 
 def _summary() -> NetWorthSummary:
@@ -98,3 +98,24 @@ class TestSplitFigure:
 
     def test_the_currency_rides_with_the_decimals(self) -> None:
         assert split_figure(Decimal("12.30"), "EUR") == ("12", ".30 EUR")
+
+
+class TestSheetBalance:
+    """Which way a balance-sheet row points (artboard `3b`).
+
+    The screen drew a liability as a credit: the account already holds a
+    negative balance and the view negated it, so -12 400 owed came out as
+    +12 400 owned, on the card headed Liabilities.
+    """
+
+    def test_a_liability_already_negative_stays_negative(self) -> None:
+        assert sheet_balance(Decimal("-12400.00"), is_asset=False) == Decimal("-12400.00")
+
+    def test_a_liability_held_positive_is_still_owed(self) -> None:
+        # An overpaid card: the balance is positive, and it is still money
+        # the account owes back, so the row points the same way.
+        assert sheet_balance(Decimal("340.00"), is_asset=False) == Decimal("-340.00")
+
+    def test_an_asset_is_left_exactly_as_it_is(self) -> None:
+        assert sheet_balance(Decimal("18250.40"), is_asset=True) == Decimal("18250.40")
+        assert sheet_balance(Decimal("-90.00"), is_asset=True) == Decimal("-90.00")

@@ -9,11 +9,13 @@ Transfers (income/expense) are tested via TransactionType.
 from __future__ import annotations
 
 import datetime
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import NotFoundError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
@@ -678,6 +680,49 @@ class TestPostOccurrences:
         self, svc: PlannedTransactionService, session: AsyncSession
     ):
         assert await svc.post_occurrences([]) == []
+
+    async def test_one_bad_item_leaves_the_whole_set_unwritten(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """The docstring says the set lands or none of it does; this is that.
+
+        The commit is at the end, so a plan that has been deleted between
+        the strip being drawn and its button being pressed takes the first
+        item down with it rather than leaving half a batch behind.
+        """
+        from sqlalchemy import func, select
+
+        from kaleta.models.transaction import Transaction
+
+        acc_id = await _make_account(session)
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        pt_id = pt.id
+        good = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 31),
+            exclude_posted=True,
+        )
+        assert good
+        gone = replace(good[0], planned_id=good[0].planned_id + 1000)
+
+        with pytest.raises(NotFoundError):
+            await svc.post_occurrences([*good, gone])
+
+        await session.rollback()
+        count = await session.scalar(
+            select(func.count())
+            .select_from(Transaction)
+            .where(Transaction.planned_transaction_id == pt_id)
+        )
+        assert count == 0
 
 
 class TestPostDue:

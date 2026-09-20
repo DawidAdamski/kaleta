@@ -299,7 +299,7 @@ If one screen alone is more than a day's work, split it out into
 
 ### Deviations the owner has to agree with
 
-Every `deviation` row in the ten reports says why. Eight of them are
+Every `deviation` row in the ten reports says why. Nine of them are
 worth the owner's eye. The first five are a missing capability, which
 this plan's Scope puts out of bounds — building any of them is another
 plan:
@@ -317,7 +317,7 @@ plan:
   this plan added a control rather than moved one.
 - `2d` maps Counterparty, Debit and Credit as three rows where the
   artboard draws one "Debit / Credit" picker.
-The last three are choices rather than gaps, and can be reversed by
+The last four are choices rather than gaps, and can be reversed by
 saying so:
 
 - `3c` leaves a day outside the month on the page ground with a dashed

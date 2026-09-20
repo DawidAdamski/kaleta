@@ -110,6 +110,16 @@ def _account_option(name: str, currency: str = "PLN") -> str:
     return f"{name} ({currency})"
 
 
+def _on_import_page(page: Page) -> None:
+    """The wizard is up: its own 32px title says so.
+
+    Scoped to `.k-page-title` rather than any element reading "Import" —
+    the drawer carries that word too, and a nav entry proving the page
+    loaded proves nothing.
+    """
+    expect(page.locator(".k-page-title")).to_have_text("Import", timeout=5000)
+
+
 def _panel(page: Page, step: int) -> Locator:
     return page.locator(f'[data-step-panel="{step}"]')
 
@@ -168,7 +178,7 @@ def _configure_and_upload(
     income: str,
 ) -> None:
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
 
@@ -228,7 +238,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
     _step(page, STEP_FORMAT)
     expect(
         page.get_by_text("Generic CSV — any CSV; you map the columns yourself in the next step.")
@@ -451,7 +461,7 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(str(AUTORESET_FAILING))
     _wait_for_file(page, "autoreset-failing.csv")
@@ -759,7 +769,7 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
     _step(page, STEP_FORMAT)
     expect(page.get_by_role("button", name="Wise")).to_be_visible()
 
@@ -804,7 +814,7 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     _step(page, STEP_FORMAT)
     wise_button = page.get_by_role("button", name="Wise")
@@ -872,7 +882,7 @@ def test_wise_mt940_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     _step(page, STEP_UPLOAD)
     page.locator('input[type="file"]').set_input_files(
@@ -927,7 +937,7 @@ def test_wise_xlsx_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     _step(page, STEP_UPLOAD)
     page.locator('input[type="file"]').set_input_files(
@@ -983,7 +993,7 @@ def test_wise_mt940_states_its_own_currency_even_when_renamed(page: Page, base_u
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(_upload_as(WISE_JPY_MT940, "foo.mt940"))
     _wait_for_file(page, "foo.mt940")
@@ -1019,7 +1029,7 @@ def test_wise_qif_currency_from_name_blocks_the_wrong_account(page: Page, base_u
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(
         _upload_as(WISE_JPY_QIF, WISE_QIF_DOWNLOAD_NAME)
@@ -1057,7 +1067,7 @@ def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_u
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(_upload_as(WISE_JPY_QIF, "foo.qif"))
     _wait_for_file(page, "foo.qif")
@@ -1149,7 +1159,7 @@ def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str)
 def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) -> None:
     """Covers: KAL-CSV-027"""
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     # Nothing uploaded: step 2 is the one you are on, step 1 is behind you.
     expect(page.locator(".k-step--now")).to_have_count(1, timeout=5000)
@@ -1205,7 +1215,7 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
     typo rather than starting the import again.
     """
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+    _on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(str(UNRECOGNISED_CSV))
     _wait_for_file(page, "unrecognised_headers.csv")

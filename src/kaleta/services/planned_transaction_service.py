@@ -470,14 +470,19 @@ class PlannedTransactionService:
         This posts the list it was handed, which is what a caller needs when
         it has already shown the user a set of occurrences and offered to
         post *that* set — a button labelled with a count must not post more
-        rows than it counted. One commit, so the whole set lands or none of
-        it does.
+        rows than it counted. One savepoint and one commit, so the whole set
+        lands or none of it does.
         """
-        posted: builtins.list[Transaction] = []
-        for occ in occurrences:
-            posted.append(await self._ensure_posted(occ.planned_id, occ.date))
-        if not posted:
+        if not occurrences:
             return []
+        posted: builtins.list[Transaction] = []
+        # One savepoint around the batch, not one commit at the end of it: an
+        # item that cannot be posted — a plan deleted between the strip being
+        # drawn and its button being pressed — would otherwise leave the rows
+        # before it in the session, to be committed by whatever ran next.
+        async with self._session.begin_nested():
+            for occ in occurrences:
+                posted.append(await self._ensure_posted(occ.planned_id, occ.date))
         await self._session.commit()
         results: builtins.list[Transaction] = []
         for tx in posted:

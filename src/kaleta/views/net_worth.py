@@ -76,6 +76,20 @@ def _fmt(amount: Decimal, currency: str = "PLN") -> str:
     return f"{amount:,.2f} {currency}"
 
 
+def sheet_balance(balance: Decimal, *, is_asset: bool) -> Decimal:
+    """The figure a balance-sheet row shows for an account.
+
+    An owed balance is drawn negative and in the expense colour, which is
+    what artboard `3b` writes: the card's total is the unsigned size of the
+    debt and the rows under it say which way it points. `-abs` rather than a
+    negation, because a liability account already holds a negative balance
+    and negating that one drew the debt as a credit — which is what this
+    screen was doing. An overpaid card, whose balance really is positive,
+    is still money the account owes back and reads the same way.
+    """
+    return balance if is_asset else -abs(balance)
+
+
 def split_figure(amount: Decimal, currency: str = "PLN") -> tuple[str, str]:
     """The headline figure as (whole, remainder) — ``1,234,567`` and ``.89 PLN``.
 
@@ -264,15 +278,10 @@ def _account_table(
         ui.label(t("common.institution"))
         ui.label(t("common.balance")).classes("text-right")
     for a in filtered:
-        # An owed balance is drawn negative and in the expense colour, which
-        # is what artboard `3b` writes: the card's total is the unsigned size
-        # of the debt, and the rows under it say which way it points. `-abs`
-        # rather than a negation - a liability account already holds a
-        # negative balance, and negating that one drew the debt as a credit.
         balance = (
             f"{_fmt(a.balance, a.currency)} ≈ {_fmt(a.balance_in_default, default_currency)}"
             if a.currency != default_currency
-            else _fmt(a.balance if assets else -abs(a.balance), a.currency)
+            else _fmt(sheet_balance(a.balance, is_asset=assets), a.currency)
         )
         with ui.element("div").classes(f"{SHEET_ROW} w-full"):
             ui.label(a.name)

@@ -15,6 +15,7 @@ from kaleta.views.components.amount_label import (
     format_signed_amount,
     net_tone,
     signed_amount_class,
+    spaced_thousands,
 )
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL
 
@@ -55,3 +56,28 @@ class TestTone:
     def test_a_zero_total_is_neutral(self) -> None:
         """Covers: KAL-TXN-015 — a transfer pair nets to nothing, in no colour."""
         assert net_tone(Decimal("0")) == AMOUNT_NEUTRAL
+
+
+class TestSpacedThousands:
+    """The grouping the restyled screens write (every artboard draws it).
+
+    Python's `,` is the only grouping `format` offers; the artboards, and
+    Polish typography, put a space there. One function, so a screen cannot
+    write it both ways — the report builder's total and the day sheet's
+    figures used to each do their own `.replace`.
+    """
+
+    def test_a_comma_becomes_a_space(self) -> None:
+        assert spaced_thousands(f"{9600:,.2f}") == "9 600.00"
+
+    def test_every_group_of_a_large_figure(self) -> None:
+        assert spaced_thousands(f"{4218901:,}") == "4 218 901"
+
+    def test_the_decimal_point_is_left_alone(self) -> None:
+        assert spaced_thousands("24,279.31") == "24 279.31"
+
+    def test_a_figure_with_no_group_is_unchanged(self) -> None:
+        assert spaced_thousands("99.00") == "99.00"
+
+    def test_a_suffix_survives(self) -> None:
+        assert spaced_thousands("1,234.50 zł") == "1 234.50 zł"

@@ -527,6 +527,8 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
     expect(page.locator(".k-overdue-strip")).to_have_count(0, timeout=10000)
     expect(page.locator('[data-kpi="overdue"]')).to_have_text("0")
     assert count_transactions(acc_id) == before + 1
+    # And it says how many it posted, in the number it had promised.
+    expect(page.get_by_text(f"Posted {listed} due occurrence(s).")).to_be_visible()
 
 
 def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
