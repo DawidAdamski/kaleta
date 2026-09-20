@@ -6,6 +6,7 @@ Run:
 """
 
 import asyncio
+import calendar
 import datetime
 import random
 import sys
@@ -650,6 +651,34 @@ async def seed() -> None:
                 ("iCloud", Decimal("8.00"), 18),
                 ("ChatGPT Plus", Decimal("99.00"), 27),
             )
+        ]
+        # Two that are already late. The payment calendar's overdue strip and
+        # its Overdue card exist for exactly this state, and a seed in which
+        # nothing is ever late leaves both of them untestable — and unseen in
+        # the fidelity shots.
+        prev_year, prev_month = month_offset(today, 1)
+        prev_last_day = calendar.monthrange(prev_year, prev_month)[1]
+        planned += [
+            PlannedTransaction(
+                name="Ubezpieczenie OC",
+                amount=Decimal("642.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=cat_by_name["Transport"].id,
+                description="Składka OC — termin minął",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(prev_year, prev_month, min(28, prev_last_day)),
+            ),
+            PlannedTransaction(
+                name="Abonament telefon",
+                amount=Decimal("69.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=subs_monthly.id,
+                description="Doładowanie — termin minął",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(prev_year, prev_month, min(18, prev_last_day)),
+            ),
         ]
         session.add_all(planned)
         n_planned = len(planned)

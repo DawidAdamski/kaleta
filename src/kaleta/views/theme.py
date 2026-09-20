@@ -381,6 +381,30 @@ CALENDAR_DOT_OUT = "k-cal-dot--out"
 #: Neither in nor out: a transfer between your own accounts, or a projected
 #: subscription charge that is not a planned transaction you can post.
 CALENDAR_DOT_FLAT = "k-cal-dot--flat"
+#: The four figures over the month. Artboard `3c` sets them a size down from
+#: `2b`'s — four cards over a grid, not four cards over a table.
+STAT_CARD_SM = "k-stat-card--sm"
+STAT_FIGURE_SM = "k-stat-figure--sm"
+#: Everything already late, on one warm line above the month. It used to hang
+#: off the day-1 cell, where it was invisible from any other month.
+OVERDUE_STRIP = "k-overdue-strip"
+#: Type on a warm card, which takes the banner's burnt ink rather than the
+#: page's — the muted grey the paper cards use disappears against sand.
+WARM_ACCENT = "k-warm-accent"
+#: One late item's words on that strip, and the figure beside them.
+OVERDUE_TEXT = "k-overdue-text"
+OVERDUE_AMOUNT = "k-overdue-amount"
+#: The hairline between two of them.
+OVERDUE_RULE = "k-overdue-rule"
+#: The day sheet beside the grid, rather than a drawer over it: the artboard
+#: reads the month and the day you picked out of it at the same time.
+DAY_PANEL = "k-day-panel"
+#: One occurrence inside that sheet — a hairline box, not a table row.
+DAY_ITEM = "k-day-item"
+#: The rule over the sheet's own two buttons.
+DAY_PANEL_FOOT = "k-day-panel-foot"
+#: A quiet button on sunken sand, beside an ink one (the sheet's foot).
+BUTTON_SUNKEN = "k-btn-sunken"
 
 # ── Wizard (artboard 3d) ─────────────────────────────────────────────────────
 #: A page section that is not a card: an eyebrow and a note over one rule,
@@ -418,8 +442,7 @@ SENTENCE_FOOT = "k-sentence-foot"
 REPORT_BAR_ROW = "k-report-bar-row"
 REPORT_BAR_TRACK = "k-report-bar-track"
 REPORT_BAR_FILL = "k-report-bar-fill"
-#: The result card's own title line and the total beside it.
-RESULT_TITLE = "k-result-title"
+#: The total beside the result card's title, which is `CARD_TITLE`.
 RESULT_TOTAL = "k-result-total"
 
 #: How many steps the bar ramp has. Artboard `3e` shades ten bars with six
@@ -552,6 +575,8 @@ BASE_CSS = """
      separators in the mini drawer. A step down from a card's hairline and a
      step up from the border a control is drawn with; eleven artboards use
      it. */
+  --k-warm-ink:#4A2A0F;
+  --k-warm-rule:#DDCBB4;
   --k-ramp-1:#36684D;
   --k-ramp-2:#4A8064;
   --k-ramp-3:#5E9377;
@@ -606,6 +631,8 @@ BASE_CSS = """
   --k-muted-strong:#A19781;
   --k-disabled:#6E6656;
   --k-hairline:#2A2822;
+  --k-warm-ink:#EBD9C4;
+  --k-warm-rule:#4A4237;
   --k-ramp-1:#4E8567;
   --k-ramp-2:#5E9377;
   --k-ramp-3:#6EA184;
@@ -826,6 +853,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   min-width:0
 }
 .k-stat-card--warm{background:var(--k-surface-warm-strong);box-shadow:none}
+.k-stat-card--sm{padding:18px 20px}
 .k-stat-figure{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-variant-numeric:tabular-nums;
@@ -835,6 +863,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   color:var(--k-ink);
   margin-top:6px
 }
+.k-stat-figure--sm{font-size:24px;margin-top:5px}
 /* A page's tabs: a rule across the row, the tab you are on underlined in ink
    rather than sitting in a grey box. Quasar's indicator is turned off in the
    props; this draws the artboard's 2px one on the tab itself. */
@@ -1120,6 +1149,36 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-cal-dot--in{background:var(--k-income)}
 .k-cal-dot--out{background:var(--k-expense)}
 .k-cal-dot--flat{background:var(--k-border-strong)}
+.k-overdue-strip{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:12px 18px;
+  background:var(--k-surface-warm-strong);
+  border-radius:10px
+}
+.k-overdue-strip .q-icon{color:var(--k-banner-btn-ink)}
+.k-warm-accent{color:var(--k-banner-btn-ink)}
+.k-overdue-text{font-size:12.5px;font-weight:500;color:var(--k-warm-ink)}
+.k-overdue-amount{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:12.5px;font-weight:500;color:var(--k-expense)
+}
+.k-overdue-rule{width:1px;height:16px;background:var(--k-warm-rule);flex:none}
+.k-day-panel{width:400px;flex:none}
+.k-day-item{
+  display:flex;align-items:center;gap:12px;
+  border:1px solid var(--k-border);
+  border-radius:9px;
+  padding:12px 14px
+}
+.k-day-panel-foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--k-hairline)}
+.q-btn.k-btn-sunken{
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  color:var(--k-ink-2);
+  font-size:12.5px;font-weight:600;letter-spacing:0;
+  min-height:38px
+}
 
 /* Balance-sheet bar (artboard 3b) — segments meet with no gap, so their
    widths are the only thing saying how big each side is. */
@@ -1233,7 +1292,6 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   height:22px;border-radius:3px;background:var(--k-hairline);overflow:hidden
 }
 .k-report-bar-fill{display:block;height:100%;border-radius:3px}
-.k-result-title{font-size:17px;font-weight:500;color:var(--k-ink)}
 .k-result-total{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-variant-numeric:tabular-nums;

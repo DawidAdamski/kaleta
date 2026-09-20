@@ -43,10 +43,12 @@ from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS
 from kaleta.views.theme import (
+    ACCENT_TEXT,
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
     AMOUNT_NEUTRAL,
     BODY_MUTED,
+    BUTTON_INK,
     CALENDAR_DAY,
     CALENDAR_DAY_BLANK,
     CALENDAR_DAY_NUM,
@@ -56,16 +58,30 @@ from kaleta.views.theme import (
     CALENDAR_DOT_FLAT,
     CALENDAR_DOT_IN,
     CALENDAR_DOT_OUT,
-    HAIRLINE_ROW,
+    CARD_TITLE,
+    DAY_ITEM,
+    DAY_PANEL,
+    DAY_PANEL_FOOT,
     INK,
-    KPI_VALUE_COMPACT,
     MONO,
     MUTED,
+    OVERDUE_AMOUNT,
+    OVERDUE_RULE,
+    OVERDUE_STRIP,
+    OVERDUE_TEXT,
+    PAGE_EYEBROW,
     PAGE_TITLE,
+    RAIL_EYEBROW,
     SECTION_CARD,
     SECTION_TITLE,
-    TOOLBAR_CARD,
-    WARNING_STRIP,
+    STAT_CARD,
+    STAT_CARD_FIGURE,
+    STAT_CARD_SM,
+    STAT_CARD_WARM,
+    STAT_FIGURE_SM,
+    TITLE_ACTION,
+    TITLE_ACTION_PRIMARY,
+    WARM_ACCENT,
 )
 
 _WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
@@ -159,7 +175,19 @@ def overdue_age_label(occ_date: datetime.date, today: datetime.date) -> str:
 
 
 def _fmt(amount: Decimal) -> str:
-    return f"{amount:,.2f}"
+    return f"{amount:,.2f}".replace(",", " ")
+
+
+def _fmt_cell(amount: Decimal) -> str:
+    """A day cell's figure: no pennies unless there are any.
+
+    Thirty-one cells in a grid are read by comparing them down a column, and
+    ",00" on every one of them is three characters of noise in a box nine
+    pixels wide. Artboard `3c` writes "+9 240" and "−23,99" side by side.
+    """
+    whole = amount == amount.to_integral_value()
+    body = f"{amount:,.0f}" if whole else f"{amount:,.2f}"
+    return body.replace(",", " ")
 
 
 def _add_months(d: datetime.date, months: int) -> datetime.date:
@@ -171,6 +199,38 @@ def _add_months(d: datetime.date, months: int) -> datetime.date:
 
 def _month_label(year: int, month: int) -> str:
     return f"{t(f'payment_calendar.month_{month}')} {year}"
+
+
+def _day_title(date: datetime.date) -> str:
+    """ "Tuesday 15 September" — the sheet's own heading."""
+    weekday = t(f"payment_calendar.wd_full_{_WEEKDAY_KEYS[date.weekday()]}")
+    return t(
+        "payment_calendar.day_title",
+        weekday=weekday,
+        day=date.day,
+        month=t(f"common.month_of_{date.month}"),
+    )
+
+
+def _day_short(date: datetime.date) -> str:
+    return f"{date.day:02d}.{date.month:02d}"
+
+
+def _in(cell: DayAggregate | None) -> Decimal:
+    return cell.inflow if cell else Decimal("0")
+
+
+def _out(cell: DayAggregate | None) -> Decimal:
+    return cell.outflow if cell else Decimal("0")
+
+
+def _net(cell: DayAggregate | None) -> Decimal:
+    return cell.net if cell else Decimal("0")
+
+
+def _signed(amount: Decimal, sign: str) -> str:
+    """ "+1 830,00", or a bare "0.00" — nothing moved in either direction."""
+    return f"{sign}{_fmt(amount)}" if amount else _fmt(amount)
 
 
 def register() -> None:
@@ -186,6 +246,9 @@ def register() -> None:
             # The month in hand, and the cell element for each of its days.
             "grid": None,
             "cells": {},
+            # The day sheet starts open on today, which is the day the page
+            # is almost always opened to look at.
+            "panel_open": True,
         }
 
         async def _load_refs(session: Any) -> tuple[dict[int, str], dict[int, str]]:
@@ -281,21 +344,6 @@ def register() -> None:
             q_date_label.set_text(t("payment_calendar.quick_add_for", date=date.isoformat()))
             quick_dialog.open()
 
-        # ── Day drawer (right side-sheet) ────────────────────────────────────
-        day_dialog = ui.dialog().props("position=right")
-        with day_dialog, ui.card().classes("w-[420px] h-screen gap-3 p-5"):
-            day_header = ui.label("").classes("text-lg font-bold")
-            day_totals = ui.label("").classes(f"{BODY_MUTED} {MONO}")
-            ui.separator()
-            day_content = ui.column().classes("w-full gap-2 flex-1 overflow-y-auto")
-            with ui.row().classes("w-full justify-between items-center mt-2"):
-                ui.button(t("common.close"), on_click=day_dialog.close).props("flat")
-                day_add_btn = ui.button(
-                    t("payment_calendar.add_for_day"),
-                    icon="add",
-                    on_click=lambda: _open_quick_add(state["selected"]),
-                ).props("color=primary")
-
         def _lookback_days() -> int:
             return (
                 int(app.storage.user.get("payment_calendar_overdue_days", 0) or 0)
@@ -315,7 +363,6 @@ def register() -> None:
                 notify_kaleta_error(exc)
                 return
             ui.notify(t("payment_calendar.posted", name=occ.name), type="positive")
-            day_dialog.close()
             await _refresh()
 
         async def _post_all_due() -> None:
@@ -339,34 +386,39 @@ def register() -> None:
 
         def _render_occurrence_row(occ: PlannedOccurrence, *, muted: bool = False) -> None:
             amount, amt_cls = occurrence_amount(occ)
-            row_cls = f"{HAIRLINE_ROW} w-full items-center justify-between p-2 rounded-lg" + (
-                " opacity-70" if muted else ""
-            )
             can_post = occ.date <= datetime.date.today()
-            with ui.row().classes(row_cls):
-                with ui.column().classes("gap-0 flex-1"):
-                    ui.label(occ.name).classes("text-sm font-medium")
+            with ui.element("div").classes(f"{DAY_ITEM} w-full" + (" opacity-70" if muted else "")):
+                with ui.column().classes("gap-0 flex-1 min-w-0"):
+                    ui.label(occ.name).classes(f"{INK} text-[13.5px] font-medium truncate")
                     sub_parts = [occ.account_name]
                     if occ.category_name:
                         sub_parts.append(occ.category_name)
-                    ui.label(" · ".join(sub_parts)).classes(f"{MUTED} text-xs")
-                with ui.row().classes("items-center gap-2"):
-                    ui.label(amount).classes(f"{amt_cls} {MONO} text-sm")
-                    if can_post:
-                        ui.button(
-                            t("payment_calendar.post"),
-                            icon="publish",
-                            on_click=lambda _e=None, o=occ: _post_occurrence(o),
-                        ).props("flat dense color=primary size=sm")
+                    ui.label(" · ".join(sub_parts)).classes(
+                        f"{MUTED} text-[11.5px] mt-0.5 truncate"
+                    )
+                ui.label(amount).classes(f"{amt_cls} {MONO} text-[13.5px] font-semibold")
+                if can_post:
+                    # Artboard `3c` draws the row without it; an item that is
+                    # due and cannot be posted from the sheet it is listed in
+                    # would send the reader back to the strip to do it.
+                    ui.button(
+                        icon="publish",
+                        on_click=lambda _e=None, o=occ: _post_occurrence(o),
+                    ).props("flat dense round size=sm color=primary").tooltip(
+                        t("payment_calendar.post")
+                    )
 
         def _render_subscription_row(ch: SubscriptionCharge) -> None:
-            with ui.row().classes(
-                f"{HAIRLINE_ROW} w-full items-center justify-between p-2 rounded-lg"
-            ):
-                with ui.row().classes("items-center gap-2 flex-1"):
-                    ui.icon("subscriptions", size="1rem").classes("text-primary")
-                    ui.label(ch.name).classes("text-sm font-medium")
-                ui.label(f"-{_fmt(ch.amount)}").classes(f"{AMOUNT_EXPENSE} text-sm font-semibold")
+            with ui.element("div").classes(f"{DAY_ITEM} w-full"):
+                ui.icon("subscriptions", size="17px").classes(f"{ACCENT_TEXT} flex-none")
+                with ui.column().classes("gap-0 flex-1 min-w-0"):
+                    ui.label(ch.name).classes(f"{INK} text-[13.5px] font-medium truncate")
+                    ui.label(t("payment_calendar.subscription_charges")).classes(
+                        f"{MUTED} text-[11.5px] mt-0.5"
+                    )
+                ui.label(f"-{_fmt(ch.amount)}").classes(
+                    f"{AMOUNT_EXPENSE} {MONO} text-[13.5px] font-semibold"
+                )
 
         def _select_day(date: datetime.date) -> None:
             """Move the warm tint to ``date`` without redrawing the grid.
@@ -387,86 +439,142 @@ def register() -> None:
 
         def _open_day(date: datetime.date, cell: DayAggregate | None) -> None:
             _select_day(date)
-            day_header.set_text(t("payment_calendar.day_header", date=date.isoformat()))
-            if cell:
-                day_totals.set_text(
-                    f"{t('payment_calendar.in')}: +{_fmt(cell.inflow)}   "
-                    f"{t('payment_calendar.out')}: -{_fmt(cell.outflow)}   "
-                    f"{t('payment_calendar.net')}: {_fmt(cell.net)}"
-                )
-            else:
-                day_totals.set_text(t("payment_calendar.day_empty_totals"))
+            state["panel_open"] = True
+            _draw_day_panel(date, cell)
 
+        def _close_day_panel() -> None:
+            state["panel_open"] = False
+            day_panel.set_visibility(False)
+
+        def _draw_day_panel(date: datetime.date, cell: DayAggregate | None) -> None:
+            """The picked day beside the month, not a drawer over it.
+
+            A sheet that slid in from the right covered the grid it was
+            about, so the one comparison the screen exists for — this day
+            against the ones around it — could not be made while it was open.
+            """
+            day_panel.set_visibility(bool(state["panel_open"]))
+            day_panel.clear()
+            if not state["panel_open"]:
+                return
             subs_for_day = state["subs_by_day"].get(date, [])
+            with day_panel:
+                with ui.row().classes("w-full items-baseline justify-between gap-3 no-wrap"):
+                    ui.label(_day_title(date)).classes(CARD_TITLE)
+                    ui.icon("close", size="19px").classes(f"{MUTED} cursor-pointer").on(
+                        "click", _close_day_panel
+                    ).tooltip(t("payment_calendar.day_sheet_close"))
+                with ui.row().classes("w-full gap-[18px] mt-2.5 pb-4 flex-wrap k-hairline-bottom"):
+                    _day_total(t("payment_calendar.in"), _signed(_in(cell), "+"), AMOUNT_INCOME)
+                    _day_total(t("payment_calendar.out"), _signed(_out(cell), "-"), AMOUNT_EXPENSE)
+                    _day_total(t("payment_calendar.net"), _fmt(_net(cell)), AMOUNT_NEUTRAL)
 
-            day_content.clear()
-            with day_content:
                 # Overdue items live in the strip above the grid now, where
                 # they are visible without opening any day at all.
-                ui.label(t("payment_calendar.day_items")).classes(SECTION_TITLE)
+                ui.label(t("payment_calendar.day_planned")).classes(f"{RAIL_EYEBROW} mt-4 mb-2.5")
                 if cell and cell.occurrences:
-                    for occ in cell.occurrences:
-                        _render_occurrence_row(occ)
+                    with ui.column().classes("w-full gap-[9px]"):
+                        for occ in cell.occurrences:
+                            _render_occurrence_row(occ)
                 elif not subs_for_day:
-                    ui.label(t("payment_calendar.day_empty")).classes(f"{BODY_MUTED} italic")
+                    ui.label(t("payment_calendar.day_empty")).classes(BODY_MUTED)
 
                 if subs_for_day:
-                    ui.separator().classes("my-2")
-                    ui.label(t("payment_calendar.subscription_charges")).classes(SECTION_TITLE)
-                    for ch in subs_for_day:
-                        _render_subscription_row(ch)
-            day_add_btn.set_text(t("payment_calendar.add_for_day_short", date=date.isoformat()))
-            day_dialog.open()
+                    ui.label(t("payment_calendar.subscription_charges")).classes(
+                        f"{RAIL_EYEBROW} mt-5 mb-2.5"
+                    )
+                    with ui.column().classes("w-full gap-[9px]"):
+                        for ch in subs_for_day:
+                            _render_subscription_row(ch)
+
+                # One button, not the artboard's two: its "Post this day"
+                # would be a new action, and every item in the sheet already
+                # carries the one that posts it.
+                with ui.row().classes(f"{DAY_PANEL_FOOT} w-full gap-[9px] no-wrap"):
+                    ui.button(
+                        t("payment_calendar.add_for_day_short", date=_day_short(date)),
+                        on_click=lambda d=date: _open_quick_add(d),
+                        color=None,
+                    ).props("flat dense no-caps").classes(f"{BUTTON_INK} flex-1")
+
+        def _day_total(label: str, figure: str, tone: str) -> None:
+            with ui.row().classes("items-baseline gap-1.5 no-wrap"):
+                ui.label(label).classes(f"{MUTED} text-[12px]")
+                ui.label(figure).classes(f"{tone} {MONO} text-[12px]")
 
         # ── Main layout ──────────────────────────────────────────────────────
         with page_layout(t("payment_calendar.title"), wide=True):
-            with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
-                ui.label(t("payment_calendar.title")).classes(PAGE_TITLE)
-                with ui.row().classes("items-center gap-2"):
-                    ui.button(
-                        icon="chevron_left",
-                        on_click=lambda: _shift_month(-1),
-                    ).props("flat round dense")
-                    month_label = ui.label(_month_label(state["year"], state["month"])).classes(
-                        "text-base font-semibold min-w-40 text-center"
+            # The month is the title: artboard `3c` names the screen once, in
+            # the drawer and the header, and gives the page's own big type to
+            # the thing the arrows either side of it change.
+            with ui.row().classes("w-full items-end justify-between gap-4 flex-wrap"):
+                with ui.column().classes("gap-0 min-w-0"):
+                    ui.label(t("payment_calendar.eyebrow")).classes(PAGE_EYEBROW).props(
+                        "data-page-eyebrow"
                     )
-                    ui.button(
-                        icon="chevron_right",
-                        on_click=lambda: _shift_month(1),
-                    ).props("flat round dense")
+                    with ui.row().classes("items-center gap-3.5 no-wrap"):
+                        ui.icon("chevron_left", size="22px").classes(f"{INK} cursor-pointer").on(
+                            "click", lambda: _shift_month(-1)
+                        ).tooltip(t("payment_calendar.prev_month"))
+                        month_label = ui.label(_month_label(state["year"], state["month"])).classes(
+                            PAGE_TITLE
+                        )
+                        ui.icon("chevron_right", size="22px").classes(f"{INK} cursor-pointer").on(
+                            "click", lambda: _shift_month(1)
+                        ).tooltip(t("payment_calendar.next_month"))
+                with ui.row().classes("items-center gap-[9px]"):
                     ui.button(
                         t("payment_calendar.today"),
                         icon="today",
                         on_click=lambda: _goto(today.year, today.month),
-                    ).props("flat color=primary dense")
-                    ui.button(
-                        t("payment_calendar.post_all_due"),
-                        icon="publish",
-                        on_click=_post_all_due,
-                    ).props("flat color=primary dense")
+                        color=None,
+                    ).props("flat no-caps dense").classes(TITLE_ACTION)
                     ui.button(
                         t("payment_calendar.list_view"),
                         icon="list",
                         on_click=lambda: ui.navigate.to("/planned"),
-                    ).props("flat color=primary dense")
+                        color=None,
+                    ).props("flat no-caps dense").classes(TITLE_ACTION)
+                    ui.button(
+                        t("payment_calendar.post_all_due"),
+                        icon="publish",
+                        on_click=_post_all_due,
+                        color=None,
+                    ).props("flat no-caps dense").classes(TITLE_ACTION_PRIMARY)
 
             # Summary KPIs — the totals the day cells no longer carry
-            def _kpi(title: str, value_cls: str) -> ui.label:
-                with ui.column().classes(f"{TOOLBAR_CARD} flex-1 min-w-44 gap-0.5"):
-                    ui.label(title).classes(SECTION_TITLE)
-                    return ui.label("").classes(f"{KPI_VALUE_COMPACT} {value_cls}")
+            def _kpi(title: str, value_cls: str, *, warm: bool = False) -> ui.label:
+                surface = STAT_CARD_WARM if warm else STAT_CARD
+                with ui.column().classes(f"{surface} {STAT_CARD_SM} gap-0"):
+                    ui.label(title).classes(RAIL_EYEBROW if warm else "k-eyebrow")
+                    if not warm:
+                        return ui.label("").classes(
+                            f"{STAT_CARD_FIGURE} {STAT_FIGURE_SM} {value_cls}"
+                        )
+                    # The overdue card is not a figure to read but a thing to
+                    # do something about, so the count carries its own words.
+                    with ui.row().classes("items-baseline gap-2"):
+                        figure = ui.label("").classes(
+                            f"{STAT_CARD_FIGURE} {STAT_FIGURE_SM} {value_cls}"
+                        )
+                        ui.label(t("payment_calendar.overdue_hint")).classes(
+                            f"{value_cls} text-[12px]"
+                        )
+                    return figure
 
-            with ui.row().classes("w-full gap-3 flex-wrap items-stretch"):
+            with ui.row().classes("w-full gap-[18px] flex-wrap items-stretch"):
                 kpi_in = _kpi(t("payment_calendar.month_in"), AMOUNT_INCOME)
                 kpi_out = _kpi(t("payment_calendar.month_out"), AMOUNT_EXPENSE)
                 kpi_net = _kpi(t("payment_calendar.month_net"), AMOUNT_NEUTRAL)
-                kpi_overdue = _kpi(t("payment_calendar.overdue_count"), "k-trend--warn")
+                kpi_overdue = _kpi(t("payment_calendar.overdue_count"), WARM_ACCENT, warm=True)
 
             # Overdue strip — above the grid, not buried in the day-1 cell
             overdue_strip = ui.column().classes("w-full gap-0")
 
-            # Calendar grid container
-            grid_container = ui.column().classes(f"{SECTION_CARD} gap-2")
+            # The month and the day you picked out of it, side by side.
+            with ui.row().classes("w-full gap-5 items-start no-wrap"):
+                grid_container = ui.column().classes(f"{SECTION_CARD} flex-1 min-w-0 gap-0 !p-5")
+                day_panel = ui.column().classes(f"{SECTION_CARD} {DAY_PANEL} gap-0")
 
             async def _refresh() -> None:
                 y, m = state["year"], state["month"]
@@ -501,40 +609,43 @@ def register() -> None:
                 state["grid"] = grid
                 _draw_overdue_strip(overdue)
                 _draw_grid(grid)
+                selected: datetime.date = state["selected"]
+                _draw_day_panel(selected, grid.days.get(selected))
 
             def _draw_overdue_strip(overdue: list[PlannedOccurrence]) -> None:
-                """Everything already late, listed above the month.
+                """Everything already late, on one line above the month.
 
                 It used to hang off the day-1 cell, which meant an item three
                 weeks overdue was invisible until you clicked a day it had
                 nothing to do with — and invisible altogether from any other
-                month.
+                month. Artboard `3c` reads it as a sentence rather than a
+                list: what is late, since when, for how much, and one button
+                that clears the lot.
                 """
                 overdue_strip.clear()
                 if not overdue:
                     return
-                today = datetime.date.today()
-                with (
-                    overdue_strip,
-                    ui.column().classes(f"{WARNING_STRIP} w-full rounded-xl p-4 gap-2"),
-                ):
-                    with ui.row().classes("items-center gap-2"):
-                        ui.icon("schedule", size="1rem")
-                        ui.label(t("payment_calendar.overdue_title")).classes(SECTION_TITLE)
-                    for occ in overdue:
-                        _render_overdue_row(occ, today)
-
-            def _render_overdue_row(occ: PlannedOccurrence, today: datetime.date) -> None:
-                amount, amt_cls = occurrence_amount(occ)
-                with ui.row().classes("w-full items-center gap-3 flex-wrap"):
-                    ui.label(occ.name).classes("text-sm flex-1 min-w-32")
-                    ui.label(overdue_age_label(occ.date, today)).classes(f"{MUTED} text-xs")
-                    ui.label(amount).classes(f"{amt_cls} {MONO} text-sm")
+                with overdue_strip, ui.row().classes(f"{OVERDUE_STRIP} w-full"):
+                    ui.icon("error_outline", size="19px").classes("flex-none")
+                    for index, occ in enumerate(overdue):
+                        if index:
+                            ui.element("span").classes(OVERDUE_RULE)
+                        _render_overdue_item(occ)
+                    ui.space()
                     ui.button(
-                        t("payment_calendar.post"),
-                        icon="publish",
-                        on_click=lambda _e=None, o=occ: _post_occurrence(o),
-                    ).props("flat dense color=primary size=sm")
+                        t("payment_calendar.post_n", count=len(overdue)),
+                        on_click=_post_all_due,
+                        color=None,
+                    ).props("flat dense no-caps").classes(BUTTON_INK)
+
+            def _render_overdue_item(occ: PlannedOccurrence) -> None:
+                amount, _amt_cls = occurrence_amount(occ)
+                when = f"{occ.date.day:02d}.{occ.date.month:02d}"
+                with ui.row().classes("items-center gap-2 no-wrap"):
+                    ui.label(t("payment_calendar.overdue_since", date=when, name=occ.name)).classes(
+                        OVERDUE_TEXT
+                    )
+                    ui.label(amount).classes(OVERDUE_AMOUNT)
 
             def _draw_grid(grid: MonthGrid | None) -> None:
                 grid_container.clear()
@@ -552,18 +663,18 @@ def register() -> None:
                 state["cells"] = {}
                 with grid_container:
                     # Weekday header
-                    with ui.grid(columns=7).classes("w-full gap-1"):
+                    with ui.grid(columns=7).classes("w-full mb-2.5").style("gap:8px"):
                         for key in _WEEKDAY_KEYS:
                             ui.label(t(f"payment_calendar.wd_{key}")).classes(
-                                f"{SECTION_TITLE} text-center"
+                                f"{SECTION_TITLE} text-center text-[9.5px]"
                             )
 
                     # Day cells
-                    with ui.grid(columns=7).classes("w-full gap-1"):
+                    with ui.grid(columns=7).classes("w-full").style("gap:8px"):
                         for idx in range(total_cells):
                             day_num = idx - leading + 1
                             if day_num < 1 or day_num > last_day:
-                                ui.element("div").classes(f"{CALENDAR_DAY_BLANK} min-h-20")
+                                ui.element("div").classes(f"{CALENDAR_DAY_BLANK} min-h-[84px]")
                                 continue
                             date = datetime.date(y, m, day_num)
                             _draw_day_cell(
@@ -583,7 +694,7 @@ def register() -> None:
                 subs_for_day = state["subs_by_day"].get(date, [])
                 marks = day_marks(cell, subs_for_day)
 
-                classes = [CALENDAR_DAY, "min-h-20 p-2 gap-1"]
+                classes = [CALENDAR_DAY, "min-h-[84px] px-[9px] py-2 gap-0"]
                 if is_today:
                     classes.append(CALENDAR_DAY_TODAY)
                 if is_selected:
@@ -605,7 +716,7 @@ def register() -> None:
 
                 with col:
                     with ui.row().classes("w-full items-center justify-between no-wrap"):
-                        ui.label(str(date.day)).classes(f"{MONO} text-base {day_cls}")
+                        ui.label(str(date.day)).classes(f"{MONO} text-sm {day_cls}")
                         if is_today:
                             ui.label(t("payment_calendar.today_marker")).classes(
                                 f"{SECTION_TITLE} text-[9px]"
@@ -614,12 +725,12 @@ def register() -> None:
                     if marks.net:
                         tone = AMOUNT_INCOME if marks.net > 0 else AMOUNT_EXPENSE
                         sign = "+" if marks.net > 0 else "-"
-                        ui.label(f"{sign}{_fmt(abs(marks.net))}").classes(
-                            f"{tone} {MONO} text-sm leading-tight"
+                        ui.label(f"{sign}{_fmt_cell(abs(marks.net))}").classes(
+                            f"{tone} {MONO} text-xs leading-tight mt-1.5"
                         )
 
                     if not marks.is_empty:
-                        with ui.row().classes("items-center gap-1 flex-wrap mt-auto"):
+                        with ui.row().classes("items-center gap-[3px] flex-wrap mt-1.5"):
                             for tone in marks.dots:
                                 ui.element("div").classes(f"{CALENDAR_DOT} {tone}")
                             if marks.overflow:
@@ -631,6 +742,10 @@ def register() -> None:
                 new_first = _add_months(datetime.date(state["year"], state["month"], 1), delta)
                 state["year"] = new_first.year
                 state["month"] = new_first.month
+                # The sheet is about a day in the month on screen; paging
+                # away from it without moving the selection would leave it
+                # describing a day nobody can see.
+                state["selected"] = new_first
                 ui.timer(0.01, _refresh, once=True)
 
             def _goto(year: int, month: int) -> None:

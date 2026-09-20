@@ -13,13 +13,13 @@ from kaleta.views.reports.chart_options import report_chart_options
 from kaleta.views.reports.sentence import chart_title, share_percents
 from kaleta.views.theme import (
     BODY_MUTED,
+    CARD_TITLE,
     INK,
     MONO,
     MUTED,
     REPORT_BAR_FILL,
     REPORT_BAR_ROW,
     REPORT_BAR_TRACK,
-    RESULT_TITLE,
     RESULT_TOTAL,
     TABLE_SURFACE,
     bar_ramp,
@@ -52,7 +52,7 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
         # The title says what the chart is of, so the chart can be read
         # without looking back up at the sentence that asked for it.
         with ui.row().classes("w-full items-baseline justify-between gap-3 flex-wrap mb-5"):
-            ui.label(chart_title(state)).classes(RESULT_TITLE)
+            ui.label(chart_title(state)).classes(CARD_TITLE)
             if result.values:
                 total = sum(result.values)
                 ui.label(
