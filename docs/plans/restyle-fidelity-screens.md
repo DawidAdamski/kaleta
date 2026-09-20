@@ -88,7 +88,7 @@ review found while the screen was being brought to it.
    atomicity in `views/`, against the architecture contract. It adds no
    capability: `post_due` could already post a window, and this posts the
    list it is handed. Three unit tests.
-3. **Three seed rows and a deleted file.** `scripts/seed.py` grew two
+3. **Four seed rows and a deleted file.** `scripts/seed.py` grew two
    already-late planned transactions and two tracked subscriptions,
    because `3c` draws a screen with both and a seed that can never be
    late and has never seen a subscription cannot be photographed against
@@ -268,13 +268,14 @@ If one screen alone is more than a day's work, split it out into
 - The seed grows two already-late planned transactions: the overdue
   strip and the Overdue card exist for that state, and a seed in which
   nothing is ever late leaves both untested and unseen.
-- Four artboards renamed what they show, so four `KAL-` scenarios that
-  quoted the old words were re-worded with them and no others:
-  `KAL-ONB-001` / `KAL-ONB-002` (the setup steps are Institutions,
-  Accounts, Categories and First import) and `KAL-CSV-026` (the
-  parse-failure strip is under the sample rows it numbers, because `2d`
-  puts the sample and the pickers in two cards side by side, and
-  "above the pickers" stopped being a place).
+- Four `KAL-` scenarios quoted words an artboard renamed, and were
+  re-worded with them; no others were touched. `KAL-ONB-001` and
+  `KAL-ONB-002` (the setup steps are Institutions, Accounts, Categories
+  and First import), `KAL-CSV-026` (the parse-failure strip is under the
+  sample rows it numbers, because `2d` puts the sample and the pickers
+  in two cards side by side and "above the pickers" stopped being a
+  place), and `KAL-PLN-020`, rewritten with the overdue strip in the
+  bullet above.
 - The rest of the suite moved with the markup rather than with the
   words: a realization row is a `.k-realization-body` grid cell, a
   mapping picker is found through the `.k-field-row` it shares with its
@@ -284,8 +285,10 @@ If one screen alone is more than a day's work, split it out into
 
 ### Deviations the owner has to agree with
 
-Every `deviation` row in the ten reports says why. The ones that are a
-missing capability rather than a design choice:
+Every `deviation` row in the ten reports says why. Eight of them are
+worth the owner's eye. The first five are a missing capability, which
+this plan's Scope puts out of bounds — building any of them is another
+plan:
 
 - `2a` has no Export button — the app has no ledger export.
 - `3e` has no Export CSV, and its eyebrow counts the whole ledger rather
@@ -297,6 +300,9 @@ missing capability rather than a design choice:
   that posts it.
 - `2d` maps Counterparty, Debit and Credit as three rows where the
   artboard draws one "Debit / Credit" picker.
+The last three are choices rather than gaps, and can be reversed by
+saying so:
+
 - `3c` leaves a day outside the month on the page ground with a dashed
   hairline, where the artboard fills it `#F8F4EB`. This one is a taste
   call rather than a missing capability and is here for that reason: a
@@ -315,11 +321,8 @@ missing capability rather than a design choice:
   choice, so it is here.
 - `3b` gives an asset row a 56px action column against the artboard's
   30px, because deleting an asset has to be reachable and the two
-  buttons wrapped the row at 30. `2a` has no Export button, `3f` no
-  "attempts left" — those two are capabilities, above.
+  buttons wrapped the row at 30.
 
-All five are new behaviour or service changes, which this plan's Scope
-puts out of bounds.
 
 One more needs the owner's nod for the opposite reason — it is a change
 the artboard asked for rather than one it was refused:

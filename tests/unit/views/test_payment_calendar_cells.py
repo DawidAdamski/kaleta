@@ -18,7 +18,11 @@ from kaleta.services.planned_transaction_service import DayAggregate, PlannedOcc
 from kaleta.views.payment_calendar import (
     DOT_CAP,
     actually_overdue,
+    charged,
+    day_in,
     day_marks,
+    day_net,
+    day_out,
     occurrence_amount,
     overdue_age_label,
 )
@@ -60,6 +64,39 @@ def _cell(*occurrences: PlannedOccurrence) -> DayAggregate:
 
 def _sub(amount: str) -> SubscriptionCharge:
     return SubscriptionCharge(subscription_id=1, date=DAY, name="Netflix", amount=Decimal(amount))
+
+
+class TestDayTotals:
+    """The three figures the day sheet opens with.
+
+    They are the same arithmetic the cell in the grid does, and the two used
+    to disagree: a day drawn `-12.99` opened onto `Out 0.00` because only
+    the cell counted the subscription charges.
+    """
+
+    def test_a_charge_leaves_on_the_day_it_is_charged(self) -> None:
+        cell = _cell(_occ("35.00", TransactionType.EXPENSE))
+        assert day_out(cell, [_sub("12.99")]) == Decimal("47.99")
+        assert day_net(cell, [_sub("12.99")]) == Decimal("-47.99")
+
+    def test_a_charge_is_never_money_coming_in(self) -> None:
+        cell = _cell(_occ("100.00", TransactionType.INCOME))
+        assert day_in(cell) == Decimal("100.00")
+        assert day_out(cell, [_sub("12.99")]) == Decimal("12.99")
+
+    def test_the_sheet_and_the_cell_agree(self) -> None:
+        cell = _cell(_occ("100.00", TransactionType.INCOME), _occ("35.00", TransactionType.EXPENSE))
+        subs = [_sub("12.99"), _sub("10.75")]
+        assert day_net(cell, subs) == day_marks(cell, subs).net
+
+    def test_a_day_with_nothing_on_it(self) -> None:
+        assert day_in(None) == Decimal("0")
+        assert day_out(None) == Decimal("0")
+        assert day_net(None) == Decimal("0")
+
+    def test_charges_add_up(self) -> None:
+        assert charged([]) == Decimal("0")
+        assert charged([_sub("12.99"), _sub("10.75")]) == Decimal("23.74")
 
 
 class TestDayMarks:

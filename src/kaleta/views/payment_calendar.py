@@ -136,8 +136,7 @@ def day_marks(
             dots.append(CALENDAR_DOT_FLAT)
     dots.extend(CALENDAR_DOT_FLAT for _ in subscriptions)
 
-    subs_total = sum((s.amount for s in subscriptions), Decimal("0"))
-    net = (cell.net if cell else Decimal("0")) - subs_total
+    net = day_net(cell, subscriptions)
     return DayMarks(net=net, dots=tuple(dots[:cap]), overflow=max(0, len(dots) - cap))
 
 
@@ -218,24 +217,33 @@ def _day_short(date: datetime.date) -> str:
     return f"{date.day:02d}.{date.month:02d}"
 
 
-def _in(cell: DayAggregate | None) -> Decimal:
+def charged(subscriptions: Sequence[SubscriptionCharge]) -> Decimal:
+    """What the day's projected subscription charges come to.
+
+    One function for the one rule, because three readers of a day's
+    arithmetic — the cell in the grid, the sheet's Out, the sheet's Net —
+    have to agree about it or the screen disagrees with itself.
+    """
+    return sum((s.amount for s in subscriptions), Decimal("0"))
+
+
+def day_in(cell: DayAggregate | None) -> Decimal:
+    """What arrives on the day. A charge is never one of them."""
     return cell.inflow if cell else Decimal("0")
 
 
-def _out(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
+def day_out(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
     """What leaves on the day, subscription charges included.
 
     The cell in the grid counts them (`day_marks`), so the sheet has to as
     well: a day drawn as `-12.99` that opened onto `Out 0.00` would be the
     screen disagreeing with itself.
     """
-    charged = sum((s.amount for s in subscriptions), Decimal("0"))
-    return (cell.outflow if cell else Decimal("0")) + charged
+    return (cell.outflow if cell else Decimal("0")) + charged(subscriptions)
 
 
-def _net(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
-    charged = sum((s.amount for s in subscriptions), Decimal("0"))
-    return (cell.net if cell else Decimal("0")) - charged
+def day_net(cell: DayAggregate | None, subscriptions: Sequence[SubscriptionCharge] = ()) -> Decimal:
+    return (cell.net if cell else Decimal("0")) - charged(subscriptions)
 
 
 def _signed(amount: Decimal, sign: str) -> str:
@@ -502,14 +510,14 @@ def register() -> None:
                         "click", _close_day_panel
                     ).tooltip(t("payment_calendar.day_sheet_close"))
                 with ui.row().classes("w-full gap-[18px] mt-2.5 pb-4 flex-wrap k-hairline-bottom"):
-                    _day_total(t("payment_calendar.in"), _signed(_in(cell), "+"), AMOUNT_INCOME)
+                    _day_total(t("payment_calendar.in"), _signed(day_in(cell), "+"), AMOUNT_INCOME)
                     _day_total(
                         t("payment_calendar.out"),
-                        _signed(_out(cell, subs_for_day), "-"),
+                        _signed(day_out(cell, subs_for_day), "-"),
                         AMOUNT_EXPENSE,
                     )
                     _day_total(
-                        t("payment_calendar.net"), _fmt(_net(cell, subs_for_day)), AMOUNT_NEUTRAL
+                        t("payment_calendar.net"), _fmt(day_net(cell, subs_for_day)), AMOUNT_NEUTRAL
                     )
 
                 # Overdue items live in the strip above the grid now, where
