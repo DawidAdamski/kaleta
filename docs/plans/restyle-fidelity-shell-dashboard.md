@@ -272,12 +272,18 @@ are fixed; the values are in the reports.
 - **The cashflow bars were nearly touching.** ECharts leaves a 20% category
   gap by default; `1c` draws a 50px bar on a 182px step. `barWidth: "27%"`
   and `borderRadius: 3`, plus the artboard's two axis faces.
-- **The "This month" card was padded loosely.** It was `justify-between`
-  over a 16px row gap, so whenever the balance card beside it grew a second
-  row of account tiles — four accounts on this ledger, three on the
-  artboard — the slack was shared out *between* its rows. The artboard puts
-  all of it in one place: a `flex:1;min-height:14px` spacer above the footer
-  rule, every other offset a margin. `gap-0` and that spacer.
+- **The "This month" card was padded loosely**, and then — on a second
+  look — had a 70px hole above its footer instead. Three things caused it:
+  the card's own 16px row gap, its `justify-between`, and the grid's
+  `height:100%`, which stretches every card to the tallest in its row. The
+  artboard's two top cards hold the same amount, so it never says what to do
+  when they do not; on a ledger with four accounts the balance card grows a
+  second row of tiles and 70px has to go somewhere. Spread between the rows
+  it loosens the card, gathered above the footer it is a hole, and neither is
+  the card `1c` draws. Both top cards are `gap-0 !h-auto` now: the artboard's
+  offsets exactly, and the spare height stays outside as ground. The
+  `flex:1;min-height:14px` spacer is still there, doing what the artboard
+  wrote it for — a floor under the footer rule.
 - **The phone screen did not resemble `1f`.** Three things above the fold
   were the app's and not the artboard's: a page title block, a "Now"
   heading over the first band, and a hero whose parts were in a different

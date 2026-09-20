@@ -99,12 +99,18 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
     # prediction to give, and the footer renders an em dash for it.
     predicted = forecast.predicted_balance_30d
 
-    # `gap-0` and no `justify-between`: artboard `1c` sets every offset in
-    # this card as a margin and puts all the slack in one place — a `flex:1`
-    # spacer above the footer rule. Spreading it between the rows instead
-    # loosened the whole card whenever the balance card beside it grew a
-    # second row of account tiles.
-    with ui.card().classes(f"{DASH_CARD} gap-0"):
+    # `gap-0`: artboard `1c` sets every offset in this card as a margin, and
+    # a card gap adds itself to each of them.
+    #
+    # `!h-auto` beats the grid's `height:100%`, which stretches a card to the
+    # tallest in its row. On the artboard both top cards hold the same amount
+    # and the question never comes up; on a ledger with four accounts the
+    # balance card grows a second row of tiles, and 70px of stretch has to go
+    # somewhere — spread between the rows it loosens the whole card, and
+    # gathered above the footer it is a hole. Neither is the card the artboard
+    # draws, so the card is the height of what is in it and the spare height
+    # stays outside as ground.
+    with ui.card().classes(f"{DASH_CARD} gap-0 !h-auto"):
         with ui.column().classes("gap-1 w-full"):
             ui.label(t("dashboard_widgets.month_card")).classes("k-eyebrow")
             # No `no-wrap`: three 26px figures held on one line pushed the

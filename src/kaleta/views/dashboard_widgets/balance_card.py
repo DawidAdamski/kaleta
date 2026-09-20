@@ -52,7 +52,12 @@ async def render_balance_card(session: AsyncSession, is_dark: bool) -> None:  # 
     delta = await reports.balance_delta_vs_days_ago(30)
     accounts = await AccountService(session).balance_breakdown(_MAX_ACCOUNT_TILES)
 
-    with ui.card().classes(f"{DASH_CARD} justify-between"):
+    # `gap-0` for the same reason the offsets below are explicit: artboard
+    # `1c` sets 12px under the eyebrow, 8px under the hero and 22px above the
+    # tiles, and a card gap adds itself to every one of them. `!h-auto` for
+    # the reason the month card beside it carries one: a card is the height of
+    # what is in it, not of its neighbour.
+    with ui.card().classes(f"{DASH_CARD} gap-0 !h-auto"):
         # Explicit offsets rather than one column gap: artboard `1c` sets
         # 12px under the eyebrow and 8px under the hero, which one gap cannot
         # be both of.
