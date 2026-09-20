@@ -1619,6 +1619,13 @@ Feature: Annual Budget Planning
     Then a line under the empty bar names the amount and the date
     And the bar is empty and still reads as on track
 
+  KAL-BUD-017 @automated
+  Scenario: The month is added up before the table, not only after it
+    Given a category is budgeted for this month and some of it is spent
+    When I open the Realization tab
+    Then four cards above the table say planned, actual, remaining and used
+      And the Total row at the foot of the table says the same four figures
+
   KAL-BUD-015 @automated
   Scenario: Budget plan row actions are reachable from the row context menu
     Given I am on the Budget Plan page for the current year

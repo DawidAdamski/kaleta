@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Annual Budget Planning — the Realization tab.
 
-Covers: KAL-BUD-012, KAL-BUD-013, KAL-BUD-014
+Covers: KAL-BUD-012, KAL-BUD-013, KAL-BUD-014, KAL-BUD-017
 
 Artboard 2b: the status word becomes a pace bar, and the month's schedule
 explains the rows the bar alone would misread.
@@ -90,6 +90,43 @@ def test_a_pace_bar_replaces_the_status_word(page: Page, base_url: str) -> None:
     header = page.locator("div.k-realization-head").first
     expect(header).to_contain_text(f"Pace vs {elapsed:.0f}% elapsed")
     expect(header.get_by_text("Status", exact=True)).to_have_count(0)
+
+
+def test_the_month_is_added_up_above_the_table_too(page: Page, base_url: str) -> None:
+    """Covers: KAL-BUD-017
+
+    Artboard 2b opens the tab with the four figures its Total row closes it
+    with: the reader should not have to scroll past forty categories to
+    learn whether the month is inside its plan. The two are the same
+    reduction, so what this pins is that they agree.
+    """
+    today = datetime.date.today()
+    category = "Zywnosc Stats E2E"
+    account = "PKO Stats E2E"
+    cat_id = seed_category(category)
+    acc_id = seed_account(account)
+    seed_budget(cat_id, 600.0, today.month, today.year)
+    seed_transaction(acc_id, cat_id, 150.0, description="Lidl Stats E2E")
+
+    _open_realization(page, base_url)
+
+    cards = page.locator(".k-stat-card")
+    expect(cards.first).to_be_visible(timeout=10000)
+    expect(cards).to_have_count(4)
+    for label in ("Planned", "Actual", "Remaining"):
+        expect(cards.filter(has_text=label).first).to_be_visible()
+    # The fourth says what share of the plan is gone and how many rows are
+    # over it, which a bare percentage could not.
+    expect(cards.nth(3)).to_contain_text("Used")
+    expect(cards.nth(3)).to_contain_text("over")
+
+    # The same four figures at the foot: the cards and the Total row are one
+    # reduction, and a screen that summed twice could have said two things.
+    total = page.locator(".k-realization-total")
+    expect(total).to_be_visible()
+    figures = [cards.nth(i).locator(".k-stat-figure").inner_text().strip() for i in range(4)]
+    for figure in figures:
+        expect(total).to_contain_text(figure)
 
 
 def test_a_row_paid_in_full_early_says_so(page: Page, base_url: str) -> None:

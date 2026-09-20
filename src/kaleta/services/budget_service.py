@@ -4,6 +4,7 @@ from __future__ import annotations
 import builtins
 import calendar
 import datetime
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
@@ -270,6 +271,41 @@ class CategoryRealization:
     def pace_delta(self) -> float:
         """used_pct minus elapsed_pct — positive means ahead of pace (worse)."""
         return self.used_pct - self.elapsed_pct
+
+
+@dataclass(frozen=True, slots=True)
+class RealizationTotals:
+    """A month's realization added up (artboard `2b`).
+
+    The four stat cards at the top and the Total row at the foot of the
+    table are the same four figures, which is the point — the reader should
+    not have to scroll past forty categories to learn whether the month is
+    inside its plan. They were being summed twice, in the two functions that
+    draw them, so the two could have disagreed.
+    """
+
+    planned: Decimal
+    actual: Decimal
+    over: int
+    rows: int
+
+    @classmethod
+    def of(cls, rows: Sequence[CategoryRealization]) -> RealizationTotals:
+        return cls(
+            planned=sum((r.planned for r in rows), Decimal("0")),
+            actual=sum((r.actual for r in rows), Decimal("0")),
+            over=sum(1 for r in rows if r.status is RealizationStatus.OVER),
+            rows=len(rows),
+        )
+
+    @property
+    def remaining(self) -> Decimal:
+        return self.planned - self.actual
+
+    @property
+    def used_pct(self) -> float:
+        """How much of the plan is spent. A month with no plan has used none of it."""
+        return float(self.actual / self.planned * 100) if self.planned else 0.0
 
 
 @dataclass(frozen=True, slots=True)

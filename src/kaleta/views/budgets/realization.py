@@ -17,10 +17,11 @@ from kaleta.services.budget_service import (
     CategoryRealization,
     RealizationNote,
     RealizationNoteKind,
-    RealizationStatus,
+    RealizationTotals,
 )
 from kaleta.views.budgets.constants import PACE_FILL, STATUS_LABEL_KEY
 from kaleta.views.budgets.helpers import fmt_pct
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
@@ -80,6 +81,11 @@ def render_pace_bar(row: CategoryRealization) -> None:
     )
 
 
+def _money(amount: Decimal) -> str:
+    """A figure on this card: two places, thousands spaced as every artboard has them."""
+    return spaced_thousands(f"{amount:,.2f}")
+
+
 def render_realization_row(row: CategoryRealization) -> None:
     remaining_cls = AMOUNT_EXPENSE if row.remaining < 0 else INK_2
     with ui.element("div").classes(REALIZATION_ROW):
@@ -87,9 +93,9 @@ def render_realization_row(row: CategoryRealization) -> None:
             ui.label(row.category_name).classes(f"{INK} font-medium truncate")
             if row.parent_name:
                 ui.label(row.parent_name).classes(REALIZATION_NOTE)
-        ui.label(f"{row.planned:,.2f}").classes(f"{MONO} {INK_2} text-right")
-        ui.label(f"{row.actual:,.2f}").classes(f"{MONO} {INK} font-medium text-right")
-        ui.label(f"{row.remaining:,.2f}").classes(f"{MONO} {remaining_cls} text-right")
+        ui.label(_money(row.planned)).classes(f"{MONO} {INK_2} text-right")
+        ui.label(_money(row.actual)).classes(f"{MONO} {INK} font-medium text-right")
+        ui.label(_money(row.remaining)).classes(f"{MONO} {remaining_cls} text-right")
         ui.label(fmt_pct(row.used_pct)).classes(
             f"{_PCT_TONE[row.status.value]} text-right text-[13.5px]"
         )
@@ -120,18 +126,15 @@ def render_realization_header(elapsed_pct: float) -> None:
 
 def render_realization_total(rows: list[CategoryRealization]) -> None:
     """The month added up, on the row artboard `2b` closes the card with."""
-    planned = sum((r.planned for r in rows), Decimal("0"))
-    actual = sum((r.actual for r in rows), Decimal("0"))
-    remaining = planned - actual
-    used = float(actual / planned * 100) if planned else 0.0
+    totals = RealizationTotals.of(rows)
     with ui.element("div").classes(REALIZATION_TOTAL):
         ui.label(t("budgets.realization.total"))
-        ui.label(f"{planned:,.2f}").classes(f"{MONO} text-right")
-        ui.label(f"{actual:,.2f}").classes(f"{MONO} text-right")
-        ui.label(f"{remaining:,.2f}").classes(
-            f"text-right {AMOUNT_EXPENSE if remaining < 0 else AMOUNT_INCOME}"
+        ui.label(_money(totals.planned)).classes(f"{MONO} text-right")
+        ui.label(_money(totals.actual)).classes(f"{MONO} text-right")
+        ui.label(_money(totals.remaining)).classes(
+            f"text-right {AMOUNT_EXPENSE if totals.remaining < 0 else AMOUNT_INCOME}"
         )
-        ui.label(fmt_pct(used)).classes(f"{MONO} text-right")
+        ui.label(fmt_pct(totals.used_pct)).classes(f"{MONO} text-right")
         ui.element("span")
 
 
@@ -142,23 +145,19 @@ def render_realization_stats(rows: list[CategoryRealization]) -> None:
     should not have to scroll past forty categories to learn whether the
     month is inside its plan.
     """
-    planned = sum((r.planned for r in rows), Decimal("0"))
-    actual = sum((r.actual for r in rows), Decimal("0"))
-    remaining = planned - actual
-    used = float(actual / planned * 100) if planned else 0.0
-    over = sum(1 for r in rows if r.status is RealizationStatus.OVER)
+    totals = RealizationTotals.of(rows)
     with ui.row().classes("w-full gap-5 no-wrap"):
-        _stat(t("budgets.realization.col_planned"), f"{planned:,.2f}", INK)
-        _stat(t("budgets.realization.col_actual"), f"{actual:,.2f}", INK)
+        _stat(t("budgets.realization.col_planned"), _money(totals.planned), INK)
+        _stat(t("budgets.realization.col_actual"), _money(totals.actual), INK)
         _stat(
             t("budgets.realization.col_remaining"),
-            f"{remaining:,.2f}",
-            AMOUNT_EXPENSE if remaining < 0 else AMOUNT_INCOME,
+            _money(totals.remaining),
+            AMOUNT_EXPENSE if totals.remaining < 0 else AMOUNT_INCOME,
         )
         _stat(
-            t("budgets.realization.used_of_over", over=over, total=len(rows)),
-            fmt_pct(used),
-            AMOUNT_EXPENSE if over else INK,
+            t("budgets.realization.used_of_over", over=totals.over, total=totals.rows),
+            fmt_pct(totals.used_pct),
+            AMOUNT_EXPENSE if totals.over else INK,
         )
 
 

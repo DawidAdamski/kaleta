@@ -5,7 +5,7 @@ from kaleta.services.asset_service import AssetService
 from kaleta.services.audit_service import AuditService
 from kaleta.services.auth_service import AuthService
 from kaleta.services.backup_service import BackupService
-from kaleta.services.budget_service import BudgetService
+from kaleta.services.budget_service import BudgetService, RealizationTotals
 from kaleta.services.category_service import CategoryService
 from kaleta.services.credit_service import CreditService
 from kaleta.services.currency_rate_service import CurrencyRateService
@@ -58,6 +58,7 @@ __all__ = [
     "CategoryService",
     "CreditService",
     "CurrencyRateService",
+    "RealizationTotals",
     "DayTotals",
     "DedupeService",
     "NbpRateService",

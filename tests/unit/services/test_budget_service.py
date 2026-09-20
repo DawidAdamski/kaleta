@@ -26,9 +26,11 @@ from kaleta.services import (
     TransactionService,
 )
 from kaleta.services.budget_service import (
+    CategoryRealization,
     RealizationNote,
     RealizationNoteKind,
     RealizationStatus,
+    RealizationTotals,
     ScheduledExpense,
     build_category_plan_row,
     category_yearly_total,
@@ -1105,3 +1107,69 @@ class TestRealizationNote:
             )
             is None
         )
+
+
+def _realization(planned: str, actual: str, *, elapsed: float = 50.0) -> CategoryRealization:
+    used = float(Decimal(actual) / Decimal(planned) * 100) if Decimal(planned) else 0.0
+    return CategoryRealization(
+        category_id=1,
+        category_name="Zywnosc",
+        parent_id=None,
+        parent_name=None,
+        planned=Decimal(planned),
+        actual=Decimal(actual),
+        elapsed_pct=elapsed,
+        used_pct=used,
+    )
+
+
+class TestRealizationTotals:
+    """The four figures artboard `2b` opens and closes the table with.
+
+    Opens *and* closes: the stat cards at the top and the Total row at the
+    foot say the same four things, and they were each summing the rows
+    themselves, in the view, where nothing could compare them.
+    """
+
+    def test_it_adds_the_rows_up(self) -> None:
+        totals = RealizationTotals.of(
+            [_realization("800.00", "40.00"), _realization("2000.00", "2000.00")]
+        )
+        assert totals.planned == Decimal("2800.00")
+        assert totals.actual == Decimal("2040.00")
+        assert totals.remaining == Decimal("760.00")
+        assert totals.rows == 2
+
+    def test_remaining_goes_negative_on_an_overspent_month(self) -> None:
+        totals = RealizationTotals.of([_realization("300.00", "410.00")])
+        assert totals.remaining == Decimal("-110.00")
+
+    def test_used_is_the_share_of_the_plan_that_is_spent(self) -> None:
+        totals = RealizationTotals.of([_realization("800.00", "40.00")])
+        assert totals.used_pct == pytest.approx(5.0)
+
+    def test_a_month_with_no_plan_has_used_none_of_it(self) -> None:
+        # Rather than a division by zero, which is what the two copies of
+        # this sum each had to remember not to do.
+        totals = RealizationTotals.of([_realization("0.00", "120.00")])
+        assert totals.used_pct == 0.0
+
+    def test_it_counts_the_rows_that_are_over(self) -> None:
+        totals = RealizationTotals.of(
+            [
+                _realization("300.00", "410.00"),
+                _realization("800.00", "40.00"),
+                _realization("100.00", "250.00"),
+            ]
+        )
+        assert totals.over == 2
+        assert totals.rows == 3
+
+    def test_a_month_with_no_rows_at_all(self) -> None:
+        totals = RealizationTotals.of([])
+        assert totals.planned == Decimal("0")
+        assert totals.actual == Decimal("0")
+        assert totals.remaining == Decimal("0")
+        assert totals.used_pct == 0.0
+        assert totals.over == 0
+        assert totals.rows == 0

@@ -250,6 +250,14 @@ If one screen alone is more than a day's work, split it out into
   static methods, as AGENTS.md asks and the rest of `services/` is
   written — with five unit tests in `tests/unit/services/`. The same principle put `3e`'s result total in
   `reports/sentence.py` rather than in the zone that draws it.
+- **`2b`'s month is added up once.** The four stat cards and the Total
+  row are the same four figures, and each was summing the rows itself
+  inside the view — two copies of one reduction, neither of them
+  reachable by a test. `BudgetService.RealizationTotals.of(rows)`, six
+  unit tests, and `KAL-BUD-017` with an e2e that reads the cards and
+  looks for their figures in the Total row. Its figures go through
+  `spaced_thousands` like every other restyled screen's; they were
+  writing `2,400` beside `2c`'s `2 400`.
 - **The report builder's eyebrow has a scenario.** It is new
   user-facing text — the report's name moved off the title onto the line
   above it, with the size of the ledger beside it — so `KAL-RPT-003`
@@ -262,7 +270,10 @@ If one screen alone is more than a day's work, split it out into
 ### What the comparison fixed rather than recorded
 
 - A net-worth liability row drew its debt as a credit: the account
-  already holds a negative balance and the view negated it. `-abs`.
+  already holds a negative balance and the view negated it. `-abs`, as
+  `sheet_balance`, pinned by `TestSheetBalance` in
+  `tests/unit/views/test_net_worth_chart.py` — a liability already
+  negative, one held positive, and an asset left alone.
 - The import mapping's AUTO mark was a green outlined pill sitting on
   the field's own border (`align-self:flex-start` in Quasar's append
   slot). Artboard `2d` writes it as quiet type inside the box.
