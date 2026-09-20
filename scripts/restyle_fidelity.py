@@ -123,7 +123,13 @@ ARTBOARDS: tuple[Artboard, ...] = (
     ),
     Artboard("3b", "Net Worth", "/net-worth", (f"{VIEWS}/net_worth.py",)),
     Artboard("3c", "Payment Calendar", "/payment-calendar", (f"{VIEWS}/payment_calendar.py",)),
-    Artboard("3d", "Financial Wizard", "/wizard", (f"{VIEWS}/wizard.py",)),
+    Artboard(
+        "3d",
+        "Financial Wizard",
+        "/wizard",
+        (f"{VIEWS}/wizard.py",),
+        prepare="wizard_setup_open",
+    ),
     Artboard("3e", "Report builder", "/reports/builder", (f"{VIEWS}/reports",)),
     Artboard(
         "3f",
@@ -534,6 +540,20 @@ class Shooter:
         # photographs its hover state, which is not what the artboard draws.
         page.mouse.move(0, 0)
         page.wait_for_timeout(1200)
+
+    @staticmethod
+    def _prepare_wizard_setup_open(page: Page) -> None:
+        """Open the Setup section, which artboard `3d` draws expanded.
+
+        The page collapses it once all four steps are ticked — the artboard
+        annotates that behaviour and still draws the open state, so the shot
+        has to click it open.
+        """
+        cards = page.locator("[data-setup-step]").first
+        if cards.is_visible():
+            return
+        page.locator('[data-section="setup"]').click()
+        cards.wait_for(timeout=5000)
 
     @staticmethod
     def _prepare_realization_tab(page: Page) -> None:

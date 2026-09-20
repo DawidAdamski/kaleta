@@ -42,6 +42,8 @@ PAGE_CONTAINER = "k-page w-full mx-auto"
 PAGE_GAP_22 = "k-page--gap-22"
 #: Artboard `2d`: two tall cards side by side, 24 apart.
 PAGE_GAP_24 = "k-page--gap-24"
+#: Artboard `3d`, which breathes like the dashboard but two pixels tighter.
+PAGE_GAP_26 = "k-page--gap-26"
 #: Artboard `2c`, whose twelve month columns need the four pixels a side.
 PAGE_TIGHT = "k-page--tight"
 #: Artboards `3b` and `3d` breathe like the dashboard — 36/40/44 and a wider
@@ -186,6 +188,11 @@ YEAR_CHIP_ON = "k-year-chip k-year-chip--on"
 #: An ink button that is not on a title row: square corners, not round. The
 #: title row's pill is the page's one action; this is a control inside it.
 BUTTON_INK = "k-btn-ink"
+#: Its quiet counterpart: a hairline outline and no fill, for the choice
+#: beside it that is not the one being offered.
+BUTTON_OUTLINE = "k-btn-outline"
+#: A word that acts — "Edit", "Import more". Accent type, no box at all.
+LINK_ACTION = "k-link-action"
 #: The same ink, full width and a size up — the one button on a login page.
 BUTTON_INK_WIDE = "k-btn-ink k-btn-ink--wide"
 
@@ -371,6 +378,22 @@ CALENDAR_DOT_OUT = "k-cal-dot--out"
 #: Neither in nor out: a transfer between your own accounts, or a projected
 #: subscription charge that is not a planned transaction you can post.
 CALENDAR_DOT_FLAT = "k-cal-dot--flat"
+
+# ── Wizard (artboard 3d) ─────────────────────────────────────────────────────
+#: A page section that is not a card: an eyebrow and a note over one rule,
+#: with whatever it heads underneath on the ground.
+SECTION_RULE = "k-section-rule"
+SECTION_RULE_TITLE = "k-section-rule-title"
+#: One of the four setup cards — a tick, a name, a count, a way back in.
+SETUP_CARD = "k-setup-card"
+SETUP_TICK = "k-setup-tick"
+#: One routine, as a bare row in a two-column index.
+ROUTINE_ROW = "k-routine-row"
+#: A routine's one-line description inside that row.
+ROUTINE_DESC = "k-routine-desc"
+#: The suggestion at the head of the page: an accent rule down its left edge
+#: and a lightbulb, because it is the one thing that knows this ledger.
+MENTOR_EYEBROW = "k-mentor-eyebrow"
 
 # ── Net worth (artboard 3b) ──────────────────────────────────────────────────
 #: The hero figure, which on this one screen is 60px and sits on the ground
@@ -1064,6 +1087,47 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-split--spent{background:var(--k-neutral-bar)}
 .k-split--free{background:var(--k-accent-light)}
 
+/* ── Wizard (artboard 3d) ─────────────────────────────────────────── */
+.k-section-rule{
+  display:flex;align-items:baseline;gap:12px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--k-rule);
+  width:100%
+}
+.k-section-rule-title{
+  font-size:10px;font-weight:600;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--k-ink)
+}
+.k-setup-card{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:18px 20px
+}
+.k-setup-tick{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:999px;
+  background:var(--k-income);color:var(--k-surface);flex:none
+}
+.k-setup-tick--todo{background:var(--k-border-strong)}
+.k-setup-tick .q-icon{font-size:14px;color:var(--k-surface)}
+.k-routine-row{
+  display:flex;align-items:center;gap:14px;
+  padding:15px 0;
+  border-bottom:1px solid var(--k-hairline)
+}
+/* One line, and the whole sentence on the row's tooltip. Artboard `3d`
+   reads the index at a glance: a two-line paragraph per row turns thirteen
+   rows into a page you have to read rather than scan. */
+.k-routine-desc{
+  font-size:11.5px;color:var(--k-muted);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%
+}
+.k-mentor-eyebrow{
+  font-size:10px;font-weight:600;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--k-banner-btn-ink)
+}
+
 /* ── Net worth (artboard 3b) ──────────────────────────────────────── */
 .k-nw-figure{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
@@ -1312,6 +1376,18 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .q-btn.k-btn-ink .q-icon{color:var(--k-ground);font-size:15px}
 .q-btn.k-btn-ink:hover{background:var(--k-ink-2)}
 .q-btn.k-btn-ink--wide{border-radius:9px;font-size:13.5px;padding:13px 0}
+.q-btn.k-btn-outline{
+  border:1px solid var(--k-chip-dash);
+  border-radius:8px;
+  font-size:12.5px;font-weight:500;letter-spacing:0;
+  color:var(--k-ink-2);
+  min-height:30px;padding:0 14px
+}
+.q-btn.k-link-action{
+  font-size:12px;font-weight:500;letter-spacing:0;
+  color:var(--k-accent-text);
+  padding:0;min-height:0
+}
 /* The same control with corners: artboards `2b` and `2c` set their month and
    year pickers on an 8px radius, where `3a`'s account picker is fully round.
    A picker beside a table is squarer than one beside a chart. */
