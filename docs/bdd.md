@@ -3258,15 +3258,26 @@ Feature: Workflow-based navigation
     And a 900 pixel window navigates from the top bar and shows no tab bar
 
   KAL-NAV-007 @automated
-  Scenario: A top bar replaces the sidebar on a wide viewport
+  Scenario: The sidebar is docked on a wide viewport and remembers its width
     Given I am signed in
     When I open any page on a 1360 pixel wide viewport
-    Then the top bar shows Dashboard and Financial Wizard, then five sections
-    And the sidebar is not on the page
-    And the section holding the page I am on is marked
-    And opening a section and choosing an entry navigates to that page
-    And at 768 pixels, the width it takes over at, the bar still reads on one line
-    And the browser tab carries the page's name, which the header no longer shows
+    Then the sidebar stands beside the page, 236 pixels wide, without covering it
+    And the entry for the page I am on is marked
+    And the header reads the wordmark, a divider and the page's name
+    And the browser tab carries the page's name too
+    And there is no tab bar
+    When I collapse the sidebar from the header
+    Then it narrows to a 64 pixel rail of icons
+    And it is still a rail after I load another page
+    And Settings — Appearance offers the same expanded-or-collapsed choice
+
+  KAL-NAV-009 @automated
+  Scenario: The account avatar carries the account's own actions
+    Given I am signed in
+    When I open the menu behind the initials in the header
+    Then it names the account I am signed in as
+    And it offers to log out
+    And it offers to close the database
 
   KAL-NAV-008 @automated
   Scenario: The command palette reaches any page by name
@@ -3344,11 +3355,17 @@ Feature: Dashboard Customization
     And the per-day figure reads 109.52
 
   KAL-DSH-007 @automated
-  Scenario: The phone dashboard stacks into Now, This month, Watch and Latest
+  Scenario: The phone dashboard opens on the answer, then stacks into bands
     Given I am signed in
     When I open the dashboard on a 390 pixel wide viewport
-    Then the widgets are stacked in bands headed Now, This month, Watch and Latest
-    And the safe-to-spend hero is the first thing in the Now band
+    Then there is no page title above the first widget
+    And the safe-to-spend hero is the first thing on the page
+    And the hero's eyebrow reads "Safe to spend" and how many days are left
+    And the per-day sentence sits above the split bar, not below it
+    And the first band carries no heading of its own
+    And the widgets below it are stacked in bands headed This month, Watch and Latest
+    And the hero is there even though Customize shows it unticked, because the
+      tick is about the desktop grid and the phone leads with it either way
     And the Watch band carries net worth, the six-month average savings rate,
       the 30-day balance and the safety-fund cover as plain figures
     And the Watch band carries no widget cards at all
@@ -3357,14 +3374,26 @@ Feature: Dashboard Customization
     And a 1360 pixel window still gets the widget grid and no tab bar
 
   KAL-DSH-008 @automated
-  Scenario: The desktop dashboard reads in bands and only the Month band drags
+  Scenario: The desktop dashboard is one grid, and all of it drags
     Given I am signed in on a 1360 pixel wide viewport
     When I open the dashboard
-    Then the page reads Now, This month, Watch and Latest in that order
-    And the safe-to-spend hero leads the Now band
-    And the widget grid holds the Month band's widgets and no others
-    And the hero and the Latest list are outside that grid, so nothing drags them
-    And the Month band's own header is what turns editing on
+    Then every widget I have enabled is inside one grid
+    And there are no bands
+    And the page leads with the Total balance and This month cards side by side,
+      then the full-width "Needs attention" banner
+    And the title row carries Edit layout beside Customize
+    And clicking Edit layout unlocks dragging for the whole grid
+    And the safe-to-spend hero is not there, because it is the phone's answer
+      and Customize is what adds it
+
+  KAL-DSH-009 @automated
+  Scenario: The recent-transactions card dates its rows without the year
+    Given I am signed in on a 1360 pixel wide viewport
+    When I open the dashboard
+    Then each row in the recent-transactions card reads its date as month-day
+    And the year is dropped on purpose, so ten rows either side of a new year
+      would read alike
+    And "View all" opens the ledger, where the full date is
 ```
 
 ## Feature: Wizard Action Items

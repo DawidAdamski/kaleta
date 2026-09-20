@@ -1,15 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""E2E tests for the desktop rethink — top bar, palette, bands (artboard 1e).
+"""E2E tests for the wide viewport — docked drawer, palette, widget grid.
 
-Covers: KAL-NAV-007, KAL-NAV-008, KAL-DSH-008
+Covers: KAL-NAV-007, KAL-NAV-008, KAL-NAV-009, KAL-DSH-008, KAL-DSH-009
 
 Seeds nothing. The suite shares one database and one user storage, and
 none of these claims is about a figure: they are about which navigation a
-wide viewport gets and which band each widget lands in. Both hold on an
-empty ledger and on a full one.
+wide viewport gets and what shape the widgets are arranged in. Both hold
+on an empty ledger and on a full one.
 """
 
 from __future__ import annotations
+
+import re
 
 from playwright.sync_api import Locator, Page, expect
 
@@ -18,14 +20,9 @@ DESKTOP = {"width": 1360, "height": 900}
 #: The palette's own field, the one thing in the dialog that takes typing.
 PALETTE_PLACEHOLDER = "Jump to a page…"
 
-#: The five sections, in bar order, as (group key, visible label).
-SECTIONS: list[tuple[str, str]] = [
-    ("nav.group_capture", "Capture"),
-    ("nav.group_monthly", "Month"),
-    ("nav.group_plans", "Plans"),
-    ("nav.group_insight", "Insight"),
-    ("nav.group_setup", "Setup"),
-]
+#: Artboard `1c`'s drawer, and artboard `2a`'s rail.
+DRAWER_WIDTH = 236
+MINI_WIDTH = 64
 
 
 def _open_desktop(page: Page, base_url: str, path: str = "/") -> None:
@@ -34,87 +31,155 @@ def _open_desktop(page: Page, base_url: str, path: str = "/") -> None:
     page.wait_for_function("() => window.did_handshake === true", timeout=20000)
 
 
-def test_a_wide_viewport_navigates_from_the_top_bar(page: Page, base_url: str) -> None:
+def _drawer(page: Page) -> Locator:
+    return page.locator("aside.q-drawer")
+
+
+def _wait_for_drawer_width(page: Page, width: int) -> None:
+    """Block until the drawer has finished animating to *width*.
+
+    Quasar puts ``q-drawer--mini`` on the aside when the state flips and then
+    animates the width over it, so a ``bounding_box()`` read as soon as the
+    class lands catches a frame of the 236-to-64 transition.
+    """
+    page.wait_for_function(
+        """(want) => {
+          const a = document.querySelector('aside.q-drawer');
+          return a && Math.round(a.getBoundingClientRect().width) === want;
+        }""",
+        arg=width,
+        timeout=10000,
+    )
+
+
+def _set_mini(page: Page, mini: bool) -> None:
+    """Put the drawer in the asked-for state through the header's own toggle."""
+    toggle = page.locator("[data-drawer-mini-toggle]")
+    expect(toggle).to_be_visible(timeout=10000)
+    is_mini = page.locator(".q-drawer--mini").count() > 0
+    if is_mini != mini:
+        toggle.click()
+    _wait_for_drawer_width(page, MINI_WIDTH if mini else DRAWER_WIDTH)
+
+
+def test_a_wide_viewport_gets_the_docked_drawer(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-007"""
     _open_desktop(page, base_url, "/transactions")
+    _set_mini(page, False)
 
-    bar = page.locator(".k-topnav")
-    expect(bar).to_be_visible(timeout=10000)
-    for key in ("nav.dashboard", "nav.wizard"):
-        expect(bar.locator(f'[data-nav="{key}"]')).to_be_visible()
-    for group_key, label in SECTIONS:
-        section = bar.locator(f'[data-section="{group_key}"]')
-        expect(section).to_be_visible()
-        expect(section).to_contain_text(label)
+    drawer = _drawer(page)
+    expect(drawer).to_be_visible(timeout=10000)
+    box = drawer.bounding_box()
+    assert box is not None
+    assert round(box["width"]) == DRAWER_WIDTH, box
 
-    # The drawer is the phone's long tail now; a desktop has no way to open it
-    # and no gutter reserved for it. The palette's pill is the desktop's way
-    # in, and the phone's icon is not beside it.
-    expect(page.locator("aside.q-drawer")).to_be_hidden()
-    expect(page.locator(".k-topnav-search")).to_be_visible()
-    expect(page.locator(".k-phone-search")).to_be_hidden()
-
-    # /transactions lives in Capture, so Capture is the section you are in.
-    expect(bar.locator('[data-section="nav.group_capture"]')).to_have_attribute(
-        "aria-current", "page"
+    # Docked, not an overlay: the page begins where the drawer ends, rather
+    # than under it. `.q-page-container` spans the window and holds the gutter
+    # as padding; `main.q-page` is the box that gets pushed across.
+    page_left = page.evaluate(
+        "() => Math.round(document.querySelector('main.q-page').getBoundingClientRect().left)"
     )
-    expect(bar.locator('[data-section="nav.group_setup"]')).not_to_have_attribute(
-        "aria-current", "page"
-    )
+    assert page_left == DRAWER_WIDTH, page_left
 
-    # The page's name left the header with artboard `1e`; the tab has it.
+    # /transactions lives in Capture, so its entry is the one that is marked.
+    active = drawer.locator(".k-nav-item--active")
+    expect(active).to_have_count(1)
+    expect(active).to_contain_text("Transactions")
+
+    # The header says where you are, after the wordmark and its hairline.
+    header = page.locator(".k-header")
+    expect(header.locator(".k-wordmark")).to_have_text("Kaleta")
+    expect(header.locator(".k-header-divider")).to_be_visible()
+    expect(header.locator(".k-header-page")).to_have_text("Transactions")
     assert page.title() == "Transactions · Kaleta", page.title()
 
+    # The pill is the wide window's way into the palette; the phone's icon
+    # and its tab bar are not beside it.
+    expect(page.locator(".k-header-search")).to_be_visible()
+    expect(page.locator(".k-phone-search")).to_be_hidden()
+    expect(page.locator(".k-tabbar")).to_be_hidden()
 
-def test_the_bar_fits_on_one_line_at_its_narrowest(page: Page, base_url: str) -> None:
+
+def test_the_drawer_collapses_to_a_rail_and_stays_one(page: Page, base_url: str) -> None:
     """Covers: KAL-NAV-007
 
-    768px is where the bar takes over from the tab bar, and it has five
-    sections, two pinned entries, a pill and three icon buttons to fit on one
-    60px line. It did not: the row wrapped and "Setup" went under the header.
-    The two pinned entries and the pill keep their icons and drop their words
-    below 1024px.
+    ``sidebar_mini`` is one stored preference, not a per-page one: the
+    artboards draw the drawer expanded on the dashboard and mini on every
+    working screen, but what gets you from one to the other is this toggle,
+    and it has to survive the next page load.
     """
-    page.set_viewport_size({"width": 768, "height": 900})
-    page.goto(f"{base_url}/transactions")
-    page.wait_for_function("() => window.did_handshake === true", timeout=20000)
+    _open_desktop(page, base_url)
+    _set_mini(page, False)
 
-    bar = page.locator(".k-topnav")
-    expect(bar).to_be_visible(timeout=10000)
-    # Every control in the header, not only the bar's own: the sections fit
-    # first and pushed the dark, account and close buttons onto a second line
-    # instead, which a 60px header shows by not showing them.
-    tops = page.evaluate(
-        """() => [...document.querySelectorAll('.k-header > *')]
-                  .filter(e => e.getBoundingClientRect().width > 0
-                               && !e.classList.contains('q-space'))
-                  .map(e => Math.round(e.getBoundingClientRect().top))"""
-    )
-    assert len(set(tops)) == 1, f"the header wrapped: control tops {sorted(set(tops))}"
+    page.locator("[data-drawer-mini-toggle]").click()
+    expect(page.locator(".q-drawer--mini")).to_have_count(1, timeout=10000)
+    _wait_for_drawer_width(page, MINI_WIDTH)
+    # A rail of icons: the labels are gone, the icons are not.
+    expect(_drawer(page).get_by_text("Payment Calendar", exact=True)).to_be_hidden()
 
-    widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
-    assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"
+    _open_desktop(page, base_url, "/transactions")
+    expect(page.locator(".q-drawer--mini")).to_have_count(1, timeout=10000)
+    _wait_for_drawer_width(page, MINI_WIDTH)
 
-    # Dropping a word is not dropping the entry: the text stays in the
-    # document, so the button keeps its name for anyone not reading pixels.
-    expect(bar.locator('[data-nav="nav.wizard"]')).to_contain_text("Financial Wizard")
-    # …and every section still reads, because those five are the navigation.
-    for _group_key, label in SECTIONS:
-        expect(bar.get_by_text(label, exact=True)).to_be_visible()
+    # Leave the shared storage expanded for the files after this one.
+    _set_mini(page, False)
 
 
-def test_a_section_menu_routes(page: Page, base_url: str) -> None:
-    """Covers: KAL-NAV-007"""
+def test_settings_offers_the_same_drawer_choice(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-007
+
+    The header's chevron and Settings - Appearance write the same
+    `sidebar_mini` key, so choosing "Collapsed" here has to reach the drawer
+    on the next page. Asserting the toggle is on screen says nothing about
+    that wiring: `set_user_key("sidebar_mini", ...)` is the whole claim.
+    """
+    _open_desktop(page, base_url, "/settings")
+    page.get_by_role("tab", name="Appearance").click()
+
+    expect(page.get_by_text("Sidebar", exact=True)).to_be_visible(timeout=10000)
+    collapsed = page.get_by_role("button", name="Collapsed")
+    expanded = page.get_by_role("button", name="Expanded")
+    expect(collapsed).to_be_visible()
+    expect(expanded).to_be_visible()
+
+    collapsed.click()
+    # The toggle saves and toasts; the drawer it is choosing for is the next
+    # page's, so that is where the choice has to show up.
+    expect(page.get_by_text("Settings saved.").first).to_be_visible(timeout=10000)
+    _open_desktop(page, base_url)
+    expect(page.locator(".q-drawer--mini")).to_have_count(1, timeout=10000)
+    _wait_for_drawer_width(page, MINI_WIDTH)
+
+    # …and back, so the files after this one find the drawer expanded.
+    _open_desktop(page, base_url, "/settings")
+    page.get_by_role("tab", name="Appearance").click()
+    page.get_by_role("button", name="Expanded").click()
+    expect(page.get_by_text("Settings saved.").first).to_be_visible(timeout=10000)
+    _open_desktop(page, base_url)
+    _wait_for_drawer_width(page, DRAWER_WIDTH)
+
+
+def test_the_avatar_menu_carries_the_account_actions(page: Page, base_url: str) -> None:
+    """Covers: KAL-NAV-009
+
+    The artboards end the header with a 28px initials disc and nothing else,
+    so the two buttons that used to sit beside it are inside the menu it
+    drops. Losing them there would be losing the only way to log out.
+    """
     _open_desktop(page, base_url)
 
-    page.locator('.k-topnav [data-section="nav.group_insight"]').click()
-    entry = page.locator('[data-nav="nav.net_worth"]')
-    expect(entry).to_be_visible(timeout=10000)
-    # `q-item` has no `icon` prop, so an entry given one renders bare.
-    expect(entry.locator(".q-icon")).to_have_text("pie_chart")
-    entry.click()
+    avatar = page.locator(".k-avatar")
+    expect(avatar).to_be_visible(timeout=10000)
+    # Two letters of the account name, which is what the disc is for.
+    assert len(avatar.inner_text().strip()) == 2, avatar.inner_text()
+    avatar.click()
 
-    expect(page).to_have_url(f"{base_url}/net-worth", timeout=10000)
+    menu = page.locator(".q-menu")
+    expect(menu).to_be_visible(timeout=10000)
+    expect(menu.get_by_text("Log out", exact=True)).to_be_visible()
+    expect(menu.get_by_text("Close database", exact=True)).to_be_visible()
+    page.keyboard.press("Escape")
+    expect(menu).to_be_hidden(timeout=10000)
 
 
 def _open_palette(page: Page) -> Locator:
@@ -200,107 +265,8 @@ def test_enter_on_an_empty_palette_stays_put(page: Page, base_url: str) -> None:
     expect(page).to_have_url(f"{base_url}/transactions")
 
 
-def test_the_desktop_dashboard_reads_in_bands(page: Page, base_url: str) -> None:
-    """Covers: KAL-DSH-008"""
-    _open_desktop(page, base_url)
-    page.wait_for_selector("#dash-bands", timeout=20000)
-
-    bands = page.locator("#dash-bands [data-band]")
-    expect(bands).to_have_count(4)
-    for index, band in enumerate(("now", "month", "watch", "latest")):
-        expect(bands.nth(index)).to_have_attribute("data-band", band)
-
-    now = page.locator('[data-band="now"]')
-    expect(now.locator("[data-widget-id]").first).to_have_attribute(
-        "data-widget-id", "safe_to_spend", timeout=10000
-    )
-
-    # Editing belongs to the band whose cards it moves.
-    month = page.locator('[data-band="month"]')
-    expect(month.locator("#dash-edit-btn-label")).to_be_visible()
-
-
-def test_only_the_month_band_is_inside_the_grid(page: Page, base_url: str) -> None:
-    """Covers: KAL-DSH-008
-
-    ``#dash-grid`` *is* the drag scope — SortableJS, the resize button and
-    the layout endpoint all key off that id — so "drag-and-drop is scoped to
-    the Month band" is the claim that nothing else is inside it.
-    """
-    _open_desktop(page, base_url)
-    _wait_for_bands_settled(page)
-
-    in_grid = page.evaluate(
-        """() => [...document.querySelectorAll('#dash-grid [data-widget-id]')]
-                  .map(e => e.dataset.widgetId)"""
-    )
-    in_month = page.evaluate(
-        """() => [...document.querySelectorAll('[data-band="month"] [data-widget-id]')]
-                  .map(e => e.dataset.widgetId)"""
-    )
-    assert in_grid == in_month, (in_grid, in_month)
-    assert "safe_to_spend" not in in_grid
-    assert "recent_transactions" not in in_grid
-
-    # Every widget still reaches the layout endpoint, or a drag inside Month
-    # would save a layout that had lost the hero and the Latest list.
-    posted = page.evaluate(
-        """() => [...document.querySelectorAll('#dash-bands [data-widget-id]')]
-                  .map(e => [e.dataset.widgetId, e.dataset.cols, e.dataset.rows])"""
-    )
-    ids = [wid for wid, _cols, _rows in posted]
-    assert "safe_to_spend" in ids
-    assert set(in_grid) <= set(ids)
-    # …and each of them with a size the endpoint will accept. A node with no
-    # size posts as 1x1, which none of the banded widgets allows.
-    assert all(cols and rows for _wid, cols, rows in posted), posted
-
-
-def _post_layout(page: Page, entries: list[dict[str, object]]) -> None:
-    """Persist *entries* through the endpoint the drag handler posts to."""
-    with page.expect_response("**/_dashboard/layout") as response_info:
-        page.evaluate(
-            """(entries) => fetch('/_dashboard/layout', {
-              method: 'POST',
-              headers: {'Content-Type': 'application/json'},
-              body: JSON.stringify({entries}),
-            })""",
-            entries,
-        )
-    assert response_info.value.ok, "layout POST did not succeed"
-
-
-def test_a_month_band_with_nothing_in_it_still_says_so(page: Page, base_url: str) -> None:
-    """Covers: KAL-DSH-008
-
-    Customize will happily leave the Month band empty — one widget overall is
-    all it insists on. Every other band is skipped when empty, but Month is
-    the drag scope and the empty state: without it the page loses the grid,
-    the Edit button and the only line telling you where the widgets went.
-    """
-    _open_desktop(page, base_url)
-    page.wait_for_selector("#dash-grid", timeout=20000)
-    _post_layout(page, [{"id": "recent_transactions", "cols": 4, "rows": 2}])
-
-    _open_desktop(page, base_url)
-    month = page.locator('[data-band="month"]')
-    expect(month).to_be_visible(timeout=20000)
-    expect(month.locator("#dash-grid")).to_be_visible()
-    expect(month.locator("[data-widget-id]")).to_have_count(0)
-    expect(month.get_by_text("No widgets here. Open Customize to add one.")).to_be_visible()
-    expect(month.locator("#dash-edit-btn-label")).to_be_visible()
-
-    # Leave the shared storage back at its defaults for the files after this.
-    page.get_by_role("button", name="Customize").click()
-    dialog = page.get_by_role("dialog")
-    expect(dialog.get_by_text("Customize Dashboard", exact=True)).to_be_visible(timeout=5000)
-    dialog.get_by_role("button", name="Reset widgets").click()
-    expect(dialog).to_be_hidden(timeout=10000)
-    page.wait_for_selector("#dash-grid [data-widget-id]", timeout=20000)
-
-
-def _wait_for_bands_settled(page: Page) -> None:
-    """Block until NiceGUI has finished streaming widgets into the bands.
+def _wait_for_grid_settled(page: Page) -> None:
+    """Block until NiceGUI has finished streaming widgets into ``#dash-grid``.
 
     Widgets arrive one at a time over the websocket, and the layout POST
     serialises *whatever is in the DOM right now* — fire it mid-stream and it
@@ -309,13 +275,13 @@ def _wait_for_bands_settled(page: Page) -> None:
     """
     page.wait_for_function(
         """() => {
-          const bands = document.getElementById('dash-bands');
-          if (!bands) return false;
-          const n = bands.querySelectorAll('[data-widget-id]').length;
-          const s = window.__kaletaBandSettle || {count: -1, stable: 0};
+          const grid = document.getElementById('dash-grid');
+          if (!grid) return false;
+          const n = grid.querySelectorAll('[data-widget-id]').length;
+          const s = window.__kaletaGridSettle || {count: -1, stable: 0};
           s.stable = n > 0 && n === s.count ? s.stable + 1 : 0;
           s.count = n;
-          window.__kaletaBandSettle = s;
+          window.__kaletaGridSettle = s;
           return s.stable >= 3;
         }""",
         polling=200,
@@ -323,29 +289,109 @@ def _wait_for_bands_settled(page: Page) -> None:
     )
 
 
-def test_a_resize_in_month_does_not_delete_the_other_bands(page: Page, base_url: str) -> None:
+def test_the_desktop_dashboard_is_one_grid(page: Page, base_url: str) -> None:
     """Covers: KAL-DSH-008
 
-    The layout POST serialises every banded widget, not just the Month
-    grid's — so every banded widget has to survive the round trip. It did
-    not: a widget outside the grid carried no ``data-cols``, posted as 1x1,
-    and 1x1 is a size none of them allows. The first resize or drag deleted
-    the hero, the banner and the Latest list from storage, and the page came
-    back without them.
+    ``#dash-grid`` *is* the drag scope — SortableJS, the resize button and
+    the layout endpoint all key off that id — so "the whole dashboard drags"
+    is the claim that every rendered widget is inside it.
     """
     _open_desktop(page, base_url)
-    _wait_for_bands_settled(page)
+    _wait_for_grid_settled(page)
+
+    expect(page.locator("[data-band]")).to_have_count(0)
+
+    in_grid = page.evaluate(
+        """() => [...document.querySelectorAll('#dash-grid [data-widget-id]')]
+                  .map(e => e.dataset.widgetId)"""
+    )
+    everywhere = page.evaluate(
+        """() => [...document.querySelectorAll('[data-widget-id]')]
+                  .map(e => e.dataset.widgetId)"""
+    )
+    assert in_grid == everywhere, (in_grid, everywhere)
+
+    # The artboard's opening: two half-width cards, then the accent banner.
+    assert in_grid[:3] == ["balance_card", "month_card", "wizard_actions"], in_grid
+    expect(page.locator('[data-widget-id="balance_card"]')).to_have_attribute("data-cols", "2")
+    expect(page.locator('[data-widget-id="month_card"]')).to_have_attribute("data-cols", "2")
+    expect(page.locator('[data-widget-id="wizard_actions"]')).to_have_attribute("data-cols", "4")
+
+    # The hero is the phone's answer to a phone question; a wide window that
+    # wants it goes and ticks it in Customize.
+    assert "safe_to_spend" not in in_grid
+
+
+def test_edit_layout_unlocks_the_whole_grid(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-008"""
+    _open_desktop(page, base_url)
+    _wait_for_grid_settled(page)
+
+    label = page.locator("#dash-edit-btn-label")
+    expect(label).to_be_visible(timeout=10000)
+    expect(page.locator("body.dash-editing")).to_have_count(0)
+
+    label.click()
+
+    expect(page.locator("body.dash-editing")).to_have_count(1, timeout=10000)
+    expect(label).to_have_text("Done")
+    # Every card in the grid is a drag target, not just some band's worth.
+    draggable = page.evaluate(
+        """() => document.querySelectorAll('#dash-grid .dash-widget-wrap').length"""
+    )
+    in_grid = page.evaluate(
+        """() => document.querySelectorAll('#dash-grid [data-widget-id]').length"""
+    )
+    assert draggable == in_grid > 0, (draggable, in_grid)
+
+    label.click()
+    expect(page.locator("body.dash-editing")).to_have_count(0, timeout=10000)
+
+
+def test_recent_transactions_dates_rows_month_day(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-009
+
+    The artboard sets `MM-DD`, and ten rows of the same four year digits say
+    nothing in a card whose whole claim is that these are the recent ones.
+    The cost is a ledger quiet enough for ten rows to cross a new year, so
+    the card says where the full date is.
+    """
+    _open_desktop(page, base_url)
+    _wait_for_grid_settled(page)
+
+    card = page.locator('[data-widget-id="recent_transactions"]')
+    expect(card).to_be_visible(timeout=10000)
+    dates = card.locator(".k-cell-date").all_inner_texts()
+    assert dates, "the card rendered no rows"
+    assert all(re.fullmatch(r"\d{2}-\d{2}", d.strip()) for d in dates), dates
+
+    expect(card.get_by_role("button", name="View all")).to_be_visible()
+
+
+def test_a_resize_keeps_every_other_widget(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-008
+
+    The layout POST serialises the grid, and the grid is now the whole
+    dashboard — so one resize must not cost the page a card.
+    """
+    _open_desktop(page, base_url)
+    _wait_for_grid_settled(page)
+    before = page.evaluate(
+        """() => [...document.querySelectorAll('#dash-grid [data-widget-id]')]
+                  .map(e => e.dataset.widgetId)"""
+    )
 
     with page.expect_response("**/_dashboard/layout") as response_info:
         page.evaluate("() => window.__kaletaCycleDashSize('cashflow_chart')")
     assert response_info.value.ok, "layout POST did not succeed"
 
     _open_desktop(page, base_url)
-    page.wait_for_selector("#dash-bands", timeout=20000)
-    expect(page.locator('[data-band="now"] [data-widget-id="safe_to_spend"]')).to_have_count(1)
-    expect(
-        page.locator('[data-band="latest"] [data-widget-id="recent_transactions"]')
-    ).to_have_count(1)
+    _wait_for_grid_settled(page)
+    after = page.evaluate(
+        """() => [...document.querySelectorAll('#dash-grid [data-widget-id]')]
+                  .map(e => e.dataset.widgetId)"""
+    )
+    assert after == before, (before, after)
 
     # Put the sizes back for the files after this one.
     page.get_by_role("button", name="Customize").click()
@@ -353,3 +399,4 @@ def test_a_resize_in_month_does_not_delete_the_other_bands(page: Page, base_url:
     expect(dialog.get_by_text("Customize Dashboard", exact=True)).to_be_visible(timeout=5000)
     dialog.get_by_role("button", name="Reset layout").click()
     expect(dialog).to_be_hidden(timeout=10000)
+    _wait_for_grid_settled(page)

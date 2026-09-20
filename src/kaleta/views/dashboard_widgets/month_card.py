@@ -28,15 +28,17 @@ from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
+    CARD_CAPTION,
     CARD_SUBTITLE,
     DASH_CARD,
     INK,
+    PACE_BAR_MONTH,
 )
 
 
 def _footer_stat(label: str, value: str) -> None:
     with ui.column().classes("gap-0 min-w-0"):
-        ui.label(label).classes(CARD_SUBTITLE)
+        ui.label(label).classes(CARD_CAPTION)
         ui.label(value).classes(f"k-mono {INK} text-[17px] font-medium")
 
 
@@ -48,7 +50,7 @@ def _figure(label: str, value: str, amount_cls: str) -> None:
     ``min-w-0`` alone the third one simply hung over the edge. Above ``md``
     both revert and the card is the 1c card unchanged.
     """
-    with ui.column().classes("gap-1 flex-1 min-w-[120px] md:min-w-0"):
+    with ui.column().classes("gap-0.5 flex-1 min-w-[120px] md:min-w-0"):
         ui.label(label).classes(CARD_SUBTITLE)
         ui.label(value).classes(
             f"k-mono {amount_cls} text-[22px] md:text-[26px] font-medium tracking-tight"
@@ -69,10 +71,12 @@ def _pace_bar(point: SavingsRatePoint) -> None:
             t("dashboard.savings_kept_none")
             if rate is None
             else t("dashboard.savings_kept", pct=f"{float(rate):.1f}")
-        ).classes(CARD_SUBTITLE)
-        ui.label(t("dashboard.savings_target", pct=f"{target:.0f}")).classes(CARD_SUBTITLE)
+        ).classes(f"{CARD_SUBTITLE} !text-[11.5px]")
+        ui.label(t("dashboard.savings_target", pct=f"{target:.0f}")).classes(
+            f"{CARD_SUBTITLE} !text-[11.5px]"
+        )
 
-    with ui.element("div").classes("k-pace w-full mt-2"):
+    with ui.element("div").classes(f"{PACE_BAR_MONTH} w-full mt-1.5"):
         ui.element("div").classes("k-pace__fill").style(
             f"width:{filled:.2f}%;background:{fill_colour}"
         )
@@ -95,21 +99,39 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
     # prediction to give, and the footer renders an em dash for it.
     predicted = forecast.predicted_balance_30d
 
-    with ui.card().classes(f"{DASH_CARD} justify-between"):
+    # `gap-0`: artboard `1c` sets every offset in this card as a margin, and
+    # a card gap adds itself to each of them.
+    #
+    # `!h-auto` beats the grid's `height:100%`, which stretches a card to the
+    # tallest in its row. On the artboard both top cards hold the same amount
+    # and the question never comes up; on a ledger with four accounts the
+    # balance card grows a second row of tiles, and 70px of stretch has to go
+    # somewhere — spread between the rows it loosens the whole card, and
+    # gathered above the footer it is a hole. Neither is the card the artboard
+    # draws, so the card is the height of what is in it and the spare height
+    # stays outside as ground.
+    with ui.card().classes(f"{DASH_CARD} gap-0 !h-auto"):
         with ui.column().classes("gap-1 w-full"):
             ui.label(t("dashboard_widgets.month_card")).classes("k-eyebrow")
             # No `no-wrap`: three 26px figures held on one line pushed the
             # card past the edge of a 390px screen — by a single pixel, which
             # is still a page that scrolls sideways. With room they stay on
             # one line, so nothing changes on a desktop.
-            with ui.row().classes("w-full gap-x-6 gap-y-2 mt-2"):
-                _figure(t("common.income"), fmt_number(income), AMOUNT_INCOME)
-                _figure(t("common.expense"), fmt_number(expenses), AMOUNT_EXPENSE)
+            with ui.row().classes("w-full gap-x-7 gap-y-2 mt-3.5"):
+                # "In" / "Out", not "Income" / "Expense": three figures share
+                # a half-width card, and the artboard spends the room on the
+                # figures rather than on the words above them.
+                _figure(t("dashboard.month_in"), fmt_number(income), AMOUNT_INCOME)
+                _figure(t("dashboard.month_out"), fmt_number(expenses), AMOUNT_EXPENSE)
                 _figure(t("dashboard.net"), fmt_number(net), INK)
 
         _pace_bar(point)
 
-        with ui.row().classes("w-full gap-6 pt-4 mt-4 k-card-footer flex-wrap"):
+        # The artboard's `flex:1;min-height:14px` — where a taller neighbour's
+        # spare height goes, and a floor under it when there is none to give.
+        ui.element("div").classes("flex-1 min-h-[14px]")
+
+        with ui.row().classes("w-full gap-6 pt-[18px] k-card-footer flex-wrap"):
             _footer_stat(
                 t("dashboard.balance_30"),
                 "—" if predicted is None else fmt_number(predicted),

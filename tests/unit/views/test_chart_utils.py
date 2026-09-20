@@ -22,6 +22,8 @@ from kaleta.views.chart_utils import (
     chart_income_color,
     chart_ink_color,
     chart_palette,
+    chart_series_accent_color,
+    chart_surface_color,
     chart_text_color,
 )
 
@@ -274,3 +276,23 @@ def test_apply_dark_never_overrides_an_explicit_palette() -> None:
     opts: dict = {"color": ["#123456"], "series": [{"type": "bar", "data": [1]}]}
     apply_dark(opts, is_dark=False)
     assert opts["color"] == ["#123456"]
+
+
+# ── the two colours a series is drawn *on* rather than in ─────────────────────
+
+
+def test_a_series_accent_is_a_shade_up_from_a_filled_surface() -> None:
+    """Artboard `1c` strokes the cashflow net line in `#DE7B45`.
+
+    `#B4591F`, the accent a surface is filled with, reads as brown at
+    2.5px on sand. Dark has one apricot, so both are `#E8935B` there.
+    """
+    assert chart_series_accent_color(is_dark=False) == "#DE7B45"
+    assert chart_accent_color(is_dark=False) == "#B4591F"
+    assert chart_series_accent_color(is_dark=True) == chart_accent_color(is_dark=True)
+
+
+def test_a_symbol_drawn_on_a_card_is_filled_with_the_card() -> None:
+    """ECharts cannot read `--k-surface`, so paper is mirrored as a literal."""
+    assert chart_surface_color(is_dark=False) == "#FCFAF6"
+    assert chart_surface_color(is_dark=True) == "#201F1A"

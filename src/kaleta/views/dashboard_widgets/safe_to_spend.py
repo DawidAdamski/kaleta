@@ -25,13 +25,11 @@ from kaleta.services.report_service import SafeToSpend
 from kaleta.views.dashboard_widgets.helpers import fmt_number, hero_figure
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import (
-    AMOUNT_EXPENSE,
-    CARD_SUBTITLE,
     DASH_CARD,
-    INK,
+    HERO_LEGEND,
+    HERO_RATE,
     MONO,
-    MUTED,
-    SPLIT_BAR,
+    SPLIT_BAR_HERO,
 )
 
 #: The bar's three segments, in the order they are drawn. The tone classes are
@@ -67,19 +65,52 @@ def hero_split(stats: SafeToSpend) -> HeroSplit | None:
     return HeroSplit(committed=committed, spent=spent, free=free)
 
 
-def days_left_label(stats: SafeToSpend) -> str:
-    """ "21 days left" — the denominator of the per-day figure, in words."""
+def eyebrow_label(stats: SafeToSpend) -> str:
+    """ "Safe to spend · 28 days left", the one line artboard `1f` puts above
+    the figure — the question and its denominator together, so the figure
+    below has nothing between it and the eyebrow.
+    """
     days = stats.days_left
-    return t(plural_key("dashboard.sts_days_left", days), days=days)
+    return t(plural_key("dashboard.sts_eyebrow", days), days=days)
+
+
+def rate_line(stats: SafeToSpend) -> str:
+    """ "69,36 zł a day. You've been averaging 74,80 zł." — one sentence.
+
+    The artboard sets the pace and the habit in the same breath, because
+    the second is what makes the first mean anything. A month with nothing
+    left says how far past the end it is in place of the pace.
+    """
+    if stats.spendable:
+        return t(
+            "dashboard.sts_rate_line",
+            amount=fmt_number(stats.per_day),
+            avg=fmt_number(stats.trailing_avg_per_day),
+        )
+    return t(
+        "dashboard.sts_over_line",
+        amount=fmt_number(-stats.free),
+        avg=fmt_number(stats.trailing_avg_per_day),
+    )
 
 
 def render_hero(stats: SafeToSpend) -> None:
     """The card's body, given the figures. Separate so the mobile bands and
     the desktop widget draw the same thing from the same data."""
-    with ui.column().classes("w-full gap-1"):
-        ui.label(t("dashboard.safe_to_spend")).classes("k-eyebrow")
-        hero_figure(stats.free, size="text-[54px] md:text-[64px]")
-        ui.label(days_left_label(stats)).classes(CARD_SUBTITLE)
+    with ui.column().classes("w-full gap-0"):
+        ui.label(eyebrow_label(stats)).classes("k-eyebrow")
+        # 46px/400 at -.04em on a phone, which is what artboard `1f` sets
+        # this hero at; the wider sizes are for a window that has the room.
+        with ui.element("div").classes("mt-2.5"):
+            hero_figure(
+                stats.free,
+                size="text-[46px] md:text-[64px]",
+                weight="font-normal",
+                tracking="tracking-[-.04em]",
+            )
+        # Above the bar, not under it: the artboard's order is figure, what
+        # it means per day, then how it is made up.
+        ui.label(rate_line(stats)).classes(f"{HERO_RATE} mt-2.5")
 
     split = hero_split(stats)
     if split is not None:
@@ -93,32 +124,20 @@ def render_hero(stats: SafeToSpend) -> None:
         )
         # A plain div, not ui.row: `.nicegui-row` puts a gap between children
         # and a gap here would be read as a fourth segment.
-        with ui.element("div").classes(f"{SPLIT_BAR} w-full mt-4"):
+        with ui.element("div").classes(f"{SPLIT_BAR_HERO} w-full mt-[18px]"):
             for (pct, amount), (label_key, tone) in zip(shares, _SEGMENTS, strict=True):
                 if pct <= 0:
                     continue
                 seg = ui.element("div").classes(f"k-split-seg {tone}").style(f"width:{pct:.4f}%")
                 seg.props["aria-label"] = f"{t(label_key)}: {fmt_number(amount)}"
-        with ui.row().classes("w-full gap-4 flex-wrap mt-2"):
-            for (_pct, amount), (label_key, tone) in zip(shares, _SEGMENTS, strict=True):
-                with ui.row().classes("items-center gap-1.5"):
-                    ui.element("div").classes(f"k-split-dot {tone}")
-                    ui.label(t(label_key)).classes(f"{MUTED} text-xs")
-                    ui.label(fmt_number(amount)).classes(f"{MONO} text-xs")
-
-    with ui.row().classes("w-full items-baseline justify-between gap-3 mt-4 flex-wrap"):
-        # "-14.29 zł a day" is not a budget, it is an overdraft. A month with
-        # nothing left says how far past the end it is instead.
-        if stats.spendable:
-            headline = t("dashboard.sts_per_day", amount=fmt_number(stats.per_day))
-            tone = INK
-        else:
-            headline = t("dashboard.sts_over", amount=fmt_number(-stats.free))
-            tone = AMOUNT_EXPENSE
-        ui.label(headline).classes(f"{MONO} {tone} text-[17px] font-medium")
-        ui.label(
-            t("dashboard.sts_trailing", amount=fmt_number(stats.trailing_avg_per_day))
-        ).classes(CARD_SUBTITLE)
+        # Three labels spread across the bar's width, the way the artboard
+        # draws them: no swatches, because each one sits over the segment it
+        # names and the bar is read left to right.
+        with ui.row().classes("w-full justify-between gap-3 no-wrap mt-[9px]"):
+            for (_pct, amount), (label_key, _tone) in zip(shares, _SEGMENTS, strict=True):
+                with ui.row().classes(f"{HERO_LEGEND} items-baseline gap-1.5 no-wrap"):
+                    ui.label(t(label_key))
+                    ui.label(fmt_number(amount)).classes(MONO)
 
 
 @register(
@@ -130,5 +149,5 @@ def render_hero(stats: SafeToSpend) -> None:
 )
 async def render_safe_to_spend(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
     stats = await ReportService(session).safe_to_spend()
-    with ui.card().classes(f"{DASH_CARD} justify-between"):
+    with ui.card().classes(f"{DASH_CARD} gap-0"):
         render_hero(stats)

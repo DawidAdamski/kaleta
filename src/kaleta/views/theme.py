@@ -25,6 +25,9 @@ AMOUNT_WARNING = "k-amount k-amount--warn"
 MONO = "k-mono"
 #: Secondary text — a label beside a figure, an empty cell's em dash.
 MUTED = "k-muted"
+#: The same role a step warmer: the artboards use it wherever muted type sits
+#: *inside* a figure — a hero's decimals, an eyebrow, an axis label.
+MUTED_STRONG = "k-muted-strong"
 
 # Shared surface tokens — paper on ground, 1px shadow instead of a border.
 _SURFACE = "k-surface w-full rounded-xl"
@@ -37,16 +40,26 @@ PAGE_CONTAINER = "w-full mx-auto p-6 md:p-8 gap-6"
 DASH_PAGE_CONTAINER = "k-dash-page w-full mx-auto"
 
 HEADER = "k-header"
-DRAWER = "k-drawer pt-3"
+DRAWER = "k-drawer"
 
-NAV_GROUP = "k-nav-group k-eyebrow flex-1"
-NAV_GROUP_ROW = (
-    "k-nav-row items-center h-9 px-3 mx-2 rounded-lg cursor-pointer select-none transition-colors"
-)
-NAV_ITEM = "k-nav-item min-h-11 rounded-lg mx-3 mb-[3px] px-3 cursor-pointer transition-colors"
+NAV_GROUP = "k-nav-group flex-1"
+NAV_GROUP_ROW = "k-nav-row w-full items-center cursor-pointer select-none transition-colors"
+#: ``self-stretch``: the drawer is a flex column that does not stretch its
+#: children, so without it every entry shrink-wrapped its label and the
+#: active one was a 122px pill in a 236px drawer. The artboard's is 212 —
+#: the drawer less the 12px margin each side.
+NAV_ITEM = "k-nav-item rounded-lg mx-3 px-3 self-stretch cursor-pointer transition-colors"
+#: The two pinned entries, which the artboard sets 3px apart and a pixel
+#: taller than the group items below them.
+NAV_ITEM_PINNED = "k-nav-item--pinned"
 NAV_ITEM_ACTIVE = "k-nav-item--active"
 
 PAGE_TITLE = "k-page-title text-[32px] font-light tracking-tight"
+#: A progress track. ``PACE_BAR_MONTH`` is the month card's 8px one and
+#: ``PACE_BAR_ROW`` the 6px one under a list row (artboard `1c`).
+PACE_BAR = "k-pace"
+PACE_BAR_MONTH = "k-pace k-pace--month"
+PACE_BAR_ROW = "k-pace k-pace--row"
 SECTION_CARD = f"{_SURFACE} {_CARD_PAD}"
 TOOLBAR_CARD = f"{_SURFACE} p-3"
 SECTION_TITLE = "k-muted k-eyebrow"
@@ -66,12 +79,27 @@ KPI_TREND_NEUTRAL = "k-trend--neutral"
 
 TABLE_CARD = SECTION_CARD
 TABLE_SURFACE = "k-table w-full"
+#: One cell's contents rather than the cell: a category pill, and a date set
+#: in mono a size down (artboard `1c`'s last card).
+CELL_CHIP = "k-cell-chip"
+CELL_DATE = "k-cell-date"
 
 # Dashboard chrome (handoff geometry table): 14px radius and 26/28px padding,
 # against 12px / 22-24px on the working screens.
 DASH_CARD = f"{_SURFACE} k-dash-card"
 CARD_TITLE = "k-card-title"
 CARD_SUBTITLE = "k-card-subtitle"
+#: The same label a size down — a tile's caption, a footer stat's name.
+#: Artboard `1c` sets these at 11px against the card subtitle's 12.
+CARD_CAPTION = "k-card-caption"
+#: The safe-to-spend hero's per-day sentence, and the three labels under its
+#: split bar (artboard `1f`).
+HERO_RATE = "k-hero-rate"
+HERO_LEGEND = "k-hero-legend"
+#: A chart key drawn beside a card's title rather than inside the chart: a
+#: 9px square for a bar series, a 16x2 rule for a line one (artboard `1c`).
+LEGEND_DOT = "k-legend-dot"
+LEGEND_LINE = "k-legend-line"
 
 # Ledger toolbar (artboard 2a): a filter is a pill that shows its value, and a
 # dashed one when it has none to show.
@@ -155,34 +183,40 @@ AUTH_PANEL_FIGURE = "k-auth-figure"
 #: Its label underneath, dimmed against the ink rather than muted on paper.
 AUTH_PANEL_LABEL = "k-auth-label"
 
-# ── Top bar (artboard 1e) ─────────────────────────────────────────────────────
-#: The desktop navigation, in the header. Its own breakpoint rather than
-#: `hidden md:flex`, for the reason `.k-auth-panel` and `.k-tabbar` have one.
-TOP_NAV = "k-topnav"
-#: One pinned link or one section button in that bar.
-TOP_NAV_ITEM = "k-topnav-item"
-#: The section (or page) you are on.
-TOP_NAV_ITEM_ACTIVE = "k-topnav-item--active"
-#: The menu a section drops.
-TOP_NAV_MENU = "k-topnav-menu"
-#: "Jump to… ⌘K" — a search field's clothes on a button that opens a dialog.
-TOP_NAV_SEARCH = "k-topnav-search"
-#: Dashboard and Financial Wizard. They are the two entries whose labels the
-#: bar can afford to drop when the window is narrow: their icons are the two
-#: nobody has to read, and five section names cannot go anywhere.
-TOP_NAV_PIN = "k-topnav-pin"
-#: "Kaleta" in the header. Stood down below 1024px, where the bar needs the
-#: width more than the header needs to say the app's name twice.
+# ── Header (artboards 1c / 2a) ────────────────────────────────────────────────
+#: "Kaleta" in the header, first thing on the line.
 WORDMARK = "k-wordmark"
+#: The hairline between the wordmark and the name of the page you are on.
+HEADER_DIVIDER = "k-header-divider"
+#: That name — quiet type, the header's only statement about where you are
+#: now that the drawer marks it too.
+HEADER_PAGE = "k-header-page"
+#: "Jump to…" — a search field's clothes on a button that opens the palette.
+#: Its own breakpoint rather than `hidden md:inline-flex`, for the reason
+#: `.k-auth-panel` and `.k-tabbar` have one.
+HEADER_SEARCH = "k-header-search"
+#: An icon-only header control: the dark toggle, at the artboard's weight
+#: rather than Quasar's primary.
+HEADER_ICON = "k-header-icon"
+#: The account button, drawn as the artboard's 28px initials disc.
+AVATAR = "k-avatar"
+#: 236px ⇄ 64px. Not on any artboard — the drawer is drawn expanded on the
+#: dashboard and mini on the working screens, and one preference is what
+#: gets you from one to the other.
+MINI_TOGGLE = "k-mini-toggle"
 
-#: The hamburger + mini pair, and the header's search icon: phone-side
-#: controls that a desktop top bar makes redundant.
+#: The hamburger, and the header's search icon: phone-side controls that a
+#: docked drawer and a search pill make redundant.
 DRAWER_CONTROLS = "k-drawer-controls"
 PHONE_SEARCH = "k-phone-search"
 
 #: The command palette dialog, and one row in it.
 PALETTE_CARD = "k-palette"
 PALETTE_ROW = "k-palette-row"
+
+#: A button on a page's title row, drawn as artboards `1c` / `2a` draw them:
+#: a paper pill with a hairline border, not a flat text button.
+TITLE_ACTION = "k-title-action"
 
 # ── Phone dashboard (artboard 1f) ─────────────────────────────────────────────
 #: The bottom tab bar. It has its own breakpoint rather than `md:hidden`: which
@@ -232,6 +266,8 @@ CALENDAR_DOT_FLAT = "k-cal-dot--flat"
 #: net figure cannot show — 10 000 owned outright and 200 000 against 190 000
 #: owed are the same number and not the same position.
 SPLIT_BAR = "k-split"
+#: The safe-to-spend hero's own weight (artboard `1f`): 9px on a 5px radius.
+SPLIT_BAR_HERO = "k-split k-split--hero"
 
 # ── Loading (artboard 3a) ─────────────────────────────────────────────────────
 #: A page that answers on load shows the shape of the answer while it works.
@@ -315,6 +351,11 @@ BASE_CSS = """
   --k-muted-strong:#6E6656;
   --k-disabled:#B5AB96;
   --k-hairline:#EDE7DA;
+  /* A divider that is meant to be read — a band's rule on the phone, the
+     separators in the mini drawer. A step down from a card's hairline and a
+     step up from the border a control is drawn with; eleven artboards use
+     it. */
+  --k-rule:#DCD4C2;
   --k-border:#E2DBCC;
   --k-border-strong:#C9BFA8;
   --k-accent:#B4591F;
@@ -330,7 +371,10 @@ BASE_CSS = """
   --k-plan-now:#F0E5D4;
   --k-chip-dash:#CFC5AE;
   --k-card-shadow:0 1px 2px rgba(28,26,21,.05);
-  --k-on-accent:#FCFAF6
+  --k-on-accent:#FCFAF6;
+  /* The pill on the accent banner: paper with deep accent ink in light,
+     ink with paper on it in dark. Neither pair is any other token's. */
+  --k-banner-btn-ink:#8E4718
 }
 .body--dark{
   --q-primary:#E8935B;
@@ -347,6 +391,7 @@ BASE_CSS = """
   --k-muted-strong:#A19781;
   --k-disabled:#6E6656;
   --k-hairline:#2A2822;
+  --k-rule:#3D392F;
   --k-border:#322F27;
   --k-border-strong:#453F34;
   --k-accent:#E8935B;
@@ -361,11 +406,19 @@ BASE_CSS = """
   --k-plan-now:#332F26;
   --k-chip-dash:#453F34;
   --k-card-shadow:none;
-  --k-on-accent:#241C13
+  --k-on-accent:#241C13;
+  --k-banner-btn-ink:#F0EBDF
 }
 body,.q-body--layout{
   font-family:'Libre Franklin',ui-sans-serif,system-ui,sans-serif
 }
+/* Every artboard draws its icons outlined; Quasar's default `material-icons`
+   is the filled face, and a filled 19px glyph beside 13px type is a blob.
+   NiceGUI already self-hosts all four Google styles, so this is a family
+   swap and not another font to fetch — one rule rather than an `o_` prefix
+   on several hundred `ui.icon` calls, which would also leave whichever were
+   missed filled. */
+.q-icon.material-icons{font-family:'Material Icons Outlined'}
 body{background-color:var(--k-ground);color:var(--k-ink)}
 .k-ground{background-color:var(--k-ground)}
 
@@ -380,16 +433,49 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
    plain ui.card() is paper on ground without every view opting in. */
 .q-card{background:var(--k-surface);color:var(--k-ink)}
 .q-tab-panels,.q-tab-panel{background-color:transparent}
-.k-drawer,
-.k-drawer .q-drawer__content{
+/* `.k-drawer` lands on Quasar's `.q-drawer__content`, which is the element
+   that fills the aside — so the ground and the hairline go here, and so does
+   the artboard's 22/24 padding, which has to out-specify NiceGUI's own
+   `.nicegui-drawer{padding:1rem}`. */
+.q-drawer__content.k-drawer{
   background:var(--k-ground);
-  border-right-color:var(--k-border)
+  border-right:1px solid var(--k-border);
+  padding:22px 0 24px
 }
+/* NiceGUI pads `.nicegui-content` with 1rem and gaps it; the dashboard sets
+   its own 36/40/44 and 28 from artboard `1c`, and two paddings is neither. */
+.nicegui-content:has(> .k-dash-page){padding:0;gap:0}
 
 /* ── Navigation — a quiet index, no per-item boxes ────────────────── */
-.k-nav-group{color:var(--k-muted-strong)}
-.k-nav-row:hover{background:var(--k-surface)}
-.k-nav-item{color:var(--k-ink-2)}
+/* The group eyebrows are the artboard's own spacing: 20px above the word,
+   6px under it, and no box of their own. The chevron they carry is not on
+   the artboard — collapsing a group is behaviour a still picture cannot
+   draw — so the hover moves the ink rather than painting a band. */
+.k-nav-group{
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:var(--k-muted-strong)
+}
+.k-nav-row{padding:20px 24px 6px}
+.k-nav-row:hover .k-nav-group{color:var(--k-ink)}
+/* 44px is the phone's tap target, where the drawer is an overlay behind
+   "More"; the docked desktop drawer is the artboard's 19px icon in 8px of
+   padding, and 16 entries at 44px do not fit a 900px window. */
+/* `flex:none`: the two pinned entries are direct children of the drawer's
+   flex column, and sixteen entries overflow an 840px one. Without it they
+   are the rows that shrink — to 16px, the moment the desktop rule takes the
+   minimum height away and leaves the padding to set it. */
+.k-nav-item{color:var(--k-ink-2);min-height:44px;flex:none}
+.k-nav-item--pinned{margin-bottom:3px}
+/* On a desktop the padding is what sets the row height, as artboard `1c`
+   writes it: 7px inside a group, 8px for the two pinned entries above them.
+   The 44px floor is the phone's tap target and stays below the breakpoint. */
+@media (min-width:768px){
+  .k-nav-item{min-height:0;padding-top:7px;padding-bottom:7px}
+  .k-nav-item--pinned{padding-top:8px;padding-bottom:8px}
+}
 .k-nav-item:hover{background:var(--k-surface)}
 .k-nav-item .q-item__label{color:var(--k-ink-2);font-size:13px;line-height:1.3}
 /* Quasar reserves 56px for the avatar column; the handoff's drawer is a
@@ -402,10 +488,15 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 }
 .k-nav-item .q-icon{font-size:19px}
 .k-nav-item:not(.k-nav-item--active) .q-icon{color:var(--k-muted)!important}
-.k-nav-item--active{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
+/* The artboard lifts this one row a hundredth harder than a card
+   (`rgba(28,26,21,.06)` against the `--k-card-shadow` token's .05), so it
+   carries the value rather than the token. Dark drops it, as every paper
+   surface does there. */
+.k-nav-item--active{background:var(--k-surface);box-shadow:0 1px 2px rgba(28,26,21,.06)}
+.body--dark .k-nav-item--active{box-shadow:none}
 .k-nav-item--active .q-item__label{color:var(--k-ink);font-weight:600}
 .k-nav-item--active .q-icon{color:var(--k-accent-text)!important}
-.k-app-version{color:var(--k-muted)}
+.k-app-version{color:var(--k-muted);padding:24px 24px 0;font-size:11px}
 
 /* ── Typography ───────────────────────────────────────────────────── */
 .k-page-title{color:var(--k-ink);letter-spacing:-.02em}
@@ -418,6 +509,7 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
   color:var(--k-muted-strong)
 }
 .k-muted{color:var(--k-muted)}
+.k-muted-strong{color:var(--k-muted-strong)}
 /* Links are actions: accent text, never the browser's default blue. */
 a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-mono,.k-amount{
@@ -452,13 +544,37 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   color:var(--k-muted-strong)
 }
 .k-table .q-table td{font-size:13.5px;color:var(--k-ink)}
+/* Hairlines, not Quasar's grey: the header rule is a shade stronger than
+   the row rules, which is how artboard `1c` separates the two. */
+.k-table .q-table th{border-bottom:1px solid var(--k-border)}
+.k-table .q-table td{border-bottom:1px solid var(--k-hairline)}
+.k-table .q-table tbody tr:last-child td{border-bottom:none}
 .k-table .q-table tbody tr:hover{background:var(--k-row-hover)}
-.k-dash-page{padding:36px 40px 44px;gap:44px}
+/* A category, as a pill — the ledger's own chip, borrowed by the dashboard's
+   last card. Hairline is the fill artboards `1c` and `2a` both draw it in:
+   a shade under the page, so the pill reads as a label and not a button. */
+.k-cell-chip{
+  background:var(--k-hairline);
+  border-radius:999px;
+  color:var(--k-ink-2);
+  font-size:11.5px;
+  padding:3px 9px
+}
+/* A date in a dense table: mono, muted, and a size down from the row. */
+.k-cell-date{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  color:var(--k-muted)
+}
+.k-dash-page{padding:36px 40px 44px;gap:28px}
 /* 767.98px, not 768px: the tab bar and the server-side layout choice both
    put a 768px-wide window (an iPad in portrait) on the desktop side, and a
    desktop grid with phone padding is neither. */
-@media (max-width:767.98px){.k-dash-page{padding:20px 16px 28px;gap:28px}}
+@media (max-width:767.98px){.k-dash-page{padding:20px 20px 28px;gap:28px}}
 .k-dash-card{border-radius:14px;padding:26px 28px}
+/* 16/18 below the breakpoint, where artboard `1f` tightens the same card for
+   a 390px page. */
+@media (max-width:767.98px){.k-dash-card{padding:16px 18px}}
 .k-account-chip{background:var(--k-surface-sunken)}
 /* Hairline above a card's slow figures (month card footer, artboard 1c). */
 .k-card-footer{border-top:1px solid var(--k-hairline)}
@@ -469,6 +585,14 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   line-height:1.3
 }
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
+.k-card-caption{font-size:11px;color:var(--k-muted);line-height:1.4}
+/* The hero's two supporting lines (artboard `1f`): the sentence under the
+   figure, set in ink-2 with room to breathe, and the three segment labels
+   spread across the bar in muted 11px. */
+.k-hero-rate{font-size:13px;line-height:1.55;color:var(--k-ink-2)}
+.k-hero-legend{font-size:11px;color:var(--k-muted)}
+.k-legend-dot{width:9px;height:9px;border-radius:2px;flex:none}
+.k-legend-line{width:16px;height:2px;flex:none}
 .k-row-hover:hover{background:var(--k-row-hover)}
 .k-hairline-row{border:1px solid var(--k-hairline)}
 .k-hairline-bottom{border-bottom:1px solid var(--k-hairline)}
@@ -625,8 +749,10 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-split{
   display:flex;align-items:stretch;gap:0;
   height:10px;border-radius:999px;overflow:hidden;
-  background:var(--k-surface-sunken)
+  background:var(--k-border)
 }
+/* The safe-to-spend track, at the weight artboard `1f` draws it. */
+.k-split--hero{height:9px;border-radius:5px}
 .k-split-seg{height:100%}
 .k-split-dot{width:8px;height:8px;border-radius:999px;flex:none}
 .k-split--ink{background:var(--k-ink)}
@@ -636,74 +762,64 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-split--spent{background:var(--k-neutral-bar)}
 .k-split--free{background:var(--k-accent-light)}
 
-/* Top bar (artboard 1e) — five sections and a search where a 24-item drawer
-   used to be. Below the breakpoint the tab bar and the drawer take over.
-   `.k-topnav-search` carries the rule too: the button is a sibling of the
-   row, not a child of it, so hiding the row leaves the phone with a wide
-   "Jump to…" pill *and* the `.k-phone-search` icon opening the same dialog. */
-/* The header's own gap: set here rather than with a `gap-3` utility, so
-   the narrow-window rule below can tighten it without an `!important`. */
-.k-header{gap:12px}
-.k-topnav,.q-btn.k-topnav-search{display:none}
-@media (min-width:768px){
-  .k-topnav{display:flex}
-  .q-btn.k-topnav-search{display:inline-flex}
+/* Header (artboards 1c / 2a) — 60px of paper: the wordmark, a hairline, the
+   page you are on, then the search pill, the dark toggle and the avatar.
+   `.k-header-search` carries its own breakpoint: on a phone the pill would
+   be a wide "Jump to…" field beside the `.k-phone-search` icon that opens
+   the same dialog. */
+.k-header{gap:20px}
+.k-header-divider{
+  width:1px;
+  height:20px;
+  flex:none;
+  background:var(--k-border)
 }
-/* `.q-btn.k-topnav-item`, two classes: NiceGUI gives every button
-   `color=primary`, and a single-class rule loses to Quasar's `.text-primary`
-   — the same trick `.q-skeleton.k-skeleton` uses, and for the same reason. */
-.q-btn.k-topnav-item{
-  border-radius:8px;
-  color:var(--k-muted-strong);
-  font-weight:500;
-  letter-spacing:0;
-  min-height:34px;
-  padding:0 10px
+.k-header-page{font-size:13px;color:var(--k-muted)}
+/* Artboard `1f`'s phone header is the wordmark, a search icon and the
+   avatar. The divider and the page name are the wide window's; kept on a
+   390px line they pushed the avatar onto a second row, which a header fixed
+   at 60px shows by dropping it over the page. The page title is the next
+   thing down the page anyway. */
+@media (max-width:767.98px){
+  .k-header-divider,.k-header-page{display:none}
 }
-.q-btn.k-topnav-item:hover{background:var(--k-surface-warm)}
-.q-btn.k-topnav-item.k-topnav-item--active{
-  color:var(--k-accent-text);
-  background:var(--k-surface-warm)
-}
-.k-topnav-menu{
-  background:var(--k-surface);
-  border:1px solid var(--k-border);
-  border-radius:12px;
-  box-shadow:var(--k-card-shadow)
-}
-.q-btn.k-topnav-search{
-  border:1px solid var(--k-border);
+/* `.q-btn.k-*`, two classes: NiceGUI gives every button `color=primary`, and
+   a single-class rule loses to Quasar's `.text-primary` — the same trick
+   `.q-skeleton.k-skeleton` uses, and for the same reason. */
+.q-btn.k-header-search{
+  /* The ground, not sunken sand: the two are one colour in light, and in
+     dark `1d` fills the pill with the page behind the header, not with the
+     lighter grey `--k-surface-sunken` carries. */
+  background:var(--k-ground);
   border-radius:999px;
   color:var(--k-muted);
-  min-height:34px;
-  padding:0 14px
+  font-size:12.5px;
+  font-weight:400;
+  letter-spacing:0;
+  min-height:28px;
+  padding:0 12px
 }
-.q-btn.k-topnav-search:hover{background:var(--k-surface-warm)}
-/* 768-1023px: the bar has five sections, two pinned entries, a pill and
-   three icon buttons to fit on one 60px line, and at 768px it wrapped onto
-   a second one the header has no room for — "Setup" ended up under the
-   others. The two pinned entries and the pill keep their icons and drop
-   their words until there is room for both. The `> *` rule reaches the
-   label Quasar puts inside `.q-btn__content`; the icon is the `.q-icon`. */
-@media (max-width:1023.98px){
-  /* `font-size:0` rather than `display:none`: the label is a Quasar-rendered
-     `span.block` this stylesheet cannot reach with a display rule, and a span
-     set to zero type collapses to zero width just the same. The icon takes
-     its size back on the next line. */
-  .q-btn.k-topnav-pin .q-btn__content,
-  .q-btn.k-topnav-search .q-btn__content{font-size:0}
-  .q-btn.k-topnav-pin .q-btn__content > .q-icon,
-  .q-btn.k-topnav-search .q-btn__content > .q-icon{font-size:1.3rem}
-  .q-btn.k-topnav-pin,.q-btn.k-topnav-search{padding:0 9px}
-  .q-btn.k-topnav-item{padding:0 8px}
-  /* The wordmark and the header's roomier gaps are what the five sections,
-     the pill and the three account controls need back to stay on one line
-     at 768px. The bar's first entry is the dashboard, which is the same
-     anchor the wordmark was. */
-  .k-header .k-wordmark{display:none}
-  .k-header{gap:8px}
-  .q-btn.k-topnav-pin .q-btn__content > .q-icon,
-  .q-btn.k-topnav-search .q-btn__content > .q-icon{margin:0}
+.q-btn.k-header-search .q-icon{font-size:16px}
+.q-btn.k-header-search:hover{background:var(--k-surface-sunken)}
+.q-btn.k-header-icon{color:var(--k-muted)}
+.q-btn.k-header-icon .q-icon{font-size:20px}
+.q-btn.k-avatar{
+  background:var(--k-accent-light);
+  border-radius:999px;
+  color:#241C13;
+  font-size:11.5px;
+  font-weight:600;
+  letter-spacing:0;
+  min-height:28px;
+  min-width:28px;
+  width:28px;
+  height:28px;
+  padding:0
+}
+.q-btn.k-header-search,.q-btn.k-mini-toggle{display:none}
+@media (min-width:768px){
+  .q-btn.k-header-search{display:inline-flex}
+  .q-btn.k-mini-toggle{display:inline-flex}
 }
 .k-drawer-controls,.k-phone-search{display:flex}
 @media (min-width:768px){
@@ -721,6 +837,21 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   padding:9px 10px
 }
 .k-palette-row:hover{background:var(--k-row-hover)}
+
+/* A title-row action (artboards 1c / 2a): paper, hairline, fully round. */
+.q-btn.k-title-action{
+  background:var(--k-surface);
+  border:1px solid var(--k-border);
+  border-radius:999px;
+  color:var(--k-ink-2);
+  font-size:12.5px;
+  font-weight:500;
+  letter-spacing:0;
+  min-height:36px;
+  padding:0 14px
+}
+.q-btn.k-title-action .q-icon{color:var(--k-muted);font-size:17px}
+.q-btn.k-title-action:hover{background:var(--k-surface-warm)}
 
 /* Phone dashboard (artboard 1f) — the bar is the navigation below `md`, and
    the drawer is what "More" opens. Its own breakpoint, for the same reason
@@ -758,9 +889,15 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   border:none;cursor:pointer
 }
 
+/* A band heading, as artboard `1f` sets one: ink rather than muted, and a
+   hairline under it. It is how the phone page is divided, so it is a rule
+   and not a caption. */
 .k-band-title{
-  font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--k-muted)
+  font-size:9.5px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--k-ink);
+  padding-bottom:10px;
+  border-bottom:1px solid var(--k-rule);
+  width:100%
 }
 .k-watch-label{font-size:11px;color:var(--k-muted)}
 .k-watch-figure{
@@ -826,13 +963,19 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   border-radius:4px;
   background:var(--k-hairline)
 }
+/* Artboard `1c` draws two of these at two weights: 8px for the month card's
+   savings pace, which is the card's argument, and 6px under a
+   budget-variance row, which is a row's worth of the same. */
+.k-pace--month{height:8px;border-radius:4px}
+.k-pace--row{height:6px;border-radius:3px}
 .k-pace__fill{position:absolute;top:0;bottom:0;left:0;border-radius:4px}
 .k-pace__tick{
   position:absolute;
   top:-3px;
   width:2px;
-  height:13px;
-  background:var(--k-ink)
+  height:14px;
+  background:var(--k-ink);
+  opacity:.35
 }
 .k-filter-chip{
   display:inline-flex;align-items:center;gap:.4rem;
@@ -871,8 +1014,8 @@ body.k-dragging .k-slot--drop{
 .k-banner,.k-banner .k-banner-item{color:var(--k-on-accent)}
 .k-banner .k-banner-item:hover{text-decoration:underline}
 .k-banner-btn{
-  background:var(--k-surface);
-  color:var(--k-accent-text);
+  background:var(--k-on-accent);
+  color:var(--k-banner-btn-ink);
   font-weight:600;
   font-size:12.5px;
   border-radius:999px;

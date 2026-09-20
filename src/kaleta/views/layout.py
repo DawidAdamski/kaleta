@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+import re
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from importlib.metadata import version as _pkg_version
@@ -10,16 +11,23 @@ from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
 from kaleta.views.theme import (
+    AVATAR,
     BODY_MUTED,
     DRAWER,
     DRAWER_CONTROLS,
     HEADER,
+    HEADER_DIVIDER,
+    HEADER_ICON,
+    HEADER_PAGE,
+    HEADER_SEARCH,
     INK,
+    MINI_TOGGLE,
     MUTED,
     NAV_GROUP,
     NAV_GROUP_ROW,
     NAV_ITEM,
     NAV_ITEM_ACTIVE,
+    NAV_ITEM_PINNED,
     PAGE_CONTAINER,
     PAGE_SHELL,
     PALETTE_CARD,
@@ -30,12 +38,6 @@ from kaleta.views.theme import (
     TAB_BAR_ITEM,
     TAB_BAR_ITEM_ACTIVE,
     TAB_BAR_SPACER,
-    TOP_NAV,
-    TOP_NAV_ITEM,
-    TOP_NAV_ITEM_ACTIVE,
-    TOP_NAV_MENU,
-    TOP_NAV_PIN,
-    TOP_NAV_SEARCH,
     WORDMARK,
     apply_brand,
     theme_css,
@@ -46,13 +48,15 @@ try:
 except Exception:
     _APP_VERSION = "v0.1.0"
 
-# Drawer geometry from the design handoff: 236px expanded, 64px collapsed.
+# Drawer geometry from artboards `1c` (236px, the dashboard) and `2a` (64px
+# mini, the working screens).
 _DRAWER_WIDTH = "width=236"
-# An overlay at every width, closed until something opens it. With artboard
-# `1e` the top bar is the desktop navigation, so a drawer standing open beside
-# it would be the same 24 links twice — and a drawer Quasar considers
-# "desktop" reserves 236px of page gutter whether or not you can see it.
-_DRAWER_BREAKPOINT = "breakpoint=99999"
+# The drawer stops being furniture and becomes an overlay at the same width
+# the tab bar appears at — Quasar would otherwise hand over at 1023px, and a
+# window 768-1023px wide would get neither a docked drawer nor a tab bar.
+_DRAWER_BREAKPOINT = "breakpoint=767"
+_MINI_PROPS = "mini mini-to-overlay mini-width=64"
+_MINI_PROPS_OFF = "mini mini-to-overlay mini-width"
 
 # Pinned entries rendered above the groups: (icon, path, label_key).
 # See docs/ux/feature-categorization-audit.md (Phase A) for the rationale.
@@ -121,29 +125,15 @@ NAV_GROUPS: list[tuple[str, list[tuple[str, str, str]]]] = [
 ]
 
 
-# ── Top bar sections (artboard 1e) ────────────────────────────────────────────
-# The five `NAV_GROUPS` keys, with a short label each: "Monthly cycle" and
-# "Plans & funds" are names for a sidebar heading, not for a bar that has to
-# fit five of them and a search field on one 60px line.
-NAV_SECTIONS: list[tuple[str, str]] = [
-    ("nav.group_capture", "nav.section_capture"),
-    ("nav.group_monthly", "nav.section_monthly"),
-    ("nav.group_plans", "nav.section_plans"),
-    ("nav.group_insight", "nav.section_insight"),
-    ("nav.group_setup", "nav.section_setup"),
-]
-
-
 def nav_destinations() -> list[tuple[str, str, str]]:
     """Every place the app can navigate to, as (icon, path, label_key).
 
     The palette's whole content, and the only list of routes that claims to
-    be complete — the pinned pair first, then each group in bar order.
+    be complete — the pinned pair first, then each group in drawer order.
     """
     destinations = list(NAV_PINNED)
-    groups = dict(NAV_GROUPS)
-    for group_key, _label_key in NAV_SECTIONS:
-        destinations.extend(groups.get(group_key, []))
+    for _group_key, items in NAV_GROUPS:
+        destinations.extend(items)
     return destinations
 
 
@@ -207,65 +197,6 @@ def _tab_bar(drawer: ui.left_drawer, current_path: str) -> None:
                 item.on("click", lambda: drawer.toggle())
             else:
                 item.on("click", lambda p=path: ui.navigate.to(p))
-
-
-def _top_nav(current_path: str, open_palette: Callable[[], None]) -> None:
-    """The desktop navigation: two pinned links, five section menus, a search.
-
-    Hidden below the breakpoint by `.k-topnav`'s own rule, where the tab bar
-    and the drawer take over — the same trap as `.k-tabbar`, and avoided the
-    same way rather than with `hidden md:flex`.
-    """
-    groups = dict(NAV_GROUPS)
-    with ui.row().classes(f"{TOP_NAV} items-center gap-1 min-w-0"):
-        for icon, path, key in NAV_PINNED:
-            active = nav_active(path, current_path)
-            # `color=None`: Quasar's colour helpers are `!important`, so a
-            # button that keeps NiceGUI's default `primary` cannot be given
-            # the bar's own muted ink by any stylesheet rule.
-            item = ui.button(
-                t(key), icon=icon, on_click=lambda p=path: ui.navigate.to(p), color=None
-            ).props("flat no-caps dense")
-            item.classes(
-                f"{TOP_NAV_ITEM} {TOP_NAV_PIN} {TOP_NAV_ITEM_ACTIVE if active else ''}".strip()
-            )
-            item.tooltip(t(key))
-            item.props["data-nav"] = key
-            if active:
-                item.props["aria-current"] = "page"
-
-        for group_key, label_key in NAV_SECTIONS:
-            items = groups.get(group_key, [])
-            active = any(nav_active(path, current_path) for _icon, path, _key in items)
-            # `icon-right=<name>` rather than `icon=`: Quasar's `icon` prop is
-            # the left slot, and `icon-right` is a name, not a flag — passing
-            # it as one put every chevron in front of its label.
-            section = ui.button(t(label_key), color=None).props(
-                "flat no-caps dense icon-right=expand_more"
-            )
-            section.classes(f"{TOP_NAV_ITEM} {TOP_NAV_ITEM_ACTIVE if active else ''}".strip())
-            section.props["data-section"] = group_key
-            if active:
-                section.props["aria-current"] = "page"
-            with section, ui.menu().props("auto-close").classes(TOP_NAV_MENU):
-                for icon, path, key in items:
-                    # The icon goes *inside* the item: `q-item` has no `icon`
-                    # prop, so passing one drew five menus of bare labels while
-                    # the palette beside them — which builds its rows out of
-                    # `ui.icon` — showed the same icons correctly.
-                    entry = ui.menu_item(on_click=lambda p=path: ui.navigate.to(p))
-                    entry.props["data-nav"] = key
-                    with entry, ui.row().classes("items-center gap-3 no-wrap"):
-                        ui.icon(icon, size="1.1rem").classes(MUTED)
-                        ui.label(t(key)).classes("text-sm")
-
-    # No spacer of its own: the pill belongs to the navigation and follows
-    # the sections. `page_layout` puts the one spacer in the header just
-    # after this call, which is what pushes the account controls right —
-    # two spacers split the free space and left the pill floating mid-header.
-    ui.button(t("nav.palette_open"), icon="search", on_click=open_palette).props(
-        "flat no-caps dense"
-    ).classes(TOP_NAV_SEARCH).props("data-palette-open")
 
 
 def _build_palette() -> Callable[[], None]:
@@ -334,6 +265,26 @@ def _build_palette() -> Callable[[], None]:
     return _open
 
 
+def _initials(username: str) -> str:
+    r"""Up to two letters for the header's avatar disc, as the artboards draw it.
+
+    A single account name, not a person's two — so "demo" reads "DE" and
+    "dawid.adamski" reads "DA": the first letter of each of the first two
+    word-ish parts, upper-cased. An empty name falls back to the app's own
+    letter rather than an empty disc.
+
+    ``[\W_]+`` rather than ``[^0-9A-Za-z]+``: ``\W`` is unicode-aware, and
+    this is a Polish app — an ASCII class reads "Łukasz" as a separator
+    followed by "ukasz" and puts "UK" on the disc.
+    """
+    parts = [part for part in re.split(r"[\W_]+", username, flags=re.UNICODE) if part]
+    if not parts:
+        return "K"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][0] + parts[1][0]).upper()
+
+
 def _go(dialog: ui.dialog, path: str | None) -> None:
     if path is None:
         return
@@ -354,7 +305,7 @@ def _go(dialog: ui.dialog, path: str | None) -> None:
 #: The listener clicks the header's own palette button rather than reaching
 #: for the server: the button is already bound to ``open_palette``, and a
 #: programmatic click works whether or not the button is on screen — on a
-#: phone it is hidden by ``.k-topnav-search``'s breakpoint.
+#: phone it is hidden by ``.k-header-search``'s breakpoint.
 _PALETTE_KEY_JS = """
 <script>
 document.addEventListener('keydown', (e) => {
@@ -370,15 +321,13 @@ document.addEventListener('keydown', (e) => {
 
 @contextmanager
 def page_layout(title: str, *, wide: bool = False, container: str | None = None) -> Generator[None]:
-    """Shared layout: header + top nav + left drawer + main content area.
+    """Shared layout: header + left drawer + main content area.
 
-    ``title`` names the page for the browser tab. It left the header itself
-    with artboard `1e`, where the active section says where you are and a
-    60px bar has five sections and a search to fit — so it is set on the
-    document, which is the one place a page's name was never shown before.
+    ``title`` names the page twice, the way artboards `1c` and `2a` draw it:
+    on the browser tab, and in the header after the wordmark and its hairline.
 
     ``container`` swaps the content column's classes — the dashboard asks for
-    its own padding and band gap (``DASH_PAGE_CONTAINER``); every other page
+    its own padding and grid gap (``DASH_PAGE_CONTAINER``); every other page
     keeps ``PAGE_CONTAINER``.
     """
     from kaleta.config.setup_config import is_configured
@@ -398,16 +347,30 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     ui.timer(0.01, maybe_auto_post_due, once=True)
 
     is_dark: bool = app.storage.user.get("dark_mode", False)
+    is_mini: bool = app.storage.user.get("sidebar_mini", False)
 
     dark_mode = ui.dark_mode(value=is_dark)
-    drawer: Any
-    toggle_btn: Any
-    close_dialog: Any
+    # Forward declarations for the closures below, which are defined before
+    # the elements they reach for. Named types rather than `Any`: these are
+    # ordinary NiceGUI classes and there is nothing to erase.
+    drawer: ui.left_drawer
+    toggle_btn: ui.button
+    mini_btn: ui.button
+    close_dialog: ui.dialog
 
     def toggle_dark() -> None:
         dark_mode.toggle()
         app.storage.user["dark_mode"] = dark_mode.value
         toggle_btn.props(f"icon={'light_mode' if dark_mode.value else 'dark_mode'}")
+
+    def toggle_mini() -> None:
+        new_mini = not app.storage.user.get("sidebar_mini", False)
+        app.storage.user["sidebar_mini"] = new_mini
+        if new_mini:
+            drawer.props(_MINI_PROPS)
+        else:
+            drawer.props(remove=_MINI_PROPS_OFF)
+        mini_btn.props(f"icon={'chevron_right' if new_mini else 'chevron_left'}")
 
     ui.query("body").classes(PAGE_SHELL)
 
@@ -418,19 +381,37 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
 
     open_palette = _build_palette()
 
-    with ui.header().classes(f"{HEADER} items-center px-4 h-[60px]"):
-        # The hamburger is the phone's, where the drawer is the long tail and
+    session_username: str = app.storage.user.get("username", "")
+
+    with ui.header().classes(f"{HEADER} items-center px-6 h-[60px]"):
+        # The hamburger is the phone's, where the drawer is an overlay and
         # the tab bar's "More" opens the same thing. Above the breakpoint the
-        # top bar is the navigation and a hamburger beside it is noise. The
-        # mini toggle went with it: there is no docked drawer left to shrink,
-        # and `sidebar_mini` is now read by nothing.
+        # drawer is docked and the mini toggle beside the page name is what
+        # shrinks it to the 64px rail artboard `2a` draws.
         with ui.row().classes(f"{DRAWER_CONTROLS} items-center gap-1"):
             ui.button(icon="menu", on_click=lambda: drawer.toggle()).props(
                 "flat round dense color=primary"
             )
         ui.label("Kaleta").classes(f"{WORDMARK} k-heading text-[17px] font-semibold tracking-tight")
-        _top_nav(current_path, open_palette)
+        ui.element("span").classes(HEADER_DIVIDER)
+        ui.label(title).classes(HEADER_PAGE)
+        mini_btn = (
+            ui.button(
+                icon="chevron_right" if is_mini else "chevron_left",
+                on_click=toggle_mini,
+                color=None,
+            )
+            .props("flat round dense data-drawer-mini-toggle")
+            .classes(f"{MINI_TOGGLE} {HEADER_ICON}")
+            .tooltip(t("common.toggle_sidebar"))
+        )
         ui.space()
+        # The artboard labels this pill "Search transactions, payees…". What
+        # is behind it is the ⌘K palette, which finds routes — so it keeps the
+        # honest label until a data search exists to put there.
+        ui.button(t("nav.palette_open"), icon="search", on_click=open_palette, color=None).props(
+            "flat no-caps dense data-palette-open"
+        ).classes(HEADER_SEARCH)
         ui.button(icon="search", on_click=open_palette).props(
             "flat round dense color=primary"
         ).classes(PHONE_SEARCH).tooltip(t("nav.palette_open"))
@@ -438,12 +419,12 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
             ui.button(
                 icon="light_mode" if is_dark else "dark_mode",
                 on_click=toggle_dark,
+                color=None,
             )
-            .props("flat round dense color=primary")
+            .props("flat round dense")
+            .classes(HEADER_ICON)
             .tooltip(t("common.toggle_dark"))
         )
-
-        session_username: str = app.storage.user.get("username", "")
 
         async def _logout() -> None:
             from kaleta.auth.session import logout_session
@@ -457,12 +438,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
             await with_session(_record)
             logout_session()
             ui.navigate.to("/login")
-
-        account_btn = ui.button(icon="account_circle").props("flat round dense color=primary")
-        with account_btn, ui.menu():
-            if session_username:
-                ui.menu_item(session_username).props("disable")
-            ui.menu_item(t("auth.logout"), on_click=_logout).props("icon=logout")
 
         async def _close_db() -> None:
             from kaleta.config.setup_config import clear_db
@@ -483,28 +458,39 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                     on_click=_close_db,
                 ).props("color=negative unelevated")
 
-        ui.button(
-            icon="eject",
-            on_click=close_dialog.open,
-        ).props("flat round dense color=primary").tooltip(t("common.close_db"))
+        # The artboards end the header with a 28px initials disc and nothing
+        # else, so the two controls that used to sit beside it — logout and
+        # "close database" — moved into the menu it already dropped.
+        account_btn = (
+            ui.button(_initials(session_username), color=None)
+            .props("flat dense no-caps")
+            .classes(AVATAR)
+            .tooltip(session_username or t("auth.logout"))
+        )
+        with account_btn, ui.menu():
+            if session_username:
+                ui.menu_item(session_username).props("disable")
+            ui.menu_item(t("auth.logout"), on_click=_logout).props("icon=logout")
+            ui.menu_item(t("common.close_db"), on_click=close_dialog.open).props("icon=eject")
 
     # No explicit value: NiceGUI then sets Quasar's `show-if-above`, which
     # opens the drawer on a desktop and leaves it shut on a phone. Forcing it
     # open (`value=True`) covered the whole page below the breakpoint, where
     # the drawer is an overlay and "More" in the tab bar is what opens it.
-    #
     with ui.left_drawer().props(f"{_DRAWER_WIDTH} {_DRAWER_BREAKPOINT}").classes(DRAWER) as drawer:
-        # Pinned entries — always visible, above the workflow groups.
+        if is_mini:
+            drawer.props(_MINI_PROPS)
+        # Pinned entries — always visible, above the workflow groups. No rule
+        # under them: artboard `1c` separates them from the first group with
+        # the group's own eyebrow padding, not with a line.
         for icon, path, key in NAV_PINNED:
             active = _nav_active(path)
-            item_cls = f"{NAV_ITEM} {NAV_ITEM_ACTIVE if active else ''}".strip()
+            item_cls = f"{NAV_ITEM} {NAV_ITEM_PINNED} {NAV_ITEM_ACTIVE if active else ''}".strip()
             with ui.item(on_click=lambda p=path: ui.navigate.to(p)).classes(item_cls):
                 with ui.item_section().props("avatar"):
                     ui.icon(icon)
                 with ui.item_section():
                     ui.item_label(t(key))
-
-        ui.separator().classes("mx-4 my-2 opacity-60")
 
         # Collapse state persisted per user across page loads
         nav_collapsed: dict[str, bool] = dict(app.storage.user.get("nav_collapsed", {}))
@@ -517,7 +503,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                 ui.label(t(group_key)).classes(NAV_GROUP)
                 chevron = ui.icon(
                     "keyboard_arrow_down" if is_col else "keyboard_arrow_up", size="xs"
-                ).classes("text-slate-400")
+                ).classes(MUTED)
 
             # Items container — hidden when collapsed
             with ui.column().classes("w-full gap-0") as items_col:
@@ -546,15 +532,18 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
 
             hdr.on("click", _make_toggle(group_key, items_col, chevron))
 
-        ui.separator().classes("mx-4 my-2 opacity-60")
+        # The artboard's index ends at Setup; the app has one more route to
+        # offer and no group to put it in, so it keeps a hairline of its own.
+        ui.separator().classes("mx-6 mt-4 mb-1 opacity-60")
         with ui.item(on_click=lambda: ui.navigate.to("/api-docs", new_tab=True)).classes(NAV_ITEM):
             with ui.item_section().props("avatar"):
-                ui.icon("api").classes("text-secondary")
+                ui.icon("api")
             with ui.item_section():
                 ui.item_label(t("nav.api_docs"))
 
         ui.space()
-        ui.label(_APP_VERSION).classes("k-app-version k-mono text-xs text-center pb-3 w-full")
+        # Left-aligned under the index, in mono, where artboard `1c` puts it.
+        ui.label(_APP_VERSION).classes("k-app-version k-mono w-full")
 
     # ── Keyboard shortcuts help dialog (press ?) ──────────────────────────
     with ui.dialog() as shortcuts_dialog, ui.card().classes("w-[480px] gap-3"):

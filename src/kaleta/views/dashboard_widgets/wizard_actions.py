@@ -69,7 +69,7 @@ def _render_row(item: ActionItem) -> None:
         .on("click", lambda _e=None, href=item.href: ui.navigate.to(href))
     ):
         ui.icon(_SEVERITY_ICON[item.severity], size="1rem").classes(f"{ON_ACCENT} shrink-0")
-        ui.label(t(item.title_key, **params)).classes("text-sm font-medium")
+        ui.label(t(item.title_key, **params)).classes("text-[15px] font-medium")
 
 
 @register(
@@ -98,24 +98,29 @@ async def render_wizard_actions(session: AsyncSession, is_dark: bool) -> None:  
         # Wraps rather than `no-wrap`: on a phone the banner is full width and
         # `no-wrap` squeezed the message into a two-word column beside a button
         # that kept its own width. With room it still sits on one line.
-        ui.row().classes("w-full items-center gap-4 px-6 py-4"),
+        ui.row().classes("w-full items-center gap-[18px] px-6 py-[18px]"),
     ):
-        ui.icon("auto_awesome", size="1.3rem").classes(ON_ACCENT)
+        ui.icon("auto_awesome", size="22px").classes(ON_ACCENT)
         # A floor, not `min-w-0`: a flex item shrinks before its row wraps, so
         # with nothing to stop it the message column collapsed to one word per
         # line beside a button that would not give up any width.
-        with ui.column().classes("gap-0.5 flex-1 min-w-[180px]"):
+        with ui.column().classes("gap-[3px] flex-1 min-w-[180px]"):
             ui.label(t("dashboard_widgets.wizard_actions")).classes(f"k-eyebrow {ON_ACCENT}")
             with ui.row().classes("items-baseline gap-2 flex-wrap wizard-actions-list"):
                 for index, item in enumerate(shown):
                     if index:
-                        ui.label("·").classes("text-sm opacity-60")
+                        ui.label("·").classes("text-[15px] opacity-60")
                     _render_row(item)
                 if len(items) > MAX_ROWS:
                     ui.label(
                         t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS)
                     ).classes("text-sm opacity-80")
+        # `color=None`: Quasar's colour helpers are `!important`, so a button
+        # that keeps NiceGUI's default `primary` cannot be given the paper
+        # the artboard fills this pill with by any stylesheet rule — it drew
+        # the accent on the accent, which is a label and not a button.
         ui.button(
             t("dashboard_widgets.wizard_actions_open"),
             on_click=lambda: ui.navigate.to("/wizard"),
+            color=None,
         ).props("unelevated no-caps dense").classes("k-banner-btn shrink-0")

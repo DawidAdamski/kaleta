@@ -193,8 +193,17 @@ def test_no_constant_carries_a_tailwind_palette_class() -> None:
 
 def test_nav_items_use_the_handoff_type_and_gutter() -> None:
     # 13px labels and a 19px icon column are what let 236px hold the long
-    # entries on one line; a fixed height would clip a wrap.
-    assert "min-h-11" in theme.NAV_ITEM
+    # entries on one line; a minimum height would clip a wrap.
+    # 44px is the phone's tap target; on a desktop the padding sets the row,
+    # as the artboard writes it — 7px in a group, 8px for a pinned entry,
+    # which is 33px and 35px around a 19px icon. Sixteen entries at 44px do
+    # not fit a 900px window.
+    assert "min-height:44px" in _block(theme.BASE_CSS, ".k-nav-item")
+    assert ".k-nav-item{min-height:0;padding-top:7px;padding-bottom:7px}" in theme.BASE_CSS
+    assert ".k-nav-item--pinned{padding-top:8px;padding-bottom:8px}" in theme.BASE_CSS
+    # The entry fills the drawer less its margins, or the active one is a
+    # pill the width of its own label.
+    assert "self-stretch" in theme.NAV_ITEM
     assert "font-size:13px" in _block(theme.BASE_CSS, ".k-nav-item .q-item__label")
     avatar = _block(theme.BASE_CSS, ".k-nav-item .q-item__section--avatar")
     # 19px glyph + 12px gutter — the column must hold the icon, and the icon
@@ -259,10 +268,19 @@ def test_pace_track_matches_the_handoff_geometry() -> None:
 
 
 def test_pace_tick_is_an_ink_marker() -> None:
+    # 14px of 2px ink at 35% — artboard `1c` marks the target without
+    # putting a second full-strength line on a bar that already carries one.
     block = _block(theme.BASE_CSS, ".k-pace__tick")
     assert "width:2px" in block
-    assert "height:13px" in block
+    assert "height:14px" in block
     assert "background:var(--k-ink)" in block
+    assert "opacity:.35" in block
+
+
+def test_the_two_pace_weights_are_shipped() -> None:
+    # 8px on the month card's savings pace, 6px under a budget-variance row.
+    assert "height:8px" in _block(theme.BASE_CSS, ".k-pace--month")
+    assert "height:6px" in _block(theme.BASE_CSS, ".k-pace--row")
 
 
 def test_filter_chip_classes_are_shipped() -> None:
