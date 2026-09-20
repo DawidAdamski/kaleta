@@ -27,7 +27,7 @@ from kaleta.views.theme import (
     FIELD_SELECT_UNSET,
     MONO,
     MUTED,
-    SECTION_CARD,
+    SECTION_CARD_WIDE,
     SECTION_HEADING,
     SECTION_TITLE,
     TABLE_SURFACE,
@@ -446,7 +446,7 @@ def build_mapping_section() -> MappingSection:
     card = ui.element("div").classes("w-full k-mapping-grid")
     card.set_visibility(False)
     with card:
-        with ui.column().classes(f"{SECTION_CARD} gap-0 self-start"):
+        with ui.column().classes(f"{SECTION_CARD_WIDE} gap-0 self-start"):
             ui.label(t("import.mapping_sample")).classes(SECTION_HEADING)
             meta_label = ui.label("").classes(f"{MONO} {MUTED} text-[11.5px] mt-[5px] mb-4")
             sample_table = (
@@ -465,7 +465,7 @@ def build_mapping_section() -> MappingSection:
             warning_strip.set_visibility(False)
             errors_column = ui.column().classes("w-full gap-0.5 mt-2")
 
-        with ui.column().classes(f"{SECTION_CARD} gap-0 self-start"):
+        with ui.column().classes(f"{SECTION_CARD_WIDE} gap-0 self-start"):
             ui.label(t("import.mapping_section")).classes(SECTION_HEADING)
             ui.label(t("import.mapping_hint")).classes(f"{BODY_MUTED} mt-[5px] mb-[18px]")
             with ui.column().classes("w-full gap-3"):

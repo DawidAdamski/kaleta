@@ -86,7 +86,7 @@ def test_budget_totals_reflect_seeded_entries(page: Page, base_url: str) -> None
     expect(page.get_by_text("Food Totals Update E2E")).to_be_visible(timeout=5000)
 
     # Yearly total for this category should be 9,600
-    expect(page.get_by_text("9,600").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("9 600").first).to_be_visible(timeout=5000)
 
 
 # ---------------------------------------------------------------------------
@@ -128,7 +128,7 @@ def test_set_uniform_amount_for_all_months(page: Page, base_url: str) -> None:
     dialog.get_by_role("button", name="Apply to all 12 months").click()
 
     # Annual total for Transport should now be 3,600 (300 × 12)
-    expect(page.get_by_text("3,600").first).to_be_visible(timeout=5000)
+    expect(page.get_by_text("3 600").first).to_be_visible(timeout=5000)
 
 
 # ---------------------------------------------------------------------------

@@ -7,6 +7,7 @@ import builtins
 import calendar
 import datetime
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -458,6 +459,33 @@ class PlannedTransactionService:
         fetched = await self._get_transaction(tx.id)
         assert fetched is not None
         return fetched
+
+    async def post_occurrences(
+        self,
+        occurrences: Sequence[PlannedOccurrence],
+    ) -> builtins.list[Transaction]:
+        """Post exactly these occurrences and nothing else (idempotent).
+
+        ``post_due`` decides for itself what is due, by a window and a date.
+        This posts the list it was handed, which is what a caller needs when
+        it has already shown the user a set of occurrences and offered to
+        post *that* set — a button labelled with a count must not post more
+        rows than it counted. One commit, so the whole set lands or none of
+        it does.
+        """
+        posted: builtins.list[Transaction] = []
+        for occ in occurrences:
+            posted.append(await self._ensure_posted(occ.planned_id, occ.date))
+        if not posted:
+            return []
+        await self._session.commit()
+        results: builtins.list[Transaction] = []
+        for tx in posted:
+            fetched = await self._get_transaction(tx.id)
+            assert fetched is not None
+            results.append(fetched)
+        logger.info("Posted %s named planned occurrence(s)", len(results))
+        return results
 
     async def post_due(
         self,

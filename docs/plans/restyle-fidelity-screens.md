@@ -54,8 +54,12 @@ traffic first): `2a`, `2b`, `3c`, `3b`, `3a`, `2c`, `2d`, `3d`, `3e`, `3f`.
   occurrence for `3c`, no over-budget row for `2b`), extend the script's
   `_prepare_*` hook or the seed — do not mark the element `deviation` for
   want of data.
-- Existing `KAL-` scenarios keep passing unchanged. A selector that moves is
-  updated in the test; an assertion is not loosened (Working Agreement §4).
+- Existing `KAL-` scenarios keep passing. A selector that moves is updated in
+  the test; an assertion is not loosened (Working Agreement §4). Where an
+  artboard renames the thing a scenario quotes — a step title, a heading, the
+  place a strip sits — the scenario is re-worded with it (Working Agreement
+  §5) and the re-wording is listed in `## Implementation notes`. What a
+  scenario claims does not change; only the words it quotes from the screen.
 
 Out of scope: new behaviour, service changes, the phone pass for screens
 other than `3f`, artboards `1a` / `1b` / `1e`. If a screen's `open` rows turn
@@ -130,6 +134,39 @@ If one screen alone is more than a day's work, split it out into
 - **`views_hash` covers `theme.py`.** Any token change invalidates every
   report, so all ten were written after the last source change and
   `shoot all` was run once more before `check`.
+- **The artboards draw three card paddings, so the app has three.**
+  20px (`SECTION_CARD`) where a card holds a grid or a chart that wants
+  the room; `22px 24px` (`SECTION_CARD_WIDE`) on `2d`'s two mapping
+  cards, `3a`'s two foot cards, `3b`'s physical assets, `3c`'s day sheet
+  and `3e`'s sentence; `24px 26px` (`SECTION_CARD_FEATURE`) on the one
+  card a screen is about — `3a`'s chart, `3b`'s chart, `3d`'s mentor
+  note, `3e`'s result. Five reports had called `22px 24px` a match for
+  `SECTION_CARD`'s 20px and four had done the same for `24px 26px`; they
+  now match because the padding does, not because the row says so.
+- **Two warm sands, because the artboards draw two.** `2a` tints the
+  selection bar `#EFE3D6` (`--k-surface-warm-strong`); `2d`'s
+  unparseable-rows note and `3c`'s Overdue card and strip are a step
+  lighter at `#F4E9DC`, which is now `--k-surface-notice`. The first
+  pass called the difference a fourth sand nothing wanted, which was
+  wrong: three elements across two artboards want it.
+- **The thousands separator is a space, through one function.** The
+  restyled screens were each doing `.replace(",", " ")` at the point of
+  use, which left `2c` writing `2,400` beside `3c` writing `2 400`.
+  `spaced_thousands` in `views/components/amount_label.py` is the one
+  place that knows, and `budget_plan.helpers.format_amount` — the only
+  other writer of a grouped figure on these ten screens — goes through
+  it too. Screens outside this plan still write Python's comma; that is
+  the next plan's to finish, not this one's to leave half-done on a
+  screen it did restyle.
+- **The strip's button posts through the service, not in the view.**
+  `_post_overdue` looped over `post_occurrence` with a session each, so
+  the orchestration — and the atomicity — lived in `views/`.
+  `PlannedTransactionService.post_occurrences` takes the list and
+  commits once; the view calls it once and counts what came back. Three
+  unit tests cover it.
+- **The seed's canonical tags carry sand colours.** A tag chip is drawn
+  as an outline in its own colour, and the model's grey default read as
+  "no tag" beside a category pill in `2a`'s shot.
 
 ### What the comparison fixed rather than recorded
 
@@ -195,3 +232,16 @@ missing capability rather than a design choice:
 
 All five are new behaviour or service changes, which this plan's Scope
 puts out of bounds.
+
+One more needs the owner's nod for the opposite reason — it is a change
+the artboard asked for rather than one it was refused:
+
+- `3e`'s bar result is rows of HTML, not an ECharts canvas. Scope puts
+  "ECharts options" in bounds and the artboards' SVG sketches out of
+  them, and this sits between the two: artboard `3e` draws the bar
+  result as a labelled rule per row with the figure and the share beside
+  it, which is a list and not a chart, and no option on an ECharts bar
+  produces it. `_bar_options` went with the canvas; `KAL-RPT-002` and
+  `test_the_bar_result_reads_as_rows` cover what replaced it, and
+  `report_chart_options` still answers for the three types that really
+  are charts.

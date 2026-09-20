@@ -39,6 +39,7 @@ from kaleta.services.planned_transaction_service import (
     MonthGrid,
     PlannedOccurrence,
 )
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS
@@ -73,6 +74,7 @@ from kaleta.views.theme import (
     PAGE_TITLE,
     RAIL_EYEBROW,
     SECTION_CARD,
+    SECTION_CARD_WIDE,
     SECTION_TITLE,
     STAT_CARD,
     STAT_CARD_FIGURE,
@@ -175,7 +177,7 @@ def overdue_age_label(occ_date: datetime.date, today: datetime.date) -> str:
 
 
 def _fmt(amount: Decimal) -> str:
-    return f"{amount:,.2f}".replace(",", " ")
+    return spaced_thousands(f"{amount:,.2f}")
 
 
 def _fmt_cell(amount: Decimal) -> str:
@@ -187,7 +189,7 @@ def _fmt_cell(amount: Decimal) -> str:
     """
     whole = amount == amount.to_integral_value()
     body = f"{amount:,.0f}" if whole else f"{amount:,.2f}"
-    return body.replace(",", " ")
+    return spaced_thousands(body)
 
 
 def _add_months(d: datetime.date, months: int) -> datetime.date:
@@ -371,22 +373,18 @@ def register() -> None:
             Not `post_due`: that posts everything due up to today, including
             items dated today that the strip does not list - and a button
             labelled with the strip's own count would then have posted more
-            than it counted.
+            than it counted. `post_occurrences` takes the list.
             """
-            posted = 0
-            for occ in list(overdue):
-                try:
+            try:
 
-                    async def _run(session: Any, o: PlannedOccurrence = occ) -> None:
-                        await PlannedTransactionService(session).post_occurrence(
-                            o.planned_id, o.date
-                        )
+                async def _run(session: Any) -> int:
+                    service = PlannedTransactionService(session)
+                    return len(await service.post_occurrences(overdue))
 
-                    await with_session(_run)
-                except KaletaError as exc:
-                    notify_kaleta_error(exc)
-                    continue
-                posted += 1
+                posted = await with_session(_run)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+                return
             if posted:
                 ui.notify(t("payment_calendar.posted_all", count=posted), type="positive")
             await _refresh()
@@ -600,7 +598,7 @@ def register() -> None:
             # The month and the day you picked out of it, side by side.
             with ui.row().classes("w-full gap-5 items-start no-wrap"):
                 grid_container = ui.column().classes(f"{SECTION_CARD} flex-1 min-w-0 gap-0 !p-5")
-                day_panel = ui.column().classes(f"{SECTION_CARD} {DAY_PANEL} gap-0")
+                day_panel = ui.column().classes(f"{SECTION_CARD_WIDE} {DAY_PANEL} gap-0")
 
             async def _refresh() -> None:
                 y, m = state["year"], state["month"]

@@ -6,6 +6,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from kaleta.services.budget_service import PlanCategoryRow
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.theme import ACCENT_TEXT, AMOUNT_EXPENSE, INK, MUTED
 
 
@@ -23,7 +24,7 @@ def recurring_display(row: PlanCategoryRow) -> tuple[str, str]:
 
 
 def format_amount(amount: Decimal | None) -> str:
-    return f"{amount:,.0f}" if amount else "—"
+    return spaced_thousands(f"{amount:,.0f}") if amount else "—"
 
 
 def plan_cell_color(amount: Decimal | None, is_override: bool) -> str:

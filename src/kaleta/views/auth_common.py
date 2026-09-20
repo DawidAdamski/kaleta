@@ -20,6 +20,7 @@ from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
 from kaleta.services import with_session
 from kaleta.services.auth_stats_service import AuthLandingStats, AuthStatsService
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.theme import (
     ACCENT_TEXT,
     AUTH_FIELD,
@@ -61,7 +62,12 @@ def app_version() -> str:
         return "v0.1.0"
 
 
-def auth_field(label_key: str, **kwargs: Any) -> ui.input:
+def auth_field(
+    label_key: str,
+    *,
+    password: bool = False,
+    password_toggle_button: bool = False,
+) -> ui.input:
     """One field with its name above it, the way artboard `3f` draws them.
 
     Quasar floats a label inside the control; the artboard sets it outside as
@@ -69,7 +75,11 @@ def auth_field(label_key: str, **kwargs: Any) -> ui.input:
     """
     with ui.column().classes("w-full gap-0"):
         ui.label(t(label_key)).classes(AUTH_FIELD_LABEL)
-        field = ui.input(**kwargs).props("borderless").classes(f"{AUTH_FIELD} w-full")
+        field = (
+            ui.input(password=password, password_toggle_button=password_toggle_button)
+            .props("borderless")
+            .classes(f"{AUTH_FIELD} w-full")
+        )
         # Quasar's own label is what a screen reader reads; the eyebrow is
         # type on the page and announces nothing.
         field.props["aria-label"] = t(label_key)
@@ -186,5 +196,5 @@ def _side_panel(stats: AuthLandingStats | None) -> None:
                 (stats.months, "auth.panel_count_months"),
             ):
                 with ui.column().classes("gap-[3px]"):
-                    ui.label(f"{value:,}".replace(",", " ")).classes(AUTH_PANEL_FIGURE)
+                    ui.label(spaced_thousands(f"{value:,}")).classes(AUTH_PANEL_FIGURE)
                     ui.label(t(label_key)).classes(AUTH_PANEL_LABEL)

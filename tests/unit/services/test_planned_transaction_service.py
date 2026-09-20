@@ -604,6 +604,82 @@ class TestPostOccurrence:
         assert count == 1
 
 
+class TestPostOccurrences:
+    """The overdue strip on the Payment Calendar posts the list it drew."""
+
+    async def test_it_posts_the_list_it_was_given_and_no_more(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-020
+
+        `post_due` would take the whole window; this takes two of its four
+        occurrences, which is what a button labelled "Post 2" has to do.
+        """
+        acc_id = await _make_account(session, name="PKO Main")
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Groceries",
+                amount=Decimal("300.00"),
+                frequency=RecurrenceFrequency.WEEKLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        window = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 22),
+            exclude_posted=True,
+        )
+        assert len(window) == 4
+
+        posted = await svc.post_occurrences(window[:2])
+
+        assert len(posted) == 2
+        assert {tx.date for tx in posted} == {
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 8),
+        }
+        assert all(tx.planned_transaction_id == pt.id for tx in posted)
+        left = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 22),
+            exclude_posted=True,
+        )
+        assert {o.date for o in left} == {
+            datetime.date(2025, 1, 15),
+            datetime.date(2025, 1, 22),
+        }
+
+    async def test_reposting_the_same_list_creates_nothing_new(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-017"""
+        acc_id = await _make_account(session)
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        window = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 31),
+            exclude_posted=True,
+        )
+        first = await svc.post_occurrences(window)
+        again = await svc.post_occurrences(window)
+        assert [tx.id for tx in first] == [tx.id for tx in again]
+        assert all(tx.planned_transaction_id == pt.id for tx in first)
+
+    async def test_an_empty_list_posts_nothing(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        assert await svc.post_occurrences([]) == []
+
+
 class TestPostDue:
     async def test_post_all_due_posts_weekly_window(
         self, svc: PlannedTransactionService, session: AsyncSession

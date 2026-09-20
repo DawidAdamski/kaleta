@@ -82,4 +82,4 @@ class TestFormatAmount:
         assert format_amount(Decimal("0")) == "—"
 
     def test_a_figure_keeps_its_separator_and_drops_its_cents(self) -> None:
-        assert format_amount(Decimal("1234.56")) == "1,235"
+        assert format_amount(Decimal("1234.56")) == "1 235"

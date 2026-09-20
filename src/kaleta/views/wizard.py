@@ -24,6 +24,7 @@ from kaleta.services import (
     with_session,
 )
 from kaleta.services.wizard_mentor_service import MentorSuggestion, WizardMentorService
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     ACCENT_RULE,
@@ -42,7 +43,7 @@ from kaleta.views.theme import (
     PAGE_TITLE,
     ROUTINE_DESC,
     ROUTINE_ROW,
-    SECTION_CARD,
+    SECTION_CARD_FEATURE,
     SECTION_RULE,
     SECTION_RULE_TITLE,
     SECTION_TITLE,
@@ -214,7 +215,7 @@ def register() -> None:
             t("wizard.setup_categories_count", expense=n_expense_cats, income=n_income_cats),
             t(
                 plural_key("wizard.setup_import_count", n_transactions),
-                count=f"{n_transactions:,}".replace(",", " "),
+                count=spaced_thousands(f"{n_transactions:,}"),
             ),
         ]
 
@@ -244,8 +245,8 @@ def register() -> None:
                 visible = [s for s in mentor_suggestions if s.key not in dismissed]
 
                 with (
-                    ui.card().classes(f"{SECTION_CARD} {ACCENT_RULE} gap-0 !p-0"),
-                    ui.row().classes("w-full items-start gap-5 px-[26px] py-6 no-wrap"),
+                    ui.card().classes(f"{SECTION_CARD_FEATURE} {ACCENT_RULE} gap-0"),
+                    ui.row().classes("w-full items-start gap-5 no-wrap"),
                 ):
                     ui.icon("lightbulb", size="26px").classes(f"{ACCENT_TEXT} mt-0.5 flex-none")
                     mentor_slot = ui.column().classes("flex-1 min-w-0 gap-0")

@@ -9,6 +9,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services.saved_report_service import ReportResult, build_report_table_data
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.reports.chart_options import report_chart_options
 from kaleta.views.reports.sentence import chart_title, share_percents
 from kaleta.views.theme import (
@@ -56,7 +57,7 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
             if result.values:
                 total = sum(result.values)
                 ui.label(
-                    t("reports.result_total", amount=f"{total:,.2f}".replace(",", " "))
+                    t("reports.result_total", amount=spaced_thousands(f"{total:,.2f}"))
                 ).classes(RESULT_TOTAL)
 
         if not result.labels:
@@ -102,7 +103,7 @@ def _bar_rows(result: ReportResult) -> None:
                     ui.element("span").classes(REPORT_BAR_FILL).style(
                         f"width:{width:.2f}%;background:{bar_ramp(rank, len(result.labels))}"
                     )
-                ui.label(f"{value:,.2f}".replace(",", " ")).classes(
+                ui.label(spaced_thousands(f"{value:,.2f}")).classes(
                     f"{MONO} {INK} text-[13px] font-medium text-right"
                 )
                 ui.label(f"{share:.0f}%").classes(f"{MONO} {MUTED} text-[12px] text-right")

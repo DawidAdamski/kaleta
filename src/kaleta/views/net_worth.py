@@ -46,6 +46,8 @@ from kaleta.views.theme import (
     PAGE_EYEBROW,
     PAGE_ROOMY,
     SECTION_CARD,
+    SECTION_CARD_FEATURE,
+    SECTION_CARD_WIDE,
     SHEET_HEAD,
     SHEET_ROW,
     SPLIT_BAR,
@@ -504,7 +506,7 @@ def register() -> None:
                     _balance_sheet_bar(summary, default_currency)
 
                 with ui.card().classes(
-                    f"{SECTION_CARD} w-full lg:w-[420px] lg:flex-none min-w-0 gap-0"
+                    f"{SECTION_CARD_WIDE} w-full lg:w-[420px] lg:flex-none min-w-0 gap-0"
                 ):
                     with ui.row().classes("w-full items-center justify-between mb-3.5"):
                         ui.label(t("net_worth.physical_assets")).classes(CARD_TITLE_SM)
@@ -514,7 +516,7 @@ def register() -> None:
                     _physical_assets_section(summary)
 
             # ── Stacked trend chart ───────────────────────────────────────────
-            with ui.card().classes(f"{SECTION_CARD} gap-0"):
+            with ui.card().classes(f"{SECTION_CARD_FEATURE} gap-0"):
                 with ui.row().classes("w-full items-baseline justify-between mb-4"):
                     with ui.column().classes("gap-1 min-w-0"):
                         ui.label(t("net_worth.history")).classes(CARD_TITLE)

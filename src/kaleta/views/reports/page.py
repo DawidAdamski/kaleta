@@ -18,6 +18,7 @@ from kaleta.services import (
     with_session,
 )
 from kaleta.services.saved_report_service import ReportConfig, report_config_from_builder_state
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.layout import page_layout
 from kaleta.views.reports.chart_zone import build_chart_zone
 from kaleta.views.reports.config_zone import build_config_zone
@@ -29,7 +30,8 @@ from kaleta.views.theme import (
     PAGE_FLUSH,
     PAGE_GAP_22,
     PAGE_TITLE,
-    SECTION_CARD,
+    SECTION_CARD_FEATURE,
+    SECTION_CARD_WIDE,
     SECTION_TITLE,
     TITLE_ACTION,
     TITLE_ACTION_PRIMARY,
@@ -237,7 +239,7 @@ async def reports_page() -> None:
         which = state["report_name"] or t("reports.unsaved")
         scope = t(
             plural_key("reports.eyebrow_scope", n_transactions),
-            count=f"{n_transactions:,}".replace(",", " "),
+            count=spaced_thousands(f"{n_transactions:,}"),
         )
         return f"{which} · {scope}"
 
@@ -262,7 +264,7 @@ async def reports_page() -> None:
         await palette_zone()
         with ui.column().classes(f"{PAGE_CONTAINER} {PAGE_GAP_22} flex-1 min-w-0"):
             header()
-            with ui.card().classes(f"{SECTION_CARD} gap-0 w-full"):
+            with ui.card().classes(f"{SECTION_CARD_WIDE} gap-0 w-full"):
                 config_zone()
-            with ui.card().classes(f"{SECTION_CARD} gap-0 w-full"):
+            with ui.card().classes(f"{SECTION_CARD_FEATURE} gap-0 w-full"):
                 chart_zone()

@@ -78,6 +78,15 @@ PACE_BAR = "k-pace"
 PACE_BAR_MONTH = "k-pace k-pace--month"
 PACE_BAR_ROW = "k-pace k-pace--row"
 SECTION_CARD = f"{_SURFACE} {_CARD_PAD}"
+#: The artboards draw two card paddings, not one: 20px where the card holds
+#: a grid or a chart that wants the room, and 22px 24px where it holds type
+#: (`2d`'s two mapping cards, `3a`'s two foot cards, `3b`'s physical assets,
+#: `3c`'s day sheet, `3e`'s sentence). This is the second — as its own class
+#: rather than a `p-` utility, so nothing has to out-specify Tailwind.
+SECTION_CARD_WIDE = f"{_SURFACE} k-card-wide"
+#: And the third, on the one card a screen is really about: `3a`'s chart,
+#: `3b`'s chart, `3d`'s mentor note, `3e`'s result.
+SECTION_CARD_FEATURE = f"{_SURFACE} k-card-feature"
 TOOLBAR_CARD = f"{_SURFACE} p-3"
 SECTION_TITLE = "k-muted k-eyebrow"
 SECTION_HEADING = "k-heading text-lg font-medium"
@@ -579,6 +588,10 @@ BASE_CSS = """
   --k-surface-sunken:#F3EFE7;
   --k-surface-warm:#F6F1E7;
   --k-surface-warm-strong:#EFE3D6;
+  /* Two warm sands, because the artboards draw two: `2a` tints the selection
+     bar #EFE3D6, while `2d`'s unparseable-rows note and `3c`'s Overdue card
+     and strip are a step lighter. */
+  --k-surface-notice:#F4E9DC;
   --k-ink:#1C1A15;
   --k-ink-2:#4A443A;
   --k-muted:#6B6353;
@@ -641,6 +654,7 @@ BASE_CSS = """
   --k-surface-sunken:#2A2822;
   --k-surface-warm:#262420;
   --k-surface-warm-strong:var(--k-surface-sunken);
+  --k-surface-notice:#332B22;
   --k-ink:#F0EBDF;
   --k-ink-2:#CFC7B6;
   --k-muted:#A8A08D;
@@ -695,6 +709,8 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 
 /* ── Surfaces & shell ─────────────────────────────────────────────── */
 .k-surface{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
+.k-card-wide{padding:22px 24px}
+.k-card-feature{padding:24px 26px}
 .k-header{
   background:var(--k-surface);
   color:var(--k-ink);
@@ -870,7 +886,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   flex:1;
   min-width:0
 }
-.k-stat-card--warm{background:var(--k-surface-warm-strong);box-shadow:none}
+.k-stat-card--warm{background:var(--k-surface-notice);box-shadow:none}
 .k-stat-card--sm{padding:18px 20px}
 .k-stat-figure{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
@@ -1171,7 +1187,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-overdue-strip{
   display:flex;align-items:center;gap:16px;flex-wrap:wrap;
   padding:12px 18px;
-  background:var(--k-surface-warm-strong);
+  background:var(--k-surface-notice);
   border-radius:10px
 }
 .k-overdue-strip .q-icon{color:var(--k-banner-btn-ink)}
@@ -1679,9 +1695,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .q-skeleton.k-skeleton::after{background:var(--k-surface);opacity:.35}
 
+/* Artboard `2d` draws it as the notice sand and nothing else: a coloured
+   left edge on a strip that is already a different ground says the same
+   thing twice. */
 .k-warning-strip{
-  background:var(--k-surface-warm);
-  border-left:2px solid var(--k-warning);
+  background:var(--k-surface-notice);
   color:var(--k-ink)
 }
 .k-warning-strip .q-icon{color:var(--k-warning)}

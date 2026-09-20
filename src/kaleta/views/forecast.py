@@ -27,6 +27,7 @@ from kaleta.views.components.amount_label import (
     format_net_amount,
     format_signed_amount,
     net_tone,
+    spaced_thousands,
 )
 from kaleta.views.components.forecast_chart import forecast_chart
 from kaleta.views.error_handling import notify_kaleta_error
@@ -54,6 +55,8 @@ from kaleta.views.theme import (
     PAGE_TITLE,
     RAIL_EYEBROW,
     SECTION_CARD,
+    SECTION_CARD_FEATURE,
+    SECTION_CARD_WIDE,
     SEGMENT,
     SELECT_PILL_SQUARE,
     SENTENCE_FOOT,
@@ -484,7 +487,7 @@ def register() -> None:
                 with kpi_row:
                     for _ in range(4):
                         ui.skeleton().classes(f"{SKELETON} flex-1 min-w-52 h-24 rounded-xl")
-                with chart_container, ui.card().classes(f"{SECTION_CARD} w-full"):
+                with chart_container, ui.card().classes(f"{SECTION_CARD_FEATURE} w-full"):
                     ui.skeleton().classes(f"{SKELETON} w-full h-96 rounded-xl")
 
             async def run_forecast() -> None:
@@ -667,7 +670,7 @@ def register() -> None:
                         (
                             "—"
                             if kpis.confidence is None
-                            else f"± {kpis.confidence:,.2f}".replace(",", " ")
+                            else spaced_thousands(f"± {kpis.confidence:,.2f}")
                         ),
                         hint=t("forecast.kpi_confidence_hint"),
                     )
@@ -679,7 +682,7 @@ def register() -> None:
             ) -> None:
                 chart_container.clear()
                 with chart_container:
-                    with ui.card().classes(f"{SECTION_CARD} w-full gap-0"):
+                    with ui.card().classes(f"{SECTION_CARD_FEATURE} w-full gap-0"):
                         with ui.row().classes("w-full items-start justify-between gap-6 flex-wrap"):
                             with ui.column().classes("gap-0 min-w-0"):
                                 ui.label(
@@ -732,7 +735,7 @@ def register() -> None:
                         _legend_key(CHART_KEY_DOT, t("forecast.baseline_reference"))
 
             def _render_upcoming(result: ForecastResult) -> None:
-                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-0 gap-0"):
+                with ui.card().classes(f"{SECTION_CARD_WIDE} flex-1 min-w-0 gap-0"):
                     ui.label(t("forecast.upcoming_14")).classes(CARD_TITLE_SM)
                     ui.label(t("forecast.upcoming_14_hint")).classes(
                         f"{MUTED} text-[12px] mt-1.5 mb-3.5"
@@ -750,7 +753,7 @@ def register() -> None:
                             ui.label(_plain(point.upper)).classes(f"{MONO} {MUTED} text-right")
 
             def _render_planned(result: ForecastResult) -> None:
-                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-0 gap-0"):
+                with ui.card().classes(f"{SECTION_CARD_WIDE} flex-1 min-w-0 gap-0"):
                     ui.label(t("forecast.planned_in_period")).classes(CARD_TITLE_SM)
                     ui.label(t("forecast.planned_in_period_hint")).classes(
                         f"{MUTED} text-[12px] mt-1.5 mb-3.5"
@@ -814,7 +817,7 @@ def _display_date(iso: object) -> str:
 
 
 def _money(value: float | None) -> str:
-    return "—" if value is None else f"{value:,.2f} zł".replace(",", " ")
+    return "—" if value is None else spaced_thousands(f"{value:,.2f} zł")
 
 
 def _plain(value: float | None) -> str:
@@ -823,7 +826,7 @@ def _plain(value: float | None) -> str:
     The card says once what the column is in; repeating "zł" on ninety cells
     is ninety readings of the same fact.
     """
-    return "—" if value is None else f"{value:,.2f}".replace(",", " ")
+    return "—" if value is None else spaced_thousands(f"{value:,.2f}")
 
 
 def _legend_key(shape: str, label: str) -> None:
@@ -832,7 +835,7 @@ def _legend_key(shape: str, label: str) -> None:
 
 def _money_net(value: float | None) -> str:
     """A signed figure, through the ledger's own rule — zero carries no sign."""
-    return "—" if value is None else f"{format_net_amount(value)} zł".replace(",", " ")
+    return "—" if value is None else spaced_thousands(f"{format_net_amount(value)} zł")
 
 
 def _kpi(key: str, title: str, value: str, *, value_cls: str = "", hint: str = "") -> None:
