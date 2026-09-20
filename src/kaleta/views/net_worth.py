@@ -262,13 +262,15 @@ def _account_table(
         ui.label(t("common.institution"))
         ui.label(t("common.balance")).classes("text-right")
     for a in filtered:
-        # An owed balance is drawn negative and in the expense colour: the
-        # card's own total is, and a row that disagreed with its total would
-        # be the one thing on the page you had to read twice.
+        # An owed balance is drawn negative and in the expense colour, which
+        # is what artboard `3b` writes: the card's total is the unsigned size
+        # of the debt, and the rows under it say which way it points. `-abs`
+        # rather than a negation - a liability account already holds a
+        # negative balance, and negating that one drew the debt as a credit.
         balance = (
             f"{_fmt(a.balance, a.currency)} ≈ {_fmt(a.balance_in_default, default_currency)}"
             if a.currency != default_currency
-            else _fmt(a.balance if assets else -a.balance, a.currency)
+            else _fmt(a.balance if assets else -abs(a.balance), a.currency)
         )
         with ui.element("div").classes(f"{SHEET_ROW} w-full"):
             ui.label(a.name)

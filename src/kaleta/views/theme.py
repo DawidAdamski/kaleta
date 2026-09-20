@@ -616,6 +616,7 @@ BASE_CSS = """
   --k-row-hover:#FAF4E9;
   --k-plan-now:#F0E5D4;
   --k-chip-dash:#CFC5AE;
+  --k-field-border:#D6C6B2;
   --k-card-shadow:0 1px 2px rgba(28,26,21,.05);
   --k-on-accent:#FCFAF6;
   /* The pill on the accent banner: paper with deep accent ink in light,
@@ -670,6 +671,7 @@ BASE_CSS = """
   --k-row-hover:#262420;
   --k-plan-now:#332F26;
   --k-chip-dash:#453F34;
+  --k-field-border:#4A4437;
   --k-card-shadow:none;
   --k-on-accent:#241C13;
   --k-banner-btn-ink:#F0EBDF;
@@ -1058,16 +1060,17 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-uploader .q-uploader__list{background:var(--k-surface)}
 .k-step-label{font-size:11px;color:var(--k-muted);text-align:center;line-height:1.2}
 .k-step-label--now{color:var(--k-ink);font-weight:600}
+/* Artboard `2d` writes it as quiet type inside the box, not as a badge on
+   its rim: `align-self:flex-start` in Quasar's append slot pushed the pill
+   up onto the field's own border, where it read as a stray chip. */
 .k-auto-badge{
-  align-self:flex-start;
-  font-size:10px;
+  align-self:center;
+  font-size:9.5px;
   font-weight:600;
-  letter-spacing:.04em;
+  letter-spacing:.06em;
   text-transform:uppercase;
-  color:var(--k-income);
-  border:1px solid var(--k-income);
-  border-radius:999px;
-  padding:0 6px;
+  color:var(--k-muted-strong);
+  padding:0 2px;
   line-height:15px
 }
 /* The line kept for a failed login. It is a strip, not a sentence: artboard
@@ -1113,7 +1116,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-auth-field .q-field__control{
   background:var(--k-surface);
-  border:1px solid var(--k-border-strong);
+  border:1px solid var(--k-field-border);
   border-radius:9px;
   min-height:48px;
   padding:0 14px
@@ -1395,7 +1398,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   text-transform:uppercase;color:var(--k-muted-strong)
 }
 .k-sheet-row{
-  padding:11px 0;
+  padding:9px 0;
   font-size:13px;color:var(--k-ink);
   border-bottom:1px solid var(--k-hairline)
 }
@@ -1687,7 +1690,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-field-label{width:104px;flex:none;font-size:12.5px;color:var(--k-ink-2)}
 .k-field-select .q-field__control{
   background:var(--k-surface-sunken);
-  border:1px solid var(--k-border-strong);
+  border:1px solid var(--k-field-border);
   border-radius:8px;
   min-height:36px;
   padding:0 12px
@@ -1885,7 +1888,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   display:inline-flex;align-items:center;gap:7px;
   padding:5px 12px;border-radius:8px;
   background:var(--k-surface-sunken);
-  border:1px solid var(--k-border-strong);
+  border:1px solid var(--k-field-border);
   font-weight:500;color:var(--k-ink);
   cursor:pointer;
   transition:border-color .12s ease,background-color .12s ease
