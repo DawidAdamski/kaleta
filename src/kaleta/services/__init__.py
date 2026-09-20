@@ -58,8 +58,6 @@ __all__ = [
     "CategoryService",
     "CreditService",
     "CurrencyRateService",
-    "RealizationTotals",
-    "DayTotals",
     "DedupeService",
     "NbpRateService",
     "NbpStartupFetcher",
@@ -82,4 +80,8 @@ __all__ = [
     "WizardActionService",
     "WizardProjectionService",
     "YearlyPlanService",
+    # Reductions over what the services above return, not services of their
+    # own: no session, nothing to construct.
+    "DayTotals",
+    "RealizationTotals",
 ]
