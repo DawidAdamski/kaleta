@@ -218,11 +218,14 @@ If one screen alone is more than a day's work, split it out into
   `sum()` inline in the zone that draws it — arithmetic no test could
   reach — and it belongs beside `share_percents`, which asks the same
   question about each row. `result_total`, three unit tests.
-- **No timeout was raised and no assertion loosened.** The e2e diff
-  removes 28 `timeout=` lines and adds 30; the two extra belong to new
-  tests, one of them `test_the_bar_result_reads_as_rows` waiting 15s on
-  a report run over the seeded ledger. Every moved assertion kept the
-  wait it already had.
+- **No timeout was raised and no assertion loosened.** Checked by
+  reading every `timeout=` line the e2e diff touches
+  (`git diff main -- tests/e2e | grep -E '^[-+].*timeout='`): every one
+  that moved kept the wait it already had, and the only waits longer
+  than the ones they replaced belong to tests that did not exist before
+  — `test_the_bar_result_reads_as_rows` waits 15s on a report run over
+  the seeded ledger. The counts on each side of that diff change with
+  every commit, so they are not quoted here; the check is the reading.
 - **One selector moved in about a dozen places for one word.** The
   Import page's title is "Import" rather than "Import Transactions" —
   the drawer and the header already say which screen it is (`2d`, row
@@ -243,9 +246,15 @@ If one screen alone is more than a day's work, split it out into
   assembled from `PlannedTransactionService`'s `DayAggregate` and
   `WizardProjectionService`'s charges, neither of which knows about the
   other, and "what a day comes to" is the question they are both
-  answers to. `services/day_totals.py`, five unit tests in
-  `tests/unit/services/`. The same principle put `3e`'s result total in
+  answers to. `DayTotals` in `services/day_totals.py` — a class of
+  static methods, as AGENTS.md asks and the rest of `services/` is
+  written — with five unit tests in `tests/unit/services/`. The same principle put `3e`'s result total in
   `reports/sentence.py` rather than in the zone that draws it.
+- **The report builder's eyebrow has a scenario.** It is new
+  user-facing text — the report's name moved off the title onto the line
+  above it, with the size of the ledger beside it — so `KAL-RPT-003`
+  says what it claims and `test_the_eyebrow_names_the_report_and_its_scope`
+  reads it, saved and unsaved.
 - **Two more DOM hooks.** A calendar cell carries `data-day`, and each
   stat figure carries `data-kpi`, so the shoot and the tests open a day
   and read a count by what it is rather than by counting cells.

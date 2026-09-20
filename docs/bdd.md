@@ -2764,6 +2764,14 @@ Feature: Report Builder
       share of the total
       And the rows are ranked largest first
       And the card's title line carries the total
+
+  KAL-RPT-003 @automated
+  Scenario: The eyebrow names the report and what it is drawn from
+    Given I am on the report builder
+    Then the line above the title says the report is unsaved
+      And it says how many transactions are in the ledger
+    When I save the report as "Spend by account"
+    Then the line above the title names the report instead
 ```
 
 ## Feature: Money Flow

@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
 
@@ -37,11 +37,17 @@ from kaleta.views.theme import (
     TITLE_ACTION_PRIMARY,
 )
 
+if TYPE_CHECKING:  # import-linter excludes typing-only imports
+    from kaleta.models.account import Account
+    from kaleta.models.category import Category
+
 
 async def reports_page() -> None:
     is_dark: bool = app.storage.user.get("dark_mode", False)
 
-    async def _load_reference(session: Any) -> tuple[Any, Any, int]:
+    async def _load_reference(
+        session: Any,
+    ) -> tuple[list[Account], list[Category], int]:
         accounts = await AccountService(session).list()
         categories = await CategoryService(session).list()
         # What the sentence is asking of: the eyebrow says how much ledger

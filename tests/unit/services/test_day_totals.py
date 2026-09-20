@@ -13,7 +13,7 @@ from decimal import Decimal
 
 from kaleta.schemas.transaction import TransactionType
 from kaleta.schemas.wizard_projections import SubscriptionCharge
-from kaleta.services.day_totals import charged, day_in, day_net, day_out
+from kaleta.services.day_totals import DayTotals
 from kaleta.services.planned_transaction_service import DayAggregate, PlannedOccurrence
 from kaleta.views.payment_calendar import day_marks
 
@@ -58,24 +58,24 @@ class TestDayTotals:
 
     def test_a_charge_leaves_on_the_day_it_is_charged(self) -> None:
         cell = _cell(_occ("35.00", TransactionType.EXPENSE))
-        assert day_out(cell, [_sub("12.99")]) == Decimal("47.99")
-        assert day_net(cell, [_sub("12.99")]) == Decimal("-47.99")
+        assert DayTotals.outgoing(cell, [_sub("12.99")]) == Decimal("47.99")
+        assert DayTotals.net(cell, [_sub("12.99")]) == Decimal("-47.99")
 
     def test_a_charge_is_never_money_coming_in(self) -> None:
         cell = _cell(_occ("100.00", TransactionType.INCOME))
-        assert day_in(cell) == Decimal("100.00")
-        assert day_out(cell, [_sub("12.99")]) == Decimal("12.99")
+        assert DayTotals.incoming(cell) == Decimal("100.00")
+        assert DayTotals.outgoing(cell, [_sub("12.99")]) == Decimal("12.99")
 
     def test_the_sheet_and_the_cell_agree(self) -> None:
         cell = _cell(_occ("100.00", TransactionType.INCOME), _occ("35.00", TransactionType.EXPENSE))
         subs = [_sub("12.99"), _sub("10.75")]
-        assert day_net(cell, subs) == day_marks(cell, subs).net
+        assert DayTotals.net(cell, subs) == day_marks(cell, subs).net
 
     def test_a_day_with_nothing_on_it(self) -> None:
-        assert day_in(None) == Decimal("0")
-        assert day_out(None) == Decimal("0")
-        assert day_net(None) == Decimal("0")
+        assert DayTotals.incoming(None) == Decimal("0")
+        assert DayTotals.outgoing(None) == Decimal("0")
+        assert DayTotals.net(None) == Decimal("0")
 
     def test_charges_add_up(self) -> None:
-        assert charged([]) == Decimal("0")
-        assert charged([_sub("12.99"), _sub("10.75")]) == Decimal("23.74")
+        assert DayTotals.charged([]) == Decimal("0")
+        assert DayTotals.charged([_sub("12.99"), _sub("10.75")]) == Decimal("23.74")

@@ -30,11 +30,9 @@ from kaleta.schemas.wizard_projections import SubscriptionCharge
 from kaleta.services import (
     AccountService,
     CategoryService,
+    DayTotals,
     PlannedTransactionService,
     WizardProjectionService,
-    day_in,
-    day_net,
-    day_out,
     with_session,
 )
 from kaleta.services.planned_transaction_service import (
@@ -139,7 +137,7 @@ def day_marks(
             dots.append(CALENDAR_DOT_FLAT)
     dots.extend(CALENDAR_DOT_FLAT for _ in subscriptions)
 
-    net = day_net(cell, subscriptions)
+    net = DayTotals.net(cell, subscriptions)
     return DayMarks(net=net, dots=tuple(dots[:cap]), overflow=max(0, len(dots) - cap))
 
 
@@ -484,14 +482,20 @@ def register() -> None:
                         "click", _close_day_panel
                     ).tooltip(t("payment_calendar.day_sheet_close"))
                 with ui.row().classes("w-full gap-[18px] mt-2.5 pb-4 flex-wrap k-hairline-bottom"):
-                    _day_total(t("payment_calendar.in"), _signed(day_in(cell), "+"), AMOUNT_INCOME)
+                    _day_total(
+                        t("payment_calendar.in"),
+                        _signed(DayTotals.incoming(cell), "+"),
+                        AMOUNT_INCOME,
+                    )
                     _day_total(
                         t("payment_calendar.out"),
-                        _signed(day_out(cell, subs_for_day), "-"),
+                        _signed(DayTotals.outgoing(cell, subs_for_day), "-"),
                         AMOUNT_EXPENSE,
                     )
                     _day_total(
-                        t("payment_calendar.net"), _fmt(day_net(cell, subs_for_day)), AMOUNT_NEUTRAL
+                        t("payment_calendar.net"),
+                        _fmt(DayTotals.net(cell, subs_for_day)),
+                        AMOUNT_NEUTRAL,
                     )
 
                 # Overdue items live in the strip above the grid now, where

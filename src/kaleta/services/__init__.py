@@ -9,7 +9,7 @@ from kaleta.services.budget_service import BudgetService
 from kaleta.services.category_service import CategoryService
 from kaleta.services.credit_service import CreditService
 from kaleta.services.currency_rate_service import CurrencyRateService
-from kaleta.services.day_totals import charged, day_in, day_net, day_out
+from kaleta.services.day_totals import DayTotals
 from kaleta.services.dedupe_service import DedupeService
 from kaleta.services.import_rule_service import ImportRuleService
 from kaleta.services.institution_service import InstitutionService
@@ -41,10 +41,6 @@ from kaleta.services.yearly_plan_service import YearlyPlanService
 
 __all__ = [
     "activate_database",
-    "charged",
-    "day_in",
-    "day_net",
-    "day_out",
     "ensure_schema_current",
     "dispose_sessions",
     "with_session",
@@ -62,6 +58,7 @@ __all__ = [
     "CategoryService",
     "CreditService",
     "CurrencyRateService",
+    "DayTotals",
     "DedupeService",
     "NbpRateService",
     "NbpStartupFetcher",

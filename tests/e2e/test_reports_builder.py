@@ -7,6 +7,8 @@ Page URL: /reports/builder
 
 from __future__ import annotations
 
+import re
+
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e import seed_helpers as sh
@@ -89,6 +91,39 @@ def test_sentence_reflects_state_and_a_saved_report_comes_back(page: Page, base_
     expect(_slots(page).nth(1)).to_contain_text("Account", timeout=10000)
     expect(_slots(page).nth(0)).to_contain_text("Count")
     expect(page.get_by_text(REPORT_NAME, exact=True).first).to_be_visible()
+
+
+def test_the_eyebrow_names_the_report_and_its_scope(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-003
+
+    Artboard `3e` titles the screen "Reports" and moves the report's own
+    name onto the line above it, the way every other screen names what is in
+    hand — with the size of the ledger it is drawn from beside it, so a
+    figure on the card is read against something.
+    """
+    account_id = sh.seed_account("Reports Eyebrow E2E Account")
+    category_id = sh.seed_category("Reports Eyebrow E2E Category")
+    sh.seed_transaction(account_id, category_id, 64.0, description="reports eyebrow e2e")
+    saved = "Eyebrow Report E2E"
+
+    page.goto(f"{base_url}{BUILDER}")
+    eyebrow = page.locator("[data-page-eyebrow]")
+    expect(eyebrow).to_be_visible(timeout=10000)
+
+    # Unsaved, and drawn from however many rows the ledger holds — spaced,
+    # never comma-grouped, and never nothing: this test seeded one itself.
+    expect(eyebrow).to_contain_text("Unsaved report")
+    expect(eyebrow).to_contain_text(re.compile(r"[1-9][0-9  ]* transactions? in the ledger"))
+
+    page.get_by_role("button", name="Save report").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_be_visible(timeout=5000)
+    dialog.get_by_label("Report Name").fill(saved)
+    dialog.get_by_role("button", name="Save").click()
+
+    # Saved: the name takes the place of "Unsaved report" on the same line.
+    expect(eyebrow).to_contain_text(saved, timeout=10000)
+    expect(eyebrow).not_to_contain_text("Unsaved report")
 
 
 def test_the_bar_result_reads_as_rows(page: Page, base_url: str) -> None:
