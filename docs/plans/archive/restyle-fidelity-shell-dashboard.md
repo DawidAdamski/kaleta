@@ -3,8 +3,9 @@ plan_id: restyle-fidelity-shell-dashboard
 title: Restyle fidelity — the drawer shell back on desktop, dashboard to artboards 1c / 1d / 1f
 area: dashboard
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#dashboard
+status: archived
+archived_at: 2026-09-20
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Restyle fidelity — shell and dashboard
@@ -297,7 +298,7 @@ are fixed; the values are in the reports.
 ### Left for the owner, or for the next plan
 
 - **`1f`'s phone-only renderings.** Deferred by the scope amendment above
-  to [`restyle-fidelity-phone-widgets`](restyle-fidelity-phone-widgets.md),
+  to [`restyle-fidelity-phone-widgets`](../restyle-fidelity-phone-widgets.md),
   drafted in this PR: "Needs attention" as a paper card of 44px rows with
   chevrons, "Latest" as two-line rows instead of a five-column table, and
   the Month band with no cards under it. Recorded as `deviation` rows 10,
@@ -329,3 +330,52 @@ unchanged. `nav.section_*` and `dashboard.band_edit_month` were dropped from
 both locales; `common.toggle_sidebar`, `settings.sidebar*` and
 `dashboard_widgets.edit_layout` came back.
 
+
+## Implementation
+
+Landed on 2026-09-20 (PR #109).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `ec2f5e6` | Dawid Adamski | 2026-09-20 | Merge pull request #109 from DawidAdamski/plan/restyle-fidelity-shell-dashboard |
+
+**Files changed:**
+- docs/bdd.md
+- docs/design/restyle/fidelity/1c.md
+- docs/design/restyle/fidelity/1d.md
+- docs/design/restyle/fidelity/1f.md
+- docs/plans/restyle-fidelity-phone-widgets.md
+- docs/plans/restyle-fidelity-shell-dashboard.md
+- docs/product/dashboard.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/chart_utils.py
+- src/kaleta/views/dashboard.py
+- src/kaleta/views/dashboard_widgets/__init__.py
+- src/kaleta/views/dashboard_widgets/balance_card.py
+- src/kaleta/views/dashboard_widgets/budget_variance_month.py
+- src/kaleta/views/dashboard_widgets/cashflow_chart.py
+- src/kaleta/views/dashboard_widgets/helpers.py
+- src/kaleta/views/dashboard_widgets/month_card.py
+- src/kaleta/views/dashboard_widgets/recent_transactions.py
+- src/kaleta/views/dashboard_widgets/registry.py
+- src/kaleta/views/dashboard_widgets/safe_to_spend.py
+- src/kaleta/views/dashboard_widgets/top_merchants.py
+- src/kaleta/views/dashboard_widgets/wizard_actions.py
+- src/kaleta/views/layout.py
+- src/kaleta/views/settings/appearance_tab.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_dashboard_desktop.py
+- tests/e2e/test_dashboard_mobile.py
+- tests/e2e/test_navigation.py
+- tests/unit/views/test_chart_utils.py
+- tests/unit/views/test_dashboard_bands.py
+- tests/unit/views/test_header_initials.py
+- tests/unit/views/test_nav_destinations.py
+- tests/unit/views/test_theme.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

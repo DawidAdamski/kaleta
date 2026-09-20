@@ -150,7 +150,7 @@ built `1e`, which is not a target. Targets are `1c` / `1d` / `1f`, `2a`–`2d`,
 
 | # | Plan | Artboards | Status | Depends on |
 |---|---|---|---|---|
-| 1 | [restyle-fidelity-shell-dashboard](restyle-fidelity-shell-dashboard.md) | shell, `1c`, `1d`, `1f` | draft | — |
+| 1 | [restyle-fidelity-shell-dashboard](archive/restyle-fidelity-shell-dashboard.md) | archived | draft | — |
 | 2 | [restyle-fidelity-screens](restyle-fidelity-screens.md) | `2a`–`2d`, `3a`–`3f` | draft | 1 |
 
 ### Q4 2026 — Open-source launch (execute in this order)
