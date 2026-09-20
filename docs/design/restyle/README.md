@@ -17,7 +17,7 @@ to be built:
 
 `1a` is the before-picture, `1b` was superseded, and **`1e` is not a target** —
 it was built once by mistake and is being undone (see
-[`restyle-fidelity-shell-dashboard`](../../plans/restyle-fidelity-shell-dashboard.md)).
+[`restyle-fidelity-shell-dashboard`](../../plans/archive/restyle-fidelity-shell-dashboard.md)).
 Every desktop target has the same shell: a 60px paper header and a docked
 drawer, 236px on the dashboard and 64px mini on the working screens.
 
