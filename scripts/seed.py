@@ -228,14 +228,17 @@ async def seed() -> None:
 
         # ── Canonical tags (mirrors b9d4e2c8a1f5 migration) ──────────────────
         canonical_tags = [
-            Tag(name="Transfer", icon="swap_horiz"),
-            Tag(name="Card", icon="credit_card"),
-            Tag(name="Cash", icon="payments"),
-            Tag(name="Online", icon="language"),
-            Tag(name="Subscription", icon="autorenew"),
-            Tag(name="Refundable", icon="assignment_return"),
-            Tag(name="Business", icon="work"),
-            Tag(name="Recurring", icon="event_repeat"),
+            # Colours from the sand palette, not Material's ramp: a tag chip
+            # is drawn as an outline in its own colour, and a grey one (the
+            # model's default) reads as "no tag" beside a category pill.
+            Tag(name="Transfer", icon="swap_horiz", color="#4A443A"),
+            Tag(name="Card", icon="credit_card", color="#6B6353"),
+            Tag(name="Cash", icon="payments", color="#8A5A12"),
+            Tag(name="Online", icon="language", color="#9A4E1F"),
+            Tag(name="Subscription", icon="autorenew", color="#36684D"),
+            Tag(name="Refundable", icon="assignment_return", color="#A44631"),
+            Tag(name="Business", icon="work", color="#2A5540"),
+            Tag(name="Recurring", icon="event_repeat", color="#8E4718"),
         ]
         session.add_all(canonical_tags)
         await session.flush()

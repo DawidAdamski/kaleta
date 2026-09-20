@@ -199,7 +199,7 @@ def register() -> None:
 
         all_done = all(done_flags)
 
-        with page_layout(t("nav.wizard")):
+        with page_layout(t("nav.wizard"), wide=True):
             # ── Hero ──────────────────────────────────────────────────────────
             with ui.row().classes("w-full items-center gap-4"):
                 ui.icon("auto_awesome", size="2.2rem").classes(ACCENT_TEXT)

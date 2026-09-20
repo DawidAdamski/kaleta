@@ -103,7 +103,19 @@
     "shortcut_submit": "Submit form",
     "shortcut_close": "Close dialog",
     "shortcut_open_help": "Show this help",
-    "toggle_sidebar": "Collapse / expand sidebar"
+    "toggle_sidebar": "Collapse / expand sidebar",
+    "month_of_1": "January",
+    "month_of_2": "February",
+    "month_of_3": "March",
+    "month_of_4": "April",
+    "month_of_5": "May",
+    "month_of_6": "June",
+    "month_of_7": "July",
+    "month_of_8": "August",
+    "month_of_9": "September",
+    "month_of_10": "October",
+    "month_of_11": "November",
+    "month_of_12": "December"
   },
   "dashboard": {
     "title": "Dashboard",
@@ -311,7 +323,16 @@
     "planned_gone": "That planned transaction no longer exists.",
     "upcoming_only_one": "No recorded transactions — {count} upcoming planned row",
     "upcoming_only_few": "No recorded transactions — {count} upcoming planned rows",
-    "upcoming_only_many": "No recorded transactions — {count} upcoming planned rows"
+    "upcoming_only_many": "No recorded transactions — {count} upcoming planned rows",
+    "eyebrow_movements_one": "{count} movement",
+    "eyebrow_movements_few": "{count} movements",
+    "eyebrow_movements_many": "{count} movements",
+    "eyebrow_all_accounts": "all accounts",
+    "eyebrow_n_accounts_one": "{count} account",
+    "eyebrow_n_accounts_few": "{count} accounts",
+    "eyebrow_n_accounts_many": "{count} accounts",
+    "group_week_label": "Week {week} · {start} – {end}",
+    "group_month_label": "{month} {year}"
   },
   "tags": {
     "title": "Tags",

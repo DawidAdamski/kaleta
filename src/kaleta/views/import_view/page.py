@@ -757,7 +757,7 @@ async def import_page() -> None:
         if 0 <= index < len(queue):
             _set_active(queue[index].id)
 
-    with page_layout(t("import.title")):
+    with page_layout(t("import.title"), wide=True):
 
         @ui.refreshable
         def page_header() -> None:

@@ -181,7 +181,7 @@ def register() -> None:
             list(raw_scenarios) if isinstance(raw_scenarios, list) else []
         )
 
-        with page_layout(t("forecast.title")):
+        with page_layout(t("forecast.title"), wide=True):
             # Title row: the page says what it is on the left, and everything
             # that changes the answer sits on the right — so the first thing
             # below is the answer itself, not an empty frame and a button.

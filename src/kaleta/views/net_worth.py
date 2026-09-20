@@ -486,7 +486,7 @@ def register() -> None:
 
         summary = await with_session(_load_summary)
 
-        with page_layout(t("net_worth.title")):
+        with page_layout(t("net_worth.title"), wide=True):
             # ── Hero + physical assets side by side from lg up ────────────────
             with ui.row().classes("w-full gap-4 items-start flex-wrap lg:flex-nowrap"):
                 with ui.card().classes(

@@ -34,7 +34,17 @@ _SURFACE = "k-surface w-full rounded-xl"
 _CARD_PAD = "p-5"
 
 PAGE_SHELL = "k-ground"
-PAGE_CONTAINER = "w-full mx-auto p-6 md:p-8 gap-6"
+# The working screens' content column. Every artboard from `2a` on draws the
+# same 32/36/40 padding; the column gap is the one value that moves between
+# them, so it has modifiers rather than nine containers.
+PAGE_CONTAINER = "k-page w-full mx-auto"
+#: Artboards `2b`, `3a` and `3e` set the column gap at 22 rather than 20.
+PAGE_GAP_22 = "k-page--gap-22"
+#: Artboard `2d`: two tall cards side by side, 24 apart.
+PAGE_GAP_24 = "k-page--gap-24"
+#: Artboards `3b` and `3d` breathe like the dashboard — 36/40/44 and a wider
+#: gap, because both are pages you read rather than pages you work in.
+PAGE_ROOMY = "k-page--roomy"
 # The dashboard breathes wider than the working screens: 36/40/44 page
 # padding and a 44px band gap (handoff geometry table, artboard 1c).
 DASH_PAGE_CONTAINER = "k-dash-page w-full mx-auto"
@@ -103,6 +113,14 @@ LEGEND_LINE = "k-legend-line"
 
 # Ledger toolbar (artboard 2a): a filter is a pill that shows its value, and a
 # dashed one when it has none to show.
+#: The ledger itself: one paper card holding the header rule, the rows and the
+#: pagination bar, which artboard `2a` seals in at the foot rather than
+#: leaving loose on the ground.
+LEDGER_CARD = "k-ledger-card"
+LEDGER_FOOT = "k-ledger-foot"
+#: A small select drawn on sunken sand — the page-size picker at the foot of
+#: the ledger, which is a number and not a field.
+SELECT_SUNKEN = "k-select-sunken"
 FILTER_CHIP = "k-filter-chip"
 FILTER_CHIP_EMPTY = "k-filter-chip--empty"
 #: A word inside a sentence that is also a control (artboard 3e). Reads as
@@ -117,6 +135,12 @@ SENTENCE_SLOT_TARGET = "k-slot--drop"
 #: Set on ``body`` by the rail's own dragstart handler, cleared on dragend.
 DRAGGING_BODY = "k-dragging"
 SELECTION_BAR = "k-selection-bar"
+#: The hairline between the count and what you can do with it (artboard `2a`).
+SELECTION_DIVIDER = "k-selection-divider"
+#: One action on that bar: an icon and a word, at the bar's own weight.
+SELECTION_ACTION = "k-selection-action"
+#: The one that cannot be undone, in the expense colour.
+SELECTION_ACTION_DANGER = "k-selection-action k-selection-action--danger"
 #: Hover tint for a hand-built row (one that is not inside a ``k-table``).
 ROW_HOVER = "k-row-hover"
 #: A hand-built row's own outline — the same hairline the tables draw, so a
@@ -217,6 +241,22 @@ PALETTE_ROW = "k-palette-row"
 #: A button on a page's title row, drawn as artboards `1c` / `2a` draw them:
 #: a paper pill with a hairline border, not a flat text button.
 TITLE_ACTION = "k-title-action"
+#: The one action a screen is for, at the end of the same row: the artboards
+#: draw it filled with ink, not with the accent — the accent is reserved for
+#: the thing that needs attention, and a "New transaction" button never is.
+TITLE_ACTION_PRIMARY = "k-title-action k-title-action--ink"
+#: A keyboard hint drawn inside that pill (artboard `2a`'s ⌥N).
+KBD_HINT = "k-kbd"
+#: The line above a page title: what is on this screen, said in figures.
+#: Carries `data-page-eyebrow`, which is how the fidelity shoot finds a page.
+PAGE_EYEBROW = "k-eyebrow k-page-eyebrow"
+#: Two or three choices where only one can hold: the chosen one on ink, the
+#: rest quiet on sunken sand. Artboards `2a` (Group by), `2b` (Flat / By
+#: parent), `3a` (horizon and model) and `3e` (chart shape) all draw it.
+SEGMENT = "k-segment"
+#: A select drawn as a pill rather than a field — the month and year pickers
+#: on `2b`, the account picker on `3a`, the "copy into" month on `2c`.
+SELECT_PILL = "k-select-pill"
 
 # ── Phone dashboard (artboard 1f) ─────────────────────────────────────────────
 #: The bottom tab bar. It has its own breakpoint rather than `md:hidden`: which
@@ -286,6 +326,8 @@ ON_ACCENT = "k-on-accent"
 
 # Plain ink text for figures and dense grid cells (not a heading).
 INK = "k-ink"
+#: One step in from the ink: a figure that is not the row's subject.
+INK_2 = "k-ink-2"
 
 # Quasar brand colours. NiceGUI writes its own defaults onto <body> at runtime,
 # which outranks any `:root` rule, so `apply_brand()` must run on every page that
@@ -509,6 +551,8 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
   color:var(--k-muted-strong)
 }
 .k-muted{color:var(--k-muted)}
+/* One step in from the ink, for a figure that is not the row's subject. */
+.k-ink-2{color:var(--k-ink-2)}
 .k-muted-strong{color:var(--k-muted-strong)}
 /* Links are actions: accent text, never the browser's default blue. */
 a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
@@ -566,6 +610,18 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   font-size:12px;
   color:var(--k-muted)
 }
+/* The working screens' page column (artboards `2a`-`3e`). NiceGUI's own
+   `.nicegui-content` padding is zeroed the same way the dashboard zeroes it,
+   or the two stack and every column starts 16px in from where it should. */
+.k-page{padding:32px 36px 40px;gap:20px}
+.k-page--gap-22{gap:22px}
+.k-page--gap-24{gap:24px}
+.k-page--roomy{padding:36px 40px 44px;gap:26px}
+@media (max-width:767.98px){.k-page,.k-page--roomy{padding:20px 20px 28px;gap:20px}}
+.nicegui-content:has(> .k-page){padding:0;gap:0}
+/* 6px under the eyebrow, which is the artboards' own measure between it and
+   the title it labels. */
+.k-page-eyebrow{margin-bottom:6px}
 .k-dash-page{padding:36px 40px 44px;gap:28px}
 /* 767.98px, not 768px: the tab bar and the server-side layout choice both
    put a 768px-wide window (an iPad in portrait) on the desktop side, and a
@@ -852,6 +908,71 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .q-btn.k-title-action .q-icon{color:var(--k-muted);font-size:17px}
 .q-btn.k-title-action:hover{background:var(--k-surface-warm)}
+/* The primary pill on the same row: ink, and paper type on it. Dark mode
+   inverts — ink there is the page, so the pill takes the paper surface and
+   the ink text, which is the same relationship the other way up. */
+.q-btn.k-title-action--ink{
+  background:var(--k-ink);
+  border-color:var(--k-ink);
+  color:var(--k-ground);
+  font-weight:600
+}
+.q-btn.k-title-action--ink .q-icon{color:var(--k-ground)}
+.q-btn.k-title-action--ink:hover{background:var(--k-ink-2)}
+.body--dark .q-btn.k-title-action--ink{background:var(--k-ink);color:var(--k-ground)}
+/* A key cap inside that pill: mono, a hairline box, and dimmed against the
+   ink it sits on — it is a hint, not the button's label. */
+.k-kbd{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:10.5px;
+  line-height:1.3;
+  color:var(--k-disabled);
+  border:1px solid var(--k-ink-2);
+  border-radius:4px;
+  padding:1px 5px
+}
+/* A segmented control. Quasar paints the chosen option with `.bg-primary`
+   and `.text-<toggle-text-color>`, both `!important` and both unbeatable by
+   a rule of our own — so the brand variables those two classes read are
+   redefined here instead, for this control only. The artboards fill the
+   chosen option with ink, not with the accent: the accent means "look at
+   this", and which of three groupings you picked never does. */
+.k-segment{
+  --q-primary:var(--k-ink);
+  --q-info:var(--k-ground);
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  padding:2px
+}
+.k-segment .q-btn{
+  border-radius:6px;
+  font-size:12px;
+  font-weight:400;
+  letter-spacing:0;
+  min-height:26px;
+  padding:0 12px;
+  color:var(--k-ink-2)
+}
+.k-segment .q-btn.bg-primary{font-weight:500}
+/* A select wearing a pill instead of a field: paper, a hairline, and the
+   chevron in muted — the artboards never draw an underline on these. */
+.k-select-pill .q-field__control{
+  background:var(--k-surface);
+  border:1px solid var(--k-border);
+  border-radius:999px;
+  min-height:32px;
+  padding:0 12px
+}
+.k-select-pill .q-field__control:before,
+.k-select-pill .q-field__control:after{display:none}
+.k-select-pill .q-field__native{
+  font-size:12.5px;
+  color:var(--k-ink-2);
+  min-height:32px;
+  padding:0
+}
+.k-select-pill .q-field__append{color:var(--k-muted);padding-left:4px}
+.k-select-pill .q-field__marginal{height:32px}
 
 /* Phone dashboard (artboard 1f) — the bar is the navigation below `md`, and
    the drawer is what "More" opens. Its own breakpoint, for the same reason
@@ -927,11 +1048,83 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}
 .k-selection-bar{background:var(--k-surface-warm-strong);color:var(--k-ink)}
+.k-selection-divider{width:1px;height:16px;background:var(--k-border-strong);flex:none}
+.q-btn.k-selection-action{
+  font-size:12.5px;
+  font-weight:500;
+  letter-spacing:0;
+  color:var(--k-ink-2);
+  padding:0 4px;
+  min-height:24px
+}
+.q-btn.k-selection-action .q-icon{font-size:16px;color:inherit}
+.q-btn.k-selection-action--danger{color:var(--k-expense)}
 .k-clear-all{color:var(--k-accent-text)}
 .k-clear-all:hover{text-decoration:underline}
-/* Grouping toggle below the ledger: one segmented pill, not three buttons. */
-.k-group-toggle{background:var(--k-surface-sunken);border-radius:999px;padding:2px}
-.k-group-toggle .q-btn{border-radius:999px;font-size:11.5px;min-height:24px;padding:0 10px}
+/* The ledger card (artboard `2a`): 8px of paper above the header rule, the
+   rows flush to the card's own 18px gutter, and the pagination bar inside
+   the same box under a rule a shade stronger than the row hairlines. */
+.k-ledger-card{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:8px 0 0;
+  overflow:hidden;
+  width:100%
+}
+.k-ledger-card .k-table{overflow-x:auto}
+.k-ledger-card .q-table th{padding:8px 9px 12px}
+.k-ledger-card .q-table td{padding:12px 9px}
+.k-ledger-card .q-table th:first-child,
+.k-ledger-card .q-table td:first-child{padding-left:18px}
+/* A separator is a band, not a row: artboard `2a` gives it 7px where a row
+   takes 12, so the week reads as a heading over the days under it. */
+.k-ledger-card .q-table td.k-sep-row{padding:7px 18px}
+/* Quasar's checkbox reserves 40px (24 even when dense) for a box the
+   artboard draws at 15, which made the header rule 61px tall on a card whose
+   rows are 43. */
+/* `--q-info` is the ledger's ink here, which is what the row checkboxes are
+   set to: Quasar's `.bg-*` / `.text-*` helpers cannot be out-specified, so
+   the variable they read is redefined instead. Nothing else inside the card
+   uses the info colour; the segment in the foot sets its own. */
+.k-ledger-card{--q-info:var(--k-ink)}
+.k-ledger-card .k-row-action{color:var(--k-muted)}
+.k-ledger-card .k-row-action .q-icon{font-size:17px}
+.k-ledger-card .q-checkbox__inner{width:18px;height:18px;font-size:18px}
+.k-ledger-card .q-checkbox__bg{border-width:1.5px}
+/* Quasar fixes every table row at 48px. The artboard's are the height of
+   what is in them — 43 for a movement, 31 for a week band — which is the
+   same rule the dashboard's month card had to be taught. */
+.k-ledger-card .q-table thead tr,
+.k-ledger-card .q-table tbody td{height:auto}
+.k-ledger-card .q-table th:last-child,
+.k-ledger-card .q-table td:last-child{padding-right:18px}
+.k-ledger-foot{border-top:1px solid var(--k-border);padding:14px 18px}
+/* The page chevrons are navigation, not an offer: ink-2 where they work and
+   the disabled token where they do not, which is what artboard `2a` draws. */
+.k-ledger-foot .q-btn{color:var(--k-ink-2)}
+.k-ledger-foot .q-btn.disabled{color:var(--k-disabled)}
+/* Tags are the one cell that holds a list. Quasar keeps every cell on one
+   line, which pushed the row-action column off the card as soon as a
+   transaction carried four of them. */
+.k-ledger-card .q-table td[key="tags"]{white-space:normal}
+.k-ledger-card .q-table td[key="tags"] .q-chip{margin:1px 4px 1px 0}
+.k-select-sunken .q-field__control{
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  min-height:28px;
+  padding:0 10px
+}
+.k-select-sunken .q-field__control:before,
+.k-select-sunken .q-field__control:after{display:none}
+.k-select-sunken .q-field__native{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  color:var(--k-ink);
+  min-height:28px;
+  padding:0
+}
+.k-select-sunken .q-field__marginal{height:28px;color:var(--k-muted)}
 /* Ledger rows: the category reads as a pill, the group separator as a band. */
 .k-cat-pill{
   display:inline-block;

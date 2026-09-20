@@ -103,7 +103,19 @@
     "shortcut_submit": "Zatwierdź formularz",
     "shortcut_close": "Zamknij dialog",
     "shortcut_open_help": "Pokaż tę pomoc",
-    "toggle_sidebar": "Zwiń / rozwiń menu"
+    "toggle_sidebar": "Zwiń / rozwiń menu",
+    "month_of_1": "stycznia",
+    "month_of_2": "lutego",
+    "month_of_3": "marca",
+    "month_of_4": "kwietnia",
+    "month_of_5": "maja",
+    "month_of_6": "czerwca",
+    "month_of_7": "lipca",
+    "month_of_8": "sierpnia",
+    "month_of_9": "września",
+    "month_of_10": "października",
+    "month_of_11": "listopada",
+    "month_of_12": "grudnia"
   },
   "dashboard": {
     "title": "Pulpit",
@@ -311,7 +323,16 @@
     "planned_gone": "Ta transakcja planowana już nie istnieje.",
     "upcoming_only_one": "Brak zaksięgowanych transakcji — {count} nadchodzący wiersz planowany",
     "upcoming_only_few": "Brak zaksięgowanych transakcji — {count} nadchodzące wiersze planowane",
-    "upcoming_only_many": "Brak zaksięgowanych transakcji — {count} nadchodzących wierszy planowanych"
+    "upcoming_only_many": "Brak zaksięgowanych transakcji — {count} nadchodzących wierszy planowanych",
+    "eyebrow_movements_one": "{count} operacja",
+    "eyebrow_movements_few": "{count} operacje",
+    "eyebrow_movements_many": "{count} operacji",
+    "eyebrow_all_accounts": "wszystkie konta",
+    "eyebrow_n_accounts_one": "{count} konto",
+    "eyebrow_n_accounts_few": "{count} konta",
+    "eyebrow_n_accounts_many": "{count} kont",
+    "group_week_label": "Tydzień {week} · {start} – {end}",
+    "group_month_label": "{month} {year}"
   },
   "tags": {
     "title": "Tagi",

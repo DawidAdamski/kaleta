@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from nicegui import ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.schemas.transaction import TransactionType
 from kaleta.services import (
     AccountService,
@@ -26,6 +26,7 @@ from kaleta.views.components.filter_bar import (
 )
 from kaleta.views.components.transaction_table import (
     DEFAULT_PAGE_SIZE,
+    attach_group_labels,
     attach_split_labels,
     attach_type_labels,
     attach_upcoming_labels,
@@ -34,9 +35,14 @@ from kaleta.views.components.transaction_table import (
 )
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
-from kaleta.views.theme import PAGE_TITLE
+from kaleta.views.theme import (
+    KBD_HINT,
+    LEDGER_CARD,
+    PAGE_EYEBROW,
+    PAGE_TITLE,
+    TITLE_ACTION_PRIMARY,
+)
 from kaleta.views.transactions.add_dialog import build_add_dialog
-from kaleta.views.transactions.constants import _KBD_CLS
 from kaleta.views.transactions.delete_dialog import build_delete_dialog
 from kaleta.views.transactions.edit_dialog import build_edit_dialog
 from kaleta.views.transactions.planned_dialog import build_planned_dialog
@@ -77,6 +83,28 @@ async def transactions_page(*, open_new: bool = False) -> None:
     #: the figures the bar adds up come from here, so the total is the
     #: server's own view of the page either way.
     page_rows: dict[int, dict[str, Any]] = {}
+
+    #: Every currency the ledger can show, so the eyebrow says what the
+    #: figures are in rather than assuming one.
+    currencies = sorted({a.currency for a in accounts}) or ["PLN"]
+
+    def _eyebrow_text(total: int) -> str:
+        """ "1 284 movements · all accounts · PLN" — artboard `2a`'s title line."""
+        scope = (
+            t("transactions.eyebrow_all_accounts")
+            if not filters["account_ids"]
+            else t(
+                plural_key("transactions.eyebrow_n_accounts", len(filters["account_ids"])),
+                count=len(filters["account_ids"]),
+            )
+        )
+        return " · ".join(
+            [
+                t(plural_key("transactions.eyebrow_movements", total), count=total),
+                scope,
+                ", ".join(currencies),
+            ]
+        )
 
     filters: dict[str, Any] = {
         "date_from": None,
@@ -219,6 +247,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             return total, txs, upcoming
 
         total, txs, upcoming = await with_session(_fetch)
+        eyebrow.set_text(_eyebrow_text(total))
 
         total_pages = max(1, (total + page_size - 1) // page_size)
         filters["total_pages"] = total_pages
@@ -226,10 +255,15 @@ async def transactions_page(*, open_new: bool = False) -> None:
         rows = attach_split_labels(
             attach_type_labels(TransactionService.build_table_rows(txs, grouping))
         )
-        rows = TransactionService.merge_upcoming_rows(
-            rows,
-            attach_upcoming_labels(
-                attach_type_labels(PlannedTransactionService.build_upcoming_rows(upcoming, today))
+        rows = attach_group_labels(
+            TransactionService.merge_upcoming_rows(
+                rows,
+                attach_upcoming_labels(
+                    attach_type_labels(
+                        PlannedTransactionService.build_upcoming_rows(upcoming, today)
+                    )
+                ),
+                grouping,
             ),
             grouping,
         )
@@ -355,15 +389,25 @@ async def transactions_page(*, open_new: bool = False) -> None:
     type_options = {tx.value: t(f"common.{tx.value}") for tx in TransactionType}
 
     with page_layout(t("transactions.title"), wide=True):
-        with ui.row().classes("w-full items-center justify-between"):
-            ui.label(t("transactions.title")).classes(PAGE_TITLE)
-            with ui.row().classes("gap-2 items-center"):
-                ui.label("Alt+N").classes(_KBD_CLS)
-                ui.button(
-                    t("transactions.add"),
-                    icon="add",
-                    on_click=add_dialog_ctx.open,
-                ).props("color=primary")
+        with ui.row().classes("w-full items-end justify-between gap-4"):
+            with ui.column().classes("gap-0 min-w-0"):
+                eyebrow = (
+                    ui.label(_eyebrow_text(0)).classes(PAGE_EYEBROW).props("data-page-eyebrow")
+                )
+                ui.label(t("transactions.title")).classes(PAGE_TITLE)
+            # The shortcut is inside the pill artboard `2a` draws it in, not a
+            # slate-grey chip parked beside it: it belongs to the button it
+            # fires, and a hint has no business outranking the action in
+            # contrast.
+            with (
+                ui.button(on_click=add_dialog_ctx.open, color=None)
+                .props("flat no-caps dense")
+                .classes(TITLE_ACTION_PRIMARY),
+                ui.row().classes("items-center gap-[7px] no-wrap"),
+            ):
+                ui.icon("add")
+                ui.label(t("transactions.add"))
+                ui.label("Alt+N").classes(KBD_HINT)
 
         filter_widgets = render_filter_bar(
             account_options=account_options,
@@ -389,7 +433,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             refresh=lambda: table_actions_ui.refresh(),
         )
 
-        with ui.element("div").style("overflow-x: auto; width: 100%"):
+        with ui.element("div").classes(LEDGER_CARD):
             await transaction_table()
 
     def handle_key(e: Any) -> None:

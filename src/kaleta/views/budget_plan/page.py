@@ -33,7 +33,7 @@ async def budget_plan_page() -> None:
     plan_grid = build_plan_grid(state, dialogs, on_refresh=_refresh_grid)
     plan_grid_ref["plan_grid"] = plan_grid
 
-    with page_layout(t("budget_plan.title")):
+    with page_layout(t("budget_plan.title"), wide=True):
         render_toolbar(
             state,
             today=today,

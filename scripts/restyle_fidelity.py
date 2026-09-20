@@ -97,6 +97,7 @@ ARTBOARDS: tuple[Artboard, ...] = (
         "Transactions",
         "/transactions",
         (f"{VIEWS}/transactions", f"{VIEWS}/components"),
+        prepare="ledger",
     ),
     Artboard(
         "2b",
@@ -360,8 +361,15 @@ class EphemeralApp:
         (home / ".kaleta" / "config.json").write_text(
             json.dumps({"db_url": db_url, "name": "fidelity"}), encoding="utf-8"
         )
+        # `scripts/seed.py`, not the demo seed: the artboards are drawn on a
+        # ledger that has payees, tags, planned transactions, subscriptions and
+        # physical assets in it, and `DataService.seed` carries none of those.
+        # It drops and recreates every table from the models, so the schema is
+        # stamped back to head afterwards and the demo login made separately.
         self._run(["uv", "run", "alembic", "upgrade", "head"], env)
-        self._run(["uv", "run", "python", "scripts/reset_demo.py", "--force"], env)
+        self._run(["uv", "run", "python", "scripts/seed.py"], env)
+        self._run(["uv", "run", "alembic", "stamp", "head"], env)
+        self._run(["uv", "run", "python", "scripts/reset_demo.py", "--force", "--no-seed"], env)
         self._log = (home / "server.log").open("wb")
         self._proc = subprocess.Popen(
             ["uv", "run", "kaleta"], cwd=ROOT, env=env, stdout=self._log, stderr=subprocess.STDOUT
@@ -415,15 +423,23 @@ class Shooter:
                 continue
             # One context per theme: `dark_mode` lives in the user's storage,
             # and a fresh context is the only honest way back to light.
-            context = self._browser.new_context()
-            page = context.new_page()
-            if any(a.needs_login for a in batch):
-                self._login(page)
-                if theme == "dark":
-                    self._go_dark(page)
-            for artboard in batch:
-                self._shoot_one(page, artboard)
-            context.close()
+            # Two contexts, not one: an authenticated session answers /login
+            # with a redirect to the dashboard, so an artboard drawn signed
+            # out has to be shot before anything signs in. `3f` was a picture
+            # of `1c` until this split.
+            for signed_in in (True, False):
+                wanted = [a for a in batch if a.needs_login is signed_in]
+                if not wanted:
+                    continue
+                context = self._browser.new_context()
+                page = context.new_page()
+                if signed_in:
+                    self._login(page)
+                    if theme == "dark":
+                        self._go_dark(page)
+                for artboard in wanted:
+                    self._shoot_one(page, artboard)
+                context.close()
 
     def _shoot_one(self, page: Page, artboard: Artboard) -> None:
         out = SHOT_DIR / artboard.id
@@ -480,6 +496,27 @@ class Shooter:
         if is_mini != (state == "mini"):
             toggle.first.click()
             page.wait_for_timeout(400)
+
+    @staticmethod
+    def _prepare_ledger(page: Page) -> None:
+        """Week separators and a live selection — the two states `2a` draws.
+
+        The grouping toggle and the checkboxes are the app's own controls, so
+        the picture is of the ledger a reader would have in front of them,
+        not of a ledger dressed up for the camera.
+        """
+        page.locator(".k-chip-types").first.click()
+        page.locator(".q-menu .q-field__native").first.click()
+        page.locator(".q-menu .q-item").filter(has_text="Expense").first.click()
+        page.keyboard.press("Escape")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(800)
+        page.get_by_role("button", name="Week", exact=True).click()
+        page.wait_for_timeout(600)
+        boxes = page.locator(".k-ledger-card tbody .q-checkbox")
+        for index in range(min(3, boxes.count())):
+            boxes.nth(index).click()
+        page.wait_for_timeout(400)
 
     @staticmethod
     def _prepare_realization_tab(page: Page) -> None:

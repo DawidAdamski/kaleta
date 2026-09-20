@@ -3,7 +3,7 @@ plan_id: restyle-fidelity-screens
 title: Restyle fidelity — the ten working screens to artboards 2a–2d and 3a–3f
 area: ux
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#ux
 ---
 
