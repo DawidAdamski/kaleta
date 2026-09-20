@@ -163,6 +163,19 @@ If one screen alone is more than a day's work, split it out into
 - The seed grows two already-late planned transactions: the overdue
   strip and the Overdue card exist for that state, and a seed in which
   nothing is ever late leaves both untested and unseen.
+- Four artboards renamed what they show, so four `KAL-` scenarios that
+  quoted the old words were re-worded with them and no others:
+  `KAL-ONB-001` / `KAL-ONB-002` (the setup steps are Institutions,
+  Accounts, Categories and First import) and `KAL-CSV-026` (the
+  parse-failure strip is under the sample rows it numbers, because `2d`
+  puts the sample and the pickers in two cards side by side, and
+  "above the pickers" stopped being a place).
+- The rest of the suite moved with the markup rather than with the
+  words: a realization row is a `.k-realization-body` grid cell, a
+  mapping picker is found through the `.k-field-row` it shares with its
+  label, and a setup card through `data-setup-step`. Every assertion
+  that moved kept its strength — the login panel still has to add up to
+  three labels, three integers and one sentence with nothing left over.
 
 ### Deviations the owner has to agree with
 
