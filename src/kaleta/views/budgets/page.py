@@ -129,7 +129,9 @@ async def budgets_page() -> None:
                 options=range_options(),
                 value=current_range["key"],
                 on_change=on_range_change,
-            ).props("dense options-dense borderless").classes(f"{SELECT_PILL_SQUARE} w-44")
+            ).props("dense options-dense borderless dropdown-icon=expand_more").classes(
+                f"{SELECT_PILL_SQUARE} w-44"
+            )
             ui.label(range_label(current_range["key"])).classes(BODY_MUTED)
             return
 
@@ -152,12 +154,16 @@ async def budgets_page() -> None:
             options=month_opts,
             value=realization_state["month"],
             on_change=on_month_change,
-        ).props("dense options-dense borderless").classes(f"{SELECT_PILL_SQUARE} w-32")
+        ).props("dense options-dense borderless dropdown-icon=expand_more").classes(
+            f"{SELECT_PILL_SQUARE} w-32"
+        )
         ui.select(
             options=year_opts,
             value=realization_state["year"],
             on_change=on_year_change,
-        ).props("dense options-dense borderless").classes(f"{SELECT_PILL_SQUARE} k-mono w-24")
+        ).props("dense options-dense borderless dropdown-icon=expand_more").classes(
+            f"{SELECT_PILL_SQUARE} k-mono w-24"
+        )
         ui.toggle(
             {
                 "flat": t("budgets.realization.group_flat"),

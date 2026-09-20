@@ -42,6 +42,8 @@ PAGE_CONTAINER = "k-page w-full mx-auto"
 PAGE_GAP_22 = "k-page--gap-22"
 #: Artboard `2d`: two tall cards side by side, 24 apart.
 PAGE_GAP_24 = "k-page--gap-24"
+#: Artboard `2c`, whose twelve month columns need the four pixels a side.
+PAGE_TIGHT = "k-page--tight"
 #: Artboards `3b` and `3d` breathe like the dashboard — 36/40/44 and a wider
 #: gap, because both are pages you read rather than pages you work in.
 PAGE_ROOMY = "k-page--roomy"
@@ -173,6 +175,14 @@ STAT_CARD_FIGURE = "k-stat-figure"
 #: The same card in warm sand rather than paper: one of four that is not a
 #: figure to read but a thing to do something about (`3c`'s overdue count).
 STAT_CARD_WARM = "k-stat-card k-stat-card--warm"
+
+# ── Budget plan toolbar (artboard 2c) ────────────────────────────────────────
+#: One year, as a pill you can switch on. Mono, because it is a figure.
+YEAR_CHIP = "k-year-chip"
+YEAR_CHIP_ON = "k-year-chip k-year-chip--on"
+#: An ink button that is not on a title row: square corners, not round. The
+#: title row's pill is the page's one action; this is a control inside it.
+BUTTON_INK = "k-btn-ink"
 
 #: A page's tab row: quiet type on a rule, the tab you are on underlined in
 #: ink. Artboard `2b` puts the screen's own controls on the same line.
@@ -725,6 +735,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-page{padding:32px 36px 40px;gap:20px}
 .k-page--gap-22{gap:22px}
 .k-page--gap-24{gap:24px}
+.k-page--tight{padding-left:32px;padding-right:32px}
 .k-page--roomy{padding:36px 40px 44px;gap:26px}
 @media (max-width:767.98px){.k-page,.k-page--roomy{padding:20px 20px 28px;gap:20px}}
 .nicegui-content:has(> .k-page){padding:0;gap:0}
@@ -1080,8 +1091,41 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   min-height:32px;
   padding:0
 }
-.k-select-pill .q-field__append{color:var(--k-muted);padding-left:4px}
+.k-select-pill .q-field__append{color:var(--k-muted);padding-left:4px;font-size:15px}
 .k-select-pill .q-field__marginal{height:32px}
+/* A year, as a pill: mono at 12px, a dashed-hairline outline when it is off
+   and filled with ink when it is on (artboard `2c`). */
+.q-btn.k-year-chip{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  font-weight:400;
+  letter-spacing:0;
+  border:1px solid var(--k-chip-dash);
+  border-radius:999px;
+  color:var(--k-muted);
+  min-height:28px;
+  padding:0 13px
+}
+.q-btn.k-year-chip--on{
+  background:var(--k-ink);
+  border-color:var(--k-ink);
+  color:var(--k-ground);
+  font-weight:500
+}
+/* An ink button inside a page rather than on its title row: 8px corners, so
+   it sits with the square controls beside it instead of with the title. */
+.q-btn.k-btn-ink{
+  background:var(--k-ink);
+  color:var(--k-ground);
+  border-radius:8px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:0;
+  min-height:30px;
+  padding:0 14px
+}
+.q-btn.k-btn-ink .q-icon{color:var(--k-ground);font-size:15px}
+.q-btn.k-btn-ink:hover{background:var(--k-ink-2)}
 /* The same control with corners: artboards `2b` and `2c` set their month and
    year pickers on an 8px radius, where `3a`'s account picker is fully round.
    A picker beside a table is squarer than one beside a chart. */

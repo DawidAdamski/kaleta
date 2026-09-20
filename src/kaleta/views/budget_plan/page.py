@@ -11,6 +11,7 @@ from kaleta.views.budget_plan.dialogs import EditDialogs
 from kaleta.views.budget_plan.grid import build_plan_grid
 from kaleta.views.budget_plan.toolbar import render_toolbar
 from kaleta.views.layout import page_layout
+from kaleta.views.theme import PAGE_CONTAINER, PAGE_TIGHT
 
 
 async def budget_plan_page() -> None:
@@ -33,7 +34,7 @@ async def budget_plan_page() -> None:
     plan_grid = build_plan_grid(state, dialogs, on_refresh=_refresh_grid)
     plan_grid_ref["plan_grid"] = plan_grid
 
-    with page_layout(t("budget_plan.title"), wide=True):
+    with page_layout(t("budget_plan.title"), wide=True, container=f"{PAGE_CONTAINER} {PAGE_TIGHT}"):
         render_toolbar(
             state,
             today=today,

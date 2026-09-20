@@ -121,7 +121,9 @@ def _render_header(
         for index, month_lbl in enumerate(month_labels(), start=1):
             tint = PLAN_MONTH_NOW if (year == now.year and index == now.month) else ""
             ui.label(month_lbl).classes(f"{cell_cls} {tint}").style(S_MON)
-        ui.label(t("budget_plan.year_total")).classes("px-3 py-2 text-right").style(S_TOT)
+        ui.label(t("budget_plan.year_total")).classes(
+            "px-3 py-2 text-right whitespace-nowrap"
+        ).style(S_TOT)
         if not grid.is_compare:
             # The two row actions moved into a right-click menu to buy back
             # the width twelve month columns need; the header says so, and the

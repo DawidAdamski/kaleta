@@ -998,7 +998,7 @@
   "budget_plan": {
     "title": "Plan budżetu",
     "copy_from": "Kopiuj z poprzedniego miesiąca",
-    "copy_forward_into": "Kopiuj do:",
+    "copy_forward_into": "Skopiuj plan z poprzedniego miesiąca do",
     "copy_forward_done": "Skopiowano {count} kategorii.",
     "copy_forward_nothing": "Nic do skopiowania — źródłowy miesiąc jest pusty albo wszystkie kategorie są już ustawione.",
     "no_entries": "Brak wpisów planu budżetu.",
@@ -1030,7 +1030,7 @@
     "set_from_yearly": "Ustaw z sumy rocznej",
     "clear_all": "Wyczyść wszystkie miesiące",
     "per_month_preview": "≈ {amount} / miesiąc",
-    "help_text": "Jeden rok: kliknij kolumnę Miesiąc, aby ustawić wszystkie 12 miesięcy; kliknij komórkę, aby zmienić. Wiele lat: porównanie tylko do odczytu. Pomarańczowy ~ = różne kwoty.",
+    "help_text": "Kliknij dowolną komórkę, aby ustawić ten miesiąc · kliknij kolumnę Miesiąc, aby ustawić kwotę cykliczną",
     "monthly_header": "Miesięcznie",
     "year_header": "Rok",
     "total": "RAZEM",
@@ -1039,7 +1039,8 @@
     "actual": "Wykonanie",
     "row_actions": "Akcje wiersza",
     "row_actions_hint": "Kliknij wiersz prawym przyciskiem, aby zobaczyć akcje",
-    "actual_row": "wykonanie"
+    "actual_row": "wykonanie",
+    "help_text_more": "Kilka lat naraz to porównanie tylko do odczytu. Pomarańczowa ~ w kolumnie Miesiąc oznacza, że nie wszystkie dwanaście miesięcy ma tę samą kwotę."
   },
   "import": {
     "title": "Import transakcji",

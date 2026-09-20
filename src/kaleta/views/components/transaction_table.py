@@ -371,7 +371,9 @@ def render_pagination_bar(
                 {s: str(s) for s in PAGE_SIZES},
                 value=page_size,
                 on_change=lambda e: on_page_size_change(e.value),
-            ).props("dense options-dense borderless").classes(f"{SELECT_SUNKEN} w-[74px]")
+            ).props("dense options-dense borderless dropdown-icon=expand_more").classes(
+                f"{SELECT_SUNKEN} w-[74px]"
+            )
 
             with ui.row().classes("gap-1 items-center"):
                 prev_btn = ui.button(

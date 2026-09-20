@@ -998,7 +998,7 @@
   "budget_plan": {
     "title": "Budget Plan",
     "copy_from": "Copy from previous month",
-    "copy_forward_into": "Copy into:",
+    "copy_forward_into": "Copy last month's plan into",
     "copy_forward_done": "{count} categories copied forward.",
     "copy_forward_nothing": "Nothing to copy — either the source month has no budgets, or every category is already set.",
     "no_entries": "No budget plan entries yet.",
@@ -1030,7 +1030,7 @@
     "set_from_yearly": "Set from yearly total",
     "clear_all": "Clear all months",
     "per_month_preview": "≈ {amount} / month",
-    "help_text": "Single year: click Monthly column to set all 12 months; click a cell to override. Multiple years: read-only comparison. Orange ~ = mixed amounts.",
+    "help_text": "Click any cell to set that month · click the Month column for a recurring amount",
     "monthly_header": "Monthly",
     "year_header": "Year",
     "total": "TOTAL",
@@ -1039,7 +1039,8 @@
     "actual": "Actual",
     "row_actions": "Row actions",
     "row_actions_hint": "Right-click a row for actions",
-    "actual_row": "actual"
+    "actual_row": "actual",
+    "help_text_more": "Several years at once is a read-only comparison. An orange ~ in the Month column means the twelve months do not all carry the same amount."
   },
   "import": {
     "title": "Import Transactions",
