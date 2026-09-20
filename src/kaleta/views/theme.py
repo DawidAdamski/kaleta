@@ -100,6 +100,9 @@ CELL_DATE = "k-cell-date"
 # against 12px / 22-24px on the working screens.
 DASH_CARD = f"{_SURFACE} k-dash-card"
 CARD_TITLE = "k-card-title"
+#: The same title a size down — the two balance-sheet cards on `3b`, where
+#: the figure beside it is what the card is for.
+CARD_TITLE_SM = "k-card-title k-card-title--sm"
 CARD_SUBTITLE = "k-card-subtitle"
 #: The same label a size down — a tile's caption, a footer stat's name.
 #: Artboard `1c` sets these at 11px against the card subtitle's 12.
@@ -369,6 +372,25 @@ CALENDAR_DOT_OUT = "k-cal-dot--out"
 #: subscription charge that is not a planned transaction you can post.
 CALENDAR_DOT_FLAT = "k-cal-dot--flat"
 
+# ── Net worth (artboard 3b) ──────────────────────────────────────────────────
+#: The hero figure, which on this one screen is 60px and sits on the ground
+#: rather than on paper: it is the page's subject, not a card's.
+NET_WORTH_FIGURE = "k-nw-figure"
+NET_WORTH_DECIMALS = "k-nw-decimals"
+#: One of the two deltas beside it — a label and a figure, no pill.
+DELTA_LABEL = "k-delta-label"
+DELTA_FIGURE = "k-delta-figure"
+#: The physical-assets list: name, kind, value, and the pencil that edits it.
+ASSET_ROW = "k-asset-row"
+#: The line that adds one, under a rule of its own.
+ASSET_ADD = "k-asset-add"
+#: A balance-sheet table: four columns under a header rule, on a card that is
+#: already titled, so the columns are an eyebrow and not a heading.
+SHEET_HEAD = "k-sheet-head"
+SHEET_ROW = "k-sheet-row"
+#: An aside inside a card — the personal-loans note under the liabilities.
+CARD_NOTE = "k-card-note"
+
 # ── Balance-sheet bar (artboard 3b) ───────────────────────────────────────────
 #: One bar, three segments: held, owned, owed. The shape of the sheet, which a
 #: net figure cannot show — 10 000 owned outright and 200 000 against 190 000
@@ -476,6 +498,9 @@ BASE_CSS = """
   --k-expense:#A44631;
   --k-warning:#8A5A12;
   --k-neutral-bar:#8E8676;
+  /* What is owned outright, beside what is held: the income colour with the
+     ground mixed into it, so the two read as one side of the sheet. */
+  --k-asset-soft:#8FA893;
 
   --k-row-hover:#FAF4E9;
   --k-plan-now:#F0E5D4;
@@ -520,6 +545,7 @@ BASE_CSS = """
   --k-income:#6FAF87;
   --k-expense:#DE8672;
   --k-warning:#E3B457;
+  --k-asset-soft:#5E7C67;
 
   --k-row-hover:#262420;
   --k-plan-now:#332F26;
@@ -780,7 +806,8 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-page--gap-22{gap:22px}
 .k-page--gap-24{gap:24px}
 .k-page--tight{padding-left:32px;padding-right:32px}
-.k-page--roomy{padding:36px 40px 44px;gap:26px}
+.k-page--roomy{padding:36px 40px 44px;gap:28px}
+.k-page--roomy.k-page--gap-26{gap:26px}
 @media (max-width:767.98px){.k-page,.k-page--roomy{padding:20px 20px 28px;gap:20px}}
 .nicegui-content:has(> .k-page){padding:0;gap:0}
 /* 6px under the eyebrow, which is the artboards' own measure between it and
@@ -804,6 +831,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   color:var(--k-ink);
   line-height:1.3
 }
+.k-card-title--sm{font-size:16px}
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
 .k-card-caption{font-size:11px;color:var(--k-muted);line-height:1.4}
 /* The hero's two supporting lines (artboard `1f`): the sentence under the
@@ -1017,19 +1045,83 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
    widths are the only thing saying how big each side is. */
 .k-split{
   display:flex;align-items:stretch;gap:0;
-  height:10px;border-radius:999px;overflow:hidden;
+  height:12px;border-radius:6px;overflow:hidden;
   background:var(--k-border)
 }
 /* The safe-to-spend track, at the weight artboard `1f` draws it. */
 .k-split--hero{height:9px;border-radius:5px}
 .k-split-seg{height:100%}
-.k-split-dot{width:8px;height:8px;border-radius:999px;flex:none}
-.k-split--ink{background:var(--k-ink)}
-.k-split--neutral{background:var(--k-border-strong)}
+/* A square, not a disc, and the size of a chart key — the legend under the
+   bar is read as a key to it (artboard `3b`). */
+.k-split-dot{width:9px;height:9px;border-radius:2px;flex:none}
+/* What is held is the income colour, what is owned a muted green beside it,
+   what is owed the expense colour: the bar is the sheet, and the sheet has
+   two sides. */
+.k-split--ink{background:var(--k-income)}
+.k-split--neutral{background:var(--k-asset-soft)}
 .k-split--owed{background:var(--k-expense)}
 /* Safe-to-spend (artboard 1f): what is promised, what is gone, what is left. */
 .k-split--spent{background:var(--k-neutral-bar)}
 .k-split--free{background:var(--k-accent-light)}
+
+/* ── Net worth (artboard 3b) ──────────────────────────────────────── */
+.k-nw-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:60px;line-height:1;font-weight:400;letter-spacing:-.04em
+}
+.k-nw-decimals{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:22px;color:var(--k-muted-strong)
+}
+.k-delta-label{font-size:12px;color:var(--k-muted)}
+.k-delta-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:14px;font-weight:500
+}
+.k-asset-row{
+  display:grid;
+  grid-template-columns:1fr 96px 108px 56px;
+  align-items:center;
+  padding:9px 0;
+  font-size:13px;
+  color:var(--k-ink);
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-asset-add{
+  border-top:1px solid var(--k-hairline);
+  margin-top:14px;padding-top:14px
+}
+.q-btn.k-asset-add-btn{
+  font-size:12.5px;font-weight:500;letter-spacing:0;
+  color:var(--k-accent-text);padding:0;min-height:0
+}
+.q-btn.k-asset-add-btn .q-icon{font-size:16px;color:inherit}
+.k-sheet-head,.k-sheet-row{
+  display:grid;
+  grid-template-columns:1fr 92px 1fr 132px;
+  align-items:center
+}
+.k-sheet-head{
+  padding-bottom:9px;
+  border-bottom:1px solid var(--k-border);
+  font-size:10px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--k-muted-strong)
+}
+.k-sheet-row{
+  padding:11px 0;
+  font-size:13px;color:var(--k-ink);
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-sheet-row:last-of-type{border-bottom:none}
+.k-card-note{
+  display:flex;align-items:flex-start;gap:9px;
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  padding:11px 13px;
+  font-size:12px;color:var(--k-ink-2)
+}
 
 /* Header (artboards 1c / 2a) — 60px of paper: the wordmark, a hairline, the
    page you are on, then the search pill, the dark toggle and the avatar.
