@@ -432,7 +432,14 @@ async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_
         if not entries and not is_watch:
             continue
         with ui.column().classes("w-full gap-3.5").props(f'data-band="{band.value}"'):
-            ui.label(t(title_key)).classes(BAND_TITLE)
+            # No heading over the first band. Artboard `1f` opens on the
+            # figure itself — "same safe-to-spend answer first" is the note
+            # it was drawn to — and a band called "Now" above it is a word
+            # between the reader and the answer. The bands below it are
+            # headed, because there the heading is what says a new subject
+            # has started.
+            if band is not Band.NOW:
+                ui.label(t(title_key)).classes(BAND_TITLE)
             if is_watch:
                 await _render_watch_band(session)
             for entry in entries:
@@ -470,14 +477,21 @@ def register() -> None:
             # `items-end`, as artboard `1c` sets it: the two pills sit on the
             # baseline of a 34px title, not halfway up it.
             with ui.row().classes("w-full items-end justify-between gap-4"):
-                with ui.column().classes("gap-0 mb-[-2px]"):
-                    ui.label(_period_eyebrow()).classes("k-eyebrow mb-1.5")
-                    # 34px here, not the 32px every working screen's title
-                    # takes: the dashboard is the one artboard that sets it.
-                    ui.label(t("dashboard.title")).classes(
-                        f"{PAGE_TITLE} !text-[34px] leading-none"
-                    )
-                with ui.row().classes("items-center gap-2.5"):
+                # No title block on a phone: artboard `1f` gives the screen to
+                # the hero and puts the page's name in the header, where a
+                # 34px "Dashboard" would otherwise cost the top fifth of a
+                # 390px screen to say what the reader just tapped.
+                if not is_mobile:
+                    with ui.column().classes("gap-0 mb-[-2px]"):
+                        ui.label(_period_eyebrow()).classes("k-eyebrow mb-1.5")
+                        # 34px here, not the 32px every working screen's title
+                        # takes: the dashboard is the one artboard that sets it.
+                        ui.label(t("dashboard.title")).classes(
+                            f"{PAGE_TITLE} !text-[34px] leading-none"
+                        )
+                # `ml-auto`: on a phone this row is the only child left, and
+                # `justify-between` would park the pill on the left margin.
+                with ui.row().classes("items-center gap-2.5 ml-auto"):
                     # Edit mode drags cards around a grid there is no room for
                     # on a phone; the bands are ordered by what they are, not
                     # by what was dropped where. Customize still applies —

@@ -139,10 +139,18 @@ phone question, and a wide window that wants it ticks it in Customize.
 
 No grid, no dragging — a four-column grid has nowhere to go on a 390px
 screen, and a single column of equal cards is a scroll with no shape.
-The bands give it one:
+The bands give it one.
+
+There is no page title above them. The artboard was drawn to open on the
+answer, and a 34px "Dashboard" over it costs the top of the screen to
+name the page the reader has just tapped. What stays is the Customize
+pill, because choosing widgets is not a question about width and the
+phone has no other way to ask it.
 
 - **Now** — the safe-to-spend hero, the Needs-attention banner, quick
-  actions.
+  actions. This band carries no heading: it is what the page opens on,
+  and the word "Now" above the figure would be the first thing read
+  instead of the figure.
 - **This month** — everything without a band of its own.
 - **Watch** — four slow figures as plain type on the ground, no cards
   and no widgets at all (`BAND_OF` maps nothing here): net worth, the

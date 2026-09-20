@@ -20,7 +20,7 @@ from kaleta.views.dashboard_widgets.registry import (
     WIDGETS,
     mobile_layout,
 )
-from kaleta.views.dashboard_widgets.safe_to_spend import days_left_label, hero_split
+from kaleta.views.dashboard_widgets.safe_to_spend import eyebrow_label, hero_split, rate_line
 
 
 def _entry(widget_id: str) -> dict[str, object]:
@@ -220,14 +220,32 @@ class TestHeroSplit:
         assert round(split.spent, 4) == 100.0
 
 
-class TestDaysLeftLabel:
+class TestEyebrowLabel:
+    """Artboard `1f` puts the question and its denominator on one line."""
+
     def test_one_day_reads_singular(self) -> None:
-        assert days_left_label(_stats(today=datetime.date(2026, 6, 30))) == (
-            "1 day left this month"
+        assert eyebrow_label(_stats(today=datetime.date(2026, 6, 30))) == (
+            "Safe to spend · 1 day left"
         )
 
     def test_more_than_one_reads_plural(self) -> None:
-        assert days_left_label(_stats()) == "21 days left this month"
+        assert eyebrow_label(_stats()) == "Safe to spend · 21 days left"
+
+
+class TestRateLine:
+    """The one sentence under the figure: the pace, then the habit."""
+
+    def test_a_month_with_something_left_reads_as_a_pace(self) -> None:
+        """1000.00 free over the 21 days left of June is 47.62 a day."""
+        assert rate_line(_stats(income=Decimal("1000.00"))) == (
+            "47.62 zł a day. You've been averaging 0.00 zł."
+        )
+
+    def test_an_overspent_month_reads_as_an_overdraft(self) -> None:
+        """A negative pace is not a budget, so it is not printed as one."""
+        assert rate_line(_stats(income=Decimal("1000.00"), spent=Decimal("1300.00"))) == (
+            "300.00 zł over. You've been averaging 0.00 zł a day."
+        )
 
 
 class TestOverspentMonth:

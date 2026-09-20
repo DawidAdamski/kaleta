@@ -3355,11 +3355,15 @@ Feature: Dashboard Customization
     And the per-day figure reads 109.52
 
   KAL-DSH-007 @automated
-  Scenario: The phone dashboard stacks into Now, This month, Watch and Latest
+  Scenario: The phone dashboard opens on the answer, then stacks into bands
     Given I am signed in
     When I open the dashboard on a 390 pixel wide viewport
-    Then the widgets are stacked in bands headed Now, This month, Watch and Latest
-    And the safe-to-spend hero is the first thing in the Now band
+    Then there is no page title above the first widget
+    And the safe-to-spend hero is the first thing on the page
+    And the hero's eyebrow reads "Safe to spend" and how many days are left
+    And the per-day sentence sits above the split bar, not below it
+    And the first band carries no heading of its own
+    And the widgets below it are stacked in bands headed This month, Watch and Latest
     And the Watch band carries net worth, the six-month average savings rate,
       the 30-day balance and the safety-fund cover as plain figures
     And the Watch band carries no widget cards at all

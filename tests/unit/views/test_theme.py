@@ -194,10 +194,16 @@ def test_no_constant_carries_a_tailwind_palette_class() -> None:
 def test_nav_items_use_the_handoff_type_and_gutter() -> None:
     # 13px labels and a 19px icon column are what let 236px hold the long
     # entries on one line; a minimum height would clip a wrap.
-    # 44px is the phone's tap target, 35px the docked drawer's row on a
-    # desktop — sixteen entries at 44px do not fit a 900px window.
+    # 44px is the phone's tap target; on a desktop the padding sets the row,
+    # as the artboard writes it — 7px in a group, 8px for a pinned entry,
+    # which is 33px and 35px around a 19px icon. Sixteen entries at 44px do
+    # not fit a 900px window.
     assert "min-height:44px" in _block(theme.BASE_CSS, ".k-nav-item")
-    assert "@media (min-width:768px){.k-nav-item{min-height:35px}}" in theme.BASE_CSS
+    assert ".k-nav-item{min-height:0;padding-top:7px;padding-bottom:7px}" in theme.BASE_CSS
+    assert ".k-nav-item--pinned{padding-top:8px;padding-bottom:8px}" in theme.BASE_CSS
+    # The entry fills the drawer less its margins, or the active one is a
+    # pill the width of its own label.
+    assert "self-stretch" in theme.NAV_ITEM
     assert "font-size:13px" in _block(theme.BASE_CSS, ".k-nav-item .q-item__label")
     avatar = _block(theme.BASE_CSS, ".k-nav-item .q-item__section--avatar")
     # 19px glyph + 12px gutter — the column must hold the icon, and the icon

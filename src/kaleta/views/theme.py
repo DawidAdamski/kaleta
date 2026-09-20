@@ -44,10 +44,14 @@ DRAWER = "k-drawer"
 
 NAV_GROUP = "k-nav-group flex-1"
 NAV_GROUP_ROW = "k-nav-row w-full items-center cursor-pointer select-none transition-colors"
-NAV_ITEM = "k-nav-item rounded-lg mx-3 px-3 cursor-pointer transition-colors"
-#: The two pinned entries, which the artboard sets 3px apart. Group items sit
-#: flush against each other under their eyebrow.
-NAV_ITEM_PINNED = "mb-[3px]"
+#: ``self-stretch``: the drawer is a flex column that does not stretch its
+#: children, so without it every entry shrink-wrapped its label and the
+#: active one was a 122px pill in a 236px drawer. The artboard's is 212 —
+#: the drawer less the 12px margin each side.
+NAV_ITEM = "k-nav-item rounded-lg mx-3 px-3 self-stretch cursor-pointer transition-colors"
+#: The two pinned entries, which the artboard sets 3px apart and a pixel
+#: taller than the group items below them.
+NAV_ITEM_PINNED = "k-nav-item--pinned"
 NAV_ITEM_ACTIVE = "k-nav-item--active"
 
 PAGE_TITLE = "k-page-title text-[32px] font-light tracking-tight"
@@ -88,6 +92,10 @@ CARD_SUBTITLE = "k-card-subtitle"
 #: The same label a size down — a tile's caption, a footer stat's name.
 #: Artboard `1c` sets these at 11px against the card subtitle's 12.
 CARD_CAPTION = "k-card-caption"
+#: The safe-to-spend hero's per-day sentence, and the three labels under its
+#: split bar (artboard `1f`).
+HERO_RATE = "k-hero-rate"
+HERO_LEGEND = "k-hero-legend"
 #: A chart key drawn beside a card's title rather than inside the chart: a
 #: 9px square for a bar series, a 16x2 rule for a line one (artboard `1c`).
 LEGEND_DOT = "k-legend-dot"
@@ -455,8 +463,19 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 /* 44px is the phone's tap target, where the drawer is an overlay behind
    "More"; the docked desktop drawer is the artboard's 19px icon in 8px of
    padding, and 16 entries at 44px do not fit a 900px window. */
-.k-nav-item{color:var(--k-ink-2);min-height:44px}
-@media (min-width:768px){.k-nav-item{min-height:35px}}
+/* `flex:none`: the two pinned entries are direct children of the drawer's
+   flex column, and sixteen entries overflow an 840px one. Without it they
+   are the rows that shrink — to 16px, the moment the desktop rule takes the
+   minimum height away and leaves the padding to set it. */
+.k-nav-item{color:var(--k-ink-2);min-height:44px;flex:none}
+.k-nav-item--pinned{margin-bottom:3px}
+/* On a desktop the padding is what sets the row height, as artboard `1c`
+   writes it: 7px inside a group, 8px for the two pinned entries above them.
+   The 44px floor is the phone's tap target and stays below the breakpoint. */
+@media (min-width:768px){
+  .k-nav-item{min-height:0;padding-top:7px;padding-bottom:7px}
+  .k-nav-item--pinned{padding-top:8px;padding-bottom:8px}
+}
 .k-nav-item:hover{background:var(--k-surface)}
 .k-nav-item .q-item__label{color:var(--k-ink-2);font-size:13px;line-height:1.3}
 /* Quasar reserves 56px for the avatar column; the handoff's drawer is a
@@ -567,6 +586,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
 .k-card-caption{font-size:11px;color:var(--k-muted);line-height:1.4}
+/* The hero's two supporting lines (artboard `1f`): the sentence under the
+   figure, set in ink-2 with room to breathe, and the three segment labels
+   spread across the bar in muted 11px. */
+.k-hero-rate{font-size:13px;line-height:1.55;color:var(--k-ink-2)}
+.k-hero-legend{font-size:11px;color:var(--k-muted)}
 .k-legend-dot{width:9px;height:9px;border-radius:2px;flex:none}
 .k-legend-line{width:16px;height:2px;flex:none}
 .k-row-hover:hover{background:var(--k-row-hover)}

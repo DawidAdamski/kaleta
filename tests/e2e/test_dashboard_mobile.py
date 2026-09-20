@@ -148,7 +148,6 @@ def test_the_phone_dashboard_stacks_into_bands(page: Page, base_url: str) -> Non
     _open_phone_dashboard(page, base_url)
 
     for band, heading in (
-        ("now", "Now"),
         ("month", "This month"),
         ("watch", "Watch"),
         ("latest", "Latest"),
@@ -157,11 +156,31 @@ def test_the_phone_dashboard_stacks_into_bands(page: Page, base_url: str) -> Non
         expect(section).to_be_visible(timeout=10000)
         expect(section.get_by_text(heading, exact=True).first).to_be_visible()
 
+    # Nothing above the answer: no page title, and no heading over the first
+    # band either. Artboard `1f` opens on the figure, and every word before
+    # it is a word between the reader and it.
+    expect(page.locator(".k-page-title")).to_have_count(0)
     now = page.locator('[data-band="now"]')
+    expect(now).to_be_visible(timeout=10000)
+    expect(now.get_by_text("Now", exact=True)).to_have_count(0)
     expect(now.locator("[data-widget-id]").first).to_have_attribute(
         "data-widget-id", "safe_to_spend", timeout=10000
     )
-    expect(now.get_by_text("Safe to spend", exact=True).first).to_be_visible()
+    # The eyebrow carries the question and its denominator on one line.
+    expect(now.locator(".k-eyebrow").first).to_contain_text("Safe to spend")
+    expect(now.locator(".k-eyebrow").first).to_contain_text("left")
+    # Pace and habit in one sentence, under the figure. The artboard puts it
+    # there and the split bar below it — but an empty ledger has no bar to
+    # draw (three zero-width segments), so the order is asserted against the
+    # figure, which is always there, and against the bar only when there is
+    # one. `1f.md` carries the measured offsets on a seeded ledger.
+    rate = now.locator(".k-hero-rate")
+    expect(rate).to_be_visible()
+    rate_y = rate.bounding_box()["y"]
+    assert rate_y > now.locator(".k-ink.k-mono").first.bounding_box()["y"]
+    bar = now.locator(".k-split--hero")
+    if bar.count():
+        assert rate_y < bar.bounding_box()["y"]
 
     watch = page.locator('[data-band="watch"]')
     for label in (

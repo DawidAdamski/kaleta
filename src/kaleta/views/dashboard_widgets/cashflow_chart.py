@@ -23,6 +23,16 @@ from kaleta.views.chart_utils import (
 from kaleta.views.dashboard_widgets.registry import register
 from kaleta.views.theme import CARD_SUBTITLE, CARD_TITLE, DASH_CARD, LEGEND_DOT, LEGEND_LINE
 
+#: Bar width as a share of the category band — artboard `1c` draws a 50px
+#: bar on a 182px step. A share rather than a pixel count: the same card is
+#: 968px wide on a desktop and 350px on a phone.
+_BAR_WIDTH = "27%"
+
+#: The two faces `1c` sets its axes in — figures in mono, month names in the
+#: body face, both a size down from the card.
+_Y_LABEL = {"fontFamily": "IBM Plex Mono, ui-monospace, monospace", "fontSize": 10.5}
+_X_LABEL = {"fontFamily": "Libre Franklin, system-ui, sans-serif", "fontSize": 11.5}
+
 
 def _month_label(month: MonthCashflow) -> str:
     """ "Jul" — the axis label artboard `1c` draws, not the ``2026-07`` key.
@@ -41,24 +51,41 @@ def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[st
         # title line, which is outside the chart's box — ``_legend`` draws
         # them there, in the same swatches.
         "grid": {"left": "3%", "right": "4%", "top": 12, "bottom": 8, "containLabel": True},
-        "xAxis": {"type": "category", "data": [_month_label(m) for m in months]},
+        "xAxis": {
+            "type": "category",
+            "data": [_month_label(m) for m in months],
+            "axisLabel": dict(_X_LABEL),
+            # The artboard draws gridlines and a zero rule, and no axis line
+            # or ticks under the month names.
+            "axisLine": {"show": False},
+            "axisTick": {"show": False},
+        },
         # No "zł" suffix: the artboard's axis is bare figures, and the card
         # is already a card about money.
-        "yAxis": {"type": "value"},
+        "yAxis": {
+            "type": "value",
+            "axisLabel": dict(_Y_LABEL),
+            "axisLine": {"show": False},
+        },
         "series": [
             {
                 "name": t("common.income"),
                 "type": "bar",
                 "stack": "cashflow",
+                # 50px on a 182px step is what `1c` draws: a bar narrower
+                # than the space beside it. ECharts' own default leaves a
+                # 20% category gap, which at six months is a wall.
+                "barWidth": _BAR_WIDTH,
                 "data": [float(m.income) for m in months],
-                "itemStyle": {"color": chart_income_color(is_dark)},
+                "itemStyle": {"color": chart_income_color(is_dark), "borderRadius": 3},
             },
             {
                 "name": t("common.expense"),
                 "type": "bar",
                 "stack": "cashflow",
+                "barWidth": _BAR_WIDTH,
                 "data": [-float(m.expenses) for m in months],
-                "itemStyle": {"color": chart_expense_color(is_dark)},
+                "itemStyle": {"color": chart_expense_color(is_dark), "borderRadius": 3},
             },
             {
                 "name": t("dashboard.net"),

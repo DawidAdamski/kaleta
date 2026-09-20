@@ -99,7 +99,12 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
     # prediction to give, and the footer renders an em dash for it.
     predicted = forecast.predicted_balance_30d
 
-    with ui.card().classes(f"{DASH_CARD} justify-between"):
+    # `gap-0` and no `justify-between`: artboard `1c` sets every offset in
+    # this card as a margin and puts all the slack in one place — a `flex:1`
+    # spacer above the footer rule. Spreading it between the rows instead
+    # loosened the whole card whenever the balance card beside it grew a
+    # second row of account tiles.
+    with ui.card().classes(f"{DASH_CARD} gap-0"):
         with ui.column().classes("gap-1 w-full"):
             ui.label(t("dashboard_widgets.month_card")).classes("k-eyebrow")
             # No `no-wrap`: three 26px figures held on one line pushed the
@@ -116,7 +121,11 @@ async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # no
 
         _pace_bar(point)
 
-        with ui.row().classes("w-full gap-6 pt-[18px] mt-4 k-card-footer flex-wrap"):
+        # The artboard's `flex:1;min-height:14px` — where a taller neighbour's
+        # spare height goes, and a floor under it when there is none to give.
+        ui.element("div").classes("flex-1 min-h-[14px]")
+
+        with ui.row().classes("w-full gap-6 pt-[18px] k-card-footer flex-wrap"):
             _footer_stat(
                 t("dashboard.balance_30"),
                 "—" if predicted is None else fmt_number(predicted),

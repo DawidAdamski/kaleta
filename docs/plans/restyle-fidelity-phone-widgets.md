@@ -30,6 +30,11 @@ wide the page is.
   on the ground, a 120px chart sketch under them with month letters. At
   390px a card's 18px of padding is 10% of the width, and the band heading
   is already saying what the card's border would.
+- **The safe-to-spend hero** (`safe_to_spend`). Its contents are already
+  `1f`'s, measured — the eyebrow, the per-day sentence, the bar and the
+  spread legend. What is left is the same card: `1f` draws the hero flat on
+  the ground, and `render_safe_to_spend` builds a `DASH_CARD` it cannot opt
+  out of without knowing the width. `1f.md` row 7b.
 
 A widget's render signature is `(session: AsyncSession, is_dark: bool)`.
 It is never told the width, so either treatment means changing the
@@ -53,7 +58,7 @@ than done half-way.
   render function.
 - `docs/bdd.md`: `KAL-DSH-007` gains the two phone renderings; new tests
   in `tests/e2e/test_dashboard_mobile.py` with `Covers:` docstrings.
-- `docs/design/restyle/fidelity/1f.md`: rows 10, 11 and 13 move from
+- `docs/design/restyle/fidelity/1f.md`: rows 7b, 10, 11 and 13 move from
   `deviation` to `match`, with the values read off both sides.
 
 Out of scope: the phone tab bar (`1f.md` rows 15 and 16 — `restyle-

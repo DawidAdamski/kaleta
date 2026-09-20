@@ -255,6 +255,39 @@ gets accepted or sent back.
   rendered. The picture still shows the empty line, which is what the note
   on the row says.
 
+### After the owner looked at the pictures
+
+The `[owner]` criterion was run and came back with four findings. All four
+are fixed; the values are in the reports.
+
+- **The active drawer entry was a 122px pill in a 236px drawer.** The
+  drawer's content is a flex column that does not stretch its children, so
+  every entry shrink-wrapped its own label. `align-self:stretch` gives them
+  the artboard's 212 (211 here — Quasar's `border-box` takes the drawer's
+  1px rule out of the 236). Taking the blanket 35px minimum off at the same
+  time let the padding set the row, which is how `1c` writes it: 8px for a
+  pinned entry, 7px inside a group — but it also let the two pinned entries,
+  direct children of that column, shrink to 16px, so `.k-nav-item` carries
+  `flex:none`.
+- **The cashflow bars were nearly touching.** ECharts leaves a 20% category
+  gap by default; `1c` draws a 50px bar on a 182px step. `barWidth: "27%"`
+  and `borderRadius: 3`, plus the artboard's two axis faces.
+- **The "This month" card was padded loosely.** It was `justify-between`
+  over a 16px row gap, so whenever the balance card beside it grew a second
+  row of account tiles — four accounts on this ledger, three on the
+  artboard — the slack was shared out *between* its rows. The artboard puts
+  all of it in one place: a `flex:1;min-height:14px` spacer above the footer
+  rule, every other offset a margin. `gap-0` and that spacer.
+- **The phone screen did not resemble `1f`.** Three things above the fold
+  were the app's and not the artboard's: a page title block, a "Now"
+  heading over the first band, and a hero whose parts were in a different
+  order. All three are gone or transcribed — `KAL-DSH-007` was rewritten
+  for it, and the hero's eyebrow, per-day sentence and segment legend are
+  now the artboard's, measured in `1f.md` rows 6, 7a and 9. What remains
+  between the app and `1f` is what rows 10, 11, 13 and 7b defer and what
+  row 5a keeps: the widget catalogue is longer than the artboard's five
+  sections, and four renderings need a widget to know how wide the page is.
+
 ### Left for the owner, or for the next plan
 
 - **`1f`'s phone-only renderings.** Deferred by the scope amendment above
