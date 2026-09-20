@@ -365,6 +365,32 @@ def register() -> None:
             ui.notify(t("payment_calendar.posted", name=occ.name), type="positive")
             await _refresh()
 
+        async def _post_overdue(overdue: list[PlannedOccurrence]) -> None:
+            """Post exactly the items the strip is listing, and nothing else.
+
+            Not `post_due`: that posts everything due up to today, including
+            items dated today that the strip does not list - and a button
+            labelled with the strip's own count would then have posted more
+            than it counted.
+            """
+            posted = 0
+            for occ in list(overdue):
+                try:
+
+                    async def _run(session: Any, o: PlannedOccurrence = occ) -> None:
+                        await PlannedTransactionService(session).post_occurrence(
+                            o.planned_id, o.date
+                        )
+
+                    await with_session(_run)
+                except KaletaError as exc:
+                    notify_kaleta_error(exc)
+                    continue
+                posted += 1
+            if posted:
+                ui.notify(t("payment_calendar.posted_all", count=posted), type="positive")
+            await _refresh()
+
         async def _post_all_due() -> None:
             try:
 
@@ -634,7 +660,7 @@ def register() -> None:
                     ui.space()
                     ui.button(
                         t("payment_calendar.post_n", count=len(overdue)),
-                        on_click=_post_all_due,
+                        on_click=lambda _e=None, items=list(overdue): _post_overdue(items),
                         color=None,
                     ).props("flat dense no-caps").classes(BUTTON_INK)
 

@@ -1935,8 +1935,20 @@ Feature: Planned and Recurring Transactions
       And its occurrence fell 5 days before the first of this month
     When I open the Payment Calendar
     Then a strip above the month grid lists "Prad Zalegly"
-      And the strip says how many days late it is
-      And the item can be posted from the strip without opening a day
+      And the strip says the date it has been overdue since
+      And the strip carries one button naming how many items are overdue
+      And pressing it posts them without opening a day
+
+  KAL-PLN-021 @automated
+  Scenario: The day sheet sits beside the month rather than over it
+    Given I open the Payment Calendar
+    Then a day sheet is open beside the grid, showing today
+      And it carries that day's In, Out and Net
+    When I click another day in the month
+    Then the sheet shows that day instead
+      And the month grid is still fully visible
+    When I close the sheet
+    Then the grid has the page to itself
 ```
 
 ## Feature: Recurring Payment Detection
@@ -2742,6 +2754,16 @@ Feature: Report Builder
       And I open "Spend by account" from the rail
     Then the sentence reads "Account" again
       And the header carries the saved report's name
+
+  KAL-RPT-002 @automated
+  Scenario: The bar result reads as rows, each with its value and its share
+    Given I am on the report builder
+      And the chart type is "Bar"
+    When I run the report
+    Then each result is a row carrying its name, a bar, its value and its
+      share of the total
+      And the rows are ranked largest first
+      And the card's title line carries the total
 ```
 
 ## Feature: Money Flow

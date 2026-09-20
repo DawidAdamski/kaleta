@@ -99,4 +99,86 @@ If one screen alone is more than a day's work, split it out into
 
 ## Implementation notes
 
-_(filled in as work progresses)_
+### Open questions, resolved
+
+1. **Dark mode.** Default taken: the ten screens were compared in light
+   only. Every value this plan introduced is a CSS custom property on
+   `:root` with a `.body--dark` counterpart (`--k-band`, `--k-ramp-1..6`,
+   `--k-warm-ink`, `--k-warm-rule`, `--k-field-border`), so no screen
+   hard-codes a light hex and no row is open for want of a dark pass.
+
+### Decisions
+
+- **The shoot runs the rich seed.** `EphemeralApp` was seeding through
+  `DataService.seed`, which has no payees, tags, planned transactions,
+  subscriptions or physical assets — so `2a`, `3b` and `3c` were being
+  photographed against a ledger their artboards do not describe. It now
+  runs `alembic upgrade head` → `scripts/seed.py` → `alembic stamp head`
+  → `reset_demo.py --force --no-seed`, which is why `reset_demo` gained
+  a `--no-seed` flag.
+- **`3f` was photographing the dashboard.** The Shooter logged in once
+  per theme, and a logged-in session redirects `/login`. Artboards with
+  `needs_login=False` are shot in a fresh context of their own.
+- **Quasar's colour helpers cannot be out-specified.** `.bg-primary` and
+  `.text-white` are `!important`. Every ink-on-chosen control in this
+  branch — the segmented controls, the ledger checkbox, the chart-type
+  squares — works by redefining `--q-primary` / `--q-info` scoped to the
+  component and passing `toggle-text-color=info` or `color="info"`.
+- **Quasar fixes table row heights.** `.q-table thead tr` and
+  `.q-table tbody td` are 48px; `2a`'s 39px header and 35px rows need
+  `height:auto` on both, plus an 18px checkbox inner.
+- **`views_hash` covers `theme.py`.** Any token change invalidates every
+  report, so all ten were written after the last source change and
+  `shoot all` was run once more before `check`.
+
+### What the comparison fixed rather than recorded
+
+- A net-worth liability row drew its debt as a credit: the account
+  already holds a negative balance and the view negated it. `-abs`.
+- The import mapping's AUTO mark was a green outlined pill sitting on
+  the field's own border (`align-self:flex-start` in Quasar's append
+  slot). Artboard `2d` writes it as quiet type inside the box.
+- Both forecast tables gave each row its own column widths: a bare `fr`
+  track takes its minimum from its content, so one long category name
+  moved every figure in the card. `minmax(0, …)`.
+- The report builder's rail highlight shrink-wrapped its own label; the
+  rail row is `width:100%`.
+
+### Behaviour that changed, and where it is written down
+
+- The Payment Calendar's day sheet is a panel beside the grid, open on
+  today, rather than a drawer over it — `KAL-PLN-021`, covered by
+  `test_the_day_sheet_sits_beside_the_month`.
+- Its overdue strip reads as one line and carries one button that posts
+  exactly the items it names (`_post_overdue`, not `post_due`, so the
+  count on the button is the count it posts) — `KAL-PLN-020`, rewritten
+  and its test with it.
+- The report builder's bar result is rows of HTML rather than an ECharts
+  canvas — `KAL-RPT-002`, covered by `test_the_bar_result_reads_as_rows`.
+  `_bar_options` went with it.
+- The forecast horizon is three buttons rather than a menu, and the date
+  a figure is as of moved from a third line on the card to `data-as-of`
+  plus a tooltip. Three `KAL-FCT` e2e selectors moved with the controls;
+  none of their assertions was loosened.
+- The seed grows two already-late planned transactions: the overdue
+  strip and the Overdue card exist for that state, and a seed in which
+  nothing is ever late leaves both untested and unseen.
+
+### Deviations the owner has to agree with
+
+Every `deviation` row in the ten reports says why. The ones that are a
+missing capability rather than a design choice:
+
+- `2a` has no Export button — the app has no ledger export.
+- `3e` has no Export CSV, and its eyebrow counts the whole ledger rather
+  than the rows in scope (that count needs the service to answer).
+- `3f`'s error says "Invalid username or password" without the artboard's
+  "3 attempts left" (`LoginRateLimiter` keeps the count but nothing
+  exposes it), and its third panel stat is months of history, not banks.
+- `3c`'s day sheet has no "Post this day"; each item carries the button
+  that posts it.
+- `2d` maps Counterparty, Debit and Credit as three rows where the
+  artboard draws one "Debit / Credit" picker.
+
+All five are new behaviour or service changes, which this plan's Scope
+puts out of bounds.

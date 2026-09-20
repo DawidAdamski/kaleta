@@ -89,3 +89,42 @@ def test_sentence_reflects_state_and_a_saved_report_comes_back(page: Page, base_
     expect(_slots(page).nth(1)).to_contain_text("Account", timeout=10000)
     expect(_slots(page).nth(0)).to_contain_text("Count")
     expect(page.get_by_text(REPORT_NAME, exact=True).first).to_be_visible()
+
+
+def test_the_bar_result_reads_as_rows(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-002
+
+    Ten labelled bars inside an ECharts canvas could not be selected,
+    searched or read aloud, and the shares they were labelled with were
+    buried in a tooltip. They are four columns of text and one div now.
+    """
+    account_id = sh.seed_account("Reports Bars E2E Account")
+    big = sh.seed_category("Reports Bars E2E Big")
+    small = sh.seed_category("Reports Bars E2E Small")
+    sh.seed_transaction(account_id, big, 900.0, description="reports bars e2e big")
+    sh.seed_transaction(account_id, small, 100.0, description="reports bars e2e small")
+
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+    page.get_by_role("button", name="Run").click()
+
+    rows = page.locator(".k-report-bar-row")
+    expect(rows.first).to_be_visible(timeout=15000)
+
+    # Every row carries four cells: name, track, value, share.
+    first = rows.first
+    expect(first.locator(".k-report-bar-track")).to_have_count(1)
+    cells = [c.strip() for c in first.inner_text().split("\n") if c.strip()]
+    assert len(cells) == 3, cells  # the track has no text of its own
+    assert cells[2].endswith("%"), cells
+
+    # Ranked largest first, which is what lets the ramp stand in for a legend.
+    def _value(row_text: str) -> float:
+        line = [c for c in row_text.split("\n") if c.strip()][1]
+        return float(line.replace(" ", "").replace(",", ""))
+
+    values = [_value(rows.nth(i).inner_text()) for i in range(min(rows.count(), 5))]
+    assert values == sorted(values, reverse=True), values
+
+    # And the total is on the card's title line, not on a row.
+    expect(page.locator(".k-result-total")).to_be_visible()

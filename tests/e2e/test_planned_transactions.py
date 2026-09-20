@@ -478,6 +478,8 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
 
     The overdue list used to hang off the day-1 cell, so an item three weeks
     late was invisible until the user clicked a day it had nothing to do with.
+    It reads as one line now (artboard `3c`): what is late, since when, for
+    how much, and one button that clears exactly the items it names.
     """
     today = datetime.date.today()
     first_of_month = today.replace(day=1)
@@ -494,19 +496,62 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
 
     page.goto(f"{base_url}/payment-calendar")
 
-    strip = page.locator(".k-warning-strip")
+    strip = page.locator(".k-overdue-strip")
     expect(strip).to_be_visible(timeout=10000)
     expect(strip).to_contain_text("Prad Zalegly")
-    # The age, so "overdue" is a length of time and not just a flag.
-    expect(strip).to_contain_text(f"{(today - due).days} days late")
+    # Since when, so "overdue" is a point in time and not just a flag.
+    expect(strip).to_contain_text(f"Overdue since {due.strftime('%d.%m')}")
+
+    # One button, naming how many items it will post — and posting exactly
+    # those. The suite shares one database, so other tests' overdue items may
+    # be listed beside this one; the count is read off the button itself.
+    post = strip.get_by_role("button")
+    expect(post).to_be_visible()
+    label = post.inner_text().strip()
+    assert re.fullmatch(r"Post \d+", label), label
+    listed = strip.locator(".k-overdue-text").count()
+    assert label == f"Post {listed}", (label, listed)
 
     # Posting works from the strip itself — no day has to be opened first.
-    # Scoped to this item's own row: the suite shares one database, so other
-    # tests' overdue items may be listed above it.
-    row = strip.locator(".nicegui-row").filter(has_text="Prad Zalegly")
-    row.get_by_role("button", name="Post").click()
-    expect(page.get_by_text('Posted "Prad Zalegly".')).to_be_visible(timeout=10000)
+    post.click()
     # Once posted it is no longer late, so it leaves the strip.
-    expect(page.locator(".k-warning-strip").get_by_text("Prad Zalegly")).to_have_count(
+    expect(page.locator(".k-overdue-strip").get_by_text("Prad Zalegly")).to_have_count(
         0, timeout=10000
     )
+
+
+def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-021
+
+    The sheet used to slide in from the right and cover the grid it was
+    about, so the one comparison the screen exists for — this day against
+    the ones around it — could not be made while it was open.
+    """
+    page.goto(f"{base_url}/payment-calendar")
+
+    panel = page.locator(".k-day-panel")
+    grid = page.locator(".k-cal-day").first
+    expect(panel).to_be_visible(timeout=10000)
+    expect(grid).to_be_visible()
+
+    today = datetime.date.today()
+    expect(panel).to_contain_text(str(today.day))
+    for label in ("In", "Out", "Net"):
+        expect(panel.get_by_text(label, exact=True)).to_be_visible()
+
+    # Beside, not over: the two occupy different columns of the same row.
+    panel_box = panel.bounding_box()
+    grid_box = page.locator(".k-cal-day").first.bounding_box()
+    assert panel_box is not None and grid_box is not None
+    assert grid_box["x"] + grid_box["width"] <= panel_box["x"], (grid_box, panel_box)
+
+    # Another day moves the sheet, and the grid stays where it is.
+    other = 1 if today.day != 1 else 2
+    page.locator(".k-cal-day").filter(has_text=str(other)).first.click()
+    expect(panel).to_contain_text(str(other), timeout=10000)
+    expect(page.locator(".k-cal-day").first).to_be_visible()
+
+    # Closing it gives the grid the page.
+    panel.locator("i", has_text="close").first.click()
+    expect(panel).to_be_hidden(timeout=10000)
+    expect(page.locator(".k-cal-day").first).to_be_visible()
