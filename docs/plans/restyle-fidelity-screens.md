@@ -68,10 +68,10 @@ say so — it becomes its own plan.
 
 ### What this plan went outside those bounds for
 
-Written down during implementation rather than discovered at review. Each
-item is for the owner to accept or send back with the `[owner]` criterion;
-none of it was invented, every one of them is a thing an artboard draws
-and a screen did not do.
+Four of them, each for the owner to accept or send back with the
+`[owner]` criterion below. None of it was invented: every one is
+something an artboard draws that a screen did not do, or something the
+review found while the screen was being brought to it.
 
 1. **Four behaviour changes an artboard asked for.** `3c` draws the day
    sheet as a panel beside the month rather than a drawer over it
@@ -88,7 +88,17 @@ and a screen did not do.
    atomicity in `views/`, against the architecture contract. It adds no
    capability: `post_due` could already post a window, and this posts the
    list it is handed. Three unit tests.
-3. **The shoot harness beyond `_prepare_*`.** `scripts/restyle_fidelity.py`
+3. **Three seed rows and a deleted file.** `scripts/seed.py` grew two
+   already-late planned transactions and two tracked subscriptions,
+   because `3c` draws a screen with both and a seed that can never be
+   late and has never seen a subscription cannot be photographed against
+   that artboard (Scope's own rule: extend the seed rather than mark the
+   element `deviation`). It also gave the canonical tags sand colours,
+   the model's grey having read as "no tag" in `2a`'s shot.
+   `src/kaleta/views/transactions/constants.py` is gone: it held
+   `_KBD_CLS`, a slate-grey keyboard-hint pill `2a` does not draw, and
+   nothing else imported it.
+4. **The shoot harness beyond `_prepare_*`.** `scripts/restyle_fidelity.py`
    also gained a real seeding pipeline and a login split (see
    Implementation notes, "The shoot runs the rich seed" and "`3f` was
    photographing the dashboard"), and `scripts/reset_demo.py` gained
@@ -115,7 +125,7 @@ If one screen alone is more than a day's work, split it out into
 - `bash scripts/verify.sh --e2e`
 - `[owner]` Pages through `.fidelity/<id>/index.html` for the ten artboards
   and agrees with every row marked `deviation`.
-- `[owner]` Accepts the three items under Scope § "What this plan went
+- `[owner]` Accepts the four items under Scope § "What this plan went
   outside those bounds for", or sends any of them back to a plan of
   their own.
 
@@ -297,6 +307,16 @@ missing capability rather than a design choice:
   subscription row carries no sub-line at all. `PlannedOccurrence` has
   no recurrence and `SubscriptionCharge` has neither an account nor a
   cadence; both are service changes.
+- `3c` draws its day cells at radius 10 and its dots at 6px where the
+  artboard has 8 and 5. Both are `1c`'s tokens (`--k-cal-day`,
+  `--k-cal-dot`), already on the dashboard's calendar widget, and one
+  calendar cell that is not shaped like the other calendar cell is worse
+  than two pixels. A token reason rather than a taste one, but still a
+  choice, so it is here.
+- `3b` gives an asset row a 56px action column against the artboard's
+  30px, because deleting an asset has to be reachable and the two
+  buttons wrapped the row at 30. `2a` has no Export button, `3f` no
+  "attempts left" — those two are capabilities, above.
 
 All five are new behaviour or service changes, which this plan's Scope
 puts out of bounds.
