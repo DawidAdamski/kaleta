@@ -586,13 +586,19 @@ def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
     assert panel_box is not None and grid_box is not None
     assert grid_box["x"] + grid_box["width"] <= panel_box["x"], (grid_box, panel_box)
 
-    # Another day moves the sheet, and the grid stays where it is.
-    other = 1 if today.day != 1 else 2
-    page.locator(".k-cal-day").filter(has_text=str(other)).first.click()
-    expect(panel).to_contain_text(str(other), timeout=10000)
+    # Another day moves the sheet, and the grid stays where it is. By its
+    # own `data-day`, not by its text: a cell reading "21" or "1 400"
+    # contains "1" too, and which of them came first was luck.
+    other = today.replace(day=1 if today.day != 1 else 2)
+    page.locator(f'[data-day="{other.isoformat()}"]').click()
+    expect(panel).to_contain_text(str(other.day), timeout=10000)
     expect(page.locator(".k-cal-day").first).to_be_visible()
 
-    # Closing it gives the grid the page.
-    panel.locator("i", has_text="close").first.click()
+    # Closing it gives the grid the page. The panel is redrawn whenever a
+    # day is picked, so the close icon is looked up after that redraw has
+    # landed rather than before it.
+    close = panel.locator("i", has_text="close").first
+    expect(close).to_be_visible(timeout=10000)
+    close.click()
     expect(panel).to_be_hidden(timeout=10000)
     expect(page.locator(".k-cal-day").first).to_be_visible()
