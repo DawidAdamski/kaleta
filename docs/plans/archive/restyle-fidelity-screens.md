@@ -3,8 +3,9 @@ plan_id: restyle-fidelity-screens
 title: Restyle fidelity — the ten working screens to artboards 2a–2d and 3a–3f
 area: ux
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#ux
+status: archived
+archived_at: 2026-09-21
+roadmap_ref: ../../roadmap.md#ux
 ---
 
 # Restyle fidelity — working screens
@@ -572,3 +573,102 @@ the artboard asked for rather than one it was refused:
   `test_the_bar_result_reads_as_rows` cover what replaced it, and
   `report_chart_options` still answers for the three types that really
   are charts.
+
+## Implementation
+
+Landed on 2026-09-21 (PR #111).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4f02588` | Dawid Adamski | 2026-09-21 | Merge pull request #111 from DawidAdamski/plan/restyle-fidelity-screens |
+
+**Files changed:**
+- docs/bdd.md
+- docs/design/restyle/fidelity/1c.md
+- docs/design/restyle/fidelity/1d.md
+- docs/design/restyle/fidelity/1f.md
+- docs/design/restyle/fidelity/2a.md
+- docs/design/restyle/fidelity/2b.md
+- docs/design/restyle/fidelity/2c.md
+- docs/design/restyle/fidelity/2d.md
+- docs/design/restyle/fidelity/3a.md
+- docs/design/restyle/fidelity/3b.md
+- docs/design/restyle/fidelity/3c.md
+- docs/design/restyle/fidelity/3d.md
+- docs/design/restyle/fidelity/3e.md
+- docs/design/restyle/fidelity/3f.md
+- docs/plans/restyle-fidelity-screens.md
+- scripts/reset_demo.py
+- scripts/restyle_fidelity.py
+- scripts/seed.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/__init__.py
+- src/kaleta/services/budget_service.py
+- src/kaleta/services/day_totals.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/budget_plan/grid.py
+- src/kaleta/views/budget_plan/helpers.py
+- src/kaleta/views/budget_plan/page.py
+- src/kaleta/views/budget_plan/toolbar.py
+- src/kaleta/views/budgets/page.py
+- src/kaleta/views/budgets/realization.py
+- src/kaleta/views/chart_utils.py
+- src/kaleta/views/components/amount_label.py
+- src/kaleta/views/components/forecast_chart.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/dashboard_widgets/cashflow_chart.py
+- src/kaleta/views/dashboard_widgets/safe_to_spend.py
+- src/kaleta/views/forecast.py
+- src/kaleta/views/import_view/mapping_section.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/preview_section.py
+- src/kaleta/views/login.py
+- src/kaleta/views/net_worth.py
+- src/kaleta/views/payment_calendar.py
+- src/kaleta/views/reports/chart_options.py
+- src/kaleta/views/reports/chart_zone.py
+- src/kaleta/views/reports/config_zone.py
+- src/kaleta/views/reports/page.py
+- src/kaleta/views/reports/palette.py
+- src/kaleta/views/reports/sentence.py
+- src/kaleta/views/secure_app.py
+- src/kaleta/views/settings/features_tab.py
+- src/kaleta/views/theme.py
+- src/kaleta/views/transactions/constants.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/transactions/planned_dialog.py
+- src/kaleta/views/transactions/table_actions.py
+- src/kaleta/views/wizard.py
+- tests/e2e/pages.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_auth.py
+- tests/e2e/test_budget_plan.py
+- tests/e2e/test_budget_realization.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_forecast.py
+- tests/e2e/test_planned_transactions.py
+- tests/e2e/test_reports_builder.py
+- tests/e2e/test_rules.py
+- tests/e2e/test_setup_wizard.py
+- tests/e2e/test_transactions.py
+- tests/unit/services/test_budget_service.py
+- tests/unit/services/test_day_totals.py
+- tests/unit/services/test_planned_transaction_service.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/views/test_amount_label.py
+- tests/unit/views/test_budget_plan_cells.py
+- tests/unit/views/test_import_mapping_badges.py
+- tests/unit/views/test_net_worth_chart.py
+- tests/unit/views/test_realization_note.py
+- tests/unit/views/test_reports_chart_options.py
+- tests/unit/views/test_reports_sentence.py
+- tests/unit/views/test_transaction_split_labels.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
