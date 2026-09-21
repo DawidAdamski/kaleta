@@ -782,6 +782,18 @@ def test_a_rows_actions_are_in_reach_without_scrolling_sideways(page: Page, base
     if page.locator(".q-drawer--mini").count() == 0:
         toggle.first.click()
         expect(page.locator(".q-drawer--mini")).to_have_count(1, timeout=5000)
+    # The class lands when the state flips; the width animates over it. Read
+    # the table's box before that finishes and the drawer is still most of
+    # the 236px it is shrinking from, which puts the table's right edge past
+    # 1360 and fails a claim about the layout on a timing accident. The rail
+    # is 64px (`test_dashboard_desktop.MINI_WIDTH`).
+    page.wait_for_function(
+        """() => {
+          const a = document.querySelector('aside.q-drawer');
+          return a && Math.round(a.getBoundingClientRect().width) === 64;
+        }""",
+        timeout=10000,
+    )
 
     row = page.locator(".q-table tbody tr").first
     expect(row.locator(".k-row-action")).to_have_count(2)
