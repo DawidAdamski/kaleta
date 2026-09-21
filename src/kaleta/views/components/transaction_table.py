@@ -142,15 +142,29 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("common.account"),
             "field": "account",
             "align": "left",
-            "style": "width: 110px; min-width: 90px",
+            # 166px rather than the artboard's 150: its sample account is
+            # "PKO Konto Główne" and a real one is "Karta Kredytowa Visa",
+            # which 150 cuts two letters off. Fixed either way — an account
+            # name is not allowed to set the table's width.
+            "style": (
+                "width: 166px; min-width: 166px; max-width: 166px;"
+                " overflow: hidden; text-overflow: ellipsis"
+            ),
         },
         {
             "name": "description",
             "label": t("common.description"),
             "field": "description",
             "align": "left",
+            # `width:100%` is how a table with automatic layout is told which
+            # column takes the slack — artboard `2a` gives description the
+            # `1fr` of its grid. Without it the tags column took everything
+            # (444px of a 1360px window) and pushed the row's own actions
+            # 108px past the right edge, where only a sideways scroll reached
+            # them.
             "style": (
-                "max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                "width: 100%; min-width: 180px; overflow: hidden;"
+                " text-overflow: ellipsis; white-space: nowrap"
             ),
             "classes": "max-w-xs truncate",
         },
@@ -159,7 +173,9 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("common.category"),
             "field": "category",
             "align": "left",
-            "style": "width: 150px; min-width: 120px",
+            # The artboard's 168px track, held: the pill inside truncates
+            # rather than the column growing.
+            "style": "width: 168px; min-width: 168px; max-width: 168px",
         },
         {
             "name": "type",
@@ -181,7 +197,13 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("transactions.tags"),
             "field": "tags",
             "align": "left",
-            "style": "width: 100px; min-width: 80px",
+            # A fixed track, so the column cannot take the table's slack and
+            # push the row's own actions off the right edge. 176px rather
+            # than the artboard's 130: its rows carry one label and the
+            # ledger's carry up to four, and 176 holds two side by side
+            # instead of stacking each on a line of its own.
+            "style": "width: 176px; min-width: 176px; max-width: 176px",
+            "classes": "k-tags-cell",
         },
         {
             "name": "actions",

@@ -756,3 +756,40 @@ def test_a_zero_amount_row_has_no_direction(page: Page, base_url: str) -> None:
     amount = page.locator(".q-table tbody tr span.k-amount")
     expect(amount).to_have_text("0.00", timeout=10000)
     expect(amount).to_have_class(re.compile(r"k-amount--neutral"))
+
+
+def test_a_rows_actions_are_in_reach_without_scrolling_sideways(page: Page, base_url: str) -> None:
+    """Covers: KAL-TXN-018
+
+    The edit and split buttons were being rendered and then pushed past the
+    right edge of the window: the ledger's table lays itself out
+    automatically, and whichever column had the longest content — the tags,
+    or a category named like this one — took the slack until the last
+    column sat outside the viewport. Only a sideways scroll reached it.
+    """
+    token = "Reach E2E"
+    account_id = seed_account("PKO Konto Glowne Oszczednosciowe Reach E2E")
+    long_cat = seed_category("Mieszkanie, media, czynsz i inne oplaty stale miesieczne Reach E2E")
+    seed_transaction(account_id, long_cat, 128.74, description=f"Lidl {token}")
+    seed_transaction(account_id, long_cat, 42.00, description=f"Zabka {token}")
+
+    # The width artboard `2a` is drawn at, with the drawer it is drawn with:
+    # narrower than this the table scrolls sideways by design, and the claim
+    # is about the window the design is for.
+    page.set_viewport_size({"width": 1360, "height": 900})
+    _filter_by_search(page, base_url, token)
+    toggle = page.locator("[data-drawer-mini-toggle]")
+    if page.locator(".q-drawer--mini").count() == 0:
+        toggle.first.click()
+        expect(page.locator(".q-drawer--mini")).to_have_count(1, timeout=5000)
+
+    row = page.locator(".q-table tbody tr").first
+    expect(row.locator(".k-row-action")).to_have_count(2)
+    for button in row.locator(".k-row-action").all():
+        expect(button).to_be_visible()
+
+    # In reach means on the screen, not merely in the DOM.
+    table = page.locator(".k-ledger-card .q-table").first
+    box = table.bounding_box()
+    assert box is not None
+    assert box["x"] + box["width"] <= 1360, (box, "1360")

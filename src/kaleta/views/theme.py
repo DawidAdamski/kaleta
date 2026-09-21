@@ -1832,6 +1832,11 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
    the variable they read is redefined instead. Nothing else inside the card
    uses the info colour; the segment in the foot sets its own. */
 .k-ledger-card{--q-info:var(--k-ink)}
+/* Quasar holds every table cell on one line. The tags cell is the one
+   that must not be: `2a` gives it a 130px track, and a row carrying
+   four labels wraps them rather than widening the table until the
+   row's own actions fall off the right edge. */
+.k-ledger-card .k-tags-cell{white-space:normal}
 .k-ledger-card .k-row-action{color:var(--k-muted)}
 .k-ledger-card .k-row-action .q-icon{font-size:17px}
 .k-ledger-card .q-checkbox__inner{width:18px;height:18px;font-size:18px}
@@ -1876,7 +1881,16 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   border-radius:999px;
   background:var(--k-surface-sunken);
   color:var(--k-ink-2);
-  font-size:11.5px
+  font-size:11.5px;
+  /* A long category name ends in an ellipsis rather than widening its
+     column: `2a` draws the category track at a fixed 168px, and a table
+     that lays itself out automatically gives the slack to whichever cell
+     asks loudest — until the row's own actions are off the screen. */
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  vertical-align:middle
 }
 .k-sep-row{
   background:var(--k-surface-warm);

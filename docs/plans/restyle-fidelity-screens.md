@@ -175,7 +175,7 @@ If one screen alone is more than a day's work, split it out into
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
 - `[owner]` Pages through `.fidelity/<id>/index.html` for the ten artboards
-  and agrees with the 30 rows listed as **Choices** under Implementation
+  and agrees with the 31 rows listed as **Choices** under Implementation
   notes § "Deviations the owner has to agree with". The other twenty
   `deviation` rows are listed there too, under Gaps, Tool and Sample, so
   that the reading has an end; none of them is a decision.
@@ -378,6 +378,18 @@ If one screen alone is more than a day's work, split it out into
   moved every figure in the card. `minmax(0, …)`.
 - The report builder's rail highlight shrink-wrapped its own label; the
   rail row is `width:100%`.
+- **Every ledger row's edit and split buttons were off the screen.** The
+  owner found this one by looking at `2a`: the artboard ends each row
+  with `edit` and `call_split` in a 76px column, and the app drew both
+  and then put them out of reach. `ui.table` lays itself out
+  automatically, and no column was told to take the slack, so the one
+  with the longest content took it — four tag chips made tags 444px of
+  a 1360px window and carried the last column 108px past the right
+  edge. The week separators' nets went with it. Description holds the
+  slack now (`width:100%`, the artboard's `1fr`) and account, category
+  and tags are fixed tracks: the category pill truncates, the tags wrap.
+  `KAL-TXN-018` and an e2e that seeds a long category and a long
+  account name and fails on the old layout.
 - The result card captioned a sum of averages "total". `result_total`
   takes the metric now and draws nothing on `avg`, because twelve
   monthly averages added together are not the average of anything —
@@ -456,7 +468,7 @@ If one screen alone is more than a day's work, split it out into
 
 ### Deviations the owner has to agree with
 
-Fifty rows across the ten reports are marked `deviation`, and each
+Fifty-one rows across the ten reports are marked `deviation`, and each
 says why in its own Note. They are not all the same kind of thing, so
 every one of them is here, sorted into four — because "page through the
 reports and agree with the deviations" has to be a finite job, and only
@@ -501,11 +513,12 @@ artboard draws; the picture differs because of what is in the ledger.
 | `3d` 17 | Every routine the artboard greys out has since been built. |
 | `3d` 22 | The footnote is drawn only while a step is unbuilt, so on this ledger it is absent — which is why the artboard has no row for it. |
 
-**Choices (30).** These are the decisions. Each is reversible by saying
+**Choices (31).** These are the decisions. Each is reversible by saying
 so, and each is one line in one place.
 
 | Row | The choice |
 |---|---|
+| `2a` 20b | A row carrying four tags wraps them two to a line in a 176px track, so that row is two or three lines tall. The artboard's rows carry one label each and give the column 130px; letting the column take the width it wanted is what hid the row's own actions. |
 | `2b` 16 | The note under a bar wraps rather than truncating: "Paid in full on 01.09 - as planned" does not fit one 178px line, and half an explanation explains nothing. |
 | `2c` 9 | The grid is flex, not CSS grid: it scrolls sideways under 1020px, and twelve month columns cannot reflow into one. |
 | `2c` 10 | A 76px actions column beside the right-click menu the designer's note asks for. The menu is there and the two always-on buttons are gone; the column holds one `...` that opens it, because a right-click is neither a touch gesture nor a key. |

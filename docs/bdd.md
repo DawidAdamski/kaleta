@@ -839,6 +839,14 @@ Feature: Manual Transaction Entry
     When I look at it in the ledger
     Then the amount reads 0.00, with no sign
     And it is painted neither as money in nor as money out
+
+  KAL-TXN-018 @automated
+  Scenario: A row's own actions are in reach without scrolling sideways
+    Given a ledger of transactions, some of them carrying several tags
+    When I look at the ledger on a desktop window
+    Then every row shows its edit and split actions
+    And the table ends inside the window,
+      so no column is reached by scrolling it sideways
 ```
 
 ## Feature: Quick Entry
