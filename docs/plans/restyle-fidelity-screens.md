@@ -103,7 +103,8 @@ review found while the screen was being brought to it.
      what a month comes to, summed twice in `2b`'s view — once for the
      stat cards, once for the Total row. Six unit tests and
      `KAL-BUD-017`.
-   - `views/reports/sentence.py::result_total`: `3e`'s result figure,
+   - `views/reports/sentence.py::result_total` and `bar_widths`: `3e`'s
+     result figure and its bar lengths,
      a `sum()` inline in the zone that drew it. This one stayed in the
      view layer, beside `share_percents`, which asks the same question
      of each row and set that precedent; five unit tests, two of them
@@ -297,7 +298,10 @@ If one screen alone is more than a day's work, split it out into
   reach — and it belongs beside `share_percents`, which asks the same
   question about each row. `result_total`, five unit tests — and it
   takes the metric, because on `avg` the card had been drawing a sum of
-  averages under the word "total" (`KAL-RPT-004`).
+  averages under the word "total" (`KAL-RPT-004`). `bar_widths` went the
+  same way afterwards: how long a bar is drawn is not what share it is
+  (60 and 40 share 60% and 40%, and draw at 100% and 67%), and it had
+  been a division inline in the loop that drew it. Four unit tests.
 - **Three findings went to the Chore inbox rather than this branch.**
   `views/payment_calendar.py::_load_grid` returns
   `tuple[MonthGrid, Any]` — the `Any` is older than this plan and

@@ -301,12 +301,14 @@ def _body_slot(
         f"<q-tooltip>{planned_tooltip}</q-tooltip>"
         "</q-chip>"
         '<q-btn v-if="!props.row.is_planned" flat round dense icon="edit" size="sm"'
-        ' color=null class="k-row-action"'
+        # No `color`: Quasar turns `color=null` into a literal `text-null`
+        # class. The tone is `.k-row-action`'s.
+        ' class="k-row-action"'
         f' aria-label="{edit_label}"'
         " @click=\"$parent.$emit('edit_tx', props.row.id)\" />"
         '<q-btn v-if="!props.row.is_planned && !props.row.has_splits'
         " && props.row.type !== 'transfer'\""
-        ' flat round dense icon="call_split" size="sm" color=null class="k-row-action"'
+        ' flat round dense icon="call_split" size="sm" class="k-row-action"'
         f' aria-label="{split_label}"'
         " @click=\"$parent.$emit('split_tx', props.row.id)\">"
         f"<q-tooltip>{split_label}</q-tooltip>"

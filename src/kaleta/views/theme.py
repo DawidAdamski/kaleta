@@ -1542,7 +1542,12 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   background:var(--k-ink);
   border-color:var(--k-ink);
   color:var(--k-ground);
-  font-weight:600
+  font-weight:600;
+  /* Two pixels wider either side than the paper pills beside it: `2a`
+     writes `9px 16px` on the ink one and `3c` `8px 16px`, against `8px
+     14px` on the outlined ones. A screen's one action is a little
+     roomier than the controls next to it. */
+  padding:0 16px
 }
 .q-btn.k-title-action--ink .q-icon{color:var(--k-ground)}
 .q-btn.k-title-action--ink:hover{background:var(--k-ink-2)}

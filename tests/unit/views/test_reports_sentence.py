@@ -10,8 +10,11 @@ from __future__ import annotations
 
 from typing import Any
 
+import pytest
+
 from kaleta.views.reports.constants import BUILDER_STATE_DEFAULTS
 from kaleta.views.reports.sentence import (
+    bar_widths,
     period_label,
     result_total,
     share_percents,
@@ -123,6 +126,25 @@ class TestResultTotal:
         # Twelve monthly averages summed is not the average of anything, and
         # the card draws no total rather than a figure captioned "total".
         assert result_total([300.0, 420.0], metric="avg") is None
+
+
+class TestBarWidths:
+    """How long each bar is drawn (artboard `3e`)."""
+
+    def test_the_longest_row_fills_the_track(self) -> None:
+        assert bar_widths([60.0, 30.0]) == [100.0, 50.0]
+
+    def test_a_width_is_not_a_share(self) -> None:
+        # 60 and 40 share 60% and 40% of the total; as bars they are the
+        # whole track and two thirds of it.
+        assert bar_widths([60.0, 40.0]) == [100.0, pytest.approx(66.666, rel=1e-3)]
+
+    def test_signs_do_not_shorten_a_bar(self) -> None:
+        assert bar_widths([-80.0, 40.0]) == [100.0, 50.0]
+
+    def test_nothing_to_draw(self) -> None:
+        assert bar_widths([]) == []
+        assert bar_widths([0.0, 0.0]) == [0.0, 0.0]
 
 
 class TestSharePercents:

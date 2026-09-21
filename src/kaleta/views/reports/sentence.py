@@ -130,6 +130,20 @@ def result_total(values: list[float], *, metric: str) -> str | None:
     return spaced_thousands(f"{sum(values):,.2f}")
 
 
+def bar_widths(values: list[float]) -> list[float]:
+    """Each bar's length as a percentage of the longest one.
+
+    Not the same question as `share_percents`: a share is of the total, a
+    width is of the widest row, and a ranking of two rows at 60 and 40 draws
+    100% and 67% while sharing 60% and 40%. Zero everywhere when nothing has
+    a size — a list of zeroes has no longest row to be a fraction of.
+    """
+    widest = max((abs(v) for v in values), default=0.0)
+    if widest <= 0:
+        return [0.0 for _ in values]
+    return [abs(v) / widest * 100 for v in values]
+
+
 def share_percents(values: list[float]) -> list[float]:
     """Each value's share of the total, for the bar labels.
 

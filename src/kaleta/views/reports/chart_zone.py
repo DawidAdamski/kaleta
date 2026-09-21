@@ -11,7 +11,12 @@ from kaleta.i18n import t
 from kaleta.services.saved_report_service import ReportResult, build_report_table_data
 from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.reports.chart_options import report_chart_options
-from kaleta.views.reports.sentence import chart_title, result_total, share_percents
+from kaleta.views.reports.sentence import (
+    bar_widths,
+    chart_title,
+    result_total,
+    share_percents,
+)
 from kaleta.views.theme import (
     BODY_MUTED,
     CARD_TITLE,
@@ -89,12 +94,11 @@ def _bar_rows(result: ReportResult) -> None:
     survives without a legend.
     """
     shares = share_percents(result.values)
-    widest = max((abs(v) for v in result.values), default=0.0)
+    widths = bar_widths(result.values)
     with ui.column().classes("w-full gap-[13px]"):
-        for rank, (label, value, share) in enumerate(
-            zip(result.labels, result.values, shares, strict=False)
+        for rank, (label, value, share, width) in enumerate(
+            zip(result.labels, result.values, shares, widths, strict=False)
         ):
-            width = abs(value) / widest * 100 if widest else 0.0
             with ui.element("div").classes(f"{REPORT_BAR_ROW} w-full"):
                 ui.label(label).classes(f"{INK} text-[13px] truncate")
                 with ui.element("span").classes(REPORT_BAR_TRACK):
