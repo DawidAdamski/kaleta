@@ -290,6 +290,12 @@ If one screen alone is more than a day's work, split it out into
   `sum()` inline in the zone that draws it — arithmetic no test could
   reach — and it belongs beside `share_percents`, which asks the same
   question about each row. `result_total`, three unit tests.
+- **Two findings went to the Chore inbox rather than this branch.**
+  `views/payment_calendar.py::_load_grid` returns
+  `tuple[MonthGrid, Any]` — the `Any` is older than this plan and
+  naming it is a typing change, not a restyle — and the note asking for
+  a service to own "what leaves on a day" is answered by `DayTotals`,
+  which the inbox line now says.
 - **No timeout was raised and no assertion loosened.** Checked by
   reading every `timeout=` line the e2e diff touches
   (`git diff main -- tests/e2e | grep -E '^[-+].*timeout='`): every one

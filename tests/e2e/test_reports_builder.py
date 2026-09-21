@@ -144,6 +144,10 @@ def test_the_bar_result_reads_as_rows(page: Page, base_url: str) -> None:
     page.get_by_role("button", name="Run").click()
 
     rows = page.locator(".k-report-bar-row")
+    # 15s, longer than this file's other waits: Run groups the whole seeded
+    # ledger in the service before a single row is drawn, and this is the
+    # only assertion in the suite that waits on that query rather than on a
+    # page already holding its answer.
     expect(rows.first).to_be_visible(timeout=15000)
 
     # Every row carries four cells: name, track, value, share.
