@@ -3435,6 +3435,8 @@ Feature: Dashboard Customization
       Watch band below already says the savings rate and the 30-day balance
     And Latest is a list of 52-pixel rows — payee over "03.07 · Żywność" with
       the amount to the right — instead of the five-column table
+    And that list carries no "View all" link, because the band's own heading is
+      its title and the Ledger tab is under the same thumb
     And the Watch band carries net worth, the six-month average savings rate,
       the 30-day balance and the safety-fund cover as plain figures
     And the Watch band carries no widget cards at all

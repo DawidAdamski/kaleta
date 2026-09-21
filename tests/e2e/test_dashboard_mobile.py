@@ -316,6 +316,9 @@ def test_the_phone_redraws_the_widgets_that_do_not_fit(page: Page, base_url: str
     expect(latest).to_be_visible(timeout=10000)
     expect(latest.locator(".k-dash-card")).to_have_count(0)
     expect(latest.locator("table")).to_have_count(0)
+    # The band's heading is the list's title, so the widget adds none — and
+    # with the title line goes the "View all" the wide card carries on it.
+    expect(latest.get_by_role("button", name="View all")).to_have_count(0)
     tx_rows = latest.locator(".k-tx-row")
     expect(tx_rows.first).to_be_visible(timeout=10000)
     tx_box = tx_rows.first.bounding_box()

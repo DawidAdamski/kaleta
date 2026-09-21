@@ -12,12 +12,13 @@ tested here, against the values `1f.html` sets.
 from __future__ import annotations
 
 import datetime
-from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
 
 import pytest
 
+from kaleta.models.category import Category
+from kaleta.models.transaction import Transaction
 from kaleta.services.report_service import MonthCashflow
 from kaleta.views.chart_utils import CHART_GRID_LIGHT, CHART_INK
 from kaleta.views.dashboard_widgets import cashflow_chart
@@ -135,30 +136,22 @@ class TestTheMonthAxisLabels:
         assert guarded["interval"] == 0
 
 
-@dataclass
-class _Category:
-    name: str
-
-
-@dataclass
-class _Tx:
-    """Just the two fields the second line of a Latest row reads."""
-
-    date: datetime.date
-    category: _Category | None
-
-
 class TestTheLatestRowMeta:
-    """`1f` writes "03.07 · Żywność" — day, then month, then the category."""
+    """`1f` writes "03.07 · Żywność" — day, then month, then the category.
+
+    Transient ``Transaction`` rows, never added to a session: the function
+    reads two of their attributes, and the real model is what it is typed
+    against, so a stub would only be testing the stub.
+    """
 
     def test_the_date_comes_first_day_before_month(self) -> None:
-        row = _Tx(datetime.date(2026, 7, 3), _Category("Żywność"))
+        row = Transaction(date=datetime.date(2026, 7, 3), category=Category(name="Żywność"))
 
-        assert _row_meta(row) == "03.07 · Żywność"  # type: ignore[arg-type]
+        assert _row_meta(row) == "03.07 · Żywność"
 
     def test_a_row_with_no_category_is_the_date_alone(self) -> None:
         """A missing category is not a second fact about the movement, so it
         does not get an em dash of its own on the line."""
-        row = _Tx(datetime.date(2026, 12, 31), None)
+        row = Transaction(date=datetime.date(2026, 12, 31))
 
-        assert _row_meta(row) == "31.12"  # type: ignore[arg-type]
+        assert _row_meta(row) == "31.12"
