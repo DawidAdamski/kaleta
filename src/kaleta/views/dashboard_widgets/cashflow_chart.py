@@ -65,17 +65,28 @@ def _month_axis_labels(months: list[MonthCashflow], is_dark: bool) -> dict[str, 
     not ``var(--k-ink)``: this is drawn on a canvas, where a CSS variable is
     a string nothing resolves.
     """
-    # `json.dumps`, not an f-string quote: a month name is a translation, and
-    # the one that eventually carries an apostrophe would otherwise end the
-    # JavaScript string literal in the middle of the axis.
-    last = json.dumps(_month_label(months[-1]) if months else "")
-    return {
+    base: dict[str, Any] = {
         **_X_LABEL,
         # Every month named. Left to itself ECharts thins a crowded axis out,
         # and on a 350px sketch that is six bars under three labels: the
         # reader has to count to find out which bar is the month in progress.
         "interval": 0,
-        ":formatter": f"value => value === {last} ? '{{cur|' + value + '}}' : value",
+    }
+    current = _month_label(months[-1]) if months else ""
+    # ECharts' rich text has no escape, so a label carrying one of its three
+    # metacharacters would be read as markup rather than printed. No month
+    # abbreviation does today; a translation is not this module's to promise,
+    # and the axis reading plainly is better than the axis reading wrong.
+    if not current or set(current) & set("{}|"):
+        return base
+    # `json.dumps`, not an f-string quote: a month name is a translation, and
+    # the one that eventually carries an apostrophe would otherwise end the
+    # JavaScript string literal in the middle of the axis.
+    return {
+        **base,
+        ":formatter": (
+            f"value => value === {json.dumps(current)} ? '{{cur|' + value + '}}' : value"
+        ),
         "rich": {"cur": {**_X_LABEL, "fontWeight": 600, "color": chart_ink_color(is_dark)}},
     }
 

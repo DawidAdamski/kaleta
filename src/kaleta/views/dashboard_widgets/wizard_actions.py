@@ -82,6 +82,22 @@ def _render_row(item: ActionItem) -> None:
         ui.label(t(item.title_key, **params)).classes("text-[15px] font-medium")
 
 
+def _row_element(href: str) -> ui.element:
+    """A 44px row that goes to *href* — by tap, by click or from the keyboard.
+
+    The row is the target, so it has to be one: a bare ``div`` with a click
+    handler is unreachable without a pointer, and on a phone these rows are
+    the only way into the items (`1f` gives the card no "Open" pill). Enter
+    and Space, the two keys a ``role="button"`` promises. No `aria-label` —
+    the row's own text is its accessible name, and a copy of it in an
+    attribute is a second string to keep in step with the first.
+    """
+    row = ui.element("div").classes(ATTENTION_ROW).props('tabindex="0" role="button"')
+    for event in ("click", "keydown.enter", "keydown.space.prevent"):
+        row.on(event, lambda _e=None, target=href: ui.navigate.to(target))
+    return row
+
+
 def _render_card_row(item: ActionItem) -> None:
     """One action as artboard `1f` draws it on a phone.
 
@@ -92,14 +108,12 @@ def _render_card_row(item: ActionItem) -> None:
     ranking and routing tests read the same DOM at either width.
     """
     params = _message_params(item)
-    with (
-        ui.element("div")
-        .classes(ATTENTION_ROW)
-        .props(f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}"')
-        .on("click", lambda _e=None, href=item.href: ui.navigate.to(href))
+    label = t(item.title_key, **params)
+    with _row_element(item.href).props(
+        f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}"'
     ):
         ui.element("span").classes(ATTENTION_DOT)
-        ui.label(t(item.title_key, **params)).classes(ATTENTION_TEXT)
+        ui.label(label).classes(ATTENTION_TEXT)
         ui.icon("chevron_right", size="16px").classes(f"{MUTED_STRONG} shrink-0")
 
 
@@ -117,15 +131,10 @@ def _render_attention_card(items: list[ActionItem]) -> None:
             # the only way to the rest of the list, and the wizard is where
             # the rest of it lives. The phone card carries no "Open" pill —
             # `1f` makes every row its own target instead.
-            with (
-                ui.element("div")
-                .classes(ATTENTION_ROW)
-                .on("click", lambda _e=None: ui.navigate.to("/wizard"))
-            ):
+            more = t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS)
+            with _row_element("/wizard"):
                 ui.element("span").classes(ATTENTION_DOT)
-                ui.label(
-                    t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS)
-                ).classes(ATTENTION_TEXT)
+                ui.label(more).classes(ATTENTION_TEXT)
                 ui.icon("chevron_right", size="16px").classes(f"{MUTED_STRONG} shrink-0")
 
 

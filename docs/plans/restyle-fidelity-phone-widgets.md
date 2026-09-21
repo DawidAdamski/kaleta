@@ -171,6 +171,24 @@ tones) and **13a** (the Latest row rule is `--k-hairline` `#EDE7DA`, not the
 artboard's `#E7E0D0` — the same call `3d` row 19 already records, since the
 artboards use the hairline 123 times against this value's 12).
 
+### Keyboard, and what went to the Chore inbox
+
+The phone rows are the only route into each item (`1f` gives the card no
+"Open" pill), so `_row_element` gives each one `role="button"`, `tabindex="0"`
+and Enter / Space beside the click — the pattern `views/forecast.py` and the
+import step indicator already use. The desktop banner's rows have the same
+gap and are an unrelated file's turn: [Chore inbox
+#20](https://github.com/DawidAdamski/kaleta/issues/20).
+
+### One commit on this branch is not this plan's
+
+`52efe6e` fixes `tests/e2e/test_transactions.py::test_a_rows_actions_are_in_
+reach_without_scrolling_sideways`, which fails on `main` (verified in a
+worktree) whenever the suite reaches it with the drawer expanded: it reads the
+table's box mid-animation, 263.98 + 1100 > 1360. It is in its own commit per
+Working Agreement §9 and is called out here because `verify.sh --e2e` cannot
+go green without it.
+
 ### Not done, deliberately
 
 `1f.md` rows 1, 2, 5a, 6, 7, 14, 15, 16 and 18 stay `deviation`: the device
