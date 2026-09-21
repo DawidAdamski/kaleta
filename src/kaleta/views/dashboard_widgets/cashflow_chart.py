@@ -19,6 +19,7 @@ from kaleta.views.chart_utils import (
     AXIS_LABEL_MONO,
     apply_dark,
     chart_expense_color,
+    chart_grid_color,
     chart_income_color,
     chart_ink_color,
     chart_series_accent_color,
@@ -31,6 +32,11 @@ from kaleta.views.theme import CARD_SUBTITLE, CARD_TITLE, DASH_CARD, LEGEND_DOT,
 #: bar on a 182px step. A share rather than a pixel count: the same card is
 #: 968px wide on a desktop and 350px on a phone.
 _BAR_WIDTH = "27%"
+
+#: The same measurement off artboard `1f`: a 26px bar on a 56px step. Wider
+#: than `1c`'s share because six months on a 350px sketch are already close
+#: together, and a 27% bar there is a hairline.
+_BAR_WIDTH_NARROW = "46%"
 
 #: The two faces `1c` sets its axes in. They are every artboard's, so they
 #: live in `chart_utils` and this card only names them.
@@ -65,6 +71,10 @@ def _month_axis_labels(months: list[MonthCashflow], is_dark: bool) -> dict[str, 
     last = json.dumps(_month_label(months[-1]) if months else "")
     return {
         **_X_LABEL,
+        # Every month named. Left to itself ECharts thins a crowded axis out,
+        # and on a 350px sketch that is six bars under three labels: the
+        # reader has to count to find out which bar is the month in progress.
+        "interval": 0,
         ":formatter": f"value => value === {last} ? '{{cur|' + value + '}}' : value",
         "rich": {"cur": {**_X_LABEL, "fontWeight": 600, "color": chart_ink_color(is_dark)}},
     }
@@ -81,6 +91,7 @@ def _build_cashflow_chart(
     gridlines behind bars that are read against each other rather than off a
     scale.
     """
+    bar_width = _BAR_WIDTH_NARROW if narrow else _BAR_WIDTH
     opts: dict[str, Any] = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
         # No ECharts legend: artboard `1c` puts the three keys on the card's
@@ -116,7 +127,7 @@ def _build_cashflow_chart(
                 # 50px on a 182px step is what `1c` draws: a bar narrower
                 # than the space beside it. ECharts' own default leaves a
                 # 20% category gap, which at six months is a wall.
-                "barWidth": _BAR_WIDTH,
+                "barWidth": bar_width,
                 "data": [float(m.income) for m in months],
                 "itemStyle": {"color": chart_income_color(is_dark), "borderRadius": 3},
             },
@@ -124,10 +135,36 @@ def _build_cashflow_chart(
                 "name": t("common.expense"),
                 "type": "bar",
                 "stack": "cashflow",
-                "barWidth": _BAR_WIDTH,
+                "barWidth": bar_width,
                 "data": [-float(m.expenses) for m in months],
                 "itemStyle": {"color": chart_expense_color(is_dark), "borderRadius": 3},
+                # The one rule `1f` draws: what came in above it, what went
+                # out below. With the y-axis figures gone it is the only
+                # thing saying which way is which, so the sketch cannot lose
+                # it as well. A `markLine` and not `xAxis.axisLine`: an axis
+                # line on zero takes the month names up there with it.
+                **(
+                    {
+                        "markLine": {
+                            "silent": True,
+                            "symbol": "none",
+                            "label": {"show": False},
+                            "lineStyle": {"type": "solid", "color": chart_grid_color(is_dark)},
+                            "data": [{"yAxis": 0}],
+                        }
+                    }
+                    if narrow
+                    else {}
+                ),
             },
+        ],
+    }
+    if not narrow:
+        # `1f` draws bars and nothing else. A line has to be read off a scale,
+        # and the scale is the first thing 120px of chart gives up — so on a
+        # phone the net is the figure standing above the chart, not a series
+        # crossing it.
+        opts["series"].append(
             {
                 "name": t("dashboard.net"),
                 "type": "line",
@@ -142,9 +179,8 @@ def _build_cashflow_chart(
                 "lineStyle": {"width": 2.5, "color": chart_series_accent_color(is_dark)},
                 "symbol": "circle",
                 "symbolSize": 9,
-            },
-        ],
-    }
+            }
+        )
     return apply_dark(opts, is_dark)
 
 

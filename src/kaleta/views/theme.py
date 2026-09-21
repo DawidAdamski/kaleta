@@ -1739,6 +1739,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
    the eyebrow says how many there are without anyone reading them. */
 .k-attention-row{
   display:flex;align-items:center;gap:10px;
+  width:100%;
   min-height:44px;
   border-bottom:1px solid var(--k-hairline);
   cursor:pointer

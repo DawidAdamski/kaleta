@@ -3427,6 +3427,14 @@ Feature: Dashboard Customization
     And the widgets below it are stacked in bands headed This month, Watch and Latest
     And the hero is there even though Customize shows it unticked, because the
       tick is about the desktop grid and the phone leads with it either way
+    And the hero stands on the ground, with no card around it
+    And "Needs attention" is a paper card of 44-pixel rows, each with a bullet
+      and a chevron, instead of the full-width accent banner
+    And the month figures stand on the ground at 18 pixels of mono over a
+      120-pixel chart, with no card around either and no pace bar, because the
+      Watch band below already says the savings rate and the 30-day balance
+    And Latest is a list of 52-pixel rows — payee over "03.07 · Żywność" with
+      the amount to the right — instead of the five-column table
     And the Watch band carries net worth, the six-month average savings rate,
       the 30-day balance and the safety-fund cover as plain figures
     And the Watch band carries no widget cards at all
@@ -3446,6 +3454,8 @@ Feature: Dashboard Customization
     And clicking Edit layout unlocks dragging for the whole grid
     And the safe-to-spend hero is not there, because it is the phone's answer
       and Customize is what adds it
+    And "Needs attention" is still the accent banner and Latest is still the
+      five-column table: the width selects a rendering, it does not replace one
 
   KAL-DSH-009 @automated
   Scenario: The recent-transactions card dates its rows without the year
