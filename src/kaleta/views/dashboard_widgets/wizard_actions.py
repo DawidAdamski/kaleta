@@ -82,6 +82,17 @@ def _render_row(item: ActionItem) -> None:
         ui.label(t(item.title_key, **params)).classes("text-[15px] font-medium")
 
 
+def _row_body(label: str) -> None:
+    """The three things in a phone row: bullet, message, chevron.
+
+    Shared so the items and the "+N more" tail cannot drift into two
+    different-looking rows in the same card.
+    """
+    ui.element("span").classes(ATTENTION_DOT)
+    ui.label(label).classes(ATTENTION_TEXT)
+    ui.icon("chevron_right", size="16px").classes(f"{MUTED_STRONG} shrink-0")
+
+
 def _row_element(href: str) -> ui.element:
     """A 44px row that goes to *href* — by tap, by click or from the keyboard.
 
@@ -112,9 +123,7 @@ def _render_card_row(item: ActionItem) -> None:
     with _row_element(item.href).props(
         f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}"'
     ):
-        ui.element("span").classes(ATTENTION_DOT)
-        ui.label(label).classes(ATTENTION_TEXT)
-        ui.icon("chevron_right", size="16px").classes(f"{MUTED_STRONG} shrink-0")
+        _row_body(label)
 
 
 def _render_attention_card(items: list[ActionItem]) -> None:
@@ -131,11 +140,8 @@ def _render_attention_card(items: list[ActionItem]) -> None:
             # the only way to the rest of the list, and the wizard is where
             # the rest of it lives. The phone card carries no "Open" pill —
             # `1f` makes every row its own target instead.
-            more = t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS)
             with _row_element("/wizard"):
-                ui.element("span").classes(ATTENTION_DOT)
-                ui.label(more).classes(ATTENTION_TEXT)
-                ui.icon("chevron_right", size="16px").classes(f"{MUTED_STRONG} shrink-0")
+                _row_body(t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS))
 
 
 @register(
