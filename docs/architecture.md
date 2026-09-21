@@ -173,6 +173,7 @@ out of sequence in the original monolithic document).
 | [032](adr/032-retire-the-controller-layer-views-call-services-directly.md) | Retire the Controller Layer — Views Call Services Directly | accepted |
 | [033](adr/033-agpl-core-with-cla.md) | AGPL-3.0 Core with CLA and Proprietary Commercial Tier | accepted |
 | [034](adr/034-openpyxl-as-an-optional-extra-for-xlsx-import.md) | openpyxl as an Optional Extra for XLSX Import | accepted |
+| [035](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) | Hosted Multi-Tenancy: Schema per Account and User-Held Field Encryption | proposed |
 
 ## UI Colour Schema
 
