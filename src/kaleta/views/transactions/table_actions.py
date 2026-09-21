@@ -10,7 +10,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import TransactionService
-from kaleta.views.components.amount_label import net_tone
+from kaleta.views.components.amount_label import net_tone, spaced_thousands
 from kaleta.views.theme import (
     SELECTION_ACTION,
     SELECTION_ACTION_DANGER,
@@ -75,7 +75,7 @@ def render_table_actions(
             )
             # A selection of transfers nets to zero — which is neither money
             # in nor money out, and must not be painted as either.
-            ui.label(TransactionService.format_net(total)).classes(
+            ui.label(spaced_thousands(TransactionService.format_net(total))).classes(
                 f"{net_tone(total)} text-[12.5px]"
             )
 

@@ -68,7 +68,7 @@ say so — it becomes its own plan.
 
 ### What this plan went outside those bounds for
 
-Four of them, each for the owner to accept or send back with the
+Five of them, each for the owner to accept or send back with the
 `[owner]` criterion below. None of it was invented: every one is
 something an artboard draws that a screen did not do, or something the
 review found while the screen was being brought to it.
@@ -120,6 +120,32 @@ review found while the screen was being brought to it.
    photographed against the wrong page or the wrong ledger, and no
    comparison made from those shots would have been worth anything.
 
+5. **Three view files outside the Scope table, and three reports from
+   the plan before this one.** None of them is a restyle of its own;
+   each is a file that could not stay where it was once a shared thing
+   moved:
+   - `views/create_account.py` and `views/secure_app.py` are the other
+     two pages built on `views/auth_common.py`, which `3f` is in Scope
+     to restyle. When the login page's field, error slot and submit
+     button became `auth_field` / `auth_error_slot` / `auth_submit`,
+     these two were still assembling theirs out of `AUTH_CONTROL` and
+     `ERROR_SLOT` by hand — three auth pages on one shell, two of them
+     drawing a field the third no longer draws.
+   - `views/settings/features_tab.py` used `.k-group-toggle`, the class
+     `SEGMENT` replaced when `3a` made the app settle on one segmented
+     control. The class is gone from `theme.py`, so the tab had to take
+     `SEGMENT` or render unstyled.
+   - `docs/design/restyle/fidelity/1c.md`, `1d.md` and `1f.md` belong to
+     `restyle-fidelity-shell-dashboard`. Their `views_hash` covers
+     `theme.py`, which this plan changes, so all three were re-shot and
+     their hash and date refreshed. A refresh is only allowed to be
+     mechanical if the picture did not move, so it was checked rather
+     than assumed: every rule in `theme.py` whose body this branch
+     changed, and every `.k-*` class it stopped defining, was matched
+     against the files the dashboard is drawn from. Two hits came back
+     and both are fixed rather than recorded — see "What the comparison
+     fixed rather than recorded".
+
 If one screen alone is more than a day's work, split it out into
 `restyle-fidelity-<screen>` and drop its criterion from this plan.
 
@@ -138,8 +164,11 @@ If one screen alone is more than a day's work, split it out into
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
 - `[owner]` Pages through `.fidelity/<id>/index.html` for the ten artboards
-  and agrees with every row marked `deviation`.
-- `[owner]` Accepts the four items under Scope § "What this plan went
+  and agrees with the 30 rows listed as **Choices** under Implementation
+  notes § "Deviations the owner has to agree with". The other twenty
+  `deviation` rows are listed there too, under Gaps, Tool and Sample, so
+  that the reading has an end; none of them is a decision.
+- `[owner]` Accepts the five items under Scope § "What this plan went
   outside those bounds for", or sends any of them back to a plan of
   their own.
 
@@ -211,11 +240,24 @@ If one screen alone is more than a day's work, split it out into
   restyled screens were each doing `.replace(",", " ")` at the point of
   use, which left `2c` writing `2,400` beside `3c` writing `2 400`.
   `spaced_thousands` in `views/components/amount_label.py` is the one
-  place that knows, and `budget_plan.helpers.format_amount` — the only
-  other writer of a grouped figure on these ten screens — goes through
-  it too. Screens outside this plan still write Python's comma; that is
-  the next plan's to finish, not this one's to leave half-done on a
-  screen it did restyle.
+  place that knows. Reading the shots row by row turned up nine more
+  figures that had never gone through it — the ledger's amount column
+  and its group nets, the selection bar's total, the import preview,
+  `3a`'s planned card and scenario chips, `3b`'s hero, deltas, legend,
+  both sheets and the physical-assets card, `2b`'s note under a pace
+  bar, `2c`'s recurring column and `2d`'s row counts — so the reports
+  were calling a row a match while the app wrote `770,654` under an
+  artboard that writes `128 940`. Three of those strings are built in
+  `TransactionService` and `import_service`, which the API reads too, so
+  the grouping goes on in the view: `space_amounts` in
+  `views/components/transaction_table.py`, beside the other decorators
+  that turn a service row into a drawn one, with three unit tests.
+  Two chart axes number themselves, and ECharts writes `120,000` at four
+  figures; `AXIS_VALUE_SPACED` in `chart_utils.py` is the one formatter
+  both take. What is left is the decimal mark, which is a dot across the
+  whole app and is recorded as `3b` row 22. Screens outside this plan
+  still write Python's comma; that is the next plan's to finish, not
+  this one's to leave half-done on a screen it did restyle.
 - **The strip's button posts through the service, not in the view.**
   `_post_overdue` looped over `post_occurrence` with a session each, so
   the orchestration — and the atomicity — lived in `views/`.
@@ -244,9 +286,12 @@ If one screen alone is more than a day's work, split it out into
 - **One selector moved in about a dozen places for one word.** The
   Import page's title is "Import" rather than "Import Transactions" —
   the drawer and the header already say which screen it is (`2d`, row
-  2) — so every `get_by_text("Import Transactions")` in
-  `tests/e2e/test_csv_import.py` became `get_by_text("Import",
-  exact=True).first`. No `KAL-CSV` scenario quotes the old title.
+  2). Every `get_by_text("Import Transactions")` in
+  `tests/e2e/test_csv_import.py` became `_on_import_page(page)`, which
+  asserts `expect(page.locator(".k-page-title")).to_have_text("Import")`:
+  scoped to the title element rather than to any text on the page, so it
+  cannot be satisfied by the word "Import" on a button or in the drawer.
+  No `KAL-CSV` scenario quotes the old title.
 - **The seed grows two tracked subscriptions.** A `Subscription` is
   what the detector writes down when it recognises a repeating charge,
   and the seed had never made one — so the day sheet's second section,
@@ -300,6 +345,22 @@ If one screen alone is more than a day's work, split it out into
   moved every figure in the card. `minmax(0, …)`.
 - The report builder's rail highlight shrink-wrapped its own label; the
   rail row is `width:100%`.
+- Two rows on `3a` that the first pass had written down as deviations
+  were nothing of the kind. The page column's 22px gap already had a
+  token — `PAGE_GAP_22`, which `2b` and `3e` take — and the forecast
+  page had simply not asked for it; and the "Planned in this period"
+  grid's 80px and 118px tracks cost nothing to match, the ratio between
+  the two flexible columns being the only thing the card's width
+  actually argued about. Both are matches now.
+- The dashboard's safe-to-spend bar had quietly turned green. `3b`'s
+  balance-sheet bar wanted `#36684D` and `#8FA893` for its two kinds of
+  asset, and the first pass got them by repainting `.k-split--ink` and
+  `.k-split--neutral` — two tones the dashboard hero was already using
+  for "committed". `3b` has `.k-split--asset` and `.k-split--asset-soft`
+  of its own now, and `--ink` is ink again, which is what `1c` draws.
+- `views/settings/features_tab.py` was left pointing at
+  `.k-group-toggle` after `SEGMENT` replaced it, which would have
+  rendered the Features tab's toggle unstyled.
 
 ### Behaviour that changed, and where it is written down
 
@@ -320,8 +381,13 @@ If one screen alone is more than a day's work, split it out into
 - The seed grows two already-late planned transactions: the overdue
   strip and the Overdue card exist for that state, and a seed in which
   nothing is ever late leaves both untested and unseen.
-- Four `KAL-` scenarios quoted words an artboard renamed, and were
-  re-worded with them; no others were touched. `KAL-ONB-001` and
+- Seven `KAL-` scenarios quoted words or figures an artboard renamed,
+  and were re-worded with them; no others were touched. Three of them
+  quoted `+9,111.26`, the total the selection bar and the week separator
+  show, and read `+9 111.26` now because the ledger does — KAL-TXN-014,
+  KAL-PAG-005 and KAL-PLN-024. What they claim is unchanged, and the
+  service test that pins `TransactionService.format_net` still asserts
+  the comma, because that string is the API's. The other four: `KAL-ONB-001` and
   `KAL-ONB-002` (the setup steps are Institutions, Accounts, Categories
   and First import), `KAL-CSV-026` (the parse-failure strip is under the
   sample rows it numbers, because `2d` puts the sample and the pickers
@@ -337,68 +403,86 @@ If one screen alone is more than a day's work, split it out into
 
 ### Deviations the owner has to agree with
 
-Every `deviation` row in the ten reports says why. Thirteen of them are
-worth the owner's eye. The first five are a missing capability, which
-this plan's Scope puts out of bounds — building any of them is another
-plan:
+Fifty rows across the ten reports are marked `deviation`, and each
+says why in its own Note. They are not all the same kind of thing, so
+every one of them is here, sorted into four — because "page through the
+reports and agree with the deviations" has to be a finite job, and only
+the last group is actually a decision.
 
-- `2a` has no Export button — the app has no ledger export.
-- `3e` has no Export CSV, and its eyebrow counts the whole ledger rather
-  than the rows in scope (that count needs the service to answer).
-- `3f`'s error says "Invalid username or password" without the artboard's
-  "3 attempts left" (`LoginRateLimiter` keeps the count but nothing
-  exposes it), and its third panel stat is months of history, not banks.
-- `3c`'s day sheet has no "Post this day". Instead each planned item
-  that is due carries a `publish` button of its own, which the artboard
-  does not draw — an item listed in a sheet that could not be posted
-  from it would send the reader back to the strip. The button is not
-  new (the drawer this sheet replaced had one); what this plan changed
-  is that it is now a round icon with a tooltip rather than a labelled
-  button, which is what fits a 400px sheet.
-- `2d` maps Counterparty, Debit and Credit as three rows where the
-  artboard draws one "Debit / Credit" picker.
-The last eight are choices rather than gaps, and can be reversed by
-saying so:
+**Gaps (9).** The artboard draws something the app cannot do without
+work this plan's Scope puts out of bounds. Building any of them is
+another plan.
 
-- `3c` leaves a day outside the month on the page ground with a dashed
-  hairline, where the artboard fills it `#F8F4EB`. This one is a taste
-  call rather than a missing capability and is here for that reason: a
-  filled cell for a day that is not in the month reads as a day. Say so
-  and it becomes a fill.
-- `3c`'s sheet item names the account and the category under a planned
-  row, where the artboard's third part is the recurrence, and its
-  subscription row carries no sub-line at all. `PlannedOccurrence` has
-  no recurrence and `SubscriptionCharge` has neither an account nor a
-  cadence; both are service changes.
-- `3c` draws its day cells at radius 10 and its dots at 6px where the
-  artboard has 8 and 5. Both are `1c`'s tokens (`--k-cal-day`,
-  `--k-cal-dot`), already on the dashboard's calendar widget, and one
-  calendar cell that is not shaped like the other calendar cell is worse
-  than two pixels. A token reason rather than a taste one, but still a
-  choice, so it is here.
-- `3b` gives an asset row a 56px action column against the artboard's
-  30px, because deleting an asset has to be reachable and the two
-  buttons wrapped the row at 30.
-- `2c` keeps a 76px actions column beside the right-click menu its
-  artboard's designer note asks for. The menu is there and the two
-  always-on buttons are gone, as the note wants; the column holds one
-  `...` that opens the same menu, because a right-click is neither a
-  touch gesture nor a key.
-- `2c`'s grid header is the app's one eyebrow token, 10px at `.2em`,
-  where the artboard writes 9.5px at `.1em`. A second eyebrow size for
-  one table header. (Its ink is `--k-muted-strong` now, which is the
-  artboard's `#6E6656`; it had been a shade darker.)
-- `2c`'s actuals label is upright where the artboard italicises it; its
-  Total row is weight 500 rather than 600, which is what closes every
-  other table in the app; and its tinted current-month cell takes the
-  row's 9px padding rather than the artboard's 2px, because it is one
-  of thirteen cells in a row and cannot be shorter than the twelve
-  beside it.
-- `3f` puts its fields and its submit button on a 48px floor, so they
-  come out 56px and 49px against the artboard's 41 and 43. On a phone
-  that form is the whole screen, and a 40px target in the middle of it
-  is one the thumb has to aim at.
+| Row | What is missing |
+|---|---|
+| `2a` 18 | An Export button. The app has no ledger export. |
+| `2d` 15 | Counterparty, Debit and Credit are three pickers where the artboard draws one "Debit / Credit". The importer maps a debit column and a credit column separately — a two-column statement is the case they exist for. |
+| `3c` 20 | A planned item's sub-line is its account and category; the artboard's third part is the recurrence, which `PlannedOccurrence` does not carry. |
+| `3c` 22 | No "Post this day" in the sheet foot. It would be a new action; every item in the sheet already carries the one that posts it. |
+| `3c` 25 | A subscription row has no sub-line: `SubscriptionCharge` carries a date, a name and an amount — not the account it lands on, nor the cadence. |
+| `3e` 7 | The eyebrow counts the whole ledger where the artboard counts the rows in scope. That count needs the service to answer. |
+| `3e` 9 | No Export CSV. The app has no report export. |
+| `3f` 11 | The error does not say "3 attempts left". `LoginRateLimiter` keeps the count; nothing exposes it, and `src/kaleta/auth/` is not in Touchpoints. |
+| `3f` 18 | The third panel count is months of history, not banks. `AuthStatsService` counts transactions, accounts and months. |
 
+**The tool draws it its own way (3).** Nothing to decide unless the
+component is to be replaced.
+
+| Row | What differs |
+|---|---|
+| `2a` 12 | `ui.table` has no column-width spec of the artboard's shape. Which columns, in which order, and that the amount alone is right-aligned, are all as drawn. |
+| `2a` 15 | Quasar's checkbox has a smallest size and the artboard's 15px is under it. |
+| `3b` 14 | ECharts picks its axis ticks from the data; the artboard's SVG draws five by hand. |
+
+**Sample data and the state of the shot (8).** The app does what the
+artboard draws; the picture differs because of what is in the ledger.
+
+| Row | Why the picture differs |
+|---|---|
+| `2d` 4 | The three fields auto-detect, so by the time this step is drawn the mapping is done and the current node has moved on. |
+| `2d` 10 | `test_import.csv` parses cleanly, so the unparseable-rows note has nothing to say. `test_parse_failures_are_named_on_the_mapping_step` reads it where it does. |
+| `2d` 16 | The file's format was detected, so the Formats row holds `Auto`. |
+| `3a` 6 | The model preset control is Prophet-only, and Prophet is not installed in the shoot. |
+| `3a` 18 | The confidence band is spiky rather than smooth: the seasonal-naive fallback's bounds swing day to day. The shape is the data's. |
+| `3d` 12 | The shoot clicks the setup section open. The artboard annotates the collapse and still draws the open state. |
+| `3d` 17 | Every routine the artboard greys out has since been built. |
+| `3d` 22 | The footnote is drawn only while a step is unbuilt, so on this ledger it is absent — which is why the artboard has no row for it. |
+
+**Choices (30).** These are the decisions. Each is reversible by saying
+so, and each is one line in one place.
+
+| Row | The choice |
+|---|---|
+| `2b` 16 | The note under a bar wraps rather than truncating: "Paid in full on 01.09 - as planned" does not fit one 178px line, and half an explanation explains nothing. |
+| `2c` 9 | The grid is flex, not CSS grid: it scrolls sideways under 1020px, and twelve month columns cannot reflow into one. |
+| `2c` 10 | A 76px actions column beside the right-click menu the designer's note asks for. The menu is there and the two always-on buttons are gone; the column holds one `...` that opens it, because a right-click is neither a touch gesture nor a key. |
+| `2c` 11 | The grid header wears the app's one eyebrow, 10px at `.2em`, where the artboard writes 9.5px at `.1em`. A second eyebrow size for one table header. |
+| `2c` 12 | The tinted current-month cell takes the row's 9px padding, not the artboard's 2px: it is one of thirteen cells in a row and cannot be shorter than the twelve beside it. |
+| `2c` 14 | The actuals label is upright where the artboard italicises it — a third face on a row that already carries two. |
+| `2c` 16 | The Total row is weight 500, which is what closes every other table in the app, against the artboard's 600. |
+| `2d` 13 | An unmapped picker is drawn quieter than a mapped one, so the three fields that carry weight are louder than the six that do not. |
+| `2d` 18 | The card footer stays outside the mapping card: it serves all six steps of the wizard, and five of them have no card to put it in. |
+| `3a` 5 | The horizon control is `SEGMENT`, the app's one segmented control — sunken sand, not paper on a hairline. `2a`, `2b` and `3e` all draw it that way. |
+| `3a` 7 | A Re-run button the artboard does not draw: a control change re-runs after a delay, and `stale_action` needs a button to point at when it cannot. |
+| `3a` 10 | The date a figure is as of is `data-as-of` and a tooltip rather than a third line on the card — on a 293px card that line pushed a seven-figure balance onto two. |
+| `3a` 20 | The chart card's foot has 16px of padding, not 18. It is the same rule `3e` puts under its sentence, `3e` writes 16 and `3a` writes 18, and one token serves both. |
+| `3b` 1 | The title eyebrow is `.2em`. `PAGE_EYEBROW` is one token; `3b`'s artboard alone writes `.22em`, and every other screen's writes `.2em`. |
+| `3b` 22 | The decimal mark stays a dot. The thousands are the artboard's space everywhere now; `,` before the grosze is what the whole app writes, in Polish as in English, and changing it is a locale change across every screen, service and export. |
+| `3b` 10 | An asset row's actions get 56px against the artboard's 30: deleting an asset has to be reachable, and two buttons wrapped the row at 30. |
+| `3b` 16 | The end-of-series annotation is the figure without the word: the legend on the title line already says which band is which. |
+| `3b` 19 | The sheet has four tracks of its own — an institution column the physical-assets table does not have, and a balance column wide enough for `12 418,40 ≈ 2 870,10 PLN`. |
+| `3b` 21 | Balances carry their currency. The ledger is multi-currency, and an unsuffixed column would be two different things in one line. |
+| `3c` 10 | The strip's button carries the count rather than the artboard's "Both": "Both" is only right when there are two, and the count is also the number `post_occurrences` is handed. |
+| `3c` 13 | Day cells are radius 10, not 8 — `--k-cal-day`, which `1c`'s calendar widget already draws. |
+| `3c` 15 | Dots are 6px, not 5 — `--k-cal-dot`, the same dot `1c` draws. |
+| `3c` 17 | A day outside the month is the page ground and a dashed hairline where the artboard fills it `#F8F4EB`: a filled cell for a day that is not in the month reads as a day. |
+| `3c` 21 | Each planned item that is due carries a post button of its own, which the artboard does not draw. An item listed in the sheet that could not be posted from it would send the reader back to the strip. |
+| `3d` 11 | The setup head drops the second half of the artboard's line, which is a note to the reader of the artboard rather than type for the page. |
+| `3d` 19 | The row hairline is `#EDE7DA`, the app's row rule. The artboards use it 123 times against `3d`'s 12 uses of `#E7E0D0`. |
+| `3d` 20 | The routine descriptions stay one line each. Rewriting thirteen of them into the artboard's two-line copy is not a restyle, and a page of paragraphs is one you read rather than scan. |
+| `3e` 17 | The result total carries no `zł`: the query can be a count or an average, and a currency on either would be wrong. |
+| `3f` 7 | Fields sit on a 48px floor and come out 56px against the artboard's 41. On a phone this form is the whole screen, and a 40px target in the middle of it is one the thumb has to aim at. |
+| `3f` 12 | The submit button is on the same floor (49px against 43) and carries no icon: on a page with one action there is no mark that says which one it is. |
 
 One more needs the owner's nod for the opposite reason — it is a change
 the artboard asked for rather than one it was refused:

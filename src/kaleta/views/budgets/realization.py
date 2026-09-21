@@ -55,7 +55,7 @@ def note_text(note: RealizationNote) -> str:
         return t("budgets.realization.note_paid_in_full", date=when)
     return t(
         "budgets.realization.note_planned_on",
-        amount=f"{note.amount:,.2f}",
+        amount=_money(note.amount),
         date=when,
     )
 

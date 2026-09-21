@@ -1225,7 +1225,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   grid-template-columns:88px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px
 }
 .k-cols-planned{
-  grid-template-columns:72px minmax(0,1.2fr) minmax(0,1fr) 104px;gap:10px
+  grid-template-columns:80px minmax(0,1fr) minmax(0,1fr) 118px;gap:10px
 }
 .k-overdue-text{font-size:12.5px;font-weight:500;color:var(--k-warm-ink)}
 .k-overdue-amount{
@@ -1266,8 +1266,14 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 /* What is held is the income colour, what is owned a muted green beside it,
    what is owed the expense colour: the bar is the sheet, and the sheet has
    two sides. */
-.k-split--ink{background:var(--k-income)}
-.k-split--neutral{background:var(--k-asset-soft)}
+/* `--ink` is the dashboard hero's committed share and is ink, as `1c`
+   draws it. `3b`'s balance-sheet bar wanted a green and a soft green for
+   its two kinds of asset, which is what `--asset` and `--asset-soft` are:
+   two tones of their own rather than a repaint of a tone another screen
+   is already using. */
+.k-split--ink{background:var(--k-ink)}
+.k-split--asset{background:var(--k-income)}
+.k-split--asset-soft{background:var(--k-asset-soft)}
 .k-split--owed{background:var(--k-expense)}
 /* Safe-to-spend (artboard 1f): what is promised, what is gone, what is left. */
 .k-split--spent{background:var(--k-neutral-bar)}

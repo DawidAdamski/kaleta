@@ -10,7 +10,7 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import plural_key, t
-from kaleta.views.components.amount_label import amount_cell_slot
+from kaleta.views.components.amount_label import amount_cell_slot, spaced_thousands
 from kaleta.views.components.empty_state import pagination_empty_label, table_no_data_slot
 from kaleta.views.theme import LEDGER_FOOT, SEGMENT, SELECT_SUNKEN, TABLE_SURFACE
 
@@ -33,6 +33,23 @@ def attach_split_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if row.get("has_splits"):
             count = int(row.get("split_count") or 0)
             row["category"] = t("transactions.split_category", count=count)
+    return rows
+
+
+def space_amounts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group the figures the way artboard `2a` writes them: ``-2 400.00``.
+
+    The strings come formatted from ``TransactionService``, which writes
+    Python's comma and is read by the API as well as by this table. So the
+    grouping is put right here, where the ledger is drawn, and through the
+    same ``spaced_thousands`` every other restyled screen goes through —
+    rather than by teaching a service what a screen's typography is.
+    """
+    for row in rows:
+        for key in ("amount", "sep_net"):
+            value = row.get(key)
+            if isinstance(value, str):
+                row[key] = spaced_thousands(value)
     return rows
 
 

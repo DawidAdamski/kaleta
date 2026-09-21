@@ -86,9 +86,9 @@ class TestSplitFigure:
     @pytest.mark.parametrize(
         ("amount", "expected"),
         [
-            (Decimal("1234567.89"), ("1,234,567", ".89 PLN")),
+            (Decimal("1234567.89"), ("1 234 567", ".89 PLN")),
             (Decimal("0.00"), ("0", ".00 PLN")),
-            (Decimal("-1500.50"), ("-1,500", ".50 PLN")),
+            (Decimal("-1500.50"), ("-1 500", ".50 PLN")),
         ],
     )
     def test_the_grosze_split_off_without_the_halves_disagreeing(

@@ -21,6 +21,7 @@ from kaleta.services.forecast_service import (
 from kaleta.views.chart_utils import (
     AXIS_LABEL_BODY,
     AXIS_LABEL_MONO,
+    AXIS_VALUE_SPACED,
     CHART_BAND,
     CHART_NEUTRAL_BAR,
     apply_dark,
@@ -109,7 +110,7 @@ def forecast_chart(
         # down the left edge say the same thing eleven times.
         "yAxis": {
             "type": "value",
-            "axisLabel": {**AXIS_LABEL_MONO, "formatter": "{value}"},
+            "axisLabel": {**AXIS_LABEL_MONO, ":formatter": AXIS_VALUE_SPACED},
         },
         "series": [
             {

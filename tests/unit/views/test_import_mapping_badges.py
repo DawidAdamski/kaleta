@@ -72,7 +72,8 @@ class TestRowCountLabel:
         assert row_count_label(2) == "2 rows"
 
     def test_the_thousands_separator_is_the_app_s(self) -> None:
-        assert row_count_label(1245) == "1,245 rows"
+        # A space, like every other grouped figure on a restyled screen.
+        assert row_count_label(1245) == "1 245 rows"
 
 
 class TestMessageProminence:

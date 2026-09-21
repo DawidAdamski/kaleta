@@ -32,6 +32,7 @@ from kaleta.views.components.transaction_table import (
     attach_upcoming_labels,
     render_pagination_bar,
     render_transaction_table,
+    space_amounts,
 )
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
@@ -255,17 +256,19 @@ async def transactions_page(*, open_new: bool = False) -> None:
         rows = attach_split_labels(
             attach_type_labels(TransactionService.build_table_rows(txs, grouping))
         )
-        rows = attach_group_labels(
-            TransactionService.merge_upcoming_rows(
-                rows,
-                attach_upcoming_labels(
-                    attach_type_labels(
-                        PlannedTransactionService.build_upcoming_rows(upcoming, today)
-                    )
+        rows = space_amounts(
+            attach_group_labels(
+                TransactionService.merge_upcoming_rows(
+                    rows,
+                    attach_upcoming_labels(
+                        attach_type_labels(
+                            PlannedTransactionService.build_upcoming_rows(upcoming, today)
+                        )
+                    ),
+                    grouping,
                 ),
                 grouping,
-            ),
-            grouping,
+            )
         )
         page_rows.clear()
         # Planned rows are deliberately left out: the selection bar totals and

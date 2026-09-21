@@ -811,7 +811,7 @@ Feature: Manual Transaction Entry
     And I am on the Transactions page
     When I select both rows
     Then the bar says 2 are selected
-    And the selected total reads +9,111.26
+    And the selected total reads +9 111.26
     And dismissing the bar unticks the rows it counted
     And clearing the filters leaves no selection bar behind
 
@@ -976,7 +976,7 @@ Feature: Transaction Pagination and Grouping
     Given one week holds an income of 9240.00 and an expense of 128.74
     And I am on the Transactions page
     When I group the ledger by week
-    Then that week's separator shows +9,111.26 beside its label
+    Then that week's separator shows +9 111.26 beside its label
     And the figure is the net of the rows on this page
     And transfers are left out of it, the same way the selection total
       leaves them out
@@ -1871,7 +1871,7 @@ Feature: Planned and Recurring Transactions
     Given there is a recorded income of 9240 and a recorded expense of 128.74 this month
     And an upcoming planned expense of 2500 falls in the same month
     When the rows are grouped by month
-    Then the month separator shows a net of "+9,111.26"
+    Then the month separator shows a net of "+9 111.26"
     And a month holding upcoming rows only shows no net at all,
       because nothing in it has moved
 

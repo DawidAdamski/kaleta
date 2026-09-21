@@ -1232,6 +1232,8 @@ class TestTransactionDisplayHelpers:
 
     def test_format_net_signs_a_total_that_moved(self):
         """Covers: KAL-TXN-014, KAL-PAG-005"""
+        # The service's own string, comma and all: the ledger re-groups it with
+        # spaces where it draws it (`space_amounts`); the API reads this one.
         assert TransactionService.format_net(Decimal("9111.26")) == "+9,111.26"
         assert TransactionService.format_net(Decimal("-287.40")) == "-287.40"
 

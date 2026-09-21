@@ -599,7 +599,7 @@ def test_selection_bar_totals_the_selected_rows(page: Page, base_url: str) -> No
     # The scenario's own words, kept in the test that covers it.
     expect(page.get_by_text("2 selected", exact=True)).to_be_visible()
     bar = page.locator(".k-selection-bar")
-    expect(bar.get_by_text("+9,111.26", exact=True)).to_be_visible(timeout=10000)
+    expect(bar.get_by_text("+9 111.26", exact=True)).to_be_visible(timeout=10000)
 
     # Dismissing the bar leaves the ledger standing, so it has to take the
     # ticks off the rows itself — a row that still looks selected under no bar
@@ -642,7 +642,7 @@ def test_week_separator_shows_the_group_net(page: Page, base_url: str) -> None:
     expect(page.get_by_text("2 selected", exact=True)).to_have_count(0, timeout=10000)
     separator = page.locator(".k-sep-row")
     expect(separator.first).to_be_visible(timeout=10000)
-    expect(separator.first).to_contain_text("+9,111.26")
+    expect(separator.first).to_contain_text("+9 111.26")
 
 
 def test_a_transfer_pair_nets_to_nothing(page: Page, base_url: str) -> None:

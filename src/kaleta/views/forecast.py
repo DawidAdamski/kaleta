@@ -51,7 +51,9 @@ from kaleta.views.theme import (
     INK_2,
     MONO,
     MUTED,
+    PAGE_CONTAINER,
     PAGE_EYEBROW,
+    PAGE_GAP_22,
     PAGE_TITLE,
     RAIL_EYEBROW,
     SECTION_CARD,
@@ -207,7 +209,9 @@ def register() -> None:
             list(raw_scenarios) if isinstance(raw_scenarios, list) else []
         )
 
-        with page_layout(t("forecast.title"), wide=True):
+        with page_layout(
+            t("forecast.title"), wide=True, container=f"{PAGE_CONTAINER} {PAGE_GAP_22}"
+        ):
             # Title row: the page says what it is on the left, and everything
             # that changes the answer sits on the right — so the first thing
             # below is the answer itself, not an empty frame and a button.
@@ -381,7 +385,7 @@ def register() -> None:
                         label = str(s.get("label", "—"))
                         with ui.row().classes(f"{FILTER_CHIP} gap-2"):
                             ui.label(f"{label} · {_display_date(s.get('date'))}").classes("text-xs")
-                            ui.label(f"{format_net_amount(amt)} zł").classes(
+                            ui.label(spaced_thousands(f"{format_net_amount(amt)} zł")).classes(
                                 f"{MONO} text-xs {net_tone(Decimal(str(amt)))}"
                             )
                             remove = (
@@ -773,9 +777,9 @@ def register() -> None:
                             )
                             ui.label(occ.name).classes(f"{INK} truncate")
                             ui.label(occ.category_name or "—").classes(f"{MUTED} truncate")
-                            ui.label(format_signed_amount(occ.amount, occ.type)).classes(
-                                f"{MONO} {amount_class(occ.type.value)} text-right"
-                            )
+                            ui.label(
+                                spaced_thousands(format_signed_amount(occ.amount, occ.type))
+                            ).classes(f"{MONO} {amount_class(occ.type.value)} text-right")
 
             for control in (account_sel, horizon_sel):
                 control.on_value_change(lambda _: _on_controls_changed())

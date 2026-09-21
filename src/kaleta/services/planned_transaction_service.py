@@ -483,12 +483,14 @@ class PlannedTransactionService:
         async with self._session.begin_nested():
             for occ in occurrences:
                 posted.append(await self._ensure_posted(occ.planned_id, occ.date))
+        # The savepoint has flushed, so every row has its id; read them before
+        # the commit expires the instances, and wake them all with one query
+        # rather than one per row.
+        ids = [tx.id for tx in posted]
         await self._session.commit()
-        results: builtins.list[Transaction] = []
-        for tx in posted:
-            fetched = await self._get_transaction(tx.id)
-            assert fetched is not None
-            results.append(fetched)
+        stmt = select(Transaction).where(Transaction.id.in_(ids))
+        by_id = {tx.id: tx for tx in (await self._session.execute(stmt)).scalars()}
+        results = [by_id[tx_id] for tx_id in ids]
         logger.info("Posted %s named planned occurrence(s)", len(results))
         return results
 

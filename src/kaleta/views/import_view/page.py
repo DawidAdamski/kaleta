@@ -25,6 +25,7 @@ from kaleta.services.import_service import (
     inherit_queue_settings,
     validate_import_readiness,
 )
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.import_view.constants import METADATA_PROFILES
 from kaleta.views.import_view.coverage_section import build_coverage_section
 from kaleta.views.import_view.mapping_section import build_mapping_section
@@ -757,7 +758,9 @@ async def import_page() -> None:
             else len(active.parsed_rows)
         )
         ui.label(f"{active.filename} ·")
-        ui.label(t(plural_key("import.rows_count", rows), count=f"{rows:,}")).classes(MONO)
+        ui.label(
+            t(plural_key("import.rows_count", rows), count=spaced_thousands(f"{rows:,}"))
+        ).classes(MONO)
 
     def _select_file_at(index: int) -> None:
         queue = state["queue"]

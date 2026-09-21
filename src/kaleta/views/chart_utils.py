@@ -113,6 +113,13 @@ def chart_accent_fill(is_dark: bool) -> str:
 AXIS_LABEL_MONO = {"fontFamily": "IBM Plex Mono, ui-monospace, monospace", "fontSize": 10.5}
 AXIS_LABEL_BODY = {"fontFamily": "Libre Franklin, system-ui, sans-serif", "fontSize": 11.5}
 
+#: The grouping every restyled screen writes, for an axis whose labels ECharts
+#: numbers itself. `{value}` puts a comma in at four figures, and `120,000`
+#: down the left edge of a screen that writes `78 154.16` beside it is one
+#: page spelling a thousand two ways. NiceGUI hands a `:`-prefixed string to
+#: the component as a function, so this is a formatter and not a template.
+AXIS_VALUE_SPACED = "value => value.toLocaleString('en-US').replace(/,/g, ' ')"
+
 
 def axis_style(is_dark: bool) -> dict[str, dict[str, Any]]:
     """Common axis / legend style overrides."""

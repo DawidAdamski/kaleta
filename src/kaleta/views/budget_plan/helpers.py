@@ -17,7 +17,7 @@ def recurring_display(row: PlanCategoryRow) -> tuple[str, str]:
     right, and artboard 2c says so by colour.
     """
     if row.uniform_monthly is not None:
-        return f"{row.uniform_monthly:,.0f}", ACCENT_TEXT
+        return spaced_thousands(f"{row.uniform_monthly:,.0f}"), ACCENT_TEXT
     if row.has_any_plan:
         return "~", ACCENT_TEXT
     return "—", MUTED

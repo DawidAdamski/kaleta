@@ -19,11 +19,16 @@ from kaleta.services.net_worth_service import (
 from kaleta.views.chart_utils import (
     AXIS_LABEL_BODY,
     AXIS_LABEL_MONO,
+    AXIS_VALUE_SPACED,
     apply_dark,
     chart_expense_color,
     chart_income_color,
 )
-from kaleta.views.components.amount_label import format_net_amount, net_tone
+from kaleta.views.components.amount_label import (
+    format_net_amount,
+    net_tone,
+    spaced_thousands,
+)
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -73,7 +78,7 @@ def _asset_type_label() -> dict[str, str]:
 
 
 def _fmt(amount: Decimal, currency: str = "PLN") -> str:
-    return f"{amount:,.2f} {currency}"
+    return spaced_thousands(f"{amount:,.2f} {currency}")
 
 
 def sheet_balance(balance: Decimal, *, is_asset: bool) -> Decimal:
@@ -97,7 +102,7 @@ def split_figure(amount: Decimal, currency: str = "PLN") -> tuple[str, str]:
     loudest; splitting them off lets the decimals be muted without the two
     halves ever disagreeing about rounding.
     """
-    whole, _, cents = f"{amount:,.2f}".partition(".")
+    whole, _, cents = spaced_thousands(f"{amount:,.2f}").partition(".")
     return whole, f".{cents} {currency}"
 
 
@@ -111,7 +116,7 @@ def _delta(label: str, delta: Decimal | None, currency: str) -> None:
         if delta is None:
             ui.label("—").classes(f"{DELTA_FIGURE} {MUTED}")
             return
-        ui.label(format_net_amount(delta)).classes(f"{DELTA_FIGURE} {tone}")
+        ui.label(spaced_thousands(format_net_amount(delta))).classes(f"{DELTA_FIGURE} {tone}")
 
 
 def _header_strip(summary: NetWorthSummary, currency: str) -> None:
@@ -146,12 +151,12 @@ def _balance_sheet_bar(summary: NetWorthSummary, currency: str) -> None:
         return
 
     segments = (
-        (t("net_worth.split_accounts"), split.accounts, summary.account_assets, "k-split--ink"),
+        (t("net_worth.split_accounts"), split.accounts, summary.account_assets, "k-split--asset"),
         (
             t("net_worth.split_physical"),
             split.physical,
             summary.total_physical_assets,
-            "k-split--neutral",
+            "k-split--asset-soft",
         ),
         (
             t("net_worth.split_liabilities"),
@@ -250,7 +255,14 @@ def net_worth_chart_options(summary: NetWorthSummary, dark: bool) -> dict[str, A
             "min": 0,
             # No axis name: the labels already end in `k`, and "tys. PLN"
             # turned sideways is the only rotated type on the page.
-            "axisLabel": {**AXIS_LABEL_MONO, "formatter": "{value}k"},
+            # The grouping the rest of the screen writes: ECharts' own
+            # `{value}` puts a comma in at four figures, and `1,200k` beside
+            # `901 393.51 PLN` is one screen writing a thousand two ways.
+            # `:`-prefixed, so NiceGUI hands the string over as a function.
+            "axisLabel": {
+                **AXIS_LABEL_MONO,
+                ":formatter": f"{AXIS_VALUE_SPACED} + 'k'",
+            },
             "axisLine": {"show": False},
             "axisTick": {"show": False},
         },
@@ -331,7 +343,7 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
                 # No currency on the row: the card's title line carries it
                 # once, and repeating it three times costs the value column
                 # the width it needs to stay on one line.
-                ui.label(f"{a.value:,.2f}").classes(f"{MONO} text-right")
+                ui.label(spaced_thousands(f"{a.value:,.2f}")).classes(f"{MONO} text-right")
                 with ui.row().classes("justify-end gap-0"):
                     ui.button(
                         icon="edit", on_click=lambda _e, i=a.id: _on_edit({"id": i}), color=None
@@ -534,7 +546,7 @@ def register() -> None:
                     # already looking, and not inside the plot.
                     with ui.row().classes(f"{MUTED} gap-4 text-[11.5px] no-wrap"):
                         for label_key, tone in (
-                            ("net_worth.assets", "k-split--ink"),
+                            ("net_worth.assets", "k-split--asset"),
                             ("net_worth.liabilities", "k-split--owed"),
                         ):
                             with ui.row().classes("items-center gap-1.5"):

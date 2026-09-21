@@ -16,6 +16,7 @@ from kaleta.services.import_service import (
     CsvInspection,
     row_error_line,
 )
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.import_view.state import QueuedFile
 from kaleta.views.theme import (
     AUTO_BADGE,
@@ -163,7 +164,7 @@ def row_count_label(count: int) -> str:
     itself lives in :func:`kaleta.i18n.plural_key`; the formatting is the
     app's usual ``,`` separator, so the caption reads like every other figure.
     """
-    return t(plural_key("import.rows_count", count), count=f"{count:,}")
+    return t(plural_key("import.rows_count", count), count=spaced_thousands(f"{count:,}"))
 
 
 def sample_body_slot() -> str:

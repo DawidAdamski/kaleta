@@ -15,6 +15,7 @@ from kaleta.services.import_service import (
 )
 from kaleta.views.components.amount_label import amount_body_cell_slot
 from kaleta.views.components.empty_state import table_no_data_slot
+from kaleta.views.components.transaction_table import space_amounts
 from kaleta.views.theme import BODY_MUTED, CARD_TITLE, SECTION_CARD, TABLE_SURFACE
 
 
@@ -37,7 +38,9 @@ class PreviewSection:
             ui.label(f"\U0001f504 {t('import.stats_transfer')}: {counts.transfer}").classes(
                 "k-stat-chip k-stat-chip--transfer"
             )
-        preview_rows = build_preview_table_rows(rows, known_digits)
+        # Grouped the way `2d` writes it, at the point it is drawn: the
+        # service's string is read by the API too.
+        preview_rows = space_amounts(build_preview_table_rows(rows, known_digits))
         for row in preview_rows:
             row["type_label"] = t(f"common.{row['type']}")
         self.preview_table.rows = preview_rows
