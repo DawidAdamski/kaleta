@@ -8,12 +8,18 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
+    from kaleta.models.transaction import Transaction
+
 from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import ReportService, TransactionService
-from kaleta.views.components.amount_label import amount_body_cell_slot, format_signed_amount
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.components.amount_label import (
+    amount_body_cell_slot,
+    format_signed_amount,
+    signed_amount_class,
+)
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import (
     ACCENT_TEXT,
     BODY_MUTED,
@@ -23,7 +29,47 @@ from kaleta.views.theme import (
     DASH_CARD,
     MUTED,
     TABLE_SURFACE,
+    TX_AMOUNT,
+    TX_META,
+    TX_PAYEE,
+    TX_ROW,
 )
+
+
+def _row_meta(tx: Transaction) -> str:
+    """ "03.07 · Żywność" — the second line of a phone row.
+
+    Day before month, which is the separator and the order artboard `1f`
+    writes and the one this app's Polish reader writes by hand. The wide
+    window's table keeps `1c`'s `07-03` (`KAL-DSH-009`): the two artboards
+    disagree, and each rendering follows the one it was drawn from.
+
+    A row with no category is the date alone rather than the date and an em
+    dash: a missing category is not a second fact about the movement.
+    """
+    parts = [tx.date.strftime("%d.%m")]
+    if tx.category is not None:
+        parts.append(tx.category.name)
+    return " · ".join(parts)
+
+
+def _render_phone_rows(recent: list[Transaction]) -> None:
+    """The Latest band as `1f` draws it: 52px rows on the ground, no card.
+
+    No "View all" either — the artboard gives the band no header at all, and
+    a phone has the Ledger tab under its thumb for the same trip.
+    """
+    if not recent:
+        ui.label(t("dashboard.no_transactions")).classes(BODY_MUTED)
+        return
+    for tx in recent:
+        with ui.element("div").classes(TX_ROW):
+            with ui.column().classes("gap-0 flex-1 min-w-0"):
+                ui.label(tx.description or "—").classes(f"{TX_PAYEE} truncate")
+                ui.label(_row_meta(tx)).classes(f"{TX_META} truncate")
+            ui.label(format_signed_amount(tx.amount, tx.type)).classes(
+                f"{TX_AMOUNT} {signed_amount_class(tx.amount, tx.type)} shrink-0"
+            )
 
 
 @register(
@@ -33,8 +79,11 @@ from kaleta.views.theme import (
     (4, 2),
     ((4, 2), (4, 3)),
 )
-async def render_recent_transactions(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_recent_transactions(session: AsyncSession, ctx: RenderContext) -> None:
     recent = await ReportService(session).recent_transactions(10)
+    if ctx.narrow:
+        _render_phone_rows(recent)
+        return
     with ui.card().classes(DASH_CARD):
         # Title and link on one baseline, as artboard `1c` sets them. The
         # card carried an eyebrow and a second line ("Last 10 movements")

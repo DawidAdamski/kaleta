@@ -13,7 +13,7 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.services import CreditService
 from kaleta.views.dashboard_widgets.helpers import section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import BODY_MUTED
 
 
@@ -24,7 +24,7 @@ from kaleta.views.theme import BODY_MUTED
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_credit_utilization(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_credit_utilization(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     cards = await CreditService(session).list_cards()
     with section_card(
         t("dashboard_widgets.credit_utilization"),

@@ -14,7 +14,7 @@ from kaleta.i18n import t
 from kaleta.services.net_worth_service import NetWorthService
 from kaleta.views.chart_utils import apply_dark, chart_accent_color, chart_accent_fill
 from kaleta.views.dashboard_widgets.helpers import section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import BODY_MUTED
 
 
@@ -25,7 +25,7 @@ from kaleta.views.theme import BODY_MUTED
     (4, 2),
     ((2, 2), (4, 2), (4, 3)),
 )
-async def render_net_worth_trend(session: AsyncSession, is_dark: bool) -> None:
+async def render_net_worth_trend(session: AsyncSession, ctx: RenderContext) -> None:
     summary = await NetWorthService(session).get_summary(history_months=12)
     history = summary.history
     with section_card(
@@ -53,12 +53,12 @@ async def render_net_worth_trend(session: AsyncSession, is_dark: bool) -> None:
                     "type": "line",
                     "data": net_values,
                     "smooth": True,
-                    "areaStyle": {"color": chart_accent_fill(is_dark)},
-                    "itemStyle": {"color": chart_accent_color(is_dark)},
-                    "lineStyle": {"width": 2, "color": chart_accent_color(is_dark)},
+                    "areaStyle": {"color": chart_accent_fill(ctx.is_dark)},
+                    "itemStyle": {"color": chart_accent_color(ctx.is_dark)},
+                    "lineStyle": {"width": 2, "color": chart_accent_color(ctx.is_dark)},
                     "symbol": "circle",
                     "symbolSize": 5,
                 }
             ],
         }
-        ui.echart(apply_dark(opts, is_dark)).classes("w-full h-64")
+        ui.echart(apply_dark(opts, ctx.is_dark)).classes("w-full h-64")

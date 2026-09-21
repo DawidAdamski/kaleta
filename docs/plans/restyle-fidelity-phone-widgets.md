@@ -3,7 +3,7 @@ plan_id: restyle-fidelity-phone-widgets
 title: Restyle fidelity — the widgets artboard 1f redraws for a phone
 area: dashboard
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#dashboard
 ---
 

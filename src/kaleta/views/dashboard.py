@@ -37,6 +37,7 @@ from kaleta.views.dashboard_widgets import (
     DEFAULT_WIDGETS,
     WIDGETS,
     Band,
+    RenderContext,
     Widget,
     bands_for_layout,
     default_layout,
@@ -418,7 +419,9 @@ async def _watch_figures(session: AsyncSession) -> list[tuple[str, str]]:
     ]
 
 
-async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_dark: bool) -> None:
+async def _render_bands(
+    session: AsyncSession, layout: list[dict[str, Any]], ctx: RenderContext
+) -> None:
     """The phone dashboard: stacked bands, no grid, no dragging.
 
     Band order is fixed — it is the argument the layout is making — so the
@@ -445,7 +448,7 @@ async def _render_bands(session: AsyncSession, layout: list[dict[str, Any]], is_
             for entry in entries:
                 widget = WIDGETS[entry["id"]]
                 with ui.element("div").classes("w-full").props(f'data-widget-id="{widget.id}"'):
-                    await widget.render(session, is_dark)
+                    await widget.render(session, ctx)
 
 
 async def _render_watch_band(session: AsyncSession) -> None:
@@ -524,7 +527,7 @@ def register() -> None:
             if is_mobile:
 
                 async def _render_mobile(session: AsyncSession) -> None:
-                    await _render_bands(session, layout, is_dark)
+                    await _render_bands(session, layout, RenderContext(is_dark, narrow=True))
 
                 await with_session(_render_mobile)
                 return
@@ -545,7 +548,11 @@ def register() -> None:
                         if widget is None:
                             continue
                         await _render_wrapped(
-                            widget, session, is_dark, entry["cols"], entry["rows"]
+                            widget,
+                            session,
+                            RenderContext(is_dark),
+                            entry["cols"],
+                            entry["rows"],
                         )
                         rendered += 1
                     # What was drawn, not what was asked for: a layout of ids
@@ -565,7 +572,7 @@ def register() -> None:
 async def _render_wrapped(
     widget: Widget,
     session: AsyncSession,
-    is_dark: bool,
+    ctx: RenderContext,
     cols: int,
     rows: int,
 ) -> None:
@@ -599,7 +606,7 @@ async def _render_wrapped(
                 )
             ):
                 ui.icon("aspect_ratio")
-        await widget.render(session, is_dark)
+        await widget.render(session, ctx)
 
 
 def _render_empty_placeholder() -> None:

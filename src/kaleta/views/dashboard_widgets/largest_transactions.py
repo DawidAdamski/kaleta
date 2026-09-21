@@ -15,7 +15,7 @@ from kaleta.schemas.transaction import TransactionType
 from kaleta.services import ReportService
 from kaleta.views.components.amount_label import amount_css_class
 from kaleta.views.dashboard_widgets.helpers import fmt_amount, section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import BODY_MUTED
 
 
@@ -26,7 +26,7 @@ from kaleta.views.theme import BODY_MUTED
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_largest_transactions(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_largest_transactions(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     rows = await ReportService(session).largest_transactions(
         days=30, limit=5, tx_type=TransactionType.EXPENSE
     )

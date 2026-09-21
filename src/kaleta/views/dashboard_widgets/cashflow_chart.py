@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -19,10 +20,11 @@ from kaleta.views.chart_utils import (
     apply_dark,
     chart_expense_color,
     chart_income_color,
+    chart_ink_color,
     chart_series_accent_color,
     chart_surface_color,
 )
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import CARD_SUBTITLE, CARD_TITLE, DASH_CARD, LEGEND_DOT, LEGEND_LINE
 
 #: Bar width as a share of the category band — artboard `1c` draws a 50px
@@ -46,17 +48,53 @@ def _month_label(month: MonthCashflow) -> str:
     return t(f"common.month_short_{month.month}")
 
 
-def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[str, Any]:
+def _month_axis_labels(months: list[MonthCashflow], is_dark: bool) -> dict[str, Any]:
+    """X-axis labels with the month you are in set in ink, as `1f` draws them.
+
+    The artboard's six letters are five muted and one ``#1C1A15``/600 — the
+    only thing on that sketch saying which bar is the month in progress, and
+    on a phone the chart has no title beside it to say so instead. ECharts
+    styles one label of a category axis through rich text, so the formatter
+    tags the last one and ``rich`` carries the weight. The colour is a hex,
+    not ``var(--k-ink)``: this is drawn on a canvas, where a CSS variable is
+    a string nothing resolves.
+    """
+    # `json.dumps`, not an f-string quote: a month name is a translation, and
+    # the one that eventually carries an apostrophe would otherwise end the
+    # JavaScript string literal in the middle of the axis.
+    last = json.dumps(_month_label(months[-1]) if months else "")
+    return {
+        **_X_LABEL,
+        ":formatter": f"value => value === {last} ? '{{cur|' + value + '}}' : value",
+        "rich": {"cur": {**_X_LABEL, "fontWeight": 600, "color": chart_ink_color(is_dark)}},
+    }
+
+
+def _build_cashflow_chart(
+    months: list[MonthCashflow], is_dark: bool, *, narrow: bool = False
+) -> dict[str, Any]:
+    """The six-month bars. *narrow* is artboard `1f`'s sketch of the same data.
+
+    `1f` gives the Month band 120px of chart with month letters under it and
+    nothing else: no y-axis figures (they would cost 40px of a 350px content
+    width to repeat the In/Out figures standing above the chart), and no
+    gridlines behind bars that are read against each other rather than off a
+    scale.
+    """
     opts: dict[str, Any] = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
         # No ECharts legend: artboard `1c` puts the three keys on the card's
         # title line, which is outside the chart's box — ``_legend`` draws
         # them there, in the same swatches.
-        "grid": {"left": "3%", "right": "4%", "top": 12, "bottom": 8, "containLabel": True},
+        "grid": (
+            {"left": 0, "right": 0, "top": 4, "bottom": 0, "containLabel": True}
+            if narrow
+            else {"left": "3%", "right": "4%", "top": 12, "bottom": 8, "containLabel": True}
+        ),
         "xAxis": {
             "type": "category",
             "data": [_month_label(m) for m in months],
-            "axisLabel": dict(_X_LABEL),
+            "axisLabel": _month_axis_labels(months, is_dark) if narrow else dict(_X_LABEL),
             # The artboard draws gridlines and a zero rule, and no axis line
             # or ticks under the month names.
             "axisLine": {"show": False},
@@ -66,8 +104,9 @@ def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[st
         # is already a card about money.
         "yAxis": {
             "type": "value",
-            "axisLabel": dict(_Y_LABEL),
+            "axisLabel": {"show": False} if narrow else dict(_Y_LABEL),
             "axisLine": {"show": False},
+            "splitLine": {"show": not narrow},
         },
         "series": [
             {
@@ -116,13 +155,21 @@ def _build_cashflow_chart(months: list[MonthCashflow], is_dark: bool) -> dict[st
     (4, 2),
     ((2, 2), (4, 2), (4, 3)),
 )
-async def render_cashflow_chart(session: AsyncSession, is_dark: bool) -> None:
+async def render_cashflow_chart(session: AsyncSession, ctx: RenderContext) -> None:
     months = await ReportService(session).cashflow_last_n_months(6)
+    if ctx.narrow:
+        # On the ground, under the band's own heading: artboard `1f` draws the
+        # Month band as bare type and a sketch, and a card here would be a
+        # second box saying "this month" under the one that already does.
+        ui.echart(_build_cashflow_chart(months, ctx.is_dark, narrow=True)).classes(
+            "w-full h-[120px]"
+        )
+        return
     with ui.card().classes(DASH_CARD):
         with ui.row().classes("w-full items-baseline justify-between gap-4 mb-[18px]"):
             ui.label(t("dashboard.cashflow_chart")).classes(CARD_TITLE)
-            _legend(is_dark)
-        ui.echart(_build_cashflow_chart(months, is_dark)).classes("w-full h-60")
+            _legend(ctx.is_dark)
+        ui.echart(_build_cashflow_chart(months, ctx.is_dark)).classes("w-full h-60")
 
 
 def _legend(is_dark: bool) -> None:

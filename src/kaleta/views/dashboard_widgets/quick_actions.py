@@ -12,7 +12,7 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.views.dashboard_widgets.helpers import quick_btn, section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 
 
 @register(
@@ -22,7 +22,7 @@ from kaleta.views.dashboard_widgets.registry import register
     (4, 1),
     ((4, 1), (4, 2)),
 )
-async def render_quick_actions(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_quick_actions(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     with (
         section_card(
             t("dashboard_widgets.quick_actions"),

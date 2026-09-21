@@ -13,7 +13,7 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.views.dashboard_widgets.helpers import fmt_amount, mini_stat, section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, INK
 
 
@@ -24,7 +24,7 @@ from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, INK
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_ytd_summary(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_ytd_summary(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     rep = await ReportService(session).ytd_summary()
     with (
         section_card(

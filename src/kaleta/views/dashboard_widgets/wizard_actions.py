@@ -14,8 +14,18 @@ from kaleta.i18n import t
 from kaleta.schemas.wizard_actions import ActionItem, ActionSeverity
 from kaleta.services import WizardActionService
 from kaleta.views.dashboard_widgets.helpers import section_card
-from kaleta.views.dashboard_widgets.registry import register
-from kaleta.views.theme import ACCENT_SURFACE, BODY_MUTED, ON_ACCENT
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
+from kaleta.views.theme import (
+    ACCENT_SURFACE,
+    ATTENTION_COUNT,
+    ATTENTION_DOT,
+    ATTENTION_ROW,
+    ATTENTION_TEXT,
+    BODY_MUTED,
+    DASH_CARD,
+    MUTED_STRONG,
+    ON_ACCENT,
+)
 
 # Out of scope: pagination. Show at most this many rows, then a "+N more" tail.
 MAX_ROWS = 12
@@ -72,6 +82,53 @@ def _render_row(item: ActionItem) -> None:
         ui.label(t(item.title_key, **params)).classes("text-[15px] font-medium")
 
 
+def _render_card_row(item: ActionItem) -> None:
+    """One action as artboard `1f` draws it on a phone.
+
+    A 44px row — the handoff's floor for a thumb, and the reason the desktop
+    banner's inline list cannot simply be narrowed: there the items run into
+    one another separated by middots, which is a paragraph, not a set of
+    targets. The kind and severity attributes are the banner's, so the
+    ranking and routing tests read the same DOM at either width.
+    """
+    params = _message_params(item)
+    with (
+        ui.element("div")
+        .classes(ATTENTION_ROW)
+        .props(f'data-action-kind="{item.kind.value}" data-severity="{item.severity.value}"')
+        .on("click", lambda _e=None, href=item.href: ui.navigate.to(href))
+    ):
+        ui.element("span").classes(ATTENTION_DOT)
+        ui.label(t(item.title_key, **params)).classes(ATTENTION_TEXT)
+        ui.icon("chevron_right", size="16px").classes(f"{MUTED_STRONG} shrink-0")
+
+
+def _render_attention_card(items: list[ActionItem]) -> None:
+    """The phone's "Needs attention": paper, an eyebrow, a count, then rows."""
+    shown = items[:MAX_ROWS]
+    with ui.card().classes(f"{DASH_CARD} gap-0"):
+        with ui.row().classes("w-full items-center justify-between no-wrap mb-2"):
+            ui.label(t("dashboard_widgets.wizard_actions")).classes("k-eyebrow")
+            ui.label(str(len(items))).classes(ATTENTION_COUNT)
+        for item in shown:
+            _render_card_row(item)
+        if len(items) > MAX_ROWS:
+            # The tail is a row like the others rather than a caption: it is
+            # the only way to the rest of the list, and the wizard is where
+            # the rest of it lives. The phone card carries no "Open" pill —
+            # `1f` makes every row its own target instead.
+            with (
+                ui.element("div")
+                .classes(ATTENTION_ROW)
+                .on("click", lambda _e=None: ui.navigate.to("/wizard"))
+            ):
+                ui.element("span").classes(ATTENTION_DOT)
+                ui.label(
+                    t("dashboard_widgets.wizard_actions_more", count=len(items) - MAX_ROWS)
+                ).classes(ATTENTION_TEXT)
+                ui.icon("chevron_right", size="16px").classes(f"{MUTED_STRONG} shrink-0")
+
+
 @register(
     "wizard_actions",
     "dashboard_widgets.wizard_actions",
@@ -79,7 +136,7 @@ def _render_row(item: ActionItem) -> None:
     (4, 1),
     ((4, 1), (4, 2)),
 )
-async def render_wizard_actions(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_wizard_actions(session: AsyncSession, ctx: RenderContext) -> None:
     items = drop_dismissed(
         await WizardActionService(session).get_action_items(), _dismissed_mentor_keys()
     )
@@ -90,6 +147,10 @@ async def render_wizard_actions(session: AsyncSession, is_dark: bool) -> None:  
             ui.label(t("dashboard_widgets.wizard_actions_empty")).classes(
                 f"{BODY_MUTED} wizard-actions-empty"
             )
+        return
+
+    if ctx.narrow:
+        _render_attention_card(items)
         return
 
     shown = items[:MAX_ROWS]

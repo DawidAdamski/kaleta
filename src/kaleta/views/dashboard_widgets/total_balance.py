@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.views.dashboard_widgets.helpers import fmt_amount, kpi_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 
 
 @register(
@@ -22,7 +22,7 @@ from kaleta.views.dashboard_widgets.registry import register
     ((1, 1), (2, 1)),
     legacy=True,
 )
-async def render_total_balance(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_total_balance(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     svc = ReportService(session)
     total = await svc.total_balance()
     delta = await svc.balance_delta_vs_days_ago(30)
