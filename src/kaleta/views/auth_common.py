@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 from typing import Any
 
@@ -58,7 +59,7 @@ def app_version() -> str:
     """``v0.1.0`` — the same string the drawer's foot carries."""
     try:
         return f"v{_pkg_version('kaleta')}"
-    except Exception:  # noqa: BLE001 — a source checkout has no metadata
+    except PackageNotFoundError:  # a source checkout has no metadata
         return "v0.1.0"
 
 

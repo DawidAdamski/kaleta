@@ -93,7 +93,7 @@ review found while the screen was being brought to it.
    - `PlannedTransactionService.post_occurrences`: the overdue strip's
      button had been looping over `post_occurrence` with a session per
      item, from the view. `post_due` could already post a window; this
-     posts the list it is handed, in one savepoint. Four unit tests.
+     posts the list it is handed, in one savepoint. Five unit tests.
    - `DayTotals` (`services/day_totals.py`): what a day comes to, asked
      by the cell in the grid and by the sheet's Out and Net, which had
      been answering it separately and disagreeing. Five unit tests and
@@ -367,6 +367,12 @@ If one screen alone is more than a day's work, split it out into
   muted — a section heading's face on three letters in the corner of one
   cell out of thirty-one. `--k-cal-today` is its own class, at the
   artboard's 8.5px/.1em in the accent.
+- The two Payment Calendar scenarios read a day by substring:
+  `to_contain_text("1")` is true of "14", and the day sheet's three
+  totals were checked as three substrings of one row, which any
+  arrangement of the same figures satisfies. Both read the sheet's own
+  heading whole now (`_day_heading`, built from the date under test),
+  and the totals row is matched as `In 0.00 Out -12.99 Net -12.99`.
 - `tests/e2e/test_rules.py` still opened the import page by
   `get_by_text("Import", exact=True).first`, which the drawer's own nav
   entry satisfies on any screen. The assertion every other import test

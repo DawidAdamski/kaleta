@@ -22,6 +22,16 @@ from tests.e2e.seed_helpers import (
     seed_subscription,
 )
 
+
+def _day_heading(date: datetime.date) -> str:
+    """ "Tuesday 15 September" — what the day sheet heads itself with.
+
+    Built from the date under test rather than read off the page, and
+    asserted whole: `to_contain_text("1")` is true of "14" as well.
+    """
+    return f"{date.strftime('%A')} {date.day} {date.strftime('%B')}"
+
+
 # ---------------------------------------------------------------------------
 # Scenario: Create a monthly recurring expense
 # ---------------------------------------------------------------------------
@@ -553,12 +563,13 @@ def test_a_days_totals_count_its_subscription_charges(page: Page, base_url: str)
 
     cell.click()
     panel = page.locator(".k-day-panel")
-    expect(panel).to_contain_text(str(second.day), timeout=5000)
+    expect(panel.locator(".k-card-title")).to_have_text(_day_heading(second), timeout=5000)
     expect(panel).to_contain_text("-12.99")
-    # In, Out and Net, in that order: nothing came in, 12.99 went out.
+    # In, Out and Net, in that order and each with its own figure: nothing
+    # came in, 12.99 went out, and the day is 12.99 down. A substring of the
+    # whole row would pass on any arrangement of the same three numbers.
     totals = panel.locator(".k-hairline-bottom")
-    expect(totals).to_contain_text("0.00")
-    expect(totals).to_contain_text("-12.99")
+    expect(totals).to_have_text(re.compile(r"In\s*0\.00\s*Out\s*-12\.99\s*Net\s*-12\.99"))
 
 
 def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
@@ -576,7 +587,7 @@ def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
     expect(grid).to_be_visible()
 
     today = datetime.date.today()
-    expect(panel).to_contain_text(str(today.day))
+    expect(panel.locator(".k-card-title")).to_have_text(_day_heading(today))
     for label in ("In", "Out", "Net"):
         expect(panel.get_by_text(label, exact=True)).to_be_visible()
 
@@ -591,7 +602,7 @@ def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
     # contains "1" too, and which of them came first was luck.
     other = today.replace(day=1 if today.day != 1 else 2)
     page.locator(f'[data-day="{other.isoformat()}"]').click()
-    expect(panel).to_contain_text(str(other.day), timeout=10000)
+    expect(panel.locator(".k-card-title")).to_have_text(_day_heading(other), timeout=10000)
     expect(page.locator(".k-cal-day").first).to_be_visible()
 
     # Closing it gives the grid the page. The panel is redrawn whenever a
