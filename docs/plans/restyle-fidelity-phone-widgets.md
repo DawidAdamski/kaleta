@@ -71,8 +71,9 @@ service change; the working screens.
 - `uv run pytest tests/e2e/test_dashboard_mobile.py tests/e2e/test_dashboard_desktop.py -q`
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
-- `[owner]` Opens `.fidelity/1f/index.html` and agrees that rows 10 and 13
-  now read `match`.
+- `[manual]` The owner opens `.fidelity/1f/index.html` and agrees that rows
+  10 and 13 now read `match`, and that row 11a's two values are the right
+  call.
 
 ## Touchpoints
 
@@ -188,6 +189,22 @@ worktree) whenever the suite reaches it with the drawer expanded: it reads the
 table's box mid-animation, 263.98 + 1100 > 1360. It is in its own commit per
 Working Agreement §9 and is called out here because `verify.sh --e2e` cannot
 go green without it.
+
+### The sign-off criterion is spelled `[manual]`, not `[owner]`
+
+Unchanged in substance — the owner still opens `.fidelity/1f/index.html` and
+agrees rows 10 and 13 read `match` — but `[manual]` is the marker
+`docs/plans/README.md` defines and the one `.claude/hooks/dod-gate.sh` and
+`scripts/plan_archive.sh` skip. `[owner]` is a spelling the restyle plans
+adopted between themselves; this is the first of them to run under the gate,
+which tried to execute it as a shell command. The other `[owner]` plans
+(`restyle-fidelity-screens`, `restyle-fidelity-shell-dashboard`,
+`restyle-dashboard-rethink`, all archived) are on the Chore inbox to be
+normalised.
+
+Row 11a is named in the criterion now as well: it is a `deviation` decided
+here on token-consistency grounds, so it belongs in front of the same eye
+that signs off the two `match` rows.
 
 ### Not done, deliberately
 
