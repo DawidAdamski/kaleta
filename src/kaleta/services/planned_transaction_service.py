@@ -490,6 +490,10 @@ class PlannedTransactionService:
         await self._session.commit()
         stmt = select(Transaction).where(Transaction.id.in_(ids))
         by_id = {tx.id: tx for tx in (await self._session.execute(stmt)).scalars()}
+        # Indexed, not `.get`: these ids were committed by the line above, in
+        # this session, and a missing one means the write did not land. A
+        # KeyError here is the right noise — quietly returning a shorter list
+        # would tell the strip's button it posted fewer than it did.
         results = [by_id[tx_id] for tx_id in ids]
         logger.info("Posted %s named planned occurrence(s)", len(results))
         return results
