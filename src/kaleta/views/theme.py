@@ -994,7 +994,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-plan-grid{background:transparent}
 .k-plan-head{
   border-bottom:1px solid var(--k-border-strong);
-  color:var(--k-muted)
+  color:var(--k-muted-strong)
 }
 .k-plan-row{border-bottom:1px solid var(--k-hairline)}
 .k-plan-row:hover{background:var(--k-row-hover)}

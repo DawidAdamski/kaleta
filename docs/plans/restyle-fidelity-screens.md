@@ -220,8 +220,9 @@ If one screen alone is more than a day's work, split it out into
   `_post_overdue` looped over `post_occurrence` with a session each, so
   the orchestration — and the atomicity — lived in `views/`.
   `PlannedTransactionService.post_occurrences` takes the list and
-  commits once; the view calls it once and counts what came back. Three
-  unit tests cover it.
+  commits it in one savepoint; the view calls it once and counts what
+  came back. Four unit tests cover it, one of them a batch whose second
+  item has no plan left, which must leave the first unwritten.
 - **The seed's canonical tags carry sand colours.** A tag chip is drawn
   as an outline in its own colour, and the model's grey default read as
   "no tag" beside a category pill in `2a`'s shot.
@@ -347,11 +348,13 @@ plan:
 - `3f`'s error says "Invalid username or password" without the artboard's
   "3 attempts left" (`LoginRateLimiter` keeps the count but nothing
   exposes it), and its third panel stat is months of history, not banks.
-- `3c`'s day sheet has no "Post this day". Instead each planned item in
-  it carries a `publish` button of its own, which the artboard does not
-  draw at all — an item listed in a sheet that could not be posted from
-  it would send the reader back to the strip. That is the one place
-  this plan added a control rather than moved one.
+- `3c`'s day sheet has no "Post this day". Instead each planned item
+  that is due carries a `publish` button of its own, which the artboard
+  does not draw — an item listed in a sheet that could not be posted
+  from it would send the reader back to the strip. The button is not
+  new (the drawer this sheet replaced had one); what this plan changed
+  is that it is now a round icon with a tooltip rather than a labelled
+  button, which is what fits a 400px sheet.
 - `2d` maps Counterparty, Debit and Credit as three rows where the
   artboard draws one "Debit / Credit" picker.
 The last eight are choices rather than gaps, and can be reversed by
@@ -381,9 +384,10 @@ saying so:
   always-on buttons are gone, as the note wants; the column holds one
   `...` that opens the same menu, because a right-click is neither a
   touch gesture nor a key.
-- `2c`'s grid header is the app's one eyebrow token — 10px at `.2em` in
-  `--k-muted` — where the artboard writes 9.5px at `.1em` in `#6E6656`.
-  A second eyebrow size and a second muted, for one table header.
+- `2c`'s grid header is the app's one eyebrow token, 10px at `.2em`,
+  where the artboard writes 9.5px at `.1em`. A second eyebrow size for
+  one table header. (Its ink is `--k-muted-strong` now, which is the
+  artboard's `#6E6656`; it had been a shade darker.)
 - `2c`'s actuals label is upright where the artboard italicises it; its
   Total row is weight 500 rather than 600, which is what closes every
   other table in the app; and its tinted current-month cell takes the
