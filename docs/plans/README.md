@@ -153,6 +153,23 @@ built `1e`, which is not a target. Targets are `1c` / `1d` / `1f`, `2a`–`2d`,
 | 1 | [restyle-fidelity-shell-dashboard](archive/restyle-fidelity-shell-dashboard.md) | archived | draft | — |
 | 2 | [restyle-fidelity-screens](archive/restyle-fidelity-screens.md) | archived | draft | 1 |
 
+### Hosted — Supabase multi-tenant (execute in this order)
+
+Decision record: [ADR-35](../adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
+— one Postgres schema per account (a household of up to four members),
+Supabase Auth for identity, and field-level encryption under keys only
+the members hold. The self-hosted Podman/SQLite path stays the default
+and is untouched.
+
+| # | Plan | Effort | Status | Depends on |
+|---|---|---|---|---|
+| 1 | [hosted-tenancy-foundation](hosted-tenancy-foundation.md) | large | draft | — |
+| 2 | [hosted-field-encryption](hosted-field-encryption.md) | large | draft | 1 |
+| 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
+| 4 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | medium | draft | 1, 2 (3 before public launch) |
+| 5 | [auth-two-factor](auth-two-factor.md) | medium | draft | Phase A: — ; Phase B: 1 |
+| 6 | [bug-reports-and-logging](bug-reports-and-logging.md) | medium | draft | — (public-schema table needs 1) |
+
 ### Q4 2026 — Open-source launch (execute in this order)
 
 | # | Plan | Status | Depends on |
@@ -229,7 +246,10 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [reports-money-flow](archive/reports-money-flow.md) | archived | Reports — money flow Sankey |
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
+| [auth-two-factor](auth-two-factor.md) | draft | Auth — see Hosted programme |
+| [bug-reports-and-logging](bug-reports-and-logging.md) | draft | Observability — see Hosted programme |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
+| [hosted-supabase-rollout](hosted-supabase-rollout.md) | draft | Hosted programme (4) |
 | [planned-transactions-post-due](archive/planned-transactions-post-due.md) | archived | Planned transactions |
 | [transactions-splits-integrity](archive/transactions-splits-integrity.md) | archived | Transactions |
 | [transactions-payee-autocomplete](archive/transactions-payee-autocomplete.md) | archived | Transactions |
@@ -255,6 +275,9 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | Plan | Status | Roadmap ref |
 |---|---|---|
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
+| [hosted-tenancy-foundation](hosted-tenancy-foundation.md) | draft | Hosted programme (1) |
+| [hosted-field-encryption](hosted-field-encryption.md) | draft | Hosted programme (2) |
+| [hosted-household-sharing](hosted-household-sharing.md) | draft | Hosted programme (3) |
 | [wizard-what-if-scenarios](archive/wizard-what-if-scenarios.md) | archived | Wizard / Forecast — dogfooding gap (Coming soon tile) |
 | [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
 | [funds-reservoir-view](funds-reservoir-view.md) | draft | Funds — reservoir view (after reports-money-flow) |
