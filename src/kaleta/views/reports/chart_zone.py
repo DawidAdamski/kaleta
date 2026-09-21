@@ -54,10 +54,9 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
         # without looking back up at the sentence that asked for it.
         with ui.row().classes("w-full items-baseline justify-between gap-3 flex-wrap mb-5"):
             ui.label(chart_title(state)).classes(CARD_TITLE)
-            if result.values:
-                ui.label(t("reports.result_total", amount=result_total(result.values))).classes(
-                    RESULT_TOTAL
-                )
+            total = result_total(result.values, metric=str(state["metric"]))
+            if result.values and total is not None:
+                ui.label(t("reports.result_total", amount=total)).classes(RESULT_TOTAL)
 
         if not result.labels:
             ui.label(t("reports.no_data")).classes(f"{BODY_MUTED} text-center py-12 w-full")

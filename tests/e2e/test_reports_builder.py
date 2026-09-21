@@ -167,3 +167,31 @@ def test_the_bar_result_reads_as_rows(page: Page, base_url: str) -> None:
 
     # And the total is on the card's title line, not on a row.
     expect(page.locator(".k-result-total")).to_be_visible()
+
+
+def test_a_total_is_only_shown_where_the_rows_add_up(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-004
+
+    The card's title line captions its figure "total". Summing a column of
+    averages produces a number that is not the average of anything, so on
+    that measure the caption is not drawn at all rather than drawn over a
+    figure nobody can use.
+    """
+    account_id = sh.seed_account("Reports Total E2E Account")
+    category_id = sh.seed_category("Reports Total E2E Category")
+    sh.seed_transaction(account_id, category_id, 300.0, description="reports total e2e a")
+    sh.seed_transaction(account_id, category_id, 500.0, description="reports total e2e b")
+
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+
+    page.get_by_role("button", name="Run").click()
+    total = page.locator(".k-result-total")
+    expect(total).to_be_visible(timeout=15000)
+    expect(total).to_contain_text("total")
+
+    _pick(page, 0, "Average")
+    page.get_by_role("button", name="Run").click()
+    # The rows are still drawn; it is the caption over them that goes.
+    expect(page.locator(".k-report-bar-row").first).to_be_visible(timeout=15000)
+    expect(total).to_have_count(0)

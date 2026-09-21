@@ -2786,6 +2786,15 @@ Feature: Report Builder
       And it says how many transactions are in the ledger
     When I save the report as "Spend by account"
     Then the line above the title names the report instead
+
+  KAL-RPT-004 @automated
+  Scenario: A total is only shown where the rows add up to something
+    Given I am on the report builder
+    When I measure by "Total Amount" and run the report
+    Then the card's title line carries the total of the rows
+    When I measure by "Average" and run the report
+    Then the card's title line carries no total,
+      because a sum of averages is not the average of anything
 ```
 
 ## Feature: Money Flow

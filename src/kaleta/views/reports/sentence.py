@@ -112,14 +112,21 @@ def chart_title(state: dict[str, Any]) -> str:
     )
 
 
-def result_total(values: list[float]) -> str:
-    """What the card's title line says the result adds up to.
+def result_total(values: list[float], *, metric: str) -> str | None:
+    """What the card's title line says the result adds up to, or nothing.
 
     Beside `share_percents`, because the two are the same question asked
     twice — what the rows come to, and what each one is of that — and a
     caption's arithmetic sitting inline in the zone that draws it is
     arithmetic no test can reach.
+
+    ``None`` for the average metric: adding twelve monthly averages
+    together gives a figure that is not the average of anything, and a
+    caption reading "total" over it would be a lie in mono. Sums and
+    counts both add up to something a reader can use.
     """
+    if metric == "avg":
+        return None
     return spaced_thousands(f"{sum(values):,.2f}")
 
 

@@ -104,15 +104,25 @@ class TestResultTotal:
     """The figure on the result card's title line (artboard 3e)."""
 
     def test_it_adds_the_rows_up_and_spaces_the_thousands(self) -> None:
-        assert result_total([24279.31, 5522.40, 5091.53]) == "34 893.24"
+        assert result_total([24279.31, 5522.40, 5091.53], metric="sum") == "34 893.24"
 
     def test_a_negative_row_is_subtracted_rather_than_counted(self) -> None:
         # Unlike a share, a total keeps its signs: a net dimension that comes
         # to nothing has to say nothing, not say twice its largest row.
-        assert result_total([900.0, -900.0]) == "0.00"
+        assert result_total([900.0, -900.0], metric="sum") == "0.00"
 
     def test_no_rows_at_all(self) -> None:
-        assert result_total([]) == "0.00"
+        assert result_total([], metric="sum") == "0.00"
+
+    def test_counts_add_up_to_something_a_reader_can_use(self) -> None:
+        """Covers: KAL-RPT-004"""
+        assert result_total([12.0, 8.0], metric="count") == "20.00"
+
+    def test_averages_do_not_add_up_at_all(self) -> None:
+        """Covers: KAL-RPT-004"""
+        # Twelve monthly averages summed is not the average of anything, and
+        # the card draws no total rather than a figure captioned "total".
+        assert result_total([300.0, 420.0], metric="avg") is None
 
 
 class TestSharePercents:

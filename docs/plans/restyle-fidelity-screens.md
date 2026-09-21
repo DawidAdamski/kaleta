@@ -106,7 +106,8 @@ review found while the screen was being brought to it.
    - `views/reports/sentence.py::result_total`: `3e`'s result figure,
      a `sum()` inline in the zone that drew it. This one stayed in the
      view layer, beside `share_percents`, which asks the same question
-     of each row and set that precedent; three unit tests.
+     of each row and set that precedent; five unit tests, two of them
+     the metric it must not add up (`KAL-RPT-004`).
 3. **Four seed rows and a deleted file.** `scripts/seed.py` grew two
    already-late planned transactions and two tracked subscriptions,
    because `3c` draws a screen with both and a seed that can never be
@@ -289,13 +290,21 @@ If one screen alone is more than a day's work, split it out into
 - **The result card's total is in `reports/sentence.py`.** It was a
   `sum()` inline in the zone that draws it — arithmetic no test could
   reach — and it belongs beside `share_percents`, which asks the same
-  question about each row. `result_total`, three unit tests.
-- **Two findings went to the Chore inbox rather than this branch.**
+  question about each row. `result_total`, five unit tests — and it
+  takes the metric, because on `avg` the card had been drawing a sum of
+  averages under the word "total" (`KAL-RPT-004`).
+- **Three findings went to the Chore inbox rather than this branch.**
   `views/payment_calendar.py::_load_grid` returns
   `tuple[MonthGrid, Any]` — the `Any` is older than this plan and
-  naming it is a typing change, not a restyle — and the note asking for
-  a service to own "what leaves on a day" is answered by `DayTotals`,
-  which the inbox line now says.
+  naming it is a typing change, not a restyle; the note asking for a
+  service to own "what leaves on a day" is answered by `DayTotals`,
+  which the inbox line now says; and
+  `test_add_edit_split_transaction` failed once in six full
+  `verify.sh --e2e` runs — the save went through (the dialog had
+  closed) but the row was not on page 1, because the suite leaves 800+
+  movements and many of them are dated today. It finds its row by
+  `get_by_text(...).first` rather than through the search chip; that is
+  its own fix, on a test this plan did not write.
 - **No timeout was raised and no assertion loosened.** Checked by
   reading every `timeout=` line the e2e diff touches
   (`git diff main -- tests/e2e | grep -E '^[-+].*timeout='`): every one
@@ -369,6 +378,11 @@ If one screen alone is more than a day's work, split it out into
   moved every figure in the card. `minmax(0, …)`.
 - The report builder's rail highlight shrink-wrapped its own label; the
   rail row is `width:100%`.
+- The result card captioned a sum of averages "total". `result_total`
+  takes the metric now and draws nothing on `avg`, because twelve
+  monthly averages added together are not the average of anything —
+  `KAL-RPT-004`, a unit test either side of the metric and an e2e that
+  reads the card on both measures.
 - The Payment Calendar's "Today" tag wore the page eyebrow at 9px in
   muted — a section heading's face on three letters in the corner of one
   cell out of thirty-one. `--k-cal-today` is its own class, at the
@@ -519,7 +533,7 @@ so, and each is one line in one place.
 | `3d` 11 | The setup head drops the second half of the artboard's line, which is a note to the reader of the artboard rather than type for the page. |
 | `3d` 19 | The row hairline is `#EDE7DA`, the app's row rule. The artboards use it 123 times against `3d`'s 12 uses of `#E7E0D0`. |
 | `3d` 20 | The routine descriptions stay one line each. Rewriting thirteen of them into the artboard's two-line copy is not a restyle, and a page of paragraphs is one you read rather than scan. |
-| `3e` 17 | The result total carries no `zł`: the query can be a count or an average, and a currency on either would be wrong. |
+| `3e` 17 | The result total carries no `zł`: the query can be a count, and a currency on a count would be wrong. (On the average measure there is no total at all — `KAL-RPT-004`.) |
 | `3f` 7 | Fields sit on a 48px floor and come out 56px against the artboard's 41. On a phone this form is the whole screen, and a 40px target in the middle of it is one the thumb has to aim at. |
 | `3f` 12 | The submit button is on the same floor (49px against 43) and carries no icon: on a page with one action there is no mark that says which one it is. |
 
