@@ -7,6 +7,8 @@ Page URL: /reports/builder
 
 from __future__ import annotations
 
+import re
+
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e import seed_helpers as sh
@@ -89,3 +91,107 @@ def test_sentence_reflects_state_and_a_saved_report_comes_back(page: Page, base_
     expect(_slots(page).nth(1)).to_contain_text("Account", timeout=10000)
     expect(_slots(page).nth(0)).to_contain_text("Count")
     expect(page.get_by_text(REPORT_NAME, exact=True).first).to_be_visible()
+
+
+def test_the_eyebrow_names_the_report_and_its_scope(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-003
+
+    Artboard `3e` titles the screen "Reports" and moves the report's own
+    name onto the line above it, the way every other screen names what is in
+    hand — with the size of the ledger it is drawn from beside it, so a
+    figure on the card is read against something.
+    """
+    account_id = sh.seed_account("Reports Eyebrow E2E Account")
+    category_id = sh.seed_category("Reports Eyebrow E2E Category")
+    sh.seed_transaction(account_id, category_id, 64.0, description="reports eyebrow e2e")
+    saved = "Eyebrow Report E2E"
+
+    page.goto(f"{base_url}{BUILDER}")
+    eyebrow = page.locator("[data-page-eyebrow]")
+    expect(eyebrow).to_be_visible(timeout=10000)
+
+    # Unsaved, and drawn from however many rows the ledger holds — spaced,
+    # never comma-grouped, and never nothing: this test seeded one itself.
+    expect(eyebrow).to_contain_text("Unsaved report")
+    expect(eyebrow).to_contain_text(re.compile(r"[1-9][0-9  ]* transactions? in the ledger"))
+
+    page.get_by_role("button", name="Save report").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_be_visible(timeout=5000)
+    dialog.get_by_label("Report Name").fill(saved)
+    dialog.get_by_role("button", name="Save").click()
+
+    # Saved: the name takes the place of "Unsaved report" on the same line.
+    expect(eyebrow).to_contain_text(saved, timeout=10000)
+    expect(eyebrow).not_to_contain_text("Unsaved report")
+
+
+def test_the_bar_result_reads_as_rows(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-002
+
+    Ten labelled bars inside an ECharts canvas could not be selected,
+    searched or read aloud, and the shares they were labelled with were
+    buried in a tooltip. They are four columns of text and one div now.
+    """
+    account_id = sh.seed_account("Reports Bars E2E Account")
+    big = sh.seed_category("Reports Bars E2E Big")
+    small = sh.seed_category("Reports Bars E2E Small")
+    sh.seed_transaction(account_id, big, 900.0, description="reports bars e2e big")
+    sh.seed_transaction(account_id, small, 100.0, description="reports bars e2e small")
+
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+    page.get_by_role("button", name="Run").click()
+
+    rows = page.locator(".k-report-bar-row")
+    # 15s, longer than this file's other waits: Run groups the whole seeded
+    # ledger in the service before a single row is drawn, and this is the
+    # only assertion in the suite that waits on that query rather than on a
+    # page already holding its answer.
+    expect(rows.first).to_be_visible(timeout=15000)
+
+    # Every row carries four cells: name, track, value, share.
+    first = rows.first
+    expect(first.locator(".k-report-bar-track")).to_have_count(1)
+    cells = [c.strip() for c in first.inner_text().split("\n") if c.strip()]
+    assert len(cells) == 3, cells  # the track has no text of its own
+    assert cells[2].endswith("%"), cells
+
+    # Ranked largest first, which is what lets the ramp stand in for a legend.
+    def _value(row_text: str) -> float:
+        line = [c for c in row_text.split("\n") if c.strip()][1]
+        return float(line.replace(" ", "").replace(",", ""))
+
+    values = [_value(rows.nth(i).inner_text()) for i in range(min(rows.count(), 5))]
+    assert values == sorted(values, reverse=True), values
+
+    # And the total is on the card's title line, not on a row.
+    expect(page.locator(".k-result-total")).to_be_visible()
+
+
+def test_a_total_is_only_shown_where_the_rows_add_up(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-004
+
+    The card's title line captions its figure "total". Summing a column of
+    averages produces a number that is not the average of anything, so on
+    that measure the caption is not drawn at all rather than drawn over a
+    figure nobody can use.
+    """
+    account_id = sh.seed_account("Reports Total E2E Account")
+    category_id = sh.seed_category("Reports Total E2E Category")
+    sh.seed_transaction(account_id, category_id, 300.0, description="reports total e2e a")
+    sh.seed_transaction(account_id, category_id, 500.0, description="reports total e2e b")
+
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+
+    page.get_by_role("button", name="Run").click()
+    total = page.locator(".k-result-total")
+    expect(total).to_be_visible(timeout=15000)
+    expect(total).to_contain_text("total")
+
+    _pick(page, 0, "Average")
+    page.get_by_role("button", name="Run").click()
+    # The rows are still drawn; it is the caption over them that goes.
+    expect(page.locator(".k-report-bar-row").first).to_be_visible(timeout=15000)
+    expect(total).to_have_count(0)

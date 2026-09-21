@@ -49,8 +49,11 @@ async def _seed_demo_data() -> dict[str, int]:
     return await with_session(_run)
 
 
-async def reset_demo(*, password: str) -> None:
+async def reset_demo(*, password: str, seed: bool = True) -> None:
     username = await _ensure_demo_user(password)
+    if not seed:
+        print(f"[OK] Demo user {username!r} ready; data left as it is.")
+        return
     counts = await _seed_demo_data()
     print(
         f"[OK] Demo reset for user {username!r}: "
@@ -66,6 +69,16 @@ def main() -> int:
         "--force",
         action="store_true",
         help="Run even when KALETA_DEMO is not true (local dev only).",
+    )
+    parser.add_argument(
+        "--no-seed",
+        action="store_true",
+        help=(
+            "Only make sure the demo login exists; leave whatever data is already "
+            "there. Used by scripts/restyle_fidelity.py, which seeds with "
+            "scripts/seed.py instead — the artboards are drawn on a ledger with "
+            "payees, tags and planned transactions in it."
+        ),
     )
     parser.add_argument(
         "--password",
@@ -86,7 +99,7 @@ def main() -> int:
     save_db(settings.db_url, name="demo")
 
     try:
-        asyncio.run(reset_demo(password=args.password))
+        asyncio.run(reset_demo(password=args.password, seed=not args.no_seed))
     except Exception as exc:
         print(f"[ERROR] Demo reset failed: {exc}", file=sys.stderr)
         return 1

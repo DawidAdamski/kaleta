@@ -336,6 +336,7 @@ def seed_subscription(
     *,
     payee_id: int | None = None,
     next_expected_at: datetime.date | None = None,
+    first_seen_at: datetime.date | None = None,
 ) -> int:
     """Create a subscription via the service layer; return its ID."""
     from decimal import Decimal
@@ -352,7 +353,7 @@ def seed_subscription(
                     amount=Decimal(str(amount)),
                     cadence_days=cadence_days,
                     payee_id=payee_id,
-                    first_seen_at=datetime.date.today(),
+                    first_seen_at=first_seen_at or datetime.date.today(),
                     next_expected_at=next_expected_at,
                 )
             )

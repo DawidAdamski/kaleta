@@ -81,7 +81,7 @@ def test_login_panel_counts_and_says_nothing_more(page_no_auth: Page, base_url: 
 
     figures = panel.locator(".k-auth-figure")
     expect(figures).to_have_count(3)
-    labels = ["Transactions", "Accounts", "Months of history"]
+    labels = ["transactions", "accounts", "months of history"]
     for label in labels:
         expect(panel.get_by_text(label, exact=True)).to_be_visible()
 
@@ -89,8 +89,8 @@ def test_login_panel_counts_and_says_nothing_more(page_no_auth: Page, base_url: 
     # plain integers — take those away and there must be nothing left. That
     # is a stronger claim than hunting for particular leaks, and it needs no
     # data of its own to make it.
-    # Case-folded: the labels are uppercased by CSS, so what comes back from
-    # the DOM is not the string the locale file holds.
+    # Case-folded: what a label is rendered in is the stylesheet's business,
+    # not this test's, so the comparison is made on the letters alone.
     remaining = panel.inner_text().casefold()
     for label in labels:
         remaining = remaining.replace(label.casefold(), "", 1)
@@ -98,7 +98,7 @@ def test_login_panel_counts_and_says_nothing_more(page_no_auth: Page, base_url: 
         figure = figures.nth(index).inner_text()
         assert figure.replace("\u00a0", "").replace(" ", "").isdigit(), figure
         remaining = remaining.replace(figure.casefold(), "", 1)
-    copy_line = "Your ledger, on your own machine. No cloud account, no one else reading it."
+    copy_line = "Six years of your own statements, budgeted eight ways, forecast sixty days out."
     assert copy_line.casefold() in remaining
     remaining = remaining.replace(copy_line.casefold(), "", 1)
     assert remaining.strip() == "", f"the panel says more than counts: {remaining!r}"

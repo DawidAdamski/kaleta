@@ -7,6 +7,7 @@ import builtins
 import calendar
 import datetime
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -16,7 +17,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from kaleta.exceptions import NotFoundError
+from kaleta.exceptions import ConflictError, NotFoundError
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
@@ -458,6 +459,52 @@ class PlannedTransactionService:
         fetched = await self._get_transaction(tx.id)
         assert fetched is not None
         return fetched
+
+    async def post_occurrences(
+        self,
+        occurrences: Sequence[PlannedOccurrence],
+    ) -> builtins.list[Transaction]:
+        """Post exactly these occurrences and nothing else (idempotent).
+
+        ``post_due`` decides for itself what is due, by a window and a date.
+        This posts the list it was handed, which is what a caller needs when
+        it has already shown the user a set of occurrences and offered to
+        post *that* set — a button labelled with a count must not post more
+        rows than it counted. One savepoint and one commit, so the whole set
+        lands or none of it does.
+        """
+        if not occurrences:
+            return []
+        posted: builtins.list[Transaction] = []
+        # One savepoint around the batch, not one commit at the end of it: an
+        # item that cannot be posted — a plan deleted between the strip being
+        # drawn and its button being pressed — would otherwise leave the rows
+        # before it in the session, to be committed by whatever ran next.
+        # One entry per occurrence, not per item handed in: the same
+        # (plan, date) twice is one ledger row, and a caller that counts what
+        # came back would otherwise report a row it did not write.
+        wanted = builtins.list(dict.fromkeys((o.planned_id, o.date) for o in occurrences))
+        async with self._session.begin_nested():
+            for planned_id, occurrence_date in wanted:
+                posted.append(await self._ensure_posted(planned_id, occurrence_date))
+        # The savepoint has flushed, so every row has its id; read them before
+        # the commit expires the instances, and wake them all with one query
+        # rather than one per row.
+        ids = [tx.id for tx in posted]
+        await self._session.commit()
+        stmt = select(Transaction).where(Transaction.id.in_(ids))
+        by_id = {tx.id: tx for tx in (await self._session.execute(stmt)).scalars()}
+        missing = [tx_id for tx_id in ids if tx_id not in by_id]
+        if missing:
+            # These ids were committed by the line above, in this session, so
+            # this cannot happen; if it ever does, say so as a domain error
+            # the view can put in a toast rather than as a bare KeyError that
+            # reaches the user as a 500. Returning the short list silently
+            # would tell the strip's button it posted fewer than it did.
+            raise ConflictError(f"Posted rows went missing after commit: {missing}")
+        results = [by_id[tx_id] for tx_id in ids]
+        logger.info("Posted %s named planned occurrence(s)", len(results))
+        return results
 
     async def post_due(
         self,

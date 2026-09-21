@@ -6,6 +6,7 @@ Run:
 """
 
 import asyncio
+import calendar
 import datetime
 import random
 import sys
@@ -27,6 +28,7 @@ from kaleta.models.category import Category, CategoryType
 from kaleta.models.institution import Institution, InstitutionType
 from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
+from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionType
 
@@ -228,14 +230,17 @@ async def seed() -> None:
 
         # ── Canonical tags (mirrors b9d4e2c8a1f5 migration) ──────────────────
         canonical_tags = [
-            Tag(name="Transfer", icon="swap_horiz"),
-            Tag(name="Card", icon="credit_card"),
-            Tag(name="Cash", icon="payments"),
-            Tag(name="Online", icon="language"),
-            Tag(name="Subscription", icon="autorenew"),
-            Tag(name="Refundable", icon="assignment_return"),
-            Tag(name="Business", icon="work"),
-            Tag(name="Recurring", icon="event_repeat"),
+            # Colours from the sand palette, not Material's ramp: a tag chip
+            # is drawn as an outline in its own colour, and a grey one (the
+            # model's default) reads as "no tag" beside a category pill.
+            Tag(name="Transfer", icon="swap_horiz", color="#4A443A"),
+            Tag(name="Card", icon="credit_card", color="#6B6353"),
+            Tag(name="Cash", icon="payments", color="#8A5A12"),
+            Tag(name="Online", icon="language", color="#9A4E1F"),
+            Tag(name="Subscription", icon="autorenew", color="#36684D"),
+            Tag(name="Refundable", icon="assignment_return", color="#A44631"),
+            Tag(name="Business", icon="work", color="#2A5540"),
+            Tag(name="Recurring", icon="event_repeat", color="#8E4718"),
         ]
         session.add_all(canonical_tags)
         await session.flush()
@@ -647,6 +652,59 @@ async def seed() -> None:
                 ("iCloud", Decimal("8.00"), 18),
                 ("ChatGPT Plus", Decimal("99.00"), 27),
             )
+        ]
+        # Two tracked subscriptions. These are not planned transactions: a
+        # `Subscription` is what the detector writes down when it recognises
+        # a repeating charge, and it is what the payment calendar's day sheet
+        # lists under "Subscription charges" and what the Subscriptions panel
+        # reads. A seed with none of them leaves both empty — and artboard
+        # `3c` draws a day with one.
+        session.add_all(
+            [
+                Subscription(
+                    name=name,
+                    amount=amount,
+                    cadence_days=30,
+                    first_seen_at=this_month_on(day) - datetime.timedelta(days=90),
+                    next_expected_at=this_month_on(day),
+                    status=SubscriptionStatus.ACTIVE,
+                    category_id=subs_monthly.id,
+                    auto_renew=True,
+                )
+                for name, amount, day in (
+                    ("iCloud 200 GB", Decimal("12.99"), 14),
+                    ("Allegro Smart", Decimal("10.75"), 23),
+                )
+            ]
+        )
+
+        # Two that are already late. The payment calendar's overdue strip and
+        # its Overdue card exist for exactly this state, and a seed in which
+        # nothing is ever late leaves both of them untestable — and unseen in
+        # the fidelity shots.
+        prev_year, prev_month = month_offset(today, 1)
+        prev_last_day = calendar.monthrange(prev_year, prev_month)[1]
+        planned += [
+            PlannedTransaction(
+                name="Ubezpieczenie OC",
+                amount=Decimal("642.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=cat_by_name["Transport"].id,
+                description="Składka OC — termin minął",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(prev_year, prev_month, min(28, prev_last_day)),
+            ),
+            PlannedTransaction(
+                name="Abonament telefon",
+                amount=Decimal("69.00"),
+                type=TransactionType.EXPENSE,
+                account_id=checking.id,
+                category_id=subs_monthly.id,
+                description="Doładowanie — termin minął",
+                frequency=RecurrenceFrequency.ONCE,
+                start_date=datetime.date(prev_year, prev_month, min(18, prev_last_day)),
+            ),
         ]
         session.add_all(planned)
         n_planned = len(planned)

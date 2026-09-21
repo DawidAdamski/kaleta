@@ -25,6 +25,7 @@ from kaleta.services.import_service import (
     inherit_queue_settings,
     validate_import_readiness,
 )
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.import_view.constants import METADATA_PROFILES
 from kaleta.views.import_view.coverage_section import build_coverage_section
 from kaleta.views.import_view.mapping_section import build_mapping_section
@@ -67,7 +68,14 @@ from kaleta.views.settings.user_prefs import (
     get_transfer_amount_tolerance,
     get_transfer_pairing_days,
 )
-from kaleta.views.theme import BODY_MUTED, DISCLOSURE, MONO, PAGE_TITLE
+from kaleta.views.theme import (
+    BODY_MUTED,
+    DISCLOSURE,
+    MONO,
+    PAGE_CONTAINER,
+    PAGE_GAP_24,
+    PAGE_TITLE,
+)
 
 
 async def import_page() -> None:
@@ -750,14 +758,16 @@ async def import_page() -> None:
             else len(active.parsed_rows)
         )
         ui.label(f"{active.filename} ·")
-        ui.label(t(plural_key("import.rows_count", rows), count=f"{rows:,}")).classes(MONO)
+        ui.label(
+            t(plural_key("import.rows_count", rows), count=spaced_thousands(f"{rows:,}"))
+        ).classes(MONO)
 
     def _select_file_at(index: int) -> None:
         queue = state["queue"]
         if 0 <= index < len(queue):
             _set_active(queue[index].id)
 
-    with page_layout(t("import.title")):
+    with page_layout(t("import.title"), wide=True, container=f"{PAGE_CONTAINER} {PAGE_GAP_24}"):
 
         @ui.refreshable
         def page_header() -> None:

@@ -12,8 +12,7 @@ from __future__ import annotations
 from typing import Any
 
 from kaleta.services.saved_report_service import ReportResult
-from kaleta.views.chart_utils import apply_dark, chart_ink_color, chart_palette, chart_text_color
-from kaleta.views.reports.sentence import share_percents
+from kaleta.views.chart_utils import apply_dark, chart_text_color
 
 
 def report_chart_options(
@@ -21,12 +20,15 @@ def report_chart_options(
     chart_type: str,
     is_dark: bool,
 ) -> dict[str, Any]:
-    """Options for one report chart, in the app's own palette."""
+    """Options for one report chart, in the app's own palette.
+
+    Not every chart type: ``bar`` is drawn as rows of HTML (artboard `3e`)
+    and ``table`` as a table, so this only ever answers for the three that
+    really are charts.
+    """
     if chart_type in ("pie", "donut"):
         return _pie_options(result, chart_type, is_dark)
-    if chart_type == "line":
-        return _line_options(result, is_dark)
-    return _bar_options(result, is_dark)
+    return _line_options(result, is_dark)
 
 
 def _pie_options(result: ReportResult, chart_type: str, is_dark: bool) -> dict[str, Any]:
@@ -66,51 +68,6 @@ def _line_options(result: ReportResult, is_dark: bool) -> dict[str, Any]:
                 "smooth": True,
                 "symbol": "circle",
                 "symbolSize": 5,
-            }
-        ],
-    }
-    return apply_dark(options, is_dark)
-
-
-def _bar_options(result: ReportResult, is_dark: bool) -> dict[str, Any]:
-    """Horizontal bars, each labelled with its value and its share.
-
-    Horizontal because the dimension is a list of names: vertical bars had to
-    rotate them 30° as soon as there were more than six, and a rotated name is
-    slower to read than the number beside it.
-    """
-    shares = share_percents(result.values)
-    # ECharts draws a horizontal category axis bottom-up, so the biggest bar
-    # ends up at the foot of the chart unless both the data and the axis are
-    # reversed — the result reads top-down, largest first, like the table.
-    labels = list(reversed(result.labels))
-    data = [
-        # Rounded here and not in `share_percents`: the shares are exact for
-        # anyone who sums them, and a label reading "33.333333333333336%"
-        # would be precision the chart does not have.
-        {"value": value, "share": round(share, 1)}
-        for value, share in reversed(list(zip(result.values, shares, strict=False)))
-    ]
-    options: dict[str, Any] = {
-        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-        "grid": {"containLabel": True, "left": "2%", "right": "12%", "top": "2%", "bottom": "2%"},
-        "xAxis": {"type": "value", "splitLine": {"show": True}},
-        "yAxis": {"type": "category", "data": labels, "axisTick": {"show": False}},
-        "series": [
-            {
-                "type": "bar",
-                "data": data,
-                "barMaxWidth": 22,
-                "itemStyle": {"color": chart_palette(is_dark)[1], "borderRadius": [0, 3, 3, 0]},
-                "label": {
-                    "show": True,
-                    "position": "right",
-                    "color": chart_ink_color(is_dark),
-                    "fontSize": 11,
-                    # `{c}` on an object datum prints the whole object, so the
-                    # value and the share are addressed by name instead.
-                    "formatter": "{@value} · {@share}%",
-                },
             }
         ],
     }

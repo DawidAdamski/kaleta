@@ -3,15 +3,16 @@
 
 from __future__ import annotations
 
+import datetime
 from collections.abc import Awaitable, Callable
 from typing import Any
 
 from nicegui import ui
 
 from kaleta.i18n import plural_key, t
-from kaleta.views.components.amount_label import amount_cell_slot
+from kaleta.views.components.amount_label import amount_cell_slot, spaced_thousands
 from kaleta.views.components.empty_state import pagination_empty_label, table_no_data_slot
-from kaleta.views.theme import TABLE_SURFACE
+from kaleta.views.theme import LEDGER_FOOT, SEGMENT, SELECT_SUNKEN, TABLE_SURFACE
 
 PAGE_SIZES = [25, 50, 100, 200]
 DEFAULT_PAGE_SIZE = 50
@@ -32,6 +33,23 @@ def attach_split_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if row.get("has_splits"):
             count = int(row.get("split_count") or 0)
             row["category"] = t("transactions.split_category", count=count)
+    return rows
+
+
+def space_amounts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Group the figures the way artboard `2a` writes them: ``-2 400.00``.
+
+    The strings come formatted from ``TransactionService``, which writes
+    Python's comma and is read by the API as well as by this table. So the
+    grouping is put right here, where the ledger is drawn, and through the
+    same ``spaced_thousands`` every other restyled screen goes through —
+    rather than by teaching a service what a screen's typography is.
+    """
+    for row in rows:
+        for key in ("amount", "sep_net"):
+            value = row.get(key)
+            if isinstance(value, str):
+                row[key] = spaced_thousands(value)
     return rows
 
 
@@ -59,6 +77,53 @@ def attach_upcoming_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def attach_group_labels(rows: list[dict[str, Any]], grouping: str) -> list[dict[str, Any]]:
+    """Say what a separator separates, the way artboard `2a` words it.
+
+    The service marks where a group starts (``W39 2026``); the band the reader
+    sees names the days — "Week 39 · 29 June – 5 July 2026". Built here for the
+    same reason ``attach_type_labels`` is: it is a sentence, and sentences
+    belong to the locale, which a service knows nothing about.
+    """
+    if grouping == "none":
+        return rows
+    for row in rows:
+        if not row.get("sep_label"):
+            continue
+        day = datetime.date.fromisoformat(str(row["date"]))
+        if grouping == "week":
+            monday = day - datetime.timedelta(days=day.weekday())
+            row["sep_label"] = t(
+                "transactions.group_week_label",
+                week=day.isocalendar()[1],
+                start=_day_and_month(monday, monday.month != (monday + _WEEK).month),
+                end=_day_and_month(monday + _WEEK, True),
+            )
+        else:
+            row["sep_label"] = t(
+                "transactions.group_month_label",
+                month=t(f"payment_calendar.month_{day.month}"),
+                year=day.year,
+            )
+    return rows
+
+
+#: Monday to Sunday is six days, not seven — the week's last day.
+_WEEK = datetime.timedelta(days=6)
+
+
+def _day_and_month(day: datetime.date, with_month: bool) -> str:
+    """``29 June`` at one end of a range, ``22`` at the other when it is the same month.
+
+    ``common.month_of_*`` and not the calendar's own month names: a month
+    beside a day number is genitive in Polish (``29 czerwca``), and the
+    nominative the month pickers use reads as a headline there.
+    """
+    if not with_month:
+        return str(day.day)
+    return f"{day.day} {t(f'common.month_of_{day.month}')}"
+
+
 def transaction_columns() -> list[dict[str, Any]]:
     """Standard column definitions for the transactions list table."""
     return [
@@ -77,15 +142,29 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("common.account"),
             "field": "account",
             "align": "left",
-            "style": "width: 110px; min-width: 90px",
+            # 166px rather than the artboard's 150: its sample account is
+            # "PKO Konto Główne" and a real one is "Karta Kredytowa Visa",
+            # which 150 cuts two letters off. Fixed either way — an account
+            # name is not allowed to set the table's width.
+            "style": (
+                "width: 166px; min-width: 166px; max-width: 166px;"
+                " overflow: hidden; text-overflow: ellipsis"
+            ),
         },
         {
             "name": "description",
             "label": t("common.description"),
             "field": "description",
             "align": "left",
+            # `width:100%` is how a table with automatic layout is told which
+            # column takes the slack — artboard `2a` gives description the
+            # `1fr` of its grid. Without it the tags column took everything
+            # (444px of a 1360px window) and pushed the row's own actions
+            # 108px past the right edge, where only a sideways scroll reached
+            # them.
             "style": (
-                "max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                "width: 100%; min-width: 180px; overflow: hidden;"
+                " text-overflow: ellipsis; white-space: nowrap"
             ),
             "classes": "max-w-xs truncate",
         },
@@ -94,7 +173,9 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("common.category"),
             "field": "category",
             "align": "left",
-            "style": "width: 150px; min-width: 120px",
+            # The artboard's 168px track, held: the pill inside truncates
+            # rather than the column growing.
+            "style": "width: 168px; min-width: 168px; max-width: 168px",
         },
         {
             "name": "type",
@@ -116,7 +197,13 @@ def transaction_columns() -> list[dict[str, Any]]:
             "label": t("transactions.tags"),
             "field": "tags",
             "align": "left",
-            "style": "width: 100px; min-width: 80px",
+            # A fixed track, so the column cannot take the table's slack and
+            # push the row's own actions off the right edge. 176px rather
+            # than the artboard's 130: its rows carry one label and the
+            # ledger's carry up to four, and 176 holds two side by side
+            # instead of stacking each on a line of its own.
+            "style": "width: 176px; min-width: 176px; max-width: 176px",
+            "classes": "k-tags-cell",
         },
         {
             "name": "actions",
@@ -159,7 +246,10 @@ def _body_slot(
         " && $parent.$emit('open_planned', props.row.id)\">"
         "<q-td auto-width>"
         '<q-checkbox v-if="!props.row.is_planned" dense :model-value="props.selected"'
-        ' @update:model-value="val => props.selected = val" color="primary" />'
+        # `info`, whose brand variable `.k-ledger-card` redefines as ink:
+        # artboard `2a` ticks a row with a black box, and Quasar's colour
+        # helpers are `!important` in a layer no rule of ours can outrank.
+        ' @update:model-value="val => props.selected = val" color="info" />'
         "</q-td>"
         '<q-td key="date" :props="props" class="k-mono k-muted text-[12px]">'
         "{{ props.row.date_short }}"
@@ -210,12 +300,15 @@ def _body_slot(
         f"{planned_label}"
         f"<q-tooltip>{planned_tooltip}</q-tooltip>"
         "</q-chip>"
-        '<q-btn v-if="!props.row.is_planned" flat round dense icon="edit" size="sm" color="primary"'
+        '<q-btn v-if="!props.row.is_planned" flat round dense icon="edit" size="sm"'
+        # No `color`: Quasar turns `color=null` into a literal `text-null`
+        # class. The tone is `.k-row-action`'s.
+        ' class="k-row-action"'
         f' aria-label="{edit_label}"'
         " @click=\"$parent.$emit('edit_tx', props.row.id)\" />"
         '<q-btn v-if="!props.row.is_planned && !props.row.has_splits'
         " && props.row.type !== 'transfer'\""
-        ' flat round dense icon="call_split" size="sm" color="primary"'
+        ' flat round dense icon="call_split" size="sm" class="k-row-action"'
         f' aria-label="{split_label}"'
         " @click=\"$parent.$emit('split_tx', props.row.id)\">"
         f"<q-tooltip>{split_label}</q-tooltip>"
@@ -240,7 +333,7 @@ def render_transaction_table(
         .classes(TABLE_SURFACE)
         .style("min-width: 1100px; table-layout: fixed")
     )
-    tbl.props("selection=multiple")
+    tbl.props("selection=multiple hide-selected-banner")
     tbl.add_slot("no-data", table_no_data_slot())
     tbl.add_slot(
         "body",
@@ -285,7 +378,10 @@ def render_pagination_bar(
     start_n = current_page * page_size + 1
     end_n = min(start_n + page_size - 1, total)
 
-    with ui.row().classes("w-full items-center justify-between px-2 pt-2 text-sm k-muted"):
+    # Inside the ledger card, under a rule of its own: artboard `2a` seals the
+    # count, the grouping toggle and the page controls into the same box as
+    # the rows they describe, rather than letting them float on the ground.
+    with ui.row().classes(f"{LEDGER_FOOT} w-full items-center gap-4 text-[12.5px] k-muted"):
         if total == 0 and upcoming_count > 0:
             ui.label(
                 t(
@@ -298,9 +394,10 @@ def render_pagination_bar(
         else:
             ui.label(t("transactions.showing", **{"from": start_n, "to": end_n, "total": total}))
 
+        ui.space()
         with ui.row().classes("gap-3 items-center"):
-            with ui.row().classes("gap-1 items-center"):
-                ui.label(t("transactions.grouping")).classes("k-muted text-xs")
+            with ui.row().classes("gap-2 items-center"):
+                ui.label(t("transactions.grouping")).classes("k-muted text-[11.5px]")
                 ui.toggle(
                     {
                         "none": t("transactions.group_none"),
@@ -309,13 +406,15 @@ def render_pagination_bar(
                     },
                     value=grouping,
                     on_change=lambda e: on_grouping_change(e.value),
-                ).props("dense unelevated no-caps").classes("k-group-toggle")
+                ).props("dense unelevated no-caps toggle-text-color=info").classes(SEGMENT)
 
             ui.select(
                 {s: str(s) for s in PAGE_SIZES},
                 value=page_size,
                 on_change=lambda e: on_page_size_change(e.value),
-            ).props("dense options-dense borderless").classes("w-16 text-sm")
+            ).props("dense options-dense borderless dropdown-icon=expand_more").classes(
+                f"{SELECT_SUNKEN} w-[74px]"
+            )
 
             with ui.row().classes("gap-1 items-center"):
                 prev_btn = ui.button(
@@ -325,7 +424,7 @@ def render_pagination_bar(
                 prev_btn.bind_enabled_from({"v": current_page > 0}, "v")
                 ui.label(
                     t("transactions.page", current=current_page + 1, total=total_pages)
-                ).classes("text-sm")
+                ).classes("text-[12.5px] k-ink-2")
                 ui.button(
                     icon="chevron_right", on_click=lambda: on_page_change(current_page + 1)
                 ).props("flat round dense").bind_enabled_from(

@@ -14,6 +14,8 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.services.report_service import MonthCashflow
 from kaleta.views.chart_utils import (
+    AXIS_LABEL_BODY,
+    AXIS_LABEL_MONO,
     apply_dark,
     chart_expense_color,
     chart_income_color,
@@ -28,10 +30,10 @@ from kaleta.views.theme import CARD_SUBTITLE, CARD_TITLE, DASH_CARD, LEGEND_DOT,
 #: 968px wide on a desktop and 350px on a phone.
 _BAR_WIDTH = "27%"
 
-#: The two faces `1c` sets its axes in — figures in mono, month names in the
-#: body face, both a size down from the card.
-_Y_LABEL = {"fontFamily": "IBM Plex Mono, ui-monospace, monospace", "fontSize": 10.5}
-_X_LABEL = {"fontFamily": "Libre Franklin, system-ui, sans-serif", "fontSize": 11.5}
+#: The two faces `1c` sets its axes in. They are every artboard's, so they
+#: live in `chart_utils` and this card only names them.
+_Y_LABEL = AXIS_LABEL_MONO
+_X_LABEL = AXIS_LABEL_BODY
 
 
 def _month_label(month: MonthCashflow) -> str:

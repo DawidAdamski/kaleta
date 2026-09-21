@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from kaleta.i18n import t
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.reports.constants import DATE_PRESETS, DIMENSIONS, METRICS, TX_TYPES
 
 
@@ -109,6 +110,38 @@ def chart_title(state: dict[str, Any]) -> str:
         dimension=dimension_label(state),
         period=period_label(state),
     )
+
+
+def result_total(values: list[float], *, metric: str) -> str | None:
+    """What the card's title line says the result adds up to, or nothing.
+
+    Beside `share_percents`, because the two are the same question asked
+    twice — what the rows come to, and what each one is of that — and a
+    caption's arithmetic sitting inline in the zone that draws it is
+    arithmetic no test can reach.
+
+    ``None`` for the average metric: adding twelve monthly averages
+    together gives a figure that is not the average of anything, and a
+    caption reading "total" over it would be a lie in mono. Sums and
+    counts both add up to something a reader can use.
+    """
+    if metric == "avg":
+        return None
+    return spaced_thousands(f"{sum(values):,.2f}")
+
+
+def bar_widths(values: list[float]) -> list[float]:
+    """Each bar's length as a percentage of the longest one.
+
+    Not the same question as `share_percents`: a share is of the total, a
+    width is of the widest row, and a ranking of two rows at 60 and 40 draws
+    100% and 67% while sharing 60% and 40%. Zero everywhere when nothing has
+    a size — a list of zeroes has no longest row to be a fraction of.
+    """
+    widest = max((abs(v) for v in values), default=0.0)
+    if widest <= 0:
+        return [0.0 for _ in values]
+    return [abs(v) / widest * 100 for v in values]
 
 
 def share_percents(values: list[float]) -> list[float]:

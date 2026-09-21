@@ -17,23 +17,45 @@ from kaleta.services.net_worth_service import (
     balance_sheet_split,
 )
 from kaleta.views.chart_utils import (
+    AXIS_LABEL_BODY,
+    AXIS_LABEL_MONO,
+    AXIS_VALUE_SPACED,
     apply_dark,
     chart_expense_color,
     chart_income_color,
 )
-from kaleta.views.components.amount_label import format_net_amount, net_tone
+from kaleta.views.components.amount_label import (
+    format_net_amount,
+    net_tone,
+    spaced_thousands,
+)
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
-    FILTER_CHIP,
+    AMOUNT_INCOME,
+    ASSET_ADD,
+    ASSET_ROW,
+    CARD_NOTE,
+    CARD_TITLE,
+    CARD_TITLE_SM,
+    DELTA_FIGURE,
+    DELTA_LABEL,
     INK,
+    INK_2,
+    LEGEND_DOT,
     MONO,
     MUTED,
+    NET_WORTH_DECIMALS,
+    NET_WORTH_FIGURE,
+    PAGE_CONTAINER,
+    PAGE_EYEBROW,
+    PAGE_ROOMY,
     SECTION_CARD,
-    SECTION_HEADING,
-    SECTION_TITLE,
+    SECTION_CARD_FEATURE,
+    SECTION_CARD_WIDE,
+    SHEET_HEAD,
+    SHEET_ROW,
     SPLIT_BAR,
-    TABLE_SURFACE,
 )
 
 
@@ -56,7 +78,21 @@ def _asset_type_label() -> dict[str, str]:
 
 
 def _fmt(amount: Decimal, currency: str = "PLN") -> str:
-    return f"{amount:,.2f} {currency}"
+    return spaced_thousands(f"{amount:,.2f} {currency}")
+
+
+def sheet_balance(balance: Decimal, *, is_asset: bool) -> Decimal:
+    """The figure a balance-sheet row shows for an account.
+
+    An owed balance is drawn negative and in the expense colour, which is
+    what artboard `3b` writes: the card's total is the unsigned size of the
+    debt and the rows under it say which way it points. `-abs` rather than a
+    negation, because a liability account already holds a negative balance
+    and negating that one drew the debt as a credit — which is what this
+    screen was doing. An overpaid card, whose balance really is positive,
+    is still money the account owes back and reads the same way.
+    """
+    return balance if is_asset else -abs(balance)
 
 
 def split_figure(amount: Decimal, currency: str = "PLN") -> tuple[str, str]:
@@ -66,20 +102,21 @@ def split_figure(amount: Decimal, currency: str = "PLN") -> tuple[str, str]:
     loudest; splitting them off lets the decimals be muted without the two
     halves ever disagreeing about rounding.
     """
-    whole, _, cents = f"{amount:,.2f}".partition(".")
+    whole, _, cents = spaced_thousands(f"{amount:,.2f}").partition(".")
     return whole, f".{cents} {currency}"
 
 
-def _delta_pill(label: str, delta: Decimal | None, currency: str) -> None:
+def _delta(label: str, delta: Decimal | None, currency: str) -> None:
     """A 'label ±value' chip, in the same tones the ledger uses for direction."""
     tone = MUTED if delta is None else net_tone(delta)
-    with ui.row().classes(f"{FILTER_CHIP} items-center gap-1.5"):
-        ui.label(label).classes(f"{MUTED} text-[11px]")
+    # No pill: artboard `3b` sets the two deltas as bare type under the
+    # figure, because a pill around a number reads as something to press.
+    with ui.row().classes("items-baseline gap-2"):
+        ui.label(label).classes(DELTA_LABEL)
         if delta is None:
-            ui.label("—").classes(f"{MONO} text-xs {MUTED}")
+            ui.label("—").classes(f"{DELTA_FIGURE} {MUTED}")
             return
-        ui.icon("arrow_upward" if delta >= 0 else "arrow_downward", size="13px").classes(tone)
-        ui.label(f"{format_net_amount(delta)} {currency}").classes(f"{MONO} text-xs {tone}")
+        ui.label(spaced_thousands(format_net_amount(delta))).classes(f"{DELTA_FIGURE} {tone}")
 
 
 def _header_strip(summary: NetWorthSummary, currency: str) -> None:
@@ -90,14 +127,16 @@ def _header_strip(summary: NetWorthSummary, currency: str) -> None:
     """
     tone = INK if summary.net_worth >= 0 else AMOUNT_EXPENSE
     whole, remainder = split_figure(summary.net_worth, currency)
-    with ui.column().classes("w-full gap-1"):
-        ui.label(t("net_worth.net_worth")).classes(SECTION_TITLE)
-        with ui.row().classes("items-baseline gap-2 flex-wrap"):
-            ui.label(whole).classes(f"{MONO} {tone} text-[54px] leading-none font-light")
-            ui.label(remainder).classes(f"{MONO} {MUTED} text-lg")
-            with ui.row().classes("items-center gap-2 ml-2 flex-wrap"):
-                _delta_pill(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)
-                _delta_pill(t("net_worth.vs_start_of_year"), summary.delta_ytd, currency)
+    with ui.column().classes("w-full gap-0"):
+        ui.label(t("net_worth.eyebrow", months=len(summary.history) or 13)).classes(
+            PAGE_EYEBROW
+        ).props("data-page-eyebrow")
+        with ui.row().classes("items-baseline gap-3 flex-wrap mt-1.5"):
+            ui.label(whole).classes(f"{NET_WORTH_FIGURE} {tone}")
+            ui.label(remainder).classes(NET_WORTH_DECIMALS)
+        with ui.row().classes("gap-7 flex-wrap mt-4"):
+            _delta(t("net_worth.vs_30d_ago"), summary.delta_30d, currency)
+            _delta(t("net_worth.vs_start_of_year"), summary.delta_ytd, currency)
 
 
 def _balance_sheet_bar(summary: NetWorthSummary, currency: str) -> None:
@@ -112,12 +151,12 @@ def _balance_sheet_bar(summary: NetWorthSummary, currency: str) -> None:
         return
 
     segments = (
-        (t("net_worth.split_accounts"), split.accounts, summary.account_assets, "k-split--ink"),
+        (t("net_worth.split_accounts"), split.accounts, summary.account_assets, "k-split--asset"),
         (
             t("net_worth.split_physical"),
             split.physical,
             summary.total_physical_assets,
-            "k-split--neutral",
+            "k-split--asset-soft",
         ),
         (
             t("net_worth.split_liabilities"),
@@ -127,7 +166,7 @@ def _balance_sheet_bar(summary: NetWorthSummary, currency: str) -> None:
         ),
     )
 
-    with ui.column().classes("w-full gap-2"):
+    with ui.column().classes("w-full gap-0 max-w-[620px] mt-[26px]"):
         # A plain div, not ui.row: nicegui-row puts a default gap between
         # its children, and a gap here would be read as a fourth segment.
         with ui.element("div").classes(f"{SPLIT_BAR} w-full"):
@@ -136,13 +175,14 @@ def _balance_sheet_bar(summary: NetWorthSummary, currency: str) -> None:
                     continue
                 seg = ui.element("div").classes(f"k-split-seg {tone}").style(f"width:{pct:.4f}%")
                 seg.props["aria-label"] = f"{label}: {_fmt(amount, currency)}"
-        with ui.row().classes("gap-5 flex-wrap"):
-            for label, pct, amount, tone in segments:
-                with ui.row().classes("items-center gap-1.5"):
+        # The share is the bar; printing it again beside the figure says the
+        # same thing twice and costs the legend the room to say the figure.
+        with ui.row().classes("gap-[26px] flex-wrap mt-[11px]"):
+            for label, _pct, amount, tone in segments:
+                with ui.row().classes("items-center gap-[7px]"):
                     ui.element("div").classes(f"k-split-dot {tone}")
-                    ui.label(label).classes(f"{MUTED} text-xs")
-                    ui.label(_fmt(amount, currency)).classes(f"{MONO} text-xs")
-                    ui.label(f"{pct:.0f}%").classes(f"{MUTED} {MONO} text-xs")
+                    ui.label(label).classes(f"{INK_2} text-xs")
+                    ui.label(_fmt(amount, currency)).classes(f"{MONO} {INK} text-xs")
 
 
 def _chart(summary: NetWorthSummary, dark: bool) -> None:
@@ -153,7 +193,7 @@ def _chart(summary: NetWorthSummary, dark: bool) -> None:
     net-worth value in the header remains the difference. The intent is to
     convey the *size* of both sides at a glance.
     """
-    ui.echart(net_worth_chart_options(summary, dark)).classes("w-full h-64")
+    ui.echart(net_worth_chart_options(summary, dark)).classes("w-full h-[260px]")
 
 
 #: How solid the two area fills are. They used to be solid enough that the
@@ -194,27 +234,37 @@ def net_worth_chart_options(summary: NetWorthSummary, dark: bool) -> dict[str, A
 
     options: dict[str, Any] = {
         "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
-        "legend": {
-            # The upper edge is assets *plus* liabilities, not net worth. The
-            # legend says so rather than leaving the reader to infer it from a
-            # line that looks like a total.
-            "data": [t("net_worth.assets"), t("net_worth.chart_liabilities_stacked")],
-            "top": 0,
-        },
-        "grid": {"left": "10%", "right": "10%", "top": "12%", "bottom": "18%"},
+        # No legend inside the plot: artboard `3b` puts the key on the card's
+        # title line, where the reader is already looking, and what the upper
+        # band means is said in the subtitle beside it.
+        "grid": {"left": 56, "right": 92, "top": 12, "bottom": 34},
         "xAxis": {
             "type": "category",
             "data": labels,
-            "axisLabel": {"rotate": 45, "fontSize": 11},
+            # Horizontal, and ECharts drops whatever will not fit: thirteen
+            # months at 45 degrees cost the chart a third of its height to
+            # say what seven of them already say.
+            "axisLabel": AXIS_LABEL_BODY,
+            "axisTick": {"show": False},
+            "axisLine": {"show": False},
         },
         "yAxis": {
             "type": "value",
             # From zero: a floating baseline makes a steady balance sheet look
             # like a cliff.
             "min": 0,
-            "name": t("net_worth.thousand_pln"),
-            "nameTextStyle": {"fontSize": 10},
-            "axisLabel": {"formatter": "{value}k"},
+            # No axis name: the labels already end in `k`, and "tys. PLN"
+            # turned sideways is the only rotated type on the page.
+            # The grouping the rest of the screen writes: ECharts' own
+            # `{value}` puts a comma in at four figures, and `1,200k` beside
+            # `901 393.51 PLN` is one screen writing a thousand two ways.
+            # `:`-prefixed, so NiceGUI hands the string over as a function.
+            "axisLabel": {
+                **AXIS_LABEL_MONO,
+                ":formatter": f"{AXIS_VALUE_SPACED} + 'k'",
+            },
+            "axisLine": {"show": False},
+            "axisTick": {"show": False},
         },
         "series": [
             _series(t("net_worth.assets"), assets_k, assets_color),
@@ -233,34 +283,23 @@ def _account_table(
         ui.label(t("common.none")).classes(f"{MUTED} text-sm py-2")
         return
 
-    columns = [
-        {"name": "name", "label": t("common.account"), "field": "name", "align": "left"},
-        {"name": "type", "label": t("common.type"), "field": "type", "align": "left"},
-        {
-            "name": "institution",
-            "label": t("common.institution"),
-            "field": "institution",
-            "align": "left",
-        },
-        {"name": "balance", "label": t("common.balance"), "field": "balance", "align": "right"},
-    ]
     type_labels = _type_label()
-    rows = [
-        {
-            "name": a.name,
-            "type": type_labels.get(a.type, a.type.value),
-            "institution": a.institution_name or "—",
-            "balance": (
-                f"{_fmt(a.balance, a.currency)} ≈ {_fmt(a.balance_in_default, default_currency)}"
-                if a.currency != default_currency
-                else _fmt(a.balance if assets else -a.balance, a.currency)
-            ),
-        }
-        for a in filtered
-    ]
-    ui.table(columns=columns, rows=rows, row_key="name").classes(f"{TABLE_SURFACE} mt-2").props(
-        "flat wrap-cells"
-    )
+    with ui.element("div").classes(f"{SHEET_HEAD} w-full mt-3.5"):
+        ui.label(t("common.account"))
+        ui.label(t("common.type"))
+        ui.label(t("common.institution"))
+        ui.label(t("common.balance")).classes("text-right")
+    for a in filtered:
+        balance = (
+            f"{_fmt(a.balance, a.currency)} ≈ {_fmt(a.balance_in_default, default_currency)}"
+            if a.currency != default_currency
+            else _fmt(sheet_balance(a.balance, is_asset=assets), a.currency)
+        )
+        with ui.element("div").classes(f"{SHEET_ROW} w-full"):
+            ui.label(a.name)
+            ui.label(type_labels.get(a.type, a.type.value)).classes(f"{MUTED} text-[11.5px]")
+            ui.label(a.institution_name or "—").classes(MUTED)
+            ui.label(balance).classes(f"{MONO} text-right {'' if assets else AMOUNT_EXPENSE}")
 
 
 def _loans_footnote() -> None:
@@ -270,11 +309,13 @@ def _loans_footnote() -> None:
     tracks it on its own page and not in the balance sheet — so the tables
     say where it lives instead of quietly under-counting.
     """
-    with ui.row().classes("w-full items-center gap-1.5 flex-wrap"):
-        ui.label(t("net_worth.loans_footnote")).classes(f"{MUTED} text-xs")
-        ui.link(t("net_worth.loans_footnote_link"), "/wizard/personal-loans").classes(
-            f"{MUTED} text-xs underline"
-        )
+    with ui.row().classes(f"{CARD_NOTE} w-full mt-4"):
+        ui.icon("handshake", size="16px").classes(MUTED)
+        with ui.row().classes("items-baseline gap-1.5 flex-wrap"):
+            ui.label(t("net_worth.loans_footnote"))
+            ui.link(t("net_worth.loans_footnote_link"), "/wizard/personal-loans").classes(
+                "text-xs underline"
+            )
 
 
 def _physical_assets_section(summary: NetWorthSummary) -> None:
@@ -290,47 +331,30 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
             return
 
         asset_type_labels = _asset_type_label()
-        columns = [
-            {"name": "name", "label": t("net_worth.asset_name"), "field": "name", "align": "left"},
-            {"name": "type", "label": t("net_worth.asset_type"), "field": "type", "align": "left"},
-            {
-                "name": "value",
-                "label": t("net_worth.asset_value"),
-                "field": "value",
-                "align": "right",
-            },
-            {"name": "note", "label": t("net_worth.asset_note"), "field": "note", "align": "left"},
-            {"name": "actions", "label": "", "field": "actions", "align": "right"},
-        ]
-        rows = [
-            {
-                "id": a.id,
-                "name": a.name,
-                "type": asset_type_labels.get(a.type, a.type),
-                "value": _fmt(a.value),
-                "note": a.description,
-            }
-            for a in summary.physical_assets
-        ]
-
-        table = (
-            ui.table(columns=columns, rows=rows, row_key="id")
-            .classes(f"{TABLE_SURFACE} mt-2")
-            .props("flat dense")
-        )
-        table.add_slot(
-            "body-cell-actions",
-            """
-            <q-td :props="props" class="text-right">
-                <q-btn flat dense round icon="edit" color="primary"
-                    @click="$parent.$emit('edit', props.row)" />
-                <q-btn flat dense round icon="delete" color="negative"
-                    @click="$parent.$emit('delete', props.row)" />
-            </q-td>
-            """,
-        )
-        table.on("edit", lambda e: _on_edit(e.args))
-        table.on("delete", lambda e: _on_delete(e.args))
+        # Four columns and no header: artboard `3b` reads this card as a list
+        # of things you own, not as a table you sort. The note each asset can
+        # carry is on the row's tooltip — it was a fifth column, and a fifth
+        # column is what pushed the value off a 420px card.
+        for a in summary.physical_assets:
+            row = ui.element("div").classes(f"{ASSET_ROW} w-full")
+            with row:
+                ui.label(a.name).classes("truncate")
+                ui.label(asset_type_labels.get(a.type, a.type)).classes(f"{MUTED} text-[11.5px]")
+                # No currency on the row: the card's title line carries it
+                # once, and repeating it three times costs the value column
+                # the width it needs to stay on one line.
+                ui.label(spaced_thousands(f"{a.value:,.2f}")).classes(f"{MONO} text-right")
+                with ui.row().classes("justify-end gap-0"):
+                    ui.button(
+                        icon="edit", on_click=lambda _e, i=a.id: _on_edit({"id": i}), color=None
+                    ).props("flat dense round size=sm").classes(MUTED)
+                    ui.button(
+                        icon="delete",
+                        on_click=lambda _e, i=a.id: _on_delete({"id": i}),
+                        color=None,
+                    ).props("flat dense round size=sm").classes(MUTED)
+            if a.description:
+                row.tooltip(a.description)
 
     assets_ui()
 
@@ -467,9 +491,13 @@ def _physical_assets_section(summary: NetWorthSummary) -> None:
         _add_reset()
         add_dlg.open()
 
-    ui.button(t("net_worth.add_asset"), icon="add", on_click=_on_add).props(
-        "flat dense color=primary size=sm"
-    ).classes("self-start mt-1")
+    # Under a rule of its own, as artboard `3b` draws it: the line that adds
+    # one is not another asset in the list. The rule spans the card, so it is
+    # on a row of its own rather than on the button.
+    with ui.row().classes(f"{ASSET_ADD} w-full"):
+        ui.button(t("net_worth.add_asset"), icon="add", on_click=_on_add, color=None).props(
+            "flat dense no-caps size=sm"
+        ).classes("k-asset-add-btn")
 
 
 def register() -> None:
@@ -486,48 +514,65 @@ def register() -> None:
 
         summary = await with_session(_load_summary)
 
-        with page_layout(t("net_worth.title")):
-            # ── Hero + physical assets side by side from lg up ────────────────
-            with ui.row().classes("w-full gap-4 items-start flex-wrap lg:flex-nowrap"):
-                with ui.card().classes(
-                    f"{SECTION_CARD} basis-full lg:basis-3/5 flex-1 min-w-0 gap-5"
-                ):
+        with page_layout(
+            t("net_worth.title"),
+            wide=True,
+            container=f"{PAGE_CONTAINER} {PAGE_ROOMY}",
+        ):
+            # The hero sits on the ground, not on paper: it is the page's
+            # subject, and a card round it would make it one of four.
+            with ui.row().classes("w-full gap-12 items-start no-wrap flex-wrap lg:flex-nowrap"):
+                with ui.column().classes("flex-1 min-w-0 gap-0"):
                     _header_strip(summary, default_currency)
                     _balance_sheet_bar(summary, default_currency)
 
                 with ui.card().classes(
-                    f"{SECTION_CARD} basis-full lg:basis-2/5 flex-1 min-w-0 gap-1"
+                    f"{SECTION_CARD_WIDE} w-full lg:w-[420px] lg:flex-none min-w-0 gap-0"
                 ):
-                    with ui.row().classes("w-full items-baseline justify-between"):
-                        ui.label(t("net_worth.physical_assets")).classes(SECTION_HEADING)
+                    with ui.row().classes("w-full items-center justify-between mb-3.5"):
+                        ui.label(t("net_worth.physical_assets")).classes(CARD_TITLE_SM)
                         ui.label(_fmt(summary.total_physical_assets, default_currency)).classes(
-                            f"{MONO} {INK} text-sm"
+                            f"{MONO} {INK} text-[13px] font-medium"
                         )
                     _physical_assets_section(summary)
 
             # ── Stacked trend chart ───────────────────────────────────────────
-            with ui.card().classes(SECTION_CARD):
-                ui.label(t("net_worth.history")).classes(SECTION_HEADING)
+            with ui.card().classes(f"{SECTION_CARD_FEATURE} gap-0"):
+                with ui.row().classes("w-full items-baseline justify-between mb-4"):
+                    with ui.column().classes("gap-1 min-w-0"):
+                        ui.label(t("net_worth.history")).classes(CARD_TITLE)
+                        ui.label(t("net_worth.history_hint")).classes(f"{MUTED} text-[11.5px]")
+                    # The key belongs on the title line, where the reader is
+                    # already looking, and not inside the plot.
+                    with ui.row().classes(f"{MUTED} gap-4 text-[11.5px] no-wrap"):
+                        for label_key, tone in (
+                            ("net_worth.assets", "k-split--asset"),
+                            ("net_worth.liabilities", "k-split--owed"),
+                        ):
+                            with ui.row().classes("items-center gap-1.5"):
+                                ui.element("div").classes(f"{LEGEND_DOT} {tone}")
+                                ui.label(t(label_key))
                 _chart(summary, dark)
 
             # ── Assets / Liabilities two-column split ─────────────────────────
-            with ui.row().classes("w-full gap-4 items-start flex-wrap lg:flex-nowrap"):
-                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-80 gap-1"):
-                    with ui.row().classes("w-full items-baseline justify-between"):
-                        ui.label(t("net_worth.assets")).classes(SECTION_HEADING)
+            with ui.row().classes("w-full gap-5 items-start flex-wrap lg:flex-nowrap"):
+                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-80 gap-0"):
+                    with ui.row().classes("w-full items-center justify-between"):
+                        ui.label(t("net_worth.assets")).classes(CARD_TITLE_SM)
                         ui.label(_fmt(summary.total_assets, default_currency)).classes(
-                            f"{MONO} {INK} text-sm"
+                            f"{MONO} {AMOUNT_INCOME} text-sm font-medium"
                         )
                     _account_table(summary.accounts, assets=True, default_currency=default_currency)
 
-                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-80 gap-1"):
-                    with ui.row().classes("w-full items-baseline justify-between"):
-                        ui.label(t("net_worth.liabilities")).classes(SECTION_HEADING)
+                with ui.card().classes(f"{SECTION_CARD} flex-1 min-w-80 gap-0"):
+                    with ui.row().classes("w-full items-center justify-between"):
+                        ui.label(t("net_worth.liabilities")).classes(CARD_TITLE_SM)
                         ui.label(_fmt(summary.total_liabilities, default_currency)).classes(
-                            f"{MONO} {AMOUNT_EXPENSE} text-sm"
+                            f"{MONO} {AMOUNT_EXPENSE} text-sm font-medium"
                         )
                     _account_table(
                         summary.accounts, assets=False, default_currency=default_currency
                     )
-
-            _loans_footnote()
+                    # The note belongs to the side it is about: what is missing
+                    # from the liabilities is money the app keeps elsewhere.
+                    _loans_footnote()

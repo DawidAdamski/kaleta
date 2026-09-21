@@ -10,6 +10,7 @@ Page URL: /forecast
 from __future__ import annotations
 
 import datetime
+import re
 
 import pytest
 from playwright.sync_api import Page, expect
@@ -33,7 +34,7 @@ def _control(page: Page, label: str):
 
 def _kpi(page: Page, key: str):
     """One of the four figures, by name rather than by its title text."""
-    return page.locator(f'[data-kpi="{key}"] .k-mono').first
+    return page.locator(f'[data-kpi="{key}"] .k-stat-figure').first
 
 
 def _settled_on(page: Page, account: str, horizon_days: int) -> None:
@@ -43,11 +44,13 @@ def _settled_on(page: Page, account: str, horizon_days: int) -> None:
     and still belong to the previous selection — and both halves of the
     selection matter, since the horizon carries over between tests in the
     shared session. The chart names its account and the predicted card
-    carries its horizon's date, so both are asked for.
+    carries its horizon's date in `data-as-of`, so both are asked for.
     """
     horizon = (datetime.date.today() + datetime.timedelta(days=horizon_days)).strftime("%d.%m.%Y")
     expect(page.get_by_text(f"Balance forecast — {account}")).to_be_visible(timeout=_RUN_TIMEOUT)
-    expect(page.locator('[data-kpi="predicted"]')).to_contain_text(horizon, timeout=_RUN_TIMEOUT)
+    expect(page.locator('[data-kpi="predicted"]')).to_have_attribute(
+        "data-as-of", re.compile(re.escape(horizon)), timeout=_RUN_TIMEOUT
+    )
 
 
 def _figure(page: Page, key: str) -> float:
@@ -59,6 +62,11 @@ def _figure(page: Page, key: str) -> float:
 def _choose(page: Page, label: str, option: str) -> None:
     _control(page, label).click()
     page.get_by_role("option", name=option, exact=True).click()
+
+
+def _choose_horizon(page: Page, option: str) -> None:
+    """The horizon is three buttons, not a menu (artboard `3a`)."""
+    page.get_by_role("button", name=option, exact=True).click()
 
 
 # ---------------------------------------------------------------------------
@@ -130,7 +138,7 @@ def test_run_30_day_forecast_single_account(page: Page, base_url: str) -> None:
 
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "PKO Forecast 30d E2E")
-    _choose(page, "Forecast horizon (days)", "30 days")
+    _choose_horizon(page, "30 days")
 
     # The scenario asks for a chart and a predicted balance, so the test asks
     # for those and not for "either that or a warning" — and for *this*
@@ -153,7 +161,7 @@ def test_run_90_day_forecast(page: Page, base_url: str) -> None:
 
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "PKO Forecast 90d E2E")
-    _choose(page, "Forecast horizon (days)", "90 days")
+    _choose_horizon(page, "90 days")
 
     # "Extends 90 days past the last balance it knows" — the horizon the
     # figure is dated at. `seed_many_transactions` posts one today, so here
@@ -232,7 +240,7 @@ def test_a_scenario_moves_the_predicted_figure(page: Page, base_url: str) -> Non
 
     page.goto(f"{base_url}/forecast")
     _choose(page, "Account", "PKO Forecast Scenario E2E")
-    _choose(page, "Forecast horizon (days)", "60 days")
+    _choose_horizon(page, "60 days")
     # The 60-day run has to have landed before the baseline is read: a run
     # for the previous test's horizon can still be on screen, and its figures
     # would move for a reason that is not the scenario.

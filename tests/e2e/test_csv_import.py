@@ -26,6 +26,7 @@ from pathlib import Path
 from playwright.sync_api import FilePayload, Locator, Page, expect
 
 from tests.e2e.ledger import search_ledger
+from tests.e2e.pages import on_import_page
 from tests.e2e.seed_helpers import (
     count_transactions,
     delete_account,
@@ -84,6 +85,25 @@ def _upload_as(path: Path, name: str) -> FilePayload:
 def _select_import_option(page: Page, label: str, option: str) -> None:
     page.keyboard.press("Escape")
     page.locator(".q-select").filter(has_text=label).click()
+    page.locator(".q-menu").last.get_by_text(option, exact=True).click()
+
+
+def _mapping_picker(page: Page, field: str) -> Locator:
+    """The column picker for one mapping *field*.
+
+    Artboard 2d moved each label out of its select and beside it, so the
+    picker no longer carries the field name: it is found through the row the
+    two share.
+    """
+    row = page.locator(".k-field-row").filter(
+        has=page.locator(".k-field-label", has_text=re.compile(rf"^{re.escape(field)}$"))
+    )
+    return row.locator(".q-select")
+
+
+def _select_mapping_column(page: Page, field: str, option: str) -> None:
+    page.keyboard.press("Escape")
+    _mapping_picker(page, field).click()
     page.locator(".q-menu").last.get_by_text(option, exact=True).click()
 
 
@@ -149,7 +169,7 @@ def _configure_and_upload(
     income: str,
 ) -> None:
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(str(IMPORT_CSV))
 
@@ -209,7 +229,7 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
     _step(page, STEP_FORMAT)
     expect(
         page.get_by_text("Generic CSV — any CSV; you map the columns yourself in the next step.")
@@ -222,14 +242,14 @@ def test_map_unrecognised_csv_and_import(page: Page, base_url: str) -> None:
     # goes there with it — one card, and the reason Continue will not leave.
     _wait_for_file(page, "unrecognised_headers.csv")
     expect(_panel(page, STEP_MAPPING)).to_be_visible(timeout=10000)
-    expect(page.get_by_text("Column mapping", exact=True)).to_be_visible()
+    expect(page.get_by_text("Map the columns", exact=True)).to_be_visible()
     expect(page.get_by_text("Date column is required.")).to_be_visible()
     expect(_blocked_reason(page)).to_have_text("Map the required columns to continue.")
     expect(page.locator("[data-continue]")).to_be_disabled()
 
-    _select_import_option(page, "Date column", "1: Txn Day")
-    _select_import_option(page, "Amount column", "2: Sum")
-    _select_import_option(page, "Description column", "3: Note")
+    _select_mapping_column(page, "Date", "1: Txn Day")
+    _select_mapping_column(page, "Amount", "2: Sum")
+    _select_mapping_column(page, "Description", "3: Note")
 
     # Mapped: the step behind is finished, so Continue stops refusing.
     expect(page.locator("[data-continue]")).to_be_enabled(timeout=5000)
@@ -268,16 +288,16 @@ def test_mapping_prefills_from_alias_detection(page: Page, base_url: str) -> Non
     # mapping step; it is still there, pre-filled, for whoever looks.
     _wait_for_file(page, "test_import.csv")
     _step(page, STEP_MAPPING)
-    expect(page.get_by_text("Column mapping", exact=True)).to_be_visible()
+    expect(page.get_by_text("Map the columns", exact=True)).to_be_visible()
     expect(_panel(page, STEP_MAPPING).get_by_text("Biedronka", exact=False).first).to_be_visible(
         timeout=5000
     )
 
-    date_sel = page.locator(".q-select").filter(has_text="Date column")
+    date_sel = _mapping_picker(page, "Date")
     expect(date_sel).to_contain_text("1: date")
-    amount_sel = page.locator(".q-select").filter(has_text="Amount column")
+    amount_sel = _mapping_picker(page, "Amount")
     expect(amount_sel).to_contain_text("2: amount")
-    desc_sel = page.locator(".q-select").filter(has_text="Description column")
+    desc_sel = _mapping_picker(page, "Description")
     expect(desc_sel).to_contain_text("3: description")
 
 
@@ -296,7 +316,7 @@ def test_invalid_mapping_blocks_import(page: Page, base_url: str) -> None:
     _wait_for_file(page, "test_import.csv")
 
     _step(page, STEP_MAPPING)
-    _select_import_option(page, "Date column", "— not mapped —")
+    _select_mapping_column(page, "Date", "— not mapped —")
 
     # The work fell back to this step, so there is nothing in front of the
     # reader to continue to — and the refusal says which column it wants.
@@ -432,7 +452,7 @@ def test_upload_after_failed_run_clears_and_warns(page: Page, base_url: str) -> 
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(str(AUTORESET_FAILING))
     _wait_for_file(page, "autoreset-failing.csv")
@@ -740,7 +760,7 @@ def test_wise_csv_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
     _step(page, STEP_FORMAT)
     expect(page.get_by_role("button", name="Wise")).to_be_visible()
 
@@ -785,7 +805,7 @@ def test_wise_qif_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     _step(page, STEP_FORMAT)
     wise_button = page.get_by_role("button", name="Wise")
@@ -853,7 +873,7 @@ def test_wise_mt940_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     _step(page, STEP_UPLOAD)
     page.locator('input[type="file"]').set_input_files(
@@ -908,7 +928,7 @@ def test_wise_xlsx_auto_detect_and_import(page: Page, base_url: str) -> None:
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     _step(page, STEP_UPLOAD)
     page.locator('input[type="file"]').set_input_files(
@@ -964,7 +984,7 @@ def test_wise_mt940_states_its_own_currency_even_when_renamed(page: Page, base_u
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(_upload_as(WISE_JPY_MT940, "foo.mt940"))
     _wait_for_file(page, "foo.mt940")
@@ -1000,7 +1020,7 @@ def test_wise_qif_currency_from_name_blocks_the_wrong_account(page: Page, base_u
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(
         _upload_as(WISE_JPY_QIF, WISE_QIF_DOWNLOAD_NAME)
@@ -1038,7 +1058,7 @@ def test_wise_qif_renamed_upload_is_unknown_and_still_imports(page: Page, base_u
     seed_income_category(income_cat)
 
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(_upload_as(WISE_JPY_QIF, "foo.qif"))
     _wait_for_file(page, "foo.qif")
@@ -1088,7 +1108,7 @@ def test_auto_detected_columns_are_marked(page: Page, base_url: str) -> None:
         expect(badge(field)).to_be_visible(timeout=10000)
 
     # Point the description picker somewhere else: it is no longer the guess.
-    _select_import_option(page, "Description column", "1: date")
+    _select_mapping_column(page, "Description", "1: date")
     expect(badge("description")).to_be_hidden(timeout=10000)
     # And only that one: the pills are per field, not a single switch.
     expect(badge("date")).to_be_visible()
@@ -1115,18 +1135,22 @@ def test_parse_failures_are_named_on_the_mapping_step(page: Page, base_url: str)
     # And it points at the step it is standing on: the columns being mapped.
     expect(strip).to_contain_text("columns you mapped")
 
-    # Above the pickers, which is the whole point of moving it off Preview —
-    # it is read on the way into the thing it is asking you to change.
+    # Directly under the sample rows it is numbering, which is the whole
+    # point of moving it off Preview — row 3 and row 5 are on screen, in the
+    # card above it, while it is being read. The pickers it points at are on
+    # the card beside it, on the same step.
     strip_box = strip.bounding_box()
-    picker_box = page.locator(".q-select").filter(has_text="Date column").first.bounding_box()
-    assert strip_box is not None and picker_box is not None
-    assert strip_box["y"] + strip_box["height"] <= picker_box["y"], (strip_box, picker_box)
+    sample_box = page.locator(".k-sample-table").bounding_box()
+    picker_box = _mapping_picker(page, "Date").bounding_box()
+    assert strip_box is not None and sample_box is not None and picker_box is not None
+    assert sample_box["y"] + sample_box["height"] <= strip_box["y"], (sample_box, strip_box)
+    assert strip_box["x"] + strip_box["width"] <= picker_box["x"], (strip_box, picker_box)
 
 
 def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) -> None:
     """Covers: KAL-CSV-027"""
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     # Nothing uploaded: step 2 is the one you are on, step 1 is behind you.
     expect(page.locator(".k-step--now")).to_have_count(1, timeout=5000)
@@ -1164,7 +1188,7 @@ def test_the_progress_line_says_which_step_i_am_on(page: Page, base_url: str) ->
     header_cell = page.locator(".k-table thead").get_by_text("1: date", exact=True).first
     expect(header_cell).to_be_visible(timeout=5000)
     sample_box = header_cell.bounding_box()
-    picker_box = page.locator(".q-select").filter(has_text="Date column").first.bounding_box()
+    picker_box = _mapping_picker(page, "Date").bounding_box()
     assert sample_box is not None and picker_box is not None
     assert sample_box["x"] + sample_box["width"] <= picker_box["x"], (sample_box, picker_box)
     # Side by side means they share vertical space, not that one follows the
@@ -1182,7 +1206,7 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
     typo rather than starting the import again.
     """
     page.goto(f"{base_url}/import")
-    expect(page.get_by_text("Import Transactions", exact=True).first).to_be_visible(timeout=5000)
+    on_import_page(page)
 
     page.locator('input[type="file"]').set_input_files(str(UNRECOGNISED_CSV))
     _wait_for_file(page, "unrecognised_headers.csv")
@@ -1198,8 +1222,8 @@ def test_one_step_is_on_screen_and_back_returns_to_the_one_before(
     assert visible_panels() == [str(STEP_MAPPING)], visible_panels()
 
     # Something to lose: a column mapped by hand on the step being left.
-    _select_import_option(page, "Date column", "1: Txn Day")
-    date_picker = page.locator(".q-select").filter(has_text="Date column")
+    _select_mapping_column(page, "Date", "1: Txn Day")
+    date_picker = _mapping_picker(page, "Date")
     expect(date_picker).to_contain_text("1: Txn Day")
 
     # Back walks to the step before it, and the file survives the walk.

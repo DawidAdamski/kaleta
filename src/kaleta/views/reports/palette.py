@@ -24,15 +24,12 @@ from kaleta.views.theme import (
     DRAGGING_BODY,
     INK,
     MUTED,
-    ROW_HOVER,
-    SECTION_TITLE,
+    RAIL_EYEBROW,
+    RAIL_ROW,
+    RAIL_ROW_ON,
+    RAIL_SAVED,
+    REPORT_RAIL,
 )
-
-#: Wide enough for the longest dimension name, narrow enough that the chart
-#: beside it keeps the page.
-RAIL = "w-[220px] flex-none"
-
-_ROW = f"{ROW_HOVER} w-full items-center gap-2 px-2 py-1.5 rounded-md cursor-pointer no-wrap"
 
 
 def build_palette_zone(
@@ -50,10 +47,10 @@ def build_palette_zone(
         field: str,
         drag_group: str,
     ) -> None:
-        ui.label(t(title_key)).classes(f"{SECTION_TITLE} px-2")
-        for key, label_key, icon in rows:
+        ui.label(t(title_key)).classes(f"{RAIL_EYEBROW} mb-[11px]")
+        for key, label_key, _icon in rows:
             active = state[field] == key
-            row = ui.row().classes(_ROW)
+            row = ui.row().classes(f"{RAIL_ROW} {RAIL_ROW_ON}" if active else RAIL_ROW)
             row.props("draggable=true")
             # The body class is set in the browser so the slots can light up
             # without a round trip; the server still hears the dragstart, so
@@ -70,10 +67,11 @@ def build_palette_zone(
             )
             row.on("click", lambda k=key, f=field: on_set(f, k))
             with row:
-                ui.icon(icon, size="16px").classes(ACCENT_TEXT if active else MUTED)
-                ui.label(t(label_key)).classes(
-                    f"text-[13px] {INK} font-medium" if active else f"text-[13px] {MUTED}"
-                )
+                # The handle, not the field's own glyph: artboard `3e` says
+                # "this row is draggable" seven times over and never asks the
+                # reader to tell a wallet from a bank at 16px.
+                ui.icon("drag_indicator", size="16px").classes(ACCENT_TEXT if active else MUTED)
+                ui.label(t(label_key))
 
     @ui.refreshable
     async def palette_zone() -> None:
@@ -82,24 +80,24 @@ def build_palette_zone(
 
         saved = await with_session(_list)
 
-        with ui.column().classes(f"{RAIL} gap-1"):
+        with ui.column().classes(f"{REPORT_RAIL} gap-[5px]"):
             _group("reports.group_by", list(DIMENSIONS), field="dimension", drag_group="dimension")
-            ui.space().classes("h-2")
-            _group("reports.measure", list(METRICS), field="metric", drag_group="metric")
+            with ui.column().classes("w-full gap-[5px] mt-6"):
+                _group("reports.measure", list(METRICS), field="metric", drag_group="metric")
 
             if saved:
-                ui.space().classes("h-2")
-                ui.label(t("reports.saved")).classes(f"{SECTION_TITLE} px-2")
-                for report in saved:
-                    # Read through the same schema the page loads it with, so
-                    # the icon cannot disagree with the report it opens.
-                    config = ReportConfig.from_dict(json.loads(report.config))
-                    with ui.row().classes(_ROW) as row:
-                        row.on("click", lambda rid=report.id: on_load(rid))
-                        ui.icon(chart_type_icon(config.chart_type), size="16px").classes(MUTED)
-                        ui.label(report.name).classes(f"text-[13px] {INK} flex-1 truncate")
-                        ui.icon("close", size="15px").classes(f"{MUTED} cursor-pointer").on(
-                            "click.stop", lambda rid=report.id: on_delete(rid)
-                        ).tooltip(t("common.delete"))
+                with ui.column().classes("w-full gap-2 mt-6"):
+                    ui.label(t("reports.saved")).classes(f"{RAIL_EYEBROW} mb-[3px]")
+                    for report in saved:
+                        # Read through the same schema the page loads it with,
+                        # so the icon cannot disagree with the report it opens.
+                        config = ReportConfig.from_dict(json.loads(report.config))
+                        with ui.row().classes(f"{RAIL_SAVED} w-full no-wrap") as row:
+                            row.on("click", lambda rid=report.id: on_load(rid))
+                            ui.label(report.name).classes(f"{INK} flex-1 truncate")
+                            ui.icon(chart_type_icon(config.chart_type), size="15px").classes(MUTED)
+                            ui.icon("close", size="15px").classes(f"{MUTED} cursor-pointer").on(
+                                "click.stop", lambda rid=report.id: on_delete(rid)
+                            ).tooltip(t("common.delete"))
 
     return palette_zone

@@ -19,6 +19,9 @@ from kaleta.services.forecast_service import (
     point_shifted_by,
 )
 from kaleta.views.chart_utils import (
+    AXIS_LABEL_BODY,
+    AXIS_LABEL_MONO,
+    AXIS_VALUE_SPACED,
     CHART_BAND,
     CHART_NEUTRAL_BAR,
     apply_dark,
@@ -68,14 +71,6 @@ def forecast_chart(
     # needs an opacity of its own.
     band_color = chart_accent_fill(is_dark) if is_dark else CHART_BAND
 
-    legend_data = [
-        t("forecast.actual"),
-        t("forecast.predicted"),
-        t("forecast.confidence_band"),
-    ]
-    if base_fore:
-        legend_data.append(t("forecast.baseline_reference"))
-
     mark_lines: list[dict[str, Any]] = [
         {
             "xAxis": str(today),
@@ -103,10 +98,20 @@ def forecast_chart(
 
     _opts: dict[str, Any] = {
         "tooltip": {"trigger": "axis"},
-        "legend": {"data": legend_data, "bottom": 0},
-        "grid": {"left": "3%", "right": "4%", "bottom": "12%", "containLabel": True},
-        "xAxis": {"type": "time"},
-        "yAxis": {"type": "value", "axisLabel": {"formatter": "{value} zł"}},
+        # No legend inside the frame: artboard `3a` reads the four keys on
+        # the card's title line, where they cost the chart no height and are
+        # read before the picture rather than after it.
+        "legend": {"show": False},
+        # 26 at the top, not 12: the "Today" mark-line writes its label
+        # above the frame and a tighter grid clips it.
+        "grid": {"left": 8, "right": 16, "top": 26, "bottom": 8, "containLabel": True},
+        "xAxis": {"type": "time", "axisLabel": AXIS_LABEL_BODY},
+        # The currency is on the card, not on every gridline: eleven "zł"
+        # down the left edge say the same thing eleven times.
+        "yAxis": {
+            "type": "value",
+            "axisLabel": {**AXIS_LABEL_MONO, ":formatter": AXIS_VALUE_SPACED},
+        },
         "series": [
             {
                 "name": t("forecast.lower"),

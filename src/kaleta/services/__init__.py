@@ -5,10 +5,11 @@ from kaleta.services.asset_service import AssetService
 from kaleta.services.audit_service import AuditService
 from kaleta.services.auth_service import AuthService
 from kaleta.services.backup_service import BackupService
-from kaleta.services.budget_service import BudgetService
+from kaleta.services.budget_service import BudgetService, RealizationTotals
 from kaleta.services.category_service import CategoryService
 from kaleta.services.credit_service import CreditService
 from kaleta.services.currency_rate_service import CurrencyRateService
+from kaleta.services.day_totals import DayTotals
 from kaleta.services.dedupe_service import DedupeService
 from kaleta.services.import_rule_service import ImportRuleService
 from kaleta.services.institution_service import InstitutionService
@@ -79,4 +80,8 @@ __all__ = [
     "WizardActionService",
     "WizardProjectionService",
     "YearlyPlanService",
+    # Reductions over what the services above return, not services of their
+    # own: no session, nothing to construct.
+    "DayTotals",
+    "RealizationTotals",
 ]

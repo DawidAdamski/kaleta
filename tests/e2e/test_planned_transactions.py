@@ -14,11 +14,23 @@ from playwright.sync_api import Page, expect
 
 from tests.e2e.ledger import filter_ledger_by_account, search_ledger
 from tests.e2e.seed_helpers import (
+    count_transactions,
     delete_planned_transaction,
     seed_account,
     seed_category,
     seed_planned_transaction,
+    seed_subscription,
 )
+
+
+def _day_heading(date: datetime.date) -> str:
+    """ "Tuesday 15 September" — what the day sheet heads itself with.
+
+    Built from the date under test rather than read off the page, and
+    asserted whole: `to_contain_text("1")` is true of "14" as well.
+    """
+    return f"{date.strftime('%A')} {date.day} {date.strftime('%B')}"
+
 
 # ---------------------------------------------------------------------------
 # Scenario: Create a monthly recurring expense
@@ -478,6 +490,8 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
 
     The overdue list used to hang off the day-1 cell, so an item three weeks
     late was invisible until the user clicked a day it had nothing to do with.
+    It reads as one line now (artboard `3c`): what is late, since when, for
+    how much, and one button that clears exactly the items it names.
     """
     today = datetime.date.today()
     first_of_month = today.replace(day=1)
@@ -494,19 +508,108 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
 
     page.goto(f"{base_url}/payment-calendar")
 
-    strip = page.locator(".k-warning-strip")
+    strip = page.locator(".k-overdue-strip")
     expect(strip).to_be_visible(timeout=10000)
     expect(strip).to_contain_text("Prad Zalegly")
-    # The age, so "overdue" is a length of time and not just a flag.
-    expect(strip).to_contain_text(f"{(today - due).days} days late")
+    # Since when, so "overdue" is a point in time and not just a flag.
+    expect(strip).to_contain_text(f"Overdue since {due.strftime('%d.%m')}")
+
+    # One button, naming how many items it will post — and posting exactly
+    # those. The suite shares one database, so other tests' overdue items may
+    # be listed beside this one; the count is read off the button itself.
+    post = strip.get_by_role("button")
+    expect(post).to_be_visible()
+    label = post.inner_text().strip()
+    assert re.fullmatch(r"Post \d+", label), label
+    listed = strip.locator(".k-overdue-text").count()
+    assert label == f"Post {listed}", (label, listed)
+
+    # Exactly those: this account holds one overdue plan and nothing else, so
+    # one press has to leave exactly one new row on it.
+    before = count_transactions(acc_id)
 
     # Posting works from the strip itself — no day has to be opened first.
-    # Scoped to this item's own row: the suite shares one database, so other
-    # tests' overdue items may be listed above it.
-    row = strip.locator(".nicegui-row").filter(has_text="Prad Zalegly")
-    row.get_by_role("button", name="Post").click()
-    expect(page.get_by_text('Posted "Prad Zalegly".')).to_be_visible(timeout=10000)
-    # Once posted it is no longer late, so it leaves the strip.
-    expect(page.locator(".k-warning-strip").get_by_text("Prad Zalegly")).to_have_count(
-        0, timeout=10000
-    )
+    post.click()
+
+    # Every item the button named is posted, so nothing is left to be late
+    # and the strip goes with its last row — not only the one this test
+    # seeded. That is the whole of "posts exactly the items it names": the
+    # named ones all go, and the count on this account shows no others did.
+    expect(page.locator(".k-overdue-strip")).to_have_count(0, timeout=10000)
+    expect(page.locator('[data-kpi="overdue"]')).to_have_text("0")
+    assert count_transactions(acc_id) == before + 1
+    # And it says how many it posted, in the number it had promised.
+    expect(page.get_by_text(f"Posted {listed} due occurrence(s).")).to_be_visible()
+
+
+def test_a_days_totals_count_its_subscription_charges(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-027
+
+    The cell in the grid always counted a day's projected charges and the
+    sheet did not, so a day drawn -12.99 opened onto Out 0.00 — the screen
+    disagreeing with itself about the same day.
+
+    The 2nd, because it is a day no other test in this file seeds: the
+    figures below are the charge alone, which is what makes them literals.
+    """
+    today = datetime.date.today()
+    second = today.replace(day=2)
+    seed_subscription("iCloud Calendar E2E", 12.99, 30, first_seen_at=second)
+
+    page.goto(f"{base_url}/payment-calendar")
+    cell = page.locator(f'[data-day="{second.isoformat()}"]')
+    expect(cell).to_be_visible(timeout=10000)
+    expect(cell).to_contain_text("-12.99")
+
+    cell.click()
+    panel = page.locator(".k-day-panel")
+    expect(panel.locator(".k-card-title")).to_have_text(_day_heading(second), timeout=5000)
+    expect(panel).to_contain_text("-12.99")
+    # In, Out and Net, in that order and each with its own figure: nothing
+    # came in, 12.99 went out, and the day is 12.99 down. A substring of the
+    # whole row would pass on any arrangement of the same three numbers.
+    totals = panel.locator(".k-hairline-bottom")
+    expect(totals).to_have_text(re.compile(r"In\s*0\.00\s*Out\s*-12\.99\s*Net\s*-12\.99"))
+
+
+def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-026
+
+    The sheet used to slide in from the right and cover the grid it was
+    about, so the one comparison the screen exists for — this day against
+    the ones around it — could not be made while it was open.
+    """
+    page.goto(f"{base_url}/payment-calendar")
+
+    panel = page.locator(".k-day-panel")
+    grid = page.locator(".k-cal-day").first
+    expect(panel).to_be_visible(timeout=10000)
+    expect(grid).to_be_visible()
+
+    today = datetime.date.today()
+    expect(panel.locator(".k-card-title")).to_have_text(_day_heading(today))
+    for label in ("In", "Out", "Net"):
+        expect(panel.get_by_text(label, exact=True)).to_be_visible()
+
+    # Beside, not over: the two occupy different columns of the same row.
+    panel_box = panel.bounding_box()
+    grid_box = page.locator(".k-cal-day").first.bounding_box()
+    assert panel_box is not None and grid_box is not None
+    assert grid_box["x"] + grid_box["width"] <= panel_box["x"], (grid_box, panel_box)
+
+    # Another day moves the sheet, and the grid stays where it is. By its
+    # own `data-day`, not by its text: a cell reading "21" or "1 400"
+    # contains "1" too, and which of them came first was luck.
+    other = today.replace(day=1 if today.day != 1 else 2)
+    page.locator(f'[data-day="{other.isoformat()}"]').click()
+    expect(panel.locator(".k-card-title")).to_have_text(_day_heading(other), timeout=10000)
+    expect(page.locator(".k-cal-day").first).to_be_visible()
+
+    # Closing it gives the grid the page. The panel is redrawn whenever a
+    # day is picked, so the close icon is looked up after that redraw has
+    # landed rather than before it.
+    close = panel.locator("i", has_text="close").first
+    expect(close).to_be_visible(timeout=10000)
+    close.click()
+    expect(panel).to_be_hidden(timeout=10000)
+    expect(page.locator(".k-cal-day").first).to_be_visible()

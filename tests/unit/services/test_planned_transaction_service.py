@@ -9,11 +9,13 @@ Transfers (income/expense) are tested via TransactionType.
 from __future__ import annotations
 
 import datetime
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import NotFoundError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
@@ -602,6 +604,155 @@ class TestPostOccurrence:
             )
         )
         assert count == 1
+
+
+class TestPostOccurrences:
+    """The overdue strip on the Payment Calendar posts the list it drew."""
+
+    async def test_it_posts_the_list_it_was_given_and_no_more(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-020
+
+        `post_due` would take the whole window; this takes two of its four
+        occurrences, which is what a button labelled "Post 2" has to do.
+        """
+        acc_id = await _make_account(session, name="PKO Main")
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Groceries",
+                amount=Decimal("300.00"),
+                frequency=RecurrenceFrequency.WEEKLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        window = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 22),
+            exclude_posted=True,
+        )
+        assert len(window) == 4
+
+        posted = await svc.post_occurrences(window[:2])
+
+        assert len(posted) == 2
+        assert {tx.date for tx in posted} == {
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 8),
+        }
+        assert all(tx.planned_transaction_id == pt.id for tx in posted)
+        left = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 22),
+            exclude_posted=True,
+        )
+        assert {o.date for o in left} == {
+            datetime.date(2025, 1, 15),
+            datetime.date(2025, 1, 22),
+        }
+
+    async def test_reposting_the_same_list_creates_nothing_new(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-017"""
+        acc_id = await _make_account(session)
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        window = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 31),
+            exclude_posted=True,
+        )
+        first = await svc.post_occurrences(window)
+        again = await svc.post_occurrences(window)
+        assert [tx.id for tx in first] == [tx.id for tx in again]
+        assert all(tx.planned_transaction_id == pt.id for tx in first)
+
+    async def test_an_empty_list_posts_nothing(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        assert await svc.post_occurrences([]) == []
+
+    async def test_the_same_occurrence_twice_is_one_row_and_one_answer(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-017
+
+        A caller counts what came back to say how many it posted, so one
+        ledger row must not answer twice.
+        """
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        window = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 31),
+            exclude_posted=True,
+        )
+        assert len(window) == 1
+
+        posted = await svc.post_occurrences([window[0], window[0]])
+
+        assert len(posted) == 1
+        assert posted[0].date == datetime.date(2025, 1, 1)
+
+    async def test_one_bad_item_leaves_the_whole_set_unwritten(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """The docstring says the set lands or none of it does; this is that.
+
+        The commit is at the end, so a plan that has been deleted between
+        the strip being drawn and its button being pressed takes the first
+        item down with it rather than leaving half a batch behind.
+        """
+        from sqlalchemy import func, select
+
+        from kaleta.models.transaction import Transaction
+
+        acc_id = await _make_account(session)
+        pt = await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        pt_id = pt.id
+        good = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 31),
+            exclude_posted=True,
+        )
+        assert good
+        gone = replace(good[0], planned_id=good[0].planned_id + 1000)
+
+        with pytest.raises(NotFoundError):
+            await svc.post_occurrences([*good, gone])
+
+        await session.rollback()
+        count = await session.scalar(
+            select(func.count())
+            .select_from(Transaction)
+            .where(Transaction.planned_transaction_id == pt_id)
+        )
+        assert count == 0
 
 
 class TestPostDue:

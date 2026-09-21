@@ -39,21 +39,24 @@ class TestNoteText:
 
         assert note_text(note) == "284.00 planned for 12.09"
 
-    def test_a_thousand_keeps_its_separator(self) -> None:
+    def test_a_thousand_is_grouped_the_way_the_screen_groups(self) -> None:
+        # A space, through `spaced_thousands`: this line sits under a bar in
+        # a column whose Planned, Actual and Remaining cells all write
+        # `1 284.00`, and artboard `2b` writes the group that way too.
         note = RealizationNote(
             RealizationNoteKind.PLANNED_ON, datetime.date(2026, 9, 12), Decimal("1284.00")
         )
 
-        assert note_text(note) == "1,284.00 planned for 12.09"
+        assert note_text(note) == "1 284.00 planned for 12.09"
 
 
 class TestPolishTemplates:
     """The longest line the pace column has to hold.
 
-    Filled the way ``note_text`` fills them — ``,.2f``, so the decimal
-    separator is a dot even in Polish. That is the page's format everywhere
-    (the Planned, Actual and Remaining cells included), not something this
-    line invented.
+    Filled the way ``note_text`` fills them — a space between the thousands
+    and a dot before the grosze, in Polish as in English. That is the page's
+    format everywhere (the Planned, Actual and Remaining cells included),
+    not something this line invented.
     """
 
     def test_paid_in_full(self) -> None:

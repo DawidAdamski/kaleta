@@ -10,6 +10,17 @@ from kaleta.services import TransactionService
 from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, amount_class
 
 
+def spaced_thousands(text: str) -> str:
+    """``1,234.50`` -> ``1 234.50``: the grouping every artboard writes.
+
+    Python's ``,`` is the only grouping ``format`` offers, and the restyle
+    puts a space there instead — it is what Polish typography uses and what
+    each artboard draws. One function rather than a ``.replace`` at every
+    call site, so a screen cannot end up writing it both ways.
+    """
+    return text.replace(",", " ")
+
+
 def format_signed_amount(amount: Decimal | float, tx_type: TransactionType) -> str:
     """Format an amount with its sign, for views holding a plain number.
 

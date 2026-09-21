@@ -12,6 +12,16 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.services import BudgetService, with_session
 from kaleta.views.budget_plan.constants import month_options
+from kaleta.views.theme import (
+    BUTTON_INK,
+    MUTED,
+    MUTED_STRONG,
+    PAGE_EYEBROW,
+    PAGE_TITLE,
+    SELECT_PILL_SQUARE,
+    YEAR_CHIP,
+    YEAR_CHIP_ON,
+)
 
 
 def render_toolbar(
@@ -36,23 +46,29 @@ def render_toolbar(
         year_chips.refresh()
         on_years_changed()
 
-    with ui.row().classes("w-full items-center gap-3 flex-wrap"):
-        ui.label(t("budget_plan.title")).classes("text-2xl font-bold")
-        ui.space()
-        ui.label(t("budget_plan.years_label")).classes("text-sm text-slate-500")
+    with ui.row().classes("w-full items-end justify-between gap-6 no-wrap"):
+        with ui.column().classes("gap-0 min-w-0 shrink"):
+            # The help line is the eyebrow: it says what the grid under it
+            # responds to, which is exactly what artboard `2c` puts there.
+            ui.label(t("budget_plan.help_text")).classes(PAGE_EYEBROW).props(
+                "data-page-eyebrow"
+            ).tooltip(t("budget_plan.help_text_more"))
+            ui.label(t("budget_plan.title")).classes(PAGE_TITLE)
+        with ui.row().classes("items-center gap-3.5 no-wrap"):
+            ui.label(t("budget_plan.years_label")).classes(f"{MUTED_STRONG} text-[11.5px]")
 
-        @ui.refreshable
-        def year_chips() -> None:
-            for year in available_years:
-                active = year in state["years"]
-                ui.button(
-                    str(year),
-                    on_click=lambda yr=year: _toggle_year(yr),
-                ).props(f"rounded dense {'color=primary' if active else 'outline color=grey-6'}")
+            @ui.refreshable
+            def year_chips() -> None:
+                with ui.row().classes("gap-1.5 no-wrap"):
+                    for year in available_years:
+                        active = year in state["years"]
+                        ui.button(
+                            str(year),
+                            on_click=lambda yr=year: _toggle_year(yr),
+                            color=None,
+                        ).props("flat dense no-caps").classes(YEAR_CHIP_ON if active else YEAR_CHIP)
 
-        year_chips()
-
-    ui.label(t("budget_plan.help_text")).classes("text-sm text-slate-500")
+            year_chips()
 
     default_target = max(today.month, 2)
     copy_state: dict[str, Any] = {"target_month": default_target}
@@ -78,15 +94,15 @@ def render_toolbar(
             )
         on_copy_done()
 
-    with ui.row().classes("w-full items-center gap-2 flex-wrap"):
-        ui.label(t("budget_plan.copy_forward_into")).classes("text-sm text-slate-500")
+    with ui.row().classes("w-full items-center gap-2.5 flex-wrap"):
+        ui.label(t("budget_plan.copy_forward_into")).classes(f"{MUTED} text-[12px]")
         month_select = (
             ui.select(
                 options=month_options(),
                 value=default_target,
             )
-            .props("dense outlined")
-            .classes("w-40")
+            .props("dense options-dense borderless dropdown-icon=expand_more")
+            .classes(f"{SELECT_PILL_SQUARE} w-36")
         )
 
         def _on_month(e: Any) -> None:
@@ -97,4 +113,5 @@ def render_toolbar(
             t("budget_plan.copy_from"),
             icon="content_copy",
             on_click=_copy_from_prev,
-        ).props("color=primary unelevated size=sm")
+            color=None,
+        ).props("flat dense no-caps").classes(BUTTON_INK)

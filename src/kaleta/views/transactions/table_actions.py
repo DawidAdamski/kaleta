@@ -10,8 +10,13 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import TransactionService
-from kaleta.views.components.amount_label import net_tone
-from kaleta.views.theme import SELECTION_BAR
+from kaleta.views.components.amount_label import net_tone, spaced_thousands
+from kaleta.views.theme import (
+    SELECTION_ACTION,
+    SELECTION_ACTION_DANGER,
+    SELECTION_BAR,
+    SELECTION_DIVIDER,
+)
 
 
 def render_table_actions(
@@ -33,14 +38,20 @@ def render_table_actions(
         # is answered without a second query, by the same rule the group
         # separators use.
         total = TransactionService.net_of_rows(selected_rows)
-        with ui.row().classes(f"{SELECTION_BAR} w-full items-center gap-3 px-4 py-2 rounded-lg"):
+        with ui.row().classes(
+            f"{SELECTION_BAR} w-full items-center gap-[14px] px-[18px] py-[11px] rounded-[10px]"
+        ):
             ui.label(t("transactions.selected_count", count=n)).classes("text-[12.5px] font-medium")
-            delete_button = ui.button(icon="delete", on_click=on_delete).props(
-                "flat round dense color=negative size=sm"
+            # The hairline artboard `2a` puts between the count and the
+            # actions: the count says what you have, the rest what you can do
+            # with it, and the two are not one list.
+            ui.element("span").classes(SELECTION_DIVIDER)
+            delete_button = (
+                ui.button(t("common.delete"), icon="delete", on_click=on_delete, color=None)
+                .props("flat dense no-caps")
+                .classes(SELECTION_ACTION_DANGER)
             )
             delete_button.tooltip(t("transactions.delete_selected", count=n))
-            # An icon button with only a tooltip has no name to announce.
-            delete_button.props["aria-label"] = t("transactions.delete_selected", count=n)
 
             def _clear_selection() -> None:
                 # The page owns the table, so it is the one that can take the
@@ -48,8 +59,13 @@ def render_table_actions(
                 on_clear()
                 refresh()
 
-            clear_button = ui.button(icon="close", on_click=_clear_selection).props(
-                "flat round dense color=grey size=sm"
+            # No counterpart on the artboard, which draws a selection it never
+            # has to let go of. Dismissing one is the app's own need, so it
+            # takes the quietest shape on the bar.
+            clear_button = (
+                ui.button(icon="close", on_click=_clear_selection, color=None)
+                .props("flat round dense size=sm")
+                .classes(SELECTION_ACTION)
             )
             clear_button.tooltip(t("transactions.clear_selection"))
             clear_button.props["aria-label"] = t("transactions.clear_selection")
@@ -59,7 +75,7 @@ def render_table_actions(
             )
             # A selection of transfers nets to zero — which is neither money
             # in nor money out, and must not be painted as either.
-            ui.label(TransactionService.format_net(total)).classes(
+            ui.label(spaced_thousands(TransactionService.format_net(total))).classes(
                 f"{net_tone(total)} text-[12.5px]"
             )
 

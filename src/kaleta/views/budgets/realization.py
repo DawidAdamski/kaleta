@@ -1,7 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Budget realization tab row renderers."""
+"""Budget realization table — the six-column grid artboard `2b` draws.
+
+One paper card: a header rule, a row per category, and a Total row under a
+rule a shade stronger. Five of the six columns are figures, so the grid is
+fixed-width from the right and only the category name is elastic.
+"""
 
 from __future__ import annotations
+
+from decimal import Decimal
 
 from nicegui import ui
 
@@ -10,13 +17,35 @@ from kaleta.services.budget_service import (
     CategoryRealization,
     RealizationNote,
     RealizationNoteKind,
+    RealizationTotals,
 )
 from kaleta.views.budgets.constants import PACE_FILL, STATUS_LABEL_KEY
 from kaleta.views.budgets.helpers import fmt_pct
-from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_NEUTRAL, INK, MONO, ROW_HOVER
+from kaleta.views.components.amount_label import spaced_thousands
+from kaleta.views.theme import (
+    AMOUNT_EXPENSE,
+    AMOUNT_INCOME,
+    AMOUNT_WARNING,
+    INK,
+    INK_2,
+    MONO,
+    REALIZATION_GRID,
+    REALIZATION_GROUP,
+    REALIZATION_HEAD,
+    REALIZATION_NOTE,
+    REALIZATION_ROW,
+    REALIZATION_TOTAL,
+    STAT_CARD,
+    STAT_CARD_FIGURE,
+)
 
-#: The note line and the parent name share this; both are asides to the row.
-_ASIDE = "k-muted text-[12px]"
+#: The colour a percentage is set in, by the same threshold the bar is filled
+#: with — so the figure and the bar never disagree.
+_PCT_TONE = {
+    "on_track": AMOUNT_INCOME,
+    "warning": AMOUNT_WARNING,
+    "over": AMOUNT_EXPENSE,
+}
 
 
 def note_text(note: RealizationNote) -> str:
@@ -26,7 +55,7 @@ def note_text(note: RealizationNote) -> str:
         return t("budgets.realization.note_paid_in_full", date=when)
     return t(
         "budgets.realization.note_planned_on",
-        amount=f"{note.amount:,.2f}",
+        amount=_money(note.amount),
         date=when,
     )
 
@@ -52,45 +81,98 @@ def render_pace_bar(row: CategoryRealization) -> None:
     )
 
 
+def _money(amount: Decimal) -> str:
+    """A figure on this card: two places, thousands spaced as every artboard has them."""
+    return spaced_thousands(f"{amount:,.2f}")
+
+
 def render_realization_row(row: CategoryRealization) -> None:
-    remaining_cls = AMOUNT_EXPENSE if row.remaining < 0 else AMOUNT_NEUTRAL
-    with ui.row().classes(f"w-full items-start gap-3 py-2 px-3 rounded-lg {ROW_HOVER}"):
-        with ui.column().classes("flex-[2] min-w-0 gap-0"):
-            ui.label(row.category_name).classes(f"{INK} text-[13.5px] font-medium truncate")
+    remaining_cls = AMOUNT_EXPENSE if row.remaining < 0 else INK_2
+    with ui.element("div").classes(REALIZATION_ROW):
+        with ui.column().classes("gap-0 min-w-0"):
+            ui.label(row.category_name).classes(f"{INK} font-medium truncate")
             if row.parent_name:
-                ui.label(row.parent_name).classes(_ASIDE)
-        ui.label(f"{row.planned:,.2f}").classes(f"flex-1 text-right text-sm {AMOUNT_NEUTRAL}")
-        ui.label(f"{row.actual:,.2f}").classes(
-            f"flex-1 text-right text-sm font-medium {AMOUNT_NEUTRAL}"
+                ui.label(row.parent_name).classes(REALIZATION_NOTE)
+        ui.label(_money(row.planned)).classes(f"{MONO} {INK_2} text-right")
+        ui.label(_money(row.actual)).classes(f"{MONO} {INK} font-medium text-right")
+        ui.label(_money(row.remaining)).classes(f"{MONO} {remaining_cls} text-right")
+        ui.label(fmt_pct(row.used_pct)).classes(
+            f"{_PCT_TONE[row.status.value]} text-right text-[13.5px]"
         )
-        ui.label(f"{row.remaining:,.2f}").classes(f"flex-1 text-right text-sm {remaining_cls}")
-        ui.label(fmt_pct(row.used_pct)).classes(f"flex-1 text-right text-sm {MONO}")
-        # pt-1.5 drops the 7px track onto the text's own line: the row aligns
-        # to the top now, because a wrapped note must not shift the figures.
-        with ui.column().classes("w-56 gap-1 min-w-0 pt-1.5"):
+        # The bar's own column, indented from the figures: the artboard pushes
+        # it 22px clear so the track never reads as another number's cell.
+        with ui.column().classes("gap-1 min-w-0 pl-[22px]"):
             render_pace_bar(row)
             if row.note is not None:
                 # The line wraps rather than truncating: "Opłacone w całości
-                # 01.09 — zgodnie z planem" does not fit one 224px line, and a
+                # 01.09 — zgodnie z planem" does not fit one 178px line, and a
                 # half-shown explanation explains nothing.
-                ui.label(note_text(row.note)).classes(f"{_ASIDE} leading-tight")
+                ui.label(note_text(row.note)).classes(f"{REALIZATION_NOTE} leading-tight")
 
 
-def render_realization_header() -> None:
-    with ui.row().classes("w-full items-center gap-3 px-3 k-muted k-eyebrow"):
-        ui.label(t("budgets.realization.col_category")).classes("flex-[2]")
-        ui.label(t("budgets.realization.col_planned")).classes("flex-1 text-right")
-        ui.label(t("budgets.realization.col_actual")).classes("flex-1 text-right")
-        ui.label(t("budgets.realization.col_remaining")).classes("flex-1 text-right")
-        ui.label(t("budgets.realization.col_used_pct")).classes("flex-1 text-right")
-        ui.label(t("budgets.realization.col_pace")).classes("w-56")
+def render_realization_header(elapsed_pct: float) -> None:
+    with ui.element("div").classes(REALIZATION_HEAD):
+        ui.label(t("budgets.realization.col_category"))
+        ui.label(t("budgets.realization.col_planned")).classes("text-right")
+        ui.label(t("budgets.realization.col_actual")).classes("text-right")
+        ui.label(t("budgets.realization.col_remaining")).classes("text-right")
+        ui.label(t("budgets.realization.col_used_pct")).classes("text-right")
+        # The column says what the tick on every bar under it means, which is
+        # the only place on the screen that can say it once.
+        ui.label(t("budgets.realization.col_pace_vs", pct=f"{elapsed_pct:.0f}")).classes(
+            "pl-[22px]"
+        )
+
+
+def render_realization_total(rows: list[CategoryRealization]) -> None:
+    """The month added up, on the row artboard `2b` closes the card with."""
+    totals = RealizationTotals.of(rows)
+    with ui.element("div").classes(REALIZATION_TOTAL):
+        ui.label(t("budgets.realization.total"))
+        ui.label(_money(totals.planned)).classes(f"{MONO} text-right")
+        ui.label(_money(totals.actual)).classes(f"{MONO} text-right")
+        ui.label(_money(totals.remaining)).classes(
+            f"text-right {AMOUNT_EXPENSE if totals.remaining < 0 else AMOUNT_INCOME}"
+        )
+        ui.label(fmt_pct(totals.used_pct)).classes(f"{MONO} text-right")
+        ui.element("span")
+
+
+def render_realization_stats(rows: list[CategoryRealization]) -> None:
+    """The four cards artboard `2b` opens with: Planned, Actual, Remaining, Used.
+
+    The same four figures the Total row closes the table with — the reader
+    should not have to scroll past forty categories to learn whether the
+    month is inside its plan.
+    """
+    totals = RealizationTotals.of(rows)
+    with ui.row().classes("w-full gap-5 no-wrap"):
+        _stat(t("budgets.realization.col_planned"), _money(totals.planned), INK)
+        _stat(t("budgets.realization.col_actual"), _money(totals.actual), INK)
+        _stat(
+            t("budgets.realization.col_remaining"),
+            _money(totals.remaining),
+            AMOUNT_EXPENSE if totals.remaining < 0 else AMOUNT_INCOME,
+        )
+        _stat(
+            t("budgets.realization.used_of_over", over=totals.over, total=totals.rows),
+            fmt_pct(totals.used_pct),
+            AMOUNT_EXPENSE if totals.over else INK,
+        )
+
+
+def _stat(label: str, figure: str, tone: str) -> None:
+    with ui.column().classes(f"{STAT_CARD} gap-0"):
+        ui.label(label).classes("k-eyebrow")
+        ui.label(figure).classes(f"{STAT_CARD_FIGURE} {tone}")
 
 
 def render_realization_flat(rows: list[CategoryRealization]) -> None:
-    render_realization_header()
-    ui.separator().classes("my-1 opacity-40")
-    for row in rows:
-        render_realization_row(row)
+    with ui.element("div").classes(REALIZATION_GRID):
+        render_realization_header(rows[0].elapsed_pct if rows else 0.0)
+        for row in rows:
+            render_realization_row(row)
+        render_realization_total(rows)
 
 
 def render_realization_grouped(rows: list[CategoryRealization]) -> None:
@@ -99,11 +181,14 @@ def render_realization_grouped(rows: list[CategoryRealization]) -> None:
         key = row.parent_name or row.category_name
         groups.setdefault(key, []).append(row)
 
-    render_realization_header()
-    ui.separator().classes("my-1 opacity-40")
-    for group_name, group_rows in groups.items():
-        with ui.row().classes("w-full items-center gap-2 mt-3"):
-            ui.icon("folder", size="xs").classes("k-muted")
-            ui.label(group_name).classes("k-muted k-eyebrow")
-        for row in group_rows:
-            render_realization_row(row)
+    with ui.element("div").classes(REALIZATION_GRID):
+        render_realization_header(rows[0].elapsed_pct if rows else 0.0)
+        for group_name, group_rows in groups.items():
+            # A rule with nothing behind it: the parent names the rows under
+            # it and is not itself a row you can read figures off.
+            with ui.row().classes(f"{REALIZATION_GROUP} items-center gap-2"):
+                ui.icon("folder", size="xs").classes("k-muted")
+                ui.label(group_name).classes("k-muted k-eyebrow")
+            for row in group_rows:
+                render_realization_row(row)
+        render_realization_total(rows)

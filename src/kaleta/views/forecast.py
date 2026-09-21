@@ -27,27 +27,47 @@ from kaleta.views.components.amount_label import (
     format_net_amount,
     format_signed_amount,
     net_tone,
+    spaced_thousands,
 )
 from kaleta.views.components.forecast_chart import forecast_chart
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
-    ACCENT_SOFT,
+    ACCENT_TEXT,
     BODY_MUTED,
+    CARD_TITLE,
+    CARD_TITLE_SM,
+    CHART_KEY,
+    CHART_KEY_BAND,
+    CHART_KEY_DASH,
+    CHART_KEY_DOT,
+    CHART_KEY_LINE,
     DIALOG_TITLE,
     FILTER_CHIP,
     FILTER_CHIP_EMPTY,
-    KPI_VALUE,
+    FORECAST_HEAD,
+    FORECAST_ROW,
+    INK,
+    INK_2,
     MONO,
     MUTED,
+    PAGE_CONTAINER,
+    PAGE_EYEBROW,
+    PAGE_GAP_22,
     PAGE_TITLE,
+    RAIL_EYEBROW,
     SECTION_CARD,
-    SECTION_HEADING,
-    SECTION_TITLE,
+    SECTION_CARD_FEATURE,
+    SECTION_CARD_WIDE,
+    SEGMENT,
+    SELECT_PILL_SQUARE,
+    SENTENCE_FOOT,
     SKELETON,
-    TABLE_SURFACE,
+    STAT_CARD,
+    STAT_CARD_FIGURE,
+    TITLE_ACTION,
+    WARM_ACCENT,
     amount_class,
-    kpi_card_classes,
 )
 
 #: How long a control change waits before it re-runs itself.
@@ -55,6 +75,14 @@ _DEBOUNCE_SECONDS = 0.3
 
 #: Dates the reader sees, in the format the rest of the app writes them.
 _DATE_FMT = "%d.%m.%Y"
+
+#: The same date inside a table of daily rows, where the year is the same on
+#: every line and says nothing.
+_SHORT_DATE = "%d.%m"
+
+#: The two grids under the chart, each with the artboard's own columns.
+UPCOMING_COLS = "k-cols-upcoming"
+PLANNED_COLS = "k-cols-planned"
 
 
 @dataclass
@@ -181,44 +209,56 @@ def register() -> None:
             list(raw_scenarios) if isinstance(raw_scenarios, list) else []
         )
 
-        with page_layout(t("forecast.title")):
+        with page_layout(
+            t("forecast.title"), wide=True, container=f"{PAGE_CONTAINER} {PAGE_GAP_22}"
+        ):
             # Title row: the page says what it is on the left, and everything
             # that changes the answer sits on the right — so the first thing
             # below is the answer itself, not an empty frame and a button.
-            with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
-                ui.label(t("forecast.chart_title")).classes(PAGE_TITLE)
+            with ui.row().classes("w-full items-end justify-between gap-4 flex-wrap"):
+                with ui.column().classes("gap-0 min-w-0"):
+                    # What was asked, on the line above what came back: the
+                    # account, how much history there was and how far ahead.
+                    status = ui.label("").classes(PAGE_EYEBROW).props("data-page-eyebrow")
+                    ui.label(t("forecast.title")).classes(PAGE_TITLE)
                 with ui.row().classes("items-center gap-2 flex-wrap"):
                     account_sel = (
                         ui.select(account_options, value=_saved_account(account_options))
-                        .props("dense outlined options-dense")
-                        .classes("min-w-44")
+                        .props("dense options-dense borderless dropdown-icon=expand_more")
+                        .classes(f"{SELECT_PILL_SQUARE} min-w-44")
                     )
                     account_sel.props["aria-label"] = t("forecast.account")
+                    # A horizon is one of three, and a three-way choice reads
+                    # as three words you can see rather than a menu you have
+                    # to open. Mono, because they are day counts.
                     horizon_sel = (
-                        ui.select(
+                        ui.toggle(
                             {d: t(f"forecast.days_{d}") for d in _HORIZONS},
                             value=_saved_horizon(),
                         )
-                        .props("dense outlined options-dense")
-                        .classes("min-w-32")
+                        .props("dense unelevated no-caps toggle-text-color=info")
+                        .classes(f"{SEGMENT} {MONO}")
                     )
                     horizon_sel.props["aria-label"] = t("forecast.horizon")
                     preset_toggle = None
                     if prophet_available:
-                        preset_toggle = ui.toggle(preset_options, value=saved_preset).props(
-                            "dense no-caps color=primary"
+                        preset_toggle = (
+                            ui.toggle(preset_options, value=saved_preset)
+                            .props("dense unelevated no-caps toggle-text-color=info")
+                            .classes(SEGMENT)
                         )
-                    run_btn = ui.button(t("forecast.rerun"), icon="refresh").props(
-                        "flat dense no-caps color=primary"
+                    run_btn = (
+                        ui.button(t("forecast.rerun"), icon="refresh", color=None)
+                        .props("flat no-caps dense")
+                        .classes(TITLE_ACTION)
                     )
 
-            status = ui.label("").classes(BODY_MUTED)
-            kpi_row = ui.row().classes("w-full gap-4 flex-wrap")
-            chart_container = ui.column().classes("w-full gap-6")
-
-            with ui.card().classes(f"{SECTION_CARD} w-full"):
-                ui.label(t("forecast.scenarios_title")).classes(SECTION_TITLE)
-                scenario_row = ui.row().classes("items-center gap-2 flex-wrap mt-2")
+            kpi_row = ui.row().classes("w-full gap-[18px] flex-wrap items-stretch")
+            chart_container = ui.column().classes("w-full gap-5")
+            # The scenarios live under the chart they bend, inside its card,
+            # so the row is built by `_render_chart` and kept here for the
+            # handlers that repaint it on their own.
+            scenario_host: dict[str, ui.row | None] = {"row": None}
 
             run_state = _RunState()
             client = ui.context.client
@@ -331,6 +371,11 @@ def register() -> None:
                     ui.timer(_DEBOUNCE_SECONDS, _fire, once=True)
 
             def _render_scenarios() -> None:
+                # Nothing to draw into until the chart card exists: on a run
+                # that failed there is no card, and so no scenarios row.
+                scenario_row = scenario_host["row"]
+                if scenario_row is None:
+                    return
                 scenario_row.clear()
                 with scenario_row:
                     if not scenarios:
@@ -340,7 +385,7 @@ def register() -> None:
                         label = str(s.get("label", "—"))
                         with ui.row().classes(f"{FILTER_CHIP} gap-2"):
                             ui.label(f"{label} · {_display_date(s.get('date'))}").classes("text-xs")
-                            ui.label(f"{format_net_amount(amt)} zł").classes(
+                            ui.label(spaced_thousands(f"{format_net_amount(amt)} zł")).classes(
                                 f"{MONO} text-xs {net_tone(Decimal(str(amt)))}"
                             )
                             remove = (
@@ -446,7 +491,7 @@ def register() -> None:
                 with kpi_row:
                     for _ in range(4):
                         ui.skeleton().classes(f"{SKELETON} flex-1 min-w-52 h-24 rounded-xl")
-                with chart_container, ui.card().classes(f"{SECTION_CARD} w-full"):
+                with chart_container, ui.card().classes(f"{SECTION_CARD_FEATURE} w-full"):
                     ui.skeleton().classes(f"{SKELETON} w-full h-96 rounded-xl")
 
             async def run_forecast() -> None:
@@ -589,23 +634,29 @@ def register() -> None:
                 return True
 
             def _render_kpis(kpis: ForecastKpis) -> None:
+                """Four figures, and nothing else on the card.
+
+                They used to carry a round icon and a dated hint line, which
+                on a 300px card pushed a seven-figure balance onto two lines.
+                Artboard `3a` gives each card one label and one number; what
+                the number is *as of* belongs on its tooltip.
+                """
                 kpi_row.clear()
+                horizon = int(horizon_sel.value or run_state.horizon)
                 with kpi_row:
                     _kpi(
                         "balance_today",
                         t("forecast.kpi_balance_today"),
                         _money(kpis.balance_today),
-                        "account_balance",
-                        # Dated like the predicted figure beside it: history
-                        # ends at the last transaction, so on a quiet account
-                        # "today" is not today.
+                        # History ends at the last transaction, so on a quiet
+                        # account "today" is not today — which is what the
+                        # date it is really as of has to say.
                         hint=_at_date(kpis.balance_date),
                     )
                     _kpi(
                         "predicted",
-                        t("forecast.kpi_predicted"),
+                        t("forecast.kpi_predicted_in", days=horizon),
                         _money(kpis.predicted),
-                        "trending_flat",
                         hint=_at_date(kpis.horizon_date),
                     )
                     change_tone = (
@@ -613,16 +664,18 @@ def register() -> None:
                     )
                     _kpi(
                         "change",
-                        t("forecast.kpi_change"),
+                        t("forecast.kpi_change_over", days=horizon),
                         _money_net(kpis.change),
-                        "swap_vert",
                         value_cls=change_tone,
                     )
                     _kpi(
                         "confidence",
-                        t("forecast.kpi_confidence"),
-                        "—" if kpis.confidence is None else f"± {kpis.confidence:,.2f} zł",
-                        "linear_scale",
+                        t("forecast.kpi_confidence_at", days=horizon),
+                        (
+                            "—"
+                            if kpis.confidence is None
+                            else spaced_thousands(f"± {kpis.confidence:,.2f}")
+                        ),
                         hint=t("forecast.kpi_confidence_hint"),
                     )
 
@@ -633,125 +686,100 @@ def register() -> None:
             ) -> None:
                 chart_container.clear()
                 with chart_container:
-                    with ui.card().classes(f"{SECTION_CARD} w-full"):
-                        ui.label(
-                            t("forecast.chart_title_account", account=result.account_name)
-                        ).classes(SECTION_HEADING)
-                        if not prophet_available:
-                            # A footnote, not an amber banner: the projection
-                            # still works, and the page is not an error page.
-                            with ui.row().classes("items-center gap-1 mt-0.5"):
-                                ui.label(t("forecast.fallback_footnote")).classes(
-                                    f"{MUTED} text-xs"
-                                )
-                                ui.link(
-                                    t("forecast.fallback_docs_link"),
-                                    _PROPHET_DOCS_URL,
-                                    new_tab=True,
-                                ).classes("text-xs")
+                    with ui.card().classes(f"{SECTION_CARD_FEATURE} w-full gap-0"):
+                        with ui.row().classes("w-full items-start justify-between gap-6 flex-wrap"):
+                            with ui.column().classes("gap-0 min-w-0"):
+                                ui.label(
+                                    t(
+                                        "forecast.chart_title_account",
+                                        account=result.account_name,
+                                    )
+                                ).classes(CARD_TITLE)
+                                if not prophet_available:
+                                    # A footnote, not an amber banner: the
+                                    # projection still works, and the page is
+                                    # not an error page.
+                                    with ui.row().classes("items-center gap-[7px] mt-1.5"):
+                                        ui.icon("info", size="15px").classes(WARM_ACCENT)
+                                        ui.label(t("forecast.fallback_footnote")).classes(
+                                            f"{INK_2} text-[11.5px]"
+                                        )
+                                        ui.link(
+                                            t("forecast.fallback_docs_link"),
+                                            _PROPHET_DOCS_URL,
+                                            new_tab=True,
+                                        ).classes(f"{ACCENT_TEXT} text-[11.5px] no-underline")
+                            _chart_legend(with_baseline=baseline is not None)
                         ui.echart(
                             forecast_chart(result, is_dark, baseline=baseline, scenarios=shifts)
-                        ).classes("w-full h-96 mt-3")
+                        ).classes("w-full h-[300px] mt-2")
+                        # The scenarios sit under the line they bend, not in
+                        # a card of their own at the foot of the page.
+                        with ui.row().classes(f"{SENTENCE_FOOT} w-full items-center gap-2.5"):
+                            ui.label(t("forecast.scenarios_title")).classes(f"{RAIL_EYEBROW} mr-1")
+                            scenario_host["row"] = ui.row().classes(
+                                "items-center gap-2.5 flex-wrap"
+                            )
+                        _render_scenarios()
 
-                    _render_upcoming(result)
-                    _render_planned(result)
+                    # Side by side, as artboard `3a` draws them: one says what
+                    # the line will be worth, the other what is already inside
+                    # it, and the two are read against each other.
+                    with ui.row().classes("w-full gap-5 items-start no-wrap"):
+                        _render_upcoming(result)
+                        _render_planned(result)
+
+            def _chart_legend(*, with_baseline: bool) -> None:
+                """The four keys, on the title line rather than under the frame."""
+                with ui.row().classes("items-center gap-4 flex-wrap"):
+                    _legend_key(CHART_KEY_LINE, t("forecast.actual"))
+                    _legend_key(CHART_KEY_DASH, t("forecast.predicted"))
+                    _legend_key(CHART_KEY_BAND, t("forecast.confidence_band"))
+                    if with_baseline:
+                        _legend_key(CHART_KEY_DOT, t("forecast.baseline_reference"))
 
             def _render_upcoming(result: ForecastResult) -> None:
-                with ui.card().classes(f"{SECTION_CARD} w-full"):
-                    ui.label(t("forecast.upcoming_14")).classes(SECTION_HEADING)
-                    columns = [
-                        {
-                            "name": "date",
-                            "label": t("common.date"),
-                            "field": "date",
-                            "align": "left",
-                        },
-                        {
-                            "name": "yhat",
-                            "label": t("forecast.predicted"),
-                            "field": "yhat",
-                            "align": "right",
-                        },
-                        {
-                            "name": "lower",
-                            "label": t("forecast.lower_ci"),
-                            "field": "lower",
-                            "align": "right",
-                        },
-                        {
-                            "name": "upper",
-                            "label": t("forecast.upper_ci"),
-                            "field": "upper",
-                            "align": "right",
-                        },
-                    ]
-                    rows = [
-                        {
-                            "date": p.date.strftime(_DATE_FMT),
-                            "yhat": f"{p.value:,.2f} zł",
-                            "lower": f"{p.lower:,.2f} zł",
-                            "upper": f"{p.upper:,.2f} zł",
-                        }
-                        for p in result.forecast[:14]
-                    ]
-                    ui.table(columns=columns, rows=rows).classes(
-                        f"{TABLE_SURFACE} {MONO} mt-3"
-                    ).props("flat dense")
+                with ui.card().classes(f"{SECTION_CARD_WIDE} flex-1 min-w-0 gap-0"):
+                    ui.label(t("forecast.upcoming_14")).classes(CARD_TITLE_SM)
+                    ui.label(t("forecast.upcoming_14_hint")).classes(
+                        f"{MUTED} text-[12px] mt-1.5 mb-3.5"
+                    )
+                    with ui.element("div").classes(f"{FORECAST_HEAD} {UPCOMING_COLS} w-full"):
+                        ui.label(t("common.date"))
+                        ui.label(t("forecast.predicted")).classes("text-right")
+                        ui.label(t("forecast.lower_ci")).classes("text-right")
+                        ui.label(t("forecast.upper_ci")).classes("text-right")
+                    for point in result.forecast[:14]:
+                        with ui.element("div").classes(f"{FORECAST_ROW} {UPCOMING_COLS} w-full"):
+                            ui.label(point.date.strftime(_SHORT_DATE)).classes(f"{MONO} {MUTED}")
+                            ui.label(_plain(point.value)).classes(f"{MONO} {INK} text-right")
+                            ui.label(_plain(point.lower)).classes(f"{MONO} {MUTED} text-right")
+                            ui.label(_plain(point.upper)).classes(f"{MONO} {MUTED} text-right")
 
             def _render_planned(result: ForecastResult) -> None:
-                if not result.planned_occurrences:
-                    return
-                with ui.card().classes(f"{SECTION_CARD} w-full"):
-                    ui.label(t("forecast.planned_in_period")).classes(SECTION_HEADING)
-                    p_cols = [
-                        {
-                            "name": "date",
-                            "label": t("common.date"),
-                            "field": "date",
-                            "align": "left",
-                        },
-                        {
-                            "name": "name",
-                            "label": t("planned.name"),
-                            "field": "name",
-                            "align": "left",
-                        },
-                        {
-                            "name": "category",
-                            "label": t("common.category"),
-                            "field": "category",
-                            "align": "left",
-                        },
-                        {
-                            "name": "amount",
-                            "label": t("common.amount"),
-                            "field": "amount",
-                            "align": "right",
-                        },
-                    ]
-                    p_rows = [
-                        {
-                            "date": occ.date.strftime(_DATE_FMT),
-                            "name": occ.name,
-                            "category": occ.category_name or "—",
-                            "amount": format_signed_amount(occ.amount, occ.type),
-                            "amount_class": amount_class(occ.type.value),
-                        }
-                        for occ in result.planned_occurrences
-                    ]
-                    p_tbl = (
-                        ui.table(columns=p_cols, rows=p_rows)
-                        .classes(f"{TABLE_SURFACE} mt-3")
-                        .props("flat dense")
+                with ui.card().classes(f"{SECTION_CARD_WIDE} flex-1 min-w-0 gap-0"):
+                    ui.label(t("forecast.planned_in_period")).classes(CARD_TITLE_SM)
+                    ui.label(t("forecast.planned_in_period_hint")).classes(
+                        f"{MUTED} text-[12px] mt-1.5 mb-3.5"
                     )
-                    p_tbl.add_slot(
-                        "body-cell-amount",
-                        '<q-td :props="props" class="text-right">'
-                        '<span class="k-mono" :class="props.row.amount_class">'
-                        "{{ props.row.amount }}</span></q-td>",
-                    )
-
-            _render_scenarios()
+                    if not result.planned_occurrences:
+                        ui.label(t("forecast.planned_none")).classes(BODY_MUTED)
+                        return
+                    with ui.element("div").classes(f"{FORECAST_HEAD} {PLANNED_COLS} w-full"):
+                        ui.label(t("common.date"))
+                        ui.label(t("planned.name"))
+                        ui.label(t("common.category"))
+                        ui.label(t("common.amount")).classes("text-right")
+                    for occ in result.planned_occurrences:
+                        with ui.element("div").classes(f"{FORECAST_ROW} {PLANNED_COLS} w-full"):
+                            ui.label(occ.date.strftime(_SHORT_DATE)).classes(
+                                f"{MONO} {MUTED} text-[12px]"
+                            )
+                            ui.label(occ.name).classes(f"{INK} truncate")
+                            ui.label(occ.category_name or "—").classes(f"{MUTED} truncate")
+                            ui.label(
+                                spaced_thousands(format_signed_amount(occ.amount, occ.type))
+                            ).classes(f"{MONO} {amount_class(occ.type.value)} text-right")
 
             for control in (account_sel, horizon_sel):
                 control.on_value_change(lambda _: _on_controls_changed())
@@ -793,17 +821,28 @@ def _display_date(iso: object) -> str:
 
 
 def _money(value: float | None) -> str:
-    return "—" if value is None else f"{value:,.2f} zł"
+    return "—" if value is None else spaced_thousands(f"{value:,.2f} zł")
+
+
+def _plain(value: float | None) -> str:
+    """A figure inside a grid of figures: no currency, spaces for thousands.
+
+    The card says once what the column is in; repeating "zł" on ninety cells
+    is ninety readings of the same fact.
+    """
+    return "—" if value is None else spaced_thousands(f"{value:,.2f}")
+
+
+def _legend_key(shape: str, label: str) -> None:
+    ui.label(label).classes(f"{CHART_KEY} {shape}")
 
 
 def _money_net(value: float | None) -> str:
     """A signed figure, through the ledger's own rule — zero carries no sign."""
-    return "—" if value is None else f"{format_net_amount(value)} zł"
+    return "—" if value is None else spaced_thousands(f"{format_net_amount(value)} zł")
 
 
-def _kpi(
-    key: str, title: str, value: str, icon: str, *, value_cls: str = "", hint: str = ""
-) -> None:
+def _kpi(key: str, title: str, value: str, *, value_cls: str = "", hint: str = "") -> None:
     """One of the four figures above the chart.
 
     ``key`` names the figure on the card itself. Three of the four titles —
@@ -811,17 +850,16 @@ def _kpi(
     legend and in the table below, so a reader (or a test) looking for *the
     figure* needs something better than the text to find it by.
     """
-    card = ui.card().classes(kpi_card_classes())
+    card = ui.column().classes(f"{STAT_CARD} gap-0")
     card.props["data-kpi"] = key
-    with card, ui.row().classes("items-center gap-4 w-full"):
-        with ui.element("div").classes(
-            f"h-10 w-10 rounded-xl {ACCENT_SOFT} flex items-center justify-center shrink-0"
-        ):
-            ui.icon(icon, size="1.6rem")
-        with ui.column().classes("gap-1 min-w-0 flex-1"):
-            ui.label(title).classes(SECTION_TITLE)
-            ui.label(value).classes(f"{KPI_VALUE} {value_cls}")
-            # A blank line, not an em dash: "—" is what `_money` prints for a
-            # missing figure, and under a figure that has one it would read as
-            # "no data" rather than "nothing more to say".
-            ui.label(hint or "\u00a0").classes(f"{MUTED} text-xs")
+    # What the figure is as of, on the card rather than under it: artboard
+    # `3a` gives the card one label and one number, and a third line was what
+    # pushed a seven-figure balance onto two. The fact itself does not move —
+    # it is on the element, so the tooltip and a test can both read it.
+    if hint:
+        card.props["data-as-of"] = hint
+    with card:
+        ui.label(title).classes("k-eyebrow")
+        figure = ui.label(value).classes(f"{STAT_CARD_FIGURE} {value_cls}")
+        if hint:
+            figure.tooltip(hint)

@@ -11,6 +11,7 @@ from __future__ import annotations
 from kaleta.services.saved_report_service import ReportResult
 from kaleta.views.chart_utils import chart_palette
 from kaleta.views.reports.chart_options import report_chart_options
+from kaleta.views.theme import BAR_RAMP_STEPS, bar_ramp
 
 
 def _result(labels: list[str] | None = None, values: list[float] | None = None) -> ReportResult:
@@ -22,57 +23,36 @@ def _result(labels: list[str] | None = None, values: list[float] | None = None) 
     )
 
 
-class TestBarOptions:
-    def test_the_bars_run_left_to_right(self) -> None:
-        # Vertical bars had to rotate the category names 30° past six items,
-        # and a rotated name is slower to read than the number beside it.
-        options = report_chart_options(_result(), "bar", is_dark=False)
-        assert options["yAxis"]["type"] == "category"
-        assert options["xAxis"]["type"] == "value"
+class TestBarRamp:
+    """The bar result is rows of HTML now, so what used to be an ECharts
+    option is a ramp step per rank (`KAL-RPT-002`). The rows themselves are
+    covered end to end; this is the arithmetic behind their colour."""
 
-    def test_the_first_row_lands_at_the_top(self) -> None:
-        # ECharts fills a category axis bottom-up, so both the labels and the
-        # data are reversed here — the chart then reads in the same order as
-        # the rows it was given. Which row comes first is the query's business
-        # (`ORDER BY metric DESC` in the service), not this function's.
-        options = report_chart_options(_result(), "bar", is_dark=False)
-        assert options["yAxis"]["data"] == ["Fun", "Rent", "Food"]
-        assert [d["value"] for d in options["series"][0]["data"]] == [200.0, 500.0, 300.0]
+    def test_the_first_row_takes_the_darkest_step(self) -> None:
+        assert bar_ramp(0, 10) == "var(--k-ramp-1)"
 
-    def test_a_label_keeps_the_value_it_arrived_with(self) -> None:
-        # The reversal pairs labels and values by position; getting it wrong
-        # would put every number against the wrong name.
-        options = report_chart_options(_result(), "bar", is_dark=False)
-        paired = dict(
-            zip(
-                options["yAxis"]["data"],
-                [d["value"] for d in options["series"][0]["data"]],
-                strict=True,
-            )
+    def test_the_last_row_takes_the_lightest(self) -> None:
+        assert bar_ramp(9, 10) == f"var(--k-ramp-{BAR_RAMP_STEPS})"
+
+    def test_the_ramp_never_runs_past_its_last_step(self) -> None:
+        # Twenty rows share six greens; a 21st step would be a variable that
+        # does not exist, and the bar would come out unpainted.
+        assert all(
+            bar_ramp(rank, 20) in {f"var(--k-ramp-{n})" for n in range(1, BAR_RAMP_STEPS + 1)}
+            for rank in range(20)
         )
-        assert paired == {"Food": 300.0, "Rent": 500.0, "Fun": 200.0}
 
-    def test_each_bar_carries_its_value_and_its_share(self) -> None:
-        options = report_chart_options(_result(), "bar", is_dark=False)
-        data = options["series"][0]["data"]
-        assert [d["share"] for d in data] == [20.0, 50.0, 30.0]
-        assert "{@value}" in options["series"][0]["label"]["formatter"]
-        assert "{@share}" in options["series"][0]["label"]["formatter"]
+    def test_it_never_goes_backwards(self) -> None:
+        steps = [int(bar_ramp(rank, 13).split("-")[-1].rstrip(")")) for rank in range(13)]
+        assert steps == sorted(steps)
 
-    def test_the_bars_take_a_colour_from_the_app_palette(self) -> None:
-        options = report_chart_options(_result(), "bar", is_dark=False)
-        assert options["series"][0]["itemStyle"]["color"] in chart_palette(False)
+    def test_a_single_row_is_not_divided_by_zero(self) -> None:
+        assert bar_ramp(0, 1) == "var(--k-ramp-1)"
 
-    def test_dark_mode_changes_the_colours_and_not_the_data(self) -> None:
-        light = report_chart_options(_result(), "bar", is_dark=False)
-        dark = report_chart_options(_result(), "bar", is_dark=True)
-        assert light["yAxis"]["data"] == dark["yAxis"]["data"]
-        assert light["series"][0]["itemStyle"]["color"] != dark["series"][0]["itemStyle"]["color"]
-
-    def test_an_empty_result_still_produces_a_drawable_option(self) -> None:
-        options = report_chart_options(_result([], []), "bar", is_dark=False)
-        assert options["series"][0]["data"] == []
-        assert options["yAxis"]["data"] == []
+    def test_the_bar_type_is_not_answered_here_any_more(self) -> None:
+        # `report_chart_options` only ever answers for the three types that
+        # really are charts; `bar` is rows and `table` is a table.
+        assert report_chart_options(_result(), "bar", is_dark=False)["series"][0]["type"] == "line"
 
 
 class TestOtherTypes:
@@ -94,14 +74,6 @@ class TestOtherTypes:
         assert options["series"][0]["data"] == [300.0, 500.0, 200.0]
 
     def test_every_type_gets_the_palette_seeded(self) -> None:
-        for chart_type in ("bar", "line", "pie", "donut"):
+        for chart_type in ("line", "pie", "donut"):
             options = report_chart_options(_result(), chart_type, is_dark=False)
             assert options["color"] == chart_palette(False)
-
-
-class TestShareRounding:
-    def test_a_third_is_not_labelled_to_fifteen_decimal_places(self) -> None:
-        # The label prints the share verbatim, so an exact float would read
-        # "33.333333333333336%" — precision the chart does not have.
-        options = report_chart_options(_result(["A", "B", "C"], [1.0, 1.0, 1.0]), "bar", False)
-        assert [d["share"] for d in options["series"][0]["data"]] == [33.3, 33.3, 33.3]

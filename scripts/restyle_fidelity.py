@@ -97,6 +97,7 @@ ARTBOARDS: tuple[Artboard, ...] = (
         "Transactions",
         "/transactions",
         (f"{VIEWS}/transactions", f"{VIEWS}/components"),
+        prepare="ledger",
     ),
     Artboard(
         "2b",
@@ -119,11 +120,30 @@ ARTBOARDS: tuple[Artboard, ...] = (
         "/forecast",
         (f"{VIEWS}/forecast.py", f"{VIEWS}/chart_utils.py"),
         settle_ms=6000,
+        prepare="rest_pointer",
     ),
     Artboard("3b", "Net Worth", "/net-worth", (f"{VIEWS}/net_worth.py",)),
-    Artboard("3c", "Payment Calendar", "/payment-calendar", (f"{VIEWS}/payment_calendar.py",)),
-    Artboard("3d", "Financial Wizard", "/wizard", (f"{VIEWS}/wizard.py",)),
-    Artboard("3e", "Report builder", "/reports/builder", (f"{VIEWS}/reports",)),
+    Artboard(
+        "3c",
+        "Payment Calendar",
+        "/payment-calendar",
+        (f"{VIEWS}/payment_calendar.py",),
+        prepare="calendar_day",
+    ),
+    Artboard(
+        "3d",
+        "Financial Wizard",
+        "/wizard",
+        (f"{VIEWS}/wizard.py",),
+        prepare="wizard_setup_open",
+    ),
+    Artboard(
+        "3e",
+        "Report builder",
+        "/reports/builder",
+        (f"{VIEWS}/reports",),
+        prepare="report_run",
+    ),
     Artboard(
         "3f",
         "Login, desktop and phone",
@@ -132,6 +152,7 @@ ARTBOARDS: tuple[Artboard, ...] = (
         viewports=((1360, 900), (390, 844)),
         needs_login=False,
         drawer=None,
+        prepare="login_error",
     ),
 )
 BY_ID = {a.id: a for a in ARTBOARDS}
@@ -360,8 +381,15 @@ class EphemeralApp:
         (home / ".kaleta" / "config.json").write_text(
             json.dumps({"db_url": db_url, "name": "fidelity"}), encoding="utf-8"
         )
+        # `scripts/seed.py`, not the demo seed: the artboards are drawn on a
+        # ledger that has payees, tags, planned transactions, subscriptions and
+        # physical assets in it, and `DataService.seed` carries none of those.
+        # It drops and recreates every table from the models, so the schema is
+        # stamped back to head afterwards and the demo login made separately.
         self._run(["uv", "run", "alembic", "upgrade", "head"], env)
-        self._run(["uv", "run", "python", "scripts/reset_demo.py", "--force"], env)
+        self._run(["uv", "run", "python", "scripts/seed.py"], env)
+        self._run(["uv", "run", "alembic", "stamp", "head"], env)
+        self._run(["uv", "run", "python", "scripts/reset_demo.py", "--force", "--no-seed"], env)
         self._log = (home / "server.log").open("wb")
         self._proc = subprocess.Popen(
             ["uv", "run", "kaleta"], cwd=ROOT, env=env, stdout=self._log, stderr=subprocess.STDOUT
@@ -415,15 +443,23 @@ class Shooter:
                 continue
             # One context per theme: `dark_mode` lives in the user's storage,
             # and a fresh context is the only honest way back to light.
-            context = self._browser.new_context()
-            page = context.new_page()
-            if any(a.needs_login for a in batch):
-                self._login(page)
-                if theme == "dark":
-                    self._go_dark(page)
-            for artboard in batch:
-                self._shoot_one(page, artboard)
-            context.close()
+            # Two contexts, not one: an authenticated session answers /login
+            # with a redirect to the dashboard, so an artboard drawn signed
+            # out has to be shot before anything signs in. `3f` was a picture
+            # of `1c` until this split.
+            for signed_in in (True, False):
+                wanted = [a for a in batch if a.needs_login is signed_in]
+                if not wanted:
+                    continue
+                context = self._browser.new_context()
+                page = context.new_page()
+                if signed_in:
+                    self._login(page)
+                    if theme == "dark":
+                        self._go_dark(page)
+                for artboard in wanted:
+                    self._shoot_one(page, artboard)
+                context.close()
 
     def _shoot_one(self, page: Page, artboard: Artboard) -> None:
         out = SHOT_DIR / artboard.id
@@ -480,6 +516,94 @@ class Shooter:
         if is_mini != (state == "mini"):
             toggle.first.click()
             page.wait_for_timeout(400)
+        # Off the toggle afterwards: the pointer left there opens its tooltip,
+        # and a tooltip nobody asked for was being photographed on every
+        # screen whose prepare hook did not happen to move the mouse.
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(250)
+
+    @staticmethod
+    def _prepare_ledger(page: Page) -> None:
+        """Week separators and a live selection — the two states `2a` draws.
+
+        The grouping toggle and the checkboxes are the app's own controls, so
+        the picture is of the ledger a reader would have in front of them,
+        not of a ledger dressed up for the camera.
+        """
+        page.locator(".k-chip-types").first.click()
+        page.locator(".q-menu .q-field__native").first.click()
+        page.locator(".q-menu .q-item").filter(has_text="Expense").first.click()
+        page.keyboard.press("Escape")
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(800)
+        page.get_by_role("button", name="Week", exact=True).click()
+        page.wait_for_timeout(600)
+        boxes = page.locator(".k-ledger-card tbody .q-checkbox")
+        for index in range(min(3, boxes.count())):
+            boxes.nth(index).click()
+        page.wait_for_timeout(400)
+
+    @staticmethod
+    def _prepare_login_error(page: Page) -> None:
+        """A failed attempt, which is the state artboard `3f` is drawn in.
+
+        The reserved strip is the point of that artboard: it is what keeps the
+        button from moving out from under a second try, and an empty one says
+        nothing about whether it works.
+        """
+        page.get_by_label("Username", exact=True).fill("dawid")
+        page.get_by_label("Password", exact=True).fill("not-the-password")
+        page.get_by_role("button", name="Log in").click()
+        # Off the button before the shutter: a pointer left resting on it
+        # photographs its hover state, which is not what the artboard draws.
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(1200)
+
+    @staticmethod
+    def _prepare_rest_pointer(page: Page) -> None:
+        """Take the pointer off whatever it landed on.
+
+        A shot taken with the cursor parked over a drawer button photographs
+        that button's tooltip, which is not on any artboard.
+        """
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(400)
+
+    @staticmethod
+    def _prepare_wizard_setup_open(page: Page) -> None:
+        """Open the Setup section, which artboard `3d` draws expanded.
+
+        The page collapses it once all four steps are ticked — the artboard
+        annotates that behaviour and still draws the open state, so the shot
+        has to click it open.
+        """
+        cards = page.locator("[data-setup-step]").first
+        if cards.is_visible():
+            return
+        page.locator('[data-section="setup"]').click()
+        cards.wait_for(timeout=5000)
+
+    @staticmethod
+    def _prepare_report_run(page: Page) -> None:
+        """Run the report: artboard `3e` draws the answer, not the empty frame."""
+        page.get_by_role("button", name="Run").click()
+        page.locator(".k-report-bar-row").first.wait_for(timeout=15000)
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(400)
+
+    @staticmethod
+    def _prepare_calendar_day(page: Page) -> None:
+        """Open the 14th: a planned row and a subscription charge, as `3c` draws.
+
+        Today is whatever day the shoot runs on and usually has nothing on
+        it, so the sheet would be photographed empty. The 14th is the day the
+        seed puts one of each on, which is the sheet the artboard is a
+        picture of - both its sections, with something under each.
+        """
+        page.locator('[data-day$="-14"]').click()
+        page.locator(".k-day-panel .k-day-item").first.wait_for(timeout=5000)
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(400)
 
     @staticmethod
     def _prepare_realization_tab(page: Page) -> None:

@@ -14,7 +14,7 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.schemas.category import CategoryType
 from kaleta.services import (
     AccountService,
@@ -24,19 +24,31 @@ from kaleta.services import (
     with_session,
 )
 from kaleta.services.wizard_mentor_service import MentorSuggestion, WizardMentorService
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     ACCENT_RULE,
     ACCENT_TEXT,
-    BODY_MUTED,
-    HAIRLINE_BOTTOM,
-    HAIRLINE_ROW,
+    BUTTON_INK,
+    BUTTON_OUTLINE,
     INK,
+    INK_2,
+    LINK_ACTION,
+    MENTOR_EYEBROW,
     MUTED,
+    PAGE_CONTAINER,
+    PAGE_EYEBROW,
+    PAGE_GAP_26,
+    PAGE_ROOMY,
     PAGE_TITLE,
-    SECTION_CARD,
-    SECTION_HEADING,
+    ROUTINE_DESC,
+    ROUTINE_ROW,
+    SECTION_CARD_FEATURE,
+    SECTION_RULE,
+    SECTION_RULE_TITLE,
     SECTION_TITLE,
+    SETUP_CARD,
+    SETUP_TICK,
 )
 
 # (icon, step_key, section)  — section groups them visually
@@ -121,6 +133,9 @@ class SetupStep:
     title_key: str
     url: str
     hint_key: str
+    #: What the way-in says once the step is ticked. "Edit" for the three
+    #: that hold a list you go back to; the import is never finished.
+    done_action_key: str = "wizard.setup_edit"
 
 
 _ONBOARDING: list[SetupStep] = [
@@ -151,6 +166,7 @@ _ONBOARDING: list[SetupStep] = [
         title_key="wizard.setup_import",
         url="/import",
         hint_key="wizard.setup_import_hint",
+        done_action_key="wizard.setup_import_more",
     ),
 ]
 
@@ -190,22 +206,36 @@ def register() -> None:
             (n_expense_cats > 0 and n_income_cats > 0),
             n_transactions > 0,
         ]
+        # Terse, the way artboard `3d` sets them: the tick already says the
+        # step is done, so the line under it only has to say how much of it
+        # there is.
         done_counts = [
-            t("wizard.setup_institution_count", count=n_institutions),
-            t("wizard.setup_account_count", count=n_accounts),
+            t(plural_key("wizard.setup_institution_count", n_institutions), count=n_institutions),
+            t(plural_key("wizard.setup_account_count", n_accounts), count=n_accounts),
             t("wizard.setup_categories_count", expense=n_expense_cats, income=n_income_cats),
-            t("wizard.setup_import_count", count=n_transactions),
+            t(
+                plural_key("wizard.setup_import_count", n_transactions),
+                count=spaced_thousands(f"{n_transactions:,}"),
+            ),
         ]
 
         all_done = all(done_flags)
 
-        with page_layout(t("nav.wizard")):
+        with page_layout(
+            t("nav.wizard"),
+            wide=True,
+            container=f"{PAGE_CONTAINER} {PAGE_ROOMY} {PAGE_GAP_26}",
+        ):
             # ── Hero ──────────────────────────────────────────────────────────
-            with ui.row().classes("w-full items-center gap-4"):
-                ui.icon("auto_awesome", size="2.2rem").classes(ACCENT_TEXT)
-                with ui.column().classes("gap-1 min-w-0"):
-                    ui.label(t("wizard.title")).classes(PAGE_TITLE)
-                    ui.label(t("wizard.subtitle")).classes(f"{BODY_MUTED} max-w-2xl")
+            # No mark beside the title: the drawer already carries this page's
+            # icon, and the accent on this screen belongs to the one
+            # suggestion under the title.
+            with ui.column().classes("gap-0 max-w-[640px]"):
+                ui.label(_hero_eyebrow(all_done, mentor_suggestions)).classes(PAGE_EYEBROW).props(
+                    "data-page-eyebrow"
+                )
+                ui.label(t("wizard.title")).classes(PAGE_TITLE)
+                ui.label(t("wizard.subtitle")).classes(f"{INK_2} text-[13.5px] leading-[1.6] mt-3")
 
             # ── Mentor ────────────────────────────────────────────────────────
             # One suggestion, above everything else, because it is the only
@@ -214,8 +244,12 @@ def register() -> None:
                 dismissed: set[str] = set(app.storage.user.get("wizard_mentor_dismissed", []))
                 visible = [s for s in mentor_suggestions if s.key not in dismissed]
 
-                with ui.card().classes(f"{SECTION_CARD} {ACCENT_RULE} gap-2"):
-                    mentor_slot = ui.column().classes("w-full gap-2")
+                with (
+                    ui.card().classes(f"{SECTION_CARD_FEATURE} {ACCENT_RULE} gap-0"),
+                    ui.row().classes("w-full items-start gap-5 no-wrap"),
+                ):
+                    ui.icon("lightbulb", size="26px").classes(f"{ACCENT_TEXT} mt-0.5 flex-none")
+                    mentor_slot = ui.column().classes("flex-1 min-w-0 gap-0")
 
                 def _dismiss(key: str) -> None:
                     dismissed.add(key)
@@ -229,30 +263,32 @@ def register() -> None:
                         if not visible:
                             with ui.row().classes("items-center gap-2"):
                                 ui.icon("check_circle", size="1.1rem").classes("k-trend--pos")
-                                ui.label(t("wizard.mentor_all_quiet")).classes(BODY_MUTED)
+                                quiet = t("wizard.mentor_all_quiet")
+                                ui.label(quiet).classes(f"{INK_2} text-[13px]")
                             return
 
                         suggestion: MentorSuggestion = visible[0]
-                        with ui.row().classes("items-center gap-2"):
-                            ui.icon("lightbulb", size="1rem").classes(ACCENT_TEXT)
-                            ui.label(t("wizard.mentor_heading")).classes(SECTION_TITLE)
+                        ui.label(t("wizard.mentor_heading")).classes(MENTOR_EYEBROW)
                         ui.label(t(suggestion.title_key, **suggestion.params)).classes(
-                            SECTION_HEADING
+                            f"{INK} text-lg font-medium mt-1.5"
                         )
                         ui.label(t(suggestion.body_key, **suggestion.params)).classes(
-                            f"{BODY_MUTED} leading-relaxed max-w-3xl"
+                            f"{INK_2} text-[13px] leading-[1.6] max-w-[660px] mt-1.5"
                         )
-                        with ui.row().classes("gap-2 mt-1"):
+                        with ui.row().classes("gap-2.5 mt-4"):
                             ui.button(
                                 t(suggestion.cta_key, **suggestion.params),
                                 icon="arrow_forward",
                                 on_click=lambda u=suggestion.cta_url: ui.navigate.to(u),
-                            ).props("color=primary unelevated size=sm")
+                                color=None,
+                            ).props("flat dense no-caps").classes(BUTTON_INK)
                             ui.button(
                                 t("wizard.mentor_dismiss"),
-                                icon="close",
                                 on_click=lambda k=suggestion.key: _dismiss(k),
-                            ).props("flat size=sm").tooltip(t("wizard.mentor_dismiss_tooltip"))
+                                color=None,
+                            ).props("flat dense no-caps").classes(BUTTON_OUTLINE).tooltip(
+                                t("wizard.mentor_dismiss_tooltip")
+                            )
 
                 _render_mentor()
 
@@ -261,26 +297,29 @@ def register() -> None:
             # open by default while they are not; the user's own choice wins.
             onboarding_open: bool = app.storage.user.get("wizard_onboarding_open", not all_done)
 
-            with ui.card().classes(f"{SECTION_CARD} gap-3"):
+            # Neither section is a card: artboard `3d` heads each with an
+            # eyebrow over one rule and puts what follows on the ground, so
+            # the one card on the page is the suggestion above them.
+            with ui.column().classes("w-full gap-0"):
                 with ui.row().classes(
-                    "w-full items-center gap-3 cursor-pointer select-none"
+                    f"{SECTION_RULE} cursor-pointer select-none"
                 ) as onboarding_header:
-                    ui.icon("rocket_launch", size="1.2rem").classes(MUTED)
-                    with ui.column().classes("gap-0 flex-1 min-w-0"):
-                        ui.label(t("wizard.setup_title")).classes(SECTION_HEADING)
-                        ui.label(t("wizard.setup_subtitle")).classes(f"{MUTED} text-xs")
-                    if all_done:
-                        ui.label(t("wizard.setup_all_done")).classes(
-                            "k-trend--pos text-xs font-medium"
-                        )
+                    onboarding_header.props["data-section"] = "setup"
+                    ui.label(t("wizard.setup_title")).classes(SECTION_RULE_TITLE)
+                    ui.label(
+                        t("wizard.setup_all_done") if all_done else t("wizard.setup_subtitle")
+                    ).classes(f"{MUTED} text-xs")
+                    ui.space()
                     chevron = ui.icon(
                         "keyboard_arrow_up" if onboarding_open else "keyboard_arrow_down",
-                        size="1.4rem",
-                    ).classes(MUTED)
+                        size="20px",
+                    ).classes(INK_2)
 
                 # No `columns=`: NiceGUI writes that as an inline
                 # grid-template-columns, which an `md:` class can never beat.
-                cards = ui.grid().classes("w-full grid-cols-2 md:grid-cols-4").style("gap:0.75rem")
+                cards = (
+                    ui.grid().classes("w-full grid-cols-2 md:grid-cols-4 mt-4").style("gap:16px")
+                )
                 cards.set_visibility(onboarding_open)
 
                 def _toggle_onboarding() -> None:
@@ -298,20 +337,48 @@ def register() -> None:
                         _render_setup_card(setup, done=done_flags[i], status=done_counts[i])
 
             # ── Routines index ────────────────────────────────────────────────
-            with ui.card().classes(f"{SECTION_CARD} gap-3"):
-                ui.label(t("wizard.routines_title")).classes(SECTION_HEADING)
+            steps = ordered_steps()
+            with ui.column().classes("w-full gap-0"):
+                with ui.row().classes(SECTION_RULE):
+                    ui.label(t("wizard.routines_title")).classes(SECTION_RULE_TITLE)
+                    ui.label(
+                        t(
+                            "wizard.routines_count",
+                            ready=sum(1 for s in steps if s.route is not None),
+                            planned=sum(1 for s in steps if s.route is None),
+                        )
+                    ).classes(f"{MUTED} text-xs")
                 with (
                     ui.grid()
                     .classes("w-full grid-cols-1 md:grid-cols-2")
-                    .style("row-gap:0;column-gap:1.5rem")
+                    .style("row-gap:0;column-gap:44px")
                 ):
-                    for step in ordered_steps():
+                    for step in steps:
                         _render_step_row(step)
 
-            # Footer note
-            with ui.row().classes("items-center gap-2 mt-2"):
-                ui.icon("info_outline", size="1rem").classes(MUTED)
-                ui.label(t("wizard.cta_note")).classes(f"{MUTED} text-xs")
+            # The footnote explains the "Not built" label, so it belongs on
+            # the page only while there is one to explain.
+            if any(s.route is None for s in steps):
+                with ui.row().classes("items-center gap-2 mt-2"):
+                    ui.icon("info_outline", size="1rem").classes(MUTED)
+                    ui.label(t("wizard.cta_note")).classes(f"{MUTED} text-xs")
+
+
+def _hero_eyebrow(all_done: bool, suggestions: list[MentorSuggestion]) -> str:
+    """ "Setup complete · 1 suggestion waiting" — artboard `3d`'s title line.
+
+    Two facts, in the order the page answers them: whether the ledger is set
+    up at all, and whether anything is asking for a decision today.
+    """
+    left = t("wizard.hero_eyebrow_done" if all_done else "wizard.hero_eyebrow_setup")
+    if not all_done or not suggestions:
+        right = t("wizard.hero_eyebrow_quiet")
+    else:
+        right = t(
+            plural_key("wizard.hero_eyebrow_suggestions", len(suggestions)),
+            count=len(suggestions),
+        )
+    return f"{left} · {right}"
 
 
 def _render_setup_card(setup: SetupStep, *, done: bool, status: str) -> None:
@@ -321,43 +388,42 @@ def _render_setup_card(setup: SetupStep, *, done: bool, status: str) -> None:
     most likely to want to revisit — it is where their institutions and
     accounts are — and a card with nothing to click would be a dead end.
     """
-    tone = INK if done else MUTED
-    with ui.column().classes(
-        f"{HAIRLINE_ROW} rounded-lg items-center text-center gap-1.5 p-3"
-    ) as card:
+    with ui.column().classes(f"{SETUP_CARD} gap-0") as card:
         card.props["data-setup-step"] = setup.key
-        with ui.row().classes("items-center gap-1.5"):
-            ui.icon(setup.icon, size="1.3rem").classes(tone)
-            if done:
-                ui.icon("check_circle", size="1rem").classes("k-trend--pos")
-        ui.label(t(setup.title_key)).classes(f"text-xs font-medium {tone} leading-tight")
-        ui.label(status if done else t(setup.hint_key)).classes(
-            f"{MUTED} text-[10.5px] leading-tight"
-        )
+        with ui.row().classes("items-center gap-[9px] no-wrap"):
+            # A tick, not the step's own icon: on a done card the only thing
+            # worth a mark is that it is done, and four different glyphs in a
+            # row of four cards read as four unrelated things.
+            with ui.element("span").classes(
+                SETUP_TICK if done else f"{SETUP_TICK} k-setup-tick--todo"
+            ):
+                ui.icon("check" if done else setup.icon)
+            ui.label(t(setup.title_key)).classes(f"{INK} text-[13.5px] font-medium truncate")
+        ui.label(status if done else t(setup.hint_key)).classes(f"{MUTED} text-xs mt-2")
         ui.button(
-            t("wizard.setup_edit") if done else t("wizard.setup_go"),
+            t(setup.done_action_key) if done else t("wizard.setup_go"),
             on_click=lambda u=setup.url: ui.navigate.to(u),
-        ).props("size=sm dense " + ("flat color=grey-7" if done else "color=primary unelevated"))
+            color=None,
+        ).props("flat dense no-caps").classes(f"{LINK_ACTION} mt-2.5 self-start")
 
 
 def _render_step_row(step: WizardStep) -> None:
     """One routine: what it is, and either a way in or a note that there is none."""
     tone = INK if step.is_open else MUTED
-    with ui.row().classes(f"{HAIRLINE_BOTTOM} w-full items-start gap-3 py-3 no-wrap") as row:
+    desc = t(f"wizard.step_{step.key}_desc")
+    with ui.row().classes(f"{ROUTINE_ROW} w-full no-wrap") as row:
         row.props["data-step"] = step.key
-        ui.icon(step.icon, size="1.3rem").classes(f"{tone} flex-none mt-0.5")
-        with ui.column().classes("gap-0.5 flex-1 min-w-0"):
-            ui.label(t(f"wizard.section_{step.section}")).classes(f"{SECTION_TITLE} text-[9px]")
+        ui.icon(step.icon, size="20px").classes(f"{INK_2 if step.is_open else MUTED} flex-none")
+        with ui.column().classes("gap-0 flex-1 min-w-0"):
             ui.label(t(f"wizard.step_{step.key}")).classes(f"text-sm font-medium {tone}")
-            ui.label(t(f"wizard.step_{step.key}_desc")).classes(
-                f"{MUTED} text-[11.5px] leading-relaxed"
-            )
+            ui.label(desc).classes(ROUTINE_DESC)
+        # The section and the full description are on the row rather than in
+        # it: artboard `3d` reads the index as one list, and a two-line
+        # paragraph on every row makes thirteen rows a page you must read.
+        row.tooltip(f"{t(f'wizard.section_{step.section}')} — {desc}")
         if step.route is not None:
-            # The arrow is a glyph, not a word — it does not want translating.
-            ui.link(f"{t('wizard.open')} \u2192", step.route).classes(
-                f"{ACCENT_TEXT} text-xs font-medium flex-none mt-0.5 no-underline"
+            ui.link(t("wizard.open"), step.route).classes(
+                f"{ACCENT_TEXT} text-xs font-medium flex-none no-underline"
             )
         else:
-            ui.label(t("wizard.not_built")).classes(
-                f"{SECTION_TITLE} text-[10.5px] flex-none mt-0.5"
-            )
+            ui.label(t("wizard.not_built")).classes(f"{SECTION_TITLE} text-[10.5px] flex-none")

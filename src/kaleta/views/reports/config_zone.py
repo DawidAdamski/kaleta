@@ -20,10 +20,15 @@ from kaleta.i18n import plural_key, t
 from kaleta.views.reports.constants import CHART_TYPES, DATE_PRESETS, DIMENSIONS, METRICS, TX_TYPES
 from kaleta.views.reports.sentence import slot_labels
 from kaleta.views.theme import (
+    CHART_PICK,
+    CHART_PICK_ON,
     FILTER_CHIP,
     FILTER_CHIP_EMPTY,
     MUTED,
+    RAIL_EYEBROW,
     SECTION_TITLE,
+    SELECTION_DIVIDER,
+    SENTENCE_FOOT,
     SENTENCE_SLOT,
     SENTENCE_SLOT_TARGET,
 )
@@ -156,18 +161,28 @@ def build_config_zone(
                 ).props("type=date dense").classes("w-44")
 
         # ── Chart type and the two list filters ───────────────────────────
-        with ui.row().classes("items-center gap-3 flex-wrap w-full"):
-            with ui.row().classes("items-center gap-1"):
+        # Under one rule, labelled: artboard `3e` reads the sentence as the
+        # question and this line as how it is drawn and what it leaves out.
+        with ui.row().classes(f"{SENTENCE_FOOT} items-center gap-3.5 flex-wrap w-full"):
+            ui.label(t("reports.chart_eyebrow")).classes(RAIL_EYEBROW)
+            with ui.row().classes("items-center gap-[5px] no-wrap"):
                 for chart_type, icon in CHART_TYPES:
                     active = state["chart_type"] == chart_type
                     (
-                        ui.button(icon=icon, on_click=lambda c=chart_type: on_set_chart(c))
-                        .props(
-                            "dense flat round size=sm "
-                            + ("color=primary" if active else "color=grey-7")
+                        ui.button(
+                            icon=icon,
+                            on_click=lambda c=chart_type: on_set_chart(c),
+                            color=None,
                         )
+                        .props("flat dense no-caps")
+                        .classes(f"{CHART_PICK} {CHART_PICK_ON}" if active else CHART_PICK)
                         .tooltip(t(f"reports.chart_{chart_type}"))
                     )
+            # 22px and the border's own tone, as the artboard draws it beside
+            # 34px squares; the selection bar's 16px would read as a nick.
+            ui.element("span").classes(SELECTION_DIVIDER).style(
+                "height:22px;background:var(--k-border)"
+            )
 
             if account_options:
                 _list_filter(

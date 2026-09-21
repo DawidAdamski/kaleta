@@ -11,7 +11,11 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.services import PlannedTransactionService, with_session
-from kaleta.views.components.amount_label import format_signed_amount, signed_amount_class
+from kaleta.views.components.amount_label import (
+    format_signed_amount,
+    signed_amount_class,
+    spaced_thousands,
+)
 from kaleta.views.planned_transactions import freq_label
 
 _AMOUNT_CLS = "text-xl font-semibold k-mono"
@@ -72,7 +76,7 @@ def build_planned_dialog() -> PlannedDialogContext:
             return
 
         name_label.set_text(plan.name)
-        amount_label.set_text(format_signed_amount(plan.amount, plan.type))
+        amount_label.set_text(spaced_thousands(format_signed_amount(plan.amount, plan.type)))
         tone = signed_amount_class(plan.amount, plan.type)
         amount_label.classes(replace=f"{_AMOUNT_CLS} {tone}")
 

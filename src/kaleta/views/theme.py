@@ -34,7 +34,24 @@ _SURFACE = "k-surface w-full rounded-xl"
 _CARD_PAD = "p-5"
 
 PAGE_SHELL = "k-ground"
-PAGE_CONTAINER = "w-full mx-auto p-6 md:p-8 gap-6"
+# The working screens' content column. Every artboard from `2a` on draws the
+# same 32/36/40 padding; the column gap is the one value that moves between
+# them, so it has modifiers rather than nine containers.
+PAGE_CONTAINER = "k-page w-full mx-auto"
+#: Artboards `2b`, `3a` and `3e` set the column gap at 22 rather than 20.
+PAGE_GAP_22 = "k-page--gap-22"
+#: Artboard `2d`: two tall cards side by side, 24 apart.
+PAGE_GAP_24 = "k-page--gap-24"
+#: Artboard `3d`, which breathes like the dashboard but two pixels tighter.
+PAGE_GAP_26 = "k-page--gap-26"
+#: Artboard `3e`: no page padding at all, and the page lies on its side so a
+#: rail can hug the drawer.
+PAGE_FLUSH = "k-page--flush"
+#: Artboard `2c`, whose twelve month columns need the four pixels a side.
+PAGE_TIGHT = "k-page--tight"
+#: Artboards `3b` and `3d` breathe like the dashboard — 36/40/44 and a wider
+#: gap, because both are pages you read rather than pages you work in.
+PAGE_ROOMY = "k-page--roomy"
 # The dashboard breathes wider than the working screens: 36/40/44 page
 # padding and a 44px band gap (handoff geometry table, artboard 1c).
 DASH_PAGE_CONTAINER = "k-dash-page w-full mx-auto"
@@ -61,6 +78,15 @@ PACE_BAR = "k-pace"
 PACE_BAR_MONTH = "k-pace k-pace--month"
 PACE_BAR_ROW = "k-pace k-pace--row"
 SECTION_CARD = f"{_SURFACE} {_CARD_PAD}"
+#: The artboards draw two card paddings, not one: 20px where the card holds
+#: a grid or a chart that wants the room, and 22px 24px where it holds type
+#: (`2d`'s two mapping cards, `3a`'s two foot cards, `3b`'s physical assets,
+#: `3c`'s day sheet, `3e`'s sentence). This is the second — as its own class
+#: rather than a `p-` utility, so nothing has to out-specify Tailwind.
+SECTION_CARD_WIDE = f"{_SURFACE} k-card-wide"
+#: And the third, on the one card a screen is really about: `3a`'s chart,
+#: `3b`'s chart, `3d`'s mentor note, `3e`'s result.
+SECTION_CARD_FEATURE = f"{_SURFACE} k-card-feature"
 TOOLBAR_CARD = f"{_SURFACE} p-3"
 SECTION_TITLE = "k-muted k-eyebrow"
 SECTION_HEADING = "k-heading text-lg font-medium"
@@ -88,6 +114,9 @@ CELL_DATE = "k-cell-date"
 # against 12px / 22-24px on the working screens.
 DASH_CARD = f"{_SURFACE} k-dash-card"
 CARD_TITLE = "k-card-title"
+#: The same title a size down — the two balance-sheet cards on `3b`, where
+#: the figure beside it is what the card is for.
+CARD_TITLE_SM = "k-card-title k-card-title--sm"
 CARD_SUBTITLE = "k-card-subtitle"
 #: The same label a size down — a tile's caption, a footer stat's name.
 #: Artboard `1c` sets these at 11px against the card subtitle's 12.
@@ -103,6 +132,14 @@ LEGEND_LINE = "k-legend-line"
 
 # Ledger toolbar (artboard 2a): a filter is a pill that shows its value, and a
 # dashed one when it has none to show.
+#: The ledger itself: one paper card holding the header rule, the rows and the
+#: pagination bar, which artboard `2a` seals in at the foot rather than
+#: leaving loose on the ground.
+LEDGER_CARD = "k-ledger-card"
+LEDGER_FOOT = "k-ledger-foot"
+#: A small select drawn on sunken sand — the page-size picker at the foot of
+#: the ledger, which is a number and not a field.
+SELECT_SUNKEN = "k-select-sunken"
 FILTER_CHIP = "k-filter-chip"
 FILTER_CHIP_EMPTY = "k-filter-chip--empty"
 #: A word inside a sentence that is also a control (artboard 3e). Reads as
@@ -117,6 +154,12 @@ SENTENCE_SLOT_TARGET = "k-slot--drop"
 #: Set on ``body`` by the rail's own dragstart handler, cleared on dragend.
 DRAGGING_BODY = "k-dragging"
 SELECTION_BAR = "k-selection-bar"
+#: The hairline between the count and what you can do with it (artboard `2a`).
+SELECTION_DIVIDER = "k-selection-divider"
+#: One action on that bar: an icon and a word, at the bar's own weight.
+SELECTION_ACTION = "k-selection-action"
+#: The one that cannot be undone, in the expense colour.
+SELECTION_ACTION_DANGER = "k-selection-action k-selection-action--danger"
 #: Hover tint for a hand-built row (one that is not inside a ``k-table``).
 ROW_HOVER = "k-row-hover"
 #: A hand-built row's own outline — the same hairline the tables draw, so a
@@ -129,6 +172,46 @@ ACCENT_TEXT = "k-accent-text"
 #: A 3px accent rule down a card's left edge. One card on a page may say
 #: "read this first"; two would say nothing.
 ACCENT_RULE = "k-accent-rule"
+
+# ── Budget realization (artboard 2b) ─────────────────────────────────────────
+#: One paper card holding the whole table: a header rule, a row per category,
+#: a Total row. Five of six columns are figures, so only the name is elastic.
+REALIZATION_GRID = "k-realization"
+REALIZATION_HEAD = "k-realization-row k-realization-head"
+REALIZATION_ROW = "k-realization-row k-realization-body"
+#: The month added up, under a rule a shade stronger than the row hairlines.
+REALIZATION_TOTAL = "k-realization-row k-realization-total"
+#: A parent's name over the rows it owns — a heading, not a row of figures.
+REALIZATION_GROUP = "k-realization-group"
+#: The line under a pace bar, and a row's parent name: both are asides.
+REALIZATION_NOTE = "k-realization-note"
+#: A figure with an eyebrow over it and nothing else — the four cards that
+#: open `2b`, and the four that open `3a` and `3c`.
+STAT_CARD = "k-stat-card"
+STAT_CARD_FIGURE = "k-stat-figure"
+#: The same card in warm sand rather than paper: one of four that is not a
+#: figure to read but a thing to do something about (`3c`'s overdue count).
+STAT_CARD_WARM = "k-stat-card k-stat-card--warm"
+
+# ── Budget plan toolbar (artboard 2c) ────────────────────────────────────────
+#: One year, as a pill you can switch on. Mono, because it is a figure.
+YEAR_CHIP = "k-year-chip"
+YEAR_CHIP_ON = "k-year-chip k-year-chip--on"
+#: An ink button that is not on a title row: square corners, not round. The
+#: title row's pill is the page's one action; this is a control inside it.
+BUTTON_INK = "k-btn-ink"
+#: Its quiet counterpart: a hairline outline and no fill, for the choice
+#: beside it that is not the one being offered.
+BUTTON_OUTLINE = "k-btn-outline"
+#: A word that acts — "Edit", "Import more". Accent type, no box at all.
+LINK_ACTION = "k-link-action"
+#: The same ink, full width and a size up — the one button on a login page.
+BUTTON_INK_WIDE = "k-btn-ink k-btn-ink--wide"
+
+#: A page's tab row: quiet type on a rule, the tab you are on underlined in
+#: ink. Artboard `2b` puts the screen's own controls on the same line.
+TABS = "k-tabs"
+TAB_ROW = "k-tab-row"
 
 # ── Budget plan grid (artboard 2c) ────────────────────────────────────────────
 #: The annual grid is not a card: hairlines only, and the paper is the table.
@@ -165,6 +248,20 @@ UPLOADER = "k-uploader"
 DISCLOSURE = "k-disclosure"
 #: "auto" — this column came from detection, not from the user.
 AUTO_BADGE = "k-auto-badge"
+#: One mapping row: what the importer wants on the left, the column it will
+#: read it from on the right (artboard `2d`).
+FIELD_ROW = "k-field-row"
+FIELD_LABEL = "k-field-label"
+#: The picker itself, drawn as a filled field rather than an underline — and
+#: in mono, because what it holds is a column out of the file.
+FIELD_SELECT = "k-field-select"
+#: A picker with nothing in it yet: paper rather than sunken sand, so the
+#: mapped rows are the ones that carry weight. A modifier on its own — it is
+#: added and removed at runtime, and a removal naming the base class too
+#: would take the field's whole shape away with it.
+FIELD_SELECT_UNSET = "k-field-select--unset"
+#: A hairline across a card, where one card holds two kinds of question.
+CARD_RULE = "k-card-rule"
 #: A warning that belongs to the step you are on, not a toast that flies past.
 WARNING_STRIP = "k-warning-strip"
 
@@ -178,10 +275,25 @@ AUTH_PANEL = "k-auth-panel"
 #: moving the button out from under the pointer. Carries its own colour, so
 #: no caller has to remember which tone an error wears.
 ERROR_SLOT = "k-error-slot"
+#: The same slot with nothing to say: it keeps its height and drops its tint.
+ERROR_SLOT_EMPTY = "k-error-slot--empty"
 #: A count on that panel: large, mono, and paper-coloured.
 AUTH_PANEL_FIGURE = "k-auth-figure"
 #: Its label underneath, dimmed against the ink rather than muted on paper.
 AUTH_PANEL_LABEL = "k-auth-label"
+#: The hairline above those counts, on ink rather than on paper.
+AUTH_PANEL_RULE = "k-auth-rule"
+#: "Welcome back" — the one line on the page set as a title.
+AUTH_TITLE = "k-auth-title"
+AUTH_SUBTITLE = "k-auth-subtitle"
+#: The eyebrow over a field, which is where artboard `3f` puts a field's
+#: name: above it, not floating inside it.
+AUTH_FIELD_LABEL = "k-auth-field-label"
+#: The field itself: paper in a hairline box, and the box goes ink when the
+#: cursor is in it.
+AUTH_FIELD = "k-auth-field"
+#: The version and licence, at the foot of the form column.
+AUTH_FOOT = "k-auth-foot"
 
 # ── Header (artboards 1c / 2a) ────────────────────────────────────────────────
 #: "Kaleta" in the header, first thing on the line.
@@ -217,6 +329,24 @@ PALETTE_ROW = "k-palette-row"
 #: A button on a page's title row, drawn as artboards `1c` / `2a` draw them:
 #: a paper pill with a hairline border, not a flat text button.
 TITLE_ACTION = "k-title-action"
+#: The one action a screen is for, at the end of the same row: the artboards
+#: draw it filled with ink, not with the accent — the accent is reserved for
+#: the thing that needs attention, and a "New transaction" button never is.
+TITLE_ACTION_PRIMARY = "k-title-action k-title-action--ink"
+#: A keyboard hint drawn inside that pill (artboard `2a`'s ⌥N).
+KBD_HINT = "k-kbd"
+#: The line above a page title: what is on this screen, said in figures.
+#: Carries `data-page-eyebrow`, which is how the fidelity shoot finds a page.
+PAGE_EYEBROW = "k-eyebrow k-page-eyebrow"
+#: Two or three choices where only one can hold: the chosen one on ink, the
+#: rest quiet on sunken sand. Artboards `2a` (Group by), `2b` (Flat / By
+#: parent), `3a` (horizon and model) and `3e` (chart shape) all draw it.
+SEGMENT = "k-segment"
+#: A select drawn as a pill rather than a field — the month and year pickers
+#: on `2b`, the account picker on `3a`, the "copy into" month on `2c`.
+SELECT_PILL = "k-select-pill"
+#: The same pill with 8px corners (artboards `2b`, `2c`).
+SELECT_PILL_SQUARE = "k-select-pill k-select-pill--square"
 
 # ── Phone dashboard (artboard 1f) ─────────────────────────────────────────────
 #: The bottom tab bar. It has its own breakpoint rather than `md:hidden`: which
@@ -253,6 +383,11 @@ CALENDAR_DAY_BLANK = "k-cal-day--blank"
 #: The day number on a working day. Weekends take plain ``MUTED`` and today
 #: takes ``INK``, so the three read as three levels without a second tint.
 CALENDAR_DAY_NUM = "k-cal-num"
+#: The three letters in the corner of today's cell. Its own class and not
+#: the page eyebrow: `3c` draws it a half-pixel smaller and half as tracked
+#: as an eyebrow, in the accent rather than in muted, because it marks one
+#: cell in a grid of thirty-one rather than heading a section.
+CALENDAR_TODAY_MARK = "k-cal-today"
 #: One dot per thing happening that day, coloured by which way the money goes.
 CALENDAR_DOT = "k-cal-dot"
 CALENDAR_DOT_IN = "k-cal-dot--in"
@@ -260,6 +395,117 @@ CALENDAR_DOT_OUT = "k-cal-dot--out"
 #: Neither in nor out: a transfer between your own accounts, or a projected
 #: subscription charge that is not a planned transaction you can post.
 CALENDAR_DOT_FLAT = "k-cal-dot--flat"
+#: The four figures over the month. Artboard `3c` sets them a size down from
+#: `2b`'s — four cards over a grid, not four cards over a table.
+STAT_CARD_SM = "k-stat-card--sm"
+STAT_FIGURE_SM = "k-stat-figure--sm"
+#: Everything already late, on one warm line above the month. It used to hang
+#: off the day-1 cell, where it was invisible from any other month.
+OVERDUE_STRIP = "k-overdue-strip"
+#: Type on a warm card, which takes the banner's burnt ink rather than the
+#: page's — the muted grey the paper cards use disappears against sand.
+WARM_ACCENT = "k-warm-accent"
+
+# ── Forecast (artboard 3a) ────────────────────────────────────────────────────
+#: One key in the chart's legend: a swatch and a word, on the card's title
+#: line rather than inside the frame, where it costs the chart no height.
+CHART_KEY = "k-chart-key"
+#: The four swatch shapes the forecast chart draws with.
+CHART_KEY_LINE = "k-chart-key--line"
+CHART_KEY_DASH = "k-chart-key--dash"
+CHART_KEY_BAND = "k-chart-key--band"
+CHART_KEY_DOT = "k-chart-key--dot"
+#: The two tables under the chart: a header rule over rows of figures, set as
+#: a grid so the columns line up without a table's chrome.
+FORECAST_HEAD = "k-forecast-head"
+FORECAST_ROW = "k-forecast-row"
+#: One late item's words on that strip, and the figure beside them.
+OVERDUE_TEXT = "k-overdue-text"
+OVERDUE_AMOUNT = "k-overdue-amount"
+#: The hairline between two of them.
+OVERDUE_RULE = "k-overdue-rule"
+#: The day sheet beside the grid, rather than a drawer over it: the artboard
+#: reads the month and the day you picked out of it at the same time.
+DAY_PANEL = "k-day-panel"
+#: One occurrence inside that sheet — a hairline box, not a table row.
+DAY_ITEM = "k-day-item"
+#: The rule over the sheet's own two buttons.
+DAY_PANEL_FOOT = "k-day-panel-foot"
+#: A quiet button on sunken sand, beside an ink one (the sheet's foot).
+BUTTON_SUNKEN = "k-btn-sunken"
+
+# ── Wizard (artboard 3d) ─────────────────────────────────────────────────────
+#: A page section that is not a card: an eyebrow and a note over one rule,
+#: with whatever it heads underneath on the ground.
+SECTION_RULE = "k-section-rule"
+SECTION_RULE_TITLE = "k-section-rule-title"
+#: One of the four setup cards — a tick, a name, a count, a way back in.
+SETUP_CARD = "k-setup-card"
+SETUP_TICK = "k-setup-tick"
+#: One routine, as a bare row in a two-column index.
+ROUTINE_ROW = "k-routine-row"
+#: A routine's one-line description inside that row.
+ROUTINE_DESC = "k-routine-desc"
+#: The suggestion at the head of the page: an accent rule down its left edge
+#: and a lightbulb, because it is the one thing that knows this ledger.
+MENTOR_EYEBROW = "k-mentor-eyebrow"
+
+# ── Report builder (artboard 3e) ──────────────────────────────────────────────
+#: The field rail: its own column against the drawer, not a card on the page.
+REPORT_RAIL = "k-report-rail"
+#: An eyebrow inside that rail — tighter tracking than a page eyebrow, because
+#: it labels a list two words wide and not a screen.
+RAIL_EYEBROW = "k-rail-eyebrow"
+#: One draggable field. The chosen one is the only paper in the rail.
+RAIL_ROW = "k-rail-row"
+RAIL_ROW_ON = "k-rail-row--on"
+#: A saved report: a name you click, with no surface of its own.
+RAIL_SAVED = "k-rail-saved"
+#: One of the five chart-type squares. The chosen one goes ink.
+CHART_PICK = "k-chart-pick"
+CHART_PICK_ON = "k-chart-pick--on"
+#: The rule between the sentence and the controls that qualify it.
+SENTENCE_FOOT = "k-sentence-foot"
+#: One row of the bar result: name, track, value, share.
+REPORT_BAR_ROW = "k-report-bar-row"
+REPORT_BAR_TRACK = "k-report-bar-track"
+REPORT_BAR_FILL = "k-report-bar-fill"
+#: The total beside the result card's title, which is `CARD_TITLE`.
+RESULT_TOTAL = "k-result-total"
+
+#: How many steps the bar ramp has. Artboard `3e` shades ten bars with six
+#: greens, darkest first — a ranking you can read without a legend.
+BAR_RAMP_STEPS = 6
+
+
+def bar_ramp(rank: int, total: int) -> str:
+    """The fill colour for the bar at ``rank`` out of ``total``, darkest first.
+
+    A CSS variable rather than a hex, so the ramp follows the theme: on ink
+    the same six steps run the other way and still read as one series.
+    """
+    step = 1 if total <= 1 else min(BAR_RAMP_STEPS, 1 + rank * BAR_RAMP_STEPS // total)
+    return f"var(--k-ramp-{step})"
+
+
+# ── Net worth (artboard 3b) ──────────────────────────────────────────────────
+#: The hero figure, which on this one screen is 60px and sits on the ground
+#: rather than on paper: it is the page's subject, not a card's.
+NET_WORTH_FIGURE = "k-nw-figure"
+NET_WORTH_DECIMALS = "k-nw-decimals"
+#: One of the two deltas beside it — a label and a figure, no pill.
+DELTA_LABEL = "k-delta-label"
+DELTA_FIGURE = "k-delta-figure"
+#: The physical-assets list: name, kind, value, and the pencil that edits it.
+ASSET_ROW = "k-asset-row"
+#: The line that adds one, under a rule of its own.
+ASSET_ADD = "k-asset-add"
+#: A balance-sheet table: four columns under a header rule, on a card that is
+#: already titled, so the columns are an eyebrow and not a heading.
+SHEET_HEAD = "k-sheet-head"
+SHEET_ROW = "k-sheet-row"
+#: An aside inside a card — the personal-loans note under the liabilities.
+CARD_NOTE = "k-card-note"
 
 # ── Balance-sheet bar (artboard 3b) ───────────────────────────────────────────
 #: One bar, three segments: held, owned, owed. The shape of the sheet, which a
@@ -286,6 +532,8 @@ ON_ACCENT = "k-on-accent"
 
 # Plain ink text for figures and dense grid cells (not a heading).
 INK = "k-ink"
+#: One step in from the ink: a figure that is not the row's subject.
+INK_2 = "k-ink-2"
 
 # Quasar brand colours. NiceGUI writes its own defaults onto <body> at runtime,
 # which outranks any `:root` rule, so `apply_brand()` must run on every page that
@@ -345,6 +593,10 @@ BASE_CSS = """
   --k-surface-sunken:#F3EFE7;
   --k-surface-warm:#F6F1E7;
   --k-surface-warm-strong:#EFE3D6;
+  /* Two warm sands, because the artboards draw two: `2a` tints the selection
+     bar #EFE3D6, while `2d`'s unparseable-rows note and `3c`'s Overdue card
+     and strip are a step lighter. */
+  --k-surface-notice:#F4E9DC;
   --k-ink:#1C1A15;
   --k-ink-2:#4A443A;
   --k-muted:#6B6353;
@@ -355,6 +607,15 @@ BASE_CSS = """
      separators in the mini drawer. A step down from a card's hairline and a
      step up from the border a control is drawn with; eleven artboards use
      it. */
+  --k-band:#EFCDB2;
+  --k-warm-ink:#4A2A0F;
+  --k-warm-rule:#DDCBB4;
+  --k-ramp-1:#36684D;
+  --k-ramp-2:#4A8064;
+  --k-ramp-3:#5E9377;
+  --k-ramp-4:#77A78C;
+  --k-ramp-5:#8FB8A1;
+  --k-ramp-6:#A8C8B6;
   --k-rule:#DCD4C2;
   --k-border:#E2DBCC;
   --k-border-strong:#C9BFA8;
@@ -366,15 +627,28 @@ BASE_CSS = """
   --k-expense:#A44631;
   --k-warning:#8A5A12;
   --k-neutral-bar:#8E8676;
+  /* What is owned outright, beside what is held: the income colour with the
+     ground mixed into it, so the two read as one side of the sheet. */
+  --k-asset-soft:#8FA893;
 
   --k-row-hover:#FAF4E9;
   --k-plan-now:#F0E5D4;
   --k-chip-dash:#CFC5AE;
+  --k-field-border:#D6C6B2;
   --k-card-shadow:0 1px 2px rgba(28,26,21,.05);
   --k-on-accent:#FCFAF6;
   /* The pill on the accent banner: paper with deep accent ink in light,
      ink with paper on it in dark. Neither pair is any other token's. */
-  --k-banner-btn-ink:#8E4718
+  --k-banner-btn-ink:#8E4718;
+  /* A failed login, as artboard `3f` draws it: a warm pink strip with its
+     own ink. Neither is any other token's — the expense colour is for
+     figures, and this is a sentence about the page. */
+  --k-error-soft:#F6E2DC;
+  --k-error-ink:#8A3826;
+  /* On the ink panel: a rule that reads on ink, and the caption colour under
+     a figure there. The paper tokens are all defined against paper. */
+  --k-ink-rule:#3A362C;
+  --k-on-ink-muted:#B0A692
 }
 .body--dark{
   --q-primary:#E8935B;
@@ -385,12 +659,22 @@ BASE_CSS = """
   --k-surface-sunken:#2A2822;
   --k-surface-warm:#262420;
   --k-surface-warm-strong:var(--k-surface-sunken);
+  --k-surface-notice:#332B22;
   --k-ink:#F0EBDF;
   --k-ink-2:#CFC7B6;
   --k-muted:#A8A08D;
   --k-muted-strong:#A19781;
   --k-disabled:#6E6656;
   --k-hairline:#2A2822;
+  --k-band:rgba(232,147,91,.22);
+  --k-warm-ink:#EBD9C4;
+  --k-warm-rule:#4A4237;
+  --k-ramp-1:#4E8567;
+  --k-ramp-2:#5E9377;
+  --k-ramp-3:#6EA184;
+  --k-ramp-4:#7EAF92;
+  --k-ramp-5:#8EBD9F;
+  --k-ramp-6:#9ECBAD;
   --k-rule:#3D392F;
   --k-border:#322F27;
   --k-border-strong:#453F34;
@@ -401,13 +685,19 @@ BASE_CSS = """
   --k-income:#6FAF87;
   --k-expense:#DE8672;
   --k-warning:#E3B457;
+  --k-asset-soft:#5E7C67;
 
   --k-row-hover:#262420;
   --k-plan-now:#332F26;
   --k-chip-dash:#453F34;
+  --k-field-border:#4A4437;
   --k-card-shadow:none;
   --k-on-accent:#241C13;
-  --k-banner-btn-ink:#F0EBDF
+  --k-banner-btn-ink:#F0EBDF;
+  --k-error-soft:#3A2622;
+  --k-error-ink:#DE8672;
+  --k-ink-rule:#3A362C;
+  --k-on-ink-muted:#B0A692
 }
 body,.q-body--layout{
   font-family:'Libre Franklin',ui-sans-serif,system-ui,sans-serif
@@ -424,6 +714,8 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 
 /* ── Surfaces & shell ─────────────────────────────────────────────── */
 .k-surface{background:var(--k-surface);box-shadow:var(--k-card-shadow)}
+.k-card-wide{padding:22px 24px}
+.k-card-feature{padding:24px 26px}
 .k-header{
   background:var(--k-surface);
   color:var(--k-ink);
@@ -509,6 +801,8 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
   color:var(--k-muted-strong)
 }
 .k-muted{color:var(--k-muted)}
+/* One step in from the ink, for a figure that is not the row's subject. */
+.k-ink-2{color:var(--k-ink-2)}
 .k-muted-strong{color:var(--k-muted-strong)}
 /* Links are actions: accent text, never the browser's default blue. */
 a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
@@ -550,6 +844,90 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-table .q-table td{border-bottom:1px solid var(--k-hairline)}
 .k-table .q-table tbody tr:last-child td{border-bottom:none}
 .k-table .q-table tbody tr:hover{background:var(--k-row-hover)}
+/* ── Budget realization (artboard 2b) ─────────────────────────────── */
+.k-realization{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:6px 0;
+  width:100%
+}
+.k-realization-row{
+  display:grid;
+  grid-template-columns:1.7fr 118px 118px 118px 78px 200px;
+  align-items:center;
+  padding:13px 22px;
+  font-size:13.5px;
+  color:var(--k-ink);
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-realization-head{
+  padding:12px 22px;
+  font-size:10px;
+  font-weight:600;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:var(--k-muted-strong);
+  border-bottom:1px solid var(--k-border)
+}
+/* The Total sits under the stronger rule, so it reads as a summary and not
+   as one more category. */
+.k-realization-total{
+  padding:14px 22px;
+  font-weight:600;
+  border-bottom:none;
+  border-top:1px solid var(--k-border)
+}
+.k-realization-group{padding:14px 22px 4px}
+.k-realization-note{font-size:10.5px;color:var(--k-muted)}
+/* One figure under an eyebrow (artboards `2b`, `3a`, `3c`). No icon, no
+   trend line: four of these across a page are the page's opening sentence,
+   and anything else in them is a second one. */
+.k-stat-card{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:20px 22px;
+  flex:1;
+  min-width:0
+}
+.k-stat-card--warm{background:var(--k-surface-notice);box-shadow:none}
+.k-stat-card--sm{padding:18px 20px}
+.k-stat-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:28px;
+  font-weight:500;
+  line-height:1.15;
+  color:var(--k-ink);
+  margin-top:6px
+}
+.k-stat-figure--sm{font-size:24px;margin-top:5px}
+/* A page's tabs: a rule across the row, the tab you are on underlined in ink
+   rather than sitting in a grey box. Quasar's indicator is turned off in the
+   props; this draws the artboard's 2px one on the tab itself. */
+.k-tab-row{border-bottom:1px solid var(--k-rule)}
+.k-tabs{min-height:0}
+.k-tabs .q-tab{
+  min-height:0;
+  padding:0 2px 12px;
+  margin-right:26px;
+  font-size:13.5px;
+  font-weight:400;
+  color:var(--k-muted)
+}
+.k-tabs .q-tab__content{min-width:0;padding:0;gap:8px;flex-direction:row}
+.k-tabs .q-tab__icon{font-size:18px;margin:0}
+.k-tabs .q-tab__label{font-size:13.5px;line-height:1}
+.k-tabs .q-tab--active{color:var(--k-ink);font-weight:600}
+.k-tabs .q-tab--active:after{
+  content:"";
+  position:absolute;
+  left:0;right:0;bottom:-1px;
+  height:2px;
+  background:var(--k-ink)
+}
+.k-tabs .q-focus-helper,.k-tabs .q-tab__indicator{display:none}
 /* A category, as a pill — the ledger's own chip, borrowed by the dashboard's
    last card. Hairline is the fill artboards `1c` and `2a` both draw it in:
    a shade under the page, so the pill reads as a label and not a button. */
@@ -566,6 +944,23 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   font-size:12px;
   color:var(--k-muted)
 }
+/* The working screens' page column (artboards `2a`-`3e`). NiceGUI's own
+   `.nicegui-content` padding is zeroed the same way the dashboard zeroes it,
+   or the two stack and every column starts 16px in from where it should. */
+.k-page{padding:32px 36px 40px;gap:20px}
+.k-page--gap-22{gap:22px}
+.k-page--gap-24{gap:24px}
+.k-page--tight{padding-left:32px;padding-right:32px}
+.k-page--roomy{padding:36px 40px 44px;gap:28px}
+.k-page--roomy.k-page--gap-26{gap:26px}
+/* Artboard `3e`: the field rail is a column against the drawer, not a card
+   on the page, so the page itself carries no padding and lies on its side. */
+.k-page--flush{padding:0;gap:0;flex-direction:row;align-items:stretch}
+@media (max-width:767.98px){.k-page,.k-page--roomy{padding:20px 20px 28px;gap:20px}}
+.nicegui-content:has(> .k-page){padding:0;gap:0}
+/* 6px under the eyebrow, which is the artboards' own measure between it and
+   the title it labels. */
+.k-page-eyebrow{margin-bottom:6px}
 .k-dash-page{padding:36px 40px 44px;gap:28px}
 /* 767.98px, not 768px: the tab bar and the server-side layout choice both
    put a 768px-wide window (an iPad in portrait) on the desktop side, and a
@@ -584,6 +979,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   color:var(--k-ink);
   line-height:1.3
 }
+.k-card-title--sm{font-size:16px}
 .k-card-subtitle{font-size:12px;color:var(--k-muted);line-height:1.4}
 .k-card-caption{font-size:11px;color:var(--k-muted);line-height:1.4}
 /* The hero's two supporting lines (artboard `1f`): the sentence under the
@@ -603,7 +999,7 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-plan-grid{background:transparent}
 .k-plan-head{
   border-bottom:1px solid var(--k-border-strong);
-  color:var(--k-muted)
+  color:var(--k-muted-strong)
 }
 .k-plan-row{border-bottom:1px solid var(--k-hairline)}
 .k-plan-row:hover{background:var(--k-row-hover)}
@@ -685,22 +1081,33 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-uploader .q-uploader__list{background:var(--k-surface)}
 .k-step-label{font-size:11px;color:var(--k-muted);text-align:center;line-height:1.2}
 .k-step-label--now{color:var(--k-ink);font-weight:600}
+/* Artboard `2d` writes it as quiet type inside the box, not as a badge on
+   its rim: `align-self:flex-start` in Quasar's append slot pushed the pill
+   up onto the field's own border, where it read as a stray chip. */
 .k-auto-badge{
-  align-self:flex-start;
-  font-size:10px;
+  align-self:center;
+  font-size:9.5px;
   font-weight:600;
-  letter-spacing:.04em;
+  letter-spacing:.06em;
   text-transform:uppercase;
-  color:var(--k-income);
-  border:1px solid var(--k-income);
-  border-radius:999px;
-  padding:0 6px;
+  color:var(--k-muted-strong);
+  padding:0 2px;
   line-height:15px
 }
+/* The line kept for a failed login. It is a strip, not a sentence: artboard
+   `3f` draws a tinted box with an icon, and an empty one still holds its
+   place so the button never moves out from under a second attempt. */
 .k-error-slot{
-  min-height:20px;line-height:20px;font-size:13px;
-  color:var(--k-expense)
+  display:flex;align-items:center;gap:9px;
+  min-height:42px;padding:11px 13px;border-radius:8px;
+  font-size:12.5px;line-height:1.3;
+  color:var(--k-error-ink);
+  background:var(--k-error-soft)
 }
+.k-error-slot .q-icon{font-size:17px;color:var(--k-error-ink)}
+/* Nothing to say: the strip keeps its height and shows none of its clothes. */
+.k-error-slot--empty{background:transparent}
+.k-error-slot--empty .q-icon{display:none}
 
 /* Auth (artboard 3f) — the one ink surface in the app. Its own text colours
    rather than the tokens, which are all defined against paper. */
@@ -713,15 +1120,61 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-auth-figure{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-variant-numeric:tabular-nums;
-  font-size:30px;line-height:1.1;font-weight:400;color:var(--k-surface)
+  font-size:22px;line-height:1.1;font-weight:400;color:var(--k-ground)
 }
-.k-auth-label{
-  font-size:10px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;
-  color:var(--k-surface);opacity:.6
+/* Lowercase, and quiet: on ink the label is a caption under a figure, not a
+   heading over one, so it takes neither caps nor letter-spacing. */
+.k-auth-label{font-size:11px;color:var(--k-on-ink-muted)}
+.k-auth-rule{border-top:1px solid var(--k-ink-rule);padding-top:22px;margin-top:26px}
+.k-auth-title{
+  font-size:30px;font-weight:300;line-height:1.2;
+  letter-spacing:-.02em;color:var(--k-ink)
+}
+.k-auth-subtitle{font-size:13.5px;line-height:1.6;color:var(--k-ink-2);max-width:340px}
+.k-auth-field-label{
+  font-size:10px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--k-muted-strong);margin-bottom:7px
+}
+.k-auth-field .q-field__control{
+  background:var(--k-surface);
+  border:1px solid var(--k-field-border);
+  border-radius:9px;
+  min-height:48px;
+  padding:0 14px
+}
+.k-auth-field .q-field__control:before,
+.k-auth-field .q-field__control:after{display:none}
+.k-auth-field .q-field__native{font-size:14px;color:var(--k-ink);padding:0}
+/* A masked password is a row of marks, not words: mono and spaced, as
+   artboard `3f` sets it, so the count of what you typed is readable. */
+.k-auth-field input[type="password"]{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  letter-spacing:.12em
+}
+.k-auth-field .q-field__marginal,.k-auth-field .q-field__append{
+  height:48px;color:var(--k-muted);font-size:19px
+}
+/* The field the cursor is in takes an ink outline rather than the accent
+   ring Quasar draws: the accent on this page is the wordmark alone. */
+.k-auth-field .q-field--focused .q-field__control,
+.k-auth-field.q-field--focused .q-field__control{
+  border:1.5px solid var(--k-ink);
+  padding:0 13.5px
+}
+.k-auth-foot{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:11.5px;color:var(--k-muted)
 }
 
 /* Payment calendar (artboard 3c) — the grid is 31 small cells, so every
    pixel of border and padding is charged 31 times. */
+.k-cal-today{
+  font-weight:600;
+  font-size:8.5px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--k-accent-text)
+}
 .k-cal-day{
   border:1px solid var(--k-hairline);
   border-radius:10px;
@@ -743,24 +1196,254 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-cal-dot--in{background:var(--k-income)}
 .k-cal-dot--out{background:var(--k-expense)}
 .k-cal-dot--flat{background:var(--k-border-strong)}
+.k-overdue-strip{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  padding:12px 18px;
+  background:var(--k-surface-notice);
+  border-radius:10px
+}
+.k-overdue-strip .q-icon{color:var(--k-banner-btn-ink)}
+.k-warm-accent{color:var(--k-banner-btn-ink)}
+
+/* ── Forecast (artboard 3a) ───────────────────────────────────────── */
+.k-chart-key{
+  display:flex;align-items:center;gap:6px;
+  font-size:11.5px;color:var(--k-muted)
+}
+.k-chart-key::before{content:"";display:block;width:16px;flex:none}
+.k-chart-key--line::before{height:2px;background:var(--k-ink)}
+.k-chart-key--dash::before{height:0;border-top:2px dashed var(--k-accent)}
+.k-chart-key--band::before{width:12px;height:9px;background:var(--k-band)}
+.k-chart-key--dot::before{height:0;border-top:1.5px dotted var(--k-muted)}
+.k-forecast-head{
+  display:grid;align-items:center;
+  font-size:10px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--k-muted-strong);
+  padding-bottom:9px;
+  border-bottom:1px solid var(--k-border)
+}
+.k-forecast-row{
+  display:grid;align-items:center;
+  font-size:12.5px;
+  padding:9px 0;
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-forecast-row:last-child{border-bottom:0}
+.k-forecast-head > *,.k-forecast-row > *{min-width:0;overflow:hidden;text-overflow:ellipsis}
+/* `minmax(0, …)`, not a bare `fr`: an auto-sized track takes its minimum
+   from its content, so a long category name widened its own row's columns
+   and every figure in the card landed at a different x. */
+.k-cols-upcoming{
+  grid-template-columns:88px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:10px
+}
+.k-cols-planned{
+  grid-template-columns:80px minmax(0,1fr) minmax(0,1fr) 118px;gap:10px
+}
+.k-overdue-text{font-size:12.5px;font-weight:500;color:var(--k-warm-ink)}
+.k-overdue-amount{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:12.5px;font-weight:500;color:var(--k-expense)
+}
+.k-overdue-rule{width:1px;height:16px;background:var(--k-warm-rule);flex:none}
+.k-day-panel{width:400px;flex:none}
+.k-day-item{
+  display:flex;align-items:center;gap:12px;
+  border:1px solid var(--k-border);
+  border-radius:9px;
+  padding:12px 14px
+}
+.k-day-panel-foot{margin-top:22px;padding-top:18px;border-top:1px solid var(--k-hairline)}
+.q-btn.k-btn-sunken{
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  color:var(--k-ink-2);
+  font-size:12.5px;font-weight:600;letter-spacing:0;
+  min-height:38px
+}
 
 /* Balance-sheet bar (artboard 3b) — segments meet with no gap, so their
    widths are the only thing saying how big each side is. */
 .k-split{
   display:flex;align-items:stretch;gap:0;
-  height:10px;border-radius:999px;overflow:hidden;
+  height:12px;border-radius:6px;overflow:hidden;
   background:var(--k-border)
 }
 /* The safe-to-spend track, at the weight artboard `1f` draws it. */
 .k-split--hero{height:9px;border-radius:5px}
 .k-split-seg{height:100%}
-.k-split-dot{width:8px;height:8px;border-radius:999px;flex:none}
+/* A square, not a disc, and the size of a chart key — the legend under the
+   bar is read as a key to it (artboard `3b`). */
+.k-split-dot{width:9px;height:9px;border-radius:2px;flex:none}
+/* What is held is the income colour, what is owned a muted green beside it,
+   what is owed the expense colour: the bar is the sheet, and the sheet has
+   two sides. */
+/* `--ink` is the dashboard hero's committed share and is ink, as `1c`
+   draws it. `3b`'s balance-sheet bar wanted a green and a soft green for
+   its two kinds of asset, which is what `--asset` and `--asset-soft` are:
+   two tones of their own rather than a repaint of a tone another screen
+   is already using. */
 .k-split--ink{background:var(--k-ink)}
-.k-split--neutral{background:var(--k-border-strong)}
+.k-split--asset{background:var(--k-income)}
+.k-split--asset-soft{background:var(--k-asset-soft)}
 .k-split--owed{background:var(--k-expense)}
 /* Safe-to-spend (artboard 1f): what is promised, what is gone, what is left. */
 .k-split--spent{background:var(--k-neutral-bar)}
 .k-split--free{background:var(--k-accent-light)}
+
+/* ── Wizard (artboard 3d) ─────────────────────────────────────────── */
+.k-section-rule{
+  display:flex;align-items:baseline;gap:12px;
+  padding-bottom:14px;
+  border-bottom:1px solid var(--k-rule);
+  width:100%
+}
+.k-section-rule-title{
+  font-size:10px;font-weight:600;letter-spacing:.22em;
+  text-transform:uppercase;color:var(--k-ink)
+}
+.k-setup-card{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:18px 20px
+}
+.k-setup-tick{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:20px;height:20px;border-radius:999px;
+  background:var(--k-income);color:var(--k-surface);flex:none
+}
+.k-setup-tick--todo{background:var(--k-border-strong)}
+.k-setup-tick .q-icon{font-size:14px;color:var(--k-surface)}
+.k-routine-row{
+  display:flex;align-items:center;gap:14px;
+  padding:15px 0;
+  border-bottom:1px solid var(--k-hairline)
+}
+/* One line, and the whole sentence on the row's tooltip. Artboard `3d`
+   reads the index at a glance: a two-line paragraph per row turns thirteen
+   rows into a page you have to read rather than scan. */
+.k-routine-desc{
+  font-size:11.5px;color:var(--k-muted);margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%
+}
+.k-mentor-eyebrow{
+  font-size:10px;font-weight:600;letter-spacing:.2em;
+  text-transform:uppercase;color:var(--k-banner-btn-ink)
+}
+
+/* ── Report builder (artboard 3e) ─────────────────────────────────── */
+.k-report-rail{
+  width:214px;flex:none;align-self:stretch;
+  background:var(--k-ground);
+  border-right:1px solid var(--k-border);
+  padding:26px 18px
+}
+.k-rail-eyebrow{
+  font-size:10px;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--k-muted-strong)
+}
+.k-rail-row{
+  display:flex;align-items:center;gap:9px;width:100%;
+  padding:7px 10px;border-radius:7px;
+  font-size:12.5px;color:var(--k-ink-2);
+  cursor:pointer;flex-wrap:nowrap
+}
+.k-rail-row:hover{background:var(--k-surface-warm)}
+.k-rail-row--on{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  font-weight:500;color:var(--k-ink)
+}
+.k-rail-saved{
+  display:flex;align-items:center;gap:8px;
+  font-size:12.5px;color:var(--k-ink-2);cursor:pointer
+}
+.k-chart-pick{
+  display:flex;align-items:center;justify-content:center;
+  width:34px;height:34px;min-height:34px;padding:0;
+  border:1px solid var(--k-border-strong);border-radius:8px;
+  background:transparent;color:var(--k-ink-2)
+}
+.k-chart-pick--on{
+  background:var(--k-ink);border-color:var(--k-ink);color:var(--k-ground)
+}
+.k-sentence-foot{
+  margin-top:18px;padding-top:16px;
+  border-top:1px solid var(--k-hairline)
+}
+.k-report-bar-row{
+  display:grid;grid-template-columns:196px 1fr 108px 62px;
+  align-items:center;gap:14px
+}
+.k-report-bar-track{
+  height:22px;border-radius:3px;background:var(--k-hairline);overflow:hidden
+}
+.k-report-bar-fill{display:block;height:100%;border-radius:3px}
+.k-result-total{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:12.5px;color:var(--k-muted)
+}
+
+/* ── Net worth (artboard 3b) ──────────────────────────────────────── */
+.k-nw-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:60px;line-height:1;font-weight:400;letter-spacing:-.04em
+}
+.k-nw-decimals{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:22px;color:var(--k-muted-strong)
+}
+.k-delta-label{font-size:12px;color:var(--k-muted)}
+.k-delta-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  font-size:14px;font-weight:500
+}
+.k-asset-row{
+  display:grid;
+  grid-template-columns:1fr 96px 108px 56px;
+  align-items:center;
+  padding:9px 0;
+  font-size:13px;
+  color:var(--k-ink);
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-asset-add{
+  border-top:1px solid var(--k-hairline);
+  margin-top:14px;padding-top:14px
+}
+.q-btn.k-asset-add-btn{
+  font-size:12.5px;font-weight:500;letter-spacing:0;
+  color:var(--k-accent-text);padding:0;min-height:0
+}
+.q-btn.k-asset-add-btn .q-icon{font-size:16px;color:inherit}
+.k-sheet-head,.k-sheet-row{
+  display:grid;
+  grid-template-columns:1fr 92px 1fr 132px;
+  align-items:center
+}
+.k-sheet-head{
+  padding-bottom:9px;
+  border-bottom:1px solid var(--k-border);
+  font-size:10px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--k-muted-strong)
+}
+.k-sheet-row{
+  padding:9px 0;
+  font-size:13px;color:var(--k-ink);
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-sheet-row:last-of-type{border-bottom:none}
+.k-card-note{
+  display:flex;align-items:flex-start;gap:9px;
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  padding:11px 13px;
+  font-size:12px;color:var(--k-ink-2)
+}
 
 /* Header (artboards 1c / 2a) — 60px of paper: the wordmark, a hairline, the
    page you are on, then the search pill, the dark toggle and the avatar.
@@ -852,6 +1535,130 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .q-btn.k-title-action .q-icon{color:var(--k-muted);font-size:17px}
 .q-btn.k-title-action:hover{background:var(--k-surface-warm)}
+/* The primary pill on the same row: ink, and paper type on it. Dark mode
+   inverts — ink there is the page, so the pill takes the paper surface and
+   the ink text, which is the same relationship the other way up. */
+.q-btn.k-title-action--ink{
+  background:var(--k-ink);
+  border-color:var(--k-ink);
+  color:var(--k-ground);
+  font-weight:600;
+  /* Two pixels wider either side than the paper pills beside it: `2a`
+     writes `9px 16px` on the ink one and `3c` `8px 16px`, against `8px
+     14px` on the outlined ones. A screen's one action is a little
+     roomier than the controls next to it. */
+  padding:0 16px
+}
+.q-btn.k-title-action--ink .q-icon{color:var(--k-ground)}
+.q-btn.k-title-action--ink:hover{background:var(--k-ink-2)}
+.body--dark .q-btn.k-title-action--ink{background:var(--k-ink);color:var(--k-ground)}
+/* A key cap inside that pill: mono, a hairline box, and dimmed against the
+   ink it sits on — it is a hint, not the button's label. */
+/* The shortcut on the New-transaction pill. Muted type on ink, which is
+   what `--k-on-ink-muted` is for — it had been `--k-disabled`, the grey
+   for a control nobody can press, on a button that is the page's one
+   action. */
+.k-kbd{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:10.5px;
+  line-height:1.3;
+  color:var(--k-on-ink-muted);
+  border:1px solid var(--k-ink-2);
+  border-radius:4px;
+  padding:1px 5px
+}
+/* A segmented control. Quasar paints the chosen option with `.bg-primary`
+   and `.text-<toggle-text-color>`, both `!important` and both unbeatable by
+   a rule of our own — so the brand variables those two classes read are
+   redefined here instead, for this control only. The artboards fill the
+   chosen option with ink, not with the accent: the accent means "look at
+   this", and which of three groupings you picked never does. */
+.k-segment{
+  --q-primary:var(--k-ink);
+  --q-info:var(--k-ground);
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  padding:2px
+}
+.k-segment .q-btn{
+  border-radius:6px;
+  font-size:12px;
+  font-weight:400;
+  letter-spacing:0;
+  min-height:26px;
+  padding:0 12px;
+  color:var(--k-ink-2)
+}
+.k-segment .q-btn.bg-primary{font-weight:500}
+/* A select wearing a pill instead of a field: paper, a hairline, and the
+   chevron in muted — the artboards never draw an underline on these. */
+.k-select-pill .q-field__control{
+  background:var(--k-surface);
+  border:1px solid var(--k-border);
+  border-radius:999px;
+  min-height:32px;
+  padding:0 12px
+}
+.k-select-pill .q-field__control:before,
+.k-select-pill .q-field__control:after{display:none}
+.k-select-pill .q-field__native{
+  font-size:12.5px;
+  color:var(--k-ink-2);
+  min-height:32px;
+  padding:0
+}
+.k-select-pill .q-field__append{color:var(--k-muted);padding-left:4px;font-size:15px}
+.k-select-pill .q-field__marginal{height:32px}
+/* A year, as a pill: mono at 12px, a dashed-hairline outline when it is off
+   and filled with ink when it is on (artboard `2c`). */
+.q-btn.k-year-chip{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  font-weight:400;
+  letter-spacing:0;
+  border:1px solid var(--k-chip-dash);
+  border-radius:999px;
+  color:var(--k-muted);
+  min-height:28px;
+  padding:0 13px
+}
+.q-btn.k-year-chip--on{
+  background:var(--k-ink);
+  border-color:var(--k-ink);
+  color:var(--k-ground);
+  font-weight:500
+}
+/* An ink button inside a page rather than on its title row: 8px corners, so
+   it sits with the square controls beside it instead of with the title. */
+.q-btn.k-btn-ink{
+  background:var(--k-ink);
+  color:var(--k-ground);
+  border-radius:8px;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:0;
+  min-height:30px;
+  padding:0 14px
+}
+.q-btn.k-btn-ink .q-icon{color:var(--k-ground);font-size:15px}
+.q-btn.k-btn-ink:hover{background:var(--k-ink-2)}
+.q-btn.k-btn-ink--wide{border-radius:9px;font-size:13.5px;padding:13px 0}
+.q-btn.k-btn-outline{
+  border:1px solid var(--k-chip-dash);
+  border-radius:8px;
+  font-size:12.5px;font-weight:500;letter-spacing:0;
+  color:var(--k-ink-2);
+  min-height:30px;padding:0 14px
+}
+.q-btn.k-link-action{
+  font-size:12px;font-weight:500;letter-spacing:0;
+  color:var(--k-accent-text);
+  padding:0;min-height:0
+}
+/* The same control with corners: artboards `2b` and `2c` set their month and
+   year pickers on an 8px radius, where `3a`'s account picker is fully round.
+   A picker beside a table is squarer than one beside a chart. */
+.k-select-pill--square .q-field__control{border-radius:8px}
 
 /* Phone dashboard (artboard 1f) — the bar is the navigation below `md`, and
    the drawer is what "More" opens. Its own breakpoint, for the same reason
@@ -915,23 +1722,167 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 }
 .q-skeleton.k-skeleton::after{background:var(--k-surface);opacity:.35}
 
+/* Artboard `2d` draws it as the notice sand and nothing else: a coloured
+   left edge on a strip that is already a different ground says the same
+   thing twice. */
 .k-warning-strip{
-  background:var(--k-surface-warm);
-  border-left:2px solid var(--k-warning);
+  background:var(--k-surface-notice);
   color:var(--k-ink)
 }
 .k-warning-strip .q-icon{color:var(--k-warning)}
+/* ── Import mapping (artboard 2d) ─────────────────────────────────── */
+.k-field-row{display:flex;align-items:center;gap:12px;width:100%}
+.k-field-label{width:104px;flex:none;font-size:12.5px;color:var(--k-ink-2)}
+.k-field-select .q-field__control{
+  background:var(--k-surface-sunken);
+  border:1px solid var(--k-field-border);
+  border-radius:8px;
+  min-height:36px;
+  padding:0 12px
+}
+.k-field-select .q-field__control:before,
+.k-field-select .q-field__control:after{display:none}
+.k-field-select .q-field__native{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12.5px;
+  color:var(--k-ink);
+  min-height:36px;
+  padding:0
+}
+.k-field-select .q-field__marginal,
+.k-field-select .q-field__append{
+  height:36px;
+  color:var(--k-muted);
+  font-size:16px;
+  align-items:center;
+  gap:8px
+}
+/* Nothing mapped yet: paper on a plain hairline, and the app's own face —
+   "Not mapped" is a sentence, not a column name. */
+.k-field-select--unset .q-field__control{
+  background:var(--k-surface);
+  border-color:var(--k-border)
+}
+.k-field-select--unset .q-field__native{
+  font-family:'Libre Franklin',ui-sans-serif,system-ui,sans-serif;
+  color:var(--k-muted)
+}
+.k-card-rule{height:1px;background:var(--k-hairline);margin:20px 0;width:100%}
+/* The file on the left, the mapping on the right — the wider side is the one
+   you are reading from (artboard `2d`). Under `md` they stack. */
+.k-mapping-grid{
+  /* The tick on "negative amounts are expenses" is ink on this card, not the
+     accent: the accent is the step you are on, up on the step line. */
+  --q-info:var(--k-ink);
+  display:grid;
+  grid-template-columns:1.25fr 1fr;
+  gap:22px;
+  align-items:start
+}
+.k-mapping-grid > *{padding:22px 24px}
+@media (max-width:1023.98px){.k-mapping-grid{grid-template-columns:1fr}}
+/* The sample is a box inside the card, not a table on the card's own paper:
+   a hairline round it, a warm header row, and mono throughout. */
+.k-sample-table{border:1px solid var(--k-border);border-radius:8px;overflow:hidden}
+.k-sample-table .q-table th{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:9.5px;
+  letter-spacing:.06em;
+  background:var(--k-surface-warm);
+  padding:8px 12px
+}
+.k-sample-table .q-table td{font-size:11.5px;padding:8px 12px}
+.k-sample-table .q-table thead tr,.k-sample-table .q-table tbody td{height:auto}
 .k-plan-total{border-top:1px solid var(--k-border-strong)}
-.k-plan-month-now{background:var(--k-plan-now)}
+/* Artboard `2c` rounds the month being edited rather than tinting a
+   square column of cells edge to edge. */
+.k-plan-month-now{background:var(--k-plan-now);border-radius:4px}
 .k-cat-row{border-bottom-color:var(--k-hairline)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}
 .k-selection-bar{background:var(--k-surface-warm-strong);color:var(--k-ink)}
+.k-selection-divider{width:1px;height:16px;background:var(--k-border-strong);flex:none}
+.q-btn.k-selection-action{
+  font-size:12.5px;
+  font-weight:500;
+  letter-spacing:0;
+  color:var(--k-ink-2);
+  padding:0 4px;
+  min-height:24px
+}
+.q-btn.k-selection-action .q-icon{font-size:16px;color:inherit}
+.q-btn.k-selection-action--danger{color:var(--k-expense)}
 .k-clear-all{color:var(--k-accent-text)}
 .k-clear-all:hover{text-decoration:underline}
-/* Grouping toggle below the ledger: one segmented pill, not three buttons. */
-.k-group-toggle{background:var(--k-surface-sunken);border-radius:999px;padding:2px}
-.k-group-toggle .q-btn{border-radius:999px;font-size:11.5px;min-height:24px;padding:0 10px}
+/* The ledger card (artboard `2a`): 8px of paper above the header rule, the
+   rows flush to the card's own 18px gutter, and the pagination bar inside
+   the same box under a rule a shade stronger than the row hairlines. */
+.k-ledger-card{
+  background:var(--k-surface);
+  box-shadow:var(--k-card-shadow);
+  border-radius:12px;
+  padding:8px 0 0;
+  overflow:hidden;
+  width:100%
+}
+.k-ledger-card .k-table{overflow-x:auto}
+.k-ledger-card .q-table th{padding:8px 9px 12px}
+.k-ledger-card .q-table td{padding:12px 9px}
+.k-ledger-card .q-table th:first-child,
+.k-ledger-card .q-table td:first-child{padding-left:18px}
+/* A separator is a band, not a row: artboard `2a` gives it 7px where a row
+   takes 12, so the week reads as a heading over the days under it. */
+.k-ledger-card .q-table td.k-sep-row{padding:7px 18px}
+/* Quasar's checkbox reserves 40px (24 even when dense) for a box the
+   artboard draws at 15, which made the header rule 61px tall on a card whose
+   rows are 43. */
+/* `--q-info` is the ledger's ink here, which is what the row checkboxes are
+   set to: Quasar's `.bg-*` / `.text-*` helpers cannot be out-specified, so
+   the variable they read is redefined instead. Nothing else inside the card
+   uses the info colour; the segment in the foot sets its own. */
+.k-ledger-card{--q-info:var(--k-ink)}
+/* Quasar holds every table cell on one line. The tags cell is the one
+   that must not be: `2a` gives it a 130px track, and a row carrying
+   four labels wraps them rather than widening the table until the
+   row's own actions fall off the right edge. */
+.k-ledger-card .k-tags-cell{white-space:normal}
+.k-ledger-card .k-row-action{color:var(--k-muted)}
+.k-ledger-card .k-row-action .q-icon{font-size:17px}
+.k-ledger-card .q-checkbox__inner{width:18px;height:18px;font-size:18px}
+.k-ledger-card .q-checkbox__bg{border-width:1.5px}
+/* Quasar fixes every table row at 48px. The artboard's are the height of
+   what is in them — 43 for a movement, 31 for a week band — which is the
+   same rule the dashboard's month card had to be taught. */
+.k-ledger-card .q-table thead tr,
+.k-ledger-card .q-table tbody td{height:auto}
+.k-ledger-card .q-table th:last-child,
+.k-ledger-card .q-table td:last-child{padding-right:18px}
+.k-ledger-foot{border-top:1px solid var(--k-border);padding:14px 18px}
+/* The page chevrons are navigation, not an offer: ink-2 where they work and
+   the disabled token where they do not, which is what artboard `2a` draws. */
+.k-ledger-foot .q-btn{color:var(--k-ink-2)}
+.k-ledger-foot .q-btn.disabled{color:var(--k-disabled)}
+/* Tags are the one cell that holds a list. Quasar keeps every cell on one
+   line, which pushed the row-action column off the card as soon as a
+   transaction carried four of them. */
+.k-ledger-card .q-table td[key="tags"]{white-space:normal}
+.k-ledger-card .q-table td[key="tags"] .q-chip{margin:1px 4px 1px 0}
+.k-select-sunken .q-field__control{
+  background:var(--k-surface-sunken);
+  border-radius:8px;
+  min-height:28px;
+  padding:0 10px
+}
+.k-select-sunken .q-field__control:before,
+.k-select-sunken .q-field__control:after{display:none}
+.k-select-sunken .q-field__native{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-size:12px;
+  color:var(--k-ink);
+  min-height:28px;
+  padding:0
+}
+.k-select-sunken .q-field__marginal{height:28px;color:var(--k-muted)}
 /* Ledger rows: the category reads as a pill, the group separator as a band. */
 .k-cat-pill{
   display:inline-block;
@@ -939,7 +1890,16 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   border-radius:999px;
   background:var(--k-surface-sunken);
   color:var(--k-ink-2);
-  font-size:11.5px
+  font-size:11.5px;
+  /* A long category name ends in an ellipsis rather than widening its
+     column: `2a` draws the category track at a fixed 168px, and a table
+     that lays itself out automatically gives the slack to whichever cell
+     asks loudest — until the row's own actions are off the screen. */
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  vertical-align:middle
 }
 .k-sep-row{
   background:var(--k-surface-warm);
@@ -986,19 +1946,19 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   cursor:pointer
 }
 .k-slot{
-  display:inline-flex;align-items:center;gap:.25rem;
-  padding:1px 4px;margin:0 1px;border-radius:5px;
-  color:var(--k-accent-text);
-  border-bottom:1px dashed var(--k-chip-dash);
+  display:inline-flex;align-items:center;gap:7px;
+  padding:5px 12px;border-radius:8px;
+  background:var(--k-surface-sunken);
+  border:1px solid var(--k-field-border);
+  font-weight:500;color:var(--k-ink);
   cursor:pointer;
-  transition:background-color .12s ease
+  transition:border-color .12s ease,background-color .12s ease
 }
-.k-slot:hover{background:var(--k-surface-sunken);border-bottom-color:transparent}
+.k-slot:hover{border-color:var(--k-accent)}
+.k-slot .q-icon{color:var(--k-muted);font-size:15px}
 body.k-dragging .k-slot--drop{
   background:var(--k-surface-warm);
-  border:1px dashed var(--k-accent);
-  border-bottom-color:var(--k-accent);
-  border-radius:5px
+  border:1px dashed var(--k-accent)
 }
 .k-filter-chip--empty{
   background:transparent;

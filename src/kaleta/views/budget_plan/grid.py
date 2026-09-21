@@ -64,7 +64,7 @@ def build_plan_grid(
         # No card, no shadow, no slate: artboard 2c gives the densest screen
         # in the app the opposite treatment — hairlines, and the paper is the
         # table. ``is_dark`` no longer decides anything here; the tokens do.
-        cell_cls = "text-sm text-center py-1 px-1"
+        cell_cls = "text-[12.5px] text-center py-[9px] px-1"
         row_cls = "items-center no-wrap gap-0"
 
         async def _clear_category(cat_id: int) -> None:
@@ -114,14 +114,16 @@ def _render_header(
 ) -> None:
     year = grid.slices[0].year if not grid.is_compare else None
     with ui.row().classes(f"{row_cls} {PLAN_HEAD} k-eyebrow"):
-        ui.label(t("common.category")).classes("px-3 py-2").style(S_CAT)
+        ui.label(t("common.category")).classes("px-3 py-[9px]").style(S_CAT)
         ui.label(t("common.month") if not grid.is_compare else t("common.year")).classes(
             cell_cls
         ).style(S_REC)
         for index, month_lbl in enumerate(month_labels(), start=1):
             tint = PLAN_MONTH_NOW if (year == now.year and index == now.month) else ""
             ui.label(month_lbl).classes(f"{cell_cls} {tint}").style(S_MON)
-        ui.label(t("budget_plan.year_total")).classes("px-3 py-2 text-right").style(S_TOT)
+        ui.label(t("budget_plan.year_total")).classes(
+            "px-3 py-[9px] text-right whitespace-nowrap"
+        ).style(S_TOT)
         if not grid.is_compare:
             # The two row actions moved into a right-click menu to buy back
             # the width twelve month columns need; the header says so, and the
@@ -169,7 +171,7 @@ def _render_single_year_grid(
     for row in slice_.rows:
         rec_text, rec_color = recurring_display(row)
         name_suffix = f" {MUTED} pl-7" if row.is_child else f" {INK} font-medium"
-        name_cls = "text-sm px-3 py-2 truncate" + name_suffix
+        name_cls = "text-[12.5px] px-3 py-[9px] truncate" + name_suffix
 
         # The plan line and its actual line are one category: they share a
         # hairline and light up together, rather than reading as two rows
@@ -191,7 +193,7 @@ def _render_single_year_grid(
                 ):
                     if row.is_child:
                         ui.icon("subdirectory_arrow_right").classes(
-                            f"{MUTED} ml-2 text-sm flex-shrink-0"
+                            f"{MUTED} ml-2 text-[12.5px] flex-shrink-0"
                         )
                     ui.label(row.name).classes(name_cls).style(
                         "overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
@@ -231,7 +233,7 @@ def _render_single_year_grid(
                     )
 
                 ui.label(format_amount(row.total_planned or None)).classes(
-                    f"text-sm text-right px-3 py-2 font-medium {MONO} {INK}"
+                    f"text-[12.5px] text-right px-3 py-[9px] font-medium {MONO} {INK}"
                 ).style(S_TOT)
 
                 with ui.element("div").classes("flex items-center justify-center").style(S_ACT):
@@ -271,24 +273,24 @@ def _render_single_year_grid(
                 ui.label("").style(S_ACT)
 
     with ui.row().classes(f"{row_cls} {PLAN_TOTAL} {INK} font-medium"):
-        ui.label(t("budget_plan.planned")).classes("text-sm px-3 py-2").style(S_CAT)
+        ui.label(t("budget_plan.planned")).classes("text-[12.5px] px-3 py-[9px]").style(S_CAT)
         ui.label("").style(S_REC)
         for index, tot in enumerate(slice_.month_planned_totals, start=1):
             tint = PLAN_MONTH_NOW if index == this_month else ""
             ui.label(format_amount(tot or None)).classes(f"{cell_cls} {MONO} {tint}").style(S_MON)
         ui.label(format_amount(slice_.grand_planned or None)).classes(
-            f"text-sm text-right px-3 py-2 {MONO}"
+            f"text-[12.5px] text-right px-3 py-[9px] {MONO}"
         ).style(S_TOT)
         ui.label("").style(S_ACT)
 
     with ui.row().classes(f"{row_cls} {MUTED}"):
-        ui.label(t("budget_plan.actual")).classes("text-sm px-3 py-2").style(S_CAT)
+        ui.label(t("budget_plan.actual")).classes("text-[12.5px] px-3 py-[9px]").style(S_CAT)
         ui.label("").style(S_REC)
         for index, tot in enumerate(slice_.month_actual_totals, start=1):
             tint = PLAN_MONTH_NOW if index == this_month else ""
             ui.label(format_amount(tot or None)).classes(f"{cell_cls} {MONO} {tint}").style(S_MON)
         ui.label(format_amount(slice_.grand_actual or None)).classes(
-            f"text-sm text-right px-3 py-2 {MONO}"
+            f"text-[12.5px] text-right px-3 py-[9px] {MONO}"
         ).style(S_TOT)
         ui.label("").style(S_ACT)
 
@@ -309,7 +311,7 @@ def _render_compare_grid(
         # uppercase "Żywność" and strong rules belong to the header and the
         # totals band alone.
         with ui.row().classes(f"{row_cls} {PLAN_RULE} mt-3"):
-            ui.label(cat_label).classes(f"text-sm font-medium {INK} px-3 py-1 flex-1")
+            ui.label(cat_label).classes(f"text-[12.5px] font-medium {INK} px-3 py-1 flex-1")
 
         for slice_ in grid.slices:
             year_row = next(r for r in slice_.rows if r.category_id == row.category_id)
@@ -327,7 +329,7 @@ def _render_compare_grid(
                             f"{cell_cls} {MONO} {color}"
                         ).style(S_MON)
                     ui.label(format_amount(year_row.total_planned or None)).classes(
-                        f"text-sm text-right px-3 py-1 font-medium {MONO} {INK}"
+                        f"text-[12.5px] text-right px-3 py-1 font-medium {MONO} {INK}"
                     ).style(S_TOT)
 
                 # The actual line stays, inside the pair. Scope's "no sub-rows"
@@ -349,12 +351,12 @@ def _render_compare_grid(
                     ).style(S_TOT)
 
     with ui.row().classes(f"{row_cls} {PLAN_TOTAL} {INK} font-medium"):
-        ui.label(t("common.total")).classes("text-sm px-3 py-2").style(S_CAT)
+        ui.label(t("common.total")).classes("text-[12.5px] px-3 py-[9px]").style(S_CAT)
         ui.label("").style(S_REC)
         if grid.compare_month_totals is not None:
             for tot in grid.compare_month_totals:
                 ui.label(format_amount(tot or None)).classes(f"{cell_cls} {MONO}").style(S_MON)
         overall = grid.compare_grand_total or Decimal("0")
         ui.label(format_amount(overall or None)).classes(
-            f"text-sm text-right px-3 py-2 {MONO}"
+            f"text-[12.5px] text-right px-3 py-[9px] {MONO}"
         ).style(S_TOT)

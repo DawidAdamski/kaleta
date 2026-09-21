@@ -18,6 +18,7 @@ from kaleta.views.settings.constants import (
 )
 from kaleta.views.settings.helpers import set_user_key
 from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
+from kaleta.views.theme import SEGMENT
 
 
 def render_features_tab() -> None:
@@ -137,7 +138,7 @@ def render_features_tab() -> None:
                 },
                 value=get_transactions_upcoming_days(),
                 on_change=lambda e: set_user_key("transactions_upcoming_days", int(e.value or 0)),
-            ).props("dense unelevated no-caps").classes("k-group-toggle")
+            ).props("dense unelevated no-caps toggle-text-color=info").classes(SEGMENT)
 
         with ui.card().classes("p-6 w-full"):
             with ui.row().classes("items-center gap-2 mb-1"):

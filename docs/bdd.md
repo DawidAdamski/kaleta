@@ -172,19 +172,19 @@ Feature: Onboarding Wizard
   Scenario: Wizard shows incomplete steps for a fresh database
     Given the database is empty
     And I am on the Financial Wizard page
-    Then I see the "Na start" onboarding section
-    And step "Add an institution" is marked as pending
-    And step "Add an account" is marked as pending
-    And step "Set up categories" is marked as pending
-    And step "Import or add transactions" is marked as pending
+    Then I see the "Setup" section
+    And step "Institutions" is marked as pending
+    And step "Accounts" is marked as pending
+    And step "Categories" is marked as pending
+    And step "First import" is marked as pending
 
   KAL-ONB-002 @automated
   Scenario: Wizard marks steps as done as data is added
     Given I have added an institution and an account
     And I am on the Financial Wizard page
-    Then step "Add an institution" is marked as done
-    And step "Add an account" is marked as done
-    And step "Set up categories" is marked as pending
+    Then step "Institutions" is marked as done
+    And step "Accounts" is marked as done
+    And step "Categories" is marked as pending
 ```
 
 ## Feature: Institution Management
@@ -811,7 +811,7 @@ Feature: Manual Transaction Entry
     And I am on the Transactions page
     When I select both rows
     Then the bar says 2 are selected
-    And the selected total reads +9,111.26
+    And the selected total reads +9 111.26
     And dismissing the bar unticks the rows it counted
     And clearing the filters leaves no selection bar behind
 
@@ -839,6 +839,14 @@ Feature: Manual Transaction Entry
     When I look at it in the ledger
     Then the amount reads 0.00, with no sign
     And it is painted neither as money in nor as money out
+
+  KAL-TXN-018 @automated
+  Scenario: A row's own actions are in reach without scrolling sideways
+    Given a ledger of transactions, some of them carrying several tags
+    When I look at the ledger on a desktop window
+    Then every row shows its edit and split actions
+    And the table ends inside the window,
+      so no column is reached by scrolling it sideways
 ```
 
 ## Feature: Quick Entry
@@ -976,7 +984,7 @@ Feature: Transaction Pagination and Grouping
     Given one week holds an income of 9240.00 and an expense of 128.74
     And I am on the Transactions page
     When I group the ledger by week
-    Then that week's separator shows +9,111.26 beside its label
+    Then that week's separator shows +9 111.26 beside its label
     And the figure is the net of the rows on this page
     And transfers are left out of it, the same way the selection total
       leaves them out
@@ -1261,7 +1269,7 @@ Feature: mBank CSV Import
   Scenario: Parse failures are named on the mapping step
     Given I am on the Import page
     When I upload a CSV where some rows cannot be read
-    Then a strip above the pickers says how many, and which rows
+    Then a strip under the sample rows says how many, and which rows
     And it points at the column mapping as the thing to look at
 
   KAL-CSV-027 @automated
@@ -1631,6 +1639,13 @@ Feature: Annual Budget Planning
     Given I am on the Budget Plan page for the current year
     Then the current month's column is tinted, header and cells alike
     And the tint runs down the category's plan line and its actual line both
+
+  KAL-BUD-017 @automated
+  Scenario: The month is added up before the table, not only after it
+    Given a category is budgeted for this month and some of it is spent
+    When I open the Realization tab
+    Then four cards above the table say planned, actual, remaining and used
+      And the Total row at the foot of the table says the same four figures
 ```
 
 ## Feature: Budget Planning Comparisons
@@ -1864,7 +1879,7 @@ Feature: Planned and Recurring Transactions
     Given there is a recorded income of 9240 and a recorded expense of 128.74 this month
     And an upcoming planned expense of 2500 falls in the same month
     When the rows are grouped by month
-    Then the month separator shows a net of "+9,111.26"
+    Then the month separator shows a net of "+9 111.26"
     And a month holding upcoming rows only shows no net at all,
       because nothing in it has moved
 
@@ -1935,8 +1950,27 @@ Feature: Planned and Recurring Transactions
       And its occurrence fell 5 days before the first of this month
     When I open the Payment Calendar
     Then a strip above the month grid lists "Prad Zalegly"
-      And the strip says how many days late it is
-      And the item can be posted from the strip without opening a day
+      And the strip says the date it has been overdue since
+      And the strip carries one button naming how many items are overdue
+      And pressing it posts them without opening a day
+
+  KAL-PLN-026 @automated
+  Scenario: The day sheet sits beside the month rather than over it
+    Given I open the Payment Calendar
+    Then a day sheet is open beside the grid, showing today
+      And it carries that day's In, Out and Net
+    When I click another day in the month
+    Then the sheet shows that day instead
+      And the month grid is still fully visible
+    When I close the sheet
+    Then the grid has the page to itself
+
+  KAL-PLN-027 @automated
+  Scenario: A day's totals count its subscription charges
+    Given a day carries a subscription charge of 12.99 and nothing else
+    When I open that day's sheet
+    Then the sheet says Out 12.99 and Net -12.99
+      And the day's cell in the grid says the same -12.99
 ```
 
 ## Feature: Recurring Payment Detection
@@ -2742,6 +2776,33 @@ Feature: Report Builder
       And I open "Spend by account" from the rail
     Then the sentence reads "Account" again
       And the header carries the saved report's name
+
+  KAL-RPT-002 @automated
+  Scenario: The bar result reads as rows, each with its value and its share
+    Given I am on the report builder
+      And the chart type is "Bar"
+    When I run the report
+    Then each result is a row carrying its name, a bar, its value and its
+      share of the total
+      And the rows are ranked largest first
+      And the card's title line carries the total
+
+  KAL-RPT-003 @automated
+  Scenario: The eyebrow names the report and what it is drawn from
+    Given I am on the report builder
+    Then the line above the title says the report is unsaved
+      And it says how many transactions are in the ledger
+    When I save the report as "Spend by account"
+    Then the line above the title names the report instead
+
+  KAL-RPT-004 @automated
+  Scenario: A total is only shown where the rows add up to something
+    Given I am on the report builder
+    When I measure by "Total Amount" and run the report
+    Then the card's title line carries the total of the rows
+    When I measure by "Average" and run the report
+    Then the card's title line carries no total,
+      because a sum of averages is not the average of anything
 ```
 
 ## Feature: Money Flow

@@ -32,8 +32,9 @@ from kaleta.views.theme import (
     SPLIT_BAR_HERO,
 )
 
-#: The bar's three segments, in the order they are drawn. The tone classes are
-#: the balance-sheet bar's from artboard 3b plus two of this artboard's own.
+#: The bar's three segments, in the order they are drawn. All three tones are
+#: this artboard's own: `3b`'s balance-sheet bar has `--asset` and
+#: `--asset-soft` for its two greens, so `--ink` stays the ink `1c` draws here.
 _SEGMENTS: tuple[tuple[str, str], ...] = (
     ("dashboard.sts_committed", "k-split--ink"),
     ("dashboard.sts_spent", "k-split--spent"),

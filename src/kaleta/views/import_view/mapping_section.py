@@ -16,13 +16,19 @@ from kaleta.services.import_service import (
     CsvInspection,
     row_error_line,
 )
+from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.import_view.state import QueuedFile
 from kaleta.views.theme import (
     AUTO_BADGE,
     BODY_MUTED,
+    CARD_RULE,
+    FIELD_LABEL,
+    FIELD_ROW,
+    FIELD_SELECT,
+    FIELD_SELECT_UNSET,
     MONO,
     MUTED,
-    SECTION_CARD,
+    SECTION_CARD_WIDE,
     SECTION_HEADING,
     SECTION_TITLE,
     TABLE_SURFACE,
@@ -158,7 +164,7 @@ def row_count_label(count: int) -> str:
     itself lives in :func:`kaleta.i18n.plural_key`; the formatting is the
     app's usual ``,`` separator, so the caption reads like every other figure.
     """
-    return t(plural_key("import.rows_count", count), count=f"{count:,}")
+    return t(plural_key("import.rows_count", count), count=spaced_thousands(f"{count:,}"))
 
 
 def sample_body_slot() -> str:
@@ -182,7 +188,7 @@ def sample_body_slot() -> str:
 
 @dataclass
 class MappingSection:
-    card: ui.card
+    card: ui.element
     meta_label: ui.label
     sample_table: ui.table
     errors_column: ui.column
@@ -223,6 +229,7 @@ class MappingSection:
             widget.on("update:model-value", lambda _e: self._emit())
 
     def _emit(self) -> None:
+        self._paint_unset()
         if self._suppress or self._on_change is None:
             return
         result = self._on_change()
@@ -283,11 +290,12 @@ class MappingSection:
                     rows=row_count_label(inspection.total_rows),
                 )
             )
-            self._render_sample(inspection)
+            self._render_sample(inspection, mapping)
         else:
             self.meta_label.set_text("")
             self.sample_table.rows = []
 
+        self._paint_unset()
         self._render_badges(file.auto_mapping, mapping)
         self._render_errors(file.parse_errors, file.error_rows)
 
@@ -310,12 +318,34 @@ class MappingSection:
     def sync_to_file(self, file: QueuedFile) -> None:
         file.column_mapping = self.mapping_from_widgets()
 
+    def _paint_unset(self) -> None:
+        """A picker with nothing in it is paper; a mapped one is sunken sand.
+
+        Artboard `2d` draws the difference, and on a card holding eight rows
+        it is the only thing that says at a glance how much is still to do.
+        """
+        for sel in (
+            self.date_sel,
+            self.amount_sel,
+            self.description_sel,
+            self.notes_sel,
+            self.payee_sel,
+            self.counterparty_sel,
+            self.debit_sel,
+            self.credit_sel,
+        ):
+            unset = sel.value in (None, _UNMAPPED)
+            sel.classes(
+                add=FIELD_SELECT_UNSET if unset else "",
+                remove="" if unset else FIELD_SELECT_UNSET,
+            )
+
     def _render_badges(self, auto_mapping: ColumnMapping | None, mapping: ColumnMapping) -> None:
         auto = auto_detected_fields(auto_mapping, mapping)
         for name, badge in self.badges.items():
             badge.set_visibility(name in auto)
 
-    def _render_sample(self, inspection: CsvInspection) -> None:
+    def _render_sample(self, inspection: CsvInspection, mapping: ColumnMapping) -> None:
         # "1: Data", "2: Opis" — the same numbering the pickers use, so a
         # column in the sample and its picker name each other.
         columns = [
@@ -323,7 +353,9 @@ class MappingSection:
                 "name": f"c{i}",
                 "label": column_label(i, h),
                 "field": f"c{i}",
-                "align": "left",
+                # The column the amount is read from is the one column of the
+                # file that is a number, and artboard `2d` sets it right.
+                "align": "right" if i == mapping.amount else "left",
             }
             for i, h in enumerate(inspection.headers)
         ]
@@ -378,15 +410,22 @@ class MappingSection:
 def build_mapping_section() -> MappingSection:
     badges: dict[str, ui.element] = {}
 
-    def _picker(label_key: str, field: str, *, width: str = "w-full") -> ui.select:
-        """One column picker, with the ``auto`` pill that says where it came from.
+    def _picker(label_key: str, field: str) -> ui.select:
+        """One mapping row: the field on the left, the column it reads on the right.
 
-        Every column picker has a field, and so a pill; the format and
-        separator selects below are not column pickers and build their own.
+        Artboard `2d` labels each picker beside it rather than inside it, and
+        puts the ``auto`` pill in the field's own append slot — so the mark
+        that says "the importer chose this" is inside the thing it chose.
         """
-        with ui.column().classes(f"{width} gap-0.5 min-w-0"):
-            select = ui.select({}, label=t(label_key)).classes("w-full")
-            badge = ui.label(t("import.auto_badge")).classes(AUTO_BADGE)
+        with ui.row().classes(FIELD_ROW):
+            ui.label(t(label_key)).classes(FIELD_LABEL)
+            select = (
+                ui.select({})
+                .props("dense options-dense borderless dropdown-icon=expand_more")
+                .classes(f"{FIELD_SELECT} flex-1 min-w-0")
+            )
+            with select.add_slot("append"):
+                badge = ui.label(t("import.auto_badge")).classes(AUTO_BADGE)
             # Which picker the pill belongs to, on the pill itself: the mark
             # is the only thing on screen that names its own field.
             badge.props[_BADGE_FIELD_ATTR] = field
@@ -394,69 +433,63 @@ def build_mapping_section() -> MappingSection:
             badges[field] = badge
         return select
 
-    card = ui.card().classes(f"{SECTION_CARD} w-full")
+    def _format_chip(options: dict[str, str], label_key: str) -> ui.select:
+        """One of the three format pills, which carry their value and no label."""
+        return (
+            ui.select(options, value="")
+            .props("dense options-dense borderless dropdown-icon=expand_more")
+            .classes(f"{FIELD_SELECT} w-auto")
+            .tooltip(t(label_key))
+        )
+
+    # Two cards, not two columns of one: artboard `2d` reads the file on the
+    # left and maps it on the right, and the two are different questions.
+    card = ui.element("div").classes("w-full k-mapping-grid")
     card.set_visibility(False)
     with card:
-        ui.label(t("import.mapping_section")).classes(SECTION_HEADING)
-        ui.label(t("import.mapping_hint")).classes(f"{BODY_MUTED} mb-3")
+        with ui.column().classes(f"{SECTION_CARD_WIDE} gap-0 self-start"):
+            ui.label(t("import.mapping_sample")).classes(SECTION_HEADING)
+            meta_label = ui.label("").classes(f"{MONO} {MUTED} text-[11.5px] mt-[5px] mb-4")
+            sample_table = (
+                ui.table(columns=[], rows=[], row_key="idx")
+                .classes(f"{TABLE_SURFACE} {MONO} k-sample-table text-[11.5px]")
+                .props("dense flat")
+            )
+            sample_table.add_slot("body", sample_body_slot())
+            # Under the sample, where the artboard puts it: the rows it names
+            # are the rows just above it.
+            with ui.row().classes(
+                f"{WARNING_STRIP} w-full items-start gap-[9px] px-[14px] py-[11px] rounded-lg mt-4"
+            ) as warning_strip:
+                ui.icon("info", size="17px")
+                warning_label = ui.label("").classes("text-[12.5px] leading-normal")
+            warning_strip.set_visibility(False)
+            errors_column = ui.column().classes("w-full gap-0.5 mt-2")
 
-        # Two columns: the file on the left, the pickers on the right, so a
-        # column is mapped while its values are on screen. Under md they
-        # stack — `flex-col` really stacks them, where a wrapping row never
-        # would: two `min-w-0` children always fit on one line, however narrow
-        # it gets, and would have squeezed instead of wrapping.
-        with ui.row().classes("w-full gap-6 items-start no-wrap flex-col md:flex-row"):
-            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
-                meta_label = ui.label("").classes(f"{MONO} {MUTED} text-[11px]")
-                sample_table = (
-                    ui.table(columns=[], rows=[], row_key="idx")
-                    .classes(f"{TABLE_SURFACE} {MONO} text-[11px]")
-                    .props("dense flat")
-                )
-                sample_table.add_slot("body", sample_body_slot())
-
-            with ui.column().classes("w-full md:flex-1 min-w-0 gap-2"):
-                # Above the pickers, not under the sample: what the strip says
-                # is which columns to go and change, and it is read on the way
-                # into them.
-                with ui.row().classes(
-                    f"{WARNING_STRIP} w-full items-start gap-2 px-3 py-2 rounded-lg"
-                ) as warning_strip:
-                    ui.icon("report_problem", size="16px")
-                    warning_label = ui.label("").classes("text-[12px] leading-snug")
-                warning_strip.set_visibility(False)
-                errors_column = ui.column().classes("w-full gap-0.5")
-                ui.label(t("import.mapping_fields")).classes(SECTION_TITLE)
-                with ui.row().classes("w-full gap-3 flex-wrap"):
-                    date_sel = _picker("import.mapping_date", "date", width="flex-1 min-w-40")
-                    amount_sel = _picker("import.mapping_amount", "amount", width="flex-1 min-w-40")
+        with ui.column().classes(f"{SECTION_CARD_WIDE} gap-0 self-start"):
+            ui.label(t("import.mapping_section")).classes(SECTION_HEADING)
+            ui.label(t("import.mapping_hint")).classes(f"{BODY_MUTED} mt-[5px] mb-[18px]")
+            with ui.column().classes("w-full gap-3"):
+                date_sel = _picker("import.mapping_date", "date")
+                amount_sel = _picker("import.mapping_amount", "amount")
                 description_sel = _picker("import.mapping_description", "description")
-                with ui.row().classes("w-full gap-3 flex-wrap"):
-                    notes_sel = _picker("import.mapping_notes", "notes", width="flex-1 min-w-40")
-                    payee_sel = _picker("import.mapping_payee", "payee", width="flex-1 min-w-40")
-                with ui.row().classes("w-full gap-3 flex-wrap"):
-                    counterparty_sel = _picker(
-                        "import.mapping_counterparty",
-                        "counterparty_account",
-                        width="flex-1 min-w-40",
-                    )
-                    debit_sel = _picker("import.mapping_debit", "debit", width="flex-1 min-w-40")
-                    credit_sel = _picker("import.mapping_credit", "credit", width="flex-1 min-w-40")
+                payee_sel = _picker("import.mapping_payee", "payee")
+                notes_sel = _picker("import.mapping_notes", "notes")
+                counterparty_sel = _picker("import.mapping_counterparty", "counterparty_account")
+                debit_sel = _picker("import.mapping_debit", "debit")
+                credit_sel = _picker("import.mapping_credit", "credit")
 
-                ui.label(t("import.mapping_formats")).classes(f"{SECTION_TITLE} mt-2")
-                with ui.row().classes("w-full gap-3 flex-wrap items-center"):
-                    date_format_sel = ui.select(
-                        _DATE_FORMAT_OPTIONS, label=t("import.mapping_date_format"), value=""
-                    ).classes("flex-1 min-w-36")
-                    decimal_sel = ui.select(
-                        _DECIMAL_OPTIONS, label=t("import.mapping_decimal"), value=""
-                    ).classes("flex-1 min-w-28")
-                    thousands_sel = ui.select(
-                        _THOUSANDS_OPTIONS, label=t("import.mapping_thousands"), value=""
-                    ).classes("flex-1 min-w-28")
-                negative_expenses_cb = ui.checkbox(
-                    t("import.mapping_negative_expenses"), value=True
-                )
+            ui.element("div").classes(CARD_RULE)
+            ui.label(t("import.mapping_formats")).classes(f"{SECTION_TITLE} mb-3")
+            with ui.row().classes("w-full gap-2.5 flex-wrap items-center"):
+                date_format_sel = _format_chip(_DATE_FORMAT_OPTIONS, "import.mapping_date_format")
+                decimal_sel = _format_chip(_DECIMAL_OPTIONS, "import.mapping_decimal")
+                thousands_sel = _format_chip(_THOUSANDS_OPTIONS, "import.mapping_thousands")
+            negative_expenses_cb = (
+                ui.checkbox(t("import.mapping_negative_expenses"), value=True)
+                .props("color=info")
+                .classes("mt-3.5")
+            )
 
     return MappingSection(
         card=card,
