@@ -16,6 +16,7 @@ from pathlib import Path
 from playwright.sync_api import Page, expect
 
 from tests.e2e.ledger import search_ledger
+from tests.e2e.pages import on_import_page
 from tests.e2e.seed_helpers import (
     get_or_seed_category,
     seed_account,
@@ -106,7 +107,7 @@ def test_rules_apply_during_csv_import(page: Page, base_url: str) -> None:
 
     try:
         page.goto(f"{base_url}/import")
-        expect(page.get_by_text("Import", exact=True).first).to_be_visible(timeout=5000)
+        on_import_page(page)
 
         page.locator('input[type="file"]').set_input_files(str(csv_path))
         expect(page.locator("[data-page-eyebrow]")).to_contain_text(csv_path.name, timeout=5000)

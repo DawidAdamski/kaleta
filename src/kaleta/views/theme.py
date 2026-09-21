@@ -383,6 +383,11 @@ CALENDAR_DAY_BLANK = "k-cal-day--blank"
 #: The day number on a working day. Weekends take plain ``MUTED`` and today
 #: takes ``INK``, so the three read as three levels without a second tint.
 CALENDAR_DAY_NUM = "k-cal-num"
+#: The three letters in the corner of today's cell. Its own class and not
+#: the page eyebrow: `3c` draws it a half-pixel smaller and half as tracked
+#: as an eyebrow, in the accent rather than in muted, because it marks one
+#: cell in a grid of thirty-one rather than heading a section.
+CALENDAR_TODAY_MARK = "k-cal-today"
 #: One dot per thing happening that day, coloured by which way the money goes.
 CALENDAR_DOT = "k-cal-dot"
 CALENDAR_DOT_IN = "k-cal-dot--in"
@@ -1163,6 +1168,13 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 
 /* Payment calendar (artboard 3c) — the grid is 31 small cells, so every
    pixel of border and padding is charged 31 times. */
+.k-cal-today{
+  font-weight:600;
+  font-size:8.5px;
+  letter-spacing:.1em;
+  text-transform:uppercase;
+  color:var(--k-accent-text)
+}
 .k-cal-day{
   border:1px solid var(--k-hairline);
   border-radius:10px;

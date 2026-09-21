@@ -60,6 +60,7 @@ from kaleta.views.theme import (
     CALENDAR_DOT_FLAT,
     CALENDAR_DOT_IN,
     CALENDAR_DOT_OUT,
+    CALENDAR_TODAY_MARK,
     CARD_TITLE,
     DAY_ITEM,
     DAY_PANEL,
@@ -767,7 +768,7 @@ def register() -> None:
                         ui.label(str(date.day)).classes(f"{MONO} text-sm {day_cls}")
                         if is_today:
                             ui.label(t("payment_calendar.today_marker")).classes(
-                                f"{SECTION_TITLE} text-[9px]"
+                                CALENDAR_TODAY_MARK
                             )
 
                     if marks.net:

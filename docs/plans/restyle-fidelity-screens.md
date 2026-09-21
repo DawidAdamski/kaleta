@@ -302,8 +302,9 @@ If one screen alone is more than a day's work, split it out into
   Import page's title is "Import" rather than "Import Transactions" —
   the drawer and the header already say which screen it is (`2d`, row
   2). Every `get_by_text("Import Transactions")` in
-  `tests/e2e/test_csv_import.py` became `_on_import_page(page)`, which
-  asserts `expect(page.locator(".k-page-title")).to_have_text("Import")`:
+  `tests/e2e/test_csv_import.py` and `test_rules.py` became
+  `on_import_page(page)` (`tests/e2e/pages.py`), which asserts
+  `expect(page.locator(".k-page-title")).to_have_text("Import")`:
   scoped to the title element rather than to any text on the page, so it
   cannot be satisfied by the word "Import" on a button or in the drawer.
   No `KAL-CSV` scenario quotes the old title.
@@ -362,6 +363,15 @@ If one screen alone is more than a day's work, split it out into
   moved every figure in the card. `minmax(0, …)`.
 - The report builder's rail highlight shrink-wrapped its own label; the
   rail row is `width:100%`.
+- The Payment Calendar's "Today" tag wore the page eyebrow at 9px in
+  muted — a section heading's face on three letters in the corner of one
+  cell out of thirty-one. `--k-cal-today` is its own class, at the
+  artboard's 8.5px/.1em in the accent.
+- `tests/e2e/test_rules.py` still opened the import page by
+  `get_by_text("Import", exact=True).first`, which the drawer's own nav
+  entry satisfies on any screen. The assertion every other import test
+  uses moved into `tests/e2e/pages.py` as `on_import_page`, and both
+  modules call it: `.k-page-title` has to read "Import".
 - Two rows on `3a` that the first pass had written down as deviations
   were nothing of the kind. The page column's 22px gap already had a
   token — `PAGE_GAP_22`, which `2b` and `3e` take — and the forecast

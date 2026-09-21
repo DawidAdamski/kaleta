@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """What one day of the payment calendar comes to.
 
-Covers: KAL-PLN-026
+Covers: KAL-PLN-027
 
 Three readers ask the same question of a day — the cell in the month grid,
 the sheet's Out, the sheet's Net — and they used to answer it separately, in
