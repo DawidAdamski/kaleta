@@ -480,9 +480,13 @@ class PlannedTransactionService:
         # item that cannot be posted — a plan deleted between the strip being
         # drawn and its button being pressed — would otherwise leave the rows
         # before it in the session, to be committed by whatever ran next.
+        # One entry per occurrence, not per item handed in: the same
+        # (plan, date) twice is one ledger row, and a caller that counts what
+        # came back would otherwise report a row it did not write.
+        wanted = builtins.list(dict.fromkeys((o.planned_id, o.date) for o in occurrences))
         async with self._session.begin_nested():
-            for occ in occurrences:
-                posted.append(await self._ensure_posted(occ.planned_id, occ.date))
+            for planned_id, occurrence_date in wanted:
+                posted.append(await self._ensure_posted(planned_id, occurrence_date))
         # The savepoint has flushed, so every row has its id; read them before
         # the commit expires the instances, and wake them all with one query
         # rather than one per row.

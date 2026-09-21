@@ -681,6 +681,36 @@ class TestPostOccurrences:
     ):
         assert await svc.post_occurrences([]) == []
 
+    async def test_the_same_occurrence_twice_is_one_row_and_one_answer(
+        self, svc: PlannedTransactionService, session: AsyncSession
+    ):
+        """Covers: KAL-PLN-017
+
+        A caller counts what came back to say how many it posted, so one
+        ledger row must not answer twice.
+        """
+        acc_id = await _make_account(session)
+        await svc.create(
+            _pt(
+                acc_id,
+                name="Rent",
+                amount=Decimal("2500.00"),
+                frequency=RecurrenceFrequency.MONTHLY,
+                start_date=datetime.date(2025, 1, 1),
+            )
+        )
+        window = await svc.get_occurrences(
+            datetime.date(2025, 1, 1),
+            datetime.date(2025, 1, 31),
+            exclude_posted=True,
+        )
+        assert len(window) == 1
+
+        posted = await svc.post_occurrences([window[0], window[0]])
+
+        assert len(posted) == 1
+        assert posted[0].date == datetime.date(2025, 1, 1)
+
     async def test_one_bad_item_leaves_the_whole_set_unwritten(
         self, svc: PlannedTransactionService, session: AsyncSession
     ):

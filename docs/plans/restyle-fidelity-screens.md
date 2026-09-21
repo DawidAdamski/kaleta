@@ -46,8 +46,9 @@ traffic first): `2a`, `2b`, `3c`, `3b`, `3a`, `2c`, `2d`, `3d`, `3e`, `3f`.
 | `3e` | Report builder | `/reports/builder` | `views/reports/` |
 | `3f` | Login, desktop + phone | `/login` | `views/login.py`, `views/auth_common.py` |
 
-- View layer only: layout, classes, tokens, element order. A value that
-  recurs across screens becomes a token in `theme.py`.
+- View layer only: layout, classes, tokens, element order (see the
+  exceptions section below). A value that recurs across screens becomes a
+  token in `theme.py`.
 - Charts: ECharts options (colours, axis and legend treatment, annotations)
   are in scope; the artboards' SVG shapes are sketches and are not.
 - If the seed cannot put a screen in the state its artboard draws (no overdue
@@ -62,7 +63,9 @@ traffic first): `2a`, `2b`, `3c`, `3b`, `3a`, `2c`, `2d`, `3d`, `3e`, `3f`.
   scenario claims does not change; only the words it quotes from the screen.
 
 Out of scope: new behaviour, service changes, the phone pass for screens
-other than `3f`, artboards `1a` / `1b` / `1e`. If a screen's `open` rows turn
+other than `3f`, artboards `1a` / `1b` / `1e` — read with the section
+below, which lists the five places this plan crossed those lines and why,
+each of them gated on an `[owner]` criterion. If a screen's `open` rows turn
 out to need a service change, stop on that screen, leave the row `open`, and
 say so — it becomes its own plan.
 
@@ -95,9 +98,11 @@ review found while the screen was being brought to it.
      by the cell in the grid and by the sheet's Out and Net, which had
      been answering it separately and disagreeing. Five unit tests and
      `KAL-PLN-027`.
-   - `BudgetService.RealizationTotals`: what a month comes to, summed
-     twice in `2b`'s view — once for the stat cards, once for the Total
-     row. Six unit tests and `KAL-BUD-017`.
+   - `RealizationTotals` (module-level in
+     `services/budget_service.py`, exported from `kaleta.services`):
+     what a month comes to, summed twice in `2b`'s view — once for the
+     stat cards, once for the Total row. Six unit tests and
+     `KAL-BUD-017`.
    - `views/reports/sentence.py::result_total`: `3e`'s result figure,
      a `sum()` inline in the zone that drew it. This one stayed in the
      view layer, beside `share_percents`, which asks the same question
@@ -131,6 +136,11 @@ review found while the screen was being brought to it.
      these two were still assembling theirs out of `AUTH_CONTROL` and
      `ERROR_SLOT` by hand — three auth pages on one shell, two of them
      drawing a field the third no longer draws.
+   - `views/dashboard_widgets/cashflow_chart.py` held its own copy of the
+     two axis faces. They are every artboard's, `chart_utils` now names
+     them (`AXIS_LABEL_MONO` / `AXIS_LABEL_BODY`) because `3a` and `3b`
+     need them too, and two definitions of one face is how they drift.
+     The card's values are unchanged.
    - `views/settings/features_tab.py` used `.k-group-toggle`, the class
      `SEGMENT` replaced when `3a` made the app settle on one segmented
      control. The class is gone from `theme.py`, so the tab had to take
@@ -251,7 +261,10 @@ If one screen alone is more than a day's work, split it out into
   `TransactionService` and `import_service`, which the API reads too, so
   the grouping goes on in the view: `space_amounts` in
   `views/components/transaction_table.py`, beside the other decorators
-  that turn a service row into a drawn one, with three unit tests.
+  that turn a service row into a drawn one, with three unit tests. The
+  ledger's planned-row dialog goes through it too — it opens from a row
+  in that table and would otherwise read `+9,240.00` on top of the
+  screen that reads `+9 240.00`.
   Two chart axes number themselves, and ECharts writes `120,000` at four
   figures; `AXIS_VALUE_SPACED` in `chart_utils.py` is the one formatter
   both take. What is left is the decimal mark, which is a dot across the
@@ -263,8 +276,10 @@ If one screen alone is more than a day's work, split it out into
   the orchestration — and the atomicity — lived in `views/`.
   `PlannedTransactionService.post_occurrences` takes the list and
   commits it in one savepoint; the view calls it once and counts what
-  came back. Four unit tests cover it, one of them a batch whose second
-  item has no plan left, which must leave the first unwritten.
+  came back. Five unit tests cover it: one is a batch whose second item
+  has no plan left, which must leave the first unwritten; another hands
+  it the same occurrence twice, because the view counts what comes back
+  and one ledger row must not answer twice.
 - **The seed's canonical tags carry sand colours.** A tag chip is drawn
   as an outline in its own colour, and the model's grey default read as
   "no tag" beside a category pill in `2a`'s shot.
@@ -316,8 +331,10 @@ If one screen alone is more than a day's work, split it out into
 - **`2b`'s month is added up once.** The four stat cards and the Total
   row are the same four figures, and each was summing the rows itself
   inside the view — two copies of one reduction, neither of them
-  reachable by a test. `BudgetService.RealizationTotals.of(rows)`, six
-  unit tests, and `KAL-BUD-017` with an e2e that reads the cards and
+  reachable by a test. `RealizationTotals.of(rows)` — a module-level
+  frozen dataclass in `services/budget_service.py`, exported from
+  `kaleta.services` beside the service itself — six unit tests, and
+  `KAL-BUD-017` with an e2e that reads the cards and
   looks for their figures in the Total row. Its figures go through
   `spaced_thousands` like every other restyled screen's; they were
   writing `2,400` beside `2c`'s `2 400`.
