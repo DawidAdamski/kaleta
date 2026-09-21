@@ -125,7 +125,7 @@ review found while the screen was being brought to it.
    photographed against the wrong page or the wrong ledger, and no
    comparison made from those shots would have been worth anything.
 
-5. **Three view files outside the Scope table, and three reports from
+5. **Four view files outside the Scope table, and three reports from
    the plan before this one.** None of them is a restyle of its own;
    each is a file that could not stay where it was once a shared thing
    moved:
