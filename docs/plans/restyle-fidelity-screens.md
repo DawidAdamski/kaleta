@@ -116,8 +116,9 @@ review found while the screen was being brought to it.
    element `deviation`). It also gave the canonical tags sand colours,
    the model's grey having read as "no tag" in `2a`'s shot.
    `src/kaleta/views/transactions/constants.py` is gone: it held
-   `_KBD_CLS`, a slate-grey keyboard-hint pill `2a` does not draw, and
-   nothing else imported it.
+   `_KBD_CLS`, a slate-grey box for the shortcut hint, which `2a` draws
+   in sand on the ink pill. `KBD_HINT` in `theme.py` replaced it and
+   nothing else imported the module.
 4. **The shoot harness beyond `_prepare_*`.** `scripts/restyle_fidelity.py`
    also gained a real seeding pipeline and a login split (see
    Implementation notes, "The shoot runs the rich seed" and "`3f` was
@@ -175,7 +176,7 @@ If one screen alone is more than a day's work, split it out into
 - `uv run python scripts/spec_coverage.py`
 - `bash scripts/verify.sh --e2e`
 - `[owner]` Pages through `.fidelity/<id>/index.html` for the ten artboards
-  and agrees with the 31 rows listed as **Choices** under Implementation
+  and agrees with the 32 rows listed as **Choices** under Implementation
   notes § "Deviations the owner has to agree with". The other twenty
   `deviation` rows are listed there too, under Gaps, Tool and Sample, so
   that the reading has an end; none of them is a decision.
@@ -285,8 +286,12 @@ If one screen alone is more than a day's work, split it out into
   as an outline in its own colour, and the model's grey default read as
   "no tag" beside a category pill in `2a`'s shot.
 - **`views/transactions/constants.py` is gone.** It held one thing,
-  `_KBD_CLS`, a slate-grey keyboard-hint pill; `2a` does not draw the
-  hint and nothing else imported the constant.
+  `_KBD_CLS`, a slate-grey box for the shortcut hint. `2a` draws that
+  hint, but in sand inside the ink pill, so the class became `KBD_HINT`
+  in `theme.py` beside the other tokens and the module had nothing left
+  in it. The hint itself now reads `t("transactions.add_shortcut")`,
+  whose value was `Ctrl+N` in both locales while the page has bound
+  `Alt+N` all along.
 - **The result card's total is in `reports/sentence.py`.** It was a
   `sum()` inline in the zone that draws it — arithmetic no test could
   reach — and it belongs beside `share_percents`, which asks the same
@@ -468,7 +473,7 @@ If one screen alone is more than a day's work, split it out into
 
 ### Deviations the owner has to agree with
 
-Fifty-one rows across the ten reports are marked `deviation`, and each
+Fifty-two rows across the ten reports are marked `deviation`, and each
 says why in its own Note. They are not all the same kind of thing, so
 every one of them is here, sorted into four — because "page through the
 reports and agree with the deviations" has to be a finite job, and only
@@ -513,11 +518,12 @@ artboard draws; the picture differs because of what is in the ledger.
 | `3d` 17 | Every routine the artboard greys out has since been built. |
 | `3d` 22 | The footnote is drawn only while a step is unbuilt, so on this ledger it is absent — which is why the artboard has no row for it. |
 
-**Choices (31).** These are the decisions. Each is reversible by saying
+**Choices (32).** These are the decisions. Each is reversible by saying
 so, and each is one line in one place.
 
 | Row | The choice |
 |---|---|
+| `2a` 5 | The shortcut hint on the New-transaction pill is `--k-on-ink-muted` `#B0A692`, the app's one grey for muted type on ink and what `3f`'s panel writes. `2a` writes `#A8A08D` — the dark theme's muted, which `1d` writes thirty-five times — for the same job. |
 | `2a` 20b | A row carrying four tags wraps them two to a line in a 176px track, so that row is two or three lines tall. The artboard's rows carry one label each and give the column 130px; letting the column take the width it wanted is what hid the row's own actions. |
 | `2b` 16 | The note under a bar wraps rather than truncating: "Paid in full on 01.09 - as planned" does not fit one 178px line, and half an explanation explains nothing. |
 | `2c` 9 | The grid is flex, not CSS grid: it scrolls sideways under 1020px, and twelve month columns cannot reflow into one. |

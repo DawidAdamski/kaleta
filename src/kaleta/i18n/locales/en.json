@@ -243,7 +243,7 @@
   "transactions": {
     "title": "Transactions",
     "add": "Add Transaction",
-    "add_shortcut": "Ctrl+N",
+    "add_shortcut": "Alt+N",
     "keyboard_shortcuts": "Keyboard shortcuts",
     "filters": "Filters",
     "date_range": "Date range",

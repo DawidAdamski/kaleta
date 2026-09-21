@@ -410,7 +410,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
             ):
                 ui.icon("add")
                 ui.label(t("transactions.add"))
-                ui.label("Alt+N").classes(KBD_HINT)
+                # The key this page actually binds, below in `handle_key`.
+                ui.label(t("transactions.add_shortcut")).classes(KBD_HINT)
 
         filter_widgets = render_filter_bar(
             account_options=account_options,

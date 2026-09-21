@@ -1549,11 +1549,15 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .body--dark .q-btn.k-title-action--ink{background:var(--k-ink);color:var(--k-ground)}
 /* A key cap inside that pill: mono, a hairline box, and dimmed against the
    ink it sits on — it is a hint, not the button's label. */
+/* The shortcut on the New-transaction pill. Muted type on ink, which is
+   what `--k-on-ink-muted` is for — it had been `--k-disabled`, the grey
+   for a control nobody can press, on a button that is the page's one
+   action. */
 .k-kbd{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-size:10.5px;
   line-height:1.3;
-  color:var(--k-disabled);
+  color:var(--k-on-ink-muted);
   border:1px solid var(--k-ink-2);
   border-radius:4px;
   padding:1px 5px
