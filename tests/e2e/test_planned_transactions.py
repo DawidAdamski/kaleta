@@ -19,6 +19,7 @@ from tests.e2e.seed_helpers import (
     seed_account,
     seed_category,
     seed_planned_transaction,
+    seed_subscription,
 )
 
 # ---------------------------------------------------------------------------
@@ -529,6 +530,35 @@ def test_overdue_strip_above_the_calendar_grid(page: Page, base_url: str) -> Non
     assert count_transactions(acc_id) == before + 1
     # And it says how many it posted, in the number it had promised.
     expect(page.get_by_text(f"Posted {listed} due occurrence(s).")).to_be_visible()
+
+
+def test_a_days_totals_count_its_subscription_charges(page: Page, base_url: str) -> None:
+    """Covers: KAL-PLN-027
+
+    The cell in the grid always counted a day's projected charges and the
+    sheet did not, so a day drawn -12.99 opened onto Out 0.00 — the screen
+    disagreeing with itself about the same day.
+
+    The 2nd, because it is a day no other test in this file seeds: the
+    figures below are the charge alone, which is what makes them literals.
+    """
+    today = datetime.date.today()
+    second = today.replace(day=2)
+    seed_subscription("iCloud Calendar E2E", 12.99, 30, first_seen_at=second)
+
+    page.goto(f"{base_url}/payment-calendar")
+    cell = page.locator(f'[data-day="{second.isoformat()}"]')
+    expect(cell).to_be_visible(timeout=10000)
+    expect(cell).to_contain_text("-12.99")
+
+    cell.click()
+    panel = page.locator(".k-day-panel")
+    expect(panel).to_contain_text(str(second.day), timeout=5000)
+    expect(panel).to_contain_text("-12.99")
+    # In, Out and Net, in that order: nothing came in, 12.99 went out.
+    totals = panel.locator(".k-hairline-bottom")
+    expect(totals).to_contain_text("0.00")
+    expect(totals).to_contain_text("-12.99")
 
 
 def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:

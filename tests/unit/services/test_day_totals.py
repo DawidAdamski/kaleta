@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """What one day of the payment calendar comes to.
 
+Covers: KAL-PLN-026
+
 Three readers ask the same question of a day — the cell in the month grid,
 the sheet's Out, the sheet's Net — and they used to answer it separately, in
 the view, which is how a day drawn `-12.99` came to open onto `Out 0.00`.
+Every expected value here is a literal; none is a second call to the code
+under test.
 """
 
 from __future__ import annotations
@@ -15,7 +19,6 @@ from kaleta.schemas.transaction import TransactionType
 from kaleta.schemas.wizard_projections import SubscriptionCharge
 from kaleta.services.day_totals import DayTotals
 from kaleta.services.planned_transaction_service import DayAggregate, PlannedOccurrence
-from kaleta.views.payment_calendar import day_marks
 
 DAY = datetime.date(2025, 3, 14)
 
@@ -66,10 +69,15 @@ class TestDayTotals:
         assert DayTotals.incoming(cell) == Decimal("100.00")
         assert DayTotals.outgoing(cell, [_sub("12.99")]) == Decimal("12.99")
 
-    def test_the_sheet_and_the_cell_agree(self) -> None:
+    def test_a_day_that_takes_in_more_than_it_pays_out(self) -> None:
+        # 100 in, 35 out and two charges of 12.99 and 10.75: 41.26 to the
+        # good. The literal is the arithmetic, not a second call to the code
+        # under test.
         cell = _cell(_occ("100.00", TransactionType.INCOME), _occ("35.00", TransactionType.EXPENSE))
         subs = [_sub("12.99"), _sub("10.75")]
-        assert DayTotals.net(cell, subs) == day_marks(cell, subs).net
+        assert DayTotals.incoming(cell) == Decimal("100.00")
+        assert DayTotals.outgoing(cell, subs) == Decimal("58.74")
+        assert DayTotals.net(cell, subs) == Decimal("41.26")
 
     def test_a_day_with_nothing_on_it(self) -> None:
         assert DayTotals.incoming(None) == Decimal("0")

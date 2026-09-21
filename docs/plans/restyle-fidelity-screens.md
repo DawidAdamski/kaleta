@@ -82,12 +82,26 @@ review found while the screen was being brought to it.
    three buttons rather than a menu. "Out of scope: new behaviour" was
    meant to bar inventing features; matching what the spec draws is this
    plan's whole purpose (Working Agreement §12).
-2. **One service method.** `PlannedTransactionService.post_occurrences`
-   exists because the first review pass found the strip's button looping
-   over `post_occurrence` from inside the view — orchestration and
-   atomicity in `views/`, against the architecture contract. It adds no
-   capability: `post_due` could already post a window, and this posts the
-   list it is handed. Three unit tests.
+2. **One service method and three reductions.** Each came out of a
+   review pass that found arithmetic or orchestration sitting in
+   `views/`, which the architecture contract forbids. None of them adds
+   a capability — each is code that already existed, moved to where a
+   test can reach it and where two readers cannot disagree:
+   - `PlannedTransactionService.post_occurrences`: the overdue strip's
+     button had been looping over `post_occurrence` with a session per
+     item, from the view. `post_due` could already post a window; this
+     posts the list it is handed, in one savepoint. Four unit tests.
+   - `DayTotals` (`services/day_totals.py`): what a day comes to, asked
+     by the cell in the grid and by the sheet's Out and Net, which had
+     been answering it separately and disagreeing. Five unit tests and
+     `KAL-PLN-027`.
+   - `BudgetService.RealizationTotals`: what a month comes to, summed
+     twice in `2b`'s view — once for the stat cards, once for the Total
+     row. Six unit tests and `KAL-BUD-017`.
+   - `views/reports/sentence.py::result_total`: `3e`'s result figure,
+     a `sum()` inline in the zone that drew it. This one stayed in the
+     view layer, beside `share_percents`, which asks the same question
+     of each row and set that precedent; three unit tests.
 3. **Four seed rows and a deleted file.** `scripts/seed.py` grew two
    already-late planned transactions and two tracked subscriptions,
    because `3c` draws a screen with both and a seed that can never be
@@ -248,8 +262,11 @@ If one screen alone is more than a day's work, split it out into
   other, and "what a day comes to" is the question they are both
   answers to. `DayTotals` in `services/day_totals.py` — a class of
   static methods, as AGENTS.md asks and the rest of `services/` is
-  written — with five unit tests in `tests/unit/services/`. The same principle put `3e`'s result total in
-  `reports/sentence.py` rather than in the zone that draws it.
+  written — with five unit tests in `tests/unit/services/`. The same
+  principle put `3e`'s result total in `reports/sentence.py` and `2b`'s
+  month into `RealizationTotals`; all four moves are listed in Scope §2.
+  The charge rule itself is `KAL-PLN-027`, read end to end by
+  `test_a_days_totals_count_its_subscription_charges`.
 - **`2b`'s month is added up once.** The four stat cards and the Total
   row are the same four figures, and each was summing the rows itself
   inside the view — two copies of one reduction, neither of them
@@ -319,7 +336,7 @@ If one screen alone is more than a day's work, split it out into
 
 ### Deviations the owner has to agree with
 
-Every `deviation` row in the ten reports says why. Nine of them are
+Every `deviation` row in the ten reports says why. Thirteen of them are
 worth the owner's eye. The first five are a missing capability, which
 this plan's Scope puts out of bounds — building any of them is another
 plan:
@@ -337,7 +354,7 @@ plan:
   this plan added a control rather than moved one.
 - `2d` maps Counterparty, Debit and Credit as three rows where the
   artboard draws one "Debit / Credit" picker.
-The last four are choices rather than gaps, and can be reversed by
+The last eight are choices rather than gaps, and can be reversed by
 saying so:
 
 - `3c` leaves a day outside the month on the page ground with a dashed
@@ -359,6 +376,24 @@ saying so:
 - `3b` gives an asset row a 56px action column against the artboard's
   30px, because deleting an asset has to be reachable and the two
   buttons wrapped the row at 30.
+- `2c` keeps a 76px actions column beside the right-click menu its
+  artboard's designer note asks for. The menu is there and the two
+  always-on buttons are gone, as the note wants; the column holds one
+  `...` that opens the same menu, because a right-click is neither a
+  touch gesture nor a key.
+- `2c`'s grid header is the app's one eyebrow token — 10px at `.2em` in
+  `--k-muted` — where the artboard writes 9.5px at `.1em` in `#6E6656`.
+  A second eyebrow size and a second muted, for one table header.
+- `2c`'s actuals label is upright where the artboard italicises it; its
+  Total row is weight 500 rather than 600, which is what closes every
+  other table in the app; and its tinted current-month cell takes the
+  row's 9px padding rather than the artboard's 2px, because it is one
+  of thirteen cells in a row and cannot be shorter than the twelve
+  beside it.
+- `3f` puts its fields and its submit button on a 48px floor, so they
+  come out 56px and 49px against the artboard's 41 and 43. On a phone
+  that form is the whole screen, and a 40px target in the middle of it
+  is one the thumb has to aim at.
 
 
 One more needs the owner's nod for the opposite reason — it is a change

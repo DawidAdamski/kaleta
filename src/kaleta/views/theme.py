@@ -1767,7 +1767,9 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 .k-sample-table .q-table td{font-size:11.5px;padding:8px 12px}
 .k-sample-table .q-table thead tr,.k-sample-table .q-table tbody td{height:auto}
 .k-plan-total{border-top:1px solid var(--k-border-strong)}
-.k-plan-month-now{background:var(--k-plan-now)}
+/* Artboard `2c` rounds the month being edited rather than tinting a
+   square column of cells edge to edge. */
+.k-plan-month-now{background:var(--k-plan-now);border-radius:4px}
 .k-cat-row{border-bottom-color:var(--k-hairline)}
 .k-cat-row:hover{background:var(--k-row-hover)}
 .k-subcat-label{color:var(--k-ink-2)}

@@ -516,6 +516,11 @@ class Shooter:
         if is_mini != (state == "mini"):
             toggle.first.click()
             page.wait_for_timeout(400)
+        # Off the toggle afterwards: the pointer left there opens its tooltip,
+        # and a tooltip nobody asked for was being photographed on every
+        # screen whose prepare hook did not happen to move the mouse.
+        page.mouse.move(0, 0)
+        page.wait_for_timeout(250)
 
     @staticmethod
     def _prepare_ledger(page: Page) -> None:

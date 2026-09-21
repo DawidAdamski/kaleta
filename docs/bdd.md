@@ -1956,6 +1956,13 @@ Feature: Planned and Recurring Transactions
       And the month grid is still fully visible
     When I close the sheet
     Then the grid has the page to itself
+
+  KAL-PLN-027 @automated
+  Scenario: A day's totals count its subscription charges
+    Given a day carries a subscription charge of 12.99 and nothing else
+    When I open that day's sheet
+    Then the sheet says Out 12.99 and Net -12.99
+      And the day's cell in the grid says the same -12.99
 ```
 
 ## Feature: Recurring Payment Detection
