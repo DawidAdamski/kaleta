@@ -1836,7 +1836,10 @@
     "sidebar": "Panel boczny",
     "sidebar_expanded": "Rozwinięty",
     "sidebar_collapsed": "Zwinięty",
-    "sidebar_hint": "Stan domyślny przy wejściu na stronę; można nadal przełączać z nagłówka."
+    "sidebar_hint": "Stan domyślny przy wejściu na stronę; można nadal przełączać z nagłówka.",
+    "trigger_test_error": "Wywołaj błąd testowy",
+    "trigger_test_error_hint": "Tylko w trybie debug — wywołuje nieszkodliwy błąd, by pokazać ścieżkę zgłoszenia.",
+    "test_error_message": "Błąd testowy wywołany z Ustawienia → Prywatność i diagnostyka."
   },
   "audit": {
     "title": "Historia zmian",
@@ -1916,5 +1919,41 @@
     "db_name_default": "Mój budżet",
     "use_recommended": "Użyj zalecanej lokalizacji",
     "use_recommended_hint": "Tworzy ~/.kaleta/kaleta.db, uruchamia migracje i kontynuuje."
+  },
+  "bugreport": {
+    "title": "Zgłoś problem",
+    "intro": "Opisz, co się stało. Twoje konto opuszcza tylko to, co tu napiszesz, oraz szczegóły wypisane poniżej.",
+    "summary_label": "Podsumowanie",
+    "description_label": "Co robiłeś/robiłaś?",
+    "contact_label": "E-mail kontaktowy (opcjonalnie)",
+    "events_label": "Identyfikatory błędów z tej sesji",
+    "no_events": "W tej sesji nie zarejestrowano żadnych błędów.",
+    "context_label": "Co zostanie wysłane",
+    "context_version": "Wersja",
+    "context_route": "Strona",
+    "context_browser": "Przeglądarka",
+    "context_viewport": "Okno",
+    "context_locale": "Język",
+    "attach_logs": "Dołącz ostatnie 200 linii logu z mojej sesji (oczyszczone — bez kwot, nazw i opisów)",
+    "privacy_note": "Nigdy nie dołączamy Twoich danych finansowych. Twoje konto opuszcza tylko to, co tu napiszesz.",
+    "submit": "Wyślij zgłoszenie",
+    "submitted_title": "Zgłoszenie wysłane",
+    "submitted_hint": "Zachowaj ten identyfikator — wskazuje Twoje zgłoszenie, nie ujawniając Ciebie.",
+    "report_id_label": "Identyfikator zgłoszenia: {report_id}",
+    "copy_report_id": "Kopiuj identyfikator",
+    "open_github": "Otwórz zgłoszenie na GitHubie",
+    "copied": "Skopiowano do schowka",
+    "report_action": "Zgłoś",
+    "menu_item": "Zgłoś problem",
+    "event_id_label": "Identyfikator błędu: {event_id}",
+    "unavailable": "Formularz zgłoszenia jest niedostępny na tej stronie.",
+    "my_reports_title": "Twoje zgłoszenia",
+    "my_reports_hint": "Zgłoszenia wysłane z tego konta. Usunięcie wycofuje zgłoszenie.",
+    "my_reports_empty": "Nie wysłałeś/wysłałaś jeszcze żadnego zgłoszenia.",
+    "delete_report": "Usuń to zgłoszenie",
+    "deleted": "Zgłoszenie usunięte",
+    "status_new": "Nowe",
+    "status_seen": "Przejrzane",
+    "status_closed": "Zamknięte"
   }
 }

@@ -66,7 +66,7 @@ async def settings_page() -> None:
             with ui.tab_panel(features_tab):
                 render_features_tab()
             with ui.tab_panel(privacy_tab):
-                render_privacy_tab()
+                await render_privacy_tab()
             with ui.tab_panel(import_tab):
                 await render_import_tab()
             with ui.tab_panel(data_tab):

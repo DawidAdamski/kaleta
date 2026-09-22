@@ -1836,7 +1836,10 @@
     "sidebar": "Sidebar",
     "sidebar_expanded": "Expanded",
     "sidebar_collapsed": "Collapsed",
-    "sidebar_hint": "Default state when the page loads; you can still toggle from the header."
+    "sidebar_hint": "Default state when the page loads; you can still toggle from the header.",
+    "trigger_test_error": "Trigger a test error",
+    "trigger_test_error_hint": "Debug builds only — raises a harmless error so you can see the report flow.",
+    "test_error_message": "Test error raised from Settings → Privacy & diagnostics."
   },
   "audit": {
     "title": "Change History",
@@ -1916,5 +1919,41 @@
     "db_name_default": "My Budget",
     "use_recommended": "Use recommended location",
     "use_recommended_hint": "Creates ~/.kaleta/kaleta.db, runs migrations, and continues."
+  },
+  "bugreport": {
+    "title": "Report a problem",
+    "intro": "Tell us what happened. Only what you write here, and the details listed below, leave your account.",
+    "summary_label": "Summary",
+    "description_label": "What were you doing?",
+    "contact_label": "Contact e-mail (optional)",
+    "events_label": "Error IDs from this session",
+    "no_events": "No errors were recorded in this session.",
+    "context_label": "What will be sent",
+    "context_version": "Version",
+    "context_route": "Page",
+    "context_browser": "Browser",
+    "context_viewport": "Window",
+    "context_locale": "Language",
+    "attach_logs": "Attach the last 200 log lines from my session (redacted — no amounts, names or descriptions)",
+    "privacy_note": "We never attach your financial data. Only what you write here leaves your account.",
+    "submit": "Send report",
+    "submitted_title": "Report sent",
+    "submitted_hint": "Keep this ID — it identifies your report without naming you.",
+    "report_id_label": "Report ID: {report_id}",
+    "copy_report_id": "Copy report ID",
+    "open_github": "Open a GitHub issue",
+    "copied": "Copied to clipboard",
+    "report_action": "Report",
+    "menu_item": "Report a problem",
+    "event_id_label": "Event ID: {event_id}",
+    "unavailable": "The report form is not available on this page.",
+    "my_reports_title": "Your reports",
+    "my_reports_hint": "Reports you filed from this account. Deleting one withdraws it.",
+    "my_reports_empty": "You have not filed any reports.",
+    "delete_report": "Delete this report",
+    "deleted": "Report deleted",
+    "status_new": "New",
+    "status_seen": "Seen",
+    "status_closed": "Closed"
   }
 }

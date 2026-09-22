@@ -3055,6 +3055,48 @@ Feature: Anonymous error events
     Then the old event is deleted
 ```
 
+## Feature: Bug reports
+
+```gherkin
+Feature: Bug reports
+  As a user who just hit a failure
+  I want to describe what happened without leaving the app
+  So that the maintainer gets my words, not only an error id
+
+  KAL-BUG-001 @automated
+  Scenario: Reporting a problem from the error tray
+    Given an error has been shown with an event id
+    When I click "Report" and describe what I was doing
+    Then the report is filed and its report id is shown
+    And the report carries the event id from that error
+
+  KAL-BUG-002 @automated
+  Scenario: Log lines are attached only when the user asks
+    Given the report dialog is open with the attach-logs box unticked
+    When I send the report
+    Then the stored report holds no log excerpt
+
+  KAL-BUG-003 @automated
+  Scenario: An error id leads to the log lines around it
+    Given structured JSON logging is enabled
+    When an API request fails and an event id is issued
+    Then a log line carries both that event id and the request id
+    And no log line carries the query string of the request
+
+  KAL-BUG-004 @automated
+  Scenario: A user can withdraw a report they filed
+    Given I filed a report from this account
+    When I delete it in Settings → Privacy & diagnostics
+    Then it no longer appears among my reports
+
+  KAL-BUG-005 @manual
+  Scenario: A filed report reaches the maintainer
+    Given KALETA_BUG_REPORT_WEBHOOK points at an n8n webhook
+    When a report is filed
+    Then the webhook receives the report JSON without the log excerpt
+    And the flow turns it into a GitHub issue and an e-mail
+```
+
 ## Feature: Settings — Data safety
 
 ```gherkin
