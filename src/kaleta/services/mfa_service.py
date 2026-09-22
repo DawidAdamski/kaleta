@@ -231,6 +231,7 @@ class MfaService:
             msg = "Two-factor authentication is already enabled."
             raise ConflictError(msg)
         await self.session.refresh(row)
+        await self._record(user_id, event="mfa_enabled", success=True)
         return codes
 
     # ── verification ─────────────────────────────────────────────────────
@@ -249,6 +250,10 @@ class MfaService:
         if counter is None or not await self._claim_counter(row, counter):
             await self._record_failure(user_id, event="mfa_failure")
             return False
+        # Without this the log cannot tell a finished sign-in from a password
+        # that was right and a prompt that was walked away from: the password
+        # step already wrote its own success either way.
+        await self._record(user_id, event="mfa_verified", success=True)
         return True
 
     @staticmethod
@@ -290,6 +295,7 @@ class MfaService:
         if row is None or not row.is_enabled:
             return False
         if await self._spend_recovery_code(row, code):
+            await self._record(user_id, event="mfa_verified", success=True)
             return True
         await self._record_failure(user_id, event="mfa_failure")
         return False
@@ -446,6 +452,7 @@ class MfaService:
         # left for a replayed code to be replayed against.
         await self.session.delete(row)
         await self.session.commit()
+        await self._record(user_id, event="mfa_disabled", success=True)
 
     async def disable_all(self) -> int:
         """Drop every enrolment. The CLI escape hatch for a lost authenticator.
@@ -532,6 +539,18 @@ class MfaService:
             return False
 
     async def _record_failure(self, user_id: int, *, event: str) -> None:
+        await self._record(user_id, event=event, success=False)
+
+    async def _record(self, user_id: int, *, event: str, success: bool) -> None:
+        """Write one auth event for ``user_id``.
+
+        ``user_mfa`` is in the audit listener's skip list — auditing it would
+        copy the decrypted secret into `audit_log` — so every change to a
+        factor has to say so here or go unrecorded. The ones that matter most
+        are the successes: a thief at a signed-in browser with the password
+        and one code can turn the factor off, and a log holding only the
+        guesses they fumbled on the way is a log that missed the theft.
+        """
         from kaleta.db.audit import record_auth_event
 
         user = await self.session.get(User, user_id)
@@ -539,7 +558,7 @@ class MfaService:
             self.session,
             event=event,
             username=user.username if user is not None else None,
-            success=False,
+            success=success,
         )
 
 

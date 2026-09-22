@@ -49,3 +49,14 @@ status: accepted
   `audit_log`; and `BackupService` base64-encodes binary columns on export and
   restores them as the ciphertext they are, so a backup carries no readable
   secret and a restore does not re-encrypt one.
+- **Consequence**: the passthrough runs one way only. The *reader* accepts
+  both format bytes; the *writer* accepts `\x01` and refuses everything else,
+  because a writer that took `\x00` would let anything that can reach the
+  column — a crafted restore file above all — store a secret in the clear
+  under a byte the reader trusts. The cost is that when `KALETA_ENCRYPTION=off`
+  lands, a backup taken on such a deployment cannot be restored through
+  `BackupService` until this writer learns to mint `\x00` under that setting
+  too. That is a change to make with the setting, not ahead of it: today
+  nothing writes `\x00`, so there is no such backup to restore, and guessing
+  now at what the off switch should permit would widen the write path for a
+  caller that does not exist yet.

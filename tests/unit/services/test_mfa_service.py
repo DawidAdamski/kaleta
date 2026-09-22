@@ -220,7 +220,9 @@ class TestStepUpChallenge:
 
 
 class TestTheAuditTrail:
-    """Every refused code leaves a row, and says which prompt refused it."""
+    """Every refused code leaves a row saying which prompt refused it, and
+    every change to the factor itself leaves one too — the ORM audit listener
+    skips ``user_mfa``, so this service is the only thing that can."""
 
     async def _auth_events(self, session: AsyncSession) -> list[dict[str, object]]:
         rows = (
@@ -272,7 +274,31 @@ class TestTheAuditTrail:
     ) -> None:
         secret, _codes = await enrol(mfa, user.id)
         assert await mfa.verify_code(user.id, code_for(secret, offset_steps=1)) is True
-        assert [e["event"] for e in await self._auth_events(session)] == []
+        events = await self._auth_events(session)
+        assert [e for e in events if not e["success"]] == []
+        assert {"event": "mfa_verified", "username": "owner", "success": True} in events
+
+    @pytest.mark.asyncio
+    async def test_the_whole_life_of_a_factor_is_on_the_record(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        """``user_mfa`` is skipped by the ORM audit listener, so if the service
+        does not write these rows nothing else will, and turning the factor off
+        — the step a thief at a signed-in browser needs — leaves no trace."""
+        # One code per step, and the drift window is one step wide: the
+        # recovery code is what gets a second sign-in out of this test without
+        # sleeping thirty seconds for a counter the enrolment has not spent.
+        secret, codes = await enrol(mfa, user.id)
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+        await mfa.disable(user.id, password=PASSWORD, code=code_for(secret, offset_steps=1))
+
+        events = [e for e in await self._auth_events(session) if e["success"]]
+        assert [e["event"] for e in events] == [
+            "mfa_enabled",
+            "mfa_verified",
+            "mfa_disabled",
+        ]
+        assert {e["username"] for e in events} == {user.username}
 
 
 class TestRecoveryCodes:

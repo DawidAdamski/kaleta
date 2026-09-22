@@ -68,8 +68,10 @@ and the local half ships first because it does not depend on that plan.
 > Building it would mean implementing another plan inside this branch, which
 > Working Agreement §1 and the one-issue-one-branch-one-PR rule both forbid.
 > Phase A ships on its own — the plan says so in its Intent — and Phase B
-> moves to a follow-up plan once the foundation lands. Its acceptance
-> criterion (`tests/unit/auth/test_supabase_mfa.py`) travels with it.
+> moves to [`auth-two-factor-hosted`](auth-two-factor-hosted.md), which
+> carries everything below and the acceptance criterion
+> (`tests/unit/auth/test_supabase_mfa.py`) with it, to be picked up once
+> the foundation lands.
 
 - `SupabaseAuthProvider` implements `mfa_enrol()` (`/auth/v1/factors`),
   `mfa_challenge_verify(factor_id, code)` (`/factors/{id}/verify`),
@@ -169,8 +171,12 @@ item is built, and every executable acceptance criterion passes.
   acceptance criteria and the `auth/providers/` files out of Touchpoints,
   and says under Phase B where they go. The reasoning is in that block
   quote, but removing a criterion is the owner's call, not the
-  implementer's. Either bless it on the PR or open the follow-up plan
-  before merging, so the criterion is moved rather than lost.
+  implementer's. So that the criterion is moved rather than lost, the
+  follow-up now exists as a file:
+  `docs/plans/auth-two-factor-hosted.md` (`status: draft`) carries
+  Phase B's scope and that same acceptance criterion. A draft plan is
+  not a commitment to schedule it — that, and whether the deferral was
+  the right call at all, is still the owner's to say on the PR.
 
 ### Resolved open questions
 
@@ -195,7 +201,7 @@ item is built, and every executable acceptance criterion passes.
    export is a download rather than a credential that outlives the
    session. Listing four protected actions in the security-tab copy when
    only one is protected would be a lie in the UI, so the copy names
-   none of them. The mechanism is reusable: `step_up_verified` is a
+   none of them. The mechanism is reusable: `mfa_verified_at` is a
    keyword on the service method, so a fourth caller is one argument.
 
 3. **Supabase `aal2` enforcement** — Phase B, deferred with it.
@@ -285,7 +291,31 @@ item is built, and every executable acceptance criterion passes.
   the one factor removal nobody had to prove anything to make, so it is
   the one that most needs a trace.
 
-- **Two files outside the plan's touchpoints changed, and had to.**
+- **A sign-in is now two rows, and the reader of the log has to know it.**
+  `views/login.py` still calls `record_login(success=True)` when the
+  password is accepted, which is the moment it is accepted and not the
+  moment the session is signed in — between them lies `/login/mfa`, which
+  the visitor may fail or walk away from. Rather than move that row (it
+  is what the login rate limiter and every existing `KAL-AUTH` scenario
+  are written against), the second half says so: `verify_code()` and
+  `consume_recovery_code()` write `mfa_verified` on success. A finished
+  sign-in is `login` followed by `mfa_verified`; a `login` with no
+  `mfa_verified` after it is a password that was right and a factor that
+  was never proved, which is exactly the pattern worth looking for.
+
+- **Successes are audited, not only failures.** `user_mfa` is in
+  `db/audit.py`'s `_SKIP_TABLES` — auditing it would copy the decrypted
+  secret into `audit_log` — so the generic ORM listener sees none of
+  this, and anything the service does not write itself is not written.
+  `confirm_enrolment()` writes `mfa_enabled` and `disable()` writes
+  `mfa_disabled`. Turning the factor off is the step a thief at a
+  signed-in browser has to take, and a log holding only the codes they
+  fumbled on the way is a log that recorded the noise and missed the
+  theft.
+
+- **Two files the plan did not foresee changed, and had to.** They are in
+  the Touchpoints list above because this branch put them there;
+  everything below is why.
   `src/kaleta/services/backup_service.py` and `tests/backup_helpers.py`:
   an encrypted column is a `LargeBinary`, and a `LargeBinary` is not
   JSON, so the export failed outright the moment `user_mfa` existed.
