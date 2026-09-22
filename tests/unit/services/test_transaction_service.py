@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.core.weeks import WeekStartMode
 from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
@@ -1138,6 +1139,54 @@ class TestTransactionDisplayHelpers:
         d2 = TODAY
         assert TransactionService.group_separator_label(d2, None, "week")
         assert TransactionService.group_separator_label(d2, d1, "week") != ""
+
+    def test_group_separator_label_week_follows_the_iso_mode(self):
+        """Mid-October 2025 sits in ISO week 42, whose Monday is the 13th."""
+        monday = datetime.date(2025, 10, 13)
+        wednesday = datetime.date(2025, 10, 15)
+        sunday = datetime.date(2025, 10, 19)
+        assert (
+            TransactionService.group_separator_label(
+                wednesday, None, "week", WeekStartMode.ISO_MONDAY
+            )
+            == "W42 2025"
+        )
+        # Same Monday-to-Sunday week — no second separator.
+        assert (
+            TransactionService.group_separator_label(
+                sunday, monday, "week", WeekStartMode.ISO_MONDAY
+            )
+            == ""
+        )
+
+    def test_group_separator_label_week_follows_the_month_day_1_mode(self):
+        """Under month_day_1, October's weeks are 01-07 / 08-14 / 15-21 / ..."""
+        assert (
+            TransactionService.group_separator_label(
+                datetime.date(2025, 10, 15), None, "week", WeekStartMode.MONTH_DAY_1
+            )
+            == "W03 2025"
+        )
+        # The 14th closes week 2 and the 15th opens week 3, where the ISO
+        # calendar would have kept both in the same Monday-to-Sunday week.
+        assert (
+            TransactionService.group_separator_label(
+                datetime.date(2025, 10, 15),
+                datetime.date(2025, 10, 14),
+                "week",
+                WeekStartMode.MONTH_DAY_1,
+            )
+            == "W03 2025"
+        )
+        assert (
+            TransactionService.group_separator_label(
+                datetime.date(2025, 10, 15),
+                datetime.date(2025, 10, 14),
+                "week",
+                WeekStartMode.ISO_MONDAY,
+            )
+            == ""
+        )
 
     def test_group_separator_label_month_changes(self):
         d1 = datetime.date(2025, 1, 15)

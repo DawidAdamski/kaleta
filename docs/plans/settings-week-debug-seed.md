@@ -4,7 +4,7 @@ title: Settings — week-start knob, debug panel, per-feature example data
 area: settings
 effort: medium
 roadmap_ref: ../roadmap.md#settings
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 

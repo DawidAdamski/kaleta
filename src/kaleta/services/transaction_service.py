@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
 from kaleta.exceptions import KaletaError, ValidationError
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
@@ -375,16 +376,22 @@ class TransactionService:
         tx_date: datetime.date,
         prev_date: datetime.date | None,
         grouping: str,
+        week_mode: WeekStartMode = DEFAULT_WEEK_START_MODE,
     ) -> str:
+        """Mark where a group of rows starts, and say which group it is.
+
+        Which week a day belongs to is the user's setting, not a constant:
+        ``kaleta.core.weeks`` owns both answers so this label and the band the
+        view draws over it cannot come from two different calendars.
+        """
         if grouping == "none":
             return ""
         if grouping == "week":
-            year, week, _ = tx_date.isocalendar()
-            label = f"W{week:02d} {year}"
+            bucket = week_bucket(tx_date, week_mode)
+            label = f"W{bucket.index:02d} {bucket.start.year}"
             if prev_date is None:
                 return label
-            py, pw, _ = prev_date.isocalendar()
-            return label if (year, week) != (py, pw) else ""
+            return label if bucket != week_bucket(prev_date, week_mode) else ""
         label = tx_date.strftime("%B %Y")
         if prev_date is None:
             return label
@@ -437,6 +444,7 @@ class TransactionService:
         transaction: Transaction,
         prev_transaction: Transaction | None,
         grouping: str,
+        week_mode: WeekStartMode = DEFAULT_WEEK_START_MODE,
     ) -> dict[str, Any]:
         prev_date = prev_transaction.date if prev_transaction else None
         has_splits = bool(transaction.is_split and transaction.splits)
@@ -479,7 +487,7 @@ class TransactionService:
                 for tg in transaction.tags
             ],
             "sep_label": TransactionService.group_separator_label(
-                transaction.date, prev_date, grouping
+                transaction.date, prev_date, grouping, week_mode
             ),
         }
 
@@ -487,11 +495,12 @@ class TransactionService:
     def build_table_rows(
         transactions: builtins.list[Transaction],
         grouping: str,
+        week_mode: WeekStartMode = DEFAULT_WEEK_START_MODE,
     ) -> builtins.list[dict[str, Any]]:
         rows: builtins.list[dict[str, Any]] = []
         for i, tx in enumerate(transactions):
             prev_tx = transactions[i - 1] if i > 0 else None
-            rows.append(TransactionService.build_table_row(tx, prev_tx, grouping))
+            rows.append(TransactionService.build_table_row(tx, prev_tx, grouping, week_mode))
         return TransactionService.attach_group_nets(rows)
 
     @staticmethod
@@ -499,6 +508,7 @@ class TransactionService:
         actual_rows: builtins.list[dict[str, Any]],
         upcoming_rows: builtins.list[dict[str, Any]],
         grouping: str,
+        week_mode: WeekStartMode = DEFAULT_WEEK_START_MODE,
     ) -> builtins.list[dict[str, Any]]:
         """One chronological feed of what happened and what is about to.
 
@@ -520,7 +530,7 @@ class TransactionService:
         for row in merged:
             row_date = datetime.date.fromisoformat(row["date"])
             row["sep_label"] = TransactionService.group_separator_label(
-                row_date, prev_date, grouping
+                row_date, prev_date, grouping, week_mode
             )
             prev_date = row_date
         return TransactionService.attach_group_nets(merged)

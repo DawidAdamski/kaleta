@@ -381,14 +381,13 @@ class EphemeralApp:
         (home / ".kaleta" / "config.json").write_text(
             json.dumps({"db_url": db_url, "name": "fidelity"}), encoding="utf-8"
         )
-        # `scripts/seed.py`, not the demo seed: the artboards are drawn on a
-        # ledger that has payees, tags, planned transactions, subscriptions and
-        # physical assets in it, and `DataService.seed` carries none of those.
-        # It drops and recreates every table from the models, so the schema is
-        # stamped back to head afterwards and the demo login made separately.
+        # `scripts/seed.py` fills the migrated schema in place — it no longer
+        # drops the tables, so the revision stays at head and the artboards are
+        # drawn on a ledger with payees, tags, planned transactions,
+        # subscriptions and physical assets in it. The demo login is made
+        # separately, without a second seed on top.
         self._run(["uv", "run", "alembic", "upgrade", "head"], env)
         self._run(["uv", "run", "python", "scripts/seed.py"], env)
-        self._run(["uv", "run", "alembic", "stamp", "head"], env)
         self._run(["uv", "run", "python", "scripts/reset_demo.py", "--force", "--no-seed"], env)
         self._log = (home / "server.log").open("wb")
         self._proc = subprocess.Popen(

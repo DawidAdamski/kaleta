@@ -7,6 +7,7 @@ import datetime
 
 from nicegui import app, ui
 
+from kaleta.core.weeks import WeekStartMode
 from kaleta.i18n import available_languages, t
 from kaleta.views.accounts import COMMON_CURRENCIES
 from kaleta.views.settings.constants import (
@@ -14,6 +15,7 @@ from kaleta.views.settings.constants import (
     DEFAULT_DATE_FORMAT,
     DEFAULT_NUMBER_FORMAT,
     DEFAULT_WEEK_START,
+    DEFAULT_WEEK_START_MODE,
 )
 from kaleta.views.settings.helpers import set_user_key
 
@@ -99,6 +101,31 @@ def render_general_tab(*, account_options: dict[int, str] | None = None) -> None
                 on_change=lambda e: set_user_key("week_start", e.value),
             ).classes("w-full")
             ui.label(t("settings.week_start_hint")).classes("text-xs text-slate-500 mt-2")
+
+        with ui.card().classes("p-6 min-w-72 w-80"):
+            with ui.row().classes("items-center gap-2 mb-4"):
+                ui.icon("date_range", color="primary").classes("text-xl")
+                ui.label(t("settings.week_start_mode")).classes("text-lg font-semibold")
+
+            current_wsm: str = app.storage.user.get("week_start_mode", DEFAULT_WEEK_START_MODE)
+
+            def _set_week_start_mode(value: object) -> None:
+                # Every weekly subtotal on screen was bucketed under the old
+                # answer, so the pages have to be drawn again — saving quietly
+                # would leave the ledger showing weeks the setting no longer means.
+                app.storage.user["week_start_mode"] = str(value)
+                ui.navigate.reload()
+
+            ui.select(
+                {
+                    WeekStartMode.ISO_MONDAY.value: t("settings.week_start_mode_iso"),
+                    WeekStartMode.MONTH_DAY_1.value: t("settings.week_start_mode_month"),
+                },
+                label=t("settings.week_start_mode_label"),
+                value=current_wsm,
+                on_change=lambda e: _set_week_start_mode(e.value),
+            ).classes("w-full")
+            ui.label(t("settings.week_start_mode_hint")).classes("text-xs text-slate-500 mt-2")
 
         with ui.card().classes("p-6 min-w-72 w-80"):
             with ui.row().classes("items-center gap-2 mb-4"):

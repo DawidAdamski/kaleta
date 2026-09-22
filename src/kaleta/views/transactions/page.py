@@ -35,7 +35,10 @@ from kaleta.views.components.transaction_table import (
     space_amounts,
 )
 from kaleta.views.layout import page_layout
-from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
+from kaleta.views.settings.user_prefs import (
+    get_transactions_upcoming_days,
+    get_week_start_mode,
+)
 from kaleta.views.theme import (
     KBD_HINT,
     LEDGER_CARD,
@@ -253,8 +256,9 @@ async def transactions_page(*, open_new: bool = False) -> None:
         total_pages = max(1, (total + page_size - 1) // page_size)
         filters["total_pages"] = total_pages
         current_page = filters["page"]
+        week_mode = get_week_start_mode()
         rows = attach_split_labels(
-            attach_type_labels(TransactionService.build_table_rows(txs, grouping))
+            attach_type_labels(TransactionService.build_table_rows(txs, grouping, week_mode))
         )
         rows = space_amounts(
             attach_group_labels(
@@ -266,8 +270,10 @@ async def transactions_page(*, open_new: bool = False) -> None:
                         )
                     ),
                     grouping,
+                    week_mode,
                 ),
                 grouping,
+                week_mode,
             )
         )
         page_rows.clear()
