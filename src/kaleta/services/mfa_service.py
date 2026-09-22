@@ -66,7 +66,6 @@ class MfaStatus:
     """What the Settings card and ``GET /api/v1/auth/mfa`` report."""
 
     enabled: bool
-    enrolment_started: bool
     enabled_at: datetime | None
     recovery_codes_remaining: int
 
@@ -121,14 +120,12 @@ class MfaService:
         if found is None:
             return MfaStatus(
                 enabled=False,
-                enrolment_started=False,
                 enabled_at=None,
                 recovery_codes_remaining=0,
             )
         enabled_at, recovery_codes_hash = found
         return MfaStatus(
             enabled=enabled_at is not None,
-            enrolment_started=enabled_at is None,
             enabled_at=enabled_at,
             recovery_codes_remaining=len(self._parse_hashes(recovery_codes_hash, user_id)),
         )
@@ -362,10 +359,16 @@ class MfaService:
         # what the message says.
         password_ok = AuthService(self.session).verify_password(password, user.password_hash)
         counter = self._matching_counter(row, code)
-        # Looked for whatever the TOTP check said. Skipping the scan when the
-        # code already matched would answer a right code faster than a wrong
-        # one, which tells an attacker their TOTP guess landed without their
-        # ever having to know the password.
+        # Looked for whatever the TOTP check said, so that the reply does not
+        # time differently depending on the password — which is the oracle
+        # that matters, because the password is the reusable secret.
+        #
+        # What this does not hide is how good the *code* was: a matching
+        # recovery code answers after however many hashes it took to find it,
+        # and a wrong one always costs all ten. That leak is priced: a
+        # recovery code carries about fifty bits, the dialog is throttled to
+        # five tries a quarter of an hour, and buying it off would mean ten
+        # argon2 verifies on every attempt including the ones that succeed.
         recovery_index = self._find_recovery_code(row, code)
         if not password_ok or (counter is None and recovery_index is None):
             await self._record_failure(user_id, event="mfa_disable_failure")

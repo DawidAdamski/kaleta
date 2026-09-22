@@ -14,7 +14,11 @@ import pytest
 
 from kaleta.auth import middleware as middleware_mod
 from kaleta.auth import session as session_mod
-from kaleta.services.mfa_service import MFA_CHALLENGE_TTL_MINUTES, STEP_UP_WINDOW_MINUTES
+from kaleta.services.mfa_service import (
+    MFA_CHALLENGE_TTL_MINUTES,
+    STEP_UP_WINDOW_MINUTES,
+    MfaService,
+)
 
 
 @pytest.fixture
@@ -104,24 +108,27 @@ class TestRoutesReachableWhilePending:
         assert middleware_mod.is_public_path(path) is False
 
 
-class TestStepUpWindow:
-    def test_nothing_verified_is_not_recent(self, fake_storage: dict[str, Any]) -> None:
-        assert session_mod.mfa_recently_verified() is False
+class TestStepUpStamp:
+    """The session reports *when*; ``MfaService`` decides whether that is fresh."""
+
+    def test_nothing_verified_is_no_stamp(self, fake_storage: dict[str, Any]) -> None:
+        assert session_mod.mfa_verified_at() is None
+        assert MfaService.step_up_is_fresh(session_mod.mfa_verified_at()) is False
 
     def test_a_fresh_code_counts(self, fake_storage: dict[str, Any]) -> None:
         session_mod.mark_mfa_verified()
-        assert session_mod.mfa_recently_verified() is True
+        assert MfaService.step_up_is_fresh(session_mod.mfa_verified_at()) is True
 
     def test_an_old_code_does_not(self, fake_storage: dict[str, Any]) -> None:
         stale = datetime.now(UTC) - timedelta(minutes=STEP_UP_WINDOW_MINUTES + 1)
         fake_storage[session_mod.SESSION_MFA_VERIFIED_AT] = stale.isoformat()
-        assert session_mod.mfa_recently_verified() is False
+        assert MfaService.step_up_is_fresh(session_mod.mfa_verified_at()) is False
 
-    def test_a_broken_stamp_does_not(self, fake_storage: dict[str, Any]) -> None:
+    def test_a_broken_stamp_reads_as_none(self, fake_storage: dict[str, Any]) -> None:
         fake_storage[session_mod.SESSION_MFA_VERIFIED_AT] = "not a timestamp"
-        assert session_mod.mfa_recently_verified() is False
+        assert session_mod.mfa_verified_at() is None
 
     def test_logout_forgets_the_step_up(self, fake_storage: dict[str, Any]) -> None:
         session_mod.mark_mfa_verified()
         session_mod.logout_session()
-        assert session_mod.mfa_recently_verified() is False
+        assert session_mod.mfa_verified_at() is None

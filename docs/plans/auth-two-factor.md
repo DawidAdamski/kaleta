@@ -296,7 +296,9 @@ Phase A is built.
   dialogs are wired to it. The login prompt's own wiring is the same two
   lines against the same object, and is not separately asserted — the
   e2e test cannot burn five codes there without locking the account for
-  the rest of the run.
+  the rest of the run. One bucket covers all three prompts, so wrong
+  answers in the turn-off dialog lock the code prompt too; `SECURITY.md`
+  says so.
 
 - **A pending challenge expires** after `MFA_CHALLENGE_TTL_MINUTES`.
   A browser left at the code prompt was otherwise one code away from a
@@ -309,9 +311,13 @@ Phase A is built.
   `login_rate_limiter` — and returning early on a wrong password left
   the same oracle in the timing, because a right password went on to run
   up to ten more argon2 verifies against the recovery hashes. The
-  recovery scan runs whatever the TOTP check said, for the same reason:
-  skipping it on a match would answer a right code faster than a wrong
-  one. Nothing is spent unless both halves are right. "Not enabled" is a `ConflictError`,
+  recovery scan runs whatever the TOTP check said, so the reply does not
+  time differently depending on the password. It does still time
+  differently depending on the *code* — a matching recovery code is found
+  after however many hashes it took — and that residue is priced rather
+  than bought off: fifty bits a code, five tries a quarter of an hour, and
+  the alternative is ten argon2 verifies on every attempt including the
+  ones that work. Nothing is spent unless both halves are right. "Not enabled" is a `ConflictError`,
   not a `ValidationError`, so a stale dialog does not count toward the
   lockout.
 

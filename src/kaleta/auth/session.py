@@ -9,7 +9,7 @@ from nicegui import app
 from starlette.requests import Request
 
 from kaleta.config import settings
-from kaleta.services.mfa_service import MFA_CHALLENGE_TTL_MINUTES, MfaService
+from kaleta.services.mfa_service import MFA_CHALLENGE_TTL_MINUTES
 
 SESSION_AUTHENTICATED = "authenticated"
 SESSION_USER_ID = "user_id"
@@ -111,11 +111,6 @@ def mfa_verified_at() -> datetime | None:
     enough is ``MfaService``'s judgement, not the session helper's.
     """
     return _stamp(app.storage.user.get(SESSION_MFA_VERIFIED_AT))
-
-
-def mfa_recently_verified() -> bool:
-    """True when the second factor was proved within the step-up window."""
-    return MfaService.step_up_is_fresh(mfa_verified_at())
 
 
 def _stamp(raw: object) -> datetime | None:

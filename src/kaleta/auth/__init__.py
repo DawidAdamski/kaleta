@@ -11,7 +11,7 @@ from kaleta.auth.session import (
     logout_session,
     mark_mfa_verified,
     mfa_pending_user,
-    mfa_recently_verified,
+    mfa_verified_at,
 )
 
 __all__ = [
@@ -23,6 +23,6 @@ __all__ = [
     "logout_session",
     "mark_mfa_verified",
     "mfa_pending_user",
-    "mfa_recently_verified",
+    "mfa_verified_at",
     "register_auth_middleware",
 ]

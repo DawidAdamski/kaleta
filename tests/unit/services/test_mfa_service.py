@@ -74,7 +74,7 @@ class TestEnrolment:
         assert await mfa.is_enabled(user.id) is False
         status = await mfa.status(user.id)
         assert status.enabled is False
-        assert status.enrolment_started is True
+        assert status.enabled_at is None
 
     @pytest.mark.asyncio
     async def test_a_wrong_code_does_not_confirm(self, mfa: MfaService, user) -> None:

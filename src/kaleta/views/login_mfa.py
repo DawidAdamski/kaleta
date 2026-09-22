@@ -81,8 +81,9 @@ def register() -> None:
                 # prompt sat open, or been cleared by a logout in another tab.
                 # Without this the expiry would only ever apply to a reload.
                 if mfa_pending_user() != pending:
-                    _say(t("auth.mfa_expired"))
-                    ui.navigate.to("/login")
+                    # The reason travels with the redirect: saying it here and
+                    # then navigating away shows it to nobody.
+                    ui.navigate.to("/login?reason=mfa_expired")
                     return
                 if mfa_rate_limiter.is_locked(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)

@@ -39,6 +39,7 @@ def register() -> None:
     async def login_page(
         request: Request,
         redirect_to: str = "/",
+        reason: str = "",
     ) -> RedirectResponse | None:
         if is_authenticated():
             return RedirectResponse(_safe_redirect(redirect_to))
@@ -68,6 +69,9 @@ def register() -> None:
                 "keydown.enter", lambda: None
             )
             _say = auth_error_slot()
+            if reason == "mfa_expired":
+                # Sent here by the code prompt after the challenge aged out.
+                _say(t("auth.mfa_expired"))
 
             async def _submit() -> None:
                 _say("")
