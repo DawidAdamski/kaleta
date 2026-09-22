@@ -11,7 +11,7 @@ from nicegui import app, ui
 
 from kaleta.auth.login_rate_limit import mfa_rate_limiter
 from kaleta.auth.session import SESSION_USER_ID, mark_mfa_verified, mfa_verified_at
-from kaleta.exceptions import KaletaError, ValidationError
+from kaleta.exceptions import ConflictError, EncryptionError, KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
 from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
 from kaleta.views.error_handling import notify_kaleta_error
@@ -86,19 +86,33 @@ async def _ask_for_code(user_id: int) -> bool:
                 error.set_text(t("settings.mfa_code_required"))
                 return
 
-            async def _verify(session: Any) -> bool:
-                return await MfaService(session).verify_challenge(user_id, entered)
+            async def _verify(session: Any) -> bool | None:
+                service = MfaService(session)
+                # None means the factor stopped existing between the check
+                # that opened this dialog and this submit. `verify_challenge`
+                # folds that into the same False as a wrong code, and the two
+                # must not cost the same — see the branch below.
+                if not await service.is_enabled(user_id):
+                    return None
+                return await service.verify_challenge(user_id, entered)
 
             try:
                 passed = await with_session(_verify)
-            except KaletaError as exc:
+            except EncryptionError:
                 # A secret written under a different KALETA_SECRET_KEY cannot
                 # be checked at all. That is not a wrong guess, so it does not
                 # count toward the lockout — and it must not leave the dialog
                 # sitting there with nothing said.
+                error.set_text(t("settings.mfa_unreadable"))
+                return
+            except KaletaError as exc:
                 error.set_text(exc.message)
                 return
 
+            if passed is None:
+                # Nothing to prove any more, and nothing the user did wrong.
+                error.set_text(t("settings.mfa_stale"))
+                return
             if not passed:
                 if mfa_rate_limiter.record_failure(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
@@ -211,17 +225,24 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
 
             try:
                 codes = await with_session(_do)
-            except ValidationError as exc:
-                # Only a wrong code counts. A dialog gone stale because
-                # another tab confirmed the same enrolment is a `ConflictError`
-                # — and this bucket is the one guarding the login prompt, so
-                # spending it on that would be a lockout nobody could avoid.
+            except ValidationError:
+                # Only a wrong code counts. A dialog gone stale — another tab
+                # confirmed the same enrolment, or a shell dropped the pending
+                # row — is a `ConflictError`, and this bucket is the one
+                # guarding the login prompt, so spending it on that would be a
+                # lockout nobody could avoid.
                 if mfa_rate_limiter.record_failure(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
                     error.set_text(t("settings.mfa_rate_limited", seconds=secs))
                 else:
-                    error.set_text(exc.message)
+                    error.set_text(t("settings.mfa_enrol_failed"))
                 code_input.value = ""
+                return
+            except ConflictError:
+                error.set_text(t("settings.mfa_stale"))
+                return
+            except EncryptionError:
+                error.set_text(t("settings.mfa_unreadable"))
                 return
             except KaletaError as exc:
                 error.set_text(exc.message)
@@ -315,17 +336,25 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
 
             try:
                 await with_session(_do)
-            except ValidationError as exc:
+            except ValidationError:
                 # Only a wrong credential counts. A stale dialog — the factor
                 # was turned off in another tab — is a `ConflictError`, and
                 # locking someone out for that would be a lockout they had no
-                # way to avoid.
+                # way to avoid. One message for both halves, as the service
+                # gives it: telling a wrong password from a wrong code here
+                # would make this dialog a password oracle.
                 if mfa_rate_limiter.record_failure(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
                     error.set_text(t("settings.mfa_rate_limited", seconds=secs))
                 else:
-                    error.set_text(exc.message)
+                    error.set_text(t("settings.mfa_disable_failed"))
                 code_input.value = ""
+                return
+            except ConflictError:
+                error.set_text(t("settings.mfa_stale"))
+                return
+            except EncryptionError:
+                error.set_text(t("settings.mfa_unreadable"))
                 return
             except KaletaError as exc:
                 error.set_text(exc.message)

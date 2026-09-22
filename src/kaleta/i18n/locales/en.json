@@ -1899,6 +1899,10 @@
     "mfa_recovery_remaining_one": "1 recovery code left",
     "mfa_recovery_remaining_few": "{count} recovery codes left",
     "mfa_recovery_remaining_many": "{count} recovery codes left",
+    "mfa_enrol_failed": "That code is not right. Check the app and try the current code.",
+    "mfa_disable_failed": "That password or code is not right.",
+    "mfa_stale": "That changed in another tab. Close this and try again.",
+    "mfa_unreadable": "This second factor cannot be read on this install. Run `kaleta --reset-password --disable-mfa` and set it up again.",
     "mfa_rate_limited": "Too many wrong codes. Try again in {seconds} seconds."
   },
   "audit": {

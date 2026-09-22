@@ -326,6 +326,32 @@ item is built, and every executable acceptance criterion passes.
   its plain bool: the tri-state belongs to the one caller that can act on
   it, not to every caller.
 
+- **Every prompt that counts a failure asks the same question first.**
+  `verify_code()`, `verify_challenge()` and `confirm_enrolment()` each
+  fold "the row is gone" into the answer they give for "that was wrong",
+  and all three callers charge that answer to `mfa_rate_limiter` — the
+  single bucket that guards the login prompt. So a factor dropped from a
+  shell, or turned off in another tab, could lock someone out of a login
+  that had just become password-only, for a failure they had no way to
+  avoid. Fixed in all three: `/login/mfa` and the step-up dialog ask
+  `is_enabled()` before submitting, and `confirm_enrolment()`'s missing
+  pending row is now a `ConflictError` rather than a `ValidationError`
+  (nothing was wrong with what was typed), which the setup dialog already
+  leaves uncounted.
+
+- **The dialogs' own errors are localized; the fallback is not.** The
+  three two-factor dialogs used to print `exc.message` — the service's
+  English literal — beside labels that all went through `t()`, so a
+  Polish user met mixed-language copy on the most common error of all.
+  `ValidationError`, `ConflictError` and `EncryptionError` now map to
+  `settings.mfa_{enrol_failed,disable_failed,stale,unreadable}` in both
+  locales. The turn-off dialog keeps one message for both halves, as the
+  service gives it: naming which half was wrong would make it a password
+  oracle. The bare `except KaletaError` fallback still shows
+  `exc.message`, which is the `notify_kaleta_error` convention for a
+  domain error no view anticipated — by then the copy being English is
+  the smaller problem.
+
 - **Successes are audited, not only failures.** `user_mfa` is in
   `db/audit.py`'s `_SKIP_TABLES` — auditing it would copy the decrypted
   secret into `audit_log` — so the generic ORM listener sees none of

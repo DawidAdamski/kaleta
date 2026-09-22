@@ -1899,6 +1899,10 @@
     "mfa_recovery_remaining_one": "Pozostał 1 kod zapasowy",
     "mfa_recovery_remaining_few": "Pozostały {count} kody zapasowe",
     "mfa_recovery_remaining_many": "Pozostało {count} kodów zapasowych",
+    "mfa_enrol_failed": "Ten kod się nie zgadza. Sprawdź aplikację i wpisz aktualny kod.",
+    "mfa_disable_failed": "To hasło lub kod się nie zgadza.",
+    "mfa_stale": "To zmieniło się w innej karcie. Zamknij to okno i spróbuj ponownie.",
+    "mfa_unreadable": "Tego drugiego składnika nie da się odczytać w tej instalacji. Uruchom `kaleta --reset-password --disable-mfa` i skonfiguruj go ponownie.",
     "mfa_rate_limited": "Za dużo błędnych kodów. Spróbuj ponownie za {seconds} s."
   },
   "audit": {

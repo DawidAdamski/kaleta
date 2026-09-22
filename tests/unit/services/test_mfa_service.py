@@ -6,6 +6,7 @@ Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from datetime import UTC, datetime, timedelta
@@ -598,6 +599,44 @@ class TestConcurrentSubmits:
             assert await one._remove_recovery_code(row_one, index_one) is True
             assert await two._remove_recovery_code(row_two, index_two) is False
 
+        status = await mfa.status(user.id)
+        assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1
+
+    # The two above pin the conditional UPDATE by driving it directly. The two
+    # below ask the same question of the public methods, so that moving the
+    # claim back inside them as a read-then-write would be caught here even
+    # though the primitives above still passed.
+
+    @pytest.mark.asyncio
+    async def test_the_login_prompt_itself_admits_one_of_two(
+        self, mfa: MfaService, db_engine, user
+    ) -> None:
+        secret, _codes = await enrol(mfa, user.id)
+        code = code_for(secret, offset_steps=1)
+
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            results = await asyncio.gather(
+                MfaService(first).verify_code(user.id, code),
+                MfaService(second).verify_code(user.id, code),
+                return_exceptions=True,
+            )
+        assert results.count(True) == 1, results
+
+    @pytest.mark.asyncio
+    async def test_the_recovery_field_itself_admits_one_of_two(
+        self, mfa: MfaService, db_engine, user
+    ) -> None:
+        _secret, codes = await enrol(mfa, user.id)
+
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            results = await asyncio.gather(
+                MfaService(first).consume_recovery_code(user.id, codes[0]),
+                MfaService(second).consume_recovery_code(user.id, codes[0]),
+                return_exceptions=True,
+            )
+        assert results.count(True) == 1, results
         status = await mfa.status(user.id)
         assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1
 

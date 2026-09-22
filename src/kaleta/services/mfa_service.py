@@ -202,8 +202,14 @@ class MfaService:
         """Enable MFA once a code proves the app holds the secret; return recovery codes."""
         row = await self._row(user_id)
         if row is None:
+            # A `ConflictError`, not a `ValidationError`: there is nothing
+            # wrong with what the user typed, the enrolment they were
+            # confirming stopped existing underneath them — `--disable-mfa`
+            # from a shell, or another tab. The caller counts wrong guesses
+            # and must not count this, or a stale setup dialog would lock the
+            # login prompt out of a failure nobody could have avoided.
             msg = "Start the two-factor setup before confirming it."
-            raise ValidationError(msg)
+            raise ConflictError(msg)
         if row.is_enabled:
             msg = "Two-factor authentication is already enabled."
             raise ConflictError(msg)
