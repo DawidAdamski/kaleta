@@ -3053,9 +3053,7 @@ Feature: Two-factor authentication
     Then I am returned to the sign-in page
     And I am told it took too long and to sign in again
 
-  # Implemented; @planned until someone walks it by hand (it needs a second
-  # browser context racing the first).
-  KAL-AUTH-022 @planned
+  KAL-AUTH-022 @automated
   Scenario: Turning the factor off in another tab does not cost me a try
     Given I have given the right password and am at the code prompt
     When two-factor authentication is turned off in another tab

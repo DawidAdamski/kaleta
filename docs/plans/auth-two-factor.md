@@ -128,7 +128,8 @@ and the local half ships first because it does not depend on that plan.
 `src/kaleta/api/v1/auth.py` (new, status only), `src/kaleta/db/audit.py`
 (auth event kinds), `src/kaleta/i18n/{en,pl}.json`, `pyproject.toml`
 (`pyotp`, `qrcode`, `cryptography`), `src/kaleta/db/types.py` (new),
-`src/kaleta/services/backup_service.py`, `docs/bdd.md`,
+`src/kaleta/services/backup_service.py`, `src/kaleta/views/auth_common.py`,
+`tests/e2e/seed_helpers.py`, `docs/bdd.md`,
 `docs/tech-stack.md`, `SECURITY.md`, `docs/adr/036-*.md`.
 
 Deferred to the Phase B follow-up along with Phase B itself:
@@ -159,10 +160,10 @@ item is built, and every executable acceptance criterion passes.
 
 **Open for the owner, not closed here:**
 
-- **Walking `KAL-AUTH-021`, `-022` and `-023` by hand.** All three are
-  implemented and left `@planned`, because `@manual` in this repo means
-  someone verified it by hand and nobody has. Retag them `@manual` after
-  walking them; none can be automated against the e2e harness.
+- **Walking `KAL-AUTH-021` and `-023` by hand.** Both are implemented and
+  left `@planned`, because `@manual` in this repo means someone verified
+  it by hand and nobody has. Retag them `@manual` after walking them;
+  neither can be automated against the e2e harness.
 - The `[manual]` criterion — enrol with Google Authenticator, 1Password
   and Aegis and confirm the QR scans and the codes verify in all three.
   Nothing in this branch can run it; three real authenticator apps have
@@ -314,19 +315,25 @@ item is built, and every executable acceptance criterion passes.
   was never proved, which is exactly the pattern worth looking for.
 
 - **Three messages the happy path never shows got scenarios, not tests.**
-  `KAL-AUTH-021` (the challenge ages out), `KAL-AUTH-022` (the factor is
-  turned off in another tab while the prompt is open) and `KAL-AUTH-023`
-  (the secret was written under a different `KALETA_SECRET_KEY`) are all
-  `@planned`. Each needs something the e2e harness cannot stage against
-  its own ephemeral instance — ten minutes of wall clock, a second
-  browser context racing the first, or a key rotation between two
+  `KAL-AUTH-021` (the challenge ages out) and `KAL-AUTH-023` (the secret
+  was written under a different `KALETA_SECRET_KEY`) are `@planned`. Each
+  needs something the e2e harness cannot stage against its own ephemeral
+  instance — ten minutes of wall clock, or a key rotation between two
   requests — so `@automated` would be the green-washing rule 4 forbids.
   `@manual` would be the other kind of lie: this file's legend defines it
   as "implemented, verified by hand", and nobody has walked them yet.
   They stay `@planned` until someone does, which is listed below as an
-  open item. The service-level halves *are* covered: `verify_code()`
-  returning False on a disabled factor, and `EncryptionError` surfacing
-  out of the column type.
+  open item, with a line in the scenario body saying they are built. The
+  service-level halves *are* covered: `verify_code()` returning False on
+  a disabled factor, and `EncryptionError` surfacing out of the column
+  type.
+
+  `KAL-AUTH-022` was in that list and is not: the first read of it called
+  for a second browser context racing the first, but nothing there races.
+  Parking `page_no_auth` at the code prompt, turning the factor off from
+  `page`, and then submitting is an ordinary sequence the existing
+  two-page fixture already supports, so it is `@automated` in
+  `tests/e2e/test_mfa.py`.
 
 - **A factor turned off mid-prompt is not a wrong code.** `verify_code()`
   answers False whether the code was wrong or the row is gone, and
@@ -420,9 +427,15 @@ item is built, and every executable acceptance criterion passes.
   code the user is about to type is checked against a stored secret — so
   cancelling used to leave a live one in the database, invisible to
   `status()` and reachable by nothing in the UI. The dialog now calls
-  `abandon_enrolment()` on every path that does not end in a
-  confirmation, conditional on `enabled_at IS NULL` so a confirmation
-  landing in the gap keeps the factor the user just switched on.
+  `abandon_enrolment()` on every path through the dialog that does not
+  end in a confirmation — cancel and dismiss — conditional on
+  `enabled_at IS NULL` so a confirmation landing in the gap keeps the
+  factor the user just switched on. A tab closed outright at the QR
+  screen never resolves the `await`, so that row does survive, until the
+  next `begin_enrolment()` overwrites it or `--disable-mfa` clears it.
+  Sweeping those would need a job with a clock, which is more machinery
+  than one unconfirmed row per user is worth; the row guards nothing and
+  is counted by nothing.
 
 - **`GET /api/v1/auth/mfa` got the scenario it should have had.**
   `KAL-API-005` and `KAL-API-006` in `docs/bdd.md`, covered by
@@ -458,9 +471,12 @@ item is built, and every executable acceptance criterion passes.
   fumbled on the way is a log that recorded the noise and missed the
   theft.
 
-- **Two files the plan did not foresee changed, and had to.** They are in
-  the Touchpoints list above because this branch put them there;
-  everything below is why.
+- **Four files the plan did not foresee changed, and had to.** All four
+  are in the Touchpoints list above because this branch put them there.
+  `src/kaleta/views/auth_common.py` took `safe_redirect` when the new page
+  turned out to have copied it, and `tests/e2e/seed_helpers.py` grew the
+  teardown the e2e test needs; both are explained where they happened.
+  The other two are the interesting pair:
   `src/kaleta/services/backup_service.py` and `tests/backup_helpers.py`:
   an encrypted column is a `LargeBinary`, and a `LargeBinary` is not
   JSON, so the export failed outright the moment `user_mfa` existed.
@@ -514,8 +530,9 @@ item is built, and every executable acceptance criterion passes.
   dialogs are wired to it. The login prompt's own wiring is the same two
   lines against the same object, and is not separately asserted — the
   e2e test cannot burn five codes there without locking the account for
-  the rest of the run. One bucket covers all three prompts, so wrong
-  answers in the turn-off dialog lock the code prompt too; `SECURITY.md`
+  the rest of the run. One bucket covers all four prompts that take a
+  code (login, step-up, turn-off, and the confirm step of setting up), so
+  wrong answers in any one lock the rest; `SECURITY.md`
   says so, and so does the e2e fixture, because the test ends with the
   e2e user locked for fifteen minutes and a reused server would carry
   that into the next run.

@@ -98,9 +98,11 @@ fifteen minutes, counted per account. That cuts both ways: someone who knows
 your password but not your codes can keep you out of the prompt for fifteen
 minutes at a time. Counting per IP address instead would let anyone with a
 handful of addresses walk past the limit altogether, which is the worse of the
-two, so the lockout is the trade we take. The same counter covers the code
-prompt, the step-up dialog and the "turn it off" dialog, so five wrong answers
-in any one of them locks all three.
+two, so the lockout is the trade we take. The same counter covers all four prompts that
+take a code — the login code prompt, the step-up dialog, the "turn it off"
+dialog and the confirm step of setting a factor up — so five wrong answers in
+any one of them locks the other three. Worth knowing for the setup dialog in
+particular: fumbling five codes while enrolling locks the login prompt too.
 
 **Locked out with shell access** (no phone, no recovery codes):
 

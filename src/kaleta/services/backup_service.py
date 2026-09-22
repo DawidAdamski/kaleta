@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import binascii
 import io
 import json
 import zipfile
@@ -79,7 +80,15 @@ def _deserialize_value(val: object, col_type: TypeEngine[Any]) -> object:
         return None
     if isinstance(_storage_type(col_type), LargeBinary):
         if isinstance(val, str):
-            return base64.b64decode(val)
+            try:
+                return base64.b64decode(val, validate=True)
+            except (binascii.Error, ValueError) as exc:
+                # A hand-edited or truncated file. `binascii.Error` is not a
+                # `KaletaError`, so without this the Data tab would get an
+                # unhandled exception where every other malformed-backup path
+                # in `restore()` gets a sentence.
+                msg = "Invalid backup: a binary column is not valid base64"
+                raise ValidationError(msg) from exc
         return val
     if isinstance(col_type, DateTime):
         if isinstance(val, str):

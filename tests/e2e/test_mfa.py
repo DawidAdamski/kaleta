@@ -3,6 +3,7 @@
 
 Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
 Covers: KAL-AUTH-016, KAL-AUTH-019, KAL-AUTH-020
+Covers: KAL-AUTH-022
 
 One test, not four: enrolling changes how every later login on this shared
 instance behaves, so the whole life of a second factor — set up, sign in with
@@ -116,6 +117,7 @@ def test_two_factor_authentication(
 ) -> None:
     """Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
     Covers: KAL-AUTH-016, KAL-AUTH-019, KAL-AUTH-020
+    Covers: KAL-AUTH-022
     """
     secret, codes = enrol(page)
 
@@ -181,6 +183,12 @@ def test_two_factor_authentication(
     assert set(fresh_codes).isdisjoint(codes)
     expect(page.get_by_text("10 recovery codes left").first).to_be_visible(timeout=10000)
 
+    # KAL-AUTH-022 — park a second browser at the code prompt first, so that
+    # turning the factor off below happens underneath it.
+    page_no_auth.context.clear_cookies()
+    sign_in_with_password(page_no_auth, base_url)
+    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+
     # KAL-AUTH-020 — the password and a code turn it off, and the login goes
     # back to what it was.
     page.get_by_role("button", name="Turn off").click()
@@ -189,6 +197,16 @@ def test_two_factor_authentication(
     disable.get_by_label("Code", exact=True).fill(next_totp(secret))
     disable.get_by_role("button", name="Turn off").click()
     expect(page.get_by_text("Off", exact=True).first).to_be_visible(timeout=10000)
+
+    # KAL-AUTH-022 — the parked prompt is now asking for something that no
+    # longer exists. It says so and sends the visitor back, rather than
+    # answering "that code is not right" and charging them a try for it.
+    stranded = page_no_auth.get_by_label("6-digit code", exact=True)
+    expect(stranded).to_be_visible(timeout=10000)
+    stranded.fill("000000")
+    page_no_auth.get_by_role("button", name="Verify").click()
+    expect(page_no_auth).to_have_url(f"{base_url}/login?reason=mfa_gone", timeout=15000)
+    expect(page_no_auth.get_by_text("Two-factor authentication was turned off.")).to_be_visible()
 
     page_no_auth.context.clear_cookies()
     sign_in_with_password(page_no_auth, base_url)
