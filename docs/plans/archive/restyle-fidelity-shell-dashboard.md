@@ -298,7 +298,7 @@ are fixed; the values are in the reports.
 ### Left for the owner, or for the next plan
 
 - **`1f`'s phone-only renderings.** Deferred by the scope amendment above
-  to [`restyle-fidelity-phone-widgets`](../restyle-fidelity-phone-widgets.md),
+  to [`restyle-fidelity-phone-widgets`](restyle-fidelity-phone-widgets.md),
   drafted in this PR: "Needs attention" as a paper card of 44px rows with
   chevrons, "Latest" as two-line rows instead of a five-column table, and
   the Month band with no cards under it. Recorded as `deviation` rows 10,
