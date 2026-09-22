@@ -14,7 +14,7 @@ from nicegui import ui
 from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.views.dashboard_widgets.helpers import fmt_number, section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import BODY_MUTED, HAIRLINE_BOTTOM, INK
 
 
@@ -25,7 +25,7 @@ from kaleta.views.theme import BODY_MUTED, HAIRLINE_BOTTOM, INK
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_top_merchants(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_top_merchants(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     today = datetime.date.today()
     start = today - datetime.timedelta(days=30)
     merchants = await ReportService(session).top_merchants(start, today, limit=5)

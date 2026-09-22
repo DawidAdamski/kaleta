@@ -3,16 +3,28 @@
 
 Covers: KAL-NAV-006, KAL-DSH-007
 
-Both tests seed nothing. The suite shares one database and one user storage,
-so a test that adds rows changes what every later file sees — and neither
-claim here is about figures: one is about the navigation a narrow viewport
-gets, the other about the shape the widgets are arranged in. Both hold on an
-empty ledger and on a full one.
+Most of these seed nothing. The suite shares one database and one user
+storage, so a test that adds rows changes what every later file sees — and
+the claims here are about the navigation a narrow viewport gets and the
+shape the widgets are drawn in, which hold on an empty ledger and on a full
+one. The one exception is the redraw test below: "the Latest band is rows,
+not a table" and "Needs attention is a card of rows, not a banner" are
+claims about rows, so that test seeds one of each and says so.
 """
 
 from __future__ import annotations
 
+import datetime
+import re
+
 from playwright.sync_api import Page, expect
+
+from tests.e2e.seed_helpers import (
+    get_or_seed_category,
+    seed_account,
+    seed_personal_loan,
+    seed_transaction,
+)
 
 PHONE = {"width": 390, "height": 844}
 
@@ -231,3 +243,91 @@ def test_a_wide_window_does_not_get_the_phone_layout(page: Page, base_url: str) 
 
     expect(page.locator("#dash-grid")).to_be_visible(timeout=20000)
     expect(page.locator(".k-tabbar")).to_be_hidden()
+
+
+def _computed(page: Page, selector: str, prop: str) -> str:
+    return str(
+        page.evaluate(
+            "([sel, prop]) => getComputedStyle(document.querySelector(sel)).getPropertyValue(prop)",
+            [selector, prop],
+        )
+    ).strip()
+
+
+def test_the_phone_redraws_the_widgets_that_do_not_fit(page: Page, base_url: str) -> None:
+    """Covers: KAL-DSH-007
+
+    Artboard `1f` draws four of the catalogue differently at 390px, and
+    until now a widget could not tell: its render signature was
+    ``(session, is_dark)``. Each claim below is about the *shape* the widget
+    took, which is the thing `RenderContext.narrow` bought.
+    """
+    today = datetime.date.today()
+    seed_personal_loan("Phone band overdue", 210.0, due_at=today - datetime.timedelta(days=2))
+    account = seed_account("Phone band account")
+    category = get_or_seed_category("Phone band category")
+    seed_transaction(account, category, 128.74, date=today, description="Lidl phone band")
+
+    _open_phone_dashboard(page, base_url)
+    _reset_widgets(page)
+    _open_phone_dashboard(page, base_url)
+
+    # ── The hero, flat on the ground (`1f.md` row 7b) ──────────────────────
+    hero = page.locator('[data-widget-id="safe_to_spend"]')
+    expect(hero).to_be_visible(timeout=10000)
+    expect(hero.locator(".k-dash-card")).to_have_count(0)
+    expect(hero.locator(".k-hero-rate")).to_be_visible()
+
+    # ── Needs attention: a paper card of 44px rows, not the banner (row 10) ─
+    attention = page.locator('[data-widget-id="wizard_actions"]')
+    expect(attention).to_be_visible(timeout=10000)
+    expect(attention.locator(".k-banner")).to_have_count(0)
+    expect(attention.locator(".k-dash-card")).to_be_visible()
+    rows = attention.locator(".k-attention-row")
+    expect(rows.first).to_be_visible(timeout=10000)
+    box = rows.first.bounding_box()
+    assert box is not None
+    assert box["height"] >= MIN_TAP_TARGET, box
+    # The severity the banner carries in a glyph is carried by the order here,
+    # so the attribute the ranking test reads has to survive the redraw.
+    expect(rows.first).to_have_attribute("data-severity", re.compile(r"danger|warning|info"))
+    expect(attention.locator(".k-attention-dot").first).to_be_visible()
+    expect(attention.locator(".k-attention-count")).to_be_visible()
+
+    # ── The Month band: bare type over a 120px chart (row 11) ──────────────
+    month = page.locator('[data-widget-id="month_card"]')
+    expect(month).to_be_visible(timeout=10000)
+    expect(month.locator(".k-dash-card")).to_have_count(0)
+    # 500/18 mono, which is the size `1f` sets for a figure on the ground.
+    assert _computed(page, '[data-widget-id="month_card"] .k-mono', "font-size") == "18px"
+    # The pace bar and the two footer figures are the wide card's; the Watch
+    # band two bands down already says all three.
+    expect(month.locator(".k-pace")).to_have_count(0)
+
+    chart = page.locator('[data-widget-id="cashflow_chart"]')
+    expect(chart).to_be_visible(timeout=10000)
+    expect(chart.locator(".k-dash-card")).to_have_count(0)
+    chart_box = chart.locator(".nicegui-echart").bounding_box()
+    assert chart_box is not None
+    assert round(chart_box["height"]) == 120, chart_box
+
+    # ── Latest: two-line rows, not five columns (row 13) ───────────────────
+    latest = page.locator('[data-widget-id="recent_transactions"]')
+    expect(latest).to_be_visible(timeout=10000)
+    expect(latest.locator(".k-dash-card")).to_have_count(0)
+    expect(latest.locator("table")).to_have_count(0)
+    # The band's heading is the list's title, so the widget adds none — and
+    # with the title line goes the "View all" the wide card carries on it.
+    expect(latest.get_by_role("button", name="View all")).to_have_count(0)
+    tx_rows = latest.locator(".k-tx-row")
+    expect(tx_rows.first).to_be_visible(timeout=10000)
+    tx_box = tx_rows.first.bounding_box()
+    assert tx_box is not None
+    assert tx_box["height"] >= 52, tx_box
+    # "03.07 · Żywność" — day before month, which is what `1f` writes. The
+    # wide window's table keeps `1c`'s month-day (`KAL-DSH-009`).
+    meta = latest.locator(".k-tx-meta").first.inner_text().strip()
+    assert re.match(r"^\d{2}\.\d{2}( · .+)?$", meta), meta
+
+    widths = page.evaluate("() => [document.scrollingElement.scrollWidth, window.innerWidth]")
+    assert widths[0] <= widths[1], f"page scrolls sideways: {widths[0]} > {widths[1]}"

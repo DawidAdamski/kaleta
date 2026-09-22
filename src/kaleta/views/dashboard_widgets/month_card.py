@@ -24,7 +24,7 @@ from kaleta.services.net_worth_service import NetWorthService
 from kaleta.services.report_service import SavingsRatePoint
 from kaleta.views.dashboard_widgets.constants import SAVINGS_RATE_TARGET_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_number
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_INCOME,
@@ -55,6 +55,35 @@ def _figure(label: str, value: str, amount_cls: str) -> None:
         ui.label(value).classes(
             f"k-mono {amount_cls} text-[22px] md:text-[26px] font-medium tracking-tight"
         )
+
+
+def _band_figure(label: str, value: str, amount_cls: str) -> None:
+    """One of the three figures as artboard `1f` sets them in the Month band.
+
+    11px label over a 500/18 mono figure, three abreast on the ground. The
+    smaller figure is what lets all three sit on one line of a 350px content
+    width without the floor `_figure` needs — and a third of that width is
+    room for five digits, which is every household figure this app has.
+    """
+    with ui.column().classes("gap-0.5 flex-1 min-w-0"):
+        ui.label(label).classes(f"{CARD_SUBTITLE} !text-[11px]")
+        ui.label(value).classes(f"k-mono {amount_cls} text-[18px] font-medium mt-0.5")
+
+
+async def _render_month_band(session: AsyncSession) -> None:
+    """The Month band's head on a phone: three figures, no card (artboard `1f`).
+
+    What the wide card carries and this does not is the pace bar and the two
+    footer figures — and none of the three is dropped from the page, because
+    the Watch band two bands down already says the savings rate, the 30-day
+    balance and the net worth in plain type. Saying them again here would be
+    the same three figures twice on one screen.
+    """
+    point = await ReportService(session).current_month_point()
+    with ui.row().classes("w-full gap-x-4 gap-y-2 no-wrap"):
+        _band_figure(t("dashboard.month_in"), fmt_number(point.income), AMOUNT_INCOME)
+        _band_figure(t("dashboard.month_out"), fmt_number(point.expenses), AMOUNT_EXPENSE)
+        _band_figure(t("dashboard.net"), fmt_number(point.savings), INK)
 
 
 def _pace_bar(point: SavingsRatePoint) -> None:
@@ -90,7 +119,10 @@ def _pace_bar(point: SavingsRatePoint) -> None:
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_month_card(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_month_card(session: AsyncSession, ctx: RenderContext) -> None:
+    if ctx.narrow:
+        await _render_month_band(session)
+        return
     point = await ReportService(session).current_month_point()
     income, expenses, net = point.income, point.expenses, point.savings
     summary = await NetWorthService(session).get_summary(history_months=2)

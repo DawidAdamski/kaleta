@@ -23,7 +23,7 @@ from kaleta.i18n import plural_key, t
 from kaleta.services import ReportService
 from kaleta.services.report_service import SafeToSpend
 from kaleta.views.dashboard_widgets.helpers import fmt_number, hero_figure
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import (
     DASH_CARD,
     HERO_LEGEND,
@@ -148,7 +148,15 @@ def render_hero(stats: SafeToSpend) -> None:
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_safe_to_spend(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_safe_to_spend(session: AsyncSession, ctx: RenderContext) -> None:
     stats = await ReportService(session).safe_to_spend()
+    if ctx.narrow:
+        # Flat on the ground, as artboard `1f` draws it: the hero is the
+        # first thing on the page and there is nothing beside it for a card
+        # to hold it apart from. On the desktop grid the same figure is one
+        # widget among a dozen, and a card-less one would read as a hole.
+        with ui.column().classes("w-full gap-0"):
+            render_hero(stats)
+        return
     with ui.card().classes(f"{DASH_CARD} gap-0"):
         render_hero(stats)

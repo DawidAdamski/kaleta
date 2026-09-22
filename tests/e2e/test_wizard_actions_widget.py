@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Wizard Action Items.
 
-Covers: KAL-WAC-002, KAL-WAC-003, KAL-WAC-004
+Covers: KAL-WAC-002, KAL-WAC-003, KAL-WAC-004, KAL-DSH-008
 
 Seeds one item per severity band and checks the dashboard widget renders
 them ranked, with working row links.
@@ -19,11 +19,15 @@ _WIDGET = '[data-widget-id="wizard_actions"]'
 
 
 def test_widget_ranks_items_and_links_rows(page: Page, base_url: str) -> None:
-    """Covers: KAL-WAC-002, KAL-WAC-003, KAL-WAC-004
+    """Covers: KAL-WAC-002, KAL-WAC-003, KAL-WAC-004, KAL-DSH-008
 
     An overdue loan (danger), a loan due in 3 days (warning) and a
     past-due subscription renewal (info) appear in that order, and the
     subscription row routes to its focused page.
+
+    It is also the one place in the suite where the widget is wide *and*
+    has something to show, so it is where "a wide window still gets the
+    accent banner" can be a claim rather than a coincidence.
     """
     today = datetime.date.today()
     seed_personal_loan("Overdue WAC E2E", 500.0, due_at=today - datetime.timedelta(days=1))
@@ -37,6 +41,12 @@ def test_widget_ranks_items_and_links_rows(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/")
     widget = page.locator(_WIDGET)
     expect(widget).to_be_visible(timeout=10000)
+
+    # The wide window's rendering is artboard `1c`'s accent banner. `1f`'s
+    # paper card of 44px rows is the phone's (`KAL-DSH-007`), and the width
+    # selects between them rather than replacing one with the other.
+    expect(widget.locator(".k-banner")).to_have_count(1)
+    expect(widget.locator(".k-attention-row")).to_have_count(0)
 
     # ── KAL-WAC-003: severity follows urgency ─────────────────────────────
     overdue_row = widget.locator('[data-action-kind="loan_overdue"]')

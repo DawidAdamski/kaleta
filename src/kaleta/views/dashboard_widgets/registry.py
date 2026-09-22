@@ -13,7 +13,34 @@ if TYPE_CHECKING:
 
 WidgetSize = tuple[int, int]  # (cols, rows) in the 4-column dashboard grid
 
-RenderFn = Callable[["AsyncSession", bool], Awaitable[None]]
+
+@dataclass(frozen=True, slots=True)
+class RenderContext:
+    """What a widget is allowed to know about where it is being drawn.
+
+    A widget used to be handed a bare ``is_dark``, which made the dark theme
+    the only thing about its surroundings it could answer to. Artboard ``1f``
+    asks three of them to draw differently on a phone — the Needs-attention
+    card, the Latest rows, the Month band's bare type — so the width has to
+    reach them too.
+
+    A frozen dataclass rather than a second boolean: the signature is being
+    changed across twenty-two modules either way, and the next thing a widget
+    needs to know about its surroundings should not cost that again.
+
+    ``narrow`` is a decision, not a measurement: ``dashboard._viewport_is_mobile``
+    makes it once per page, server-side, and every widget on that page is drawn
+    to the same answer. A widget is never told pixels, because a widget that
+    knew its own width would be free to disagree with the page about which
+    layout is being built.
+    """
+
+    is_dark: bool
+    #: True when the page is the phone's stacked bands, not the desktop grid.
+    narrow: bool = False
+
+
+RenderFn = Callable[["AsyncSession", RenderContext], Awaitable[None]]
 
 
 @dataclass(frozen=True)

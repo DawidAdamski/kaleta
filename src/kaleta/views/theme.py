@@ -370,6 +370,25 @@ BAND_TITLE = "k-band-title"
 WATCH_FIGURE = "k-watch-figure"
 WATCH_LABEL = "k-watch-label"
 
+#: One "Needs attention" item on a phone — a 44px row with an accent bullet,
+#: the message, and a chevron. Artboard `1f` draws the whole block as paper.
+ATTENTION_ROW = "k-attention-row"
+#: The bullet. One tone for every row; severity is carried by the order.
+ATTENTION_DOT = "k-attention-dot"
+#: The message itself, between the bullet and the chevron.
+ATTENTION_TEXT = "k-attention-text"
+#: How many there are, in mono beside the eyebrow.
+ATTENTION_COUNT = "k-mono k-attention-count"
+
+#: One movement in the phone's Latest band (artboard `1f`): payee over
+#: "03.07 · Żywność", the amount right in mono. Five columns do not fit
+#: 350px of content width, so the table is re-cut into two-line rows.
+TX_ROW = "k-tx-row"
+TX_PAYEE = "k-tx-payee"
+TX_META = "k-tx-meta"
+#: The figure; its tone is an ``AMOUNT_*`` token, as everywhere else.
+TX_AMOUNT = "k-mono k-tx-amount"
+
 # ── Payment calendar (artboard 3c) ────────────────────────────────────────────
 #: One day. Thirty-one of them fit on a screen only if each carries a figure
 #: and a row of dots instead of three stacked numbers.
@@ -1712,6 +1731,44 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   font-variant-numeric:tabular-nums;
   font-size:19px;font-weight:500;line-height:1.2;color:var(--k-ink)
 }
+
+/* "Needs attention" on a phone (artboard `1f`): a paper card of 44px rows,
+   not the accent banner `1c` draws. A full-width block of apricot under the
+   hero is the loudest thing on a 390px screen, and what it is shouting is a
+   list of two chores. The rows are hairlined instead, and the count beside
+   the eyebrow says how many there are without anyone reading them. */
+.k-attention-row{
+  display:flex;align-items:center;gap:10px;
+  width:100%;
+  min-height:44px;
+  border-bottom:1px solid var(--k-hairline);
+  cursor:pointer
+}
+.k-attention-row:last-child{border-bottom:none}
+.k-attention-row:hover .k-attention-text{text-decoration:underline}
+/* One tone for every row: the artboard draws both dots in the accent, so the
+   dot is a bullet and not a severity. Severity stays where it can be read —
+   the ranking that puts the worst first, and `data-severity` for the tests. */
+.k-attention-dot{
+  width:6px;height:6px;border-radius:999px;
+  background:var(--k-accent-light);
+  flex:none
+}
+.k-attention-text{font-size:13px;color:var(--k-ink);flex:1;min-width:0}
+.k-attention-count{font-size:11px;font-weight:500;color:var(--k-accent-text)}
+
+/* The Latest band on a phone (artboard `1f`): two-line rows instead of the
+   five-column table `1c` draws. A 52px row — taller than the 44px floor,
+   because it carries two lines — and a rule between, not a card around. */
+.k-tx-row{
+  display:flex;align-items:center;gap:12px;
+  min-height:52px;
+  border-bottom:1px solid var(--k-hairline)
+}
+.k-tx-row:last-child{border-bottom:none}
+.k-tx-payee{font-size:13.5px;color:var(--k-ink)}
+.k-tx-meta{font-size:11.5px;color:var(--k-muted);margin-top:2px}
+.k-tx-amount{font-size:14px;font-weight:500}
 
 /* Loading (artboard 3a) — a page that answers on load shows the shape of the
    answer while it works. `.q-skeleton.k-skeleton` rather than `!important`:

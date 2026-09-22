@@ -26,7 +26,7 @@ from kaleta.views.dashboard_widgets.helpers import (
     hero_figure,
     trend_class,
 )
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import CARD_CAPTION, DASH_CARD, INK
 
 #: Accounts named under the hero before the rest collapse into one tile.
@@ -46,7 +46,7 @@ def _account_chip(name: str, balance: Decimal) -> None:
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_balance_card(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_balance_card(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     reports = ReportService(session)
     total = await reports.total_balance()
     delta = await reports.balance_delta_vs_days_ago(30)

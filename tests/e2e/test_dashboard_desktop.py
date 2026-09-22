@@ -321,6 +321,17 @@ def test_the_desktop_dashboard_is_one_grid(page: Page, base_url: str) -> None:
     # wants it goes and ticks it in Customize.
     assert "safe_to_spend" not in in_grid
 
+    # The width flag selects a rendering, it does not replace one: `1f`'s card
+    # of 44px rows and its two-line movements are `KAL-DSH-007`, on the other
+    # side of 768px, and a wide window never gets either. Said as absences
+    # because this file seeds nothing — whether "Needs attention" has anything
+    # to show depends on the ledger, and that the banner is what it shows when
+    # it does is `test_wizard_actions_widget.py`, which seeds the items.
+    expect(page.locator('[data-widget-id="wizard_actions"] .k-attention-row')).to_have_count(0)
+    latest = page.locator('[data-widget-id="recent_transactions"]')
+    expect(latest.locator(".k-dash-card")).to_be_visible()
+    expect(latest.locator(".k-tx-row")).to_have_count(0)
+
 
 def test_edit_layout_unlocks_the_whole_grid(page: Page, base_url: str) -> None:
     """Covers: KAL-DSH-008"""

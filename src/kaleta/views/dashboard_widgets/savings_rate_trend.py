@@ -14,7 +14,7 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.views.chart_utils import apply_dark, chart_accent_color, chart_accent_fill
 from kaleta.views.dashboard_widgets.helpers import section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 
 
 @register(
@@ -24,7 +24,7 @@ from kaleta.views.dashboard_widgets.registry import register
     (4, 2),
     ((2, 2), (4, 2), (4, 3)),
 )
-async def render_savings_rate_trend(session: AsyncSession, is_dark: bool) -> None:
+async def render_savings_rate_trend(session: AsyncSession, ctx: RenderContext) -> None:
     points = await ReportService(session).savings_rate(months=6)
     labels = [p.label for p in points]
     rates = [float(p.rate_pct) if p.rate_pct is not None else None for p in points]
@@ -39,9 +39,9 @@ async def render_savings_rate_trend(session: AsyncSession, is_dark: bool) -> Non
                 "type": "line",
                 "data": rates,
                 "smooth": True,
-                "itemStyle": {"color": chart_accent_color(is_dark)},
-                "lineStyle": {"color": chart_accent_color(is_dark)},
-                "areaStyle": {"color": chart_accent_fill(is_dark)},
+                "itemStyle": {"color": chart_accent_color(ctx.is_dark)},
+                "lineStyle": {"color": chart_accent_color(ctx.is_dark)},
+                "areaStyle": {"color": chart_accent_fill(ctx.is_dark)},
             }
         ],
     }
@@ -49,4 +49,4 @@ async def render_savings_rate_trend(session: AsyncSession, is_dark: bool) -> Non
         t("dashboard_widgets.savings_rate_trend"),
         subtitle=t("dashboard_widgets.savings_rate_sub"),
     ):
-        ui.echart(apply_dark(opts, is_dark)).classes("w-full h-56")
+        ui.echart(apply_dark(opts, ctx.is_dark)).classes("w-full h-56")

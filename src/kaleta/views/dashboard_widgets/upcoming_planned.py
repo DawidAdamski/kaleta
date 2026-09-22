@@ -18,7 +18,7 @@ from kaleta.services import PlannedTransactionService, with_session
 from kaleta.services.planned_transaction_service import PlannedOccurrence
 from kaleta.views.components.amount_label import format_signed_amount, signed_amount_class
 from kaleta.views.dashboard_widgets.helpers import section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.theme import BODY_MUTED
 
@@ -30,7 +30,7 @@ from kaleta.views.theme import BODY_MUTED
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_upcoming_planned(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_upcoming_planned(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     today = datetime.date.today()
     horizon = today + datetime.timedelta(days=14)
     occs = await PlannedTransactionService(session).get_occurrences(

@@ -17,7 +17,7 @@ from kaleta.i18n import t
 from kaleta.services import ReportService
 from kaleta.views.dashboard_widgets.constants import SEVERE_SPENT_PCT
 from kaleta.views.dashboard_widgets.helpers import fmt_amount, fmt_number, section_card
-from kaleta.views.dashboard_widgets.registry import register
+from kaleta.views.dashboard_widgets.registry import RenderContext, register
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
     AMOUNT_WARNING,
@@ -35,7 +35,7 @@ from kaleta.views.theme import (
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_budget_variance_month(session: AsyncSession, is_dark: bool) -> None:  # noqa: ARG001
+async def render_budget_variance_month(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
     today = datetime.date.today()
     rep = await ReportService(session).budget_variance(today.year, today.month)
     with section_card(
