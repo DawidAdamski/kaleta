@@ -21,6 +21,7 @@ from kaleta.auth.session import (
     mark_mfa_verified,
     mfa_pending_user,
 )
+from kaleta.exceptions import EncryptionError
 from kaleta.i18n import t
 from kaleta.services import MfaService, with_session
 from kaleta.views.auth_common import (
@@ -100,7 +101,16 @@ def register() -> None:
                         return await service.consume_recovery_code(user_id, entered)
                     return await service.verify_code(user_id, entered)
 
-                if not await with_session(_check):
+                try:
+                    passed = await with_session(_check)
+                except EncryptionError:
+                    # The secret was written under a different
+                    # KALETA_SECRET_KEY. No code will ever match it, and
+                    # saying so beats a stack trace and a login that fails
+                    # forever for no stated reason.
+                    _say(t("auth.mfa_unreadable"))
+                    return
+                if not passed:
                     if mfa_rate_limiter.record_failure(rate_key):
                         secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
                         _say(t("auth.mfa_rate_limited", seconds=secs))

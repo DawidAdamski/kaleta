@@ -30,7 +30,7 @@ import qrcode
 import qrcode.image.svg
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
@@ -97,24 +97,52 @@ class MfaService:
         return result.scalar_one_or_none()
 
     async def is_enabled(self, user_id: int) -> bool:
-        row = await self._row(user_id)
-        return row is not None and row.is_enabled
+        """Whether this user has a confirmed second factor.
+
+        Reads one column on purpose. Loading the row would decrypt the secret,
+        and a secret that cannot be decrypted — the state a rotated
+        ``KALETA_SECRET_KEY`` leaves behind — would turn this into an error on
+        the password step of every login, including the login of the person
+        trying to get in and fix it.
+        """
+        result = await self.session.execute(
+            select(UserMfa.enabled_at).where(UserMfa.user_id == user_id)
+        )
+        return result.scalar_one_or_none() is not None
 
     async def status(self, user_id: int) -> MfaStatus:
-        row = await self._row(user_id)
-        if row is None:
+        """The card's view of the factor. Reads no secret, for the same reason."""
+        result = await self.session.execute(
+            select(UserMfa.enabled_at, UserMfa.recovery_codes_hash).where(
+                UserMfa.user_id == user_id
+            )
+        )
+        found = result.one_or_none()
+        if found is None:
             return MfaStatus(
                 enabled=False,
                 enrolment_started=False,
                 enabled_at=None,
                 recovery_codes_remaining=0,
             )
+        enabled_at, recovery_codes_hash = found
         return MfaStatus(
-            enabled=row.is_enabled,
-            enrolment_started=not row.is_enabled,
-            enabled_at=row.enabled_at,
-            recovery_codes_remaining=len(self._hashes(row)),
+            enabled=enabled_at is not None,
+            enrolment_started=enabled_at is None,
+            enabled_at=enabled_at,
+            recovery_codes_remaining=len(self._parse_hashes(recovery_codes_hash, user_id)),
         )
+
+    async def step_up_required(self, user_id: int, verified_at: datetime | None) -> bool:
+        """Whether a sensitive action should ask for a code first.
+
+        The one implementation of the question. A view calls it to decide
+        whether to raise the dialog; the services that enforce it ask the same
+        two things, so the prompt and the refusal cannot drift apart.
+        """
+        if not await self.is_enabled(user_id):
+            return False
+        return not self.step_up_is_fresh(verified_at)
 
     # ── enrolment ────────────────────────────────────────────────────────
 
@@ -175,11 +203,9 @@ class MfaService:
         if row is None or not row.is_enabled:
             return False
         counter = self._matching_counter(row, code)
-        if counter is None:
+        if counter is None or not await self._claim_counter(row, counter):
             await self._record_failure(user_id, event="mfa_failure")
             return False
-        row.last_used_counter = counter
-        await self.session.commit()
         return True
 
     @staticmethod
@@ -202,11 +228,9 @@ class MfaService:
         if row is None or not row.is_enabled:
             return False
         counter = self._matching_counter(row, code)
-        if counter is not None:
-            row.last_used_counter = counter
-            await self.session.commit()
+        if counter is not None and await self._claim_counter(row, counter):
             return True
-        if await self._spend_recovery_code(row, code):
+        if counter is None and await self._spend_recovery_code(row, code):
             return True
         await self._record_failure(user_id, event="mfa_step_up_failure")
         return False
@@ -235,11 +259,45 @@ class MfaService:
                 return index
         return None
 
-    async def _remove_recovery_code(self, row: UserMfa, index: int) -> None:
-        hashes = self._hashes(row)
-        del hashes[index]
-        row.recovery_codes_hash = json.dumps(hashes)
+    async def _claim_counter(self, row: UserMfa, counter: int) -> bool:
+        """Take the TOTP step ``counter`` for this row, once, across everybody.
+
+        Read the counter, compare it, write it back and two tabs holding the
+        same code both pass — which is the replay the counter exists to stop.
+        The database decides instead: the row only moves if it is still behind
+        the step being claimed.
+        """
+        result = await self.session.execute(
+            update(UserMfa)
+            .where(
+                UserMfa.id == row.id,
+                or_(UserMfa.last_used_counter.is_(None), UserMfa.last_used_counter < counter),
+            )
+            .values(last_used_counter=counter)
+        )
         await self.session.commit()
+        if int(getattr(result, "rowcount", 0) or 0) != 1:
+            return False
+        await self.session.refresh(row)
+        return True
+
+    async def _remove_recovery_code(self, row: UserMfa, index: int) -> bool:
+        """Cross one code off, once. False when somebody else got there first."""
+        current = row.recovery_codes_hash
+        hashes = self._parse_hashes(current, row.user_id)
+        if index >= len(hashes):
+            return False
+        del hashes[index]
+        result = await self.session.execute(
+            update(UserMfa)
+            .where(UserMfa.id == row.id, UserMfa.recovery_codes_hash == current)
+            .values(recovery_codes_hash=json.dumps(hashes))
+        )
+        await self.session.commit()
+        if int(getattr(result, "rowcount", 0) or 0) != 1:
+            return False
+        await self.session.refresh(row)
+        return True
 
     async def _spend_recovery_code(self, row: UserMfa, code: str) -> bool:
         """Consume the code against ``row``, writing no audit event of its own.
@@ -251,8 +309,7 @@ class MfaService:
         index = self._find_recovery_code(row, code)
         if index is None:
             return False
-        await self._remove_recovery_code(row, index)
-        return True
+        return await self._remove_recovery_code(row, index)
 
     # ── management ───────────────────────────────────────────────────────
 
@@ -310,13 +367,12 @@ class MfaService:
             await self._record_failure(user_id, event="mfa_disable_failure")
             raise ValidationError(wrong)
 
-        if recovery_index is not None:
-            await self._remove_recovery_code(row, recovery_index)
-        # Spend the step even though the row is about to go: every other path
-        # through this module honours the replay rule, and a disable that
-        # became a soft delete should not quietly be the exception.
-        if counter is not None:
-            row.last_used_counter = counter
+        if recovery_index is not None and not await self._remove_recovery_code(row, recovery_index):
+            # Somebody else spent that code between the check and here.
+            await self._record_failure(user_id, event="mfa_disable_failure")
+            raise ValidationError(wrong)
+        # No counter is claimed here: the row itself goes, so there is nothing
+        # left for a replayed code to be replayed against.
         await self.session.delete(row)
         await self.session.commit()
 
@@ -329,15 +385,20 @@ class MfaService:
         """
         from kaleta.db.audit import record_auth_event
 
-        result = await self.session.execute(select(UserMfa))
-        rows = list(result.scalars().all())
-        if not rows:
+        # Columns, not rows, and a bulk delete rather than the ORM's: this is
+        # the way back from a rotated KALETA_SECRET_KEY, so it has to work
+        # when every secret in the table is unreadable. Loading the objects
+        # would decrypt them and fail before deleting anything — leaving the
+        # locked-out owner with the new password and the old enrolment.
+        result = await self.session.execute(select(UserMfa.user_id))
+        user_ids = list(result.scalars().all())
+        if not user_ids:
             return 0
         usernames: list[str | None] = []
-        for row in rows:
-            user = await self.session.get(User, row.user_id)
+        for user_id in user_ids:
+            user = await self.session.get(User, user_id)
             usernames.append(user.username if user is not None else None)
-            await self.session.delete(row)
+        await self.session.execute(delete(UserMfa))
         await self.session.commit()
         for username in usernames:
             await record_auth_event(
@@ -346,7 +407,7 @@ class MfaService:
                 username=username,
                 success=True,
             )
-        return len(rows)
+        return len(user_ids)
 
     # ── internals ────────────────────────────────────────────────────────
 
@@ -372,10 +433,13 @@ class MfaService:
         return None
 
     def _hashes(self, row: UserMfa) -> list[str]:
+        return self._parse_hashes(row.recovery_codes_hash, row.user_id)
+
+    def _parse_hashes(self, raw: str | None, user_id: int) -> list[str]:
         try:
-            stored = json.loads(row.recovery_codes_hash or "[]")
+            stored = json.loads(raw or "[]")
         except json.JSONDecodeError:
-            log.warning("Recovery code list for user %s is not valid JSON", row.user_id)
+            log.warning("Recovery code list for user %s is not valid JSON", user_id)
             return []
         if not isinstance(stored, list):
             return []

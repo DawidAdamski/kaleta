@@ -9,12 +9,7 @@ from typing import Any
 from nicegui import app, ui
 
 from kaleta.auth.login_rate_limit import mfa_rate_limiter
-from kaleta.auth.session import (
-    SESSION_USER_ID,
-    mark_mfa_verified,
-    mfa_recently_verified,
-    mfa_verified_at,
-)
+from kaleta.auth.session import SESSION_USER_ID, mark_mfa_verified, mfa_verified_at
 from kaleta.exceptions import KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
 from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
@@ -48,10 +43,11 @@ async def _step_up(user_id: int) -> bool:
     than the step-up window, this asks for one and remembers the answer, so a
     run of token edits does not turn into a run of dialogs.
     """
-    status = await _mfa_status(user_id)
-    if not status.enabled:
-        return True
-    if mfa_recently_verified():
+
+    async def _needed(session: Any) -> bool:
+        return await MfaService(session).step_up_required(user_id, mfa_verified_at())
+
+    if not await with_session(_needed):
         return True
     if not await _ask_for_code(user_id):
         return False

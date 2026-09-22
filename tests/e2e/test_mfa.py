@@ -137,10 +137,10 @@ def test_two_factor_authentication(
 
     code_field.fill(next_totp(secret))
     page_no_auth.get_by_role("button", name="Verify").click()
-    expect(page_no_auth).not_to_have_url(
-        f"{base_url}/login/mfa?redirect_to=/",
-        timeout=15000,
-    )
+    # Wait for where it lands, not merely for it to leave: "no longer the code
+    # prompt" is true the instant the navigation starts, and the session
+    # cookie this next line asks about is not in the jar yet at that instant.
+    expect(page_no_auth).to_have_url(f"{base_url}/", timeout=15000)
     assert guard.get(f"{base_url}/transactions", max_redirects=0).status == 200
 
     # KAL-AUTH-015 — a recovery code gets in once, and only once.
@@ -151,10 +151,7 @@ def test_two_factor_authentication(
     recovery_field = page_no_auth.get_by_label("Recovery code", exact=True)
     recovery_field.fill(codes[0])
     page_no_auth.get_by_role("button", name="Verify").click()
-    expect(page_no_auth).not_to_have_url(
-        f"{base_url}/login/mfa?redirect_to=/",
-        timeout=15000,
-    )
+    expect(page_no_auth).to_have_url(f"{base_url}/", timeout=15000)
 
     page_no_auth.context.clear_cookies()
     sign_in_with_password(page_no_auth, base_url)
@@ -186,7 +183,7 @@ def test_two_factor_authentication(
 
     page_no_auth.context.clear_cookies()
     sign_in_with_password(page_no_auth, base_url)
-    expect(page_no_auth).not_to_have_url(f"{base_url}/login", timeout=15000)
+    expect(page_no_auth).to_have_url(f"{base_url}/", timeout=15000)
 
     # KAL-AUTH-020 — and a wrong answer says the same thing whichever half was
     # wrong, five times, and then says to wait. Telling the two apart would

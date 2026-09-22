@@ -121,12 +121,17 @@ and the local half ships first because it does not depend on that plan.
 `src/kaleta/auth/session.py` (`SESSION_MFA_PENDING`,
 `SESSION_MFA_VERIFIED_AT`), `src/kaleta/auth/middleware.py`,
 `src/kaleta/auth/login_rate_limit.py` (second limiter instance),
-`src/kaleta/auth/providers/{base,local,supabase}.py`,
 `src/kaleta/views/login.py`, `src/kaleta/views/login_mfa.py` (new),
 `src/kaleta/views/settings/security_tab.py`, `src/kaleta/cli/reset_password.py`,
 `src/kaleta/api/v1/auth.py` (new, status only), `src/kaleta/db/audit.py`
 (auth event kinds), `src/kaleta/i18n/{en,pl}.json`, `pyproject.toml`
-(`pyotp`, `qrcode`), `docs/bdd.md`, `docs/tech-stack.md`, `SECURITY.md`.
+(`pyotp`, `qrcode`, `cryptography`), `src/kaleta/db/types.py` (new),
+`src/kaleta/services/backup_service.py`, `docs/bdd.md`,
+`docs/tech-stack.md`, `SECURITY.md`, `docs/adr/036-*.md`.
+
+Deferred to the Phase B follow-up along with Phase B itself:
+`src/kaleta/auth/providers/{base,local,supabase}.py` and
+`tests/unit/auth/test_supabase_mfa.py`.
 
 ## Open questions
 
@@ -220,6 +225,28 @@ Phase A is built.
   the event, because a wrong code at a login prompt and a wrong code in
   the disable dialog are not the same thing to read back.
 
+- **Nothing on the way back from a rotated key decrypts anything.**
+  `SECURITY.md` points a locked-out self-hoster at
+  `kaleta --reset-password --disable-mfa`, so that path has to work when
+  every secret in the table is unreadable. `is_enabled()` and `status()`
+  select single columns rather than loading the row — otherwise the
+  *password* step of every login would raise, for everybody — and
+  `disable_all()` reads `user_id` and issues a bulk `DELETE` rather than
+  loading ORM objects. The CLI removes the enrolments **before** it
+  changes the password, so a failure leaves nothing changed instead of a
+  new password and the old lockout. `/login/mfa` catches
+  `EncryptionError` and names the command, rather than failing forever
+  with no reason given. Four tests in `TestAfterAKeyRotation` and one in
+  `test_reset_password_cli_works_after_a_key_rotation` hold that shut.
+
+- **The replay guard is a conditional `UPDATE`, not a read-then-write.**
+  Two tabs holding the same code both passed `_matching_counter` before
+  either committed, which is precisely the replay the counter exists to
+  stop; a recovery code could be spent twice the same way. Both are now
+  claimed with an `UPDATE ... WHERE` on the value that was read, and a
+  `rowcount` of zero is a loss. `TestConcurrentSubmits` runs the race
+  with two sessions.
+
 - **`--disable-mfa` writes an audit row per removed enrolment.** It is
   the one factor removal nobody had to prove anything to make, so it is
   the one that most needs a trace.
@@ -256,6 +283,14 @@ Phase A is built.
   passes `mfa_verified_at()` — a timestamp, not a verdict — and
   `MfaService.step_up_is_fresh()` owns the 10-minute window. A caller
   cannot widen it by asserting that it checked.
+
+- **The code limiter is keyed by user id, as the plan asks, and that has
+  a cost worth naming:** anyone who knows the password can burn five
+  wrong codes and keep the real owner out of the code prompt — and out
+  of token management — for fifteen minutes at a time. Keying by IP
+  instead would let an attacker with a botnet walk past the limit
+  entirely, which is worse; the lockout is the cheaper of the two
+  failures, and `SECURITY.md` says so.
 
 - **A pending challenge expires** after `MFA_CHALLENGE_TTL_MINUTES`.
   A browser left at the code prompt was otherwise one code away from a
@@ -305,7 +340,8 @@ Phase A is built.
   revoked — they are a separate credential, as the plan says. There is a
   test pinning that (`test_bearer_authentication_is_untouched_by_mfa`).
 
-- **New scenarios:** `KAL-AUTH-013`..`018` in `docs/bdd.md`, all
-  `@automated`. 013–016 are covered by `tests/e2e/test_mfa.py`, 017 by
-  `tests/integration/test_mfa_step_up.py`, 018 by
-  `tests/integration/test_reset_password_cli.py`.
+- **New scenarios:** `KAL-AUTH-013`..`020` in `docs/bdd.md`, all
+  `@automated`. 013–016, 019 and 020 are covered by
+  `tests/e2e/test_mfa.py`, 017 by `tests/integration/test_mfa_step_up.py`,
+  018 by `tests/integration/test_reset_password_cli.py`. `KAL-SET-015`
+  gained a line and `tests/integration/test_backup.py` covers it.

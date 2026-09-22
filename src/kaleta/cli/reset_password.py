@@ -91,9 +91,12 @@ class ResetPasswordCli:
         configure_database(db_url, debug=settings.debug)
         try:
             async with AsyncSessionFactory() as session:
-                user = await AuthService(session).reset_password(new_password)
-                username = user.username
+                # Order matters: the enrolments go first. If that fails the
+                # password is untouched and the owner can try again, rather
+                # than being left with a new password and the second factor
+                # they asked to be rid of still in the way.
                 disabled = await MfaService(session).disable_all() if self._disable_mfa else 0
-                return username, disabled
+                user = await AuthService(session).reset_password(new_password)
+                return user.username, disabled
         finally:
             await AsyncSessionFactory.dispose()

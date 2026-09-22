@@ -82,6 +82,13 @@ again issues a fresh set and invalidates the old one.
 from `KALETA_SECRET_KEY`. Rotating that variable therefore makes every existing
 enrolment unreadable; see below for the way out.
 
+**Wrong codes are rate-limited** — five in a row locks the code prompt for
+fifteen minutes, counted per account. That cuts both ways: someone who knows
+your password but not your codes can keep you out of the prompt for fifteen
+minutes at a time. Counting per IP address instead would let anyone with a
+handful of addresses walk past the limit altogether, which is the worse of the
+two, so the lockout is the trade we take.
+
 **Locked out with shell access** (no phone, no recovery codes):
 
 ```bash

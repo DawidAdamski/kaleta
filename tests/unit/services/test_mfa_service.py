@@ -16,8 +16,9 @@ import pytest_asyncio
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db import types as types_mod
 from kaleta.db.types import FORMAT_AES_GCM
-from kaleta.exceptions import ConflictError, ValidationError
+from kaleta.exceptions import ConflictError, EncryptionError, ValidationError
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.user_mfa import UserMfa
 from kaleta.services.auth_service import AuthService
@@ -29,6 +30,7 @@ from kaleta.services.mfa_service import (
     MfaService,
     normalise_code,
 )
+from tests.conftest import make_session_factory
 
 PASSWORD = "owner-password-1"
 
@@ -368,6 +370,109 @@ class TestDisable:
         assert rows == []
 
 
+@pytest_asyncio.fixture
+async def enrolled_user_id(mfa: MfaService, session: AsyncSession, user) -> int:
+    """A confirmed enrolment, written while the key still worked.
+
+    The id is taken before anything is detached: once the identity map is
+    cleared, reading it back would be IO in a place that cannot do IO.
+    """
+    user_id = int(user.id)
+    await enrol(mfa, user_id)
+    session.expunge_all()
+    return user_id
+
+
+class TestAfterAKeyRotation:
+    """What still has to work when no secret in the table can be decrypted.
+
+    `SECURITY.md` points a locked-out self-hoster at
+    `kaleta --reset-password --disable-mfa`. If any of this decrypted the
+    secret to do its job, that door would be shut too.
+    """
+
+    @pytest.fixture
+    def rotated(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(types_mod, "_key_source", lambda: b"a-different-key-" + b"x" * 16)
+
+    @pytest.mark.asyncio
+    async def test_reading_the_secret_really_does_fail(
+        self, mfa: MfaService, enrolled_user_id: int, rotated: None
+    ) -> None:
+        with pytest.raises(EncryptionError):
+            await mfa.begin_enrolment(enrolled_user_id)
+
+    @pytest.mark.asyncio
+    async def test_the_login_still_knows_the_factor_is_on(
+        self, mfa: MfaService, enrolled_user_id: int, rotated: None
+    ) -> None:
+        """Otherwise the password step itself would fail, for everybody."""
+        assert await mfa.is_enabled(enrolled_user_id) is True
+
+    @pytest.mark.asyncio
+    async def test_the_settings_card_still_renders(
+        self, mfa: MfaService, enrolled_user_id: int, rotated: None
+    ) -> None:
+        status = await mfa.status(enrolled_user_id)
+        assert status.enabled is True
+        assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT
+
+    @pytest.mark.asyncio
+    async def test_the_escape_hatch_still_opens(
+        self, mfa: MfaService, enrolled_user_id: int, rotated: None
+    ) -> None:
+        assert await mfa.disable_all() == 1
+        assert await mfa.is_enabled(enrolled_user_id) is False
+
+
 class TestNormaliseCode:
     def test_spaces_dashes_and_case_are_stripped(self) -> None:
         assert normalise_code(" abc-de 123 ") == "ABCDE123"
+
+
+class TestConcurrentSubmits:
+    """Two callers holding one code. The database decides, not a read-then-write.
+
+    Each gets its own session, because that is the shape of the race: two
+    tabs, two snapshots of the row, both taken before either one wrote.
+    """
+
+    @pytest.mark.asyncio
+    async def test_one_totp_step_cannot_be_claimed_twice(
+        self, mfa: MfaService, db_engine, user
+    ) -> None:
+        secret, _codes = await enrol(mfa, user.id)
+        code = code_for(secret, offset_steps=1)
+
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            one, two = MfaService(first), MfaService(second)
+            row_one, row_two = await one._row(user.id), await two._row(user.id)
+            assert row_one is not None and row_two is not None
+            counter_one = one._matching_counter(row_one, code)
+            counter_two = two._matching_counter(row_two, code)
+            assert counter_one is not None and counter_two == counter_one
+
+            assert await one._claim_counter(row_one, counter_one) is True
+            assert await two._claim_counter(row_two, counter_two) is False
+
+    @pytest.mark.asyncio
+    async def test_one_recovery_code_cannot_be_spent_twice(
+        self, mfa: MfaService, db_engine, user
+    ) -> None:
+        _secret, codes = await enrol(mfa, user.id)
+
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            one, two = MfaService(first), MfaService(second)
+            row_one, row_two = await one._row(user.id), await two._row(user.id)
+            assert row_one is not None and row_two is not None
+            index_one = one._find_recovery_code(row_one, codes[0])
+            index_two = two._find_recovery_code(row_two, codes[0])
+            assert index_one is not None and index_two == index_one
+
+            assert await one._remove_recovery_code(row_one, index_one) is True
+            assert await two._remove_recovery_code(row_two, index_two) is False
+
+        status = await mfa.status(user.id)
+        assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1

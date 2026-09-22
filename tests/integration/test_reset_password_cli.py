@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 import kaleta.models  # noqa: F401 — register ORM tables on Base.metadata
 from kaleta.cli.reset_password import ResetPasswordCli
 from kaleta.db import configure_database
+from kaleta.db import types as types_mod
 from kaleta.db.base import Base
 from kaleta.services.auth_service import AuthService
 from tests.conftest import _POSTGRES_URL, _USE_POSTGRES
@@ -194,3 +195,35 @@ def test_reset_password_cli_leaves_the_second_factor_alone_by_default(
     assert code == 0
     assert "Two-factor" not in stdout.getvalue()
     assert asyncio.run(_mfa_enabled(db_url, "alice")) is True
+
+
+def test_reset_password_cli_works_after_a_key_rotation(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, global_db_restored: None
+) -> None:
+    """Covers: KAL-AUTH-018
+
+    Rotating KALETA_SECRET_KEY makes every stored secret unreadable, and this
+    command is the documented way back. Anything on its path that decrypted a
+    secret to do its job would shut the one door that is left.
+    """
+    db_path = tmp_path / "kaleta.db"
+    db_url = f"sqlite+aiosqlite:///{db_path}"
+    asyncio.run(_prepare_db(db_url, username="alice", password="old-password-1"))
+    asyncio.run(_enrol_mfa(db_url, "alice"))
+
+    monkeypatch.setattr(types_mod, "_key_source", lambda: b"rotated-key-" + b"z" * 20)
+    monkeypatch.setattr("kaleta.cli.reset_password.get_db_url", lambda: db_url)
+    prompts = iter(["new-password-9", "new-password-9"])
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    code = ResetPasswordCli(
+        get_password=lambda _prompt: next(prompts),
+        stdout=stdout,
+        stderr=stderr,
+        disable_mfa=True,
+    ).run()
+
+    assert code == 0, stderr.getvalue()
+    assert "Two-factor enrolments removed: 1" in stdout.getvalue()
+    assert asyncio.run(_mfa_enabled(db_url, "alice")) is False
+    assert asyncio.run(_authenticate(db_url, "alice", "new-password-9")) is True
