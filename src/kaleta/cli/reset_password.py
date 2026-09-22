@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Interactive ``kaleta --reset-password`` command."""
+"""Interactive ``kaleta --reset-password`` command.
+
+``--disable-mfa`` drops every second-factor enrolment at the same time. It is
+the local equivalent of a recovery code: a self-hoster who still has shell
+access to the machine already has the database file, so requiring a code from
+a lost phone would only lock them out of their own ledger.
+"""
 
 from __future__ import annotations
 
@@ -15,6 +21,7 @@ from kaleta.config.setup_config import get_db_url
 from kaleta.db import AsyncSessionFactory, configure_database
 from kaleta.exceptions import KaletaError
 from kaleta.services.auth_service import AuthService
+from kaleta.services.mfa_service import MfaService
 
 log = logging.getLogger(__name__)
 
@@ -31,10 +38,12 @@ class ResetPasswordCli:
         get_password: GetPass | None = None,
         stdout: TextIO | None = None,
         stderr: TextIO | None = None,
+        disable_mfa: bool = False,
     ) -> None:
         self._get_password = get_password or getpass.getpass
         self._stdout = stdout or sys.stdout
         self._stderr = stderr or sys.stderr
+        self._disable_mfa = disable_mfa
 
     def run(self) -> int:
         db_url = get_db_url()
@@ -57,7 +66,7 @@ class ResetPasswordCli:
             return 1
 
         try:
-            username = asyncio.run(self._reset(db_url, new_password))
+            username, disabled = asyncio.run(self._reset(db_url, new_password))
         except KaletaError as exc:
             self._stderr.write(f"{exc.message}\n")
             return 1
@@ -71,13 +80,20 @@ class ResetPasswordCli:
             "Existing browser sessions may still work until you sign out or clear "
             "site data; API bearer tokens are unchanged.\n"
         )
+        if self._disable_mfa:
+            self._stdout.write(
+                f"Two-factor enrolments removed: {disabled}. "
+                "Set it up again in Settings \u2192 Security.\n"
+            )
         return 0
 
-    async def _reset(self, db_url: str, new_password: str) -> str:
+    async def _reset(self, db_url: str, new_password: str) -> tuple[str, int]:
         configure_database(db_url, debug=settings.debug)
         try:
             async with AsyncSessionFactory() as session:
                 user = await AuthService(session).reset_password(new_password)
-                return user.username
+                username = user.username
+                disabled = await MfaService(session).disable_all() if self._disable_mfa else 0
+                return username, disabled
         finally:
             await AsyncSessionFactory.dispose()

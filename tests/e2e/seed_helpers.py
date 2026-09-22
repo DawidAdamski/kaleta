@@ -514,3 +514,20 @@ def seed_reserve_fund(
             return fund.id
 
     return _run_async_worker(_create)
+
+
+def disable_mfa_for_all() -> int:
+    """Drop every second-factor enrolment in the e2e database.
+
+    The suite shares one app and one login: an enrolment left behind by a
+    failing test would lock every test that logs in after it out of the app.
+    """
+
+    async def _disable() -> int:
+        from kaleta.db import AsyncSessionFactory
+        from kaleta.services import MfaService
+
+        async with AsyncSessionFactory() as session:
+            return await MfaService(session).disable_all()
+
+    return _run_async_worker(_disable)

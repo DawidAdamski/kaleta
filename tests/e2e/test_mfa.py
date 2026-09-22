@@ -1,0 +1,173 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+"""E2E tests for Feature: Two-factor authentication.
+
+Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015, KAL-AUTH-016
+
+One test, not four: enrolling changes how every later login on this shared
+instance behaves, so the whole life of a second factor — set up, sign in with
+a code, sign in with a recovery code, turn off — runs in one place with one
+teardown that guarantees the enrolment is gone whatever happened in between.
+"""
+
+from __future__ import annotations
+
+import time
+from collections.abc import Generator
+
+import pyotp
+import pytest
+from playwright.sync_api import Locator, Page, expect
+
+from tests.e2e import seed_helpers
+from tests.e2e.conftest import E2E_PASSWORD, E2E_USERNAME
+
+TOTP_INTERVAL = 30
+
+#: The last TOTP step this test has spent. A code is single-use, so asking for
+#: two codes inside one 30-second window has to yield two different steps.
+_last_step = -1
+
+
+@pytest.fixture
+def no_enrolment_left_behind() -> Generator[None]:
+    seed_helpers.disable_mfa_for_all()
+    yield
+    seed_helpers.disable_mfa_for_all()
+
+
+def next_totp(secret: str) -> str:
+    """A code the server has not seen yet, without sleeping out a whole step.
+
+    The drift window accepts the next step as well as the current one, so the
+    usual answer is instant; only a test that burns two codes in one window
+    ever waits.
+    """
+    global _last_step  # noqa: PLW0603 — one clock, one cursor into it
+    while True:
+        current = int(time.time()) // TOTP_INTERVAL
+        wanted = max(current, _last_step + 1)
+        if wanted <= current + 1:
+            _last_step = wanted
+            return str(pyotp.TOTP(secret, interval=TOTP_INTERVAL).at(wanted * TOTP_INTERVAL))
+        time.sleep(1)
+
+
+def open_dialog(page: Page, heading: str) -> Locator:
+    dialog = page.locator(".q-dialog:visible").filter(has_text=heading)
+    expect(dialog).to_be_visible(timeout=10000)
+    return dialog
+
+
+def open_security_tab(page: Page) -> None:
+    page.goto("/settings")
+    page.get_by_role("tab", name="Security").click()
+    expect(page.get_by_text("Two-factor authentication").first).to_be_visible(timeout=10000)
+
+
+def enrol(page: Page) -> tuple[str, list[str]]:
+    """Walk the Settings dialog; return the secret and the recovery codes."""
+    open_security_tab(page)
+    expect(page.get_by_text("Off", exact=True).first).to_be_visible(timeout=10000)
+    page.get_by_role("button", name="Set up").click()
+
+    setup = open_dialog(page, "Set up two-factor authentication")
+    # The QR is the whole point of the dialog: without it the secret has to be
+    # typed into the phone by hand.
+    expect(setup.locator("svg").first).to_be_visible()
+    secret = setup.locator(".break-all").inner_text().strip()
+    assert secret, "the dialog must also show the key for apps that cannot scan"
+
+    setup.get_by_label("Code", exact=True).fill(next_totp(secret))
+    setup.get_by_role("button", name="Confirm").click()
+
+    recovery = open_dialog(page, "Recovery codes")
+    codes = [line.strip() for line in recovery.locator(".font-mono > div").all_inner_texts()]
+    codes = [code for code in codes if code]
+    recovery.get_by_role("button", name="Close").click()
+    return secret, codes
+
+
+def sign_in_with_password(page: Page, base_url: str) -> None:
+    page.goto(f"{base_url}/login")
+    page.get_by_label("Username", exact=True).fill(E2E_USERNAME)
+    page.get_by_label("Password", exact=True).fill(E2E_PASSWORD)
+    page.get_by_role("button", name="Log in").click()
+
+
+def test_two_factor_authentication(
+    page: Page,
+    page_no_auth: Page,
+    base_url: str,
+    no_enrolment_left_behind: None,
+) -> None:
+    """Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015, KAL-AUTH-016"""
+    secret, codes = enrol(page)
+
+    # KAL-AUTH-013 — the card now says it is on, and hands over ten codes.
+    assert len(codes) == 10
+    expect(page.get_by_text("On since").first).to_be_visible(timeout=10000)
+    expect(page.get_by_text("10 recovery codes left").first).to_be_visible()
+
+    # KAL-AUTH-014 — the password alone now lands on the code prompt.
+    sign_in_with_password(page_no_auth, base_url)
+    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+
+    # KAL-AUTH-016 — and that half-finished session opens nothing. Asked over
+    # the same cookie jar the browser is holding, without following the
+    # redirect, so what the guard answers is what is asserted.
+    guard = page_no_auth.context.request
+    blocked = guard.get(f"{base_url}/transactions", max_redirects=0)
+    assert blocked.status in (302, 303, 307), blocked.status
+    assert "/login" in blocked.headers["location"]
+    assert guard.get(f"{base_url}/api/v1/accounts/").status == 401
+
+    page_no_auth.goto(f"{base_url}/login/mfa")
+    code_field = page_no_auth.get_by_label("6-digit code", exact=True)
+    expect(code_field).to_be_visible(timeout=10000)
+    code_field.fill("000000")
+    page_no_auth.get_by_role("button", name="Verify").click()
+    expect(page_no_auth.get_by_text("That code is not right.")).to_be_visible(timeout=10000)
+
+    code_field.fill(next_totp(secret))
+    page_no_auth.get_by_role("button", name="Verify").click()
+    expect(page_no_auth).not_to_have_url(
+        f"{base_url}/login/mfa?redirect_to=/",
+        timeout=15000,
+    )
+    assert guard.get(f"{base_url}/transactions", max_redirects=0).status == 200
+
+    # KAL-AUTH-015 — a recovery code gets in once, and only once.
+    page_no_auth.context.clear_cookies()
+    sign_in_with_password(page_no_auth, base_url)
+    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+    page_no_auth.get_by_role("button", name="Use a recovery code").click()
+    recovery_field = page_no_auth.get_by_label("Recovery code", exact=True)
+    recovery_field.fill(codes[0])
+    page_no_auth.get_by_role("button", name="Verify").click()
+    expect(page_no_auth).not_to_have_url(
+        f"{base_url}/login/mfa?redirect_to=/",
+        timeout=15000,
+    )
+
+    page_no_auth.context.clear_cookies()
+    sign_in_with_password(page_no_auth, base_url)
+    expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
+    page_no_auth.get_by_role("button", name="Use a recovery code").click()
+    page_no_auth.get_by_label("Recovery code", exact=True).fill(codes[0])
+    page_no_auth.get_by_role("button", name="Verify").click()
+    expect(page_no_auth.get_by_text("That code is not right.")).to_be_visible(timeout=10000)
+
+    # Turning it off needs the password and a code, and puts the login back
+    # the way it was.
+    open_security_tab(page)
+    expect(page.get_by_text("9 recovery codes left").first).to_be_visible(timeout=10000)
+    page.get_by_role("button", name="Turn off").click()
+    disable = open_dialog(page, "Turn off two-factor authentication")
+    disable.get_by_label("Password", exact=True).fill(E2E_PASSWORD)
+    disable.get_by_label("Code", exact=True).fill(next_totp(secret))
+    disable.get_by_role("button", name="Turn off").click()
+    expect(page.get_by_text("Off", exact=True).first).to_be_visible(timeout=10000)
+
+    page_no_auth.context.clear_cookies()
+    sign_in_with_password(page_no_auth, base_url)
+    expect(page_no_auth).not_to_have_url(f"{base_url}/login", timeout=15000)

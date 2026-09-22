@@ -12,6 +12,7 @@ from kaleta.config import settings
 from kaleta.exceptions import ValidationError
 from kaleta.models.api_token import ApiToken
 from kaleta.services.auth_service import PLACEHOLDER_USERNAME, AuthService
+from kaleta.services.mfa_service import MfaService
 
 _MIN_API_TOKEN_LENGTH = 16
 MIN_API_TOKEN_LENGTH = _MIN_API_TOKEN_LENGTH
@@ -29,11 +30,18 @@ class ApiTokenService:
     def hash_token(raw_token: str) -> str:
         return hashlib.sha256(raw_token.encode()).hexdigest()
 
-    async def create_token(self, *, user_id: int, label: str) -> tuple[ApiToken, str]:
+    async def create_token(
+        self,
+        *,
+        user_id: int,
+        label: str,
+        step_up_verified: bool = False,
+    ) -> tuple[ApiToken, str]:
         label = label.strip()
         if not label:
             msg = "Label is required"
             raise ValidationError(msg)
+        await self._require_step_up(user_id, step_up_verified=step_up_verified)
         raw_token = self.generate_raw_token()
         token = ApiToken(
             token_hash=self.hash_token(raw_token),
@@ -51,7 +59,14 @@ class ApiTokenService:
         )
         return list(result.scalars().all())
 
-    async def revoke_token(self, *, token_id: int, user_id: int) -> ApiToken | None:
+    async def revoke_token(
+        self,
+        *,
+        token_id: int,
+        user_id: int,
+        step_up_verified: bool = False,
+    ) -> ApiToken | None:
+        await self._require_step_up(user_id, step_up_verified=step_up_verified)
         result = await self.session.execute(
             select(ApiToken).where(ApiToken.id == token_id, ApiToken.user_id == user_id)
         )
@@ -94,6 +109,19 @@ class ApiTokenService:
         if user is None or user.username == PLACEHOLDER_USERNAME:
             return None
         return user.id
+
+    async def _require_step_up(self, user_id: int, *, step_up_verified: bool) -> None:
+        """A bearer token outlives a session, so minting one is a second-factor act.
+
+        MFA off: nothing to prove and nothing changes. MFA on: the caller must
+        say the code was given recently — the default is "it was not", so a
+        caller that has never heard of step-up cannot skip it by accident.
+        """
+        if step_up_verified:
+            return
+        if await MfaService(self.session).is_enabled(user_id):
+            msg = "Confirm with a two-factor code before changing API tokens."
+            raise ValidationError(msg)
 
     async def _record_event(self, *, event: str, label: str) -> None:
         from kaleta.db.audit import record_token_event

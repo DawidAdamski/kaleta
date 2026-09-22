@@ -52,6 +52,7 @@ from kaleta.models import (
     TransactionSplit,
     TransactionType,
     User,
+    UserMfa,
     YearlyPlan,
     transaction_tags,
 )
@@ -323,6 +324,15 @@ async def seed_every_model(session: AsyncSession) -> None:
             token_hash="a" * 64,
             label="ci",
             user_id=user.id,
+        )
+    )
+    session.add(
+        UserMfa(
+            user_id=user.id,
+            totp_secret="JBSWY3DPEHPK3PXP",
+            enabled_at=datetime(2024, 6, 1, 12, 0, 0, tzinfo=UTC),
+            last_used_counter=1,
+            recovery_codes_hash="[]",
         )
     )
     session.add(

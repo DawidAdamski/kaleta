@@ -81,3 +81,32 @@ async def test_restore_refuses_schema_revision_mismatch(session: AsyncSession) -
         await BackupService(session).restore(buf.getvalue())
 
     assert await row_counts(session) == before
+
+
+@pytest.mark.asyncio
+async def test_restore_preserves_an_encrypted_secret(session: AsyncSession) -> None:
+    """Covers: KAL-SET-015
+
+    An encrypted column is a BLOB, which JSON cannot hold, and the value the
+    export carries is ciphertext. Getting either half wrong leaves a restored
+    row that reads back as noise — and a two-factor secret that reads back as
+    noise locks the owner out of their own ledger after a restore.
+    """
+    from sqlalchemy import select
+
+    from kaleta.models import UserMfa
+
+    await seed_every_model(session)
+    before = (await session.execute(select(UserMfa.totp_secret))).scalar_one()
+    assert before == "JBSWY3DPEHPK3PXP"
+
+    data = await BackupService(session).export()
+    with zipfile.ZipFile(io.BytesIO(data)) as zf:
+        exported = json.loads(zf.read("user_mfa.json"))
+    assert before not in json.dumps(exported), "the backup must carry ciphertext, not the secret"
+
+    await wipe_all(session)
+    await BackupService(session).restore(data)
+    session.expire_all()
+    after = (await session.execute(select(UserMfa.totp_secret))).scalar_one()
+    assert after == before

@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import base64
 import io
 import json
 import zipfile
@@ -10,9 +11,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 
-from sqlalchemy import Date, DateTime, Numeric, insert, inspect, text
+from sqlalchemy import Date, DateTime, LargeBinary, Numeric, insert, inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.sql.type_api import TypeEngine
+from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 
 import kaleta.models  # noqa: F401 — register every table on Base.metadata
 from kaleta.db.base import Base
@@ -54,13 +55,32 @@ def _serialize(val: object) -> object:
         return str(val)
     if isinstance(val, (date, datetime)):
         return val.isoformat()
+    if isinstance(val, (bytes, bytearray, memoryview)):
+        # Encrypted columns (kaleta.db.types.EncryptedString) are BLOBs, and a
+        # BLOB is not JSON. Base64 keeps the ciphertext byte-exact through the
+        # export; it stays ciphertext, so a backup never carries a readable
+        # secret. Restoring into an install with a different KALETA_SECRET_KEY
+        # will not decrypt it — the same trade the key derivation already makes.
+        return base64.b64encode(bytes(val)).decode("ascii")
     return val
+
+
+def _storage_type(col_type: TypeEngine[Any]) -> TypeEngine[Any]:
+    """Peel decorators off a column type to reach what the database actually stores."""
+    seen = col_type
+    while isinstance(seen, TypeDecorator):
+        seen = seen.impl_instance
+    return seen
 
 
 def _deserialize_value(val: object, col_type: TypeEngine[Any]) -> object:
     """Convert JSON-scalar values back to driver-friendly Python types (asyncpg-safe)."""
     if val is None:
         return None
+    if isinstance(_storage_type(col_type), LargeBinary):
+        if isinstance(val, str):
+            return base64.b64decode(val)
+        return val
     if isinstance(col_type, DateTime):
         if isinstance(val, str):
             parsed = datetime.fromisoformat(val)

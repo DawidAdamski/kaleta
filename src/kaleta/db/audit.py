@@ -33,7 +33,10 @@ from kaleta.models.audit_log import AuditLog  # registers table in Base.metadata
 log = logging.getLogger(__name__)
 
 # Tables we never audit (prevents infinite recursion and noise).
-_SKIP_TABLES: frozenset[str] = frozenset({"audit_log", "app_events"})
+# ``user_mfa`` is skipped because auditing it would copy the decrypted TOTP
+# secret into ``audit_log`` in plain text, which is the one place the
+# encrypted column exists to keep it out of.
+_SKIP_TABLES: frozenset[str] = frozenset({"audit_log", "app_events", "user_mfa"})
 
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────

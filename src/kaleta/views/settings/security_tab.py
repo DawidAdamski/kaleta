@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Settings — Security tab (API bearer tokens)."""
+"""Settings — Security tab (two-factor authentication, API bearer tokens)."""
 
 from __future__ import annotations
 
@@ -8,9 +8,11 @@ from typing import Any
 
 from nicegui import app, ui
 
-from kaleta.auth.session import SESSION_USER_ID
+from kaleta.auth.session import SESSION_USER_ID, mark_mfa_verified, mfa_recently_verified
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
-from kaleta.services import ApiTokenService, with_session
+from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
+from kaleta.views.error_handling import notify_kaleta_error
 
 
 async def render_security_tab() -> None:
@@ -19,6 +21,258 @@ async def render_security_tab() -> None:
         ui.label(t("settings.security_login_required")).classes("text-slate-500")
         return
 
+    await _render_mfa_card(int(user_id))
+    await _render_token_card(int(user_id))
+
+
+# ── Two-factor authentication ─────────────────────────────────────────────────
+
+
+async def _mfa_status(user_id: int) -> MfaStatus:
+    async def _load(session: Any) -> MfaStatus:
+        return await MfaService(session).status(user_id)
+
+    return await with_session(_load)
+
+
+async def _step_up(user_id: int) -> bool:
+    """Make sure a code was given recently. True when the caller may proceed.
+
+    With MFA off there is nothing to prove. With MFA on and the last code older
+    than the step-up window, this asks for one and remembers the answer, so a
+    run of token edits does not turn into a run of dialogs.
+    """
+    status = await _mfa_status(user_id)
+    if not status.enabled:
+        return True
+    if mfa_recently_verified():
+        return True
+    if not await _ask_for_code(user_id, title_key="settings.mfa_step_up_title"):
+        return False
+    mark_mfa_verified()
+    return True
+
+
+async def _ask_for_code(user_id: int, *, title_key: str) -> bool:
+    """A modal that closes only on a correct code (or a cancel)."""
+    with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
+        ui.label(t(title_key)).classes("text-lg font-semibold mb-1")
+        ui.label(t("settings.mfa_step_up_hint")).classes("text-sm text-slate-500 mb-4")
+        code_input = ui.input(label=t("settings.mfa_code")).classes("w-full")
+        error = ui.label("").classes("text-sm text-negative mt-2")
+
+        async def _confirm() -> None:
+            entered = (code_input.value or "").strip()
+            if not entered:
+                error.set_text(t("settings.mfa_code_required"))
+                return
+
+            async def _verify(session: Any) -> bool:
+                return await MfaService(session).verify_code(user_id, entered)
+
+            if not await _verify_in_session(_verify):
+                error.set_text(t("settings.mfa_failed"))
+                code_input.value = ""
+                return
+            dialog.submit(True)
+
+        code_input.on("keydown.enter", _confirm)
+        with ui.row().classes("gap-2 mt-4 justify-end w-full"):
+            ui.button(t("common.cancel"), on_click=lambda: dialog.submit(False)).props("flat")
+            ui.button(t("settings.mfa_confirm"), on_click=_confirm).props("color=primary")
+
+    result = await dialog
+    dialog.clear()
+    return bool(result)
+
+
+async def _verify_in_session(check: Any) -> bool:
+    return bool(await with_session(check))
+
+
+async def _render_mfa_card(user_id: int) -> None:
+    with ui.card().classes("p-6 w-full mb-6"):
+        with ui.row().classes("items-center gap-2 mb-1"):
+            ui.icon("phonelink_lock", color="primary").classes("text-xl")
+            ui.label(t("settings.mfa_title")).classes("text-lg font-semibold")
+        ui.label(t("settings.mfa_hint")).classes("text-xs text-slate-500 mb-4")
+
+        @ui.refreshable
+        async def body() -> None:
+            status = await _mfa_status(user_id)
+            with ui.row().classes("items-center gap-3 mb-4"):
+                ui.icon(
+                    "verified_user" if status.enabled else "gpp_maybe",
+                    color="positive" if status.enabled else "warning",
+                )
+                if status.enabled and status.enabled_at is not None:
+                    ui.label(
+                        t(
+                            "settings.mfa_status_enabled",
+                            date=status.enabled_at.strftime("%Y-%m-%d"),
+                        )
+                    ).classes("text-sm")
+                    ui.label(
+                        t(
+                            "settings.mfa_recovery_remaining",
+                            count=status.recovery_codes_remaining,
+                        )
+                    ).classes("text-xs text-slate-500")
+                else:
+                    ui.label(t("settings.mfa_status_disabled")).classes("text-sm")
+
+            with ui.row().classes("gap-2 flex-wrap"):
+                if not status.enabled:
+                    ui.button(
+                        t("settings.mfa_setup"),
+                        icon="qr_code_2",
+                        on_click=lambda: _open_setup(user_id, body.refresh),
+                    ).props("color=primary")
+                    return
+                ui.button(
+                    t("settings.mfa_recovery_codes"),
+                    icon="password",
+                    on_click=lambda: _open_recovery(user_id, body.refresh),
+                ).props("outline")
+                ui.button(
+                    t("settings.mfa_disable"),
+                    icon="lock_open",
+                    on_click=lambda: _open_disable(user_id, body.refresh),
+                ).props("flat color=negative")
+
+        await body()
+
+
+async def _open_setup(user_id: int, refresh: Any) -> None:
+    async def _begin(session: Any) -> MfaEnrolment:
+        return await MfaService(session).begin_enrolment(user_id)
+
+    try:
+        enrolment = await with_session(_begin)
+    except KaletaError as exc:
+        notify_kaleta_error(exc)
+        return
+
+    with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-md"):
+        ui.label(t("settings.mfa_setup_title")).classes("text-lg font-semibold mb-2")
+        ui.label(t("settings.mfa_setup_step_scan")).classes("text-sm text-slate-500 mb-3")
+        ui.html(enrolment.qr_svg).classes("w-48 h-48 self-center")
+        ui.label(t("settings.mfa_setup_manual")).classes("text-xs text-slate-500 mt-3")
+        ui.label(enrolment.secret).classes("font-mono text-sm break-all select-all")
+        ui.label(t("settings.mfa_setup_confirm_hint")).classes("text-sm mt-4")
+        code_input = ui.input(label=t("settings.mfa_code")).classes("w-full")
+        error = ui.label("").classes("text-sm text-negative mt-2")
+
+        async def _confirm() -> None:
+            entered = (code_input.value or "").strip()
+            if not entered:
+                error.set_text(t("settings.mfa_code_required"))
+                return
+
+            async def _do(session: Any) -> list[str]:
+                return await MfaService(session).confirm_enrolment(user_id, entered)
+
+            try:
+                codes = await with_session(_do)
+            except KaletaError as exc:
+                error.set_text(exc.message)
+                code_input.value = ""
+                return
+            dialog.submit(codes)
+
+        code_input.on("keydown.enter", _confirm)
+        with ui.row().classes("gap-2 mt-4 justify-end w-full"):
+            ui.button(t("common.cancel"), on_click=lambda: dialog.submit(None)).props("flat")
+            ui.button(t("settings.mfa_confirm"), on_click=_confirm).props("color=primary")
+
+    codes = await dialog
+    dialog.clear()
+    if not codes:
+        refresh()
+        return
+    mark_mfa_verified()
+    ui.notify(t("settings.mfa_enabled_notify"), type="positive")
+    await _show_recovery_codes(codes)
+    refresh()
+
+
+async def _open_recovery(user_id: int, refresh: Any) -> None:
+    if not await _step_up(user_id):
+        return
+
+    async def _regenerate(session: Any) -> list[str]:
+        return await MfaService(session).regenerate_recovery_codes(user_id)
+
+    try:
+        codes = await with_session(_regenerate)
+    except KaletaError as exc:
+        notify_kaleta_error(exc)
+        return
+    await _show_recovery_codes(codes)
+    refresh()
+
+
+async def _show_recovery_codes(codes: list[str]) -> None:
+    joined = "\n".join(codes)
+    with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-md"):
+        ui.label(t("settings.mfa_recovery_title")).classes("text-lg font-semibold mb-2")
+        ui.label(t("settings.mfa_recovery_hint")).classes("text-sm text-slate-500 mb-4")
+        with ui.column().classes("gap-1 font-mono text-sm"):
+            for code in codes:
+                ui.label(code).classes("select-all")
+        with ui.row().classes("gap-2 mt-4 justify-end w-full"):
+            ui.button(
+                t("settings.mfa_copy_codes"),
+                icon="content_copy",
+                on_click=lambda: ui.run_javascript(
+                    f"navigator.clipboard.writeText({json.dumps(joined)})"
+                ),
+            ).props("outline")
+            ui.button(t("common.close"), on_click=lambda: dialog.submit(True)).props("flat")
+    await dialog
+    dialog.clear()
+
+
+async def _open_disable(user_id: int, refresh: Any) -> None:
+    with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
+        ui.label(t("settings.mfa_disable_title")).classes("text-lg font-semibold mb-1")
+        ui.label(t("settings.mfa_disable_hint")).classes("text-sm text-slate-500 mb-4")
+        password_input = ui.input(label=t("settings.mfa_password"), password=True).classes("w-full")
+        code_input = ui.input(label=t("settings.mfa_code")).classes("w-full")
+        error = ui.label("").classes("text-sm text-negative mt-2")
+
+        async def _confirm() -> None:
+            async def _do(session: Any) -> None:
+                await MfaService(session).disable(
+                    user_id,
+                    password=password_input.value or "",
+                    code=code_input.value or "",
+                )
+
+            try:
+                await with_session(_do)
+            except KaletaError as exc:
+                error.set_text(exc.message)
+                code_input.value = ""
+                return
+            dialog.submit(True)
+
+        code_input.on("keydown.enter", _confirm)
+        with ui.row().classes("gap-2 mt-4 justify-end w-full"):
+            ui.button(t("common.cancel"), on_click=lambda: dialog.submit(False)).props("flat")
+            ui.button(t("settings.mfa_disable"), on_click=_confirm).props("color=negative")
+
+    disabled = await dialog
+    dialog.clear()
+    if disabled:
+        ui.notify(t("settings.mfa_disabled_notify"), type="positive")
+    refresh()
+
+
+# ── API bearer tokens ─────────────────────────────────────────────────────────
+
+
+async def _render_token_card(user_id: int) -> None:
     token_dialog = ui.dialog()
     created_token: dict[str, str] = {"value": ""}
 
@@ -59,11 +313,15 @@ async def render_security_tab() -> None:
             if not label:
                 ui.notify(t("settings.security_token_label_required"), type="warning")
                 return
+            if not await _step_up(user_id):
+                ui.notify(t("settings.mfa_step_up_required"), type="warning")
+                return
 
             async def _create(session: Any) -> tuple[str, str]:
                 token, raw = await ApiTokenService(session).create_token(
-                    user_id=int(user_id),
+                    user_id=user_id,
                     label=label,
+                    step_up_verified=True,
                 )
                 return token.label, raw
 
@@ -92,7 +350,7 @@ async def render_security_tab() -> None:
         @ui.refreshable
         async def tokens_table() -> None:
             async def _load(session: Any) -> list[Any]:
-                return await ApiTokenService(session).list_tokens(user_id=int(user_id))
+                return await ApiTokenService(session).list_tokens(user_id=user_id)
 
             tokens = await with_session(_load)
             if not tokens:
@@ -157,10 +415,15 @@ async def render_security_tab() -> None:
             )
 
             async def _revoke(token_id: int) -> None:
+                if not await _step_up(user_id):
+                    ui.notify(t("settings.mfa_step_up_required"), type="warning")
+                    return
+
                 async def _do_revoke(session: Any) -> None:
                     await ApiTokenService(session).revoke_token(
                         token_id=token_id,
-                        user_id=int(user_id),
+                        user_id=user_id,
+                        step_up_verified=True,
                     )
 
                 await with_session(_do_revoke)

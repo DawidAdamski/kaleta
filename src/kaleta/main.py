@@ -169,6 +169,7 @@ def _register_views() -> None:
         import_view,
         institutions,
         login,
+        login_mfa,
         monthly_readiness,
         net_worth,
         payees,
@@ -193,6 +194,7 @@ def _register_views() -> None:
 
     setup.register()
     login.register()
+    login_mfa.register()
     create_account.register()
     secure_app.register()
     dashboard.register()
@@ -347,7 +349,7 @@ def main() -> None:
     if "--reset-password" in sys.argv:
         from kaleta.cli.reset_password import ResetPasswordCli
 
-        raise SystemExit(ResetPasswordCli().run())
+        raise SystemExit(ResetPasswordCli(disable_mfa="--disable-mfa" in sys.argv).run())
 
     match settings.mode:
         case "web":

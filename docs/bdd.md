@@ -2955,6 +2955,75 @@ Feature: Single-user authentication
       And it shows no amount, no account name and no payee
 ```
 
+## Feature: Two-factor authentication
+
+```gherkin
+Feature: Two-factor authentication
+  As the Kaleta owner
+  I want a second factor on top of my password
+  So that a stolen password alone does not open my whole ledger
+
+  KAL-AUTH-013 @automated
+  Scenario: Enrolling a second factor from Settings
+    Given I am signed in
+    And two-factor authentication is off
+    When I open Settings → Security and start the two-factor setup
+    Then I see a QR code and the key spelled out for apps that cannot scan
+    When I enter the code the authenticator app shows
+    Then two-factor authentication is on
+    And I am shown ten one-time recovery codes
+
+  KAL-AUTH-014 @automated
+  Scenario: Signing in asks for the code after the password
+    Given two-factor authentication is on
+    And I am on the login page
+    When I enter the correct username and password and submit
+    Then I am sent to the code prompt
+    When I enter a wrong code
+    Then I stay on the code prompt and see that the code is not right
+    When I enter the code the authenticator app shows
+    Then I am signed in
+
+  KAL-AUTH-015 @automated
+  Scenario: A recovery code signs me in once
+    Given two-factor authentication is on
+    And I have my recovery codes
+    And I have given the correct password on the login page
+    When I choose to use a recovery code and enter one
+    Then I am signed in
+    And one fewer recovery code is left
+    When I sign in again and enter the same recovery code
+    Then it is refused
+
+  KAL-AUTH-016 @automated
+  Scenario: A session waiting on the code reaches nothing
+    Given two-factor authentication is on
+    And I have given the correct password but not the code
+    When I request "/transactions"
+    Then I am redirected to the login page
+    When I request "/api/v1/accounts/" with that session cookie
+    Then the response status is 401
+
+  KAL-AUTH-017 @automated
+  Scenario: Creating an API token asks for the code again
+    Given two-factor authentication is on
+    And I have not entered a code in the last 10 minutes
+    When I try to create an API bearer token
+    Then it is refused until a current code is given
+    And revoking a token is refused on the same terms
+    But with two-factor authentication off neither is asked for
+
+  KAL-AUTH-018 @automated
+  Scenario: The CLI can drop the second factor for a locked-out self-hoster
+    Given a configured database whose user has two-factor authentication on
+    When I run `uv run kaleta --reset-password --disable-mfa`
+    Then the command exits successfully
+    And two-factor authentication is off
+    And the new password signs the user in
+    When I run `uv run kaleta --reset-password` without the flag
+    Then two-factor authentication stays on
+```
+
 ## Feature: Demo instance
 
 ```gherkin

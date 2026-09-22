@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration coverage for interactive CLI password reset.
 
-Covers: KAL-AUTH-007
+Covers: KAL-AUTH-007, KAL-AUTH-018
 """
 
 from __future__ import annotations
@@ -29,6 +29,41 @@ async def _prepare_db(db_url: str, *, username: str | None, password: str | None
         async with factory() as session:
             await AuthService(session).create_user(username, password)
     await engine.dispose()
+
+
+async def _enrol_mfa(db_url: str, username: str) -> None:
+    import time
+
+    import pyotp
+
+    from kaleta.services.mfa_service import TOTP_INTERVAL, MfaService
+
+    engine = create_async_engine(db_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            user = await AuthService(session).get_user_by_username(username)
+            assert user is not None
+            mfa = MfaService(session)
+            enrolment = await mfa.begin_enrolment(user.id)
+            code = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL).at(int(time.time()))
+            await mfa.confirm_enrolment(user.id, str(code))
+    finally:
+        await engine.dispose()
+
+
+async def _mfa_enabled(db_url: str, username: str) -> bool:
+    from kaleta.services.mfa_service import MfaService
+
+    engine = create_async_engine(db_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            user = await AuthService(session).get_user_by_username(username)
+            assert user is not None
+            return await MfaService(session).is_enabled(user.id)
+    finally:
+        await engine.dispose()
 
 
 async def _authenticate(db_url: str, username: str, password: str) -> bool:
@@ -87,3 +122,59 @@ def test_reset_password_cli_no_user_points_to_bootstrap(
 
     assert code == 1
     assert "first-run bootstrap" in stderr.getvalue()
+
+
+@pytest.mark.skipif(_USE_POSTGRES, reason="CLI reset integration uses on-disk SQLite")
+def test_reset_password_cli_can_drop_the_second_factor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-AUTH-018
+
+    A self-hoster whose phone is gone still has the shell. Without this the
+    only way back into their own ledger would be editing the database by hand.
+    """
+    db_path = tmp_path / "kaleta.db"
+    db_url = f"sqlite+aiosqlite:///{db_path}"
+    asyncio.run(_prepare_db(db_url, username="alice", password="old-password-1"))
+    asyncio.run(_enrol_mfa(db_url, "alice"))
+    assert asyncio.run(_mfa_enabled(db_url, "alice")) is True
+
+    monkeypatch.setattr("kaleta.cli.reset_password.get_db_url", lambda: db_url)
+    prompts = iter(["new-password-9", "new-password-9"])
+    stdout = io.StringIO()
+    stderr = io.StringIO()
+    code = ResetPasswordCli(
+        get_password=lambda _prompt: next(prompts),
+        stdout=stdout,
+        stderr=stderr,
+        disable_mfa=True,
+    ).run()
+
+    assert code == 0
+    assert stderr.getvalue() == ""
+    assert "Two-factor enrolments removed: 1" in stdout.getvalue()
+    assert asyncio.run(_mfa_enabled(db_url, "alice")) is False
+    assert asyncio.run(_authenticate(db_url, "alice", "new-password-9")) is True
+
+
+@pytest.mark.skipif(_USE_POSTGRES, reason="CLI reset integration uses on-disk SQLite")
+def test_reset_password_cli_leaves_the_second_factor_alone_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-AUTH-018 — a password reset is not a way around the second factor."""
+    db_path = tmp_path / "kaleta.db"
+    db_url = f"sqlite+aiosqlite:///{db_path}"
+    asyncio.run(_prepare_db(db_url, username="alice", password="old-password-1"))
+    asyncio.run(_enrol_mfa(db_url, "alice"))
+
+    monkeypatch.setattr("kaleta.cli.reset_password.get_db_url", lambda: db_url)
+    prompts = iter(["new-password-9", "new-password-9"])
+    stdout = io.StringIO()
+    code = ResetPasswordCli(
+        get_password=lambda _prompt: next(prompts),
+        stdout=stdout,
+    ).run()
+
+    assert code == 0
+    assert "Two-factor" not in stdout.getvalue()
+    assert asyncio.run(_mfa_enabled(db_url, "alice")) is True
