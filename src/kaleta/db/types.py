@@ -80,14 +80,26 @@ class EncryptedString(TypeDecorator[str]):
     impl = LargeBinary
     cache_ok = True
 
-    def __init__(self, *, aad: str) -> None:
+    def __init__(self, aad: str) -> None:
         """``aad`` is the column's fully qualified name, e.g. ``user_mfa.totp_secret``.
 
         It is authenticated but not encrypted, so a ciphertext copied from one
         column into another fails to decrypt instead of silently working.
         """
         super().__init__()
-        self._aad = aad.encode("utf-8")
+        # Public, plain, and a positional-or-keyword argument, all three of
+        # which SQLAlchemy needs to find it: it builds a TypeDecorator's
+        # static cache key from the constructor arguments it can see on the
+        # instance, skipping keyword-only and underscored ones. Hidden any of
+        # those ways, the `cache_ok` above would be a lie the moment a second
+        # column used this type with a different AAD — two instances that
+        # must not share a bind processor would look identical to the
+        # statement cache.
+        self.aad = aad
+
+    @property
+    def _authenticated_data(self) -> bytes:
+        return self.aad.encode("utf-8")
 
     def process_bind_param(self, value: str | bytes | None, dialect: Dialect) -> bytes | None:
         if value is None:
@@ -108,7 +120,9 @@ class EncryptedString(TypeDecorator[str]):
                 raise EncryptionError(msg)
             return value
         nonce = os.urandom(_NONCE_BYTES)
-        ciphertext = AESGCM(_key_source()).encrypt(nonce, value.encode("utf-8"), self._aad)
+        ciphertext = AESGCM(_key_source()).encrypt(
+            nonce, value.encode("utf-8"), self._authenticated_data
+        )
         return bytes([FORMAT_AES_GCM]) + nonce + ciphertext
 
     def process_result_value(self, value: bytes | None, dialect: Dialect) -> str | None:
@@ -125,7 +139,8 @@ class EncryptedString(TypeDecorator[str]):
             raise EncryptionError(msg)
         nonce, ciphertext = body[:_NONCE_BYTES], body[_NONCE_BYTES:]
         try:
-            return AESGCM(_key_source()).decrypt(nonce, ciphertext, self._aad).decode("utf-8")
+            plain = AESGCM(_key_source()).decrypt(nonce, ciphertext, self._authenticated_data)
+            return plain.decode("utf-8")
         except InvalidTag as exc:
             msg = (
                 "Could not decrypt a stored secret. This happens when "

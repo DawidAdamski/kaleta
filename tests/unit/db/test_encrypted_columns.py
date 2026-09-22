@@ -122,3 +122,18 @@ class TestAlreadyEncryptedPassthrough:
             column.process_bind_param(bytes([FORMAT_PLAINTEXT]) + b"JBSWY3DPEHPK3PXP", DIALECT)
         with pytest.raises(EncryptionError):
             column.process_bind_param(b"not a ciphertext", DIALECT)
+
+
+class TestStatementCacheKey:
+    def test_two_columns_are_not_the_same_type_to_the_cache(self) -> None:
+        """`cache_ok = True` is a promise that the AAD is part of the identity.
+
+        Break it and two columns with different AADs share a bind processor,
+        which means one of them silently writes ciphertext the other cannot
+        read.
+        """
+        one = EncryptedString(aad="user_mfa.totp_secret")
+        two = EncryptedString(aad="somewhere.else")
+        same = EncryptedString(aad="user_mfa.totp_secret")
+        assert one._static_cache_key != two._static_cache_key
+        assert one._static_cache_key == same._static_cache_key

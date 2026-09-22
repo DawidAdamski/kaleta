@@ -181,6 +181,7 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
         notify_kaleta_error(exc)
         return
 
+    rate_key = str(user_id)
     with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-md"):
         ui.label(t("settings.mfa_setup_title")).classes("text-lg font-semibold mb-2")
         ui.label(t("settings.mfa_setup_step_scan")).classes("text-sm text-slate-500 mb-3")
@@ -192,6 +193,14 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
         error = ui.label("").classes("text-sm text-negative mt-2")
 
         async def _confirm() -> None:
+            # Guessing here gains an attacker nothing — whoever opened this
+            # dialog already has the secret on screen. The counter is here
+            # because each wrong code writes an `mfa_enrol_failure` row, and a
+            # prompt that never locks is a way to pump the audit log.
+            if mfa_rate_limiter.is_locked(rate_key):
+                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                return
             entered = (code_input.value or "").strip()
             if not entered:
                 error.set_text(t("settings.mfa_code_required"))
@@ -203,9 +212,14 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
             try:
                 codes = await with_session(_do)
             except KaletaError as exc:
-                error.set_text(exc.message)
+                if mfa_rate_limiter.record_failure(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                else:
+                    error.set_text(exc.message)
                 code_input.value = ""
                 return
+            mfa_rate_limiter.clear(rate_key)
             dialog.submit(codes)
 
         code_input.on("keydown.enter", _confirm)

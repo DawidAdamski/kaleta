@@ -66,12 +66,14 @@ What it guards:
 - **Signing in.** After the password is accepted the session is *pending*: it
   carries no authentication at all until a code is given, so a pending session
   reaches no page and no `/api/v1` route.
-- **API bearer tokens.** A token outlives the browser session that made it, so
-  creating or revoking one asks for a current code when it has been more than
-  10 minutes since the last one.
+- **Creating or revoking an API bearer token.** A token outlives the browser
+  session that made it, so it asks for a current code when it has been more
+  than 10 minutes since the last one.
+- **Reissuing recovery codes**, on the same terms. Ten fresh codes are ten
+  fresh ways past the factor.
 
-What it does not guard: API bearer tokens themselves. They are a separate
-credential and requests carrying one are never challenged — revoke the token
+What it does not guard: **using** an API bearer token. A token is a separate
+credential and a request carrying one is never challenged — revoke the token
 instead.
 
 **Recovery codes.** Enrolling hands you ten one-time codes, stored as argon2

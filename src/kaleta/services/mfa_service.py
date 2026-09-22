@@ -168,11 +168,18 @@ class MfaService:
         else:
             # A restarted enrolment replaces the unconfirmed secret, so a QR
             # abandoned in a closed tab stops being usable.
-            await self.session.execute(
+            result = await self.session.execute(
                 update(UserMfa)
-                .where(UserMfa.id == existing.id)
+                # Still unconfirmed, checked here and not only above: a
+                # confirmation landing between the two would otherwise leave
+                # the row enabled, holding a secret nobody has and no recovery
+                # codes — locked out of a factor that says it is on.
+                .where(UserMfa.id == existing.id, UserMfa.enabled_at.is_(None))
                 .values(totp_secret=secret, last_used_counter=None, recovery_codes_hash="[]")
             )
+            if int(getattr(result, "rowcount", 0) or 0) != 1:
+                msg = "Two-factor authentication is already enabled."
+                raise ConflictError(msg)
         await self.session.commit()
 
         uri = pyotp.TOTP(secret, interval=TOTP_INTERVAL).provisioning_uri(
@@ -361,8 +368,20 @@ class MfaService:
         if not self.step_up_is_fresh(mfa_verified_at):
             msg = "Confirm with a two-factor code before reissuing recovery codes."
             raise ValidationError(msg)
-        codes = self._new_recovery_codes(row)
+        codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
+        result = await self.session.execute(
+            update(UserMfa)
+            # Claimed against the set that was read, like every other write
+            # here: two tabs reissuing at once would otherwise each show their
+            # user ten codes, and only the last writer's would work.
+            .where(UserMfa.id == row.id, UserMfa.recovery_codes_hash == row.recovery_codes_hash)
+            .values(recovery_codes_hash=json.dumps([self._hasher.hash(code) for code in codes]))
+        )
         await self.session.commit()
+        if int(getattr(result, "rowcount", 0) or 0) != 1:
+            msg = "Your recovery codes changed while this page was open. Try again."
+            raise ConflictError(msg)
+        await self.session.refresh(row)
         return codes
 
     async def disable(self, user_id: int, *, password: str, code: str) -> None:

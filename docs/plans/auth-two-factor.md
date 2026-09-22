@@ -255,9 +255,14 @@ Phase A is built.
   stop; a recovery code could be spent twice the same way. Both are now
   claimed with an `UPDATE ... WHERE` on the value that was read, and a
   `rowcount` of zero is a loss. `TestConcurrentSubmits` runs the race
-  with two sessions. `confirm_enrolment()` claims the same way — two tabs
-  confirming one pending enrolment both used to win, and the second
-  overwrote the ten codes the first had already shown its user.
+  with two sessions. Every other write in the module claims the same way
+  and for the same reason: `confirm_enrolment()` (two tabs confirming one
+  pending enrolment both won, and the second overwrote the ten codes the
+  first had already shown its user), `regenerate_recovery_codes()` (the
+  same, for a reissue), and `begin_enrolment()`'s overwrite of an
+  unconfirmed row (a confirmation landing in the gap would have left the
+  row enabled, holding a secret nobody has and no recovery codes —
+  locked out of a factor that says it is on).
 
 - **`--disable-mfa` writes an audit row per removed enrolment.** It is
   the one factor removal nobody had to prove anything to make, so it is
@@ -283,6 +288,15 @@ Phase A is built.
   window has passed, which no test can reach without waiting it out. The
   throttle is asserted where it is reachable — the turn-off dialog, which
   always asks — and it is the same limiter on the same key.
+
+- **`EncryptedString` takes its AAD as an ordinary positional-or-keyword
+  argument and keeps it on a public attribute.** SQLAlchemy builds a
+  `TypeDecorator`'s static cache key from the constructor arguments it can
+  see on the instance, skipping keyword-only and underscored ones — so
+  either of those spellings would have made the declared `cache_ok = True`
+  a lie as soon as `hosted-field-encryption` adds a second encrypted
+  column, and two types that must not share a bind processor would have
+  looked identical to the statement cache. A test pins it.
 
 - **`ADR-36` records the local encryption format** and the three new base
   dependencies, as `docs/review-checklist.md` asks when the

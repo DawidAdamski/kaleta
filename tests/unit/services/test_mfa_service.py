@@ -580,3 +580,44 @@ class TestConfirmingIsAClaim:
 
         # The codes the winning tab showed its user are the ones that work.
         assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+
+
+class TestReissuingIsAClaimToo:
+    @pytest.mark.asyncio
+    async def test_the_second_reissue_loses(self, mfa: MfaService, db_engine, user) -> None:
+        """Both tabs would otherwise show ten codes and only one set would work."""
+        await enrol(mfa, user.id)
+        fresh = datetime.now(UTC)
+
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            one, two = MfaService(first), MfaService(second)
+            # `two` read the set before `one` replaced it — which is the race.
+            stale = await two._row(user.id)
+            assert stale is not None
+            codes = await one.regenerate_recovery_codes(user.id, mfa_verified_at=fresh)
+            with pytest.raises(ConflictError):
+                await two.regenerate_recovery_codes(user.id, mfa_verified_at=fresh)
+
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+
+    @pytest.mark.asyncio
+    async def test_a_new_secret_cannot_gut_a_confirmed_factor(
+        self, mfa: MfaService, db_engine, user
+    ) -> None:
+        """Set up racing a confirm would leave the factor on, with no way in."""
+        enrolment = await mfa.begin_enrolment(user.id)
+        code = code_for(enrolment.secret)
+
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            one, two = MfaService(first), MfaService(second)
+            # `two` read the row while it was still unconfirmed.
+            existing = await two._row(user.id)
+            assert existing is not None and existing.enabled_at is None
+            codes = await one.confirm_enrolment(user.id, code)
+            with pytest.raises(ConflictError):
+                await two.begin_enrolment(user.id)
+
+        assert await mfa.is_enabled(user.id) is True
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True
