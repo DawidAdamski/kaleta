@@ -287,6 +287,12 @@ item is built, and every executable acceptance criterion passes.
   row enabled, holding a secret nobody has and no recovery codes —
   locked out of a factor that says it is on).
 
+- **`kaleta --disable-mfa` on its own exits 2 rather than starting the
+  app.** The flag is only read inside the `--reset-password` branch, so
+  without a guard it was a silent no-op — and the person typing it has
+  lost their phone and is following SECURITY.md's escape hatch, which is
+  the worst possible audience for "did nothing, said nothing".
+
 - **`--disable-mfa` writes an audit row per removed enrolment.** It is
   the one factor removal nobody had to prove anything to make, so it is
   the one that most needs a trace.

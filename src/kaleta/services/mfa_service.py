@@ -428,6 +428,19 @@ class MfaService:
         make this dialog a password oracle for anyone at an already-signed-in
         browser — and one that answers without going past the login page's
         rate limiter.
+
+        Two consequences of that choice, both priced and both fine:
+
+        * the success path pays for the recovery-code search even when the
+          TOTP code already matched — up to ten argon2 verifies, so roughly a
+          second on default parameters. Skipping it when the TOTP matched is
+          exactly the timing difference the paragraph above exists to remove,
+          and this is an action anyone performs once.
+        * a recovery code is spent before the DELETE is attempted, so losing
+          the race below crosses one off and still raises. Harmless: the
+          factor is off either way, so the code it spent was guarding nothing.
+          The other order would be worse — deleting before the credential is
+          proved.
         """
         wrong = "That password or code is not right."
         row = await self._row(user_id)

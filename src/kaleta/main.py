@@ -351,6 +351,14 @@ def main() -> None:
 
         raise SystemExit(ResetPasswordCli(disable_mfa="--disable-mfa" in sys.argv).run())
 
+    if "--disable-mfa" in sys.argv:
+        # Said out loud rather than ignored. This is the escape hatch
+        # SECURITY.md points a locked-out self-hoster at, and the person
+        # typing it has already lost their phone — starting the app normally
+        # and saying nothing is the worst possible answer.
+        sys.stderr.write("--disable-mfa only works together with --reset-password.\n")
+        raise SystemExit(2)
+
     match settings.mode:
         case "web":
             run_web()
