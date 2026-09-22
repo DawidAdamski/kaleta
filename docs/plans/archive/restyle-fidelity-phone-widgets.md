@@ -3,8 +3,9 @@ plan_id: restyle-fidelity-phone-widgets
 title: Restyle fidelity — the widgets artboard 1f redraws for a phone
 area: dashboard
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#dashboard
+status: archived
+archived_at: 2026-09-22
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Restyle fidelity — the widgets `1f` redraws for a phone
@@ -211,3 +212,53 @@ that signs off the two `match` rows.
 `1f.md` rows 1, 2, 5a, 6, 7, 14, 15, 16 and 18 stay `deviation`: the device
 frame, the shared header, the phone tab bar and the app-wide eyebrow and hero
 suffix sizes are all outside this plan's Scope.
+
+## Implementation
+
+Landed on 2026-09-22 (PR #114).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `83ed9d4` | Dawid Adamski | 2026-09-22 | Merge pull request #114 from DawidAdamski/plan/restyle-fidelity-phone-widgets |
+
+**Files changed:**
+- docs/bdd.md
+- docs/design/restyle/fidelity/1f.md
+- docs/plans/restyle-fidelity-phone-widgets.md
+- src/kaleta/views/dashboard.py
+- src/kaleta/views/dashboard_widgets/__init__.py
+- src/kaleta/views/dashboard_widgets/balance_card.py
+- src/kaleta/views/dashboard_widgets/budget_variance_month.py
+- src/kaleta/views/dashboard_widgets/cashflow_chart.py
+- src/kaleta/views/dashboard_widgets/credit_utilization.py
+- src/kaleta/views/dashboard_widgets/largest_transactions.py
+- src/kaleta/views/dashboard_widgets/month_card.py
+- src/kaleta/views/dashboard_widgets/month_expenses.py
+- src/kaleta/views/dashboard_widgets/month_income.py
+- src/kaleta/views/dashboard_widgets/month_net.py
+- src/kaleta/views/dashboard_widgets/net_worth.py
+- src/kaleta/views/dashboard_widgets/net_worth_trend.py
+- src/kaleta/views/dashboard_widgets/predicted_30d.py
+- src/kaleta/views/dashboard_widgets/quick_actions.py
+- src/kaleta/views/dashboard_widgets/recent_transactions.py
+- src/kaleta/views/dashboard_widgets/registry.py
+- src/kaleta/views/dashboard_widgets/safe_to_spend.py
+- src/kaleta/views/dashboard_widgets/savings_rate_kpi.py
+- src/kaleta/views/dashboard_widgets/savings_rate_trend.py
+- src/kaleta/views/dashboard_widgets/top_merchants.py
+- src/kaleta/views/dashboard_widgets/total_balance.py
+- src/kaleta/views/dashboard_widgets/upcoming_planned.py
+- src/kaleta/views/dashboard_widgets/wizard_actions.py
+- src/kaleta/views/dashboard_widgets/ytd_summary.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_dashboard_desktop.py
+- tests/e2e/test_dashboard_mobile.py
+- tests/e2e/test_transactions.py
+- tests/e2e/test_wizard_actions_widget.py
+- tests/unit/views/test_dashboard_phone_widgets.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
