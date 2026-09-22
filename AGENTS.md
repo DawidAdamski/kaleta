@@ -231,7 +231,7 @@ Use the `Agent` tool to delegate to these specialists. Trigger them proactively 
 | `test-runner` | After any code change — verify tests pass; write unit tests for new services, schemas, or input fields |
 | `docs-writer` | After features, bug fixes, or architectural changes — keep `docs/architecture.md`, `docs/tech-stack.md`, `README.md` in sync |
 | `migration-creator` | After adding or changing any SQLAlchemy model in `src/kaleta/models/` — creates the Alembic migration file |
-| `seed-updater` | After adding a new model — adds realistic Polish-language seed data to `scripts/seed.py` |
+| `seed-updater` | After adding a new model — adds a per-feature seeder under `src/kaleta/seeders/` with realistic Polish-language example data |
 | `i18n-verifier` | After adding or modifying a NiceGUI view — checks all user-facing strings use `t()` and all keys exist in `en.json` / `pl.json` |
 | `view-scaffolder` | When adding a completely new page — creates the view file, registers it in `main.py`, adds nav entry, wires service layer, adds i18n keys |
 | `scenario-runner` | When implementing or running BDD end-to-end tests from `docs/bdd.md` using pytest-playwright against a live app instance (`http://localhost:8080`) |

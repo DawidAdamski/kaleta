@@ -49,12 +49,21 @@ KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/KaletaData/kaleta.db uv run alembic
 
 ### Demo data
 
-Populate realistic Polish demo data (accounts, categories, transactions,
-budgets):
+Populate realistic Polish demo data — accounts, categories, payees, tags, six
+years of transactions, budgets, planned transactions, subscriptions, reserve
+funds, personal loans and a credit card:
 
 ```bash
-uv run python scripts/seed.py
+uv run python scripts/seed.py              # add what is missing
+uv run python scripts/seed.py --only transactions budgets
+uv run python scripts/seed.py --replace    # rewrite the example data
+uv run python scripts/seed.py --fresh      # drop and recreate the tables first
 ```
+
+Every run is idempotent: a feature that already has example data is reported as
+left alone rather than seeded twice. The same seeders sit behind
+**Settings → Data → Example data**, one button per feature, so the CLI and the
+UI produce the same dataset.
 
 ### Optional forecasting
 
@@ -256,10 +265,12 @@ src/kaleta/
 ├── models/          # SQLAlchemy ORM models
 ├── schemas/         # Pydantic request/response schemas
 ├── services/        # Business logic
+├── seeders/         # Per-feature example data (one module per feature)
+├── core/            # Pure helpers shared by every layer (week bucketing, …)
 ├── api/             # REST API (versioned under api/v1/)
 └── views/           # NiceGUI UI pages
 scripts/
-└── seed.py          # Demo data generator
+└── seed.py          # Thin CLI over src/kaleta/seeders/
 tests/
 ├── unit/
 ├── integration/
