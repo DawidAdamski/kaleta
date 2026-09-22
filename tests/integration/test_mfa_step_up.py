@@ -104,14 +104,19 @@ async def test_a_stale_code_is_not_a_fresh_one(session: AsyncSession, user) -> N
     The 10-minute window is the service's to judge: a view that hands over a
     timestamp from an hour ago gets the same refusal as one that hands over
     nothing, rather than being trusted because it said so.
+
+    The minutes below are the scenario's literal ten, not the constant the
+    service reads: asking the code under test how wide its own window is
+    would make this test agree with any answer it gave.
     """
     await enrol(session, user.id)
     tokens = ApiTokenService(session)
-    stale = datetime.now(UTC) - timedelta(minutes=STEP_UP_WINDOW_MINUTES + 1)
+    assert STEP_UP_WINDOW_MINUTES == 10, "KAL-AUTH-017 says ten minutes"
+    stale = datetime.now(UTC) - timedelta(minutes=11)
 
     with pytest.raises(ValidationError):
         await tokens.create_token(user_id=user.id, label="ci", mfa_verified_at=stale)
 
-    fresh = datetime.now(UTC) - timedelta(minutes=STEP_UP_WINDOW_MINUTES - 1)
+    fresh = datetime.now(UTC) - timedelta(minutes=9)
     _token, raw = await tokens.create_token(user_id=user.id, label="ci", mfa_verified_at=fresh)
     assert raw

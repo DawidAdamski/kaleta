@@ -1887,7 +1887,7 @@
     "mfa_disabled_notify": "Uwierzytelnianie dwuskładnikowe jest wyłączone.",
     "mfa_disable": "Wyłącz",
     "mfa_disable_title": "Wyłącz uwierzytelnianie dwuskładnikowe",
-    "mfa_disable_hint": "Potrzebne są hasło i aktualny kod.",
+    "mfa_disable_hint": "Hasło oraz aktualny kod lub kod odzyskiwania.",
     "mfa_recovery_codes": "Kody zapasowe",
     "mfa_recovery_title": "Kody zapasowe",
     "mfa_recovery_hint": "Każdy kod działa raz, a to zastępuje wszystkie wydane wcześniej. Trzymaj je gdzie indziej niż telefon, który generuje kody.",
@@ -1960,6 +1960,7 @@
     "mfa_code_required": "Wpisz kod.",
     "mfa_rate_limited": "Za dużo błędnych kodów. Spróbuj ponownie za {seconds} s.",
     "mfa_expired": "To trwało za długo. Zaloguj się ponownie.",
+    "mfa_gone": "Uwierzytelnianie dwuskładnikowe zostało wyłączone. Teraz wystarczy samo hasło.",
     "mfa_unreadable": "Tego drugiego składnika nie da się odczytać w tej instalacji. Uruchom `kaleta --reset-password --disable-mfa` i skonfiguruj go ponownie."
   },
   "setup": {

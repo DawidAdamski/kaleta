@@ -279,6 +279,19 @@ class TestTheAuditTrail:
         assert {"event": "mfa_verified", "username": "owner", "success": True} in events
 
     @pytest.mark.asyncio
+    async def test_a_step_up_says_which_prompt_was_satisfied(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        """A step-up unlocks minting a token that outlives the session, and a
+        recovery code spent here is crossed off for good — neither should look
+        in the log like an ordinary sign-in, or like nothing at all."""
+        _secret, codes = await enrol(mfa, user.id)
+        assert await mfa.verify_challenge(user.id, codes[0]) is True
+
+        events = [e for e in await self._auth_events(session) if e["success"]]
+        assert [e["event"] for e in events] == ["mfa_enabled", "mfa_step_up"]
+
+    @pytest.mark.asyncio
     async def test_the_whole_life_of_a_factor_is_on_the_record(
         self, mfa: MfaService, session: AsyncSession, user
     ) -> None:

@@ -273,14 +273,23 @@ class MfaService:
         dialog asks for in one: someone down to recovery codes because their
         authenticator is gone still has to be able to revoke an API token.
         Either way the code is spent, and a failure is one audit row, not two.
+
+        Both outcomes are recorded under ``mfa_step_up``, distinct from the
+        login prompt's ``mfa_verified``: this is the answer that unlocks
+        minting a bearer token outliving the session, so the log should say
+        which prompt was satisfied and not merely that one was.
         """
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             return False
         counter = self._matching_counter(row, code)
         if counter is not None and await self._claim_counter(row, counter):
+            await self._record(user_id, event="mfa_step_up", success=True)
             return True
         if counter is None and await self._spend_recovery_code(row, code):
+            # Above all this one: a recovery code spent here is crossed off
+            # for good, and this is the row that says where it went.
+            await self._record(user_id, event="mfa_step_up", success=True)
             return True
         await self._record_failure(user_id, event="mfa_step_up_failure")
         return False

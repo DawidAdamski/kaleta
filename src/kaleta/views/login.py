@@ -72,6 +72,10 @@ def register() -> None:
             if reason == "mfa_expired":
                 # Sent here by the code prompt after the challenge aged out.
                 _say(t("auth.mfa_expired"))
+            elif reason == "mfa_gone":
+                # Sent here by the code prompt when the factor it was asking
+                # for stopped existing underneath it.
+                _say(t("auth.mfa_gone"))
 
             async def _submit() -> None:
                 _say("")

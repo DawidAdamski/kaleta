@@ -3043,6 +3043,30 @@ Feature: Two-factor authentication
     Then I am told the password or code is not right
     And giving a right password with a wrong code says exactly the same thing
     And after five wrong answers I am told to wait rather than tried again
+
+  KAL-AUTH-021 @manual
+  Scenario: A code prompt left open too long sends me back to the password
+    Given I have given the right password and am at the code prompt
+    When I leave it open for longer than ten minutes and then give a code
+    Then I am returned to the sign-in page
+    And I am told it took too long and to sign in again
+
+  KAL-AUTH-022 @manual
+  Scenario: Turning the factor off in another tab does not cost me a try
+    Given I have given the right password and am at the code prompt
+    When two-factor authentication is turned off in another tab
+    And I give a code at the prompt
+    Then I am returned to the sign-in page
+    And I am told my password is now all I need
+    And the wrong-code count against me is unchanged
+
+  KAL-AUTH-023 @manual
+  Scenario: A secret written under a different key says so
+    Given two-factor authentication is on
+    And KALETA_SECRET_KEY has been changed since I enrolled
+    When I give the right password and then any code
+    Then I am told the second factor cannot be read on this install
+    And I am told to run `kaleta --reset-password --disable-mfa` and set it up again
 ```
 
 ## Feature: Demo instance

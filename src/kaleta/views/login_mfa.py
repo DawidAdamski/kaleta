@@ -96,8 +96,13 @@ def register() -> None:
                     _say(t("auth.mfa_code_required"))
                     return
 
-                async def _check(session: Any) -> bool:
+                async def _check(session: Any) -> bool | None:
                     service = MfaService(session)
+                    # None means "there is nothing here to answer any more".
+                    # Both calls below fold that into a plain False, and this
+                    # page has to tell the two apart: see the branch below.
+                    if not await service.is_enabled(user_id):
+                        return None
                     if using_recovery:
                         return await service.consume_recovery_code(user_id, entered)
                     return await service.verify_code(user_id, entered)
@@ -110,6 +115,14 @@ def register() -> None:
                     # saying so beats a stack trace and a login that fails
                     # forever for no stated reason.
                     _say(t("auth.mfa_unreadable"))
+                    return
+                if passed is None:
+                    # The factor was turned off in another tab while this
+                    # prompt sat open. No code can answer this page now, so
+                    # charging a try to the limiter would lock someone out of
+                    # a login that has just become password-only.
+                    clear_mfa_challenge()
+                    ui.navigate.to("/login?reason=mfa_gone")
                     return
                 if not passed:
                     if mfa_rate_limiter.record_failure(rate_key):

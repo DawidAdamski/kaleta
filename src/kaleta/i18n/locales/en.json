@@ -1887,7 +1887,7 @@
     "mfa_disabled_notify": "Two-factor authentication is off.",
     "mfa_disable": "Turn off",
     "mfa_disable_title": "Turn off two-factor authentication",
-    "mfa_disable_hint": "Your password and a current code are both needed.",
+    "mfa_disable_hint": "Your password, and either a current code or a recovery code.",
     "mfa_recovery_codes": "Recovery codes",
     "mfa_recovery_title": "Recovery codes",
     "mfa_recovery_hint": "Each code works once, and this replaces every code issued before. Keep them somewhere other than the phone that makes the codes.",
@@ -1960,6 +1960,7 @@
     "mfa_code_required": "Enter the code.",
     "mfa_rate_limited": "Too many wrong codes. Try again in {seconds} seconds.",
     "mfa_expired": "That took too long. Sign in again.",
+    "mfa_gone": "Two-factor authentication was turned off. Your password is all you need now.",
     "mfa_unreadable": "This second factor cannot be read on this install. Run `kaleta --reset-password --disable-mfa` and set it up again."
   },
   "setup": {

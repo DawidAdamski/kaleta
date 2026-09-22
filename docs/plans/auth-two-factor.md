@@ -303,12 +303,39 @@ item is built, and every executable acceptance criterion passes.
   `mfa_verified` after it is a password that was right and a factor that
   was never proved, which is exactly the pattern worth looking for.
 
+- **Three messages the happy path never shows got scenarios, not tests.**
+  `KAL-AUTH-021` (the challenge ages out), `KAL-AUTH-022` (the factor is
+  turned off in another tab while the prompt is open) and `KAL-AUTH-023`
+  (the secret was written under a different `KALETA_SECRET_KEY`) are all
+  `@manual`. Each needs something the e2e harness cannot stage against
+  its own ephemeral instance — ten minutes of wall clock, a second
+  browser context racing the first, or a key rotation between two
+  requests — and tagging them `@automated` on the strength of the unit
+  tests underneath would be the green-washing rule 4 forbids. The
+  service-level halves *are* covered: `verify_code()` returning False on
+  a disabled factor, and `EncryptionError` surfacing out of the column
+  type.
+
+- **A factor turned off mid-prompt is not a wrong code.** `verify_code()`
+  answers False whether the code was wrong or the row is gone, and
+  `/login/mfa` used to charge both to the same five-try limiter — so
+  turning two-factor off in one tab could lock the other tab out of a
+  login that had just become password-only. The page now asks
+  `is_enabled()` first and redirects to `/login?reason=mfa_gone`, whose
+  copy says the password is now all that is needed. `verify_code()` keeps
+  its plain bool: the tri-state belongs to the one caller that can act on
+  it, not to every caller.
+
 - **Successes are audited, not only failures.** `user_mfa` is in
   `db/audit.py`'s `_SKIP_TABLES` — auditing it would copy the decrypted
   secret into `audit_log` — so the generic ORM listener sees none of
   this, and anything the service does not write itself is not written.
-  `confirm_enrolment()` writes `mfa_enabled` and `disable()` writes
-  `mfa_disabled`. Turning the factor off is the step a thief at a
+  `confirm_enrolment()` writes `mfa_enabled`, `disable()` writes
+  `mfa_disabled`, and `verify_challenge()` writes `mfa_step_up` —
+  deliberately a different event from the login prompt's `mfa_verified`,
+  because that is the answer that unlocks minting a bearer token
+  outliving the session, and a recovery code spent there is crossed off
+  for good. Turning the factor off is the step a thief at a
   signed-in browser has to take, and a log holding only the codes they
   fumbled on the way is a log that recorded the noise and missed the
   theft.
