@@ -3,8 +3,9 @@ plan_id: settings-week-debug-seed
 title: Settings — week-start knob, debug panel, per-feature example data
 area: settings
 effort: medium
-roadmap_ref: ../roadmap.md#settings
-status: in-progress
+roadmap_ref: ../../roadmap.md#settings
+status: archived
+archived_at: 2026-09-22
 deferred_to: q4-2026
 ---
 
@@ -345,3 +346,66 @@ New scenarios, all `@automated` with tests carrying `Covers:`:
 | `KAL-PLT-007` seeding one feature leaves the others alone | `tests/integration/test_example_data.py` |
 | `KAL-PLT-008` CLI and registry produce the same dataset | `tests/integration/test_example_data.py` |
 | `KAL-PLT-009` replacing example data takes what stands on it | `tests/integration/test_example_data.py` |
+
+## Implementation
+
+Landed on 2026-09-22 (PR #118).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c7f1bb3` | Dawid Adamski | 2026-09-22 | Merge pull request #118 from DawidAdamski/plan/settings-week-debug-seed |
+
+**Files changed:**
+- .claude/agents/seed-updater.md
+- AGENTS.md
+- docs/architecture.md
+- docs/bdd.md
+- docs/getting-started.md
+- docs/plans/settings-week-debug-seed.md
+- pyproject.toml
+- scripts/reset_demo.py
+- scripts/restyle_fidelity.py
+- scripts/seed.py
+- src/kaleta/core/__init__.py
+- src/kaleta/core/weeks.py
+- src/kaleta/debug_info.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/seeders/__init__.py
+- src/kaleta/seeders/accounts.py
+- src/kaleta/seeders/assets.py
+- src/kaleta/seeders/base.py
+- src/kaleta/seeders/budgets.py
+- src/kaleta/seeders/catalog.py
+- src/kaleta/seeders/credit_cards.py
+- src/kaleta/seeders/lookups.py
+- src/kaleta/seeders/personal_loans.py
+- src/kaleta/seeders/planned.py
+- src/kaleta/seeders/reserve_funds.py
+- src/kaleta/seeders/subscriptions.py
+- src/kaleta/seeders/taxonomy.py
+- src/kaleta/seeders/transactions.py
+- src/kaleta/services/data_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/settings/about_tab.py
+- src/kaleta/views/settings/constants.py
+- src/kaleta/views/settings/data_tab.py
+- src/kaleta/views/settings/example_data_section.py
+- src/kaleta/views/settings/general_tab.py
+- src/kaleta/views/settings/user_prefs.py
+- src/kaleta/views/transactions/page.py
+- tests/e2e/test_settings_week_debug.py
+- tests/integration/test_example_data.py
+- tests/unit/core/__init__.py
+- tests/unit/core/test_weeks.py
+- tests/unit/seeders/__init__.py
+- tests/unit/seeders/test_registry.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/test_debug_info.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

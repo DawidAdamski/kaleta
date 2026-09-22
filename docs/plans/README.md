@@ -248,7 +248,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [auth-two-factor](auth-two-factor.md) | draft | Auth — see Hosted programme |
 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | Observability — see Hosted programme |
-| [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
+| [settings-week-debug-seed](archive/settings-week-debug-seed.md) | archived | Settings |
 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | draft | Hosted programme (4) |
 | [planned-transactions-post-due](archive/planned-transactions-post-due.md) | archived | Planned transactions |
 | [transactions-splits-integrity](archive/transactions-splits-integrity.md) | archived | Transactions |
