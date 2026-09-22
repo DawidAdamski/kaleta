@@ -201,14 +201,26 @@ def _side_panel(stats: AuthLandingStats | None) -> None:
                     ui.label(t(label_key)).classes(AUTH_PANEL_LABEL)
 
 
+#: Removed from a URL by the WHATWG parser before anything else looks at it,
+#: so a guard that inspects the raw string is not reading what the browser
+#: will act on: ``/%09/evil.com`` arrives here as ``/\t/evil.com`` and leaves
+#: the browser as ``//evil.com``.
+_URL_STRIPPED = "\t\n\r"
+
+
 def safe_redirect(path: str) -> str:
     """The ``redirect_to`` a sign-in page may follow, or ``/``.
 
-    Only a path on this origin. ``//evil.com`` is a protocol-relative URL and
-    so is ``/\\evil.com`` — browsers normalise the backslash to a slash — and
-    an auth page that followed either would hand an attacker a link that shows
-    Kaleta's sign-in form and lands somewhere else.
+    Only a path on this origin. ``//evil.com`` is a protocol-relative URL, and
+    so are ``/\\evil.com`` (the browser normalises the backslash) and
+    ``/\t/evil.com`` (it drops the tab) — an auth page that followed any of
+    them would hand an attacker a link that shows Kaleta's sign-in form and
+    lands somewhere else.
+
+    The judging is done on the string the browser will see, not the one that
+    arrived, which is why the strip comes first.
     """
-    if path.startswith("/") and path[1:2] not in ("/", "\\"):
-        return path
+    seen = path.translate(str.maketrans("", "", _URL_STRIPPED))
+    if seen.startswith("/") and seen[1:2] not in ("/", "\\"):
+        return seen
     return "/"

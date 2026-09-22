@@ -111,7 +111,12 @@ async def _ask_for_code(user_id: int) -> bool:
 
             if passed is None:
                 # Nothing to prove any more, and nothing the user did wrong.
-                error.set_text(t("settings.mfa_stale"))
+                # The message goes to a toast rather than the error label,
+                # because this dialog is about to close: leaving it open on a
+                # prompt no code can satisfy would make Cancel the only way
+                # out, which is what `/login/mfa` avoids by navigating away.
+                ui.notify(t("settings.mfa_stale"), type="warning")
+                dialog.submit(False)
                 return
             if not passed:
                 if mfa_rate_limiter.record_failure(rate_key):

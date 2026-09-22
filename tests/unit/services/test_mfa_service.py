@@ -640,6 +640,30 @@ class TestConcurrentSubmits:
         status = await mfa.status(user.id)
         assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1
 
+    @pytest.mark.asyncio
+    async def test_two_tabs_cannot_both_turn_it_off(self, mfa: MfaService, db_engine, user) -> None:
+        """The loser gets the module's conflict, not a `StaleDataError` out of
+        the unit of work that the dialog has no arm for."""
+        secret, _codes = await enrol(mfa, user.id)
+        code = code_for(secret, offset_steps=1)
+
+        # Together, so that both may read the row before either deletes it —
+        # which is the only shape in which the conditional DELETE is the thing
+        # doing the work rather than the `_row() is None` guard above it.
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            results = await asyncio.gather(
+                MfaService(first).disable(user.id, password=PASSWORD, code=code),
+                MfaService(second).disable(user.id, password=PASSWORD, code=code),
+                return_exceptions=True,
+            )
+
+        assert [r for r in results if r is None] != [], results
+        losers = [r for r in results if isinstance(r, BaseException)]
+        assert len(losers) == 1, results
+        assert isinstance(losers[0], ConflictError), losers
+        assert await mfa.is_enabled(user.id) is False
+
 
 class TestConfirmingIsAClaim:
     """Two tabs confirming one pending enrolment. Only one set of codes is real."""

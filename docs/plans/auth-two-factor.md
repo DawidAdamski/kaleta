@@ -372,6 +372,22 @@ item is built, and every executable acceptance criterion passes.
   `MfaService._claimed()`, which is the one place that knows the rule.
   SQLite never showed the fault; asyncpg is where it would have.
 
+- **`safe_redirect` judges the string the browser will see.** Rejecting
+  `//` and `/\` is not enough: the WHATWG URL parser removes tab, LF and
+  CR before anything else reads the URL, so `?redirect_to=/%09/evil.com`
+  arrives as `/\t/evil.com`, passes a raw-string check, and leaves
+  `ui.navigate.to()` as `//evil.com`. The guard now strips those three
+  characters first and judges what is left — which is also what it
+  returns. The `RedirectResponse` paths were never exposed (Starlette
+  percent-quotes `Location`); the post-login `ui.navigate.to()` was.
+
+- **Turning the factor off is a claim too.** `disable()` was the one
+  mutation in the module still using `session.delete(row)`, so two tabs
+  turning it off at once — or a `--disable-mfa` landing mid-dialog —
+  raised `StaleDataError` out of the unit of work, which no dialog has an
+  arm for. It is now a conditional DELETE through `_claimed()`, and the
+  loser gets the same `ConflictError` every other contended write gives.
+
 - **Successes are audited, not only failures.** `user_mfa` is in
   `db/audit.py`'s `_SKIP_TABLES` — auditing it would copy the decrypted
   secret into `audit_log` — so the generic ORM listener sees none of

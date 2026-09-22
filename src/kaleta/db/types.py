@@ -114,7 +114,19 @@ class EncryptedString(TypeDecorator[str]):
             # wrote is refused rather than stored. A passthrough for arbitrary
             # bytes would make ``b"\x00" + secret`` a way to write a plaintext
             # value that the reader then happily accepts, which is the whole
-            # thing this column exists to prevent.
+            # thing this column exists to prevent. An attacker who can hand
+            # this column bytes — the backup file is the way in — cannot forge
+            # a ciphertext without the key, but could trivially pick a
+            # plaintext, so the two are not equivalent.
+            #
+            # The asymmetry is deliberate and is the known cost:
+            # ``process_result_value`` accepts ``FORMAT_PLAINTEXT`` so that the
+            # ``KALETA_ENCRYPTION=off`` generation ADR-35 describes will not
+            # orphan rows, but until something actually writes that byte there
+            # is no such row to restore. When that setting lands, this writer
+            # has to learn to mint ``\x00`` under it; widening the passthrough
+            # now would open the hole years before the caller exists.
+            # See ADR-36, "the passthrough runs one way only".
             if value[:1] != bytes([FORMAT_AES_GCM]):
                 msg = "Refusing to store a value that is not an encrypted payload"
                 raise EncryptionError(msg)

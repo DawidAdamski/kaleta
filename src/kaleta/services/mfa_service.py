@@ -469,10 +469,20 @@ class MfaService:
             # Somebody else spent that code between the check and here.
             await self._record_failure(user_id, event="mfa_disable_failure")
             raise ValidationError(wrong)
-        # No counter is claimed here: the row itself goes, so there is nothing
-        # left for a replayed code to be replayed against.
-        await self.session.delete(row)
+        # A conditional DELETE, like every other write in this module: two
+        # tabs turning the factor off at once, or a `--disable-mfa` landing
+        # between the read above and this line, would otherwise raise
+        # `StaleDataError` out of the unit-of-work — an unhandled exception
+        # where the dialog has a sentence ready for exactly this.
+        result = await self.session.execute(
+            delete(UserMfa).where(UserMfa.id == row.id, UserMfa.enabled_at.is_not(None))
+        )
+        claimed = self._claimed(result)
+        self.session.expunge(row)
         await self.session.commit()
+        if not claimed:
+            msg = "Two-factor authentication is not enabled."
+            raise ConflictError(msg)
         await self._record(user_id, event="mfa_disabled", success=True)
 
     async def disable_all(self) -> int:
