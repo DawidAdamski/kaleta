@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from typing import Any
 
 from nicegui import app, ui
@@ -14,6 +15,11 @@ from kaleta.exceptions import KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
 from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
 from kaleta.views.error_handling import notify_kaleta_error
+
+#: Redraw the two-factor card after something changed underneath it. NiceGUI's
+#: ``refreshable.refresh`` hands back an awaitable these callers do not want,
+#: so the return type is the widest thing that says "ignored".
+Refresh = Callable[[], object]
 
 
 async def render_security_tab() -> None:
@@ -165,7 +171,7 @@ async def _render_mfa_card(user_id: int) -> None:
         await body()
 
 
-async def _open_setup(user_id: int, refresh: Any) -> None:
+async def _open_setup(user_id: int, refresh: Refresh) -> None:
     async def _begin(session: Any) -> MfaEnrolment:
         return await MfaService(session).begin_enrolment(user_id)
 
@@ -218,7 +224,7 @@ async def _open_setup(user_id: int, refresh: Any) -> None:
     refresh()
 
 
-async def _open_recovery(user_id: int, refresh: Any) -> None:
+async def _open_recovery(user_id: int, refresh: Refresh) -> None:
     if not await _step_up(user_id):
         return
 
@@ -258,7 +264,7 @@ async def _show_recovery_codes(codes: list[str]) -> None:
     dialog.clear()
 
 
-async def _open_disable(user_id: int, refresh: Any) -> None:
+async def _open_disable(user_id: int, refresh: Refresh) -> None:
     """Turning the factor off is guessable twice over, so it is throttled too.
 
     The service answers a wrong password and a wrong code with the same
@@ -476,7 +482,13 @@ async def _render_token_card(user_id: int) -> None:
                         mfa_verified_at=mfa_verified_at(),
                     )
 
-                await with_session(_do_revoke)
+                try:
+                    await with_session(_do_revoke)
+                except KaletaError as exc:
+                    # The factor may have been switched on in another tab since
+                    # the step-up check above said it was off.
+                    notify_kaleta_error(exc)
+                    return
                 ui.notify(t("settings.security_token_revoked"), type="positive")
                 tokens_table.refresh()
 

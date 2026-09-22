@@ -51,9 +51,6 @@ TOTP_ISSUER = "Kaleta"
 #: The policy lives here, not in the session helper, so that a service can
 #: judge the freshness of the proof it is handed rather than trusting a bool.
 STEP_UP_WINDOW_MINUTES = 10
-#: How long a password-accepted session may sit in front of the code prompt.
-MFA_CHALLENGE_TTL_MINUTES = 10
-
 RECOVERY_CODE_COUNT = 10
 RECOVERY_CODE_LENGTH = 10
 #: Crockford-flavoured base32: no I, L, O or U, so nothing in a printed code
@@ -144,26 +141,38 @@ class MfaService:
     # ── enrolment ────────────────────────────────────────────────────────
 
     async def begin_enrolment(self, user_id: int) -> MfaEnrolment:
-        """Mint a secret and return it with its QR code. Nothing is enabled yet."""
+        """Mint a secret and return it with its QR code. Nothing is enabled yet.
+
+        Reads two columns rather than the row, and overwrites in place. Setting
+        up a *new* factor must not depend on being able to read the old one —
+        an unconfirmed row abandoned in a closed tab before a
+        ``KALETA_SECRET_KEY`` rotation would otherwise make this button fail
+        for good, with no enabled factor anywhere to explain why.
+        """
         user = await self.session.get(User, user_id)
         if user is None:
             msg = "User not found"
             raise NotFoundError(msg)
-        row = await self._row(user_id)
-        if row is not None and row.is_enabled:
+        existing = (
+            await self.session.execute(
+                select(UserMfa.id, UserMfa.enabled_at).where(UserMfa.user_id == user_id)
+            )
+        ).one_or_none()
+        if existing is not None and existing.enabled_at is not None:
             msg = "Two-factor authentication is already enabled."
             raise ConflictError(msg)
 
         secret = pyotp.random_base32()
-        if row is None:
-            row = UserMfa(user_id=user_id, kind=MFA_KIND_TOTP, totp_secret=secret)
-            self.session.add(row)
+        if existing is None:
+            self.session.add(UserMfa(user_id=user_id, kind=MFA_KIND_TOTP, totp_secret=secret))
         else:
             # A restarted enrolment replaces the unconfirmed secret, so a QR
             # abandoned in a closed tab stops being usable.
-            row.totp_secret = secret
-            row.last_used_counter = None
-            row.recovery_codes_hash = "[]"
+            await self.session.execute(
+                update(UserMfa)
+                .where(UserMfa.id == existing.id)
+                .values(totp_secret=secret, last_used_counter=None, recovery_codes_hash="[]")
+            )
         await self.session.commit()
 
         uri = pyotp.TOTP(secret, interval=TOTP_INTERVAL).provisioning_uri(
@@ -195,7 +204,12 @@ class MfaService:
     # ── verification ─────────────────────────────────────────────────────
 
     async def verify_code(self, user_id: int, code: str) -> bool:
-        """True when ``code`` is the current TOTP code and has not been used."""
+        """True when ``code`` is the current TOTP code and has not been used.
+
+        Unthrottled: six digits fall to a few hundred thousand tries, so every
+        caller has to count failures itself. The UI does it with
+        ``mfa_rate_limiter``; anything new must do the same.
+        """
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             return False
@@ -215,6 +229,8 @@ class MfaService:
 
     async def verify_challenge(self, user_id: int, code: str) -> bool:
         """A current TOTP code or an unused recovery code — whichever is to hand.
+
+        Unthrottled, like :meth:`verify_code`: the caller counts the failures.
 
         What the login page splits into two fields (the user picks) a step-up
         dialog asks for in one: someone down to recovery codes because their

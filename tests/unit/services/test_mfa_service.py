@@ -427,6 +427,15 @@ class TestDisable:
 
 
 @pytest_asyncio.fixture
+async def abandoned_enrolment(mfa: MfaService, session: AsyncSession, user) -> int:
+    """An unconfirmed enrolment, written while the key still worked."""
+    user_id = int(user.id)
+    await mfa.begin_enrolment(user_id)
+    session.expunge_all()
+    return user_id
+
+
+@pytest_asyncio.fixture
 async def enrolled_user_id(mfa: MfaService, session: AsyncSession, user) -> int:
     """A confirmed enrolment, written while the key still worked.
 
@@ -456,7 +465,19 @@ class TestAfterAKeyRotation:
         self, mfa: MfaService, enrolled_user_id: int, rotated: None
     ) -> None:
         with pytest.raises(EncryptionError):
-            await mfa.begin_enrolment(enrolled_user_id)
+            await mfa.verify_code(enrolled_user_id, "000000")
+
+    @pytest.mark.asyncio
+    async def test_an_abandoned_enrolment_does_not_block_a_new_one(
+        self, mfa: MfaService, abandoned_enrolment: int, rotated: None
+    ) -> None:
+        """A QR left in a closed tab must not become a permanent blockage.
+
+        There is no enabled factor in this case, so nothing points the owner
+        at the CLI — the Set up button simply has to keep working.
+        """
+        enrolment = await mfa.begin_enrolment(abandoned_enrolment)
+        assert enrolment.secret
 
     @pytest.mark.asyncio
     async def test_the_login_still_knows_the_factor_is_on(
@@ -479,6 +500,14 @@ class TestAfterAKeyRotation:
     ) -> None:
         assert await mfa.disable_all() == 1
         assert await mfa.is_enabled(enrolled_user_id) is False
+
+    @pytest.mark.asyncio
+    async def test_an_enabled_factor_still_refuses_a_second_enrolment(
+        self, mfa: MfaService, enrolled_user_id: int, rotated: None
+    ) -> None:
+        """The refusal is about state, and must not need the secret to say so."""
+        with pytest.raises(ConflictError):
+            await mfa.begin_enrolment(enrolled_user_id)
 
 
 class TestNormaliseCode:

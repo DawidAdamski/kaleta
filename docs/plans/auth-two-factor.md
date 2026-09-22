@@ -226,6 +226,10 @@ Phase A is built.
   the disable dialog are not the same thing to read back.
 
 - **Nothing on the way back from a rotated key decrypts anything.**
+  `begin_enrolment()` included: an unconfirmed row abandoned in a closed
+  tab before a rotation would otherwise make the Set up button fail for
+  good, with no enabled factor anywhere to explain why. It reads two
+  columns and overwrites in place.
   `SECURITY.md` points a locked-out self-hoster at
   `kaleta --reset-password --disable-mfa`, so that path has to work when
   every secret in the table is unreadable. `is_enabled()` and `status()`
@@ -298,7 +302,9 @@ Phase A is built.
   e2e test cannot burn five codes there without locking the account for
   the rest of the run. One bucket covers all three prompts, so wrong
   answers in the turn-off dialog lock the code prompt too; `SECURITY.md`
-  says so.
+  says so, and so does the e2e fixture, because the test ends with the
+  e2e user locked for fifteen minutes and a reused server would carry
+  that into the next run.
 
 - **A pending challenge expires** after `MFA_CHALLENGE_TTL_MINUTES`.
   A browser left at the code prompt was otherwise one code away from a

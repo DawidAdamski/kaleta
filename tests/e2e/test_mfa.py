@@ -31,6 +31,15 @@ _last_step = -1
 
 @pytest.fixture
 def no_enrolment_left_behind() -> Generator[None]:
+    """Clear every enrolment either side of the test.
+
+    What this cannot clear is the code limiter, which lives in the app
+    process: the test ends by deliberately burning five wrong answers, so the
+    e2e user is locked out of the code prompt for fifteen minutes afterwards.
+    The default ephemeral server is thrown away with it, so this only bites a
+    run pointed at a reused instance with ``KALETA_E2E_BASE_URL`` — there,
+    this file cannot be run twice inside a quarter of an hour.
+    """
     seed_helpers.disable_mfa_for_all()
     yield
     seed_helpers.disable_mfa_for_all()

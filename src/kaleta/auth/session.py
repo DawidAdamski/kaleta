@@ -9,7 +9,12 @@ from nicegui import app
 from starlette.requests import Request
 
 from kaleta.config import settings
-from kaleta.services.mfa_service import MFA_CHALLENGE_TTL_MINUTES
+
+#: How long a password-accepted session may sit in front of the code prompt.
+#: Here rather than beside the service's step-up window: it is a fact about a
+#: session, and importing the service for it would pull pyotp, qrcode and
+#: cryptography into every module that wants to ask who is logged in.
+MFA_CHALLENGE_TTL_MINUTES = 10
 
 SESSION_AUTHENTICATED = "authenticated"
 SESSION_USER_ID = "user_id"

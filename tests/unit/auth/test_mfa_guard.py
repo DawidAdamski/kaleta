@@ -14,11 +14,8 @@ import pytest
 
 from kaleta.auth import middleware as middleware_mod
 from kaleta.auth import session as session_mod
-from kaleta.services.mfa_service import (
-    MFA_CHALLENGE_TTL_MINUTES,
-    STEP_UP_WINDOW_MINUTES,
-    MfaService,
-)
+from kaleta.auth.session import MFA_CHALLENGE_TTL_MINUTES
+from kaleta.services.mfa_service import STEP_UP_WINDOW_MINUTES, MfaService
 
 
 @pytest.fixture
