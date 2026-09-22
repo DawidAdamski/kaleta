@@ -434,6 +434,12 @@ async def _render_token_card(user_id: int) -> None:
 
             try:
                 _label, raw = await with_session(_create)
+            except KaletaError as exc:
+                # Minting a token now needs a fresh step-up, so this call has a
+                # domain failure it did not have before, with a message meant
+                # to be read. The bare arm below is for the ones that are not.
+                notify_kaleta_error(exc)
+                return
             except Exception as exc:
                 ui.notify(
                     t("settings.security_token_create_failed", error=str(exc)),

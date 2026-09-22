@@ -30,21 +30,16 @@ from kaleta.views.auth_common import (
     auth_field,
     auth_page_shell,
     auth_submit,
+    safe_redirect,
 )
 from kaleta.views.theme import AUTH_SUBTITLE
-
-
-def _safe_redirect(path: str) -> str:
-    if path.startswith("/") and not path.startswith("//"):
-        return path
-    return "/"
 
 
 def register() -> None:
     @ui.page("/login/mfa")
     async def login_mfa_page(redirect_to: str = "/") -> RedirectResponse | None:
         if is_authenticated():
-            return RedirectResponse(_safe_redirect(redirect_to))
+            return RedirectResponse(safe_redirect(redirect_to))
 
         pending = mfa_pending_user()
         if pending is None:
@@ -52,7 +47,7 @@ def register() -> None:
             return RedirectResponse("/login")
         user_id, username = pending
 
-        target = _safe_redirect(redirect_to)
+        target = safe_redirect(redirect_to)
         rate_key = str(user_id)
         shell = await auth_page_shell("auth.mfa_title", "auth.mfa_subtitle")
 

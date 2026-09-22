@@ -352,6 +352,26 @@ item is built, and every executable acceptance criterion passes.
   domain error no view anticipated — by then the copy being English is
   the smaller problem.
 
+- **`_safe_redirect` was copied into the new page, and is now shared.**
+  `views/login_mfa.py` began as a copy of `views/login.py`'s guard, which
+  let `/\evil.com` through — a browser normalises the backslash, so that
+  is the protocol-relative URL the `//` check was written to stop, wearing
+  a different hat. Rather than fix one copy and leave two that disagree,
+  the guard moved to `views/auth_common.py` as `safe_redirect()`, tightened
+  to reject both, with `tests/unit/views/test_safe_redirect.py` over it.
+  Rule 9 would normally send the pre-existing half to the Chore inbox;
+  it is here because this branch is what duplicated it, and a shared
+  helper is the only version of this fix that does not leave a second
+  copy to drift.
+
+- **Every conditional UPDATE reads its verdict before the commit.**
+  `rowcount` is memoized off a cursor that committing closes, and the
+  `or 0` fallback would read an unavailable count as "somebody else got
+  there first" — a spurious conflict on a write that actually landed.
+  Four of the five claim sites read it after. They now all go through
+  `MfaService._claimed()`, which is the one place that knows the rule.
+  SQLite never showed the fault; asyncpg is where it would have.
+
 - **Successes are audited, not only failures.** `user_mfa` is in
   `db/audit.py`'s `_SKIP_TABLES` — auditing it would copy the decrypted
   secret into `audit_log` — so the generic ORM listener sees none of

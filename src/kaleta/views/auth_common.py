@@ -199,3 +199,16 @@ def _side_panel(stats: AuthLandingStats | None) -> None:
                 with ui.column().classes("gap-[3px]"):
                     ui.label(spaced_thousands(f"{value:,}")).classes(AUTH_PANEL_FIGURE)
                     ui.label(t(label_key)).classes(AUTH_PANEL_LABEL)
+
+
+def safe_redirect(path: str) -> str:
+    """The ``redirect_to`` a sign-in page may follow, or ``/``.
+
+    Only a path on this origin. ``//evil.com`` is a protocol-relative URL and
+    so is ``/\\evil.com`` — browsers normalise the backslash to a slash — and
+    an auth page that followed either would hand an attacker a link that shows
+    Kaleta's sign-in form and lands somewhere else.
+    """
+    if path.startswith("/") and path[1:2] not in ("/", "\\"):
+        return path
+    return "/"

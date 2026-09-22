@@ -24,6 +24,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pyotp
 import qrcode
@@ -31,6 +32,7 @@ import qrcode.image.svg
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from sqlalchemy import delete, or_, select, update
+from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -187,7 +189,7 @@ class MfaService:
                 .where(UserMfa.id == existing.id, UserMfa.enabled_at.is_(None))
                 .values(totp_secret=secret, last_used_counter=None, recovery_codes_hash="[]")
             )
-            if int(getattr(result, "rowcount", 0) or 0) != 1:
+            if not self._claimed(result):
                 msg = "Two-factor authentication is already enabled."
                 raise ConflictError(msg)
         await self.session.commit()
@@ -232,8 +234,9 @@ class MfaService:
                 recovery_codes_hash=hashed,
             )
         )
+        claimed = self._claimed(result)
         await self.session.commit()
-        if int(getattr(result, "rowcount", 0) or 0) != 1:
+        if not claimed:
             msg = "Two-factor authentication is already enabled."
             raise ConflictError(msg)
         await self.session.refresh(row)
@@ -341,8 +344,9 @@ class MfaService:
             )
             .values(last_used_counter=counter)
         )
+        claimed = self._claimed(result)
         await self.session.commit()
-        if int(getattr(result, "rowcount", 0) or 0) != 1:
+        if not claimed:
             return False
         await self.session.refresh(row)
         return True
@@ -359,8 +363,9 @@ class MfaService:
             .where(UserMfa.id == row.id, UserMfa.recovery_codes_hash == current)
             .values(recovery_codes_hash=json.dumps(hashes))
         )
+        claimed = self._claimed(result)
         await self.session.commit()
-        if int(getattr(result, "rowcount", 0) or 0) != 1:
+        if not claimed:
             return False
         await self.session.refresh(row)
         return True
@@ -408,8 +413,9 @@ class MfaService:
             .where(UserMfa.id == row.id, UserMfa.recovery_codes_hash == row.recovery_codes_hash)
             .values(recovery_codes_hash=json.dumps([self._hasher.hash(code) for code in codes]))
         )
+        claimed = self._claimed(result)
         await self.session.commit()
-        if int(getattr(result, "rowcount", 0) or 0) != 1:
+        if not claimed:
             msg = "Your recovery codes changed while this page was open. Try again."
             raise ConflictError(msg)
         await self.session.refresh(row)
@@ -552,6 +558,19 @@ class MfaService:
             return True
         except (VerifyMismatchError, InvalidHashError):
             return False
+
+    @staticmethod
+    def _claimed(result: Result[Any]) -> bool:
+        """Whether a conditional UPDATE matched the row it named.
+
+        Always read before the commit. ``rowcount`` is memoized off a cursor
+        that committing closes, and the ``or 0`` below would then read an
+        unavailable count as "somebody else got there first" — a spurious
+        conflict on a write that actually landed. ``getattr`` rather than
+        ``result.rowcount`` because that attribute lives on ``CursorResult``,
+        which ``execute`` is not typed as returning.
+        """
+        return int(getattr(result, "rowcount", 0) or 0) == 1
 
     async def _record_failure(self, user_id: int, *, event: str) -> None:
         await self._record(user_id, event=event, success=False)

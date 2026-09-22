@@ -19,13 +19,8 @@ from kaleta.views.auth_common import (
     auth_field,
     auth_page_shell,
     auth_submit,
+    safe_redirect,
 )
-
-
-def _safe_redirect(path: str) -> str:
-    if path.startswith("/") and not path.startswith("//"):
-        return path
-    return "/"
 
 
 def _client_key(request: Request) -> str:
@@ -42,7 +37,7 @@ def register() -> None:
         reason: str = "",
     ) -> RedirectResponse | None:
         if is_authenticated():
-            return RedirectResponse(_safe_redirect(redirect_to))
+            return RedirectResponse(safe_redirect(redirect_to))
 
         async def _bootstrap(session: Any) -> str | None:
             state = await AuthService(session).auth_state()
@@ -56,7 +51,7 @@ def register() -> None:
         if bootstrap is not None:
             return RedirectResponse(bootstrap)
 
-        target = _safe_redirect(redirect_to)
+        target = safe_redirect(redirect_to)
         rate_key = _client_key(request)
         shell = await auth_page_shell("auth.login_title", "auth.login_subtitle")
 
