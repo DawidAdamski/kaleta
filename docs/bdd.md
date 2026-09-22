@@ -3499,6 +3499,23 @@ Feature: Public API
     And the body includes version "0.1.0"
     And database_ok is true
     And migrations_pending is a boolean
+
+  KAL-API-005 @automated
+  Scenario: Reading two-factor status over the API
+    Given a valid API bearer token
+    When I GET /api/v1/auth/mfa
+    Then the response is 200
+    And enabled is false and recovery_codes_remaining is 0
+    When the user has confirmed a second factor
+    And I GET /api/v1/auth/mfa again
+    Then enabled is true, enabled_at is a timestamp
+    And recovery_codes_remaining is 10
+
+  KAL-API-006 @automated
+  Scenario: Two-factor status is not readable without credentials
+    Given a running instance
+    When I GET /api/v1/auth/mfa without credentials
+    Then the response is 401
 ```
 
 ## Feature: Navigation

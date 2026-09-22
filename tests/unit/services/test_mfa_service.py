@@ -665,6 +665,34 @@ class TestConcurrentSubmits:
         assert await mfa.is_enabled(user.id) is False
 
 
+class TestAnAbandonedSetup:
+    """A secret committed before the QR was shown, and then walked away from."""
+
+    @pytest.mark.asyncio
+    async def test_the_pending_row_goes(self, mfa: MfaService, session: AsyncSession, user) -> None:
+        await mfa.begin_enrolment(user.id)
+        assert await mfa.abandon_enrolment(user.id) is True
+        assert (await session.execute(select(UserMfa))).scalars().all() == []
+
+    @pytest.mark.asyncio
+    async def test_a_confirmed_factor_does_not(self, mfa: MfaService, user) -> None:
+        """A confirmation landing between the cancel and the cleanup wins."""
+        await enrol(mfa, user.id)
+        assert await mfa.abandon_enrolment(user.id) is False
+        assert await mfa.is_enabled(user.id) is True
+
+    @pytest.mark.asyncio
+    async def test_nothing_to_abandon_is_not_an_error(self, mfa: MfaService, user) -> None:
+        assert await mfa.abandon_enrolment(user.id) is False
+
+    @pytest.mark.asyncio
+    async def test_the_cli_no_longer_counts_it(self, mfa: MfaService, user) -> None:
+        """`--disable-mfa` reports factors that were on, not rows it deleted."""
+        await mfa.begin_enrolment(user.id)
+        assert await mfa.disable_all() == 0
+        assert await mfa.is_enabled(user.id) is False
+
+
 class TestConfirmingIsAClaim:
     """Two tabs confirming one pending enrolment. Only one set of codes is real."""
 

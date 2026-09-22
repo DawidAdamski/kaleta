@@ -400,6 +400,21 @@ item is built, and every executable acceptance criterion passes.
   arm for. It is now a conditional DELETE through `_claimed()`, and the
   loser gets the same `ConflictError` every other contended write gives.
 
+- **A setup dialog closed at the QR screen takes its secret with it.**
+  `begin_enrolment()` has to commit the row before the QR is shown — the
+  code the user is about to type is checked against a stored secret — so
+  cancelling used to leave a live one in the database, invisible to
+  `status()` and reachable by nothing in the UI. The dialog now calls
+  `abandon_enrolment()` on every path that does not end in a
+  confirmation, conditional on `enabled_at IS NULL` so a confirmation
+  landing in the gap keeps the factor the user just switched on.
+
+- **`GET /api/v1/auth/mfa` got the scenario it should have had.**
+  `KAL-API-005` and `KAL-API-006` in `docs/bdd.md`, covered by
+  `tests/integration/test_api_mfa_status.py`. The route was written for
+  the Phase A "Headless" bullet and shipped untested — the one piece of
+  user-facing behaviour on this branch that had no scenario behind it.
+
 - **The trace joins the transaction it describes.** `confirm_enrolment()`
   and `disable()` used to commit the change and then write the audit row
   in a second transaction. A crash between the two would have left a

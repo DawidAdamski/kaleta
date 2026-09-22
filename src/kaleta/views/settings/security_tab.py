@@ -263,6 +263,12 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
     codes = await dialog
     dialog.delete()
     if not codes:
+        # Cancelled, or given up on. The pending row holds a live secret and
+        # nothing else in the UI can reach it, so it goes with the dialog.
+        async def _abandon(session: Any) -> bool:
+            return await MfaService(session).abandon_enrolment(user_id)
+
+        await with_session(_abandon)
         refresh()
         return
     mark_mfa_verified()

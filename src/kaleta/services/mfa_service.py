@@ -200,6 +200,26 @@ class MfaService:
         )
         return MfaEnrolment(secret=secret, uri=uri, qr_svg=_qr_svg(uri))
 
+    async def abandon_enrolment(self, user_id: int) -> bool:
+        """Drop an enrolment that was started and never confirmed.
+
+        `begin_enrolment` commits the secret before the QR is shown — it has
+        to, because the code the user is about to type is checked against a
+        stored row. Closing the dialog therefore used to leave a live secret
+        in the database with nothing in the UI able to clear it, invisible to
+        `status()` and uncounted by `disable_all()`.
+
+        Conditional on `enabled_at IS NULL`, like every other write here: a
+        confirmation landing in the gap between the cancel and this call keeps
+        the factor the user just turned on.
+        """
+        result = await self.session.execute(
+            delete(UserMfa).where(UserMfa.user_id == user_id, UserMfa.enabled_at.is_(None))
+        )
+        dropped = self._claimed(result)
+        await self.session.commit()
+        return dropped
+
     async def confirm_enrolment(self, user_id: int, code: str) -> list[str]:
         """Enable MFA once a code proves the app holds the secret; return recovery codes."""
         row = await self._row(user_id)

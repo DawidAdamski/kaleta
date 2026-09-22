@@ -71,7 +71,10 @@ class TestPendingSessionIsUnauthenticated:
     def test_a_stale_challenge_is_no_challenge(self, fake_storage: dict[str, Any]) -> None:
         """A browser left at the code prompt must not stay one code from a login."""
         session_mod.begin_mfa_challenge(user_id=7, username="owner")
-        stale = datetime.now(UTC) - timedelta(minutes=MFA_CHALLENGE_TTL_MINUTES + 1)
+        # The scenario's literal ten, pinned rather than read off the constant:
+        # widening the window to an hour must fail here, not pass quietly.
+        assert MFA_CHALLENGE_TTL_MINUTES == 10, "KAL-AUTH-021 says ten minutes"
+        stale = datetime.now(UTC) - timedelta(minutes=11)
         fake_storage[session_mod.SESSION_MFA_PENDING_AT] = stale.isoformat()
         assert session_mod.mfa_pending_user() is None
         assert session_mod.is_mfa_pending() is False
@@ -117,7 +120,8 @@ class TestStepUpStamp:
         assert MfaService.step_up_is_fresh(session_mod.mfa_verified_at()) is True
 
     def test_an_old_code_does_not(self, fake_storage: dict[str, Any]) -> None:
-        stale = datetime.now(UTC) - timedelta(minutes=STEP_UP_WINDOW_MINUTES + 1)
+        assert STEP_UP_WINDOW_MINUTES == 10, "KAL-AUTH-017 says ten minutes"
+        stale = datetime.now(UTC) - timedelta(minutes=11)
         fake_storage[session_mod.SESSION_MFA_VERIFIED_AT] = stale.isoformat()
         assert MfaService.step_up_is_fresh(session_mod.mfa_verified_at()) is False
 
