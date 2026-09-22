@@ -31,6 +31,7 @@ import qrcode.image.svg
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
 from sqlalchemy import delete, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
@@ -165,6 +166,15 @@ class MfaService:
         secret = pyotp.random_base32()
         if existing is None:
             self.session.add(UserMfa(user_id=user_id, kind=MFA_KIND_TOTP, totp_secret=secret))
+            try:
+                await self.session.flush()
+            except IntegrityError as exc:
+                # Two first-time enrolments at once. The unique index on
+                # user_id decides; the loser gets the same answer the update
+                # branch gives, rather than a driver error the view cannot read.
+                await self.session.rollback()
+                msg = "Two-factor authentication is already enabled."
+                raise ConflictError(msg) from exc
         else:
             # A restarted enrolment replaces the unconfirmed secret, so a QR
             # abandoned in a closed tab stops being usable.
@@ -513,11 +523,6 @@ class MfaService:
 
     def _new_recovery_code(self) -> str:
         return "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(RECOVERY_CODE_LENGTH))
-
-    def _new_recovery_codes(self, row: UserMfa) -> list[str]:
-        codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
-        row.recovery_codes_hash = json.dumps([self._hasher.hash(code) for code in codes])
-        return codes
 
     def _verify_hash(self, stored: str, candidate: str) -> bool:
         try:

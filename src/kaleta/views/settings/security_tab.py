@@ -211,13 +211,20 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
 
             try:
                 codes = await with_session(_do)
-            except KaletaError as exc:
+            except ValidationError as exc:
+                # Only a wrong code counts. A dialog gone stale because
+                # another tab confirmed the same enrolment is a `ConflictError`
+                # — and this bucket is the one guarding the login prompt, so
+                # spending it on that would be a lockout nobody could avoid.
                 if mfa_rate_limiter.record_failure(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
                     error.set_text(t("settings.mfa_rate_limited", seconds=secs))
                 else:
                     error.set_text(exc.message)
                 code_input.value = ""
+                return
+            except KaletaError as exc:
+                error.set_text(exc.message)
                 return
             mfa_rate_limiter.clear(rate_key)
             dialog.submit(codes)

@@ -152,8 +152,25 @@ Deferred to the Phase B follow-up along with Phase B itself:
 ## Implementation notes
 
 **Delivered: Phase A only.** See the note under Phase B — the hosted half
-depends on an unimplemented plan and moves to a follow-up. Everything in
-Phase A is built.
+depends on an unimplemented plan and moves to a follow-up. Every Phase A
+item is built, and every executable acceptance criterion passes.
+
+**Open for the owner, not closed here:**
+
+- The `[manual]` criterion — enrol with Google Authenticator, 1Password
+  and Aegis and confirm the QR scans and the codes verify in all three.
+  Nothing in this branch can run it; three real authenticator apps have
+  to be held in a hand. The `otpauth://` URI is standard and
+  `tests/e2e/test_mfa.py` scans nothing, so this is the one check that
+  the QR itself is right.
+- **Ratifying the Phase B deferral.** This branch edits its own scope
+  contract: it takes
+  `uv run pytest tests/unit/auth/test_supabase_mfa.py -q` out of the
+  acceptance criteria and the `auth/providers/` files out of Touchpoints,
+  and says under Phase B where they go. The reasoning is in that block
+  quote, but removing a criterion is the owner's call, not the
+  implementer's. Either bless it on the PR or open the follow-up plan
+  before merging, so the criterion is moved rather than lost.
 
 ### Resolved open questions
 
