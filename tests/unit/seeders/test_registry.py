@@ -101,6 +101,14 @@ class TestSeedAll:
         assert after == before
 
     async def test_replace_rewrites_without_growing(self, session: AsyncSession) -> None:
+        """Counts only.
+
+        The shared ``session`` fixture builds its engine without the
+        foreign-key PRAGMA the running app sets, so the *order* the rows come
+        out in cannot be checked here. That is
+        ``tests/integration/test_example_data.py``'s job — it enforces foreign
+        keys and drives the same path through ``scripts/seed.py --replace``.
+        """
         await seed_all(session)
         before = {key: await _count(session, model) for key, model in _MODEL_FOR.items()}
 
@@ -163,6 +171,21 @@ class TestSeedOneFeature:
         # Replacing the ledger must not renumber the accounts it posts to: the
         # dependency was pulled in, not asked for.
         assert accounts_after == accounts_before
+
+    async def test_replace_reaches_the_features_that_stand_on_the_one_asked_for(
+        self, session: AsyncSession
+    ) -> None:
+        await seed_all(session)
+
+        outcomes = await seed_features(session, ["taxonomy"], replace=True)
+
+        rewritten = {outcome.key for outcome in outcomes if not outcome.skipped}
+        # Everything filed under a category has to come out with it — those
+        # foreign keys carry no ON DELETE rule.
+        assert {"taxonomy", "transactions", "budgets", "planned", "subscriptions"} <= rewritten
+        # …and nothing that merely sits beside it.
+        assert "assets" not in rewritten
+        assert "personal_loans" not in rewritten
 
     async def test_an_unknown_key_is_ignored(self, session: AsyncSession) -> None:
         assert await seed_features(session, ["not-a-feature"]) == []

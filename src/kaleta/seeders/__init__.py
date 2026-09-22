@@ -58,7 +58,7 @@ SEEDERS_BY_KEY: dict[str, Seeder] = {seeder.key: seeder for seeder in SEEDERS}
 SEED_FEATURE_KEYS: tuple[str, ...] = tuple(seeder.key for seeder in SEEDERS)
 
 
-def _with_dependencies(keys: list[str]) -> list[str]:
+def _with_dependencies(keys: set[str]) -> list[str]:
     """``keys`` plus everything they stand on, back in registry order."""
     wanted: set[str] = set()
 
@@ -77,6 +77,27 @@ def _with_dependencies(keys: list[str]) -> list[str]:
     return [seeder.key for seeder in SEEDERS if seeder.key in wanted]
 
 
+def _with_dependents(keys: set[str]) -> set[str]:
+    """``keys`` plus everything that stands on them, transitively.
+
+    The other direction from :func:`_with_dependencies`, and the one that makes
+    ``replace`` safe: a transaction's account and category are plain foreign
+    keys with no ``ON DELETE`` rule, so deleting the accounts under a live
+    ledger is an integrity error rather than a fresh start.
+    """
+    wanted = {key for key in keys if key in SEEDERS_BY_KEY}
+    changed = True
+    while changed:
+        changed = False
+        for seeder in SEEDERS:
+            if seeder.key in wanted:
+                continue
+            if set(seeder.depends_on) & wanted:
+                wanted.add(seeder.key)
+                changed = True
+    return wanted
+
+
 async def seed_features(
     session: AsyncSession,
     keys: list[str],
@@ -85,16 +106,30 @@ async def seed_features(
 ) -> list[SeedOutcome]:
     """Seed the named features and their dependencies, oldest layer first.
 
-    ``replace`` is passed on only to the features that were actually asked for.
-    A dependency pulled in behind the scenes is filled if empty and left alone
-    otherwise — replacing the accounts because someone asked to replace the
-    credit-card terms would delete a ledger nobody mentioned.
+    Without ``replace`` a feature that already holds example data is left
+    exactly as it is, so the call is safe to repeat.
+
+    ``replace`` rewrites the named features **and everything standing on
+    them**: the rows are removed in reverse dependency order first — the only
+    order the foreign keys allow — and written again in registry order. What
+    the named features merely *stand on* is spared; replacing the accounts
+    because someone asked to replace the credit-card terms would delete a
+    ledger nobody mentioned.
     """
-    asked = set(keys)
+    asked = {key for key in keys if key in SEEDERS_BY_KEY}
+    if replace and asked:
+        doomed = _with_dependents(asked)
+        for seeder in reversed(SEEDERS):
+            if seeder.key in doomed:
+                await seeder.remove(session)
+        await session.flush()
+        wanted = _with_dependencies(doomed)
+    else:
+        wanted = _with_dependencies(asked)
+
     outcomes: list[SeedOutcome] = []
-    for key in _with_dependencies(keys):
-        seeder = SEEDERS_BY_KEY[key]
-        outcomes.append(await seeder.seed(session, replace=replace and key in asked))
+    for key in wanted:
+        outcomes.append(await SEEDERS_BY_KEY[key].seed(session))
     await session.commit()
     return outcomes
 

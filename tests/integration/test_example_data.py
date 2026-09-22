@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Integration coverage for the per-feature example data.
 
-Covers: KAL-PLT-006, KAL-PLT-007, KAL-PLT-008, KAL-SET-029
+Covers: KAL-PLT-006, KAL-PLT-007, KAL-PLT-008, KAL-PLT-009, KAL-SET-029
 """
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import kaleta.models  # noqa: F401 — register ORM tables on Base.metadata
@@ -69,6 +69,25 @@ async def _counts(session: AsyncSession) -> dict[str, int]:
     return counts
 
 
+def _engine_with_foreign_keys(db_url: str):  # noqa: ANN202 — AsyncEngine
+    """An engine that enforces foreign keys, the way the running app does.
+
+    ``tests/conftest.py`` builds its engines without the PRAGMA listener from
+    ``kaleta.db.session``, so an ordering bug that SQLite would refuse in
+    production passes there unnoticed. Everything in this module goes through
+    here instead, which is what makes the ``--replace`` tests mean something.
+    """
+    engine = create_async_engine(db_url)
+
+    @event.listens_for(engine.sync_engine, "connect")
+    def _set_pragma(dbapi_connection, _record):  # noqa: ANN001, ANN202
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+    return engine
+
+
 @asynccontextmanager
 async def _open_session(db_url: str) -> AsyncIterator[AsyncSession]:
     """A session on ``db_url``, with the engine disposed on the way out.
@@ -77,7 +96,7 @@ async def _open_session(db_url: str) -> AsyncIterator[AsyncSession]:
     loop ``asyncio.run`` is about to close, which surfaces as an unrelated
     "Event loop is closed" warning in whatever test runs next.
     """
-    engine = create_async_engine(db_url)
+    engine = _engine_with_foreign_keys(db_url)
     factory = async_sessionmaker(engine, expire_on_commit=False)
     session = factory()
     try:
@@ -93,7 +112,7 @@ def file_db(tmp_path: Path) -> Iterator[str]:
     db_url = f"sqlite+aiosqlite:///{tmp_path / 'registry.db'}"
 
     async def _create() -> None:
-        engine = create_async_engine(db_url)
+        engine = _engine_with_foreign_keys(db_url)
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
         await engine.dispose()
@@ -175,6 +194,74 @@ def test_the_cli_is_idempotent_too(tmp_path: Path) -> None:
     second = _run_seed_cli(tmp_path, db_url)
     assert second.returncode == 0, second.stderr or second.stdout
     assert "left alone" in second.stdout
+    assert asyncio.run(_counts_now()) == before
+
+
+def test_replace_rewrites_the_dataset_with_foreign_keys_enforced(file_db: str) -> None:
+    """Covers: KAL-PLT-009"""
+
+    async def _check() -> None:
+        async with _open_session(file_db) as session:
+            await seed_all(session)
+            before = await _counts(session)
+
+            # Deleting the categories and accounts a live ledger points at is
+            # an integrity error, not a fresh start: the whole dataset has to
+            # come out in reverse dependency order first.
+            await seed_all(session, replace=True)
+
+            assert await _counts(session) == before
+
+    asyncio.run(_check())
+
+
+def test_replacing_one_feature_takes_what_stands_on_it(file_db: str) -> None:
+    """Covers: KAL-PLT-009"""
+
+    async def _check() -> None:
+        async with _open_session(file_db) as session:
+            await seed_all(session)
+            before = await _counts(session)
+            assets_before = {
+                asset.id: asset.name
+                for asset in (await session.execute(select(Asset))).scalars().all()
+            }
+
+            outcomes = await seed_features(session, ["accounts"], replace=True)
+
+            # The ledger, the plan, the funds and the card all hang off the
+            # accounts, so they are rebuilt with them.
+            rewritten = {outcome.key for outcome in outcomes if not outcome.skipped}
+            assert {"accounts", "transactions", "planned", "reserve_funds"} <= rewritten
+            assert await _counts(session) == before
+
+            # Assets stand on nothing and were not asked for — untouched.
+            assets_after = {
+                asset.id: asset.name
+                for asset in (await session.execute(select(Asset))).scalars().all()
+            }
+            assert assets_after == assets_before
+
+    asyncio.run(_check())
+
+
+def test_cli_replace_survives_a_seeded_database(tmp_path: Path) -> None:
+    """Covers: KAL-PLT-009
+
+    End to end through ``scripts/seed.py``, which opens its session through
+    ``kaleta.db.session`` and therefore runs with the app's real PRAGMAs.
+    """
+    db_url = f"sqlite+aiosqlite:///{tmp_path / 'replace.db'}"
+    first = _run_seed_cli(tmp_path, db_url)
+    assert first.returncode == 0, first.stderr or first.stdout
+
+    async def _counts_now() -> dict[str, int]:
+        async with _open_session(db_url) as session:
+            return await _counts(session)
+
+    before = asyncio.run(_counts_now())
+    again = _run_seed_cli(tmp_path, db_url, "--replace")
+    assert again.returncode == 0, again.stderr or again.stdout
     assert asyncio.run(_counts_now()) == before
 
 

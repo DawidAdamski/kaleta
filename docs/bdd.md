@@ -3057,6 +3057,16 @@ Feature: Per-feature example data
     When I run `uv run python scripts/seed.py` against the first
     And I seed every feature through the registry against the second
     Then both databases hold the same number of rows in every seeded table
+
+  KAL-PLT-009 @automated
+  Scenario: Replacing example data takes what stands on it
+    Given a database seeded with every feature
+    And foreign keys are enforced
+    When I replace the example data for "Accounts & institutions"
+    Then the transactions, planned transactions and reserve funds are
+      rewritten with them
+    And features that do not stand on the accounts are untouched
+    And every seeded table holds the same number of rows as before
 ```
 
 ## Feature: Anonymous error events

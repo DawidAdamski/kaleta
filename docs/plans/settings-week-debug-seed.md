@@ -275,10 +275,26 @@ plan's scope. Filed for the Chore inbox.
   `taxonomy → accounts → transactions`, because a transaction cannot exist
   without an account and a user pressing *Transactions* on an empty database
   means "give me transactions", not "fail".
-- `replace` is passed on **only to the features that were asked for**. A
-  dependency pulled in behind the scenes is filled if empty and left alone
-  otherwise — replacing the accounts because someone replaced the credit-card
-  terms would delete a ledger nobody mentioned.
+- **`replace` reaches in both directions, and that is the subtle part.**
+  A dependency pulled in behind the scenes is spared — replacing the accounts
+  because someone replaced the credit-card terms would delete a ledger nobody
+  mentioned. But everything *standing on* what is being replaced has to go
+  with it: `Transaction.account_id` and `Transaction.category_id` are plain
+  foreign keys with no `ON DELETE` rule, and the running app opens SQLite with
+  `PRAGMA foreign_keys=ON`, so deleting the categories under a live ledger is
+  an `IntegrityError`, not a fresh start. `seed_features` therefore expands the
+  asked-for keys with `_with_dependents`, removes that whole set in **reverse**
+  registry order, and writes it back in forward order.
+  *(Caught by the review gate; the first cut passed `replace` straight to each
+  seeder and `scripts/seed.py --replace` on a seeded database would have
+  failed.)*
+- **The tests now enforce foreign keys.** `tests/conftest.py` builds its
+  engines without the PRAGMA listener from `kaleta.db.session`, which is why
+  the ordering bug above went unnoticed by a unit test that was ostensibly
+  covering it. `tests/integration/test_example_data.py` registers the PRAGMA on
+  its own engines and also drives `scripts/seed.py --replace` as a subprocess,
+  which goes through the app's real session factory. `KAL-PLT-009` is that
+  scenario.
 - **`DataService.seed` was a third copy of the generator** — same constants as
   `scripts/seed.py` but without payees, tags, planned transactions,
   subscriptions or any of the newer features. It now wipes and then calls the
@@ -328,3 +344,4 @@ New scenarios, all `@automated` with tests carrying `Covers:`:
 | `KAL-PLT-006` seed everything fills every feature once | `tests/integration/test_example_data.py` |
 | `KAL-PLT-007` seeding one feature leaves the others alone | `tests/integration/test_example_data.py` |
 | `KAL-PLT-008` CLI and registry produce the same dataset | `tests/integration/test_example_data.py` |
+| `KAL-PLT-009` replacing example data takes what stands on it | `tests/integration/test_example_data.py` |

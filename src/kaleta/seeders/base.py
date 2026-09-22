@@ -92,6 +92,11 @@ class Seeder(ABC):
         ``replace`` is the only way to overwrite: without it, a feature that
         already holds rows is left alone, so pressing the button twice cannot
         double anyone's example data.
+
+        It removes **this feature's rows only**, which is safe when nothing
+        else points at them. Go through ``kaleta.seeders.seed_features`` for
+        anything else: it is the one place that knows which other features
+        stand on this one and in which order they have to come out.
         """
         if await self.count(session) > 0:
             if not replace:
