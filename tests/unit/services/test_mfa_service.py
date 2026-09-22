@@ -219,6 +219,62 @@ class TestStepUpChallenge:
         assert await mfa.verify_challenge(user.id, "123456") is False
 
 
+class TestTheAuditTrail:
+    """Every refused code leaves a row, and says which prompt refused it."""
+
+    async def _auth_events(self, session: AsyncSession) -> list[dict[str, object]]:
+        rows = (
+            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            .scalars()
+            .all()
+        )
+        return [json.loads(row.new_data or "{}") for row in rows]
+
+    @pytest.mark.asyncio
+    async def test_a_wrong_code_at_the_login_prompt(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        await enrol(mfa, user.id)
+        assert await mfa.verify_code(user.id, "000000") is False
+        events = await self._auth_events(session)
+        assert {"event": "mfa_failure", "username": "owner", "success": False} in events
+
+    @pytest.mark.asyncio
+    async def test_a_wrong_recovery_code_at_the_login_prompt(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        await enrol(mfa, user.id)
+        assert await mfa.consume_recovery_code(user.id, "ZZZZZZZZZZ") is False
+        events = await self._auth_events(session)
+        assert [e["event"] for e in events].count("mfa_failure") == 1
+
+    @pytest.mark.asyncio
+    async def test_a_wrong_code_during_enrolment(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        await mfa.begin_enrolment(user.id)
+        with pytest.raises(ValidationError):
+            await mfa.confirm_enrolment(user.id, "000000")
+        assert "mfa_enrol_failure" in [e["event"] for e in await self._auth_events(session)]
+
+    @pytest.mark.asyncio
+    async def test_a_wrong_answer_in_the_turn_off_dialog(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        await enrol(mfa, user.id)
+        with pytest.raises(ValidationError):
+            await mfa.disable(user.id, password="wrong-password", code="000000")
+        assert "mfa_disable_failure" in [e["event"] for e in await self._auth_events(session)]
+
+    @pytest.mark.asyncio
+    async def test_a_right_code_leaves_no_failure_behind(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        secret, _codes = await enrol(mfa, user.id)
+        assert await mfa.verify_code(user.id, code_for(secret, offset_steps=1)) is True
+        assert [e["event"] for e in await self._auth_events(session)] == []
+
+
 class TestRecoveryCodes:
     @pytest.mark.asyncio
     async def test_a_recovery_code_works_once(self, mfa: MfaService, user) -> None:

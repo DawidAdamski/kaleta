@@ -219,8 +219,8 @@ Phase A is built.
   The audit events the module writes are `mfa_failure` (a wrong code or
   recovery code at the login prompt), `mfa_enrol_failure`,
   `mfa_disable_failure` (either half of the "turn it off" dialog) and
-  `mfa_disabled_cli`, `mfa_step_up_failure`. `_spend_recovery_code()`
-  exists so that a recovery
+  `mfa_disabled_cli`, `mfa_step_up_failure`, each of them asserted in
+  `TestTheAuditTrail`. `_spend_recovery_code()` exists so that a recovery
   code used to disable is not logged as a login failure: the caller names
   the event, because a wrong code at a login prompt and a wrong code in
   the disable dialog are not the same thing to read back.
@@ -290,7 +290,13 @@ Phase A is built.
   of token management — for fifteen minutes at a time. Keying by IP
   instead would let an attacker with a botnet walk past the limit
   entirely, which is worse; the lockout is the cheaper of the two
-  failures, and `SECURITY.md` says so.
+  failures, and `SECURITY.md` says so. The limiter itself is
+  `LoginRateLimiter`, whose five-in-fifteen-minutes behaviour
+  `KAL-AUTH-008` already pins; what `KAL-AUTH-020` adds is that the
+  dialogs are wired to it. The login prompt's own wiring is the same two
+  lines against the same object, and is not separately asserted — the
+  e2e test cannot burn five codes there without locking the account for
+  the rest of the run.
 
 - **A pending challenge expires** after `MFA_CHALLENGE_TTL_MINUTES`.
   A browser left at the code prompt was otherwise one code away from a
@@ -302,8 +308,10 @@ Phase A is built.
   apart made it a password oracle that answered without going past
   `login_rate_limiter` — and returning early on a wrong password left
   the same oracle in the timing, because a right password went on to run
-  up to ten more argon2 verifies against the recovery hashes. Nothing is
-  spent unless both halves are right. "Not enabled" is a `ConflictError`,
+  up to ten more argon2 verifies against the recovery hashes. The
+  recovery scan runs whatever the TOTP check said, for the same reason:
+  skipping it on a match would answer a right code faster than a wrong
+  one. Nothing is spent unless both halves are right. "Not enabled" is a `ConflictError`,
   not a `ValidationError`, so a stale dialog does not count toward the
   lockout.
 

@@ -83,7 +83,17 @@ async def _ask_for_code(user_id: int) -> bool:
             async def _verify(session: Any) -> bool:
                 return await MfaService(session).verify_challenge(user_id, entered)
 
-            if not await with_session(_verify):
+            try:
+                passed = await with_session(_verify)
+            except KaletaError as exc:
+                # A secret written under a different KALETA_SECRET_KEY cannot
+                # be checked at all. That is not a wrong guess, so it does not
+                # count toward the lockout — and it must not leave the dialog
+                # sitting there with nothing said.
+                error.set_text(exc.message)
+                return
+
+            if not passed:
                 if mfa_rate_limiter.record_failure(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
                     error.set_text(t("settings.mfa_rate_limited", seconds=secs))

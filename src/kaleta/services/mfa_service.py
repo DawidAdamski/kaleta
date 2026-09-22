@@ -362,12 +362,20 @@ class MfaService:
         # what the message says.
         password_ok = AuthService(self.session).verify_password(password, user.password_hash)
         counter = self._matching_counter(row, code)
-        recovery_index = self._find_recovery_code(row, code) if counter is None else None
+        # Looked for whatever the TOTP check said. Skipping the scan when the
+        # code already matched would answer a right code faster than a wrong
+        # one, which tells an attacker their TOTP guess landed without their
+        # ever having to know the password.
+        recovery_index = self._find_recovery_code(row, code)
         if not password_ok or (counter is None and recovery_index is None):
             await self._record_failure(user_id, event="mfa_disable_failure")
             raise ValidationError(wrong)
 
-        if recovery_index is not None and not await self._remove_recovery_code(row, recovery_index):
+        if (
+            counter is None
+            and recovery_index is not None
+            and not await self._remove_recovery_code(row, recovery_index)
+        ):
             # Somebody else spent that code between the check and here.
             await self._record_failure(user_id, event="mfa_disable_failure")
             raise ValidationError(wrong)
