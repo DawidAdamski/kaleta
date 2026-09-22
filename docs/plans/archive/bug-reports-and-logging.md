@@ -3,8 +3,9 @@ plan_id: bug-reports-and-logging
 title: Bug reports from the app, and structured logs to read them by
 area: observability / settings
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-09-22
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Bug reports from the app, and structured logs to read them by
@@ -20,9 +21,9 @@ diagnostics with the user's explicit consent, routes reports to the
 maintainer without a third-party error service, and turns the logs
 into structured JSON with correlation ids so an event id leads to the
 lines around it. It builds on `app_events`
-([observability-anonymous-events](archive/observability-anonymous-events.md))
+([observability-anonymous-events](observability-anonymous-events.md))
 and respects the encryption promise of
-[ADR-35](../adr/035-hosted-multi-tenancy-and-user-held-encryption.md):
+[ADR-35](../../adr/035-hosted-multi-tenancy-and-user-held-encryption.md):
 nothing from the ledger ever leaves the tenant unless the user types it
 into the report.
 
@@ -316,3 +317,61 @@ addresses, bearer tokens and query strings if any future call passes them.
 `[manual]` webhook → n8n → GitHub issue + e-mail (`KAL-BUG-005`).
 `scripts/bug_reports.py show <id>` prints the report, its joined event
 stack traces and the log excerpt as a table.
+
+## Implementation
+
+Landed on 2026-09-22 (PR #116).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `7f85aea` | Dawid Adamski | 2026-09-22 | Merge pull request #116 from DawidAdamski/plan/bug-reports-and-logging |
+
+**Files changed:**
+- .github/ISSUE_TEMPLATE/bug.yml
+- alembic/env.py
+- alembic/versions/l6m7n8o9p0q1_add_bug_reports.py
+- docs/bdd.md
+- docs/plans/bug-reports-and-logging.md
+- docs/privacy-events.md
+- docs/tech-stack.md
+- pyproject.toml
+- scripts/bug_reports.py
+- src/kaleta/config/settings.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/logging_config.py
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/bug_report.py
+- src/kaleta/observability/__init__.py
+- src/kaleta/observability/context.py
+- src/kaleta/observability/redact.py
+- src/kaleta/observability/ring_buffer.py
+- src/kaleta/observability/version.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/bug_report_delivery.py
+- src/kaleta/services/bug_report_service.py
+- src/kaleta/services/error_tracker.py
+- src/kaleta/services/event_capture.py
+- src/kaleta/services/event_retention_scheduler.py
+- src/kaleta/services/event_service.py
+- src/kaleta/views/bug_report_dialog.py
+- src/kaleta/views/error_handling.py
+- src/kaleta/views/layout.py
+- src/kaleta/views/settings/page.py
+- src/kaleta/views/settings/privacy_tab.py
+- tests/backup_helpers.py
+- tests/e2e/test_bug_report.py
+- tests/integration/test_bug_report_api_context.py
+- tests/unit/services/test_bug_report_service.py
+- tests/unit/services/test_error_tracker.py
+- tests/unit/test_logging_config.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

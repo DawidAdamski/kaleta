@@ -168,7 +168,7 @@ and is untouched.
 | 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
 | 4 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | medium | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](auth-two-factor.md) | medium | draft | Phase A: — ; Phase B: 1 |
-| 6 | [bug-reports-and-logging](bug-reports-and-logging.md) | medium | draft | — (public-schema table needs 1) |
+| 6 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | draft | — (public-schema table needs 1) |
 
 ### Q4 2026 — Open-source launch (execute in this order)
 
@@ -247,7 +247,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
 | [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
 | [auth-two-factor](auth-two-factor.md) | draft | Auth — see Hosted programme |
-| [bug-reports-and-logging](bug-reports-and-logging.md) | draft | Observability — see Hosted programme |
+| [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | Observability — see Hosted programme |
 | [settings-week-debug-seed](settings-week-debug-seed.md) | draft | Settings |
 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | draft | Hosted programme (4) |
 | [planned-transactions-post-due](archive/planned-transactions-post-due.md) | archived | Planned transactions |
