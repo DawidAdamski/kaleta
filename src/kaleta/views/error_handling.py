@@ -21,6 +21,9 @@ from kaleta.observability import SessionRingBuffer, set_session_resolver
 from kaleta.services.event_capture import capture_exception_async
 from kaleta.views.settings.user_prefs import get_events_enabled
 
+#: asyncio holds only a weak reference to a task it did not await; without
+#: this set a toast could be collected before it is shown.
+_pending: set[asyncio.Task[None]] = set()
 #: One tray per connected client; replaced whenever a page is built.
 _trays: dict[str, ErrorTray] = {}
 #: Event ids issued while this client was connected, newest last.
@@ -174,7 +177,9 @@ def notify_kaleta_error(exc: KaletaError) -> None:
         client = context.client
     except Exception:
         client = None
-    asyncio.create_task(_notify_with_event(exc, client))
+    task = asyncio.create_task(_notify_with_event(exc, client))
+    _pending.add(task)
+    task.add_done_callback(_pending.discard)
 
 
 def handle_kaleta_error(exc: Exception) -> bool:

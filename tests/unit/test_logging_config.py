@@ -72,8 +72,17 @@ class TestJsonRecords:
 
 
 class TestRedaction:
-    def test_bearer_tokens_are_masked(self) -> None:
-        assert "sk-secret-value" not in redact("Authorization: Bearer sk-secret-value")
+    def test_the_token_after_a_bearer_scheme_is_masked(self) -> None:
+        # The scheme sits between the header name and the secret; masking only
+        # the next word would redact "Bearer" and leave the token in the clear.
+        assert redact("Authorization: Bearer abc123xyzTOKEN") == "Authorization [redacted]"
+
+    def test_a_bare_bearer_token_is_masked(self) -> None:
+        assert redact("Bearer abc123xyzTOKEN") == "Bearer [redacted]"
+
+    def test_credentials_in_key_value_form_are_masked(self) -> None:
+        assert redact("authorization=abc123def") == "authorization [redacted]"
+        assert redact("password: hunter2 and the rest") == "password [redacted] and the rest"
 
     def test_email_addresses_are_masked(self) -> None:
         assert redact("login for ana.k+tag@example.co.uk failed") == ("login for [redacted] failed")

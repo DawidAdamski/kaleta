@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 _WEBHOOK_TIMEOUT_SECONDS = 10.0
 _SMTP_TIMEOUT_SECONDS = 15.0
 
+#: asyncio keeps only a weak reference to a task, so a delivery in flight
+#: would be collectable mid-await. Hold it until it finishes.
+_in_flight: set[asyncio.Task[bool]] = set()
+
 
 def webhook_url() -> str | None:
     return settings.bug_report_webhook or None
@@ -116,4 +120,6 @@ def schedule_delivery(payload: dict[str, Any]) -> None:
     except RuntimeError:
         logger.debug("No running loop for bug report delivery; skipping")
         return
-    loop.create_task(deliver(payload))
+    task = loop.create_task(deliver(payload))
+    _in_flight.add(task)
+    task.add_done_callback(_in_flight.discard)

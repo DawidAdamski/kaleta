@@ -16,9 +16,12 @@ MAX_ARG_CHARS = 200
 
 REDACTED = "[redacted]"
 
+# ``Authorization: Bearer <token>`` names the scheme between the key and the
+# secret, so the scheme is consumed here — matching only the next word would
+# redact "Bearer" and leave the token itself in the clear.
 _AUTH_RE = re.compile(
-    r"(?i)\b(bearer|authorization|api[_-]?token|token|password|secret|secret[_-]?key)"
-    r"\b\s*[:=]?\s*(?P<value>[^\s,;'\"]+)"
+    r"(?i)\b(?P<key>bearer|authorization|api[_-]?token|token|password|secret[_-]?key|secret)"
+    r"\b\s*[:=]?\s*(?:bearer\s+)?(?P<value>[^\s,;'\"]+)"
 )
 _EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+")
 _QUERY_RE = re.compile(r"(?P<path>(?:https?://|/)[^\s?]*)\?[^\s]+")
@@ -31,7 +34,7 @@ def redact(text: str) -> str:
     would leave the rest of the query in the clear.
     """
     masked = _QUERY_RE.sub(lambda m: f"{m.group('path')}?{REDACTED}", text)
-    masked = _AUTH_RE.sub(lambda m: f"{m.group(1)} {REDACTED}", masked)
+    masked = _AUTH_RE.sub(lambda m: f"{m.group('key')} {REDACTED}", masked)
     return _EMAIL_RE.sub(REDACTED, masked)
 
 

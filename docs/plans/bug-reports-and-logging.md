@@ -284,6 +284,18 @@ into the report.
   one row, and a new table would otherwise fail them. Reports travel in the
   user's own ZIP export, like `app_events` already do.
 
+### Review findings addressed
+
+- **Bearer tokens.** The first credential pattern masked the word after the
+  header name, which for `Authorization: Bearer <token>` is the *scheme* —
+  the token itself survived. `_AUTH_RE` now consumes an optional `bearer`
+  scheme between the key and the value, and three tests pin the header form,
+  the bare `Bearer <token>` form and the `key=value` form.
+- **Fire-and-forget tasks.** `schedule_delivery` and `notify_kaleta_error`
+  now keep the task in a module-level set with a done-callback: asyncio holds
+  only a weak reference, so a delivery awaiting network I/O (or a toast) could
+  be collected mid-flight.
+
 ### PII audit of existing log calls
 
 `grep` over every `logger.*` call in `src/` for `description`, `payee`,
