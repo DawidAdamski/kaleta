@@ -170,6 +170,19 @@ and is untouched.
 | 5 | [auth-two-factor](auth-two-factor.md) | medium | draft | Phase A: — ; Phase B: 1 |
 | 6 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | draft | — (public-schema table needs 1) |
 
+### Reports — ad-hoc analysis (execute in this order)
+
+The builder answers *one dimension × one metric*; two-dimensional
+questions (category **by month**) and trend questions (is it going
+up?) are today answered outside the app with `sqlite3` or DuckDB.
+Plan 1 makes the builder two-dimensional; plan 2 adds derived
+columns on top. Neither touches the canned `ReportService` reports.
+
+| # | Plan | Effort | Status | Depends on |
+|---|---|---|---|---|
+| 1 | [reports-second-dimension-pivot](reports-second-dimension-pivot.md) | medium | draft | — |
+| 2 | [reports-trend-columns](reports-trend-columns.md) | medium | draft | 1 |
+
 ### Q4 2026 — Open-source launch (execute in this order)
 
 | # | Plan | Status | Depends on |
@@ -264,6 +277,8 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [import-multi-file-queue](archive/import-multi-file-queue.md) | archived | Import |
 | [forecast-model-presets](archive/forecast-model-presets.md) | archived | Forecast |
 | [reports-library](archive/reports-library.md) | archived | Reports |
+| [reports-second-dimension-pivot](reports-second-dimension-pivot.md) | draft | Reports — ad-hoc programme (1) |
+| [reports-trend-columns](reports-trend-columns.md) | draft | Reports — ad-hoc programme (2) |
 | [settings-expansion](archive/settings-expansion.md) | archived | Settings |
 | [dedupe-suggestions](archive/dedupe-suggestions.md) | archived | Cross-cutting |
 | [wizard-safety-funds](archive/wizard-safety-funds.md) | archived | Wizard → Safety funds |
