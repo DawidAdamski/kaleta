@@ -72,9 +72,18 @@ What it guards:
 - **Reissuing recovery codes**, on the same terms. Ten fresh codes are ten
   fresh ways past the factor.
 
-What it does not guard: **using** an API bearer token. A token is a separate
-credential and a request carrying one is never challenged — revoke the token
-instead.
+What it does not guard:
+
+- **Using** an API bearer token. A token is a separate credential and a
+  request carrying one is never challenged — revoke the token instead.
+- **Restoring a backup.** A restore replaces every table, `user_mfa`
+  included, so restoring a backup taken before you switched the factor on
+  turns it off — and restores that backup's password hash with it. It asks
+  for nothing but a signed-in session. Treat a backup file as equivalent to
+  the password and the factor together: anyone who can upload one to your
+  instance, and anyone who holds one, has both. This is the same trust a
+  backup has always carried in Kaleta; two-factor authentication does not
+  narrow it.
 
 **Recovery codes.** Enrolling hands you ten one-time codes, stored as argon2
 hashes. Each works once, anywhere a code is asked for. Asking to see them

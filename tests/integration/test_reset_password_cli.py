@@ -33,6 +33,13 @@ def global_db_restored() -> Generator[None]:
     throwaway SQLite file. The two older tests here dodge it by skipping the
     whole case under postgres; restoring the URL is what that skip was
     standing in for, and it keeps these cases running on both backends.
+
+    Under postgres only, because that is where a shared URL exists to put
+    back. On the default SQLite run the factory is left pointing at this
+    test's ``tmp_path`` file — the same leak the two older tests already
+    have, and harmless there because every test that matters builds its own
+    engine. Worth closing if a SQLite test ever starts depending on the
+    global factory.
     """
     yield
     if _USE_POSTGRES:

@@ -197,7 +197,11 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
     try:
         enrolment = await with_session(_begin)
     except KaletaError as exc:
+        # Most likely the `ConflictError` from another tab having confirmed an
+        # enrolment meanwhile — in which case the card behind this toast is
+        # showing a stale "Off" and a button that would fail the same way.
         notify_kaleta_error(exc)
+        refresh()
         return
 
     rate_key = str(user_id)
@@ -291,6 +295,7 @@ async def _open_recovery(user_id: int, refresh: Refresh) -> None:
         codes = await with_session(_regenerate)
     except KaletaError as exc:
         notify_kaleta_error(exc)
+        refresh()
         return
     await _show_recovery_codes(codes)
     refresh()

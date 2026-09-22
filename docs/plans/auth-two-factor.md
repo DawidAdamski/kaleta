@@ -400,6 +400,21 @@ item is built, and every executable acceptance criterion passes.
   arm for. It is now a conditional DELETE through `_claimed()`, and the
   loser gets the same `ConflictError` every other contended write gives.
 
+- **Restoring a backup is a way around this factor, and SECURITY.md now
+  says so.** `BackupService.restore()` replaces every table including
+  `user_mfa`, and the Data tab gates it on a signed-in session and
+  nothing else — so restoring a pre-MFA backup turns the factor off and
+  puts that backup's password hash back at the same time. Resolved open
+  question 2 weighed "Delete my account", export and the data passphrase
+  and dismissed each; restore exists and was not on that list. It is not
+  guarded here, because the surface predates this branch and a step-up in
+  front of restore is a decision about backups, not about MFA — but
+  leaving it undocumented while shipping a page that says "turning this
+  off needs your password and a code" would be the misleading half. The
+  guard list names it explicitly as out of scope, with the reason: a
+  backup file already carries the same trust as the password and the
+  factor together.
+
 - **A setup dialog closed at the QR screen takes its secret with it.**
   `begin_enrolment()` has to commit the row before the QR is shown — the
   code the user is about to type is checked against a stored secret — so

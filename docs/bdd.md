@@ -3044,6 +3044,8 @@ Feature: Two-factor authentication
     And giving a right password with a wrong code says exactly the same thing
     And after five wrong answers I am told to wait rather than tried again
 
+  # Implemented; @planned until someone walks it by hand (ten minutes of
+  # wall clock is not something the e2e harness can stage).
   KAL-AUTH-021 @planned
   Scenario: A code prompt left open too long sends me back to the password
     Given I have given the right password and am at the code prompt
@@ -3051,6 +3053,8 @@ Feature: Two-factor authentication
     Then I am returned to the sign-in page
     And I am told it took too long and to sign in again
 
+  # Implemented; @planned until someone walks it by hand (it needs a second
+  # browser context racing the first).
   KAL-AUTH-022 @planned
   Scenario: Turning the factor off in another tab does not cost me a try
     Given I have given the right password and am at the code prompt
@@ -3060,6 +3064,8 @@ Feature: Two-factor authentication
     And I am told my password is now all I need
     And the wrong-code count against me is unchanged
 
+  # Implemented; @planned until someone walks it by hand (it needs
+  # KALETA_SECRET_KEY rotated between two requests).
   KAL-AUTH-023 @planned
   Scenario: A secret written under a different key says so
     Given two-factor authentication is on

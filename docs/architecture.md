@@ -114,7 +114,7 @@ kaleta/
 │       ├── credit.py                # Credit module (/credit): two tabs — Credit Cards and Loans; "New card"/"New loan" dialogs atomically create Account + profile
 │       ├── budget_plan.py           # Annual budget planning grid (/budget-plan)
 │       ├── setup.py                 # First-run database setup page (/setup)
-│       ├── settings.py              # Settings page (/settings) — 6 tabs; module docstring lists all app.storage.user keys
+│       ├── settings/                # Settings page (/settings) — one module per tab; `auth/session.py` is where the app.storage.user keys are named and documented
 │       ├── login_mfa.py             # TOTP challenge page (/login/mfa); public route, guards itself
 │       └── wizard.py                # Onboarding wizard (/wizard)
 ├── tests/
