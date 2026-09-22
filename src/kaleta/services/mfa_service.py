@@ -235,12 +235,13 @@ class MfaService:
             )
         )
         claimed = self._claimed(result)
+        if claimed:
+            await self._record(user_id, event="mfa_enabled", success=True, commit=False)
         await self.session.commit()
         if not claimed:
             msg = "Two-factor authentication is already enabled."
             raise ConflictError(msg)
         await self.session.refresh(row)
-        await self._record(user_id, event="mfa_enabled", success=True)
         return codes
 
     # ── verification ─────────────────────────────────────────────────────
@@ -491,15 +492,18 @@ class MfaService:
             delete(UserMfa).where(UserMfa.id == row.id, UserMfa.enabled_at.is_not(None))
         )
         claimed = self._claimed(result)
+        if claimed:
+            await self._record(user_id, event="mfa_disabled", success=True, commit=False)
         self.session.expunge(row)
         await self.session.commit()
         if not claimed:
             msg = "Two-factor authentication is not enabled."
             raise ConflictError(msg)
-        await self._record(user_id, event="mfa_disabled", success=True)
 
     async def disable_all(self) -> int:
-        """Drop every enrolment. The CLI escape hatch for a lost authenticator.
+        """Drop every enrolment; return how many were actually switched on.
+
+        The CLI escape hatch for a lost authenticator.
 
         Removing a second factor from a shell leaves a trace in the audit log
         for the same reason removing it from the UI does: it is the one state
@@ -512,10 +516,20 @@ class MfaService:
         # when every secret in the table is unreadable. Loading the objects
         # would decrypt them and fail before deleting anything — leaving the
         # locked-out owner with the new password and the old enrolment.
-        result = await self.session.execute(select(UserMfa.user_id))
-        user_ids = list(result.scalars().all())
-        if not user_ids:
+        result = await self.session.execute(
+            select(UserMfa.user_id, UserMfa.enabled_at.is_not(None))
+        )
+        rows = list(result.all())
+        if not rows:
             return 0
+        user_ids = [user_id for user_id, _enabled in rows]
+        # Counted for the message, not for the delete: an enrolment abandoned
+        # at the QR screen leaves an unconfirmed row behind, and telling an
+        # owner who never finished setting one up that we "removed 1" would be
+        # a lie told to the one person least able to check it. The row still
+        # goes — it holds a live secret — it just is not counted as a factor
+        # that was ever guarding anything.
+        enabled = sum(1 for _user_id, is_enabled in rows if is_enabled)
         usernames: list[str | None] = []
         for user_id in user_ids:
             user = await self.session.get(User, user_id)
@@ -534,7 +548,7 @@ class MfaService:
                 commit=False,
             )
         await self.session.commit()
-        return len(user_ids)
+        return enabled
 
     # ── internals ────────────────────────────────────────────────────────
 
@@ -598,7 +612,9 @@ class MfaService:
     async def _record_failure(self, user_id: int, *, event: str) -> None:
         await self._record(user_id, event=event, success=False)
 
-    async def _record(self, user_id: int, *, event: str, success: bool) -> None:
+    async def _record(
+        self, user_id: int, *, event: str, success: bool, commit: bool = True
+    ) -> None:
         """Write one auth event for ``user_id``.
 
         ``user_mfa`` is in the audit listener's skip list — auditing it would
@@ -607,6 +623,13 @@ class MfaService:
         are the successes: a thief at a signed-in browser with the password
         and one code can turn the factor off, and a log holding only the
         guesses they fumbled on the way is a log that missed the theft.
+
+        ``commit=False`` for the rows that record a change to the factor
+        itself, so the trace lands in the same transaction as the thing it
+        describes — what `disable_all()` already does. A crash between two
+        commits would otherwise leave a factor turned off with nothing saying
+        who turned it off, which is the one outcome this method exists to
+        prevent.
         """
         from kaleta.db.audit import record_auth_event
 
@@ -616,6 +639,7 @@ class MfaService:
             event=event,
             username=user.username if user is not None else None,
             success=success,
+            commit=commit,
         )
 
 

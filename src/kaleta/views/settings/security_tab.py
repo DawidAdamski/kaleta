@@ -135,7 +135,7 @@ async def _ask_for_code(user_id: int) -> bool:
             ui.button(t("settings.mfa_confirm"), on_click=_confirm).props("color=primary")
 
     result = await dialog
-    dialog.clear()
+    dialog.delete()
     return bool(result)
 
 
@@ -261,7 +261,7 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
             ui.button(t("settings.mfa_confirm"), on_click=_confirm).props("color=primary")
 
     codes = await dialog
-    dialog.clear()
+    dialog.delete()
     if not codes:
         refresh()
         return
@@ -308,7 +308,7 @@ async def _show_recovery_codes(codes: list[str]) -> None:
             ).props("outline")
             ui.button(t("common.close"), on_click=lambda: dialog.submit(True)).props("flat")
     await dialog
-    dialog.clear()
+    dialog.delete()
 
 
 async def _open_disable(user_id: int, refresh: Refresh) -> None:
@@ -374,7 +374,7 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
             ui.button(t("settings.mfa_disable"), on_click=_confirm).props("color=negative")
 
     disabled = await dialog
-    dialog.clear()
+    dialog.delete()
     if disabled:
         ui.notify(t("settings.mfa_disabled_notify"), type="positive")
     refresh()

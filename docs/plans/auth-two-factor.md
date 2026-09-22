@@ -159,6 +159,10 @@ item is built, and every executable acceptance criterion passes.
 
 **Open for the owner, not closed here:**
 
+- **Walking `KAL-AUTH-021`, `-022` and `-023` by hand.** All three are
+  implemented and left `@planned`, because `@manual` in this repo means
+  someone verified it by hand and nobody has. Retag them `@manual` after
+  walking them; none can be automated against the e2e harness.
 - The `[manual]` criterion — enrol with Google Authenticator, 1Password
   and Aegis and confirm the QR scans and the codes verify in all three.
   Nothing in this branch can run it; three real authenticator apps have
@@ -313,14 +317,16 @@ item is built, and every executable acceptance criterion passes.
   `KAL-AUTH-021` (the challenge ages out), `KAL-AUTH-022` (the factor is
   turned off in another tab while the prompt is open) and `KAL-AUTH-023`
   (the secret was written under a different `KALETA_SECRET_KEY`) are all
-  `@manual`. Each needs something the e2e harness cannot stage against
+  `@planned`. Each needs something the e2e harness cannot stage against
   its own ephemeral instance — ten minutes of wall clock, a second
   browser context racing the first, or a key rotation between two
-  requests — and tagging them `@automated` on the strength of the unit
-  tests underneath would be the green-washing rule 4 forbids. The
-  service-level halves *are* covered: `verify_code()` returning False on
-  a disabled factor, and `EncryptionError` surfacing out of the column
-  type.
+  requests — so `@automated` would be the green-washing rule 4 forbids.
+  `@manual` would be the other kind of lie: this file's legend defines it
+  as "implemented, verified by hand", and nobody has walked them yet.
+  They stay `@planned` until someone does, which is listed below as an
+  open item. The service-level halves *are* covered: `verify_code()`
+  returning False on a disabled factor, and `EncryptionError` surfacing
+  out of the column type.
 
 - **A factor turned off mid-prompt is not a wrong code.** `verify_code()`
   answers False whether the code was wrong or the row is gone, and
@@ -393,6 +399,20 @@ item is built, and every executable acceptance criterion passes.
   raised `StaleDataError` out of the unit of work, which no dialog has an
   arm for. It is now a conditional DELETE through `_claimed()`, and the
   loser gets the same `ConflictError` every other contended write gives.
+
+- **The trace joins the transaction it describes.** `confirm_enrolment()`
+  and `disable()` used to commit the change and then write the audit row
+  in a second transaction. A crash between the two would have left a
+  factor turned off with nothing saying who turned it off — the exact
+  outcome `disable_all()` already avoids by passing `commit=False`. All
+  three now do.
+
+- **`disable_all()` counts what was switched on, not what it deleted.**
+  A setup dialog closed at the QR screen leaves an unconfirmed row
+  behind, and `kaleta --reset-password --disable-mfa` used to report it
+  as an enrolment removed — to an owner who never finished setting one up
+  and is in no position to check. The row still goes (it holds a live
+  secret); it just is not counted as a factor that was guarding anything.
 
 - **Successes are audited, not only failures.** `user_mfa` is in
   `db/audit.py`'s `_SKIP_TABLES` — auditing it would copy the decrypted
