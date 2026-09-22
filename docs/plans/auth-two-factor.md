@@ -211,8 +211,17 @@ Phase A is built.
 
 - **Password-stage `record_login(success=True)` is unchanged**, so the
   audit log still shows the password step separately from the factor.
-  Failed codes are written as `mfa_failure` (`mfa_enrol_failure`,
-  `mfa_disable_failure` for the other two paths).
+  The audit events the module writes are `mfa_failure` (a wrong code or
+  recovery code at the login prompt), `mfa_enrol_failure`,
+  `mfa_disable_failure` (either half of the "turn it off" dialog) and
+  `mfa_disabled_cli`. `_spend_recovery_code()` exists so that a recovery
+  code used to disable is not logged as a login failure: the caller names
+  the event, because a wrong code at a login prompt and a wrong code in
+  the disable dialog are not the same thing to read back.
+
+- **`--disable-mfa` writes an audit row per removed enrolment.** It is
+  the one factor removal nobody had to prove anything to make, so it is
+  the one that most needs a trace.
 
 - **The e2e test is one test, not four.** Enrolment changes how every
   later login on the shared e2e instance behaves, so the whole life of a

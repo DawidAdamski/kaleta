@@ -180,6 +180,18 @@ class MfaService:
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             return False
+        if await self._spend_recovery_code(row, code):
+            return True
+        await self._record_failure(user_id, event="mfa_failure")
+        return False
+
+    async def _spend_recovery_code(self, row: UserMfa, code: str) -> bool:
+        """Consume the code against ``row``, writing no audit event of its own.
+
+        The caller decides what a failure is called: a wrong code at the login
+        prompt and a wrong code in the "turn it off" dialog are different
+        events, and the audit log should be able to tell them apart.
+        """
         candidate = normalise_code(code)
         if not candidate:
             return False
@@ -191,7 +203,6 @@ class MfaService:
             row.recovery_codes_hash = json.dumps(hashes)
             await self.session.commit()
             return True
-        await self._record_failure(user_id, event="mfa_failure")
         return False
 
     # ── management ───────────────────────────────────────────────────────
@@ -220,22 +231,41 @@ class MfaService:
             await self._record_failure(user_id, event="mfa_disable_failure")
             msg = "That password is not right."
             raise ValidationError(msg)
-        if self._matching_counter(row, code) is None and not await self.consume_recovery_code(
-            user_id, code
+        if self._matching_counter(row, code) is None and not await self._spend_recovery_code(
+            row, code
         ):
+            await self._record_failure(user_id, event="mfa_disable_failure")
             msg = "That code is not right."
             raise ValidationError(msg)
         await self.session.delete(row)
         await self.session.commit()
 
     async def disable_all(self) -> int:
-        """Drop every enrolment. The CLI escape hatch for a lost authenticator."""
+        """Drop every enrolment. The CLI escape hatch for a lost authenticator.
+
+        Removing a second factor from a shell leaves a trace in the audit log
+        for the same reason removing it from the UI does: it is the one state
+        change here that nobody had to prove anything to make.
+        """
+        from kaleta.db.audit import record_auth_event
+
         result = await self.session.execute(select(UserMfa))
         rows = list(result.scalars().all())
+        if not rows:
+            return 0
+        usernames: list[str | None] = []
         for row in rows:
+            user = await self.session.get(User, row.user_id)
+            usernames.append(user.username if user is not None else None)
             await self.session.delete(row)
-        if rows:
-            await self.session.commit()
+        await self.session.commit()
+        for username in usernames:
+            await record_auth_event(
+                self.session,
+                event="mfa_disabled_cli",
+                username=username,
+                success=True,
+            )
         return len(rows)
 
     # ── internals ────────────────────────────────────────────────────────

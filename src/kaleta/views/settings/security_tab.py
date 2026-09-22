@@ -10,7 +10,7 @@ from nicegui import app, ui
 
 from kaleta.auth.session import SESSION_USER_ID, mark_mfa_verified, mfa_recently_verified
 from kaleta.exceptions import KaletaError
-from kaleta.i18n import t
+from kaleta.i18n import plural_key, t
 from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
 from kaleta.views.error_handling import notify_kaleta_error
 
@@ -47,16 +47,16 @@ async def _step_up(user_id: int) -> bool:
         return True
     if mfa_recently_verified():
         return True
-    if not await _ask_for_code(user_id, title_key="settings.mfa_step_up_title"):
+    if not await _ask_for_code(user_id):
         return False
     mark_mfa_verified()
     return True
 
 
-async def _ask_for_code(user_id: int, *, title_key: str) -> bool:
+async def _ask_for_code(user_id: int) -> bool:
     """A modal that closes only on a correct code (or a cancel)."""
     with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
-        ui.label(t(title_key)).classes("text-lg font-semibold mb-1")
+        ui.label(t("settings.mfa_step_up_title")).classes("text-lg font-semibold mb-1")
         ui.label(t("settings.mfa_step_up_hint")).classes("text-sm text-slate-500 mb-4")
         code_input = ui.input(label=t("settings.mfa_code")).classes("w-full")
         error = ui.label("").classes("text-sm text-negative mt-2")
@@ -70,7 +70,7 @@ async def _ask_for_code(user_id: int, *, title_key: str) -> bool:
             async def _verify(session: Any) -> bool:
                 return await MfaService(session).verify_code(user_id, entered)
 
-            if not await _verify_in_session(_verify):
+            if not await with_session(_verify):
                 error.set_text(t("settings.mfa_failed"))
                 code_input.value = ""
                 return
@@ -84,10 +84,6 @@ async def _ask_for_code(user_id: int, *, title_key: str) -> bool:
     result = await dialog
     dialog.clear()
     return bool(result)
-
-
-async def _verify_in_session(check: Any) -> bool:
-    return bool(await with_session(check))
 
 
 async def _render_mfa_card(user_id: int) -> None:
@@ -112,11 +108,9 @@ async def _render_mfa_card(user_id: int) -> None:
                             date=status.enabled_at.strftime("%Y-%m-%d"),
                         )
                     ).classes("text-sm")
+                    remaining = status.recovery_codes_remaining
                     ui.label(
-                        t(
-                            "settings.mfa_recovery_remaining",
-                            count=status.recovery_codes_remaining,
-                        )
+                        t(plural_key("settings.mfa_recovery_remaining", remaining), count=remaining)
                     ).classes("text-xs text-slate-500")
                 else:
                     ui.label(t("settings.mfa_status_disabled")).classes("text-sm")
@@ -257,6 +251,7 @@ async def _open_disable(user_id: int, refresh: Any) -> None:
                 return
             dialog.submit(True)
 
+        password_input.on("keydown.enter", _confirm)
         code_input.on("keydown.enter", _confirm)
         with ui.row().classes("gap-2 mt-4 justify-end w-full"):
             ui.button(t("common.cancel"), on_click=lambda: dialog.submit(False)).props("flat")

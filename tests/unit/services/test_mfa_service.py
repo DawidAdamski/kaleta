@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.db.types import FORMAT_AES_GCM
 from kaleta.exceptions import ConflictError, ValidationError
+from kaleta.models.audit_log import AuditLog
 from kaleta.models.user_mfa import UserMfa
 from kaleta.services.auth_service import AuthService
 from kaleta.services.mfa_service import (
@@ -247,6 +248,29 @@ class TestDisable:
         await enrol(mfa, user.id)
         assert await mfa.disable_all() == 1
         assert await mfa.is_enabled(user.id) is False
+
+    @pytest.mark.asyncio
+    async def test_disable_all_leaves_a_trace(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        """It is the one removal nobody had to prove anything to make."""
+        await enrol(mfa, user.id)
+        await mfa.disable_all()
+        rows = (
+            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            .scalars()
+            .all()
+        )
+        events = [json.loads(row.new_data or "{}") for row in rows]
+        assert {"event": "mfa_disabled_cli", "username": "owner", "success": True} in events
+
+    @pytest.mark.asyncio
+    async def test_disable_all_on_an_empty_table_is_quiet(
+        self, mfa: MfaService, session: AsyncSession
+    ) -> None:
+        assert await mfa.disable_all() == 0
+        rows = (await session.execute(select(AuditLog))).scalars().all()
+        assert rows == []
 
 
 class TestNormaliseCode:

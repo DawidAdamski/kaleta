@@ -1875,7 +1875,6 @@
     "mfa_hint": "Kod z telefonu oprócz hasła. Bez niego hasło jest jedyną rzeczą między kimkolwiek z tym plikiem a całą Twoją księgą.",
     "mfa_status_enabled": "Włączone od {date}",
     "mfa_status_disabled": "Wyłączone",
-    "mfa_recovery_remaining": "Pozostało kodów zapasowych: {count}",
     "mfa_setup": "Skonfiguruj",
     "mfa_setup_title": "Konfiguracja uwierzytelniania dwuskładnikowego",
     "mfa_setup_step_scan": "Zeskanuj to aplikacją uwierzytelniającą.",
@@ -1897,7 +1896,10 @@
     "mfa_step_up_hint": "Wpisz kod z aplikacji uwierzytelniającej.",
     "mfa_step_up_required": "Do tej operacji potrzebny jest kod dwuskładnikowy.",
     "mfa_code_required": "Wpisz kod.",
-    "mfa_failed": "Ten kod się nie zgadza."
+    "mfa_failed": "Ten kod się nie zgadza.",
+    "mfa_recovery_remaining_one": "Pozostał 1 kod zapasowy",
+    "mfa_recovery_remaining_few": "Pozostały {count} kody zapasowe",
+    "mfa_recovery_remaining_many": "Pozostało {count} kodów zapasowych"
   },
   "audit": {
     "title": "Historia zmian",
