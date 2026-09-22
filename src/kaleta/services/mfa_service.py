@@ -23,7 +23,7 @@ import logging
 import secrets
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pyotp
 import qrcode
@@ -46,6 +46,13 @@ TOTP_INTERVAL = 30
 TOTP_DRIFT_STEPS = 1
 #: The issuer an authenticator app shows above the code.
 TOTP_ISSUER = "Kaleta"
+
+#: How long a proved second factor counts as fresh for a sensitive action.
+#: The policy lives here, not in the session helper, so that a service can
+#: judge the freshness of the proof it is handed rather than trusting a bool.
+STEP_UP_WINDOW_MINUTES = 10
+#: How long a password-accepted session may sit in front of the code prompt.
+MFA_CHALLENGE_TTL_MINUTES = 10
 
 RECOVERY_CODE_COUNT = 10
 RECOVERY_CODE_LENGTH = 10
@@ -175,6 +182,14 @@ class MfaService:
         await self.session.commit()
         return True
 
+    @staticmethod
+    def step_up_is_fresh(verified_at: datetime | None) -> bool:
+        """True when a second factor proved that recently counts for a sensitive action."""
+        if verified_at is None:
+            return False
+        stamp = verified_at if verified_at.tzinfo else verified_at.replace(tzinfo=UTC)
+        return datetime.now(UTC) - stamp <= timedelta(minutes=STEP_UP_WINDOW_MINUTES)
+
     async def verify_challenge(self, user_id: int, code: str) -> bool:
         """A current TOTP code or an unused recovery code — whichever is to hand.
 
@@ -239,7 +254,14 @@ class MfaService:
         return codes
 
     async def disable(self, user_id: int, *, password: str, code: str) -> None:
-        """Turn MFA off. Needs the password and a fresh code (or a recovery code)."""
+        """Turn MFA off. Needs the password and a fresh code (or a recovery code).
+
+        One message for both halves, deliberately. Telling the two apart would
+        make this dialog a password oracle for anyone at an already-signed-in
+        browser — and one that answers without going past the login page's
+        rate limiter.
+        """
+        wrong = "That password or code is not right."
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             msg = "Two-factor authentication is not enabled."
@@ -250,14 +272,16 @@ class MfaService:
             raise NotFoundError(msg)
         if not AuthService(self.session).verify_password(password, user.password_hash):
             await self._record_failure(user_id, event="mfa_disable_failure")
-            msg = "That password is not right."
-            raise ValidationError(msg)
-        if self._matching_counter(row, code) is None and not await self._spend_recovery_code(
-            row, code
-        ):
+            raise ValidationError(wrong)
+        counter = self._matching_counter(row, code)
+        if counter is None and not await self._spend_recovery_code(row, code):
             await self._record_failure(user_id, event="mfa_disable_failure")
-            msg = "That code is not right."
-            raise ValidationError(msg)
+            raise ValidationError(wrong)
+        # Spend the step even though the row is about to go: every other path
+        # through this module honours the replay rule, and a disable that
+        # became a soft delete should not quietly be the exception.
+        if counter is not None:
+            row.last_used_counter = counter
         await self.session.delete(row)
         await self.session.commit()
 

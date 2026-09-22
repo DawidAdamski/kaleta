@@ -113,3 +113,10 @@ class TestAlreadyEncryptedPassthrough:
         assert stored is not None
         assert column.process_bind_param(stored, DIALECT) == stored
         assert column.process_result_value(stored, DIALECT) == "JBSWY3DPEHPK3PXP"
+
+    def test_arbitrary_bytes_are_refused(self, column: EncryptedString) -> None:
+        """Otherwise ``b"\\x00" + secret`` is a way to write a plaintext value."""
+        with pytest.raises(EncryptionError):
+            column.process_bind_param(bytes([FORMAT_PLAINTEXT]) + b"JBSWY3DPEHPK3PXP", DIALECT)
+        with pytest.raises(EncryptionError):
+            column.process_bind_param(b"not a ciphertext", DIALECT)

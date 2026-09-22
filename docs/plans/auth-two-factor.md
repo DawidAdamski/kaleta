@@ -224,6 +224,45 @@ Phase A is built.
   the one factor removal nobody had to prove anything to make, so it is
   the one that most needs a trace.
 
+- **Two files outside the plan's touchpoints changed, and had to.**
+  `src/kaleta/services/backup_service.py` and `tests/backup_helpers.py`:
+  an encrypted column is a `LargeBinary`, and a `LargeBinary` is not
+  JSON, so the export failed outright the moment `user_mfa` existed.
+  Binary columns now travel as base64 and are restored as the ciphertext
+  they are — the restore never decrypts, so a backup carries no readable
+  secret, and re-encrypting on the way back in would have turned a
+  restored secret into noise that still looked like a row. A backup made
+  before `KALETA_SECRET_KEY` was rotated cannot be read after it, which
+  is the same trade the key derivation already makes.
+  `KAL-SET-015` gained a line about values, not just row counts, and
+  `test_restore_preserves_an_encrypted_secret` covers it.
+
+- **`ADR-36` records the local encryption format** and the three new base
+  dependencies, as `docs/review-checklist.md` asks when the
+  dependencies-of-record change. It is written so `ADR-35`'s key ring
+  replaces the key source rather than the format.
+
+- **The step-up window is the service's judgement, not the view's.** The
+  plan says `ApiTokenService` checks `SESSION_MFA_VERIFIED_AT`, but a
+  service that reads `app.storage.user` would import NiceGUI. So the view
+  passes `mfa_verified_at()` — a timestamp, not a verdict — and
+  `MfaService.step_up_is_fresh()` owns the 10-minute window. A caller
+  cannot widen it by asserting that it checked.
+
+- **A pending challenge expires** after `MFA_CHALLENGE_TTL_MINUTES`.
+  A browser left at the code prompt was otherwise one code away from a
+  login for as long as the session lasted.
+
+- **The "turn it off" dialog answers wrong password and wrong code with
+  the same sentence**, and is throttled on the same counter as the login
+  prompt. Telling the two apart made it a password oracle that answered
+  without going past `login_rate_limiter`.
+
+- **The ciphertext passthrough on `EncryptedString` is narrow.** It takes
+  only blobs that start with the AES-GCM format byte. An unrestricted
+  one would have made `b"\x00" + secret` a way to write a plaintext
+  value that the reader accepts.
+
 - **The two new CLI integration tests carry no `skipif`.** The two older
   tests in that file skip under postgres because `ResetPasswordCli`
   repoints the shared session factory at its own SQLite file and never

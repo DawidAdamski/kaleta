@@ -35,13 +35,13 @@ class ApiTokenService:
         *,
         user_id: int,
         label: str,
-        step_up_verified: bool = False,
+        mfa_verified_at: datetime | None = None,
     ) -> tuple[ApiToken, str]:
         label = label.strip()
         if not label:
             msg = "Label is required"
             raise ValidationError(msg)
-        await self._require_step_up(user_id, step_up_verified=step_up_verified)
+        await self._require_step_up(user_id, mfa_verified_at=mfa_verified_at)
         raw_token = self.generate_raw_token()
         token = ApiToken(
             token_hash=self.hash_token(raw_token),
@@ -64,9 +64,9 @@ class ApiTokenService:
         *,
         token_id: int,
         user_id: int,
-        step_up_verified: bool = False,
+        mfa_verified_at: datetime | None = None,
     ) -> ApiToken | None:
-        await self._require_step_up(user_id, step_up_verified=step_up_verified)
+        await self._require_step_up(user_id, mfa_verified_at=mfa_verified_at)
         result = await self.session.execute(
             select(ApiToken).where(ApiToken.id == token_id, ApiToken.user_id == user_id)
         )
@@ -110,18 +110,22 @@ class ApiTokenService:
             return None
         return user.id
 
-    async def _require_step_up(self, user_id: int, *, step_up_verified: bool) -> None:
+    async def _require_step_up(self, user_id: int, *, mfa_verified_at: datetime | None) -> None:
         """A bearer token outlives a session, so minting one is a second-factor act.
 
-        MFA off: nothing to prove and nothing changes. MFA on: the caller must
-        say the code was given recently — the default is "it was not", so a
-        caller that has never heard of step-up cannot skip it by accident.
+        MFA off: nothing to prove and nothing changes. MFA on: the caller says
+        *when* the second factor was last proved and this service decides
+        whether that is recent enough, so the window is not a number a view
+        can talk its way around. The default is "never", so a caller that has
+        never heard of step-up cannot skip it by accident.
         """
-        if step_up_verified:
+        mfa = MfaService(self.session)
+        if not await mfa.is_enabled(user_id):
             return
-        if await MfaService(self.session).is_enabled(user_id):
-            msg = "Confirm with a two-factor code before changing API tokens."
-            raise ValidationError(msg)
+        if mfa.step_up_is_fresh(mfa_verified_at):
+            return
+        msg = "Confirm with a two-factor code before changing API tokens."
+        raise ValidationError(msg)
 
     async def _record_event(self, *, event: str, label: str) -> None:
         from kaleta.db.audit import record_token_event

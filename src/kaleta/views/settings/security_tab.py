@@ -9,7 +9,12 @@ from typing import Any
 from nicegui import app, ui
 
 from kaleta.auth.login_rate_limit import mfa_rate_limiter
-from kaleta.auth.session import SESSION_USER_ID, mark_mfa_verified, mfa_recently_verified
+from kaleta.auth.session import (
+    SESSION_USER_ID,
+    mark_mfa_verified,
+    mfa_recently_verified,
+    mfa_verified_at,
+)
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import plural_key, t
 from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
@@ -245,6 +250,13 @@ async def _show_recovery_codes(codes: list[str]) -> None:
 
 
 async def _open_disable(user_id: int, refresh: Any) -> None:
+    """Turning the factor off is guessable twice over, so it is throttled too.
+
+    The service answers a wrong password and a wrong code with the same
+    sentence; this counter is what stops an attacker at a signed-in browser
+    from simply asking often enough.
+    """
+    rate_key = str(user_id)
     with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
         ui.label(t("settings.mfa_disable_title")).classes("text-lg font-semibold mb-1")
         ui.label(t("settings.mfa_disable_hint")).classes("text-sm text-slate-500 mb-4")
@@ -253,6 +265,11 @@ async def _open_disable(user_id: int, refresh: Any) -> None:
         error = ui.label("").classes("text-sm text-negative mt-2")
 
         async def _confirm() -> None:
+            if mfa_rate_limiter.is_locked(rate_key):
+                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                return
+
             async def _do(session: Any) -> None:
                 await MfaService(session).disable(
                     user_id,
@@ -263,9 +280,14 @@ async def _open_disable(user_id: int, refresh: Any) -> None:
             try:
                 await with_session(_do)
             except KaletaError as exc:
-                error.set_text(exc.message)
+                if mfa_rate_limiter.record_failure(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                else:
+                    error.set_text(exc.message)
                 code_input.value = ""
                 return
+            mfa_rate_limiter.clear(rate_key)
             dialog.submit(True)
 
         password_input.on("keydown.enter", _confirm)
@@ -333,7 +355,7 @@ async def _render_token_card(user_id: int) -> None:
                 token, raw = await ApiTokenService(session).create_token(
                     user_id=user_id,
                     label=label,
-                    step_up_verified=True,
+                    mfa_verified_at=mfa_verified_at(),
                 )
                 return token.label, raw
 
@@ -435,7 +457,7 @@ async def _render_token_card(user_id: int) -> None:
                     await ApiTokenService(session).revoke_token(
                         token_id=token_id,
                         user_id=user_id,
-                        step_up_verified=True,
+                        mfa_verified_at=mfa_verified_at(),
                     )
 
                 await with_session(_do_revoke)

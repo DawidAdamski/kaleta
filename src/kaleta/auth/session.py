@@ -9,6 +9,7 @@ from nicegui import app
 from starlette.requests import Request
 
 from kaleta.config import settings
+from kaleta.services.mfa_service import MFA_CHALLENGE_TTL_MINUTES, MfaService
 
 SESSION_AUTHENTICATED = "authenticated"
 SESSION_USER_ID = "user_id"
@@ -22,6 +23,7 @@ SESSION_LOGIN_AT = "login_at"
 SESSION_MFA_PENDING = "mfa_pending"
 SESSION_MFA_PENDING_USER_ID = "mfa_pending_user_id"
 SESSION_MFA_PENDING_USERNAME = "mfa_pending_username"
+SESSION_MFA_PENDING_AT = "mfa_pending_at"
 #: When the second factor was last proved, for step-up on sensitive actions.
 SESSION_MFA_VERIFIED_AT = "mfa_verified_at"
 
@@ -29,10 +31,8 @@ _MFA_PENDING_KEYS = (
     SESSION_MFA_PENDING,
     SESSION_MFA_PENDING_USER_ID,
     SESSION_MFA_PENDING_USERNAME,
+    SESSION_MFA_PENDING_AT,
 )
-
-#: How long a proved second factor counts as fresh for a sensitive action.
-STEP_UP_WINDOW_MINUTES = 10
 
 
 def is_authenticated() -> bool:
@@ -40,6 +40,8 @@ def is_authenticated() -> bool:
 
 
 def login_session(*, user_id: int, username: str) -> None:
+    # A finished login leaves no half-finished one behind it.
+    clear_mfa_challenge()
     app.storage.user[SESSION_AUTHENTICATED] = True
     app.storage.user[SESSION_USER_ID] = user_id
     app.storage.user[SESSION_USERNAME] = username
@@ -64,6 +66,7 @@ def begin_mfa_challenge(*, user_id: int, username: str) -> None:
     app.storage.user[SESSION_MFA_PENDING] = True
     app.storage.user[SESSION_MFA_PENDING_USER_ID] = user_id
     app.storage.user[SESSION_MFA_PENDING_USERNAME] = username
+    app.storage.user[SESSION_MFA_PENDING_AT] = datetime.now(UTC).isoformat()
 
 
 def clear_mfa_challenge() -> None:
@@ -76,8 +79,16 @@ def is_mfa_pending() -> bool:
 
 
 def mfa_pending_user() -> tuple[int, str] | None:
-    """The user waiting on a code, or ``None`` when nobody is."""
+    """The user waiting on a code, or ``None`` when nobody is.
+
+    A challenge goes stale. Someone who gives the right password and walks
+    away leaves a browser that needs only the code; after
+    ``MFA_CHALLENGE_TTL_MINUTES`` the password has to be given again.
+    """
     if not is_mfa_pending():
+        return None
+    if not _within(app.storage.user.get(SESSION_MFA_PENDING_AT), MFA_CHALLENGE_TTL_MINUTES):
+        clear_mfa_challenge()
         return None
     raw_id = app.storage.user.get(SESSION_MFA_PENDING_USER_ID)
     username = app.storage.user.get(SESSION_MFA_PENDING_USERNAME)
@@ -93,18 +104,35 @@ def mark_mfa_verified() -> None:
     app.storage.user[SESSION_MFA_VERIFIED_AT] = datetime.now(UTC).isoformat()
 
 
-def mfa_recently_verified(*, window_minutes: int = STEP_UP_WINDOW_MINUTES) -> bool:
+def mfa_verified_at() -> datetime | None:
+    """When the second factor was last proved in this session, if ever.
+
+    Services are handed this rather than a boolean: whether it is recent
+    enough is ``MfaService``'s judgement, not the session helper's.
+    """
+    return _stamp(app.storage.user.get(SESSION_MFA_VERIFIED_AT))
+
+
+def mfa_recently_verified() -> bool:
     """True when the second factor was proved within the step-up window."""
-    raw = app.storage.user.get(SESSION_MFA_VERIFIED_AT)
+    return MfaService.step_up_is_fresh(mfa_verified_at())
+
+
+def _stamp(raw: object) -> datetime | None:
     if raw is None:
-        return False
+        return None
     try:
-        verified_at = datetime.fromisoformat(str(raw))
+        parsed = datetime.fromisoformat(str(raw))
     except (TypeError, ValueError):
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
+
+
+def _within(raw: object, minutes: int) -> bool:
+    stamp = _stamp(raw)
+    if stamp is None:
         return False
-    if verified_at.tzinfo is None:
-        verified_at = verified_at.replace(tzinfo=UTC)
-    return datetime.now(UTC) - verified_at <= timedelta(minutes=window_minutes)
+    return datetime.now(UTC) - stamp <= timedelta(minutes=minutes)
 
 
 def clear_session() -> None:

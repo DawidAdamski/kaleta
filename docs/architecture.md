@@ -180,6 +180,7 @@ out of sequence in the original monolithic document).
 | [033](adr/033-agpl-core-with-cla.md) | AGPL-3.0 Core with CLA and Proprietary Commercial Tier | accepted |
 | [034](adr/034-openpyxl-as-an-optional-extra-for-xlsx-import.md) | openpyxl as an Optional Extra for XLSX Import | accepted |
 | [035](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) | Hosted Multi-Tenancy: Schema per Account and User-Held Field Encryption | proposed |
+| [036](adr/036-local-column-encryption-and-totp-as-base-dependencies.md) | Local Column Encryption and TOTP as Base Dependencies | accepted |
 
 ## UI Colour Schema
 

@@ -14,6 +14,7 @@ import pytest
 
 from kaleta.auth import middleware as middleware_mod
 from kaleta.auth import session as session_mod
+from kaleta.services.mfa_service import MFA_CHALLENGE_TTL_MINUTES, STEP_UP_WINDOW_MINUTES
 
 
 @pytest.fixture
@@ -49,7 +50,6 @@ class TestPendingSessionIsUnauthenticated:
 
     def test_finishing_the_challenge_authenticates(self, fake_storage: dict[str, Any]) -> None:
         session_mod.begin_mfa_challenge(user_id=7, username="owner")
-        session_mod.clear_mfa_challenge()
         session_mod.login_session(user_id=7, username="owner")
         assert session_mod.is_mfa_pending() is False
         assert session_mod.is_authenticated() is True
@@ -66,6 +66,27 @@ class TestPendingSessionIsUnauthenticated:
         session_mod.logout_session()
         assert session_mod.is_mfa_pending() is False
         assert session_mod.mfa_pending_user() is None
+
+    def test_a_stale_challenge_is_no_challenge(self, fake_storage: dict[str, Any]) -> None:
+        """A browser left at the code prompt must not stay one code from a login."""
+        session_mod.begin_mfa_challenge(user_id=7, username="owner")
+        stale = datetime.now(UTC) - timedelta(minutes=MFA_CHALLENGE_TTL_MINUTES + 1)
+        fake_storage[session_mod.SESSION_MFA_PENDING_AT] = stale.isoformat()
+        assert session_mod.mfa_pending_user() is None
+        assert session_mod.is_mfa_pending() is False
+
+    def test_a_challenge_without_a_stamp_is_no_challenge(
+        self, fake_storage: dict[str, Any]
+    ) -> None:
+        fake_storage[session_mod.SESSION_MFA_PENDING] = True
+        fake_storage[session_mod.SESSION_MFA_PENDING_USER_ID] = 7
+        fake_storage[session_mod.SESSION_MFA_PENDING_USERNAME] = "owner"
+        assert session_mod.mfa_pending_user() is None
+
+    def test_signing_in_clears_a_leftover_challenge(self, fake_storage: dict[str, Any]) -> None:
+        session_mod.begin_mfa_challenge(user_id=7, username="owner")
+        session_mod.login_session(user_id=7, username="owner")
+        assert session_mod.is_mfa_pending() is False
 
 
 class TestRoutesReachableWhilePending:
@@ -92,7 +113,7 @@ class TestStepUpWindow:
         assert session_mod.mfa_recently_verified() is True
 
     def test_an_old_code_does_not(self, fake_storage: dict[str, Any]) -> None:
-        stale = datetime.now(UTC) - timedelta(minutes=session_mod.STEP_UP_WINDOW_MINUTES + 1)
+        stale = datetime.now(UTC) - timedelta(minutes=STEP_UP_WINDOW_MINUTES + 1)
         fake_storage[session_mod.SESSION_MFA_VERIFIED_AT] = stale.isoformat()
         assert session_mod.mfa_recently_verified() is False
 

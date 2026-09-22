@@ -3244,6 +3244,7 @@ Feature: Settings — Data safety
     And I am on the Settings page, Data tab
     When I upload the backup ZIP and confirm restore
     Then every table's row count matches the backup
+    And every value reads back as it did before, encrypted columns included
 
   KAL-SET-016 @automated
   Scenario: Restore refuses a backup from a different schema revision

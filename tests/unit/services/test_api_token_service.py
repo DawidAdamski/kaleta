@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -132,7 +134,9 @@ class TestStepUp:
         self, tokens: ApiTokenService, session: AsyncSession, user
     ) -> None:
         await self._enrol(session, user.id)
-        _token, raw = await tokens.create_token(user_id=user.id, label="ci", step_up_verified=True)
+        _token, raw = await tokens.create_token(
+            user_id=user.id, label="ci", mfa_verified_at=datetime.now(UTC)
+        )
         assert raw
 
     @pytest.mark.asyncio
