@@ -41,6 +41,11 @@ docs = [
     "mkdocs>=1.6",
     "mkdocs-material>=9.5",
 ]
+# Optional Sentry-protocol forwarding of anonymous error events
+# (KALETA_ERROR_TRACKER_DSN, e.g. a self-hosted GlitchTip). Off by default.
+tracker = [
+    "sentry-sdk>=2.20",
+]
 
 [project.scripts]
 kaleta = "kaleta.main:main"
@@ -92,6 +97,7 @@ layers = [
     "kaleta.i18n",
     "kaleta.models",
     "kaleta.db",
+    "kaleta.observability",
     "kaleta.config",
 ]
 ignore_imports = [

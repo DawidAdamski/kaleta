@@ -5,6 +5,7 @@ from kaleta.models.app_event import AppEvent
 from kaleta.models.asset import Asset, AssetType
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.budget import Budget
+from kaleta.models.bug_report import BugReport, BugReportStatus
 from kaleta.models.categorisation_rule import CategorisationRule, RuleMatchMode
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.credit import CreditCardProfile, LoanProfile
@@ -40,6 +41,8 @@ __all__ = [
     "AssetType",
     "AuditLog",
     "Budget",
+    "BugReport",
+    "BugReportStatus",
     "CategorisationRule",
     "Category",
     "CategoryType",

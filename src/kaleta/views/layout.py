@@ -333,6 +333,11 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     from kaleta.config.setup_config import is_configured
     from kaleta.views.auto_post import maybe_auto_post_due
 
+    # Imported here, not at module scope: the report dialog reaches back into
+    # views.settings for the user's preferences, which imports this module.
+    from kaleta.views.bug_report_dialog import install_bug_report_dialog, open_bug_report_dialog
+    from kaleta.views.error_handling import install_error_tray
+
     ui.page_title(f"{title} · Kaleta")
     ui.add_head_html(PWA_HEAD)
     ui.add_head_html(f"<style>{theme_css()}</style>")
@@ -470,6 +475,10 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
         with account_btn, ui.menu():
             if session_username:
                 ui.menu_item(session_username).props("disable")
+            ui.menu_item(
+                t("bugreport.menu_item"),
+                on_click=open_bug_report_dialog,
+            ).props("icon=bug_report")
             ui.menu_item(t("auth.logout"), on_click=_logout).props("icon=logout")
             ui.menu_item(t("common.close_db"), on_click=close_dialog.open).props("icon=eject")
 
@@ -586,6 +595,11 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     ui.add_head_html(_PALETTE_KEY_JS)
 
     _tab_bar(drawer, current_path)
+
+    # One per page: the tray a failure shows itself in, and the dialog its
+    # Report button opens. Both are fixed/overlay, so placement is free.
+    install_error_tray()
+    install_bug_report_dialog()
 
     width_cls = "max-w-screen-2xl" if wide else "max-w-7xl"
     with ui.column().classes(f"{container or PAGE_CONTAINER} {width_cls}"):

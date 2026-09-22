@@ -158,6 +158,34 @@ KALETA_BACKUP_RETAIN=7                # Keep last K on-disk .db snapshots
 KALETA_BACKUP_DIR=~/.kaleta/backups   # Directory for kaleta-*.db files (not ZIP exports)
 ```
 
+### Observability and bug reports
+
+```
+KALETA_LOG_FORMAT=text                # text (terminal) | json (one object per line)
+KALETA_LOG_LEVEL=INFO                 # Python level name; KALETA_DEBUG=true forces DEBUG
+KALETA_EVENTS_ENABLED=true            # Anonymous error events (docs/privacy-events.md)
+KALETA_EVENT_RETENTION_DAYS=7         # Rolling deletion window for events
+KALETA_BUG_REPORTS_ENABLED=true       # In-app "Report a problem" retention reaper
+KALETA_BUG_REPORT_RETENTION_DAYS=90   # Rolling deletion window for filed reports
+KALETA_BUG_REPORT_WEBHOOK=            # POST each report as JSON (n8n, generic endpoint)
+KALETA_BUG_REPORT_WEBHOOK_INCLUDE_LOGS=false  # Include the log excerpt in that POST
+KALETA_BUG_REPORT_EMAIL=              # Also e-mail reports (needs the SMTP settings)
+KALETA_SMTP_HOST=                     # SMTP relay for report e-mail
+KALETA_SMTP_PORT=587
+KALETA_SMTP_USERNAME=
+KALETA_SMTP_PASSWORD=
+KALETA_SMTP_FROM=                     # Envelope sender; defaults to the username
+KALETA_SMTP_STARTTLS=true
+KALETA_ERROR_TRACKER_DSN=             # Optional Sentry-protocol endpoint (extra: tracker)
+```
+
+`KALETA_LOG_FORMAT=json` adds `request_id`, `session_id`, `route`, `event_id`
+and `app_version` to every line, so the ID a user reads off an error leads to
+the lines around it. Records are redacted (bearer tokens, e-mail addresses,
+query strings, over-long arguments) before any handler writes them, and the
+last 200 lines of a session are held in memory so a bug report can attach them
+— only when the user ticks the box. See [privacy-events.md](privacy-events.md).
+
 Scheduled backups are SQLite file snapshots (`VACUUM INTO`), separate from the
 Settings → Data ZIP export/restore format. They are a no-op for PostgreSQL and
 in-memory SQLite.

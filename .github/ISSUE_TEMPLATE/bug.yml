@@ -10,6 +10,18 @@ body:
         Thanks for reporting a bug. Please search [existing issues](https://github.com/DawidAdamski/kaleta/issues) first.
         For security vulnerabilities, use [Security Advisories](https://github.com/DawidAdamski/kaleta/security/advisories/new) instead.
 
+        Reporting from inside the app (account menu → **Report a problem**)
+        gives you a report ID and fills the fields below in for you.
+
+  - type: input
+    id: report_id
+    attributes:
+      label: Report ID
+      description: From the in-app report dialog, if you used it.
+      placeholder: e.g. 7KQ2M4XB
+    validations:
+      required: false
+
   - type: textarea
     id: description
     attributes:
@@ -38,6 +50,24 @@ body:
       placeholder: main @ abc1234
     validations:
       required: true
+
+  - type: input
+    id: route
+    attributes:
+      label: Page
+      description: The page you were on when it failed.
+      placeholder: /transactions
+    validations:
+      required: false
+
+  - type: input
+    id: events
+    attributes:
+      label: Event IDs
+      description: Error IDs the app showed when it failed.
+      placeholder: e.g. 4BXDD9XG
+    validations:
+      required: false
 
   - type: dropdown
     id: runtime

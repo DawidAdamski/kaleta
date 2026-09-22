@@ -26,7 +26,7 @@ from kaleta.api import create_api_router
 from kaleta.api.errors import register_error_handlers
 from kaleta.api.v1.health import register_health_alias
 from kaleta.config import settings
-from kaleta.logging_config import RequestLoggingMiddleware, configure_logging
+from kaleta.logging_config import RequestContextMiddleware, configure_logging
 from kaleta.services.backup_scheduler import BackupScheduler
 from kaleta.services.nbp_startup import NbpStartupFetcher
 from kaleta.services.nicegui_storage_service import NiceguiStorageService
@@ -52,6 +52,18 @@ def _setup_pwa() -> None:
     from kaleta.pwa import setup
 
     setup()
+
+
+def _register_request_context() -> None:
+    """Correlate every HTTP request; NiceGUI events use the UI resolver."""
+    nicegui_app.add_middleware(RequestContextMiddleware)
+
+
+def _register_error_tracker() -> None:
+    """Optional Sentry-protocol forwarding (KALETA_ERROR_TRACKER_DSN)."""
+    from kaleta.services.error_tracker import init_error_tracker
+
+    init_error_tracker()
 
 
 def _register_api() -> None:
@@ -214,6 +226,10 @@ def _register_views() -> None:
     wizard_unplanned_radar.register()
     settings.register()
 
+    from kaleta.views.error_handling import install_session_resolver
+
+    install_session_resolver()
+
 
 def _sweep_nicegui_storage() -> None:
     NiceguiStorageService().sweep_stale()
@@ -269,9 +285,11 @@ def create_api() -> FastAPI:
 
 def run_web() -> None:
     configure_logging()
+    _register_error_tracker()
     _warn_repo_root_data_leftovers()
     _preload_config()
     _setup_pwa()
+    _register_request_context()
     _register_api()
     _register_auth()
     _register_views()
@@ -293,9 +311,11 @@ def run_web() -> None:
 
 def run_app() -> None:
     configure_logging()
+    _register_error_tracker()
     _warn_repo_root_data_leftovers()
     _preload_config()
     _setup_pwa()
+    _register_request_context()
     _register_api()
     _register_auth()
     _register_views()
@@ -315,9 +335,10 @@ def run_app() -> None:
 
 def run_api() -> None:
     configure_logging()
+    _register_error_tracker()
     _preload_config()
     api = create_api()
-    api.add_middleware(RequestLoggingMiddleware)
+    api.add_middleware(RequestContextMiddleware, access_log=True)
     api.include_router(create_api_router())
     uvicorn.run(api, host=settings.host, port=settings.port)
 

@@ -8,7 +8,6 @@ import logging
 import secrets
 import traceback
 from datetime import UTC, datetime, timedelta
-from importlib.metadata import version as pkg_version
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -16,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.config import settings
 from kaleta.models.app_event import AppEvent
+from kaleta.observability import app_version, bind_event_id
 
 logger = logging.getLogger(__name__)
 
@@ -24,16 +24,9 @@ _MAX_STACK_CHARS = 8000
 _MAX_EVENT_ID_ATTEMPTS = 5
 
 
-def _app_version() -> str:
-    try:
-        return pkg_version("kaleta")
-    except Exception:
-        return "unknown"
-
-
-def _generate_event_id() -> str:
-    """Return an 8-character human-friendly event id."""
-    return "".join(secrets.choice(_EVENT_ID_ALPHABET) for _ in range(8))
+def generate_short_id(length: int = 8) -> str:
+    """Return a human-friendly public id — no I/L/O, safe to read aloud."""
+    return "".join(secrets.choice(_EVENT_ID_ALPHABET) for _ in range(length))
 
 
 def extract_code_stack(exc: BaseException) -> str:
@@ -68,7 +61,7 @@ def event_payload_fields(exc: BaseException) -> dict[str, Any]:
         "exception_class": type(exc).__name__,
         "stack_hash": stack_hash(exc),
         "stack_trace": stack,
-        "app_version": _app_version(),
+        "app_version": app_version(),
     }
 
 
@@ -88,7 +81,7 @@ class EventService:
         """Persist an anonymous error event and return its short ``event_id``."""
         fields = event_payload_fields(exc)
         for _ in range(_MAX_EVENT_ID_ATTEMPTS):
-            event_id = _generate_event_id()
+            event_id = generate_short_id()
             existing = await self.session.scalar(
                 select(AppEvent.id).where(AppEvent.event_id == event_id).limit(1)
             )
@@ -109,6 +102,8 @@ class EventService:
         )
         self.session.add(row)
         await self.session.commit()
+        # From here the request's log lines carry the id the user is shown.
+        bind_event_id(event_id)
         logger.info("Recorded app event %s (%s)", event_id, fields["exception_class"])
         return event_id
 

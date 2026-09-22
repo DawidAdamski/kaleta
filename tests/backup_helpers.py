@@ -18,6 +18,8 @@ from kaleta.models import (
     AssetType,
     AuditLog,
     Budget,
+    BugReport,
+    BugReportStatus,
     CategorisationRule,
     Category,
     CategoryType,
@@ -347,6 +349,20 @@ async def seed_every_model(session: AsyncSession) -> None:
             stack_trace="(test)",
             app_version="test",
             user_id=user.id,
+        )
+    )
+    session.add(
+        BugReport(
+            report_id="TESTBUG1",
+            created_at=datetime(2024, 6, 1, 12, 5, 0, tzinfo=UTC),
+            user_id=user.id,
+            session_id="backup-session",
+            summary="Backup round-trip",
+            description="Seeded so every table carries a row.",
+            event_ids=["TESTEV01"],
+            route="/test",
+            app_version="test",
+            status=BugReportStatus.NEW,
         )
     )
     await session.commit()

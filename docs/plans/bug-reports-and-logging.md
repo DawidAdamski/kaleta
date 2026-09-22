@@ -3,7 +3,7 @@ plan_id: bug-reports-and-logging
 title: Bug reports from the app, and structured logs to read them by
 area: observability / settings
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 
@@ -193,4 +193,108 @@ into the report.
 
 ## Implementation notes
 
-(filled in as work progresses)
+### Open questions, resolved with the plan's defaults
+
+- **Where hosted reports land first** — the webhook
+  (`KALETA_BUG_REPORT_WEBHOOK`), as recommended. No GitHub token lives in
+  the app; the confirmation dialog's "Open a GitHub issue" button only
+  prefills a form the user submits themselves.
+- **Ring buffer level** — `INFO`, as recommended. The `RingBufferHandler`
+  is created at `max(root level, INFO)`, so `KALETA_DEBUG=true` does not
+  flood a report with `DEBUG` lines.
+- **Self-hosted `contact_email`** — left empty; the dialog's field is
+  optional and blank by default.
+- **GlitchTip** — only the flag (`KALETA_ERROR_TRACKER_DSN`), the
+  `before_send` scrubber and the `tracker` extra are here; where it runs is
+  an ops choice for the rollout plan.
+
+### Decisions a reviewer should know
+
+- **No tenancy yet.** The plan describes `KALETA_TENANCY=multi` behaviour
+  (JSON logs by default, `BugReport` in the `public` schema, a `tenant_id`
+  column). `kaleta.config.Settings` has no tenancy knob —
+  `hosted-tenancy-foundation` is still `draft` — so `KALETA_LOG_FORMAT`
+  defaults to `text` and `bug_reports` is an ordinary tenant table.
+  `observability.context` already carries a `tenant_id` field that stays
+  `None` until that plan lands.
+- **`bug_reports.session_id`** is not in the plan's field list but the
+  plan's own rate limit ("5 reports per session per hour") needs it; it is
+  the NiceGUI client id, the same opaque value `app_events.session_id`
+  already holds.
+- **Context survives an escaping exception.** Starlette's 500 handler runs
+  *outside* user middleware (`ServerErrorMiddleware` is outermost), so
+  `RequestContextMiddleware` deliberately does not reset the context vars
+  when an exception propagates — otherwise the event id issued by that
+  handler, and the log lines around it, would lose their `request_id`. The
+  binding dies with the request task, and every `bind_request` sets all six
+  values, so a later request can never read a stale one. For the same
+  reason the `X-Request-ID` response header is only added on responses that
+  pass back through the middleware (i.e. not on an unhandled 500).
+- **Redaction order matters.** Query strings are masked before the
+  credential rule: a `?token=…` swallowed by the credential rule first
+  would leave the rest of the query in the clear. Covered by
+  `test_query_strings_are_dropped_but_the_path_stays`.
+- **Filters live on handlers, not loggers.** A `logging.Filter` on the root
+  logger does not see records propagated from child loggers, so
+  `configure_logging` attaches `RedactingFilter` to each handler — the one
+  place every record passes through.
+- **Pre-existing bug fixed on the way.** `notify_kaleta_error` created a
+  bare `asyncio.create_task`, and NiceGUI 3.x keys its slot stack by
+  asyncio task: every `ui.*` call in that coroutine raised "the slot stack
+  for this task is empty" and was swallowed with the task. No toast and no
+  event was ever produced from a UI `KaletaError`. The coroutine now takes
+  the client captured in the caller's task and re-enters it with
+  `with client:`. Without this, nothing in section 3 of the plan could
+  work.
+- **No "Report" button inside the Quasar toast.** `ui.notify` serialises
+  its options to the browser as JSON, so a Quasar notify *action* cannot
+  carry a Python handler. The toast stays as it was (message + event id)
+  and the Report affordance lives in a small fixed **error tray**
+  (`views/error_handling.ErrorTray`) shown alongside it whenever an event
+  id was issued. Same one-click path, different element.
+- **"the sidebar help menu"** — there is no help menu; the header's account
+  menu is the only one, so "Report a problem" sits there, above Log out.
+- **Debug-only test trigger.** Settings → Privacy & diagnostics shows
+  "Trigger a test error" only when `KALETA_DEBUG=true`. It walks the real
+  failure path (`notify_kaleta_error`) and is what the e2e scenario uses as
+  its seeded `500`.
+- **`kaleta.observability` is a new import-linter layer**, between
+  `kaleta.db` and `kaleta.config`. `app_version()` moved there so
+  `logging_config` and `event_service` share one implementation instead of
+  two copies.
+- **Retention.** The bug-report reaper is folded into
+  `EventRetentionScheduler`, but each purge now has its own switch
+  (`KALETA_EVENTS_ENABLED` / `KALETA_BUG_REPORTS_ENABLED`) so turning
+  events off no longer silently stops report expiry.
+- **`# type: ignore` in `error_tracker.py`** — two, on `import sentry_sdk`,
+  the same `[import-not-found,unused-ignore]` form
+  `prophet_forecaster.py` already uses for the optional `forecast` extra.
+  `sentry-sdk` ships in the new optional `tracker` extra, so it is absent
+  from a default dev environment.
+
+- **`alembic/env.py` now passes `disable_existing_loggers=False`.** The app
+  runs `alembic upgrade` in-process on startup (`ensure_schema_current`), and
+  `fileConfig`'s default disables every logger created before it — i.e. the
+  whole application, for the rest of the process. A plan about logs cannot
+  leave that in place. It also made
+  `tests/integration/test_bug_report_api_context.py` pass or fail depending on
+  whether a migration ran earlier in the session.
+- **`tests/backup_helpers.seed_every_model`** gained a `BugReport` row: the
+  backup round-trip tests assert every table in `Base.metadata` holds at least
+  one row, and a new table would otherwise fail them. Reports travel in the
+  user's own ZIP export, like `app_events` already do.
+
+### PII audit of existing log calls
+
+`grep` over every `logger.*` call in `src/` for `description`, `payee`,
+`account_number`, `amount`, `email` and `username` arguments found exactly
+one hit: `main.py` logs the *bootstrap* API user's username
+(`api`) when `KALETA_API_TOKEN` is set — an account the app creates itself,
+not a person. Nothing was removed. The `RedactingFilter` masks e-mail
+addresses, bearer tokens and query strings if any future call passes them.
+
+### Manual criterion left for the owner
+
+`[manual]` webhook → n8n → GitHub issue + e-mail (`KAL-BUG-005`).
+`scripts/bug_reports.py show <id>` prints the report, its joined event
+stack traces and the log excerpt as a table.

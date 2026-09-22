@@ -47,6 +47,20 @@ class Settings(BaseSettings):
     demo: bool = False
     events_enabled: bool = True
     event_retention_days: int = 7
+    log_format: str = "text"  # text | json
+    log_level: str = "INFO"
+    bug_reports_enabled: bool = True
+    bug_report_retention_days: int = 90
+    bug_report_webhook: str | None = None
+    bug_report_webhook_include_logs: bool = False
+    bug_report_email: str | None = None
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    smtp_starttls: bool = True
+    error_tracker_dsn: str | None = None
 
     @field_validator("db_url", mode="before")
     @classmethod
@@ -91,6 +105,29 @@ class Settings(BaseSettings):
     def _validate_event_retention(cls, value: int) -> int:
         if value < 1:
             raise ValueError("KALETA_EVENT_RETENTION_DAYS must be >= 1")
+        return value
+
+    @field_validator("log_format")
+    @classmethod
+    def _validate_log_format(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if normalized not in {"text", "json"}:
+            raise ValueError("KALETA_LOG_FORMAT must be 'text' or 'json'")
+        return normalized
+
+    @field_validator("log_level")
+    @classmethod
+    def _validate_log_level(cls, value: str) -> str:
+        normalized = value.strip().upper()
+        if normalized not in logging.getLevelNamesMapping():
+            raise ValueError("KALETA_LOG_LEVEL must be a Python logging level name")
+        return normalized
+
+    @field_validator("bug_report_retention_days")
+    @classmethod
+    def _validate_bug_report_retention(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("KALETA_BUG_REPORT_RETENTION_DAYS must be >= 1")
         return value
 
     @model_validator(mode="after")
