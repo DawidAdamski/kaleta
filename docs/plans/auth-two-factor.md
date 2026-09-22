@@ -243,13 +243,21 @@ Phase A is built.
   with no reason given. Four tests in `TestAfterAKeyRotation` and one in
   `test_reset_password_cli_works_after_a_key_rotation` hold that shut.
 
+- **The throttle stays in the views, as `login.py` already does it.** The
+  service says in its docstrings that it counts nothing and the caller
+  must; moving `LoginRateLimiter` down a layer would mean rewriting the
+  password login's throttle in the same diff, which rule 9 rules out.
+  One for the Chore inbox.
+
 - **The replay guard is a conditional `UPDATE`, not a read-then-write.**
   Two tabs holding the same code both passed `_matching_counter` before
   either committed, which is precisely the replay the counter exists to
   stop; a recovery code could be spent twice the same way. Both are now
   claimed with an `UPDATE ... WHERE` on the value that was read, and a
   `rowcount` of zero is a loss. `TestConcurrentSubmits` runs the race
-  with two sessions.
+  with two sessions. `confirm_enrolment()` claims the same way — two tabs
+  confirming one pending enrolment both used to win, and the second
+  overwrote the ten codes the first had already shown its user.
 
 - **`--disable-mfa` writes an audit row per removed enrolment.** It is
   the one factor removal nobody had to prove anything to make, so it is

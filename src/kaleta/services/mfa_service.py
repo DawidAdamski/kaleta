@@ -195,10 +195,25 @@ class MfaService:
             await self._record_failure(user_id, event="mfa_enrol_failure")
             msg = "That code is not right. Check the app and try the current code."
             raise ValidationError(msg)
-        row.enabled_at = datetime.now(UTC)
-        row.last_used_counter = counter
-        codes = self._new_recovery_codes(row)
+        codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
+        hashed = json.dumps([self._hasher.hash(code) for code in codes])
+        # Claimed, not assigned: two tabs confirming the same pending
+        # enrolment would both succeed, and the second would overwrite the ten
+        # codes the first had already shown its user.
+        result = await self.session.execute(
+            update(UserMfa)
+            .where(UserMfa.id == row.id, UserMfa.enabled_at.is_(None))
+            .values(
+                enabled_at=datetime.now(UTC),
+                last_used_counter=counter,
+                recovery_codes_hash=hashed,
+            )
+        )
         await self.session.commit()
+        if int(getattr(result, "rowcount", 0) or 0) != 1:
+            msg = "Two-factor authentication is already enabled."
+            raise ConflictError(msg)
+        await self.session.refresh(row)
         return codes
 
     # ── verification ─────────────────────────────────────────────────────
@@ -426,14 +441,19 @@ class MfaService:
             user = await self.session.get(User, user_id)
             usernames.append(user.username if user is not None else None)
         await self.session.execute(delete(UserMfa))
-        await self.session.commit()
+        # The trace goes in the same transaction as the removal. Committing
+        # the delete first and writing the rows after would let the one
+        # removal nobody had to prove anything to make be the one that leaves
+        # no trace.
         for username in usernames:
             await record_auth_event(
                 self.session,
                 event="mfa_disabled_cli",
                 username=username,
                 success=True,
+                commit=False,
             )
+        await self.session.commit()
         return len(user_ids)
 
     # ── internals ────────────────────────────────────────────────────────
@@ -472,11 +492,11 @@ class MfaService:
             return []
         return [item for item in stored if isinstance(item, str)]
 
+    def _new_recovery_code(self) -> str:
+        return "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(RECOVERY_CODE_LENGTH))
+
     def _new_recovery_codes(self, row: UserMfa) -> list[str]:
-        codes = [
-            "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(RECOVERY_CODE_LENGTH))
-            for _ in range(RECOVERY_CODE_COUNT)
-        ]
+        codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
         row.recovery_codes_hash = json.dumps([self._hasher.hash(code) for code in codes])
         return codes
 

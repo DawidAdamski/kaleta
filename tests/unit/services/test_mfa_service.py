@@ -561,3 +561,22 @@ class TestConcurrentSubmits:
 
         status = await mfa.status(user.id)
         assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1
+
+
+class TestConfirmingIsAClaim:
+    """Two tabs confirming one pending enrolment. Only one set of codes is real."""
+
+    @pytest.mark.asyncio
+    async def test_the_second_confirmation_loses(self, mfa: MfaService, db_engine, user) -> None:
+        enrolment = await mfa.begin_enrolment(user.id)
+        code = code_for(enrolment.secret)
+
+        factory = make_session_factory(db_engine)
+        async with factory() as first, factory() as second:
+            one, two = MfaService(first), MfaService(second)
+            codes = await one.confirm_enrolment(user.id, code)
+            with pytest.raises(ConflictError):
+                await two.confirm_enrolment(user.id, code)
+
+        # The codes the winning tab showed its user are the ones that work.
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True

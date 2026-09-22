@@ -370,7 +370,8 @@ async def _render_token_card(user_id: int) -> None:
                 ui.notify(t("settings.security_token_label_required"), type="warning")
                 return
             if not await _step_up(user_id):
-                ui.notify(t("settings.mfa_step_up_required"), type="warning")
+                # Either a wrong code, which the dialog already explained, or
+                # a cancel, which needs no explaining at all.
                 return
 
             async def _create(session: Any) -> tuple[str, str]:
@@ -472,7 +473,6 @@ async def _render_token_card(user_id: int) -> None:
 
             async def _revoke(token_id: int) -> None:
                 if not await _step_up(user_id):
-                    ui.notify(t("settings.mfa_step_up_required"), type="warning")
                     return
 
                 async def _do_revoke(session: Any) -> None:

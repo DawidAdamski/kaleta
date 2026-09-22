@@ -1894,7 +1894,6 @@
     "mfa_copy_codes": "Copy codes",
     "mfa_step_up_title": "Confirm it is you",
     "mfa_step_up_hint": "Enter a code from your authenticator app, or one of your recovery codes.",
-    "mfa_step_up_required": "A two-factor code is needed for this.",
     "mfa_code_required": "Enter the code.",
     "mfa_failed": "That code is not right.",
     "mfa_recovery_remaining_one": "1 recovery code left",
