@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from nicegui import app
 
+from kaleta.core.weeks import WeekStartMode, coerce_mode
 from kaleta.views.settings.constants import (
     DEFAULT_BUDGET_MONTH_START_DAY,
     DEFAULT_EVENT_RETENTION_DAYS,
@@ -18,6 +19,7 @@ from kaleta.views.settings.constants import (
     DEFAULT_TRANSACTIONS_UPCOMING_DAYS,
     DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
     DEFAULT_TRANSFER_PAIRING_DAYS,
+    DEFAULT_WEEK_START_MODE,
     TRANSACTIONS_UPCOMING_DAYS_CHOICES,
 )
 
@@ -34,6 +36,7 @@ __all__ = [
     "get_transactions_upcoming_days",
     "get_transfer_amount_tolerance",
     "get_transfer_pairing_days",
+    "get_week_start_mode",
 ]
 
 
@@ -135,3 +138,12 @@ def get_transactions_upcoming_days() -> int:
     if value not in TRANSACTIONS_UPCOMING_DAYS_CHOICES:
         return DEFAULT_TRANSACTIONS_UPCOMING_DAYS
     return value
+
+
+def get_week_start_mode() -> WeekStartMode:
+    """How the reader wants a run of days cut into weeks.
+
+    ``coerce_mode`` absorbs anything storage may hold that is not one of the
+    two modes — an older build's value, or a hand-edited session.
+    """
+    return coerce_mode(app.storage.user.get("week_start_mode", DEFAULT_WEEK_START_MODE))

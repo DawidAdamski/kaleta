@@ -3027,6 +3027,48 @@ Feature: Planned transactions in the example data
     And the planned salary is among them as income
 ```
 
+```gherkin
+Feature: Per-feature example data
+  As someone trying Kaleta out, or demonstrating it
+  I want to fill one feature at a time with example data
+  So that I can see a page working without wiping what I already entered,
+  and pressing the button twice cannot double my rows
+
+  KAL-PLT-006 @automated
+  Scenario: Seed everything fills every feature exactly once
+    Given an empty configured database
+    When I seed every feature
+    Then every seeded table has at least one row
+    When I seed every feature again
+    Then every feature reports that it was left alone
+    And no table's row count has changed
+
+  KAL-PLT-007 @automated
+  Scenario: Seeding one feature leaves the others alone
+    Given an empty configured database
+    When I seed only "Accounts & institutions"
+    Then the accounts and institutions tables have rows
+    And the transactions, budgets, categories and planned transaction tables
+      are still empty
+
+  KAL-PLT-008 @automated
+  Scenario: The CLI and the Settings button produce the same dataset
+    Given two empty configured databases
+    When I run `uv run python scripts/seed.py` against the first
+    And I seed every feature through the registry against the second
+    Then both databases hold the same number of rows in every seeded table
+
+  KAL-PLT-009 @automated
+  Scenario: Replacing example data takes what stands on it
+    Given a database seeded with every feature
+    And foreign keys are enforced
+    When I replace the example data for "Accounts & institutions"
+    Then the transactions, planned transactions and reserve funds are
+      rewritten with them
+    And features that do not stand on the accounts are untouched
+    And every seeded table holds the same number of rows as before
+```
+
 ## Feature: Anonymous error events
 
 ```gherkin
@@ -3214,6 +3256,42 @@ Feature: Settings — Data safety
     Then I see "Show upcoming planned transactions" offering Off, 7 days and 30 days
     And 7 days is the option in force until I pick another
     And picking "30 days" survives a reload of the Settings page
+```
+
+## Feature: Settings — weekly grouping and the debug panel
+
+```gherkin
+Feature: Settings — weekly grouping and the debug panel
+  As someone reading weekly subtotals, or filing an issue about them
+  I want to choose where a week starts, and to hand over my setup in one paste
+  So that the figures are bucketed the way I read them and a bug report
+  does not turn into twenty questions
+
+  KAL-SET-027 @automated
+  Scenario: Weekly grouping is a General knob that survives a reload
+    Given I am signed in
+    When I open Settings and select the General tab
+    Then I see "Weekly grouping" offering "Monday to Sunday (ISO)" and
+      "In sevens from the 1st"
+    And "Monday to Sunday (ISO)" is the option in force until I pick another
+    And picking "In sevens from the 1st" survives a reload of the Settings page
+
+  KAL-SET-028 @automated
+  Scenario: The debug panel is behind KALETA_DEBUG
+    Given KALETA_DEBUG is true
+    And I am signed in
+    When I open Settings and select the About tab
+    Then I see a "Debug info" section with a "Copy debug info" button
+    And expanding its details lists the versions and the settings in force
+    And the secret key is shown as "***"
+
+  KAL-SET-029 @automated
+  Scenario: The copied debug report is Markdown that carries no secret
+    Given a configured instance
+    When the debug report is built
+    Then it is a multi-line Markdown block headed "Kaleta debug info"
+    And the secret key row reads "***"
+    And the configured secret key appears nowhere in the block
 ```
 
 ## Feature: Currency rates — NBP Table A

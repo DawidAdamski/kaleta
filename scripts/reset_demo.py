@@ -75,9 +75,8 @@ def main() -> int:
         action="store_true",
         help=(
             "Only make sure the demo login exists; leave whatever data is already "
-            "there. Used by scripts/restyle_fidelity.py, which seeds with "
-            "scripts/seed.py instead — the artboards are drawn on a ledger with "
-            "payees, tags and planned transactions in it."
+            "there. Used by scripts/restyle_fidelity.py, which has already run "
+            "scripts/seed.py and must not have its ledger wiped again."
         ),
     )
     parser.add_argument(

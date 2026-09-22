@@ -93,12 +93,14 @@ layers = [
     "kaleta.auth",
     "kaleta.pwa",
     "kaleta.services",
+    "kaleta.seeders",
     "kaleta.schemas",
     "kaleta.i18n",
     "kaleta.models",
     "kaleta.db",
     "kaleta.observability",
     "kaleta.config",
+    "kaleta.core",
 ]
 ignore_imports = [
     # db.audit registers AuditLog in Base.metadata at import time.

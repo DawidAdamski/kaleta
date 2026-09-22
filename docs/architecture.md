@@ -121,7 +121,7 @@ kaleta/
 │   └── e2e/                 # Playwright browser tests (pytest-playwright)
 │       └── conftest.py      # base_url fixture; requires live app on :8080
 ├── scripts/
-│   └── seed.py              # 6-year fake data generator (Faker pl_PL)
+│   └── seed.py              # thin CLI over src/kaleta/seeders/
 ├── docs/
 │   └── bdd.md               # BDD scenarios (Gherkin) for e2e tests
 ├── alembic/                 # Database migrations

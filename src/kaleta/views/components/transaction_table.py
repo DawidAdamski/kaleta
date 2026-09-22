@@ -9,6 +9,7 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
 from kaleta.i18n import plural_key, t
 from kaleta.views.components.amount_label import amount_cell_slot, spaced_thousands
 from kaleta.views.components.empty_state import pagination_empty_label, table_no_data_slot
@@ -77,13 +78,21 @@ def attach_upcoming_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
-def attach_group_labels(rows: list[dict[str, Any]], grouping: str) -> list[dict[str, Any]]:
+def attach_group_labels(
+    rows: list[dict[str, Any]],
+    grouping: str,
+    week_mode: WeekStartMode = DEFAULT_WEEK_START_MODE,
+) -> list[dict[str, Any]]:
     """Say what a separator separates, the way artboard `2a` words it.
 
     The service marks where a group starts (``W39 2026``); the band the reader
     sees names the days — "Week 39 · 29 June – 5 July 2026". Built here for the
     same reason ``attach_type_labels`` is: it is a sentence, and sentences
     belong to the locale, which a service knows nothing about.
+
+    The week the band names is the one ``kaleta.core.weeks`` computes under the
+    reader's setting — the same call the service made when it decided the row
+    opened a group, so the heading and the rows under it cannot disagree.
     """
     if grouping == "none":
         return rows
@@ -92,12 +101,12 @@ def attach_group_labels(rows: list[dict[str, Any]], grouping: str) -> list[dict[
             continue
         day = datetime.date.fromisoformat(str(row["date"]))
         if grouping == "week":
-            monday = day - datetime.timedelta(days=day.weekday())
+            bucket = week_bucket(day, week_mode)
             row["sep_label"] = t(
                 "transactions.group_week_label",
-                week=day.isocalendar()[1],
-                start=_day_and_month(monday, monday.month != (monday + _WEEK).month),
-                end=_day_and_month(monday + _WEEK, True),
+                week=bucket.index,
+                start=_day_and_month(bucket.start, bucket.start.month != bucket.end.month),
+                end=_day_and_month(bucket.end, True),
             )
         else:
             row["sep_label"] = t(
@@ -106,10 +115,6 @@ def attach_group_labels(rows: list[dict[str, Any]], grouping: str) -> list[dict[
                 year=day.year,
             )
     return rows
-
-
-#: Monday to Sunday is six days, not seven — the week's last day.
-_WEEK = datetime.timedelta(days=6)
 
 
 def _day_and_month(day: datetime.date, with_month: bool) -> str:
