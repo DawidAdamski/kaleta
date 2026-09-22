@@ -3012,7 +3012,6 @@ Feature: Two-factor authentication
     Then it is refused until a current code is given
     And revoking a token is refused on the same terms
     And a recovery code is accepted in place of the current code
-    And wrong codes are rate-limited the same way the login prompt is
     But with two-factor authentication off neither is asked for
 
   KAL-AUTH-018 @automated
@@ -3024,6 +3023,26 @@ Feature: Two-factor authentication
     And the new password signs the user in
     When I run `uv run kaleta --reset-password` without the flag
     Then two-factor authentication stays on
+
+  KAL-AUTH-019 @automated
+  Scenario: Reissuing recovery codes replaces the whole set
+    Given two-factor authentication is on
+    And I am signed in
+    When I ask Settings → Security for my recovery codes
+    Then I am shown ten codes, none of them one I was given before
+    And the card says ten are left
+
+  KAL-AUTH-020 @automated
+  Scenario: Turning two-factor authentication off needs both the password and a code
+    Given two-factor authentication is on
+    And I am on Settings → Security
+    When I give the right password and the right code
+    Then two-factor authentication is off
+    And signing in needs only the password again
+    When it is on again and I give a wrong password with a right code
+    Then I am told the password or code is not right
+    And giving a right password with a wrong code says exactly the same thing
+    And after five wrong answers I am told to wait rather than tried again
 ```
 
 ## Feature: Demo instance

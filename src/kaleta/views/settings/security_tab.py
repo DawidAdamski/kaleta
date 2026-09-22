@@ -15,7 +15,7 @@ from kaleta.auth.session import (
     mfa_recently_verified,
     mfa_verified_at,
 )
-from kaleta.exceptions import KaletaError
+from kaleta.exceptions import KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
 from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
 from kaleta.views.error_handling import notify_kaleta_error
@@ -217,7 +217,10 @@ async def _open_recovery(user_id: int, refresh: Any) -> None:
         return
 
     async def _regenerate(session: Any) -> list[str]:
-        return await MfaService(session).regenerate_recovery_codes(user_id)
+        return await MfaService(session).regenerate_recovery_codes(
+            user_id,
+            mfa_verified_at=mfa_verified_at(),
+        )
 
     try:
         codes = await with_session(_regenerate)
@@ -279,13 +282,20 @@ async def _open_disable(user_id: int, refresh: Any) -> None:
 
             try:
                 await with_session(_do)
-            except KaletaError as exc:
+            except ValidationError as exc:
+                # Only a wrong credential counts. A stale dialog — the factor
+                # was turned off in another tab — is a `ConflictError`, and
+                # locking someone out for that would be a lockout they had no
+                # way to avoid.
                 if mfa_rate_limiter.record_failure(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
                     error.set_text(t("settings.mfa_rate_limited", seconds=secs))
                 else:
                     error.set_text(exc.message)
                 code_input.value = ""
+                return
+            except KaletaError as exc:
+                error.set_text(exc.message)
                 return
             mfa_rate_limiter.clear(rate_key)
             dialog.submit(True)

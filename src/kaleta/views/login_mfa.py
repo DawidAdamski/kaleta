@@ -75,6 +75,14 @@ def register() -> None:
 
             async def _submit() -> None:
                 _say("")
+                # Re-read the challenge rather than trusting the one this page
+                # was built from: it may have aged out of its TTL while the
+                # prompt sat open, or been cleared by a logout in another tab.
+                # Without this the expiry would only ever apply to a reload.
+                if mfa_pending_user() != pending:
+                    _say(t("auth.mfa_expired"))
+                    ui.navigate.to("/login")
+                    return
                 if mfa_rate_limiter.is_locked(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
                     _say(t("auth.mfa_rate_limited", seconds=secs))

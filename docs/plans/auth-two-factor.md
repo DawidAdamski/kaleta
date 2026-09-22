@@ -237,6 +237,14 @@ Phase A is built.
   `KAL-SET-015` gained a line about values, not just row counts, and
   `test_restore_preserves_an_encrypted_secret` covers it.
 
+- **`KAL-AUTH-019` and `KAL-AUTH-020`** were added for reissuing recovery
+  codes and for turning the factor off, both of which the e2e test walks
+  through. `KAL-AUTH-017` lost a line claiming the step-up prompt is
+  rate-limited: it is, but the prompt only appears once the ten-minute
+  window has passed, which no test can reach without waiting it out. The
+  throttle is asserted where it is reachable — the turn-off dialog, which
+  always asks — and it is the same limiter on the same key.
+
 - **`ADR-36` records the local encryption format** and the three new base
   dependencies, as `docs/review-checklist.md` asks when the
   dependencies-of-record change. It is written so `ADR-35`'s key ring
@@ -254,9 +262,25 @@ Phase A is built.
   login for as long as the session lasted.
 
 - **The "turn it off" dialog answers wrong password and wrong code with
-  the same sentence**, and is throttled on the same counter as the login
-  prompt. Telling the two apart made it a password oracle that answered
-  without going past `login_rate_limiter`.
+  the same sentence**, weighs both halves before judging either, and is
+  throttled on the same counter as the login prompt. Telling the two
+  apart made it a password oracle that answered without going past
+  `login_rate_limiter` — and returning early on a wrong password left
+  the same oracle in the timing, because a right password went on to run
+  up to ten more argon2 verifies against the recovery hashes. Nothing is
+  spent unless both halves are right. "Not enabled" is a `ConflictError`,
+  not a `ValidationError`, so a stale dialog does not count toward the
+  lockout.
+
+- **The code prompt re-reads the challenge when the code is submitted.**
+  Checking only at page load meant the TTL applied to a reload and to
+  nothing else: a prompt left open past it, or one whose session was
+  logged out in another tab, still signed in on one code.
+
+- **`regenerate_recovery_codes()` enforces step-up itself**, the same way
+  `ApiTokenService` does. Ten fresh codes are ten fresh ways past the
+  factor, and the plan puts that rule on the feature, not on the one view
+  that happens to call it today.
 
 - **The ciphertext passthrough on `EncryptedString` is narrow.** It takes
   only blobs that start with the AES-GCM format byte. An unrestricted

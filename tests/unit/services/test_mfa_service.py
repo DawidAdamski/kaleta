@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import time
+from datetime import UTC, datetime, timedelta
 
 import pyotp
 import pytest
@@ -23,6 +24,7 @@ from kaleta.services.auth_service import AuthService
 from kaleta.services.mfa_service import (
     RECOVERY_CODE_COUNT,
     RECOVERY_CODE_LENGTH,
+    STEP_UP_WINDOW_MINUTES,
     TOTP_INTERVAL,
     MfaService,
     normalise_code,
@@ -245,7 +247,7 @@ class TestRecoveryCodes:
     @pytest.mark.asyncio
     async def test_regenerating_invalidates_the_old_set(self, mfa: MfaService, user) -> None:
         _secret, codes = await enrol(mfa, user.id)
-        fresh = await mfa.regenerate_recovery_codes(user.id)
+        fresh = await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=datetime.now(UTC))
         assert set(fresh).isdisjoint(codes)
         assert await mfa.consume_recovery_code(user.id, codes[0]) is False
         assert await mfa.consume_recovery_code(user.id, fresh[0]) is True
@@ -253,10 +255,59 @@ class TestRecoveryCodes:
     @pytest.mark.asyncio
     async def test_recovery_codes_need_mfa_to_be_on(self, mfa: MfaService, user) -> None:
         with pytest.raises(ValidationError):
+            await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=datetime.now(UTC))
+
+    @pytest.mark.asyncio
+    async def test_reissuing_needs_a_fresh_code(self, mfa: MfaService, user) -> None:
+        """Ten fresh codes are ten fresh ways past the factor."""
+        _secret, codes = await enrol(mfa, user.id)
+        with pytest.raises(ValidationError):
             await mfa.regenerate_recovery_codes(user.id)
+        stale = datetime.now(UTC) - timedelta(minutes=STEP_UP_WINDOW_MINUTES + 1)
+        with pytest.raises(ValidationError):
+            await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=stale)
+        # Nothing was reissued, so the codes handed out at enrolment still work.
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True
 
 
 class TestDisable:
+    @pytest.mark.asyncio
+    async def test_a_wrong_password_spends_nothing(self, mfa: MfaService, user) -> None:
+        """Both halves are weighed, but a failed attempt must not cost a code.
+
+        The check runs the recovery-code comparison whatever the password was
+        — that is what stops the timing from betraying the password — so the
+        code it matched has to survive the refusal.
+        """
+        _secret, codes = await enrol(mfa, user.id)
+        with pytest.raises(ValidationError):
+            await mfa.disable(user.id, password="wrong-password", code=codes[0])
+        status = await mfa.status(user.id)
+        assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+
+    @pytest.mark.asyncio
+    async def test_the_same_sentence_for_either_half(self, mfa: MfaService, user) -> None:
+        """Telling them apart would make this dialog a password oracle."""
+        secret, _codes = await enrol(mfa, user.id)
+        with pytest.raises(ValidationError) as wrong_password:
+            await mfa.disable(
+                user.id,
+                password="wrong-password",
+                code=code_for(secret, offset_steps=1),
+            )
+        with pytest.raises(ValidationError) as wrong_code:
+            await mfa.disable(user.id, password=PASSWORD, code="000000")
+        assert wrong_password.value.message == wrong_code.value.message
+
+    @pytest.mark.asyncio
+    async def test_disabling_what_is_not_on_is_a_conflict_not_a_bad_credential(
+        self, mfa: MfaService, user
+    ) -> None:
+        """A stale dialog is not a wrong guess, and must not count as one."""
+        with pytest.raises(ConflictError):
+            await mfa.disable(user.id, password=PASSWORD, code="000000")
+
     @pytest.mark.asyncio
     async def test_disable_needs_the_password(self, mfa: MfaService, user) -> None:
         secret, _codes = await enrol(mfa, user.id)

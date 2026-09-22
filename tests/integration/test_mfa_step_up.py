@@ -88,7 +88,7 @@ async def test_a_recovery_code_is_accepted_for_step_up(session: AsyncSession, us
     """
     secret = await enrol(session, user.id)
     mfa = MfaService(session)
-    codes = await mfa.regenerate_recovery_codes(user.id)
+    codes = await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=datetime.now(UTC))
 
     assert await mfa.verify_challenge(user.id, codes[0]) is True
     assert await mfa.verify_challenge(user.id, codes[0]) is False

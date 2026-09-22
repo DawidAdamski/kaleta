@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E tests for Feature: Two-factor authentication.
 
-Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015, KAL-AUTH-016
+Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
+Covers: KAL-AUTH-016, KAL-AUTH-019, KAL-AUTH-020
 
 One test, not four: enrolling changes how every later login on this shared
 instance behaves, so the whole life of a second factor — set up, sign in with
@@ -58,6 +59,11 @@ def open_dialog(page: Page, heading: str) -> Locator:
     return dialog
 
 
+def read_recovery_codes(dialog: Locator) -> list[str]:
+    codes = [line.strip() for line in dialog.locator(".font-mono > div").all_inner_texts()]
+    return [code for code in codes if code]
+
+
 def open_security_tab(page: Page) -> None:
     page.goto("/settings")
     page.get_by_role("tab", name="Security").click()
@@ -81,8 +87,7 @@ def enrol(page: Page) -> tuple[str, list[str]]:
     setup.get_by_role("button", name="Confirm").click()
 
     recovery = open_dialog(page, "Recovery codes")
-    codes = [line.strip() for line in recovery.locator(".font-mono > div").all_inner_texts()]
-    codes = [code for code in codes if code]
+    codes = read_recovery_codes(recovery)
     recovery.get_by_role("button", name="Close").click()
     return secret, codes
 
@@ -100,7 +105,9 @@ def test_two_factor_authentication(
     base_url: str,
     no_enrolment_left_behind: None,
 ) -> None:
-    """Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015, KAL-AUTH-016"""
+    """Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
+    Covers: KAL-AUTH-016, KAL-AUTH-019, KAL-AUTH-020
+    """
     secret, codes = enrol(page)
 
     # KAL-AUTH-013 — the card now says it is on, and hands over ten codes.
@@ -157,10 +164,19 @@ def test_two_factor_authentication(
     page_no_auth.get_by_role("button", name="Verify").click()
     expect(page_no_auth.get_by_text("That code is not right.")).to_be_visible(timeout=10000)
 
-    # Turning it off needs the password and a code, and puts the login back
-    # the way it was.
+    # KAL-AUTH-019 — reissuing replaces the whole set.
     open_security_tab(page)
     expect(page.get_by_text("9 recovery codes left").first).to_be_visible(timeout=10000)
+    page.get_by_role("button", name="Recovery codes").click()
+    reissued = open_dialog(page, "Recovery codes")
+    fresh_codes = read_recovery_codes(reissued)
+    reissued.get_by_role("button", name="Close").click()
+    assert len(fresh_codes) == 10
+    assert set(fresh_codes).isdisjoint(codes)
+    expect(page.get_by_text("10 recovery codes left").first).to_be_visible(timeout=10000)
+
+    # KAL-AUTH-020 — the password and a code turn it off, and the login goes
+    # back to what it was.
     page.get_by_role("button", name="Turn off").click()
     disable = open_dialog(page, "Turn off two-factor authentication")
     disable.get_by_label("Password", exact=True).fill(E2E_PASSWORD)
@@ -171,3 +187,35 @@ def test_two_factor_authentication(
     page_no_auth.context.clear_cookies()
     sign_in_with_password(page_no_auth, base_url)
     expect(page_no_auth).not_to_have_url(f"{base_url}/login", timeout=15000)
+
+    # KAL-AUTH-020 — and a wrong answer says the same thing whichever half was
+    # wrong, five times, and then says to wait. Telling the two apart would
+    # make this dialog a password oracle for anyone at a signed-in browser.
+    second_secret, _second_codes = enrol(page)
+    page.get_by_role("button", name="Turn off").click()
+    disable = open_dialog(page, "Turn off two-factor authentication")
+
+    password_field = disable.get_by_label("Password", exact=True)
+    code_field = disable.get_by_label("Code", exact=True)
+    message = disable.locator(".text-negative")
+
+    def attempt(password: str, code: str) -> str:
+        password_field.fill(password)
+        code_field.fill(code)
+        disable.get_by_role("button", name="Turn off").click()
+        # The handler empties the code field once it has judged the attempt,
+        # which is the signal that the message on screen belongs to this try
+        # and is not the one left over from the last.
+        expect(code_field).to_have_value("", timeout=10000)
+        return message.inner_text().strip()
+
+    wrong_password = attempt("definitely-wrong", next_totp(second_secret))
+    wrong_code = attempt(E2E_PASSWORD, "000000")
+    assert wrong_password == wrong_code, (wrong_password, wrong_code)
+    assert "password" in wrong_password.casefold()
+
+    for _ in range(2):
+        assert attempt(E2E_PASSWORD, "000000") == wrong_code
+    locked = attempt(E2E_PASSWORD, "000000")
+    assert "try again in" in locked.casefold(), locked
+    expect(page.get_by_text("On since").first).to_be_visible(timeout=10000)

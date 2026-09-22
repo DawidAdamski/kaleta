@@ -212,7 +212,11 @@ class MfaService:
         return False
 
     async def consume_recovery_code(self, user_id: int, code: str) -> bool:
-        """True when ``code`` was an unused recovery code; it is spent either way."""
+        """True when ``code`` was an unused recovery code, which then spends it.
+
+        A code that matches nothing spends nothing — there is no such code to
+        cross off.
+        """
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             return False
@@ -221,6 +225,22 @@ class MfaService:
         await self._record_failure(user_id, event="mfa_failure")
         return False
 
+    def _find_recovery_code(self, row: UserMfa, code: str) -> int | None:
+        """Which unused recovery code ``code`` is, without crossing it off."""
+        candidate = normalise_code(code)
+        if not candidate:
+            return None
+        for index, stored in enumerate(self._hashes(row)):
+            if self._verify_hash(stored, candidate):
+                return index
+        return None
+
+    async def _remove_recovery_code(self, row: UserMfa, index: int) -> None:
+        hashes = self._hashes(row)
+        del hashes[index]
+        row.recovery_codes_hash = json.dumps(hashes)
+        await self.session.commit()
+
     async def _spend_recovery_code(self, row: UserMfa, code: str) -> bool:
         """Consume the code against ``row``, writing no audit event of its own.
 
@@ -228,26 +248,33 @@ class MfaService:
         prompt and a wrong code in the "turn it off" dialog are different
         events, and the audit log should be able to tell them apart.
         """
-        candidate = normalise_code(code)
-        if not candidate:
+        index = self._find_recovery_code(row, code)
+        if index is None:
             return False
-        hashes = self._hashes(row)
-        for index, stored in enumerate(hashes):
-            if not self._verify_hash(stored, candidate):
-                continue
-            del hashes[index]
-            row.recovery_codes_hash = json.dumps(hashes)
-            await self.session.commit()
-            return True
-        return False
+        await self._remove_recovery_code(row, index)
+        return True
 
     # ── management ───────────────────────────────────────────────────────
 
-    async def regenerate_recovery_codes(self, user_id: int) -> list[str]:
-        """Replace the whole set. Any code written down earlier stops working."""
+    async def regenerate_recovery_codes(
+        self,
+        user_id: int,
+        *,
+        mfa_verified_at: datetime | None = None,
+    ) -> list[str]:
+        """Replace the whole set. Any code written down earlier stops working.
+
+        Reissuing is a second-factor act for the same reason minting an API
+        token is: ten fresh codes are ten fresh ways past the factor. The
+        caller says when the code was last proved and this method judges
+        whether that is recent enough, so the window is not a view's to widen.
+        """
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             msg = "Enable two-factor authentication before asking for recovery codes."
+            raise ValidationError(msg)
+        if not self.step_up_is_fresh(mfa_verified_at):
+            msg = "Confirm with a two-factor code before reissuing recovery codes."
             raise ValidationError(msg)
         codes = self._new_recovery_codes(row)
         await self.session.commit()
@@ -265,18 +292,26 @@ class MfaService:
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
             msg = "Two-factor authentication is not enabled."
-            raise ValidationError(msg)
+            raise ConflictError(msg)
         user = await self.session.get(User, user_id)
         if user is None:
             msg = "User not found"
             raise NotFoundError(msg)
-        if not AuthService(self.session).verify_password(password, user.password_hash):
-            await self._record_failure(user_id, event="mfa_disable_failure")
-            raise ValidationError(wrong)
+
+        # Both halves are weighed before either is judged, and nothing is
+        # spent until both are right. Returning early on a wrong password
+        # would answer in one argon2 verify where a right password answers in
+        # up to eleven, and that difference is a password oracle no matter
+        # what the message says.
+        password_ok = AuthService(self.session).verify_password(password, user.password_hash)
         counter = self._matching_counter(row, code)
-        if counter is None and not await self._spend_recovery_code(row, code):
+        recovery_index = self._find_recovery_code(row, code) if counter is None else None
+        if not password_ok or (counter is None and recovery_index is None):
             await self._record_failure(user_id, event="mfa_disable_failure")
             raise ValidationError(wrong)
+
+        if recovery_index is not None:
+            await self._remove_recovery_code(row, recovery_index)
         # Spend the step even though the row is about to go: every other path
         # through this module honours the replay rule, and a disable that
         # became a soft delete should not quietly be the exception.

@@ -27,7 +27,12 @@ def upgrade() -> None:
         sa.Column("enabled_at", sa.DateTime(timezone=True), nullable=True),
         sa.Column("last_used_counter", sa.BigInteger(), nullable=True),
         sa.Column("recovery_codes_hash", sa.Text(), nullable=False, server_default="[]"),
-        sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
+        sa.Column(
+            "created_at",
+            sa.DateTime(timezone=True),
+            nullable=False,
+            server_default=sa.func.now(),
+        ),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
     )
     op.create_index(op.f("ix_user_mfa_user_id"), "user_mfa", ["user_id"], unique=True)
