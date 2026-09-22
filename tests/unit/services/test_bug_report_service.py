@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import NotFoundError, ValidationError
 from kaleta.models.bug_report import BugReport, BugReportStatus
+from kaleta.models.user import User
 from kaleta.services import bug_report_delivery
 from kaleta.services.bug_report_service import (
     RATE_LIMIT_PER_SESSION,
@@ -21,6 +22,14 @@ from kaleta.services.bug_report_service import (
 )
 
 LOG_LINES = [{"ts": "2026-09-22T10:00:00+00:00", "level": "INFO", "msg": "opened /budgets"}]
+
+
+async def _user(session: AsyncSession, username: str) -> int:
+    """A real row: ``bug_reports.user_id`` is a foreign key, enforced on postgres."""
+    user = User(username=username, password_hash="argon2-not-a-real-hash")
+    session.add(user)
+    await session.flush()
+    return int(user.id)
 
 
 async def _create(service: BugReportService, **overrides: Any) -> BugReport:
@@ -124,17 +133,20 @@ class TestListAndTriage:
     @pytest.mark.asyncio
     async def test_a_user_can_withdraw_their_own_report(self, session: AsyncSession) -> None:
         service = BugReportService(session)
-        report = await _create(service, user_id=7)
-        await service.delete(report.report_id, user_id=7)
+        owner = await _user(session, "reporter")
+        report = await _create(service, user_id=owner)
+        await service.delete(report.report_id, user_id=owner)
         with pytest.raises(NotFoundError):
             await service.get(report.report_id)
 
     @pytest.mark.asyncio
     async def test_a_user_cannot_withdraw_someone_elses_report(self, session: AsyncSession) -> None:
         service = BugReportService(session)
-        report = await _create(service, user_id=7)
+        owner = await _user(session, "reporter")
+        stranger = await _user(session, "stranger")
+        report = await _create(service, user_id=owner)
         with pytest.raises(NotFoundError):
-            await service.delete(report.report_id, user_id=8)
+            await service.delete(report.report_id, user_id=stranger)
 
 
 class TestRetention:

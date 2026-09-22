@@ -296,6 +296,12 @@ into the report.
   only a weak reference, so a delivery awaiting network I/O (or a toast) could
   be collected mid-flight.
 
+- **Foreign keys are only enforced on postgres.** The two withdraw tests
+  passed a bare `user_id=7`; SQLite does not check the FK in the test
+  fixture, postgres does, and the `postgres` CI job failed on PR #116. They
+  now insert real `User` rows. The postgres job's two steps were reproduced
+  locally against `postgres:16` before pushing the fix.
+
 ### PII audit of existing log calls
 
 `grep` over every `logger.*` call in `src/` for `description`, `payee`,
