@@ -3011,6 +3011,8 @@ Feature: Two-factor authentication
     When I try to create an API bearer token
     Then it is refused until a current code is given
     And revoking a token is refused on the same terms
+    And a recovery code is accepted in place of the current code
+    And wrong codes are rate-limited the same way the login prompt is
     But with two-factor authentication off neither is asked for
 
   KAL-AUTH-018 @automated

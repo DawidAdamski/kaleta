@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import io
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -15,9 +16,26 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 import kaleta.models  # noqa: F401 — register ORM tables on Base.metadata
 from kaleta.cli.reset_password import ResetPasswordCli
+from kaleta.db import configure_database
 from kaleta.db.base import Base
 from kaleta.services.auth_service import AuthService
-from tests.conftest import _USE_POSTGRES
+from tests.conftest import _POSTGRES_URL, _USE_POSTGRES
+
+
+@pytest.fixture
+def global_db_restored() -> Generator[None]:
+    """Put the shared session factory back after the CLI has repointed it.
+
+    ``ResetPasswordCli`` calls ``configure_database`` on the URL it was given,
+    which is a one-shot process in production and a landmine in a test run:
+    every later test reaching for ``with_session`` would get this test's
+    throwaway SQLite file. The two older tests here dodge it by skipping the
+    whole case under postgres; restoring the URL is what that skip was
+    standing in for, and it keeps these cases running on both backends.
+    """
+    yield
+    if _USE_POSTGRES:
+        configure_database(_POSTGRES_URL, debug=True)
 
 
 async def _prepare_db(db_url: str, *, username: str | None, password: str | None) -> None:
@@ -124,9 +142,8 @@ def test_reset_password_cli_no_user_points_to_bootstrap(
     assert "first-run bootstrap" in stderr.getvalue()
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="CLI reset integration uses on-disk SQLite")
 def test_reset_password_cli_can_drop_the_second_factor(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, global_db_restored: None
 ) -> None:
     """Covers: KAL-AUTH-018
 
@@ -157,9 +174,8 @@ def test_reset_password_cli_can_drop_the_second_factor(
     assert asyncio.run(_authenticate(db_url, "alice", "new-password-9")) is True
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="CLI reset integration uses on-disk SQLite")
 def test_reset_password_cli_leaves_the_second_factor_alone_by_default(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, global_db_restored: None
 ) -> None:
     """Covers: KAL-AUTH-018 — a password reset is not a way around the second factor."""
     db_path = tmp_path / "kaleta.db"

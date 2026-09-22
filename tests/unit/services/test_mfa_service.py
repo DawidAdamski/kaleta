@@ -171,6 +171,50 @@ class TestVerification:
         assert await mfa.verify_code(user.id, "123456") is False
 
 
+class TestStepUpChallenge:
+    """`verify_challenge` takes either kind of code, in one prompt."""
+
+    @pytest.mark.asyncio
+    async def test_a_totp_code_is_accepted(self, mfa: MfaService, user) -> None:
+        secret, _codes = await enrol(mfa, user.id)
+        assert await mfa.verify_challenge(user.id, code_for(secret, offset_steps=1)) is True
+
+    @pytest.mark.asyncio
+    async def test_a_totp_code_is_still_single_use(self, mfa: MfaService, user) -> None:
+        secret, _codes = await enrol(mfa, user.id)
+        code = code_for(secret, offset_steps=1)
+        assert await mfa.verify_challenge(user.id, code) is True
+        assert await mfa.verify_challenge(user.id, code) is False
+
+    @pytest.mark.asyncio
+    async def test_a_recovery_code_is_accepted_and_spent(self, mfa: MfaService, user) -> None:
+        _secret, codes = await enrol(mfa, user.id)
+        assert await mfa.verify_challenge(user.id, codes[0]) is True
+        assert await mfa.verify_challenge(user.id, codes[0]) is False
+        status = await mfa.status(user.id)
+        assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1
+
+    @pytest.mark.asyncio
+    async def test_a_wrong_code_is_one_audit_row_not_two(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        """It is checked against both kinds, but it was one wrong answer."""
+        await enrol(mfa, user.id)
+        assert await mfa.verify_challenge(user.id, "000000") is False
+        rows = (
+            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            .scalars()
+            .all()
+        )
+        events = [json.loads(row.new_data or "{}")["event"] for row in rows]
+        assert events.count("mfa_step_up_failure") == 1
+        assert "mfa_failure" not in events
+
+    @pytest.mark.asyncio
+    async def test_a_user_without_mfa_never_passes(self, mfa: MfaService, user) -> None:
+        assert await mfa.verify_challenge(user.id, "123456") is False
+
+
 class TestRecoveryCodes:
     @pytest.mark.asyncio
     async def test_a_recovery_code_works_once(self, mfa: MfaService, user) -> None:

@@ -70,3 +70,21 @@ async def test_without_a_second_factor_nothing_is_asked(session: AsyncSession, u
     tokens = ApiTokenService(session)
     _token, raw = await tokens.create_token(user_id=user.id, label="ci")
     assert raw
+
+
+@pytest.mark.asyncio
+async def test_a_recovery_code_is_accepted_for_step_up(session: AsyncSession, user) -> None:
+    """Covers: KAL-AUTH-017
+
+    Someone whose authenticator is gone is exactly the person who needs to
+    revoke a token, so the step-up prompt takes what the login prompt takes.
+    """
+    secret = await enrol(session, user.id)
+    mfa = MfaService(session)
+    codes = await mfa.regenerate_recovery_codes(user.id)
+
+    assert await mfa.verify_challenge(user.id, codes[0]) is True
+    assert await mfa.verify_challenge(user.id, codes[0]) is False
+
+    fresh = pyotp.TOTP(secret, interval=TOTP_INTERVAL).at(int(time.time()) + TOTP_INTERVAL)
+    assert await mfa.verify_challenge(user.id, str(fresh)) is True

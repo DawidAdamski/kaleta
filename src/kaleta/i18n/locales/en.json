@@ -1893,13 +1893,14 @@
     "mfa_recovery_hint": "Each code works once, and this replaces every code issued before. Keep them somewhere other than the phone that makes the codes.",
     "mfa_copy_codes": "Copy codes",
     "mfa_step_up_title": "Confirm it is you",
-    "mfa_step_up_hint": "Enter a code from your authenticator app.",
+    "mfa_step_up_hint": "Enter a code from your authenticator app, or one of your recovery codes.",
     "mfa_step_up_required": "A two-factor code is needed for this.",
     "mfa_code_required": "Enter the code.",
     "mfa_failed": "That code is not right.",
     "mfa_recovery_remaining_one": "1 recovery code left",
     "mfa_recovery_remaining_few": "{count} recovery codes left",
-    "mfa_recovery_remaining_many": "{count} recovery codes left"
+    "mfa_recovery_remaining_many": "{count} recovery codes left",
+    "mfa_rate_limited": "Too many wrong codes. Try again in {seconds} seconds."
   },
   "audit": {
     "title": "Change History",

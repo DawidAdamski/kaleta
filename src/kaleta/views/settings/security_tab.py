@@ -8,6 +8,7 @@ from typing import Any
 
 from nicegui import app, ui
 
+from kaleta.auth.login_rate_limit import mfa_rate_limiter
 from kaleta.auth.session import SESSION_USER_ID, mark_mfa_verified, mfa_recently_verified
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import plural_key, t
@@ -54,7 +55,14 @@ async def _step_up(user_id: int) -> bool:
 
 
 async def _ask_for_code(user_id: int) -> bool:
-    """A modal that closes only on a correct code (or a cancel)."""
+    """A modal that closes only on a correct code (or a cancel).
+
+    Rate-limited on the same counter as the login prompt. A step-up dialog
+    sits behind an already-authenticated session, which is exactly the
+    situation — borrowed device, stolen cookie — where an attacker would
+    otherwise have unlimited guesses at six digits.
+    """
+    rate_key = str(user_id)
     with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
         ui.label(t("settings.mfa_step_up_title")).classes("text-lg font-semibold mb-1")
         ui.label(t("settings.mfa_step_up_hint")).classes("text-sm text-slate-500 mb-4")
@@ -62,18 +70,27 @@ async def _ask_for_code(user_id: int) -> bool:
         error = ui.label("").classes("text-sm text-negative mt-2")
 
         async def _confirm() -> None:
+            if mfa_rate_limiter.is_locked(rate_key):
+                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                return
             entered = (code_input.value or "").strip()
             if not entered:
                 error.set_text(t("settings.mfa_code_required"))
                 return
 
             async def _verify(session: Any) -> bool:
-                return await MfaService(session).verify_code(user_id, entered)
+                return await MfaService(session).verify_challenge(user_id, entered)
 
             if not await with_session(_verify):
-                error.set_text(t("settings.mfa_failed"))
+                if mfa_rate_limiter.record_failure(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                else:
+                    error.set_text(t("settings.mfa_failed"))
                 code_input.value = ""
                 return
+            mfa_rate_limiter.clear(rate_key)
             dialog.submit(True)
 
         code_input.on("keydown.enter", _confirm)

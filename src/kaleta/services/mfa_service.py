@@ -175,6 +175,27 @@ class MfaService:
         await self.session.commit()
         return True
 
+    async def verify_challenge(self, user_id: int, code: str) -> bool:
+        """A current TOTP code or an unused recovery code — whichever is to hand.
+
+        What the login page splits into two fields (the user picks) a step-up
+        dialog asks for in one: someone down to recovery codes because their
+        authenticator is gone still has to be able to revoke an API token.
+        Either way the code is spent, and a failure is one audit row, not two.
+        """
+        row = await self._row(user_id)
+        if row is None or not row.is_enabled:
+            return False
+        counter = self._matching_counter(row, code)
+        if counter is not None:
+            row.last_used_counter = counter
+            await self.session.commit()
+            return True
+        if await self._spend_recovery_code(row, code):
+            return True
+        await self._record_failure(user_id, event="mfa_step_up_failure")
+        return False
+
     async def consume_recovery_code(self, user_id: int, code: str) -> bool:
         """True when ``code`` was an unused recovery code; it is spent either way."""
         row = await self._row(user_id)

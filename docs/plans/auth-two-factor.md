@@ -214,7 +214,8 @@ Phase A is built.
   The audit events the module writes are `mfa_failure` (a wrong code or
   recovery code at the login prompt), `mfa_enrol_failure`,
   `mfa_disable_failure` (either half of the "turn it off" dialog) and
-  `mfa_disabled_cli`. `_spend_recovery_code()` exists so that a recovery
+  `mfa_disabled_cli`, `mfa_step_up_failure`. `_spend_recovery_code()`
+  exists so that a recovery
   code used to disable is not logged as a login failure: the caller names
   the event, because a wrong code at a login prompt and a wrong code in
   the disable dialog are not the same thing to read back.
@@ -222,6 +223,13 @@ Phase A is built.
 - **`--disable-mfa` writes an audit row per removed enrolment.** It is
   the one factor removal nobody had to prove anything to make, so it is
   the one that most needs a trace.
+
+- **The two new CLI integration tests carry no `skipif`.** The two older
+  tests in that file skip under postgres because `ResetPasswordCli`
+  repoints the shared session factory at its own SQLite file and never
+  puts it back. A `global_db_restored` fixture restores it instead, which
+  is what the skip was standing in for, and the flag stays covered on
+  both backends.
 
 - **The e2e test is one test, not four.** Enrolment changes how every
   later login on the shared e2e instance behaves, so the whole life of a
