@@ -133,7 +133,7 @@ class EditDialogs:
         )
         self.yearly_dialog.open()
 
-    def _update_yearly_preview(self, e: object) -> None:  # noqa: ARG002
+    def _update_yearly_preview(self, e: object) -> None:
         try:
             total_val = float(self.yearly_amount.value or 0)
             self.yearly_preview.set_text(

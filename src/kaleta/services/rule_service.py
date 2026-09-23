@@ -65,7 +65,8 @@ class RuleService:
         self.session.add(rule)
         await self.session.commit()
         loaded = await self.get(rule.id)
-        assert loaded is not None
+        if loaded is None:
+            raise RuntimeError(f"Categorisation rule {rule.id} missing right after commit.")
         logger.info("Created categorisation rule id=%s pattern=%r", loaded.id, loaded.pattern)
         return loaded
 
@@ -91,7 +92,8 @@ class RuleService:
             setattr(rule, field, value)
         await self.session.commit()
         loaded = await self.get(rule_id)
-        assert loaded is not None
+        if loaded is None:
+            raise RuntimeError(f"Categorisation rule {rule_id} missing right after update.")
         return loaded
 
     async def delete(self, rule_id: int) -> bool:

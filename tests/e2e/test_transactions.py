@@ -70,7 +70,7 @@ def _select_labeled(page: Page, dialog: Page, label: str, option: str) -> None:
     pick_open_menu_option(page, option)
 
 
-def _find_row(page: Page, description: str):  # noqa: ANN201
+def _find_row(page: Page, description: str):
     """Locate a ledger row by description, filtering so paging cannot hide it."""
     search_ledger(page, description)
     return page.locator(".q-table tbody tr").filter(has_text=description)

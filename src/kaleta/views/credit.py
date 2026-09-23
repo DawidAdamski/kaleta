@@ -233,7 +233,7 @@ def _render_card(card: CardView) -> None:
                         )
                     ).classes(BODY_MUTED)
             with ui.column().classes("items-end gap-0"):
-                pct_label = int(round(float(card.utilization_pct) * 100))
+                pct_label = round(float(card.utilization_pct) * 100)
                 ui.label(f"{pct_label}%").classes(f"text-lg font-bold text-{colour}")
                 ui.label(t("credit.card_utilization")).classes("text-xs text-slate-500")
 

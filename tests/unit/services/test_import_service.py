@@ -813,7 +813,7 @@ class TestColumnMapping:
 
 class TestValidateImportReadiness:
     def test_missing_account(self):
-        key, params = validate_import_readiness(
+        key, _params = validate_import_readiness(
             ImportReadinessCheck(
                 target_account_id=None,
                 expense_cat_id=1,

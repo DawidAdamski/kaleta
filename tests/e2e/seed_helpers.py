@@ -324,7 +324,7 @@ def seed_planned_transaction(
         return executor.submit(_worker).result()
 
 
-def _run_async_worker(coro_factory):  # noqa: ANN001
+def _run_async_worker(coro_factory):
     """Run an async coroutine factory in a worker thread (pytest-playwright safe)."""
     import asyncio
     from concurrent.futures import ThreadPoolExecutor

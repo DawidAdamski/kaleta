@@ -625,7 +625,7 @@ class SubscriptionService:
 def _amount_bucket(amount: Decimal) -> str:
     """Rough bucket for grouping amounts. Tight buckets → merged later."""
     # Round to the nearest 1 PLN; the ±5 % tolerance absorbs fine-grain drift.
-    return str(int(round(float(amount))))
+    return str(round(float(amount)))
 
 
 # Strip a trailing location/detail suffix so rows for the same service cluster.

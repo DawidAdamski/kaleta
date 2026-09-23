@@ -8,8 +8,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
     "ImportRuleCreate",
-    "ImportRuleUpdate",
     "ImportRuleResponse",
+    "ImportRuleUpdate",
 ]
 
 

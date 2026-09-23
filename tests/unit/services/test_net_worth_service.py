@@ -690,7 +690,7 @@ class TestAccountSnapshotInstitutionName:
 class TestAccountSnapshotCurrency:
     def _snap(
         self, balance: Decimal, currency: str = "PLN", balance_in_default: Decimal | None = None
-    ) -> AccountSnapshot:  # noqa: E501
+    ) -> AccountSnapshot:
         return AccountSnapshot(
             id=1,
             name="Test",

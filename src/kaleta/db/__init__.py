@@ -3,7 +3,7 @@ from kaleta.db import audit as _audit  # noqa: F401 — registers session event 
 from kaleta.db.base import Base, engine
 from kaleta.db.session import AsyncSessionFactory, get_session
 
-__all__ = ["Base", "engine", "AsyncSessionFactory", "get_session", "configure_database"]
+__all__ = ["AsyncSessionFactory", "Base", "configure_database", "engine", "get_session"]
 
 
 def configure_database(db_url: str, debug: bool = False) -> None:

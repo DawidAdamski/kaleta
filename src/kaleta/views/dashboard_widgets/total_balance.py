@@ -22,7 +22,7 @@ from kaleta.views.dashboard_widgets.registry import RenderContext, register
     ((1, 1), (2, 1)),
     legacy=True,
 )
-async def render_total_balance(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_total_balance(session: AsyncSession, ctx: RenderContext) -> None:
     svc = ReportService(session)
     total = await svc.total_balance()
     delta = await svc.balance_delta_vs_days_ago(30)

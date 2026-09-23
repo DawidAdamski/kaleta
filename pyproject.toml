@@ -65,13 +65,31 @@ target-version = "py313"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W", "UP", "B", "SIM"]
+# S is ruff's port of bandit's checks; it replaces the separate bandit run
+# (see docs/plans/lint-hardening.md). RUF carries the ruff-specific rules,
+# including RUF100 (unused `# noqa`) which keeps suppressions honest.
+select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "S", "RUF"]
+ignore = [
+    # Prose in two languages uses typographic dashes and quotes on purpose.
+    "RUF001",
+    "RUF002",
+    "RUF003",
+]
 
 [tool.ruff.lint.per-file-ignores]
 # FastAPI uses Depends/Query in argument defaults — B008 is a false positive there.
 "src/kaleta/api/**" = ["B008"]
 # main.py pins NICEGUI_STORAGE_PATH with stdlib before importing nicegui.
 "src/kaleta/main.py" = ["E402"]
+# Demo data is not a security boundary: `random` is the right generator here.
+"src/kaleta/seeders/**" = ["S311"]
+# Tests assert, use fixture passwords, spawn the app under test and bind
+# 0.0.0.0 for the e2e server — none of which is production code.
+"tests/**" = ["S101", "S104", "S105", "S106", "S603", "S607", "S608"]
+# Operator scripts: demo password, subprocess calls, benchmark randomness.
+"scripts/**" = ["S105", "S310", "S311", "S603", "S607"]
+# Data migrations build statements from literal table names.
+"alembic/versions/**" = ["S608"]
 
 [tool.mypy]
 python_version = "3.13"
@@ -142,7 +160,6 @@ dev = [
     "mypy>=1.10",
     "pre-commit>=3.7",
     "faker>=40.11.1",
-    "bandit>=1.9.4",
     "coverage>=7.13.5",
     "import-linter>=2.13",
     "openpyxl>=3.1",

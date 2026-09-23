@@ -187,9 +187,9 @@ def _render_recent() -> None:
 # ── page ─────────────────────────────────────────────────────────────────────
 
 
-def register() -> None:  # noqa: PLR0915
+def register() -> None:
     @ui.page("/setup")
-    async def setup_page() -> None:  # noqa: PLR0915
+    async def setup_page() -> None:
         ui.add_head_html(PWA_HEAD)
         with ui.column().classes("w-full min-h-screen items-center justify-center p-8 gap-6"):
             # logo

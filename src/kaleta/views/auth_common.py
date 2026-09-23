@@ -169,7 +169,7 @@ async def _landing_stats() -> AuthLandingStats | None:
 
     try:
         return await with_session(_read)
-    except Exception:  # noqa: BLE001 — see the docstring
+    except Exception:
         # The service catches its own read; this catches not getting a session
         # at all, which is what a database that has never been created looks
         # like. Logged so the two are told apart in a log rather than both

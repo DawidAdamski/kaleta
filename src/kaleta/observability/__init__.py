@@ -23,9 +23,9 @@ from kaleta.observability.ring_buffer import (
 from kaleta.observability.version import app_version
 
 __all__ = [
-    "ContextTokens",
     "MAX_ARG_CHARS",
     "MAX_RECORDS",
+    "ContextTokens",
     "RedactingFilter",
     "RingBufferHandler",
     "SessionRingBuffer",

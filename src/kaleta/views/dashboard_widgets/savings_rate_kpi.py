@@ -23,7 +23,7 @@ from kaleta.views.dashboard_widgets.registry import RenderContext, register
     ((1, 1), (2, 1)),
     legacy=True,
 )
-async def render_savings_rate_kpi(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_savings_rate_kpi(session: AsyncSession, ctx: RenderContext) -> None:
     svc = ReportService(session)
     points = await svc.savings_rate(months=1)
     latest = points[0] if points else None

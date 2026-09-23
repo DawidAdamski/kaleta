@@ -49,8 +49,12 @@ docs/                    # Architecture ADRs, tech stack, product docs
 
 ### Style
 - **Object-oriented, class-based** code — no loose functions for features
-- Ruff for linting + formatting (line length 100)
-- mypy strict mode for type checking
+- Ruff for linting + formatting (line length 100); the `S` family is the
+  security lint (bandit's checks) and `RUF100` rejects a `# noqa` that
+  silences nothing
+- mypy strict mode for type checking, with the pydantic plugin
+- No `assert` in `src/` — it vanishes under `python -O`; narrow with an
+  explicit `if … is None: raise`
 - pytest for testing
 
 ### Patterns
@@ -90,6 +94,7 @@ uv run pytest                # Run tests
 uv run ruff check .          # Lint
 uv run ruff format .         # Format
 uv run mypy src/             # Type check
+uv run pre-commit install --hook-type pre-commit --hook-type pre-push  # once per clone
 ```
 
 ## Runtime Modes

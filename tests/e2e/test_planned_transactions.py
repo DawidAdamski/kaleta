@@ -290,7 +290,7 @@ def _set_upcoming_window(page: Page, base_url: str, option: str) -> None:
     expect(page.get_by_text("Settings saved").first).to_be_visible(timeout=5000)
 
 
-def _ledger_row(page: Page, text: str):  # noqa: ANN202 — Playwright locator
+def _ledger_row(page: Page, text: str):
     return page.locator(".q-table tbody tr").filter(has_text=text)
 
 

@@ -1,0 +1,35 @@
+# Local hooks that run the project's own pinned tools through uv, so a commit
+# is checked by exactly the ruff / mypy / import-linter versions in uv.lock —
+# not by whatever a pre-commit mirror happens to ship.
+#
+#   uv sync --group dev && uv run pre-commit install --hook-type pre-commit --hook-type pre-push
+#
+# pre-commit stage: fast, file-scoped (ruff on the staged files).
+# pre-push stage: the slower whole-tree gates (mypy, import-linter).
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run --no-sync ruff check --fix --exit-non-zero-on-fix
+        language: system
+        types_or: [python, pyi]
+        stages: [pre-commit]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run --no-sync ruff format
+        language: system
+        types_or: [python, pyi]
+        stages: [pre-commit]
+      - id: mypy
+        name: mypy src/
+        entry: uv run --no-sync mypy src/
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: lint-imports
+        name: import-linter (architecture contracts)
+        entry: uv run --no-sync lint-imports
+        language: system
+        pass_filenames: false
+        stages: [pre-push]

@@ -65,7 +65,7 @@ _key_source: KeySource = _key_from_settings
 
 def set_key_source(source: KeySource) -> None:
     """Swap where the column key comes from (the hosted key ring, or a test)."""
-    global _key_source  # noqa: PLW0603 — one process-wide key source by design
+    global _key_source  # one process-wide key source by design
     _key_source = source
 
 

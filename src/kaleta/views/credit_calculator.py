@@ -285,7 +285,7 @@ def register() -> None:
                             with (
                                 ui.card().classes("w-full p-4 border-2 border-positive"),
                                 ui.row().classes("items-center gap-3"),
-                            ):  # noqa: E501
+                            ):
                                 ui.icon("savings", color="positive").classes("text-2xl")
                                 with ui.column().classes("gap-0"):
                                     ui.label(t("credit_calculator.overpayment_savings")).classes(

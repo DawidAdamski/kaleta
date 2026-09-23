@@ -24,7 +24,7 @@ from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, INK
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_ytd_summary(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_ytd_summary(session: AsyncSession, ctx: RenderContext) -> None:
     rep = await ReportService(session).ytd_summary()
     with (
         section_card(

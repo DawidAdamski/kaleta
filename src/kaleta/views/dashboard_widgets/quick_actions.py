@@ -22,7 +22,7 @@ from kaleta.views.dashboard_widgets.registry import RenderContext, register
     (4, 1),
     ((4, 1), (4, 2)),
 )
-async def render_quick_actions(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_quick_actions(session: AsyncSession, ctx: RenderContext) -> None:
     with (
         section_card(
             t("dashboard_widgets.quick_actions"),

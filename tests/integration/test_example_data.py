@@ -69,7 +69,7 @@ async def _counts(session: AsyncSession) -> dict[str, int]:
     return counts
 
 
-def _engine_with_foreign_keys(db_url: str):  # noqa: ANN202 — AsyncEngine
+def _engine_with_foreign_keys(db_url: str):
     """An engine that enforces foreign keys, the way the running app does.
 
     ``tests/conftest.py`` builds its engines without the PRAGMA listener from
@@ -80,7 +80,7 @@ def _engine_with_foreign_keys(db_url: str):  # noqa: ANN202 — AsyncEngine
     engine = create_async_engine(db_url)
 
     @event.listens_for(engine.sync_engine, "connect")
-    def _set_pragma(dbapi_connection, _record):  # noqa: ANN001, ANN202
+    def _set_pragma(dbapi_connection, _record):
         cursor = dbapi_connection.cursor()
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()

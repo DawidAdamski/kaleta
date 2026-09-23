@@ -7,12 +7,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from kaleta.models.account import AccountType
 
 __all__ = [
-    "AccountType",
+    "AccountActivityResponse",
     "AccountBase",
     "AccountCreate",
-    "AccountUpdate",
     "AccountResponse",
-    "AccountActivityResponse",
+    "AccountType",
+    "AccountUpdate",
 ]
 
 

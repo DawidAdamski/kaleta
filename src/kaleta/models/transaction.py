@@ -52,7 +52,7 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
     )
     type: Mapped[TransactionType] = mapped_column(
         SAEnum(TransactionType, native_enum=False), nullable=False
-    )  # noqa: E501
+    )
     date: Mapped[date] = mapped_column(Date, nullable=False)
     description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
     # Long-form user note kept apart from the bank-imported ``description``.

@@ -28,9 +28,11 @@ Highlights:
 
 ```bash
 uv sync --group dev
+uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 ```
 
-Run the full gate before opening a PR:
+The hooks run ruff on every commit and mypy + import-linter on every push,
+with the versions pinned in `uv.lock`. Run the full gate before opening a PR:
 
 ```bash
 ./scripts/verify.sh

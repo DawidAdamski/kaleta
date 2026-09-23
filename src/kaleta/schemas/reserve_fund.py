@@ -10,10 +10,10 @@ from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
 
 __all__ = [
     "ReserveFundBackingMode",
-    "ReserveFundKind",
     "ReserveFundCreate",
-    "ReserveFundUpdate",
+    "ReserveFundKind",
     "ReserveFundResponse",
+    "ReserveFundUpdate",
     "ReserveFundWithProgress",
 ]
 

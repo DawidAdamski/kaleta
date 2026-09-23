@@ -80,7 +80,7 @@ def register() -> None:
 
             institution_cards()
 
-        _swatch_style = (  # noqa: N806
+        _swatch_style = (
             "width:36px;height:36px;border-radius:6px;"
             "border:1px solid rgba(0,0,0,0.2);flex-shrink:0;background:{}"
         )

@@ -78,7 +78,7 @@ class AuthStatsService:
         stats: AuthLandingStats | None
         try:
             stats = await self._read()
-        except Exception:  # noqa: BLE001 — a login page must render regardless
+        except Exception:
             # Warning, not debug: before setup this is expected and harmless,
             # but a broken query here looks exactly the same from outside, and
             # a panel that quietly shows nothing forever is not a thing anyone

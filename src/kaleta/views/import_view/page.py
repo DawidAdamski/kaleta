@@ -507,12 +507,12 @@ async def import_page() -> None:
             queued_file.status_msg = t(error_key, **error_params)
             return
 
-        assert queued_file.target_account_id is not None
-        assert queued_file.expense_cat_id is not None
-        assert queued_file.income_cat_id is not None
         target_account_id = queued_file.target_account_id
         expense_cat_id = queued_file.expense_cat_id
         income_cat_id = queued_file.income_cat_id
+        if target_account_id is None or expense_cat_id is None or income_cat_id is None:
+            # validate_import_readiness() reported no error, so all three are set.
+            raise RuntimeError("Import readiness passed with an unmapped account or category.")
 
         try:
 
@@ -563,7 +563,7 @@ async def import_page() -> None:
                 return count, skipped_rows
 
             count, skipped_rows = await with_session(_persist)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             queued_file.status = "failed"
             queued_file.status_msg = str(exc)
             return
@@ -583,7 +583,7 @@ async def import_page() -> None:
                     await ImportRuleService(session).touch_last_used(rid)
 
                 await with_session(_touch)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             ui.notify(t("import.rule_save_failed", error=str(exc)), type="warning")
 
     async def do_import_all() -> None:

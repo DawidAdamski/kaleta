@@ -25,7 +25,7 @@ from kaleta.views.theme import BODY_MUTED, HAIRLINE_BOTTOM, INK
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_top_merchants(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_top_merchants(session: AsyncSession, ctx: RenderContext) -> None:
     today = datetime.date.today()
     start = today - datetime.timedelta(days=30)
     merchants = await ReportService(session).top_merchants(start, today, limit=5)

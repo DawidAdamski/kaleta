@@ -35,7 +35,7 @@ from kaleta.views.theme import (
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_budget_variance_month(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_budget_variance_month(session: AsyncSession, ctx: RenderContext) -> None:
     today = datetime.date.today()
     rep = await ReportService(session).budget_variance(today.year, today.month)
     with section_card(

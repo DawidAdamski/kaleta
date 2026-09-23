@@ -15,11 +15,11 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 __all__ = [
-    "SalaryBasis",
-    "MonthlyIncome",
     "BufferPoint",
-    "SalaryProposal",
+    "MonthlyIncome",
+    "SalaryBasis",
     "SalaryPlanCreate",
+    "SalaryProposal",
 ]
 
 

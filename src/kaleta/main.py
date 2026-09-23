@@ -36,7 +36,7 @@ _openapi_spec: dict[str, Any] | None = None
 
 
 def _api_spec() -> dict[str, Any]:
-    global _openapi_spec  # noqa: PLW0603
+    global _openapi_spec
     if _openapi_spec is None:
         tmp = FastAPI(
             title="Kaleta API",

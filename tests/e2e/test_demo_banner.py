@@ -124,7 +124,7 @@ def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
 
 
 @pytest.fixture
-def demo_page(browser, demo_e2e_server: str):  # noqa: ANN001
+def demo_page(browser, demo_e2e_server: str):
     context = browser.new_context()
     page = context.new_page()
     login(page, demo_e2e_server)

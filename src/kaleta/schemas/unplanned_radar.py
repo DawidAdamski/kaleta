@@ -14,8 +14,8 @@ _CENTS = Decimal("0.01")
 
 __all__ = [
     "RadarCandidate",
-    "RadarSummary",
     "RadarPlannedRow",
+    "RadarSummary",
 ]
 
 
