@@ -481,11 +481,20 @@ item is built, and every executable acceptance criterion passes.
   secret into `audit_log` — so the generic ORM listener sees none of
   this, and anything the service does not write itself is not written.
   `confirm_enrolment()` writes `mfa_enabled`, `disable()` writes
-  `mfa_disabled`, and `verify_challenge()` writes `mfa_step_up` —
-  deliberately a different event from the login prompt's `mfa_verified`,
-  because that is the answer that unlocks minting a bearer token
-  outliving the session, and a recovery code spent there is crossed off
-  for good. Turning the factor off is the step a thief at a
+  `mfa_disabled`, and `verify_challenge()` writes `mfa_step_up`. Only the
+  first two are written inside the transaction they describe: the rule is
+  scoped to rows recording a change to the *factor*, and a code being
+  proved is not one. `verify_code()`, `verify_challenge()` and
+  `consume_recovery_code()` commit the claim and then write their row, so
+  a crash in the gap loses the trace of a proof rather than the trace of
+  a removal. Deliberate, not an oversight — a spent counter with no row
+  behind it is a strictly smaller problem than a factor that vanished
+  with none.
+
+  `mfa_step_up` is deliberately a different event from the login prompt's
+  `mfa_verified`, because that is the answer that unlocks minting a
+  bearer token outliving the session, and a recovery code spent there is
+  crossed off for good. Turning the factor off is the step a thief at a
   signed-in browser has to take, and a log holding only the codes they
   fumbled on the way is a log that recorded the noise and missed the
   theft.

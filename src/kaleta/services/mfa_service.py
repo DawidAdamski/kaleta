@@ -249,7 +249,9 @@ class MfaService:
             msg = "That code is not right. Check the app and try the current code."
             raise ValidationError(msg)
         codes = [self._new_recovery_code() for _ in range(RECOVERY_CODE_COUNT)]
-        hashed = json.dumps([self._hasher.hash(code) for code in codes])
+        # `recovery`, not `code`: this method's `code` parameter is the TOTP
+        # code, and the two are not the same secret.
+        hashed = json.dumps([self._hasher.hash(recovery) for recovery in codes])
         # Claimed, not assigned: two tabs confirming the same pending
         # enrolment would both succeed, and the second would overwrite the ten
         # codes the first had already shown its user.

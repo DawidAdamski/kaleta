@@ -89,6 +89,12 @@ def _deserialize_value(val: object, col_type: TypeEngine[Any]) -> object:
                 # in `restore()` gets a sentence.
                 msg = "Invalid backup: a binary column is not valid base64"
                 raise ValidationError(msg) from exc
+        if not isinstance(val, bytes):
+            # A number or a list where base64 belongs. Passing it to the
+            # driver would raise `DBAPIError` — the same stack trace instead
+            # of a sentence that the arm above exists to prevent.
+            msg = "Invalid backup: a binary column is not a base64 string"
+            raise ValidationError(msg)
         return val
     if isinstance(col_type, DateTime):
         if isinstance(val, str):
