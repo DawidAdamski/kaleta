@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 
 from kaleta.views.auth_common import safe_redirect
+from kaleta.views.login_mfa import _back_to_login
 
 
 @pytest.mark.parametrize(
@@ -43,3 +44,14 @@ def test_anything_that_can_leave_this_origin_is_not(given: str) -> None:
 def test_a_stripped_character_inside_a_real_path_does_not_survive_it() -> None:
     """What is followed is what the browser would see, not what arrived."""
     assert safe_redirect("/trans\tactions") == "/transactions"
+
+
+def test_a_bail_out_keeps_the_reason_and_the_destination() -> None:
+    """Someone deep-linked to /transactions should land there once they have
+    signed in again, not on the dashboard."""
+    assert _back_to_login("mfa_gone", "/") == "/login?reason=mfa_gone"
+    assert (
+        _back_to_login("mfa_expired", "/transactions")
+        == "/login?reason=mfa_expired&redirect_to=/transactions"
+    )
+    assert "%3F" in _back_to_login("mfa_gone", "/a?b=c")

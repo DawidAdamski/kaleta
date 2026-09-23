@@ -11,8 +11,11 @@ from sqlalchemy.orm import Mapped, mapped_column
 from kaleta.db.base import Base
 from kaleta.db.types import EncryptedString
 
-#: The only factor kind this release enrols. The column exists so that
-#: WebAuthn can be added as a second row rather than a second table.
+#: The only factor kind this release enrols. The column exists so a second
+#: kind needs no second table — but `user_id` is unique below, so one user
+#: still holds at most one row. Letting somebody enrol a passkey *and* an
+#: authenticator means dropping that uniqueness first; the column alone does
+#: not buy it.
 MFA_KIND_TOTP = "totp"
 
 

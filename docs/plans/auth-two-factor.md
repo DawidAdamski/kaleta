@@ -451,6 +451,13 @@ item is built, and every executable acceptance criterion passes.
   the Phase A "Headless" bullet and shipped untested — the one piece of
   user-facing behaviour on this branch that had no scenario behind it.
 
+- **A bail-out keeps the destination, not just the reason.** Both exits
+  from `/login/mfa` — the challenge aged out, the factor went away —
+  dropped the `redirect_to` the page was carrying, so someone deep-linked
+  to `/transactions` landed on the dashboard after signing in again while
+  the happy path took them through. `_back_to_login()` builds both URLs
+  now, and only appends `redirect_to` when it is not `/`.
+
 - **A code is ASCII, and saying so stopped a 500.** `str.isalnum()` and
   `str.isdigit()` are both True for Arabic-Indic digits, fullwidth digits
   and superscripts, and `secrets.compare_digest` raises `TypeError` on a

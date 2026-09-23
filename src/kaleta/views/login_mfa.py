@@ -9,6 +9,7 @@ this page is public to the route guard and guards itself instead.
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import quote
 
 from fastapi.responses import RedirectResponse
 from nicegui import ui
@@ -33,6 +34,14 @@ from kaleta.views.auth_common import (
     safe_redirect,
 )
 from kaleta.views.theme import AUTH_SUBTITLE
+
+
+def _back_to_login(reason: str, target: str) -> str:
+    """The sign-in page, told why we are back and where we were going."""
+    url = f"/login?reason={reason}"
+    if target != "/":
+        url += f"&redirect_to={quote(target, safe='/')}"
+    return url
 
 
 def register() -> None:
@@ -77,8 +86,11 @@ def register() -> None:
                 # Without this the expiry would only ever apply to a reload.
                 if mfa_pending_user() != pending:
                     # The reason travels with the redirect: saying it here and
-                    # then navigating away shows it to nobody.
-                    ui.navigate.to("/login?reason=mfa_expired")
+                    # then navigating away shows it to nobody. So does the
+                    # destination — someone deep-linked to /transactions
+                    # should land there once they have signed in again, not
+                    # on the dashboard.
+                    ui.navigate.to(_back_to_login("mfa_expired", target))
                     return
                 if mfa_rate_limiter.is_locked(rate_key):
                     secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
@@ -117,7 +129,7 @@ def register() -> None:
                     # charging a try to the limiter would lock someone out of
                     # a login that has just become password-only.
                     clear_mfa_challenge()
-                    ui.navigate.to("/login?reason=mfa_gone")
+                    ui.navigate.to(_back_to_login("mfa_gone", target))
                     return
                 if not passed:
                     if mfa_rate_limiter.record_failure(rate_key):
