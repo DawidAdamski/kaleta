@@ -4,6 +4,10 @@ Active plan files live in this folder. Each plan captures one unit of
 work — small enough to ship in one or a few PRs. Completed plans move
 to [`archive/`](archive/) with their commit reference appended.
 
+Findings too small for a plan go in [`chores.md`](chores.md) — the chore
+inbox — rather than becoming files here. `AGENTS.md` has the rule of
+thumb for which is which.
+
 See the [roadmap](../roadmap.md) for the big picture and the
 [product docs](../product/index.md) for deep-dives on dashboard and
 wizard.
