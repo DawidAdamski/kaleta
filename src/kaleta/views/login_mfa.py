@@ -84,9 +84,26 @@ def register() -> None:
             def _use_recovery() -> None:
                 code_block.set_visibility(False)
                 recovery_block.set_visibility(True)
-                switch.set_visibility(False)
+                switch.set_text(t("auth.mfa_use_code"))
                 hint.set_text(t("auth.mfa_recovery_hint"))
                 recovery.run_method("focus")
+
+            def _use_code() -> None:
+                # The way back. Without it, someone who clicked the link to
+                # see what it did could only return by reloading — the one
+                # action that can trip the challenge TTL and cost them the
+                # password step as well.
+                recovery_block.set_visibility(False)
+                code_block.set_visibility(True)
+                switch.set_text(t("auth.mfa_use_recovery"))
+                hint.set_text(t("auth.mfa_hint"))
+                code.run_method("focus")
+
+            def _toggle() -> None:
+                if recovery_block.visible:
+                    _use_code()
+                else:
+                    _use_recovery()
 
             async def _submit() -> None:
                 _say("")
@@ -162,7 +179,7 @@ def register() -> None:
             auth_submit("auth.mfa_verify", _submit)
 
             switch = (
-                ui.button(t("auth.mfa_use_recovery"), on_click=_use_recovery, color=None)
+                ui.button(t("auth.mfa_use_recovery"), on_click=_toggle, color=None)
                 .props("flat no-caps dense")
                 .classes(f"{AUTH_CONTROL} self-start px-0")
             )

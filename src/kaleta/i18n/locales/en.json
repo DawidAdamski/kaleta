@@ -1958,6 +1958,7 @@
     "mfa_recovery_code": "Recovery code",
     "mfa_verify": "Verify",
     "mfa_use_recovery": "Use a recovery code",
+    "mfa_use_code": "Use a code from the app",
     "mfa_hint": "The code changes every 30 seconds.",
     "mfa_recovery_hint": "Each recovery code works once.",
     "mfa_failed": "That code is not right.",

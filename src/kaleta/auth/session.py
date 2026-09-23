@@ -100,13 +100,20 @@ def mfa_pending_user() -> tuple[int, str] | None:
     if not _within(app.storage.user.get(SESSION_MFA_PENDING_AT), MFA_CHALLENGE_TTL_MINUTES):
         clear_mfa_challenge()
         return None
+    # A half-written challenge is cleared, exactly like a stale one. Leaving
+    # it would keep `is_mfa_pending()` True forever, and `/login/mfa` reads
+    # that as "this one expired" — so the page would bounce to
+    # `?reason=mfa_expired` on every visit until a full login or logout
+    # rewrote the keys.
     raw_id = app.storage.user.get(SESSION_MFA_PENDING_USER_ID)
     username = app.storage.user.get(SESSION_MFA_PENDING_USERNAME)
     if raw_id is None or username is None:
+        clear_mfa_challenge()
         return None
     try:
         return int(raw_id), str(username)
     except (TypeError, ValueError):
+        clear_mfa_challenge()
         return None
 
 

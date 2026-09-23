@@ -1958,6 +1958,7 @@
     "mfa_recovery_code": "Kod zapasowy",
     "mfa_verify": "Potwierdź",
     "mfa_use_recovery": "Użyj kodu zapasowego",
+    "mfa_use_code": "Użyj kodu z aplikacji",
     "mfa_hint": "Kod zmienia się co 30 sekund.",
     "mfa_recovery_hint": "Każdy kod zapasowy działa tylko raz.",
     "mfa_failed": "Ten kod się nie zgadza.",

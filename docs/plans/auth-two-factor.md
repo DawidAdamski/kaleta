@@ -471,6 +471,21 @@ item is built, and every executable acceptance criterion passes.
   directions are tested; `disable_all()` has no failing path today, which
   is precisely why the trap would have sat there unnoticed.
 
+- **A half-written challenge clears itself, like a stale one.**
+  `mfa_pending_user()` returned None on a missing or unparseable user id
+  without clearing, so `is_mfa_pending()` stayed True — and since
+  `/login/mfa` reads that as "this one expired", the page would have
+  bounced to `?reason=mfa_expired` on every visit until a full login or
+  logout rewrote the keys. Narrow (it needs partially-written session
+  storage) and the same one line the TTL branch above it already does.
+
+- **The recovery field has a way back.** The "Use a recovery code" link
+  hid the code field and itself, so someone who clicked it to see what it
+  did could only return by reloading — the one action that can trip the
+  challenge TTL and cost them the password step too. It is a toggle now,
+  with `auth.mfa_use_code` as its other face, and the e2e test walks both
+  directions.
+
 - **A bail-out keeps the destination, not just the reason.** All three
   exits from `/login/mfa` — the challenge aged out mid-prompt, the factor
   went away, and the page reloaded after the challenge had already
@@ -486,6 +501,17 @@ item is built, and every executable acceptance criterion passes.
   reload is exactly the case `KAL-AUTH-021` describes and the one most
   owed an explanation, while a visitor who never gave a password gets a
   bare `/login` with nothing to explain.
+
+- **The key is derived on every bind, and that is a bill for a later
+  plan.** `_key_source()` is called inside `process_bind_param` /
+  `process_result_value`, so each one runs a fresh HKDF-SHA256. With this
+  branch's single encrypted column and one row per user it is invisible;
+  `hosted-field-encryption`'s table of columns would turn it into one
+  derivation per row per column. Deliberately left alone here — memoizing
+  it would trade a cost nobody is paying for a cache that has to be
+  invalidated on a key rotation, which is the thing that plan's key ring
+  gets to design properly. Filed as a lead in the chore inbox rather than
+  written into that plan's scope, which is not this branch's to edit.
 
 - **A code is ASCII, and saying so stopped a 500.** `str.isalnum()` and
   `str.isdigit()` are both True for Arabic-Indic digits, fullwidth digits
@@ -650,6 +676,14 @@ item is built, and every executable acceptance criterion passes.
   puts it back. A `global_db_restored` fixture restores it instead, which
   is what the skip was standing in for, and the flag stays covered on
   both backends.
+
+  Only half the leak is closed, and the note should not read as if it
+  were all of it: the fixture restores the factory under postgres, where
+  a shared URL exists to put back, and on the default SQLite run leaves
+  it pointing at the test's `tmp_path` file. That is the same leak the
+  two oldest cases already had — harmless while every test that matters
+  builds its own engine — but this branch took the count from two to six,
+  so it is in the chore inbox with the unconditional fix written out.
 
 - **The e2e test is one test, not four.** Enrolment changes how every
   later login on the shared e2e instance behaves, so the whole life of a

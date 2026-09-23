@@ -95,6 +95,25 @@ class TestPendingSessionIsUnauthenticated:
         assert session_mod.mfa_pending_user() is None
         assert session_mod.is_mfa_pending() is False
 
+    def test_a_half_written_challenge_clears_itself(self, fake_storage: dict[str, Any]) -> None:
+        """Otherwise `is_mfa_pending()` stays True forever and `/login/mfa`
+        reads that as an expiry, bouncing to `?reason=mfa_expired` on every
+        visit until a full login or logout rewrites the keys."""
+        session_mod.begin_mfa_challenge(user_id=7, username="owner")
+        del fake_storage[session_mod.SESSION_MFA_PENDING_USERNAME]
+
+        assert session_mod.mfa_pending_user() is None
+        assert session_mod.is_mfa_pending() is False
+
+    def test_a_challenge_with_a_nonsense_user_id_clears_itself(
+        self, fake_storage: dict[str, Any]
+    ) -> None:
+        session_mod.begin_mfa_challenge(user_id=7, username="owner")
+        fake_storage[session_mod.SESSION_MFA_PENDING_USER_ID] = "not an id"
+
+        assert session_mod.mfa_pending_user() is None
+        assert session_mod.is_mfa_pending() is False
+
     def test_a_challenge_without_a_stamp_is_no_challenge(
         self, fake_storage: dict[str, Any]
     ) -> None:

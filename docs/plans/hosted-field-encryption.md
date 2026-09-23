@@ -93,16 +93,6 @@ members later without changing this plan.
 - `mypy --strict` typing: `EncryptedText` is `TypeDecorator[str]`; the
   models keep `Mapped[str]` / `Mapped[str | None]` so services do not
   change.
-- **Memoize the key derivation.** `auth-two-factor` shipped
-  `EncryptedString` with a module-level `_key_source` called *inside*
-  `process_bind_param` / `process_result_value`, so every bind and every
-  result value runs a fresh HKDF-SHA256. With one encrypted column and
-  one row per user that is invisible; this plan turns it into a
-  per-row-per-column derivation across the table above, which is where it
-  starts to cost. Cache on `settings.secret_key` (or on the tenant key
-  version once the key ring below exists) so that the "read at call time"
-  property the docstring relies on — a rotated key takes effect without a
-  restart, and tests can swap the source — is preserved.
 
 ### 3. Columns that move to `EncryptedText`
 

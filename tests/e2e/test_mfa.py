@@ -160,6 +160,14 @@ def test_two_factor_authentication(
     expect(page_no_auth).to_have_url(f"{base_url}/login/mfa?redirect_to=/", timeout=10000)
     page_no_auth.get_by_role("button", name="Use a recovery code").click()
     recovery_field = page_no_auth.get_by_label("Recovery code", exact=True)
+    expect(recovery_field).to_be_visible()
+    # The way back out: someone who clicked the link to see what it did must
+    # not have to reload, which is the one action that can cost them the
+    # password step as well.
+    page_no_auth.get_by_role("button", name="Use a code from the app").click()
+    expect(page_no_auth.get_by_label("6-digit code", exact=True)).to_be_visible()
+    page_no_auth.get_by_role("button", name="Use a recovery code").click()
+    expect(recovery_field).to_be_visible()
     recovery_field.fill(codes[0])
     page_no_auth.get_by_role("button", name="Verify").click()
     expect(page_no_auth).to_have_url(f"{base_url}/", timeout=15000)
