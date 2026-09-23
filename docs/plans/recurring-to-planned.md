@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#transactions
 # Recurring detection — create a planned transaction, flag price drift
 
 Gap-closing plan for issue #7 (`KAL-REC-002`, `KAL-REC-004`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-REC-001`,
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-REC-001`,
 `003`, `005`…`009` are `@automated`.
 
 ## What exists (2026-09-23)

@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#credit
 # Debt tracking — link a loan to its transfer, keep loans out of spending
 
 Gap-closing plan for issue #14 (`KAL-DBT-001`, `KAL-DBT-004`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-DBT-002` and
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-DBT-002` and
 `KAL-DBT-003` are `@automated`.
 
 ## What exists (2026-09-23)

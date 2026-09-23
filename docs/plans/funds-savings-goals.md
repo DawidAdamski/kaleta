@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#budgets
 # Savings goals (skarbonki) on reserve funds
 
 Gap-closing plan for issue #12 (`KAL-GOL-001`…`004`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md).
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
 
 ## Intent
 

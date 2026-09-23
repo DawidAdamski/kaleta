@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#transactions
 # Subscriptions panel — monthly-total formula, cancel as of a date, cancelled section
 
 Gap-closing plan for issue #8 (`KAL-SUB-002`, `KAL-SUB-004`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-SUB-001` and
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-SUB-001` and
 `KAL-SUB-003` are `@automated`.
 
 ## What exists (2026-09-23)

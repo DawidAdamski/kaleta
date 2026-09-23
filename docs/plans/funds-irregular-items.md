@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#budgets
 # Irregular expenses fund — itemised yearly costs, ÷10 contribution, fund history
 
 Gap-closing plan for issue #10 (`KAL-IRR-001`…`005`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md).
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
 
 ## Intent
 

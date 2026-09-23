@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#cross-cutting-automatic-deduplication-suggestions
 # Payee identities — suggestions on the Payees page, token matching, merge under a new name
 
 Gap-closing plan for issue #1 (`KAL-PID-001`, `KAL-PID-002`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-PID-003` is
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-PID-003` is
 `@automated`. The larger identities/auto-merge work stays in
 [`payees-identities-automerge`](payees-identities-automerge.md).
 
