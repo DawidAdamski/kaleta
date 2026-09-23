@@ -184,7 +184,7 @@ columns on top. Neither touches the canned `ReportService` reports.
 
 | # | Plan | Effort | Status | Depends on |
 |---|---|---|---|---|
-| 1 | [reports-second-dimension-pivot](reports-second-dimension-pivot.md) | medium | draft | — |
+| 1 | [reports-second-dimension-pivot](archive/reports-second-dimension-pivot.md) | archived | draft | — |
 | 2 | [reports-trend-columns](reports-trend-columns.md) | medium | draft | 1 |
 
 ### Q4 2026 — Open-source launch (execute in this order)
@@ -281,7 +281,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [import-multi-file-queue](archive/import-multi-file-queue.md) | archived | Import |
 | [forecast-model-presets](archive/forecast-model-presets.md) | archived | Forecast |
 | [reports-library](archive/reports-library.md) | archived | Reports |
-| [reports-second-dimension-pivot](reports-second-dimension-pivot.md) | draft | Reports — ad-hoc programme (1) |
+| [reports-second-dimension-pivot](archive/reports-second-dimension-pivot.md) | archived | Reports — ad-hoc programme (1) |
 | [reports-trend-columns](reports-trend-columns.md) | draft | Reports — ad-hoc programme (2) |
 | [settings-expansion](archive/settings-expansion.md) | archived | Settings |
 | [dedupe-suggestions](archive/dedupe-suggestions.md) | archived | Cross-cutting |

@@ -3,8 +3,9 @@ plan_id: reports-second-dimension-pivot
 title: Reports — second dimension and pivot table
 area: reports
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#reports
+status: archived
+archived_at: 2026-09-23
+roadmap_ref: ../../roadmap.md#reports
 ---
 
 # Reports — second dimension and pivot table
@@ -96,7 +97,7 @@ render exactly as today.
 
 Out of scope:
 - Derived columns (moving average, month-over-month change, share,
-  rank) — [reports-trend-columns](reports-trend-columns.md).
+  rank) — [reports-trend-columns](../reports-trend-columns.md).
 - A third dimension, nested groupings, or sub-totals per group.
 - CSV / XLSX export of the pivot — the builder has no export today;
   adding one is its own plan.
@@ -221,3 +222,35 @@ Out of scope:
   chore inbox with the repro.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-23 (PR #124).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `058b042` | Dawid Adamski | 2026-09-23 | Merge pull request #124 from DawidAdamski/plan/reports-second-dimension-pivot |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/reports-second-dimension-pivot.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/views/reports/chart_options.py
+- src/kaleta/views/reports/chart_zone.py
+- src/kaleta/views/reports/config_zone.py
+- src/kaleta/views/reports/constants.py
+- src/kaleta/views/reports/page.py
+- src/kaleta/views/reports/sentence.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_reports_builder.py
+- tests/unit/services/test_saved_report_service.py
+- tests/unit/views/test_reports_chart_options.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
