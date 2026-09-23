@@ -105,8 +105,11 @@ handful of addresses walk past the limit altogether, which is the worse of the
 two, so the lockout is the trade we take. The same counter covers all four prompts that
 take a code — the login code prompt, the step-up dialog, the "turn it off"
 dialog and the confirm step of setting a factor up — so five wrong answers in
-any one of them locks the other three. Worth knowing for the setup dialog in
-particular: fumbling five codes while enrolling locks the login prompt too.
+any one of them locks the other three. The pairing that bites in practice is
+the step-up and "turn it off" dialogs, both reachable while the factor is on:
+wrong answers in one lock the code prompt you need at the next sign-in. (The
+setup dialog shares the bucket too, but locking yourself out there only delays
+enrolling — there is no factor yet for a login to ask about.)
 
 **Locked out with shell access** (no phone, no recovery codes):
 

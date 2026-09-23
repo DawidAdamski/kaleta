@@ -19,6 +19,7 @@ from kaleta.cli.reset_password import ResetPasswordCli
 from kaleta.db import configure_database
 from kaleta.db import types as types_mod
 from kaleta.db.base import Base
+from kaleta.exceptions import ValidationError
 from kaleta.services.auth_service import AuthService
 from tests.conftest import _POSTGRES_URL, _USE_POSTGRES
 
@@ -234,3 +235,67 @@ def test_reset_password_cli_works_after_a_key_rotation(
     assert "Two-factor enrolments removed: 1" in stdout.getvalue()
     assert asyncio.run(_mfa_enabled(db_url, "alice")) is False
     assert asyncio.run(_authenticate(db_url, "alice", "new-password-9")) is True
+
+
+def test_reset_password_cli_only_claims_a_removal_that_happened(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, global_db_restored: None
+) -> None:
+    """Covers: KAL-AUTH-018
+
+    The audience for this message is a locked-out self-hoster following
+    SECURITY.md — the one person who cannot check whether their factor is
+    still on. It must not guess in either direction.
+    """
+    db_path = tmp_path / "kaleta.db"
+    db_url = f"sqlite+aiosqlite:///{db_path}"
+    asyncio.run(_prepare_db(db_url, username="alice", password="old-password-1"))
+    asyncio.run(_enrol_mfa(db_url, "alice"))
+
+    monkeypatch.setattr("kaleta.cli.reset_password.get_db_url", lambda: db_url)
+
+    def boom(_self: object, _password: str) -> None:
+        raise ValidationError("Password too short")
+
+    monkeypatch.setattr("kaleta.services.auth_service.AuthService.reset_password", boom)
+    prompts = iter(["new-password-9", "new-password-9"])
+    stderr = io.StringIO()
+    code = ResetPasswordCli(
+        get_password=lambda _prompt: next(prompts),
+        stderr=stderr,
+        disable_mfa=True,
+    ).run()
+
+    assert code == 1
+    assert "Two-factor enrolments were already removed: 1" in stderr.getvalue()
+    # And it is true: the removal committed before the password step ran.
+    assert asyncio.run(_mfa_enabled(db_url, "alice")) is False
+    assert asyncio.run(_authenticate(db_url, "alice", "old-password-1")) is True
+
+
+def test_reset_password_cli_says_nothing_about_a_removal_that_did_not_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, global_db_restored: None
+) -> None:
+    """Covers: KAL-AUTH-018 — the other direction: never claim a removal that
+    never happened."""
+    db_path = tmp_path / "kaleta.db"
+    db_url = f"sqlite+aiosqlite:///{db_path}"
+    asyncio.run(_prepare_db(db_url, username="alice", password="old-password-1"))
+    asyncio.run(_enrol_mfa(db_url, "alice"))
+
+    monkeypatch.setattr("kaleta.cli.reset_password.get_db_url", lambda: db_url)
+
+    async def boom(_self: object) -> int:
+        raise ValidationError("Could not read the enrolments")
+
+    monkeypatch.setattr("kaleta.services.mfa_service.MfaService.disable_all", boom)
+    prompts = iter(["new-password-9", "new-password-9"])
+    stderr = io.StringIO()
+    code = ResetPasswordCli(
+        get_password=lambda _prompt: next(prompts),
+        stderr=stderr,
+        disable_mfa=True,
+    ).run()
+
+    assert code == 1
+    assert "already removed" not in stderr.getvalue()
+    assert asyncio.run(_mfa_enabled(db_url, "alice")) is True

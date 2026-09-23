@@ -24,7 +24,7 @@ import secrets
 import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 import pyotp
 import qrcode
@@ -40,6 +40,9 @@ from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.user import User
 from kaleta.models.user_mfa import MFA_KIND_TOTP, UserMfa
 from kaleta.services.auth_service import AuthService
+
+if TYPE_CHECKING:
+    from sqlalchemy.engine import CursorResult
 
 log = logging.getLogger(__name__)
 
@@ -636,11 +639,13 @@ class MfaService:
         Always read before the commit. ``rowcount`` is memoized off a cursor
         that committing closes, and the ``or 0`` below would then read an
         unavailable count as "somebody else got there first" — a spurious
-        conflict on a write that actually landed. ``getattr`` rather than
-        ``result.rowcount`` because that attribute lives on ``CursorResult``,
-        which ``execute`` is not typed as returning.
+        conflict on a write that actually landed. The ``cast`` is only to
+        escape ``execute()``'s declared ``Result`` return type — ``rowcount``
+        lives on ``CursorResult``, which is what every DML statement here
+        actually gets back. A ``getattr`` default would put the silent zero
+        back in by another door, which is the harder one to spot.
         """
-        return int(getattr(result, "rowcount", 0) or 0) == 1
+        return cast("CursorResult[Any]", result).rowcount == 1
 
     async def _record_failure(self, user_id: int, *, event: str) -> None:
         await self._record(user_id, event=event, success=False)

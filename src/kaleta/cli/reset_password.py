@@ -65,17 +65,25 @@ class ResetPasswordCli:
             self._stderr.write("Passwords do not match.\n")
             return 1
 
+        removed: int | None = None
+
+        def note_removed(count: int) -> None:
+            nonlocal removed
+            removed = count
+
         try:
-            username, disabled = asyncio.run(self._reset(db_url, new_password))
+            username, disabled = asyncio.run(self._reset(db_url, new_password, note_removed))
         except KaletaError as exc:
             # The enrolments are dropped and committed before the password is
-            # touched, so a failure here leaves them gone. Saying only that
-            # the command failed would send the owner away believing their
-            # factor is still on.
+            # touched, so a failure after that point leaves them gone. Saying
+            # only that the command failed would send the owner away believing
+            # their factor is still on — and saying it unconditionally would
+            # lie the other way if `disable_all()` was what raised.
             self._stderr.write(f"{exc.message}\n")
-            if self._disable_mfa:
+            if removed is not None:
                 self._stderr.write(
-                    "Two-factor enrolments were already removed; the password is unchanged.\n"
+                    f"Two-factor enrolments were already removed: {removed}. "
+                    "The password is unchanged.\n"
                 )
             return 1
         except Exception:
@@ -95,7 +103,9 @@ class ResetPasswordCli:
             )
         return 0
 
-    async def _reset(self, db_url: str, new_password: str) -> tuple[str, int]:
+    async def _reset(
+        self, db_url: str, new_password: str, note_removed: Callable[[int], None]
+    ) -> tuple[str, int]:
         configure_database(db_url, debug=settings.debug)
         try:
             async with AsyncSessionFactory() as session:
@@ -105,7 +115,11 @@ class ResetPasswordCli:
                 # they asked to be rid of still in the way. The other half of
                 # that trade — a failure after the enrolments are gone — is
                 # why `run()` says so on the error path.
-                disabled = await MfaService(session).disable_all() if self._disable_mfa else 0
+                disabled = 0
+                if self._disable_mfa:
+                    disabled = await MfaService(session).disable_all()
+                    # Committed by now, so the error path may say so.
+                    note_removed(disabled)
                 user = await AuthService(session).reset_password(new_password)
                 return user.username, disabled
         finally:

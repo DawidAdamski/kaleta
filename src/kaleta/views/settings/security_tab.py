@@ -298,6 +298,18 @@ async def _open_recovery(user_id: int, refresh: Refresh) -> None:
 
     try:
         codes = await with_session(_regenerate)
+    except ConflictError:
+        # A reissue in another tab won the race for the same set.
+        ui.notify(t("settings.mfa_stale"), type="warning")
+        refresh()
+        return
+    except EncryptionError:
+        # A fresh step-up stamp means `_step_up` answered without touching
+        # the row, so this is the first call to decrypt it — which makes
+        # this the dialog a rotated KALETA_SECRET_KEY shows up in first.
+        ui.notify(t("settings.mfa_unreadable"), type="negative")
+        refresh()
+        return
     except KaletaError as exc:
         notify_kaleta_error(exc)
         refresh()

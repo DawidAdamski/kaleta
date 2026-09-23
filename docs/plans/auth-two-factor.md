@@ -451,6 +451,15 @@ item is built, and every executable acceptance criterion passes.
   the Phase A "Headless" bullet and shipped untested — the one piece of
   user-facing behaviour on this branch that had no scenario behind it.
 
+- **The CLI only claims a removal that happened.** `--disable-mfa` drops
+  the enrolments and commits before the password step, so a failure after
+  that leaves them gone and the error has to say so — but saying it
+  unconditionally would lie the other way if `disable_all()` were what
+  raised. The count is reported through a callback fired after the commit,
+  so the message is keyed on the thing having actually happened. Both
+  directions are tested; `disable_all()` has no failing path today, which
+  is precisely why the trap would have sat there unnoticed.
+
 - **A bail-out keeps the destination, not just the reason.** Both exits
   from `/login/mfa` — the challenge aged out, the factor went away —
   dropped the `redirect_to` the page was carrying, so someone deep-linked
