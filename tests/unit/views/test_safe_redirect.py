@@ -55,3 +55,6 @@ def test_a_bail_out_keeps_the_reason_and_the_destination() -> None:
         == "/login?reason=mfa_expired&redirect_to=/transactions"
     )
     assert "%3F" in _back_to_login("mfa_gone", "/a?b=c")
+    # The same builder serves the page-load bail-out, so an expired reload
+    # keeps both halves too.
+    assert _back_to_login("mfa_expired", safe_redirect("//evil.com")) == "/login?reason=mfa_expired"

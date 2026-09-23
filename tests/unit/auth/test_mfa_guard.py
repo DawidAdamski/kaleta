@@ -68,6 +68,22 @@ class TestPendingSessionIsUnauthenticated:
         assert session_mod.is_mfa_pending() is False
         assert session_mod.mfa_pending_user() is None
 
+    def test_an_expiry_is_distinguishable_from_never_having_had_one(
+        self, fake_storage: dict[str, Any]
+    ) -> None:
+        """`/login/mfa` needs the difference: one case has an expiry to
+        explain and a deep link to keep, the other has neither."""
+        assert session_mod.is_mfa_pending() is False
+
+        session_mod.begin_mfa_challenge(user_id=7, username="owner")
+        stale = datetime.now(UTC) - timedelta(minutes=11)
+        fake_storage[session_mod.SESSION_MFA_PENDING_AT] = stale.isoformat()
+
+        # True before the read that clears it, which is the order the page uses.
+        assert session_mod.is_mfa_pending() is True
+        assert session_mod.mfa_pending_user() is None
+        assert session_mod.is_mfa_pending() is False
+
     def test_a_stale_challenge_is_no_challenge(self, fake_storage: dict[str, Any]) -> None:
         """A browser left at the code prompt must not stay one code from a login."""
         session_mod.begin_mfa_challenge(user_id=7, username="owner")

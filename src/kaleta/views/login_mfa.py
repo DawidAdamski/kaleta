@@ -18,6 +18,7 @@ from kaleta.auth.login_rate_limit import mfa_rate_limiter
 from kaleta.auth.session import (
     clear_mfa_challenge,
     is_authenticated,
+    is_mfa_pending,
     login_session,
     mark_mfa_verified,
     mfa_pending_user,
@@ -50,9 +51,18 @@ def register() -> None:
         if is_authenticated():
             return RedirectResponse(safe_redirect(redirect_to))
 
+        # Asked before, because `mfa_pending_user()` clears a stale challenge
+        # on its way to answering None — and the difference matters: one of
+        # these two cases has something to explain and a destination to keep.
+        had_challenge = is_mfa_pending()
         pending = mfa_pending_user()
         if pending is None:
-            # No password step, no code prompt — nothing here to brute force.
+            if had_challenge:
+                # It existed and aged out. This is the reload that KAL-AUTH-021
+                # describes, and the one place the expiry message is most owed.
+                return RedirectResponse(_back_to_login("mfa_expired", safe_redirect(redirect_to)))
+            # There never was a password step, so there is no code prompt and
+            # nothing here to brute force — and nothing to explain either.
             return RedirectResponse("/login")
         user_id, username = pending
 

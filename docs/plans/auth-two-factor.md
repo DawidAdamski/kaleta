@@ -170,6 +170,10 @@ item is built, and every executable acceptance criterion passes.
   to be held in a hand. The `otpauth://` URI is standard and
   `tests/e2e/test_mfa.py` scans nothing, so this is the one check that
   the QR itself is right.
+- ~~**Ratifying the Phase B deferral.**~~ **Ratified by the owner on
+  2026-09-23**: the deferral stands and `auth-two-factor-hosted` is the
+  next plan to be implemented. Left below for the record of what was
+  asked and why.
 - **Ratifying the Phase B deferral.** This branch edits its own scope
   contract: it takes
   `uv run pytest tests/unit/auth/test_supabase_mfa.py -q` out of the
@@ -467,12 +471,21 @@ item is built, and every executable acceptance criterion passes.
   directions are tested; `disable_all()` has no failing path today, which
   is precisely why the trap would have sat there unnoticed.
 
-- **A bail-out keeps the destination, not just the reason.** Both exits
-  from `/login/mfa` — the challenge aged out, the factor went away —
-  dropped the `redirect_to` the page was carrying, so someone deep-linked
-  to `/transactions` landed on the dashboard after signing in again while
-  the happy path took them through. `_back_to_login()` builds both URLs
-  now, and only appends `redirect_to` when it is not `/`.
+- **A bail-out keeps the destination, not just the reason.** All three
+  exits from `/login/mfa` — the challenge aged out mid-prompt, the factor
+  went away, and the page reloaded after the challenge had already
+  expired — dropped the `redirect_to` the page was carrying, so someone
+  deep-linked to `/transactions` landed on the dashboard after signing in
+  again while the happy path took them through. `_back_to_login()` builds
+  all three now, and only appends `redirect_to` when it is not `/`.
+
+  The third is the subtle one: on page load, `mfa_pending_user()` answers
+  None both for "this challenge aged out" and for "there never was one",
+  and it clears the stale challenge on its way. The page asks
+  `is_mfa_pending()` *first* so it can tell them apart — the expired
+  reload is exactly the case `KAL-AUTH-021` describes and the one most
+  owed an explanation, while a visitor who never gave a password gets a
+  bare `/login` with nothing to explain.
 
 - **A code is ASCII, and saying so stopped a 500.** `str.isalnum()` and
   `str.isdigit()` are both True for Arabic-Indic digits, fullwidth digits
