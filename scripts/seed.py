@@ -22,9 +22,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from kaleta.db.base import Base, engine  # noqa: E402
-from kaleta.db.session import AsyncSessionFactory  # noqa: E402
-from kaleta.seeders import SEED_FEATURE_KEYS, SeedOutcome, seed_features  # noqa: E402
+from kaleta.db.base import Base, engine
+from kaleta.db.session import AsyncSessionFactory
+from kaleta.seeders import SEED_FEATURE_KEYS, SeedOutcome, seed_features
 
 
 async def _recreate_schema() -> None:

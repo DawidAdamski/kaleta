@@ -35,7 +35,7 @@ class TestApiTokenService:
 
     @pytest.mark.asyncio
     async def test_authenticate_updates_last_used(self, tokens: ApiTokenService, user) -> None:
-        token, raw = await tokens.create_token(user_id=user.id, label="ci")
+        _token, raw = await tokens.create_token(user_id=user.id, label="ci")
         user_id = await tokens.authenticate_bearer(raw)
         assert user_id == user.id
         listed = await tokens.list_tokens(user_id=user.id)

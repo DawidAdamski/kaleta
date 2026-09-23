@@ -134,7 +134,7 @@ def _ensure_e2e_user(db_url: str) -> None:
     configure_database(db_url, debug=True)
 
     async def _ensure() -> None:
-        async def _create(session):  # noqa: ANN001
+        async def _create(session):
             auth = AuthService(session)
             state = await auth.auth_state()
             if state == "no_user":
@@ -158,7 +158,7 @@ def _ensure_e2e_api_token(db_url: str) -> str:
     configure_database(db_url, debug=True)
 
     async def _create() -> str:
-        async def _token(session):  # noqa: ANN001
+        async def _token(session):
             auth = AuthService(session)
             user = await auth.get_user_by_username(E2E_USERNAME)
             if user is None:
@@ -250,7 +250,7 @@ def e2e_api_token() -> str:
     return E2E_API_TOKEN
 
 
-def login(page, base_url: str) -> None:  # noqa: ANN001 — Playwright Page
+def login(page, base_url: str) -> None:
     """Sign in via the login page using the shared e2e credentials."""
     page.goto(f"{base_url}/login")
     page.get_by_label("Username", exact=True).fill(E2E_USERNAME)
@@ -260,7 +260,7 @@ def login(page, base_url: str) -> None:  # noqa: ANN001 — Playwright Page
 
 
 @pytest.fixture(scope="session")
-def auth_storage_state(browser, base_url: str):  # noqa: ANN001
+def auth_storage_state(browser, base_url: str):
     context = browser.new_context()
     page = context.new_page()
     login(page, base_url)
@@ -272,13 +272,13 @@ def auth_storage_state(browser, base_url: str):  # noqa: ANN001
 @pytest.fixture(scope="session")
 def browser_context_args(
     browser_context_args: dict[str, Any],
-    auth_storage_state,  # noqa: ANN001
+    auth_storage_state,
 ) -> dict[str, Any]:
     return {**browser_context_args, "storage_state": auth_storage_state}
 
 
 @pytest.fixture
-def page_no_auth(browser: Browser):  # noqa: ANN001
+def page_no_auth(browser: Browser):
     context = browser.new_context()
     page = context.new_page()
     yield page

@@ -30,7 +30,7 @@ from kaleta.views.theme import BODY_MUTED
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_upcoming_planned(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_upcoming_planned(session: AsyncSession, ctx: RenderContext) -> None:
     today = datetime.date.today()
     horizon = today + datetime.timedelta(days=14)
     occs = await PlannedTransactionService(session).get_occurrences(

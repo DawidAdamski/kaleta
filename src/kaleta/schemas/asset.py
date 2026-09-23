@@ -9,10 +9,10 @@ from pydantic import BaseModel, ConfigDict, Field
 from kaleta.models.asset import AssetType
 
 __all__ = [
-    "AssetType",
     "AssetCreate",
-    "AssetUpdate",
     "AssetResponse",
+    "AssetType",
+    "AssetUpdate",
 ]
 
 

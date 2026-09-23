@@ -22,6 +22,6 @@ from kaleta.views.dashboard_widgets.registry import RenderContext, register
     ((1, 1), (2, 1)),
     legacy=True,
 )
-async def render_month_expenses(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_month_expenses(session: AsyncSession, ctx: RenderContext) -> None:
     _, expenses = await ReportService(session).current_month_summary()
     kpi_card(t("dashboard.month_expenses"), fmt_amount(expenses), "trending_down", "red-7")

@@ -24,7 +24,7 @@ from kaleta.views.theme import KPI_TREND_NEGATIVE, KPI_TREND_POSITIVE
     ((1, 1), (2, 1)),
     legacy=True,
 )
-async def render_month_net(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_month_net(session: AsyncSession, ctx: RenderContext) -> None:
     svc = ReportService(session)
     income, expenses = await svc.current_month_summary()
     net = income - expenses

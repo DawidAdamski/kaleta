@@ -49,8 +49,7 @@ async def _list(status: str | None) -> int:
         events = ",".join(report.event_ids or [])[:20]
         when = report.created_at.strftime("%Y-%m-%d %H:%M")
         print(
-            f"{report.report_id:<10} {when:<17} {str(report.status):<7} "
-            f"{events:<20} {report.summary}"
+            f"{report.report_id:<10} {when:<17} {report.status!s:<7} {events:<20} {report.summary}"
         )
     return 0
 

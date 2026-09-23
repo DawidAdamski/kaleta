@@ -23,7 +23,7 @@ from kaleta.views.dashboard_widgets.registry import RenderContext, register
     ((1, 1), (2, 1)),
     legacy=True,
 )
-async def render_predicted_30d(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_predicted_30d(session: AsyncSession, ctx: RenderContext) -> None:
     total = await ReportService(session).total_balance()
     result = await ForecastService(session).forecast_account(account_id=None, horizon_days=30)
     pred = result.predicted_balance_30d

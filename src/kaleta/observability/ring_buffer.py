@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from collections import OrderedDict, deque
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from kaleta.observability.context import current_session_id
 
@@ -24,7 +24,7 @@ MAX_SESSIONS = 100
 class SessionRingBuffer:
     """Process-wide store of ``session_id -> last MAX_RECORDS log lines``."""
 
-    _buffers: OrderedDict[str, deque[dict[str, Any]]] = OrderedDict()
+    _buffers: ClassVar[OrderedDict[str, deque[dict[str, Any]]]] = OrderedDict()
 
     @classmethod
     def append(cls, session_id: str, entry: dict[str, Any]) -> None:

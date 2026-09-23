@@ -36,7 +36,7 @@ uv pip show <package>
 
 ### LOW risk — update freely
 - Patch versions (`x.y.Z`): bug fixes only, no API changes
-- Dev-only tools: `ruff`, `mypy`, `pytest`, `pytest-asyncio`, `pytest-cov`, `bandit`, `faker`, `pre-commit`
+- Dev-only tools: `ruff`, `mypy`, `pytest`, `pytest-asyncio`, `pytest-cov`, `faker`, `pre-commit`
 - Pure utility libs with stable APIs: `uvicorn`, `aiosqlite`
 
 ### MEDIUM risk — update and run full test suite

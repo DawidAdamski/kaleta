@@ -27,7 +27,7 @@ DEFAULT_DEMO_PASSWORD = "demo-kaleta"
 
 
 async def _ensure_demo_user(password: str) -> str:
-    async def _run(session):  # noqa: ANN001
+    async def _run(session):
         auth = AuthService(session)
         state = await auth.auth_state()
         if state == "no_user":
@@ -43,7 +43,7 @@ async def _ensure_demo_user(password: str) -> str:
 
 
 async def _seed_demo_data() -> dict[str, int]:
-    async def _run(session):  # noqa: ANN001
+    async def _run(session):
         return await DataService(session).seed()
 
     return await with_session(_run)

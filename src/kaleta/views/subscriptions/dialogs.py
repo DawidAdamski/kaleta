@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -229,6 +230,9 @@ def build_subscription_dialogs(
 
     confirm_track_btn.on_click(do_track)
 
+    # Tracked so a silent track is not garbage-collected before it finishes.
+    background_tasks: set[asyncio.Task[None]] = set()
+
     async def silent_track_async(cand: DetectorCandidate) -> None:
         async def _track(session: Any) -> None:
             await SubscriptionService(session).create_from_candidate(cand)
@@ -238,9 +242,9 @@ def build_subscription_dialogs(
         ui.navigate.reload()
 
     def silent_track(cand: DetectorCandidate) -> None:
-        import asyncio
-
-        asyncio.create_task(silent_track_async(cand))
+        task = asyncio.create_task(silent_track_async(cand))
+        background_tasks.add(task)
+        task.add_done_callback(background_tasks.discard)
 
     def confirm_candidate(cand: DetectorCandidate) -> None:
         pending_candidate["cand"] = cand

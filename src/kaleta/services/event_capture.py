@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -13,6 +14,10 @@ from kaleta.services.error_tracker import forward_exception
 from kaleta.services.event_service import EventService, instance_events_enabled
 
 logger = logging.getLogger(__name__)
+
+# Fire-and-forget captures: the loop keeps only weak references to its tasks,
+# so an unreferenced task can be collected before it runs.
+_background_tasks: set[asyncio.Task[str | None]] = set()
 
 
 def _should_capture(exc: Exception, *, user_events_enabled: bool | None) -> bool:
@@ -59,11 +64,11 @@ async def capture_exception_async(
 
 def capture_exception_sync(**kwargs: Any) -> None:
     """Schedule capture from a sync UI handler when an event loop is running."""
-    import asyncio
-
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:
         asyncio.run(capture_exception_async(**kwargs))
         return
-    loop.create_task(capture_exception_async(**kwargs))
+    task = loop.create_task(capture_exception_async(**kwargs))
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)

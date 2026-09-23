@@ -53,7 +53,7 @@ def next_totp(secret: str) -> str:
     usual answer is instant; only a test that burns two codes in one window
     ever waits.
     """
-    global _last_step  # noqa: PLW0603 — one clock, one cursor into it
+    global _last_step
     while True:
         current = int(time.time()) // TOTP_INTERVAL
         wanted = max(current, _last_step + 1)

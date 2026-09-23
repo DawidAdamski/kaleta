@@ -44,13 +44,14 @@ class NbpRateService:
     @staticmethod
     def default_http_get(url: str) -> bytes:
         """GET *url* with stdlib urllib (no API key). Raises ExternalServiceError offline."""
-        request = urllib.request.Request(
+        # S310 audits the URL scheme; callers pass NBP_TABLE_A_URL, an https constant.
+        request = urllib.request.Request(  # noqa: S310
             url,
             headers={"Accept": "application/json", "User-Agent": _USER_AGENT},
             method="GET",
         )
         try:
-            with urllib.request.urlopen(request, timeout=_DEFAULT_TIMEOUT_S) as response:
+            with urllib.request.urlopen(request, timeout=_DEFAULT_TIMEOUT_S) as response:  # noqa: S310
                 return bytes(response.read())
         except TimeoutError as exc:
             raise ExternalServiceError(

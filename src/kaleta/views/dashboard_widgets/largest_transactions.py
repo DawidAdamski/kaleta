@@ -26,7 +26,7 @@ from kaleta.views.theme import BODY_MUTED
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_largest_transactions(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_largest_transactions(session: AsyncSession, ctx: RenderContext) -> None:
     rows = await ReportService(session).largest_transactions(
         days=30, limit=5, tx_type=TransactionType.EXPENSE
     )

@@ -6,11 +6,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from kaleta.models.categorisation_rule import RuleMatchMode
 
 __all__ = [
-    "RuleMatchMode",
     "CategorisationRuleCreate",
-    "CategorisationRuleUpdate",
     "CategorisationRuleResponse",
     "CategorisationRuleSuggestion",
+    "CategorisationRuleUpdate",
+    "RuleMatchMode",
 ]
 
 

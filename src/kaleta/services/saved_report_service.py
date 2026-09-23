@@ -370,7 +370,8 @@ class SavedReportService:
         """
         row_header, series_header, metric_header = headers
         row_is_weekday, series_is_weekday = weekday_axes
-        assert config.series is not None  # only ever called on the pivot path
+        if config.series is None:  # only ever called on the pivot path
+            raise ValueError("A pivot needs a series dimension.")
 
         cells: dict[Any, dict[Any, float]] = {}
         row_totals: dict[Any, float] = {}

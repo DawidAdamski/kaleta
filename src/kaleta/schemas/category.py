@@ -8,11 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from kaleta.models.category import CategoryType
 
 __all__ = [
-    "CategoryType",
     "CategoryBase",
     "CategoryCreate",
-    "CategoryUpdate",
     "CategoryResponse",
+    "CategoryType",
+    "CategoryUpdate",
 ]
 
 

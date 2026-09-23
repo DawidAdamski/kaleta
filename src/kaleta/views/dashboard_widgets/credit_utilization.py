@@ -24,7 +24,7 @@ from kaleta.views.theme import BODY_MUTED
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_credit_utilization(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_credit_utilization(session: AsyncSession, ctx: RenderContext) -> None:
     cards = await CreditService(session).list_cards()
     with section_card(
         t("dashboard_widgets.credit_utilization"),
@@ -44,7 +44,7 @@ async def render_credit_utilization(session: AsyncSession, ctx: RenderContext) -
                 colour = "positive"
             with ui.row().classes("w-full items-center gap-3 py-1"):
                 ui.label(card.account_name).classes("flex-1 text-sm font-medium")
-                ui.label(f"{int(round(pct * 100))}%").classes(
+                ui.label(f"{round(pct * 100)}%").classes(
                     f"text-sm font-bold text-{colour} w-12 text-right"
                 )
             ui.linear_progress(

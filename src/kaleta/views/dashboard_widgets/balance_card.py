@@ -46,7 +46,7 @@ def _account_chip(name: str, balance: Decimal) -> None:
     (2, 2),
     ((2, 2), (4, 2)),
 )
-async def render_balance_card(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_balance_card(session: AsyncSession, ctx: RenderContext) -> None:
     reports = ReportService(session)
     total = await reports.total_balance()
     delta = await reports.balance_delta_vs_days_ago(30)

@@ -78,7 +78,7 @@ def bind_event_id(event_id: str | None) -> None:
 
 def set_session_resolver(resolver: SessionResolver | None) -> None:
     """Install a fallback that knows the session id outside an HTTP request."""
-    global _session_resolver  # noqa: PLW0603 — one process-wide UI resolver
+    global _session_resolver
     _session_resolver = resolver
 
 

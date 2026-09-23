@@ -60,7 +60,8 @@ class ImportRuleService:
         self.session.add(rule)
         await self.session.commit()
         loaded = await self.get(rule.id)
-        assert loaded is not None
+        if loaded is None:
+            raise RuntimeError(f"Import rule {rule.id} missing right after commit.")
         logger.info(
             "Created import rule id=%s pattern=%r account_id=%s",
             loaded.id,
@@ -84,7 +85,8 @@ class ImportRuleService:
             setattr(rule, field, value)
         await self.session.commit()
         loaded = await self.get(rule_id)
-        assert loaded is not None
+        if loaded is None:
+            raise RuntimeError(f"Import rule {rule_id} missing right after update.")
         return loaded
 
     async def delete(self, rule_id: int) -> bool:
@@ -161,7 +163,8 @@ class ImportRuleService:
         )
         await self.touch_last_used(updated.id)
         refreshed = await self.get(updated.id)
-        assert refreshed is not None
+        if refreshed is None:
+            raise RuntimeError(f"Import rule {updated.id} missing right after update.")
         return refreshed
 
     @staticmethod

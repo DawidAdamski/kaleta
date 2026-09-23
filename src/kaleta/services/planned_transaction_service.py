@@ -457,7 +457,8 @@ class PlannedTransactionService:
         tx = await self._ensure_posted(planned_id, occurrence_date)
         await self._session.commit()
         fetched = await self._get_transaction(tx.id)
-        assert fetched is not None
+        if fetched is None:
+            raise RuntimeError(f"Transaction {tx.id} missing right after posting.")
         return fetched
 
     async def post_occurrences(

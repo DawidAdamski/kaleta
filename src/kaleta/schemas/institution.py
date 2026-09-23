@@ -8,11 +8,11 @@ from pydantic import BaseModel, ConfigDict, Field
 from kaleta.models.institution import InstitutionType
 
 __all__ = [
-    "InstitutionType",
     "InstitutionBase",
     "InstitutionCreate",
-    "InstitutionUpdate",
     "InstitutionResponse",
+    "InstitutionType",
+    "InstitutionUpdate",
 ]
 
 

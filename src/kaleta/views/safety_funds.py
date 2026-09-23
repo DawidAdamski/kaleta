@@ -363,7 +363,7 @@ def _render_fund_card(
                     ui.label(
                         f"{_fmt_amount(fund.current_balance)} / {_fmt_amount(fund.target_amount)}"
                     ).classes("text-base font-semibold")
-                    pct_label = int(round(float(fund.progress_pct) * 100))
+                    pct_label = round(float(fund.progress_pct) * 100)
                     ui.label(f"{pct_label}%").classes(f"text-sm text-{colour}")
                 ui.button(icon="edit", on_click=lambda _e, f=fund: on_edit(f)).props(
                     "flat dense round color=grey-7"
@@ -397,7 +397,7 @@ def _render_fund_card(
                 # shadow. mypy/narrowing: show_ticks guard ensures multiplier.
                 multiplier = fund.emergency_multiplier or 0
                 for i in range(1, multiplier):
-                    pct = int(round(i * 100 / multiplier))
+                    pct = round(i * 100 / multiplier)
                     ui.element("div").classes(
                         "absolute top-0 bottom-0 w-0.5 bg-slate-900/70 "
                         "[box-shadow:0_0_0_1px_rgba(255,255,255,0.35)] "

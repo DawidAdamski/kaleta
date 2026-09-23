@@ -22,7 +22,7 @@ from kaleta.views.dashboard_widgets.registry import RenderContext, register
     ((1, 1), (2, 1)),
     legacy=True,
 )
-async def render_net_worth(session: AsyncSession, ctx: RenderContext) -> None:  # noqa: ARG001
+async def render_net_worth(session: AsyncSession, ctx: RenderContext) -> None:
     summary = await NetWorthService(session).get_summary(history_months=2)
     kpi_card(
         t("dashboard_widgets.net_worth"),

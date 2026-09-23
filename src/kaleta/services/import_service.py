@@ -1081,7 +1081,7 @@ class WiseXlsxPreprocessor:
         reads once and hands the records to both, rather than paying for the
         load twice (see :meth:`ImportService._parse_wise_xlsx`).
         """
-        import openpyxl  # noqa: PLC0415 — optional extra, imported where used
+        import openpyxl
 
         with warnings.catch_warnings():
             # Wise writes no default style; openpyxl warns and supplies one.

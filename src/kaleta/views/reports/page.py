@@ -75,7 +75,7 @@ async def reports_page() -> None:
                 return await SavedReportService(session).execute(config)
 
             state["result"] = await with_session(_execute)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             state["error"] = str(exc)
         finally:
             state["running"] = False

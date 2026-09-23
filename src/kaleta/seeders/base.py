@@ -121,7 +121,7 @@ def rng(salt: int = 0) -> random.Random:
     reproducible on its own — a seeder run alone must produce what it produces
     as part of "Seed everything".
     """
-    return random.Random(SEED_RANDOM_SEED + salt)  # nosec B311: demo data, not security
+    return random.Random(SEED_RANDOM_SEED + salt)  # demo data, not security (S311 off for seeders)
 
 
 def month_offset(today: datetime.date, n: int) -> tuple[int, int]:

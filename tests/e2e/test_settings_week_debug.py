@@ -12,7 +12,7 @@ ISO_OPTION = "Monday to Sunday (ISO)"
 MONTH_OPTION = "In sevens from the 1st"
 
 
-def _weekly_grouping_card(page: Page):  # noqa: ANN202 — Playwright Locator
+def _weekly_grouping_card(page: Page):
     return page.locator(".q-card").filter(has_text="Weekly grouping")
 
 

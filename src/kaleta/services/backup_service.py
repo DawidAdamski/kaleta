@@ -151,8 +151,8 @@ class BackupService:
 
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for table in tables:
-                # nosec B608: table names come only from Base.metadata.sorted_tables.
-                result = await self.session.execute(text(f"SELECT * FROM {table}"))  # nosec B608
+                # Table names come only from Base.metadata.sorted_tables.
+                result = await self.session.execute(text(f"SELECT * FROM {table}"))  # noqa: S608
                 columns = list(result.keys())
                 rows = [
                     {col: _serialize(val) for col, val in zip(columns, row, strict=False)}
@@ -208,8 +208,8 @@ class BackupService:
         try:
             # Clear every ORM table so restore never leaves a hybrid state.
             for table in reversed(tables):
-                # nosec B608: table names come only from Base.metadata.sorted_tables.
-                await self.session.execute(text(f"DELETE FROM {table}"))  # nosec B608
+                # Table names come only from Base.metadata.sorted_tables.
+                await self.session.execute(text(f"DELETE FROM {table}"))  # noqa: S608
 
             # Build a map of known columns per table from the live schema.
             # run_sync is required because SQLAlchemy's inspect() is synchronous.
