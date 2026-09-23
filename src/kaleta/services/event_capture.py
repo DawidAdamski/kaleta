@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Fire-and-forget captures: the loop keeps only weak references to its tasks,
 # so an unreferenced task can be collected before it runs.
-_background_tasks: set[asyncio.Task[None]] = set()
+_background_tasks: set[asyncio.Task[str | None]] = set()
 
 
 def _should_capture(exc: Exception, *, user_events_enabled: bool | None) -> bool:

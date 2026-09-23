@@ -98,6 +98,14 @@ strict = true
 # `model_validate` calls the way the runtime does.
 plugins = ["pydantic.mypy"]
 
+[tool.pydantic-mypy]
+# Without init_typed the plugin types every model __init__ argument as Any,
+# which is *looser* than plain strict mypy; with it, constructor arguments
+# are checked against the declared field types.
+init_typed = true
+init_forbid_extra = true
+warn_required_dynamic_aliases = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
