@@ -147,3 +147,14 @@ check it still reproduces before acting on it.
       own branch). `.claude/hooks/dod-gate.sh` only skips `[manual]`, so it
       tried to run `[owner]` as a shell command. Normalise the three
       archived ones, or teach the gate both spellings.
+
+- [ ] Reserve fund balances never follow the ledger.
+      `ReserveFundService._account_balance` (`reserve_fund_service.py`)
+      reads `Account.balance`, and nothing but the seeder and the account
+      form writes it — `AccountService.adjust_balance` has no caller. So a
+      transfer into a fund's backing account leaves the fund card, its
+      progress and the below-target warning where they were. Blocks
+      `funds-savings-goals` (GOL-002) and `funds-irregular-items`
+      (IRR-004/005); likely wants a plan of its own (derive balances from
+      transactions vs keep a running column), since forecast and net worth
+      read the same column. Found by `plan/audit-planned-vs-code`.

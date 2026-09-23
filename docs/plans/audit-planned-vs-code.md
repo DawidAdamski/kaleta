@@ -59,6 +59,22 @@ issue) or a **gap-closing plan** (the splits pattern).
 - [manual] Every feature above has either retagged scenarios or a
   gap-closing entry (issue checkbox or plan) — no `@planned` feature
   left misrepresenting existing code.
+- `grep -qE "KAL-FND-003 @automated" docs/bdd.md`
+- `grep -qE "KAL-REC-001 @automated" docs/bdd.md`
+- `grep -qE "KAL-CMP-003 @automated" docs/bdd.md`
+- `uv run python scripts/spec_coverage.py`
+- `test -f docs/plans/transfers-manual-pairing.md`
+- `test -f docs/plans/payees-merge-suggestions-gaps.md`
+- `test -f docs/plans/subscriptions-panel-gaps.md`
+- `test -f docs/plans/transactions-quick-entry-flow.md`
+- `test -f docs/plans/funds-reserve-derived-target.md`
+- `test -f docs/plans/debts-ledger-link.md`
+- `test -f docs/plans/recurring-to-planned.md`
+- `test -f docs/plans/budgets-plan-comparisons-gaps.md`
+- `test -f docs/plans/funds-savings-goals.md`
+- `test -f docs/plans/funds-irregular-items.md`
+- `test -f docs/plans/budgets-annual-review.md`
+- `uv run pytest tests/e2e/test_reserve_funds.py tests/e2e/test_subscriptions.py tests/e2e/test_budget_comparisons.py -q`
 
 ## Implementation notes
 
@@ -73,3 +89,56 @@ issue) or a **gap-closing plan** (the splits pattern).
 
 Acceptance criterion still unmet — keep `draft` until verification wave
 or gap-closing plans close the remaining `@planned` features.
+
+**Verification wave 2026-09-23 (`plan/audit-planned-vs-code`) — closes
+the criterion.** Every remaining `@planned` scenario of the 16 features
+was read step by step against models, services, views and tests. Strict
+rule: a scenario is implemented only if *every* Given/When/Then step
+exists, UI steps included; a service method alone does not count.
+
+| Feature | Issue | Verdict per `@planned` scenario | Entry |
+|---|---|---|---|
+| KAL-API | #17 (closed) | all `@automated` | — |
+| KAL-RUL | #5 (closed) | all `@automated` | — |
+| KAL-FND | #13 | **003 implemented → `@automated`**; 002 partial (target typed by hand, 90-day average) | `funds-reserve-derived-target` |
+| KAL-REC | #7 | **001 implemented → `@automated`** (When-step reworded to the real panel); 002, 004 missing | `recurring-to-planned` |
+| KAL-CMP | #6 | **003 implemented → `@automated`**; 001, 002 partial | `budgets-plan-comparisons-gaps` |
+| KAL-PID | #1 | 001, 002 partial — the scenario's own Lidl pair is not detected; merge cannot rename | `payees-merge-suggestions-gaps` |
+| KAL-SUB | #8 | 002 partial (code gives 59.85, not 59.99); 004 partial | `subscriptions-panel-gaps` |
+| KAL-DBT | #14 | 001 partial (no transaction link); 004 missing | `debts-ledger-link` |
+| KAL-TRF | #4 | 001 missing; 002, 003 partial | `transfers-manual-pairing` |
+| KAL-GOL | #12 | 001, 002, 004 partial; 003 missing | `funds-savings-goals` |
+| KAL-IRR | #10 | 001–005 missing (container only) | `funds-irregular-items` |
+| KAL-QIK | #2 | 001, 002 partial; 003 missing | `transactions-quick-entry-flow` |
+| KAL-ANR | #9 | 001 partial; 002, 003 missing | `budgets-annual-review` |
+| KAL-INV | #15 | 001–004 missing — **greenfield**, not "partial" as the 2026-07-07 table said (no holding/investment model; `Asset` is a physical item) | issue #15 |
+| KAL-GFT | #11 | 001–003 missing, greenfield | issue #11 |
+| KAL-AIN | #16 | 001, 002 missing, greenfield | issue #16 |
+
+Decisions:
+- **Gap entries are plans in the repo, not GitHub issue checkboxes.**
+  Editing issue bodies is outward-facing and goal mode cannot ask; the
+  criterion allows either. Each plan names its issue, so the owner can
+  paste the plan link into the issue. Greenfield features need no entry
+  beyond their issue: their `@planned` tags do not misrepresent code.
+- **Retag only with a test.** The three retagged scenarios got e2e tests
+  (`test_reserve_funds.py::test_dashboard_warns_when_reserve_is_below_target`,
+  `test_subscriptions.py::test_stable_monthly_payment_is_detected`,
+  `test_budget_comparisons.py::test_copy_previous_month_then_adjust_two_categories`).
+  No `@manual` retags: nothing was verified by hand.
+- FND-003's test asserts the warning row's title only — the wide
+  dashboard renders `wizard_actions` as a banner without the "% funded"
+  body. The widget caps rows at `MAX_ROWS = 12`; enough higher-severity
+  items could hide the warning (noted, not changed: out of scope).
+- Test-only helper `list_budgets` added to `tests/e2e/seed_helpers.py`
+  (reads `GET /api/v1/budgets/`). No `src/` file touched.
+- Cross-cutting finding sent to the chore inbox: fund balances read
+  `Account.balance`, which no transaction moves
+  (`AccountService.adjust_balance` has no caller). It blocks GOL-002 and
+  IRR-004/005.
+- Executable acceptance criteria were added beside the `[manual]` one so
+  the gate checks the retags and entries, not just prose.
+- Recommended-sequence steps 2 (re-milestone) and the issue edits are
+  the owner's: the plans index in `docs/plans/README.md` lists every gap
+  plan with its issue number.
+
