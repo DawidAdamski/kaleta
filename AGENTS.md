@@ -156,12 +156,15 @@ guards, tiny refactors spotted mid-task:
 
 - **If it belongs to the branch you already have open** (same file/area,
   trivially small): fix it there, in its own commit.
-- **Otherwise**: add a one-line checkbox to the pinned **"Chore inbox"**
-  issue on GitHub. Do not create a dedicated issue or plan for it, and
-  do not fix it as a drive-by on an unrelated branch (the Working
-  Agreement forbids that). The maintainer triages the inbox periodically
-  and converts items worth doing into real issues via GitHub's
-  "convert to issue".
+- **Otherwise**: add a one-line checkbox to **`docs/plans/chores.md`**,
+  in the same commit as the work you were doing. Do not create a
+  dedicated issue or plan for it, and do not fix it as a drive-by on an
+  unrelated branch (the Working Agreement forbids that). The maintainer
+  triages the file periodically: tick it off, or promote it to a plan.
+
+  The inbox lives in the repo, not in GitHub, so that it is versioned
+  with the code it describes and reviewable in the PR that noticed it.
+  (It used to be issue #20, which is now a pointer to this file.)
 
 Rule of thumb: a plan is for work that spans layers or needs design
 decisions; an issue is for work that waits its turn; the inbox is for
