@@ -40,6 +40,18 @@ def dimension_label(state: dict[str, Any]) -> str:
     return _label(DIMENSIONS, state["dimension"])
 
 
+def series_label(state: dict[str, Any]) -> str:
+    """ "Month", or the affordance that offers a second dimension.
+
+    A blank where the word would go reads as a missing value; "by …" reads as
+    an invitation, which is what an optional part of a sentence should look
+    like when it has not been used yet.
+    """
+    if not state["series"]:
+        return t("reports.series_none")
+    return _label(DIMENSIONS, state["series"])
+
+
 def types_label(state: dict[str, Any]) -> str:
     """ "Expense", "Expense + Income", or "all types" when nothing is excluded.
 
@@ -83,10 +95,11 @@ def top_n_label(state: dict[str, Any]) -> str:
 
 @dataclass(frozen=True, slots=True)
 class SentenceSlots:
-    """What the five clickable parts of the sentence currently read."""
+    """What the six clickable parts of the sentence currently read."""
 
     metric: str
     dimension: str
+    series: str
     types: str
     period: str
     top_n: str
@@ -96,6 +109,7 @@ def slot_labels(state: dict[str, Any]) -> SentenceSlots:
     return SentenceSlots(
         metric=metric_label(state),
         dimension=dimension_label(state),
+        series=series_label(state),
         types=types_label(state),
         period=period_label(state),
         top_n=top_n_label(state),

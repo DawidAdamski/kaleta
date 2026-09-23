@@ -2803,6 +2803,33 @@ Feature: Report Builder
     When I measure by "Average" and run the report
     Then the card's title line carries no total,
       because a sum of averages is not the average of anything
+
+  KAL-RPT-005 @automated
+  Scenario: A second dimension turns the table into a pivot
+    Given I am on the report builder
+      And the sentence offers an unused second dimension
+    When I add "Month" as the second dimension
+      And I set the chart type to "Table"
+      And I run the report
+    Then the result is a grid with a column per month
+      And each row carries its own Total
+      And the grid ends in a Total row that adds the columns up
+
+  KAL-RPT-006 @automated
+  Scenario: With a second dimension the bars stack instead of ranking
+    Given I am on the report builder
+      And the chart type is "Bars"
+    When I add "Month" as the second dimension
+      And I run the report
+    Then the result is one stacked bar per row, a segment per month
+      And it is no longer the ranked rows a single dimension draws
+
+  KAL-RPT-007 @automated
+  Scenario: A saved report without a second dimension loads unchanged
+    Given a report saved before the second dimension existed
+    When I open it from the rail
+    Then the second dimension reads as unused
+      And the result is drawn as the ranked rows it always was
 ```
 
 ## Feature: Money Flow

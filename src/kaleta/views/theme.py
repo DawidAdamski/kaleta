@@ -151,6 +151,9 @@ SENTENCE_SLOT = "k-slot"
 #: round trip, because rebuilding the slot mid-drag destroys the drop target
 #: the browser is aiming at.
 SENTENCE_SLOT_TARGET = "k-slot--drop"
+#: A slot for an optional word the query has not used yet. Dashed and muted,
+#: like the unset filter chip beside it: an invitation, not a missing value.
+SENTENCE_SLOT_EMPTY = "k-slot--empty"
 #: Set on ``body`` by the rail's own dragstart handler, cleared on dragend.
 DRAGGING_BODY = "k-dragging"
 SELECTION_BAR = "k-selection-bar"
@@ -491,6 +494,19 @@ REPORT_BAR_TRACK = "k-report-bar-track"
 REPORT_BAR_FILL = "k-report-bar-fill"
 #: The total beside the result card's title, which is `CARD_TITLE`.
 RESULT_TOTAL = "k-result-total"
+#: The pivot grid: a row label, a cell per series value, and a Total column.
+#: One grid rather than a table, so the column count can follow the query and
+#: the figures keep the tabular mono the bar rows are set in.
+PIVOT_GRID = "k-pivot"
+PIVOT_HEAD = "k-pivot-head"
+PIVOT_CELL = "k-pivot-cell"
+#: A figure in it: mono, tabular, right-aligned against the next column.
+PIVOT_FIGURE = "k-pivot-figure"
+#: The Total column and the Total footer, which carry the same weight so the
+#: reader can tell at a glance which numbers are the query's and which are its
+#: arithmetic.
+PIVOT_TOTAL = "k-pivot-total"
+PIVOT_FOOT = "k-pivot-foot"
 
 #: How many steps the bar ramp has. Artboard `3e` shades ten bars with six
 #: greens, darkest first — a ranking you can read without a legend.
@@ -1404,6 +1420,28 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
   font-variant-numeric:tabular-nums;
   font-size:12.5px;color:var(--k-muted)
 }
+.k-pivot{display:grid;align-items:center;column-gap:14px;width:100%}
+.k-pivot-head{
+  font-size:10px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--k-muted-strong);
+  padding:0 0 9px;border-bottom:1px solid var(--k-border);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.k-pivot-cell{
+  font-size:13px;color:var(--k-ink);
+  padding:9px 0;border-bottom:1px solid var(--k-hairline);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+}
+.k-pivot-figure{
+  font-family:'IBM Plex Mono',ui-monospace,monospace;
+  font-variant-numeric:tabular-nums;
+  text-align:right
+}
+.k-pivot-total{font-weight:500;color:var(--k-ink)}
+.k-pivot-foot{
+  font-weight:500;color:var(--k-ink);
+  border-bottom:none;border-top:1px solid var(--k-border)
+}
 
 /* ── Net worth (artboard 3b) ──────────────────────────────────────── */
 .k-nw-figure{
@@ -2022,6 +2060,12 @@ body.k-dragging .k-slot--drop{
   border:1px dashed var(--k-chip-dash);
   color:var(--k-muted)
 }
+.k-slot--empty{
+  background:transparent;
+  border:1px dashed var(--k-chip-dash);
+  font-weight:400;color:var(--k-muted)
+}
+.k-slot--empty .q-icon{color:var(--k-muted)}
 
 /* ── Banners & chips ──────────────────────────────────────────────── */
 .k-accent-surface{background:var(--k-accent);color:var(--k-on-accent)}

@@ -22,7 +22,7 @@ from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.layout import page_layout
 from kaleta.views.reports.chart_zone import build_chart_zone
 from kaleta.views.reports.config_zone import build_config_zone
-from kaleta.views.reports.constants import BUILDER_STATE_DEFAULTS
+from kaleta.views.reports.constants import BUILDER_STATE_DEFAULTS, chart_unavailable_reason
 from kaleta.views.reports.palette import build_palette_zone
 from kaleta.views.theme import (
     PAGE_CONTAINER,
@@ -113,6 +113,7 @@ async def reports_page() -> None:
         cfg = ReportConfig.from_dict(json.loads(report.config))
         state.update(
             dimension=cfg.dimension,
+            series=cfg.series,
             metric=cfg.metric,
             chart_type=cfg.chart_type,
             transaction_types=list(cfg.transaction_types),
@@ -159,6 +160,22 @@ async def reports_page() -> None:
     def drop_dimension() -> None:
         if state["dragging_grp"] == "dimension":
             state["dimension"] = state["dragging"]
+            if state["series"] == state["dimension"]:
+                # One axis twice asks nothing; the older choice gives way.
+                state["series"] = None
+            _keep_chart_drawable()
+        state["dragging"] = None
+        state["dragging_grp"] = None
+        palette_zone.refresh()
+        config_zone.refresh()
+
+    def drop_series() -> None:
+        # A field dragged from the rail onto the second slot. The rail has one
+        # drag group for dimensions, so the same drag serves both slots — and
+        # the axis in hand is refused as its own second axis.
+        if state["dragging_grp"] == "dimension" and state["dragging"] != state["dimension"]:
+            state["series"] = state["dragging"]
+            _keep_chart_drawable()
         state["dragging"] = None
         state["dragging_grp"] = None
         palette_zone.refresh()
@@ -172,6 +189,16 @@ async def reports_page() -> None:
         palette_zone.refresh()
         config_zone.refresh()
 
+    def _keep_chart_drawable() -> None:
+        """Fall back to bars when the chart in hand cannot draw two dimensions.
+
+        A pie has one ring to divide and a line needs an axis that runs
+        somewhere. Leaving either selected would show the picker one answer
+        and the card another.
+        """
+        if chart_unavailable_reason(str(state["chart_type"]), state["series"]):
+            state["chart_type"] = "bar"
+
     def set_field(field: str, value: Any) -> None:
         """Every sentence slot and rail row lands here.
 
@@ -180,10 +207,18 @@ async def reports_page() -> None:
         unchanged — which is the one thing this rewrite must not break.
         """
         state[field] = value
+        if field == "dimension" and state["series"] == value:
+            # The grouping just took the word the second dimension had. One
+            # axis twice asks nothing, so the older choice gives way.
+            state["series"] = None
+        if field in ("dimension", "series"):
+            _keep_chart_drawable()
         palette_zone.refresh()
         config_zone.refresh()
 
     def set_chart(chart_type: str) -> None:
+        if chart_unavailable_reason(chart_type, state["series"]):
+            return
         state["chart_type"] = chart_type
         config_zone.refresh()
         if state["result"]:
@@ -209,6 +244,7 @@ async def reports_page() -> None:
         account_options=account_options,
         category_options=category_options,
         on_drop_dimension=drop_dimension,
+        on_drop_series=drop_series,
         on_drop_metric=drop_metric,
         on_set_chart=set_chart,
         on_toggle_type=toggle_type,

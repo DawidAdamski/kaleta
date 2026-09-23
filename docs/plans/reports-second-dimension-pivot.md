@@ -3,7 +3,7 @@ plan_id: reports-second-dimension-pivot
 title: Reports — second dimension and pivot table
 area: reports
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#reports
 ---
 
@@ -155,6 +155,69 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+**Open questions, resolved.**
+
+1. *An `Other` row for what `top_n` cuts off* — **yes**, as the plan leaned.
+   `_cut_rows` keeps the biggest rows by their total across the series and
+   folds the rest into one `Other` row, so the column totals in the footer
+   are the ledger's and not just the drawn rows'. The one exception is the
+   `avg` measure: averaging a column of averages is the same lie as summing
+   one (`KAL-RPT-004`), so there the cut rows are left out rather than
+   misrepresented, and the view draws no Total column or footer at all.
+2. *Pinning a pivot on the dashboard* — nothing to limit. `SavedReportService`
+   has exactly one consumer, `views/reports/`; no dashboard widget renders a
+   saved report, so `PivotResult` cannot reach one.
+3. *Month labels on the series axis* — kept as `YYYY-MM`, not `Jan 26`. The
+   single-dimension report already writes a month that way, and the sentence
+   never spells a month at all (it names the *preset*, `period_label`). A
+   pivot header reading `Jan 26` beside a one-dimensional report reading
+   `2026-01` would be one screen spelling a month two ways, and the month
+   names would need a locale table this path does not have.
+
+**Decisions taken while building.**
+
+- **`series` equal to `dimension`** is refused in the service
+  (`ValidationError`) and unreachable from the UI: the series menu omits the
+  grouping in hand, a drag of it onto the series slot is ignored, and setting
+  the grouping to the word the series holds clears the series.
+- **Chart availability** lives in one pure function,
+  `views/reports/constants.chart_unavailable_reason`, so the picker's
+  disabled state, its tooltip and the page's fallback cannot disagree. Beyond
+  the plan's "pie/donut switches to bar", the same fallback runs for `line`
+  when the series is not a time dimension — otherwise the picker would show
+  one answer and the card another.
+- **Series colours** come from `views/chart_utils.chart_palette`, the app's
+  own series palette, cycled by series index. The plan pointed at
+  `views/reports/palette.py`, but that module is the left *field rail*, not a
+  colour palette — it has no colours in it.
+- **Ordering.** Time axes (`month`, `year`, `weekday`) run chronologically on
+  either axis, sorted on the raw grouped value so weekdays follow their index
+  rather than their name. Every other axis is ranked by its own total,
+  largest first — for the series axis that is its column total, which is the
+  plan's "by row total" read from the other side. `top_n` *selects* by row
+  total and the axis rule then *orders* what survived, so a pivot of months
+  cut to ten keeps the ten biggest and still draws them in time order.
+- **`execute` returns `ReportResult | PivotResult`** and callers branch on the
+  type, as the plan specifies. No caller needed changing: the one-dimensional
+  path is untouched, and `tests/integration/test_transactions.py` still reads
+  `.labels` off the result it has always had.
+- The flows path (split-aware) is now also chosen when *`series`* is
+  `category`, not only the grouping — otherwise a split row would land whole
+  in one cell of a Category-by-Month pivot.
+- **e2e:** `_pick` now waits for the previous menu to finish closing and
+  matches the option's exact word. Picking "Month" while the period menu was
+  still fading out had selected "This Month" from it — a real flake that only
+  showed in the full suite run.
+
+**Not done here, and why.**
+
+- The two `[manual]` acceptance criteria about artboard `3e` are left manual.
+  Working Agreement §12 would have them replaced by
+  `uv run python scripts/restyle_fidelity.py check 3e`, but `shoot` cannot run
+  on this repo at all: it seeds an ephemeral app with `scripts/seed.py`, which
+  aborts with `KeyError: 'Żywność'` on any alembic-created schema. All
+  thirteen fidelity reports are stale on `main` for that reason, and fixing
+  the seeder is another plan's work (Working Agreement §1, §9). Filed on the
+  chore inbox with the repro.
 
 ## Implementation (filled by plan-archiver)

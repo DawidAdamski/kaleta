@@ -20,6 +20,33 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] Reports render the service's English display strings, in every locale.
+      `SavedReportService` returns *words*, not keys: column headers
+      (`"Category"`, `"Total Amount"` …, `saved_report_service.py:535-540`,
+      `:584-629`), `_WEEKDAY_NAMES` (`:39`), the `type` dimension's raw enum,
+      and the `"Uncategorised"` / `"No Institution"` fallbacks. A Polish
+      session reads them in English in the table's column heads, the bar rows'
+      labels and the pivot's column heads. `reports.dim_*`, `reports.metric_*`
+      and `reports.type_*` already hold every one of those words. Durable fix:
+      the results carry dimension/metric *keys* (and weekday ordinals) and the
+      views resolve them through `t()` — a shape change across both result
+      types, so it wants a plan rather than a line here if nobody gets to it.
+      Pre-existing; `plan/reports-second-dimension-pivot` localized the pivot
+      grid's own row header off the sentence and left the rest alone.
+
+- [ ] `scripts/seed.py` aborts on any alembic-created schema:
+      `TransactionsSeeder` raises `KeyError: 'Żywność'` because
+      `categories_by_name` (top-level only) comes back without the catalog's
+      expense categories. Repro: fresh `HOME` + empty SQLite, `uv run alembic
+      upgrade head`, `uv run python scripts/seed.py`. The same script on a
+      `Base.metadata.create_all` schema seeds all 2362 rows, so it is model
+      vs. migration drift, not the catalog. It takes
+      `scripts/restyle_fidelity.py shoot` down with it — the ephemeral app it
+      screenshots is seeded that way — which is why all thirteen fidelity
+      reports are stale and `check all` is red on `main`. Found from
+      `plan/reports-second-dimension-pivot`, whose artboard `3e` criteria
+      could not be made executable because of it.
+
 - [ ] `tests/integration/test_reset_password_cli.py::global_db_restored`
       restores the shared `AsyncSessionFactory` only under postgres; on the
       default SQLite run `ResetPasswordCli`'s `configure_database(tmp_path)`

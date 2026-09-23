@@ -8,9 +8,9 @@ the app palette. Presentational; no BDD scenario claims it.
 
 from __future__ import annotations
 
-from kaleta.services.saved_report_service import ReportResult
+from kaleta.services.saved_report_service import PivotResult, ReportResult
 from kaleta.views.chart_utils import chart_palette
-from kaleta.views.reports.chart_options import report_chart_options
+from kaleta.views.reports.chart_options import pivot_chart_options, report_chart_options
 from kaleta.views.theme import BAR_RAMP_STEPS, bar_ramp
 
 
@@ -76,4 +76,58 @@ class TestOtherTypes:
     def test_every_type_gets_the_palette_seeded(self) -> None:
         for chart_type in ("line", "pie", "donut"):
             options = report_chart_options(_result(), chart_type, is_dark=False)
+            assert options["color"] == chart_palette(False)
+
+
+def _pivot() -> PivotResult:
+    """Two categories over two months — the smallest matrix with a hole in it."""
+    return PivotResult(
+        row_header="Category",
+        series_header="Month",
+        row_labels=["Food", "Fun"],
+        series_labels=["2025-01", "2025-02"],
+        cells=[[100.0, 50.0], [0.0, 30.0]],
+        metric_header="Total Amount",
+        row_totals=[150.0, 30.0],
+        series_totals=[100.0, 80.0],
+    )
+
+
+class TestPivotCharts:
+    """A second dimension is a matrix, and a matrix has two readings: what
+    each row is made of (stacked bars) and how each row moves (lines). The
+    grid itself is drawn in HTML; these are the two that really are charts."""
+
+    def test_a_stacked_bar_puts_the_rows_on_the_axis(self) -> None:
+        options = pivot_chart_options(_pivot(), "bar", is_dark=False)
+        assert options["xAxis"]["data"] == ["Food", "Fun"]
+
+    def test_every_segment_shares_one_stack(self) -> None:
+        options = pivot_chart_options(_pivot(), "bar", is_dark=False)
+        assert [s["type"] for s in options["series"]] == ["bar", "bar"]
+        assert {s["stack"] for s in options["series"]} == {"total"}
+
+    def test_a_series_per_month_reads_down_its_own_column(self) -> None:
+        # Series 0 is January: 100 for Food, nothing for Fun. A segment built
+        # across the row instead would stack Food's two months on one bar.
+        options = pivot_chart_options(_pivot(), "bar", is_dark=False)
+        assert options["series"][0]["data"] == [100.0, 0.0]
+        assert options["series"][1]["data"] == [50.0, 30.0]
+
+    def test_the_legend_names_the_series_values(self) -> None:
+        options = pivot_chart_options(_pivot(), "bar", is_dark=False)
+        assert [s["name"] for s in options["series"]] == ["2025-01", "2025-02"]
+        # Drawn, and not the scrolling kind: twelve months should wrap onto a
+        # second line rather than hide behind a pair of arrows.
+        assert options["legend"].get("type") != "scroll"
+
+    def test_a_line_runs_along_the_series_axis_one_per_row(self) -> None:
+        options = pivot_chart_options(_pivot(), "line", is_dark=False)
+        assert options["xAxis"]["data"] == ["2025-01", "2025-02"]
+        assert [s["name"] for s in options["series"]] == ["Food", "Fun"]
+        assert options["series"][0]["data"] == [100.0, 50.0]
+
+    def test_both_shapes_get_the_palette_seeded(self) -> None:
+        for chart_type in ("bar", "line"):
+            options = pivot_chart_options(_pivot(), chart_type, is_dark=False)
             assert options["color"] == chart_palette(False)
