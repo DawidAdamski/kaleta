@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#import
 # Transfer recognition — pair existing rows, suggest pairs, one summary
 
 Gap-closing plan for issue #4 (`KAL-TRF`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md).
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
 
 ## Intent
 

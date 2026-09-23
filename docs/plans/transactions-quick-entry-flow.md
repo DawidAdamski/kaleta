@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#transactions
 # Quick entry — Enter saves from any field, remembered context, save and add next
 
 Gap-closing plan for issue #2 (`KAL-QIK-001`…`003`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md).
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
 
 ## What exists (2026-09-23)
 

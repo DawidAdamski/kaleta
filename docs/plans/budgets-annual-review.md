@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#budgets
 # Annual review — guided year close on top of the yearly plan tooling
 
 Gap-closing plan for issue #9 (`KAL-ANR-001`…`003`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md).
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
 
 ## What exists (2026-09-23)
 

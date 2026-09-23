@@ -3,8 +3,9 @@ plan_id: audit-planned-vs-code
 title: Audit — @planned BDD features vs existing code (2026-07-07)
 area: cross-cutting
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-09-23
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Audit — `@planned` BDD features vs existing code
@@ -142,3 +143,40 @@ Decisions:
   the owner's: the plans index in `docs/plans/README.md` lists every gap
   plan with its issue number.
 
+
+## Implementation
+
+Landed on 2026-09-23 (PR #126).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `56b71b1` | Dawid Adamski | 2026-09-24 | Merge pull request #126 from DawidAdamski/plan/audit-planned-vs-code |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/audit-planned-vs-code.md
+- docs/plans/budgets-annual-review.md
+- docs/plans/budgets-plan-comparisons-gaps.md
+- docs/plans/chores.md
+- docs/plans/debts-ledger-link.md
+- docs/plans/funds-irregular-items.md
+- docs/plans/funds-reserve-derived-target.md
+- docs/plans/funds-savings-goals.md
+- docs/plans/payees-merge-suggestions-gaps.md
+- docs/plans/recurring-to-planned.md
+- docs/plans/subscriptions-panel-gaps.md
+- docs/plans/transactions-quick-entry-flow.md
+- docs/plans/transfers-manual-pairing.md
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_budget_comparisons.py
+- tests/e2e/test_reserve_funds.py
+- tests/e2e/test_subscriptions.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

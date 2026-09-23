@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#budgets
 # Reserve funds — target derived from 12-month average spending
 
 Gap-closing plan for issue #13 (`KAL-FND-002`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-FND-001` and
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-FND-001` and
 `KAL-FND-003` are `@automated`; this is the last gap.
 
 ## Intent

@@ -10,7 +10,7 @@ roadmap_ref: ../roadmap.md#budgets
 # Budget planning comparisons — previous month across the year boundary, past years while editing
 
 Gap-closing plan for issue #6 (`KAL-CMP-001`, `KAL-CMP-002`), from
-[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-CMP-003` is
+[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-CMP-003` is
 `@automated`.
 
 ## What exists (2026-09-23)
