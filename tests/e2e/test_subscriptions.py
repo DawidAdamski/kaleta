@@ -73,3 +73,25 @@ def test_track_detected_recurring_payment_as_subscription(page: Page, base_url: 
 
     expect(page.get_by_text("Spotify SUB E2E", exact=True)).to_be_visible(timeout=5000)
     expect(page.get_by_text("23.99").first).to_be_visible(timeout=5000)
+
+
+def test_stable_monthly_payment_is_detected(page: Page, base_url: str) -> None:
+    """Covers: KAL-REC-001
+
+    Three consecutive months of a 49.99 payment to "Netflix" are listed in
+    the Subscriptions panel's detected recurring charges as monthly, 49.99.
+    """
+    account_id = seed_account("REC Detect E2E")
+    category_id = seed_category("REC Streaming E2E")
+    seed_recurring_payee_charges(account_id, category_id, "Netflix", 49.99, months=3)
+
+    page.goto(f"{base_url}/wizard/subscriptions")
+    detector = page.locator(".q-card").filter(has_text="Detected recurring charges")
+    expect(detector).to_be_visible(timeout=5000)
+
+    netflix_row = detector.locator(".nicegui-row").filter(
+        has=page.get_by_text("Netflix", exact=True)
+    )
+    expect(netflix_row).to_have_count(1, timeout=5000)
+    expect(netflix_row).to_contain_text("Monthly")
+    expect(netflix_row).to_contain_text("49.99")

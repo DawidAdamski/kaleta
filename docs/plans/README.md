@@ -187,6 +187,27 @@ columns on top. Neither touches the canned `ReportService` reports.
 | 1 | [reports-second-dimension-pivot](archive/reports-second-dimension-pivot.md) | archived | draft | — |
 | 2 | [reports-trend-columns](reports-trend-columns.md) | medium | draft | 1 |
 
+### `@planned` gap-closing (from audit-planned-vs-code)
+
+One plan per feature issue whose `@planned` scenarios sit on partial
+code. Each lists what exists, what is missing, and closes by retagging
+its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
+`KAL-AIN` #16) keep their issue as the only entry.
+
+| Plan | Issue | Effort | Status | Depends on |
+|---|---|---|---|---|
+| [transfers-manual-pairing](transfers-manual-pairing.md) | #4 TRF | medium | draft | — |
+| [payees-merge-suggestions-gaps](payees-merge-suggestions-gaps.md) | #1 PID | small | draft | — |
+| [subscriptions-panel-gaps](subscriptions-panel-gaps.md) | #8 SUB | small | draft | — |
+| [transactions-quick-entry-flow](transactions-quick-entry-flow.md) | #2 QIK | small | draft | — |
+| [funds-reserve-derived-target](funds-reserve-derived-target.md) | #13 FND | small | draft | — |
+| [debts-ledger-link](debts-ledger-link.md) | #14 DBT | medium | draft | — |
+| [recurring-to-planned](recurring-to-planned.md) | #7 REC | medium | draft | — |
+| [budgets-plan-comparisons-gaps](budgets-plan-comparisons-gaps.md) | #6 CMP | medium | draft | coordinate with budgets-plan-unification |
+| [funds-savings-goals](funds-savings-goals.md) | #12 GOL | medium | draft | fund balances follow the ledger (chore inbox) |
+| [funds-irregular-items](funds-irregular-items.md) | #10 IRR | large | draft | fund balances follow the ledger (chore inbox) |
+| [budgets-annual-review](budgets-annual-review.md) | #9 ANR | large | draft | funds-irregular-items (step 3) |
+
 ### Q4 2026 — Open-source launch (execute in this order)
 
 | # | Plan | Status | Depends on |

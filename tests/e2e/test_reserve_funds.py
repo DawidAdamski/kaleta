@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.seed_helpers import seed_account, update_account
+from tests.e2e.seed_helpers import seed_account, seed_reserve_fund, update_account
 
 
 def _fill_number(scope: Page, label: str, value: str) -> None:
@@ -43,3 +43,24 @@ def test_emergency_cash_shows_balance_against_target(page: Page, base_url: str) 
 
     expect(page.get_by_text("Emergency cash FND E2E", exact=True)).to_be_visible(timeout=5000)
     expect(page.get_by_text("1,500.00 / 3,000.00", exact=True)).to_be_visible(timeout=5000)
+
+
+def test_dashboard_warns_when_reserve_is_below_target(page: Page, base_url: str) -> None:
+    """Covers: KAL-FND-003
+
+    "Emergency cash" holding 1800.00 against a 3000.00 target raises a
+    below-target warning in the dashboard's wizard actions widget.
+    """
+    account_id = seed_account("Emergency cash account FND3 E2E")
+    update_account(account_id, balance="1800.00", type="cash")
+    seed_reserve_fund("Emergency cash", 3000.0, account_id)
+
+    page.goto(f"{base_url}/")
+    widget = page.locator('[data-widget-id="wizard_actions"]')
+    expect(widget).to_be_visible(timeout=10000)
+
+    row = widget.locator('[data-action-kind="fund_below_target"]').filter(
+        has_text="Emergency cash is below target"
+    )
+    expect(row).to_have_count(1, timeout=10000)
+    expect(row).to_have_attribute("data-severity", "warning")
