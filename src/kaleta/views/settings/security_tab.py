@@ -360,11 +360,22 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
                 error.set_text(t("settings.mfa_rate_limited", seconds=secs))
                 return
 
+            password = password_input.value or ""
+            entered = (code_input.value or "").strip()
+            if not password or not entered:
+                # The other three prompts all guard this, and this one is the
+                # one where it bites: `disable("", "")` is a `ValidationError`
+                # like any wrong answer, so clicking Turn off twice before
+                # typing used to spend two of the five tries that the next
+                # sign-in's code prompt shares.
+                error.set_text(t("settings.mfa_code_required"))
+                return
+
             async def _do(session: Any) -> None:
                 await MfaService(session).disable(
                     user_id,
-                    password=password_input.value or "",
-                    code=code_input.value or "",
+                    password=password,
+                    code=entered,
                 )
 
             try:

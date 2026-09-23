@@ -555,7 +555,6 @@ class MfaService:
         rows = list(result.all())
         if not rows:
             return 0
-        user_ids = [user_id for user_id, _enabled in rows]
         # Counted for the message, not for the delete: an enrolment abandoned
         # at the QR screen leaves an unconfirmed row behind, and telling an
         # owner who never finished setting one up that we "removed 1" would be
@@ -563,8 +562,13 @@ class MfaService:
         # goes — it holds a live secret — it just is not counted as a factor
         # that was ever guarding anything.
         enabled = sum(1 for _user_id, is_enabled in rows if is_enabled)
+        # Only the confirmed ones get a row, for the same reason only they
+        # are counted: an enrolment abandoned at the QR screen was never a
+        # factor, so there is nothing about it to say was disabled.
         usernames: list[str | None] = []
-        for user_id in user_ids:
+        for user_id, is_enabled in rows:
+            if not is_enabled:
+                continue
             user = await self.session.get(User, user_id)
             usernames.append(user.username if user is not None else None)
         await self.session.execute(delete(UserMfa))

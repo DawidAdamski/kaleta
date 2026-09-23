@@ -711,11 +711,33 @@ class TestAnAbandonedSetup:
         assert await mfa.abandon_enrolment(user.id) is False
 
     @pytest.mark.asyncio
-    async def test_the_cli_no_longer_counts_it(self, mfa: MfaService, user) -> None:
-        """`--disable-mfa` reports factors that were on, not rows it deleted."""
+    async def test_the_cli_no_longer_counts_it(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        """`--disable-mfa` reports factors that were on, not rows it deleted —
+        and the audit trail agrees with the count about what a factor is."""
         await mfa.begin_enrolment(user.id)
         assert await mfa.disable_all() == 0
         assert await mfa.is_enabled(user.id) is False
+        events = (
+            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            .scalars()
+            .all()
+        )
+        assert [json.loads(e.new_data or "{}")["event"] for e in events] == []
+
+    @pytest.mark.asyncio
+    async def test_a_confirmed_one_is_counted_and_recorded(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        await enrol(mfa, user.id)
+        assert await mfa.disable_all() == 1
+        events = (
+            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            .scalars()
+            .all()
+        )
+        assert "mfa_disabled_cli" in [json.loads(e.new_data or "{}")["event"] for e in events]
 
 
 class TestConfirmingIsAClaim:

@@ -451,6 +451,13 @@ item is built, and every executable acceptance criterion passes.
   the Phase A "Headless" bullet and shipped untested — the one piece of
   user-facing behaviour on this branch that had no scenario behind it.
 
+- **An empty turn-off form is not a wrong guess.** The other three code
+  prompts all short-circuit on a blank field; this one went straight to
+  `disable("", "")`, which is a `ValidationError` like any wrong answer —
+  so clicking "Turn off" twice before typing spent two of the five tries
+  the next sign-in's code prompt shares, and wrote two
+  `mfa_disable_failure` rows on the way.
+
 - **The CLI only claims a removal that happened.** `--disable-mfa` drops
   the enrolments and commits before the password step, so a failure after
   that leaves them gone and the error has to say so — but saying it
@@ -490,7 +497,9 @@ item is built, and every executable acceptance criterion passes.
   behind, and `kaleta --reset-password --disable-mfa` used to report it
   as an enrolment removed — to an owner who never finished setting one up
   and is in no position to check. The row still goes (it holds a live
-  secret); it just is not counted as a factor that was guarding anything.
+  secret); it just is not counted as a factor that was guarding anything,
+  and it gets no `mfa_disabled_cli` row either — the count and the trail
+  have to agree about what a factor is.
 
 - **Successes are audited, not only failures.** `user_mfa` is in
   `db/audit.py`'s `_SKIP_TABLES` — auditing it would copy the decrypted
