@@ -83,16 +83,17 @@ def _deserialize_value(val: object, col_type: TypeEngine[Any]) -> object:
             try:
                 return base64.b64decode(val, validate=True)
             except (binascii.Error, ValueError) as exc:
-                # A hand-edited or truncated file. `binascii.Error` is not a
-                # `KaletaError`, so without this the Data tab would get an
-                # unhandled exception where every other malformed-backup path
-                # in `restore()` gets a sentence.
+                # A hand-edited or truncated file. The Data tab catches bare
+                # `Exception`, so this is not the difference between a
+                # message and a stack trace — it is the difference between
+                # the sentence every other malformed-backup path gives and a
+                # `binascii` repr the owner can do nothing with.
                 msg = "Invalid backup: a binary column is not valid base64"
                 raise ValidationError(msg) from exc
         if not isinstance(val, bytes):
             # A number or a list where base64 belongs. Passing it to the
-            # driver would raise `DBAPIError` — the same stack trace instead
-            # of a sentence that the arm above exists to prevent.
+            # driver would come back as a `DBAPIError` repr, for the same
+            # reason and with the same remedy as the arm above.
             msg = "Invalid backup: a binary column is not a base64 string"
             raise ValidationError(msg)
         return val

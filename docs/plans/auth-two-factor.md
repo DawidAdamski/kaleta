@@ -506,7 +506,12 @@ item is built, and every executable acceptance criterion passes.
   secret into `audit_log` — so the generic ORM listener sees none of
   this, and anything the service does not write itself is not written.
   `confirm_enrolment()` writes `mfa_enabled`, `disable()` writes
-  `mfa_disabled`, and `verify_challenge()` writes `mfa_step_up`. Only the
+  `mfa_disabled`, `regenerate_recovery_codes()` writes
+  `mfa_recovery_reissued` — the last of those matters most, because a
+  step-up inside the ten-minute window answers without raising a dialog,
+  so without its own row an owner's ten codes could be invalidated and
+  ten new ones handed over with nothing in the log at all — and
+  `verify_challenge()` writes `mfa_step_up`. Only the
   first two are written inside the transaction they describe: the rule is
   scoped to rows recording a change to the *factor*, and a code being
   proved is not one. `verify_code()`, `verify_challenge()` and

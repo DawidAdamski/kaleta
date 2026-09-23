@@ -307,12 +307,17 @@ class TestTheAuditTrail:
         # sleeping thirty seconds for a counter the enrolment has not spent.
         secret, codes = await enrol(mfa, user.id)
         assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+        # A reissue inside the step-up window raises no dialog, so if this
+        # did not write its own row the whole act — ten codes invalidated,
+        # ten handed over — would be missing from the log.
+        await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=datetime.now(UTC))
         await mfa.disable(user.id, password=PASSWORD, code=code_for(secret, offset_steps=1))
 
         events = [e for e in await self._auth_events(session) if e["success"]]
         assert [e["event"] for e in events] == [
             "mfa_enabled",
             "mfa_verified",
+            "mfa_recovery_reissued",
             "mfa_disabled",
         ]
         assert {e["username"] for e in events} == {user.username}

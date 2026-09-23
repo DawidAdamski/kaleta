@@ -430,6 +430,11 @@ class MfaService:
         token is: ten fresh codes are ten fresh ways past the factor. The
         caller says when the code was last proved and this method judges
         whether that is recent enough, so the window is not a view's to widen.
+
+        And it leaves a row. A step-up inside the ten-minute window answers
+        without raising a dialog, so without this the whole act — the owner's
+        existing codes invalidated, ten new ones handed to whoever asked —
+        could be absent from the log entirely.
         """
         row = await self._row(user_id)
         if row is None or not row.is_enabled:
@@ -445,9 +450,13 @@ class MfaService:
             # here: two tabs reissuing at once would otherwise each show their
             # user ten codes, and only the last writer's would work.
             .where(UserMfa.id == row.id, UserMfa.recovery_codes_hash == row.recovery_codes_hash)
-            .values(recovery_codes_hash=json.dumps([self._hasher.hash(code) for code in codes]))
+            .values(
+                recovery_codes_hash=json.dumps([self._hasher.hash(recovery) for recovery in codes])
+            )
         )
         claimed = self._claimed(result)
+        if claimed:
+            await self._record(user_id, event="mfa_recovery_reissued", success=True, commit=False)
         await self.session.commit()
         if not claimed:
             msg = "Your recovery codes changed while this page was open. Try again."
