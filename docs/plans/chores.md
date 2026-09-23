@@ -31,6 +31,35 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
       database. Capture and re-apply whatever URL was configured on entry,
       unconditionally.
 
+- [ ] `EncryptedString` (`src/kaleta/db/types.py`) calls `_key_source()`
+      *inside* `process_bind_param` / `process_result_value`, so every bind
+      and every result value runs a fresh HKDF-SHA256. Invisible with the one
+      encrypted column `auth-two-factor` shipped; `hosted-field-encryption`
+      turns it into one derivation per row per column across a table of them.
+      Memoize on `settings.secret_key` (or the tenant key version, once the
+      key ring exists) so the "read at call time" property the docstring
+      relies on — a rotated key takes effect without a restart, and tests can
+      swap the source — still holds. Belongs to whoever picks up that plan.
+
+- [ ] argon2 work runs synchronously on the NiceGUI event loop:
+      `MfaService.disable()` does one password verify plus up to ten
+      recovery-hash verifies (its own docstring prices that at roughly a
+      second), and `confirm_enrolment()` / `regenerate_recovery_codes()` each
+      hash ten codes in a row. `AuthService` already blocks once per login,
+      so this is a 10x of an accepted pattern rather than a new one — but the
+      single-process app stops serving for the duration.
+      `asyncio.to_thread(...)` around the loops would free the loop and keep
+      the deliberately constant cost.
+
+- [ ] `tests/unit/db/test_encrypted_columns.py::TestStatementCacheKey`
+      asserts on SQLAlchemy's private `_static_cache_key`. The invariant is
+      real and worth pinning — `cache_ok = True` is a lie if the AAD is not
+      part of the type identity — but a private attribute can change shape
+      across point releases and would then fail as a confusing
+      `AttributeError` rather than as the caching bug it is guarding against.
+      A round-trip through two differently-AAD'd columns on one engine would
+      pin the same thing against public behaviour.
+
 ### Carried over from GitHub issue #20
 
 Migrated verbatim on 2026-09-23 when this file replaced the issue as the
