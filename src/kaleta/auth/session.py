@@ -45,8 +45,13 @@ def is_authenticated() -> bool:
 
 
 def login_session(*, user_id: int, username: str) -> None:
-    # A finished login leaves no half-finished one behind it.
+    # A finished login leaves no half-finished one behind it — and no
+    # step-up stamp either. Every path that un-authenticates today goes
+    # through `logout_session()`, which pops it, so this is belt and braces;
+    # it is also the asymmetry a future "switch user" would quietly turn
+    # into a free ten-minute step-up window on somebody else's session.
     clear_mfa_challenge()
+    app.storage.user.pop(SESSION_MFA_VERIFIED_AT, None)
     app.storage.user[SESSION_AUTHENTICATED] = True
     app.storage.user[SESSION_USER_ID] = user_id
     app.storage.user[SESSION_USERNAME] = username

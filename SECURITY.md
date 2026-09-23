@@ -90,7 +90,11 @@ hashes. Each works once, anywhere a code is asked for. Asking to see them
 again issues a fresh set and invalidates the old one.
 
 **The TOTP secret at rest** is encrypted with AES-256-GCM under a key derived
-from `KALETA_SECRET_KEY`. Rotating that variable therefore makes every existing
+from `KALETA_SECRET_KEY`. With `KALETA_DEBUG=true` that variable may be left
+unset, and it then falls back to a constant compiled into the source — so on a
+debug install the secret is, for all practical purposes, stored in the clear.
+That is the point of the check that refuses the default key when debug is off;
+do not run a real ledger with debug on. Rotating that variable therefore makes every existing
 enrolment unreadable; see below for the way out.
 
 **Wrong codes are rate-limited** — five in a row locks the code prompt for

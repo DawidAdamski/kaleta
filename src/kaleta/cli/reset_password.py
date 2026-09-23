@@ -68,7 +68,15 @@ class ResetPasswordCli:
         try:
             username, disabled = asyncio.run(self._reset(db_url, new_password))
         except KaletaError as exc:
+            # The enrolments are dropped and committed before the password is
+            # touched, so a failure here leaves them gone. Saying only that
+            # the command failed would send the owner away believing their
+            # factor is still on.
             self._stderr.write(f"{exc.message}\n")
+            if self._disable_mfa:
+                self._stderr.write(
+                    "Two-factor enrolments were already removed; the password is unchanged.\n"
+                )
             return 1
         except Exception:
             log.exception("Password reset failed")
@@ -94,7 +102,9 @@ class ResetPasswordCli:
                 # Order matters: the enrolments go first. If that fails the
                 # password is untouched and the owner can try again, rather
                 # than being left with a new password and the second factor
-                # they asked to be rid of still in the way.
+                # they asked to be rid of still in the way. The other half of
+                # that trade — a failure after the enrolments are gone — is
+                # why `run()` says so on the error path.
                 disabled = await MfaService(session).disable_all() if self._disable_mfa else 0
                 user = await AuthService(session).reset_password(new_password)
                 return user.username, disabled

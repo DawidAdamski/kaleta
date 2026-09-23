@@ -335,6 +335,14 @@ item is built, and every executable acceptance criterion passes.
   two-page fixture already supports, so it is `@automated` in
   `tests/e2e/test_mfa.py`.
 
+  It is `@automated` for exactly what that test asserts, though. The
+  original wording ended "and the wrong-code count against me is
+  unchanged", which the test does not check and cannot: the limiter lives
+  in the app process and the browser has no way to read it. Rather than
+  carry an unasserted line under an `@automated` tag — which is the
+  green-washing rule 4 is about — that claim is now `KAL-AUTH-024`, its
+  own `@planned` scenario, with the reason written into the file.
+
 - **A factor turned off mid-prompt is not a wrong code.** `verify_code()`
   answers False whether the code was wrong or the row is gone, and
   `/login/mfa` used to charge both to the same five-try limiter — so

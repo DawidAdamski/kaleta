@@ -3054,13 +3054,22 @@ Feature: Two-factor authentication
     And I am told it took too long and to sign in again
 
   KAL-AUTH-022 @automated
-  Scenario: Turning the factor off in another tab does not cost me a try
+  Scenario: A code prompt whose factor was turned off sends me back
     Given I have given the right password and am at the code prompt
     When two-factor authentication is turned off in another tab
     And I give a code at the prompt
     Then I am returned to the sign-in page
     And I am told my password is now all I need
-    And the wrong-code count against me is unchanged
+
+  # Implemented (views/login_mfa.py checks is_enabled() before submitting, so
+  # this answer never reaches mfa_rate_limiter.record_failure). @planned
+  # because the limiter lives in the app process and the browser cannot read
+  # it: proving this needs instrumentation the e2e harness does not have.
+  KAL-AUTH-024 @planned
+  Scenario: That prompt does not cost me one of my five tries
+    Given two-factor authentication was turned off while I sat at the code prompt
+    When I give a code and am sent back to the sign-in page
+    Then the wrong-code count against me is unchanged
 
   # Implemented; @planned until someone walks it by hand (it needs
   # KALETA_SECRET_KEY rotated between two requests).
