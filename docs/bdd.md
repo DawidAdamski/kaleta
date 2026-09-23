@@ -2955,6 +2955,133 @@ Feature: Single-user authentication
       And it shows no amount, no account name and no payee
 ```
 
+## Feature: Two-factor authentication
+
+```gherkin
+Feature: Two-factor authentication
+  As the Kaleta owner
+  I want a second factor on top of my password
+  So that a stolen password alone does not open my whole ledger
+
+  KAL-AUTH-013 @automated
+  Scenario: Enrolling a second factor from Settings
+    Given I am signed in
+    And two-factor authentication is off
+    When I open Settings → Security and start the two-factor setup
+    Then I see a QR code and the key spelled out for apps that cannot scan
+    When I enter the code the authenticator app shows
+    Then two-factor authentication is on
+    And I am shown ten one-time recovery codes
+
+  KAL-AUTH-014 @automated
+  Scenario: Signing in asks for the code after the password
+    Given two-factor authentication is on
+    And I am on the login page
+    When I enter the correct username and password and submit
+    Then I am sent to the code prompt
+    When I enter a wrong code
+    Then I stay on the code prompt and see that the code is not right
+    When I enter the code the authenticator app shows
+    Then I am signed in
+
+  KAL-AUTH-015 @automated
+  Scenario: A recovery code signs me in once
+    Given two-factor authentication is on
+    And I have my recovery codes
+    And I have given the correct password on the login page
+    When I choose to use a recovery code and enter one
+    Then I am signed in
+    And one fewer recovery code is left
+    When I sign in again and enter the same recovery code
+    Then it is refused
+
+  KAL-AUTH-016 @automated
+  Scenario: A session waiting on the code reaches nothing
+    Given two-factor authentication is on
+    And I have given the correct password but not the code
+    When I request "/transactions"
+    Then I am redirected to the login page
+    When I request "/api/v1/accounts/" with that session cookie
+    Then the response status is 401
+
+  KAL-AUTH-017 @automated
+  Scenario: Creating an API token asks for the code again
+    Given two-factor authentication is on
+    And I have not entered a code in the last 10 minutes
+    When I try to create an API bearer token
+    Then it is refused until a current code is given
+    And revoking a token is refused on the same terms
+    And a recovery code is accepted in place of the current code
+    But with two-factor authentication off neither is asked for
+
+  KAL-AUTH-018 @automated
+  Scenario: The CLI can drop the second factor for a locked-out self-hoster
+    Given a configured database whose user has two-factor authentication on
+    When I run `uv run kaleta --reset-password --disable-mfa`
+    Then the command exits successfully
+    And two-factor authentication is off
+    And the new password signs the user in
+    When I run `uv run kaleta --reset-password` without the flag
+    Then two-factor authentication stays on
+
+  KAL-AUTH-019 @automated
+  Scenario: Reissuing recovery codes replaces the whole set
+    Given two-factor authentication is on
+    And I am signed in
+    When I ask Settings → Security for my recovery codes
+    Then I am shown ten codes, none of them one I was given before
+    And the card says ten are left
+
+  KAL-AUTH-020 @automated
+  Scenario: Turning two-factor authentication off needs both the password and a code
+    Given two-factor authentication is on
+    And I am on Settings → Security
+    When I give the right password and the right code
+    Then two-factor authentication is off
+    And signing in needs only the password again
+    When it is on again and I give a wrong password with a right code
+    Then I am told the password or code is not right
+    And giving a right password with a wrong code says exactly the same thing
+    And after five wrong answers I am told to wait rather than tried again
+
+  # Implemented; @planned until someone walks it by hand (ten minutes of
+  # wall clock is not something the e2e harness can stage).
+  KAL-AUTH-021 @planned
+  Scenario: A code prompt left open too long sends me back to the password
+    Given I have given the right password and am at the code prompt
+    When I leave it open for longer than ten minutes and then give a code
+    Then I am returned to the sign-in page
+    And I am told it took too long and to sign in again
+
+  KAL-AUTH-022 @automated
+  Scenario: A code prompt whose factor was turned off sends me back
+    Given I have given the right password and am at the code prompt
+    When two-factor authentication is turned off in another tab
+    And I give a code at the prompt
+    Then I am returned to the sign-in page
+    And I am told my password is now all I need
+
+  # Implemented; @planned until someone walks it by hand (it needs
+  # KALETA_SECRET_KEY rotated between two requests).
+  KAL-AUTH-023 @planned
+  Scenario: A secret written under a different key says so
+    Given two-factor authentication is on
+    And KALETA_SECRET_KEY has been changed since I enrolled
+    When I give the right password and then any code
+    Then I am told the second factor cannot be read on this install
+    And I am told to run `kaleta --reset-password --disable-mfa` and set it up again
+
+  # Implemented (views/login_mfa.py checks is_enabled() before submitting, so
+  # this answer never reaches mfa_rate_limiter.record_failure). @planned
+  # because the limiter lives in the app process and the browser cannot read
+  # it: proving this needs instrumentation the e2e harness does not have.
+  KAL-AUTH-024 @planned
+  Scenario: That prompt does not cost me one of my five tries
+    Given two-factor authentication was turned off while I sat at the code prompt
+    When I give a code and am sent back to the sign-in page
+    Then the wrong-code count against me is unchanged
+```
+
 ## Feature: Demo instance
 
 ```gherkin
@@ -3173,6 +3300,7 @@ Feature: Settings — Data safety
     And I am on the Settings page, Data tab
     When I upload the backup ZIP and confirm restore
     Then every table's row count matches the backup
+    And every value reads back as it did before, encrypted columns included
 
   KAL-SET-016 @automated
   Scenario: Restore refuses a backup from a different schema revision
@@ -3384,6 +3512,23 @@ Feature: Public API
     And the body includes version "0.1.0"
     And database_ok is true
     And migrations_pending is a boolean
+
+  KAL-API-005 @automated
+  Scenario: Reading two-factor status over the API
+    Given a valid API bearer token
+    When I GET /api/v1/auth/mfa
+    Then the response is 200
+    And enabled is false and recovery_codes_remaining is 0
+    When the user has confirmed a second factor
+    And I GET /api/v1/auth/mfa again
+    Then enabled is true, enabled_at is a timestamp
+    And recovery_codes_remaining is 10
+
+  KAL-API-006 @automated
+  Scenario: Two-factor status is not readable without credentials
+    Given a running instance
+    When I GET /api/v1/auth/mfa without credentials
+    Then the response is 401
 ```
 
 ## Feature: Navigation

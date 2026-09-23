@@ -48,6 +48,12 @@ class UnauthorizedError(KaletaError):
     code = "unauthorized"
 
 
+class EncryptionError(KaletaError):
+    """A value stored under column encryption could not be read or written."""
+
+    code = "encryption_error"
+
+
 class MigrationError(KaletaError):
     """Schema cannot be brought to the installed alembic head safely."""
 

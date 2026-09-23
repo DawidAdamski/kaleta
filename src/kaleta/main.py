@@ -169,6 +169,7 @@ def _register_views() -> None:
         import_view,
         institutions,
         login,
+        login_mfa,
         monthly_readiness,
         net_worth,
         payees,
@@ -193,6 +194,7 @@ def _register_views() -> None:
 
     setup.register()
     login.register()
+    login_mfa.register()
     create_account.register()
     secure_app.register()
     dashboard.register()
@@ -347,7 +349,15 @@ def main() -> None:
     if "--reset-password" in sys.argv:
         from kaleta.cli.reset_password import ResetPasswordCli
 
-        raise SystemExit(ResetPasswordCli().run())
+        raise SystemExit(ResetPasswordCli(disable_mfa="--disable-mfa" in sys.argv).run())
+
+    if "--disable-mfa" in sys.argv:
+        # Said out loud rather than ignored. This is the escape hatch
+        # SECURITY.md points a locked-out self-hoster at, and the person
+        # typing it has already lost their phone — starting the app normally
+        # and saying nothing is the worst possible answer.
+        sys.stderr.write("--disable-mfa only works together with --reset-password.\n")
+        raise SystemExit(2)
 
     match settings.mode:
         case "web":

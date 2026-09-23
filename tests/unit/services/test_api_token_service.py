@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.auth_service import AuthService
 
@@ -93,3 +96,65 @@ class TestApiTokenService:
         user = await auth.ensure_api_bootstrap_user()
         tokens = ApiTokenService(session)
         assert await tokens.authenticate_bearer(env) == user.id
+
+
+class TestStepUp:
+    """A bearer token outlives a browser session, so minting one needs the code.
+
+    Covers: KAL-AUTH-017
+    """
+
+    async def _enrol(self, session: AsyncSession, user_id: int) -> None:
+        import time
+
+        import pyotp
+
+        from kaleta.services.mfa_service import TOTP_INTERVAL, MfaService
+
+        mfa = MfaService(session)
+        enrolment = await mfa.begin_enrolment(user_id)
+        code = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL).at(int(time.time()))
+        await mfa.confirm_enrolment(user_id, str(code))
+
+    @pytest.mark.asyncio
+    async def test_without_mfa_nothing_changes(self, tokens: ApiTokenService, user) -> None:
+        _token, raw = await tokens.create_token(user_id=user.id, label="ci")
+        assert raw
+
+    @pytest.mark.asyncio
+    async def test_with_mfa_creating_needs_a_fresh_code(
+        self, tokens: ApiTokenService, session: AsyncSession, user
+    ) -> None:
+        await self._enrol(session, user.id)
+        with pytest.raises(ValidationError):
+            await tokens.create_token(user_id=user.id, label="ci")
+
+    @pytest.mark.asyncio
+    async def test_with_mfa_and_a_fresh_code_creating_works(
+        self, tokens: ApiTokenService, session: AsyncSession, user
+    ) -> None:
+        await self._enrol(session, user.id)
+        _token, raw = await tokens.create_token(
+            user_id=user.id, label="ci", mfa_verified_at=datetime.now(UTC)
+        )
+        assert raw
+
+    @pytest.mark.asyncio
+    async def test_with_mfa_revoking_needs_a_fresh_code(
+        self, tokens: ApiTokenService, session: AsyncSession, user
+    ) -> None:
+        token, _raw = await tokens.create_token(user_id=user.id, label="ci")
+        await self._enrol(session, user.id)
+        with pytest.raises(ValidationError):
+            await tokens.revoke_token(token_id=token.id, user_id=user.id)
+        listed = await tokens.list_tokens(user_id=user.id)
+        assert listed[0].is_active is True
+
+    @pytest.mark.asyncio
+    async def test_bearer_authentication_is_untouched_by_mfa(
+        self, tokens: ApiTokenService, session: AsyncSession, user
+    ) -> None:
+        """An API token is its own credential; MFA guards minting it, not using it."""
+        _token, raw = await tokens.create_token(user_id=user.id, label="ci")
+        await self._enrol(session, user.id)
+        assert await tokens.authenticate_bearer(raw) == user.id

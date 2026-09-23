@@ -13,6 +13,9 @@
 | Validation       | Pydantic 2.x         | Data validation, serialization                 |
 | Configuration    | pydantic-settings    | Environment-based config                       |
 | ASGI Server      | Uvicorn              | Production server                              |
+| Password hashing | argon2-cffi          | Login passwords and one-time recovery codes    |
+| Second factor    | pyotp + qrcode       | TOTP (RFC 6238) and the enrolment QR as inline SVG |
+| Column crypto    | cryptography         | AES-256-GCM for secrets at rest (`kaleta.db.types`) |
 
 ## Analytics & Forecasting
 
@@ -147,7 +150,9 @@ KALETA_DB_URL=sqlite+aiosqlite:///{home}/.kaleta/kaleta.db
 KALETA_HOST=127.0.0.1                   # Bind address (Docker Compose sets 0.0.0.0)
 KALETA_PORT=8080                      # Bind port
 KALETA_MODE=web                       # web | app | api
-KALETA_SECRET_KEY=...                 # Session/auth secret (required outside debug)
+KALETA_SECRET_KEY=...                 # Session/auth secret (required outside debug);
+                                      # also derives the key for encrypted columns —
+                                      # rotating it forces re-enrolling two-factor auth
 KALETA_DEBUG=false                    # Debug mode; allows placeholder secret key
 KALETA_API_TOKEN=...                  # Bootstrap bearer for headless API (≥16 chars);
                                       # creates locked user `api` on startup if needed

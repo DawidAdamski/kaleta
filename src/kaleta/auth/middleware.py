@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
     {
         "/login",
+        "/login/mfa",
         "/create-account",
         "/secure-app",
         "/favicon.ico",

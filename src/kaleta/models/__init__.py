@@ -30,9 +30,11 @@ from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.tag import Tag, transaction_tags
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
 from kaleta.models.user import User
+from kaleta.models.user_mfa import MFA_KIND_TOTP, UserMfa
 from kaleta.models.yearly_plan import YearlyPlan
 
 __all__ = [
+    "MFA_KIND_TOTP",
     "Account",
     "AccountType",
     "ApiToken",
@@ -77,5 +79,6 @@ __all__ = [
     "TransactionSplit",
     "TransactionType",
     "User",
+    "UserMfa",
     "YearlyPlan",
 ]

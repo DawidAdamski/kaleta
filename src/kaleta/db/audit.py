@@ -33,7 +33,10 @@ from kaleta.models.audit_log import AuditLog  # registers table in Base.metadata
 log = logging.getLogger(__name__)
 
 # Tables we never audit (prevents infinite recursion and noise).
-_SKIP_TABLES: frozenset[str] = frozenset({"audit_log", "app_events"})
+# ``user_mfa`` is skipped because auditing it would copy the decrypted TOTP
+# secret into ``audit_log`` in plain text, which is the one place the
+# encrypted column exists to keep it out of.
+_SKIP_TABLES: frozenset[str] = frozenset({"audit_log", "app_events", "user_mfa"})
 
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────
@@ -158,8 +161,14 @@ async def record_auth_event(
     event: str,
     username: str | None = None,
     success: bool,
+    commit: bool = True,
 ) -> None:
-    """Write a login/logout audit row (not tied to ORM DML)."""
+    """Write a login/logout audit row (not tied to ORM DML).
+
+    ``commit=False`` leaves the row for the caller's own commit, so an event
+    that records a change can be written in the same transaction as the change
+    itself rather than in one that might not happen.
+    """
     payload = json.dumps({"event": event, "username": username, "success": success})
     session.add(
         AuditLog(
@@ -170,7 +179,8 @@ async def record_auth_event(
             new_data=payload,
         )
     )
-    await session.commit()
+    if commit:
+        await session.commit()
 
 
 async def record_token_event(

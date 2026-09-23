@@ -43,7 +43,12 @@ class TestResetPasswordCli:
             lambda: "sqlite+aiosqlite:///:memory:",
         )
 
-        async def _fail(_self: ResetPasswordCli, _db_url: str, _password: str) -> str:
+        async def _fail(
+            _self: ResetPasswordCli,
+            _db_url: str,
+            _password: str,
+            _note_removed: object,
+        ) -> str:
             raise NotFoundError(
                 "No user found. Create an account via the first-run bootstrap "
                 "(open the app and use Create account)."

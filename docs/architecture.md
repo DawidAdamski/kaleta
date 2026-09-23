@@ -52,7 +52,9 @@ kaleta/
 │   │   └── settings.py      # Pydantic settings (env-based)
 │   ├── db/                  # Database setup, session management
 │   │   ├── base.py          # SQLAlchemy base, engine
-│   │   └── session.py       # Session factory, dependency
+│   │   ├── session.py       # Session factory, dependency
+│   │   ├── types.py         # EncryptedString(TypeDecorator): AES-256-GCM over LargeBinary, key via HKDF-SHA256 from KALETA_SECRET_KEY (swappable key source)
+│   │   └── audit.py         # Audit log capture; _SKIP_TABLES excludes tables with encrypted secrets (e.g. user_mfa)
 │   ├── models/              # SQLAlchemy ORM models
 │   │   ├── account.py
 │   │   ├── transaction.py   # Transaction + TransactionSplit models
@@ -63,6 +65,7 @@ kaleta/
 │   │   ├── payee.py         # Payee model (name UNIQUE)
 │   │   ├── planned_transaction.py  # PlannedTransaction model (frequency, end_date, occurrences)
 │   │   ├── credit.py        # CreditCardProfile + LoanProfile (one-per-account, FK → accounts.id CASCADE)
+│   │   ├── user_mfa.py      # UserMfa: TOTP secret (EncryptedString), recovery code hashes, replay counter
 │   │   └── mixins.py        # TimestampMixin
 │   ├── schemas/             # Pydantic schemas (request/response)
 │   │   ├── account.py
@@ -73,7 +76,8 @@ kaleta/
 │   │   ├── asset.py
 │   │   ├── planned_transaction.py
 │   │   ├── credit.py        # CardView (utilization, min-payment, next-due, status chip) + LoanView (remaining balance, amortisation schedule)
-│   │   └── wizard_projections.py  # PulledRow, BudgetBuilderProjection, PaymentCalendarProjection, SubscriptionCharge
+│   │   ├── wizard_projections.py  # PulledRow, BudgetBuilderProjection, PaymentCalendarProjection, SubscriptionCharge
+│   │   └── auth.py          # MfaStatusResponse — read-only two-factor status
 │   ├── services/            # Business logic
 │   │   ├── account_service.py
 │   │   ├── transaction_service.py
@@ -90,8 +94,9 @@ kaleta/
 │   │   ├── dedupe_service.py        # duplicate_transactions(window_days=...) — configurable scan window
 │   │   ├── planned_transaction_service.py  # grid_for_month(..., overdue_window_days=...) — configurable overdue look-back
 │   │   ├── credit_service.py        # CreditService: card CRUD + loan CRUD; pure helpers: compute_monthly_payment, amortisation_schedule, compute_min_payment, next_due_date
-│   │   └── wizard_projection_service.py  # WizardProjectionService: get_budget_builder_sources(year), get_payment_calendar_sources(start, end) — read-only cross-panel projections
-│   ├── api/                 # REST API endpoints (v1/)
+│   │   ├── wizard_projection_service.py  # WizardProjectionService: get_budget_builder_sources(year), get_payment_calendar_sources(start, end) — read-only cross-panel projections
+│   │   └── mfa_service.py   # MfaService: TOTP enrolment/verification (replay-guarded), recovery codes, disable
+│   ├── api/                 # REST API endpoints (v1/); v1/auth.py exposes GET /api/v1/auth/mfa (status only)
 │   └── views/               # NiceGUI UI pages
 │       ├── layout.py        # Shared layout, nav, dark mode toggle
 │       ├── chart_utils.py   # ECharts dark mode helpers
@@ -109,7 +114,8 @@ kaleta/
 │       ├── credit.py                # Credit module (/credit): two tabs — Credit Cards and Loans; "New card"/"New loan" dialogs atomically create Account + profile
 │       ├── budget_plan.py           # Annual budget planning grid (/budget-plan)
 │       ├── setup.py                 # First-run database setup page (/setup)
-│       ├── settings.py              # Settings page (/settings) — 6 tabs; module docstring lists all app.storage.user keys
+│       ├── settings/                # Settings page (/settings) — one module per tab
+│       ├── login_mfa.py             # TOTP challenge page (/login/mfa); public route, guards itself
 │       └── wizard.py                # Onboarding wizard (/wizard)
 ├── tests/
 │   ├── conftest.py          # In-memory SQLite async fixtures
@@ -174,6 +180,7 @@ out of sequence in the original monolithic document).
 | [033](adr/033-agpl-core-with-cla.md) | AGPL-3.0 Core with CLA and Proprietary Commercial Tier | accepted |
 | [034](adr/034-openpyxl-as-an-optional-extra-for-xlsx-import.md) | openpyxl as an Optional Extra for XLSX Import | accepted |
 | [035](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) | Hosted Multi-Tenancy: Schema per Account and User-Held Field Encryption | proposed |
+| [036](adr/036-local-column-encryption-and-totp-as-base-dependencies.md) | Local Column Encryption and TOTP as Base Dependencies | accepted |
 
 ## UI Colour Schema
 

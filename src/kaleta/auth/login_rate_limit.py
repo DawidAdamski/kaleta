@@ -55,4 +55,11 @@ class LoginRateLimiter:
         self._buckets.pop(key, None)
 
 
+#: Failed passwords, keyed by client IP.
 login_rate_limiter = LoginRateLimiter()
+
+#: Failed second factors, keyed by user id. Separate from the password
+#: limiter: the password is already right at this point, so burning the IP
+#: bucket would lock the account out of a retry it is entitled to, and sharing
+#: a bucket would let a wrong code hide a password-guessing run.
+mfa_rate_limiter = LoginRateLimiter()
