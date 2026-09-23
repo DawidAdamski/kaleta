@@ -3,6 +3,8 @@
 
 from __future__ import annotations
 
+from kaleta.services.saved_report_service import TIME_DIMENSIONS
+
 DIMENSIONS = [
     ("category", "reports.dim_category", "category"),
     ("account", "reports.dim_account", "account_balance_wallet"),
@@ -45,8 +47,28 @@ TX_TYPES = [
     ("transfer", "reports.type_transfer", "swap_horiz", "primary"),
 ]
 
+
+def chart_unavailable_reason(chart_type: str, series: str | None) -> str | None:
+    """Why this chart type cannot draw the query in hand, as a translation key.
+
+    ``None`` when it can. Only a second dimension ever rules a type out: a pie
+    has one ring to divide between one dimension's values, and a line needs an
+    axis that runs somewhere — a weekday is a bucket, not a sequence.
+    """
+    if series is None:
+        return None
+    if chart_type in ("pie", "donut"):
+        return "reports.chart_unavailable_with_series"
+    if chart_type == "line" and series not in TIME_DIMENSIONS:
+        return "reports.chart_needs_time_series"
+    return None
+
+
 BUILDER_STATE_DEFAULTS: dict[str, object] = {
     "dimension": "category",
+    # The second dimension, or None for the one-dimensional report the
+    # builder has always drawn.
+    "series": None,
     "metric": "sum",
     "chart_type": "bar",
     "transaction_types": ["expense"],

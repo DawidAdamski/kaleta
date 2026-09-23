@@ -1488,6 +1488,11 @@
     "eyebrow_scope_few": "{count} transactions in the ledger",
     "eyebrow_scope_many": "{count} transactions in the ledger",
     "chart_eyebrow": "Chart",
+    "series_by": "by",
+    "series_none": "by …",
+    "pivot_total": "Total",
+    "chart_needs_time_series": "A line needs a second dimension that runs in time — month or year.",
+    "chart_unavailable_with_series": "Not available with a second dimension.",
     "result_total": "total {amount}"
   },
   "reports_lib": {

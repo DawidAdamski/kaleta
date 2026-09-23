@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from kaleta.services.saved_report_service import ReportResult
+from kaleta.services.saved_report_service import PivotResult, ReportResult
 from kaleta.views.chart_utils import apply_dark, chart_text_color
 
 
@@ -69,6 +69,77 @@ def _line_options(result: ReportResult, is_dark: bool) -> dict[str, Any]:
                 "symbol": "circle",
                 "symbolSize": 5,
             }
+        ],
+    }
+    return apply_dark(options, is_dark)
+
+
+def pivot_chart_options(
+    result: PivotResult,
+    chart_type: str,
+    is_dark: bool,
+) -> dict[str, Any]:
+    """Options for a two-dimensional report: stacked bars, or a line per row.
+
+    Both read the same matrix from opposite sides. A stacked bar puts the rows
+    on the axis and one segment per series value, which answers "what is each
+    row made of"; a line puts the series on the axis and one line per row,
+    which answers "how does each row move". The chart-type picker is what
+    chooses between them, and it only offers the line when the series axis is
+    a sequence rather than a set of buckets.
+    """
+    if chart_type == "line":
+        return _multi_line_options(result, is_dark)
+    return _stacked_bar_options(result, is_dark)
+
+
+def _stacked_bar_options(result: PivotResult, is_dark: bool) -> dict[str, Any]:
+    options: dict[str, Any] = {
+        "tooltip": {"trigger": "axis", "axisPointer": {"type": "shadow"}},
+        # Not a scrolling legend: twelve months under a chart should wrap onto
+        # a second line rather than hide behind a pair of arrows.
+        "legend": {"top": 0, "left": "center"},
+        "grid": {"containLabel": True, "left": "3%", "right": "6%", "bottom": "8%", "top": "18%"},
+        "xAxis": {
+            "type": "category",
+            "data": result.row_labels,
+            "axisLabel": {"rotate": 30 if len(result.row_labels) > 6 else 0},
+        },
+        "yAxis": {"type": "value"},
+        "series": [
+            {
+                "type": "bar",
+                "stack": "total",
+                "name": series_label,
+                "data": [row[index] for row in result.cells],
+            }
+            for index, series_label in enumerate(result.series_labels)
+        ],
+    }
+    return apply_dark(options, is_dark)
+
+
+def _multi_line_options(result: PivotResult, is_dark: bool) -> dict[str, Any]:
+    options: dict[str, Any] = {
+        "tooltip": {"trigger": "axis"},
+        "legend": {"top": 0, "left": "center"},
+        "grid": {"containLabel": True, "left": "3%", "right": "6%", "bottom": "8%", "top": "18%"},
+        "xAxis": {
+            "type": "category",
+            "data": result.series_labels,
+            "axisLabel": {"rotate": 30 if len(result.series_labels) > 6 else 0},
+        },
+        "yAxis": {"type": "value"},
+        "series": [
+            {
+                "type": "line",
+                "name": row_label,
+                "data": result.cells[index],
+                "smooth": True,
+                "symbol": "circle",
+                "symbolSize": 5,
+            }
+            for index, row_label in enumerate(result.row_labels)
         ],
     }
     return apply_dark(options, is_dark)

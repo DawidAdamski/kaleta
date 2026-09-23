@@ -17,7 +17,14 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import plural_key, t
-from kaleta.views.reports.constants import CHART_TYPES, DATE_PRESETS, DIMENSIONS, METRICS, TX_TYPES
+from kaleta.views.reports.constants import (
+    CHART_TYPES,
+    DATE_PRESETS,
+    DIMENSIONS,
+    METRICS,
+    TX_TYPES,
+    chart_unavailable_reason,
+)
 from kaleta.views.reports.sentence import slot_labels
 from kaleta.views.theme import (
     CHART_PICK,
@@ -30,6 +37,7 @@ from kaleta.views.theme import (
     SELECTION_DIVIDER,
     SENTENCE_FOOT,
     SENTENCE_SLOT,
+    SENTENCE_SLOT_EMPTY,
     SENTENCE_SLOT_TARGET,
 )
 
@@ -43,6 +51,7 @@ def build_config_zone(
     account_options: dict[int, str],
     category_options: dict[int, str],
     on_drop_dimension: Callable[[], None],
+    on_drop_series: Callable[[], None],
     on_drop_metric: Callable[[], None],
     on_set_chart: Callable[[str], None],
     on_toggle_type: Callable[[str], None],
@@ -64,18 +73,30 @@ def build_config_zone(
             tight = text[:1] in ",.;:!?"
             ui.label(text).classes(f"{_SENTENCE} {MUTED}" + (" -ml-1" if tight else ""))
 
-        def _slot(text: str, *, drop: Callable[[], None] | None = None) -> Any:
+        def _slot(
+            text: str,
+            *,
+            drop: Callable[[], None] | None = None,
+            empty: bool = False,
+        ) -> Any:
             classes = f"{SENTENCE_SLOT} {_SENTENCE}"
             if drop is not None:
                 classes += f" {SENTENCE_SLOT_TARGET}"
+            if empty:
+                classes += f" {SENTENCE_SLOT_EMPTY}"
             with ui.element("span").classes(classes) as slot:
                 if drop is not None:
                     # Without preventDefault on dragover the browser refuses
                     # the drop and the slot never hears about it.
                     slot.props('ondragover="event.preventDefault()"')
                     slot.on("drop", drop)
+                # An unused part of the sentence offers itself rather than
+                # pointing at a menu of things to change: a plus, not a chevron.
+                if empty:
+                    ui.icon("add", size="15px")
                 ui.label(text)
-                ui.icon("expand_more", size="15px")
+                if not empty:
+                    ui.icon("expand_more", size="15px")
             return slot
 
         def _pick(key: str, options: list[tuple[str, ...]]) -> None:
@@ -95,6 +116,29 @@ def build_config_zone(
             _word(t("reports.sentence_grouped_by"))
             with _slot(labels.dimension, drop=on_drop_dimension):
                 _pick("dimension", list(DIMENSIONS))
+
+            # The second dimension. Optional, and the only slot that can be
+            # put back: a report with one grouping is what every saved report
+            # was before this word existed.
+            has_series = bool(state["series"])
+            if has_series:
+                _word(t("reports.series_by"))
+            with (
+                _slot(labels.series, drop=on_drop_series, empty=not has_series),
+                ui.menu().props("auto-close"),
+            ):
+                ui.menu_item(t("common.none"), on_click=lambda: on_set("series", None)).props(
+                    "dense"
+                )
+                ui.separator()
+                for key, label_key, _icon in DIMENSIONS:
+                    # The axis in hand is not offered as its own second axis:
+                    # a report grouped by Category by Category asks nothing.
+                    if key == state["dimension"]:
+                        continue
+                    ui.menu_item(t(label_key), on_click=lambda k=key: on_set("series", k)).props(
+                        "dense"
+                    )
 
             _word(t("reports.sentence_for"))
             with _slot(labels.types), ui.menu():
@@ -168,7 +212,10 @@ def build_config_zone(
             with ui.row().classes("items-center gap-[5px] no-wrap"):
                 for chart_type, icon in CHART_TYPES:
                     active = state["chart_type"] == chart_type
-                    (
+                    # A type that cannot draw the query in hand says why it is
+                    # out rather than drawing something wrong when clicked.
+                    reason = chart_unavailable_reason(chart_type, state["series"])
+                    button = (
                         ui.button(
                             icon=icon,
                             on_click=lambda c=chart_type: on_set_chart(c),
@@ -176,8 +223,10 @@ def build_config_zone(
                         )
                         .props("flat dense no-caps")
                         .classes(f"{CHART_PICK} {CHART_PICK_ON}" if active else CHART_PICK)
-                        .tooltip(t(f"reports.chart_{chart_type}"))
+                        .tooltip(t(reason) if reason else t(f"reports.chart_{chart_type}"))
                     )
+                    if reason:
+                        button.props("disable")
             # 22px and the border's own tone, as the artboard draws it beside
             # 34px squares; the selection bar's 16px would read as a nick.
             ui.element("span").classes(SELECTION_DIVIDER).style(

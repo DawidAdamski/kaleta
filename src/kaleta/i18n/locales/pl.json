@@ -1488,6 +1488,11 @@
     "eyebrow_scope_few": "{count} transakcje w księdze",
     "eyebrow_scope_many": "{count} transakcji w księdze",
     "chart_eyebrow": "Wykres",
+    "series_by": "· drugi wymiar:",
+    "series_none": "dodaj wymiar",
+    "pivot_total": "Razem",
+    "chart_needs_time_series": "Linia wymaga drugiego wymiaru w czasie — miesiąca lub roku.",
+    "chart_unavailable_with_series": "Niedostępne przy drugim wymiarze.",
     "result_total": "razem {amount}"
   },
   "reports_lib": {
