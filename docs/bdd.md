@@ -1671,7 +1671,7 @@ Feature: Budget Planning Comparisons
     When I plan July 2026
     Then I can see July 2024 and July 2025 actuals per category
 
-  KAL-CMP-003 @planned
+  KAL-CMP-003 @automated
   Scenario: Start from last month's plan and adjust
     Given last month has a saved budget plan
     When I choose "copy previous month" while planning
@@ -1992,10 +1992,10 @@ Feature: Recurring Payment Detection
   I want repeated payments detected and convertible to planned transactions
   So that my forecast reflects reality without manual bookkeeping
 
-  KAL-REC-001 @planned
+  KAL-REC-001 @automated
   Scenario: Detect a stable monthly payment
     Given three consecutive months contain a 49.99 payment to "Netflix"
-    When I open the Recurring suggestions panel
+    When I open "Detected recurring charges" on the Subscriptions panel
     Then "Netflix 49.99 monthly" is listed as a detected recurring payment
 
   KAL-REC-002 @planned
@@ -2324,7 +2324,7 @@ Feature: Reserve Funds
     When I open the Reserves panel
     Then its target shows 15600.00
 
-  KAL-FND-003 @planned
+  KAL-FND-003 @automated
   Scenario: Warning when a reserve falls below target
     Given "Emergency cash" holds 1800.00 against a 3000.00 target
     When I open the dashboard

@@ -3,7 +3,7 @@ plan_id: audit-planned-vs-code
 title: Audit — @planned BDD features vs existing code (2026-07-07)
 area: cross-cutting
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#cross-cutting-principles
 ---
 

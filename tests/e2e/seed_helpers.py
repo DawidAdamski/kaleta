@@ -226,6 +226,13 @@ def seed_budget(category_id: int, amount: float, month: int, year: int) -> int:
     return resp.json()["id"]
 
 
+def list_budgets(year: int, month: int) -> list[dict[str, Any]]:
+    """Return the budget entries saved for one month."""
+    resp = _client.get(f"{API_BASE}/budgets/", params={"year": year, "month": month})
+    resp.raise_for_status()
+    return list(resp.json())
+
+
 def seed_many_transactions(
     account_id: int,
     category_id: int,
