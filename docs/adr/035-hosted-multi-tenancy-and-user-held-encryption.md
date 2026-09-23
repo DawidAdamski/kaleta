@@ -33,7 +33,7 @@ status: proposed
      this) rather than access control.
   2. **Identity is delegated to Supabase Auth** on the hosted path
      (e-mail sign-up, verification, password reset, and — for
-     [`auth-two-factor`](../plans/auth-two-factor.md) — TOTP MFA).
+     [`auth-two-factor`](../plans/archive/auth-two-factor.md) — TOTP MFA).
      Self-hosted installs keep the argon2 `AuthService`. Both sit behind
      one `AuthProvider` interface selected by `KALETA_AUTH_BACKEND`.
   3. **Field-level encryption with keys only the members hold.** Each

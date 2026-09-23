@@ -11,7 +11,7 @@ roadmap_ref: ../roadmap.md#2027-directions
 
 ## Intent
 
-This is Phase B of [`auth-two-factor`](auth-two-factor.md), carried out
+This is Phase B of [`auth-two-factor`](archive/auth-two-factor.md), carried out
 of that plan rather than dropped from it. Phase A shipped the local TOTP
 implementation: `MfaService`, the `user_mfa` table with its encrypted
 secret, the `/login/mfa` prompt, the Settings card, recovery codes and

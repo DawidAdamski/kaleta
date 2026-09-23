@@ -3,8 +3,9 @@ plan_id: auth-two-factor
 title: Auth — two-factor authentication (TOTP + recovery codes)
 area: auth / settings
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-09-23
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Auth — two-factor authentication (TOTP + recovery codes)
@@ -17,7 +18,7 @@ app, plus one-time recovery codes for a lost phone. Self-hosted installs
 get a local TOTP implementation; the hosted instance uses Supabase
 Auth's MFA so enrolment, verification and the "AAL2" session claim are
 handled by the identity provider. Both hide behind the `AuthProvider`
-interface from [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md),
+interface from [`hosted-tenancy-foundation`](../hosted-tenancy-foundation.md),
 and the local half ships first because it does not depend on that plan.
 
 ## Scope
@@ -26,7 +27,7 @@ and the local half ships first because it does not depend on that plan.
 
 - **Model** `UserMfa` in the tenant schema: `user_id` (FK, unique),
   `totp_secret` (`EncryptedText` when
-  [`hosted-field-encryption`](hosted-field-encryption.md) has landed,
+  [`hosted-field-encryption`](../hosted-field-encryption.md) has landed,
   otherwise `String` encrypted with `KALETA_SECRET_KEY` via the same
   `TypeDecorator` under a static key — the type is written so the key
   source is swappable), `enabled_at`, `last_used_counter` (rejects
@@ -62,13 +63,13 @@ and the local half ships first because it does not depend on that plan.
 ### Phase B — hosted through Supabase Auth (after the foundation plan)
 
 > **Deferred, not delivered.** Phase B is written against the `AuthProvider`
-> interface from [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md),
+> interface from [`hosted-tenancy-foundation`](../hosted-tenancy-foundation.md),
 > which is still `draft`: `src/kaleta/auth/providers/` does not exist, and
 > neither does any Supabase integration to hang `SupabaseAuthProvider` off.
 > Building it would mean implementing another plan inside this branch, which
 > Working Agreement §1 and the one-issue-one-branch-one-PR rule both forbid.
 > Phase A ships on its own — the plan says so in its Intent — and Phase B
-> moves to [`auth-two-factor-hosted`](auth-two-factor-hosted.md), which
+> moves to [`auth-two-factor-hosted`](../auth-two-factor-hosted.md), which
 > carries everything below and the acceptance criterion
 > (`tests/unit/auth/test_supabase_mfa.py`) with it, to be picked up once
 > the foundation lands.
@@ -727,3 +728,69 @@ item is built, and every executable acceptance criterion passes.
   `tests/e2e/test_mfa.py`, 017 by `tests/integration/test_mfa_step_up.py`,
   018 by `tests/integration/test_reset_password_cli.py`. `KAL-SET-015`
   gained a line and `tests/integration/test_backup.py` covers it.
+
+## Implementation
+
+Landed on 2026-09-23 (PR #121).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `10e35fb` | Dawid Adamski | 2026-09-23 | Merge pull request #121 from DawidAdamski/plan/auth-two-factor |
+
+**Files changed:**
+- SECURITY.md
+- alembic/versions/m7n8o9p0q1r2_add_user_mfa.py
+- docs/adr/036-local-column-encryption-and-totp-as-base-dependencies.md
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/auth-two-factor-hosted.md
+- docs/plans/auth-two-factor.md
+- docs/tech-stack.md
+- pyproject.toml
+- src/kaleta/api/v1/__init__.py
+- src/kaleta/api/v1/auth.py
+- src/kaleta/auth/__init__.py
+- src/kaleta/auth/login_rate_limit.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/session.py
+- src/kaleta/cli/reset_password.py
+- src/kaleta/db/audit.py
+- src/kaleta/db/types.py
+- src/kaleta/exceptions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/user_mfa.py
+- src/kaleta/schemas/auth.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/api_token_service.py
+- src/kaleta/services/backup_service.py
+- src/kaleta/services/mfa_service.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/login.py
+- src/kaleta/views/login_mfa.py
+- src/kaleta/views/settings/security_tab.py
+- tests/backup_helpers.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_mfa.py
+- tests/integration/test_api_mfa_status.py
+- tests/integration/test_backup.py
+- tests/integration/test_mfa_step_up.py
+- tests/integration/test_reset_password_cli.py
+- tests/unit/auth/test_mfa_guard.py
+- tests/unit/cli/test_disable_mfa_flag.py
+- tests/unit/cli/test_reset_password.py
+- tests/unit/db/test_encrypted_columns.py
+- tests/unit/services/test_api_token_service.py
+- tests/unit/services/test_mfa_service.py
+- tests/unit/views/test_safe_redirect.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA. Still @planned in docs/bdd.md: KAL-AUTH-021 KAL-AUTH-023 KAL-AUTH-024 — retag before or after archiving.
