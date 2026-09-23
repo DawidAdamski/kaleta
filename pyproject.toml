@@ -94,6 +94,9 @@ ignore = [
 [tool.mypy]
 python_version = "3.13"
 strict = true
+# Pydantic 2 models and settings: validate field types in constructors and
+# `model_validate` calls the way the runtime does.
+plugins = ["pydantic.mypy"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
