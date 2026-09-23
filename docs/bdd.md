@@ -3061,16 +3061,6 @@ Feature: Two-factor authentication
     Then I am returned to the sign-in page
     And I am told my password is now all I need
 
-  # Implemented (views/login_mfa.py checks is_enabled() before submitting, so
-  # this answer never reaches mfa_rate_limiter.record_failure). @planned
-  # because the limiter lives in the app process and the browser cannot read
-  # it: proving this needs instrumentation the e2e harness does not have.
-  KAL-AUTH-024 @planned
-  Scenario: That prompt does not cost me one of my five tries
-    Given two-factor authentication was turned off while I sat at the code prompt
-    When I give a code and am sent back to the sign-in page
-    Then the wrong-code count against me is unchanged
-
   # Implemented; @planned until someone walks it by hand (it needs
   # KALETA_SECRET_KEY rotated between two requests).
   KAL-AUTH-023 @planned
@@ -3080,6 +3070,16 @@ Feature: Two-factor authentication
     When I give the right password and then any code
     Then I am told the second factor cannot be read on this install
     And I am told to run `kaleta --reset-password --disable-mfa` and set it up again
+
+  # Implemented (views/login_mfa.py checks is_enabled() before submitting, so
+  # this answer never reaches mfa_rate_limiter.record_failure). @planned
+  # because the limiter lives in the app process and the browser cannot read
+  # it: proving this needs instrumentation the e2e harness does not have.
+  KAL-AUTH-024 @planned
+  Scenario: That prompt does not cost me one of my five tries
+    Given two-factor authentication was turned off while I sat at the code prompt
+    When I give a code and am sent back to the sign-in page
+    Then the wrong-code count against me is unchanged
 ```
 
 ## Feature: Demo instance

@@ -196,10 +196,15 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
 
     try:
         enrolment = await with_session(_begin)
+    except ConflictError:
+        # Another tab confirmed an enrolment meanwhile, so the card behind
+        # this toast is showing a stale "Off" and a button that would fail
+        # the same way. Anticipated here, so it gets a localized sentence
+        # rather than the service's English literal.
+        ui.notify(t("settings.mfa_stale"), type="warning")
+        refresh()
+        return
     except KaletaError as exc:
-        # Most likely the `ConflictError` from another tab having confirmed an
-        # enrolment meanwhile — in which case the card behind this toast is
-        # showing a stale "Off" and a button that would fail the same way.
         notify_kaleta_error(exc)
         refresh()
         return

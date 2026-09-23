@@ -80,8 +80,16 @@ class MfaEnrolment:
 
 
 def normalise_code(code: str) -> str:
-    """Strip the spaces and dashes people type or paste, and upper-case it."""
-    return "".join(ch for ch in code.strip().upper() if ch.isalnum())
+    """Strip the spaces and dashes people type or paste, and upper-case it.
+
+    ASCII only. ``str.isalnum()`` is True for Arabic-Indic digits and every
+    other Unicode numeral, and ``secrets.compare_digest`` raises ``TypeError``
+    on a non-ASCII ``str`` — so ``٣٣٣٣٣٣`` typed at the code prompt used to
+    come back as a 500 rather than "that code is not right". Nothing Kaleta
+    issues and nothing an authenticator app produces is outside ASCII, so
+    dropping the rest costs a real user nothing.
+    """
+    return "".join(ch for ch in code.strip().upper() if ch.isascii() and ch.isalnum())
 
 
 class MfaService:
@@ -579,7 +587,10 @@ class MfaService:
         itself is right: that is the replay this method exists to stop.
         """
         candidate = normalise_code(code)
-        if not candidate.isdigit():
+        # `isascii()` as well as `isdigit()`: the normaliser already drops
+        # non-ASCII, and this is the line that must not be the one relied on
+        # if that ever changes — `compare_digest` below raises on such a str.
+        if not (candidate.isascii() and candidate.isdigit()):
             return None
         totp = pyotp.TOTP(row.totp_secret, interval=TOTP_INTERVAL)
         now = int(time.time())

@@ -451,6 +451,17 @@ item is built, and every executable acceptance criterion passes.
   the Phase A "Headless" bullet and shipped untested — the one piece of
   user-facing behaviour on this branch that had no scenario behind it.
 
+- **A code is ASCII, and saying so stopped a 500.** `str.isalnum()` and
+  `str.isdigit()` are both True for Arabic-Indic digits, fullwidth digits
+  and superscripts, and `secrets.compare_digest` raises `TypeError` on a
+  non-ASCII `str` — so `٣٣٣٣٣٣` typed at the code prompt came back as an
+  unhandled exception rather than "that code is not right", on every one
+  of the four prompts. `normalise_code()` now keeps ASCII alphanumerics
+  only, which fixes all four at the one place they share, and
+  `_matching_counter` checks `isascii()` too rather than trusting it.
+  Nothing an authenticator app emits and nothing Kaleta issues is outside
+  ASCII, so this costs no real user anything.
+
 - **The trace joins the transaction it describes.** `confirm_enrolment()`
   and `disable()` used to commit the change and then write the audit row
   in a second transaction. A crash between the two would have left a

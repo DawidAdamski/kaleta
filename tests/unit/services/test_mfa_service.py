@@ -89,14 +89,17 @@ class TestEnrolment:
         self, mfa: MfaService, user
     ) -> None:
         """Covers: KAL-AUTH-013"""
+        # The scenario's literal ten, pinned rather than read off the service:
+        # issuing three codes must fail here, not agree with itself.
+        assert RECOVERY_CODE_COUNT == 10, "KAL-AUTH-013 says ten codes"
         _secret, codes = await enrol(mfa, user.id)
-        assert len(codes) == RECOVERY_CODE_COUNT
+        assert len(codes) == 10
         assert {len(code) for code in codes} == {RECOVERY_CODE_LENGTH}
-        assert len(set(codes)) == RECOVERY_CODE_COUNT
+        assert len(set(codes)) == 10
         assert await mfa.is_enabled(user.id) is True
         status = await mfa.status(user.id)
         assert status.enabled_at is not None
-        assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT
+        assert status.recovery_codes_remaining == 10
 
     @pytest.mark.asyncio
     async def test_restarting_enrolment_replaces_the_unconfirmed_secret(
@@ -330,6 +333,28 @@ class TestRecoveryCodes:
         _secret, codes = await enrol(mfa, user.id)
         typed = f" {codes[0][:5].lower()}-{codes[0][5:].lower()} "
         assert await mfa.consume_recovery_code(user.id, typed) is True
+
+    @pytest.mark.parametrize(
+        "typed",
+        [
+            # `str.isdigit()` and `str.isalnum()` are both True for these, and
+            # `secrets.compare_digest` raises `TypeError` on a non-ASCII str —
+            # so before the normaliser dropped them, typing one at the code
+            # prompt was a 500, not a refusal.
+            "\u0663\u0663\u0663\u0663\u0663\u0663",  # Arabic-Indic digits
+            "\u00b2\u00b2\u00b2\u00b2\u00b2\u00b2",  # superscript twos
+            "\uff11\uff12\uff13\uff14\uff15\uff16",  # fullwidth digits
+            "123456\u0663",
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_a_code_that_is_not_ascii_is_refused_not_raised(
+        self, mfa: MfaService, user, typed: str
+    ) -> None:
+        await enrol(mfa, user.id)
+        assert await mfa.verify_code(user.id, typed) is False
+        assert await mfa.verify_challenge(user.id, typed) is False
+        assert await mfa.consume_recovery_code(user.id, typed) is False
 
     @pytest.mark.asyncio
     async def test_the_stored_list_holds_hashes_not_codes(
