@@ -536,7 +536,11 @@ class MfaService:
         claimed = self._claimed(result)
         if claimed:
             await self._record(user_id, event="mfa_disabled", success=True, commit=False)
-        self.session.expunge(row)
+        # Only what the session is actually holding: the point is to keep a
+        # deleted row out of the identity map, and a row that was never in it
+        # needs no help. `expunge` raises on anything else.
+        if row in self.session:
+            self.session.expunge(row)
         await self.session.commit()
         if not claimed:
             msg = "Two-factor authentication is not enabled."

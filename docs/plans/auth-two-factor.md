@@ -471,6 +471,32 @@ item is built, and every executable acceptance criterion passes.
   directions are tested; `disable_all()` has no failing path today, which
   is precisely why the trap would have sat there unnoticed.
 
+- **The race tests stage one connection, not two.** They used to open a
+  second session per test, which is the obvious way to hold two snapshots
+  of a row from before either write — and the wrong one here. Under
+  postgres the suite's fixture hands every session a savepoint on one
+  shared rolled-back connection, and two live sessions cannot release
+  savepoints out of order: the postgres CI job failed with
+  `savepoint "sa_savepoint_6" does not exist`, which says nothing about
+  two-factor authentication. It was not a faithful race either, since one
+  connection cannot run two transactions at once.
+
+  What decides these races is the conditional UPDATE's `WHERE`, and what
+  it compares against is the values read before the write.
+  `stale_snapshot()` holds exactly that, and `reading_stale()` feeds it to
+  the public methods, so a future read-then-write would still be caught.
+  What the tests no longer claim to cover is lock ordering and isolation
+  between real connections — the database's job, not this module's, and
+  they never really covered it.
+
+  Two smaller things fell out of running that job locally against
+  postgres:16: `_auth_events` read the audit rows without an `ORDER BY`
+  while asserting on their sequence (postgres returns heap order, which
+  stops matching insertion order once the table has seen traffic — it
+  passed for the file alone and failed under the full suite), and
+  `disable()` expunged its row unconditionally, which raises for a row
+  the session was never holding.
+
 - **A half-written challenge clears itself, like a stale one.**
   `mfa_pending_user()` returned None on a missing or unparseable user id
   without clearing, so `is_mfa_pending()` stayed True — and since

@@ -6,7 +6,6 @@ Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
 
 from __future__ import annotations
 
-import asyncio
 import json
 import time
 from datetime import UTC, datetime, timedelta
@@ -31,7 +30,6 @@ from kaleta.services.mfa_service import (
     MfaService,
     normalise_code,
 )
-from tests.conftest import make_session_factory
 
 PASSWORD = "owner-password-1"
 
@@ -56,6 +54,52 @@ async def enrol(mfa: MfaService, user_id: int) -> tuple[str, list[str]]:
     enrolment = await mfa.begin_enrolment(user_id)
     codes = await mfa.confirm_enrolment(user_id, code_for(enrolment.secret))
     return enrolment.secret, codes
+
+
+def stale_snapshot(row: UserMfa) -> UserMfa:
+    """A detached copy of ``row`` as it stands right now.
+
+    The race every test below describes is two tabs holding the same row
+    from before either of them wrote. Two sessions is the obvious way to
+    stage that and the wrong one here: under postgres the fixture hands
+    every session a savepoint on one shared connection, and two live
+    sessions cannot release savepoints out of order — the suite fails with
+    ``savepoint "sa_savepoint_6" does not exist`` rather than with anything
+    about two-factor authentication. It is not even a faithful race, since
+    one connection cannot run two transactions at once.
+
+    What actually decides these races is the conditional UPDATE's ``WHERE``,
+    and what it compares against is the values read *before* the write. That
+    is what this object holds. Handing it to a write is the loser's half of
+    the race, exactly as a second session's stale read would be.
+
+    What it does not stage is lock ordering or isolation between real
+    connections; those are the database's to get right, not this module's.
+    """
+    return UserMfa(
+        id=row.id,
+        user_id=row.user_id,
+        kind=row.kind,
+        totp_secret=row.totp_secret,
+        enabled_at=row.enabled_at,
+        last_used_counter=row.last_used_counter,
+        recovery_codes_hash=row.recovery_codes_hash,
+    )
+
+
+def reading_stale(service: MfaService, row: UserMfa) -> None:
+    """Make ``service`` read ``row`` instead of what is in the database.
+
+    The public methods look the row up themselves, so this is how a caller
+    that started before the winner's write is staged against them: if one of
+    them ever went back to a read-then-write, the stale read would sail
+    straight through and the test would catch it.
+    """
+
+    async def _stale(_user_id: int) -> UserMfa:
+        return row
+
+    service._row = _stale  # type: ignore[method-assign]
 
 
 class TestEnrolment:
@@ -210,7 +254,11 @@ class TestStepUpChallenge:
         await enrol(mfa, user.id)
         assert await mfa.verify_challenge(user.id, "000000") is False
         rows = (
-            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.operation == "AUTH").order_by(AuditLog.id)
+                )
+            )
             .scalars()
             .all()
         )
@@ -229,8 +277,16 @@ class TestTheAuditTrail:
     skips ``user_mfa``, so this service is the only thing that can."""
 
     async def _auth_events(self, session: AsyncSession) -> list[dict[str, object]]:
+        # Ordered explicitly: several of these assertions are about the
+        # sequence, and a SELECT without ORDER BY is free to hand rows back
+        # in any order — postgres does, once the table has seen enough
+        # traffic for the heap layout to stop matching insertion order.
         rows = (
-            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.operation == "AUTH").order_by(AuditLog.id)
+                )
+            )
             .scalars()
             .all()
         )
@@ -480,7 +536,11 @@ class TestDisable:
         await enrol(mfa, user.id)
         await mfa.disable_all()
         rows = (
-            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.operation == "AUTH").order_by(AuditLog.id)
+                )
+            )
             .scalars()
             .all()
         )
@@ -492,7 +552,7 @@ class TestDisable:
         self, mfa: MfaService, session: AsyncSession
     ) -> None:
         assert await mfa.disable_all() == 0
-        rows = (await session.execute(select(AuditLog))).scalars().all()
+        rows = (await session.execute(select(AuditLog).order_by(AuditLog.id))).scalars().all()
         assert rows == []
 
 
@@ -588,46 +648,41 @@ class TestNormaliseCode:
 class TestConcurrentSubmits:
     """Two callers holding one code. The database decides, not a read-then-write.
 
-    Each gets its own session, because that is the shape of the race: two
-    tabs, two snapshots of the row, both taken before either one wrote.
+    Staged with a stale snapshot rather than a second session — see
+    `stale_snapshot` for why two sessions is both unfaithful and, under
+    postgres, unworkable.
     """
 
     @pytest.mark.asyncio
-    async def test_one_totp_step_cannot_be_claimed_twice(
-        self, mfa: MfaService, db_engine, user
-    ) -> None:
+    async def test_one_totp_step_cannot_be_claimed_twice(self, mfa: MfaService, user) -> None:
         secret, _codes = await enrol(mfa, user.id)
         code = code_for(secret, offset_steps=1)
 
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            one, two = MfaService(first), MfaService(second)
-            row_one, row_two = await one._row(user.id), await two._row(user.id)
-            assert row_one is not None and row_two is not None
-            counter_one = one._matching_counter(row_one, code)
-            counter_two = two._matching_counter(row_two, code)
-            assert counter_one is not None and counter_two == counter_one
+        row = await mfa._row(user.id)
+        assert row is not None
+        loser = stale_snapshot(row)
 
-            assert await one._claim_counter(row_one, counter_one) is True
-            assert await two._claim_counter(row_two, counter_two) is False
+        counter = mfa._matching_counter(row, code)
+        assert counter is not None
+        assert mfa._matching_counter(loser, code) == counter
+
+        assert await mfa._claim_counter(row, counter) is True
+        assert await mfa._claim_counter(loser, counter) is False
 
     @pytest.mark.asyncio
-    async def test_one_recovery_code_cannot_be_spent_twice(
-        self, mfa: MfaService, db_engine, user
-    ) -> None:
+    async def test_one_recovery_code_cannot_be_spent_twice(self, mfa: MfaService, user) -> None:
         _secret, codes = await enrol(mfa, user.id)
 
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            one, two = MfaService(first), MfaService(second)
-            row_one, row_two = await one._row(user.id), await two._row(user.id)
-            assert row_one is not None and row_two is not None
-            index_one = one._find_recovery_code(row_one, codes[0])
-            index_two = two._find_recovery_code(row_two, codes[0])
-            assert index_one is not None and index_two == index_one
+        row = await mfa._row(user.id)
+        assert row is not None
+        loser = stale_snapshot(row)
 
-            assert await one._remove_recovery_code(row_one, index_one) is True
-            assert await two._remove_recovery_code(row_two, index_two) is False
+        index = mfa._find_recovery_code(row, codes[0])
+        assert index is not None
+        assert mfa._find_recovery_code(loser, codes[0]) == index
+
+        assert await mfa._remove_recovery_code(row, index) is True
+        assert await mfa._remove_recovery_code(loser, index) is False
 
         status = await mfa.status(user.id)
         assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1
@@ -639,59 +694,57 @@ class TestConcurrentSubmits:
 
     @pytest.mark.asyncio
     async def test_the_login_prompt_itself_admits_one_of_two(
-        self, mfa: MfaService, db_engine, user
+        self, mfa: MfaService, session: AsyncSession, user
     ) -> None:
         secret, _codes = await enrol(mfa, user.id)
         code = code_for(secret, offset_steps=1)
 
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            results = await asyncio.gather(
-                MfaService(first).verify_code(user.id, code),
-                MfaService(second).verify_code(user.id, code),
-                return_exceptions=True,
-            )
-        assert results.count(True) == 1, results
+        row = await mfa._row(user.id)
+        assert row is not None
+        loser = MfaService(session)
+        reading_stale(loser, stale_snapshot(row))
+
+        assert await mfa.verify_code(user.id, code) is True
+        assert await loser.verify_code(user.id, code) is False
 
     @pytest.mark.asyncio
     async def test_the_recovery_field_itself_admits_one_of_two(
-        self, mfa: MfaService, db_engine, user
+        self, mfa: MfaService, session: AsyncSession, user
     ) -> None:
         _secret, codes = await enrol(mfa, user.id)
 
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            results = await asyncio.gather(
-                MfaService(first).consume_recovery_code(user.id, codes[0]),
-                MfaService(second).consume_recovery_code(user.id, codes[0]),
-                return_exceptions=True,
-            )
-        assert results.count(True) == 1, results
+        row = await mfa._row(user.id)
+        assert row is not None
+        loser = MfaService(session)
+        reading_stale(loser, stale_snapshot(row))
+
+        assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+        assert await loser.consume_recovery_code(user.id, codes[0]) is False
+
         status = await mfa.status(user.id)
         assert status.recovery_codes_remaining == RECOVERY_CODE_COUNT - 1
 
     @pytest.mark.asyncio
-    async def test_two_tabs_cannot_both_turn_it_off(self, mfa: MfaService, db_engine, user) -> None:
+    async def test_two_tabs_cannot_both_turn_it_off(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
         """The loser gets the module's conflict, not a `StaleDataError` out of
         the unit of work that the dialog has no arm for."""
         secret, _codes = await enrol(mfa, user.id)
         code = code_for(secret, offset_steps=1)
 
-        # Together, so that both may read the row before either deletes it —
-        # which is the only shape in which the conditional DELETE is the thing
-        # doing the work rather than the `_row() is None` guard above it.
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            results = await asyncio.gather(
-                MfaService(first).disable(user.id, password=PASSWORD, code=code),
-                MfaService(second).disable(user.id, password=PASSWORD, code=code),
-                return_exceptions=True,
-            )
+        # The loser reads the row before the winner deletes it, which is the
+        # only shape in which the conditional DELETE is the thing doing the
+        # work rather than the `_row() is None` guard above it.
+        row = await mfa._row(user.id)
+        assert row is not None
+        loser = MfaService(session)
+        reading_stale(loser, stale_snapshot(row))
 
-        assert [r for r in results if r is None] != [], results
-        losers = [r for r in results if isinstance(r, BaseException)]
-        assert len(losers) == 1, results
-        assert isinstance(losers[0], ConflictError), losers
+        await mfa.disable(user.id, password=PASSWORD, code=code)
+        with pytest.raises(ConflictError):
+            await loser.disable(user.id, password=PASSWORD, code=code)
+
         assert await mfa.is_enabled(user.id) is False
 
 
@@ -725,7 +778,11 @@ class TestAnAbandonedSetup:
         assert await mfa.disable_all() == 0
         assert await mfa.is_enabled(user.id) is False
         events = (
-            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.operation == "AUTH").order_by(AuditLog.id)
+                )
+            )
             .scalars()
             .all()
         )
@@ -738,7 +795,11 @@ class TestAnAbandonedSetup:
         await enrol(mfa, user.id)
         assert await mfa.disable_all() == 1
         events = (
-            (await session.execute(select(AuditLog).where(AuditLog.operation == "AUTH")))
+            (
+                await session.execute(
+                    select(AuditLog).where(AuditLog.operation == "AUTH").order_by(AuditLog.id)
+                )
+            )
             .scalars()
             .all()
         )
@@ -749,16 +810,20 @@ class TestConfirmingIsAClaim:
     """Two tabs confirming one pending enrolment. Only one set of codes is real."""
 
     @pytest.mark.asyncio
-    async def test_the_second_confirmation_loses(self, mfa: MfaService, db_engine, user) -> None:
+    async def test_the_second_confirmation_loses(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
         enrolment = await mfa.begin_enrolment(user.id)
         code = code_for(enrolment.secret)
 
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            one, two = MfaService(first), MfaService(second)
-            codes = await one.confirm_enrolment(user.id, code)
-            with pytest.raises(ConflictError):
-                await two.confirm_enrolment(user.id, code)
+        row = await mfa._row(user.id)
+        assert row is not None
+        loser = MfaService(session)
+        reading_stale(loser, stale_snapshot(row))
+
+        codes = await mfa.confirm_enrolment(user.id, code)
+        with pytest.raises(ConflictError):
+            await loser.confirm_enrolment(user.id, code)
 
         # The codes the winning tab showed its user are the ones that work.
         assert await mfa.consume_recovery_code(user.id, codes[0]) is True
@@ -766,40 +831,42 @@ class TestConfirmingIsAClaim:
 
 class TestReissuingIsAClaimToo:
     @pytest.mark.asyncio
-    async def test_the_second_reissue_loses(self, mfa: MfaService, db_engine, user) -> None:
+    async def test_the_second_reissue_loses(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
         """Both tabs would otherwise show ten codes and only one set would work."""
         await enrol(mfa, user.id)
         fresh = datetime.now(UTC)
 
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            one, two = MfaService(first), MfaService(second)
-            # `two` read the set before `one` replaced it — which is the race.
-            stale = await two._row(user.id)
-            assert stale is not None
-            codes = await one.regenerate_recovery_codes(user.id, mfa_verified_at=fresh)
-            with pytest.raises(ConflictError):
-                await two.regenerate_recovery_codes(user.id, mfa_verified_at=fresh)
+        # The loser read the set before the winner replaced it — the race.
+        row = await mfa._row(user.id)
+        assert row is not None
+        loser = MfaService(session)
+        reading_stale(loser, stale_snapshot(row))
+
+        codes = await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=fresh)
+        with pytest.raises(ConflictError):
+            await loser.regenerate_recovery_codes(user.id, mfa_verified_at=fresh)
 
         assert await mfa.consume_recovery_code(user.id, codes[0]) is True
 
     @pytest.mark.asyncio
     async def test_a_new_secret_cannot_gut_a_confirmed_factor(
-        self, mfa: MfaService, db_engine, user
+        self, mfa: MfaService, session: AsyncSession, user
     ) -> None:
         """Set up racing a confirm would leave the factor on, with no way in."""
         enrolment = await mfa.begin_enrolment(user.id)
         code = code_for(enrolment.secret)
 
-        factory = make_session_factory(db_engine)
-        async with factory() as first, factory() as second:
-            one, two = MfaService(first), MfaService(second)
-            # `two` read the row while it was still unconfirmed.
-            existing = await two._row(user.id)
-            assert existing is not None and existing.enabled_at is None
-            codes = await one.confirm_enrolment(user.id, code)
-            with pytest.raises(ConflictError):
-                await two.begin_enrolment(user.id)
+        # The loser read the row while it was still unconfirmed.
+        row = await mfa._row(user.id)
+        assert row is not None and row.enabled_at is None
+        loser = MfaService(session)
+        reading_stale(loser, stale_snapshot(row))
+
+        codes = await mfa.confirm_enrolment(user.id, code)
+        with pytest.raises(ConflictError):
+            await loser.begin_enrolment(user.id)
 
         assert await mfa.is_enabled(user.id) is True
         assert await mfa.consume_recovery_code(user.id, codes[0]) is True
