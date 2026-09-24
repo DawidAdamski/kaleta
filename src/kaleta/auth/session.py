@@ -3,12 +3,23 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
+from typing import TYPE_CHECKING
 
 from nicegui import app
 from starlette.requests import Request
 
 from kaleta.config import settings
+
+if TYPE_CHECKING:
+    from kaleta.config.settings import Settings
+
+logger = logging.getLogger(__name__)
+
+#: Our own name rather than Starlette's ``session``, so two NiceGUI apps on one
+#: host do not overwrite each other's cookie.
+SESSION_COOKIE_NAME = "kaleta_session"
 
 #: How long a password-accepted session may sit in front of the code prompt.
 #: Here rather than beside the service's step-up window: it is a fact about a
@@ -185,3 +196,34 @@ def user_id_from_request(request: Request) -> int | None:
         return int(raw_id) if raw_id is not None else None
     except (RuntimeError, KeyError, AssertionError, TypeError, ValueError):
         return None
+
+
+def session_middleware_kwargs(cfg: Settings | None = None) -> dict[str, str | int | bool]:
+    """Keyword arguments for Starlette's ``SessionMiddleware`` (via ``ui.run``).
+
+    The cookie lives exactly as long as the app's own session TTL; with the TTL
+    off (``0``) ``max_age`` is left out and Starlette's default applies.
+    """
+    cfg = cfg if cfg is not None else settings
+    kwargs: dict[str, str | int | bool] = {
+        "session_cookie": SESSION_COOKIE_NAME,
+        "same_site": cfg.session_cookie_samesite,
+        "https_only": cfg.session_cookie_secure,
+    }
+    if cfg.session_ttl_hours > 0:
+        kwargs["max_age"] = cfg.session_ttl_hours * 3600
+    return kwargs
+
+
+def warn_secure_cookie_in_debug(cfg: Settings | None = None) -> None:
+    """Say so when a debug run marks the cookie ``Secure``.
+
+    That is the combination a developer gets by copying the hosted env file to
+    a plain-http ``127.0.0.1``: the browser drops the cookie and login loops.
+    """
+    cfg = cfg if cfg is not None else settings
+    if cfg.session_cookie_secure and cfg.debug:
+        logger.warning(
+            "KALETA_SESSION_COOKIE_SECURE is on in debug mode: the browser will not "
+            "send the session cookie over plain http, so login only works behind TLS."
+        )
