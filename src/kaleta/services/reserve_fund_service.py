@@ -8,6 +8,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import Account
 from kaleta.models.reserve_fund import (
     ReserveFund,
@@ -28,6 +29,12 @@ TRAILING_WINDOW_DAYS = 90
 #: cannot end up measured over different numbers of months.
 TRAILING_WINDOW_MONTHS = Decimal(3)
 
+#: The window a spending-derived target averages over. Longer than the
+#: coverage window on purpose: a target should not jump with one expensive
+#: quarter, while "how long would this last" should track current burn.
+TARGET_WINDOW_DAYS = 365
+TARGET_WINDOW_MONTHS = Decimal(12)
+
 
 class ReserveFundService:
     def __init__(self, session: AsyncSession) -> None:
@@ -42,7 +49,9 @@ class ReserveFundService:
             backing_account_id=payload.backing_account_id,
             backing_category_id=payload.backing_category_id,
             emergency_multiplier=payload.emergency_multiplier,
+            target_from_spending=payload.target_from_spending,
         )
+        await self._snapshot_derived_target(fund)
         self.session.add(fund)
         await self.session.commit()
         await self.session.refresh(fund)
@@ -66,6 +75,11 @@ class ReserveFundService:
         data = payload.model_dump(exclude_unset=True)
         for key, value in data.items():
             setattr(fund, key, value)
+        if fund.target_from_spending and fund.emergency_multiplier is None:
+            raise ValidationError(
+                "emergency_multiplier is required when target_from_spending is set"
+            )
+        await self._snapshot_derived_target(fund)
         await self.session.commit()
         await self.session.refresh(fund)
         return fund
@@ -103,18 +117,26 @@ class ReserveFundService:
         bal = result.scalar_one_or_none()
         return bal if bal is not None else Decimal("0.00")
 
-    async def trailing_monthly_expense(self, *, today: datetime.date | None = None) -> Decimal:
-        """Average monthly expense over the trailing 90-day window.
+    async def trailing_monthly_expense(
+        self,
+        *,
+        today: datetime.date | None = None,
+        window_days: int = TRAILING_WINDOW_DAYS,
+        window_months: Decimal = TRAILING_WINDOW_MONTHS,
+    ) -> Decimal:
+        """Average monthly expense over a trailing window (90 days by default).
 
         Public because the what-if simulator measures its runway against the
         same burn this panel does. Two copies of the formula would let the
-        two screens disagree about how long the money lasts.
+        two screens disagree about how long the money lasts. The window is a
+        parameter so the spending-derived target (12 months, see
+        :meth:`derived_target`) reuses this formula rather than forking it.
 
         Only non-transfer expense transactions count. Returns Decimal("0")
         when there is no history.
         """
         ref = today or datetime.date.today()
-        start = ref - datetime.timedelta(days=TRAILING_WINDOW_DAYS)
+        start = ref - datetime.timedelta(days=window_days)
         result = await self.session.execute(
             select(func.coalesce(func.sum(Transaction.amount), 0)).where(
                 Transaction.type == TransactionType.EXPENSE,
@@ -124,7 +146,47 @@ class ReserveFundService:
             )
         )
         total = result.scalar_one() or Decimal("0")
-        return Decimal(total) / TRAILING_WINDOW_MONTHS
+        return Decimal(total) / window_months
+
+    async def target_monthly_expense(self, *, today: datetime.date | None = None) -> Decimal:
+        """Average monthly expense over the 12-month window a derived target uses."""
+        return await self.trailing_monthly_expense(
+            today=today,
+            window_days=TARGET_WINDOW_DAYS,
+            window_months=TARGET_WINDOW_MONTHS,
+        )
+
+    async def derived_target(
+        self, fund: ReserveFund, *, today: datetime.date | None = None
+    ) -> Decimal | None:
+        """Multiplier × average monthly expense over the last 12 months.
+
+        ``None`` when the fund has no multiplier — there is nothing to
+        multiply. Zero when there is no spending history in the window.
+        """
+        if fund.emergency_multiplier is None:
+            return None
+        monthly = await self.target_monthly_expense(today=today)
+        return (monthly * Decimal(fund.emergency_multiplier)).quantize(Decimal("0.01"))
+
+    async def _effective_target(
+        self, fund: ReserveFund, *, today: datetime.date | None = None
+    ) -> Decimal:
+        if fund.target_from_spending:
+            derived = await self.derived_target(fund, today=today)
+            if derived is not None:
+                return derived
+        return fund.target_amount
+
+    async def _snapshot_derived_target(self, fund: ReserveFund) -> None:
+        """Store today's derived target in ``target_amount``.
+
+        Readers that take the column as-is (the wizard projection, the REST
+        list) then see the figure as of the last save instead of a stale
+        manual number the user switched away from.
+        """
+        if fund.target_from_spending:
+            fund.target_amount = await self._effective_target(fund)
 
     async def with_progress(
         self, fund: ReserveFund, *, today: datetime.date | None = None
@@ -136,10 +198,8 @@ class ReserveFundService:
         ):
             balance = await self._account_balance(fund.backing_account_id)
 
-        if fund.target_amount > 0:
-            pct = (balance / fund.target_amount).quantize(Decimal("0.01"))
-        else:
-            pct = Decimal("0.00")
+        target = await self._effective_target(fund, today=today)
+        pct = (balance / target).quantize(Decimal("0.01")) if target > 0 else Decimal("0.00")
 
         months_of_coverage: Decimal | None = None
         if fund.kind == ReserveFundKind.EMERGENCY:
@@ -152,11 +212,12 @@ class ReserveFundService:
                 "id": fund.id,
                 "name": fund.name,
                 "kind": fund.kind,
-                "target_amount": fund.target_amount,
+                "target_amount": target,
                 "backing_mode": fund.backing_mode,
                 "backing_account_id": fund.backing_account_id,
                 "backing_category_id": fund.backing_category_id,
                 "emergency_multiplier": fund.emergency_multiplier,
+                "target_from_spending": fund.target_from_spending,
                 "is_archived": fund.is_archived,
                 "archived_at": fund.archived_at,
                 "current_balance": balance,
@@ -215,4 +276,10 @@ class ReserveFundService:
         return self.emergency_cover(await self.emergency_progress(today=today))
 
 
-__all__ = ["TRAILING_WINDOW_DAYS", "TRAILING_WINDOW_MONTHS", "ReserveFundService"]
+__all__ = [
+    "TARGET_WINDOW_DAYS",
+    "TARGET_WINDOW_MONTHS",
+    "TRAILING_WINDOW_DAYS",
+    "TRAILING_WINDOW_MONTHS",
+    "ReserveFundService",
+]

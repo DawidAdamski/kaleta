@@ -227,6 +227,131 @@ class TestProgress:
         }
 
 
+# ── Spending-derived target ───────────────────────────────────────────────────
+
+
+async def _seed_expenses(
+    session: AsyncSession, account_id: int, amounts_by_days_ago: list[tuple[int, Decimal]], today
+) -> None:
+    from kaleta.models.category import CategoryType
+    from kaleta.schemas.category import CategoryCreate
+    from kaleta.services import CategoryService
+
+    cat = await CategoryService(session).create(
+        CategoryCreate(name="Living", type=CategoryType.EXPENSE)
+    )
+    tx_svc = TransactionService(session)
+    for days_ago, amount in amounts_by_days_ago:
+        await tx_svc.create(
+            TransactionCreate(
+                amount=amount,
+                type=TransactionType.EXPENSE,
+                account_id=account_id,
+                category_id=cat.id,
+                date=today - datetime.timedelta(days=days_ago),
+                description=f"expense-{days_ago}",
+            )
+        )
+
+
+class TestDerivedTarget:
+    TODAY = datetime.date(2026, 9, 25)
+
+    async def _security_fund(self, session: AsyncSession, balance: Decimal):
+        acc = await _make_account(session, balance)
+        # 12 monthly expenses of 5200.00 inside the last 12 months, plus one
+        # older expense that must fall outside the window.
+        await _seed_expenses(
+            session,
+            acc,
+            [(5 + i * 30, Decimal("5200.00")) for i in range(12)] + [(400, Decimal("99999.00"))],
+            self.TODAY,
+        )
+        fund = await ReserveFundService(session).create(
+            ReserveFundCreate(
+                name="Security fund",
+                kind=ReserveFundKind.EMERGENCY,
+                target_amount=Decimal("0"),
+                backing_account_id=acc,
+                emergency_multiplier=3,
+                target_from_spending=True,
+            )
+        )
+        return fund
+
+    async def test_target_derives_from_12_month_spending(self, session: AsyncSession):
+        """Covers: KAL-FND-002
+
+        Average monthly expenses over the last 12 months are 5200.00 and
+        "Security fund" is a 3-month reserve: the Reserves panel shows a
+        15600.00 target.
+        """
+        fund = await self._security_fund(session, Decimal("0"))
+        svc = ReserveFundService(session)
+
+        assert await svc.derived_target(fund, today=self.TODAY) == Decimal("15600.00")
+        [shown] = await svc.list_with_progress(today=self.TODAY)
+        assert shown.name == "Security fund"
+        assert shown.target_from_spending is True
+        assert shown.target_amount == Decimal("15600.00")
+
+    async def test_progress_and_coverage_use_their_own_windows(self, session: AsyncSession):
+        # Balance 7800.00 against the derived 15600.00 → 50%. Coverage keeps
+        # the 90-day window: 3 × 5200.00 fall in it → 5200.00/month → 1.5.
+        fund = await self._security_fund(session, Decimal("7800.00"))
+        p = await ReserveFundService(session).with_progress(fund, today=self.TODAY)
+        assert p.progress_pct == Decimal("0.50")
+        assert p.months_of_coverage == Decimal("1.5")
+
+    async def test_manual_target_is_untouched_without_the_flag(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("0"))
+        await _seed_expenses(session, acc, [(10, Decimal("5200.00"))], self.TODAY)
+        fund = await _make_fund(session, account_id=acc, target=Decimal("3000.00"))
+        p = await ReserveFundService(session).with_progress(fund, today=self.TODAY)
+        assert p.target_from_spending is False
+        assert p.target_amount == Decimal("3000.00")
+
+    async def test_derived_target_is_none_without_multiplier(self, session: AsyncSession):
+        acc = await _make_account(session, Decimal("0"))
+        fund = await _make_fund(
+            session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None
+        )
+        assert await ReserveFundService(session).derived_target(fund) is None
+
+    async def test_save_snapshots_the_derived_target(self, session: AsyncSession):
+        # The stored column holds the derived figure as of the save, for
+        # readers that take target_amount as-is (wizard projection, REST).
+        acc = await _make_account(session, Decimal("0"))
+        await _seed_expenses(session, acc, [(0, Decimal("1200.00"))], datetime.date.today())
+        fund = await _make_fund(session, account_id=acc, target=Decimal("3000.00"))
+        svc = ReserveFundService(session)
+        updated = await svc.update(fund.id, ReserveFundUpdate(target_from_spending=True))
+        assert updated is not None
+        assert updated.target_amount == Decimal("300.00")
+
+    def test_schema_requires_multiplier_for_derived_target(self):
+        with pytest.raises(ValueError, match="emergency_multiplier is required"):
+            ReserveFundCreate(
+                name="X",
+                kind=ReserveFundKind.VACATION,
+                target_amount=Decimal("0"),
+                backing_account_id=1,
+                target_from_spending=True,
+            )
+
+    async def test_update_rejects_derived_target_without_multiplier(self, session: AsyncSession):
+        from kaleta.exceptions import ValidationError
+
+        acc = await _make_account(session, Decimal("0"))
+        fund = await _make_fund(
+            session, account_id=acc, kind=ReserveFundKind.VACATION, multiplier=None
+        )
+        with pytest.raises(ValidationError, match="emergency_multiplier is required"):
+            await ReserveFundService(session).update(
+                fund.id, ReserveFundUpdate(target_from_spending=True)
+            )
+
+
 # ── Archive ───────────────────────────────────────────────────────────────────
 
 
