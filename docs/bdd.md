@@ -2317,7 +2317,7 @@ Feature: Reserve Funds
     When I open the Reserves panel
     Then I see its balance against the 3000.00 target
 
-  KAL-FND-002 @planned
+  KAL-FND-002 @automated
   Scenario: Security fund target derives from real spending
     Given my average monthly expenses over the last 12 months are 5200.00
     And an account "Security fund" is marked as a 3-month reserve
