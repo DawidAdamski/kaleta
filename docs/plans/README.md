@@ -172,7 +172,28 @@ and is untouched.
 | 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
 | 4 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | medium | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](archive/auth-two-factor.md) | archived | draft | Phase A: — ; Phase B: 1 |
+| [auth-session-rotate-on-login](auth-session-rotate-on-login.md) | draft | Auth — session hardening (2) |
+| [auth-session-revocation](auth-session-revocation.md) | draft | Auth — session hardening (3) |
+| [auth-session-hosted-readiness](auth-session-hosted-readiness.md) | draft | Auth — session hardening (5) |
 | 6 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | draft | — (public-schema table needs 1) |
+
+### Auth — session hardening (any order; 1 and 4 first)
+
+Audit of `auth/session.py`, `auth/middleware.py` and `api/deps.py`
+(2026-09-24): server-side state, HttpOnly cookie, bearer-only writes on
+the API — sound. What is missing is everything a hosted deployment
+assumes: cookie flags, a new id on login, a way to end sessions from the
+server, an idle limit, and state that survives a restart or a second
+replica. Nothing here is a hole on `127.0.0.1`; all of it is a
+precondition for `hosted-supabase-rollout`.
+
+| # | Plan | Effort | Status | Depends on |
+|---|---|---|---|---|
+| 1 | [auth-session-cookie-flags](auth-session-cookie-flags.md) | small | draft | — |
+| 2 | [auth-session-rotate-on-login](auth-session-rotate-on-login.md) | medium | draft | — |
+| 3 | [auth-session-revocation](auth-session-revocation.md) | medium | draft | — |
+| 4 | [auth-session-idle-timeout](auth-session-idle-timeout.md) | small | draft | — |
+| 5 | [auth-session-hosted-readiness](auth-session-hosted-readiness.md) | medium | draft | — (before hosted rollout 4) |
 
 ### Reports — ad-hoc analysis (execute in this order)
 
@@ -258,6 +279,8 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [wizard-getting-started-mentor](archive/wizard-getting-started-mentor.md) | archived | Wizard → Getting Started |
 | [safety-funds-months-bar](archive/safety-funds-months-bar.md) | archived | Wizard → Safety funds |
 | [subscriptions-notes](archive/subscriptions-notes.md) | archived | Wizard → Subscriptions |
+| [auth-session-cookie-flags](auth-session-cookie-flags.md) | draft | Auth — session hardening (1) |
+| [auth-session-idle-timeout](auth-session-idle-timeout.md) | draft | Auth — session hardening (4) |
 
 ### Medium
 
