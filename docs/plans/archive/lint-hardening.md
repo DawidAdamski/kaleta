@@ -3,8 +3,9 @@ plan_id: lint-hardening
 title: Lint hardening — security rules in ruff, honest suppressions, pre-commit
 area: infrastructure
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#q3-2026-jul-sep-stabilisation--debt
+status: archived
+archived_at: 2026-09-24
+roadmap_ref: ../../roadmap.md#q3-2026-jul-sep-stabilisation--debt
 ---
 
 # Lint hardening — security rules in ruff, honest suppressions, pre-commit
@@ -133,3 +134,102 @@ Out of scope:
   prepared where the package index was not reachable.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-24.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `69ccc58` | Dawid Adamski | 2026-09-24 | Merge pull request #128 from DawidAdamski/chore/lint-hardening |
+
+**Files changed:**
+- .claude/agents/deps-updater.md
+- .claude/agents/security-auditor.md
+- .pre-commit-config.yaml
+- AGENTS.md
+- CONTRIBUTING.md
+- docs/plans/README.md
+- docs/plans/lint-hardening.md
+- pyproject.toml
+- scripts/bug_reports.py
+- scripts/reset_demo.py
+- scripts/seed.py
+- src/kaleta/db/__init__.py
+- src/kaleta/db/types.py
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/transaction.py
+- src/kaleta/observability/__init__.py
+- src/kaleta/observability/context.py
+- src/kaleta/observability/ring_buffer.py
+- src/kaleta/schemas/__init__.py
+- src/kaleta/schemas/account.py
+- src/kaleta/schemas/asset.py
+- src/kaleta/schemas/categorisation_rule.py
+- src/kaleta/schemas/category.py
+- src/kaleta/schemas/import_rule.py
+- src/kaleta/schemas/institution.py
+- src/kaleta/schemas/planned_transaction.py
+- src/kaleta/schemas/reserve_fund.py
+- src/kaleta/schemas/salary.py
+- src/kaleta/schemas/transaction.py
+- src/kaleta/schemas/unplanned_radar.py
+- src/kaleta/seeders/base.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/auth_stats_service.py
+- src/kaleta/services/backup_service.py
+- src/kaleta/services/event_capture.py
+- src/kaleta/services/import_rule_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/nbp_rate_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/rule_service.py
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/services/subscription_service.py
+- src/kaleta/views/__init__.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/budget_plan/dialogs.py
+- src/kaleta/views/credit.py
+- src/kaleta/views/credit_calculator.py
+- src/kaleta/views/dashboard_widgets/__init__.py
+- src/kaleta/views/dashboard_widgets/balance_card.py
+- src/kaleta/views/dashboard_widgets/budget_variance_month.py
+- src/kaleta/views/dashboard_widgets/credit_utilization.py
+- src/kaleta/views/dashboard_widgets/largest_transactions.py
+- src/kaleta/views/dashboard_widgets/month_expenses.py
+- src/kaleta/views/dashboard_widgets/month_income.py
+- src/kaleta/views/dashboard_widgets/month_net.py
+- src/kaleta/views/dashboard_widgets/net_worth.py
+- src/kaleta/views/dashboard_widgets/predicted_30d.py
+- src/kaleta/views/dashboard_widgets/quick_actions.py
+- src/kaleta/views/dashboard_widgets/savings_rate_kpi.py
+- src/kaleta/views/dashboard_widgets/top_merchants.py
+- src/kaleta/views/dashboard_widgets/total_balance.py
+- src/kaleta/views/dashboard_widgets/upcoming_planned.py
+- src/kaleta/views/dashboard_widgets/ytd_summary.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/institutions.py
+- src/kaleta/views/reports/page.py
+- src/kaleta/views/safety_funds.py
+- src/kaleta/views/settings/constants.py
+- src/kaleta/views/setup.py
+- src/kaleta/views/subscriptions/dialogs.py
+- tests/e2e/conftest.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_demo_banner.py
+- tests/e2e/test_mfa.py
+- tests/e2e/test_planned_transactions.py
+- tests/e2e/test_settings_week_debug.py
+- tests/e2e/test_transactions.py
+- tests/integration/test_example_data.py
+- tests/unit/services/test_api_token_service.py
+- tests/unit/services/test_import_service.py
+- tests/unit/services/test_net_worth_service.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

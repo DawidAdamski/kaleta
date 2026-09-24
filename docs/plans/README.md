@@ -248,7 +248,7 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 | 4 | [q3-forecast-optional-prophet](archive/q3-forecast-optional-prophet.md) | archived | — (parallel-safe) |
 | 5 | [q3-engineering-hygiene](archive/q3-engineering-hygiene.md) | archived | CI after 1; exceptions parallel-safe |
 | 6 | [q3-spec-enforcement](archive/q3-spec-enforcement.md) | archived | CI from 5; import-linter ignores burned down by 2 |
-| 7 | [lint-hardening](lint-hardening.md) | in-progress | — (follow-up to 5: security lint as a gate, honest suppressions, pre-commit) |
+| 7 | [lint-hardening](archive/lint-hardening.md) | archived | — (follow-up to 5: security lint as a gate, honest suppressions, pre-commit) |
 
 See [roadmap → Q3 2026](../roadmap.md#q3-2026-jul-sep-stabilisation--debt)
 and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directly.md).
