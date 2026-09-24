@@ -64,3 +64,48 @@ def test_dashboard_warns_when_reserve_is_below_target(page: Page, base_url: str)
     )
     expect(row).to_have_count(1, timeout=10000)
     expect(row).to_have_attribute("data-severity", "warning")
+
+
+def test_security_fund_target_derives_from_spending(page: Page, base_url: str) -> None:
+    """Covers: KAL-FND-002
+
+    UI path of the derived target: switching "Derive target from my spending"
+    on locks the manual target, the hint shows the figure the service will
+    use, and the saved card shows that figure as its target. The 15600.00
+    literal itself is asserted in the service test — the e2e database is
+    shared across tests, so its 12-month average is not under this test's
+    control.
+    """
+    account_name = "Security fund FND2 E2E"
+    account_id = seed_account(account_name)
+    update_account(account_id, balance="0.00")
+
+    page.goto(f"{base_url}/wizard/safety-funds")
+    expect(page.get_by_text("Safety & Reserve Funds", exact=True).first).to_be_visible(timeout=5000)
+
+    page.get_by_role("button", name="Add fund").click()
+    dialog = page.get_by_role("dialog")
+    expect(dialog).to_be_visible(timeout=5000)
+
+    dialog.get_by_label("Name").fill("Security fund")
+    _fill_number(dialog, "Target amount", "1")
+    dialog.get_by_text("Derive target from my spending", exact=True).click()
+
+    expect(dialog.get_by_role("spinbutton", name="Target amount", exact=True)).to_be_disabled()
+    hint = dialog.get_by_text("× average monthly spending over the last 12 months")
+    expect(hint).to_be_visible(timeout=5000)
+    expect(hint).to_contain_text("last 90 days")
+    derived = hint.inner_text().split("→ ")[1].split(")")[0]
+
+    dialog.locator(".q-select").filter(has_text="Backing account").click()
+    page.locator(".q-menu").get_by_text(account_name, exact=True).click()
+
+    dialog.get_by_role("button", name="Save").click()
+
+    card = (
+        page.locator(".q-card")
+        .filter(has_text="Security fund")
+        .filter(has_text="derived from spending")
+    )
+    expect(card).to_have_count(1, timeout=5000)
+    expect(card.get_by_text(f"0.00 / {derived}", exact=True)).to_be_visible(timeout=5000)

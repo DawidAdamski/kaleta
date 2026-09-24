@@ -48,15 +48,18 @@ def register() -> None:
     async def safety_funds_page() -> None:
         async def _load(
             session: Any,
-        ) -> tuple[dict[int, str], list[ReserveFundWithProgress], list[ReserveFundWithProgress]]:
+        ) -> tuple[
+            dict[int, str], list[ReserveFundWithProgress], list[ReserveFundWithProgress], Decimal
+        ]:
             accounts = await AccountService(session).list()
             svc = ReserveFundService(session)
             active_funds = await svc.list_with_progress(include_archived=False)
             all_funds = await svc.list_with_progress(include_archived=True)
+            target_monthly = await svc.target_monthly_expense()
             account_opts = {a.id: a.name for a in accounts}
-            return account_opts, active_funds, all_funds
+            return account_opts, active_funds, all_funds, target_monthly
 
-        account_opts, active_funds, all_funds = await with_session(_load)
+        account_opts, active_funds, all_funds, target_monthly = await with_session(_load)
 
         archived_funds = [f for f in all_funds if f.is_archived]
 
@@ -109,6 +112,11 @@ def register() -> None:
                     )
                     ui.label(t("safety_funds.multiplier_unit")).classes(BODY_MUTED)
 
+                derive_row = ui.column().classes("w-full gap-1")
+                with derive_row:
+                    derive_in = ui.switch(t("safety_funds.target_from_spending"), value=False)
+                    derive_hint = ui.label("").classes(f"{BODY_MUTED} text-xs")
+
                 target_in = (
                     ui.number(
                         label=t("safety_funds.target"),
@@ -119,6 +127,25 @@ def register() -> None:
                     .props("dense outlined")
                     .classes("w-full")
                 )
+
+                def _refresh_derive() -> None:
+                    # A derived target is computed, not typed: lock the input
+                    # and show the figure the service will use.
+                    derived = bool(derive_in.value)
+                    months = int(multiplier_in.value or 3)
+                    target_in.set_enabled(not derived)
+                    derive_hint.set_visibility(derived)
+                    derive_hint.set_text(
+                        t(
+                            "safety_funds.target_from_spending_hint",
+                            months=months,
+                            average=_fmt_amount(target_monthly),
+                            target=_fmt_amount(target_monthly * months),
+                        )
+                    )
+
+                derive_in.on_value_change(lambda _e: _refresh_derive())
+                multiplier_in.on_value_change(lambda _e: _refresh_derive())
 
                 if account_opts:
                     account_in = (
@@ -140,6 +167,9 @@ def register() -> None:
                     # only when creating a new fund (don't clobber user edits).
                     is_emergency = e.args == ReserveFundKind.EMERGENCY.value
                     multiplier_row.set_visibility(is_emergency)
+                    derive_row.set_visibility(is_emergency)
+                    if not is_emergency:
+                        derive_in.set_value(False)
                     if editing_state["id"] is None:
                         defaults = {
                             ReserveFundKind.EMERGENCY.value: t(
@@ -174,6 +204,7 @@ def register() -> None:
                     multiplier = (
                         int(multiplier_in.value or 3) if kind == ReserveFundKind.EMERGENCY else None
                     )
+                    from_spending = bool(derive_in.value) and kind == ReserveFundKind.EMERGENCY
                 except Exception as exc:  # pragma: no cover — defensive
                     ui.notify(str(exc), type="negative")
                     return
@@ -189,6 +220,7 @@ def register() -> None:
                                 backing_mode=ReserveFundBackingMode.ACCOUNT,
                                 backing_account_id=account_id,
                                 emergency_multiplier=multiplier,
+                                target_from_spending=from_spending,
                             )
                         except Exception as exc:  # pragma: no cover — defensive
                             ui.notify(str(exc), type="negative")
@@ -203,6 +235,7 @@ def register() -> None:
                                 target_amount=target,
                                 backing_account_id=account_id,
                                 emergency_multiplier=multiplier,
+                                target_from_spending=from_spending,
                             ),
                         )
 
@@ -224,6 +257,9 @@ def register() -> None:
                 target_in.set_value(0)
                 multiplier_in.set_value(3)
                 multiplier_row.set_visibility(True)
+                derive_in.set_value(False)
+                derive_row.set_visibility(True)
+                _refresh_derive()
                 if account_in is not None and account_opts:
                     account_in.set_value(next(iter(account_opts)))
                 fund_dialog.open()
@@ -238,6 +274,9 @@ def register() -> None:
                 target_in.set_value(float(fund.target_amount))
                 multiplier_in.set_value(fund.emergency_multiplier or 3)
                 multiplier_row.set_visibility(fund.kind == ReserveFundKind.EMERGENCY)
+                derive_in.set_value(fund.target_from_spending)
+                derive_row.set_visibility(fund.kind == ReserveFundKind.EMERGENCY)
+                _refresh_derive()
                 if (
                     account_in is not None
                     and fund.backing_account_id is not None
@@ -365,6 +404,10 @@ def _render_fund_card(
                     ).classes("text-base font-semibold")
                     pct_label = round(float(fund.progress_pct) * 100)
                     ui.label(f"{pct_label}%").classes(f"text-sm text-{colour}")
+                    if fund.target_from_spending:
+                        ui.label(t("safety_funds.target_derived_badge")).classes(
+                            f"{BODY_MUTED} text-xs"
+                        )
                 ui.button(icon="edit", on_click=lambda _e, f=fund: on_edit(f)).props(
                     "flat dense round color=grey-7"
                 ).tooltip(t("safety_funds.edit"))
