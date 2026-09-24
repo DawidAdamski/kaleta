@@ -73,12 +73,14 @@ class ReserveFundService:
         if fund is None:
             return None
         data = payload.model_dump(exclude_unset=True)
-        for key, value in data.items():
-            setattr(fund, key, value)
-        if fund.target_from_spending and fund.emergency_multiplier is None:
+        from_spending = data.get("target_from_spending", fund.target_from_spending)
+        multiplier = data.get("emergency_multiplier", fund.emergency_multiplier)
+        if from_spending and multiplier is None:
             raise ValidationError(
                 "emergency_multiplier is required when target_from_spending is set"
             )
+        for key, value in data.items():
+            setattr(fund, key, value)
         await self._snapshot_derived_target(fund)
         await self.session.commit()
         await self.session.refresh(fund)
@@ -167,7 +169,16 @@ class ReserveFundService:
         if fund.emergency_multiplier is None:
             return None
         monthly = await self.target_monthly_expense(today=today)
-        return (monthly * Decimal(fund.emergency_multiplier)).quantize(Decimal("0.01"))
+        return self.target_from_monthly(monthly, fund.emergency_multiplier)
+
+    @staticmethod
+    def target_from_monthly(monthly: Decimal, multiplier: int) -> Decimal:
+        """Multiplier × monthly spend, to the grosz.
+
+        Shared with the dialog's preview so the hint and the saved card
+        cannot round differently.
+        """
+        return (monthly * Decimal(multiplier)).quantize(Decimal("0.01"))
 
     async def _effective_target(
         self, fund: ReserveFund, *, today: datetime.date | None = None

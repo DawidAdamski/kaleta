@@ -140,7 +140,9 @@ def register() -> None:
                             "safety_funds.target_from_spending_hint",
                             months=months,
                             average=_fmt_amount(target_monthly),
-                            target=_fmt_amount(target_monthly * months),
+                            target=_fmt_amount(
+                                ReserveFundService.target_from_monthly(target_monthly, months)
+                            ),
                         )
                     )
 
