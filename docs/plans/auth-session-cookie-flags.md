@@ -113,7 +113,7 @@ Out of scope:
   `docs/plans/chores.md`.
 - **KAL-AUTH-025** is covered twice: a unit test feeds the kwargs to a real
   `SessionMiddleware` and reads `Set-Cookie`; the e2e test starts an isolated
-  app on port 8082 with `KALETA_SESSION_COOKIE_SECURE=true` and reads
+  app on its own port (8083) with `KALETA_SESSION_COOKIE_SECURE=true` and reads
   `Set-Cookie` on `GET /login` with httpx (a browser is not needed to read a
   header, and would drop a `Secure` cookie on plain http anyway). It also
   asserts the debug-mode startup warning in the server log.

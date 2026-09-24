@@ -29,9 +29,8 @@ from tests.e2e.conftest import (
     _write_kaleta_config,
 )
 
-# 8081 is the shared e2e server; 8082 is free again once the demo-banner
-# module (also module-scoped) has torn its server down.
-SECURE_COOKIE_PORT = 8082
+# Its own port: 8081 is the shared e2e server, 8082 the demo-banner one.
+SECURE_COOKIE_PORT = 8083
 SECURE_COOKIE_BASE = f"http://127.0.0.1:{SECURE_COOKIE_PORT}"
 
 
