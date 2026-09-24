@@ -31,6 +31,10 @@ class ReserveFund(TimestampMixin, UserOwnedMixin, Base):
     - ``account`` → sum of `backing_account_id`'s balance.
     - ``envelope`` → reserved for future category-tagged envelopes;
       not offered in the v1 UI.
+
+    ``target_from_spending`` makes the target ``emergency_multiplier`` ×
+    the 12-month average monthly spend, recomputed on every read; the
+    stored ``target_amount`` then holds the figure as of the last save.
     """
 
     __tablename__ = "reserve_funds"
@@ -55,6 +59,7 @@ class ReserveFund(TimestampMixin, UserOwnedMixin, Base):
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
     emergency_multiplier: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    target_from_spending: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
