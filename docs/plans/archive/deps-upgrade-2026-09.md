@@ -3,8 +3,9 @@ plan_id: deps-upgrade-2026-09
 title: Dependencies — relock everything to latest within current constraints (2026-09)
 area: cross-cutting
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-principles
+status: archived
+archived_at: 2026-09-24
+roadmap_ref: ../../roadmap.md#cross-cutting-principles
 ---
 
 # Dependencies — relock everything to latest within current constraints (2026-09)
@@ -104,3 +105,25 @@ Out of scope:
   be told from one failure. The test now waits for the switcher's button to
   be a new element (its NiceGUI id changes) before clicking — a sync point,
   no assertion loosened, no timeout raised. Test-only; no `src/` change.
+
+## Implementation
+
+Landed on 2026-09-24 (PR #134).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `82d990c` | Dawid Adamski | 2026-09-24 | Merge pull request #134 from DawidAdamski/plan/deps-upgrade-2026-09 |
+
+**Files changed:**
+- docs/plans/deps-upgrade-2026-09.md
+- pyproject.toml
+- tests/e2e/test_csv_import.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
