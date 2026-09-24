@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import logging
 from pathlib import Path
+from typing import Literal
 
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -40,6 +41,13 @@ class Settings(BaseSettings):
     debug: bool = False
     api_token: str | None = None
     session_ttl_hours: int = 72
+    #: Mark the session cookie ``Secure``. The browser then never sends it over
+    #: plain http, so on an http-only install login silently stops working —
+    #: turn it on only behind TLS (a hosted deployment or a TLS reverse proxy).
+    session_cookie_secure: bool = False
+    #: ``strict`` drops the cookie on every navigation that starts outside the
+    #: app, e-mail confirmation links included; ``lax`` is the safe default.
+    session_cookie_samesite: Literal["lax", "strict"] = "lax"
     backup_enabled: bool = True
     backup_interval_hours: int = 24
     backup_retain: int = 7
@@ -94,6 +102,11 @@ class Settings(BaseSettings):
         if value < 0:
             raise ValueError("KALETA_SESSION_TTL_HOURS must be >= 0 (0 disables expiry)")
         return value
+
+    @field_validator("session_cookie_samesite", mode="before")
+    @classmethod
+    def _normalize_samesite(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
 
     @field_validator("backup_dir")
     @classmethod

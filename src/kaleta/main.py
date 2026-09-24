@@ -25,6 +25,7 @@ from nicegui import ui
 from kaleta.api import create_api_router
 from kaleta.api.errors import register_error_handlers
 from kaleta.api.v1.health import register_health_alias
+from kaleta.auth.session import session_middleware_kwargs, warn_secure_cookie_in_debug
 from kaleta.config import settings
 from kaleta.logging_config import RequestContextMiddleware, configure_logging
 from kaleta.services.backup_scheduler import BackupScheduler
@@ -289,6 +290,9 @@ def run_web() -> None:
     configure_logging()
     _register_error_tracker()
     _warn_repo_root_data_leftovers()
+    # Before the views register the log ring buffer's NiceGUI session resolver:
+    # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
+    warn_secure_cookie_in_debug()
     _preload_config()
     _setup_pwa()
     _register_request_context()
@@ -308,6 +312,7 @@ def run_web() -> None:
         reload=False,
         show=not is_configured(),
         storage_secret=settings.secret_key,
+        session_middleware_kwargs=session_middleware_kwargs(),
     )
 
 
@@ -315,6 +320,9 @@ def run_app() -> None:
     configure_logging()
     _register_error_tracker()
     _warn_repo_root_data_leftovers()
+    # Before the views register the log ring buffer's NiceGUI session resolver:
+    # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
+    warn_secure_cookie_in_debug()
     _preload_config()
     _setup_pwa()
     _register_request_context()
@@ -332,6 +340,7 @@ def run_app() -> None:
         native=True,
         reload=False,
         storage_secret=settings.secret_key,
+        session_middleware_kwargs=session_middleware_kwargs(),
     )
 
 

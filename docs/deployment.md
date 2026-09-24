@@ -64,9 +64,23 @@ KALETA_MODE=web
 KALETA_HOST=0.0.0.0
 KALETA_PORT=8080
 KALETA_SECRET_KEY=<long-random-string>
+KALETA_SESSION_COOKIE_SECURE=true   # hosted behind TLS only — see below
+KALETA_SESSION_COOKIE_SAMESITE=lax  # or strict; strict breaks e-mail links
 KALETA_DB_URL=postgresql+asyncpg://...
 KALETA_DEMO=true          # enables the dismissible demo banner in the UI
 ```
+
+`KALETA_SESSION_COOKIE_SECURE=true` marks the session cookie `Secure`: the
+browser never sends it over plain http, so **login silently stops working**
+on an install that is not served over TLS. Leave it `false` for local or
+plain-http use. `KALETA_SESSION_COOKIE_SAMESITE` accepts `lax` (default) or
+`strict`; `strict` drops the cookie on any navigation that starts outside the
+app, including "confirm your e-mail" links. The cookie is named
+`kaleta_session` and expires after `KALETA_SESSION_TTL_HOURS` (Starlette's
+14-day default when the TTL is `0`).
+
+> **Release note:** the session cookie was renamed from `session` to
+> `kaleta_session`, which signs every browser out once after upgrading.
 
 Optional but recommended for a hosted demo:
 

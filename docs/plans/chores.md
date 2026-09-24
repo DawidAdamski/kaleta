@@ -20,6 +20,15 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] Any WARNING+ logged after `_register_views()` but before `ui.run()`
+      crashes startup ("ui.page cannot be used in NiceGUI scripts…"). The log
+      ring buffer's session resolver `views/error_handling.current_client_id`
+      touches `context.client`, and that access outside a page flips NiceGUI
+      into script mode. Guard it (e.g. return `None` while
+      `not app.is_started`) so a late startup log line cannot kill the app.
+      Found while wiring `warn_secure_cookie_in_debug()`, which now runs early
+      in `run_web`/`run_app` to stay clear of it.
+
 - [ ] Reports render the service's English display strings, in every locale.
       `SavedReportService` returns *words*, not keys: column headers
       (`"Category"`, `"Total Amount"` …, `saved_report_service.py:535-540`,

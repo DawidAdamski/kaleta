@@ -8,16 +8,16 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 import threading
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 from playwright.sync_api import Page
 
 from tests.e2e.conftest import (
     PROJECT_ROOT,
+    _ensure_e2e_user_subprocess,
+    _pump_stdout_to_log,
     _run_alembic,
     _terminate_process,
     _wait_for_server,
@@ -27,59 +27,6 @@ from tests.e2e.conftest import (
 
 DEMO_PORT = 8082
 DEMO_BASE = f"http://127.0.0.1:{DEMO_PORT}"
-
-
-def _ensure_e2e_user_subprocess(db_url: str, home: Path) -> None:
-    """Create the shared e2e user without asyncio.run in the pytest process."""
-    env = {
-        **os.environ,
-        "HOME": str(home),
-        "KALETA_DEBUG": "true",
-        "KALETA_DB_URL": db_url,
-    }
-    bootstrap = """
-import asyncio
-import os
-
-from kaleta.db import configure_database
-from kaleta.services import AuthService, with_session
-
-USERNAME = "e2e"
-PASSWORD = "e2e-test-password"
-
-
-async def _ensure() -> None:
-    configure_database(os.environ["KALETA_DB_URL"], debug=True)
-
-    async def _create(session):
-        auth = AuthService(session)
-        state = await auth.auth_state()
-        if state == "no_user":
-            await auth.create_user(USERNAME, PASSWORD)
-        elif state == "placeholder":
-            await auth.secure_placeholder(USERNAME, PASSWORD)
-
-    await with_session(_create)
-
-
-asyncio.run(_ensure())
-"""
-    subprocess.run(
-        [sys.executable, "-c", bootstrap],
-        cwd=PROJECT_ROOT,
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
-def _pump_stdout(proc: subprocess.Popen[str], log_path: Path) -> None:
-    assert proc.stdout is not None
-    with log_path.open("w", encoding="utf-8") as log_file:
-        for line in proc.stdout:
-            log_file.write(line)
-            log_file.flush()
 
 
 @pytest.fixture(scope="module")
@@ -112,7 +59,7 @@ def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
         text=True,
         bufsize=1,
     )
-    pump = threading.Thread(target=_pump_stdout, args=(proc, log_path), daemon=True)
+    pump = threading.Thread(target=_pump_stdout_to_log, args=(proc, log_path), daemon=True)
     pump.start()
 
     try:

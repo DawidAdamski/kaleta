@@ -19,6 +19,7 @@ from __future__ import annotations
 import json
 import os
 import subprocess
+import sys
 import threading
 import time
 from collections.abc import Generator
@@ -122,6 +123,51 @@ def pytest_runtest_makereport(item: Any, call: Any) -> Generator[None, Any, Any]
         )
     else:
         rep.longrepr = f"{rep.longrepr}\n\n--- e2e server log (last 50 lines) ---\n{tail}"
+
+
+def _ensure_e2e_user_subprocess(db_url: str, home: Path) -> None:
+    """Create the shared e2e user without asyncio.run in the pytest process."""
+    env = {
+        **os.environ,
+        "HOME": str(home),
+        "KALETA_DEBUG": "true",
+        "KALETA_DB_URL": db_url,
+    }
+    bootstrap = """
+import asyncio
+import os
+
+from kaleta.db import configure_database
+from kaleta.services import AuthService, with_session
+
+USERNAME = "e2e"
+PASSWORD = "e2e-test-password"
+
+
+async def _ensure() -> None:
+    configure_database(os.environ["KALETA_DB_URL"], debug=True)
+
+    async def _create(session):
+        auth = AuthService(session)
+        state = await auth.auth_state()
+        if state == "no_user":
+            await auth.create_user(USERNAME, PASSWORD)
+        elif state == "placeholder":
+            await auth.secure_placeholder(USERNAME, PASSWORD)
+
+    await with_session(_create)
+
+
+asyncio.run(_ensure())
+"""
+    subprocess.run(
+        [sys.executable, "-c", bootstrap],
+        cwd=PROJECT_ROOT,
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
 
 
 def _ensure_e2e_user(db_url: str) -> None:
