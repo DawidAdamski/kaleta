@@ -33,6 +33,11 @@ _MAX_TRACKED_EVENTS = 20
 
 def current_client_id() -> str | None:
     """The NiceGUI client id, when called inside a client context."""
+    # Before NiceGUI has started (startup handlers that log) there is no
+    # client, and touching ``context.client`` would switch NiceGUI into script
+    # mode with a request-less pseudo client that breaks its storage pruning.
+    if not app.is_started:
+        return None
     try:
         client = context.client
     except Exception:
