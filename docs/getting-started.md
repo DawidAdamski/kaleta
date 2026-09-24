@@ -101,6 +101,8 @@ Set via the `KALETA_MODE` environment variable:
 | `KALETA_DEBUG` | `false` | Enable debug mode (allows default secret key) |
 | `KALETA_API_TOKEN` | _(unset)_ | Bootstrap bearer for `KALETA_MODE=api` (≥16 chars). On API startup with this set, Kaleta ensures a real user exists (creates locked user `api` if needed) so the token can authenticate. UI-managed tokens remain the normal path for `web`/`app`. |
 | `KALETA_SESSION_TTL_HOURS` | `72` | UI session lifetime in hours (`0` disables expiry) |
+| `KALETA_SESSION_COOKIE_SECURE` | `false` | Mark the `kaleta_session` cookie `Secure` — only behind TLS; on plain http login stops working |
+| `KALETA_SESSION_COOKIE_SAMESITE` | `lax` | `lax` or `strict` (`strict` drops the cookie on links from outside, e.g. e-mail confirmations) |
 | `KALETA_BACKUP_ENABLED` | `true` | Enable scheduled SQLite `VACUUM INTO` backups |
 | `KALETA_BACKUP_INTERVAL_HOURS` | `24` | Hours between scheduled backups |
 | `KALETA_BACKUP_RETAIN` | `7` | Keep the last K `kaleta-*.db` files |

@@ -3107,6 +3107,17 @@ Feature: Two-factor authentication
     Given two-factor authentication was turned off while I sat at the code prompt
     When I give a code and am sent back to the sign-in page
     Then the wrong-code count against me is unchanged
+
+  KAL-AUTH-025 @automated
+  Scenario: Behind TLS the session cookie is locked down and lives as long as the session
+    Given Kaleta runs with KALETA_SESSION_COOKIE_SECURE=true
+    And KALETA_SESSION_TTL_HOURS is 72
+    When I open the sign-in page
+    Then the response sets the cookie "kaleta_session"
+    And the cookie is marked Secure and HttpOnly
+    And the cookie carries SameSite=Lax
+    And the cookie's Max-Age is 259200 seconds
+    And with KALETA_DEBUG=true the startup log warns that login needs TLS
 ```
 
 ## Feature: Demo instance

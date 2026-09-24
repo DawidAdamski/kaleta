@@ -290,6 +290,9 @@ def run_web() -> None:
     configure_logging()
     _register_error_tracker()
     _warn_repo_root_data_leftovers()
+    # Before the views register the log ring buffer's NiceGUI session resolver:
+    # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
+    warn_secure_cookie_in_debug()
     _preload_config()
     _setup_pwa()
     _register_request_context()
@@ -300,7 +303,6 @@ def run_web() -> None:
     _register_event_retention_scheduler()
     _register_nbp_startup_fetch()
     _register_storage_sweep()
-    warn_secure_cookie_in_debug()
     from kaleta.config.setup_config import is_configured
 
     ui.run(
@@ -318,6 +320,9 @@ def run_app() -> None:
     configure_logging()
     _register_error_tracker()
     _warn_repo_root_data_leftovers()
+    # Before the views register the log ring buffer's NiceGUI session resolver:
+    # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
+    warn_secure_cookie_in_debug()
     _preload_config()
     _setup_pwa()
     _register_request_context()
@@ -328,7 +333,6 @@ def run_app() -> None:
     _register_event_retention_scheduler()
     _register_nbp_startup_fetch()
     _register_storage_sweep()
-    warn_secure_cookie_in_debug()
     ui.run(
         host=settings.host,
         port=settings.port,

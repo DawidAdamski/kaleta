@@ -3,7 +3,7 @@ plan_id: auth-session-cookie-flags
 title: Auth — session cookie flags and lifetime
 area: auth
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#auth
 ---
 
@@ -93,6 +93,31 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question — cookie name:** took the default, renamed to
+  `kaleta_session` (`auth.session.SESSION_COOKIE_NAME`). Every browser is
+  signed out once; the release note is in `docs/deployment.md`.
+- `session_middleware_kwargs(cfg=None)` takes an optional `Settings` so tests
+  build one per combination instead of monkeypatching the global. With the
+  TTL at `0` the `max_age` key is omitted, so Starlette's own 14-day default
+  applies (the plan's wording) rather than a value we would have to keep in
+  sync with Starlette.
+- `session_cookie_samesite` is lower-cased before the `Literal` check, so
+  `KALETA_SESSION_COOKIE_SAMESITE=Strict` works; `none` is rejected (it would
+  need `Secure` and has no use in a same-origin app).
+- **Startup warning placement:** `warn_secure_cookie_in_debug()` runs right
+  after `_warn_repo_root_data_leftovers()`, not just before `ui.run()`. A
+  WARNING logged after `_register_views()` reaches the log ring buffer's
+  resolver `views.error_handling.current_client_id`, whose `context.client`
+  access flips NiceGUI into script mode and `ui.run()` then refuses to start.
+  That latent bug is pre-existing and outside this scope; it is recorded in
+  `docs/plans/chores.md`.
+- **KAL-AUTH-025** is covered twice: a unit test feeds the kwargs to a real
+  `SessionMiddleware` and reads `Set-Cookie`; the e2e test starts an isolated
+  app on port 8082 with `KALETA_SESSION_COOKIE_SECURE=true` and reads
+  `Set-Cookie` on `GET /login` with httpx (a browser is not needed to read a
+  header, and would drop a `Secure` cookie on plain http anyway). It also
+  asserts the debug-mode startup warning in the server log.
+  `_ensure_e2e_user_subprocess` moved from `test_demo_banner.py` into
+  `tests/e2e/conftest.py` so both second-server fixtures share it.
 
 ## Implementation (filled by plan-archiver)
