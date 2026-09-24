@@ -74,3 +74,22 @@ Out of scope:
 - Raise floors to the new versions? Default: no (see Out of scope).
 
 ## Implementation notes
+
+**2026-09-24.**
+- `uv lock --upgrade` took every package the dry-run listed (71 updates,
+  `lxml` / `lxml-html-clean` / `importlib-resources` dropped as NiceGUI
+  no longer needs them — nothing in `src/` or `tests/` imports them). No
+  package had to be held back; no floor in `pyproject.toml` was raised.
+- Playwright 1.63 needs its matching browser build:
+  `uv run playwright install chromium` once per machine after syncing.
+- mypy 2.3, import-linter 2.15 and ruff 0.16's lint rules found nothing;
+  no Python file changed.
+- **ruff 0.16 formats Markdown code blocks by default.** The first
+  `ruff format .` rewrote four `.md` files, one of them an archived plan
+  (frozen). That commit is reverted on this branch, and
+  `[tool.ruff] extend-exclude = ["*.md"]` keeps ruff on Python as it was
+  before the upgrade. Opting into Markdown formatting would be adopting a
+  new feature (out of scope) and would churn ADRs and archived records.
+- `./scripts/verify.sh --e2e` on the upgraded lock: 2650 unit+integration
+  passed (1 skipped, pre-existing), 180 e2e passed — NiceGUI 3.17,
+  Starlette 1.7 and websockets 17 needed no code or selector changes.
