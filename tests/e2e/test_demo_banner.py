@@ -10,7 +10,6 @@ import os
 import subprocess
 import threading
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 from playwright.sync_api import Page
@@ -18,6 +17,7 @@ from playwright.sync_api import Page
 from tests.e2e.conftest import (
     PROJECT_ROOT,
     _ensure_e2e_user_subprocess,
+    _pump_stdout_to_log,
     _run_alembic,
     _terminate_process,
     _wait_for_server,
@@ -27,14 +27,6 @@ from tests.e2e.conftest import (
 
 DEMO_PORT = 8082
 DEMO_BASE = f"http://127.0.0.1:{DEMO_PORT}"
-
-
-def _pump_stdout(proc: subprocess.Popen[str], log_path: Path) -> None:
-    assert proc.stdout is not None
-    with log_path.open("w", encoding="utf-8") as log_file:
-        for line in proc.stdout:
-            log_file.write(line)
-            log_file.flush()
 
 
 @pytest.fixture(scope="module")
@@ -67,7 +59,7 @@ def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
         text=True,
         bufsize=1,
     )
-    pump = threading.Thread(target=_pump_stdout, args=(proc, log_path), daemon=True)
+    pump = threading.Thread(target=_pump_stdout_to_log, args=(proc, log_path), daemon=True)
     pump.start()
 
     try:
