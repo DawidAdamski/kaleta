@@ -97,7 +97,11 @@ def test_security_fund_target_derives_from_spending(page: Page, base_url: str) -
     expect(hint).to_contain_text("last 90 days")
     derived = hint.inner_text().split("→ ")[1].split(")")[0]
 
-    dialog.locator(".q-select").filter(has_text="Backing account").click()
+    # Filter the searchable select: by this point in the suite there are more
+    # accounts than the menu renders, so the target may not be in the list.
+    account_select = dialog.locator(".q-select").filter(has_text="Backing account")
+    account_select.click()
+    account_select.locator("input").fill(account_name)
     page.locator(".q-menu").get_by_text(account_name, exact=True).click()
 
     dialog.get_by_role("button", name="Save").click()
