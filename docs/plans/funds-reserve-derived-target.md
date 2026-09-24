@@ -71,3 +71,9 @@ spend*, not a number typed into the dialog.
   on an isolated in-memory DB. The e2e test covers the dialog wiring only
   and compares the card with the hint, because the e2e DB is shared
   across tests and its 12-month average is not under the test's control.
+- **Review nits (accepted, not changed).** (1) The schema requires a
+  multiplier, not `kind == EMERGENCY`, for `target_from_spending` — the
+  plan defines the target by the multiplier; only the dialog limits the
+  switch to emergency funds. (2) `list_with_progress` re-runs the 12-month
+  aggregate once per derived fund; logged in `chores.md`, negligible at
+  one or two funds.
