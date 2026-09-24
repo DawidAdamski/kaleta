@@ -49,6 +49,11 @@ case "$cmd" in
       printf '%s\t%s\t%s\t%s\n' PLAN STATUS EFFORT AREA
       for f in docs/plans/*.md; do
         [ "$(basename "$f")" = README.md ] && continue
+        # Only files with plan frontmatter are plans; chores.md has none.
+        # Under `set -e` a failing grep in the assignment below would end
+        # the loop silently at the first such file and the table would
+        # stop there (it did: four rows, alphabetically before chores.md).
+        grep -q '^status:' "$f" || continue
         id=$(basename "$f" .md)
         s=$(grep -m1 '^status:' "$f" | sed -E 's/^status:[[:space:]]*//')
         e=$(grep -m1 '^effort:' "$f" | sed -E 's/^effort:[[:space:]]*//')

@@ -233,6 +233,9 @@ exports — see `import-bank-profiles`).
 #### Settings {#settings}
 Settings tabs, week start, debug seed, panel styling.
 
+#### Auth {#auth}
+Sessions, cookies, two-factor, API tokens.
+
 #### Setup {#setup}
 Zero-config bootstrap for first-time strangers.
 
