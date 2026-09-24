@@ -574,7 +574,14 @@ def test_multi_file_queue_keeps_per_file_account(page: Page, base_url: str) -> N
         eyebrow = page.locator("[data-page-eyebrow]")
         active = eyebrow.inner_text().lower()
         wanted = mbank if "mbank" in active else pko
+        # Choosing the account re-renders the switcher (`_sync_step`).
+        # Clicking before that re-render lands can hit a button the server
+        # is about to replace, and the click is dropped — so wait until the
+        # switcher's button is a new element (NiceGUI ids are per element).
+        stale_id = switcher.get_by_role("button").last.get_attribute("id")
+        assert stale_id, "switcher button has no id to watch for the re-render"
         _select_import_option(page, "Target account", _account_option(wanted))
+        expect(switcher.get_by_role("button").last).not_to_have_attribute("id", stale_id)
         step_back, step_forward = (
             switcher.get_by_role("button").first,
             switcher.get_by_role("button").last,

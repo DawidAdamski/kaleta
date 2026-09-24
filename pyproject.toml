@@ -63,6 +63,10 @@ packages = ["src/kaleta"]
 [tool.ruff]
 target-version = "py313"
 line-length = 100
+# ruff 0.16 started formatting code blocks inside Markdown by default. Our
+# Markdown is prose and records (ADRs, archived plans are frozen), so keep
+# ruff to Python as it was before the upgrade.
+extend-exclude = ["*.md"]
 
 [tool.ruff.lint]
 # S is ruff's port of bandit's checks; it replaces the separate bandit run
