@@ -189,7 +189,7 @@ precondition for `hosted-supabase-rollout`.
 
 | # | Plan | Effort | Status | Depends on |
 |---|---|---|---|---|
-| 1 | [auth-session-cookie-flags](auth-session-cookie-flags.md) | small | draft | — |
+| 1 | [auth-session-cookie-flags](archive/auth-session-cookie-flags.md) | archived | draft | — |
 | 2 | [auth-session-rotate-on-login](auth-session-rotate-on-login.md) | medium | draft | — |
 | 3 | [auth-session-revocation](auth-session-revocation.md) | medium | draft | — |
 | 4 | [auth-session-idle-timeout](auth-session-idle-timeout.md) | small | draft | — |
@@ -279,7 +279,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [wizard-getting-started-mentor](archive/wizard-getting-started-mentor.md) | archived | Wizard → Getting Started |
 | [safety-funds-months-bar](archive/safety-funds-months-bar.md) | archived | Wizard → Safety funds |
 | [subscriptions-notes](archive/subscriptions-notes.md) | archived | Wizard → Subscriptions |
-| [auth-session-cookie-flags](auth-session-cookie-flags.md) | draft | Auth — session hardening (1) |
+| [auth-session-cookie-flags](archive/auth-session-cookie-flags.md) | archived | Auth — session hardening (1) |
 | [auth-session-idle-timeout](auth-session-idle-timeout.md) | draft | Auth — session hardening (4) |
 
 ### Medium

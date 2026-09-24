@@ -74,7 +74,7 @@ authenticated stamps around until the 30-day sweep.
   and the theme preference survived both.
 
 Out of scope:
-- Cookie flags — [auth-session-cookie-flags](auth-session-cookie-flags.md).
+- Cookie flags — [auth-session-cookie-flags](archive/auth-session-cookie-flags.md).
 - Moving preferences from per-browser storage to per-user rows in the
   database. That is the right long-term home for `dashboard_layout`
   and friends once there is more than one user per browser, but it is

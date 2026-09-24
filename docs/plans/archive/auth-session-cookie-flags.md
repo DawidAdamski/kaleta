@@ -3,8 +3,9 @@ plan_id: auth-session-cookie-flags
 title: Auth — session cookie flags and lifetime
 area: auth
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#auth
+status: archived
+archived_at: 2026-09-24
+roadmap_ref: ../../roadmap.md#auth
 ---
 
 # Auth — session cookie flags and lifetime
@@ -58,7 +59,7 @@ keep local use unchanged and one switch that hosted deployments flip.
   and a `Max-Age` equal to the session TTL.
 
 Out of scope:
-- Rotating the cookie value on login — [auth-session-rotate-on-login](auth-session-rotate-on-login.md).
+- Rotating the cookie value on login — [auth-session-rotate-on-login](../auth-session-rotate-on-login.md).
 - Any change to what the session stores.
 - Detecting TLS automatically from `X-Forwarded-Proto`; an explicit
   setting is less magic and matches how `KALETA_SECRET_KEY` is handled.
@@ -121,3 +122,32 @@ Out of scope:
   `tests/e2e/conftest.py` so both second-server fixtures share it.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-24 (PR #138).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `e33dd17` | Dawid Adamski | 2026-09-25 | Merge pull request #138 from DawidAdamski/plan/auth-session-cookie-flags |
+
+**Files changed:**
+- docs/bdd.md
+- docs/deployment.md
+- docs/getting-started.md
+- docs/plans/auth-session-cookie-flags.md
+- docs/plans/chores.md
+- src/kaleta/auth/session.py
+- src/kaleta/config/settings.py
+- src/kaleta/main.py
+- tests/e2e/conftest.py
+- tests/e2e/test_auth.py
+- tests/e2e/test_demo_banner.py
+- tests/unit/auth/test_session_cookie.py
+- tests/unit/config/test_settings_session_cookie.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
