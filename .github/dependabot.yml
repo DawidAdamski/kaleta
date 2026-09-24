@@ -1,0 +1,49 @@
+# Dependabot keeps pyproject.toml + uv.lock and the workflow actions current.
+# Every PR it opens runs the full CI (ruff, mypy, import-linter, unit,
+# integration, Postgres), so a green PR is safe to merge; a red one is a
+# real incompatibility to look at, not a lint nit.
+#
+# Grouping: patch + minor releases of Python packages land as one weekly PR
+# per group (runtime vs dev tooling), major releases come one PR each so
+# their changelog gets read. Actions are grouped the same way.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Warsaw"
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "chore(deps)"
+    labels: ["dependencies"]
+    groups:
+      runtime-minor-patch:
+        applies-to: version-updates
+        dependency-type: "production"
+        update-types: ["minor", "patch"]
+      dev-minor-patch:
+        applies-to: version-updates
+        dependency-type: "development"
+        update-types: ["minor", "patch"]
+    # Prophet pulls cmdstan (~300 MB) and is an optional extra; its bumps
+    # deserve a deliberate look rather than a weekly PR.
+    ignore:
+      - dependency-name: "prophet"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "07:00"
+      timezone: "Europe/Warsaw"
+    commit-message:
+      prefix: "chore(ci)"
+    labels: ["dependencies", "ci"]
+    groups:
+      actions:
+        patterns: ["*"]
