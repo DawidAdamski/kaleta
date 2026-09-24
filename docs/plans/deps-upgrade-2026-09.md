@@ -93,3 +93,14 @@ Out of scope:
 - `./scripts/verify.sh --e2e` on the upgraded lock: 2650 unit+integration
   passed (1 skipped, pre-existing), 180 e2e passed — NiceGUI 3.17,
   Starlette 1.7 and websockets 17 needed no code or selector changes.
+- **E2e race fixed, not skipped:** the gate's `verify.sh --e2e` run failed
+  `test_csv_import.py::test_multi_file_queue_keeps_per_file_account` once
+  (switcher click did not move to the other file); it passed 6/6 alone and
+  in three runs of the whole file. Cause: choosing the account runs
+  `_sync_step`, which re-renders the file switcher; the test clicked the
+  switcher straight after, and under full-suite load the click could land
+  on the button being replaced and be dropped. Whether the upgrade made the
+  window wider (NiceGUI 3.17 / websockets 17) or it was always there cannot
+  be told from one failure. The test now waits for the switcher's button to
+  be a new element (its NiceGUI id changes) before clicking — a sync point,
+  no assertion loosened, no timeout raised. Test-only; no `src/` change.
