@@ -50,11 +50,11 @@ render exactly as today.
   ```python
   @dataclass(frozen=True)
   class PivotResult:
-      row_header: str            # "Category"
-      series_header: str         # "Month"
+      row_header: str  # "Category"
+      series_header: str  # "Month"
       row_labels: list[str]
       series_labels: list[str]
-      cells: list[list[float]]   # [row][series], missing pairs are 0.0
+      cells: list[list[float]]  # [row][series], missing pairs are 0.0
       metric_header: str
       row_totals: list[float]
       series_totals: list[float]

@@ -28,6 +28,7 @@ The app must already be running at `http://localhost:8080` before tests execute.
 
 ```python
 """E2E tests for <Feature> — requires app running at http://localhost:8080."""
+
 from __future__ import annotations
 
 import pytest
@@ -37,7 +38,6 @@ BASE = "http://localhost:8080"
 
 
 class TestFeatureName:
-
     async def test_scenario_name(self, page: Page) -> None:
         await page.goto(f"{BASE}/route")
         await page.get_by_role("button", name="...").click()

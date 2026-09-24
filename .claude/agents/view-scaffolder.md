@@ -25,6 +25,7 @@ from kaleta.db import AsyncSessionFactory
 from kaleta.i18n import t
 from kaleta.views.layout import page_layout
 
+
 def register() -> None:
     @ui.page("/route")
     async def page() -> None:
