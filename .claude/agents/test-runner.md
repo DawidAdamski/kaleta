@@ -49,7 +49,6 @@ The `session` fixture provides a fresh in-memory SQLite session per test — imp
 
 ```python
 """Unit tests for XxxService — uses in-memory SQLite."""
-
 from __future__ import annotations
 
 import pytest
@@ -65,6 +64,7 @@ def svc(session: AsyncSession) -> XxxService:
 
 
 class TestXxxCreate:
+
     async def test_create_returns_object_with_id(self, svc: XxxService):
         obj = await svc.create(XxxCreate(name="Test"))
         assert obj.id is not None
