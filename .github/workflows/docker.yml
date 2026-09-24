@@ -45,9 +45,13 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
+          # Dependabot-triggered runs get no Actions secrets, so
+          # DOCKER_USERNAME is empty and the Docker Hub name collapses to
+          # "/kaleta" — an invalid tag that fails the build. Tag it only
+          # when the secret is there; PR builds never push anyway.
           images: |
-            ${{ env.GHCR_IMAGE }}
-            ${{ env.DOCKERHUB_IMAGE }}
+            name=${{ env.GHCR_IMAGE }}
+            name=${{ env.DOCKERHUB_IMAGE }},enable=${{ secrets.DOCKER_USERNAME != '' }}
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
