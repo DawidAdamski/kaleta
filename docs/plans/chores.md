@@ -179,3 +179,19 @@ check it still reproduces before acting on it.
       so subscriptions keep pointing at the deleted payee;
       `DedupeService.merge_payees` does. Make one delegate to the other.
       Found by `plan/payees-merge-suggestions-gaps`.
+
+- [ ] `WizardProjectionService._monthly_from_subscription` still amortises
+      a subscription as `amount × 30 / cadence_days` (120.00 yearly →
+      9.86/mo) with its own 27–33 / 350–380 cadence ranges, while the
+      Subscriptions panel now counts a yearly bill as a twelfth (KAL-SUB-002).
+      Reuse `subscription_service._to_monthly` and its
+      `MONTHLY_CADENCE_RANGE` / `YEARLY_CADENCE_RANGE`. Found by
+      `plan/subscriptions-panel-gaps`.
+
+- [ ] A cancellation scheduled for a future date (KAL-SUB-004) only flips
+      to `cancelled` when `SubscriptionService.settle_due_cancellations`
+      runs, which today is on opening `/wizard/subscriptions`. Until then,
+      readers that filter on `status != CANCELLED` (unplanned radar, the
+      detector's tracked-payee set, `GET /api/v1/subscriptions`) still see
+      it as active. Settle at startup / in the backup scheduler tick if that
+      lag ever matters. Found by `plan/subscriptions-panel-gaps`.

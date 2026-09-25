@@ -6,6 +6,7 @@ Page URL: /wizard/subscriptions
 
 from __future__ import annotations
 
+import datetime
 import re
 
 from playwright.sync_api import Page, expect
@@ -95,3 +96,54 @@ def test_stable_monthly_payment_is_detected(page: Page, base_url: str) -> None:
     expect(netflix_row).to_have_count(1, timeout=5000)
     expect(netflix_row).to_contain_text("Monthly")
     expect(netflix_row).to_contain_text("49.99")
+
+
+def _open_cancel_dialog(page: Page, base_url: str, name: str) -> None:
+    page.goto(f"{base_url}/wizard/subscriptions")
+    current = page.locator(".q-card").filter(has_text="All subscriptions")
+    row = current.locator(".nicegui-row").filter(has=page.get_by_text(name, exact=True)).last
+    expect(row).to_be_visible(timeout=5000)
+    # Icon-only button: Quasar marks the icon aria-hidden, so match the glyph.
+    row.locator("button").filter(
+        has=page.locator(".q-icon", has_text=re.compile(r"^cancel$"))
+    ).click()
+    expect(page.get_by_text("Cancelled as of").first).to_be_visible(timeout=5000)
+
+
+def test_cancel_as_of_today_moves_row_to_cancelled_section(page: Page, base_url: str) -> None:
+    """Covers: KAL-SUB-004
+
+    Once the cancellation date has come, the subscription moves to the
+    cancelled section below the active list.
+    """
+    seed_subscription("Netflix SUB004 E2E", 49.99, cadence_days=30)
+
+    _open_cancel_dialog(page, base_url, "Netflix SUB004 E2E")
+    page.get_by_role("dialog").get_by_role("button", name="Cancel subscription").click()
+
+    cancelled = page.locator(".q-card").filter(
+        has=page.locator(".k-heading", has_text=re.compile(r"^Cancelled$"))
+    )
+    expect(cancelled.get_by_text("Netflix SUB004 E2E", exact=True)).to_be_visible(timeout=5000)
+    current = page.locator(".q-card").filter(has_text="All subscriptions")
+    expect(current.get_by_text("Netflix SUB004 E2E", exact=True)).to_have_count(0)
+
+
+def test_cancel_as_of_future_date_keeps_row_active(page: Page, base_url: str) -> None:
+    """Covers: KAL-SUB-004
+
+    Until the cancellation date the subscription stays in the active list.
+    """
+    seed_subscription("Domain SUB004 E2E", 49.99, cadence_days=30)
+    effective_on = datetime.date.today() + datetime.timedelta(days=10)
+
+    _open_cancel_dialog(page, base_url, "Domain SUB004 E2E")
+    dialog = page.get_by_role("dialog")
+    dialog.get_by_label("Cancelled as of").fill(effective_on.isoformat())
+    dialog.get_by_role("button", name="Cancel subscription").click()
+
+    current = page.locator(".q-card").filter(has_text="All subscriptions")
+    expect(current.get_by_text(f"Cancels {effective_on.strftime('%d.%m.%Y')}").first).to_be_visible(
+        timeout=5000
+    )
+    expect(current.get_by_text("Domain SUB004 E2E", exact=True)).to_be_visible(timeout=5000)

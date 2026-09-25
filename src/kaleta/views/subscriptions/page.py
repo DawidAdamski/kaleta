@@ -29,6 +29,7 @@ async def subscriptions_page() -> None:
         cat_svc = CategoryService(session)
         await cat_svc.ensure_subscriptions_root_and_children()
         svc = SubscriptionService(session)
+        await svc.settle_due_cancellations()
         subs = await svc.list()
         totals = await svc.totals()
         candidates = await svc.detect_candidates(window_days=detector_days)
@@ -60,6 +61,8 @@ async def subscriptions_page() -> None:
     ) = await with_session(_load_page_data)
 
     sub_responses = [SubscriptionResponse.model_validate(s) for s in subs]
+    current_subs = [s for s in sub_responses if s.status.value != "cancelled"]
+    cancelled_subs = [s for s in sub_responses if s.status.value == "cancelled"]
     category_opts = CategoryService.build_option_labels(
         [c for c in expense_cats if c.type.value == "expense"]
     )
@@ -140,17 +143,25 @@ async def subscriptions_page() -> None:
                 for renewal in renewals:
                     render_renewal_row(renewal)
 
+        def _render_rows(rows: list[SubscriptionResponse]) -> None:
+            for sub in rows:
+                render_sub_row(
+                    sub,
+                    on_edit=open_edit_dialog,
+                    on_mute=mute,
+                    on_cancel=cancel,
+                    on_reactivate=reactivate,
+                    on_delete=open_delete_dialog,
+                )
+
         with ui.card().classes(SECTION_CARD):
             ui.label(t("subscriptions.active_heading")).classes(SECTION_HEADING)
-            if not sub_responses:
+            if not current_subs:
                 ui.label(t("subscriptions.active_empty")).classes(f"{BODY_MUTED} mt-2")
             else:
-                for sub in sub_responses:
-                    render_sub_row(
-                        sub,
-                        on_edit=open_edit_dialog,
-                        on_mute=mute,
-                        on_cancel=cancel,
-                        on_reactivate=reactivate,
-                        on_delete=open_delete_dialog,
-                    )
+                _render_rows(current_subs)
+
+        if cancelled_subs:
+            with ui.card().classes(SECTION_CARD):
+                ui.label(t("subscriptions.cancelled_heading")).classes(SECTION_HEADING)
+                _render_rows(cancelled_subs)

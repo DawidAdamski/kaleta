@@ -663,7 +663,14 @@
     "deleted": "Subscription deleted.",
     "confirm_delete_title": "Delete subscription?",
     "confirm_delete_body": "\"{name}\" will be removed permanently. Historical charges stay in your transactions.",
-    "confirm_delete_confirm": "Delete"
+    "confirm_delete_confirm": "Delete",
+    "cancelled_heading": "Cancelled",
+    "cancels_on": "Cancels {date}",
+    "cancel_dialog_title": "Cancel subscription",
+    "cancel_dialog_date": "Cancelled as of",
+    "cancel_dialog_hint": "A future date keeps the subscription active and in the monthly total until that day.",
+    "cancel_dialog_confirm": "Cancel subscription",
+    "cancel_dialog_date_required": "Pick the date the cancellation takes effect."
   },
   "monthly_readiness": {
     "title": "Monthly Readiness",

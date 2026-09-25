@@ -202,12 +202,49 @@ class TestTotals:
         assert t.monthly_total == Decimal("90.00")
         assert t.yearly_total == Decimal("1080.00")
 
-    async def test_yearly_sub_normalises_to_thirty_over_cadence(self, session: AsyncSession):
+    async def test_odd_cadence_normalises_to_thirty_over_cadence(self, session: AsyncSession):
         svc = SubscriptionService(session)
-        await svc.create(SubscriptionCreate(name="Y", amount=Decimal("365"), cadence_days=365))
+        await svc.create(SubscriptionCreate(name="Q", amount=Decimal("90"), cadence_days=90))
         t = await svc.totals()
-        # 365 × 30 / 365 = 30/mo
+        # 90 × 30 / 90 = 30/mo — only cadences outside monthly/yearly use 30-day months.
         assert t.monthly_total == Decimal("30.00")
+
+
+# ── Cancel as of a date ──────────────────────────────────────────────────────
+
+
+class TestScheduledCancel:
+    async def _netflix(self, svc: SubscriptionService) -> int:
+        sub = await svc.create(
+            SubscriptionCreate(name="Netflix", amount=Decimal("49.99"), cadence_days=30)
+        )
+        return sub.id
+
+    async def test_past_date_cancels_immediately(self, session: AsyncSession):
+        svc = SubscriptionService(session)
+        sub_id = await self._netflix(svc)
+        cancelled = await svc.cancel(
+            sub_id,
+            effective_on=datetime.date(2026, 3, 31),
+            today=datetime.date(2026, 4, 15),
+        )
+        assert cancelled is not None
+        assert cancelled.status == SubscriptionStatus.CANCELLED
+        assert cancelled.cancelled_at == datetime.date(2026, 3, 31)
+
+    async def test_reactivate_clears_scheduled_cancel(self, session: AsyncSession):
+        svc = SubscriptionService(session)
+        sub_id = await self._netflix(svc)
+        await svc.cancel(
+            sub_id,
+            effective_on=datetime.date(2026, 4, 30),
+            today=datetime.date(2026, 4, 15),
+        )
+        await svc.reactivate(sub_id)
+        assert await svc.settle_due_cancellations(today=datetime.date(2026, 5, 1)) == 0
+        restored = await svc.get(sub_id)
+        assert restored is not None
+        assert restored.status == SubscriptionStatus.ACTIVE
 
 
 # ── Detector ─────────────────────────────────────────────────────────────────
