@@ -37,6 +37,11 @@ class PayeeMerge(BaseModel):
     merge_ids: list[int] = Field(
         ..., min_length=1, description="IDs of payees to merge into keep_id"
     )
+    new_name: str | None = Field(
+        default=None,
+        max_length=200,
+        description="Rename keep_id to this in the same merge; omitted or blank keeps its name",
+    )
 
 
 class PayeeLastUsed(BaseModel):

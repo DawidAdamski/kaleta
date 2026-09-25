@@ -3,7 +3,7 @@ plan_id: payees-merge-suggestions-gaps
 title: Payee identities — suggestions on the Payees page, token matching, merge under a new name
 area: payees
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#cross-cutting-automatic-deduplication-suggestions
 ---
 

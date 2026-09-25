@@ -7,9 +7,13 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.payee import PayeeCreate, PayeeLastUsed, PayeeUpdate
+
+#: Mirrors ``Payee.name``'s column width and the schemas' ``max_length``.
+PAYEE_NAME_MAX_LENGTH = 200
 
 
 class PayeeService:
@@ -60,13 +64,20 @@ class PayeeService:
         await self.session.commit()
         return True
 
-    async def merge(self, keep_id: int, merge_ids: builtins.list[int]) -> int:
+    async def merge(
+        self, keep_id: int, merge_ids: builtins.list[int], *, new_name: str | None = None
+    ) -> int:
         """Reassign all transactions from *merge_ids* to *keep_id*, then delete merged payees.
 
-        Returns the number of deleted payees.
+        ``new_name`` renames the kept payee in the same commit; blank keeps its
+        name. Returns the number of deleted payees.
         """
         if not merge_ids:
             return 0
+        name = (new_name or "").strip()
+        keeper: Payee | None = None
+        if name:
+            keeper = await self.check_merge_name(name, keeper_id=keep_id, merged_ids=merge_ids)
         await self.session.execute(
             update(Transaction).where(Transaction.payee_id.in_(merge_ids)).values(payee_id=keep_id)
         )
@@ -76,8 +87,33 @@ class PayeeService:
             if payee is not None:
                 await self.session.delete(payee)
                 deleted += 1
+        if keeper is not None and keeper.name != name:
+            # Flush the deletes first: the unit of work runs updates before
+            # deletes, so taking a merged payee's name would trip UNIQUE.
+            await self.session.flush()
+            keeper.name = name
         await self.session.commit()
         return deleted
+
+    async def check_merge_name(
+        self, name: str, *, keeper_id: int, merged_ids: builtins.list[int]
+    ) -> Payee:
+        """Validate a merge's new name before anything is written; return the keeper.
+
+        The name may be one a merged payee holds — that payee is about to go.
+        A payee outside the merge holding it is a conflict (names are unique).
+        """
+        if len(name) > PAYEE_NAME_MAX_LENGTH:
+            raise ValidationError(f"Payee name is longer than {PAYEE_NAME_MAX_LENGTH} characters")
+        keeper = await self.get(keeper_id)
+        if keeper is None:
+            raise NotFoundError("Payee not found")
+        clash = await self.session.execute(
+            select(Payee.id).where(Payee.name == name, Payee.id.not_in([keeper_id, *merged_ids]))
+        )
+        if clash.first() is not None:
+            raise ConflictError(f"A payee named '{name}' already exists")
+        return keeper
 
     async def find_or_create(self, name: str) -> Payee:
         """Exact-match lookup; creates a new payee if not found.

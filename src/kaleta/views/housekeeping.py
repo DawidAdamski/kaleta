@@ -15,6 +15,7 @@ from kaleta.services.dedupe_service import (
     TxGroup,
 )
 from kaleta.services.integrity_service import ForeignKeyViolation
+from kaleta.views.components.payee_merge import MergeConfirmDialog, PayeeMergeSuggestion
 from kaleta.views.error_handling import handle_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.user_prefs import get_payee_dedupe_max_distance
@@ -53,41 +54,16 @@ def register() -> None:
                 ui.label(t("housekeeping.subtitle")).classes(BODY_MUTED)
 
             # ── Shared confirm dialog ────────────────────────────────────
-            pending: dict[str, Any] = {"action": None, "count": 0}
-
-            with ui.dialog() as confirm_dialog, ui.card().classes("w-[440px] gap-3"):
-                ui.label(t("housekeeping.merge_confirm_title")).classes("text-lg font-bold")
-                confirm_body = ui.label("").classes(BODY_MUTED)
-                with ui.row().classes("w-full justify-end gap-2 mt-2"):
-                    ui.button(t("common.cancel"), on_click=confirm_dialog.close).props("flat")
-                    confirm_btn = ui.button(
-                        t("housekeeping.merge_confirm_confirm"), icon="merge_type"
-                    ).props("color=negative unelevated")
-
-            async def _run_pending() -> None:
-                action = pending["action"]
-                confirm_dialog.close()
-                if action is None:
-                    return
-                await action()
-                ui.navigate.reload()
-
-            confirm_btn.on_click(_run_pending)
-
-            def _ask_confirm(count: int, action: Any) -> None:
-                pending["action"] = action
-                pending["count"] = count
-                confirm_body.set_text(t("housekeeping.merge_confirm_body", count=count))
-                confirm_dialog.open()
+            confirm = MergeConfirmDialog(on_done=ui.navigate.reload)
 
             # ── Duplicate transactions ───────────────────────────────────
-            _render_tx_section(tx_groups, _ask_confirm)
+            _render_tx_section(tx_groups, confirm.ask)
 
             # ── Similar payees ───────────────────────────────────────────
-            _render_payee_section(payee_groups, _ask_confirm)
+            _render_payee_section(payee_groups, confirm.ask)
 
             # ── Redundant categories ─────────────────────────────────────
-            _render_category_section(category_groups, _ask_confirm)
+            _render_category_section(category_groups, confirm.ask)
 
             # ── Integrity (SQLite FK check) ───────────────────────────────
             _render_integrity_section()
@@ -182,7 +158,7 @@ def _render_payee_section(groups: list[PayeeGroup], ask_confirm: Any) -> None:
             ui.label(t("housekeeping.payees_empty")).classes(f"{BODY_MUTED} mt-2")
             return
         for g in groups:
-            _render_payee_group(g, ask_confirm)
+            PayeeMergeSuggestion(g, ask_confirm)
 
 
 def _render_category_section(groups: list[CategoryGroup], ask_confirm: Any) -> None:
@@ -247,59 +223,6 @@ def _render_tx_group(group: TxGroup, ask_confirm: Any) -> None:
 
                 deleted = await with_session(_run)
                 ui.notify(t("housekeeping.merged_tx", count=deleted), type="positive")
-
-            delete_count = len(group.items) - 1
-            ui.button(
-                t("housekeeping.merge"),
-                icon="merge_type",
-                on_click=lambda _e, a=_merge, c=delete_count: ask_confirm(c, a),
-            ).props("color=primary unelevated size=sm")
-
-
-def _render_payee_group(group: PayeeGroup, ask_confirm: Any) -> None:
-    # Default keeper = highest transaction_count, tie-breaker = lowest id.
-    default_keeper = max(group.items, key=lambda x: (x.transaction_count, -x.id))
-    keeper_holder = {"id": default_keeper.id}
-    keeper_options: dict[int, str] = {
-        item.id: f"{item.name} ({item.transaction_count})" for item in group.items
-    }
-
-    with ui.element("div").classes("w-full mt-3 p-3 rounded border border-slate-200/30"):
-        for item in group.items:
-            with ui.row().classes("w-full items-center gap-3 py-1"):
-                ui.label(item.name).classes("flex-1 text-sm")
-                ui.label(t("housekeeping.transaction_count", count=item.transaction_count)).classes(
-                    "text-xs text-slate-500 w-32 text-right"
-                )
-
-        with ui.row().classes("w-full items-center gap-3 mt-2"):
-            keeper_sel = (
-                ui.select(
-                    options=keeper_options,
-                    label=t("housekeeping.keeper_label"),
-                    value=keeper_holder["id"],
-                )
-                .props("dense outlined")
-                .classes("flex-1")
-            )
-
-            def _on_change(_e: object = None, holder: dict[str, int] = keeper_holder) -> None:
-                if keeper_sel.value is not None:
-                    holder["id"] = int(keeper_sel.value)
-
-            keeper_sel.on("update:model-value", _on_change)
-
-            async def _merge() -> None:
-                keeper_id = keeper_holder["id"]
-                other_ids = [item.id for item in group.items if item.id != keeper_id]
-
-                async def _run(session: Any) -> int:
-                    return await DedupeService(session).merge_payees(
-                        keeper_id=keeper_id, other_ids=other_ids
-                    )
-
-                merged = await with_session(_run)
-                ui.notify(t("housekeeping.merged_payees", count=merged), type="positive")
 
             delete_count = len(group.items) - 1
             ui.button(
