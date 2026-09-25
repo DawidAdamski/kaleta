@@ -173,3 +173,9 @@ check it still reproduces before acting on it.
       (`_effective_target` → `target_monthly_expense`). Compute it once
       per call and pass it down if funds ever multiply. Found by review of
       `plan/funds-reserve-derived-target`.
+
+- [ ] `PayeeService.merge` (manual merge on /payees and
+      `POST /api/v1/payees/merge`) does not reassign `Subscription.payee_id`,
+      so subscriptions keep pointing at the deleted payee;
+      `DedupeService.merge_payees` does. Make one delegate to the other.
+      Found by `plan/payees-merge-suggestions-gaps`.
