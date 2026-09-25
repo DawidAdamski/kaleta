@@ -222,6 +222,9 @@ async def rotate_session_id(request: Request) -> None:
     The old bucket is emptied, not deleted: its file stays until NiceGUI's own
     sweep, but it no longer says anything about anyone.
     """
+    # Normally already this request, set by `RequestTrackingMiddleware`. Set
+    # again so that `app.storage.user` below and the `request.session` written
+    # below are guaranteed to be the same session whatever the caller.
     request_contextvar.set(request)
     old = app.storage.user
     snapshot = {k: v for k, v in old.items() if k not in _AUTH_KEYS and k not in _ROTATE_KEYS}

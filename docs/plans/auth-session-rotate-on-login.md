@@ -112,11 +112,12 @@ Out of scope:
 
 - Is a 60-second nonce window enough on a slow phone? The navigation
   is immediate; 60 s is generous. Revisit only if the e2e suite on CI
-  ever trips it.
+  ever trips it. **Resolved:** kept 60 s — see Implementation notes.
 - The `/login/mfa` page today reads `mfa_pending_*` from the bucket.
   Rotation happens *after* the code is accepted, so the pending keys
   are in the old bucket and are dropped by the snapshot filter —
-  confirm nothing on the MFA page needs them post-login.
+  confirm nothing on the MFA page needs them post-login. **Resolved:**
+  nothing does — see Implementation notes (snapshot filter).
 
 ## Implementation notes
 
