@@ -167,3 +167,9 @@ check it still reproduces before acting on it.
       (IRR-004/005); likely wants a plan of its own (derive balances from
       transactions vs keep a running column), since forecast and net worth
       read the same column. Found by `plan/audit-planned-vs-code`.
+
+- [ ] `ReserveFundService.list_with_progress` runs the 12-month expense
+      aggregate once per fund with `target_from_spending`
+      (`_effective_target` → `target_monthly_expense`). Compute it once
+      per call and pass it down if funds ever multiply. Found by review of
+      `plan/funds-reserve-derived-target`.

@@ -28,6 +28,9 @@ class ReserveFundBase(BaseModel):
     backing_account_id: int | None = None
     backing_category_id: int | None = None
     emergency_multiplier: int | None = Field(default=None, ge=1, le=24)
+    #: Target = multiplier × 12-month average monthly spend instead of
+    #: ``target_amount``. Needs a multiplier to multiply by.
+    target_from_spending: bool = False
 
     @model_validator(mode="after")
     def _check_backing_ref(self) -> ReserveFundBase:
@@ -41,6 +44,8 @@ class ReserveFundBase(BaseModel):
                 raise ValueError("backing_category_id is required when backing_mode=envelope")
             if self.backing_account_id is not None:
                 raise ValueError("backing_account_id must be null when backing_mode=envelope")
+        if self.target_from_spending and self.emergency_multiplier is None:
+            raise ValueError("emergency_multiplier is required when target_from_spending is set")
         return self
 
 
@@ -58,6 +63,7 @@ class ReserveFundUpdate(BaseModel):
     backing_account_id: int | None = None
     backing_category_id: int | None = None
     emergency_multiplier: int | None = Field(default=None, ge=1, le=24)
+    target_from_spending: bool | None = None
 
 
 class ReserveFundResponse(ReserveFundBase):
