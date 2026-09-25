@@ -3,7 +3,7 @@ plan_id: auth-session-idle-timeout
 title: Auth — idle timeout next to the absolute TTL
 area: auth
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#auth
 ---
 
@@ -84,6 +84,33 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question — default:** took the plan default, `12` hours.
+- **Cap:** a `model_validator(mode="after")` caps `session_idle_hours` to
+  `session_ttl_hours` with a warning. With the TTL off (`0`) there is
+  nothing to cap against and the idle value is kept as given.
+- **Reason for the redirect:** `session_expired()` still returns a bool for
+  its callers; a new `session_expiry_reason()` returns `"ttl"`, `"idle"` or
+  `None` so the middleware can add `&reason=idle`. TTL is checked first, so
+  a session past both limits is a TTL expiry (plain redirect, as before).
+- **Missing activity stamp:** written on first sight inside the guard
+  (`_idle_expired`), as the plan asks; an unparseable stamp is treated the
+  same way. The asymmetry with the TTL rule is in the docstring.
+- **Order in the middleware:** expiry check first, then `touch_session()`;
+  touching first would rescue the session the idle rule is about to end.
+  The API cookie path touches only when it accepts the request (safe
+  methods); a cookie-only POST that gets 401 is not activity.
+- **Touch granularity:** the stamp is refreshed at most every 300 s, so a
+  session may end up to five minutes before its idle window strictly would.
+- **Tests:** `KAL-AUTH-031` guard half is unit-tested against the real
+  `AuthMiddleware` class mounted on a bare Starlette app (redirect to
+  `/login?redirect_to=…&reason=idle`) and in `tests/integration/test_auth_hardening.py`;
+  the login-page line is covered by an e2e test that opens `?reason=idle`
+  directly — twelve idle hours do not fit an e2e run. `KAL-AUTH-032` is
+  covered in unit and integration tests. `spec_coverage.py` counts only
+  `tests/e2e` and `tests/integration`, hence the integration tests.
+- The existing `test_session_expired_when_ttl_disabled` now takes the
+  `fake_storage` fixture: with the idle rule on by default the guard reads
+  storage even when the TTL is off. Its assertion is unchanged.
+- Env var also listed in `docs/tech-stack.md` and the `AGENTS.md` env block.
 
 ## Implementation (filled by plan-archiver)

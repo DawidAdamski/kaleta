@@ -71,6 +71,9 @@ def register() -> None:
                 # Sent here by the code prompt when the factor it was asking
                 # for stopped existing underneath it.
                 _say(t("auth.mfa_gone"))
+            elif reason == "idle":
+                # Sent here by the auth guard after the idle window ran out.
+                _say(t("auth.reason_idle"))
 
             async def _submit() -> None:
                 _say("")

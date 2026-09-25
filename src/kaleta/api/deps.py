@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import AsyncGenerator
+from contextlib import suppress
 from typing import NoReturn, TypeVar
 
 from fastapi import Depends, Query, Request
@@ -10,7 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.auth.session import user_id_from_request
+from kaleta.auth.session import touch_session, user_id_from_request
 from kaleta.config.setup_config import is_configured
 from kaleta.db import AsyncSessionFactory
 from kaleta.exceptions import SetupRequiredError, UnauthorizedError
@@ -70,6 +71,14 @@ async def get_current_user_id(
     session_user_id = user_id_from_request(request)
     if session_user_id is not None:
         if request.method.upper() in _SAFE_METHODS:
+            # `user_id_from_request` already ran the expiry check and bound
+            # this request's storage; a rejected write below does not count
+            # as activity. Recording activity is best-effort: NiceGUI reports
+            # unusable storage as RuntimeError, KeyError or AssertionError —
+            # the same set `user_id_from_request` treats as "no session" — and
+            # none of them may turn an accepted read into a 500.
+            with suppress(RuntimeError, KeyError, AssertionError):
+                touch_session()
             return session_user_id
         _unauthorized("Bearer token required for state-changing API requests")
 

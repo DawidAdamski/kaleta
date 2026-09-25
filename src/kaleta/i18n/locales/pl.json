@@ -1974,6 +1974,7 @@
     "mfa_rate_limited": "Za dużo błędnych kodów. Spróbuj ponownie za {seconds} s.",
     "mfa_expired": "To trwało za długo. Zaloguj się ponownie.",
     "mfa_gone": "Uwierzytelnianie dwuskładnikowe zostało wyłączone. Teraz wystarczy samo hasło.",
+    "reason_idle": "Wylogowano Cię po okresie bezczynności. Zaloguj się ponownie.",
     "mfa_unreadable": "Tego drugiego składnika nie da się odczytać w tej instalacji. Uruchom `kaleta --reset-password --disable-mfa` i skonfiguruj go ponownie."
   },
   "setup": {

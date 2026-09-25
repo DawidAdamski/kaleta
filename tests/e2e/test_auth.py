@@ -2,7 +2,7 @@
 """E2E tests for Feature: Single-user authentication.
 
 Covers: KAL-AUTH-001, KAL-AUTH-002, KAL-AUTH-003, KAL-AUTH-004, KAL-AUTH-005,
-KAL-AUTH-006, KAL-AUTH-011, KAL-AUTH-012, KAL-AUTH-025
+KAL-AUTH-006, KAL-AUTH-011, KAL-AUTH-012, KAL-AUTH-025, KAL-AUTH-031
 """
 
 from __future__ import annotations
@@ -137,6 +137,20 @@ def test_guard_redirects_unauthenticated_setup(page_no_auth: Page, base_url: str
     page_no_auth.goto(f"{base_url}/setup")
 
     expect(page_no_auth).to_have_url(f"{base_url}/login?redirect_to=/setup", timeout=10000)
+
+
+def test_login_page_says_why_after_idle_sign_out(page_no_auth: Page, base_url: str) -> None:
+    """Covers: KAL-AUTH-031
+
+    The guard's half — an idle session is sent to ``?reason=idle`` — is
+    unit-tested against the real middleware; twelve idle hours do not fit in
+    an e2e run. This is the half the user sees.
+    """
+    page_no_auth.goto(f"{base_url}/login?redirect_to=/transactions&reason=idle")
+
+    expect(
+        page_no_auth.get_by_text("You were signed out after a period of inactivity. Sign in again.")
+    ).to_be_visible(timeout=10000)
 
 
 def test_api_unauthorized_without_token(base_url: str) -> None:
