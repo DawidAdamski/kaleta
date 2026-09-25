@@ -117,6 +117,31 @@ class TestMergePayees:
         names = {item["name"] for item in list_resp.json()}
         assert names == {"Keep"}
 
+    async def test_merge_with_new_name_renames_keeper(self, api_client: AsyncClient):
+        """Covers: KAL-PID-002"""
+        keep = await create_payee(api_client, name="LIDL SP. Z O.O.")
+        other = await create_payee(api_client, name="Lidl 1234 Warszawa")
+        resp = await api_client.post(
+            "/api/v1/payees/merge",
+            json={"keep_id": keep["id"], "merge_ids": [other["id"]], "new_name": "Lidl"},
+        )
+        assert resp.status_code == 200
+        list_resp = await api_client.get("/api/v1/payees/")
+        assert [(p["id"], p["name"]) for p in list_resp.json()] == [(keep["id"], "Lidl")]
+
+    async def test_merge_new_name_held_elsewhere_returns_409(self, api_client: AsyncClient):
+        keep = await create_payee(api_client, name="LIDL SP. Z O.O.")
+        other = await create_payee(api_client, name="Lidl 1234 Warszawa")
+        await create_payee(api_client, name="Lidl")
+        resp = await api_client.post(
+            "/api/v1/payees/merge",
+            json={"keep_id": keep["id"], "merge_ids": [other["id"]], "new_name": "Lidl"},
+        )
+        assert resp.status_code == 409
+        assert resp.json()["error"]["code"] == "conflict"
+        list_resp = await api_client.get("/api/v1/payees/")
+        assert len(list_resp.json()) == 3
+
     async def test_merge_empty_merge_ids_returns_422(self, api_client: AsyncClient):
         keep = await create_payee(api_client)
         resp = await api_client.post(

@@ -862,7 +862,9 @@
     "integrity_ok": "Nie znaleziono osieroconych kluczy obcych.",
     "integrity_not_sqlite": "Sprawdzanie integralności kluczy obcych jest dostępne tylko przy SQLite.",
     "integrity_violation_count": "{count} osieroconych odniesień",
-    "integrity_violation_row": "Tabela {table}, wiersz {rowid} → brak rodzica w {parent}"
+    "integrity_violation_row": "Tabela {table}, wiersz {rowid} → brak rodzica w {parent}",
+    "new_name_label": "Nowa nazwa (opcjonalnie)",
+    "new_name_placeholder": "Zostaw nazwę zachowanego wpisu"
   },
   "accounts": {
     "title": "Konta",
@@ -1232,7 +1234,9 @@
     "city": "Miasto",
     "country": "Kraj",
     "email": "E-mail",
-    "phone": "Telefon"
+    "phone": "Telefon",
+    "suggestions_heading": "Propozycje scalenia",
+    "suggestions_hint": "Ci odbiorcy wyglądają na tego samego sprzedawcę. Scalenie przenosi wszystkie transakcje na zachowanego; nadaj mu nową nazwę, jeśli żadna nie pasuje."
   },
   "forecast": {
     "title": "Prognoza",

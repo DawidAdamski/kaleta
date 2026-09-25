@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ConflictError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.transaction import TransactionType
@@ -296,6 +297,28 @@ class TestPayeeMerge:
         deleted = await payee_svc.merge(keep_id, [])
         assert deleted == 0
         assert await payee_svc.get(keep_id) is not None
+
+    async def test_merge_renames_keep_payee(self, session: AsyncSession):
+        """Covers: KAL-PID-002"""
+        payee_svc = PayeeService(session)
+        keep_id = await _make_payee(session, "LIDL SP. Z O.O.")
+        merge_id = await _make_payee(session, "Lidl 1234 Warszawa")
+
+        await payee_svc.merge(keep_id, [merge_id], new_name="Lidl")
+
+        session.expire_all()
+        keep = await payee_svc.get(keep_id)
+        assert keep is not None and keep.name == "Lidl"
+        assert await payee_svc.get(merge_id) is None
+
+    async def test_merge_new_name_taken_outside_merge_conflicts(self, session: AsyncSession):
+        payee_svc = PayeeService(session)
+        keep_id = await _make_payee(session, "LIDL SP. Z O.O.")
+        merge_id = await _make_payee(session, "Lidl 1234 Warszawa")
+        await _make_payee(session, "Lidl")
+
+        with pytest.raises(ConflictError):
+            await payee_svc.merge(keep_id, [merge_id], new_name="Lidl")
 
     async def test_merge_nonexistent_ids_skipped(self, session: AsyncSession):
         """Merge IDs that don't exist contribute 0 to the deleted count."""

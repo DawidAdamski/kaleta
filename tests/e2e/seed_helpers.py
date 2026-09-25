@@ -87,6 +87,21 @@ def seed_payee(name: str) -> int:
     return resp.json()["id"]
 
 
+def list_payees() -> list[dict[str, Any]]:
+    """Every payee, as the API returns them."""
+    resp = _client.get(f"{API_BASE}/payees/")
+    resp.raise_for_status()
+    return list(resp.json())
+
+
+def get_or_seed_payee(name: str) -> int:
+    """Return an existing payee's id by exact name, or create it."""
+    for payee in list_payees():
+        if payee["name"] == name:
+            return int(payee["id"])
+    return seed_payee(name)
+
+
 def seed_rule(pattern: str, category_id: int, *, priority: int = 0) -> int:
     """Create a categorisation rule via the service layer; return its ID."""
     import asyncio

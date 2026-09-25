@@ -7,12 +7,18 @@ from nicegui import ui
 
 from kaleta.i18n import t
 from kaleta.schemas.payee import PayeeCreate, PayeeResponse, PayeeUpdate
-from kaleta.services import PayeeService, with_session
+from kaleta.services import DedupeService, PayeeService, with_session
+from kaleta.services.dedupe_service import PayeeGroup
+from kaleta.views.components.payee_merge import MergeConfirmDialog, PayeeMergeSuggestion
+from kaleta.views.error_handling import handle_kaleta_error
 from kaleta.views.layout import page_layout
+from kaleta.views.settings.user_prefs import get_payee_dedupe_max_distance
 from kaleta.views.theme import (
     BODY_MUTED,
     DIALOG_TITLE,
     PAGE_TITLE,
+    SECTION_CARD,
+    SECTION_HEADING,
     SELECTION_BAR,
     TABLE_SURFACE,
 )
@@ -84,6 +90,7 @@ def register() -> None:
                 await with_session(_save)
                 dialog.close()
                 payees_list.refresh()
+                suggestions.refresh()
 
             with ui.row().classes("w-full justify-end gap-2 mt-1"):
                 ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
@@ -116,6 +123,7 @@ def register() -> None:
                     ui.notify(t("payees.deleted"), type="positive")
                     delete_dialog.close()
                     payees_list.refresh()
+                    suggestions.refresh()
 
                 ui.button(t("common.delete"), icon="delete", on_click=_do_delete).props(
                     "color=negative"
@@ -129,6 +137,14 @@ def register() -> None:
             ui.label(t("payees.merge_title")).classes(DIALOG_TITLE)
             ui.label(t("payees.merge_hint")).classes(BODY_MUTED)
             merge_keep_sel = ui.select({}, label=t("payees.merge_keep")).classes("w-full")
+            merge_new_name = (
+                ui.input(
+                    t("housekeeping.new_name_label"),
+                    placeholder=t("housekeeping.new_name_placeholder"),
+                )
+                .props("maxlength=200")
+                .classes("w-full")
+            )
             with ui.row().classes("w-full justify-end gap-2 mt-2"):
                 ui.button(t("common.cancel"), on_click=merge_dialog.close).props("flat")
 
@@ -138,16 +154,23 @@ def register() -> None:
                         ui.notify(t("payees.merge_keep_required"), type="negative")
                         return
                     merge_ids = [i for i in merge_state["merge_ids"] if i != keep]
+                    new_name = (merge_new_name.value or "").strip() or None
 
                     async def _merge(session: Any) -> None:
-                        await PayeeService(session).merge(keep, merge_ids)
+                        await PayeeService(session).merge(keep, merge_ids, new_name=new_name)
 
-                    await with_session(_merge)
+                    try:
+                        await with_session(_merge)
+                    except Exception as exc:
+                        if handle_kaleta_error(exc):
+                            return
+                        raise
                     ui.notify(t("payees.merged"), type="positive")
                     selected_ids.clear()
                     merge_dialog.close()
                     payees_list.refresh()
                     selection_bar.refresh()
+                    suggestions.refresh()
 
                 ui.button(t("payees.merge_confirm"), icon="merge", on_click=_do_merge).props(
                     "color=primary"
@@ -191,6 +214,7 @@ def register() -> None:
             merge_state["payee_options"] = opts
             merge_keep_sel.options = opts
             merge_keep_sel.value = next(iter(opts)) if opts else None
+            merge_new_name.set_value("")
             merge_dialog.open()
 
         # ── Selection action bar ───────────────────────────────────────────────
@@ -214,6 +238,36 @@ def register() -> None:
             _open_merge(_current_payees["list"])
 
         _current_payees: dict[str, list[PayeeResponse]] = {"list": []}
+
+        # ── Merge suggestions ──────────────────────────────────────────────────
+        def _after_suggested_merge() -> None:
+            selected_ids.clear()
+            payees_list.refresh()
+            selection_bar.refresh()
+            suggestions.refresh()
+
+        confirm = MergeConfirmDialog(on_done=_after_suggested_merge)
+        payee_max_distance = get_payee_dedupe_max_distance()
+
+        @ui.refreshable
+        async def suggestions() -> None:
+            async def _load(session: Any) -> list[PayeeGroup]:
+                return await DedupeService(session).similar_payees(
+                    payee_max_distance=payee_max_distance
+                )
+
+            groups = await with_session(_load)
+            if not groups:
+                return
+            with ui.card().classes(SECTION_CARD):
+                with ui.row().classes("w-full items-center gap-3"):
+                    ui.label(t("payees.suggestions_heading")).classes(SECTION_HEADING)
+                    ui.badge(t("housekeeping.group_count", count=len(groups))).props(
+                        "color=amber-7 rounded"
+                    )
+                ui.label(t("payees.suggestions_hint")).classes(BODY_MUTED)
+                for group in groups:
+                    PayeeMergeSuggestion(group, confirm.ask)
 
         # ── Payees list ────────────────────────────────────────────────────────
         @ui.refreshable
@@ -317,5 +371,6 @@ def register() -> None:
                     "color=primary"
                 )
 
+            await suggestions()
             selection_bar()
             await payees_list()

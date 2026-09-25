@@ -3,7 +3,10 @@
 
 Three detectors find near-duplicates the user may want to merge:
     * duplicate_transactions — same account + amount + date ± 1 day + similar desc
-    * similar_payees        — normalised-name collisions + Levenshtein ≤ 2
+    * similar_payees        — normalised-name collisions, shared core name (legal
+                              form, store numbers and city stripped) or a
+                              whole-token prefix of it, then Levenshtein
+                              (≤ 2 for short names, ≤ 3 for long ones)
     * redundant_categories  — empty categories whose names collide with another
 
 Merge methods reassign every foreign-key reference to the "keeper" row and
@@ -30,6 +33,7 @@ from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.reserve_fund import ReserveFund
 from kaleta.models.subscription import Subscription
 from kaleta.models.transaction import Transaction, TransactionSplit
+from kaleta.services.payee_service import PayeeService
 
 # ── Tunables ──────────────────────────────────────────────────────────────────
 
@@ -40,6 +44,76 @@ DUPLICATE_TX_SCAN_DAYS = 365
 PAYEE_LEVENSHTEIN_SHORT_NAME_MAX = 10
 PAYEE_LEVENSHTEIN_SHORT_THRESHOLD = 2
 PAYEE_LEVENSHTEIN_LONG_THRESHOLD = 3
+# A core name shorter than this is too generic to group on ("ab", "sa").
+PAYEE_CORE_MIN_LENGTH = 3
+# A core may absorb longer names it is a whole-token prefix of ("lidl" takes
+# "lidl sklep") only from this length on — below it prefixes are noise.
+PAYEE_CORE_PREFIX_MIN_LENGTH = 4
+
+# Legal-form suffixes, as normalised token runs ("SP. Z O.O." → sp z o o).
+# Longest first, so "sp z o o" is stripped before a bare "sp" could be.
+_LEGAL_FORM_RUNS: tuple[tuple[str, ...], ...] = tuple(
+    sorted(
+        (
+            ("spolka", "z", "ograniczona", "odpowiedzialnoscia"),
+            ("spolka", "akcyjna"),
+            ("spolka", "komandytowa"),
+            ("spolka", "jawna"),
+            ("spolka", "cywilna"),
+            ("sp", "z", "o", "o"),
+            ("sp", "z", "oo"),
+            ("sp", "zoo"),
+            ("sp", "k"),
+            ("sp", "j"),
+            ("sp", "p"),
+            ("s", "a"),
+            ("s", "c"),
+            ("spzoo",),
+            ("gmbh",),
+            ("ltd",),
+            ("llc",),
+            ("inc",),
+            ("plc",),
+            ("bv",),
+        ),
+        key=len,
+        reverse=True,
+    )
+)
+# Location noise bank exports append to a merchant: the country and the
+# largest Polish cities, in both spellings a bank tends to write them.
+_LOCATION_TOKENS: frozenset[str] = frozenset(
+    {
+        "pl",
+        "pol",
+        "polska",
+        "poland",
+        "warszawa",
+        "warsaw",
+        "krakow",
+        "lodz",
+        "wroclaw",
+        "poznan",
+        "gdansk",
+        "szczecin",
+        "bydgoszcz",
+        "lublin",
+        "bialystok",
+        "katowice",
+        "gdynia",
+        "czestochowa",
+        "radom",
+        "torun",
+        "sosnowiec",
+        "kielce",
+        "rzeszow",
+        "gliwice",
+        "zabrze",
+        "olsztyn",
+        "opole",
+        "sopot",
+    }
+)
 
 
 # ── Group shapes ─────────────────────────────────────────────────────────────
@@ -219,7 +293,29 @@ class DedupeService:
             for p in bucket:
                 used.add(p.id)
 
-        # Pass 2: Levenshtein pairs among the remainder. Pre-normalise once
+        # Pass 2: shared core name, or one core a whole-token prefix of another.
+        # "LIDL SP. Z O.O." and "Lidl 1234 Warszawa" both reduce to "lidl" —
+        # an edit distance can never see that, the lengths differ too much.
+        cores = [(p, _core_tokens(p.name)) for p in payees if p.id not in used]
+        cores = [(p, c) for p, c in cores if len(" ".join(c)) >= PAYEE_CORE_MIN_LENGTH]
+        # Shortest core first, so it gathers the longer names it prefixes.
+        cores.sort(key=lambda pc: (len(pc[1]), pc[0].name))
+        for i, (a, core_a) in enumerate(cores):
+            if a.id in used:
+                continue
+            prefix_ok = len(" ".join(core_a)) >= PAYEE_CORE_PREFIX_MIN_LENGTH
+            cluster = [a]
+            for b, core_b in cores[i + 1 :]:
+                if b.id in used:
+                    continue
+                if core_b == core_a or (prefix_ok and core_b[: len(core_a)] == core_a):
+                    cluster.append(b)
+            if len(cluster) >= 2:
+                for m in cluster:
+                    used.add(m.id)
+                groups.append(_make_payee_group(cluster, counts))
+
+        # Pass 3: Levenshtein pairs among the remainder. Pre-normalise once
         # and skip the inner normalise calls — avoids O(n²) diacritics work.
         remaining = [p for p in payees if p.id not in used]
         norm_cache: list[tuple[Payee, str]] = [(p, _normalise_name(p.name)) for p in remaining]
@@ -240,11 +336,29 @@ class DedupeService:
                 groups.append(_make_payee_group(cluster, counts))
         return groups
 
-    async def merge_payees(self, *, keeper_id: int, other_ids: builtins.list[int]) -> int:
-        """Reassign every FK reference to keeper, delete the other payees."""
+    async def merge_payees(
+        self,
+        *,
+        keeper_id: int,
+        other_ids: builtins.list[int],
+        new_name: str | None = None,
+    ) -> int:
+        """Reassign every FK reference to keeper, delete the other payees.
+
+        ``new_name`` renames the keeper in the same commit ("LIDL SP. Z O.O."
+        and "Lidl 1234 Warszawa" become "Lidl"). It may reuse a merged
+        payee's name; a name held by a payee outside the merge is a conflict.
+        Blank means keep the keeper's current name.
+        """
         victims = [oid for oid in other_ids if oid != keeper_id]
         if not victims:
             return 0
+        name = (new_name or "").strip()
+        keeper: Payee | None = None
+        if name:
+            keeper = await PayeeService(self.session).check_merge_name(
+                name, keeper_id=keeper_id, merged_ids=victims
+            )
         # Reassign Transaction.payee_id
         await self.session.execute(
             update(Transaction).where(Transaction.payee_id.in_(victims)).values(payee_id=keeper_id)
@@ -259,6 +373,11 @@ class DedupeService:
         result = await self.session.execute(select(Payee).where(Payee.id.in_(victims)))
         for p in result.scalars().all():
             await self.session.delete(p)
+        if keeper is not None and keeper.name != name:
+            # Flush the deletes first: the unit of work runs updates before
+            # deletes, so taking a merged payee's name would trip UNIQUE.
+            await self.session.flush()
+            keeper.name = name
         await self.session.commit()
         return len(victims)
 
@@ -380,6 +499,32 @@ def _normalise_name(name: str) -> str:
     stripped = "".join(ch for ch in nfkd if not unicodedata.combining(ch))
     alnum = re.sub(r"[^a-z0-9 ]+", " ", stripped.lower())
     return re.sub(r"\s+", " ", alnum).strip()
+
+
+def _core_tokens(name: str) -> tuple[str, ...]:
+    """The merchant behind a payee name, as normalised tokens.
+
+    Drops what banks and registries bolt on around the brand: legal-form
+    suffixes ("sp. z o.o.", "S.A.", "GmbH"), any token carrying a digit
+    (store numbers, terminal ids) and location words (country, big cities).
+    """
+    tokens = _normalise_name(name).split()
+    kept: list[str] = []
+    i = 0
+    while i < len(tokens):
+        run = next(
+            (r for r in _LEGAL_FORM_RUNS if tuple(tokens[i : i + len(r)]) == r),
+            None,
+        )
+        if run is not None:
+            i += len(run)
+            continue
+        token = tokens[i]
+        i += 1
+        if any(ch.isdigit() for ch in token) or token in _LOCATION_TOKENS:
+            continue
+        kept.append(token)
+    return tuple(kept)
 
 
 def _descriptions_look_alike(a: str, b: str) -> bool:

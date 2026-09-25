@@ -643,13 +643,13 @@ Feature: Payee Identities
   I want similar payee names detected and merged
   So that I can see how much I really pay to each institution
 
-  KAL-PID-001 @planned
+  KAL-PID-001 @automated
   Scenario: System suggests merging similarly named payees
     Given payees "LIDL SP. Z O.O." and "Lidl 1234 Warszawa" exist
     When I open the Payees page
     Then I see a merge suggestion grouping the two payees
 
-  KAL-PID-002 @planned
+  KAL-PID-002 @automated
   Scenario: Accepting a merge suggestion rewrites history
     Given a merge suggestion for "LIDL SP. Z O.O." and "Lidl 1234 Warszawa"
     When I accept the suggestion and keep the name "Lidl"

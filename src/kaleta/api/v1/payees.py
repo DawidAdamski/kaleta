@@ -113,9 +113,14 @@ async def delete_payee(
     summary="Merge payees",
     description=(
         "Reassigns all transactions from `merge_ids` to `keep_id`, then deletes the merged payees. "
-        "`keep_id` must not appear in `merge_ids`."
+        "`keep_id` must not appear in `merge_ids`. An optional `new_name` renames the kept "
+        "payee in the same merge; it may reuse a merged payee's name."
     ),
-    responses={**_404, 400: {"description": "keep_id in merge_ids or not found"}},
+    responses={
+        **_404,
+        400: {"description": "keep_id in merge_ids or not found"},
+        409: {"description": "new_name is held by a payee outside the merge"},
+    },
 )
 async def merge_payees(
     data: PayeeMerge,
@@ -126,5 +131,5 @@ async def merge_payees(
         raise HTTPException(status_code=400, detail="keep_id must not be in merge_ids")
     if not await svc.get(data.keep_id):
         raise HTTPException(status_code=404, detail="Payee not found")
-    deleted = await svc.merge(data.keep_id, data.merge_ids)
+    deleted = await svc.merge(data.keep_id, data.merge_ids, new_name=data.new_name)
     return {"deleted": deleted}

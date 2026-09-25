@@ -862,7 +862,9 @@
     "integrity_ok": "No foreign-key orphans found.",
     "integrity_not_sqlite": "Foreign-key integrity check is only available when using SQLite.",
     "integrity_violation_count": "{count} orphan reference(s)",
-    "integrity_violation_row": "Table {table}, row {rowid} → missing parent in {parent}"
+    "integrity_violation_row": "Table {table}, row {rowid} → missing parent in {parent}",
+    "new_name_label": "New name (optional)",
+    "new_name_placeholder": "Keep the keeper's name"
   },
   "accounts": {
     "title": "Accounts",
@@ -1232,7 +1234,9 @@
     "city": "City",
     "country": "Country",
     "email": "E-mail",
-    "phone": "Phone"
+    "phone": "Phone",
+    "suggestions_heading": "Merge suggestions",
+    "suggestions_hint": "These payees look like the same merchant. Merging moves every transaction to the one you keep; give it a new name if neither fits."
   },
   "forecast": {
     "title": "Forecast",
