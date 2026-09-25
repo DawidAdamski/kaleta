@@ -663,7 +663,14 @@
     "deleted": "Subskrypcja usunięta.",
     "confirm_delete_title": "Usunąć subskrypcję?",
     "confirm_delete_body": "„{name}” zostanie trwale usunięta. Historyczne opłaty pozostaną w transakcjach.",
-    "confirm_delete_confirm": "Usuń"
+    "confirm_delete_confirm": "Usuń",
+    "cancelled_heading": "Anulowane",
+    "cancels_on": "Anulowana od {date}",
+    "cancel_dialog_title": "Anuluj subskrypcję",
+    "cancel_dialog_date": "Anulowana od dnia",
+    "cancel_dialog_hint": "Przy dacie w przyszłości subskrypcja pozostaje aktywna i liczona w sumie miesięcznej do tego dnia.",
+    "cancel_dialog_confirm": "Anuluj subskrypcję",
+    "cancel_dialog_date_required": "Wybierz datę, od której anulowanie obowiązuje."
   },
   "monthly_readiness": {
     "title": "Gotowość miesięczna",

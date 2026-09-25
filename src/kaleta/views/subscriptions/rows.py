@@ -135,6 +135,8 @@ def _render_sub_row_subtitle(sub: SubscriptionResponse) -> None:
         parts.append(t("subscriptions.muted_until", date=fmt_date(sub.muted_until)))
     elif sub.status.value == "cancelled" and sub.cancelled_at:
         parts.append(t("subscriptions.cancelled_on", date=fmt_date(sub.cancelled_at)))
+    elif sub.cancelled_at:
+        parts.append(t("subscriptions.cancels_on", date=fmt_date(sub.cancelled_at)))
     elif sub.next_expected_at:
         parts.append(fmt_date(sub.next_expected_at))
     ui.label(" · ".join(parts)).classes("text-xs text-slate-500")

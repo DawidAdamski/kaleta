@@ -7,6 +7,7 @@ import datetime
 from decimal import Decimal
 
 from kaleta.i18n import t
+from kaleta.services.subscription_service import MONTHLY_CADENCE_RANGE, YEARLY_CADENCE_RANGE
 
 
 def fmt_amount(amount: Decimal) -> str:
@@ -18,9 +19,9 @@ def fmt_date(value: datetime.date | None) -> str:
 
 
 def cadence_label(days: int) -> str:
-    if 27 <= days <= 33:
+    if days in MONTHLY_CADENCE_RANGE:
         return t("subscriptions.detector_cadence_monthly")
-    if 350 <= days <= 380:
+    if days in YEARLY_CADENCE_RANGE:
         return t("subscriptions.detector_cadence_yearly")
     return f"{days}d"
 

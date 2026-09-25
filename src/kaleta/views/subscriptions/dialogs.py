@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import asyncio
+import datetime
 from collections.abc import Awaitable, Callable
 from typing import Any
 
@@ -108,6 +109,20 @@ def build_subscription_dialogs(
             confirm_delete_btn = ui.button(
                 t("subscriptions.confirm_delete_confirm"), icon="delete"
             ).props("color=negative unelevated")
+
+    with ui.dialog() as cancel_dialog, ui.card().classes("w-[440px] gap-3"):
+        ui.label(t("subscriptions.cancel_dialog_title")).classes("text-lg font-bold")
+        cancel_date_in = (
+            ui.input(label=t("subscriptions.cancel_dialog_date"))
+            .props("dense outlined type=date")
+            .classes("w-full")
+        )
+        ui.label(t("subscriptions.cancel_dialog_hint")).classes(BODY_MUTED)
+        with ui.row().classes("w-full justify-end gap-2 mt-2"):
+            ui.button(t("common.cancel"), on_click=cancel_dialog.close).props("flat")
+            confirm_cancel_btn = ui.button(
+                t("subscriptions.cancel_dialog_confirm"), icon="event_busy"
+            ).props("color=amber-8 unelevated")
 
     with ui.dialog() as confirm_dialog, ui.card().classes("w-[480px] gap-3"):
         ui.label(t("subscriptions.confirm_title")).classes("text-lg font-bold")
@@ -270,13 +285,31 @@ def build_subscription_dialogs(
         ui.notify(t("subscriptions.muted"), type="positive")
         ui.navigate.reload()
 
+    pending_cancel: dict[str, int] = {"id": 0}
+
     async def cancel(sub_id: int) -> None:
+        pending_cancel["id"] = sub_id
+        cancel_date_in.set_value(datetime.date.today().isoformat())
+        cancel_dialog.open()
+
+    async def confirm_cancel() -> None:
+        try:
+            effective_on = datetime.date.fromisoformat(cancel_date_in.value or "")
+        except ValueError:
+            ui.notify(t("subscriptions.cancel_dialog_date_required"), type="negative")
+            return
+
         async def _cancel(session: Any) -> None:
-            await SubscriptionService(session).cancel(sub_id)
+            await SubscriptionService(session).cancel(
+                pending_cancel["id"], effective_on=effective_on
+            )
 
         await with_session(_cancel)
+        cancel_dialog.close()
         ui.notify(t("subscriptions.cancelled"), type="positive")
         ui.navigate.reload()
+
+    confirm_cancel_btn.on_click(confirm_cancel)
 
     async def reactivate(sub_id: int) -> None:
         async def _reactivate(session: Any) -> None:
