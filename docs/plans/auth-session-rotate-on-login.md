@@ -180,6 +180,13 @@ Out of scope:
   next login rotates it. That id is no longer authenticated, and the next
   login moves the browser anyway. Rotating there would need the middleware
   to rewrite the cookie on a redirect response, and the plan's scope covers
-  only the logout button.
+  only the logout button. The same residual id is left if a logout's
+  navigation reaches the route after the 60 s nonce has lapsed. The
+  session is already ended by then (`finish_logout()` cleared it over the
+  websocket), and the next login rotates the id.
+- **DoD gate attempt 2** failed `test_mfa` and `test_quick_entry` while my
+  own `verify.sh --e2e` was still running on the same shared e2e port. Both
+  passed on their own (test_mfa twice), and the standalone
+  `verify.sh --e2e` passed with 191 tests.
 
 ## Implementation (filled by plan-archiver)
