@@ -3118,6 +3118,25 @@ Feature: Two-factor authentication
     And the cookie carries SameSite=Lax
     And the cookie's Max-Age is 259200 seconds
     And with KALETA_DEBUG=true the startup log warns that login needs TLS
+
+  KAL-AUTH-031 @automated
+  Scenario: A session left idle longer than the idle window is signed out
+    Given KALETA_SESSION_IDLE_HOURS is 12
+    And KALETA_SESSION_TTL_HOURS is 72
+    And I signed in 13 hours ago and have made no request since
+    When I open a protected page
+    Then I am redirected to "/login?reason=idle"
+    And the sign-in page says "You were signed out after a period of inactivity. Sign in again."
+
+  KAL-AUTH-032 @automated
+  Scenario: Activity inside the idle window keeps the session alive up to the absolute TTL
+    Given KALETA_SESSION_IDLE_HOURS is 12
+    And KALETA_SESSION_TTL_HOURS is 72
+    And I signed in 30 hours ago
+    And my last request was 11 hours ago
+    When I open a protected page
+    Then the session is still valid
+    But once I signed in 73 hours ago, recent activity no longer keeps it valid
 ```
 
 ## Feature: Demo instance

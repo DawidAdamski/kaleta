@@ -157,6 +157,7 @@ KALETA_DEBUG=false                    # Debug mode; allows placeholder secret ke
 KALETA_API_TOKEN=...                  # Bootstrap bearer for headless API (≥16 chars);
                                       # creates locked user `api` on startup if needed
 KALETA_SESSION_TTL_HOURS=72           # UI session TTL; 0 disables
+KALETA_SESSION_IDLE_HOURS=12          # UI idle timeout; 0 disables, capped at TTL
 KALETA_BACKUP_ENABLED=true            # Scheduled SQLite VACUUM INTO backups
 KALETA_BACKUP_INTERVAL_HOURS=24       # Hours between scheduled backups
 KALETA_BACKUP_RETAIN=7                # Keep last K on-disk .db snapshots
