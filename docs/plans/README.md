@@ -221,7 +221,7 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 | [payees-merge-suggestions-gaps](payees-merge-suggestions-gaps.md) | #1 PID | small | draft | — |
 | [subscriptions-panel-gaps](subscriptions-panel-gaps.md) | #8 SUB | small | draft | — |
 | [transactions-quick-entry-flow](transactions-quick-entry-flow.md) | #2 QIK | small | draft | — |
-| [funds-reserve-derived-target](funds-reserve-derived-target.md) | #13 FND | small | draft | — |
+| [funds-reserve-derived-target](archive/funds-reserve-derived-target.md) | archived | small | draft | — |
 | [debts-ledger-link](debts-ledger-link.md) | #14 DBT | medium | draft | — |
 | [recurring-to-planned](recurring-to-planned.md) | #7 REC | medium | draft | — |
 | [budgets-plan-comparisons-gaps](budgets-plan-comparisons-gaps.md) | #6 CMP | medium | draft | coordinate with budgets-plan-unification |
