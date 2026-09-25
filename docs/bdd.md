@@ -861,7 +861,7 @@ Feature: Quick Entry
   I want a keyboard-first, low-friction entry flow
   So that entering transactions regularly does not wear me down
 
-  KAL-QIK-001 @planned
+  KAL-QIK-001 @automated
   Scenario: Add an expense using the keyboard only
     Given I am on the Transactions page
     When I press the "new transaction" shortcut
@@ -869,13 +869,13 @@ Feature: Quick Entry
     And I press Enter to save
     Then the transaction is saved without any mouse interaction
 
-  KAL-QIK-002 @planned
+  KAL-QIK-002 @automated
   Scenario: Quick entry remembers the previous context
     Given I have just saved a transaction for account "mBank" dated 2026-07-05
     When the entry form reopens
     Then "mBank" and 2026-07-05 are preselected
 
-  KAL-QIK-003 @planned
+  KAL-QIK-003 @automated
   Scenario: Batch entry keeps the form open
     Given I am entering my weekly backlog of receipts
     When I save a transaction with "save and add next"
