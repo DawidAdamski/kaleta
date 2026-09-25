@@ -86,3 +86,7 @@ Gap-closing plan for issue #1 (`KAL-PID-001`, `KAL-PID-002`), from
   merging it would break PID-003 if it ran later. That test's payee is renamed
   to "Kaufland PID E2E" (test-only change; the scenario names no merchant).
   The new tests use `get_or_seed_payee`, so they pass in either order.
+  Rule 4: the green-washing check flags "assertions removed" in
+  `tests/e2e/test_payee_identities.py` — those lines are the same PID-003
+  assertions with the literal and variable renamed (`lidl_*` → `kaufland_*`,
+  one long `assert` wrapped by the formatter); none was dropped or loosened.
