@@ -5,7 +5,8 @@ Three detectors find near-duplicates the user may want to merge:
     * duplicate_transactions — same account + amount + date ± 1 day + similar desc
     * similar_payees        — normalised-name collisions, shared core name (legal
                               form, store numbers and city stripped) or a
-                              whole-token prefix of it, then Levenshtein ≤ 2
+                              whole-token prefix of it, then Levenshtein
+                              (≤ 2 for short names, ≤ 3 for long ones)
     * redundant_categories  — empty categories whose names collide with another
 
 Merge methods reassign every foreign-key reference to the "keeper" row and
