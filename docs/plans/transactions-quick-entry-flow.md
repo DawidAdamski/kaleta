@@ -69,6 +69,12 @@ Gap-closing plan for issue #2 (`KAL-QIK-001`…`003`), from
   describe one receipt. A stale category would also block the payee
   autofill, which only fills an empty category. Type, account and date
   carry over. Focus returns to the amount.
+  For a transfer, the destination account carries over too: a run of
+  transfers repeats the same pair of accounts, and closing the dialog still
+  clears it (`_reset_dialog`).
+- **Module placement:** `quick_entry.py` sits under `views/` next to
+  `views/settings/user_prefs.py`. It holds per-user UI state in
+  `app.storage.user`, with no DB access, so it is not service logic.
 - **Reset on close:** `_reset_dialog` now clears amount and description
   deliberately (it used to leave them to the next open).
 - **E2e isolation:** the suite shares one browser storage state, so the
