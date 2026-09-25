@@ -97,6 +97,9 @@ kaleta/
 │   │   ├── wizard_projection_service.py  # WizardProjectionService: get_budget_builder_sources(year), get_payment_calendar_sources(start, end) — read-only cross-panel projections
 │   │   └── mfa_service.py   # MfaService: TOTP enrolment/verification (replay-guarded), recovery codes, disable
 │   ├── api/                 # REST API endpoints (v1/); v1/auth.py exposes GET /api/v1/auth/mfa (status only)
+│   ├── auth/                # UI session auth: route guard, session helpers, rate limits
+│   │   ├── session.py       # app.storage.user keys; finish_login/finish_logout stamp a 60 s nonce, rotate_session_id() moves the browser to a new storage id
+│   │   └── routes.py        # GET /auth/session/rotate — consumes the nonce, rotates the id, completes login/logout, redirects
 │   └── views/               # NiceGUI UI pages
 │       ├── layout.py        # Shared layout, nav, dark mode toggle
 │       ├── chart_utils.py   # ECharts dark mode helpers

@@ -3,7 +3,7 @@
 
 Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
 Covers: KAL-AUTH-016, KAL-AUTH-019, KAL-AUTH-020
-Covers: KAL-AUTH-022
+Covers: KAL-AUTH-022, KAL-AUTH-026
 
 One test, not four: enrolling changes how every later login on this shared
 instance behaves, so the whole life of a second factor — set up, sign in with
@@ -16,12 +16,13 @@ from __future__ import annotations
 import time
 from collections.abc import Generator
 
+import httpx
 import pyotp
 import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e import seed_helpers
-from tests.e2e.conftest import E2E_PASSWORD, E2E_USERNAME
+from tests.e2e.conftest import E2E_PASSWORD, E2E_USERNAME, session_cookie, storage_id
 
 TOTP_INTERVAL = 30
 
@@ -117,7 +118,7 @@ def test_two_factor_authentication(
 ) -> None:
     """Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
     Covers: KAL-AUTH-016, KAL-AUTH-019, KAL-AUTH-020
-    Covers: KAL-AUTH-022
+    Covers: KAL-AUTH-022, KAL-AUTH-026
     """
     secret, codes = enrol(page)
 
@@ -146,6 +147,7 @@ def test_two_factor_authentication(
     page_no_auth.get_by_role("button", name="Verify").click()
     expect(page_no_auth.get_by_text("That code is not right.")).to_be_visible(timeout=10000)
 
+    at_prompt = session_cookie(page_no_auth.context)
     code_field.fill(next_totp(secret))
     page_no_auth.get_by_role("button", name="Verify").click()
     # Wait for where it lands, not merely for it to leave: "no longer the code
@@ -153,6 +155,18 @@ def test_two_factor_authentication(
     # cookie this next line asks about is not in the jar yet at that instant.
     expect(page_no_auth).to_have_url(f"{base_url}/", timeout=15000)
     assert guard.get(f"{base_url}/transactions", max_redirects=0).status == 200
+
+    # KAL-AUTH-026 — the code finishes the login under a new id; the one the
+    # browser sat at the prompt with (password accepted) opens nothing.
+    signed_in = session_cookie(page_no_auth.context)
+    assert storage_id(signed_in) != storage_id(at_prompt)
+    stale = httpx.get(
+        f"{base_url}/transactions",
+        cookies={"kaleta_session": at_prompt},
+        follow_redirects=False,
+        timeout=10.0,
+    )
+    assert stale.is_redirect and "/login" in stale.headers["location"]
 
     # KAL-AUTH-015 — a recovery code gets in once, and only once.
     page_no_auth.context.clear_cookies()

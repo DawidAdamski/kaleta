@@ -120,6 +120,65 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Login is completed under the new id, not the old one.** The plan's
+  sketch stamps the auth keys into the old bucket and lets the snapshot
+  carry them across. That leaves the fixated id authenticated for one
+  round-trip (and forever, if the navigation never happens). Instead
+  `finish_login()` parks `rotate_user_id` / `rotate_username` /
+  `rotate_mfa_verified` beside the nonce; the route calls
+  `login_session()` (and `mark_mfa_verified()` after a code) only after
+  `rotate_session_id()`. The nonce still carries no user data. So the
+  pre-login id is never authenticated at all, which is stronger than
+  KAL-AUTH-026 asks.
+- **The nonce travels in the URL** (`?nonce=…`), and the route compares it
+  against the bucket with `secrets.compare_digest`. Without that, anyone
+  holding the planted cookie could fire the route themselves. A match is
+  spent even when it turns out stale or for the wrong purpose. A mismatch
+  leaves the stored nonce alone, so a guess can't cancel a real login.
+- **Purpose-bound nonces.** `rotate_purpose` is `login` or `logout`, and
+  `?logout=1` must agree with it. A logout nonce can't finish a login, and
+  the route can't be used as a no-nonce CSRF logout.
+- **Logout ends the session in the handler.** `finish_logout()` calls
+  `logout_session()` over the websocket first, then stamps the nonce. The
+  session is over even if the navigation to the route never happens.
+  The route only moves the id.
+- **Snapshot filter** drops every auth key (`_AUTH_KEYS`: authenticated,
+  user id/name, login/last-seen stamps, `mfa_verified_at`, all
+  `mfa_pending_*`) plus the rotation keys. Everything else is a
+  preference and moves. Open question 2 is resolved: `/login/mfa` reads the
+  `mfa_pending_*` keys only *before* the code is accepted.
+  `finish_login` clears them, and after rotation `is_authenticated()` sends
+  `/login/mfa` straight to the target, so nothing needs them post-login.
+- **Open question 1 (60 s window)**: kept the default, 60 s
+  (`ROTATE_NONCE_TTL_SECONDS`).
+- **NiceGUI internals.** `rotate_session_id()` must call
+  `app.storage._create_user_storage(new_id)` before touching
+  `app.storage.user`. `Storage.user` asserts the bucket exists, and only
+  `RequestTrackingMiddleware` creates buckets, at the start of a request.
+  `tests/unit/auth/test_session_rotation.py` runs the real route behind
+  the real `RequestTrackingMiddleware` + `SessionMiddleware` on a
+  file-backed `Storage`, so a NiceGUI change to either behaviour fails
+  there (checked against NiceGUI 3.17.1). The new bucket can't be pruned
+  before the redirect lands: `prune_user_storage` only unloads buckets
+  older than 10 s, and it reloads them from disk on the next request anyway.
+- **Cookie comparison compares the id, not the raw value.** Starlette
+  re-signs `kaleta_session` with a fresh timestamp on every response, so
+  the raw value changes on each request whether or not the session moved.
+  The tests decode the id from the payload (`tests/e2e/conftest.py:
+  storage_id`). The scenarios say "storage id in my cookie" for that reason.
+- **Preference survival (KAL-AUTH-027)** is checked by signing in again
+  and finding `body.body--dark`. The auth pages don't render the theme,
+  so it can't be seen on `/login` itself.
+- **`safe_redirect` moved to `kaleta/auth/redirects.py`** (from
+  `views/auth_common.py`). The route is in the auth layer and must validate
+  `redirect_to`, and the layers contract forbids auth → views. Callers
+  (`login.py`, `login_mfa.py`, its unit test) import it from the new place.
+  The behaviour is unchanged.
+- **Not changed, still in scope's spirit:** a session ended by the TTL or
+  idle guard in `AuthMiddleware` is logged out but keeps its id until the
+  next login rotates it. That id is no longer authenticated, and the next
+  login moves the browser anyway. Rotating there would need the middleware
+  to rewrite the cookie on a redirect response, and the plan's scope covers
+  only the logout button.
 
 ## Implementation (filled by plan-archiver)

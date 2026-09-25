@@ -2,7 +2,8 @@
 """E2E tests for Feature: Single-user authentication.
 
 Covers: KAL-AUTH-001, KAL-AUTH-002, KAL-AUTH-003, KAL-AUTH-004, KAL-AUTH-005,
-KAL-AUTH-006, KAL-AUTH-011, KAL-AUTH-012, KAL-AUTH-025, KAL-AUTH-031
+KAL-AUTH-006, KAL-AUTH-011, KAL-AUTH-012, KAL-AUTH-025, KAL-AUTH-026,
+KAL-AUTH-027, KAL-AUTH-031
 """
 
 from __future__ import annotations
@@ -27,6 +28,8 @@ from tests.e2e.conftest import (
     _terminate_process,
     _wait_for_server,
     _write_kaleta_config,
+    session_cookie,
+    storage_id,
 )
 
 # Its own port: 8081 is the shared e2e server, 8082 the demo-banner one.
@@ -151,6 +154,57 @@ def test_login_page_says_why_after_idle_sign_out(page_no_auth: Page, base_url: s
     expect(
         page_no_auth.get_by_text("You were signed out after a period of inactivity. Sign in again.")
     ).to_be_visible(timeout=10000)
+
+
+def _sent_to_login(base_url: str, raw_cookie: str) -> bool:
+    """Whether a data page, asked for with exactly this cookie, bounces to login."""
+    resp = httpx.get(
+        f"{base_url}/transactions",
+        cookies={"kaleta_session": raw_cookie},
+        follow_redirects=False,
+        timeout=10.0,
+    )
+    return resp.is_redirect and "/login" in resp.headers["location"]
+
+
+def _sign_in(page: Page, base_url: str) -> None:
+    page.get_by_label("Username", exact=True).fill(E2E_USERNAME)
+    page.get_by_label("Password", exact=True).fill(E2E_PASSWORD)
+    page.get_by_role("button", name="Log in").click()
+    # Where it lands, not merely that it left: the rotated cookie is set by
+    # the redirect in between, and is in the jar only once `/` has loaded.
+    expect(page).to_have_url(f"{base_url}/", timeout=15000)
+
+
+def test_login_and_logout_rotate_the_session_id(page_no_auth: Page, base_url: str) -> None:
+    """Covers: KAL-AUTH-026, KAL-AUTH-027"""
+    page = page_no_auth
+    page.goto(f"{base_url}/login")
+    expect(page.get_by_label("Username", exact=True)).to_be_visible(timeout=10000)
+    before_login = session_cookie(page.context)
+
+    # KAL-AUTH-026 — a new id, and the one from before the password opens nothing.
+    _sign_in(page, base_url)
+    signed_in = session_cookie(page.context)
+    assert storage_id(signed_in) != storage_id(before_login)
+    assert _sent_to_login(base_url, before_login)
+    assert not _sent_to_login(base_url, signed_in)
+
+    dark_toggle = page.locator(".q-btn").filter(has=page.locator("i", has_text="dark_mode"))
+    dark_toggle.click()
+    expect(page.locator("body.body--dark")).to_have_count(1, timeout=10000)
+
+    # KAL-AUTH-027 — signing out moves the browser again and ends the old id.
+    page.locator(".k-avatar").click()
+    page.locator(".q-menu").get_by_text("Log out", exact=True).click()
+    expect(page).to_have_url(f"{base_url}/login", timeout=15000)
+    signed_out = session_cookie(page.context)
+    assert storage_id(signed_out) != storage_id(signed_in)
+    assert _sent_to_login(base_url, signed_in)
+
+    # …and the preference came along both times.
+    _sign_in(page, base_url)
+    expect(page.locator("body.body--dark")).to_have_count(1, timeout=10000)
 
 
 def test_api_unauthorized_without_token(base_url: str) -> None:
