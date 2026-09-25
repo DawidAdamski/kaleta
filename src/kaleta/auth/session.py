@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from nicegui import app
 from starlette.requests import Request
@@ -31,6 +31,17 @@ SESSION_AUTHENTICATED = "authenticated"
 SESSION_USER_ID = "user_id"
 SESSION_USERNAME = "username"
 SESSION_LOGIN_AT = "login_at"
+#: When this session last made a request, for the idle timeout.
+SESSION_LAST_SEEN_AT = "last_seen_at"
+
+#: ``touch_session()`` rewrites the activity stamp at most this often. Every
+#: write to ``app.storage.user`` is a file write, so a busy session costs one
+#: per five minutes rather than one per request — and may therefore end up to
+#: five minutes before its idle window strictly would.
+IDLE_TOUCH_INTERVAL_SECONDS = 300
+
+#: Why ``session_expiry_reason()`` ended a session.
+SessionExpiry = Literal["ttl", "idle"]
 
 #: A password was accepted but the second factor has not been given yet. The
 #: session deliberately carries no ``SESSION_AUTHENTICATED`` while this is set,
@@ -66,7 +77,18 @@ def login_session(*, user_id: int, username: str) -> None:
     app.storage.user[SESSION_AUTHENTICATED] = True
     app.storage.user[SESSION_USER_ID] = user_id
     app.storage.user[SESSION_USERNAME] = username
-    app.storage.user[SESSION_LOGIN_AT] = datetime.now(UTC).isoformat()
+    now = datetime.now(UTC).isoformat()
+    app.storage.user[SESSION_LOGIN_AT] = now
+    app.storage.user[SESSION_LAST_SEEN_AT] = now
+
+
+def touch_session() -> None:
+    """Record activity, unless the stamp is younger than the touch interval."""
+    last_seen = _stamp(app.storage.user.get(SESSION_LAST_SEEN_AT))
+    now = datetime.now(UTC)
+    if last_seen is not None and now - last_seen <= timedelta(seconds=IDLE_TOUCH_INTERVAL_SECONDS):
+        return
+    app.storage.user[SESSION_LAST_SEEN_AT] = now.isoformat()
 
 
 def logout_session() -> None:
@@ -75,6 +97,7 @@ def logout_session() -> None:
         SESSION_USER_ID,
         SESSION_USERNAME,
         SESSION_LOGIN_AT,
+        SESSION_LAST_SEEN_AT,
         SESSION_MFA_VERIFIED_AT,
         *_MFA_PENDING_KEYS,
     ):
@@ -164,7 +187,31 @@ def clear_session() -> None:
 
 
 def session_expired() -> bool:
-    """True when session TTL is enabled and the login timestamp is too old."""
+    """True when the session outlived its absolute TTL or its idle window."""
+    return session_expiry_reason() is not None
+
+
+def session_expiry_reason() -> SessionExpiry | None:
+    """Which limit ended the session, or ``None`` while it is still good.
+
+    The absolute TTL is checked first: a session past both is a TTL expiry.
+
+    The two rules treat a missing stamp differently, on purpose. A session
+    with no login time is expired — the TTL rule bounds how long a stolen
+    cookie stays good, and a cookie that cannot say when it was issued must
+    not be trusted to be young. A session with no activity time (signed in
+    before the idle timeout shipped) is treated as fresh once and stamped
+    now: the idle rule only bounds an unattended screen, and a missing
+    activity stamp says nothing about whether anyone is sitting at it.
+    """
+    if _ttl_expired():
+        return "ttl"
+    if _idle_expired():
+        return "idle"
+    return None
+
+
+def _ttl_expired() -> bool:
     ttl_hours = settings.session_ttl_hours
     if ttl_hours <= 0:
         return False
@@ -179,6 +226,20 @@ def session_expired() -> bool:
     if login_at.tzinfo is None:
         login_at = login_at.replace(tzinfo=UTC)
     return datetime.now(UTC) - login_at > timedelta(hours=ttl_hours)
+
+
+def _idle_expired() -> bool:
+    idle_hours = settings.session_idle_hours
+    if idle_hours <= 0:
+        return False
+    now = datetime.now(UTC)
+    last_seen = _stamp(app.storage.user.get(SESSION_LAST_SEEN_AT))
+    if last_seen is None:
+        # Pre-idle-timeout session (or an unreadable stamp): fresh on first
+        # sight — see `session_expiry_reason`.
+        app.storage.user[SESSION_LAST_SEEN_AT] = now.isoformat()
+        return False
+    return now - last_seen > timedelta(hours=idle_hours)
 
 
 def user_id_from_request(request: Request) -> int | None:

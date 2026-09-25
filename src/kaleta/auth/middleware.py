@@ -13,7 +13,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
-from kaleta.auth.session import is_authenticated, logout_session, session_expired
+from kaleta.auth.session import (
+    SessionExpiry,
+    is_authenticated,
+    logout_session,
+    session_expiry_reason,
+    touch_session,
+)
 from kaleta.config.setup_config import is_configured
 from kaleta.services import AuthService, with_session
 from kaleta.services.auth_service import AuthState
@@ -96,15 +102,21 @@ def register_auth_middleware() -> None:
                 authenticated = False
 
             if authenticated:
+                expiry: SessionExpiry | None
                 try:
-                    expired = session_expired()
+                    expiry = session_expiry_reason()
                 except RuntimeError:
-                    expired = False
-                if expired:
+                    expiry = None
+                if expiry is not None:
                     with suppress(RuntimeError):
                         logout_session()
                     redirect_to = quote(path, safe="/")
-                    return RedirectResponse(f"/login?redirect_to={redirect_to}")
+                    reason = "&reason=idle" if expiry == "idle" else ""
+                    return RedirectResponse(f"/login?redirect_to={redirect_to}{reason}")
+                # After the expiry check, never before: a touch first would
+                # rescue the very session the idle rule is about to end.
+                with suppress(RuntimeError):
+                    touch_session()
                 return await call_next(request)
 
             try:
