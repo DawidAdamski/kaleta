@@ -3125,7 +3125,7 @@ Feature: Two-factor authentication
     And KALETA_SESSION_TTL_HOURS is 72
     And I signed in 13 hours ago and have made no request since
     When I open a protected page
-    Then I am redirected to "/login?reason=idle"
+    Then I am redirected to the login page with "reason=idle" next to "redirect_to"
     And the sign-in page says "You were signed out after a period of inactivity. Sign in again."
 
   KAL-AUTH-032 @automated
