@@ -3,16 +3,17 @@ plan_id: payees-merge-suggestions-gaps
 title: Payee identities — suggestions on the Payees page, token matching, merge under a new name
 area: payees
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#cross-cutting-automatic-deduplication-suggestions
+status: archived
+archived_at: 2026-09-25
+roadmap_ref: ../../roadmap.md#cross-cutting-automatic-deduplication-suggestions
 ---
 
 # Payee identities — suggestions on the Payees page, token matching, merge under a new name
 
 Gap-closing plan for issue #1 (`KAL-PID-001`, `KAL-PID-002`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-PID-003` is
+[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-PID-003` is
 `@automated`. The larger identities/auto-merge work stays in
-[`payees-identities-automerge`](payees-identities-automerge.md).
+[`payees-identities-automerge`](../payees-identities-automerge.md).
 
 ## What exists (2026-09-23)
 
@@ -90,3 +91,38 @@ Gap-closing plan for issue #1 (`KAL-PID-001`, `KAL-PID-002`), from
   `tests/e2e/test_payee_identities.py` — those lines are the same PID-003
   assertions with the literal and variable renamed (`lidl_*` → `kaufland_*`,
   one long `assert` wrapped by the formatter); none was dropped or loosened.
+
+## Implementation
+
+Landed on 2026-09-25 (PR #145).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `211e713` | Dawid Adamski | 2026-09-25 | Merge pull request #145 from DawidAdamski/plan/payees-merge-suggestions-gaps |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/payees-merge-suggestions-gaps.md
+- src/kaleta/api/v1/payees.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/schemas/payee.py
+- src/kaleta/services/dedupe_service.py
+- src/kaleta/services/payee_service.py
+- src/kaleta/views/components/payee_merge.py
+- src/kaleta/views/housekeeping.py
+- src/kaleta/views/payees.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_payee_identities.py
+- tests/integration/test_payees.py
+- tests/unit/services/test_dedupe_service.py
+- tests/unit/services/test_payee_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
