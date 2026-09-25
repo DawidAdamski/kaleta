@@ -73,8 +73,11 @@ async def get_current_user_id(
         if request.method.upper() in _SAFE_METHODS:
             # `user_id_from_request` already ran the expiry check and bound
             # this request's storage; a rejected write below does not count
-            # as activity.
-            with suppress(RuntimeError):
+            # as activity. Recording activity is best-effort: NiceGUI reports
+            # unusable storage as RuntimeError, KeyError or AssertionError —
+            # the same set `user_id_from_request` treats as "no session" — and
+            # none of them may turn an accepted read into a 500.
+            with suppress(RuntimeError, KeyError, AssertionError):
                 touch_session()
             return session_user_id
         _unauthorized("Bearer token required for state-changing API requests")
