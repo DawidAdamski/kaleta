@@ -480,6 +480,7 @@ def build_add_dialog(
         refresh_split_balance()
         fx_rate_input.set_value(None)
         dest_amount_input.set_value(None)
+        fx_info.set_text("")
         amount_input.run_method("focus")
 
     def _apply_remembered_context() -> None:
