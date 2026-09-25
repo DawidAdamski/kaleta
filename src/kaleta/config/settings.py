@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     debug: bool = False
     api_token: str | None = None
     session_ttl_hours: int = 72
+    #: Hours without a request after which a UI session ends, however young it
+    #: is (``0`` disables). Never longer than ``session_ttl_hours``.
+    session_idle_hours: int = 12
     #: Mark the session cookie ``Secure``. The browser then never sends it over
     #: plain http, so on an http-only install login silently stops working —
     #: turn it on only behind TLS (a hosted deployment or a TLS reverse proxy).
@@ -102,6 +105,29 @@ class Settings(BaseSettings):
         if value < 0:
             raise ValueError("KALETA_SESSION_TTL_HOURS must be >= 0 (0 disables expiry)")
         return value
+
+    @field_validator("session_idle_hours")
+    @classmethod
+    def _validate_session_idle(cls, value: int) -> int:
+        if value < 0:
+            raise ValueError("KALETA_SESSION_IDLE_HOURS must be >= 0 (0 disables idle expiry)")
+        return value
+
+    @model_validator(mode="after")
+    def _cap_session_idle(self) -> "Settings":
+        # An idle window longer than the absolute TTL can never fire; the
+        # config only says the same limit twice, so cap it rather than refuse
+        # to start.
+        ttl = self.session_ttl_hours
+        if ttl > 0 and self.session_idle_hours > ttl:
+            logger.warning(
+                "KALETA_SESSION_IDLE_HOURS=%d exceeds KALETA_SESSION_TTL_HOURS=%d; capping to %d",
+                self.session_idle_hours,
+                ttl,
+                ttl,
+            )
+            self.session_idle_hours = ttl
+        return self
 
     @field_validator("session_cookie_samesite", mode="before")
     @classmethod
