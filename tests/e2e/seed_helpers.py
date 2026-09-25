@@ -221,6 +221,16 @@ def count_transactions(account_id: int) -> int:
     return int(resp.json()["total"])
 
 
+def list_transactions(account_id: int) -> list[dict[str, Any]]:
+    """Return the transactions booked on an account, read back through the API."""
+    resp = _client.get(
+        f"{API_BASE}/transactions/",
+        params={"account_ids": [account_id], "page_size": 100},
+    )
+    resp.raise_for_status()
+    return list(resp.json()["items"])
+
+
 def get_transaction(transaction_id: int) -> dict[str, Any]:
     """Read one transaction back through the API."""
     resp = _client.get(f"{API_BASE}/transactions/{transaction_id}")

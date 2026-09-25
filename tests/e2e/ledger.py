@@ -8,7 +8,7 @@ one has to open it first and close it before touching the rows underneath.
 
 from __future__ import annotations
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 
 def search_ledger(page: Page, text: str) -> None:
@@ -29,6 +29,20 @@ def search_ledger(page: Page, text: str) -> None:
     expect(page.locator(".q-menu")).to_have_count(0, timeout=10000)
 
 
+def _scroll_menu(menu: Locator, *, to_top: bool = False) -> None:
+    """Scroll a Quasar menu's list down one step, or back to its top."""
+    menu.evaluate(
+        """(el, toTop) => {
+          const scroller =
+            el.querySelector('.q-virtual-scroll__content')?.parentElement
+            || el.querySelector('.scroll')
+            || el;
+          scroller.scrollTop = toTop ? 0 : scroller.scrollTop + 220;
+        }""",
+        to_top,
+    )
+
+
 def pick_open_menu_option(page: Page, option: str) -> None:
     """Pick an option from the open Quasar menu, scrolling virtual lists if needed.
 
@@ -38,19 +52,14 @@ def pick_open_menu_option(page: Page, option: str) -> None:
     menu = page.locator(".q-menu").last
     expect(menu).to_be_visible(timeout=3000)
     target = menu.get_by_text(option, exact=True)
+    # A select with a value opens its menu scrolled to that value, so an option
+    # sorted above it is out of reach of the downward scan below. Start at the top.
+    _scroll_menu(menu, to_top=True)
     for _ in range(40):
         if target.count() > 0:
             target.first.click()
             return
-        menu.evaluate(
-            """(el) => {
-              const scroller =
-                el.querySelector('.q-virtual-scroll__content')?.parentElement
-                || el.querySelector('.scroll')
-                || el;
-              scroller.scrollTop += 220;
-            }"""
-        )
+        _scroll_menu(menu)
         page.wait_for_timeout(40)
     raise AssertionError(f"Select option not found after scrolling: {option!r}")
 

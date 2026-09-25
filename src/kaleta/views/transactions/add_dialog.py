@@ -16,6 +16,7 @@ from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
 from kaleta.services import CurrencyRateService, PayeeService, TransactionService, with_session
 from kaleta.views.settings.user_prefs import get_default_account_id
 from kaleta.views.transactions.payee_field import build_payee_select, split_payee_value
+from kaleta.views.transactions.quick_entry import QuickEntryMemory
 from kaleta.views.transactions.split_editor import build_split_editor
 
 
@@ -51,12 +52,6 @@ def build_add_dialog(
         ).classes("w-full")
 
         account_sel = ui.select(account_options, label=t("common.account")).classes("w-full")
-        if account_options:
-            default_id = get_default_account_id()
-            if default_id is not None and default_id in account_options:
-                account_sel.value = default_id
-            else:
-                account_sel.value = next(iter(account_options))
 
         dest_row = ui.row().classes("w-full")
         dest_row.set_visibility(False)
@@ -99,9 +94,8 @@ def build_add_dialog(
                     "text-xs text-slate-500 max-w-[11rem] leading-tight"
                 )
 
-        today_str = str(datetime.date.today())
         date_text = ui.input(t("common.date")).props("type=date").classes("w-full")
-        date_text.value = today_str
+        date_text.value = datetime.date.today().isoformat()
 
         add_tag_sel = (
             ui.select(
@@ -277,7 +271,16 @@ def build_add_dialog(
 
         payee_sel.on("update:model-value", lambda _: _on_payee_change())
 
-        async def submit() -> None:
+        def _after_save(parsed_date: datetime.date, *, keep_open: bool) -> None:
+            QuickEntryMemory.remember(account_sel.value, parsed_date)
+            ui.notify(t("transactions.saved"), type="positive")
+            if keep_open:
+                _clear_for_next()
+            else:
+                dialog.close()
+            on_saved()
+
+        async def submit(*, keep_open: bool = False) -> None:
             if not account_sel.value:
                 ui.notify(t("transactions.select_account"), type="negative")
                 return
@@ -389,9 +392,7 @@ def build_add_dialog(
                             )
 
                     await with_session(_create_transfer)
-                    ui.notify(t("transactions.saved"), type="positive")
-                    dialog.close()
-                    on_saved()
+                    _after_save(parsed_date, keep_open=keep_open)
                     return
                 if not category_sel.value:
                     ui.notify(t("transactions.select_category"), type="negative")
@@ -414,15 +415,27 @@ def build_add_dialog(
                 await TransactionService(session).create(data)
 
             await with_session(_create)
-            ui.notify(t("transactions.saved"), type="positive")
-            dialog.close()
-            on_saved()
+            _after_save(parsed_date, keep_open=keep_open)
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
             ui.button(t("common.cancel"), on_click=dialog.close).props("flat")
+            ui.button(
+                t("transactions.save_and_add_next"),
+                on_click=lambda: submit(keep_open=True),
+            ).props(f'outline color=primary title="{t("transactions.save_and_add_next_hint")}"')
             ui.button(t("common.save"), on_click=submit).props("color=primary")
 
-        ui.keyboard(on_key=lambda e: submit() if e.key == "Enter" and e.action.keydown else None)
+        async def _on_enter(e: Any) -> None:
+            """Enter saves; Ctrl/Cmd+Enter saves and keeps the dialog open for the next one."""
+            args = e.args if isinstance(e.args, dict) else {}
+            await submit(keep_open=bool(args.get("ctrlKey") or args.get("metaKey")))
+
+        # Enter is bound on the dialog's text inputs themselves: a page-level
+        # ``ui.keyboard`` ignores keys typed into inputs, so it could never save
+        # from the field the user is typing in. Selects are left out (Enter picks
+        # a menu option there) and so is the notes textarea (Enter is a newline).
+        for field in (amount_input, desc_input, date_text, fx_rate_input, dest_amount_input):
+            field.on("keydown.enter", _on_enter, ["ctrlKey", "metaKey"])
 
         def _focus_notes(e: Any) -> None:
             """Ctrl+Shift+N / Alt+Shift+N focus the notes textarea while the dialog is open."""
@@ -453,7 +466,42 @@ def build_add_dialog(
             refresh_split_rows()
             refresh_split_balance()
 
+    def _clear_for_next() -> None:
+        """Empty the per-receipt fields; type, account and date carry over."""
+        amount_input.set_value(None)
+        desc_input.set_value("")
+        notes_input.set_value("")
+        payee_sel.set_value(None)
+        category_sel.set_value(None)
+        add_tag_sel.set_value([])
+        split_rows.clear()
+        split_switch.set_value(False)
+        refresh_split_rows()
+        refresh_split_balance()
+        fx_rate_input.set_value(None)
+        dest_amount_input.set_value(None)
+        fx_info.set_text("")
+        amount_input.run_method("focus")
+
+    def _apply_remembered_context() -> None:
+        """Preselect the account and date of the last save (see ``QuickEntryMemory``)."""
+        context = QuickEntryMemory.load()
+        if account_options:
+            default_id = get_default_account_id()
+            if default_id is None or default_id not in account_options:
+                default_id = next(iter(account_options))
+            account_sel.set_value(context.account_for(set(account_options), default_id))
+        date_text.set_value(context.date_for(datetime.date.today()).isoformat())
+
+    def _open() -> None:
+        _apply_remembered_context()
+        dialog.open()
+
     def _reset_dialog() -> None:
+        # The per-receipt fields are reset on purpose; account and date are
+        # restored from the remembered context on the next open.
+        amount_input.set_value(None)
+        desc_input.set_value("")
         split_rows.clear()
         is_split["value"] = False
         split_switch.set_value(False)
@@ -475,4 +523,4 @@ def build_add_dialog(
 
     dialog.on("hide", lambda: _reset_dialog())
 
-    return AddDialogContext(dialog=dialog, tag_sel=add_tag_sel, open=dialog.open)
+    return AddDialogContext(dialog=dialog, tag_sel=add_tag_sel, open=_open)

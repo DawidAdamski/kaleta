@@ -569,6 +569,8 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
         with ui.grid(columns=2).classes("w-full gap-x-8 gap-y-1"):
             ui.label("Enter").classes(f"k-mono {INK} text-sm font-semibold")
             ui.label(t("common.shortcut_submit")).classes("text-sm")
+            ui.label("Ctrl/⌘+Enter").classes(f"k-mono {INK} text-sm font-semibold")
+            ui.label(t("common.shortcut_submit_next")).classes("text-sm")
             ui.label("Escape").classes(f"k-mono {INK} text-sm font-semibold")
             ui.label(t("common.shortcut_close")).classes("text-sm")
         with ui.row().classes("w-full justify-end mt-2"):

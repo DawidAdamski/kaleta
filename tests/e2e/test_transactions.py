@@ -53,7 +53,7 @@ def _save_when_balanced(dialog: Page) -> None:
     websocket, so clicking it in the same breath as "Fill last" races that
     round trip.
     """
-    save = dialog.get_by_role("button", name="Save")
+    save = dialog.get_by_role("button", name="Save", exact=True)
     expect(save).to_be_enabled(timeout=10000)
     save.click()
 
@@ -103,7 +103,7 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     dialog.get_by_label("Description (optional)").fill("Supermarket Tx E2E")
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(food_cat, exact=True).click()
-    dialog.get_by_role("button", name="Save").click()
+    dialog.get_by_role("button", name="Save", exact=True).click()
 
     expect(page.get_by_text("Supermarket Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-45.50").first).to_be_visible(timeout=5000)
@@ -119,7 +119,7 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     desc_field.click(click_count=3)
     desc_field.fill("Supermarket Updated Tx E2E")
     _fill_number(edit_dialog, "Amount", "50.00")
-    edit_dialog.get_by_role("button", name="Save").click()
+    edit_dialog.get_by_role("button", name="Save", exact=True).click()
 
     expect(page.get_by_text("Supermarket Updated Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-50.00").first).to_be_visible(timeout=5000)
@@ -205,7 +205,7 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
     dialog.get_by_label("Description (optional)").fill("Plain Ind E2E")
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(plain_cat, exact=True).click()
-    dialog.get_by_role("button", name="Save").click()
+    dialog.get_by_role("button", name="Save", exact=True).click()
     expect(page.get_by_text("Plain Ind E2E").first).to_be_visible(timeout=5000)
 
     # Split expense
@@ -263,7 +263,7 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     dialog.get_by_label("Description (optional)").fill("Arm Split E2E")
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(food_cat, exact=True).click()
-    dialog.get_by_role("button", name="Save").click()
+    dialog.get_by_role("button", name="Save", exact=True).click()
     expect(page.get_by_text("Arm Split E2E").first).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Arm Split E2E")
@@ -322,7 +322,7 @@ def test_add_note_then_clear_it(page: Page, base_url: str) -> None:
     page.keyboard.type("Bought for mum's birthday")
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(category_name, exact=True).click()
-    dialog.get_by_role("button", name="Save").click()
+    dialog.get_by_role("button", name="Save", exact=True).click()
 
     row = page.locator(".q-table tbody tr").filter(has_text=described)
     expect(row).to_have_count(1, timeout=5000)
@@ -354,7 +354,7 @@ def test_add_note_then_clear_it(page: Page, base_url: str) -> None:
     notes_field = edit_dialog.get_by_label("Notes (optional)")
     expect(notes_field).to_have_value("Receipt #123", timeout=5000)
     notes_field.fill("")
-    edit_dialog.get_by_role("button", name="Save").click()
+    edit_dialog.get_by_role("button", name="Save", exact=True).click()
 
     expect(page.get_by_text("Transaction updated.").first).to_be_visible(timeout=5000)
     seeded_row = page.locator(".q-table tbody tr").filter(has_text=seeded)
@@ -454,7 +454,7 @@ def test_typing_unknown_payee_creates_it_on_save(page: Page, base_url: str) -> N
     payee_field.fill(payee_name)
     payee_field.press("Enter")
     _select_labeled(page, dialog, "Category", category_name)
-    dialog.get_by_role("button", name="Save").click()
+    dialog.get_by_role("button", name="Save", exact=True).click()
 
     expect(_find_row(page, described)).to_have_count(1, timeout=5000)
 
@@ -541,7 +541,7 @@ def test_editing_a_transfer_has_no_payee_field(page: Page, base_url: str) -> Non
     expect(edit_dialog.get_by_label(PAYEE_LABEL)).not_to_be_visible(timeout=5000)
     expect(edit_dialog.get_by_label("Category")).not_to_be_visible()
 
-    edit_dialog.get_by_role("button", name="Save").click()
+    edit_dialog.get_by_role("button", name="Save", exact=True).click()
     expect(page.get_by_text("Transaction updated.").first).to_be_visible(timeout=5000)
 
     assert get_transaction(tx_id)["payee_id"] == payee_id
