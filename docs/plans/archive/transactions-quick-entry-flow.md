@@ -3,14 +3,15 @@ plan_id: transactions-quick-entry-flow
 title: Quick entry — Enter saves from any field, remembered context, save and add next
 area: transactions
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#transactions
+status: archived
+archived_at: 2026-09-25
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Quick entry — Enter saves from any field, remembered context, save and add next
 
 Gap-closing plan for issue #2 (`KAL-QIK-001`…`003`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
+[`audit-planned-vs-code`](audit-planned-vs-code.md).
 
 ## What exists (2026-09-23)
 
@@ -80,3 +81,33 @@ Gap-closing plan for issue #2 (`KAL-QIK-001`…`003`), from
 - **E2e isolation:** the suite shares one browser storage state, so the
   QIK-002 test ends by saving one more entry dated today. Without that,
   later tests would inherit the 2026-07-05 date.
+
+## Implementation
+
+Landed on 2026-09-25 (PR #149).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4ef7c6f` | Dawid Adamski | 2026-09-25 | Merge pull request #149 from DawidAdamski/plan/transactions-quick-entry-flow |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/transactions-quick-entry-flow.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/layout.py
+- src/kaleta/views/transactions/add_dialog.py
+- src/kaleta/views/transactions/quick_entry.py
+- tests/e2e/ledger.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_quick_entry.py
+- tests/e2e/test_transactions.py
+- tests/unit/views/test_quick_entry_context.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
