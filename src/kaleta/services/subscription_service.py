@@ -36,6 +36,11 @@ CADENCE_MONTHLY_TOLERANCE = 5  # ± days (roomier than plan's 3 to absorb weeken
 CADENCE_YEARLY_TOLERANCE = 21
 AMOUNT_TOLERANCE_PCT = Decimal("0.05")  # ±5 %
 MIN_OCCURRENCES = 2  # need at least 2 charges to call something recurring
+# Cadences read as "a monthly bill" / "a yearly bill". Inside these ranges the
+# monthly total uses the calendar reading (monthly × 1, yearly ÷ 12); any
+# other cadence falls back to amount × 30 / cadence_days.
+MONTHLY_CADENCE_RANGE = range(27, 34)
+YEARLY_CADENCE_RANGE = range(350, 381)
 
 
 # ── By-category view shapes ──────────────────────────────────────────────────
@@ -208,18 +213,46 @@ class SubscriptionService:
         return sub
 
     async def cancel(
-        self, sub_id: int, *, today: datetime.date | None = None
+        self,
+        sub_id: int,
+        *,
+        effective_on: datetime.date | None = None,
+        today: datetime.date | None = None,
     ) -> Subscription | None:
+        """Cancel as of ``effective_on`` (default: today).
+
+        A date in the future only schedules the cancellation: the row stays
+        active and counted until that day, when ``settle_due_cancellations``
+        moves it to cancelled.
+        """
         sub = await self.get(sub_id)
         if sub is None:
             return None
         ref = today or datetime.date.today()
-        sub.status = SubscriptionStatus.CANCELLED
-        sub.cancelled_at = ref
-        sub.next_expected_at = None
+        effective = effective_on or ref
+        sub.cancelled_at = effective
+        if effective <= ref:
+            _mark_cancelled(sub)
         await self.session.commit()
         await self.session.refresh(sub)
         return sub
+
+    async def settle_due_cancellations(self, *, today: datetime.date | None = None) -> int:
+        """Move subscriptions whose scheduled cancellation date has come to cancelled."""
+        ref = today or datetime.date.today()
+        result = await self.session.execute(
+            select(Subscription).where(
+                Subscription.status != SubscriptionStatus.CANCELLED,
+                Subscription.cancelled_at.is_not(None),
+                Subscription.cancelled_at <= ref,
+            )
+        )
+        due = list(result.scalars().all())
+        for sub in due:
+            _mark_cancelled(sub)
+        if due:
+            await self.session.commit()
+        return len(due)
 
     async def reactivate(self, sub_id: int) -> Subscription | None:
         sub = await self.get(sub_id)
@@ -607,8 +640,13 @@ class SubscriptionService:
 
     # ── Totals ────────────────────────────────────────────────────────────
 
-    async def totals(self) -> SubscriptionTotals:
-        active = await self.list(status=SubscriptionStatus.ACTIVE)
+    async def totals(self, *, today: datetime.date | None = None) -> SubscriptionTotals:
+        ref = today or datetime.date.today()
+        active = [
+            s
+            for s in await self.list(status=SubscriptionStatus.ACTIVE)
+            if s.cancelled_at is None or s.cancelled_at > ref
+        ]
         monthly = Decimal("0.00")
         for s in active:
             monthly += _to_monthly(s.amount, s.cadence_days)
@@ -709,10 +747,23 @@ def _project_next_expected(
     return next_date
 
 
+def _mark_cancelled(sub: Subscription) -> None:
+    sub.status = SubscriptionStatus.CANCELLED
+    sub.next_expected_at = None
+
+
 def _to_monthly(amount: Decimal, cadence_days: int) -> Decimal:
-    """Normalise a recurring charge to a monthly equivalent."""
+    """Normalise a recurring charge to a monthly equivalent.
+
+    A monthly bill counts in full and a yearly bill as a twelfth; only odd
+    cadences use the 30-day approximation.
+    """
     if cadence_days <= 0:
         return Decimal("0")
+    if cadence_days in MONTHLY_CADENCE_RANGE:
+        return amount
+    if cadence_days in YEARLY_CADENCE_RANGE:
+        return amount / Decimal(12)
     return amount * Decimal(30) / Decimal(cadence_days)
 
 
