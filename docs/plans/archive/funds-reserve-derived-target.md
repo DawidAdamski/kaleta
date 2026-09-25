@@ -3,14 +3,15 @@ plan_id: funds-reserve-derived-target
 title: Reserve funds — target derived from 12-month average spending
 area: budgets
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets
+status: archived
+archived_at: 2026-09-25
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Reserve funds — target derived from 12-month average spending
 
 Gap-closing plan for issue #13 (`KAL-FND-002`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-FND-001` and
+[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-FND-001` and
 `KAL-FND-003` are `@automated`; this is the last gap.
 
 ## Intent
@@ -77,3 +78,33 @@ spend*, not a number typed into the dialog.
   switch to emergency funds. (2) `list_with_progress` re-runs the 12-month
   aggregate once per derived fund; logged in `chores.md`, negligible at
   one or two funds.
+
+## Implementation
+
+Landed on 2026-09-25 (PR #141).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `498237c` | Dawid Adamski | 2026-09-25 | Merge pull request #141 from DawidAdamski/plan/funds-reserve-derived-target |
+
+**Files changed:**
+- alembic/versions/n8o9p0q1r2s3_reserve_fund_target_from_spending.py
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/funds-reserve-derived-target.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/reserve_fund.py
+- src/kaleta/schemas/reserve_fund.py
+- src/kaleta/services/reserve_fund_service.py
+- src/kaleta/views/safety_funds.py
+- tests/e2e/test_reserve_funds.py
+- tests/unit/services/test_reserve_fund_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
