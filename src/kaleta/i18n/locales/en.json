@@ -283,6 +283,8 @@
     "splits_must_sum": "Splits must sum to {total} (currently {current}).",
     "select_category": "Select a category.",
     "saved": "Transaction saved.",
+    "save_and_add_next": "Save and add next",
+    "save_and_add_next_hint": "Saves, then keeps the form open with the same account and date (Ctrl+Enter)",
     "internal_transfer": "Internal transfer",
     "to_account": "To Account",
     "select_dest_account": "Select destination account.",

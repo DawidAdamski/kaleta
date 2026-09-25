@@ -283,6 +283,8 @@
     "splits_must_sum": "Podziały muszą sumować się do {total} (aktualnie {current}).",
     "select_category": "Wybierz kategorię.",
     "saved": "Transakcja zapisana.",
+    "save_and_add_next": "Zapisz i dodaj kolejną",
+    "save_and_add_next_hint": "Zapisuje i zostawia formularz otwarty z tym samym kontem i datą (Ctrl+Enter)",
     "internal_transfer": "Przelew wewnętrzny",
     "to_account": "Na konto",
     "select_dest_account": "Wybierz konto docelowe.",
