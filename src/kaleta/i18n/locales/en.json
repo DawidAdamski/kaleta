@@ -1974,6 +1974,7 @@
     "mfa_rate_limited": "Too many wrong codes. Try again in {seconds} seconds.",
     "mfa_expired": "That took too long. Sign in again.",
     "mfa_gone": "Two-factor authentication was turned off. Your password is all you need now.",
+    "reason_idle": "You were signed out after a period of inactivity. Sign in again.",
     "mfa_unreadable": "This second factor cannot be read on this install. Run `kaleta --reset-password --disable-mfa` and set it up again."
   },
   "setup": {
