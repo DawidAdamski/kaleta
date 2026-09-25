@@ -3,8 +3,9 @@ plan_id: auth-session-idle-timeout
 title: Auth — idle timeout next to the absolute TTL
 area: auth
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#auth
+status: archived
+archived_at: 2026-09-25
+roadmap_ref: ../../roadmap.md#auth
 ---
 
 # Auth — idle timeout next to the absolute TTL
@@ -114,3 +115,35 @@ Out of scope:
 - Env var also listed in `docs/tech-stack.md` and the `AGENTS.md` env block.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-25 (PR #143).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `bb2a886` | Dawid Adamski | 2026-09-25 | Merge pull request #143 from DawidAdamski/plan/auth-session-idle-timeout |
+
+**Files changed:**
+- AGENTS.md
+- docs/bdd.md
+- docs/getting-started.md
+- docs/plans/auth-session-idle-timeout.md
+- docs/tech-stack.md
+- src/kaleta/api/deps.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/session.py
+- src/kaleta/config/settings.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/login.py
+- tests/e2e/test_auth.py
+- tests/integration/test_auth_hardening.py
+- tests/unit/auth/test_session_ttl.py
+- tests/unit/config/test_settings_session_idle.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
