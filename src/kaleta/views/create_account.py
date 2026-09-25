@@ -8,7 +8,7 @@ from typing import Any
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
-from kaleta.auth.session import is_authenticated, login_session
+from kaleta.auth.session import finish_login, is_authenticated
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
 from kaleta.views.auth_common import (
@@ -72,8 +72,7 @@ def register() -> None:
                     _say(message)
                     return
 
-                login_session(user_id=user_id, username=message)
-                ui.navigate.to("/wizard")
+                finish_login(user_id=user_id, username=message, target="/wizard")
 
             confirm.on("keydown.enter", _submit)
             auth_submit("auth.create_button", _submit)

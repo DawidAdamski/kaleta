@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import pytest
 
-from kaleta.views.auth_common import safe_redirect
+from kaleta.auth.redirects import safe_redirect
 from kaleta.views.login_mfa import _back_to_login
 
 

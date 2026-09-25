@@ -15,12 +15,12 @@ from fastapi.responses import RedirectResponse
 from nicegui import ui
 
 from kaleta.auth.login_rate_limit import mfa_rate_limiter
+from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import (
     clear_mfa_challenge,
+    finish_login,
     is_authenticated,
     is_mfa_pending,
-    login_session,
-    mark_mfa_verified,
     mfa_pending_user,
 )
 from kaleta.exceptions import EncryptionError
@@ -32,7 +32,6 @@ from kaleta.views.auth_common import (
     auth_field,
     auth_page_shell,
     auth_submit,
-    safe_redirect,
 )
 from kaleta.views.theme import AUTH_SUBTITLE
 
@@ -170,9 +169,7 @@ def register() -> None:
 
                 mfa_rate_limiter.clear(rate_key)
                 clear_mfa_challenge()
-                login_session(user_id=user_id, username=username)
-                mark_mfa_verified()
-                ui.navigate.to(target)
+                finish_login(user_id=user_id, username=username, target=target, mfa_verified=True)
 
             code.on("keydown.enter", _submit)
             recovery.on("keydown.enter", _submit)

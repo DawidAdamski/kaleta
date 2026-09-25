@@ -3,7 +3,7 @@ plan_id: auth-session-rotate-on-login
 title: Auth — new session id on login and logout
 area: auth
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#auth
 ---
 
