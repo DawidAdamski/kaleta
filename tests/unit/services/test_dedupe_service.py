@@ -6,9 +6,11 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ConflictError, ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.payee import Payee
@@ -23,6 +25,7 @@ from kaleta.services import (
     DedupeService,
 )
 from kaleta.services.dedupe_service import (
+    _core_tokens,
     _descriptions_look_alike,
     _levenshtein,
     _levenshtein_close,
@@ -267,6 +270,125 @@ class TestSimilarPayees:
             .all()
         )
         assert reassigned == [keeper.id]
+
+
+class TestCoreNameMatching:
+    """Covers: KAL-PID-001"""
+
+    def test_core_tokens_strip_legal_form_store_number_and_city(self):
+        assert _core_tokens("LIDL SP. Z O.O.") == ("lidl",)
+        assert _core_tokens("Lidl 1234 Warszawa") == ("lidl",)
+        assert _core_tokens("Orange Polska S.A.") == ("orange",)
+        assert _core_tokens("Allegro.pl sp. z o.o.") == ("allegro",)
+
+    async def test_scenario_pair_is_suggested(self, session: AsyncSession):
+        await _make_payee(session, "LIDL SP. Z O.O.")
+        await _make_payee(session, "Lidl 1234 Warszawa")
+        await _make_payee(session, "Biedronka")
+        groups = await DedupeService(session).similar_payees()
+        assert len(groups) == 1
+        assert {i.name for i in groups[0].items} == {"LIDL SP. Z O.O.", "Lidl 1234 Warszawa"}
+
+    async def test_whole_token_prefix_joins_the_group(self, session: AsyncSession):
+        await _make_payee(session, "Netflix")
+        await _make_payee(session, "Netflix International B.V.")
+        groups = await DedupeService(session).similar_payees()
+        assert len(groups) == 1
+        assert {i.name for i in groups[0].items} == {"Netflix", "Netflix International B.V."}
+
+    async def test_partial_token_is_not_a_prefix(self, session: AsyncSession):
+        """A string prefix ("Orlen" of "Orlenowo") is not a whole-token prefix."""
+        await _make_payee(session, "Orlen")
+        await _make_payee(session, "Orlenowo Market")
+        assert await DedupeService(session).similar_payees() == []
+
+    async def test_short_core_does_not_absorb_longer_names(self, session: AsyncSession):
+        await _make_payee(session, "ABC")
+        await _make_payee(session, "ABC Hurtownia Budowlana")
+        assert await DedupeService(session).similar_payees() == []
+
+    async def test_name_of_only_noise_is_never_grouped(self, session: AsyncSession):
+        await _make_payee(session, "Sp. z o.o. 1234")
+        await _make_payee(session, "Warszawa 55")
+        assert await DedupeService(session).similar_payees() == []
+
+
+class TestMergePayeesNewName:
+    """Covers: KAL-PID-002"""
+
+    async def test_scenario_merge_under_new_name(self, session: AsyncSession):
+        acc = await _make_account(session)
+        spolka = await _make_payee(session, "LIDL SP. Z O.O.")
+        sklep = await _make_payee(session, "Lidl 1234 Warszawa")
+        for payee_id in (spolka.id, sklep.id):
+            await _make_tx(
+                session,
+                account_id=acc,
+                amount=Decimal("-10.00"),
+                date=datetime.date(2026, 4, 10),
+                description="Zakupy",
+                payee_id=payee_id,
+            )
+
+        merged = await DedupeService(session).merge_payees(
+            keeper_id=spolka.id, other_ids=[sklep.id], new_name="Lidl"
+        )
+
+        assert merged == 1
+        session.expire_all()
+        names = (await session.execute(select(Payee.name))).scalars().all()
+        assert names == ["Lidl"]
+        tx_payees = (
+            (
+                await session.execute(
+                    select(Payee.name).join(Transaction, Transaction.payee_id == Payee.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert tx_payees == ["Lidl", "Lidl"]
+
+    async def test_new_name_may_reuse_a_merged_payees_name(self, session: AsyncSession):
+        keeper_id = (await _make_payee(session, "LIDL")).id
+        dupe = await _make_payee(session, "Lidl")
+        await DedupeService(session).merge_payees(
+            keeper_id=keeper_id, other_ids=[dupe.id], new_name="Lidl"
+        )
+        session.expire_all()
+        rows = (await session.execute(select(Payee.id, Payee.name))).all()
+        assert [tuple(r) for r in rows] == [(keeper_id, "Lidl")]
+
+    async def test_blank_new_name_keeps_keeper_name(self, session: AsyncSession):
+        keeper = await _make_payee(session, "Netflix")
+        dupe = await _make_payee(session, "NETFLIX")
+        await DedupeService(session).merge_payees(
+            keeper_id=keeper.id, other_ids=[dupe.id], new_name="   "
+        )
+        session.expire_all()
+        assert (await session.execute(select(Payee.name))).scalars().all() == ["Netflix"]
+
+    async def test_name_held_outside_the_merge_conflicts_and_changes_nothing(
+        self, session: AsyncSession
+    ):
+        keeper = await _make_payee(session, "LIDL SP. Z O.O.")
+        dupe = await _make_payee(session, "Lidl 1234 Warszawa")
+        await _make_payee(session, "Lidl")
+        with pytest.raises(ConflictError):
+            await DedupeService(session).merge_payees(
+                keeper_id=keeper.id, other_ids=[dupe.id], new_name="Lidl"
+            )
+        await session.rollback()
+        names = set((await session.execute(select(Payee.name))).scalars().all())
+        assert names == {"LIDL SP. Z O.O.", "Lidl 1234 Warszawa", "Lidl"}
+
+    async def test_overlong_new_name_is_rejected(self, session: AsyncSession):
+        keeper = await _make_payee(session, "Netflix")
+        dupe = await _make_payee(session, "NETFLIX")
+        with pytest.raises(ValidationError):
+            await DedupeService(session).merge_payees(
+                keeper_id=keeper.id, other_ids=[dupe.id], new_name="x" * 201
+            )
 
 
 # ── Redundant categories ─────────────────────────────────────────────────────
