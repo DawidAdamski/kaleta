@@ -2073,7 +2073,7 @@ Feature: Subscriptions Panel
     When I open the Subscriptions panel
     Then I see both with their price and billing cadence
 
-  KAL-SUB-002 @planned
+  KAL-SUB-002 @automated
   Scenario: Panel shows the normalised monthly total
     Given subscriptions "Netflix 49.99 monthly" and "Domain 120.00 yearly"
     When I open the Subscriptions panel
@@ -2085,11 +2085,12 @@ Feature: Subscriptions Panel
     When I choose "Track as subscription" on it
     Then "Spotify" appears in the Subscriptions panel
 
-  KAL-SUB-004 @planned
+  KAL-SUB-004 @automated
   Scenario: Mark a subscription as cancelled
     Given subscription "Netflix 49.99 monthly" is tracked
-    When I mark it cancelled as of end of this month
-    Then it moves to the cancelled section
+    When on 2026-04-15 I mark it cancelled as of end of this month (2026-04-30)
+    Then until 2026-04-30 it stays active and counts 49.99 toward the monthly total
+    And from 2026-04-30 it moves to the cancelled section
     And it no longer counts toward the monthly total
 ```
 
