@@ -3,14 +3,15 @@ plan_id: subscriptions-panel-gaps
 title: Subscriptions panel — monthly-total formula, cancel as of a date, cancelled section
 area: transactions
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#transactions
+status: archived
+archived_at: 2026-09-25
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Subscriptions panel — monthly-total formula, cancel as of a date, cancelled section
 
 Gap-closing plan for issue #8 (`KAL-SUB-002`, `KAL-SUB-004`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-SUB-001` and
+[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-SUB-001` and
 `KAL-SUB-003` are `@automated`.
 
 ## What exists (2026-09-23)
@@ -81,3 +82,34 @@ Gap-closing plan for issue #8 (`KAL-SUB-002`, `KAL-SUB-004`), from
   checked with BDD literals.
 - Out of scope, sent to `chores.md`: the wizard projection's separate
   30/365 amortisation.
+
+## Implementation
+
+Landed on 2026-09-25 (PR #147).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d53eb55` | Dawid Adamski | 2026-09-25 | Merge pull request #147 from DawidAdamski/plan/subscriptions-panel-gaps |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/subscriptions-panel-gaps.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/subscription_service.py
+- src/kaleta/views/subscriptions/dialogs.py
+- src/kaleta/views/subscriptions/helpers.py
+- src/kaleta/views/subscriptions/page.py
+- src/kaleta/views/subscriptions/rows.py
+- tests/e2e/test_subscriptions.py
+- tests/integration/test_subscriptions_panel.py
+- tests/unit/services/test_subscription_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
