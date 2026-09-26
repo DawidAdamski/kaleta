@@ -3,8 +3,9 @@ plan_id: auth-session-rotate-on-login
 title: Auth — new session id on login and logout
 area: auth
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#auth
+status: archived
+archived_at: 2026-09-26
+roadmap_ref: ../../roadmap.md#auth
 ---
 
 # Auth — new session id on login and logout
@@ -74,7 +75,7 @@ authenticated stamps around until the 30-day sweep.
   and the theme preference survived both.
 
 Out of scope:
-- Cookie flags — [auth-session-cookie-flags](archive/auth-session-cookie-flags.md).
+- Cookie flags — [auth-session-cookie-flags](auth-session-cookie-flags.md).
 - Moving preferences from per-browser storage to per-user rows in the
   database. That is the right long-term home for `dashboard_layout`
   and friends once there is more than one user per browser, but it is
@@ -190,3 +191,40 @@ Out of scope:
   `verify.sh --e2e` passed with 191 tests.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-26 (PR #151).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `93180ee` | Dawid Adamski | 2026-09-26 | Merge pull request #151 from DawidAdamski/plan/auth-session-rotate-on-login |
+
+**Files changed:**
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/auth-session-rotate-on-login.md
+- src/kaleta/auth/__init__.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/redirects.py
+- src/kaleta/auth/routes.py
+- src/kaleta/auth/session.py
+- src/kaleta/main.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/layout.py
+- src/kaleta/views/login.py
+- src/kaleta/views/login_mfa.py
+- src/kaleta/views/secure_app.py
+- tests/e2e/conftest.py
+- tests/e2e/test_auth.py
+- tests/e2e/test_mfa.py
+- tests/unit/auth/test_redirects.py
+- tests/unit/auth/test_session_rotation.py
+- tests/unit/views/test_login_mfa_back_to_login.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
