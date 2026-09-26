@@ -16,6 +16,7 @@ Debug against an already-running app (mutates that app's database):
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import subprocess
@@ -28,7 +29,7 @@ from typing import Any
 
 import httpx
 import pytest
-from playwright.sync_api import Browser
+from playwright.sync_api import Browser, BrowserContext
 
 from tests.e2e import seed_helpers
 
@@ -294,6 +295,25 @@ def base_url(e2e_server: str) -> str:
 def e2e_api_token() -> str:
     assert E2E_API_TOKEN is not None, "e2e API token was not created"
     return E2E_API_TOKEN
+
+
+def session_cookie(context: BrowserContext) -> str:
+    """The raw ``kaleta_session`` cookie the browser holds."""
+    for cookie in context.cookies():
+        if cookie["name"] == "kaleta_session":
+            return cookie["value"]
+    raise AssertionError("no kaleta_session cookie in the browser")
+
+
+def storage_id(raw_cookie: str) -> str:
+    """The NiceGUI storage id inside a signed ``kaleta_session`` cookie.
+
+    The raw value is re-signed with a fresh timestamp on every response, so it
+    changes all the time; the id it wraps changes only when the session moves.
+    """
+    payload = raw_cookie.split(".", 1)[0]
+    decoded = json.loads(base64.b64decode(payload + "=" * (-len(payload) % 4)))
+    return str(decoded["id"])
 
 
 def login(page, base_url: str) -> None:

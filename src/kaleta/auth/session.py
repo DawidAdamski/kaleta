@@ -4,10 +4,15 @@
 from __future__ import annotations
 
 import logging
+import secrets
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Literal
+from urllib.parse import quote
+from uuid import uuid4
 
-from nicegui import app
+from nicegui import app, ui
+from nicegui.storage import request_contextvar
 from starlette.requests import Request
 
 from kaleta.config import settings
@@ -61,6 +66,52 @@ _MFA_PENDING_KEYS = (
     SESSION_MFA_PENDING_AT,
 )
 
+#: Everything that says who this browser is. Whatever is not in here — theme,
+#: language, dashboard layout — is a per-browser preference and moves across a
+#: rotation; everything in here is dropped by it.
+_AUTH_KEYS = (
+    SESSION_AUTHENTICATED,
+    SESSION_USER_ID,
+    SESSION_USERNAME,
+    SESSION_LOGIN_AT,
+    SESSION_LAST_SEEN_AT,
+    SESSION_MFA_VERIFIED_AT,
+    *_MFA_PENDING_KEYS,
+)
+
+
+#: The path every finished login and every logout passes through, so that the
+#: browser leaves it holding a storage id nobody could have planted beforehand.
+SESSION_ROTATE_PATH = "/auth/session/rotate"
+#: How long the nonce the handler stamps stays good. The navigation is
+#: immediate; this only has to outlast a slow phone.
+ROTATE_NONCE_TTL_SECONDS = 60
+
+#: A single-use proof that the navigation to ``SESSION_ROTATE_PATH`` came from
+#: the handler that just authenticated (or just signed out) this browser.
+SESSION_ROTATE_NONCE = "rotate_nonce"
+SESSION_ROTATE_AT = "rotate_at"
+#: ``"login"`` or ``"logout"`` — a nonce stamped for one cannot finish the other.
+SESSION_ROTATE_PURPOSE = "rotate_purpose"
+#: Who the login is for. Parked here rather than written as
+#: ``SESSION_AUTHENTICATED``: the id the browser holds before rotation is the
+#: one an attacker could have planted, so it is never authenticated at all.
+SESSION_ROTATE_USER_ID = "rotate_user_id"
+SESSION_ROTATE_USERNAME = "rotate_username"
+SESSION_ROTATE_MFA_VERIFIED = "rotate_mfa_verified"
+
+_ROTATE_KEYS = (
+    SESSION_ROTATE_NONCE,
+    SESSION_ROTATE_AT,
+    SESSION_ROTATE_PURPOSE,
+    SESSION_ROTATE_USER_ID,
+    SESSION_ROTATE_USERNAME,
+    SESSION_ROTATE_MFA_VERIFIED,
+)
+
+#: Why a nonce was stamped.
+RotatePurpose = Literal["login", "logout"]
+
 
 def is_authenticated() -> bool:
     return bool(app.storage.user.get(SESSION_AUTHENTICATED, False))
@@ -82,6 +133,108 @@ def login_session(*, user_id: int, username: str) -> None:
     app.storage.user[SESSION_LAST_SEEN_AT] = now
 
 
+def finish_login(*, user_id: int, username: str, target: str, mfa_verified: bool = False) -> None:
+    """End a login handler: park the user, stamp a nonce, go and rotate.
+
+    Runs over the websocket, where no cookie can be set, so the login itself is
+    completed by ``SESSION_ROTATE_PATH`` on the HTTP request that follows —
+    under a storage id issued there, never under the one the browser came with.
+    """
+    clear_mfa_challenge()
+    nonce = stamp_rotation_nonce("login")
+    app.storage.user[SESSION_ROTATE_USER_ID] = user_id
+    app.storage.user[SESSION_ROTATE_USERNAME] = username
+    app.storage.user[SESSION_ROTATE_MFA_VERIFIED] = mfa_verified
+    ui.navigate.to(f"{SESSION_ROTATE_PATH}?nonce={nonce}&redirect_to={quote(target, safe='/')}")
+
+
+def finish_logout() -> None:
+    """End the session now, then send the browser off to get a fresh id."""
+    logout_session()
+    nonce = stamp_rotation_nonce("logout")
+    ui.navigate.to(f"{SESSION_ROTATE_PATH}?nonce={nonce}&logout=1")
+
+
+def stamp_rotation_nonce(purpose: RotatePurpose) -> str:
+    """Store a fresh single-use nonce in the current bucket and return it."""
+    for key in _ROTATE_KEYS:
+        app.storage.user.pop(key, None)
+    nonce = secrets.token_urlsafe(32)
+    app.storage.user[SESSION_ROTATE_NONCE] = nonce
+    app.storage.user[SESSION_ROTATE_AT] = datetime.now(UTC).isoformat()
+    app.storage.user[SESSION_ROTATE_PURPOSE] = purpose
+    return nonce
+
+
+@dataclass(frozen=True)
+class PendingRotation:
+    """What a consumed nonce was stamped for, read before the bucket is emptied."""
+
+    purpose: RotatePurpose
+    user_id: int | None
+    username: str | None
+    mfa_verified: bool
+
+
+def consume_rotation_nonce(given: str, purpose: RotatePurpose) -> PendingRotation | None:
+    """The rotation ``given`` authorises, or ``None``.
+
+    A matching nonce is spent whatever else is wrong with it, so it cannot be
+    replayed. A mismatch leaves the stored one alone: the stored one belongs to
+    whoever holds the browser, and a guess at it must not be able to cancel it.
+    """
+    stored = app.storage.user.get(SESSION_ROTATE_NONCE)
+    if not isinstance(stored, str) or not given or not secrets.compare_digest(stored, given):
+        return None
+    stamped_at = app.storage.user.get(SESSION_ROTATE_AT)
+    stored_purpose = app.storage.user.get(SESSION_ROTATE_PURPOSE)
+    raw_id = app.storage.user.get(SESSION_ROTATE_USER_ID)
+    raw_name = app.storage.user.get(SESSION_ROTATE_USERNAME)
+    mfa_verified = bool(app.storage.user.get(SESSION_ROTATE_MFA_VERIFIED, False))
+    for key in _ROTATE_KEYS:
+        app.storage.user.pop(key, None)
+    stamp = _stamp(stamped_at)
+    if stamp is None or datetime.now(UTC) - stamp > timedelta(seconds=ROTATE_NONCE_TTL_SECONDS):
+        return None
+    if stored_purpose != purpose:
+        return None
+    if purpose == "logout":
+        return PendingRotation(purpose, None, None, mfa_verified=False)
+    try:
+        user_id = int(raw_id) if raw_id is not None else None
+    except (TypeError, ValueError):
+        user_id = None
+    if user_id is None or raw_name is None:
+        return None
+    return PendingRotation(purpose, user_id, str(raw_name), mfa_verified=mfa_verified)
+
+
+async def rotate_session_id(request: Request) -> None:
+    """Move this browser onto a new storage id, taking its preferences along.
+
+    Relies on how ``nicegui.storage`` resolves ``app.storage.user`` (pinned by
+    ``tests/unit/auth/test_session_rotation.py``): ``RequestTrackingMiddleware``
+    gives the session its ``request.session["id"]`` and creates that id's
+    bucket; every later access looks the bucket up by that key again. So
+    setting a new id and creating its bucket switches this request — and, once
+    ``SessionMiddleware`` writes the cookie, the browser — to the new bucket.
+
+    The old bucket is emptied, not deleted: its file stays until NiceGUI's own
+    sweep, but it no longer says anything about anyone.
+    """
+    # Normally already this request, set by `RequestTrackingMiddleware`. Set
+    # again so that `app.storage.user` below and the `request.session` written
+    # below are guaranteed to be the same session whatever the caller.
+    request_contextvar.set(request)
+    old = app.storage.user
+    snapshot = {k: v for k, v in old.items() if k not in _AUTH_KEYS and k not in _ROTATE_KEYS}
+    old.clear()
+    new_id = str(uuid4())
+    await app.storage._create_user_storage(new_id)
+    request.session["id"] = new_id
+    app.storage.user.update(snapshot)
+
+
 def touch_session() -> None:
     """Record activity, unless the stamp is younger than the touch interval."""
     last_seen = _stamp(app.storage.user.get(SESSION_LAST_SEEN_AT))
@@ -92,15 +245,7 @@ def touch_session() -> None:
 
 
 def logout_session() -> None:
-    for key in (
-        SESSION_AUTHENTICATED,
-        SESSION_USER_ID,
-        SESSION_USERNAME,
-        SESSION_LOGIN_AT,
-        SESSION_LAST_SEEN_AT,
-        SESSION_MFA_VERIFIED_AT,
-        *_MFA_PENDING_KEYS,
-    ):
+    for key in _AUTH_KEYS:
         app.storage.user.pop(key, None)
 
 

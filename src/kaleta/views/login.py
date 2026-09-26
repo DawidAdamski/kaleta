@@ -11,7 +11,8 @@ from fastapi.responses import RedirectResponse
 from nicegui import ui
 
 from kaleta.auth.login_rate_limit import login_rate_limiter
-from kaleta.auth.session import begin_mfa_challenge, is_authenticated, login_session
+from kaleta.auth.redirects import safe_redirect
+from kaleta.auth.session import begin_mfa_challenge, finish_login, is_authenticated
 from kaleta.i18n import t
 from kaleta.services import AuthService, MfaService, with_session
 from kaleta.views.auth_common import (
@@ -19,7 +20,6 @@ from kaleta.views.auth_common import (
     auth_field,
     auth_page_shell,
     auth_submit,
-    safe_redirect,
 )
 
 
@@ -111,8 +111,7 @@ def register() -> None:
                     begin_mfa_challenge(user_id=user_id, username=name)
                     ui.navigate.to(f"/login/mfa?redirect_to={quote(target, safe='/')}")
                     return
-                login_session(user_id=user_id, username=name)
-                ui.navigate.to(target)
+                finish_login(user_id=user_id, username=name, target=target)
 
             password.on("keydown.enter", _submit)
             auth_submit("auth.login_button", _submit)

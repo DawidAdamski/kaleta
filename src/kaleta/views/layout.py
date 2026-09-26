@@ -432,7 +432,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
         )
 
         async def _logout() -> None:
-            from kaleta.auth.session import logout_session
+            from kaleta.auth.session import finish_logout
             from kaleta.services import AuthService, with_session
 
             name = session_username or None
@@ -441,8 +441,7 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                 await AuthService(session).record_logout(username=name)
 
             await with_session(_record)
-            logout_session()
-            ui.navigate.to("/login")
+            finish_logout()
 
         async def _close_db() -> None:
             from kaleta.config.setup_config import clear_db

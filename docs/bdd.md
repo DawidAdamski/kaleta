@@ -3120,6 +3120,22 @@ Feature: Two-factor authentication
     And the cookie's Max-Age is 259200 seconds
     And with KALETA_DEBUG=true the startup log warns that login needs TLS
 
+  KAL-AUTH-026 @automated
+  Scenario: Signing in hands the browser a new session id
+    Given I opened the sign-in page and noted the storage id in my "kaleta_session" cookie
+    When I sign in with the right password (and, when it is on, the right code)
+    Then the storage id in my cookie is a different one
+    And a request carrying the id I had before signing in is sent to the login page
+
+  KAL-AUTH-027 @automated
+  Scenario: Signing out hands the browser yet another id and keeps my preferences
+    Given I am signed in with dark mode on
+    When I sign out
+    Then I land on the login page
+    And the storage id in my cookie differs from the one I was signed in under
+    And a request carrying the signed-in id is sent to the login page
+    And when I sign in again dark mode is still on
+
   KAL-AUTH-031 @automated
   Scenario: A session left idle longer than the idle window is signed out
     Given KALETA_SESSION_IDLE_HOURS is 12

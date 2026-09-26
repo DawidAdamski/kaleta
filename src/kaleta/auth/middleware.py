@@ -14,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.responses import Response
 
 from kaleta.auth.session import (
+    SESSION_ROTATE_PATH,
     SessionExpiry,
     is_authenticated,
     logout_session,
@@ -33,6 +34,9 @@ _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
         "/login/mfa",
         "/create-account",
         "/secure-app",
+        # Rotating a session means it is not authenticated under its new id
+        # yet; the route checks its own nonce instead.
+        SESSION_ROTATE_PATH,
         "/favicon.ico",
         "/health",
     }

@@ -149,9 +149,10 @@ def _preload_config() -> None:
 
 
 def _register_auth() -> None:
-    from kaleta.auth import register_auth_middleware
+    from kaleta.auth import register_auth_middleware, register_session_routes
 
     register_auth_middleware()
+    register_session_routes()
 
 
 def _register_views() -> None:
