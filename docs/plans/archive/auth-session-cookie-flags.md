@@ -59,7 +59,7 @@ keep local use unchanged and one switch that hosted deployments flip.
   and a `Max-Age` equal to the session TTL.
 
 Out of scope:
-- Rotating the cookie value on login — [auth-session-rotate-on-login](../auth-session-rotate-on-login.md).
+- Rotating the cookie value on login — [auth-session-rotate-on-login](auth-session-rotate-on-login.md).
 - Any change to what the session stores.
 - Detecting TLS automatically from `X-Forwarded-Proto`; an explicit
   setting is less magic and matches how `KALETA_SECRET_KEY` is handled.
