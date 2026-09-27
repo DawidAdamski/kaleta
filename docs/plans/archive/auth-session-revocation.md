@@ -3,8 +3,9 @@ plan_id: auth-session-revocation
 title: Auth — revoke sessions from the server
 area: auth
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#auth
+status: archived
+archived_at: 2026-09-27
+roadmap_ref: ../../roadmap.md#auth
 ---
 
 # Auth — revoke sessions from the server
@@ -184,3 +185,46 @@ Out of scope:
   the chore inbox.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-27 (PR #153).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `527ffd8` | Dawid Adamski | 2026-09-27 | Merge pull request #153 from DawidAdamski/plan/auth-session-revocation |
+
+**Files changed:**
+- SECURITY.md
+- alembic/versions/o9p0q1r2s3t4_add_user_sessions_valid_from.py
+- docs/bdd.md
+- docs/getting-started.md
+- docs/plans/auth-session-revocation.md
+- src/kaleta/api/deps.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/revocation_cache.py
+- src/kaleta/auth/session.py
+- src/kaleta/cli/reset_password.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/user.py
+- src/kaleta/services/auth_service.py
+- src/kaleta/services/mfa_service.py
+- src/kaleta/views/login.py
+- src/kaleta/views/settings/security_tab.py
+- tests/e2e/conftest.py
+- tests/e2e/test_auth.py
+- tests/e2e/test_mfa.py
+- tests/integration/test_api_cookie_auth.py
+- tests/integration/test_session_revocation_guards.py
+- tests/unit/auth/test_session_revocation.py
+- tests/unit/auth/test_session_ttl.py
+- tests/unit/cli/test_reset_password.py
+- tests/unit/services/test_mfa_service.py
+- tests/unit/services/test_wizard_action_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
