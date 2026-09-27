@@ -34,6 +34,7 @@ from kaleta.models.category import Category
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.categorised_flows import categorised_flows_selectable
+from kaleta.services.loan_links import loan_linked_transaction_ids
 
 #: Money is rounded to the grosz here, not in whatever formats it.
 _CENT = Decimal("0.01")
@@ -73,6 +74,10 @@ class IncomeStatement:
     month: int
     income_by_category: list[CategoryAmount]
     expense_by_category: list[CategoryAmount]
+    #: Personal-loan money, kept out of income and expenses: principal lent
+    #: out or repaid (``loans_out``) and borrowed or paid back (``loans_in``).
+    loans_out: Decimal = Decimal("0")
+    loans_in: Decimal = Decimal("0")
 
     @property
     def total_income(self) -> Decimal:
@@ -466,6 +471,7 @@ class ReportService:
                 Transaction.date >= start,
                 Transaction.date < end,
                 Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
             .group_by(Transaction.type)
         )
@@ -573,6 +579,7 @@ class ReportService:
                 Transaction.date <= ref,
                 Transaction.type == TransactionType.EXPENSE,
                 Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
         )
         total = result.scalar()
@@ -661,6 +668,7 @@ class ReportService:
             .where(
                 Transaction.date >= start_date,
                 Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
             .group_by("year", "month", Transaction.type)
             .order_by("year", "month")
@@ -704,6 +712,7 @@ class ReportService:
 
         income_rows = [r for r in rows if r.type == TransactionType.INCOME]
         expense_rows = [r for r in rows if r.type == TransactionType.EXPENSE]
+        loans_in, loans_out = await self._loan_flows(start, end)
 
         return IncomeStatement(
             year=year,
@@ -716,6 +725,8 @@ class ReportService:
                 CategoryAmount(category=r.name or "—", amount=Decimal(str(r.total)))
                 for r in expense_rows
             ],
+            loans_out=loans_out,
+            loans_in=loans_in,
         )
 
     async def cash_flow_statement(self, year: int, month: int) -> CashFlowStatement:
@@ -809,6 +820,7 @@ class ReportService:
                 Transaction.date < end,
                 Transaction.type == TransactionType.EXPENSE,
                 Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
             .group_by(Payee.name)
             .order_by(func.sum(Transaction.amount).desc())
@@ -843,6 +855,7 @@ class ReportService:
                 Transaction.date < end,
                 Transaction.type == basis,
                 Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
             .group_by("yr", "mo")
         )
@@ -875,6 +888,7 @@ class ReportService:
                 Transaction.date >= start,
                 Transaction.date < end,
                 Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
             )
             .group_by(Transaction.type)
         )
@@ -939,6 +953,29 @@ class ReportService:
 
     # ── Internal helpers ─────────────────────────────────────────────────────
 
+    async def _loan_flows(
+        self, start: datetime.date, end: datetime.date
+    ) -> tuple[Decimal, Decimal]:
+        """Loan money in ``[start, end)`` as ``(in, out)`` — the part reports exclude."""
+        result = await self.session.execute(
+            select(Transaction.type, func.sum(Transaction.amount).label("total"))
+            .where(
+                Transaction.date >= start,
+                Transaction.date < end,
+                Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.in_(loan_linked_transaction_ids()),
+            )
+            .group_by(Transaction.type)
+        )
+        loans_in = Decimal("0.00")
+        loans_out = Decimal("0.00")
+        for row in result:
+            if row.type == TransactionType.INCOME:
+                loans_in = Decimal(str(row.total))
+            elif row.type == TransactionType.EXPENSE:
+                loans_out = Decimal(str(row.total))
+        return loans_in, loans_out
+
     async def _sum_by_category(
         self,
         start: datetime.date,
@@ -963,6 +1000,7 @@ class ReportService:
                 flow.c.date >= start,
                 flow.c.date < end,
                 flow.c.is_internal_transfer == False,  # noqa: E712
+                flow.c.transaction_id.not_in(loan_linked_transaction_ids()),
             )
             .group_by(Category.name, flow.c.type)
         )

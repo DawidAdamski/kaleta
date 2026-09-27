@@ -17,6 +17,7 @@ from kaleta.models.account import Account
 from kaleta.models.category import Category
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.categorised_flows import categorised_flows_selectable
+from kaleta.services.loan_links import loan_linked_transaction_ids
 
 NodeKind = Literal["source", "pool", "sink", "surplus", "deficit", "account"]
 FlowMode = Literal["budget", "accounts"]
@@ -28,6 +29,8 @@ IN_OTHER_ID = "in:other"
 OUT_OTHER_ID = "out:other"
 IN_UNCATEGORISED_ID = "in:uncategorised"
 OUT_UNCATEGORISED_ID = "out:uncategorised"
+IN_LOANS_ID = "in:loans"
+OUT_LOANS_ID = "out:loans"
 
 
 @dataclass(frozen=True)
@@ -39,6 +42,7 @@ class MoneyFlowLabels:
     deficit: str = "Covered from savings"
     other: str = "Other"
     uncategorised: str = "Uncategorised"
+    loans: str = "Loans"
     income_suffix: str = "income"
     expense_suffix: str = "expense"
 
@@ -65,6 +69,9 @@ class MoneyFlow:
     total_out: Decimal = Decimal("0")
     net: Decimal = Decimal("0")
     total_transfers: Decimal = Decimal("0")
+    #: Personal-loan money — not income or expense, drawn as its own nodes.
+    loans_in: Decimal = Decimal("0")
+    loans_out: Decimal = Decimal("0")
     period_label: str = ""
     mode: FlowMode = "budget"
 
@@ -88,6 +95,14 @@ class _FlowRow:
     total: Decimal
     account_id: int | None = None
     account_name: str | None = None
+
+
+@dataclass(frozen=True)
+class _LoanRow:
+    account_id: int
+    account_name: str
+    type: TransactionType
+    total: Decimal
 
 
 @dataclass(frozen=True)
@@ -136,8 +151,11 @@ class MoneyFlowService:
     ) -> MoneyFlow:
         period_label = _period_label(start, end)
         rows = await self._sum_by_category(start, end, by_account=False)
-        if not rows:
+        loan_rows = await self._loan_rows(start, end)
+        if not rows and not loan_rows:
             return MoneyFlow(period_label=period_label, mode="budget")
+        loans_in = _loan_total(loan_rows, TransactionType.INCOME)
+        loans_out = _loan_total(loan_rows, TransactionType.EXPENSE)
 
         income_buckets = self._income_buckets(rows, depth, labels)
         expense_buckets = self._expense_buckets(rows, depth, labels)
@@ -146,14 +164,23 @@ class MoneyFlowService:
 
         total_in = sum((b.amount for b in income_buckets), start=Decimal("0"))
         total_out = sum((b.amount for b in expense_buckets), start=Decimal("0"))
-        if total_in == 0 and total_out == 0:
+        if total_in == 0 and total_out == 0 and loans_in == 0 and loans_out == 0:
             return MoneyFlow(period_label=period_label, mode="budget")
 
         net = total_in - total_out
+        # The pool balances cash, so loan money moves surplus/deficit even
+        # though it is neither income nor expense.
+        pool_net = net + loans_in - loans_out
         nodes: dict[str, MoneyFlowNode] = {
             POOL_ID: MoneyFlowNode(id=POOL_ID, label=labels.pool, kind="pool"),
         }
         links: list[MoneyFlowLink] = []
+        if loans_in > 0:
+            nodes[IN_LOANS_ID] = MoneyFlowNode(id=IN_LOANS_ID, label=labels.loans, kind="source")
+            links.append(MoneyFlowLink(IN_LOANS_ID, POOL_ID, loans_in))
+        if loans_out > 0:
+            nodes[OUT_LOANS_ID] = MoneyFlowNode(id=OUT_LOANS_ID, label=labels.loans, kind="sink")
+            links.append(MoneyFlowLink(POOL_ID, OUT_LOANS_ID, loans_out))
 
         for bucket in income_buckets:
             nodes[bucket.node_id] = MoneyFlowNode(
@@ -161,9 +188,9 @@ class MoneyFlowService:
             )
             links.append(MoneyFlowLink(bucket.node_id, POOL_ID, bucket.amount))
 
-        if net < 0:
+        if pool_net < 0:
             nodes[DEFICIT_ID] = MoneyFlowNode(id=DEFICIT_ID, label=labels.deficit, kind="deficit")
-            links.append(MoneyFlowLink(DEFICIT_ID, POOL_ID, -net))
+            links.append(MoneyFlowLink(DEFICIT_ID, POOL_ID, -pool_net))
 
         for bucket in expense_buckets:
             if depth == 2 and bucket.parent_id and bucket.parent_label:
@@ -183,9 +210,9 @@ class MoneyFlowService:
                 )
                 links.append(MoneyFlowLink(POOL_ID, bucket.node_id, bucket.amount))
 
-        if net > 0:
+        if pool_net > 0:
             nodes[SURPLUS_ID] = MoneyFlowNode(id=SURPLUS_ID, label=labels.surplus, kind="surplus")
-            links.append(MoneyFlowLink(POOL_ID, SURPLUS_ID, net))
+            links.append(MoneyFlowLink(POOL_ID, SURPLUS_ID, pool_net))
 
         _disambiguate_labels(nodes, labels)
         return MoneyFlow(
@@ -194,6 +221,8 @@ class MoneyFlowService:
             total_in=total_in,
             total_out=total_out,
             net=net,
+            loans_in=loans_in,
+            loans_out=loans_out,
             period_label=period_label,
             mode="budget",
         )
@@ -210,7 +239,8 @@ class MoneyFlowService:
         period_label = _period_label(start, end)
         rows = await self._sum_by_category(start, end, by_account=True)
         transfer_edges = await self._net_transfers(start, end)
-        if not rows and not transfer_edges:
+        loan_rows = await self._loan_rows(start, end)
+        if not rows and not transfer_edges and not loan_rows:
             return MoneyFlow(period_label=period_label, mode="accounts")
 
         # Fold categories globally, then attribute per-account edges to kept/other.
@@ -266,6 +296,23 @@ class MoneyFlowService:
                     links.append(MoneyFlowLink(acc_id, cat_id, amount))
                 total_out += amount
 
+        for loan in loan_rows:
+            acc_id = f"acc:{loan.account_id}"
+            if acc_id not in nodes:
+                nodes[acc_id] = MoneyFlowNode(id=acc_id, label=loan.account_name, kind="account")
+            if loan.type == TransactionType.INCOME:
+                if IN_LOANS_ID not in nodes:
+                    nodes[IN_LOANS_ID] = MoneyFlowNode(
+                        id=IN_LOANS_ID, label=labels.loans, kind="source"
+                    )
+                links.append(MoneyFlowLink(IN_LOANS_ID, acc_id, loan.total))
+            else:
+                if OUT_LOANS_ID not in nodes:
+                    nodes[OUT_LOANS_ID] = MoneyFlowNode(
+                        id=OUT_LOANS_ID, label=labels.loans, kind="sink"
+                    )
+                links.append(MoneyFlowLink(acc_id, OUT_LOANS_ID, loan.total))
+
         total_transfers = Decimal("0")
         for edge in transfer_edges:
             src_id = f"acc:{edge.from_account_id}"
@@ -287,6 +334,8 @@ class MoneyFlowService:
             total_out=total_out,
             net=total_in - total_out,
             total_transfers=total_transfers,
+            loans_in=_loan_total(loan_rows, TransactionType.INCOME),
+            loans_out=_loan_total(loan_rows, TransactionType.EXPENSE),
             period_label=period_label,
             mode="accounts",
         )
@@ -329,6 +378,7 @@ class MoneyFlowService:
                 flow.c.date >= start,
                 flow.c.date < end,
                 flow.c.is_internal_transfer == False,  # noqa: E712
+                flow.c.transaction_id.not_in(loan_linked_transaction_ids()),
                 flow.c.type.in_([TransactionType.INCOME, TransactionType.EXPENSE]),
             )
             .group_by(*group_by)
@@ -349,6 +399,37 @@ class MoneyFlowService:
                 account_name=getattr(row, "account_name", None),
             )
             for row in result.all()
+        ]
+
+    async def _loan_rows(self, start: datetime.date, end: datetime.date) -> list[_LoanRow]:
+        """Loan-linked income/expense in ``[start, end)``, summed per account and type."""
+        stmt = (
+            select(
+                Transaction.account_id,
+                Account.name.label("account_name"),
+                Transaction.type,
+                func.sum(Transaction.amount).label("total"),
+            )
+            .join(Account, Transaction.account_id == Account.id)
+            .where(
+                Transaction.date >= start,
+                Transaction.date < end,
+                Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.type.in_([TransactionType.INCOME, TransactionType.EXPENSE]),
+                Transaction.id.in_(loan_linked_transaction_ids()),
+            )
+            .group_by(Transaction.account_id, Account.name, Transaction.type)
+        )
+        result = await self.session.execute(stmt)
+        return [
+            _LoanRow(
+                account_id=int(row.account_id),
+                account_name=str(row.account_name),
+                type=row.type,
+                total=Decimal(str(row.total)),
+            )
+            for row in result.all()
+            if Decimal(str(row.total)) != 0
         ]
 
     async def _net_transfers(self, start: datetime.date, end: datetime.date) -> list[_TransferEdge]:
@@ -493,6 +574,10 @@ def _expense_category_node(
     if depth == 1 and row.parent_id is not None:
         return f"out:{row.parent_id}", str(row.parent_name), None, None
     return f"out:{row.category_id}", str(row.name), None, None
+
+
+def _loan_total(rows: list[_LoanRow], tx_type: TransactionType) -> Decimal:
+    return sum((r.total for r in rows if r.type == tx_type), start=Decimal("0"))
 
 
 def _disambiguate_labels(nodes: dict[str, MoneyFlowNode], lbl: MoneyFlowLabels) -> None:
