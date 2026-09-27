@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Unit tests for MfaService.
 
-Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015
+Covers: KAL-AUTH-013, KAL-AUTH-014, KAL-AUTH-015, KAL-AUTH-035
 """
 
 from __future__ import annotations
@@ -870,3 +870,68 @@ class TestReissuingIsAClaimToo:
 
         assert await mfa.is_enabled(user.id) is True
         assert await mfa.consume_recovery_code(user.id, codes[0]) is True
+
+
+class TestCredentialChangesRevokeSessions:
+    """Every change to the second factor signs the account's other browsers out.
+
+    Covers: KAL-AUTH-035
+    """
+
+    @staticmethod
+    async def watermark(session: AsyncSession, user_id: int) -> datetime | None:
+        return await AuthService(session).sessions_valid_from(user_id)
+
+    @pytest.mark.asyncio
+    async def test_confirming_an_enrolment_revokes(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        before = datetime.now(UTC)
+        await enrol(mfa, user.id)
+        stamp = await self.watermark(session, user.id)
+        assert stamp is not None and stamp >= before
+
+    @pytest.mark.asyncio
+    async def test_a_wrong_enrolment_code_does_not(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        await mfa.begin_enrolment(user.id)
+        with pytest.raises(ValidationError):
+            await mfa.confirm_enrolment(user.id, "000000")
+        assert await self.watermark(session, user.id) is None
+
+    @pytest.mark.asyncio
+    async def test_reissuing_recovery_codes_revokes(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        await enrol(mfa, user.id)
+        before = datetime.now(UTC)
+        await mfa.regenerate_recovery_codes(user.id, mfa_verified_at=datetime.now(UTC))
+        stamp = await self.watermark(session, user.id)
+        assert stamp is not None and stamp >= before
+
+    @pytest.mark.asyncio
+    async def test_disabling_revokes(self, mfa: MfaService, session: AsyncSession, user) -> None:
+        secret, _codes = await enrol(mfa, user.id)
+        before = datetime.now(UTC)
+        await mfa.disable(user.id, password=PASSWORD, code=code_for(secret, offset_steps=1))
+        stamp = await self.watermark(session, user.id)
+        assert stamp is not None and stamp >= before
+
+    @pytest.mark.asyncio
+    async def test_a_refused_disable_does_not(
+        self, mfa: MfaService, session: AsyncSession, user
+    ) -> None:
+        _secret, codes = await enrol(mfa, user.id)
+        enrolled = await self.watermark(session, user.id)
+        with pytest.raises(ValidationError):
+            await mfa.disable(user.id, password="wrong-password", code=codes[0])
+        assert await self.watermark(session, user.id) == enrolled
+
+    @pytest.mark.asyncio
+    async def test_disable_all_revokes(self, mfa: MfaService, session: AsyncSession, user) -> None:
+        await enrol(mfa, user.id)
+        before = datetime.now(UTC)
+        assert await mfa.disable_all() == 1
+        stamp = await self.watermark(session, user.id)
+        assert stamp is not None and stamp >= before
