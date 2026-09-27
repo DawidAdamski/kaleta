@@ -15,6 +15,7 @@ from nicegui import app, ui
 from nicegui.storage import request_contextvar
 from starlette.requests import Request
 
+from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.config import settings
 
 if TYPE_CHECKING:
@@ -38,6 +39,11 @@ SESSION_USERNAME = "username"
 SESSION_LOGIN_AT = "login_at"
 #: When this session last made a request, for the idle timeout.
 SESSION_LAST_SEEN_AT = "last_seen_at"
+#: When this session changed a credential itself — and so bumped the user's
+#: revocation watermark while standing in front of it. Kept apart from
+#: ``SESSION_LOGIN_AT`` on purpose: moving the login stamp would also restart
+#: the absolute TTL, and changing a setting must not buy a session more life.
+SESSION_REVALIDATED_AT = "revalidated_at"
 
 #: ``touch_session()`` rewrites the activity stamp at most this often. Every
 #: write to ``app.storage.user`` is a file write, so a busy session costs one
@@ -75,6 +81,7 @@ _AUTH_KEYS = (
     SESSION_USERNAME,
     SESSION_LOGIN_AT,
     SESSION_LAST_SEEN_AT,
+    SESSION_REVALIDATED_AT,
     SESSION_MFA_VERIFIED_AT,
     *_MFA_PENDING_KEYS,
 )
@@ -387,6 +394,58 @@ def _idle_expired() -> bool:
     return now - last_seen > timedelta(hours=idle_hours)
 
 
+async def session_revoked(user_id: int, login_at: datetime | None) -> bool:
+    """True when ``user_id``'s sessions were revoked after ``login_at``.
+
+    A session that cannot say when it was issued is revoked as soon as there
+    is a watermark at all — the same stance the TTL rule takes on a missing
+    stamp. ``NULL`` in the database means nothing was ever revoked.
+    """
+    valid_from = await revocation_cache.valid_from(user_id)
+    if valid_from is None:
+        return False
+    if login_at is None:
+        return True
+    return login_at < valid_from
+
+
+def session_issued_at() -> datetime | None:
+    """When this session last proved who it is: its sign-in, or a later revalidation."""
+    stamps = [
+        stamp
+        for stamp in (
+            _stamp(app.storage.user.get(SESSION_LOGIN_AT)),
+            _stamp(app.storage.user.get(SESSION_REVALIDATED_AT)),
+        )
+        if stamp is not None
+    ]
+    return max(stamps) if stamps else None
+
+
+async def current_session_revoked() -> bool:
+    """``session_revoked`` for the session bound to this request."""
+    raw_id = app.storage.user.get(SESSION_USER_ID)
+    if raw_id is None:
+        return False
+    try:
+        user_id = int(raw_id)
+    except (TypeError, ValueError):
+        return False
+    return await session_revoked(user_id, session_issued_at())
+
+
+def keep_session_after_revocation(user_id: int) -> None:
+    """Call right after this session bumped ``user_id``'s watermark itself.
+
+    Every other browser is out; this one, which just proved a credential to
+    make the change, stays in. Also drops the cached watermark so the other
+    sessions served by this process see the bump on their next page load
+    rather than up to a minute later.
+    """
+    revocation_cache.forget(user_id)
+    app.storage.user[SESSION_REVALIDATED_AT] = datetime.now(UTC).isoformat()
+
+
 def user_id_from_request(request: Request) -> int | None:
     """Read authenticated user id from the NiceGUI session cookie, if present."""
     try:
@@ -402,6 +461,30 @@ def user_id_from_request(request: Request) -> int | None:
         return int(raw_id) if raw_id is not None else None
     except (RuntimeError, KeyError, AssertionError, TypeError, ValueError):
         return None
+
+
+async def authenticated_user_id(request: Request) -> int | None:
+    """``user_id_from_request``, and ``None`` for a session that was revoked.
+
+    The API's cookie path. A revoked session is refused here but not ended:
+    ending it is the page guard's job, because the page guard is what tells the
+    person why (``?reason=signed_out_everywhere``). A background API call that
+    emptied the session first would leave that next page load nothing to
+    explain. The refusal is repeated from the cached watermark, so it is cheap.
+    """
+    user_id = user_id_from_request(request)
+    if user_id is None:
+        return None
+    try:
+        # `user_id_from_request` bound this request's storage, so the session
+        # read here is the one the cookie names.
+        if await session_revoked(user_id, session_issued_at()):
+            return None
+    except (RuntimeError, KeyError, AssertionError):
+        # Unreadable storage is no session — the same answer, for the same
+        # exceptions, that `user_id_from_request` gives.
+        return None
+    return user_id
 
 
 def session_middleware_kwargs(cfg: Settings | None = None) -> dict[str, str | int | bool]:

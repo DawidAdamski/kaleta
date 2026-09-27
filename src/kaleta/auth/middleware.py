@@ -16,6 +16,7 @@ from starlette.responses import Response
 from kaleta.auth.session import (
     SESSION_ROTATE_PATH,
     SessionExpiry,
+    current_session_revoked,
     is_authenticated,
     logout_session,
     session_expiry_reason,
@@ -117,6 +118,20 @@ def register_auth_middleware() -> None:
                     redirect_to = quote(path, safe="/")
                     reason = "&reason=idle" if expiry == "idle" else ""
                     return RedirectResponse(f"/login?redirect_to={redirect_to}{reason}")
+                # Page loads only: `/_nicegui/*` is public above, so an open
+                # websocket keeps its current page until the next navigation.
+                # The watermark cache bounds how stale this answer can be.
+                try:
+                    revoked = await current_session_revoked()
+                except RuntimeError:
+                    revoked = False
+                if revoked:
+                    with suppress(RuntimeError):
+                        logout_session()
+                    redirect_to = quote(path, safe="/")
+                    return RedirectResponse(
+                        f"/login?redirect_to={redirect_to}&reason=signed_out_everywhere"
+                    )
                 # After the expiry check, never before: a touch first would
                 # rescue the very session the idle rule is about to end.
                 with suppress(RuntimeError):
