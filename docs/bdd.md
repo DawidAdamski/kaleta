@@ -1659,17 +1659,19 @@ Feature: Budget Planning Comparisons
   I want to see history while planning next month's category budgets
   So that my plan is grounded in what actually happens
 
-  KAL-CMP-001 @planned
+  KAL-CMP-001 @automated
   Scenario: Planning view shows previous month actuals side by side
     Given transactions exist for the previous month
     When I plan next month's budget per category
     Then each category row shows previous month's actual spending
+    And January's row shows last December's actual spending
 
-  KAL-CMP-002 @planned
+  KAL-CMP-002 @automated
   Scenario: Planning view shows the same month in previous years
     Given budgets and transactions exist for July 2024 and July 2025
     When I plan July 2026
     Then I can see July 2024 and July 2025 actuals per category
+    And the July 2026 plan stays editable
 
   KAL-CMP-003 @automated
   Scenario: Start from last month's plan and adjust
