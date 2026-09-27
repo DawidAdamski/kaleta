@@ -63,3 +63,34 @@ class TestResetPasswordCli:
         ).run()
         assert code == 1
         assert "first-run bootstrap" in stderr.getvalue()
+
+    def test_success_says_every_browser_was_signed_out(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Covers: KAL-AUTH-028"""
+        monkeypatch.setattr(
+            "kaleta.cli.reset_password.get_db_url",
+            lambda: "sqlite+aiosqlite:///:memory:",
+        )
+
+        async def _ok(
+            _self: ResetPasswordCli,
+            _db_url: str,
+            _password: str,
+            _note_removed: object,
+        ) -> tuple[str, int]:
+            return "owner", 0
+
+        monkeypatch.setattr(ResetPasswordCli, "_reset", _ok)
+        prompts = iter(["new-password-9", "new-password-9"])
+        stdout = io.StringIO()
+        code = ResetPasswordCli(
+            get_password=lambda _prompt: next(prompts),
+            stdout=stdout,
+        ).run()
+        assert code == 0
+        assert (
+            "All browser sessions have been signed out; API bearer tokens are unchanged."
+            in stdout.getvalue()
+        )
+        assert "may still work" not in stdout.getvalue()
