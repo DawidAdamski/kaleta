@@ -56,7 +56,15 @@ Gap-closing plan for issue #14 (`KAL-DBT-001`, `KAL-DBT-004`), from
 - **Model:** `personal_loans.transaction_id` nullable FK →
   `transactions.id` `ON DELETE SET NULL`, unique
   (`uq_personal_loans_transaction_id`): one transaction moves one loan's
-  principal. Migration `p0q1r2s3t4u5`, no backfill.
+  principal. The same migration (`p0q1r2s3t4u5`, no backfill) makes
+  `personal_loan_repayments.linked_transaction_id` unique
+  (`uq_personal_loan_repayments_linked_transaction_id`) — mirrors always
+  created their own transaction, so existing rows already comply.
+- **Races:** both link paths commit through `_commit_link`, which turns the
+  unique-constraint `IntegrityError` into the same `ConflictError`. A
+  principal and a repayment racing for one transaction sit in two tables
+  and are only caught by the pre-check — accepted, it needs two users
+  saving the same transfer in the same instant.
 - **Service rules:** linking a missing transaction → `NotFoundError`; one
   already linked to any loan or repayment → `ConflictError`
   (`loan_transaction_taken`); a repayment that both links an existing

@@ -220,7 +220,7 @@ class PersonalLoanService:
             loan.status = LoanStatus.OUTSTANDING
             loan.settled_at = None
 
-        await self.session.commit()
+        await self._commit_link(payload.link_transaction_id)
         await self.session.refresh(repayment)
         return RepaymentResponse.model_validate(repayment)
 
@@ -301,7 +301,9 @@ class PersonalLoanService:
         """Commit; a concurrent link of the same transaction becomes a ``ConflictError``.
 
         ``_check_linkable`` runs before the write, so two requests can both pass
-        it — ``uq_personal_loans_transaction_id`` then rejects the second.
+        it — the unique constraint on the principal or repayment link then
+        rejects the second. (A principal and a repayment racing for the same
+        transaction live in two tables and are not caught here.)
         """
         try:
             await self.session.commit()

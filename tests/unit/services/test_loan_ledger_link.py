@@ -162,6 +162,27 @@ class TestLoanTransactionLink:
         with pytest.raises(ConflictError):
             await _lend(session, "Ania", "400.00", transaction_id=transfer)
 
+    async def test_concurrent_repayment_link_is_a_conflict(
+        self, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        acc = await _account(session)
+        loan_id = await _lend(session, "Marek", "400.00", transaction_id=None)
+        incoming = await _tx(
+            session, account_id=acc, amount="250.00", tx_type=TransactionType.INCOME
+        )
+        svc = PersonalLoanService(session)
+        payload = RepaymentCreate(
+            amount=Decimal("250.00"), date=YESTERDAY, link_transaction_id=incoming
+        )
+        await svc.record_repayment(loan_id, payload)
+
+        async def _passes(_self: PersonalLoanService, _tx_id: int) -> None:
+            return None
+
+        monkeypatch.setattr(PersonalLoanService, "_check_linkable", _passes)
+        with pytest.raises(ConflictError):
+            await svc.record_repayment(loan_id, payload)
+
     async def test_update_can_set_and_keep_the_link(self, session: AsyncSession) -> None:
         acc = await _account(session)
         transfer = await _tx(session, account_id=acc, amount="400.00")

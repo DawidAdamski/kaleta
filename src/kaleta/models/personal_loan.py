@@ -98,6 +98,12 @@ class PersonalLoanRepayment(TimestampMixin, Base):
     """A partial or full repayment against a PersonalLoan."""
 
     __tablename__ = "personal_loan_repayments"
+    # One transaction is at most one repayment.
+    __table_args__ = (
+        UniqueConstraint(
+            "linked_transaction_id", name="uq_personal_loan_repayments_linked_transaction_id"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     loan_id: Mapped[int] = mapped_column(
