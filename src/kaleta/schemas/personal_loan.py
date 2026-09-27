@@ -41,6 +41,9 @@ class RepaymentCreate(BaseModel):
     # so the repayment is reflected in the ledger.
     link_account_id: int | None = None
     link_category_id: int | None = None
+    # When set, the repayment points at this existing Transaction instead of
+    # creating a mirror — mutually exclusive with ``link_account_id``.
+    link_transaction_id: int | None = None
 
 
 class RepaymentResponse(BaseModel):
@@ -64,6 +67,8 @@ class PersonalLoanBase(BaseModel):
     opened_at: datetime.date
     due_at: datetime.date | None = None
     notes: str | None = Field(default=None, max_length=4000)
+    # The existing ledger transaction that moved the principal, if any.
+    transaction_id: int | None = None
 
 
 class PersonalLoanCreate(PersonalLoanBase):
@@ -79,6 +84,7 @@ class PersonalLoanUpdate(BaseModel):
     due_at: datetime.date | None = None
     notes: str | None = Field(default=None, max_length=4000)
     status: LoanStatus | None = None
+    transaction_id: int | None = None
 
 
 class PersonalLoanResponse(PersonalLoanBase):
@@ -93,6 +99,19 @@ class PersonalLoanWithRepayments(PersonalLoanResponse):
     repayments: list[RepaymentResponse] = Field(default_factory=list)
     repaid_total: Decimal
     remaining: Decimal
+
+
+# ── Linkable ledger transactions ─────────────────────────────────────────────
+
+
+class LoanLinkCandidate(BaseModel):
+    """A ledger transaction the loan or repayment dialog may link."""
+
+    id: int
+    date: datetime.date
+    amount: Decimal
+    description: str
+    account_name: str
 
 
 # ── Totals for the header ────────────────────────────────────────────────────
@@ -110,6 +129,7 @@ __all__ = [
     "CounterpartyResponse",
     "CounterpartyUpdate",
     "LoanDirection",
+    "LoanLinkCandidate",
     "LoanStatus",
     "LoanTotals",
     "PersonalLoanCreate",
