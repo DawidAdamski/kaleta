@@ -3,7 +3,7 @@ plan_id: debts-ledger-link
 title: Debt tracking — link a loan to its transfer, keep loans out of spending
 area: credit
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#credit
 ---
 
