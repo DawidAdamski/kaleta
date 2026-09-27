@@ -3,14 +3,15 @@ plan_id: budgets-plan-comparisons-gaps
 title: Budget planning comparisons — previous month across the year boundary, past years while editing
 area: budgets
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets
+status: archived
+archived_at: 2026-09-27
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Budget planning comparisons — previous month across the year boundary, past years while editing
 
 Gap-closing plan for issue #6 (`KAL-CMP-001`, `KAL-CMP-002`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-CMP-003` is
+[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-CMP-003` is
 `@automated`.
 
 ## What exists (2026-09-23)
@@ -31,7 +32,7 @@ Gap-closing plan for issue #6 (`KAL-CMP-001`, `KAL-CMP-002`), from
   asserts a seeded previous-month value in the row.
 - **CMP-002** — editable current year with reference rows for chosen
   past years (actuals), instead of read-only compare mode.
-- Coordinate with [`budgets-plan-unification`](budgets-plan-unification.md),
+- Coordinate with [`budgets-plan-unification`](../budgets-plan-unification.md),
   which moves this grid under `/budgets?tab=plan`; whichever lands
   second rebases.
 
@@ -92,3 +93,33 @@ Gap-closing plan for issue #6 (`KAL-CMP-001`, `KAL-CMP-002`), from
   (twice on this branch, never on `main`, never when run alone). The
   helper now uses the existing scroll-aware `ledger.pick_open_menu_option`.
   No timeout or assertion changed.
+
+## Implementation
+
+Landed on 2026-09-27 (PR #155).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c298243` | Dawid Adamski | 2026-09-27 | Merge pull request #155 from DawidAdamski/plan/budgets-plan-comparisons-gaps |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/budgets-plan-comparisons-gaps.md
+- docs/tech-stack.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/budget_service.py
+- src/kaleta/views/budget_plan/grid.py
+- src/kaleta/views/budget_plan/toolbar.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_budget_comparisons.py
+- tests/e2e/test_csv_import.py
+- tests/unit/services/test_budget_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
