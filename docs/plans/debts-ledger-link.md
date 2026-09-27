@@ -86,3 +86,9 @@ Gap-closing plan for issue #14 (`KAL-DBT-001`, `KAL-DBT-004`), from
   went to `chores.md`.
 - `alembic check` shows index drift on `import_runs` / `import_rules` /
   `categorisation_rules` that predates this plan; logged in `chores.md`.
+- **E2e helper fix (test-only, own commit):** the two new e2e tests seed
+  categories that sort just before `test_quick_entry`'s
+  "Spozywcze Qik E2E". That put the option in the virtual list's off-screen
+  buffer, where Playwright's scroll-into-view click detached it on every
+  retry. `tests/e2e/ledger.py::pick_open_menu_option` now dispatches the
+  click on the found option. Full suite: 196 passed.
