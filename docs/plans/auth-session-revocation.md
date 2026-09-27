@@ -116,6 +116,58 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Migration parent.** The plan says "after `m7n8o9p0q1r2_add_user_mfa`";
+  the head had since moved to `n8o9p0q1r2s3`, so the new revision
+  `o9p0q1r2s3t4` revises that, to keep one head.
+- **Cache invalidation crosses a layer boundary, so it lives above it.**
+  `kaleta.auth` sits above `kaleta.services` in the import-linter layers, so
+  `AuthService.revoke_sessions` cannot call `revocation_cache.forget()`. The
+  UI callers do it: `keep_session_after_revocation()` (MFA changes) and the
+  Sign out everywhere handler both forget the entry. The CLI and
+  `disable_all()` run in another process anyway, which the 60-second bound
+  covers.
+- **The browser that changes the second factor stays signed in.** Otherwise
+  turning MFA on would throw the user out while the recovery codes were on
+  screen. The plan does not decide this, so the default follows GitHub and
+  Google: every *other* session goes. Mechanism: a separate
+  `SESSION_REVALIDATED_AT` stamp that the guard reads as
+  `max(login_at, revalidated_at)`. `login_at` does not move, because moving
+  it would restart the absolute TTL. Sign out everywhere does not keep the
+  current session, as the plan says. Recorded as `KAL-AUTH-035` (033 and 034
+  are reserved by `auth-session-hosted-readiness`).
+- **The API cookie path refuses a revoked session but does not end it.**
+  `authenticated_user_id()` returns `None` (→ 401) and leaves the bucket
+  alone. The page guard is the one that ends it, and it is also what adds
+  `?reason=signed_out_everywhere`. If a background API call emptied the
+  session first, the next page load would reach `/login` with no reason
+  given. Each refusal costs one cached lookup.
+- **New seam `authenticated_user_id(request)`** (async) wraps the sync
+  `user_id_from_request` plus the revocation check. Two existing tests
+  stubbed `deps.user_id_from_request`, and now stub this seam instead. Their
+  assertions are unchanged.
+- **Open question 1 (every request vs page loads):** default taken. The check
+  runs in `AuthMiddleware` after the expiry check and before `touch_session`,
+  and `/_nicegui/*` is already public, so only page navigations pay for it.
+- **Open question 2 (Redis cache):** not done, per the default; the one-minute
+  bound is documented in `SECURITY.md` and `docs/getting-started.md`.
+- **A session with no `login_at`** is treated as revoked once a watermark
+  exists, the same stance `_ttl_expired` takes on a missing stamp.
+- **Sign out everywhere**: a confirm dialog comes first, then `_step_up` (a
+  no-op with MFA off). The service method itself is unguarded, because
+  revoking only takes access away. The step-up is there so that a stolen
+  cookie cannot throw the owner out.
+- **e2e isolation.** Any bump also ends the suite's shared
+  `auth_storage_state` login (including `seed_helpers.disable_mfa_for_all()`
+  in `test_mfa.py`'s teardown). New fixture `renew_shared_login` signs in
+  again afterwards and updates that dict in place.
+  `no_enrolment_left_behind` depends on it, so the re-login happens after
+  the enrolment is gone.
+- **Coverage split.** `scripts/spec_coverage.py` counts only e2e and
+  integration tests. A shell reset reaches the running server only once its
+  60-second cache has lapsed, which is too slow for e2e, so KAL-AUTH-028 and
+  KAL-AUTH-035 are covered in
+  `tests/integration/test_session_revocation_guards.py` against the real
+  middleware and a real database. KAL-AUTH-029 and KAL-AUTH-030 are covered
+  in e2e by `test_sign_out_everywhere_ends_every_browser`.
 
 ## Implementation (filled by plan-archiver)
