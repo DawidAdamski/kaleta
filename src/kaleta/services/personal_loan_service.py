@@ -252,7 +252,7 @@ class PersonalLoanService:
     async def list_link_candidates(
         self,
         *,
-        limit: int = 50,
+        limit: int = 200,
         include_ids: Collection[int] = (),
     ) -> builtins.list[LoanLinkCandidate]:
         """Recent transactions a loan or repayment may link, newest first.

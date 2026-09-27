@@ -39,3 +39,50 @@ Gap-closing plan for issue #14 (`KAL-DBT-001`, `KAL-DBT-004`), from
 
 - Exclusion mechanism: flag on the transaction vs join through the loan.
   Default: join — one source of truth, no second flag to keep in sync.
+
+## Implementation notes
+
+- **Exclusion mechanism (open question):** took the default — join through
+  the loan. `kaleta.services.loan_links.loan_linked_transaction_ids()` is the
+  single source: the union of `PersonalLoan.transaction_id` and
+  `PersonalLoanRepayment.linked_transaction_id`, NULLs filtered so it is safe
+  inside `NOT IN`. No flag on `Transaction`.
+- **Repayments count as loan money too.** A transaction linked as a
+  repayment (either linked to an existing one or mirrored via "Mirror as
+  transaction on…") is excluded from income/expense like the principal.
+  Money coming back from Marek is not income. This changes the mirrored
+  repayment's effect on reports — before, it counted as income under the
+  picked category.
+- **Model:** `personal_loans.transaction_id` nullable FK →
+  `transactions.id` `ON DELETE SET NULL`, unique
+  (`uq_personal_loans_transaction_id`): one transaction moves one loan's
+  principal. Migration `p0q1r2s3t4u5`, no backfill.
+- **Service rules:** linking a missing transaction → `NotFoundError`; one
+  already linked to any loan or repayment → `ConflictError`
+  (`loan_transaction_taken`); a repayment that both links an existing
+  transaction and asks for a mirror → `ValidationError`
+  (`repayment_link_ambiguous`), also caught earlier by
+  `parse_repayment_form`.
+- **Picker:** `PersonalLoanService.list_link_candidates` — the 200 most
+  recent non-internal, not-yet-linked transactions (the select filters as
+  you type); the loans' current links are always added so an edit keeps
+  them. 200 rather than 50 because a shared e2e DB (and a busy real ledger)
+  easily has 50 rows dated today, which pushed "yesterday's transfer" off
+  the list. The new-loan and repayment pickers never offer another loan's
+  principal. Picking a transaction on a fresh loan fills the principal.
+- **Where "Loans" shows (DBT-004):** the Income Statement report (monthly
+  summary) gets a "Loans" table (lent or repaid / borrowed or paid back),
+  and `IncomeStatement.loans_out` / `loans_in`. Money Flow draws `in:loans`
+  / `out:loans` nodes in both lenses. Its surplus/deficit node balances the
+  pool including loan cash, while `total_in` / `total_out` / `net` (the
+  KPIs and API) stay income/expense only.
+- **ReportService scope:** exclusion added to every income/expense
+  aggregate (`_month_summary` → dashboard month KPIs and safe-to-spend,
+  trailing spend, `cashflow_last_n_months`, `top_merchants`, YoY, YTD,
+  `_sum_by_category` → income statement, spending by category, budget
+  variance). Left alone: `_net_flow_since` (balance delta — loan cash really
+  moved the balance), `recent_transactions` and `largest_transactions`
+  (listings, not totals). Other services are out of this plan's scope and
+  went to `chores.md`.
+- `alembic check` shows index drift on `import_runs` / `import_rules` /
+  `categorisation_rules` that predates this plan; logged in `chores.md`.

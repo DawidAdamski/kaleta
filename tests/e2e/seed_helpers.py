@@ -487,6 +487,7 @@ def seed_personal_loan(
     direction: str = "outgoing",
     opened_at: datetime.date | None = None,
     due_at: datetime.date | None = None,
+    transaction_id: int | None = None,
 ) -> int:
     """Create a personal loan via the service layer; return its ID."""
     from decimal import Decimal
@@ -508,6 +509,7 @@ def seed_personal_loan(
                     currency="PLN",
                     opened_at=opened_at or datetime.date.today(),
                     due_at=due_at,
+                    transaction_id=transaction_id,
                 )
             )
             return loan.id
