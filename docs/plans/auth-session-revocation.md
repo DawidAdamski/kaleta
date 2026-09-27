@@ -3,7 +3,7 @@ plan_id: auth-session-revocation
 title: Auth — revoke sessions from the server
 area: auth
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#auth
 ---
 
