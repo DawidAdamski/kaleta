@@ -10,10 +10,24 @@ from typing import Any
 from nicegui import app, ui
 
 from kaleta.auth.login_rate_limit import mfa_rate_limiter
-from kaleta.auth.session import SESSION_USER_ID, mark_mfa_verified, mfa_verified_at
+from kaleta.auth.revocation_cache import revocation_cache
+from kaleta.auth.session import (
+    SESSION_USER_ID,
+    finish_logout,
+    keep_session_after_revocation,
+    mark_mfa_verified,
+    mfa_verified_at,
+)
 from kaleta.exceptions import ConflictError, EncryptionError, KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
-from kaleta.services import ApiTokenService, MfaEnrolment, MfaService, MfaStatus, with_session
+from kaleta.services import (
+    ApiTokenService,
+    AuthService,
+    MfaEnrolment,
+    MfaService,
+    MfaStatus,
+    with_session,
+)
 from kaleta.views.error_handling import notify_kaleta_error
 
 #: Redraw the two-factor card after something changed underneath it. NiceGUI's
@@ -29,6 +43,7 @@ async def render_security_tab() -> None:
         return
 
     await _render_mfa_card(int(user_id))
+    _render_sessions_card(int(user_id))
     await _render_token_card(int(user_id))
 
 
@@ -280,6 +295,9 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
         await with_session(_abandon)
         refresh()
         return
+    # Confirming bumped the revocation watermark; every other browser is out,
+    # this one just proved the new factor.
+    keep_session_after_revocation(user_id)
     mark_mfa_verified()
     ui.notify(t("settings.mfa_enabled_notify"), type="positive")
     await _show_recovery_codes(codes)
@@ -314,6 +332,7 @@ async def _open_recovery(user_id: int, refresh: Refresh) -> None:
         notify_kaleta_error(exc)
         refresh()
         return
+    keep_session_after_revocation(user_id)
     await _show_recovery_codes(codes)
     refresh()
 
@@ -415,8 +434,55 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
     disabled = await dialog
     dialog.delete()
     if disabled:
+        keep_session_after_revocation(user_id)
         ui.notify(t("settings.mfa_disabled_notify"), type="positive")
     refresh()
+
+
+# ── Signed-in browsers ────────────────────────────────────────────────────────
+
+
+def _render_sessions_card(user_id: int) -> None:
+    with ui.card().classes("p-6 w-full mb-6"):
+        with ui.row().classes("items-center gap-2 mb-1"):
+            ui.icon("devices", color="primary").classes("text-xl")
+            ui.label(t("settings.sessions_title")).classes("text-lg font-semibold")
+        ui.label(t("settings.sessions_hint")).classes("text-xs text-slate-500 mb-4")
+        ui.button(
+            t("settings.sign_out_everywhere"),
+            icon="logout",
+            on_click=lambda: _sign_out_everywhere(user_id),
+        ).props("outline color=negative")
+
+
+async def _sign_out_everywhere(user_id: int) -> None:
+    """Revoke every session of this user, this one included.
+
+    Behind the step-up when two-factor is on: a stolen cookie must not be able
+    to throw the owner out of their own browsers.
+    """
+    with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
+        ui.label(t("settings.sign_out_everywhere_confirm")).classes("text-sm mb-4")
+        with ui.row().classes("gap-2 justify-end w-full"):
+            ui.button(t("common.cancel"), on_click=lambda: dialog.submit(False)).props("flat")
+            ui.button(
+                t("settings.sign_out_everywhere"), on_click=lambda: dialog.submit(True)
+            ).props("color=negative")
+    confirmed = await dialog
+    dialog.delete()
+    if not confirmed or not await _step_up(user_id):
+        return
+
+    async def _revoke(session: Any) -> None:
+        await AuthService(session).revoke_sessions(user_id)
+
+    try:
+        await with_session(_revoke)
+    except KaletaError as exc:
+        notify_kaleta_error(exc)
+        return
+    revocation_cache.forget(user_id)
+    finish_logout()
 
 
 # ── API bearer tokens ─────────────────────────────────────────────────────────
