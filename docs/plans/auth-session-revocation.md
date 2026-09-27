@@ -170,4 +170,17 @@ Out of scope:
   middleware and a real database. KAL-AUTH-029 and KAL-AUTH-030 are covered
   in e2e by `test_sign_out_everywhere_ends_every_browser`.
 
+- **CI: `test_aggregates_under_200ms_on_a_thousand_transactions` failed
+  (420 ms, then 372 ms) on the SQLite unit job; `main` and this branch's
+  Postgres job passed.** Root cause: the aggregation takes ~11 ms. The rest
+  was a full (gen-2) garbage collection landing inside the timed window. By
+  that test the unit suite's heap holds ~680k objects, and one gen-2 pass
+  measured 121 ms locally on Python 3.13 (~3× that on the runner). This
+  branch's 23 extra tests leave ~11k more objects alive, which moved the
+  point where the collector fires into the window. It is not a regression
+  in the service. Fix, in its own commit: `gc.collect()` before
+  `perf_counter()`. The 200 ms bound is unchanged. It belongs to another
+  area, but it blocks this PR's CI, so it is fixed here rather than left in
+  the chore inbox.
+
 ## Implementation (filled by plan-archiver)
