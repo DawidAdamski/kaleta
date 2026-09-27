@@ -123,6 +123,8 @@ def _loan_row_subtitle(loan: Any) -> None:
         )
     elif loan.due_at:
         parts.append(t("personal_loans.row_due", date=fmt_date(loan.due_at)))
+    if loan.transaction_id is not None:
+        parts.append(t("personal_loans.row_linked", id=loan.transaction_id))
     if loan.notes:
         parts.append(notes_preview(loan.notes))
     ui.label(" · ".join(parts)).classes("text-xs text-slate-500")

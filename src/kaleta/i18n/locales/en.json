@@ -841,7 +841,11 @@
     "repayment_recorded": "Repayment recorded.",
     "repayment_delete": "Remove repayment",
     "repayment_deleted": "Repayment removed.",
-    "repayment_linked": "Linked to transaction #{id}"
+    "repayment_linked": "Linked to transaction #{id}",
+    "field_transaction": "Linked transaction",
+    "field_transaction_hint": "Optional — the transfer that moved the money. Linked money is kept out of income and spending.",
+    "repayment_field_link_transaction": "Existing transaction",
+    "row_linked": "Transaction #{id}"
   },
   "housekeeping": {
     "title": "Housekeeping",
@@ -1574,7 +1578,10 @@
     "days_back": "Window (days)",
     "limit": "Limit",
     "asset": "Asset",
-    "liability": "Liability"
+    "liability": "Liability",
+    "loans": "Loans",
+    "loans_out": "Lent or repaid",
+    "loans_in": "Borrowed or paid back to you"
   },
   "money_flow": {
     "budget": "Budget",
@@ -1597,7 +1604,8 @@
     "transfers": "Transfers",
     "view": "View",
     "view_budget": "Budget",
-    "view_accounts": "Accounts"
+    "view_accounts": "Accounts",
+    "loans": "Loans"
   },
   "credit": {
     "title": "Credit",

@@ -13,7 +13,7 @@ from kaleta.services import AccountService, CategoryService, PersonalLoanService
 from kaleta.views.components.amount_label import amount_css_class
 from kaleta.views.layout import page_layout
 from kaleta.views.personal_loans.dialogs import build_personal_loan_dialogs
-from kaleta.views.personal_loans.helpers import fmt_amount
+from kaleta.views.personal_loans.helpers import fmt_amount, link_candidate_label
 from kaleta.views.personal_loans.rows import render_loan_row
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
 
@@ -26,9 +26,14 @@ async def personal_loans_page() -> None:
         totals = await svc.totals()
         accounts = await AccountService(session).list()
         all_cats = await CategoryService(session).list()
-        return loans, counterparties, totals, accounts, all_cats
+        candidates = await svc.list_link_candidates(
+            include_ids=[ln.transaction_id for ln in loans if ln.transaction_id is not None]
+        )
+        return loans, counterparties, totals, accounts, all_cats, candidates
 
-    loans, counterparties, totals, accounts, all_cats = await with_session(_load_page_data)
+    loans, counterparties, totals, accounts, all_cats, candidates = await with_session(
+        _load_page_data
+    )
 
     counterparty_opts: dict[int, str] = {c.id: c.name for c in counterparties}
     account_opts: dict[int, str] = {a.id: a.name for a in accounts}
@@ -38,6 +43,13 @@ async def personal_loans_page() -> None:
     income_cat_opts = CategoryService.build_option_labels(
         [c for c in all_cats if c.type.value == "income"]
     )
+    transaction_opts = {c.id: link_candidate_label(c) for c in candidates}
+    # A repayment may not reuse any loan's principal transaction.
+    principal_ids = {ln.transaction_id for ln in loans if ln.transaction_id is not None}
+    free_transaction_opts = {
+        tx_id: label for tx_id, label in transaction_opts.items() if tx_id not in principal_ids
+    }
+    transaction_amounts = {c.id: float(c.amount) for c in candidates}
 
     with page_layout(t("personal_loans.title"), wide=True):
         with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
@@ -71,6 +83,9 @@ async def personal_loans_page() -> None:
             account_opts=account_opts,
             expense_cat_opts=expense_cat_opts,
             income_cat_opts=income_cat_opts,
+            transaction_opts=transaction_opts,
+            free_transaction_opts=free_transaction_opts,
+            transaction_amounts=transaction_amounts,
         )
 
         with ui.row().classes("w-full justify-end"):
