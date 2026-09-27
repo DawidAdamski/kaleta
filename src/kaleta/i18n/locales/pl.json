@@ -1907,6 +1907,10 @@
     "mfa_password": "Hasło",
     "mfa_enabled_notify": "Uwierzytelnianie dwuskładnikowe jest włączone.",
     "mfa_disabled_notify": "Uwierzytelnianie dwuskładnikowe jest wyłączone.",
+    "sessions_title": "Zalogowane przeglądarki",
+    "sessions_hint": "Zmiana hasła lub ustawień dwuskładnikowych wylogowuje wszystkie inne przeglądarki. Tutaj zrobisz to od razu, łącznie z tą.",
+    "sign_out_everywhere": "Wyloguj wszędzie",
+    "sign_out_everywhere_confirm": "Wylogować wszystkie przeglądarki zalogowane na to konto, łącznie z tą?",
     "mfa_disable": "Wyłącz",
     "mfa_disable_title": "Wyłącz uwierzytelnianie dwuskładnikowe",
     "mfa_disable_hint": "Hasło oraz aktualny kod lub kod odzyskiwania.",
@@ -1989,6 +1993,7 @@
     "mfa_expired": "To trwało za długo. Zaloguj się ponownie.",
     "mfa_gone": "Uwierzytelnianie dwuskładnikowe zostało wyłączone. Teraz wystarczy samo hasło.",
     "reason_idle": "Wylogowano Cię po okresie bezczynności. Zaloguj się ponownie.",
+    "reason_signed_out_everywhere": "Wylogowano Cię ze wszystkich przeglądarek. Zaloguj się ponownie.",
     "mfa_unreadable": "Tego drugiego składnika nie da się odczytać w tej instalacji. Uruchom `kaleta --reset-password --disable-mfa` i skonfiguruj go ponownie."
   },
   "setup": {

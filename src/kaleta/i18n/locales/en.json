@@ -1907,6 +1907,10 @@
     "mfa_password": "Password",
     "mfa_enabled_notify": "Two-factor authentication is on.",
     "mfa_disabled_notify": "Two-factor authentication is off.",
+    "sessions_title": "Signed-in browsers",
+    "sessions_hint": "Changing your password or two-factor settings signs out every other browser. Use this to do it now, including this one.",
+    "sign_out_everywhere": "Sign out everywhere",
+    "sign_out_everywhere_confirm": "Sign out every browser signed in to this account, including this one?",
     "mfa_disable": "Turn off",
     "mfa_disable_title": "Turn off two-factor authentication",
     "mfa_disable_hint": "Your password, and either a current code or a recovery code.",
@@ -1989,6 +1993,7 @@
     "mfa_expired": "That took too long. Sign in again.",
     "mfa_gone": "Two-factor authentication was turned off. Your password is all you need now.",
     "reason_idle": "You were signed out after a period of inactivity. Sign in again.",
+    "reason_signed_out_everywhere": "You were signed out of every browser. Sign in again.",
     "mfa_unreadable": "This second factor cannot be read on this install. Run `kaleta --reset-password --disable-mfa` and set it up again."
   },
   "setup": {

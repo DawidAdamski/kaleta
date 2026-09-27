@@ -3136,6 +3136,36 @@ Feature: Two-factor authentication
     And a request carrying the signed-in id is sent to the login page
     And when I sign in again dark mode is still on
 
+  KAL-AUTH-028 @automated
+  Scenario: Resetting the password from the shell signs every browser out
+    Given I am signed in in a browser
+    When I run "kaleta --reset-password" and set a new password
+    Then the command says "All browser sessions have been signed out; API bearer tokens are unchanged."
+    And on its next page load that browser is sent to the login page with "reason=signed_out_everywhere"
+    And a browser that signs in after the reset is let in
+
+  KAL-AUTH-029 @automated
+  Scenario: "Sign out everywhere" ends every session, this one included
+    Given I am signed in in two browsers
+    When in one of them I open Settings → Security and confirm "Sign out everywhere"
+    Then that browser lands on the login page
+    And the other browser's next page load is sent to the login page with "reason=signed_out_everywhere"
+    And the sign-in page says "You were signed out of every browser. Sign in again."
+
+  KAL-AUTH-030 @automated
+  Scenario: A revoked session cookie no longer opens the API
+    Given I am signed in in a browser whose cookie can read "/api/v1/accounts/"
+    When my sessions are revoked from another browser
+    Then a GET to "/api/v1/accounts/" with that cookie gets 401
+
+  KAL-AUTH-035 @automated
+  Scenario: Changing the second factor signs every other browser out
+    Given I am signed in
+    When I turn two-factor authentication on, reissue my recovery codes, or turn it off
+    Then every session signed in before the change is revoked
+    But the browser I made the change in stays signed in
+    And a wrong code or password changes nothing
+
   KAL-AUTH-031 @automated
   Scenario: A session left idle longer than the idle window is signed out
     Given KALETA_SESSION_IDLE_HOURS is 12

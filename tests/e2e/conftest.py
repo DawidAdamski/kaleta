@@ -344,6 +344,26 @@ def browser_context_args(
 
 
 @pytest.fixture
+def renew_shared_login(browser, base_url: str, auth_storage_state) -> Generator[None]:
+    """Sign the shared login in again after a test that revokes sessions.
+
+    Every page in the suite starts from ``auth_storage_state``, one login shared
+    by all of them. A test that bumps the revocation watermark — a credential
+    change, or "Sign out everywhere" — ends that login as well, and every test
+    after it would land on ``/login``. The state is replaced in place, since
+    ``browser_context_args`` holds a reference to this very dict.
+    """
+    yield
+    context = browser.new_context()
+    page = context.new_page()
+    login(page, base_url)
+    fresh = context.storage_state()
+    context.close()
+    auth_storage_state.clear()
+    auth_storage_state.update(fresh)
+
+
+@pytest.fixture
 def page_no_auth(browser: Browser):
     context = browser.new_context()
     page = context.new_page()

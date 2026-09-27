@@ -40,10 +40,10 @@ async def api_app_cookie(db_engine, cookie_user, monkeypatch: pytest.MonkeyPatch
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_session_configured] = override_session
 
-    def _uid_from_request(_request: Any) -> int | None:
+    async def _uid_from_request(_request: Any) -> int | None:
         return cookie_user.id
 
-    monkeypatch.setattr("kaleta.api.deps.user_id_from_request", _uid_from_request)
+    monkeypatch.setattr("kaleta.api.deps.authenticated_user_id", _uid_from_request)
     return app
 
 

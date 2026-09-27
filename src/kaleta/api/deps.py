@@ -11,7 +11,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.auth.session import touch_session, user_id_from_request
+from kaleta.auth.session import authenticated_user_id, touch_session
 from kaleta.config.setup_config import is_configured
 from kaleta.db import AsyncSessionFactory
 from kaleta.exceptions import SetupRequiredError, UnauthorizedError
@@ -68,14 +68,15 @@ async def get_current_user_id(
         if user_id is not None:
             return user_id
 
-    session_user_id = user_id_from_request(request)
+    # Bearer tokens never reach this: they have their own revocation.
+    session_user_id = await authenticated_user_id(request)
     if session_user_id is not None:
         if request.method.upper() in _SAFE_METHODS:
-            # `user_id_from_request` already ran the expiry check and bound
+            # `authenticated_user_id` already ran the expiry check and bound
             # this request's storage; a rejected write below does not count
             # as activity. Recording activity is best-effort: NiceGUI reports
             # unusable storage as RuntimeError, KeyError or AssertionError —
-            # the same set `user_id_from_request` treats as "no session" — and
+            # the same set `authenticated_user_id` treats as "no session" — and
             # none of them may turn an accepted read into a 500.
             with suppress(RuntimeError, KeyError, AssertionError):
                 touch_session()

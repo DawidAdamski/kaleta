@@ -93,8 +93,7 @@ class ResetPasswordCli:
 
         self._stdout.write(
             f"Password updated for user {username!r}.\n"
-            "Existing browser sessions may still work until you sign out or clear "
-            "site data; API bearer tokens are unchanged.\n"
+            "All browser sessions have been signed out; API bearer tokens are unchanged.\n"
         )
         if self._disable_mfa:
             self._stdout.write(

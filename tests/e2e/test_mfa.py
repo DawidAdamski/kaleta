@@ -32,7 +32,7 @@ _last_step = -1
 
 
 @pytest.fixture
-def no_enrolment_left_behind() -> Generator[None]:
+def no_enrolment_left_behind(renew_shared_login: None) -> Generator[None]:
     """Clear every enrolment either side of the test.
 
     What this cannot clear is the code limiter, which lives in the app
@@ -41,6 +41,10 @@ def no_enrolment_left_behind() -> Generator[None]:
     The default ephemeral server is thrown away with it, so this only bites a
     run pointed at a reused instance with ``KALETA_E2E_BASE_URL`` — there,
     this file cannot be run twice inside a quarter of an hour.
+
+    Clearing enrolments revokes every session, the shared login included, so
+    this depends on ``renew_shared_login``: set up first, it is torn down
+    last, after the enrolment is gone and a password is enough to sign in.
     """
     seed_helpers.disable_mfa_for_all()
     yield

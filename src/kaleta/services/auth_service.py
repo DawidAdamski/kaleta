@@ -2,11 +2,12 @@
 from __future__ import annotations
 
 import secrets
+from datetime import UTC, datetime
 from typing import Literal
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerifyMismatchError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
@@ -115,9 +116,43 @@ class AuthService:
             msg = "No real user account found. Open the app to finish creating your account."
             raise NotFoundError(msg)
         user.password_hash = self.hash_password(new_password)
+        # The one moment someone resets a password is the moment they most
+        # want every other browser out. Same transaction as the new hash, so
+        # there is no window in which the password changed and they did not.
+        await self.revoke_sessions(user.id, commit=False)
         await self.session.commit()
         await self.session.refresh(user)
         return user
+
+    async def revoke_sessions(self, user_id: int, *, commit: bool = True) -> datetime:
+        """End every session ``user_id`` signed in to before now; return the watermark.
+
+        Nothing is deleted: sessions are files keyed by browser, with no index
+        from a user to them. The guards compare each session's sign-in time
+        with this watermark instead. ``commit=False`` lets a credential change
+        bump it in its own transaction.
+
+        Callers in a UI process should also forget the cached watermark (see
+        ``kaleta.auth.revocation_cache``) — this layer cannot reach it.
+        """
+        now = datetime.now(UTC)
+        await self.session.execute(
+            update(User).where(User.id == user_id).values(sessions_valid_from=now)
+        )
+        if commit:
+            await self.session.commit()
+        return now
+
+    async def sessions_valid_from(self, user_id: int) -> datetime | None:
+        """The revocation watermark for ``user_id``, in UTC; ``None`` if never bumped."""
+        result = await self.session.execute(
+            select(User.sessions_valid_from).where(User.id == user_id)
+        )
+        stamp = result.scalar_one_or_none()
+        if stamp is None:
+            return None
+        # SQLite hands back naive datetimes even for a timezone-aware column.
+        return stamp if stamp.tzinfo else stamp.replace(tzinfo=UTC)
 
     async def ensure_api_bootstrap_user(self) -> User:
         """Ensure a real user exists so ``KALETA_API_TOKEN`` can authenticate.

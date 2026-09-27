@@ -217,7 +217,11 @@ class TestApiCookieTouch:
         from kaleta.exceptions import UnauthorizedError
 
         touches: list[None] = []
-        monkeypatch.setattr(deps, "user_id_from_request", lambda _request: 7)
+
+        async def _seven(_request: object) -> int:
+            return 7
+
+        monkeypatch.setattr(deps, "authenticated_user_id", _seven)
         monkeypatch.setattr(deps, "touch_session", lambda: touches.append(None))
         request = MagicMock(method=method)
 

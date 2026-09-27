@@ -50,9 +50,15 @@ configured in `~/.kaleta/config.json`. The command refuses to run when no user
 exists (complete first-run bootstrap instead) or when more than one user row is
 present.
 
-**Sessions and tokens:** resetting the password does **not** invalidate existing
-NiceGUI browser sessions or API bearer tokens. Sign out (or clear site data) and
-revoke tokens in Settings if you need to force re-authentication after a reset.
+**Sessions and tokens:** resetting the password signs every browser out. So
+does turning two-factor on or off and reissuing recovery codes — except the
+browser that made the change — and **Settings → Security → Sign out
+everywhere** does it on demand, that browser included. Each of these moves a
+per-user watermark (`users.sessions_valid_from`); a session that signed in
+before it is refused on its next page load or cookie API call. The app process
+caches the watermark for up to 60 seconds, so a reset run from a shell, or a
+change made on another replica, takes effect within a minute. API bearer
+tokens are **not** affected: revoke them in Settings.
 
 ## Two-factor authentication
 

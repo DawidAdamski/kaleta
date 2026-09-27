@@ -7,6 +7,7 @@ One class per contributing wizard section, plus ranking and the empty case.
 from __future__ import annotations
 
 import datetime
+import gc
 import time
 from decimal import Decimal
 
@@ -397,6 +398,12 @@ class TestPerformance:
             ]
         )
 
+        # Collect first, so the window times the aggregation rather than a full
+        # collection owed by the tests that ran before this one. By this point
+        # of the unit suite the heap holds ~680k objects, and a gen-2 pass over
+        # them takes ~120 ms locally and ~360 ms on a CI runner — enough on its
+        # own to blow the budget whenever it happens to land inside the window.
+        gc.collect()
         start = time.perf_counter()
         await svc.get_action_items(today=TODAY)
         elapsed_ms = (time.perf_counter() - start) * 1000

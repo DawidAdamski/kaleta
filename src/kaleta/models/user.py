@@ -19,6 +19,11 @@ class User(Base):
         server_default=func.now(),
         nullable=False,
     )
+    #: Sessions signed in before this moment are no longer honoured. Bumped by
+    #: every credential change; ``NULL`` means no session was ever revoked.
+    sessions_valid_from: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     def __repr__(self) -> str:
         return f"<User id={self.id} username={self.username!r}>"

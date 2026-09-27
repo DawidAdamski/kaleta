@@ -3,7 +3,7 @@
 
 Covers: KAL-AUTH-001, KAL-AUTH-002, KAL-AUTH-003, KAL-AUTH-004, KAL-AUTH-005,
 KAL-AUTH-006, KAL-AUTH-011, KAL-AUTH-012, KAL-AUTH-025, KAL-AUTH-026,
-KAL-AUTH-027, KAL-AUTH-031
+KAL-AUTH-027, KAL-AUTH-029, KAL-AUTH-030, KAL-AUTH-031
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from pathlib import Path
 
 import httpx
 import pytest
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Browser, Page, expect
 
 from tests.e2e.conftest import (
     E2E_PASSWORD,
@@ -205,6 +205,53 @@ def test_login_and_logout_rotate_the_session_id(page_no_auth: Page, base_url: st
     # …and the preference came along both times.
     _sign_in(page, base_url)
     expect(page.locator("body.body--dark")).to_have_count(1, timeout=10000)
+
+
+def test_sign_out_everywhere_ends_every_browser(
+    page_no_auth: Page, browser: Browser, base_url: str, renew_shared_login: None
+) -> None:
+    """Covers: KAL-AUTH-029, KAL-AUTH-030
+
+    Two browsers of their own rather than the shared login: this ends every
+    session of the e2e user, and ``renew_shared_login`` puts the shared one
+    back afterwards.
+    """
+    here = page_no_auth
+    here.goto(f"{base_url}/login")
+    _sign_in(here, base_url)
+
+    other_context = browser.new_context()
+    try:
+        other = other_context.new_page()
+        other.goto(f"{base_url}/login")
+        _sign_in(other, base_url)
+        # The other browser's cookie opens the API before the button is pressed…
+        before = other_context.request.get(f"{base_url}/api/v1/accounts/")
+        assert before.status == 200
+
+        here.goto(f"{base_url}/settings")
+        here.get_by_role("tab", name="Security").click()
+        here.get_by_role("button", name="Sign out everywhere").click()
+        here.locator(".q-dialog:visible").get_by_role("button", name="Sign out everywhere").click()
+
+        # KAL-AUTH-029 — this browser is signed out…
+        expect(here).to_have_url(f"{base_url}/login", timeout=15000)
+
+        # KAL-AUTH-030 — …the other one's cookie no longer opens the API…
+        after = other_context.request.get(f"{base_url}/api/v1/accounts/")
+        assert after.status == 401
+
+        # KAL-AUTH-029 — …nor a page, and the login page says why.
+        other.goto(f"{base_url}/transactions")
+        expect(other).to_have_url(
+            f"{base_url}/login?redirect_to=/transactions&reason=signed_out_everywhere",
+            timeout=15000,
+        )
+        expect(
+            other.get_by_text("You were signed out of every browser. Sign in again.")
+        ).to_be_visible(timeout=10000)
+    finally:
+        other_context.close()
 
 
 def test_api_unauthorized_without_token(base_url: str) -> None:

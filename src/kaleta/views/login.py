@@ -74,6 +74,10 @@ def register() -> None:
             elif reason == "idle":
                 # Sent here by the auth guard after the idle window ran out.
                 _say(t("auth.reason_idle"))
+            elif reason == "signed_out_everywhere":
+                # Sent here by the auth guard after a credential change (or
+                # "Sign out everywhere") revoked this browser's session.
+                _say(t("auth.reason_signed_out_everywhere"))
 
             async def _submit() -> None:
                 _say("")

@@ -270,6 +270,9 @@ class MfaService:
         claimed = self._claimed(result)
         if claimed:
             await self._record(user_id, event="mfa_enabled", success=True, commit=False)
+            # A session signed in on the password alone is not one the new
+            # factor has vouched for.
+            await AuthService(self.session).revoke_sessions(user_id, commit=False)
         await self.session.commit()
         if not claimed:
             msg = "Two-factor authentication is already enabled."
@@ -457,6 +460,7 @@ class MfaService:
         claimed = self._claimed(result)
         if claimed:
             await self._record(user_id, event="mfa_recovery_reissued", success=True, commit=False)
+            await AuthService(self.session).revoke_sessions(user_id, commit=False)
         await self.session.commit()
         if not claimed:
             msg = "Your recovery codes changed while this page was open. Try again."
@@ -536,6 +540,7 @@ class MfaService:
         claimed = self._claimed(result)
         if claimed:
             await self._record(user_id, event="mfa_disabled", success=True, commit=False)
+            await AuthService(self.session).revoke_sessions(user_id, commit=False)
         # Only what the session is actually holding: the point is to keep a
         # deleted row out of the identity map, and a row that was never in it
         # needs no help. `expunge` raises on anything else.
@@ -579,11 +584,13 @@ class MfaService:
         # are counted: an enrolment abandoned at the QR screen was never a
         # factor, so there is nothing about it to say was disabled.
         usernames: list[str | None] = []
+        auth = AuthService(self.session)
         for user_id, is_enabled in rows:
             if not is_enabled:
                 continue
             user = await self.session.get(User, user_id)
             usernames.append(user.username if user is not None else None)
+            await auth.revoke_sessions(user_id, commit=False)
         await self.session.execute(delete(UserMfa))
         # The trace goes in the same transaction as the removal. Committing
         # the delete first and writing the rows after would let the one
