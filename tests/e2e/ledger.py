@@ -57,7 +57,11 @@ def pick_open_menu_option(page: Page, option: str) -> None:
     _scroll_menu(menu, to_top=True)
     for _ in range(40):
         if target.count() > 0:
-            target.first.click()
+            # Dispatch rather than click: an option can be rendered in the
+            # virtual list's off-screen buffer, and the scroll-into-view an
+            # actionability click does makes the list re-render and detach
+            # it — every retry again, until the click times out.
+            target.first.dispatch_event("click")
             return
         _scroll_menu(menu)
         page.wait_for_timeout(40)
