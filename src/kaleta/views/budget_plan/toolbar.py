@@ -41,8 +41,9 @@ def render_toolbar(
             state["years"].add(year)
         else:
             return
-        if len(state["years"]) == 1:
-            state["edit_year"] = next(iter(state["years"]))
+        # The latest chosen year is the one being planned; any earlier ones
+        # add their actuals under it as reference rows.
+        state["edit_year"] = max(state["years"])
         year_chips.refresh()
         on_years_changed()
 
