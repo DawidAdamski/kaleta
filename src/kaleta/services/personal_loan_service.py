@@ -14,6 +14,7 @@ from collections.abc import Collection
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -130,7 +131,7 @@ class PersonalLoanService:
             transaction_id=payload.transaction_id,
         )
         self.session.add(loan)
-        await self.session.commit()
+        await self._commit_link(payload.transaction_id)
         return await self.get_loan(loan.id)  # type: ignore[return-value]
 
     async def update_loan(self, loan_id: int, payload: PersonalLoanUpdate) -> PersonalLoan | None:
@@ -143,7 +144,7 @@ class PersonalLoanService:
             await self._check_linkable(tx_id)
         for key, value in changes.items():
             setattr(loan, key, value)
-        await self.session.commit()
+        await self._commit_link(tx_id)
         return await self.get_loan(loan_id)
 
     async def delete_loan(self, loan_id: int) -> bool:
@@ -295,6 +296,23 @@ class PersonalLoanService:
             )
             for row in rows
         ]
+
+    async def _commit_link(self, transaction_id: int | None) -> None:
+        """Commit; a concurrent link of the same transaction becomes a ``ConflictError``.
+
+        ``_check_linkable`` runs before the write, so two requests can both pass
+        it — ``uq_personal_loans_transaction_id`` then rejects the second.
+        """
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            if transaction_id is None:
+                raise
+            raise ConflictError(
+                f"Transaction {transaction_id} is already linked to a loan",
+                code="loan_transaction_taken",
+            ) from exc
 
     async def _check_linkable(self, transaction_id: int) -> None:
         """Raise unless ``transaction_id`` exists and no loan or repayment links it."""
