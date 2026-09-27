@@ -172,7 +172,7 @@ and is untouched.
 | 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
 | 4 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | medium | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](archive/auth-two-factor.md) | archived | draft | Phase A: — ; Phase B: 1 |
-| [auth-session-rotate-on-login](auth-session-rotate-on-login.md) | draft | Auth — session hardening (2) |
+| [auth-session-rotate-on-login](archive/auth-session-rotate-on-login.md) | archived | Auth — session hardening (2) |
 | [auth-session-revocation](auth-session-revocation.md) | draft | Auth — session hardening (3) |
 | [auth-session-hosted-readiness](auth-session-hosted-readiness.md) | draft | Auth — session hardening (5) |
 | 6 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | draft | — (public-schema table needs 1) |
@@ -190,7 +190,7 @@ precondition for `hosted-supabase-rollout`.
 | # | Plan | Effort | Status | Depends on |
 |---|---|---|---|---|
 | 1 | [auth-session-cookie-flags](archive/auth-session-cookie-flags.md) | archived | draft | — |
-| 2 | [auth-session-rotate-on-login](auth-session-rotate-on-login.md) | medium | draft | — |
+| 2 | [auth-session-rotate-on-login](archive/auth-session-rotate-on-login.md) | archived | draft | — |
 | 3 | [auth-session-revocation](auth-session-revocation.md) | medium | draft | — |
 | 4 | [auth-session-idle-timeout](archive/auth-session-idle-timeout.md) | archived | draft | — |
 | 5 | [auth-session-hosted-readiness](auth-session-hosted-readiness.md) | medium | draft | — (before hosted rollout 4) |
