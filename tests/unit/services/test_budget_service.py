@@ -9,6 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
@@ -38,6 +39,7 @@ from kaleta.services.budget_service import (
     format_date_range_label,
     per_month_from_yearly_total,
     realization_note,
+    split_plan_years,
     uniform_monthly_amount,
 )
 
@@ -652,31 +654,98 @@ class TestBuildAnnualPlanGrid:
 
         grid = await svc.load_annual_plan_grid([2025])
 
-        assert grid.is_compare is False
-        assert len(grid.slices) == 1
-        slice_ = grid.slices[0]
+        assert grid.edit_year == 2025
+        assert grid.reference_years == ()
+        slice_ = grid.year_slice
         assert slice_.grand_planned == Decimal("2000.00")
         assert len(slice_.rows) == 2
         assert slice_.rows[0].name == "Living"
         assert slice_.rows[1].name == "Rent"
         assert slice_.rows[1].is_child is True
 
-    async def test_compare_mode_aggregates_month_columns(self, session: AsyncSession) -> None:
+    async def test_january_shows_previous_december_actual(self, session: AsyncSession) -> None:
+        """Covers: KAL-CMP-001
+
+        January's previous month is December of the year before, which the
+        twelve columns of the edited year cannot hold.
+        """
         cat_id = await _make_category(session, name="Food")
+        acc_id = await _make_account(session)
+        await _make_expense(session, acc_id, cat_id, Decimal("420.00"), datetime.date(2025, 12, 14))
+        await _make_expense(session, acc_id, cat_id, Decimal("380.00"), datetime.date(2026, 1, 10))
+
+        grid = await BudgetService(session).load_annual_plan_grid([2026])
+
+        row = grid.year_slice.rows[0]
+        assert row.prev_december_actual == Decimal("420.00")
+        assert row.months[0].actual == Decimal("380.00")
+        assert row.show_actual_row is True
+        assert grid.year_slice.prev_december_actual_total == Decimal("420.00")
+
+    async def test_previous_december_alone_shows_the_actual_row(
+        self, session: AsyncSession
+    ) -> None:
+        """Covers: KAL-CMP-001"""
+        cat_id = await _make_category(session, name="Food")
+        acc_id = await _make_account(session)
+        await _make_expense(session, acc_id, cat_id, Decimal("420.00"), datetime.date(2025, 12, 14))
+
+        grid = await BudgetService(session).load_annual_plan_grid([2026])
+
+        assert grid.year_slice.rows[0].show_actual_row is True
+
+    async def test_past_years_become_reference_rows_of_the_edited_year(
+        self, session: AsyncSession
+    ) -> None:
+        """Covers: KAL-CMP-002
+
+        Budgets and transactions exist for July 2024 and July 2025; planning
+        July 2026 shows both Julys' actuals per category, while the edited
+        year stays 2026 with its own plan.
+        """
+        cat_id = await _make_category(session, name="Food")
+        acc_id = await _make_account(session)
         svc = BudgetService(session)
+        for year in (2024, 2025):
+            await svc.upsert(
+                BudgetCreate(category_id=cat_id, amount=Decimal("300.00"), month=7, year=year)
+            )
+        await _make_expense(session, acc_id, cat_id, Decimal("310.00"), datetime.date(2024, 7, 5))
+        await _make_expense(session, acc_id, cat_id, Decimal("355.00"), datetime.date(2025, 7, 5))
         await svc.upsert(
-            BudgetCreate(category_id=cat_id, amount=Decimal("100.00"), month=3, year=2024)
-        )
-        await svc.upsert(
-            BudgetCreate(category_id=cat_id, amount=Decimal("50.00"), month=3, year=2025)
+            BudgetCreate(category_id=cat_id, amount=Decimal("380.00"), month=7, year=2026)
         )
 
-        grid = await svc.load_annual_plan_grid([2024, 2025])
+        grid = await svc.load_annual_plan_grid([2025, 2024, 2026])
 
-        assert grid.is_compare is True
-        assert grid.compare_month_totals is not None
-        assert grid.compare_month_totals[2] == Decimal("150.00")
-        assert grid.compare_grand_total == Decimal("150.00")
+        assert grid.edit_year == 2026
+        assert grid.reference_years == (2024, 2025)
+        row = grid.year_slice.rows[0]
+        assert row.months[6].planned == Decimal("380.00")
+        assert [ref.year for ref in row.references] == [2024, 2025]
+        assert row.references[0].actuals[6] == Decimal("310.00")
+        assert row.references[1].actuals[6] == Decimal("355.00")
+        assert row.references[1].total == Decimal("355.00")
+
+    async def test_a_reference_year_without_spending_adds_no_row(
+        self, session: AsyncSession
+    ) -> None:
+        """Covers: KAL-CMP-002"""
+        await _make_category(session, name="Food")
+
+        grid = await BudgetService(session).load_annual_plan_grid([2024, 2026])
+
+        assert grid.reference_years == (2024,)
+        assert grid.year_slice.rows[0].references == ()
+
+
+class TestSplitPlanYears:
+    def test_latest_year_is_edited(self) -> None:
+        assert split_plan_years({2026, 2024, 2025}) == (2026, (2024, 2025))
+
+    def test_no_year_is_rejected(self) -> None:
+        with pytest.raises(ValidationError):
+            split_plan_years([])
 
 
 class TestDateRangeHelpers:

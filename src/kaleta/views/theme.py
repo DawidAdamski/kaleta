@@ -226,6 +226,8 @@ PLAN_TOTAL = "k-plan-total"
 PLAN_MONTH_NOW = "k-plan-month-now"
 #: The quiet line under a category's plan, carrying what it actually spent.
 PLAN_ACTUAL_ROW = "k-plan-actual"
+#: A past year's actuals under the edited year — reference only, never edited.
+PLAN_REFERENCE_ROW = "k-plan-ref"
 #: A rule with nothing behind it — a heading, not a row you can act on.
 PLAN_RULE = "k-plan-rule"
 #: A month cell you can click to edit. Square, so the tinted column is a band.

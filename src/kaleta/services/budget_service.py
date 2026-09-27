@@ -4,7 +4,7 @@ from __future__ import annotations
 import builtins
 import calendar
 import datetime
-from collections.abc import Sequence
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
@@ -13,6 +13,7 @@ from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import TransactionType
@@ -318,6 +319,15 @@ class PlanMonthCell:
 
 
 @dataclass(frozen=True, slots=True)
+class PlanReferenceRow:
+    """One past year's actual spending for a category, shown under the edited year."""
+
+    year: int
+    actuals: tuple[Decimal | None, ...]
+    total: Decimal
+
+
+@dataclass(frozen=True, slots=True)
 class PlanCategoryRow:
     category_id: int
     name: str
@@ -329,10 +339,19 @@ class PlanCategoryRow:
     months: tuple[PlanMonthCell, ...]
     total_planned: Decimal
     total_actual: Decimal
+    # December of the year before: January's "previous month", which the
+    # twelve columns of a single-year grid cannot hold.
+    prev_december_actual: Decimal | None = None
+    references: tuple[PlanReferenceRow, ...] = ()
 
     @property
     def show_actual_row(self) -> bool:
-        return self.has_any_actual or self.has_any_plan or self.uniform_monthly is not None
+        return (
+            self.has_any_actual
+            or self.has_any_plan
+            or self.uniform_monthly is not None
+            or bool(self.prev_december_actual)
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -344,15 +363,30 @@ class YearPlanSlice:
     month_actual_totals: tuple[Decimal, ...]
     grand_planned: Decimal
     grand_actual: Decimal
+    prev_december_actual_total: Decimal = Decimal("0")
 
 
 @dataclass(frozen=True, slots=True)
 class AnnualPlanGrid:
-    years: tuple[int, ...]
-    is_compare: bool
-    slices: tuple[YearPlanSlice, ...]
-    compare_month_totals: tuple[Decimal, ...] | None
-    compare_grand_total: Decimal | None
+    """The edited year's plan, with actuals of chosen past years as reference rows."""
+
+    edit_year: int
+    reference_years: tuple[int, ...]
+    year_slice: YearPlanSlice
+
+
+def build_reference_row(
+    *,
+    category_id: int,
+    year: int,
+    actual_map: dict[tuple[int, int], Decimal],
+) -> PlanReferenceRow | None:
+    """A past year's actuals for one category, or ``None`` when it spent nothing."""
+    actuals = tuple(actual_map.get((category_id, month)) for month in range(1, MONTHS_PER_YEAR + 1))
+    if not any(actuals):
+        return None
+    total = sum((amount for amount in actuals if amount), Decimal("0"))
+    return PlanReferenceRow(year=year, actuals=actuals, total=total)
 
 
 def build_category_plan_row(
@@ -363,8 +397,14 @@ def build_category_plan_row(
     is_child: bool,
     budget_map: dict[tuple[int, int], Decimal],
     actual_map: dict[tuple[int, int], Decimal],
+    prev_actual_map: dict[tuple[int, int], Decimal] | None = None,
+    reference_actual_maps: dict[int, dict[tuple[int, int], Decimal]] | None = None,
 ) -> PlanCategoryRow:
-    """Build one category's annual plan row with budget-vs-actual overlay metadata."""
+    """Build one category's annual plan row with budget-vs-actual overlay metadata.
+
+    ``prev_actual_map`` is the previous year's actuals (only December is read);
+    ``reference_actual_maps`` maps past years to their actuals, newest last.
+    """
     uniform_monthly = uniform_monthly_amount(budget_map, category_id)
     has_any_plan = any(
         budget_map.get((category_id, month)) for month in range(1, MONTHS_PER_YEAR + 1)
@@ -397,6 +437,16 @@ def build_category_plan_row(
             )
         )
 
+    prev_december = (prev_actual_map or {}).get((category_id, MONTHS_PER_YEAR))
+    references = tuple(
+        reference
+        for year, ref_map in sorted((reference_actual_maps or {}).items())
+        if (
+            reference := build_reference_row(category_id=category_id, year=year, actual_map=ref_map)
+        )
+        is not None
+    )
+
     return PlanCategoryRow(
         category_id=category_id,
         name=name,
@@ -408,6 +458,8 @@ def build_category_plan_row(
         months=tuple(months),
         total_planned=total_planned,
         total_actual=total_actual,
+        prev_december_actual=prev_december or None,
+        references=references,
     )
 
 
@@ -417,6 +469,8 @@ def build_year_plan_slice(
     sorted_categories: builtins.list[Category],
     budget_map: dict[tuple[int, int], Decimal],
     actual_map: dict[tuple[int, int], Decimal],
+    prev_actual_map: dict[tuple[int, int], Decimal] | None = None,
+    reference_actual_maps: dict[int, dict[tuple[int, int], Decimal]] | None = None,
 ) -> YearPlanSlice:
     """Build annual grid data for one year."""
     rows = tuple(
@@ -427,6 +481,8 @@ def build_year_plan_slice(
             is_child=category.parent_id is not None,
             budget_map=budget_map,
             actual_map=actual_map,
+            prev_actual_map=prev_actual_map,
+            reference_actual_maps=reference_actual_maps,
         )
         for category in sorted_categories
     )
@@ -444,52 +500,21 @@ def build_year_plan_slice(
         month_actual_totals=month_actual,
         grand_planned=sum(month_planned, Decimal("0")),
         grand_actual=sum(month_actual, Decimal("0")),
+        prev_december_actual_total=sum(
+            (row.prev_december_actual or Decimal("0") for row in rows), Decimal("0")
+        ),
     )
 
 
-def build_annual_plan_grid(
-    years: builtins.list[int],
-    sorted_categories: builtins.list[Category],
-    budget_maps: dict[int, dict[tuple[int, int], Decimal]],
-    actual_maps: dict[int, dict[tuple[int, int], Decimal]],
-) -> AnnualPlanGrid:
-    """Build annual planning grid projections for one or more years (YoY compare)."""
-    selected_years = tuple(sorted(years))
-    is_compare = len(selected_years) > 1
-    slices = tuple(
-        build_year_plan_slice(
-            year=year,
-            sorted_categories=sorted_categories,
-            budget_map=budget_maps[year],
-            actual_map=actual_maps[year],
-        )
-        for year in selected_years
-    )
+def split_plan_years(years: Iterable[int]) -> tuple[int, tuple[int, ...]]:
+    """The latest selected year is the one being planned; the earlier ones are reference.
 
-    compare_month_totals: tuple[Decimal, ...] | None = None
-    compare_grand_total: Decimal | None = None
-    if is_compare:
-        compare_month_totals = month_planned_totals(
-            budget_maps[selected_years[0]],
-            [category.id for category in sorted_categories],
-        )
-        for year in selected_years[1:]:
-            year_totals = month_planned_totals(
-                budget_maps[year],
-                [category.id for category in sorted_categories],
-            )
-            compare_month_totals = tuple(
-                compare_month_totals[idx] + year_totals[idx] for idx in range(MONTHS_PER_YEAR)
-            )
-        compare_grand_total = sum((slice_.grand_planned for slice_ in slices), Decimal("0"))
-
-    return AnnualPlanGrid(
-        years=selected_years,
-        is_compare=is_compare,
-        slices=slices,
-        compare_month_totals=compare_month_totals,
-        compare_grand_total=compare_grand_total,
-    )
+    Raises ``ValidationError`` when no year is selected.
+    """
+    ordered = sorted(set(years))
+    if not ordered:
+        raise ValidationError("At least one year must be selected")
+    return ordered[-1], tuple(ordered[:-1])
 
 
 class BudgetService:
@@ -913,16 +938,31 @@ class BudgetService:
         )
         return {(int(row.category_id), int(row.month)): row.total for row in result}
 
-    async def load_annual_plan_grid(self, years: builtins.list[int]) -> AnnualPlanGrid:
-        """Load expense categories and build annual plan grid for the given years."""
+    async def load_annual_plan_grid(self, years: Iterable[int]) -> AnnualPlanGrid:
+        """Load the plan grid: the latest of ``years`` is edited, earlier ones are reference.
+
+        Actuals of the year before the edited one are loaded too, so January can
+        show December's spending beside it.
+        """
         from kaleta.services.category_service import CategoryService
 
+        edit_year, reference_years = split_plan_years(years)
         categories = await CategoryService(self.session).list(type=CategoryType.EXPENSE)
         sorted_categories = CategoryService.sort_with_children(categories)
-        budget_maps: dict[int, dict[tuple[int, int], Decimal]] = {}
+
         actual_maps: dict[int, dict[tuple[int, int], Decimal]] = {}
-        for year in years:
-            budgets = await self.list_for_year(year)
-            budget_maps[year] = budgets_to_map(budgets)
+        for year in {edit_year, edit_year - 1, *reference_years}:
             actual_maps[year] = await self.actuals_by_category_month(year)
-        return build_annual_plan_grid(years, sorted_categories, budget_maps, actual_maps)
+        budget_map = budgets_to_map(await self.list_for_year(edit_year))
+
+        slice_ = build_year_plan_slice(
+            year=edit_year,
+            sorted_categories=sorted_categories,
+            budget_map=budget_map,
+            actual_map=actual_maps[edit_year],
+            prev_actual_map=actual_maps[edit_year - 1],
+            reference_actual_maps={year: actual_maps[year] for year in reference_years},
+        )
+        return AnnualPlanGrid(
+            edit_year=edit_year, reference_years=reference_years, year_slice=slice_
+        )

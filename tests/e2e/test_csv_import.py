@@ -25,7 +25,7 @@ from pathlib import Path
 
 from playwright.sync_api import FilePayload, Locator, Page, expect
 
-from tests.e2e.ledger import search_ledger
+from tests.e2e.ledger import pick_open_menu_option, search_ledger
 from tests.e2e.pages import on_import_page
 from tests.e2e.seed_helpers import (
     count_transactions,
@@ -85,7 +85,9 @@ def _upload_as(path: Path, name: str) -> FilePayload:
 def _select_import_option(page: Page, label: str, option: str) -> None:
     page.keyboard.press("Escape")
     page.locator(".q-select").filter(has_text=label).click()
-    page.locator(".q-menu").last.get_by_text(option, exact=True).click()
+    # The category selects list every category the suite has seeded, and a
+    # long list renders only the slice in view — scroll to the option.
+    pick_open_menu_option(page, option)
 
 
 def _mapping_picker(page: Page, field: str) -> Locator:

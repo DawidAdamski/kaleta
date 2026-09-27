@@ -1069,7 +1069,10 @@
     "row_actions": "Row actions",
     "row_actions_hint": "Right-click a row for actions",
     "actual_row": "actual",
-    "help_text_more": "Several years at once is a read-only comparison. An orange ~ in the Month column means the twelve months do not all carry the same amount."
+    "prev_december": "Dec ’{year} {amount}",
+    "prev_december_hint": "Actual spending in December {year} — the month before January",
+    "reference_row": "actual {year}",
+    "help_text_more": "Pick earlier years too to see their actual spending under each category while you plan the latest one. An orange ~ in the Month column means the twelve months do not all carry the same amount."
   },
   "import": {
     "title": "Import",

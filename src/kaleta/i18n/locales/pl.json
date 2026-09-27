@@ -1069,7 +1069,10 @@
     "row_actions": "Akcje wiersza",
     "row_actions_hint": "Kliknij wiersz prawym przyciskiem, aby zobaczyć akcje",
     "actual_row": "wykonanie",
-    "help_text_more": "Kilka lat naraz to porównanie tylko do odczytu. Pomarańczowa ~ w kolumnie Miesiąc oznacza, że nie wszystkie dwanaście miesięcy ma tę samą kwotę."
+    "prev_december": "Gru ’{year} {amount}",
+    "prev_december_hint": "Wydatki w grudniu {year} — miesiąc przed styczniem",
+    "reference_row": "wykonanie {year}",
+    "help_text_more": "Zaznacz też wcześniejsze lata, aby widzieć ich faktyczne wydatki pod każdą kategorią, planując najpóźniejszy rok. Pomarańczowa ~ w kolumnie Miesiąc oznacza, że nie wszystkie dwanaście miesięcy ma tę samą kwotę."
   },
   "import": {
     "title": "Import",
