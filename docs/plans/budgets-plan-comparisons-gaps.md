@@ -83,3 +83,12 @@ Gap-closing plan for issue #6 (`KAL-CMP-001`, `KAL-CMP-002`), from
   decision record and is left as written. `docs/tech-stack.md` updated.
 - Coordination with `budgets-plan-unification` (still draft): it will
   rebase onto this grid.
+- **Unrelated e2e fix, own commit.** The two new e2e tests seed two
+  categories ("Food … CMP E2E") that sort ahead of the CSV import tests'
+  categories. `tests/e2e/test_csv_import.py::_select_import_option`
+  clicked the menu option directly, so in the full suite the option fell
+  outside Quasar's rendered virtual-scroll slice and
+  `test_wise_qif_renamed_upload_is_unknown_and_still_imports` timed out
+  (twice on this branch, never on `main`, never when run alone). The
+  helper now uses the existing scroll-aware `ledger.pick_open_menu_option`.
+  No timeout or assertion changed.
