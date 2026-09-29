@@ -43,7 +43,10 @@ class NiceguiStorageService:
         *,
         stale_after_seconds: int = _STALE_AFTER_SECONDS,
     ) -> None:
-        self.storage_dir = (storage_dir or _DEFAULT_STORAGE_DIR).expanduser().resolve()
+        # Without an explicit dir, the one NiceGUI actually writes to: an
+        # operator's NICEGUI_STORAGE_PATH, else the ~/.kaleta default.
+        default = Path(os.environ.get(_ENV_KEY) or _DEFAULT_STORAGE_DIR)
+        self.storage_dir = (storage_dir or default).expanduser().resolve()
         self.stale_after_seconds = stale_after_seconds
 
     @classmethod

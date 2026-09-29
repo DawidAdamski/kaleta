@@ -137,7 +137,10 @@ Out of scope:
   still runs at startup for files left by older versions. Deviation from the
   Scope wording: `sweep_stale()` itself does not chmod — it stays "delete
   old files" — and startup calls `sweep_stale()` then `tighten_permissions()`
-  (`main._sweep_nicegui_storage`), which has the same effect. The directory is
+  (`main._sweep_nicegui_storage`), which has the same effect.
+  `NiceguiStorageService()` now defaults to `NICEGUI_STORAGE_PATH` when set
+  (review finding): before, the startup sweep looked at `~/.kaleta/nicegui`
+  even when an operator had moved the storage, and so would the tightening. The directory is
   also created `0o700` in `kaleta/__init__.py`, which pins the path first.
 - **Clock.** The limiter now uses `time.time()` instead of
   `time.monotonic()`: a lock written by one replica is read by another, and

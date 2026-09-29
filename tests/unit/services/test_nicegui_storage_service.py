@@ -62,6 +62,19 @@ class TestConfigureEnvironment:
         assert os.environ["NICEGUI_REDIS_URL"] == "redis://explicit:6379/1"
 
 
+class TestStorageDir:
+    def test_defaults_to_the_path_nicegui_writes_to(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("NICEGUI_STORAGE_PATH", str(tmp_path / "override"))
+        assert NiceguiStorageService().storage_dir == (tmp_path / "override").resolve()
+
+    def test_an_explicit_dir_wins(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("NICEGUI_STORAGE_PATH", str(tmp_path / "override"))
+        service = NiceguiStorageService(storage_dir=tmp_path / "explicit")
+        assert service.storage_dir == (tmp_path / "explicit").resolve()
+
+
 class TestTightenPermissions:
     def test_restricts_directory_and_files(
         self, tmp_path: Path, caplog: pytest.LogCaptureFixture

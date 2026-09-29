@@ -178,7 +178,12 @@ def default_store(namespace: str) -> AttemptStore:
 
 @dataclass
 class LoginRateLimiter:
-    """Lock after ``max_failures`` failed attempts for ``window_seconds``."""
+    """Lock after ``max_failures`` failed attempts for ``window_seconds``.
+
+    Not atomic across replicas: two failures landing at the same moment on
+    two replicas can both cross the threshold and both write the lock. The
+    outcome is still one lock, ending a moment later at most.
+    """
 
     max_failures: int = 5
     window_seconds: float = 15 * 60
