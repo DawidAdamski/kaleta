@@ -11,6 +11,7 @@ from kaleta.config import settings
 from kaleta.services.nicegui_storage_service import NiceguiStorageService
 
 NiceguiStorageService.configure_environment(redis_url=settings.redis_url)
+NiceguiStorageService.restrict_new_files()
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager

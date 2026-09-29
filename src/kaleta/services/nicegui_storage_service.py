@@ -68,11 +68,29 @@ class NiceguiStorageService:
             logger.debug("NiceGUI user storage in Redis (prefix %s)", _REDIS_KEY_PREFIX)
         return path
 
+    @staticmethod
+    def restrict_new_files() -> None:
+        """Make everything this process creates owner-only (umask ``077``).
+
+        ``tighten_permissions()`` alone does not hold: NiceGUI saves a session
+        by writing a temp file and renaming it over the old one, so every save
+        is a new file with the process umask, and a ``0o600`` set at startup is
+        gone after the first request. The umask is the one place that governs
+        those writes. It also covers the database, backups and exports, which
+        are no less private. Only ever narrows: an operator's stricter umask
+        stays. A no-op on Windows.
+        """
+        if os.name == "nt":
+            return
+        current = os.umask(0o077)
+        os.umask(current | 0o077)
+
     def tighten_permissions(self) -> int:
         """Make the directory ``0o700`` and every file in it ``0o600``.
 
-        NiceGUI writes the files itself, with the process umask, so this runs
-        at startup after the sweep. Returns how many entries needed fixing and
+        For files left by an older version or written under a looser umask;
+        ``restrict_new_files()`` keeps new ones owner-only. Runs at startup
+        after the sweep. Returns how many entries needed fixing and
         logs once when any did. A no-op on Windows, where modes mean little.
         """
         if os.name == "nt":

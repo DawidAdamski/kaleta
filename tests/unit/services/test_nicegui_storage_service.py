@@ -8,6 +8,7 @@ import os
 import stat
 import time
 import types
+from collections.abc import Generator
 from pathlib import Path
 
 import pytest
@@ -109,6 +110,31 @@ class TestTightenPermissions:
         monkeypatch.setattr(svc_mod, "os", types.SimpleNamespace(name="nt", environ=os.environ))
         assert NiceguiStorageService(storage_dir=root).tighten_permissions() == 0
         assert _mode(root) == 0o755
+
+
+class TestRestrictNewFiles:
+    @pytest.fixture(autouse=True)
+    def _restore_umask(self) -> Generator[None]:
+        original = os.umask(0o022)
+        os.umask(original)
+        yield
+        os.umask(original)
+
+    def test_new_files_are_owner_only(self, tmp_path: Path) -> None:
+        os.umask(0o022)
+        NiceguiStorageService.restrict_new_files()
+        created = tmp_path / "storage-user-new.json"
+        created.write_text("{}", encoding="utf-8")
+        # How NiceGUI saves: write a temp file, rename it over the real one.
+        tmp = tmp_path / "storage-user-new.json.tmp"
+        tmp.write_text('{"a": 1}', encoding="utf-8")
+        tmp.replace(created)
+        assert _mode(created) == 0o600
+
+    def test_a_stricter_umask_stays(self) -> None:
+        os.umask(0o277)
+        NiceguiStorageService.restrict_new_files()
+        assert os.umask(0o022) == 0o277
 
 
 class TestSweepStale:
