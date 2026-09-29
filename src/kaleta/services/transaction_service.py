@@ -341,8 +341,8 @@ class TransactionService:
 
         An income is always the incoming leg and an expense always the
         outgoing one; two expenses (or two incomes) are never a transfer. Two
-        rows already typed ``transfer`` carry no direction, so the older row
-        goes first, as a manually entered transfer's legs do.
+        rows already typed ``transfer`` carry no direction, so the lower id
+        goes first — the order a manually entered transfer's legs are saved in.
         """
         types = (row_a.type, row_b.type)
         if types in (
