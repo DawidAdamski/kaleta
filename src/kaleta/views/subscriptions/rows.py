@@ -45,6 +45,7 @@ def render_candidate_row(
     cand: DetectorCandidate,
     on_confirm: Callable[[DetectorCandidate], None],
     on_dismiss: Callable[[DetectorCandidate], Awaitable[None]],
+    on_plan: Callable[[DetectorCandidate], Awaitable[None]],
 ) -> None:
     expense_cls = amount_css_class("expense")
     with ui.row().classes("w-full items-center gap-3 py-2"):
@@ -65,6 +66,11 @@ def render_candidate_row(
             icon="check",
             on_click=lambda _e, c=cand: on_confirm(c),
         ).props("color=primary unelevated size=sm")
+        ui.button(
+            t("subscriptions.detector_plan"),
+            icon="event_repeat",
+            on_click=lambda _e, c=cand: on_plan(c),
+        ).props("color=primary outline size=sm")
         ui.button(
             icon="close",
             on_click=lambda _e, c=cand: on_dismiss(c),

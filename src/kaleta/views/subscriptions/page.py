@@ -92,6 +92,7 @@ async def subscriptions_page() -> None:
             open_delete_dialog,
             confirm_candidate,
             dismiss_candidate,
+            plan_candidate,
             mute,
             cancel,
             reactivate,
@@ -133,7 +134,7 @@ async def subscriptions_page() -> None:
                 ui.label(t("subscriptions.detector_empty")).classes(f"{BODY_MUTED} mt-2")
             else:
                 for cand in candidates:
-                    render_candidate_row(cand, confirm_candidate, dismiss_candidate)
+                    render_candidate_row(cand, confirm_candidate, dismiss_candidate, plan_candidate)
 
         with ui.card().classes(SECTION_CARD):
             ui.label(t("subscriptions.renewals_heading")).classes(SECTION_HEADING)

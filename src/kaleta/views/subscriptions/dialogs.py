@@ -10,10 +10,12 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.subscription import DetectorCandidate, SubscriptionResponse, SubscriptionUpdate
 from kaleta.services import SubscriptionService, with_session
 from kaleta.services.subscription_service import SubscriptionFormError, parse_subscription_form
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.theme import BODY_MUTED
 
 
@@ -27,6 +29,7 @@ def build_subscription_dialogs(
     Callable[[SubscriptionResponse], None],
     Callable[[SubscriptionResponse], None],
     Callable[[DetectorCandidate], None],
+    Callable[[DetectorCandidate], Awaitable[None]],
     Callable[[DetectorCandidate], Awaitable[None]],
     Callable[[int], Awaitable[None]],
     Callable[[int], Awaitable[None]],
@@ -277,6 +280,18 @@ def build_subscription_dialogs(
         ui.notify(t("subscriptions.dismissed_msg"), type="info")
         ui.navigate.reload()
 
+    async def plan_candidate(cand: DetectorCandidate) -> None:
+        async def _plan(session: Any) -> None:
+            await SubscriptionService(session).create_planned_from_candidate(cand)
+
+        try:
+            await with_session(_plan)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+            return
+        ui.notify(t("subscriptions.planned_created", name=cand.payee_name), type="positive")
+        ui.navigate.reload()
+
     async def mute(sub_id: int) -> None:
         async def _mute(session: Any) -> None:
             await SubscriptionService(session).mute_one_cycle(sub_id)
@@ -325,6 +340,7 @@ def build_subscription_dialogs(
         open_delete_dialog,
         confirm_candidate,
         dismiss_candidate,
+        plan_candidate,
         mute,
         cancel,
         reactivate,
