@@ -3,12 +3,13 @@
 
 Covers: KAL-AUTH-001, KAL-AUTH-002, KAL-AUTH-003, KAL-AUTH-004, KAL-AUTH-005,
 KAL-AUTH-006, KAL-AUTH-011, KAL-AUTH-012, KAL-AUTH-025, KAL-AUTH-026,
-KAL-AUTH-027, KAL-AUTH-029, KAL-AUTH-030, KAL-AUTH-031
+KAL-AUTH-027, KAL-AUTH-029, KAL-AUTH-030, KAL-AUTH-031, KAL-AUTH-033
 """
 
 from __future__ import annotations
 
 import os
+import stat
 import subprocess
 import threading
 from collections.abc import Generator
@@ -35,6 +36,9 @@ from tests.e2e.conftest import (
 # Its own port: 8081 is the shared e2e server, 8082 the demo-banner one.
 SECURE_COOKIE_PORT = 8083
 SECURE_COOKIE_BASE = f"http://127.0.0.1:{SECURE_COOKIE_PORT}"
+# Restarted mid-test, so it cannot be the shared server either.
+RESTART_PORT = 8084
+RESTART_BASE = f"http://127.0.0.1:{RESTART_PORT}"
 
 
 def test_login_success(page_no_auth: Page, base_url: str) -> None:
@@ -330,3 +334,106 @@ def test_secure_session_cookie_flags(secure_cookie_server: tuple[str, Path]) -> 
     assert "KALETA_SESSION_COOKIE_SECURE is on in debug mode" in log_path.read_text(
         encoding="utf-8"
     )
+
+
+class _RestartableServer:
+    """One isolated app that a test can stop and start again on the same data."""
+
+    def __init__(self, home: Path, db_url: str, log_dir: Path) -> None:
+        self.home = home
+        self.db_url = db_url
+        self.log_dir = log_dir
+        self._runs = 0
+        self._proc: subprocess.Popen[str] | None = None
+        self._pump: threading.Thread | None = None
+
+    def start(self) -> None:
+        self._runs += 1
+        env = os.environ.copy()
+        env["HOME"] = str(self.home)
+        env["KALETA_PORT"] = str(RESTART_PORT)
+        env["KALETA_DEBUG"] = "true"
+        env["KALETA_DB_URL"] = self.db_url
+        env["NICEGUI_SCREEN_TEST_PORT"] = str(RESTART_PORT)
+        # Importing kaleta in this process pinned the storage path to the
+        # developer's ~/.kaleta; the app under test keeps its own, under HOME.
+        env.pop("NICEGUI_STORAGE_PATH", None)
+        self._proc = subprocess.Popen(
+            ["uv", "run", "kaleta"],
+            cwd=PROJECT_ROOT,
+            env=env,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        log_path = self.log_dir / f"kaleta-restart-{self._runs}.log"
+        self._pump = threading.Thread(
+            target=_pump_stdout_to_log, args=(self._proc, log_path), daemon=True
+        )
+        self._pump.start()
+        _wait_for_server(RESTART_BASE)
+
+    def stop(self) -> None:
+        if self._proc is not None:
+            _terminate_process(self._proc)
+        if self._pump is not None:
+            self._pump.join(timeout=5)
+        self._proc = None
+        self._pump = None
+
+
+@pytest.fixture
+def restartable_server(
+    tmp_path_factory: pytest.TempPathFactory,
+) -> Generator[_RestartableServer]:
+    home = tmp_path_factory.mktemp("restart_home")
+    db_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('restart_db') / 'restart.db'}"
+    _write_kaleta_config(home, db_url)
+    _run_alembic(db_url)
+    _ensure_e2e_user_subprocess(db_url, home)
+    server = _RestartableServer(home, db_url, tmp_path_factory.mktemp("restart_logs"))
+    try:
+        yield server
+    finally:
+        server.stop()
+
+
+def test_login_survives_an_app_restart(
+    page_no_auth: Page, restartable_server: _RestartableServer
+) -> None:
+    """Covers: KAL-AUTH-033
+
+    Runs in both storage modes. Locally the session lives in owner-only files
+    under ``~/.kaleta/nicegui``; in the CI ``valkey`` job ``KALETA_REDIS_URL``
+    is set, the session lives in Valkey, and no session file may appear at all.
+    """
+    server = restartable_server
+    server.start()
+    page = page_no_auth
+    context = page.context
+    page.goto(f"{RESTART_BASE}/login")
+    _sign_in(page, RESTART_BASE)
+    signed_in = session_cookie(context)
+    assert not _sent_to_login(RESTART_BASE, signed_in)
+    # Closed before the restart: an open tab reconnects its websocket to the
+    # new process and reloads its own URL, racing the navigation below.
+    page.close()
+
+    server.stop()
+    server.start()
+
+    assert not _sent_to_login(RESTART_BASE, signed_in)
+    page = context.new_page()
+    page.goto(f"{RESTART_BASE}/transactions")
+    expect(page).to_have_url(f"{RESTART_BASE}/transactions", timeout=15000)
+
+    storage_dir = server.home / ".kaleta" / "nicegui"
+    user_files = sorted(storage_dir.glob("storage-user-*.json"))
+    if os.environ.get("KALETA_REDIS_URL"):
+        assert user_files == []
+    else:
+        assert user_files
+        assert stat.S_IMODE(storage_dir.stat().st_mode) == 0o700
+        for path in user_files:
+            assert stat.S_IMODE(path.stat().st_mode) == 0o600, path

@@ -3,7 +3,7 @@ plan_id: auth-session-hosted-readiness
 title: Auth — session state that survives restarts, replicas and a shared disk
 area: auth
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#auth
 ---
 
@@ -108,6 +108,84 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Limiter key (open question 1).** Default taken: no change to the key.
+  Note the password limiter was already keyed by **client IP**, not
+  username (`views/login.py`); the MFA limiter by user id. Both stay as they
+  are until the rollout plan pins the proxy. Redis keys are
+  `kaleta:login:<ip>` and `kaleta:mfa:<user id>` (`<key>:lock` for the lock).
+- **NiceGUI Redis sync (open question 2), checked against nicegui 3.17.1.**
+  `Storage._users` caches one `RedisPersistentDict` per session id per
+  process, loaded from Redis once on that process's first request for the
+  id. After that a replica learns about another replica's writes only via
+  pub/sub (`<key>changes`), and the writer publishes from a background task
+  after the write. So a second replica sees the change *after a pub/sub
+  round-trip*, not guaranteed by the next request. Consequence, documented
+  in `docs/deployment.md`: keep sticky sessions on the load balancer.
+  User keys get no Redis TTL (`ttl=None` for `user-*`); our own
+  TTL/idle rules still end the session.
+- **Permissions needed a umask, not only a chmod.** NiceGUI saves a session
+  by writing `<file>.tmp` and `replace()`-ing it over the old file, so every
+  save creates a new inode with the process umask — a `0o600` set at startup
+  is gone after the next request, and a fresh login's file was `0o644` (the
+  e2e test caught it). `NiceguiStorageService.restrict_new_files()` narrows
+  the process umask to `077` (never loosens a stricter one), called at the
+  top of `main()` — not at import, so importing `kaleta.main` in tests or
+  tools leaves their umask alone. It also makes the DB, backups
+  and exports owner-only, which is the same intent — a deliberate widening
+  called out in `docs/deployment.md` (a sidecar reading the volume under
+  another uid must run as Kaleta's uid). `tighten_permissions()`
+  still runs at startup for files left by older versions. Deviation from the
+  Scope wording: `sweep_stale()` itself does not chmod — it stays "delete
+  old files" — and startup calls `sweep_stale()` then `tighten_permissions()`
+  (`main._sweep_nicegui_storage`), which has the same effect.
+  `NiceguiStorageService()` now defaults to `NICEGUI_STORAGE_PATH` when set
+  (review finding): before, the startup sweep looked at `~/.kaleta/nicegui`
+  even when an operator had moved the storage, and so would the tightening. The directory is
+  also created `0o700` in `kaleta/__init__.py`, which pins the path first.
+- **Clock.** The limiter now uses `time.time()` instead of
+  `time.monotonic()`: a lock written by one replica is read by another, and
+  monotonic clocks are per process. The `now=` keyword stays and both stores
+  honour it (the Redis lock key stores its end time; `EXPIRE` only cleans up).
+- **Failure counts expire** `window_seconds` after the first failure, in both
+  stores (Redis: `INCR` + `EXPIRE` on the first increment). Before, the
+  in-memory count never expired until a lock; a stray failure days apart no
+  longer counts towards a lock.
+- **Redis down.** The Redis store does not fail open: a login attempt with
+  Redis unreachable raises (2 s socket timeouts). In that configuration the
+  sessions are in the same Redis, so login cannot work anyway; failing
+  closed keeps the limiter from being bypassed by taking Redis down.
+  Calls are synchronous (the limiter API is sync); they are single
+  round-trips on the login path only. The login view has no handler for it, so the
+  user sees no message (NiceGUI logs the exception) — a friendly toast is a
+  view change outside this plan's touchpoints, filed in `chores.md`.
+- **Tests without skips.** Redis-backed tests use the server at
+  `KALETA_REDIS_URL` when set and an in-process `fakeredis` server otherwise
+  (`fakeredis` + `redis` added to the dev group), so the Redis code path runs
+  on every `pytest`. KAL-AUTH-034 is covered by
+  `tests/integration/test_login_rate_limit_replicas.py` (spec_coverage only
+  reads e2e/integration), KAL-AUTH-033 by
+  `tests/e2e/test_auth.py::test_login_survives_an_app_restart`, which runs
+  in both modes and, in file mode, also asserts `0700`/`0600` on the session
+  directory and files — the automated half of the `[manual]` criterion.
+- **e2e storage path.** The restart test's app drops the inherited
+  `NICEGUI_STORAGE_PATH` (importing `kaleta` in the pytest process pins it to
+  the developer's `~/.kaleta`); the other e2e servers still inherit it — a
+  pre-existing quirk, added to `docs/plans/chores.md`.
+- **Valkey, not Redis, as the server (owner decision, 2026-09-29).** The
+  code speaks the Redis protocol through `redis-py` (NiceGUI's own client),
+  so the switch is the CI service image (`valkey/valkey:8`) and the docs.
+  `KALETA_REDIS_URL`, the `redis://` scheme and the job name stay: they name
+  the protocol, and NiceGUI's variable is `NICEGUI_REDIS_URL` anyway. Unit,
+  integration and `tests/e2e/test_auth.py` pass against Valkey 8.1.
+- **CI `valkey` job** (the Scope's "`redis` job", renamed by the owner once
+  Valkey was chosen; `grep -q "redis" ci.yml` still holds via
+  `KALETA_REDIS_URL`) installs `--extra hosted` and Playwright chromium, then
+  runs the auth unit tests, the replica integration test and
+  `tests/e2e/test_auth.py` with `KALETA_REDIS_URL` set. Its first CI run
+  failed on the restart test: the tab left open across the restart
+  reconnected its websocket and reloaded `/`, racing the test's navigation
+  to `/transactions` (the user *was* still signed in). The test now closes
+  the tab before the restart and opens a new one in the same context. `tests/e2e/test_auth.py`
+  passes locally against `redis:7` and `valkey:8` (13 passed each).
 
 ## Implementation (filled by plan-archiver)

@@ -3217,6 +3217,22 @@ Feature: Two-factor authentication
     When I open a protected page
     Then the session is still valid
     But once I signed in 73 hours ago, recent activity no longer keeps it valid
+
+  KAL-AUTH-033 @automated
+  Scenario: With Redis configured, a login survives an app restart
+    Given Kaleta runs with KALETA_REDIS_URL pointing at a Redis server
+    And I am signed in
+    When the app is stopped and started again
+    Then my next page load is still signed in
+    And no session file was written under "~/.kaleta/nicegui"
+    But without KALETA_REDIS_URL the login survives the restart in session files that only the owner can read
+
+  KAL-AUTH-034 @automated
+  Scenario: Five failed logins on one replica lock the account on the other
+    Given two replicas of Kaleta share one Redis through KALETA_REDIS_URL
+    When five logins from one address fail on the first replica
+    Then a login from that address on the second replica is refused for 15 minutes
+    And failures split between the replicas add up to the same lock
 ```
 
 ## Feature: Demo instance

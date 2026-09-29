@@ -12,5 +12,5 @@ __version__ = "0.1.0"
 # Pin under ~/.kaleta/ so session files do not accumulate in the process CWD
 # (repo root). An explicit env override still wins via setdefault.
 _NICEGUI_STORAGE = (Path.home() / ".kaleta" / "nicegui").resolve()
-_NICEGUI_STORAGE.mkdir(parents=True, exist_ok=True)
+_NICEGUI_STORAGE.mkdir(mode=0o700, parents=True, exist_ok=True)
 os.environ.setdefault("NICEGUI_STORAGE_PATH", str(_NICEGUI_STORAGE))

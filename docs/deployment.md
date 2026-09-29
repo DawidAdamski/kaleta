@@ -156,6 +156,57 @@ front. Candidates from the plan:
 Whichever host you choose, terminate TLS at the edge and keep
 `KALETA_HOST=0.0.0.0` inside the container (see `docker-compose.yml`).
 
+## Session state and replicas
+
+A browser's session — who is signed in, when, plus preferences such as dark
+mode — lives in NiceGUI's `app.storage.user`. The failed-login counters live
+in the rate limiter. Where both are kept is one variable:
+
+```env
+KALETA_REDIS_URL=redis://:password@valkey-host:6379/0   # needs: uv sync --extra hosted
+```
+
+The server can be anything that speaks the Redis protocol. **Valkey is the
+recommended one** (BSD-licensed, the Linux Foundation fork of Redis 7.2; CI
+runs against `valkey/valkey:8`); Redis itself or a managed Redis-compatible
+service (Upstash, ElastiCache/Memorystore for Valkey, Aiven) work the same.
+The variable keeps "Redis" in its name because that is the protocol, the
+`redis://` URL scheme and the client library (`redis-py`, which NiceGUI
+uses too) — nothing in Kaleta is tied to the Redis server.
+
+| `KALETA_REDIS_URL` | Sessions | Login rate limiter |
+|---|---|---|
+| unset (default) | one JSON file per browser in `~/.kaleta/nicegui` | a dict in the process |
+| set | keys `kaleta:user-<id>` (via `NICEGUI_REDIS_URL`) | keys `kaleta:login:<ip>`, `kaleta:mfa:<user id>` |
+
+**Single replica on a volume (cheaper, default).** One app process with
+`~/.kaleta` on a persistent volume needs no Redis: sessions survive a restart
+in the files, and a restart resets the failed-login counts (five fresh tries
+per address). Pick this until you need a second replica.
+
+**Two or more replicas.** Set `KALETA_REDIS_URL` on every replica, all
+pointing at the same Valkey. Sessions and the lock after five failed logins
+are then shared, and both survive a restart of any replica. NiceGUI keeps a
+copy of each session in every process and syncs changes over Redis pub/sub
+after the write, not before the next request — so **keep sticky sessions on
+the load balancer**: a browser that bounces between replicas mid-login may
+briefly see the state from before it. Session keys in Redis have no TTL; the
+app's own `KALETA_SESSION_TTL_HOURS` / `KALETA_SESSION_IDLE_HOURS` still end
+the session, and a `maxmemory-policy` of `allkeys-lru` bounds the rest.
+
+**Permission model.** Nothing secret goes into session storage — no password
+hash, TOTP secret, recovery code or key (ADR-035, enforced by
+`tests/unit/auth/test_session_contents.py`). The files still say who is
+signed in, so Kaleta runs with umask `077`: `~/.kaleta/nicegui` is `0700` and
+each session file `0600`, readable only by the Unix user that runs Kaleta,
+even when the data volume is shared with other services. Startup also
+tightens files left behind by older versions. On Windows modes are not
+touched. Everything else Kaleta writes (database, backups, exports) is
+owner-only for the same reason — a deliberate widening: **a sidecar that
+reads the volume under another uid** (a backup shipper, say) can no longer
+read new files. Run such a sidecar under Kaleta's uid; the umask is not
+configurable.
+
 ## Health check
 
 After deploy, verify:
@@ -169,5 +220,6 @@ Expect `"database_ok": true` and `"migrations_pending": false`.
 ## Related
 
 - CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job)
+- CI Valkey mode (sessions + rate limiter): `.github/workflows/ci.yml` (`valkey` job, `valkey/valkey:8`)
 - Plan: [`docs/plans/archive/q4-supabase-deployment.md`](plans/archive/q4-supabase-deployment.md)
 - Observability: [`docs/privacy-events.md`](privacy-events.md)

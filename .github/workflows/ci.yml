@@ -112,3 +112,47 @@ jobs:
 
       - name: Integration tests
         run: uv run pytest tests/integration/ -q
+
+  # KALETA_REDIS_URL moves both NiceGUI session storage and the login rate
+  # limiter into a Redis-protocol server — the hosted multi-replica
+  # configuration. Valkey is the server we recommend and test against.
+  valkey:
+    runs-on: ubuntu-latest
+    services:
+      valkey:
+        image: valkey/valkey:8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "valkey-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      KALETA_REDIS_URL: redis://localhost:6379/0
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --group dev --extra hosted
+
+      - name: Install Playwright browser
+        run: uv run playwright install --with-deps chromium
+
+      - name: Auth unit tests
+        run: uv run pytest tests/unit/auth/ -q
+
+      - name: Rate limiter across replicas
+        run: uv run pytest tests/integration/test_login_rate_limit_replicas.py -q
+
+      - name: Auth e2e against Valkey
+        run: uv run pytest tests/e2e/test_auth.py -q
