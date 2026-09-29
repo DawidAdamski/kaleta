@@ -266,7 +266,7 @@
     "selected_net": "Bilans zaznaczonych wierszy, bez przelewów",
     "clear_selection": "Wyczyść zaznaczenie",
     "mark_as_transfer": "Oznacz jako przelew",
-    "mark_as_transfer_hint": "Zaznacz dokładnie dwa wiersze: pieniądze wychodzące z jednego konta i wpływające na drugie.",
+    "mark_as_transfer_hint": "Zaznacz dokładnie dwa wiersze: pieniądze wychodzące z jednego konta i wpływające na drugie. Oba stracą kategorię.",
     "marked_as_transfer": "Oba wiersze są teraz jednym przelewem.",
     "group_net": "Bilans na tej stronie — bez przelewów i wierszy planowanych",
     "filter_chip_search": "Szukaj: {text}",

@@ -649,22 +649,15 @@ async def import_page() -> None:
         coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
 
     def _transfer_window() -> tuple[datetime.date, datetime.date] | None:
-        """The span of the rows this run imported, widened by the pairing window.
-
-        A transfer's other leg can sit a few days either side of the file, on
-        an account imported earlier; years of older history cannot, and
-        offering it would bury the pairs this import actually made.
-        """
-        days = [
-            row.date
-            for queued_file in state["queue"]
-            if queued_file.status == "done"
-            for row in queued_file.parsed_rows
-        ]
-        if not days:
-            return None
-        margin = datetime.timedelta(days=get_transfer_pairing_days())
-        return min(days) - margin, max(days) + margin
+        return ImportService.transfer_review_window(
+            (
+                row.date
+                for queued_file in state["queue"]
+                if queued_file.status == "done"
+                for row in queued_file.parsed_rows
+            ),
+            max_days_apart=get_transfer_pairing_days(),
+        )
 
     async def _refresh_transfer_pairs() -> None:
         window = _transfer_window()

@@ -266,7 +266,7 @@
     "selected_net": "Net of the selected rows, transfers excluded",
     "clear_selection": "Clear selection",
     "mark_as_transfer": "Mark as transfer",
-    "mark_as_transfer_hint": "Select exactly two rows: money leaving one account and arriving on another.",
+    "mark_as_transfer_hint": "Select exactly two rows: money leaving one account and arriving on another. Both lose their category.",
     "marked_as_transfer": "The two rows are now one transfer.",
     "group_net": "Net on this page — transfers and planned rows excluded",
     "filter_chip_search": "Search: {text}",

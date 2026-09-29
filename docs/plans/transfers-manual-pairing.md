@@ -133,5 +133,11 @@ i18n `en.json` / `pl.json`, `docs/bdd.md`,
   covers TRF-001 (ledger bar) and TRF-002 (import Confirm step, new fixture
   `mbank_transfer_pairs.csv` dated 2019-03 with odd amounts, to keep clear of
   other tests' rows in the shared e2e DB).
+- **Review follow-ups.** The review window moved into
+  `ImportService.transfer_review_window` (unit-tested) instead of living in
+  the view. The "Mark as transfer" tooltip now says both rows lose their
+  category, since pairing clears it and there is no undo. Accept-all commits
+  pair by pair: a failure part-way leaves the earlier pairs linked, and the
+  view refreshes the list, which the docstring now says.
 - **Found, not fixed** (chore inbox): Money Flow infers transfer direction
   from row ids, which pairing does not guarantee.

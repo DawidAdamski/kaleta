@@ -2141,6 +2141,23 @@ class ImportService:
         )
         await self.session.commit()
 
+    @staticmethod
+    def transfer_review_window(
+        imported_dates: Iterable[datetime.date], *, max_days_apart: int
+    ) -> tuple[datetime.date, datetime.date] | None:
+        """The span of an import's rows, widened by the pairing window.
+
+        A transfer's other leg can sit a few days either side of the file, on
+        an account imported earlier; years of older history cannot, and
+        offering it would bury the pairs this import actually made. ``None``
+        when nothing was imported.
+        """
+        days = list(imported_dates)
+        if not days:
+            return None
+        margin = datetime.timedelta(days=max_days_apart)
+        return min(days) - margin, max(days) + margin
+
     async def detect_and_link_transfers(
         self,
         *,
@@ -2154,6 +2171,10 @@ class ImportService:
         The import review's "accept all": the same pairs
         :meth:`suggest_transfer_pairs` would show, dismissed ones excluded,
         each made one transfer. Returns the number of pairs linked.
+
+        Each pair commits on its own, as a single accept does: if one fails
+        (say a row was linked elsewhere since the suggestions were read), the
+        error propagates and the pairs before it stay linked.
         """
         suggestions = await self.suggest_transfer_pairs(
             max_days_apart=max_days_apart,

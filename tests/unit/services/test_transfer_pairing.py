@@ -303,5 +303,16 @@ class TestDetectAndLinkTransfers:
         assert await ImportService(session).detect_and_link_transfers() == 0
 
 
+class TestTransferReviewWindow:
+    def test_widens_the_imported_span_by_the_window(self) -> None:
+        window = ImportService.transfer_review_window(
+            [DAY + _days(5), DAY, DAY + _days(2)], max_days_apart=3
+        )
+        assert window == (DAY - _days(3), DAY + _days(8))
+
+    def test_nothing_imported_has_no_window(self) -> None:
+        assert ImportService.transfer_review_window([], max_days_apart=3) is None
+
+
 def _days(n: int) -> datetime.timedelta:
     return datetime.timedelta(days=n)
