@@ -17,7 +17,7 @@ from pathlib import Path
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.ledger import search_ledger
+from tests.e2e.ledger import pick_open_menu_option, search_ledger
 from tests.e2e.seed_helpers import (
     get_transaction,
     seed_account,
@@ -44,6 +44,17 @@ def _select_import_option(page: Page, label: str, option: str) -> None:
     page.keyboard.press("Escape")
     page.locator(".q-select").filter(has_text=label).click()
     page.locator(".q-menu").last.get_by_text(option, exact=True).click()
+
+
+def _pick_import_option(page: Page, label: str, option: str) -> None:
+    """Like ``_select_import_option``, but scrolls a long virtualised list.
+
+    By the time the whole suite has run, the shared DB holds dozens of
+    accounts, and the one this test seeded is not rendered until scrolled to.
+    """
+    page.keyboard.press("Escape")
+    page.locator(".q-select").filter(has_text=label).click()
+    pick_open_menu_option(page, option)
 
 
 def _step(page: Page, step: int) -> None:
@@ -200,9 +211,9 @@ def test_import_suggests_transfer_pairs_to_accept_or_dismiss(page: Page, base_ur
         "mbank_transfer_pairs.csv", timeout=5000
     )
     _step(page, 4)
-    _select_import_option(page, "Target account", _account_option(mbank_name))
-    _select_import_option(page, "Default expense category", expense_cat)
-    _select_import_option(page, "Default income category", income_cat)
+    _pick_import_option(page, "Target account", _account_option(mbank_name))
+    _pick_import_option(page, "Default expense category", expense_cat)
+    _pick_import_option(page, "Default income category", income_cat)
     _step(page, 5)
     page.locator("[data-import-run]").click()
 
