@@ -167,6 +167,28 @@ class TestPairAsTransferGuards:
         assert in_leg.category_id is None
 
 
+class TestPairSelectedAsTransfer:
+    async def test_income_picked_first_still_goes_in(self, ledger: _Ledger) -> None:
+        inc = await ledger.row(ledger.pko, TransactionType.INCOME)
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE)
+        await ledger.svc.pair_selected_as_transfer(inc, out)
+        out_leg = await ledger.svc.get(out)
+        assert out_leg is not None
+        assert out_leg.type == TransactionType.TRANSFER
+        assert out_leg.linked_transaction_id == inc
+
+    async def test_two_incomes_are_rejected(self, ledger: _Ledger) -> None:
+        first = await ledger.row(ledger.mbank, TransactionType.INCOME)
+        second = await ledger.row(ledger.pko, TransactionType.INCOME)
+        with pytest.raises(ValidationError):
+            await ledger.svc.pair_selected_as_transfer(first, second)
+
+    async def test_missing_row_is_not_found(self, ledger: _Ledger) -> None:
+        out = await ledger.row(ledger.mbank, TransactionType.EXPENSE)
+        with pytest.raises(NotFoundError):
+            await ledger.svc.pair_selected_as_transfer(out, 9999)
+
+
 # ── ImportService.suggest_transfer_pairs ────────────────────────────────────
 
 

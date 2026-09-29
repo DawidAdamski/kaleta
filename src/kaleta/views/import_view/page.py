@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import datetime
 import uuid
 from typing import Any
 
 from nicegui import events, ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import plural_key, t
 from kaleta.services import (
     AccountService,
@@ -20,12 +22,14 @@ from kaleta.services.import_service import (
     ColumnMapping,
     ImportReadinessCheck,
     ImportService,
+    TransferPairSuggestion,
     build_known_account_digits,
     decode_upload,
     inherit_queue_settings,
     validate_import_readiness,
 )
 from kaleta.views.components.amount_label import spaced_thousands
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.import_view.constants import METADATA_PROFILES
 from kaleta.views.import_view.coverage_section import build_coverage_section
 from kaleta.views.import_view.mapping_section import build_mapping_section
@@ -222,7 +226,9 @@ async def import_page() -> None:
             mapping_section.set_visible(False)
             settings_section.set_visible(False)
             preview_section.set_visible(False)
-            transfer_section.set_visible(False)
+            # Suggestions are about rows already in the ledger, so they
+            # belong to a finished run and to nothing before it.
+            transfer_section.set_visible(state["run_finished"])
             upload_section.set_hint(t("import.upload_hint_generic"))
             if sync:
                 _sync_step()
@@ -254,7 +260,7 @@ async def import_page() -> None:
         show_settings = active.status in {"ready", "done"}
         settings_section.set_visible(show_settings)
         preview_section.set_visible(active.status in {"ready", "done", "needs_mapping"})
-        transfer_section.set_visible(active.profile == "generic" and active.status == "ready")
+        transfer_section.set_visible(state["run_finished"])
         if sync:
             _sync_step()
 
@@ -624,6 +630,8 @@ async def import_page() -> None:
         summary_section.show()
         state["run_finished"] = True
         await _refresh_coverage()
+        transfer_section.set_result("")
+        await _refresh_transfer_pairs()
         # Every file has finished, so the work is on Confirm; the reader goes
         # with it rather than being left on a preview of rows already in.
         state["step_chosen"] = False
@@ -640,7 +648,85 @@ async def import_page() -> None:
         state["history_rows"] = _history_tuples(runs)
         coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
 
+    def _transfer_window() -> tuple[datetime.date, datetime.date] | None:
+        """The span of the rows this run imported, widened by the pairing window.
+
+        A transfer's other leg can sit a few days either side of the file, on
+        an account imported earlier; years of older history cannot, and
+        offering it would bury the pairs this import actually made.
+        """
+        days = [
+            row.date
+            for queued_file in state["queue"]
+            if queued_file.status == "done"
+            for row in queued_file.parsed_rows
+        ]
+        if not days:
+            return None
+        margin = datetime.timedelta(days=get_transfer_pairing_days())
+        return min(days) - margin, max(days) + margin
+
+    async def _refresh_transfer_pairs() -> None:
+        window = _transfer_window()
+        if window is None:
+            transfer_section.set_visible(False)
+            return
+        date_from, date_to = window
+        pairing_days = get_transfer_pairing_days()
+        amount_tolerance = get_transfer_amount_tolerance()
+
+        async def _suggest(session: Any) -> list[TransferPairSuggestion]:
+            return await ImportService(session).suggest_transfer_pairs(
+                max_days_apart=pairing_days,
+                amount_tolerance=amount_tolerance,
+                date_from=date_from,
+                date_to=date_to,
+            )
+
+        suggestions = await with_session(_suggest)
+        transfer_section.render(
+            suggestions, on_accept=_accept_transfer_pair, on_dismiss=_dismiss_transfer_pair
+        )
+        transfer_section.set_visible(True)
+
+    async def _accept_transfer_pair(suggestion: TransferPairSuggestion) -> None:
+        amount_tolerance = get_transfer_amount_tolerance()
+
+        async def _accept(session: Any) -> None:
+            await ImportService(session).accept_transfer_pair(
+                suggestion.outgoing_id,
+                suggestion.incoming_id,
+                amount_tolerance=amount_tolerance,
+            )
+
+        try:
+            await with_session(_accept)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+        else:
+            ui.notify(t("import.transfer_pair_accepted"), type="positive")
+        await _refresh_transfer_pairs()
+
+    async def _dismiss_transfer_pair(suggestion: TransferPairSuggestion) -> None:
+        async def _dismiss(session: Any) -> None:
+            await ImportService(session).dismiss_transfer_pair(
+                suggestion.outgoing_id, suggestion.incoming_id
+            )
+
+        try:
+            await with_session(_dismiss)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+        else:
+            ui.notify(t("import.transfer_pair_dismissed"), type="info")
+        await _refresh_transfer_pairs()
+
     async def run_detect() -> None:
+        """Accept every suggestion on screen at once."""
+        window = _transfer_window()
+        if window is None:
+            return
+        date_from, date_to = window
         pairing_days = get_transfer_pairing_days()
         amount_tolerance = get_transfer_amount_tolerance()
 
@@ -648,12 +734,20 @@ async def import_page() -> None:
             return await ImportService(session).detect_and_link_transfers(
                 max_days_apart=pairing_days,
                 amount_tolerance=amount_tolerance,
+                date_from=date_from,
+                date_to=date_to,
             )
 
-        pairs = await with_session(_detect)
+        try:
+            pairs = await with_session(_detect)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+            await _refresh_transfer_pairs()
+            return
         msg = t("import.linked_pairs", count=pairs)
         transfer_section.set_result(msg)
         ui.notify(msg, type="positive")
+        await _refresh_transfer_pairs()
 
     def _on_bulk_account_change(_e: object = None) -> None:
         value = queue_section.bulk_account_sel.value
@@ -899,10 +993,10 @@ async def import_page() -> None:
 
         with _panel(STEP_PREVIEW):
             preview_section = build_preview_section()
-            transfer_section = build_transfer_section(run_detect)
 
         with _panel(STEP_CONFIRM):
             summary_section = build_summary_section()
+            transfer_section = build_transfer_section(run_detect)
 
         wizard_footer()
 

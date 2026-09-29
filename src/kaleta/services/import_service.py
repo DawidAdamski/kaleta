@@ -2102,19 +2102,7 @@ class ImportService:
             return None
         if row_a.account.currency != row_b.account.currency:
             return None
-        types = (row_a.type, row_b.type)
-        if types == (TransactionType.INCOME, TransactionType.INCOME):
-            return None
-        if types == (TransactionType.EXPENSE, TransactionType.EXPENSE):
-            return None
-        # An income is always the incoming leg and an expense always the
-        # outgoing one; two ``transfer`` rows carry no direction, so the older
-        # row goes first, as a manually entered transfer's legs do.
-        if row_a.type == TransactionType.INCOME or row_b.type == TransactionType.EXPENSE:
-            return row_b, row_a
-        if row_a.type == TransactionType.EXPENSE or row_b.type == TransactionType.INCOME:
-            return row_a, row_b
-        return (row_a, row_b) if row_a.id < row_b.id else (row_b, row_a)
+        return TransactionService.orient_transfer_legs(row_a, row_b)
 
     async def _dismissed_transfer_pairs(self) -> set[tuple[int, int]]:
         result = await self.session.execute(

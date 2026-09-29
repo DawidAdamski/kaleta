@@ -314,6 +314,47 @@ class TransactionService:
             raise KaletaError("Transfer legs not found after commit")
         return fetched_out, fetched_in
 
+    async def pair_selected_as_transfer(self, first_id: int, second_id: int) -> None:
+        """Pair two rows picked in the ledger, whichever order they were picked in.
+
+        The ledger's "Mark as transfer" knows two ids, not which leg is which;
+        the rows' own types say that (see :meth:`orient_transfer_legs`).
+        """
+        first = await self.get(first_id)
+        second = await self.get(second_id)
+        if first is None or second is None:
+            raise NotFoundError("Transaction not found.")
+        oriented = self.orient_transfer_legs(first, second)
+        if oriented is None:
+            raise ValidationError(
+                "A transfer needs money leaving one account and entering another."
+            )
+        outgoing, incoming = oriented
+        await self.pair_as_transfer(outgoing.id, incoming.id)
+
+    @staticmethod
+    def orient_transfer_legs(
+        row_a: Transaction, row_b: Transaction
+    ) -> tuple[Transaction, Transaction] | None:
+        """Return ``(outgoing, incoming)``, or ``None`` when the types cannot pair.
+
+        An income is always the incoming leg and an expense always the
+        outgoing one; two expenses (or two incomes) are never a transfer. Two
+        rows already typed ``transfer`` carry no direction, so the older row
+        goes first, as a manually entered transfer's legs do.
+        """
+        types = (row_a.type, row_b.type)
+        if types in (
+            (TransactionType.INCOME, TransactionType.INCOME),
+            (TransactionType.EXPENSE, TransactionType.EXPENSE),
+        ):
+            return None
+        if row_a.type == TransactionType.INCOME or row_b.type == TransactionType.EXPENSE:
+            return row_b, row_a
+        if row_a.type == TransactionType.EXPENSE or row_b.type == TransactionType.INCOME:
+            return row_a, row_b
+        return (row_a, row_b) if row_a.id < row_b.id else (row_b, row_a)
+
     @staticmethod
     def _validate_transfer_pair(
         outgoing: Transaction, incoming: Transaction, amount_tolerance: Decimal

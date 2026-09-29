@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from nicegui import ui
@@ -24,6 +24,7 @@ def render_table_actions(
     selected_rows: list[dict[str, Any]],
     *,
     on_delete: Callable[[], None],
+    on_pair: Callable[[], Awaitable[None]],
     on_clear: Callable[[], None],
     refresh: Callable[[], None],
 ) -> Any:
@@ -46,6 +47,22 @@ def render_table_actions(
             # actions: the count says what you have, the rest what you can do
             # with it, and the two are not one list.
             ui.element("span").classes(SELECTION_DIVIDER)
+            # Two rows are exactly what a transfer is: money out of one
+            # account and into another. Any other count has nothing to pair,
+            # so the button stays on the bar — where it is learned — but off.
+            pair_button = (
+                ui.button(
+                    t("transactions.mark_as_transfer"),
+                    icon="compare_arrows",
+                    on_click=on_pair,
+                    color=None,
+                )
+                .props("flat dense no-caps data-mark-transfer")
+                .classes(SELECTION_ACTION)
+            )
+            pair_button.tooltip(t("transactions.mark_as_transfer_hint"))
+            if n != 2:
+                pair_button.props("disable")
             delete_button = (
                 ui.button(t("common.delete"), icon="delete", on_click=on_delete, color=None)
                 .props("flat dense no-caps")

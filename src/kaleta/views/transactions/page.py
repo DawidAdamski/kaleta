@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from nicegui import ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import plural_key, t
 from kaleta.schemas.transaction import TransactionType
 from kaleta.services import (
@@ -34,6 +35,7 @@ from kaleta.views.components.transaction_table import (
     render_transaction_table,
     space_amounts,
 )
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.user_prefs import (
     get_transactions_upcoming_days,
@@ -195,6 +197,22 @@ async def transactions_page(*, open_new: bool = False) -> None:
         on_deleted=_apply_filters,
     )
     planned_dialog_ctx = build_planned_dialog()
+
+    async def _pair_selected() -> None:
+        if len(selected_tx_ids) != 2:
+            return
+        first_id, second_id = selected_tx_ids
+
+        async def _pair(session: Any) -> None:
+            await TransactionService(session).pair_selected_as_transfer(first_id, second_id)
+
+        try:
+            await with_session(_pair)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+            return
+        ui.notify(t("transactions.marked_as_transfer"), type="positive")
+        _apply_filters()
 
     @ui.refreshable
     async def transaction_table() -> None:
@@ -439,6 +457,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             selected_tx_ids,
             selected_rows,
             on_delete=confirm_delete_selected,
+            on_pair=_pair_selected,
             on_clear=_untick_table,
             refresh=lambda: table_actions_ui.refresh(),
         )
