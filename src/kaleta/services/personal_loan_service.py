@@ -10,12 +10,16 @@ from __future__ import annotations
 
 import builtins
 import datetime
+from collections.abc import Collection
 from decimal import Decimal
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
+from kaleta.models.account import Account
 from kaleta.models.personal_loan import (
     Counterparty,
     LoanDirection,
@@ -27,12 +31,14 @@ from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.personal_loan import (
     CounterpartyCreate,
     CounterpartyUpdate,
+    LoanLinkCandidate,
     LoanTotals,
     PersonalLoanCreate,
     PersonalLoanUpdate,
     RepaymentCreate,
     RepaymentResponse,
 )
+from kaleta.services.loan_links import loan_linked_transaction_ids
 
 
 class PersonalLoanService:
@@ -111,6 +117,8 @@ class PersonalLoanService:
         return list(result.scalars().all())
 
     async def create_loan(self, payload: PersonalLoanCreate) -> PersonalLoan:
+        if payload.transaction_id is not None:
+            await self._check_linkable(payload.transaction_id)
         loan = PersonalLoan(
             counterparty_id=payload.counterparty_id,
             direction=payload.direction,
@@ -120,18 +128,23 @@ class PersonalLoanService:
             due_at=payload.due_at,
             notes=payload.notes,
             status=LoanStatus.OUTSTANDING,
+            transaction_id=payload.transaction_id,
         )
         self.session.add(loan)
-        await self.session.commit()
+        await self._commit_link(payload.transaction_id)
         return await self.get_loan(loan.id)  # type: ignore[return-value]
 
     async def update_loan(self, loan_id: int, payload: PersonalLoanUpdate) -> PersonalLoan | None:
         loan = await self.get_loan(loan_id)
         if loan is None:
             return None
-        for key, value in payload.model_dump(exclude_unset=True).items():
+        changes = payload.model_dump(exclude_unset=True)
+        tx_id = changes.get("transaction_id")
+        if tx_id is not None and tx_id != loan.transaction_id:
+            await self._check_linkable(tx_id)
+        for key, value in changes.items():
             setattr(loan, key, value)
-        await self.session.commit()
+        await self._commit_link(tx_id)
         return await self.get_loan(loan_id)
 
     async def delete_loan(self, loan_id: int) -> bool:
@@ -153,8 +166,17 @@ class PersonalLoanService:
         if loan is None:
             return None
 
+        if payload.link_transaction_id is not None and payload.link_account_id is not None:
+            raise ValidationError(
+                "Link an existing transaction or mirror to an account, not both",
+                code="repayment_link_ambiguous",
+            )
+
         linked_tx_id: int | None = None
-        if payload.link_account_id is not None:
+        if payload.link_transaction_id is not None:
+            await self._check_linkable(payload.link_transaction_id)
+            linked_tx_id = payload.link_transaction_id
+        elif payload.link_account_id is not None:
             # Direction maps to Transaction.type:
             #   OUTGOING loan + repayment → cash coming back → INCOME tx.
             #   INCOMING loan + repayment → cash going out    → EXPENSE tx.
@@ -198,7 +220,7 @@ class PersonalLoanService:
             loan.status = LoanStatus.OUTSTANDING
             loan.settled_at = None
 
-        await self.session.commit()
+        await self._commit_link(payload.link_transaction_id)
         await self.session.refresh(repayment)
         return RepaymentResponse.model_validate(repayment)
 
@@ -225,6 +247,87 @@ class PersonalLoanService:
                 loan.settled_at = None
             await self.session.commit()
         return True
+
+    # ── Ledger links ──────────────────────────────────────────────────────
+
+    async def list_link_candidates(
+        self,
+        *,
+        limit: int = 200,
+        include_ids: Collection[int] = (),
+    ) -> builtins.list[LoanLinkCandidate]:
+        """Recent transactions a loan or repayment may link, newest first.
+
+        Internal transfers (money between the user's own accounts) and
+        transactions already linked to a loan are left out, except those in
+        ``include_ids`` — the current links, so an edit can keep them.
+        """
+        base = (
+            select(
+                Transaction.id,
+                Transaction.date,
+                Transaction.amount,
+                Transaction.description,
+                Account.name.label("account_name"),
+            )
+            .join(Account, Transaction.account_id == Account.id)
+            .order_by(Transaction.date.desc(), Transaction.id.desc())
+        )
+        recent = await self.session.execute(
+            base.where(
+                Transaction.is_internal_transfer == False,  # noqa: E712
+                Transaction.id.not_in(loan_linked_transaction_ids()),
+            ).limit(limit)
+        )
+        rows = list(recent.all())
+        if include_ids:
+            # Current links are always offered, however old they are.
+            current = await self.session.execute(base.where(Transaction.id.in_(include_ids)))
+            seen = {row.id for row in rows}
+            rows.extend(row for row in current.all() if row.id not in seen)
+            rows.sort(key=lambda row: (row.date, row.id), reverse=True)
+        return [
+            LoanLinkCandidate(
+                id=row.id,
+                date=row.date,
+                amount=Decimal(str(row.amount)),
+                description=row.description,
+                account_name=row.account_name,
+            )
+            for row in rows
+        ]
+
+    async def _commit_link(self, transaction_id: int | None) -> None:
+        """Commit; a concurrent link of the same transaction becomes a ``ConflictError``.
+
+        ``_check_linkable`` runs before the write, so two requests can both pass
+        it — the unique constraint on the principal or repayment link then
+        rejects the second. (A principal and a repayment racing for the same
+        transaction live in two tables and are not caught here.)
+        """
+        try:
+            await self.session.commit()
+        except IntegrityError as exc:
+            await self.session.rollback()
+            if transaction_id is None:
+                raise
+            raise ConflictError(
+                f"Transaction {transaction_id} is already linked to a loan",
+                code="loan_transaction_taken",
+            ) from exc
+
+    async def _check_linkable(self, transaction_id: int) -> None:
+        """Raise unless ``transaction_id`` exists and no loan or repayment links it."""
+        tx = await self.session.get(Transaction, transaction_id)
+        if tx is None:
+            raise NotFoundError(f"Transaction {transaction_id} not found")
+        linked = loan_linked_transaction_ids().subquery()
+        taken = await self.session.execute(select(linked.c.id).where(linked.c.id == transaction_id))
+        if taken.first() is not None:
+            raise ConflictError(
+                f"Transaction {transaction_id} is already linked to a loan",
+                code="loan_transaction_taken",
+            )
 
     # ── Totals ────────────────────────────────────────────────────────────
 
@@ -305,6 +408,7 @@ def parse_repayment_form(
     link_account_value: object | None,
     link_category_value: object | None,
     note_value: str,
+    link_transaction_value: object | None = None,
 ) -> RepaymentCreate:
     """Parse repayment dialog fields into a ``RepaymentCreate`` payload."""
     try:
@@ -319,15 +423,23 @@ def parse_repayment_form(
             else None
         )
         link_cat = int(str(link_category_value)) if link_category_value is not None else None
+        link_tx = (
+            int(str(link_transaction_value)) if link_transaction_value not in (None, "") else None
+        )
         note = (note_value or "").strip() or None
     except (ValueError, TypeError) as exc:
         raise PersonalLoanFormError(str(exc)) from exc
+    if link_tx is not None and link_acc is not None:
+        raise PersonalLoanFormError(
+            "Link an existing transaction or mirror to an account, not both"
+        )
     return RepaymentCreate(
         amount=amount,
         date=rep_date,
         note=note,
         link_account_id=link_acc,
         link_category_id=link_cat,
+        link_transaction_id=link_tx,
     )
 
 

@@ -51,6 +51,8 @@ class PersonalLoan(TimestampMixin, UserOwnedMixin, Base):
     """Money lent to or borrowed from a counterparty outside the bank ledger."""
 
     __tablename__ = "personal_loans"
+    # One transaction moves the principal of at most one loan.
+    __table_args__ = (UniqueConstraint("transaction_id", name="uq_personal_loans_transaction_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     counterparty_id: Mapped[int] = mapped_column(
@@ -70,6 +72,12 @@ class PersonalLoan(TimestampMixin, UserOwnedMixin, Base):
         default=LoanStatus.OUTSTANDING,
     )
     settled_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
+    # The ledger transaction that moved the principal (e.g. yesterday's bank
+    # transfer to the borrower). A linked transaction is loan money, not
+    # income or spending — reports exclude it via ``loan_linked_transaction_ids``.
+    transaction_id: Mapped[int | None] = mapped_column(
+        ForeignKey("transactions.id", ondelete="SET NULL"), nullable=True
+    )
 
     counterparty: Mapped[Counterparty] = relationship("Counterparty", back_populates="loans")
     repayments: Mapped[list[PersonalLoanRepayment]] = relationship(
@@ -90,6 +98,12 @@ class PersonalLoanRepayment(TimestampMixin, Base):
     """A partial or full repayment against a PersonalLoan."""
 
     __tablename__ = "personal_loan_repayments"
+    # One transaction is at most one repayment.
+    __table_args__ = (
+        UniqueConstraint(
+            "linked_transaction_id", name="uq_personal_loan_repayments_linked_transaction_id"
+        ),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     loan_id: Mapped[int] = mapped_column(

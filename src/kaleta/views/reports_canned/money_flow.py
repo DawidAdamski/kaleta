@@ -71,6 +71,7 @@ def register() -> None:
                     deficit=t("money_flow.deficit"),
                     other=t("money_flow.other"),
                     uncategorised=t("money_flow.uncategorised"),
+                    loans=t("money_flow.loans"),
                     income_suffix=t("money_flow.income_suffix"),
                     expense_suffix=t("money_flow.expense_suffix"),
                 )

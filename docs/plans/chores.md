@@ -195,3 +195,19 @@ check it still reproduces before acting on it.
       detector's tracked-payee set, `GET /api/v1/subscriptions`) still see
       it as active. Settle at startup / in the backup scheduler tick if that
       lag ever matters. Found by `plan/subscriptions-panel-gaps`.
+
+- [ ] Loan-linked transactions (KAL-DBT-004) are excluded from
+      `ReportService` and `MoneyFlowService` only. Other income/expense
+      readers still count them: `BudgetService` actuals, `ForecastService`,
+      `SavedReportService`, `SalaryService`, `UnplannedRadarService`,
+      `MonthlyReadinessService`, `ScenarioService`, `ReserveFundService`.
+      Add `Transaction.id.not_in(loan_linked_transaction_ids())` where the
+      figure means "spending" rather than "cash moved". Found by
+      `plan/debts-ledger-link`.
+
+- [ ] `uv run alembic check` on a fresh head DB reports index drift
+      unrelated to any recent plan: `ix_categorisation_rules_pattern`,
+      `ix_import_rules_filename_pattern`, `ix_import_runs_account_id`,
+      `ix_import_runs_created_at` exist in migrations but not in the models
+      (or vice versa). Reconcile with one migration or `index=True`. Found by
+      `plan/debts-ledger-link`.

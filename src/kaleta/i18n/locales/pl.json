@@ -841,7 +841,11 @@
     "repayment_recorded": "Spłata zarejestrowana.",
     "repayment_delete": "Usuń spłatę",
     "repayment_deleted": "Spłata usunięta.",
-    "repayment_linked": "Powiązana z transakcją #{id}"
+    "repayment_linked": "Powiązana z transakcją #{id}",
+    "field_transaction": "Powiązana transakcja",
+    "field_transaction_hint": "Opcjonalnie — przelew, którym przekazano pieniądze. Powiązane kwoty nie liczą się do przychodów ani wydatków.",
+    "repayment_field_link_transaction": "Istniejąca transakcja",
+    "row_linked": "Transakcja #{id}"
   },
   "housekeeping": {
     "title": "Porządki",
@@ -1574,7 +1578,10 @@
     "days_back": "Okno (dni)",
     "limit": "Limit",
     "asset": "Aktywo",
-    "liability": "Zobowiązanie"
+    "liability": "Zobowiązanie",
+    "loans": "Pożyczki",
+    "loans_out": "Pożyczone lub spłacone",
+    "loans_in": "Pożyczone od kogoś lub oddane Tobie"
   },
   "money_flow": {
     "budget": "Budżet",
@@ -1597,7 +1604,8 @@
     "transfers": "Przelewy",
     "view": "Widok",
     "view_budget": "Budżetowy",
-    "view_accounts": "Kontowy"
+    "view_accounts": "Kontowy",
+    "loans": "Pożyczki"
   },
   "credit": {
     "title": "Kredyty",

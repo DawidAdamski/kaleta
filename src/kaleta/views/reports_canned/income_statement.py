@@ -10,7 +10,7 @@ from nicegui import app, ui
 
 from kaleta.i18n import t
 from kaleta.services import with_session
-from kaleta.services.report_service import IncomeStatement, ReportService
+from kaleta.services.report_service import CategoryAmount, IncomeStatement, ReportService
 from kaleta.views.chart_utils import apply_dark, chart_expense_color, chart_income_color
 from kaleta.views.layout import page_layout
 from kaleta.views.reports_canned.formatters import csv_download, fmt
@@ -129,6 +129,17 @@ def register() -> None:
                 with ui.row().classes("w-full gap-3 flex-wrap"):
                     render_category_table(t("common.income"), stmt.income_by_category, "green-7")
                     render_category_table(t("common.expense"), stmt.expense_by_category, "red-7")
+                    # Loan money is neither income nor expense — shown on its own.
+                    loan_rows = [
+                        CategoryAmount(label, amount)
+                        for label, amount in (
+                            (t("reports_lib.loans_out"), stmt.loans_out),
+                            (t("reports_lib.loans_in"), stmt.loans_in),
+                        )
+                        if amount
+                    ]
+                    if loan_rows:
+                        render_category_table(t("reports_lib.loans"), loan_rows, "amber-8")
 
                 def _export() -> None:
                     rows: list[list[Any]] = []
@@ -136,6 +147,10 @@ def register() -> None:
                         rows.append(["income", r.category, r.amount])
                     for r in stmt.expense_by_category:
                         rows.append(["expense", r.category, r.amount])
+                    if stmt.loans_out:
+                        rows.append(["loan", t("reports_lib.loans_out"), stmt.loans_out])
+                    if stmt.loans_in:
+                        rows.append(["loan", t("reports_lib.loans_in"), stmt.loans_in])
                     csv_download(
                         f"income_statement_{stmt.year}_{stmt.month:02d}.csv",
                         [t("common.type"), t("common.category"), t("common.amount")],

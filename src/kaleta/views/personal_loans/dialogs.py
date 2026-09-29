@@ -9,6 +9,7 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.personal_loan import (
     LoanDirection,
@@ -21,6 +22,7 @@ from kaleta.services.personal_loan_service import (
     parse_loan_form,
     parse_repayment_form,
 )
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.theme import BODY_MUTED
 
 
@@ -30,6 +32,9 @@ def build_personal_loan_dialogs(
     account_opts: dict[int, str],
     expense_cat_opts: dict[int, str],
     income_cat_opts: dict[int, str],
+    transaction_opts: dict[int, str],
+    free_transaction_opts: dict[int, str],
+    transaction_amounts: dict[int, float],
 ) -> tuple[
     Callable[[], None],
     Callable[[Any], None],
@@ -98,6 +103,26 @@ def build_personal_loan_dialogs(
                 .classes("flex-1")
             )
 
+        transaction_in = (
+            ui.select(
+                options=free_transaction_opts,
+                label=t("personal_loans.field_transaction"),
+                with_input=True,
+            )
+            .props("dense outlined clearable")
+            .classes("w-full")
+        )
+        ui.label(t("personal_loans.field_transaction_hint")).classes(BODY_MUTED)
+
+        def _prefill_principal() -> None:
+            # Picking "yesterday's transfer" on a fresh loan fills its amount;
+            # an amount the user already typed is left alone.
+            amount = transaction_amounts.get(transaction_in.value or 0)
+            if amount is not None and not principal_in.value:
+                principal_in.set_value(amount)
+
+        transaction_in.on_value_change(lambda _e: _prefill_principal())
+
         notes_in = (
             ui.textarea(label=t("personal_loans.field_notes"))
             .props("dense outlined rows=2 autogrow")
@@ -131,6 +156,15 @@ def build_personal_loan_dialogs(
         rep_note = (
             ui.textarea(label=t("personal_loans.repayment_field_note"))
             .props("dense outlined rows=2 autogrow")
+            .classes("w-full")
+        )
+        rep_link_transaction = (
+            ui.select(
+                options=free_transaction_opts,
+                label=t("personal_loans.repayment_field_link_transaction"),
+                with_input=True,
+            )
+            .props("dense outlined clearable")
             .classes("w-full")
         )
         link_options: dict[int, str] = {0: t("personal_loans.repayment_field_link_none")}
@@ -178,6 +212,8 @@ def build_personal_loan_dialogs(
         currency_in.set_value("PLN")
         opened_in.set_value(datetime.date.today().isoformat())
         due_in.set_value("")
+        transaction_in.set_value(None)
+        transaction_in.set_options(free_transaction_opts)
         notes_in.set_value("")
         loan_dialog.open()
 
@@ -191,6 +227,12 @@ def build_personal_loan_dialogs(
         currency_in.set_value(loan.currency)
         opened_in.set_value(loan.opened_at.isoformat())
         due_in.set_value(loan.due_at.isoformat() if loan.due_at else "")
+        # Other loans' principals stay out; this loan's own link stays in.
+        own = loan.transaction_id
+        options = dict(free_transaction_opts)
+        if own is not None and own in transaction_opts:
+            options[own] = transaction_opts[own]
+        transaction_in.set_options(options, value=own if own in options else None)
         notes_in.set_value(loan.notes or "")
         loan_dialog.open()
 
@@ -216,6 +258,7 @@ def build_personal_loan_dialogs(
         except PersonalLoanFormError as exc:
             ui.notify(exc.message, type="warning")
             return
+        transaction_id = int(transaction_in.value) if transaction_in.value else None
 
         async def _persist(session: Any) -> None:
             loan_svc = PersonalLoanService(session)
@@ -230,6 +273,7 @@ def build_personal_loan_dialogs(
                         opened_at=opened_at,
                         due_at=due_at,
                         notes=notes,
+                        transaction_id=transaction_id,
                     )
                 )
             else:
@@ -243,10 +287,15 @@ def build_personal_loan_dialogs(
                         opened_at=opened_at,
                         due_at=due_at,
                         notes=notes,
+                        transaction_id=transaction_id,
                     ),
                 )
 
-        await with_session(_persist)
+        try:
+            await with_session(_persist)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+            return
         loan_dialog.close()
         ui.notify(t("personal_loans.saved"), type="positive")
         ui.navigate.reload()
@@ -273,6 +322,7 @@ def build_personal_loan_dialogs(
         rep_amount.set_value(0)
         rep_date.set_value(datetime.date.today().isoformat())
         rep_note.set_value("")
+        rep_link_transaction.set_value(None)
         rep_link_account.set_value(0)
         rep_link_category.set_value(None)
         rep_dialog.open()
@@ -288,6 +338,7 @@ def build_personal_loan_dialogs(
                 link_account_value=rep_link_account.value,
                 link_category_value=rep_link_category.value,
                 note_value=str(rep_note.value or ""),
+                link_transaction_value=rep_link_transaction.value,
             )
         except PersonalLoanFormError as exc:
             ui.notify(exc.message, type="warning")
@@ -296,7 +347,11 @@ def build_personal_loan_dialogs(
         async def _record(session: Any) -> None:
             await PersonalLoanService(session).record_repayment(loan_id, payload)
 
-        await with_session(_record)
+        try:
+            await with_session(_record)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+            return
         rep_dialog.close()
         ui.notify(t("personal_loans.repayment_recorded"), type="positive")
         ui.navigate.reload()

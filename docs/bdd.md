@@ -2662,7 +2662,7 @@ Feature: Debt Tracking
   I want a panel of personal debts linked to my transactions
   So that lending money does not mean losing track of it
 
-  KAL-DBT-001 @planned
+  KAL-DBT-001 @automated
   Scenario: Record money lent to a person
     Given I am on the Debts panel
     When I record lending 400.00 to "Marek" linked to yesterday's transfer
@@ -2680,7 +2680,7 @@ Feature: Debt Tracking
     When I link an incoming 250.00 transaction as his repayment
     Then "Marek" shows an outstanding balance of 150.00
 
-  KAL-DBT-004 @planned
+  KAL-DBT-004 @automated
   Scenario: Lent money is not an expense
     Given a 400.00 transfer recorded as a loan to "Marek"
     When I open the monthly spending summary
