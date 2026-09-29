@@ -155,7 +155,9 @@ Out of scope:
   sessions are in the same Redis, so login cannot work anyway; failing
   closed keeps the limiter from being bypassed by taking Redis down.
   Calls are synchronous (the limiter API is sync); they are single
-  round-trips on the login path only.
+  round-trips on the login path only. The login view has no handler for it, so the
+  user sees no message (NiceGUI logs the exception) — a friendly toast is a
+  view change outside this plan's touchpoints, filed in `chores.md`.
 - **Tests without skips.** Redis-backed tests use the server at
   `KALETA_REDIS_URL` when set and an in-process `fakeredis` server otherwise
   (`fakeredis` + `redis` added to the dev group), so the Redis code path runs
