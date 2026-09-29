@@ -3,8 +3,9 @@ plan_id: deps-sqlalchemy-2-1
 title: Upgrade SQLAlchemy 2.0 → 2.1
 area: platform
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-09-29
+roadmap_ref: ../../roadmap.md
 ---
 
 # Upgrade SQLAlchemy 2.0 → 2.1
@@ -68,3 +69,29 @@ adopting new 2.1 APIs, and other packages in the Dependabot group.
   unit + integration): 2612 + 185 passed. The previously failing
   `test_health_service_reports_not_pending_when_at_head` now passes.
 - Supersedes Dependabot PR #157 — close it once this merges.
+
+## Implementation
+
+Landed on 2026-09-29 (PR #163).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `46d1c15` | Dawid Adamski | 2026-09-29 | Merge pull request #163 from DawidAdamski/plan/deps-sqlalchemy-2-1 |
+
+**Files changed:**
+- docs/plans/chores.md
+- docs/plans/deps-sqlalchemy-2-1.md
+- pyproject.toml
+- src/kaleta/services/setup_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/services/unplanned_radar_service.py
+- tests/unit/services/test_setup_service.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
