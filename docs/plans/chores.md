@@ -226,3 +226,9 @@ check it still reproduces before acting on it.
       needs every period), but the sentence still reads "top 10". Grey the
       top-N slot out or say "all periods" there. Found by
       `plan/reports-trend-columns`.
+- [ ] e2e servers spawned by `tests/e2e/conftest.py` (and the secure-cookie
+      one in `test_auth.py`) inherit `NICEGUI_STORAGE_PATH` from the pytest
+      process, which importing `kaleta` pinned to the developer's real
+      `~/.kaleta/nicegui` — so e2e session files land there, not under the
+      temp `HOME`. Drop the variable from the child env, as the restart test
+      does. Found by `plan/auth-session-hosted-readiness`.
