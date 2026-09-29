@@ -20,6 +20,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from itertools import pairwise
 
+from kaleta.exceptions import ValidationError
 from kaleta.services.saved_report_service import (
     Column,
     Dimension,
@@ -173,7 +174,7 @@ def moving_averages(values: Sequence[float], window: int) -> tuple[float | None,
     that month, and calling it a three-month average would say otherwise.
     """
     if window < 1:
-        raise ValueError("A moving average needs a window of at least one period.")
+        raise ValidationError("A moving average needs a window of at least one period.")
     return tuple(
         None if index + 1 < window else sum(values[index + 1 - window : index + 1]) / window
         for index in range(len(values))

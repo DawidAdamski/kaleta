@@ -7,8 +7,9 @@ from kaleta.services.saved_report_service import (
     DEFAULT_MOVING_AVG_WINDOW,
     MOVING_AVG_WINDOWS,
     TIME_DIMENSIONS,
-    TREND_COLUMNS,
-    TREND_DIMENSIONS,
+    Column,
+    Dimension,
+    ReportConfig,
 )
 
 DIMENSIONS = [
@@ -56,7 +57,7 @@ TX_TYPES = [
 
 #: The derived columns, in the order the sentence names them and the table
 #: draws them: (key, label key).
-COLUMNS = [
+COLUMNS: list[tuple[Column, str]] = [
     ("share", "reports.col_share"),
     ("rank", "reports.col_rank"),
     ("change", "reports.col_change"),
@@ -71,15 +72,17 @@ WINDOWS = MOVING_AVG_WINDOWS
 WIDE_PIVOT_SERIES = 8
 
 
-def column_unavailable_reason(column: str, dimension: str, series: str | None) -> str | None:
+def column_unavailable_reason(
+    column: Column, dimension: Dimension, series: Dimension | None
+) -> str | None:
     """Why a derived column cannot answer the query in hand, as a translation key.
 
-    Mirrors ``ReportConfig.active_columns``: a change or a moving average runs
-    along the series of a pivot, or the grouping of a one-dimensional report,
-    and only when that axis is a month or a year.
+    Asks ``ReportConfig.active_columns`` rather than restating its rule, so
+    the picker cannot grey out a different set than the service drops: a
+    change or a moving average needs a month or a year to run along.
     """
-    axis = series if series is not None else dimension
-    if column in TREND_COLUMNS and axis not in TREND_DIMENSIONS:
+    config = ReportConfig(dimension=dimension, series=series, columns=[column])
+    if column not in config.active_columns():
         return "reports.column_needs_time_axis"
     return None
 

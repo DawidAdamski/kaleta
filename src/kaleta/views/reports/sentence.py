@@ -28,6 +28,7 @@ from kaleta.views.reports.constants import (
 
 if TYPE_CHECKING:  # import-linter excludes typing-only imports
     from kaleta.services.report_columns import DerivedLine
+    from kaleta.services.saved_report_service import Column
 
 #: The headers no language spells differently: a rank is a number sign and a
 #: change is a delta in every locale the app ships.
@@ -117,7 +118,7 @@ def column_label(column: str, window: int) -> str:
     return "—"
 
 
-def active_columns(state: dict[str, Any]) -> list[str]:
+def active_columns(state: dict[str, Any]) -> list[Column]:
     """The picked columns the query in hand can answer, in table order.
 
     The view's side of ``ReportConfig.active_columns``: a moving average

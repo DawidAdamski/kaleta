@@ -192,6 +192,13 @@ Out of scope:
 - **Existing e2e test touched**: `KAL-RPT-001` asserted six sentence
   slots; the columns clause makes seven. The count was updated to 7 and
   an assertion added that the new slot starts unused — not a loosening.
+- **Review follow-ups**: the picker's availability rule
+  (`constants.column_unavailable_reason`) now asks
+  `ReportConfig.active_columns` instead of restating it, so the view
+  cannot drift from the service; `moving_averages` raises
+  `ValidationError`. The local import in `_with_columns` is kept on
+  purpose (see above): moving the result types to break the cycle would
+  touch every importer of `saved_report_service` for no behaviour change.
 - **E2E read of the chart**: KAL-RPT-008 reads the drawn chart's series
   line styles via `getElement(id).chart.getOption()`; ECharts reports
   the plain line as `solid` and the average as `dashed`.
