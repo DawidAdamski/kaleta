@@ -25,6 +25,7 @@ class PlannedTransactionCreate(BaseModel):
     account_id: int
     category_id: int | None = None
     description: str | None = Field(default=None, max_length=255)
+    payee_id: int | None = None
     frequency: RecurrenceFrequency
     interval: int = Field(default=1, ge=1)
     start_date: datetime.date
@@ -56,6 +57,7 @@ class PlannedTransactionResponse(BaseModel):
     account_id: int
     category_id: int | None
     description: str | None
+    payee_id: int | None = None
     frequency: RecurrenceFrequency
     interval: int
     start_date: datetime.date

@@ -3,7 +3,7 @@ plan_id: recurring-to-planned
 title: Recurring detection — create a planned transaction, flag price drift
 area: transactions
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#transactions
 ---
 
