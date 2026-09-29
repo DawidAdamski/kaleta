@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     smtp_from: str | None = None
     smtp_starttls: bool = True
     error_tracker_dsn: str | None = None
+    #: Redis for state shared between replicas: NiceGUI session storage and
+    #: the login rate limiter. Unset means files under ``~/.kaleta/nicegui``
+    #: and counters in the process — one replica. Needs the ``hosted`` extra.
+    redis_url: str | None = None
 
     @field_validator("db_url", mode="before")
     @classmethod
