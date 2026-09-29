@@ -2833,6 +2833,37 @@ Feature: Report Builder
     When I open it from the rail
     Then the second dimension reads as unused
       And the result is drawn as the ranked rows it always was
+
+  KAL-RPT-008 @automated
+  Scenario: A moving average on a monthly report adds the column and the dashed line
+    Given I am on the report builder
+      And the report is grouped by "Month" over "All Time"
+    When I turn on "3-month average" from the sentence's last clause
+    Then the sentence ends "with 3-month average"
+      And the card's title line ends ", 3-month average"
+    When I set the chart type to "Table" and run the report
+    Then the table carries an "MA(3)" column after the value
+    When I set the chart type to "Line" and run the report
+    Then the average is drawn as a second, dashed line in the series' own hue
+
+  KAL-RPT-009 @automated
+  Scenario: Change on a pivot runs along each row's months
+    Given a category with 9 000 spent in January 2025 and 7 000 in February 2025
+      And I am on the report builder over "All Time"
+    When I add "Month" as the second dimension
+      And I turn on "change"
+      And I set the chart type to "Table" and run the report
+    Then beside February the category's row reads "-2 000.00" and "-22%"
+      And beside March, a month with no spend, it reads "-7 000.00" and "-100%"
+
+  KAL-RPT-010 @automated
+  Scenario: Columns that need a time axis are unavailable on a category report
+    Given I am on the report builder
+      And the report is grouped by "Category" with no second dimension
+    When I open the sentence's last clause
+    Then "change" and "3-month average" are disabled
+      And each says it needs a grouping that runs in time
+      And "share" and "rank" can still be turned on
 ```
 
 ## Feature: Money Flow

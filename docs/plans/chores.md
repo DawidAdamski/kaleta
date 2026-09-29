@@ -221,3 +221,8 @@ check it still reproduces before acting on it.
       asyncpg's `?ssl=require` is not psycopg2's `sslmode=require`. Rebuild the
       URL with `make_url(...).set(drivername=...)` and translate the SSL query
       arg. Found by `plan/deps-sqlalchemy-2-1`.
+- [ ] Report builder: on a one-dimensional month/year report with a
+      change or moving-average column on, `top_n` is not applied (a trend
+      needs every period), but the sentence still reads "top 10". Grey the
+      top-N slot out or say "all periods" there. Found by
+      `plan/reports-trend-columns`.

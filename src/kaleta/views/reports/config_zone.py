@@ -17,15 +17,20 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import plural_key, t
+from kaleta.services.saved_report_service import PivotResult
 from kaleta.views.reports.constants import (
     CHART_TYPES,
+    COLUMNS,
     DATE_PRESETS,
     DIMENSIONS,
     METRICS,
     TX_TYPES,
+    WIDE_PIVOT_SERIES,
+    WINDOWS,
     chart_unavailable_reason,
+    column_unavailable_reason,
 )
-from kaleta.views.reports.sentence import slot_labels
+from kaleta.views.reports.sentence import active_columns, column_label, slot_labels
 from kaleta.views.theme import (
     CHART_PICK,
     CHART_PICK_ON,
@@ -186,6 +191,14 @@ def build_config_zone(
                 if value != int(state["top_n"] or 0):
                     on_set("top_n", value)
 
+            # The derived columns. Optional, like the second dimension, and
+            # read as an invitation until one is picked.
+            has_columns = bool(active_columns(state))
+            if has_columns:
+                _word(t("reports.sentence_with_columns"))
+            with _slot(labels.columns, empty=not has_columns), ui.menu():
+                _columns_menu(state, on_set=on_set)
+
             # English ends the sentence with a full stop; Polish reads as a
             # labelled line and ends with nothing, so the key may be empty.
             if end := t("reports.sentence_end"):
@@ -253,6 +266,62 @@ def build_config_zone(
                 )
 
     return config_zone
+
+
+#: How many cells each derived column adds beside a pivot's series cell:
+#: a change is drawn as its amount and its percent.
+_CELLS_PER_COLUMN = {"share": 1, "rank": 1, "change": 2, "moving_avg": 1}
+
+
+def _columns_menu(state: dict[str, Any], *, on_set: Callable[[str, Any], None]) -> None:
+    """The derived columns as toggles, the moving average's window under them.
+
+    A column the query cannot answer stays in the list, disabled, with the
+    reason beside it: a picker that silently hid it would leave the reader
+    wondering where the moving average went when they grouped by category.
+    """
+
+    def _toggle(column: str) -> None:
+        chosen = list(state["columns"])
+        if column in chosen:
+            chosen.remove(column)
+        else:
+            chosen.append(column)
+        on_set("columns", chosen)
+
+    window = int(state["window"])
+    for key, _label_key in COLUMNS:
+        reason = column_unavailable_reason(key, state["dimension"], state["series"])
+        active = key in state["columns"] and reason is None
+        item = ui.menu_item(on_click=lambda k=key: _toggle(k)).props("dense")
+        if reason:
+            item.props("disable")
+        with item, ui.row().classes("items-center gap-2 no-wrap"):
+            ui.icon("check_box" if active else "check_box_outline_blank", size="16px")
+            with ui.column().classes("gap-0"):
+                ui.label(column_label(key, window))
+                if reason:
+                    ui.label(t(reason)).classes(f"{MUTED} text-xs")
+
+    ui.separator()
+    with ui.row().classes("items-center gap-2 px-3 py-2 no-wrap"):
+        ui.label(t("reports.window_label")).classes(f"{MUTED} text-xs")
+        ui.toggle(
+            {size: t("reports.window_months", count=size) for size in WINDOWS},
+            value=window,
+            on_change=lambda e: on_set("window", int(e.value)),
+        ).props("dense no-caps")
+
+    # A pivot grid grows a derived cell or two beside every series cell;
+    # past eight series values that is a grid nobody reads without scrolling.
+    result = state["result"]
+    cells = sum(_CELLS_PER_COLUMN[key] for key in active_columns(state))
+    if (
+        isinstance(result, PivotResult)
+        and len(result.series_labels) > WIDE_PIVOT_SERIES
+        and cells >= 2
+    ):
+        ui.label(t("reports.columns_wide_warning")).classes(f"{MUTED} text-xs px-3 pb-2 max-w-72")
 
 
 def _list_filter(

@@ -1524,7 +1524,19 @@
     "pivot_total": "Total",
     "chart_needs_time_series": "A line needs a second dimension that runs in time — month or year.",
     "chart_unavailable_with_series": "Not available with a second dimension.",
-    "result_total": "total {amount}"
+    "result_total": "total {amount}",
+    "col_share": "share",
+    "col_rank": "rank",
+    "col_change": "change",
+    "col_moving_avg": "{window}-month average",
+    "col_head_ma": "MA({window})",
+    "sentence_with_columns": ", with",
+    "columns_none": "with …",
+    "sentence_and": "and",
+    "column_needs_time_axis": "Needs a grouping that runs in time — month or year.",
+    "window_label": "Average over",
+    "window_months": "{count} months",
+    "columns_wide_warning": "Many columns with two derived figures each make a wide grid — a line may read better."
   },
   "reports_lib": {
     "title": "Reports Library",

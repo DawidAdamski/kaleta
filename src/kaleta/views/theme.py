@@ -509,6 +509,10 @@ PIVOT_FIGURE = "k-pivot-figure"
 #: arithmetic.
 PIVOT_TOTAL = "k-pivot-total"
 PIVOT_FOOT = "k-pivot-foot"
+#: A derived cell (share, rank, change, moving average) beside the series
+#: cell it was derived from. A hook, not a style: the cell wears ``MUTED``
+#: so the ledger's own figures lead.
+PIVOT_DERIVED = "k-pivot-derived"
 
 #: How many steps the bar ramp has. Artboard `3e` shades ten bars with six
 #: greens, darkest first — a ranking you can read without a legend.
