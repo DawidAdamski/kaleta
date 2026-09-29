@@ -1,15 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
-# Pin NiceGUI storage under ~/.kaleta/ before any import that may load nicegui
-# (Storage.path is resolved at import time from NICEGUI_STORAGE_PATH).
-import os
+# Point NiceGUI at its storage before any import that may load nicegui
+# (Storage.path and Storage.redis_url are read at import time from the env):
+# files under ~/.kaleta/nicegui, or Redis when KALETA_REDIS_URL is set.
 import sys
 from pathlib import Path
 
-_NICEGUI_STORAGE = (Path.home() / ".kaleta" / "nicegui").resolve()
-_NICEGUI_STORAGE.mkdir(parents=True, exist_ok=True)
-os.environ.setdefault("NICEGUI_STORAGE_PATH", str(_NICEGUI_STORAGE))
+from kaleta.config import settings
+from kaleta.services.nicegui_storage_service import NiceguiStorageService
+
+NiceguiStorageService.configure_environment(redis_url=settings.redis_url)
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -26,11 +27,9 @@ from kaleta.api import create_api_router
 from kaleta.api.errors import register_error_handlers
 from kaleta.api.v1.health import register_health_alias
 from kaleta.auth.session import session_middleware_kwargs, warn_secure_cookie_in_debug
-from kaleta.config import settings
 from kaleta.logging_config import RequestContextMiddleware, configure_logging
 from kaleta.services.backup_scheduler import BackupScheduler
 from kaleta.services.nbp_startup import NbpStartupFetcher
-from kaleta.services.nicegui_storage_service import NiceguiStorageService
 
 # Cached OpenAPI spec — generated once from our router tree.
 _openapi_spec: dict[str, Any] | None = None
@@ -236,7 +235,9 @@ def _register_views() -> None:
 
 
 def _sweep_nicegui_storage() -> None:
-    NiceguiStorageService().sweep_stale()
+    storage = NiceguiStorageService()
+    storage.sweep_stale()
+    storage.tighten_permissions()
 
 
 def _register_event_retention_scheduler() -> None:
