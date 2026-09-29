@@ -14,6 +14,7 @@ from kaleta.config import settings
 from kaleta.exceptions import MigrationError
 from kaleta.services.setup_service import (
     _alembic_config,
+    _sync_url,
     current_revision,
     ensure_schema_current,
     head_revision,
@@ -87,3 +88,15 @@ class TestEnsureSchemaCurrent:
         with pytest.raises(MigrationError, match="unknown alembic revision"):
             ensure_schema_current(db_url)
         assert list(backup_dir.glob("kaleta-*.db")) == []
+
+
+class TestSyncUrl:
+    def test_sqlite_drops_async_driver(self) -> None:
+        assert _sync_url("sqlite+aiosqlite:///tmp/k.db") == "sqlite:///tmp/k.db"
+
+    def test_postgres_names_psycopg2(self) -> None:
+        """SQLAlchemy 2.1 maps a bare ``postgresql://`` to psycopg 3; we ship psycopg2."""
+        assert (
+            _sync_url("postgresql+asyncpg://kaleta:kaleta@localhost:5432/kaleta")
+            == "postgresql+psycopg2://kaleta:kaleta@localhost:5432/kaleta"
+        )

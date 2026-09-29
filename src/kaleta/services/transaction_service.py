@@ -6,7 +6,7 @@ import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -48,7 +48,7 @@ class TransactionService:
         tx_types: builtins.list[TransactionType] | None = None,
         search: str | None = None,
         tag_ids: builtins.list[int] | None = None,
-    ) -> Any:
+    ) -> Select[Transaction]:
         stmt = select(Transaction)
         if account_ids:
             stmt = stmt.where(Transaction.account_id.in_(account_ids))

@@ -239,7 +239,7 @@ class UnplannedRadarService:
         up here too — the page names the section for what it lists.
         """
         result = await self.session.execute(
-            select(Transaction.planned_transaction_id, Transaction.date, PlannedTransaction)
+            select(PlannedTransaction.id, Transaction.date, PlannedTransaction)
             .join(
                 PlannedTransaction,
                 Transaction.planned_transaction_id == PlannedTransaction.id,
