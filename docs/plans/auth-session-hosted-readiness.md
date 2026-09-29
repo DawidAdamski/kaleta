@@ -128,9 +128,12 @@ Out of scope:
   save creates a new inode with the process umask — a `0o600` set at startup
   is gone after the next request, and a fresh login's file was `0o644` (the
   e2e test caught it). `NiceguiStorageService.restrict_new_files()` narrows
-  the process umask to `077` (never loosens a stricter one), called in
-  `main.py` next to `configure_environment`. It also makes the DB, backups
-  and exports owner-only, which is the same intent. `tighten_permissions()`
+  the process umask to `077` (never loosens a stricter one), called at the
+  top of `main()` — not at import, so importing `kaleta.main` in tests or
+  tools leaves their umask alone. It also makes the DB, backups
+  and exports owner-only, which is the same intent — a deliberate widening
+  called out in `docs/deployment.md` (a sidecar reading the volume under
+  another uid must run as Kaleta's uid). `tighten_permissions()`
   still runs at startup for files left by older versions. The directory is
   also created `0o700` in `kaleta/__init__.py`, which pins the path first.
 - **Clock.** The limiter now uses `time.time()` instead of

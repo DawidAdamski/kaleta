@@ -11,7 +11,6 @@ from kaleta.config import settings
 from kaleta.services.nicegui_storage_service import NiceguiStorageService
 
 NiceguiStorageService.configure_environment(redis_url=settings.redis_url)
-NiceguiStorageService.restrict_new_files()
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -358,6 +357,10 @@ def run_api() -> None:
 
 
 def main() -> None:
+    # Here rather than at import: importing this module (tests, tools) must not
+    # change the umask of whoever imported it. Child processes inherit it.
+    NiceguiStorageService.restrict_new_files()
+
     if "--reset-password" in sys.argv:
         from kaleta.cli.reset_password import ResetPasswordCli
 

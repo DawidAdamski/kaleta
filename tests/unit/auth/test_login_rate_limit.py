@@ -171,6 +171,17 @@ class TestRedisStore:
         assert int(client.get(key) or 0) == 2
         assert 0 < int(client.ttl(key)) <= 900
 
+    def test_a_count_left_without_expiry_gets_one(
+        self, redis_clients: RedisClientFactory, namespace: str
+    ) -> None:
+        """A process that died between INCR and EXPIRE must not leave a count forever."""
+        client = redis_clients()
+        key = f"kaleta:{namespace}:10.0.0.2"
+        client.set(key, 3)
+        store = RedisStore(namespace, client=client)
+        assert store.add_failure("10.0.0.2", window_seconds=900, now=0.0) == 4
+        assert 0 < int(client.ttl(key)) <= 900
+
     def test_the_lock_key_expires_on_its_own(
         self, redis_clients: RedisClientFactory, namespace: str
     ) -> None:

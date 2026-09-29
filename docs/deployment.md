@@ -194,7 +194,10 @@ each session file `0600`, readable only by the Unix user that runs Kaleta,
 even when the data volume is shared with other services. Startup also
 tightens files left behind by older versions. On Windows modes are not
 touched. Everything else Kaleta writes (database, backups, exports) is
-owner-only for the same reason.
+owner-only for the same reason — a deliberate widening: **a sidecar that
+reads the volume under another uid** (a backup shipper, say) can no longer
+read new files. Run such a sidecar under Kaleta's uid; the umask is not
+configurable.
 
 ## Health check
 

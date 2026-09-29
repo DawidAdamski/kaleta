@@ -140,10 +140,16 @@ class RedisStore:
     def add_failure(self, key: str, *, window_seconds: float, now: float) -> int:
         redis = self._redis()
         name = self._count_key(key)
-        count = int(redis.incr(name))
-        if count == 1:
+        pipe = redis.pipeline()
+        pipe.incr(name)
+        pipe.ttl(name)
+        count, ttl = pipe.execute()
+        # -1: the key has no expiry — it was just created, or a process died
+        # between the INCR and the EXPIRE of an earlier call. Either way it
+        # gets one now, so no count outlives its window for good.
+        if ttl == -1:
             redis.expire(name, max(1, int(window_seconds)))
-        return count
+        return int(count)
 
     def reset_failures(self, key: str) -> None:
         self._redis().delete(self._count_key(key))
