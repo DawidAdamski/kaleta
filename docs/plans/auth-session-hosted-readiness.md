@@ -134,7 +134,10 @@ Out of scope:
   and exports owner-only, which is the same intent — a deliberate widening
   called out in `docs/deployment.md` (a sidecar reading the volume under
   another uid must run as Kaleta's uid). `tighten_permissions()`
-  still runs at startup for files left by older versions. The directory is
+  still runs at startup for files left by older versions. Deviation from the
+  Scope wording: `sweep_stale()` itself does not chmod — it stays "delete
+  old files" — and startup calls `sweep_stale()` then `tighten_permissions()`
+  (`main._sweep_nicegui_storage`), which has the same effect. The directory is
   also created `0o700` in `kaleta/__init__.py`, which pins the path first.
 - **Clock.** The limiter now uses `time.time()` instead of
   `time.monotonic()`: a lock written by one replica is read by another, and
