@@ -171,9 +171,15 @@ Out of scope:
   `NICEGUI_STORAGE_PATH` (importing `kaleta` in the pytest process pins it to
   the developer's `~/.kaleta`); the other e2e servers still inherit it — a
   pre-existing quirk, added to `docs/plans/chores.md`.
+- **Valkey, not Redis, as the server (owner decision, 2026-09-29).** The
+  code speaks the Redis protocol through `redis-py` (NiceGUI's own client),
+  so the switch is the CI service image (`valkey/valkey:8`) and the docs.
+  `KALETA_REDIS_URL`, the `redis://` scheme and the job name stay: they name
+  the protocol, and NiceGUI's variable is `NICEGUI_REDIS_URL` anyway. Unit,
+  integration and `tests/e2e/test_auth.py` pass against Valkey 8.1.
 - **CI `redis` job** installs `--extra hosted` and Playwright chromium, then
   runs the auth unit tests, the replica integration test and
   `tests/e2e/test_auth.py` with `KALETA_REDIS_URL` set. `tests/e2e/test_auth.py`
-  passes locally against `redis:7` (13 passed).
+  passes locally against `redis:7` and `valkey:8` (13 passed each).
 
 ## Implementation (filled by plan-archiver)

@@ -114,16 +114,17 @@ jobs:
         run: uv run pytest tests/integration/ -q
 
   # KALETA_REDIS_URL moves both NiceGUI session storage and the login rate
-  # limiter into Redis — the hosted multi-replica configuration.
+  # limiter into a Redis-protocol server — the hosted multi-replica
+  # configuration. Valkey is the server we recommend and test against.
   redis:
     runs-on: ubuntu-latest
     services:
-      redis:
-        image: redis:7
+      valkey:
+        image: valkey/valkey:8
         ports:
           - 6379:6379
         options: >-
-          --health-cmd "redis-cli ping"
+          --health-cmd "valkey-cli ping"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -153,5 +154,5 @@ jobs:
       - name: Rate limiter across replicas
         run: uv run pytest tests/integration/test_login_rate_limit_replicas.py -q
 
-      - name: Auth e2e against Redis
+      - name: Auth e2e against Valkey
         run: uv run pytest tests/e2e/test_auth.py -q

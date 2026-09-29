@@ -104,7 +104,7 @@ Set via the `KALETA_MODE` environment variable:
 | `KALETA_SESSION_IDLE_HOURS` | `12` | Sign a UI session out after this many hours without a request (`0` disables; capped at `KALETA_SESSION_TTL_HOURS`) |
 | `KALETA_SESSION_COOKIE_SECURE` | `false` | Mark the `kaleta_session` cookie `Secure` — only behind TLS; on plain http login stops working |
 | `KALETA_SESSION_COOKIE_SAMESITE` | `lax` | `lax` or `strict` (`strict` drops the cookie on links from outside, e.g. e-mail confirmations) |
-| `KALETA_REDIS_URL` | _(unset)_ | Keep sessions and the login rate limiter in Redis, so several replicas share them (extra: `hosted`) — see [deployment.md](deployment.md#session-state-and-replicas) |
+| `KALETA_REDIS_URL` | _(unset)_ | Keep sessions and the login rate limiter in Valkey (or any Redis-protocol server), so several replicas share them (extra: `hosted`) — see [deployment.md](deployment.md#session-state-and-replicas) |
 | `KALETA_BACKUP_ENABLED` | `true` | Enable scheduled SQLite `VACUUM INTO` backups |
 | `KALETA_BACKUP_INTERVAL_HOURS` | `24` | Hours between scheduled backups |
 | `KALETA_BACKUP_RETAIN` | `7` | Keep the last K `kaleta-*.db` files |
