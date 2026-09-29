@@ -21,6 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from kaleta.exceptions import ImportError_
+from kaleta.models.dismissed_transfer_pair import DismissedTransferPair
 from kaleta.models.import_run import ImportRun
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
@@ -37,6 +38,7 @@ from kaleta.services.import_profiles import (
     parse_wise_filename,
 )
 from kaleta.services.rule_service import RuleService
+from kaleta.services.transaction_service import TransactionService
 
 # ── File decoding ────────────────────────────────────────────────────────────
 
@@ -1392,6 +1394,42 @@ class ParsedRow:
     notes: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class TransferPairSuggestion:
+    """Two existing rows that look like one transfer between own accounts."""
+
+    outgoing_id: int
+    incoming_id: int
+    amount: Decimal
+    currency: str
+    outgoing_account: str
+    incoming_account: str
+    outgoing_date: datetime.date
+    incoming_date: datetime.date
+    outgoing_description: str
+    incoming_description: str
+
+    @classmethod
+    def from_legs(cls, outgoing: Transaction, incoming: Transaction) -> TransferPairSuggestion:
+        return cls(
+            outgoing_id=outgoing.id,
+            incoming_id=incoming.id,
+            amount=abs(outgoing.amount),
+            currency=outgoing.account.currency,
+            outgoing_account=outgoing.account.name,
+            incoming_account=incoming.account.name,
+            outgoing_date=outgoing.date,
+            incoming_date=incoming.date,
+            outgoing_description=outgoing.description,
+            incoming_description=incoming.description,
+        )
+
+
+def _pair_key(id_a: int, id_b: int) -> tuple[int, int]:
+    """Order-independent key of a pair: lowest id first."""
+    return (id_a, id_b) if id_a < id_b else (id_b, id_a)
+
+
 @dataclass
 class ImportResult:
     rows: list[ParsedRow] = field(default_factory=list)
@@ -1980,63 +2018,168 @@ class ImportService:
 
     # ── Internal Transfer Detection ───────────────────────────────────────────
 
+    async def suggest_transfer_pairs(
+        self,
+        *,
+        max_days_apart: int = 3,
+        amount_tolerance: Decimal = Decimal("0.01"),
+        date_from: datetime.date | None = None,
+        date_to: datetime.date | None = None,
+    ) -> list[TransferPairSuggestion]:
+        """Find pairs of unlinked rows that look like one transfer between own accounts.
+
+        Two rows are a candidate pair when they sit on different accounts in
+        the same currency, carry the same amount (within ``amount_tolerance``),
+        are at most ``max_days_apart`` days apart and point in opposite
+        directions: an expense with an income, or a row an import already
+        typed ``transfer`` with an expense, an income or another such row.
+        Two expenses (or two incomes) are never a transfer.
+
+        Nothing is written: the caller shows the pairs and the user accepts
+        (:meth:`accept_transfer_pair`) or dismisses
+        (:meth:`dismiss_transfer_pair`) each one. A dismissed pair is never
+        suggested again. Every row appears in at most one suggestion; when a
+        row could pair with several, the closest date wins.
+
+        ``date_from`` / ``date_to`` bound the rows considered — the import
+        review passes the span of the rows it just imported, widened by the
+        window, so years of unrelated history are not offered at once.
+        """
+        stmt = (
+            select(Transaction)
+            .options(selectinload(Transaction.account))
+            .where(
+                Transaction.linked_transaction_id.is_(None),
+                Transaction.is_split.is_(False),
+            )
+            .order_by(Transaction.amount, Transaction.date, Transaction.id)
+        )
+        if date_from is not None:
+            stmt = stmt.where(Transaction.date >= date_from)
+        if date_to is not None:
+            stmt = stmt.where(Transaction.date <= date_to)
+        rows = list((await self.session.execute(stmt)).scalars().all())
+        dismissed = await self._dismissed_transfer_pairs()
+
+        # Sorted by amount, so every partner of a row lies in the short run
+        # after it whose amounts are still within tolerance.
+        candidates: list[tuple[int, Decimal, int, int, Transaction, Transaction]] = []
+        for i, row_a in enumerate(rows):
+            for row_b in rows[i + 1 :]:
+                amount_gap = abs(row_b.amount - row_a.amount)
+                if amount_gap > amount_tolerance:
+                    break
+                day_gap = abs((row_a.date - row_b.date).days)
+                if day_gap > max_days_apart:
+                    continue
+                oriented = self._orient_transfer_legs(row_a, row_b)
+                if oriented is None:
+                    continue
+                outgoing, incoming = oriented
+                if _pair_key(outgoing.id, incoming.id) in dismissed:
+                    continue
+                candidates.append(
+                    (day_gap, amount_gap, outgoing.id, incoming.id, outgoing, incoming)
+                )
+
+        candidates.sort(key=lambda c: (c[0], c[1], c[2], c[3]))
+        taken: set[int] = set()
+        suggestions: list[TransferPairSuggestion] = []
+        for _day_gap, _amount_gap, out_id, in_id, outgoing, incoming in candidates:
+            if out_id in taken or in_id in taken:
+                continue
+            taken.update((out_id, in_id))
+            suggestions.append(TransferPairSuggestion.from_legs(outgoing, incoming))
+        suggestions.sort(key=lambda s: (s.outgoing_date, s.outgoing_id))
+        return suggestions
+
+    @staticmethod
+    def _orient_transfer_legs(
+        row_a: Transaction, row_b: Transaction
+    ) -> tuple[Transaction, Transaction] | None:
+        """Return ``(outgoing, incoming)`` when the two rows can be one transfer."""
+        if row_a.account_id == row_b.account_id:
+            return None
+        if row_a.account.currency != row_b.account.currency:
+            return None
+        types = (row_a.type, row_b.type)
+        if types == (TransactionType.INCOME, TransactionType.INCOME):
+            return None
+        if types == (TransactionType.EXPENSE, TransactionType.EXPENSE):
+            return None
+        # An income is always the incoming leg and an expense always the
+        # outgoing one; two ``transfer`` rows carry no direction, so the older
+        # row goes first, as a manually entered transfer's legs do.
+        if row_a.type == TransactionType.INCOME or row_b.type == TransactionType.EXPENSE:
+            return row_b, row_a
+        if row_a.type == TransactionType.EXPENSE or row_b.type == TransactionType.INCOME:
+            return row_a, row_b
+        return (row_a, row_b) if row_a.id < row_b.id else (row_b, row_a)
+
+    async def _dismissed_transfer_pairs(self) -> set[tuple[int, int]]:
+        result = await self.session.execute(
+            select(
+                DismissedTransferPair.first_transaction_id,
+                DismissedTransferPair.second_transaction_id,
+            )
+        )
+        return {(int(first), int(second)) for first, second in result.all()}
+
+    async def accept_transfer_pair(
+        self,
+        outgoing_id: int,
+        incoming_id: int,
+        *,
+        amount_tolerance: Decimal = Decimal("0.01"),
+    ) -> None:
+        """Make a suggested pair one transfer (see ``TransactionService.pair_as_transfer``)."""
+        await TransactionService(self.session).pair_as_transfer(
+            outgoing_id, incoming_id, amount_tolerance=amount_tolerance
+        )
+
+    async def dismiss_transfer_pair(self, outgoing_id: int, incoming_id: int) -> None:
+        """Remember that these two rows are not one transfer. Idempotent."""
+        first, second = _pair_key(outgoing_id, incoming_id)
+        existing = await self.session.execute(
+            select(DismissedTransferPair.id).where(
+                DismissedTransferPair.first_transaction_id == first,
+                DismissedTransferPair.second_transaction_id == second,
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            return
+        self.session.add(
+            DismissedTransferPair(first_transaction_id=first, second_transaction_id=second)
+        )
+        await self.session.commit()
+
     async def detect_and_link_transfers(
         self,
         *,
         max_days_apart: int = 3,
         amount_tolerance: Decimal = Decimal("0.01"),
+        date_from: datetime.date | None = None,
+        date_to: datetime.date | None = None,
     ) -> int:
-        """Scan unlinked TRANSFER transactions and pair outflow/inflow legs.
+        """Accept every current transfer suggestion at once.
 
-        Matching criteria:
-        - Same amount (within tolerance)
-        - Dates within max_days_apart
-        - Different accounts
-        - Both legs not yet linked
-
-        Returns the number of pairs linked.
+        The import review's "accept all": the same pairs
+        :meth:`suggest_transfer_pairs` would show, dismissed ones excluded,
+        each made one transfer. Returns the number of pairs linked.
         """
-        stmt = (
-            select(Transaction)
-            .where(
-                Transaction.is_internal_transfer == True,  # noqa: E712
-                Transaction.linked_transaction_id == None,  # noqa: E711
-            )
-            .order_by(Transaction.date, Transaction.id)
+        suggestions = await self.suggest_transfer_pairs(
+            max_days_apart=max_days_apart,
+            amount_tolerance=amount_tolerance,
+            date_from=date_from,
+            date_to=date_to,
         )
-        result = await self.session.execute(stmt)
-        candidates = list(result.scalars().all())
-
-        # Separate into outflows (expense-side) and inflows (income-side)
-        # For transfers we don't have income/expense type — match by amount & date across accounts
-        linked_ids: set[int] = set()
-        pairs = 0
-
-        for i, tx_a in enumerate(candidates):
-            if tx_a.id in linked_ids:
-                continue
-            for tx_b in candidates[i + 1 :]:
-                if tx_b.id in linked_ids:
-                    continue
-                if tx_a.account_id == tx_b.account_id:
-                    continue
-                if abs(tx_a.amount - tx_b.amount) > amount_tolerance:
-                    continue
-                date_diff = abs((tx_a.date - tx_b.date).days)
-                if date_diff > max_days_apart:
-                    continue
-                # Match found — link both legs
-                tx_a.linked_transaction_id = tx_b.id
-                tx_b.linked_transaction_id = tx_a.id
-                linked_ids.add(tx_a.id)
-                linked_ids.add(tx_b.id)
-                pairs += 1
-                break
-
-        if pairs:
-            await self.session.commit()
-
-        return pairs
+        for suggestion in suggestions:
+            await self.accept_transfer_pair(
+                suggestion.outgoing_id,
+                suggestion.incoming_id,
+                amount_tolerance=amount_tolerance,
+            )
+        return len(suggestions)
 
     def record_import_run(
         self,
