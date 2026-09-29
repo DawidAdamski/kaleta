@@ -216,3 +216,8 @@ check it still reproduces before acting on it.
       it from there, and `subscription_service` now imports
       `PlannedTransactionService`. Nothing is circular yet, but the services
       are coupled. Found by `plan/recurring-to-planned`.
+- [ ] `setup_service._sync_url` rewrites drivers with a whole-string
+      `str.replace`. A password containing `+asyncpg` gets corrupted, and
+      asyncpg's `?ssl=require` is not psycopg2's `sslmode=require`. Rebuild the
+      URL with `make_url(...).set(drivername=...)` and translate the SSL query
+      arg. Found by `plan/deps-sqlalchemy-2-1`.
