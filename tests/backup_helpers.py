@@ -27,6 +27,7 @@ from kaleta.models import (
     CreditCardProfile,
     CurrencyRate,
     DismissedCandidate,
+    DismissedTransferPair,
     ImportRule,
     ImportRun,
     Institution,
@@ -259,6 +260,17 @@ async def seed_every_model(session: AsyncSession) -> None:
             amount_bucket="40-50",
         )
     )
+    refund = Transaction(
+        account_id=account.id,
+        amount=Decimal("42.50"),
+        type=TransactionType.INCOME,
+        date=date(2024, 6, 2),
+        description="Refund",
+        user_id=user.id,
+    )
+    session.add(refund)
+    await session.flush()
+    session.add(DismissedTransferPair(first_transaction_id=txn.id, second_transaction_id=refund.id))
 
     counterparty = Counterparty(name="Anna Kowalska", user_id=user.id)
     session.add(counterparty)
