@@ -46,6 +46,8 @@ class TestSavedReportViewHelpers:
             "account_ids": [1, 2],
             "category_ids": [],
             "top_n": 0,
+            "columns": ["moving_avg", "bogus"],
+            "window": 6,
         }
         config = report_config_from_builder_state(state)
         assert config.dimension == "account"
@@ -53,6 +55,8 @@ class TestSavedReportViewHelpers:
         assert config.metric == "count"
         assert config.transaction_types == ["expense", "income"]
         assert config.top_n is None
+        assert config.columns == ["moving_avg"]
+        assert config.window == 6
 
     def test_build_report_table_data(self) -> None:
         result = ReportResult(
@@ -332,3 +336,95 @@ class TestPivotExecution:
         assert result.row_labels == ["Checking"]
         assert result.series_labels == ["No Institution"]
         assert result.cells == [[pytest.approx(180.0)]]
+
+
+class TestDerivedColumnsConfig:
+    def test_a_stored_config_without_columns_has_none(self) -> None:
+        config = ReportConfig.from_dict({"dimension": "category"})
+        assert config.columns == []
+        assert config.window == 3
+
+    def test_columns_and_window_round_trip(self) -> None:
+        config = ReportConfig(dimension="month", columns=["share", "moving_avg"], window=12)
+        again = ReportConfig.from_dict(config.to_dict())
+        assert again.columns == ["share", "moving_avg"]
+        assert again.window == 12
+
+    def test_an_unknown_window_falls_back_to_the_default(self) -> None:
+        assert ReportConfig.from_dict({"window": 5}).window == 3
+
+
+class TestDerivedColumnsExecution:
+    async def test_no_columns_means_no_derived(
+        self, report_svc: SavedReportService, session: AsyncSession
+    ):
+        await _seed_two_months(session)
+        result = await report_svc.execute(_pivot_config())
+        assert result.derived is None
+
+    async def test_change_on_a_pivot_is_per_row_along_the_months(
+        self, report_svc: SavedReportService, session: AsyncSession
+    ):
+        """Covers: KAL-RPT-009"""
+        await _seed_two_months(session)
+        result = await report_svc.execute(_pivot_config(columns=["change"]))
+        assert isinstance(result, PivotResult)
+        assert result.derived is not None
+        food, fun = result.derived.lines
+        assert food.change == (None, pytest.approx(-50.0))
+        assert food.change_pct == (None, pytest.approx(-50.0))
+        # Fun had nothing in January: a rise from zero has no percentage.
+        assert fun.change == (None, pytest.approx(30.0))
+        assert fun.change_pct == (None, None)
+
+    async def test_trend_columns_on_a_category_report_are_dropped(
+        self, report_svc: SavedReportService, session: AsyncSession
+    ):
+        """Covers: KAL-RPT-010"""
+        await _seed_two_months(session)
+        result = await report_svc.execute(
+            _pivot_config(series=None, columns=["change", "moving_avg"])
+        )
+        assert isinstance(result, ReportResult)
+        assert result.derived is None
+
+    async def test_a_monthly_report_is_filled_ordered_and_not_cut(
+        self, report_svc: SavedReportService, session: AsyncSession
+    ):
+        """Covers: KAL-RPT-008"""
+        account, fun = await _seed_two_months(session)
+        await TransactionService(session).create(
+            TransactionCreate(
+                account_id=account,
+                category_id=fun,
+                amount=Decimal("60.00"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2025, 4, 3),
+                description="april after an empty march",
+            )
+        )
+        result = await report_svc.execute(
+            _pivot_config(
+                dimension="month",
+                series=None,
+                date_to="2025-04-30",
+                top_n=1,
+                columns=["moving_avg"],
+            )
+        )
+        assert isinstance(result, ReportResult)
+        # Chronological, March zero-filled, and top 1 not applied to a trend.
+        assert result.labels == ["2025-01", "2025-02", "2025-03", "2025-04"]
+        assert result.values == [
+            pytest.approx(100.0),
+            pytest.approx(80.0),
+            pytest.approx(0.0),
+            pytest.approx(60.0),
+        ]
+        assert result.derived is not None
+        assert result.derived.lines[0].moving_avg == (
+            None,
+            None,
+            pytest.approx(60.0),
+            pytest.approx(140.0 / 3),
+        )

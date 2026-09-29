@@ -2,9 +2,10 @@
 from __future__ import annotations
 
 import builtins
+import dataclasses
 import datetime
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal, get_args
 
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,6 +19,9 @@ from kaleta.models.report import SavedReport
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.report import SavedReportCreate
 from kaleta.services.categorised_flows import categorised_flows_selectable
+
+if TYPE_CHECKING:  # report_columns imports this module's result types at runtime
+    from kaleta.services.report_columns import DerivedResult
 
 # ── Config dataclass ───────────────────────────────────────────────────────────
 
@@ -35,6 +39,11 @@ DatePreset = Literal[
     "last_12_months",
     "custom",
 ]
+#: A column derived from the grouped result rather than queried for it.
+Column = Literal["share", "rank", "change", "moving_avg"]
+#: The moving-average windows the builder offers, in periods.
+MOVING_AVG_WINDOWS: tuple[int, ...] = (3, 6, 12)
+DEFAULT_MOVING_AVG_WINDOW = 3
 
 _WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -42,6 +51,14 @@ _WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Frida
 #: chronologically on either axis of a pivot, where everything else is
 #: ordered by what it adds up to.
 TIME_DIMENSIONS: frozenset[str] = frozenset({"month", "year", "weekday"})
+
+#: The dimensions a trend runs along. Narrower than ``TIME_DIMENSIONS``: a
+#: weekday is ordered, but Sunday is not "the period after" Saturday, so a
+#: change or a moving average across weekdays measures nothing.
+TREND_DIMENSIONS: frozenset[str] = frozenset({"month", "year"})
+
+#: The derived columns that only mean something along a trend dimension.
+TREND_COLUMNS: frozenset[str] = frozenset({"change", "moving_avg"})
 
 #: What the rows cut off by ``top_n`` are folded into on a pivot. A column
 #: total that counted rows the table does not draw would read as a bug, and
@@ -64,6 +81,34 @@ class ReportConfig:
     account_ids: list[int] = field(default_factory=list)
     category_ids: list[int] = field(default_factory=list)
     top_n: int | None = 10
+    #: Derived columns, in the order they were picked. Empty on every report
+    #: saved before they existed.
+    columns: list[Column] = field(default_factory=list)
+    #: The moving average's window, in periods.
+    window: int = DEFAULT_MOVING_AVG_WINDOW
+
+    @property
+    def trend_axis(self) -> Dimension:
+        """The axis a change or a moving average runs along.
+
+        The grouping on a one-dimensional report; the series on a pivot, so
+        that *Category by Month* is month-over-month for each category.
+        """
+        return self.series if self.series is not None else self.dimension
+
+    def active_columns(self) -> list[Column]:
+        """The picked columns this query can answer, in canonical order.
+
+        A change or a moving average needs a trend axis; picked on a report
+        that has none, they are dropped here rather than refused, so a saved
+        report whose grouping was changed afterwards still runs.
+        """
+        has_trend = self.trend_axis in TREND_DIMENSIONS
+        return [
+            column
+            for column in get_args(Column)
+            if column in self.columns and (has_trend or column not in TREND_COLUMNS)
+        ]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -78,6 +123,8 @@ class ReportConfig:
             "account_ids": self.account_ids,
             "category_ids": self.category_ids,
             "top_n": self.top_n,
+            "columns": list(self.columns),
+            "window": self.window,
         }
 
     @classmethod
@@ -94,7 +141,22 @@ class ReportConfig:
             account_ids=d.get("account_ids", []),
             category_ids=d.get("category_ids", []),
             top_n=d.get("top_n", 10),
+            columns=_known_columns(d.get("columns", [])),
+            window=_known_window(d.get("window")),
         )
+
+
+def _known_columns(raw: Any) -> list[Column]:
+    """The stored columns this version knows, anything else left out."""
+    if not isinstance(raw, list):
+        return []
+    known: list[Column] = [column for column in get_args(Column) if column in raw]
+    return known
+
+
+def _known_window(raw: Any) -> int:
+    """A window the builder offers, or the default when it is not one."""
+    return raw if isinstance(raw, int) and raw in MOVING_AVG_WINDOWS else DEFAULT_MOVING_AVG_WINDOW
 
 
 @dataclass
@@ -103,6 +165,8 @@ class ReportResult:
     values: list[float]
     column_header: str  # e.g. "Category", "Month"
     metric_header: str  # e.g. "Total Amount", "Count"
+    #: The derived columns, when the config asked for any it can answer.
+    derived: DerivedResult | None = None
 
 
 @dataclass(frozen=True)
@@ -125,6 +189,8 @@ class PivotResult:
     metric_header: str
     row_totals: list[float]
     series_totals: list[float]
+    #: The derived columns, per row along the series axis.
+    derived: DerivedResult | None = None
 
 
 @dataclass(frozen=True)
@@ -160,6 +226,8 @@ def report_config_from_builder_state(state: dict[str, Any]) -> ReportConfig:
         account_ids=state["account_ids"],
         category_ids=state["category_ids"],
         top_n=int(state["top_n"] or 0) or None,
+        columns=_known_columns(state["columns"]),
+        window=_known_window(state["window"]),
     )
 
 
@@ -229,9 +297,46 @@ class SavedReportService:
         date_from, date_to = self._resolve_dates(config)
         # The flows path attributes split lines to their own categories, so it
         # is the one that can answer for a category on *either* axis.
+        result: ReportResult | PivotResult
         if config.dimension == "category" or config.series == "category" or config.category_ids:
-            return await self._execute_on_flows(config, date_from, date_to)
-        return await self._execute_on_transactions(config, date_from, date_to)
+            result = await self._execute_on_flows(config, date_from, date_to)
+        else:
+            result = await self._execute_on_transactions(config, date_from, date_to)
+        return self._with_columns(result, config)
+
+    @staticmethod
+    def _with_columns(
+        result: ReportResult | PivotResult, config: ReportConfig
+    ) -> ReportResult | PivotResult:
+        """The result with its derived columns, computed over the grouped rows.
+
+        In Python, not SQL: the rows are a few hundred cells at most, both
+        dialects stay untouched, and the arithmetic sits in one pure module.
+        Imported here rather than at the top because that module reads this
+        one's result types.
+        """
+        from kaleta.services.report_columns import derive, fill_time_axis
+
+        columns = config.active_columns()
+        if not columns:
+            return result
+        if any(column in TREND_COLUMNS for column in columns):
+            result = fill_time_axis(result, config.trend_axis)
+        return dataclasses.replace(result, derived=derive(result, columns, config.window))
+
+    @staticmethod
+    def _limit(config: ReportConfig) -> int | None:
+        """The SQL row limit of a one-dimensional report, if any.
+
+        None when a trend column is on: a sequence cut to its ten biggest
+        months is not a sequence, and the months it dropped would come back
+        from the zero-fill as months of nothing.
+        """
+        if not config.top_n or config.top_n <= 0:
+            return None
+        if any(column in TREND_COLUMNS for column in config.active_columns()):
+            return None
+        return config.top_n
 
     async def _execute_on_transactions(
         self,
@@ -274,8 +379,8 @@ class SavedReportService:
         )
         for join_target, condition, isouter in joins:
             stmt = stmt.join(join_target, condition, isouter=isouter)
-        if config.top_n and config.top_n > 0:
-            stmt = stmt.limit(config.top_n)
+        if (limit := self._limit(config)) is not None:
+            stmt = stmt.limit(limit)
 
         rows = builtins.list((await self.session.execute(stmt)).fetchall())
         return self._rows_to_result(rows, col_header, metric_header, is_weekday)
@@ -324,8 +429,8 @@ class SavedReportService:
         )
         for join_target, condition, isouter in joins:
             stmt = stmt.join(join_target, condition, isouter=isouter)
-        if config.top_n and config.top_n > 0:
-            stmt = stmt.limit(config.top_n)
+        if (limit := self._limit(config)) is not None:
+            stmt = stmt.limit(limit)
 
         rows = builtins.list((await self.session.execute(stmt)).fetchall())
         return self._rows_to_result(rows, col_header, metric_header, is_weekday)

@@ -3,7 +3,7 @@ plan_id: reports-trend-columns
 title: Reports — trend columns (moving average, change, share, rank)
 area: reports
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#reports
 ---
 
