@@ -223,7 +223,7 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 | [transactions-quick-entry-flow](archive/transactions-quick-entry-flow.md) | archived | small | draft | — |
 | [funds-reserve-derived-target](archive/funds-reserve-derived-target.md) | archived | small | draft | — |
 | [debts-ledger-link](archive/debts-ledger-link.md) | archived | medium | draft | — |
-| [recurring-to-planned](recurring-to-planned.md) | #7 REC | medium | draft | — |
+| [recurring-to-planned](archive/recurring-to-planned.md) | archived | medium | draft | — |
 | [budgets-plan-comparisons-gaps](archive/budgets-plan-comparisons-gaps.md) | archived | medium | draft | coordinate with budgets-plan-unification |
 | [funds-savings-goals](funds-savings-goals.md) | #12 GOL | medium | draft | fund balances follow the ledger (chore inbox) |
 | [funds-irregular-items](funds-irregular-items.md) | #10 IRR | large | draft | fund balances follow the ledger (chore inbox) |
