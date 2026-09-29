@@ -1,0 +1,13 @@
+#Numer rachunku
+41 1140 2004 0000 3302 5555 0202
+#Rodzaj rachunku
+EKONTO
+#Waluta
+PLN
+#Klient
+E2E Transfer Pairs Client
+#Za okres:
+2019-03-01;2019-03-31
+#Data operacji;#Data księgowania;#Opis operacji;#Tytuł;#Nadawca/Odbiorca;#Numer rachunku;#Kwota
+2019-03-11;2019-03-11;Przelew wychodzący;Oszczednosci TRF E2E;;;-517.23
+2019-03-14;2019-03-14;Zakup;Sklep TRF E2E;;;-123.45
