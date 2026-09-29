@@ -11,8 +11,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from kaleta.i18n import t
 from kaleta.services.saved_report_service import PivotResult, ReportResult
-from kaleta.views.chart_utils import apply_dark, chart_text_color
+from kaleta.views.chart_utils import apply_dark, chart_palette, chart_text_color
 
 
 def report_chart_options(
@@ -51,7 +52,43 @@ def _pie_options(result: ReportResult, chart_type: str, is_dark: bool) -> dict[s
     return apply_dark(options, is_dark)
 
 
+def _moving_avg_series(
+    name: str | None, values: tuple[float | None, ...], colour: str, window: int
+) -> dict[str, Any]:
+    """A moving average drawn beside its series: same hue, dashed, no dots.
+
+    The hue says which line it belongs to and the dash says it is not a
+    figure from the ledger. Periods without a full window are gaps
+    (``None``), not zeroes, so the line starts where the average exists.
+    """
+    return {
+        "type": "line",
+        "name": " · ".join(
+            part for part in (name, t("reports.col_moving_avg", window=window)) if part
+        ),
+        "data": list(values),
+        "smooth": True,
+        "symbol": "none",
+        "color": colour,
+        "lineStyle": {"type": "dashed", "width": 2, "color": colour},
+    }
+
+
 def _line_options(result: ReportResult, is_dark: bool) -> dict[str, Any]:
+    colour = chart_palette(is_dark)[0]
+    series: list[dict[str, Any]] = [
+        {
+            "type": "line",
+            "data": result.values,
+            "smooth": True,
+            "symbol": "circle",
+            "symbolSize": 5,
+            "color": colour,
+        }
+    ]
+    derived = result.derived
+    if derived is not None and derived.lines[0].moving_avg is not None:
+        series.append(_moving_avg_series(None, derived.lines[0].moving_avg, colour, derived.window))
     options: dict[str, Any] = {
         "tooltip": {"trigger": "axis"},
         "grid": {"containLabel": True, "left": "3%", "right": "6%", "bottom": "8%", "top": "8%"},
@@ -61,15 +98,7 @@ def _line_options(result: ReportResult, is_dark: bool) -> dict[str, Any]:
             "axisLabel": {"rotate": 30 if len(result.labels) > 6 else 0},
         },
         "yAxis": {"type": "value"},
-        "series": [
-            {
-                "type": "line",
-                "data": result.values,
-                "smooth": True,
-                "symbol": "circle",
-                "symbolSize": 5,
-            }
-        ],
+        "series": series,
     }
     return apply_dark(options, is_dark)
 
@@ -120,6 +149,25 @@ def _stacked_bar_options(result: PivotResult, is_dark: bool) -> dict[str, Any]:
 
 
 def _multi_line_options(result: PivotResult, is_dark: bool) -> dict[str, Any]:
+    palette = chart_palette(is_dark)
+    series: list[dict[str, Any]] = []
+    for index, row_label in enumerate(result.row_labels):
+        colour = palette[index % len(palette)]
+        series.append(
+            {
+                "type": "line",
+                "name": row_label,
+                "data": result.cells[index],
+                "smooth": True,
+                "symbol": "circle",
+                "symbolSize": 5,
+                "color": colour,
+            }
+        )
+        derived = result.derived
+        moving_avg = derived.lines[index].moving_avg if derived is not None else None
+        if derived is not None and moving_avg is not None:
+            series.append(_moving_avg_series(row_label, moving_avg, colour, derived.window))
     options: dict[str, Any] = {
         "tooltip": {"trigger": "axis"},
         "legend": {"top": 0, "left": "center"},
@@ -130,16 +178,6 @@ def _multi_line_options(result: PivotResult, is_dark: bool) -> dict[str, Any]:
             "axisLabel": {"rotate": 30 if len(result.series_labels) > 6 else 0},
         },
         "yAxis": {"type": "value"},
-        "series": [
-            {
-                "type": "line",
-                "name": row_label,
-                "data": result.cells[index],
-                "smooth": True,
-                "symbol": "circle",
-                "symbolSize": 5,
-            }
-            for index, row_label in enumerate(result.row_labels)
-        ],
+        "series": series,
     }
     return apply_dark(options, is_dark)

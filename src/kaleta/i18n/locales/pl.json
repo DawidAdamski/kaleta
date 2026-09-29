@@ -1524,7 +1524,19 @@
     "pivot_total": "Razem",
     "chart_needs_time_series": "Linia wymaga drugiego wymiaru w czasie — miesiąca lub roku.",
     "chart_unavailable_with_series": "Niedostępne przy drugim wymiarze.",
-    "result_total": "razem {amount}"
+    "result_total": "razem {amount}",
+    "col_share": "udział",
+    "col_rank": "pozycja",
+    "col_change": "zmiana",
+    "col_moving_avg": "średnia z {window} mies.",
+    "col_head_ma": "Śr.({window})",
+    "sentence_with_columns": "· kolumny:",
+    "columns_none": "dodaj kolumny",
+    "sentence_and": "i",
+    "column_needs_time_axis": "Wymaga osi w czasie — miesiąca lub roku.",
+    "window_label": "Średnia z",
+    "window_months": "{count} mies.",
+    "columns_wide_warning": "Wiele kolumn z dwiema wyliczonymi wartościami daje szeroką tabelę — wykres liniowy może być czytelniejszy."
   },
   "reports_lib": {
     "title": "Biblioteka raportów",

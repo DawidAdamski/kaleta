@@ -8,6 +8,9 @@ the app palette. Presentational; no BDD scenario claims it.
 
 from __future__ import annotations
 
+import dataclasses
+
+from kaleta.services.report_columns import derive
 from kaleta.services.saved_report_service import PivotResult, ReportResult
 from kaleta.views.chart_utils import chart_palette
 from kaleta.views.reports.chart_options import pivot_chart_options, report_chart_options
@@ -131,3 +134,41 @@ class TestPivotCharts:
         for chart_type in ("bar", "line"):
             options = pivot_chart_options(_pivot(), chart_type, is_dark=False)
             assert options["color"] == chart_palette(False)
+
+
+class TestMovingAverageLine:
+    """`KAL-RPT-008`: a moving average is a second, dashed line in the hue of
+    the series it averages, with gaps where no full window exists yet."""
+
+    def _monthly(self) -> ReportResult:
+        result = ReportResult(
+            labels=["2025-01", "2025-02", "2025-03"],
+            values=[30.0, 60.0, 90.0],
+            column_header="Month",
+            metric_header="Total Amount",
+        )
+        return dataclasses.replace(result, derived=derive(result, ["moving_avg"], 3))
+
+    def test_the_average_is_a_second_dashed_line(self) -> None:
+        options = report_chart_options(self._monthly(), "line", is_dark=True)
+        line, average = options["series"]
+        assert average["lineStyle"]["type"] == "dashed"
+        assert line.get("lineStyle", {}).get("type") != "dashed"
+        assert average["data"] == [None, None, 60.0]
+
+    def test_it_wears_the_hue_of_its_series(self) -> None:
+        for is_dark in (False, True):
+            line, average = report_chart_options(self._monthly(), "line", is_dark)["series"]
+            assert average["color"] == line["color"] == chart_palette(is_dark)[0]
+
+    def test_on_a_pivot_each_row_gets_its_own_average(self) -> None:
+        pivot = _pivot()
+        pivot = dataclasses.replace(pivot, derived=derive(pivot, ["moving_avg"], 3))
+        options = pivot_chart_options(pivot, "line", is_dark=False)
+        types = [s.get("lineStyle", {}).get("type") for s in options["series"]]
+        assert types == [None, "dashed", None, "dashed"]
+        colours = [s["color"] for s in options["series"]]
+        assert colours[0] == colours[1] != colours[2] == colours[3]
+
+    def test_no_average_asked_no_extra_line(self) -> None:
+        assert len(report_chart_options(_result(), "line", is_dark=False)["series"]) == 1

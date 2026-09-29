@@ -12,9 +12,14 @@ from typing import Any
 
 import pytest
 
+from kaleta.services.report_columns import DerivedLine
 from kaleta.views.reports.constants import BUILDER_STATE_DEFAULTS
 from kaleta.views.reports.sentence import (
     bar_widths,
+    chart_title,
+    columns_label,
+    derived_headers,
+    derived_texts,
     period_label,
     result_total,
     share_percents,
@@ -163,3 +168,50 @@ class TestSharePercents:
 
     def test_no_values_at_all(self) -> None:
         assert share_percents([]) == []
+
+
+class TestColumnsLabel:
+    def test_unused_it_offers_itself(self) -> None:
+        assert columns_label(_state()) == "with …"
+
+    def test_two_columns_read_as_a_phrase(self) -> None:
+        state = _state(dimension="month", columns=["moving_avg", "share"], window=3)
+        assert columns_label(state) == "share and 3-month average"
+
+    def test_a_column_the_axis_cannot_answer_is_not_named(self) -> None:
+        # Picked on a monthly report, then regrouped by category.
+        state = _state(dimension="category", columns=["moving_avg"])
+        assert columns_label(state) == "with …"
+
+    def test_the_chart_title_carries_the_window(self) -> None:
+        state = _state(dimension="month", date_preset="last_12_months", columns=["moving_avg"])
+        assert chart_title(state).endswith("Last 12 Months, 3-month average")
+        assert "average" not in chart_title(_state(date_preset="last_12_months"))
+
+
+class TestDerivedCells:
+    def test_headers_follow_the_columns(self) -> None:
+        assert derived_headers(["share", "rank", "change", "moving_avg"], 6) == [
+            "Share",
+            "#",
+            "Δ",
+            "Δ %",
+            "MA(6)",
+        ]
+
+    def test_a_percent_change_from_zero_is_a_dash(self) -> None:
+        line = DerivedLine(change=(None, 120.0), change_pct=(None, None))
+        assert derived_texts(line, 0, ["change"]) == ["—", "—"]
+        assert derived_texts(line, 1, ["change"]) == ["+120.00", "—"]
+
+    def test_figures_are_spaced_and_signed(self) -> None:
+        line = DerivedLine(
+            share=(62.4,), rank=(1,), change=(-1500.0,), change_pct=(-12.4,), moving_avg=(1840.0,)
+        )
+        assert derived_texts(line, 0, ["share", "rank", "change", "moving_avg"]) == [
+            "62%",
+            "1",
+            "-1 500.00",
+            "-12%",
+            "1 840.00",
+        ]

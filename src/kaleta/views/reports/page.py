@@ -123,6 +123,8 @@ async def reports_page() -> None:
             account_ids=list(cfg.account_ids),
             category_ids=list(cfg.category_ids),
             top_n=cfg.top_n,
+            columns=list(cfg.columns),
+            window=cfg.window,
         )
         state["report_id"] = report.id
         state["report_name"] = report.name

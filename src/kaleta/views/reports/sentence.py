@@ -13,11 +13,27 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from kaleta.i18n import t
 from kaleta.views.components.amount_label import spaced_thousands
-from kaleta.views.reports.constants import DATE_PRESETS, DIMENSIONS, METRICS, TX_TYPES
+from kaleta.views.reports.constants import (
+    COLUMNS,
+    DATE_PRESETS,
+    DIMENSIONS,
+    METRICS,
+    TX_TYPES,
+    column_unavailable_reason,
+)
+
+if TYPE_CHECKING:  # import-linter excludes typing-only imports
+    from kaleta.services.report_columns import DerivedLine
+
+#: The headers no language spells differently: a rank is a number sign and a
+#: change is a delta in every locale the app ships.
+_RANK_HEAD = "#"
+_CHANGE_HEAD = "Δ"
+_CHANGE_PCT_HEAD = "Δ %"
 
 
 def _label(rows: Sequence[tuple[str, ...]], key: str) -> str:
@@ -93,9 +109,46 @@ def top_n_label(state: dict[str, Any]) -> str:
     return str(top_n) if top_n > 0 else t("reports.sentence_no_limit")
 
 
+def column_label(column: str, window: int) -> str:
+    """One derived column's name as the sentence says it: "3-month average"."""
+    for key, label_key in COLUMNS:
+        if key == column:
+            return t(label_key, window=window)
+    return "—"
+
+
+def active_columns(state: dict[str, Any]) -> list[str]:
+    """The picked columns the query in hand can answer, in table order.
+
+    The view's side of ``ReportConfig.active_columns``: a moving average
+    picked on a monthly report and left behind when the grouping changed to
+    Category is not named in the sentence, because it will not be drawn.
+    """
+    return [
+        key
+        for key, _label_key in COLUMNS
+        if key in state["columns"]
+        and column_unavailable_reason(key, state["dimension"], state["series"]) is None
+    ]
+
+
+def columns_label(state: dict[str, Any]) -> str:
+    """ "share and 3-month average", or the affordance that offers columns.
+
+    Like the second dimension, an unused optional clause reads as an
+    invitation rather than as a blank.
+    """
+    names = [column_label(key, int(state["window"])) for key in active_columns(state)]
+    if not names:
+        return t("reports.columns_none")
+    if len(names) == 1:
+        return names[0]
+    return f"{', '.join(names[:-1])} {t('reports.sentence_and')} {names[-1]}"
+
+
 @dataclass(frozen=True, slots=True)
 class SentenceSlots:
-    """What the six clickable parts of the sentence currently read."""
+    """What the seven clickable parts of the sentence currently read."""
 
     metric: str
     dimension: str
@@ -103,6 +156,7 @@ class SentenceSlots:
     types: str
     period: str
     top_n: str
+    columns: str
 
 
 def slot_labels(state: dict[str, Any]) -> SentenceSlots:
@@ -113,17 +167,25 @@ def slot_labels(state: dict[str, Any]) -> SentenceSlots:
         types=types_label(state),
         period=period_label(state),
         top_n=top_n_label(state),
+        columns=columns_label(state),
     )
 
 
 def chart_title(state: dict[str, Any]) -> str:
-    """ "Expense by Category · This Year" — what the chart below is of."""
-    return t(
+    """ "Expense by Category · This Year" — what the chart below is of.
+
+    With a moving average on, the window rides at the end — *…, 3-month
+    average* — so a dashed line on the chart says what it is averaging.
+    """
+    title = t(
         "reports.chart_title",
         types=types_label(state),
         dimension=dimension_label(state),
         period=period_label(state),
     )
+    if "moving_avg" in active_columns(state):
+        title = f"{title}, {column_label('moving_avg', int(state['window']))}"
+    return title
 
 
 def result_total(values: list[float], *, metric: str) -> str | None:
@@ -169,3 +231,50 @@ def share_percents(values: list[float]) -> list[float]:
     if total <= 0:
         return [0.0 for _ in values]
     return [abs(v) / total * 100 for v in values]
+
+
+def derived_headers(columns: Sequence[str], window: int) -> list[str]:
+    """The table headers for the derived columns: Share, #, Δ, Δ %, MA(3).
+
+    A change is two headers — its amount and its percent — which is why this
+    returns a flat list rather than one header per column.
+    """
+    headers: list[str] = []
+    for column in columns:
+        if column == "share":
+            headers.append(t("reports.col_share").capitalize())
+        elif column == "rank":
+            headers.append(_RANK_HEAD)
+        elif column == "change":
+            headers.extend([_CHANGE_HEAD, _CHANGE_PCT_HEAD])
+        elif column == "moving_avg":
+            headers.append(t("reports.col_head_ma", window=window))
+    return headers
+
+
+def _amount(value: float | None, *, signed: bool = False) -> str:
+    """A figure in the tabular form the rows use; an em dash when it does not exist."""
+    if value is None:
+        return "—"
+    return spaced_thousands(f"{value:+,.2f}" if signed else f"{value:,.2f}")
+
+
+def derived_texts(line: DerivedLine, index: int, columns: Sequence[str]) -> list[str]:
+    """What one cell's derived columns read, in the order of ``derived_headers``.
+
+    A percent change from zero is an em dash, not ``inf`` — there is no
+    baseline for it to be a percentage of.
+    """
+    texts: list[str] = []
+    for column in columns:
+        if column == "share" and line.share is not None:
+            texts.append(f"{line.share[index]:.0f}%")
+        elif column == "rank" and line.rank is not None:
+            texts.append(str(line.rank[index]))
+        elif column == "change" and line.change is not None and line.change_pct is not None:
+            pct = line.change_pct[index]
+            texts.append(_amount(line.change[index], signed=True))
+            texts.append("—" if pct is None else f"{pct:+.0f}%")
+        elif column == "moving_avg" and line.moving_avg is not None:
+            texts.append(_amount(line.moving_avg[index]))
+    return texts

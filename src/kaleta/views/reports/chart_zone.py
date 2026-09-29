@@ -18,6 +18,8 @@ from kaleta.views.reports.chart_options import pivot_chart_options, report_chart
 from kaleta.views.reports.sentence import (
     bar_widths,
     chart_title,
+    derived_headers,
+    derived_texts,
     dimension_label,
     result_total,
     share_percents,
@@ -29,6 +31,7 @@ from kaleta.views.theme import (
     MONO,
     MUTED,
     PIVOT_CELL,
+    PIVOT_DERIVED,
     PIVOT_FIGURE,
     PIVOT_FOOT,
     PIVOT_GRID,
@@ -105,16 +108,31 @@ def build_chart_zone(state: dict[str, Any], *, is_dark: bool) -> Any:
             return
 
         if state["chart_type"] == "table":
-            table_data = build_report_table_data(result)
-            ui.table(columns=table_data.columns, rows=table_data.rows).classes(
-                f"{TABLE_SURFACE} mt-2"
-            ).props("flat dense")
+            _result_table(result)
             return
 
         option = report_chart_options(result, state["chart_type"], is_dark)
         ui.echart(option).classes("w-full").style("height: 380px")
 
     return chart_zone
+
+
+def _result_table(result: ReportResult) -> None:
+    """The one-dimensional table, with the derived columns after the value."""
+    table_data = build_report_table_data(result)
+    columns, rows = list(table_data.columns), [dict(row) for row in table_data.rows]
+    derived = result.derived
+    if derived is not None:
+        headers = derived_headers(derived.columns, derived.window)
+        for position, header in enumerate(headers):
+            columns.append(
+                {"name": f"d{position}", "label": header, "field": f"d{position}", "align": "right"}
+            )
+        line = derived.lines[0]
+        for index, row in enumerate(rows):
+            for position, text in enumerate(derived_texts(line, index, derived.columns)):
+                row[f"d{position}"] = text
+    ui.table(columns=columns, rows=rows).classes(f"{TABLE_SURFACE} mt-2").props("flat dense")
 
 
 def _bar_rows(result: ReportResult) -> None:
@@ -152,7 +170,10 @@ def _pivot_grid(result: PivotResult, *, row_header: str, show_totals: bool) -> N
     the bar rows do. It scrolls sideways rather than squeezing: twenty months
     of columns is a wide answer, and a wide answer squeezed is unreadable.
     """
-    columns = ["minmax(148px,1.6fr)"] + ["minmax(84px,1fr)"] * len(result.series_labels)
+    derived = result.derived
+    headers = derived_headers(derived.columns, derived.window) if derived is not None else []
+    per_series = ["minmax(84px,1fr)"] + ["minmax(64px,0.8fr)"] * len(headers)
+    columns = ["minmax(148px,1.6fr)"] + per_series * len(result.series_labels)
     if show_totals:
         columns.append("minmax(96px,1fr)")
 
@@ -168,15 +189,25 @@ def _pivot_grid(result: PivotResult, *, row_header: str, show_totals: bool) -> N
         ui.label(row_header).classes(PIVOT_HEAD)
         for series_label in result.series_labels:
             ui.label(series_label).classes(f"{PIVOT_HEAD} {PIVOT_FIGURE}")
+            # Each derived column sits beside the series cell it was derived
+            # from, so a month's change reads next to the month.
+            for header in headers:
+                ui.label(header).classes(f"{PIVOT_HEAD} {PIVOT_FIGURE} {PIVOT_DERIVED}")
         if show_totals:
             ui.label(t("reports.pivot_total")).classes(f"{PIVOT_HEAD} {PIVOT_FIGURE}")
 
-        for row_label, cells, row_total in zip(
-            result.row_labels, result.cells, result.row_totals, strict=True
+        for row_index, (row_label, cells, row_total) in enumerate(
+            zip(result.row_labels, result.cells, result.row_totals, strict=True)
         ):
             ui.label(row_label).classes(f"{PIVOT_CELL} {INK}")
-            for value in cells:
+            for series_index, value in enumerate(cells):
                 _figure(value)
+                if derived is not None:
+                    line = derived.lines[row_index]
+                    for text in derived_texts(line, series_index, derived.columns):
+                        ui.label(text).classes(
+                            f"{PIVOT_CELL} {PIVOT_FIGURE} {PIVOT_DERIVED} {MUTED}"
+                        )
             if show_totals:
                 _figure(row_total, extra=PIVOT_TOTAL)
 
@@ -184,4 +215,8 @@ def _pivot_grid(result: PivotResult, *, row_header: str, show_totals: bool) -> N
             ui.label(t("reports.pivot_total")).classes(f"{PIVOT_CELL} {PIVOT_FOOT}")
             for column_total in result.series_totals:
                 _figure(column_total, extra=PIVOT_FOOT)
+                # A derived figure of the column total is not asked for;
+                # the footer keeps its grid by leaving those cells empty.
+                for _header in headers:
+                    ui.label("").classes(f"{PIVOT_CELL} {PIVOT_FOOT}")
             _figure(sum(result.series_totals), extra=f"{PIVOT_FOOT} {PIVOT_TOTAL}")

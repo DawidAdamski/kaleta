@@ -3,7 +3,13 @@
 
 from __future__ import annotations
 
-from kaleta.services.saved_report_service import TIME_DIMENSIONS
+from kaleta.services.saved_report_service import (
+    DEFAULT_MOVING_AVG_WINDOW,
+    MOVING_AVG_WINDOWS,
+    TIME_DIMENSIONS,
+    TREND_COLUMNS,
+    TREND_DIMENSIONS,
+)
 
 DIMENSIONS = [
     ("category", "reports.dim_category", "category"),
@@ -48,6 +54,36 @@ TX_TYPES = [
 ]
 
 
+#: The derived columns, in the order the sentence names them and the table
+#: draws them: (key, label key).
+COLUMNS = [
+    ("share", "reports.col_share"),
+    ("rank", "reports.col_rank"),
+    ("change", "reports.col_change"),
+    ("moving_avg", "reports.col_moving_avg"),
+]
+
+#: The moving-average windows the picker offers, in months.
+WINDOWS = MOVING_AVG_WINDOWS
+
+#: Above this many series values, two or more derived cells beside each one
+#: make the pivot grid wider than it reads; the picker says so.
+WIDE_PIVOT_SERIES = 8
+
+
+def column_unavailable_reason(column: str, dimension: str, series: str | None) -> str | None:
+    """Why a derived column cannot answer the query in hand, as a translation key.
+
+    Mirrors ``ReportConfig.active_columns``: a change or a moving average runs
+    along the series of a pivot, or the grouping of a one-dimensional report,
+    and only when that axis is a month or a year.
+    """
+    axis = series if series is not None else dimension
+    if column in TREND_COLUMNS and axis not in TREND_DIMENSIONS:
+        return "reports.column_needs_time_axis"
+    return None
+
+
 def chart_unavailable_reason(chart_type: str, series: str | None) -> str | None:
     """Why this chart type cannot draw the query in hand, as a translation key.
 
@@ -78,6 +114,10 @@ BUILDER_STATE_DEFAULTS: dict[str, object] = {
     "account_ids": [],
     "category_ids": [],
     "top_n": 10,
+    # Derived columns picked from the sentence's last clause, and the moving
+    # average's window in months.
+    "columns": [],
+    "window": DEFAULT_MOVING_AVG_WINDOW,
     # The saved report in hand — its id and name, or None / "" while the
     # query is unsaved. The id is what identifies it: names are not unique.
     "report_id": None,
