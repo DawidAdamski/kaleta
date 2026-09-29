@@ -299,6 +299,7 @@ class TransactionService:
             raise NotFoundError(f"Transaction {expense_id} not found.")
         if incoming is None:
             raise NotFoundError(f"Transaction {income_id} not found.")
+        # ``get`` eager-loads ``account``; the currency check below reads it.
         self._validate_transfer_pair(outgoing, incoming, amount_tolerance)
 
         for leg in (outgoing, incoming):

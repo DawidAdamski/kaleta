@@ -2062,7 +2062,9 @@ class ImportService:
         dismissed = await self._dismissed_transfer_pairs()
 
         # Sorted by amount, so every partner of a row lies in the short run
-        # after it whose amounts are still within tolerance.
+        # after it whose amounts are still within tolerance. Amounts are
+        # stored unsigned (direction lives in ``type``), which is what lets an
+        # expense and an income of the same size sit next to each other here.
         candidates: list[tuple[int, Decimal, int, int, Transaction, Transaction]] = []
         for i, row_a in enumerate(rows):
             for row_b in rows[i + 1 :]:
