@@ -3,7 +3,7 @@ plan_id: transfers-manual-pairing
 title: Transfer recognition — pair existing rows, suggest pairs, one summary
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
