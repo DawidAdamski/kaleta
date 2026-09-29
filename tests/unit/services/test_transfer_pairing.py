@@ -77,7 +77,7 @@ class _Ledger:
             "is_internal_transfer": tx_type == TransactionType.TRANSFER,
         }
         data.update(extra)
-        return (await self.svc.create(TransactionCreate(**data))).id  # type: ignore[arg-type]
+        return (await self.svc.create(TransactionCreate.model_validate(data))).id
 
 
 @pytest.fixture
