@@ -142,6 +142,58 @@ Out of scope:
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open question 1 — moving average window**: shipped the default,
+  *trailing* (N periods ending with the current one). A period with
+  fewer than N periods of history has **no** average (`None`, drawn as
+  a gap on the line and an em dash in the table) rather than a partial
+  one: the mean of one month called a "3-month average" would say
+  something untrue.
+- **Open question 2 — share on a pivot**: shipped the default, share of
+  the **series** column (each month's shares add to 100 %). `rank`
+  follows the same reading: position among the rows within each series
+  column.
+- **Trend axis**: `TREND_DIMENSIONS = {month, year}`, deliberately
+  narrower than the existing `TIME_DIMENSIONS` (which includes weekday
+  for ordering). `ReportConfig.trend_axis` is `series` on a pivot, else
+  `dimension`; `ReportConfig.active_columns()` drops trend columns when
+  that axis is not a trend dimension and returns columns in canonical
+  order (share, rank, change, moving_avg). The view mirrors it through
+  `constants.column_unavailable_reason` / `sentence.active_columns`.
+- **top N on a one-dimensional time report**: when a trend column is
+  active, the SQL `LIMIT` is not applied (`SavedReportService._limit`).
+  A sequence cut to its ten biggest months is not a sequence, and the
+  zero-fill would bring the cut months back as months of nothing.
+  Without trend columns the query is exactly as before. The pivot's
+  `top_n` cuts rows, never the series axis, so it is unaffected.
+- **Zero-fill** (`report_columns.fill_time_axis`) orders the axis
+  chronologically and fills every period between the first and last
+  label (months cross year ends). A label that is not a period of the
+  axis leaves the result untouched rather than guessing.
+- **Where derived values live**: `ReportResult` and `PivotResult` gained
+  an optional `derived: DerivedResult | None = None` field, so
+  `execute` keeps its return type and every existing caller (and test)
+  is unchanged. `report_columns` imports the result types from
+  `saved_report_service`, so `SavedReportService._with_columns` imports
+  `derive` / `fill_time_axis` locally to avoid a module cycle.
+- **Percent change** is taken against `abs(previous)` so a change on a
+  negative series keeps its direction; from zero it is `None` (em dash).
+- **Rank** is competition ranking by size (`abs`), ties share a place
+  (1, 1, 3) — same size reading as `share_percents` in the bar view.
+- **i18n keys beyond the plan's list** (all in `en.json` + `pl.json`):
+  `columns_none` (the unused clause, "with …"), `sentence_and` (to read
+  "share and 3-month average"), `window_label`, `col_head_ma`
+  ("MA(3)" / "Śr.(3)"), and `columns_wide_warning` (the > 8 series
+  × ≥ 2 derived cells warning). `#`, `Δ`, `Δ %` are literal symbols.
+- **Rendering**: table headers `Share`, `#`, `Δ`, `Δ %`, `MA(N)`; in the
+  pivot grid the derived cells sit beside each series cell (muted,
+  `k-pivot-derived`), the footer leaves them blank. Line charts now name
+  their colours explicitly from `chart_palette` so the dashed average
+  can wear its series' hue. `bar`/`pie`/`donut` ignore derived columns.
+- **Existing e2e test touched**: `KAL-RPT-001` asserted six sentence
+  slots; the columns clause makes seven. The count was updated to 7 and
+  an assertion added that the new slot starts unused — not a loosening.
+- **E2E read of the chart**: KAL-RPT-008 reads the drawn chart's series
+  line styles via `getElement(id).chart.getOption()`; ECharts reports
+  the plain line as `solid` and the average as `dashed`.
 
 ## Implementation (filled by plan-archiver)

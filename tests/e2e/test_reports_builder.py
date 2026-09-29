@@ -19,11 +19,12 @@ REPORT_NAME = "Spend by account E2E"
 
 
 def _slots(page: Page) -> Locator:
-    """The six clickable parts of the sentence, in reading order.
+    """The seven clickable parts of the sentence, in reading order.
 
-    Measure, grouping, second dimension, types, period, top N. The third is
-    the optional one and is drawn whether or not it has been used, so the
-    indices below are the same in both states.
+    Measure, grouping, second dimension, types, period, top N, derived
+    columns. The third and the seventh are the optional ones and are drawn
+    whether or not they have been used, so the indices below are the same in
+    both states.
     """
     return page.locator(".k-slot")
 
@@ -76,13 +77,14 @@ def test_sentence_reflects_state_and_a_saved_report_comes_back(page: Page, base_
     expect(_slots(page).first).to_be_visible(timeout=10000)
 
     # The defaults, read off the page rather than assumed.
-    expect(_slots(page)).to_have_count(6)
+    expect(_slots(page)).to_have_count(7)
     assert _slot_text(page, 0) == "Total Amount"
     assert _slot_text(page, 1) == "Category"
     assert _slot_text(page, 2) == "by …", "the second dimension starts unused"
     assert _slot_text(page, 3) == "Expense"
     assert _slot_text(page, 4) == "This Year"
     assert _slot_text(page, 5) == "10"
+    assert _slot_text(page, 6) == "with …", "no derived columns to start with"
 
     # Editing a slot changes the query it describes.
     _pick(page, 1, "Account")
@@ -357,3 +359,121 @@ def test_a_saved_report_without_a_second_dimension_loads_unchanged(
     expect(page.locator(".k-report-bar-row").first).to_be_visible(timeout=15000)
     expect(page.locator(".k-pivot")).to_have_count(0)
     assert _slot_text(page, 2) == "by …"
+
+
+# ---------------------------------------------------------------------------
+# Feature: derived trend columns (KAL-RPT-008 .. 010)
+# ---------------------------------------------------------------------------
+
+COLUMNS_SLOT = 6
+
+
+def _open_columns(page: Page) -> Locator:
+    """Open the sentence's last clause and return its menu."""
+    expect(page.locator(".q-menu:visible")).to_have_count(0, timeout=5000)
+    _slots(page).nth(COLUMNS_SLOT).click()
+    menu = page.locator(".q-menu:visible")
+    expect(menu).to_be_visible(timeout=5000)
+    return menu
+
+
+def _toggle_column(page: Page, label: str) -> None:
+    _open_columns(page).locator(".q-item", has_text=label).first.click()
+    expect(_slots(page).nth(COLUMNS_SLOT)).to_contain_text(label, timeout=5000)
+    page.keyboard.press("Escape")
+
+
+def _series_line_styles(page: Page) -> list[str | None]:
+    """The line style of every series the drawn chart holds, read off ECharts."""
+    chart = page.locator(".nicegui-echart").first
+    expect(chart).to_be_visible(timeout=15000)
+    return chart.evaluate(
+        """el => getElement(el.id.slice(1)).chart.getOption().series
+                 .map(s => (s.lineStyle || {}).type || null)"""
+    )
+
+
+def test_a_moving_average_adds_the_column_and_the_dashed_line(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-008
+
+    The same average twice: as a figure beside each month in the table, and
+    as a dashed line beside the series on the chart. The line's hue is
+    asserted on the option dict in ``tests/unit/views/test_reports_chart_options.py``.
+    """
+    _seed_two_months("Reports Average E2E")
+
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+    _pick(page, 1, "Month")
+    _pick(page, 4, "All Time")
+    _toggle_column(page, "3-month average")
+    assert _slot_text(page, COLUMNS_SLOT) == "3-month average"
+
+    _chart_type(page, 4)  # Table
+    page.get_by_role("button", name="Run").click()
+    expect(page.get_by_text(", 3-month average", exact=False).first).to_be_visible(timeout=15000)
+    table = page.locator(".q-table")
+    expect(table).to_be_visible(timeout=15000)
+    headers = [h.strip() for h in table.locator("th").all_inner_texts()]
+    assert headers[-1] == "MA(3)", headers
+
+    _chart_type(page, 1)  # Line
+    styles = _series_line_styles(page)
+    assert styles == ["solid", "dashed"], styles
+
+
+def test_change_on_a_pivot_runs_along_each_row(page: Page, base_url: str) -> None:
+    """Covers: KAL-RPT-009
+
+    Category by Month with change on: each category's cells read against its
+    own previous month, and a month with nothing in it is a full drop rather
+    than a month skipped.
+    """
+    prefix = "Reports Change E2E"
+    _seed_two_months(prefix)
+
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+    _pick(page, 4, "All Time")
+    _pick(page, 5, "no limit")
+    _pick(page, 2, "Month")
+    _toggle_column(page, "change")
+    _chart_type(page, 4)  # Table
+    page.get_by_role("button", name="Run").click()
+
+    grid = page.locator(".k-pivot")
+    expect(grid).to_be_visible(timeout=15000)
+    heads = [h.strip() for h in grid.locator(".k-pivot-head").all_inner_texts()]
+    months = [h for h in heads if re.fullmatch(r"\d{4}-\d{2}", h)]
+    assert "2025-03" in months, "the empty March is filled in"
+
+    # The grid is row-major: the row's label, then per month its figure, Δ
+    # and Δ %, then its total.
+    cells = [c.strip() for c in grid.locator(".k-pivot-cell").all_inner_texts()]
+    start = cells.index(f"{prefix} Category")
+    row = cells[start + 1 : start + 1 + 3 * len(months)]
+    by_month = {month: row[3 * i : 3 * i + 3] for i, month in enumerate(months)}
+    assert by_month["2025-02"] == ["7 000.00", "-2 000.00", "-22%"], by_month["2025-02"]
+    assert by_month["2025-03"] == ["0.00", "-7 000.00", "-100%"], by_month["2025-03"]
+
+
+def test_columns_needing_a_time_axis_are_unavailable_on_a_category_report(
+    page: Page, base_url: str
+) -> None:
+    """Covers: KAL-RPT-010"""
+    page.goto(f"{base_url}{BUILDER}")
+    expect(_slots(page).first).to_be_visible(timeout=10000)
+    assert _slot_text(page, 1) == "Category"
+
+    menu = _open_columns(page)
+    for label in ("change", "3-month average"):
+        item = menu.locator(".q-item", has_text=label).first
+        expect(item).to_have_class(re.compile(r"disabled"))
+        expect(item).to_contain_text("Needs a grouping that runs in time")
+    for label in ("share", "rank"):
+        expect(menu.locator(".q-item", has_text=label).first).not_to_have_class(
+            re.compile(r"disabled")
+        )
+
+    menu.locator(".q-item", has_text="share").first.click()
+    expect(_slots(page).nth(COLUMNS_SLOT)).to_contain_text("share", timeout=5000)
