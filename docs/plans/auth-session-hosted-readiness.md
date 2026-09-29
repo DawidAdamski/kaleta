@@ -3,7 +3,7 @@ plan_id: auth-session-hosted-readiness
 title: Auth — session state that survives restarts, replicas and a shared disk
 area: auth
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#auth
 ---
 
