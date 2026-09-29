@@ -220,6 +220,6 @@ Expect `"database_ok": true` and `"migrations_pending": false`.
 ## Related
 
 - CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job)
-- CI Valkey mode (sessions + rate limiter): `.github/workflows/ci.yml` (`redis` job, `valkey/valkey:8`)
+- CI Valkey mode (sessions + rate limiter): `.github/workflows/ci.yml` (`valkey` job, `valkey/valkey:8`)
 - Plan: [`docs/plans/archive/q4-supabase-deployment.md`](plans/archive/q4-supabase-deployment.md)
 - Observability: [`docs/privacy-events.md`](privacy-events.md)

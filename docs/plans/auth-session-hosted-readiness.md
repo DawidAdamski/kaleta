@@ -177,9 +177,15 @@ Out of scope:
   `KALETA_REDIS_URL`, the `redis://` scheme and the job name stay: they name
   the protocol, and NiceGUI's variable is `NICEGUI_REDIS_URL` anyway. Unit,
   integration and `tests/e2e/test_auth.py` pass against Valkey 8.1.
-- **CI `redis` job** installs `--extra hosted` and Playwright chromium, then
+- **CI `valkey` job** (the Scope's "`redis` job", renamed by the owner once
+  Valkey was chosen; `grep -q "redis" ci.yml` still holds via
+  `KALETA_REDIS_URL`) installs `--extra hosted` and Playwright chromium, then
   runs the auth unit tests, the replica integration test and
-  `tests/e2e/test_auth.py` with `KALETA_REDIS_URL` set. `tests/e2e/test_auth.py`
+  `tests/e2e/test_auth.py` with `KALETA_REDIS_URL` set. Its first CI run
+  failed on the restart test: the tab left open across the restart
+  reconnected its websocket and reloaded `/`, racing the test's navigation
+  to `/transactions` (the user *was* still signed in). The test now closes
+  the tab before the restart and opens a new one in the same context. `tests/e2e/test_auth.py`
   passes locally against `redis:7` and `valkey:8` (13 passed each).
 
 ## Implementation (filled by plan-archiver)

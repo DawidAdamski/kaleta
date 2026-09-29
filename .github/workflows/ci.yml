@@ -116,7 +116,7 @@ jobs:
   # KALETA_REDIS_URL moves both NiceGUI session storage and the login rate
   # limiter into a Redis-protocol server — the hosted multi-replica
   # configuration. Valkey is the server we recommend and test against.
-  redis:
+  valkey:
     runs-on: ubuntu-latest
     services:
       valkey:

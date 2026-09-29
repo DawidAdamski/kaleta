@@ -2,7 +2,7 @@
 """Unit tests for LoginRateLimiter and its two stores.
 
 Every behaviour test runs once per store. The Redis store talks to the server
-at ``KALETA_REDIS_URL`` when that is set (the CI ``redis`` job, or a local
+at ``KALETA_REDIS_URL`` when that is set (the CI ``valkey`` job, or a local
 ``redis://localhost:6379/0``), and to an in-process fakeredis server otherwise,
 so the Redis code path is exercised on every run.
 

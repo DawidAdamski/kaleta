@@ -405,21 +405,26 @@ def test_login_survives_an_app_restart(
     """Covers: KAL-AUTH-033
 
     Runs in both storage modes. Locally the session lives in owner-only files
-    under ``~/.kaleta/nicegui``; in the CI ``redis`` job ``KALETA_REDIS_URL`` is
-    set, the session lives in Redis, and no session file may appear at all.
+    under ``~/.kaleta/nicegui``; in the CI ``valkey`` job ``KALETA_REDIS_URL``
+    is set, the session lives in Valkey, and no session file may appear at all.
     """
     server = restartable_server
     server.start()
     page = page_no_auth
+    context = page.context
     page.goto(f"{RESTART_BASE}/login")
     _sign_in(page, RESTART_BASE)
-    signed_in = session_cookie(page.context)
+    signed_in = session_cookie(context)
     assert not _sent_to_login(RESTART_BASE, signed_in)
+    # Closed before the restart: an open tab reconnects its websocket to the
+    # new process and reloads its own URL, racing the navigation below.
+    page.close()
 
     server.stop()
     server.start()
 
     assert not _sent_to_login(RESTART_BASE, signed_in)
+    page = context.new_page()
     page.goto(f"{RESTART_BASE}/transactions")
     expect(page).to_have_url(f"{RESTART_BASE}/transactions", timeout=15000)
 

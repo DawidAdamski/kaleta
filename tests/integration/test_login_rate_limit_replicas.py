@@ -4,7 +4,7 @@
 Each "replica" builds its limiter the way the app does at import —
 ``default_store("login")`` with ``KALETA_REDIS_URL`` set — and connects
 lazily through ``Redis.from_url``. Against the server at ``KALETA_REDIS_URL``
-when that is set (the CI ``redis`` job); otherwise ``from_url`` hands out
+when that is set (the CI ``valkey`` job); otherwise ``from_url`` hands out
 clients of one in-process fakeredis server, which is what two processes
 pointed at one Redis see.
 
