@@ -212,12 +212,14 @@ class UnplannedRadarService:
             type=TransactionType.EXPENSE,
             account_id=account_id if account_id is not None else candidate.account_id,
             category_id=category_id if category_id is not None else candidate.category_id,
+            payee_id=candidate.payee_id,
             frequency=candidate.frequency,
             interval=candidate.interval,
             start_date=start_date or candidate.next_expected_at,
         )
-        planned = await PlannedTransactionService(self.session).create(payload)
-        await self._link_history(planned, candidate)
+        planned_svc = PlannedTransactionService(self.session)
+        planned = await planned_svc.create(payload)
+        await planned_svc.link_history(planned, candidate.transaction_ids)
         await self.session.commit()
         logger.info(
             "Radar converted %r into planned transaction %s",
@@ -225,33 +227,6 @@ class UnplannedRadarService:
             planned.id,
         )
         return planned
-
-    async def _link_history(self, planned: PlannedTransaction, candidate: RadarCandidate) -> None:
-        """Point the candidate's source charges at the freshly created plan.
-
-        Only charges predating ``start_date`` are linked — that is what
-        :meth:`planned_with_history` reads back, and a charge on or after the
-        start date would collide with a real posted occurrence.
-        ``(planned_transaction_id, date)`` is unique, so at most one charge per
-        date is linked; the rest keep their existing link (or none).
-        """
-        if not candidate.transaction_ids:
-            return
-        result = await self.session.execute(
-            select(Transaction)
-            .where(
-                Transaction.id.in_(candidate.transaction_ids),
-                Transaction.planned_transaction_id.is_(None),
-                Transaction.date < planned.start_date,
-            )
-            .order_by(Transaction.date)
-        )
-        seen_dates: set[datetime.date] = set()
-        for tx in result.scalars().all():
-            if tx.date in seen_dates:
-                continue
-            seen_dates.add(tx.date)
-            tx.planned_transaction_id = planned.id
 
     # ── Converted plans ───────────────────────────────────────────────────
 

@@ -174,6 +174,37 @@ class PlannedTransactionService:
         await self._session.commit()
         return await self.get(pt_id)
 
+    async def link_history(
+        self, planned: PlannedTransaction, transaction_ids: Sequence[int]
+    ) -> None:
+        """Point the charges a detector found at the plan made from them.
+
+        Shared by every "turn a detection into a plan" path (the radar's
+        "Plan it", the subscription detector's "Create planned transaction"),
+        so a plan carries its own evidence trail. Only charges predating
+        ``start_date`` are linked — a charge on or after it would collide
+        with a real posted occurrence. ``(planned_transaction_id, date)`` is
+        unique, so at most one charge per date is linked; the rest keep their
+        existing link (or none). The caller commits.
+        """
+        if not transaction_ids:
+            return
+        result = await self._session.execute(
+            select(Transaction)
+            .where(
+                Transaction.id.in_(transaction_ids),
+                Transaction.planned_transaction_id.is_(None),
+                Transaction.date < planned.start_date,
+            )
+            .order_by(Transaction.date)
+        )
+        seen_dates: set[datetime.date] = set()
+        for tx in result.scalars().all():
+            if tx.date in seen_dates:
+                continue
+            seen_dates.add(tx.date)
+            tx.planned_transaction_id = planned.id
+
     # ── Occurrence logic ──────────────────────────────────────────────────────
 
     def next_occurrence(

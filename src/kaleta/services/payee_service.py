@@ -9,6 +9,7 @@ from sqlalchemy.orm import selectinload
 
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.payee import Payee
+from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.payee import PayeeCreate, PayeeLastUsed, PayeeUpdate
 
@@ -80,6 +81,11 @@ class PayeeService:
             keeper = await self.check_merge_name(name, keeper_id=keep_id, merged_ids=merge_ids)
         await self.session.execute(
             update(Transaction).where(Transaction.payee_id.in_(merge_ids)).values(payee_id=keep_id)
+        )
+        await self.session.execute(
+            update(PlannedTransaction)
+            .where(PlannedTransaction.payee_id.in_(merge_ids))
+            .values(payee_id=keep_id)
         )
         deleted = 0
         for pid in merge_ids:

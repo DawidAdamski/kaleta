@@ -66,6 +66,12 @@ class DetectorCandidate(BaseModel):
     first_seen_at: datetime.date
     last_seen_at: datetime.date
     next_expected_at: datetime.date
+    # What "Create planned transaction" needs (KAL-REC-002): where the charge
+    # was paid from, what it was filed under, and the charges themselves so
+    # the new plan can carry them as history.
+    account_id: int | None = None
+    category_id: int | None = None
+    transaction_ids: list[int] = Field(default_factory=list)
 
 
 class RenewalRow(BaseModel):
