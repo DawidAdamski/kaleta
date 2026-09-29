@@ -3,14 +3,15 @@ plan_id: debts-ledger-link
 title: Debt tracking — link a loan to its transfer, keep loans out of spending
 area: credit
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#credit
+status: archived
+archived_at: 2026-09-29
+roadmap_ref: ../../roadmap.md#credit
 ---
 
 # Debt tracking — link a loan to its transfer, keep loans out of spending
 
 Gap-closing plan for issue #14 (`KAL-DBT-001`, `KAL-DBT-004`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-DBT-002` and
+[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-DBT-002` and
 `KAL-DBT-003` are `@automated`.
 
 ## What exists (2026-09-23)
@@ -100,3 +101,43 @@ Gap-closing plan for issue #14 (`KAL-DBT-001`, `KAL-DBT-004`), from
   buffer, where Playwright's scroll-into-view click detached it on every
   retry. `tests/e2e/ledger.py::pick_open_menu_option` now dispatches the
   click on the found option. Full suite: 196 passed.
+
+## Implementation
+
+Landed on 2026-09-29 (PR #159).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d775fe6` | Dawid Adamski | 2026-09-29 | Merge pull request #159 from DawidAdamski/plan/debts-ledger-link |
+
+**Files changed:**
+- alembic/versions/p0q1r2s3t4u5_add_personal_loan_transaction_link.py
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/debts-ledger-link.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/personal_loan.py
+- src/kaleta/schemas/personal_loan.py
+- src/kaleta/services/loan_links.py
+- src/kaleta/services/money_flow_service.py
+- src/kaleta/services/personal_loan_service.py
+- src/kaleta/services/report_service.py
+- src/kaleta/views/personal_loans/dialogs.py
+- src/kaleta/views/personal_loans/helpers.py
+- src/kaleta/views/personal_loans/page.py
+- src/kaleta/views/personal_loans/rows.py
+- src/kaleta/views/reports_canned/income_statement.py
+- src/kaleta/views/reports_canned/money_flow.py
+- tests/e2e/ledger.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_debt_tracking.py
+- tests/unit/services/test_loan_ledger_link.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
