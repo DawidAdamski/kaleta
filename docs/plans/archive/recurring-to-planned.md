@@ -3,14 +3,15 @@ plan_id: recurring-to-planned
 title: Recurring detection — create a planned transaction, flag price drift
 area: transactions
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#transactions
+status: archived
+archived_at: 2026-09-29
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Recurring detection — create a planned transaction, flag price drift
 
 Gap-closing plan for issue #7 (`KAL-REC-002`, `KAL-REC-004`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md). `KAL-REC-001`,
+[`audit-planned-vs-code`](audit-planned-vs-code.md). `KAL-REC-001`,
 `003`, `005`…`009` are `@automated`.
 
 ## What exists (2026-09-23)
@@ -105,3 +106,45 @@ Gap-closing plan for issue #7 (`KAL-REC-002`, `KAL-REC-004`), from
   midnight it can shift by a day. `detect()` scans unlinked expenses since
   the oldest active plan on each /planned refresh, which is fine at
   personal-finance scale.
+
+## Implementation
+
+Landed on 2026-09-29 (PR #161).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `fe85f6c` | Dawid Adamski | 2026-09-29 | Merge pull request #161 from DawidAdamski/plan/recurring-to-planned |
+
+**Files changed:**
+- alembic/versions/q1r2s3t4u5v6_add_planned_transaction_payee.py
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/recurring-to-planned.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/planned_transaction.py
+- src/kaleta/schemas/planned_transaction.py
+- src/kaleta/schemas/subscription.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/dedupe_service.py
+- src/kaleta/services/payee_service.py
+- src/kaleta/services/planned_price_drift_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/subscription_service.py
+- src/kaleta/services/unplanned_radar_service.py
+- src/kaleta/views/planned_transactions.py
+- src/kaleta/views/subscriptions/dialogs.py
+- src/kaleta/views/subscriptions/page.py
+- src/kaleta/views/subscriptions/rows.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_planned_transactions.py
+- tests/e2e/test_subscriptions.py
+- tests/unit/services/test_recurring_to_planned.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
