@@ -97,7 +97,7 @@ render exactly as today.
 
 Out of scope:
 - Derived columns (moving average, month-over-month change, share,
-  rank) — [reports-trend-columns](../reports-trend-columns.md).
+  rank) — [reports-trend-columns](reports-trend-columns.md).
 - A third dimension, nested groupings, or sub-totals per group.
 - CSV / XLSX export of the pivot — the builder has no export today;
   adding one is its own plan.

@@ -3,8 +3,9 @@ plan_id: reports-trend-columns
 title: Reports — trend columns (moving average, change, share, rank)
 area: reports
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#reports
+status: archived
+archived_at: 2026-09-29
+roadmap_ref: ../../roadmap.md#reports
 ---
 
 # Reports — trend columns (moving average, change, share, rank)
@@ -204,3 +205,38 @@ Out of scope:
   the plain line as `solid` and the average as `dashed`.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-29 (PR #166).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `e9ae211` | Dawid Adamski | 2026-09-29 | Merge pull request #166 from DawidAdamski/plan/reports-trend-columns |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/reports-trend-columns.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/report_columns.py
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/views/reports/chart_options.py
+- src/kaleta/views/reports/chart_zone.py
+- src/kaleta/views/reports/config_zone.py
+- src/kaleta/views/reports/constants.py
+- src/kaleta/views/reports/page.py
+- src/kaleta/views/reports/sentence.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_reports_builder.py
+- tests/unit/services/test_report_columns.py
+- tests/unit/services/test_saved_report_service.py
+- tests/unit/views/test_reports_chart_options.py
+- tests/unit/views/test_reports_sentence.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
