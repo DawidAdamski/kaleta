@@ -97,3 +97,11 @@ Gap-closing plan for issue #7 (`KAL-REC-002`, `KAL-REC-004`), from
   (REC-004). The e2e names carry an `E2E` suffix, as elsewhere in the
   suite, so their payees cannot collide with the REC-001 "Netflix" fixture
   in the shared e2e database.
+- **Known limits (review nits, accepted):** a plan with a payee compares
+  *every* new unlinked expense to that payee against the plan. So a plan on
+  a payee whose purchases vary (a grocer) would be flagged on each larger
+  purchase. That fits the detected-subscription use case this feature is
+  for. The "new payment" cutoff is the UTC date of `created_at`, so near
+  midnight it can shift by a day. `detect()` scans unlinked expenses since
+  the oldest active plan on each /planned refresh, which is fine at
+  personal-finance scale.
