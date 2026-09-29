@@ -17,6 +17,7 @@ from kaleta.models.transaction import TransactionType
 if TYPE_CHECKING:
     from kaleta.models.account import Account
     from kaleta.models.category import Category
+    from kaleta.models.payee import Payee
 
 
 class RecurrenceFrequency(str, enum.Enum):  # noqa: UP042
@@ -45,6 +46,11 @@ class PlannedTransaction(TimestampMixin, UserOwnedMixin, Base):
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # Who the plan pays. Set when a plan is made from a detected recurring
+    # charge; incoming payments are matched to the plan by it (KAL-REC-004).
+    payee_id: Mapped[int | None] = mapped_column(
+        ForeignKey("payees.id", ondelete="SET NULL"), nullable=True, index=True
+    )
 
     # Recurrence
     frequency: Mapped[RecurrenceFrequency] = mapped_column(
@@ -59,6 +65,7 @@ class PlannedTransaction(TimestampMixin, UserOwnedMixin, Base):
     # Relationships
     account: Mapped[Account] = relationship("Account")
     category: Mapped[Category | None] = relationship("Category")
+    payee: Mapped[Payee | None] = relationship("Payee")
 
     def __repr__(self) -> str:
         return f"<PlannedTransaction id={self.id} name={self.name!r} freq={self.frequency}>"

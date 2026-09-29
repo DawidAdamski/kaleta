@@ -309,6 +309,7 @@ def seed_planned_transaction(
     category_id: int | None = None,
     is_active: bool = True,
     start_date: datetime.date | None = None,
+    payee_id: int | None = None,
 ) -> int:
     """Create a planned transaction via the service layer; return its ID.
 
@@ -336,6 +337,7 @@ def seed_planned_transaction(
                         type=TransactionType(tx_type),
                         account_id=account_id,
                         category_id=category_id,
+                        payee_id=payee_id,
                         frequency=RecurrenceFrequency(frequency),
                         start_date=start_date or datetime.date.today(),
                         is_active=is_active,
@@ -473,6 +475,7 @@ def list_planned_transactions() -> list[dict[str, Any]]:
                     "start_date": pt.start_date.isoformat(),
                     "account_id": pt.account_id,
                     "category_id": pt.category_id,
+                    "payee_id": pt.payee_id,
                 }
                 for pt in rows
             ]

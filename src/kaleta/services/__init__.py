@@ -23,6 +23,7 @@ from kaleta.services.nbp_startup import NbpStartupFetcher
 from kaleta.services.net_worth_service import NetWorthService
 from kaleta.services.payee_service import PayeeService
 from kaleta.services.personal_loan_service import PersonalLoanService
+from kaleta.services.planned_price_drift_service import PlannedPriceDriftService
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.report_service import ReportService
 from kaleta.services.reserve_fund_service import ReserveFundService
@@ -70,6 +71,7 @@ __all__ = [
     "NetWorthService",
     "PayeeService",
     "PersonalLoanService",
+    "PlannedPriceDriftService",
     "PlannedTransactionService",
     "RealizationTotals",
     "ReportService",

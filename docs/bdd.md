@@ -2000,7 +2000,7 @@ Feature: Recurring Payment Detection
     When I open "Detected recurring charges" on the Subscriptions panel
     Then "Netflix 49.99 monthly" is listed as a detected recurring payment
 
-  KAL-REC-002 @planned
+  KAL-REC-002 @automated
   Scenario: Convert a detection to a planned transaction
     Given a detected recurring payment "Netflix 49.99 monthly"
     When I click "Create planned transaction" on it
@@ -2013,7 +2013,7 @@ Feature: Recurring Payment Detection
     When I view the planned transaction
     Then the historical payments that produced the detection are linked to it
 
-  KAL-REC-004 @planned
+  KAL-REC-004 @automated
   Scenario: Amount drift is flagged
     Given a planned transaction "Netflix 49.99 monthly"
     When a new matching payment arrives at 54.99

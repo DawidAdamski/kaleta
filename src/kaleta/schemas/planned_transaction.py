@@ -10,6 +10,7 @@ from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.models.transaction import TransactionType
 
 __all__ = [
+    "PlannedPriceDrift",
     "PlannedTransactionCreate",
     "PlannedTransactionResponse",
     "PlannedTransactionUpdate",
@@ -25,6 +26,7 @@ class PlannedTransactionCreate(BaseModel):
     account_id: int
     category_id: int | None = None
     description: str | None = Field(default=None, max_length=255)
+    payee_id: int | None = None
     frequency: RecurrenceFrequency
     interval: int = Field(default=1, ge=1)
     start_date: datetime.date
@@ -56,6 +58,7 @@ class PlannedTransactionResponse(BaseModel):
     account_id: int
     category_id: int | None
     description: str | None
+    payee_id: int | None = None
     frequency: RecurrenceFrequency
     interval: int
     start_date: datetime.date
@@ -63,3 +66,17 @@ class PlannedTransactionResponse(BaseModel):
     is_active: bool
     created_at: datetime.datetime
     updated_at: datetime.datetime
+
+
+class PlannedPriceDrift(BaseModel):
+    """A plan whose latest matching payment no longer costs what it planned.
+
+    ``change_pct`` is signed: positive when the price went up.
+    """
+
+    planned_id: int
+    name: str
+    planned_amount: Decimal
+    payment_amount: Decimal
+    payment_date: datetime.date
+    change_pct: Decimal

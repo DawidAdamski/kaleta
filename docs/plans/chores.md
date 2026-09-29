@@ -211,3 +211,8 @@ check it still reproduces before acting on it.
       `ix_import_runs_created_at` exist in migrations but not in the models
       (or vice versa). Reconcile with one migration or `index=True`. Found by
       `plan/debts-ledger-link`.
+- [ ] Move `merchant_key_from_description` out of `subscription_service` into
+      a shared helper module. The radar and `PlannedPriceDriftService` import
+      it from there, and `subscription_service` now imports
+      `PlannedTransactionService`. Nothing is circular yet, but the services
+      are coupled. Found by `plan/recurring-to-planned`.

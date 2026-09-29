@@ -12,6 +12,7 @@ import re
 from playwright.sync_api import Page, expect
 
 from tests.e2e.seed_helpers import (
+    list_planned_transactions,
     seed_account,
     seed_category,
     seed_recurring_payee_charges,
@@ -96,6 +97,40 @@ def test_stable_monthly_payment_is_detected(page: Page, base_url: str) -> None:
     expect(netflix_row).to_have_count(1, timeout=5000)
     expect(netflix_row).to_contain_text("Monthly")
     expect(netflix_row).to_contain_text("49.99")
+
+
+def test_detection_becomes_planned_transaction(page: Page, base_url: str) -> None:
+    """Covers: KAL-REC-002
+
+    "Create planned transaction" on a detected "Netflix 49.99 monthly"
+    creates a monthly planned transaction for 49.99, and the detection is
+    no longer listed.
+    """
+    account_id = seed_account("REC002 Plan E2E")
+    category_id = seed_category("REC002 Streaming E2E")
+    payee_id = seed_recurring_payee_charges(
+        account_id, category_id, "Netflix REC002 E2E", 49.99, months=3
+    )
+
+    page.goto(f"{base_url}/wizard/subscriptions")
+    detector = page.locator(".q-card").filter(has_text="Detected recurring charges")
+    row = detector.locator(".nicegui-row").filter(
+        has=page.get_by_text("Netflix REC002 E2E", exact=True)
+    )
+    expect(row).to_have_count(1, timeout=5000)
+    row.get_by_role("button", name="Create planned transaction").click()
+
+    # The page reloads after creating the plan, which also drops the toast.
+    detector = page.locator(".q-card").filter(has_text="Detected recurring charges")
+    expect(detector).to_be_visible(timeout=5000)
+    expect(detector.get_by_text("Netflix REC002 E2E", exact=True)).to_have_count(0, timeout=5000)
+
+    [plan] = [p for p in list_planned_transactions() if p["name"] == "Netflix REC002 E2E"]
+    assert plan["amount"] == "49.99"
+    assert plan["frequency"] == "monthly"
+    assert plan["interval"] == 1
+    assert plan["account_id"] == account_id
+    assert plan["payee_id"] == payee_id
 
 
 def _open_cancel_dialog(page: Page, base_url: str, name: str) -> None:

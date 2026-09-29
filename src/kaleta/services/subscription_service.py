@@ -6,18 +6,21 @@ from __future__ import annotations
 import builtins
 import datetime
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.category import Category
 from kaleta.models.dismissed_candidate import DismissedCandidate, DismissedCandidateKind
 from kaleta.models.payee import Payee
+from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.subscription import (
     DetectorCandidate,
     RenewalRow,
@@ -25,6 +28,7 @@ from kaleta.schemas.subscription import (
     SubscriptionTotals,
     SubscriptionUpdate,
 )
+from kaleta.services.planned_transaction_service import PlannedTransactionService
 
 # Detector tuning ─ start conservative, revisit after dogfood.
 # Window = 24 months so yearly subs that last charged up to ~18 mo ago still
@@ -298,6 +302,23 @@ class SubscriptionService:
             if name:
                 tracked_merchant_keys.add(merchant_key_from_description(name))
 
+        # A charge already planned is handled too (KAL-REC-002): same rule as a
+        # tracked subscription — its payee, or for a payee-less plan its name.
+        # Only active expense plans, so a planned salary cannot silence a
+        # same-named payee.
+        plans = await self.session.execute(
+            select(PlannedTransaction.payee_id, PlannedTransaction.name).where(
+                PlannedTransaction.is_active.is_(True),
+                PlannedTransaction.type == TransactionType.EXPENSE,
+            )
+        )
+        for payee_id, name in plans.all():
+            if payee_id is not None:
+                tracked_payee_ids.add(payee_id)
+            elif name:
+                tracked_merchant_keys.add(merchant_key_from_description(name))
+        tracked_merchant_keys.discard("")
+
         # Dismissed patterns — user previously clicked "not a subscription".
         dismissed_result = await self.session.execute(
             select(
@@ -441,13 +462,8 @@ class SubscriptionService:
         window_days: int | None = None,
         today: datetime.date | None = None,
     ) -> Subscription:
-        # The candidate's next_expected_at is "last seen + cadence". If that's
-        # already in the past (irregular history, detector ran today), keep
-        # walking forward so the new subscription shows up in Upcoming Renewals.
-        next_expected = candidate.next_expected_at
         ref_today = today or datetime.date.today()
-        while next_expected <= ref_today:
-            next_expected = next_expected + datetime.timedelta(days=candidate.cadence_days)
+        next_expected = _next_expected_after(candidate, ref_today)
         payload = SubscriptionCreate(
             name=candidate.payee_name,
             amount=candidate.amount,
@@ -468,6 +484,49 @@ class SubscriptionService:
                 today=ref_today,
             )
         return sub
+
+    async def create_planned_from_candidate(
+        self,
+        candidate: DetectorCandidate,
+        *,
+        today: datetime.date | None = None,
+    ) -> PlannedTransaction:
+        """Turn a detected recurring charge into a planned transaction (KAL-REC-002).
+
+        Same creation path as the radar's "Plan it": the plan is created
+        through :class:`PlannedTransactionService` and the charges that
+        produced the detection are linked to it as history. The plan records
+        the candidate's payee, which both retires the detection (see
+        :meth:`detect_candidates`) and lets later payments be matched to the
+        plan for price-drift checks.
+        """
+        if candidate.account_id is None:
+            raise ValidationError("A detected charge without an account cannot be planned")
+        name = candidate.payee_name.strip()[:100]
+        if not name:
+            raise ValidationError("A planned transaction needs a name")
+        if candidate.amount <= 0:
+            raise ValidationError("A planned transaction needs a positive amount")
+        frequency = (
+            RecurrenceFrequency.YEARLY
+            if candidate.cadence_days == CADENCE_YEARLY_DAYS
+            else RecurrenceFrequency.MONTHLY
+        )
+        payload = PlannedTransactionCreate(
+            name=name,
+            amount=candidate.amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP),
+            type=TransactionType.EXPENSE,
+            account_id=candidate.account_id,
+            category_id=candidate.category_id,
+            payee_id=candidate.payee_id,
+            frequency=frequency,
+            start_date=_next_expected_after(candidate, today or datetime.date.today()),
+        )
+        planned_svc = PlannedTransactionService(self.session)
+        planned = await planned_svc.create(payload)
+        await planned_svc.link_history(planned, candidate.transaction_ids)
+        await self.session.commit()
+        return planned
 
     async def _recategorise_matching(
         self,
@@ -697,6 +756,8 @@ def _candidate_from_group(
     if cadence is None:
         return None
     amount_median = _median([abs(tx.amount) for tx in txs])
+    ordered = sorted(txs, key=lambda tx: (tx.date, tx.id))
+    categories = Counter(tx.category_id for tx in txs if tx.category_id is not None)
     return DetectorCandidate(
         payee_id=payee_id,
         payee_name=name,
@@ -706,7 +767,23 @@ def _candidate_from_group(
         first_seen_at=dates[0],
         last_seen_at=dates[-1],
         next_expected_at=dates[-1] + datetime.timedelta(days=cadence),
+        account_id=ordered[-1].account_id,
+        category_id=categories.most_common(1)[0][0] if categories else None,
+        transaction_ids=[tx.id for tx in ordered],
     )
+
+
+def _next_expected_after(candidate: DetectorCandidate, today: datetime.date) -> datetime.date:
+    """The candidate's next charge date, walked forward past ``today``.
+
+    ``next_expected_at`` is "last seen + cadence"; when that is already in the
+    past (irregular history), keep stepping so the result lands in the future
+    — where Upcoming Renewals and the Payment Calendar can see it.
+    """
+    next_expected = candidate.next_expected_at
+    while next_expected <= today:
+        next_expected = next_expected + datetime.timedelta(days=candidate.cadence_days)
+    return next_expected
 
 
 def _median(values: builtins.list[Decimal]) -> Decimal:

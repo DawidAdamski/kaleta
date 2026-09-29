@@ -16,10 +16,13 @@ from tests.e2e.ledger import filter_ledger_by_account, search_ledger
 from tests.e2e.seed_helpers import (
     count_transactions,
     delete_planned_transaction,
+    list_planned_transactions,
     seed_account,
     seed_category,
+    seed_payee,
     seed_planned_transaction,
     seed_subscription,
+    seed_transaction,
 )
 
 
@@ -613,3 +616,58 @@ def test_the_day_sheet_sits_beside_the_month(page: Page, base_url: str) -> None:
     close.click()
     expect(panel).to_be_hidden(timeout=10000)
     expect(page.locator(".k-cal-day").first).to_be_visible()
+
+
+# ---------------------------------------------------------------------------
+# Scenario: Amount drift is flagged (KAL-REC-004)
+# ---------------------------------------------------------------------------
+
+
+def test_amount_drift_is_flagged_and_plan_updated(page: Page, base_url: str) -> None:
+    """Covers: KAL-REC-004
+
+    Given a planned transaction "Netflix 49.99 monthly", a new matching
+    payment at 54.99 is flagged on the planned page, and accepting the offer
+    updates the plan to 54.99.
+    """
+    account_id = seed_account("REC004 Drift E2E")
+    category_id = seed_category("REC004 Streaming E2E")
+    payee_id = seed_payee("Netflix REC004 E2E")
+    plan_id = seed_planned_transaction(
+        "Netflix REC004 E2E",
+        49.99,
+        account_id,
+        payee_id=payee_id,
+        start_date=datetime.date.today() + datetime.timedelta(days=5),
+    )
+    seed_transaction(
+        account_id,
+        category_id,
+        54.99,
+        date=datetime.date.today(),
+        description="Netflix REC004 E2E charge",
+        payee_id=payee_id,
+    )
+
+    page.goto(f"{base_url}/planned")
+    drift_card = page.locator(".q-card").filter(has_text="Price changes")
+    row = drift_card.locator(".nicegui-row").filter(
+        has=page.get_by_text("Netflix REC004 E2E", exact=True)
+    )
+    expect(row).to_have_count(1, timeout=5000)
+    expect(row).to_contain_text("Planned 49.99")
+    expect(row).to_contain_text("last paid 54.99")
+    expect(row).to_contain_text("+10.0%")
+
+    row.get_by_role("button", name="Update plan to 54.99").click()
+
+    expect(page.get_by_text("Netflix REC004 E2E is now planned at 54.99.")).to_be_visible(
+        timeout=5000
+    )
+    expect(
+        page.locator(".q-card")
+        .filter(has_text="Price changes")
+        .get_by_text("Netflix REC004 E2E", exact=True)
+    ).to_have_count(0, timeout=5000)
+    [plan] = [p for p in list_planned_transactions() if p["id"] == plan_id]
+    assert plan["amount"] == "54.99"

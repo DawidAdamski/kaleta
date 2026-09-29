@@ -9,17 +9,32 @@ from nicegui import ui
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.planned_transaction import (
+    PlannedPriceDrift,
     PlannedTransactionCreate,
     PlannedTransactionResponse,
     PlannedTransactionUpdate,
     RecurrenceFrequency,
 )
 from kaleta.schemas.transaction import TransactionType
-from kaleta.services import AccountService, CategoryService, PlannedTransactionService, with_session
+from kaleta.services import (
+    AccountService,
+    CategoryService,
+    PlannedPriceDriftService,
+    PlannedTransactionService,
+    with_session,
+)
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.constants import DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS
-from kaleta.views.theme import AMOUNT_EXPENSE, AMOUNT_INCOME, AMOUNT_NEUTRAL, TABLE_SURFACE
+from kaleta.views.theme import (
+    AMOUNT_EXPENSE,
+    AMOUNT_INCOME,
+    AMOUNT_NEUTRAL,
+    BODY_MUTED,
+    SECTION_CARD,
+    SECTION_HEADING,
+    TABLE_SURFACE,
+)
 
 
 def freq_label(freq: RecurrenceFrequency, interval: int) -> str:
@@ -289,12 +304,63 @@ def register() -> None:
                 ui.notify(t("planned.posted_none", name=pt.name), type="info")
             planned_list_ui.refresh()
 
+        async def _accept_drift(drift: PlannedPriceDrift) -> None:
+            async def _do_accept(session: Any) -> None:
+                await PlannedPriceDriftService(session).accept(
+                    drift.planned_id, drift.payment_amount
+                )
+
+            try:
+                await with_session(_do_accept)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+                return
+            ui.notify(
+                t(
+                    "planned.drift_updated",
+                    name=drift.name,
+                    amount=f"{drift.payment_amount:,.2f}",
+                ),
+                type="positive",
+            )
+            planned_list_ui.refresh()
+
+        def _render_drifts(drifts: list[PlannedPriceDrift]) -> None:
+            """KAL-REC-004: plans whose latest payment came in at a new price."""
+            with ui.card().classes(SECTION_CARD):
+                ui.label(t("planned.drift_heading")).classes(SECTION_HEADING)
+                ui.label(t("planned.drift_hint")).classes(BODY_MUTED)
+                for drift in drifts:
+                    with ui.row().classes("w-full items-center gap-3 py-2"):
+                        ui.icon("trending_up" if drift.change_pct > 0 else "trending_down").classes(
+                            "text-warning"
+                        )
+                        with ui.column().classes("flex-1 gap-0"):
+                            ui.label(drift.name).classes("text-sm font-medium")
+                            ui.label(
+                                t(
+                                    "planned.drift_row",
+                                    planned=f"{drift.planned_amount:,.2f}",
+                                    paid=f"{drift.payment_amount:,.2f}",
+                                    date=drift.payment_date.isoformat(),
+                                    change=f"{drift.change_pct:+}",
+                                )
+                            ).classes("text-xs text-slate-500")
+                        ui.button(
+                            t("planned.drift_accept", amount=f"{drift.payment_amount:,.2f}"),
+                            icon="check",
+                            on_click=lambda _e, d=drift: _accept_drift(d),
+                        ).props("color=primary unelevated size=sm")
+
         # ── Planned list ──────────────────────────────────────────────────────
         @ui.refreshable
         async def planned_list_ui() -> None:
-            async def _load(session: Any) -> list[dict[str, Any]]:
+            async def _load(
+                session: Any,
+            ) -> tuple[list[dict[str, Any]], list[PlannedPriceDrift]]:
                 svc = PlannedTransactionService(session)
                 items = await svc.list()
+                drifts = await PlannedPriceDriftService(session).detect()
                 return [
                     {
                         "pt": PlannedTransactionResponse.model_validate(pt),
@@ -303,9 +369,11 @@ def register() -> None:
                         "next": svc.next_occurrence(pt),
                     }
                     for pt in items
-                ]
+                ], drifts
 
-            rows_data = await with_session(_load)
+            rows_data, drifts = await with_session(_load)
+            if drifts:
+                _render_drifts(drifts)
 
             if not rows_data:
                 with ui.column().classes("w-full items-center py-20 gap-3 text-slate-400"):

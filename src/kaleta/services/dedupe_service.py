@@ -369,6 +369,13 @@ class DedupeService:
             .where(Subscription.payee_id.in_(victims))
             .values(payee_id=keeper_id)
         )
+        # Reassign PlannedTransaction.payee_id — the plan's payment matching
+        # (price drift) follows the payee, so it must survive the merge.
+        await self.session.execute(
+            update(PlannedTransaction)
+            .where(PlannedTransaction.payee_id.in_(victims))
+            .values(payee_id=keeper_id)
+        )
         # Delete the victim payees. DismissedCandidate.payee_id → CASCADE.
         result = await self.session.execute(select(Payee).where(Payee.id.in_(victims)))
         for p in result.scalars().all():
