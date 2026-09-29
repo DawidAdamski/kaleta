@@ -32,8 +32,13 @@ def _script_directory() -> ScriptDirectory:
 
 
 def _sync_url(db_url: str) -> str:
-    """Strip async drivers so stdlib/sync SQLAlchemy can open the DB."""
-    return db_url.replace("+aiosqlite", "").replace("+asyncpg", "")
+    """Swap async drivers for sync ones so sync SQLAlchemy can open the DB.
+
+    PostgreSQL names ``psycopg2`` explicitly: since SQLAlchemy 2.1 a bare
+    ``postgresql://`` URL means psycopg 3, which the ``postgres`` extra does
+    not install.
+    """
+    return db_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 
 
 def head_revision() -> str:
