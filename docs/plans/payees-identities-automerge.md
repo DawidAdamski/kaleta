@@ -219,6 +219,16 @@ Out of scope:
   `q-popup-edit` inline. Removing the last identity opens the delete-payee
   dialog with a dedicated message.
 
+- **Settings.** Only the auto-merge threshold (0.80–0.99, default 0.92) is
+  a control; the 0.75 proposal floor stays the fixed
+  `PROPOSAL_THRESHOLD`: the plan's slider range starts at 0.80, so it only
+  covers the auto-merge threshold. The controls live in
+  `views/settings/payee_automerge.py` (settings is a package now, not the
+  `views/settings.py` the touchpoints name), rendered in Features →
+  Housekeeping.
+- **Dismiss errors** in Housekeeping are caught by
+  `PayeeMergeSuggestion._dismiss` (`handle_kaleta_error`).
+
 ### BDD
 KAL-PID-004…013 `@automated` (integration + e2e), KAL-PID-014 (Settings scan
 button) and KAL-PID-015 (proposals in Housekeeping) `@manual`.
