@@ -213,4 +213,49 @@ database seeded at the previous head.
 
 ## Implementation notes
 
+- **Open questions, all taken at their defaults.**
+  - Future-dated rows count toward the current balance; `as_of` cuts the
+    ledger off for callers that need a date.
+  - Unlinked legacy transfer legs are backfilled as `out`. The migration
+    logs how many rows it touched.
+  - A posted planned `transfer` gets `out`. The missing incoming leg is in
+    the chore inbox.
+  - Splits: only the parent row's `amount` counts (tested).
+- **Enum storage.** Enums are stored by member *name* (`'TRANSFER'`,
+  `'OUT'`), because no model sets `values_callable`. The CHECK constraint
+  and the migration's SQL compare against names.
+- **CHECK constraint.** `ck_transactions_transfer_direction`:
+  `(type = 'TRANSFER') = (transfer_direction IS NOT NULL)`. It is the first
+  CHECK constraint in the schema. It backs up the schema validator
+  (`TransactionCreate`) and the service rule (`_settle_transfer_direction`),
+  so a writer this plan missed fails loudly instead of skewing a balance.
+- **Edit dialog turning a row into a transfer.** A row edited from expense or
+  income into a transfer, without a direction given, keeps the way its money
+  already went (expense → `out`, income → `in`), so the balance does not
+  move. A transfer edited back into income/expense loses its direction.
+- **`create_transfer` orients legs by position** and ignores the payloads'
+  directions. `pair_as_transfer` sets them from the expense/income roles, not
+  from id order.
+- **`AccountResponse.balance` is required, with no default.** `AccountBase`
+  used to give it `0.00`, which would have turned any forgotten ORM →
+  response path into a silent zero. Responses are built with
+  `AccountResponse.from_account(account, balance)`. The API routes no longer
+  return ORM rows behind `type: ignore`.
+- **Account edit dialog** gained a Balance field (KAL-ACC-008), prefilled
+  with the current balance. It is sent only when changed, so saving a
+  renamed account cannot pin the balance to a figure that went stale while
+  the dialog was open. New i18n key `accounts.balance_hint` (en + pl).
+- **Existing tests.** Fixtures that built transfer legs without a direction
+  now pass one: `out`, and `in` for the incoming leg of a pair.
+  `Account(balance=…)` became `opening_balance=`. Nine tests in
+  `test_net_worth_service.py` / `test_reserve_fund_service.py` meant "the
+  account holds X today" and then wrote rows on that account. They now state
+  X after writing the rows (`_settle_balance`, i.e. `AccountUpdate.balance`),
+  with the same literals and assertions. `TestAccountServiceAdjustBalance`
+  was deleted along with `adjust_balance`. The seeder-registry check now
+  asserts opening balances are zero and derived balances are not.
+- **Docs.** ADR-037 records the decision; `docs/architecture.md` links it.
+  The existing chore about money flow's id-order guess now points at
+  `transfer_direction`. A new chore covers the one-legged planned transfer.
+
 ## Implementation (filled by plan-archiver)

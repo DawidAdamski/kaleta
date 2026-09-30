@@ -35,6 +35,14 @@ and category management.
     └────────────────────────────────┘
 ```
 
+### Account balances
+
+A balance is never stored. `Account.opening_balance` plus the signed sum of
+the account's transactions (income `+`, expense `−`, a transfer leg by its
+`transfer_direction`) is the current balance, and `AccountService.balances()`
+is the one place that computes it. See
+[ADR-37](adr/037-account-balances-derived-from-the-ledger.md).
+
 ## Directory Structure
 
 ```
@@ -184,6 +192,7 @@ out of sequence in the original monolithic document).
 | [034](adr/034-openpyxl-as-an-optional-extra-for-xlsx-import.md) | openpyxl as an Optional Extra for XLSX Import | accepted |
 | [035](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) | Hosted Multi-Tenancy: Schema per Account and User-Held Field Encryption | proposed |
 | [036](adr/036-local-column-encryption-and-totp-as-base-dependencies.md) | Local Column Encryption and TOTP as Base Dependencies | accepted |
+| [037](adr/037-account-balances-derived-from-the-ledger.md) | Account Balances Derived from the Ledger | accepted |
 
 ## UI Colour Schema
 

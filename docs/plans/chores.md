@@ -245,4 +245,13 @@ check it still reproduces before acting on it.
       incoming leg older than the outgoing one, so the flow is drawn
       backwards. Store the direction (or read it from which leg was the
       expense) instead of inferring it from ids. Found by
-      `plan/transfers-manual-pairing`.
+      `plan/transfers-manual-pairing`. The direction is stored now
+      (`Transaction.transfer_direction`, `plan/accounts-ledger-balances`):
+      join on the `out` leg instead of the id order.
+- [ ] A planned transfer (`SalaryService.create_salary_plan`, "Pay
+      yourself a salary") posts only its outgoing leg on the source
+      account. The target account is named only in the description, so
+      now that balances follow the ledger the money leaves one account and
+      arrives nowhere. Give `PlannedTransaction` a target account and post
+      both legs through `create_transfer`. Found by
+      `plan/accounts-ledger-balances`.
