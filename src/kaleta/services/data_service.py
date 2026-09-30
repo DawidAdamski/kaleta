@@ -36,6 +36,8 @@ from kaleta.models.currency_rate import CurrencyRate
 from kaleta.models.dismissed_candidate import DismissedCandidate
 from kaleta.models.institution import Institution
 from kaleta.models.payee import Payee
+from kaleta.models.payee_identity import PayeeIdentity
+from kaleta.models.payee_merge import DismissedPayeeMerge, PayeeAutoMerge
 from kaleta.models.personal_loan import Counterparty, PersonalLoan, PersonalLoanRepayment
 from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.report import SavedReport
@@ -55,6 +57,9 @@ _CLEARED_MODELS = (
     PlannedTransaction,
     Subscription,
     DismissedCandidate,
+    PayeeAutoMerge,
+    DismissedPayeeMerge,
+    PayeeIdentity,
     ReserveFund,
     PersonalLoanRepayment,
     PersonalLoan,

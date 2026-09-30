@@ -1931,7 +1931,7 @@ class ImportService:
             payee_raw = row.raw.get("Nadawca/Odbiorca", "").strip()
             payee_id: int | None = None
             if payee_raw:
-                payee = await payee_svc.find_or_create(payee_raw)
+                payee = await payee_svc.match_or_create_from_name(payee_raw)
                 payee_id = payee.id
 
             # Transfer only when the counterparty account is one of ours

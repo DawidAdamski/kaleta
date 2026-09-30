@@ -61,13 +61,27 @@ class MergeConfirmDialog:
 
 
 class PayeeMergeSuggestion:
-    """One suggested group of look-alike payees, with its merge controls."""
+    """One suggested group of look-alike payees, with its merge controls.
 
-    def __init__(self, group: PayeeGroup, ask_confirm: Callable[[int, MergeAction], None]) -> None:
+    *caption* is a line above the members (a proposal's confidence) and
+    *on_dismiss*, when given, adds a "Not the same" button.
+    """
+
+    def __init__(
+        self,
+        group: PayeeGroup,
+        ask_confirm: Callable[[int, MergeAction], None],
+        *,
+        keeper_id: int | None = None,
+        caption: str | None = None,
+        on_dismiss: MergeAction | None = None,
+    ) -> None:
         self._group = group
         # Default keeper = highest transaction_count, tie-breaker = lowest id.
         default_keeper = max(group.items, key=lambda x: (x.transaction_count, -x.id))
-        self._keeper_id = default_keeper.id
+        self._keeper_id = keeper_id if keeper_id is not None else default_keeper.id
+        self._caption = caption
+        self._on_dismiss = on_dismiss
         self._render(ask_confirm)
 
     def _render(self, ask_confirm: Callable[[int, MergeAction], None]) -> None:
@@ -79,6 +93,8 @@ class PayeeMergeSuggestion:
             .classes("w-full mt-3 p-3 rounded border border-slate-200/30")
             .props("data-merge-suggestion")
         ):
+            if self._caption:
+                ui.label(self._caption).classes("text-xs text-slate-500")
             for item in self._group.items:
                 with ui.row().classes("w-full items-center gap-3 py-1"):
                     ui.label(item.name).classes("flex-1 text-sm")
@@ -114,6 +130,22 @@ class PayeeMergeSuggestion:
                     icon="merge_type",
                     on_click=lambda _e: ask_confirm(delete_count, self._merge),
                 ).props("color=primary unelevated size=sm")
+                if self._on_dismiss is not None:
+                    ui.button(
+                        t("housekeeping.proposal_dismiss"),
+                        icon="call_split",
+                        on_click=self._dismiss,
+                    ).props("flat size=sm")
+
+    async def _dismiss(self) -> None:
+        if self._on_dismiss is None:
+            return
+        try:
+            await self._on_dismiss()
+        except Exception as exc:
+            if handle_kaleta_error(exc):
+                return
+            raise
 
     def _set_keeper(self, value: object) -> None:
         if value is not None:

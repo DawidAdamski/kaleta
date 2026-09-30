@@ -14,6 +14,14 @@ from kaleta.schemas.payee import (
     PayeeResponse,
     PayeeUpdate,
 )
+from kaleta.schemas.payee_identity import (
+    PayeeIdentityCreate,
+    PayeeIdentityResponse,
+    PayeeIdentityUpdate,
+    PayeeMergeDismiss,
+    PayeeMergeProposalResponse,
+)
+from kaleta.services.payee_merge_service import PayeeMergeService
 from kaleta.services.payee_service import PayeeService
 
 _404: dict[int | str, dict[str, Any]] = {404: {"description": "Payee not found"}}
@@ -41,6 +49,47 @@ async def create_payee(
     session: AsyncSession = Depends(get_session),
 ) -> PayeeResponse:
     return await PayeeService(session).create(data)  # type: ignore[return-value]
+
+
+@router.get(
+    "/merges/proposals",
+    response_model=list[PayeeMergeProposalResponse],
+    summary="List payee merge proposals",
+    description=(
+        "Pairs of payees the merge scan scores as one merchant (score ≥ 0.75), best first. "
+        "`left_id` is the payee a merge would keep: more transactions, older on a tie. "
+        "Dismissed pairs are left out."
+    ),
+)
+async def list_merge_proposals(
+    session: AsyncSession = Depends(get_session),
+) -> list[PayeeMergeProposalResponse]:
+    proposals = await PayeeMergeService(session).propose_merges()
+    return [
+        PayeeMergeProposalResponse(
+            left_id=p.left_id,
+            left_name=p.left_name,
+            right_id=p.right_id,
+            right_name=p.right_name,
+            score=p.score,
+            reason=p.reason,
+        )
+        for p in proposals
+    ]
+
+
+@router.post(
+    "/merges/proposals/dismiss",
+    status_code=204,
+    summary="Dismiss a payee merge proposal",
+    description="Stops proposing this pair, whichever way round it is given.",
+    responses={**_404, 422: {"description": "left_id equals right_id"}},
+)
+async def dismiss_merge_proposal(
+    data: PayeeMergeDismiss,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    await PayeeMergeService(session).dismiss(data.left_id, data.right_id)
 
 
 @router.get("/{payee_id}", response_model=PayeeResponse, summary="Get payee by ID", responses=_404)
@@ -133,3 +182,70 @@ async def merge_payees(
         raise HTTPException(status_code=404, detail="Payee not found")
     deleted = await svc.merge(data.keep_id, data.merge_ids, new_name=data.new_name)
     return {"deleted": deleted}
+
+
+@router.get(
+    "/{payee_id}/identities",
+    response_model=list[PayeeIdentityResponse],
+    summary="List a payee's identities",
+    description="The spellings under which bank data names this payee.",
+    responses=_404,
+)
+async def list_identities(
+    payee_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> list[PayeeIdentityResponse]:
+    identities = await PayeeService(session).list_identities(payee_id)
+    return [PayeeIdentityResponse.model_validate(i) for i in identities]
+
+
+@router.post(
+    "/{payee_id}/identities",
+    response_model=PayeeIdentityResponse,
+    status_code=201,
+    summary="Add an identity to a payee",
+    description=(
+        "Ties another literal spelling to the payee. Transactions created or imported "
+        "under that spelling attach to this payee. Matching is case-insensitive unless "
+        "`case_sensitive` is set."
+    ),
+    responses={**_404, 409: {"description": "The spelling already belongs to a payee"}},
+)
+async def create_identity(
+    payee_id: int,
+    data: PayeeIdentityCreate,
+    session: AsyncSession = Depends(get_session),
+) -> PayeeIdentityResponse:
+    identity = await PayeeService(session).add_identity(payee_id, data)
+    return PayeeIdentityResponse.model_validate(identity)
+
+
+@router.put(
+    "/{payee_id}/identities/{identity_id}",
+    response_model=PayeeIdentityResponse,
+    summary="Update a payee identity",
+    responses={**_404, 409: {"description": "The spelling already belongs to a payee"}},
+)
+async def update_identity(
+    payee_id: int,
+    identity_id: int,
+    data: PayeeIdentityUpdate,
+    session: AsyncSession = Depends(get_session),
+) -> PayeeIdentityResponse:
+    identity = await PayeeService(session).update_identity(payee_id, identity_id, data)
+    return PayeeIdentityResponse.model_validate(identity)
+
+
+@router.delete(
+    "/{payee_id}/identities/{identity_id}",
+    status_code=204,
+    summary="Delete a payee identity",
+    description="The last identity of a payee cannot be deleted — delete the payee instead.",
+    responses={**_404, 409: {"description": "It is the payee's last identity"}},
+)
+async def delete_identity(
+    payee_id: int,
+    identity_id: int,
+    session: AsyncSession = Depends(get_session),
+) -> None:
+    await PayeeService(session).delete_identity(payee_id, identity_id)

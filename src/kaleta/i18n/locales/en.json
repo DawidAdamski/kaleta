@@ -906,7 +906,18 @@
     "integrity_violation_count": "{count} orphan reference(s)",
     "integrity_violation_row": "Table {table}, row {rowid} → missing parent in {parent}",
     "new_name_label": "New name (optional)",
-    "new_name_placeholder": "Keep the keeper's name"
+    "new_name_placeholder": "Keep the keeper's name",
+    "proposal_caption": "Merge proposal · {score} confidence · mainly: {reason}",
+    "proposal_reason_name": "similar names",
+    "proposal_reason_identity": "similar identities",
+    "proposal_reason_merchant_key": "same merchant word",
+    "proposal_dismiss": "Not the same",
+    "proposal_dismissed": "Proposal dismissed — this pair won't be proposed again.",
+    "recent_merges_heading": "Recently merged",
+    "recent_merges_hint": "Payees merged automatically in the last 7 days. Undo brings the merged payee back with its identities and transactions.",
+    "recent_merge_row": "{merged} → {keeper} ({score})",
+    "recent_merge_undo": "Undo",
+    "recent_merge_undone": "Merge undone."
   },
   "accounts": {
     "balance_hint": "Enter what your bank shows. Your transactions stay as they are.",
@@ -1287,7 +1298,15 @@
     "email": "E-mail",
     "phone": "Phone",
     "suggestions_heading": "Merge suggestions",
-    "suggestions_hint": "These payees look like the same merchant. Merging moves every transaction to the one you keep; give it a new name if neither fits."
+    "suggestions_hint": "These payees look like the same merchant. Merging moves every transaction to the one you keep; give it a new name if neither fits.",
+    "identities": "Identities",
+    "identity_count": "Identities ({count})",
+    "identity_add": "Add identity",
+    "identity_new_label": "Spelling as the bank writes it",
+    "identity_added": "Identity added.",
+    "identity_updated": "Identity updated.",
+    "identity_deleted": "Identity removed.",
+    "delete_last_identity_confirm": "\"{name}\" has no other identity. Delete the payee instead? Linked transactions will keep their data but lose the payee reference."
   },
   "forecast": {
     "title": "Forecast",
@@ -1991,7 +2010,12 @@
     "mfa_disable_failed": "That password or code is not right.",
     "mfa_stale": "That changed in another tab. Close this and try again.",
     "mfa_unreadable": "This second factor cannot be read on this install. Run `kaleta --reset-password --disable-mfa` and set it up again.",
-    "mfa_rate_limited": "Too many wrong codes. Try again in {seconds} seconds."
+    "mfa_rate_limited": "Too many wrong codes. Try again in {seconds} seconds.",
+    "payee_automerge_hint": "The merge scan scores every pair of payees. Pairs above 75% are proposed on the Housekeeping page; with auto-merge on, pairs at or above the threshold are merged right away (undo for 7 days).",
+    "payee_automerge_enabled": "Auto-merge payees at or above the confidence threshold",
+    "payee_automerge_threshold": "Auto-merge threshold: {value}",
+    "payee_automerge_run": "Run merge scan now",
+    "payee_automerge_done": "Merge scan done: {merged} merged, {proposals} proposal(s) to review."
   },
   "audit": {
     "title": "Change History",

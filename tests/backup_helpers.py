@@ -27,6 +27,7 @@ from kaleta.models import (
     CreditCardProfile,
     CurrencyRate,
     DismissedCandidate,
+    DismissedPayeeMerge,
     DismissedTransferPair,
     ImportRule,
     ImportRun,
@@ -37,6 +38,7 @@ from kaleta.models import (
     LoanStatus,
     MonthlyReadiness,
     Payee,
+    PayeeAutoMerge,
     PersonalLoan,
     PersonalLoanRepayment,
     PlannedTransaction,
@@ -151,7 +153,19 @@ async def seed_every_model(session: AsyncSession) -> None:
     )
 
     payee = Payee(name="Biedronka", user_id=user.id)
-    session.add(payee)
+    lidl = Payee(name="Lidl", user_id=user.id)
+    session.add_all([payee, lidl])
+    await session.flush()
+    # Both payees got their name identity at flush; add the merge tables' rows.
+    session.add(DismissedPayeeMerge(first_payee_id=payee.id, second_payee_id=lidl.id))
+    session.add(
+        PayeeAutoMerge(
+            keeper_id=payee.id,
+            merged_name="Biedronka 123",
+            score=0.95,
+            snapshot={"fields": {"name": "Biedronka 123"}, "identity_ids": []},
+        )
+    )
     await session.flush()
 
     tag = Tag(name="groceries", color="#112233", user_id=user.id)

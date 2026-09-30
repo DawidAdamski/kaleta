@@ -4,7 +4,7 @@ title: Payees — multiple identities and automatic merge
 area: payees
 effort: medium
 roadmap_ref: ../roadmap.md#cross-cutting-automatic-deduplication-suggestions
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 
@@ -147,4 +147,96 @@ Out of scope:
    `created_at`. The loser's identities move to the winner.
 
 ## Implementation notes
-_Filled in as work progresses._
+
+### Resolved open questions (defaults taken)
+1. **Regex identities** — literal only. The `is_regex` column was not added
+   at all (it would be a column nothing can set); add it with the feature.
+2. **Case sensitivity** — case-insensitive by default; `case_sensitive`
+   exists per identity (API only, no UI toggle yet).
+3. **Scoring weights** — 0.5 name / 0.3 identity / 0.2 merchant key
+   (`WEIGHT_*` in `payee_merge_service.py`).
+4. **Auto-merge default** — off (`DEFAULT_PAYEE_AUTOMERGE_ENABLED`).
+5. **Merge direction** — more transactions wins, then older `created_at`,
+   then lower id. `left_id` of a proposal is the would-be keeper.
+
+### Decisions
+- **Lookup key.** `payee_identities.pattern_key` holds the casefolded,
+  whitespace-collapsed pattern and is indexed; SQLite `lower()` only folds
+  ASCII, so "ŻABKA" could never meet "żabka" through SQL. The migration
+  computes it in Python with a frozen copy of the function.
+- **No UNIQUE on `pattern_key`.** Payee names are unique case-*sensitively*,
+  so the backfill can legitimately produce "LIDL" and "Lidl" identities on
+  two payees. The service refuses a *new* spelling another payee holds
+  (409); lookups break ties exact-case first, then oldest identity.
+- **Every payee has ≥ 1 identity** via a `before_flush` listener in
+  `models/payee_identity.py`, so seeders, import, manual entry and merge
+  undo can't create an identity-less payee.
+- **Matching precedence** (`PayeeService.match_or_create_from_name`, now
+  used by mBank import *and* manual entry, replacing `find_or_create` /
+  `match_or_create_by_name`): exact identity → case-insensitive identity
+  → exact payee name → create. Behaviour change: mBank import was
+  case-sensitive (one payee per exact spelling); per open question 2 it
+  now folds case, so "Lidl Poznan" joins "LIDL POZNAN".
+- **Rename** adds the new name as an identity and keeps the old one (bank
+  lines still arrive under it), unless the new spelling is already held.
+- **Merges** (both `PayeeService.merge` and `DedupeService.merge_payees`)
+  move the merged payees' identities to the keeper through
+  `PayeeService.absorb_identities`, dropping spellings the keeper already
+  has. `PayeeService.merge` now also reassigns subscriptions (chore
+  ticked). Loaded `identities` collections of the merged payees are expired
+  first — otherwise the delete-orphan cascade would delete the moved rows.
+- **Scheduler.** There is no notifications system/scheduler, and the
+  auto-merge settings live in per-browser `app.storage.user`, so the scan
+  runs on demand only ("Run merge scan now" in Settings → Features →
+  Housekeeping). Housekeeping shows proposals on page load but never
+  auto-merges there.
+- **Undo window.** No `NotificationService` exists, so auto-merges are
+  logged in `payee_auto_merges` (JSON snapshot: payee fields, moved
+  identity ids, re-pointed transaction/planned/subscription ids) and listed
+  under "Recently merged" in Housekeeping for 7 days with an Undo button.
+  Undo restores the payee, its moved identities and the rows still pointing
+  at the keeper; rows the keeper gained after the merge stay. Undo also
+  dismisses the pair, or the next scan would merge it straight back. Subscription
+  dismissals (`dismissed_candidate_patterns`, CASCADE) of the merged payee
+  are not restored. Manual merges are not logged (unchanged behaviour: the
+  confirm dialog already warns they are final).
+- **Dismissals** persist in `dismissed_payee_merges` (ids stored lowest
+  first, CASCADE on either payee).
+- **Housekeeping list.** Proposals whose two payees already sit in one
+  `DedupeService.similar_payees` group are hidden
+  (`propose_merges(grouped=...)`), so a pair is never offered twice; the rest render under "Similar payees" with confidence,
+  reason and a "Not the same" (dismiss) button.
+- **Performance.** `propose_merges` is O(n²) over payees with a
+  bag-distance upper bound skipping most Levenshtein calls: ~0.6 s for 400
+  payees on a laptop. Fine for a personal ledger; revisit (blocking by
+  merchant key) if payee counts grow by an order of magnitude.
+- **API** additions: `GET/POST /payees/{id}/identities`,
+  `PUT/DELETE /payees/{id}/identities/{identity_id}` (409 `last_identity`
+  on the last one), `GET /payees/merges/proposals`,
+  `POST /payees/merges/proposals/dismiss`. Scan and undo are UI-only (the
+  plan's API list does not include them).
+- **Payees page.** The table uses a custom `body` slot: an "Identities (n)"
+  toggle per row expands a panel (rendered with `v-if`, so collapsed rows
+  add no duplicate text) listing spellings; edits and additions use
+  `q-popup-edit` inline. Removing the last identity opens the delete-payee
+  dialog with a dedicated message.
+
+- **Settings.** Only the auto-merge threshold (0.80–0.99, default 0.92) is
+  a control; the 0.75 proposal floor stays the fixed
+  `PROPOSAL_THRESHOLD`: the plan's slider range starts at 0.80, so it only
+  covers the auto-merge threshold. The controls live in
+  `views/settings/payee_automerge.py` (settings is a package now, not the
+  `views/settings.py` the touchpoints name), rendered in Features →
+  Housekeeping.
+- **Dismiss errors** in Housekeeping are caught by
+  `PayeeMergeSuggestion._dismiss` (`handle_kaleta_error`).
+
+- **Backfill on PostgreSQL** is not exercised by a test: KAL-PID-009 runs
+  the migration chain on a SQLite file and is skipped under the Postgres
+  test run, like the other SQLite-file migration tests. The backfill uses
+  only portable SQL (`SELECT` + `bulk_insert`), with the key computed in
+  Python.
+
+### BDD
+KAL-PID-004…013 `@automated` (integration + e2e), KAL-PID-014 (Settings scan
+button) and KAL-PID-015 (proposals in Housekeeping) `@manual`.

@@ -280,7 +280,7 @@ class DedupeService:
         # Pass 1: group by normalised key.
         norm_buckets: dict[str, list[Payee]] = defaultdict(list)
         for p in payees:
-            key = _normalise_name(p.name)
+            key = normalise_name(p.name)
             if key:
                 norm_buckets[key].append(p)
 
@@ -318,7 +318,7 @@ class DedupeService:
         # Pass 3: Levenshtein pairs among the remainder. Pre-normalise once
         # and skip the inner normalise calls — avoids O(n²) diacritics work.
         remaining = [p for p in payees if p.id not in used]
-        norm_cache: list[tuple[Payee, str]] = [(p, _normalise_name(p.name)) for p in remaining]
+        norm_cache: list[tuple[Payee, str]] = [(p, normalise_name(p.name)) for p in remaining]
         norm_cache = [(p, n) for p, n in norm_cache if len(n) >= 3]
         visited: set[int] = set()
         for i, (a, na) in enumerate(norm_cache):
@@ -376,6 +376,9 @@ class DedupeService:
             .where(PlannedTransaction.payee_id.in_(victims))
             .values(payee_id=keeper_id)
         )
+        # The keeper answers to every spelling the merged payees did.
+        payee_svc = PayeeService(self.session)
+        await payee_svc.absorb_identities(keeper_id, victims)
         # Delete the victim payees. DismissedCandidate.payee_id → CASCADE.
         result = await self.session.execute(select(Payee).where(Payee.id.in_(victims)))
         for p in result.scalars().all():
@@ -385,6 +388,7 @@ class DedupeService:
             # deletes, so taking a merged payee's name would trip UNIQUE.
             await self.session.flush()
             keeper.name = name
+            await payee_svc.add_name_identity(keeper_id, name)
         await self.session.commit()
         return len(victims)
 
@@ -406,7 +410,7 @@ class DedupeService:
 
         buckets: dict[tuple[str, str], list[Category]] = defaultdict(list)
         for c in cats:
-            key = _normalise_name(c.name)
+            key = normalise_name(c.name)
             if not key:
                 continue
             # Same type so we don't merge income into expense.
@@ -498,7 +502,7 @@ class DedupeService:
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 
-def _normalise_name(name: str) -> str:
+def normalise_name(name: str) -> str:
     """Strip diacritics, punctuation, collapse whitespace, lowercase."""
     if not name:
         return ""
@@ -515,7 +519,7 @@ def _core_tokens(name: str) -> tuple[str, ...]:
     suffixes ("sp. z o.o.", "S.A.", "GmbH"), any token carrying a digit
     (store numbers, terminal ids) and location words (country, big cities).
     """
-    tokens = _normalise_name(name).split()
+    tokens = normalise_name(name).split()
     kept: list[str] = []
     i = 0
     while i < len(tokens):
@@ -536,8 +540,8 @@ def _core_tokens(name: str) -> tuple[str, ...]:
 
 def _descriptions_look_alike(a: str, b: str) -> bool:
     """Very lenient: either description is empty, or they share a key token."""
-    na = _normalise_name(a)
-    nb = _normalise_name(b)
+    na = normalise_name(a)
+    nb = normalise_name(b)
     if not na or not nb:
         return True
     if na == nb:
@@ -548,10 +552,10 @@ def _descriptions_look_alike(a: str, b: str) -> bool:
     return bool(tokens_a & tokens_b)
 
 
-def _levenshtein(a: str, b: str) -> int:
+def levenshtein(a: str, b: str) -> int:
     """Pure-Python Levenshtein distance — fine for short names."""
     if len(a) < len(b):
-        return _levenshtein(b, a)
+        return levenshtein(b, a)
     if not b:
         return len(a)
     prev = list(range(len(b) + 1))
@@ -570,7 +574,7 @@ def _levenshtein_close(a: str, b: str) -> bool:
     Normalises both inputs. For performance-critical callers that have
     pre-normalised the strings, use ``_norm_levenshtein_close``.
     """
-    return _norm_levenshtein_close(_normalise_name(a), _normalise_name(b))
+    return _norm_levenshtein_close(normalise_name(a), normalise_name(b))
 
 
 def _norm_levenshtein_close(na: str, nb: str, *, max_distance: int | None = None) -> bool:
@@ -592,7 +596,7 @@ def _norm_levenshtein_close(na: str, nb: str, *, max_distance: int | None = None
     # Fast reject: very short strings rarely make meaningful pairs.
     if short_len < 3:
         return False
-    return _levenshtein(na, nb) <= threshold
+    return levenshtein(na, nb) <= threshold
 
 
 def _make_payee_group(bucket: builtins.list[Payee], counts: dict[int, int]) -> PayeeGroup:
@@ -610,4 +614,6 @@ __all__ = [
     "PayeeGroupItem",
     "TxGroup",
     "TxGroupItem",
+    "levenshtein",
+    "normalise_name",
 ]

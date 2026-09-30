@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import datetime
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.seed_helpers import (
     get_or_seed_payee,
     get_transaction,
+    list_payee_identities,
     list_payees,
     seed_account,
     seed_category,
@@ -21,6 +22,7 @@ from tests.e2e.seed_helpers import (
 )
 
 SUGGESTION = "[data-merge-suggestion]"
+PAYEE_ROWS = ".q-table tbody tr"
 
 
 def test_top_payees_report_ranks_by_spend(page: Page, base_url: str) -> None:
@@ -133,3 +135,59 @@ def test_accepting_merge_suggestion_under_new_name(page: Page, base_url: str) ->
     assert "Lidl 1234 Warszawa" not in names_by_id.values()
     for tx_id in tx_ids:
         assert names_by_id[get_transaction(tx_id)["payee_id"]] == "Lidl"
+
+
+def _expand_identities(page: Page, base_url: str, payee_name: str) -> Locator:
+    page.goto(f"{base_url}/payees")
+    row = page.locator(PAYEE_ROWS).filter(has_text=payee_name).first
+    expect(row).to_be_visible(timeout=5000)
+    row.locator("[data-identities-toggle]").click()
+    panel = page.locator("[data-identity-panel]")
+    expect(panel).to_have_count(1, timeout=5000)
+    return panel
+
+
+def test_add_identity_inline(page: Page, base_url: str) -> None:
+    """Covers: KAL-PID-004
+
+    Adding the identity "LIDL POZNAN" to "Lidl sp z o o" inline leaves one
+    payee holding both spellings.
+    """
+    payee_id = get_or_seed_payee("Lidl sp z o o")
+
+    panel = _expand_identities(page, base_url, "Lidl sp z o o")
+    expect(panel.locator("[data-identity-pattern]")).to_have_text(["Lidl sp z o o"])
+    panel.locator("[data-identity-add]").click()
+    new_spelling = page.get_by_label("Spelling as the bank writes it")
+    expect(new_spelling).to_be_visible(timeout=5000)
+    new_spelling.fill("LIDL POZNAN")
+    new_spelling.press("Enter")
+
+    expect(panel.locator("[data-identity-pattern]")).to_have_text(
+        ["Lidl sp z o o", "LIDL POZNAN"], timeout=5000
+    )
+    assert list_payee_identities(payee_id) == ["Lidl sp z o o", "LIDL POZNAN"]
+    names = [p["name"] for p in list_payees()]
+    assert names.count("Lidl sp z o o") == 1
+    assert "LIDL POZNAN" not in names
+
+
+def test_deleting_last_identity_offers_deleting_payee(page: Page, base_url: str) -> None:
+    """Covers: KAL-PID-008
+
+    Removing the only identity of "Kiosk Ruch" asks whether to delete the
+    payee instead; confirming deletes it.
+    """
+    get_or_seed_payee("Kiosk Ruch")
+
+    panel = _expand_identities(page, base_url, "Kiosk Ruch")
+    panel.locator("[data-identity-delete]").click()
+
+    dialog = page.locator(".q-dialog")
+    expect(dialog.get_by_text('"Kiosk Ruch" has no other identity', exact=False)).to_be_visible(
+        timeout=5000
+    )
+    dialog.get_by_role("button", name="Delete").click()
+
+    expect(page.locator(PAYEE_ROWS).filter(has_text="Kiosk Ruch")).to_have_count(0, timeout=5000)
+    assert "Kiosk Ruch" not in [p["name"] for p in list_payees()]

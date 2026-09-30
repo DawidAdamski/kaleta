@@ -27,6 +27,8 @@ _FEATURE_KEYS = (
     "transfer_pairing_days",
     "transfer_amount_tolerance",
     "payee_dedupe_max_distance",
+    "payee_automerge_enabled",
+    "payee_automerge_threshold",
     "subscriptions_detector_days",
     "housekeeping_duplicate_days",
     "auto_post_due_on_startup",

@@ -906,7 +906,18 @@
     "integrity_violation_count": "{count} osieroconych odniesień",
     "integrity_violation_row": "Tabela {table}, wiersz {rowid} → brak rodzica w {parent}",
     "new_name_label": "Nowa nazwa (opcjonalnie)",
-    "new_name_placeholder": "Zostaw nazwę zachowanego wpisu"
+    "new_name_placeholder": "Zostaw nazwę zachowanego wpisu",
+    "proposal_caption": "Propozycja scalenia · pewność {score} · głównie na podstawie: {reason}",
+    "proposal_reason_name": "podobne nazwy",
+    "proposal_reason_identity": "podobne warianty nazwy",
+    "proposal_reason_merchant_key": "to samo słowo kluczowe sprzedawcy",
+    "proposal_dismiss": "To różni odbiorcy",
+    "proposal_dismissed": "Odrzucono propozycję — ta para nie będzie już proponowana.",
+    "recent_merges_heading": "Ostatnio scalone",
+    "recent_merges_hint": "Odbiorcy scaleni automatycznie w ciągu ostatnich 7 dni. Cofnięcie przywraca scalonego odbiorcę z jego wariantami nazwy i transakcjami.",
+    "recent_merge_row": "{merged} → {keeper} ({score})",
+    "recent_merge_undo": "Cofnij",
+    "recent_merge_undone": "Cofnięto scalenie."
   },
   "accounts": {
     "balance_hint": "Wpisz saldo z banku. Transakcje zostaną bez zmian.",
@@ -1287,7 +1298,15 @@
     "email": "E-mail",
     "phone": "Telefon",
     "suggestions_heading": "Propozycje scalenia",
-    "suggestions_hint": "Ci odbiorcy wyglądają na tego samego sprzedawcę. Scalenie przenosi wszystkie transakcje na zachowanego; nadaj mu nową nazwę, jeśli żadna nie pasuje."
+    "suggestions_hint": "Ci odbiorcy wyglądają na tego samego sprzedawcę. Scalenie przenosi wszystkie transakcje na zachowanego; nadaj mu nową nazwę, jeśli żadna nie pasuje.",
+    "identities": "Warianty nazwy",
+    "identity_count": "Warianty nazwy ({count})",
+    "identity_add": "Dodaj wariant",
+    "identity_new_label": "Pisownia z wyciągu bankowego",
+    "identity_added": "Dodano wariant nazwy.",
+    "identity_updated": "Zaktualizowano wariant nazwy.",
+    "identity_deleted": "Usunięto wariant nazwy.",
+    "delete_last_identity_confirm": "„{name}” nie ma innego wariantu nazwy. Usunąć całego odbiorcę? Powiązane transakcje zachowają dane, ale stracą odwołanie do odbiorcy."
   },
   "forecast": {
     "title": "Prognoza",
@@ -1991,7 +2010,12 @@
     "mfa_disable_failed": "To hasło lub kod się nie zgadza.",
     "mfa_stale": "To zmieniło się w innej karcie. Zamknij to okno i spróbuj ponownie.",
     "mfa_unreadable": "Tego drugiego składnika nie da się odczytać w tej instalacji. Uruchom `kaleta --reset-password --disable-mfa` i skonfiguruj go ponownie.",
-    "mfa_rate_limited": "Za dużo błędnych kodów. Spróbuj ponownie za {seconds} s."
+    "mfa_rate_limited": "Za dużo błędnych kodów. Spróbuj ponownie za {seconds} s.",
+    "payee_automerge_hint": "Skanowanie ocenia każdą parę odbiorców. Pary od 75% trafiają jako propozycje na stronę Porządków; przy włączonym automatycznym scalaniu pary na progu lub powyżej są scalane od razu (cofnięcie przez 7 dni).",
+    "payee_automerge_enabled": "Automatycznie scalaj odbiorców od progu pewności wzwyż",
+    "payee_automerge_threshold": "Próg automatycznego scalania: {value}",
+    "payee_automerge_run": "Szukaj odbiorców do scalenia",
+    "payee_automerge_done": "Skanowanie zakończone: scalono {merged}, propozycji do przejrzenia: {proposals}."
   },
   "audit": {
     "title": "Historia zmian",

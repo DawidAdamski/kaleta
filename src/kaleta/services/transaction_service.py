@@ -191,7 +191,7 @@ class TransactionService:
         """
         if data.payee_id is not None or not data.payee_name:
             return data.payee_id
-        payee = await PayeeService(self.session).match_or_create_by_name(data.payee_name)
+        payee = await PayeeService(self.session).match_or_create_from_name(data.payee_name)
         return payee.id
 
     async def _payee_tag_defaults(

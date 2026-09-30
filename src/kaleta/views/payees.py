@@ -1,12 +1,20 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
-from typing import Any
+import html
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from nicegui import ui
 
+from kaleta.exceptions import ConflictError
 from kaleta.i18n import t
 from kaleta.schemas.payee import PayeeCreate, PayeeResponse, PayeeUpdate
+from kaleta.schemas.payee_identity import (
+    PayeeIdentityCreate,
+    PayeeIdentityResponse,
+    PayeeIdentityUpdate,
+)
 from kaleta.services import DedupeService, PayeeService, with_session
 from kaleta.services.dedupe_service import PayeeGroup
 from kaleta.views.components.payee_merge import MergeConfirmDialog, PayeeMergeSuggestion
@@ -22,6 +30,9 @@ from kaleta.views.theme import (
     SELECTION_BAR,
     TABLE_SURFACE,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def register() -> None:
@@ -203,9 +214,12 @@ def register() -> None:
             notes_input.set_value(payee.notes or "")
             dialog.open()
 
-        def _open_delete(payee: PayeeResponse) -> None:
+        def _open_delete(payee: PayeeResponse, *, last_identity: bool = False) -> None:
             delete_id["value"] = payee.id
-            delete_label.set_text(t("payees.delete_confirm", name=payee.name))
+            key = (
+                "payees.delete_last_identity_confirm" if last_identity else "payees.delete_confirm"
+            )
+            delete_label.set_text(t(key, name=payee.name))
             delete_dialog.open()
 
         def _open_merge(all_payees: list[PayeeResponse]) -> None:
@@ -272,11 +286,21 @@ def register() -> None:
         # ── Payees list ────────────────────────────────────────────────────────
         @ui.refreshable
         async def payees_list() -> None:
-            async def _load(session: Any) -> list[tuple[PayeeResponse, int]]:
-                rows_with_counts = await PayeeService(session).list_with_counts()
-                return [(PayeeResponse.model_validate(p), cnt) for p, cnt in rows_with_counts]
+            async def _load(
+                session: AsyncSession,
+            ) -> tuple[list[tuple[PayeeResponse, int]], dict[int, list[PayeeIdentityResponse]]]:
+                svc = PayeeService(session)
+                rows_with_counts = await svc.list_with_counts()
+                identities = await svc.identities_by_payee()
+                return (
+                    [(PayeeResponse.model_validate(p), cnt) for p, cnt in rows_with_counts],
+                    {
+                        pid: [PayeeIdentityResponse.model_validate(i) for i in items]
+                        for pid, items in identities.items()
+                    },
+                )
 
-            rows_with_counts = await with_session(_load)
+            rows_with_counts, identities_by_payee = await with_session(_load)
             all_payees = [p for p, _ in rows_with_counts]
             _current_payees["list"] = all_payees
 
@@ -296,6 +320,12 @@ def register() -> None:
                             "field": "name",
                             "align": "left",
                             "sortable": True,
+                        },
+                        {
+                            "name": "identities",
+                            "label": t("payees.identities"),
+                            "field": "identity_label",
+                            "align": "left",
                         },
                         {
                             "name": "tx_count",
@@ -322,6 +352,7 @@ def register() -> None:
                             "name": p.name,
                             "tx_count": cnt,
                             "notes": (p.notes or "")[:80],
+                            **_identity_fields(identities_by_payee.get(p.id, [])),
                         }
                         for p, cnt in rows_with_counts
                     ],
@@ -331,15 +362,7 @@ def register() -> None:
                 .props("flat bordered selection=multiple")
             )
 
-            tbl.add_slot(
-                "body-cell-actions",
-                '<q-td :props="props" auto-width>'
-                '<q-btn flat round dense icon="edit" color="primary" size="sm"'
-                " @click=\"$parent.$emit('edit_p', props.row.id)\" />"
-                '<q-btn flat round dense icon="delete" color="negative" size="sm"'
-                " @click=\"$parent.$emit('delete_p', props.row.id)\" />"
-                "</q-td>",
-            )
+            tbl.add_slot("body", _body_slot())
 
             def _on_edit(e: object) -> None:
                 pid = e.args  # type: ignore[attr-defined]
@@ -359,9 +382,94 @@ def register() -> None:
                 selected_ids.extend(r["id"] for r in rows_list)
                 selection_bar.refresh()
 
+            async def _refresh_identities(payee_id: int) -> None:
+                async def _load_one(session: AsyncSession) -> list[PayeeIdentityResponse]:
+                    items = await PayeeService(session).list_identities(payee_id)
+                    return [PayeeIdentityResponse.model_validate(i) for i in items]
+
+                fresh = await with_session(_load_one)
+                for row in tbl.rows:
+                    if row["id"] == payee_id:
+                        row.update(_identity_fields(fresh))
+                tbl.update()
+
+            async def _identity_call(
+                payee_id: int, action: Callable[[AsyncSession], Awaitable[None]]
+            ) -> bool:
+                try:
+                    await with_session(action)
+                except Exception as exc:
+                    if handle_kaleta_error(exc):
+                        await _refresh_identities(payee_id)
+                        return False
+                    raise
+                await _refresh_identities(payee_id)
+                return True
+
+            async def _on_add_identity(e: object) -> None:
+                args = getattr(e, "args", None) or {}
+                payee_id = int(args["payee_id"])
+                pattern = " ".join(str(args.get("pattern") or "").split())
+                if not pattern:
+                    return
+                data = PayeeIdentityCreate(pattern=pattern[:200])
+
+                async def _add(session: AsyncSession) -> None:
+                    await PayeeService(session).add_identity(payee_id, data)
+
+                if await _identity_call(payee_id, _add):
+                    ui.notify(t("payees.identity_added"), type="positive")
+
+            async def _on_edit_identity(e: object) -> None:
+                args = getattr(e, "args", None) or {}
+                payee_id = int(args["payee_id"])
+                identity_id = int(args["id"])
+                pattern = " ".join(str(args.get("pattern") or "").split())
+                if not pattern:
+                    await _refresh_identities(payee_id)
+                    return
+                data = PayeeIdentityUpdate(pattern=pattern[:200])
+
+                async def _edit(session: AsyncSession) -> None:
+                    await PayeeService(session).update_identity(payee_id, identity_id, data)
+
+                if await _identity_call(payee_id, _edit):
+                    ui.notify(t("payees.identity_updated"), type="positive")
+
+            async def _on_delete_identity(e: object) -> None:
+                args = getattr(e, "args", None) or {}
+                payee_id = int(args["payee_id"])
+                identity_id = int(args["id"])
+                payee = next((p for p in all_payees if p.id == payee_id), None)
+                if payee is None:
+                    return
+
+                async def _delete(session: AsyncSession) -> None:
+                    await PayeeService(session).delete_identity(payee_id, identity_id)
+
+                try:
+                    await with_session(_delete)
+                except ConflictError as exc:
+                    # The last spelling cannot go on its own: offer deleting
+                    # the payee instead of a dead-end error toast.
+                    if exc.code == "last_identity":
+                        _open_delete(payee, last_identity=True)
+                    else:
+                        handle_kaleta_error(exc)
+                    return
+                except Exception as exc:
+                    if handle_kaleta_error(exc):
+                        return
+                    raise
+                await _refresh_identities(payee_id)
+                ui.notify(t("payees.identity_deleted"), type="positive")
+
             tbl.on("edit_p", _on_edit)
             tbl.on("delete_p", _on_delete)
             tbl.on("update:selected", _on_selection)
+            tbl.on("add_identity", _on_add_identity)
+            tbl.on("edit_identity", _on_edit_identity)
+            tbl.on("delete_identity", _on_delete_identity)
 
         # ── Page ───────────────────────────────────────────────────────────────
         with page_layout(t("payees.title")):
@@ -374,3 +482,69 @@ def register() -> None:
             await suggestions()
             selection_bar()
             await payees_list()
+
+
+def _identity_fields(identities: list[PayeeIdentityResponse]) -> dict[str, Any]:
+    """Row fields behind a payee's identity toggle and its inline panel."""
+    return {
+        "identities": [{"id": i.id, "pattern": i.pattern} for i in identities],
+        "identity_label": t("payees.identity_count", count=len(identities)),
+    }
+
+
+def _body_slot() -> str:
+    """A payee row plus, when expanded, its identities — listed, edited, added inline.
+
+    The panel row uses ``v-if`` so a collapsed payee renders no second copy of
+    its name. Edits go through ``q-popup-edit``; its value lives in the popup,
+    so the row data from the server is never mutated in the browser.
+    """
+    add_label = html.escape(t("payees.identity_add"))
+    new_label = html.escape(t("payees.identity_new_label"))
+    return (
+        '<q-tr :props="props">'
+        '<q-td auto-width><q-checkbox v-model="props.selected" dense /></q-td>'
+        '<q-td key="name" :props="props">{{ props.row.name }}</q-td>'
+        '<q-td key="identities" :props="props">'
+        '<q-btn flat dense no-caps size="sm" data-identities-toggle'
+        ' :label="props.row.identity_label"'
+        " :icon-right=\"props.expand ? 'expand_less' : 'expand_more'\""
+        ' @click="props.expand = !props.expand" />'
+        "</q-td>"
+        '<q-td key="tx_count" :props="props">{{ props.row.tx_count }}</q-td>'
+        '<q-td key="notes" :props="props">{{ props.row.notes }}</q-td>'
+        '<q-td key="actions" :props="props" auto-width>'
+        '<q-btn flat round dense icon="edit" color="primary" size="sm"'
+        " @click=\"$parent.$emit('edit_p', props.row.id)\" />"
+        '<q-btn flat round dense icon="delete" color="negative" size="sm"'
+        " @click=\"$parent.$emit('delete_p', props.row.id)\" />"
+        "</q-td>"
+        "</q-tr>"
+        '<q-tr v-if="props.expand" :props="props" data-identity-panel>'
+        '<q-td colspan="100%">'
+        '<div class="column q-gutter-xs q-py-xs q-pl-xl">'
+        '<div v-for="ident in props.row.identities" :key="ident.id"'
+        ' class="row items-center no-wrap q-gutter-sm" data-identity>'
+        '<span class="text-sm cursor-pointer" data-identity-pattern>{{ ident.pattern }}'
+        '<q-popup-edit :model-value="ident.pattern" v-slot="scope"'
+        " @save=\"(val) => $parent.$emit('edit_identity',"
+        ' {payee_id: props.row.id, id: ident.id, pattern: val})">'
+        '<q-input v-model="scope.value" dense autofocus maxlength="200"'
+        ' @keyup.enter="scope.set" />'
+        "</q-popup-edit>"
+        "</span>"
+        '<q-btn flat round dense size="sm" icon="close" color="negative" data-identity-delete'
+        " @click=\"$parent.$emit('delete_identity', {payee_id: props.row.id, id: ident.id})\" />"
+        "</div>"
+        f'<div><q-btn flat dense no-caps size="sm" icon="add" color="primary" label="{add_label}"'
+        " data-identity-add>"
+        '<q-popup-edit model-value="" v-slot="scope"'
+        " @save=\"(val) => $parent.$emit('add_identity', {payee_id: props.row.id, pattern: val})\">"
+        f'<q-input v-model="scope.value" dense autofocus maxlength="200" label="{new_label}"'
+        ' @keyup.enter="scope.set" />'
+        "</q-popup-edit>"
+        "</q-btn></div>"
+        "</div>"
+        "</q-td>"
+        "</q-tr>"
+    )

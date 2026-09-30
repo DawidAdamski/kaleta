@@ -9,9 +9,12 @@ from sqlalchemy.orm import selectinload
 
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.payee import Payee
+from kaleta.models.payee_identity import PayeeIdentity, identity_key
 from kaleta.models.planned_transaction import PlannedTransaction
+from kaleta.models.subscription import Subscription
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.payee import PayeeCreate, PayeeLastUsed, PayeeUpdate
+from kaleta.schemas.payee_identity import PayeeIdentityCreate, PayeeIdentityUpdate
 
 #: Mirrors ``Payee.name``'s column width and the schemas' ``max_length``.
 PAYEE_NAME_MAX_LENGTH = 200
@@ -36,6 +39,16 @@ class PayeeService:
         result = await self.session.execute(stmt)
         return [(row.Payee, row.tx_count) for row in result]
 
+    async def identities_by_payee(self) -> dict[int, builtins.list[PayeeIdentity]]:
+        """Every payee's identities, oldest first, keyed by payee id."""
+        result = await self.session.execute(
+            select(PayeeIdentity).order_by(PayeeIdentity.payee_id, PayeeIdentity.id)
+        )
+        grouped: dict[int, builtins.list[PayeeIdentity]] = {}
+        for identity in result.scalars().all():
+            grouped.setdefault(identity.payee_id, []).append(identity)
+        return grouped
+
     async def get(self, payee_id: int) -> Payee | None:
         result = await self.session.execute(select(Payee).where(Payee.id == payee_id))
         return result.scalar_one_or_none()
@@ -51,8 +64,11 @@ class PayeeService:
         payee = await self.get(payee_id)
         if payee is None:
             return None
+        old_name = payee.name
         for field, value in data.model_dump(exclude_unset=True).items():
             setattr(payee, field, value)
+        if payee.name != old_name:
+            await self.add_name_identity(payee.id, payee.name)
         await self.session.commit()
         await self.session.refresh(payee)
         return payee
@@ -87,6 +103,12 @@ class PayeeService:
             .where(PlannedTransaction.payee_id.in_(merge_ids))
             .values(payee_id=keep_id)
         )
+        await self.session.execute(
+            update(Subscription)
+            .where(Subscription.payee_id.in_(merge_ids))
+            .values(payee_id=keep_id)
+        )
+        await self.absorb_identities(keep_id, merge_ids)
         deleted = 0
         for pid in merge_ids:
             payee = await self.get(pid)
@@ -98,6 +120,7 @@ class PayeeService:
             # deletes, so taking a merged payee's name would trip UNIQUE.
             await self.session.flush()
             keeper.name = name
+            await self.add_name_identity(keep_id, name)
         await self.session.commit()
         return deleted
 
@@ -121,60 +144,177 @@ class PayeeService:
             raise ConflictError(f"A payee named '{name}' already exists")
         return keeper
 
-    async def find_or_create(self, name: str) -> Payee:
-        """Exact-match lookup; creates a new payee if not found.
+    async def match_or_create_from_name(self, name: str) -> Payee:
+        """The payee a raw payee name belongs to; created when nothing matches.
 
-        Does NOT commit — the caller owns the transaction.
-        Uses flush() to make the new ID available within the current session.
+        Used by every path that turns a name into a payee — CSV import and the
+        typed name of a manual entry. Precedence:
 
-        Note: SQLite's lower() does not handle non-ASCII characters (e.g. Polish
-        ą/ę/ó/ł), so case-insensitive comparison via func.lower() would fail to
-        find rows whose names contain such characters.  Exact-match is correct
-        here because mBank payee names arrive as ALL-CAPS and are stored as-is.
-        """
-        name_clean = name.strip()
-        result = await self.session.execute(select(Payee).where(Payee.name == name_clean))
-        existing = result.scalar_one_or_none()
-        if existing:
-            return existing
-        payee = Payee(name=name_clean)
-        self.session.add(payee)
-        await self.session.flush()
-        return payee
+        1. an identity spelled exactly like *name*;
+        2. a case-insensitive identity whose casefolded key equals *name*'s
+           (``case_sensitive`` identities are skipped here);
+        3. a payee *named* exactly *name* — only reachable when the user has
+           edited that name's identity away, and it keeps UNIQUE(name) safe;
+        4. otherwise a new payee, which gets its name as its first identity.
 
-    async def match_or_create_by_name(self, name: str) -> Payee:
-        """Case-insensitive name lookup; creates the payee when nothing matches.
+        Ties (two payees holding the same spelling in different case, left by
+        the migration backfill) go to the oldest identity. Matching is literal
+        — no fuzzy matching at import time.
 
         Does NOT commit — the caller owns the transaction; ``flush()`` makes the
         new ID available within the current session.
-
-        Distinct from :meth:`find_or_create`, which matches case-sensitively
-        because mBank exports arrive ALL-CAPS and must stay one payee per exact
-        spelling. Here the name is typed by a human, so "biedronka" has to find
-        "Biedronka". SQLite's ``lower()`` only folds ASCII, so the fold is done
-        in Python — otherwise Polish names (Żabka, Empik Ł.) would never match.
-
-        The fold only runs when the indexed exact match misses, and then scans
-        the payee table. That is the right trade at this scale (a personal ledger
-        holds tens to low hundreds of payees); a generated ``lower(name)`` column
-        would be the fix if it ever stops being.
         """
-        name_clean = name.strip()
-        result = await self.session.execute(select(Payee).where(Payee.name == name_clean))
-        exact = result.scalar_one_or_none()
-        if exact is not None:
-            return exact
-
-        folded = name_clean.casefold()
-        candidates = await self.session.execute(select(Payee).order_by(Payee.id))
-        for payee in candidates.scalars():
-            if payee.name.casefold() == folded:
+        cleaned = " ".join(name.split())
+        key = identity_key(cleaned)
+        result = await self.session.execute(
+            select(PayeeIdentity)
+            .where((PayeeIdentity.pattern == cleaned) | (PayeeIdentity.pattern_key == key))
+            .order_by(PayeeIdentity.id)
+        )
+        candidates = builtins.list(result.scalars().all())
+        hit = next((i for i in candidates if i.pattern == cleaned), None) or next(
+            (i for i in candidates if i.matches(cleaned)), None
+        )
+        if hit is not None:
+            payee = await self.get(hit.payee_id)
+            if payee is not None:
                 return payee
 
-        payee = Payee(name=name_clean)
+        named = await self.session.execute(select(Payee).where(Payee.name == cleaned))
+        existing = named.scalar_one_or_none()
+        if existing is not None:
+            return existing
+
+        payee = Payee(name=cleaned)
         self.session.add(payee)
         await self.session.flush()
         return payee
+
+    # ── Identities ────────────────────────────────────────────────────────
+
+    async def list_identities(self, payee_id: int) -> builtins.list[PayeeIdentity]:
+        if await self.get(payee_id) is None:
+            raise NotFoundError("Payee not found")
+        result = await self.session.execute(
+            select(PayeeIdentity)
+            .where(PayeeIdentity.payee_id == payee_id)
+            .order_by(PayeeIdentity.id)
+        )
+        return builtins.list(result.scalars().all())
+
+    async def add_identity(self, payee_id: int, data: PayeeIdentityCreate) -> PayeeIdentity:
+        """Tie another spelling to a payee.
+
+        A spelling another payee already answers to is a conflict: one raw
+        name must lead to one payee.
+        """
+        if await self.get(payee_id) is None:
+            raise NotFoundError("Payee not found")
+        await self._check_spelling_free(data.pattern, payee_id=payee_id)
+        identity = PayeeIdentity(
+            payee_id=payee_id, pattern=data.pattern, case_sensitive=data.case_sensitive
+        )
+        self.session.add(identity)
+        await self.session.commit()
+        await self.session.refresh(identity)
+        return identity
+
+    async def update_identity(
+        self, payee_id: int, identity_id: int, data: PayeeIdentityUpdate
+    ) -> PayeeIdentity:
+        identity = await self._get_identity(payee_id, identity_id)
+        if data.pattern is not None and data.pattern != identity.pattern:
+            await self._check_spelling_free(
+                data.pattern, payee_id=payee_id, ignore_identity_id=identity_id
+            )
+            identity.pattern = data.pattern
+        if data.case_sensitive is not None:
+            identity.case_sensitive = data.case_sensitive
+        await self.session.commit()
+        await self.session.refresh(identity)
+        return identity
+
+    async def delete_identity(self, payee_id: int, identity_id: int) -> None:
+        """Remove one spelling. The last one cannot go — delete the payee instead."""
+        identity = await self._get_identity(payee_id, identity_id)
+        count = await self.session.scalar(
+            select(func.count(PayeeIdentity.id)).where(PayeeIdentity.payee_id == payee_id)
+        )
+        if (count or 0) <= 1:
+            raise ConflictError(
+                "A payee needs at least one identity; delete the payee instead",
+                code="last_identity",
+            )
+        await self.session.delete(identity)
+        await self.session.commit()
+
+    async def absorb_identities(
+        self, keeper_id: int, merged_ids: builtins.list[int]
+    ) -> builtins.list[int]:
+        """Move the merged payees' identities onto the keeper, before they are deleted.
+
+        Spellings the keeper already answers to are dropped rather than
+        duplicated. Returns the ids of the identities that moved. Does NOT
+        commit — it is one step of a merge.
+        """
+        if not merged_ids:
+            return []
+        result = await self.session.execute(
+            select(PayeeIdentity)
+            .where(PayeeIdentity.payee_id.in_([keeper_id, *merged_ids]))
+            .order_by(PayeeIdentity.id)
+        )
+        rows = builtins.list(result.scalars().all())
+        held = {_spelling(i) for i in rows if i.payee_id == keeper_id}
+        moved: builtins.list[int] = []
+        for identity in rows:
+            if identity.payee_id == keeper_id:
+                continue
+            if _spelling(identity) in held:
+                await self.session.delete(identity)
+                continue
+            identity.payee_id = keeper_id
+            held.add(_spelling(identity))
+            moved.append(identity.id)
+        await self.session.flush()
+        # A merged payee's loaded ``identities`` collection still lists the
+        # rows that just moved; deleting the payee would cascade into them.
+        for obj in builtins.list(self.session.identity_map.values()):
+            if isinstance(obj, Payee) and obj.id in merged_ids:
+                self.session.expire(obj, ["identities"])
+        return moved
+
+    async def _get_identity(self, payee_id: int, identity_id: int) -> PayeeIdentity:
+        identity = await self.session.get(PayeeIdentity, identity_id)
+        if identity is None or identity.payee_id != payee_id:
+            raise NotFoundError("Payee identity not found")
+        return identity
+
+    async def _check_spelling_free(
+        self, pattern: str, *, payee_id: int, ignore_identity_id: int | None = None
+    ) -> None:
+        stmt = select(PayeeIdentity).where(PayeeIdentity.pattern_key == identity_key(pattern))
+        if ignore_identity_id is not None:
+            stmt = stmt.where(PayeeIdentity.id != ignore_identity_id)
+        clash = (await self.session.execute(stmt)).scalars().first()
+        if clash is None:
+            return
+        if clash.payee_id == payee_id:
+            raise ConflictError(f"This payee already has the identity '{clash.pattern}'")
+        owner = await self.get(clash.payee_id)
+        owner_name = owner.name if owner is not None else str(clash.payee_id)
+        raise ConflictError(f"'{pattern}' is already an identity of payee '{owner_name}'")
+
+    async def add_name_identity(self, payee_id: int, name: str) -> None:
+        """After a rename, the new name becomes a spelling too — unless someone holds it.
+
+        The old spelling stays: bank lines still arrive under it.
+        """
+        taken = await self.session.execute(
+            select(PayeeIdentity.id).where(PayeeIdentity.pattern_key == identity_key(name))
+        )
+        if taken.first() is None:
+            self.session.add(PayeeIdentity(payee_id=payee_id, pattern=name))
 
     async def last_used_for(self, payee_id: int) -> PayeeLastUsed | None:
         """Category and tags of this payee's most recent categorised entry.
@@ -203,3 +343,10 @@ class PayeeService:
             category_id=transaction.category_id,
             tag_ids=[tag.id for tag in transaction.tags],
         )
+
+
+def _spelling(identity: PayeeIdentity) -> tuple[bool, str]:
+    """What an identity matches: its exact pattern, or its casefolded key."""
+    if identity.case_sensitive:
+        return True, identity.pattern
+    return False, identity.pattern_key

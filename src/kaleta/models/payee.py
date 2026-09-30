@@ -1,11 +1,16 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
+
+if TYPE_CHECKING:
+    from kaleta.models.payee_identity import PayeeIdentity
 
 
 class Payee(TimestampMixin, UserOwnedMixin, Base):
@@ -23,6 +28,12 @@ class Payee(TimestampMixin, UserOwnedMixin, Base):
 
     transactions: Mapped[list[Transaction]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Transaction", back_populates="payee"
+    )
+    identities: Mapped[list[PayeeIdentity]] = relationship(
+        "PayeeIdentity",
+        back_populates="payee",
+        cascade="all, delete-orphan",
+        order_by="PayeeIdentity.id",
     )
 
     def __repr__(self) -> str:

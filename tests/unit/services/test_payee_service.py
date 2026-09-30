@@ -474,7 +474,7 @@ class TestPayeeListWithCounts:
         assert "Merge" not in counts
 
 
-# ── match_or_create_by_name() ─────────────────────────────────────────────────
+# ── match_or_create_from_name() ─────────────────────────────────────────────────
 
 
 class TestMatchOrCreateByName:
@@ -482,38 +482,38 @@ class TestMatchOrCreateByName:
 
     async def test_exact_name_matches_existing(self, svc: PayeeService):
         existing = await svc.create(PayeeCreate(name="Biedronka"))
-        matched = await svc.match_or_create_by_name("Biedronka")
+        matched = await svc.match_or_create_from_name("Biedronka")
         assert matched.id == existing.id
 
     async def test_lowercase_matches_existing(self, svc: PayeeService):
         """Typed by a human, so "biedronka" has to find "Biedronka"."""
         existing = await svc.create(PayeeCreate(name="Biedronka"))
-        matched = await svc.match_or_create_by_name("biedronka")
+        matched = await svc.match_or_create_from_name("biedronka")
         assert matched.id == existing.id
 
     async def test_polish_name_matches_case_insensitively(self, svc: PayeeService):
         """SQLite's lower() does not fold Ż/Ł, so the fold happens in Python."""
         existing = await svc.create(PayeeCreate(name="Żabka"))
-        matched = await svc.match_or_create_by_name("żabka")
+        matched = await svc.match_or_create_from_name("żabka")
         assert matched.id == existing.id
 
     async def test_surrounding_whitespace_ignored(self, svc: PayeeService):
         existing = await svc.create(PayeeCreate(name="Empik"))
-        matched = await svc.match_or_create_by_name("  Empik  ")
+        matched = await svc.match_or_create_from_name("  Empik  ")
         assert matched.id == existing.id
 
     async def test_unknown_name_creates_payee(self, svc: PayeeService):
-        created = await svc.match_or_create_by_name("Pasibus")
+        created = await svc.match_or_create_from_name("Pasibus")
         assert created.id is not None
         assert created.name == "Pasibus"
 
     async def test_created_name_is_stripped(self, svc: PayeeService):
-        created = await svc.match_or_create_by_name("  Pasibus  ")
+        created = await svc.match_or_create_from_name("  Pasibus  ")
         assert created.name == "Pasibus"
 
     async def test_repeated_call_does_not_duplicate(self, svc: PayeeService):
-        first = await svc.match_or_create_by_name("Costa Coffee")
-        second = await svc.match_or_create_by_name("costa coffee")
+        first = await svc.match_or_create_from_name("Costa Coffee")
+        second = await svc.match_or_create_from_name("costa coffee")
         assert first.id == second.id
         names = [p.name for p in await svc.list()]
         assert names.count("Costa Coffee") == 1

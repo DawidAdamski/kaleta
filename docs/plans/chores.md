@@ -175,11 +175,13 @@ check it still reproduces before acting on it.
       per call and pass it down if funds ever multiply. Found by review of
       `plan/funds-reserve-derived-target`.
 
-- [ ] `PayeeService.merge` (manual merge on /payees and
+- [x] `PayeeService.merge` (manual merge on /payees and
       `POST /api/v1/payees/merge`) does not reassign `Subscription.payee_id`,
       so subscriptions keep pointing at the deleted payee;
       `DedupeService.merge_payees` does. Make one delegate to the other.
-      Found by `plan/payees-merge-suggestions-gaps`.
+      Found by `plan/payees-merge-suggestions-gaps`. Fixed in
+      `plan/payees-identities-automerge` (it now reassigns subscriptions
+      too; the two merges still exist side by side).
 
 - [ ] `WizardProjectionService._monthly_from_subscription` still amortises
       a subscription as `amount × 30 / cadence_days` (120.00 yearly →
@@ -269,3 +271,8 @@ check it still reproduces before acting on it.
       slice. Sweep them onto the helper. Found by
       `plan/funds-savings-goals`.
 
+- [ ] `notify_kaleta_error` toasts `exc.message` verbatim, so service errors
+      reach Polish users in English — now common with payee identity
+      conflicts ("'…' is already an identity of payee '…'") and merge undo.
+      Map error codes to `t()` keys. Found by
+      `plan/payees-identities-automerge`.
