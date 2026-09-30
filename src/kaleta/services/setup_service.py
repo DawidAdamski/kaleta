@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from argparse import Namespace
 from pathlib import Path
 
 from alembic.config import Config
@@ -19,16 +20,32 @@ from kaleta.exceptions import MigrationError
 logger = logging.getLogger(__name__)
 
 
-def _alembic_ini() -> Path:
-    return Path(__file__).resolve().parents[3] / "alembic.ini"
+#: The registry's own version table (``alembic_public/``), next to the
+#: tenant schemas' ``alembic_version``.
+PUBLIC_VERSION_TABLE = "alembic_version_public"
 
 
-def _alembic_config() -> Config:
-    return Config(str(_alembic_ini()))
+def _alembic_ini(*, public: bool = False) -> Path:
+    name = "alembic_public.ini" if public else "alembic.ini"
+    return Path(__file__).resolve().parents[3] / name
 
 
-def _script_directory() -> ScriptDirectory:
-    return ScriptDirectory.from_config(_alembic_config())
+def _alembic_config(*, schema: str | None = None, public: bool = False) -> Config:
+    """Alembic config for the tenant history (optionally one schema) or the registry.
+
+    ``schema`` reaches ``alembic/env.py`` as ``-x tenant_schema=…``, exactly as
+    it would from the command line.
+    """
+    config = Config(str(_alembic_ini(public=public)))
+    if schema is not None:
+        from kaleta.db.tenant_schemas import require_valid_schema_name
+
+        config.cmd_opts = Namespace(x=[f"tenant_schema={require_valid_schema_name(schema)}"])
+    return config
+
+
+def _script_directory(*, public: bool = False) -> ScriptDirectory:
+    return ScriptDirectory.from_config(_alembic_config(public=public))
 
 
 def _sync_url(db_url: str) -> str:
@@ -41,32 +58,73 @@ def _sync_url(db_url: str) -> str:
     return db_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
 
 
-def head_revision() -> str:
-    """Return the alembic head revision for the installed code."""
-    head = _script_directory().get_current_head()
+def head_revision(*, public: bool = False) -> str:
+    """Return the alembic head revision for the installed code.
+
+    ``public=True`` asks about the tenant registry's history instead.
+    """
+    head = _script_directory(public=public).get_current_head()
     if head is None:
         raise MigrationError("No alembic head revision found in this installation")
     return head
 
 
-def current_revision(db_url: str) -> str | None:
-    """Return the DB's alembic revision, or None if unstamped / empty."""
+def _revision_target(db_url: str, schema: str | None, public: bool) -> tuple[str, dict[str, str]]:
+    """The URL to open and the MigrationContext options that find the version table.
+
+    On SQLite a schema is a file of its own (``kaleta.db.tenant_schemas``), so
+    the URL moves and the version table stays unqualified.
+    """
+    from kaleta.db.tenant_schemas import PUBLIC_SCHEMA, is_sqlite_url, sqlite_schema_file
+
+    opts: dict[str, str] = {}
+    if public:
+        opts["version_table"] = PUBLIC_VERSION_TABLE
+    if not is_sqlite_url(db_url):
+        if schema is not None:
+            opts["version_table_schema"] = schema
+        return db_url, opts
+    target = PUBLIC_SCHEMA if public else schema
+    if target is None:
+        return db_url, opts
+    return "sqlite:///" + str(sqlite_schema_file(db_url, target)), opts
+
+
+def current_revision(db_url: str, *, schema: str | None = None, public: bool = False) -> str | None:
+    """Return the DB's alembic revision, or None if unstamped / empty.
+
+    ``schema`` reads one tenant schema's version; ``public`` the registry's.
+    """
     from alembic.runtime.migration import MigrationContext
 
-    engine = create_engine(_sync_url(db_url))
+    url, opts = _revision_target(db_url, schema, public)
+    engine = create_engine(_sync_url(url))
     try:
         with engine.connect() as conn:
-            context = MigrationContext.configure(conn)
+            context = MigrationContext.configure(conn, opts=opts)
             return context.get_current_revision()
     finally:
         engine.dispose()
 
 
-def upgrade_to_head(db_url: str) -> None:
-    """Run Alembic ``upgrade head`` against ``db_url`` (synchronous)."""
+def upgrade_to_head(db_url: str, *, schema: str | None = None) -> None:
+    """Run Alembic ``upgrade head`` against ``db_url`` (synchronous).
+
+    ``schema`` migrates that one tenant schema of a multi-tenant database; it
+    must already exist (``TenantService`` creates it).
+    """
     os.environ["KALETA_MIGRATE_URL"] = db_url
     try:
-        command.upgrade(_alembic_config(), "head")
+        command.upgrade(_alembic_config(schema=schema), "head")
+    finally:
+        os.environ.pop("KALETA_MIGRATE_URL", None)
+
+
+def upgrade_public_to_head(db_url: str) -> None:
+    """Bring the tenant registry (``alembic_public/``) to head (synchronous)."""
+    os.environ["KALETA_MIGRATE_URL"] = db_url
+    try:
+        command.upgrade(_alembic_config(public=True), "head")
     finally:
         os.environ.pop("KALETA_MIGRATE_URL", None)
 
@@ -193,3 +251,70 @@ async def activate_database(db_url: str, *, name: str) -> None:
         ).run_once()
     except Exception:
         logger.exception("Post-activation backup failed for %s", db_url)
+
+
+# ── KALETA_TENANCY=multi ──────────────────────────────────────────────────────
+
+
+def tenant_schema_names(db_url: str) -> list[str]:
+    """Every tenant schema the registry knows of, except those being deleted."""
+    from sqlalchemy import text
+
+    from kaleta.db.tenant_schemas import (
+        PUBLIC_SCHEMA,
+        is_sqlite_url,
+        is_valid_schema_name,
+        sqlite_schema_file,
+    )
+
+    if is_sqlite_url(db_url):
+        url = "sqlite:///" + str(sqlite_schema_file(db_url, PUBLIC_SCHEMA))
+        table = "tenants"
+    else:
+        url = db_url
+        table = f"{PUBLIC_SCHEMA}.tenants"
+    engine = create_engine(_sync_url(url))
+    try:
+        with engine.connect() as conn:
+            rows = conn.execute(
+                text(f"SELECT schema_name FROM {table} WHERE status != 'deleting' ORDER BY id")  # noqa: S608 — constant table name
+            )
+            names = [str(row[0]) for row in rows]
+    finally:
+        engine.dispose()
+    return [name for name in names if is_valid_schema_name(name)]
+
+
+def tenants_pending_migration(db_url: str) -> list[str]:
+    """Tenant schemas whose alembic revision is not the installed head."""
+    head = head_revision()
+    return [
+        schema
+        for schema in tenant_schema_names(db_url)
+        if current_revision(db_url, schema=schema) != head
+    ]
+
+
+def ensure_multi_tenant_current(db_url: str) -> list[str]:
+    """Bring the registry, then every tenant schema, to head; return those migrated.
+
+    Startup of a multi-tenant instance and ``scripts/migrate_tenants.py``. No
+    safety copy: that is SQLite's file backup, and a hosted database is backed
+    up by its provider. One schema failing stops the run with that schema
+    named — the others keep whatever revision they reached.
+    """
+    try:
+        if current_revision(db_url, public=True) != head_revision(public=True):
+            logger.info("Upgrading the tenant registry to head")
+            upgrade_public_to_head(db_url)
+    except Exception as exc:
+        raise MigrationError(f"Failed to migrate the tenant registry: {exc}") from exc
+    migrated: list[str] = []
+    for schema in tenants_pending_migration(db_url):
+        logger.info("Upgrading tenant schema %s to head", schema)
+        try:
+            upgrade_to_head(db_url, schema=schema)
+        except Exception as exc:
+            raise MigrationError(f"Failed to migrate tenant schema {schema}: {exc}") from exc
+        migrated.append(schema)
+    return migrated

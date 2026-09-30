@@ -48,6 +48,12 @@ class UnauthorizedError(KaletaError):
     code = "unauthorized"
 
 
+class EmailNotVerifiedError(UnauthorizedError):
+    """The password was right, but the e-mail address has not been confirmed yet."""
+
+    code = "email_not_verified"
+
+
 class EncryptionError(KaletaError):
     """A value stored under column encryption could not be read or written."""
 

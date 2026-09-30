@@ -43,7 +43,7 @@ from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.report import SavedReport
 from kaleta.models.reserve_fund import ReserveFund
 from kaleta.models.subscription import Subscription
-from kaleta.models.tag import Tag
+from kaleta.models.tag import Tag, transaction_tags
 from kaleta.models.transaction import Transaction, TransactionSplit
 from kaleta.seeders import SeedOutcome, seed_all, seed_features, seed_status
 
@@ -99,7 +99,7 @@ class DataService:
             for model in _CLEARED_MODELS:
                 await s.execute(delete(model))
             # The many-to-many join table has no ORM class of its own.
-            await s.execute(text("DELETE FROM transaction_tags"))
+            await s.execute(delete(transaction_tags))
             await s.commit()
         finally:
             await _set_sqlite_foreign_keys(s, enabled=True)
