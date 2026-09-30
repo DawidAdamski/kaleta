@@ -12,7 +12,7 @@ import re
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.ledger import filter_ledger_by_account, search_ledger
+from tests.e2e.ledger import filter_ledger_by_account, pick_open_menu_option, search_ledger
 from tests.e2e.seed_helpers import (
     count_transactions,
     delete_planned_transaction,
@@ -55,7 +55,7 @@ def test_create_monthly_recurring_expense(page: Page, base_url: str) -> None:
     dialog.get_by_label("Amount").fill("49")
 
     dialog.locator(".q-select").filter(has_text="Account").click()
-    page.locator(".q-menu").get_by_text("PKO Main Planned Monthly", exact=True).click()
+    pick_open_menu_option(page, "PKO Main Planned Monthly")
 
     # Category is optional — skip selecting it to avoid virtual-scroll issues
     # with large category lists.
@@ -89,7 +89,7 @@ def test_create_weekly_recurring_expense(page: Page, base_url: str) -> None:
     dialog.get_by_label("Amount").fill("300")
 
     dialog.locator(".q-select").filter(has_text="Account").click()
-    page.locator(".q-menu").get_by_text("PKO Main Planned Weekly", exact=True).click()
+    pick_open_menu_option(page, "PKO Main Planned Weekly")
 
     dialog.locator(".q-select").filter(has_text="Frequency").click()
     page.locator(".q-menu").get_by_text("Weekly", exact=True).click()
@@ -119,7 +119,7 @@ def test_create_yearly_recurring_expense(page: Page, base_url: str) -> None:
     dialog.get_by_label("Amount").fill("2400")
 
     dialog.locator(".q-select").filter(has_text="Account").click()
-    page.locator(".q-menu").get_by_text("PKO Main Planned Yearly", exact=True).click()
+    pick_open_menu_option(page, "PKO Main Planned Yearly")
 
     dialog.locator(".q-select").filter(has_text="Frequency").click()
     page.locator(".q-menu").get_by_text("Yearly", exact=True).click()
@@ -261,7 +261,7 @@ def test_create_recurring_transaction_with_end_date(page: Page, base_url: str) -
     dialog.get_by_label("Amount").fill("120")
 
     dialog.locator(".q-select").filter(has_text="Account").click()
-    page.locator(".q-menu").get_by_text("PKO Main Planned EndDate", exact=True).click()
+    pick_open_menu_option(page, "PKO Main Planned EndDate")
 
     dialog.locator(".q-select").filter(has_text="Frequency").click()
     page.locator(".q-menu").get_by_text("Monthly", exact=True).click()

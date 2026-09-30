@@ -6,6 +6,8 @@ Page URL: /accounts
 
 from __future__ import annotations
 
+import datetime
+
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.seed_helpers import (
@@ -15,6 +17,10 @@ from tests.e2e.seed_helpers import (
     seed_transfer_pair,
     update_account,
 )
+
+# Balances count every row whatever its date. An old date keeps these rows off
+# the first ledger page other tests read in the shared instance.
+OLD_DAY = datetime.date(2020, 1, 15)
 
 
 def _account_row(page: Page, name: str) -> Locator:
@@ -31,9 +37,13 @@ def test_balance_follows_income_and_expenses(page: Page, base_url: str) -> None:
     name = "PKO Main ACC5 E2E"
     account_id = seed_account(name)
     update_account(account_id, balance="1000.00")
-    seed_transaction(account_id, get_or_seed_category("Jedzenie ACC E2E"), 200.00)
+    seed_transaction(account_id, get_or_seed_category("Jedzenie ACC E2E"), 200.00, date=OLD_DAY)
     seed_transaction(
-        account_id, get_or_seed_category("Pensja ACC E2E", "income"), 50.00, tx_type="income"
+        account_id,
+        get_or_seed_category("Pensja ACC E2E", "income"),
+        50.00,
+        tx_type="income",
+        date=OLD_DAY,
     )
 
     _open_accounts(page, base_url)
@@ -49,7 +59,7 @@ def test_a_transfer_moves_both_balances(page: Page, base_url: str) -> None:
     update_account(source_id, balance="1000.00")
     target_id = seed_account(target)
     seed_transfer_pair(
-        source_id, target_id, get_or_seed_category("Jedzenie ACC E2E"), 500.00, "ACC6"
+        source_id, target_id, get_or_seed_category("Jedzenie ACC E2E"), 500.00, "ACC6", date=OLD_DAY
     )
 
     _open_accounts(page, base_url)
@@ -65,7 +75,7 @@ def test_setting_the_current_balance_by_hand(page: Page, base_url: str) -> None:
     account_id = seed_account(name)
     update_account(account_id, balance="1000.00")
     food = get_or_seed_category("Jedzenie ACC E2E")
-    seed_transaction(account_id, food, 150.00)
+    seed_transaction(account_id, food, 150.00, date=OLD_DAY)
 
     _open_accounts(page, base_url)
     row = _account_row(page, name)
@@ -83,7 +93,7 @@ def test_setting_the_current_balance_by_hand(page: Page, base_url: str) -> None:
         timeout=5000
     )
 
-    seed_transaction(account_id, food, 100.00)
+    seed_transaction(account_id, food, 100.00, date=OLD_DAY)
     _open_accounts(page, base_url)
     expect(_account_row(page, name).get_by_text("800.00 PLN", exact=True)).to_be_visible(
         timeout=5000

@@ -261,6 +261,16 @@ database seeded at the previous head.
   API integration test.
 - **Not exercised locally:** the migration and the CHECK constraint on
   PostgreSQL. The SQL is portable, but the Postgres CI job is the check.
+- **E2E and the shared instance.** The first full run with the new e2e file
+  failed 9 later tests. Without the file, all 204 passed. Those tests click
+  a menu option or ledger row without scrolling or searching, so they depend
+  on how many accounts sit in the picker and how many rows dated today sit
+  on the first ledger page. The new file's rows are now written on an old
+  date (balances count every row, so the checks are unchanged), and the four
+  account picks in `test_planned_transactions.py` use the suite's
+  `pick_open_menu_option`, which scrolls virtual lists. Two full runs after
+  that: 206/207 (one `test_split_row_indicator_and_plain_row` failure that
+  did not reproduce alone), then 207/207.
 - **Docs.** ADR-037 records the decision; `docs/architecture.md` links it.
   The existing chore about money flow's id-order guess now points at
   `transfer_direction`. A new chore covers the one-legged planned transfer.

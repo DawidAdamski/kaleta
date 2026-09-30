@@ -201,16 +201,23 @@ def seed_transfer_pair(
     category_id: int,
     amount: float,
     description: str,
+    date: datetime.date | None = None,
 ) -> tuple[int, int]:
     """Create two transfer legs that point at each other; returns both ids."""
     out_id = seed_transaction(
-        out_account_id, category_id, amount, tx_type="transfer", description=f"{description} out"
+        out_account_id,
+        category_id,
+        amount,
+        tx_type="transfer",
+        date=date,
+        description=f"{description} out",
     )
     in_id = seed_transaction(
         in_account_id,
         category_id,
         amount,
         tx_type="transfer",
+        date=date,
         description=f"{description} in",
         transfer_direction="in",
     )
