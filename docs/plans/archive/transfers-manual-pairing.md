@@ -3,14 +3,15 @@ plan_id: transfers-manual-pairing
 title: Transfer recognition — pair existing rows, suggest pairs, one summary
 area: import
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#import
+status: archived
+archived_at: 2026-09-30
+roadmap_ref: ../../roadmap.md#import
 ---
 
 # Transfer recognition — pair existing rows, suggest pairs, one summary
 
 Gap-closing plan for issue #4 (`KAL-TRF`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
+[`audit-planned-vs-code`](audit-planned-vs-code.md).
 
 ## Intent
 
@@ -141,3 +142,40 @@ i18n `en.json` / `pl.json`, `docs/bdd.md`,
   view refreshes the list, which the docstring now says.
 - **Found, not fixed** (chore inbox): Money Flow infers transfer direction
   from row ids, which pairing does not guarantee.
+
+## Implementation
+
+Landed on 2026-09-30 (PR #169).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c413e43` | Dawid Adamski | 2026-09-30 | Merge pull request #169 from DawidAdamski/plan/transfers-manual-pairing |
+
+**Files changed:**
+- alembic/versions/3b168fa7bb71_add_dismissed_transfer_pairs.py
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/transfers-manual-pairing.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/__init__.py
+- src/kaleta/models/dismissed_transfer_pair.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/transfer_section.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/transactions/table_actions.py
+- tests/backup_helpers.py
+- tests/e2e/fixtures/mbank_transfer_pairs.csv
+- tests/e2e/test_transfer_detection.py
+- tests/integration/test_transfer_pairing.py
+- tests/unit/services/test_transfer_pairing.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
