@@ -78,7 +78,9 @@ class _Recorder:
         return self._answers.pop(0)
 
 
-def _provider(recorder: Callable[[httpx.Request], httpx.Response], **kw: Any) -> SupabaseAuthProvider:
+def _provider(
+    recorder: Callable[[httpx.Request], httpx.Response], **kw: Any
+) -> SupabaseAuthProvider:
     return SupabaseAuthProvider(
         url=URL,
         anon_key=ANON,

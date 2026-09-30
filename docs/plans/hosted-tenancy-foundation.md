@@ -3,7 +3,7 @@ plan_id: hosted-tenancy-foundation
 title: Hosted — auth provider, tenant registry and schema per account
 area: auth / db / setup
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
@@ -220,4 +220,113 @@ sits with `kaleta.auth`), `docker-compose.yml`, `.github/workflows/ci.yml`,
 
 ## Implementation notes
 
-(filled in as work progresses)
+### Open questions — resolved
+
+- **`users` stays per tenant** (as the plan states). `TenantService` keeps
+  `tenant_members.email` and the tenant `users.email`/`username` in step:
+  `membership_for_sign_in` compares the provider's e-mail with the registry at
+  every sign-in and updates both. `display_name` starts as the e-mail's local
+  part and lives only in the tenant row.
+- **Provisioned at first verified sign-in**, not at sign-up (the plan's §4
+  default). Sign-up only creates the identity at Supabase and shows "check
+  your inbox"; `TenantService.provision` refuses an unverified identity.
+- **httpx, not aiohttp.** NiceGUI already depends on httpx; it is also named
+  in the `hosted` extra so the hosted install states what it calls.
+- **`hosted` vs `postgres` extras:** both kept. `hosted` now also carries the
+  PostgreSQL drivers (same pins) and httpx; `postgres` stays for self-hosters
+  on PostgreSQL who need neither Redis nor Supabase.
+
+### Decisions a reviewer should know
+
+- **Settings validator** accepts exactly two layouts: `single`+`local` and
+  `multi`+`supabase` ("refuses other combinations"). `single`+`supabase`
+  would need an identity→user mapping for a registry-less database, which no
+  plan asks for; it is refused rather than half-supported.
+- **Registry on its own metadata.** `PublicBase` (in `kaleta.db.base`) has a
+  separate `MetaData`, so `Base.metadata.create_all` and `alembic/`
+  autogenerate never see the registry; `alembic_public/` + `alembic_public.ini`
+  migrate it with version table `alembic_version_public`.
+- **Tenant migrations.** `alembic/env.py` takes `-x tenant_schema=`; on
+  PostgreSQL it applies `version_table_schema`, `schema_translate_map` *and*
+  `SET search_path` on the dedicated migration connection — data migrations
+  use raw SQL, which the translate map does not rewrite. (ADR-35's pooler
+  concern is about request connections; the migration connection is disposed
+  right after.) Verified end to end against `postgres:16`.
+- **Multi-tenant SQLite for dev and tests.** SQLite has no schemas, but an
+  attached database's alias is a schema to SQLAlchemy. In `multi` mode on
+  SQLite each schema is a file next to the main database
+  (`<stem>.<schema>.db`); a tenant schema file is migrated as a standalone
+  database (batch-mode reflection ignores the translate map). This lets the
+  isolation tests and the e2e sign-up run in `verify.sh` without a PostgreSQL
+  server; the CI `postgres-multi` job runs the same tests on real schemas.
+  **Finding:** SQLite resolves an unqualified table name in *every* attached
+  database, so one engine attaching all tenants let raw SQL (and a
+  tenant-less "public" session) reach the first tenant's rows. Each tenant now
+  gets its own SQLite engine attaching only `public` and itself; pinned by
+  `test_raw_sql_in_a_tenant_session_never_reaches_another_tenant` and
+  `test_the_public_session_cannot_see_tenant_tables`.
+- **Fail closed.** `_SessionProxy.__call__` raises `TenantContextMissingError`
+  (a `RuntimeError` → 500) in `multi` mode without a tenant;
+  `AsyncSessionFactory.public()` is the only tenant-less session (registry,
+  health). The UI middleware sets the tenant per page load; NiceGUI websocket
+  events use a resolver the auth layer installs (`session_tenant_context`),
+  because they pass no middleware.
+- **API tenant resolution** is a dependency (`resolve_request_tenant`) every
+  session dependency depends on, so it runs before the first session opens.
+  A request with a bearer token is judged by that token alone — no fallback
+  to the cookie — because the token's prefix has already chosen the schema
+  the session opens in, and the cookie could belong to another tenant.
+  No tenant → 401. `KALETA_API_TOKEN` (env bootstrap) is ignored in `multi`.
+- **Attribution** (`UserOwnedMixin.user_id` from `TenantContext.member_user_id`)
+  is one `before_flush` hook (`services/attribution.py`) rather than a line
+  per service, so no service can forget it; an explicit `user_id` wins.
+- **Revocation cache** is keyed by `(tenant_id, user_id)`: every schema
+  numbers its `users` from 1.
+- **Session keys.** `SESSION_TENANT_ID`, `SESSION_TENANT_SCHEMA`,
+  `SESSION_AUTH_SUBJECT`, `SESSION_EMAIL` (and their `rotate_*` parking
+  twins, scalar so the existing no-secrets test can see every value).
+  `login_session(..., tenant=SessionTenant)` rather than an `Identity`, since
+  the rotation route re-creates the session from parked scalars.
+  `test_session_contents.py` was *extended* to drive the tenant writers and
+  accept exactly the tenant values — no existing assertion was loosened.
+- **Supabase provider.** Checks the access token's `sub`/`email` claims against
+  the user object; the signature is not verified (token arrives straight from
+  GoTrue over TLS in answer to our own request). The GoTrue session is ended
+  right after sign-in: Kaleta's session is the session of record and nothing
+  stores the refresh token. Sign-up for an existing address and password
+  reset answer exactly as a success would (no account enumeration).
+  Password reset needs the Supabase "Reset password" template pointed at
+  `/reset-password?token_hash=…` (documented in `docs/deployment.md`); the
+  page is new (`views/reset_password.py`) because the login page's "forgot
+  password" link has to lead somewhere.
+- **Raw SQL fixed where `multi` would break it:** `BackupService.export`
+  (`SELECT *` now from the `Table`, still raw values — encrypted columns stay
+  ciphertext), `restore` (`delete(Table)`, reflection with the tenant schema)
+  and `DataService.clear_all` (`delete(transaction_tags)`). Per-account
+  export in Settings → Data works per tenant (tested).
+- **Single-tenant-only features in `multi`:** backup scheduler, event
+  retention sweep, NBP startup fetch (its tables are per tenant; per-tenant
+  sweeps are later work), the SQLite integrity card on `/housekeeping` (the
+  rest of that page — duplicate merging — is kept), the install-wide NBP
+  startup checkbox in Settings → Data, and the login page's ledger counts
+  (no tenant before sign-in, and not a stranger's to see). There is no other
+  SQLite-only card in Settings → Data: the backup card is the per-account
+  JSON export/restore, which stays.
+- **Health** reads through `get_public_session` (a tenant session would be a
+  401 in `multi`); it reports `tenants_pending_migration` (null in `single`).
+  `tests/unit/api/test_health.py` now overrides that dependency instead of
+  `get_session` — fixture wiring only.
+- **e2e** (`tests/e2e/test_tenant_signup.py`) runs the app in `multi` +
+  `supabase` against `tests/fake_gotrue.py`, an in-process GoTrue stand-in
+  whose verification link the test reads instead of a mailbox — the
+  "verification stub" of §6. This exercises the real `SupabaseAuthProvider`
+  over HTTP rather than swapping the provider class.
+
+### Not done here (by scope)
+
+- MFA on the hosted path (`auth-two-factor-hosted`), encryption and the
+  `key_ring` slot's contents (`hosted-field-encryption`), members beyond the
+  owner (`hosted-household-sharing`), deployment (`hosted-supabase-rollout`).
+- A settings validation error echoes part of `KALETA_SECRET_KEY` (pydantic
+  prints the input dict); pre-existing for every validator, filed in
+  `docs/plans/chores.md`.

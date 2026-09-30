@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """KALETA_TENANCY / KALETA_AUTH_BACKEND — only the two real layouts start.
 
-Covers: KAL-TEN-006
+Self-hosted is ``single`` + ``local``; hosted is ``multi`` + ``supabase``.
 """
 
 from __future__ import annotations
@@ -35,13 +35,13 @@ def test_multi_tenancy_with_supabase_is_accepted() -> None:
 
 
 def test_multi_tenancy_with_the_local_backend_is_refused() -> None:
-    """Covers: KAL-TEN-006"""
+    """Refused by the settings validator, before anything else can start."""
     with pytest.raises(ValidationError, match="KALETA_TENANCY=multi requires"):
         Settings.model_validate({"debug": True, "tenancy": "multi", "auth_backend": "local"})
 
 
 def test_supabase_on_a_single_tenant_database_is_refused() -> None:
-    """Covers: KAL-TEN-006"""
+    """Refused by the settings validator, before anything else can start."""
     with pytest.raises(ValidationError, match="requires KALETA_TENANCY=multi"):
         Settings.model_validate(
             {"debug": True, "tenancy": "single", "auth_backend": "supabase", **_SUPABASE}
@@ -61,7 +61,7 @@ def test_mode_names_are_case_insensitive() -> None:
 
 
 def test_importing_the_config_with_multi_and_local_exits_non_zero(tmp_path: Path) -> None:
-    """Covers: KAL-TEN-006 — the acceptance criterion's own command, as a process."""
+    """The acceptance criterion's own command, as a process."""
     env = {
         **os.environ,
         "HOME": str(tmp_path),

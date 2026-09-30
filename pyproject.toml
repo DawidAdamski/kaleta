@@ -49,8 +49,15 @@ docs = [
 tracker = [
     "sentry-sdk>=2.20",
 ]
+# The hosted layout (ADR-35): Redis for shared session state, the PostgreSQL
+# drivers (the same pins as `postgres`, which stays for self-hosters on
+# PostgreSQL), and httpx for Supabase Auth — NiceGUI already brings httpx in;
+# naming it here keeps the hosted install honest about what it calls.
 hosted = [
     "redis>=5.0",
+    "psycopg2-binary>=2.9",
+    "asyncpg>=0.29",
+    "httpx>=0.27",
 ]
 
 [project.scripts]

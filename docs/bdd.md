@@ -3363,6 +3363,58 @@ Feature: Two-factor authentication
     And failures split between the replicas add up to the same lock
 ```
 
+## Feature: Hosted accounts (multi-tenant)
+
+The hosted layout of [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md):
+`KALETA_TENANCY=multi` with `KALETA_AUTH_BACKEND=supabase`. Each account
+(household) lives in a PostgreSQL schema of its own, named `t_` plus twelve
+random hex characters; a `public` registry maps identities to accounts.
+Self-hosted installs (`single` + `local`) are untouched by all of this.
+
+```gherkin
+Feature: Hosted accounts (multi-tenant)
+  As the operator of a hosted Kaleta
+  I want every account to live in its own schema, chosen per request
+  So that no request can ever read another household's data
+
+  KAL-TEN-001 @automated
+  Scenario: Signing up and confirming the e-mail provisions an account at first login
+    Given a hosted Kaleta whose identity provider is Supabase Auth
+    When I sign up with my e-mail address and a password
+    Then I am asked to check my inbox
+    And no account schema exists yet
+    And signing in before confirming the address is refused with a request to confirm it
+    When I follow the confirmation link and sign in
+    Then a new schema named "t_" plus 12 hex characters exists for my account
+    And the schema name says nothing about my e-mail
+    And the dashboard loads
+    And signing in again reuses the same schema
+
+  KAL-TEN-002 @automated
+  Scenario: Two accounts with the same data each see only their own
+    Given two hosted accounts that each create an account named "Main Checking"
+    When each lists its data through every endpoint of the public API
+    Then each sees only its own rows, even where the row ids are the same
+    And each account's data export holds only that account's rows
+
+  KAL-TEN-003 @automated
+  Scenario: A request that does not know its account fails closed
+    Given a hosted Kaleta with data in one account
+    When a request reaches a data endpoint without its account having been resolved
+    Then it fails with a server error
+    And it shows no data from any account
+    And a request with no credentials at all is refused as unauthorized
+
+  KAL-TEN-004 @automated
+  Scenario: An API token works only for the account that issued it
+    Given two hosted accounts, each with its own API token
+    When the secret of the first account's token is presented under the second account's prefix
+    Or under the prefix of an account that does not exist
+    Or with no account prefix at all
+    Then the request is refused as unauthorized
+    And each token keeps working on its own account
+```
+
 ## Feature: Demo instance
 
 ```gherkin

@@ -47,7 +47,9 @@ def _drop_postgres_multi_tenant_state(url: str) -> None:
     try:
         with engine.begin() as conn:
             schemas = conn.execute(
-                text("SELECT schema_name FROM information_schema.schemata WHERE schema_name ~ '^t_'")
+                text(
+                    "SELECT schema_name FROM information_schema.schemata WHERE schema_name ~ '^t_'"
+                )
             ).scalars()
             for schema in list(schemas):
                 conn.execute(text(f"DROP SCHEMA {quote_schema(schema)} CASCADE"))

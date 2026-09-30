@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """TenantService — the hosted registry and provisioning (ADR-35).
 
-Covers: KAL-TEN-001, KAL-TEN-005
+Covers: KAL-TEN-001
 """
 
 from __future__ import annotations
@@ -161,7 +161,7 @@ async def test_an_email_changed_at_the_provider_follows_into_both_rows(hosted: s
 
 
 async def test_deleting_a_tenant_drops_its_schema_and_rows(hosted: str) -> None:
-    """Covers: KAL-TEN-005"""
+    """The schema goes with the account."""
     provisioner = MetadataProvisioner(hosted)
     async with AsyncSessionFactory.public() as public:
         service = TenantService(public, provisioner=provisioner)

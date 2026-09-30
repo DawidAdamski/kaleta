@@ -60,7 +60,7 @@ anonymized fixture first (`tests/e2e/fixtures/import/README.md`).
 | Option           | Use Case                                      |
 |------------------|-----------------------------------------------|
 | SQLite (default) | Single-user, local, zero-config               |
-| PostgreSQL (opt) | Multi-user, production, advanced features     |
+| PostgreSQL (opt) | Self-hosted on Postgres, or the hosted multi-tenant layout (schema per account, ADR-35) |
 
 Enum columns use `SAEnum(..., native_enum=False)` for SQLite round-trip compatibility.
 Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
@@ -165,6 +165,31 @@ KALETA_BACKUP_INTERVAL_HOURS=24       # Hours between scheduled backups
 KALETA_BACKUP_RETAIN=7                # Keep last K on-disk .db snapshots
 KALETA_BACKUP_DIR=~/.kaleta/backups   # Directory for kaleta-*.db files (not ZIP exports)
 ```
+
+### Hosted multi-tenancy (ADR-35)
+
+```
+KALETA_TENANCY=single                 # single (self-hosted, default) | multi (hosted)
+KALETA_AUTH_BACKEND=local             # local (argon2 users table) | supabase (Supabase Auth)
+                                      # only single+local and multi+supabase start
+KALETA_SUPABASE_URL=                  # https://<project>.supabase.co — required for supabase
+KALETA_SUPABASE_ANON_KEY=             # public anon key — required for supabase
+KALETA_SUPABASE_SERVICE_ROLE_KEY=     # server-side only: admin calls (deleting an identity)
+KALETA_PUBLIC_URL=                    # this instance's URL, for links in e-mails
+```
+
+In `multi` mode the database is `KALETA_DB_URL` (no first-run wizard, no
+`~/.kaleta/config.json`). A `public` registry (`tenants`, `tenant_members`,
+`tenant_invites`, migrated by `alembic_public/`) names each account's schema
+(`t_` + 12 random hex characters); tenant schemas are migrated by `alembic/`
+with `-x tenant_schema=`. Every session is bound to the current tenant with
+SQLAlchemy's `schema_translate_map` — never `SET search_path` — and a request
+that has not resolved its tenant gets no session at all. API tokens are
+`kt_<tenant>_<secret>` so the tenant is known before the token is looked up.
+Scheduled SQLite backups, the event retention sweep, the NBP startup fetch
+and the SQLite integrity check are single-tenant only. Multi-tenant SQLite
+(every schema an attached file next to the main one) exists for development
+and tests; production runs PostgreSQL.
 
 ### Observability and bug reports
 
