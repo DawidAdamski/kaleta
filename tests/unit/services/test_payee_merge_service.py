@@ -102,6 +102,20 @@ class TestProposeMerges:
         # name 1 − 5/11 → 0.5·0.5455 + identity 0.3·1.0 + merchant key 0.2·1.0
         assert (proposal.score, proposal.reason) == (0.7727, PayeeMergeReason.IDENTITY)
 
+    async def test_pair_inside_a_detector_group_is_left_out(self, session: AsyncSession) -> None:
+        a = await _payee(session, "Rossmann Drogeria 12")
+        b = await _payee(session, "Rossmann Drogeria 13")
+        c = await _payee(session, "Decathlon Sport 1234")
+        d = await _payee(session, "Decathlon Sport 1987")
+
+        # The two Rossmann rows are already one detector group; the Decathlon
+        # pair is split across groups, so it still needs proposing.
+        proposals = await PayeeMergeService(session).propose_merges(grouped=[[a, b], [c], [d]])
+
+        assert [(p.left_name, p.right_name) for p in proposals] == [
+            ("Decathlon Sport 1234", "Decathlon Sport 1987")
+        ]
+
     async def test_dismissed_pair_is_skipped(self, session: AsyncSession) -> None:
         a = await _payee(session, "Rossmann Drogeria 12")
         b = await _payee(session, "Rossmann Drogeria 13")

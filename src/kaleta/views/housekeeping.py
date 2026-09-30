@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
 
@@ -34,6 +34,9 @@ from kaleta.views.theme import (
     SECTION_HEADING,
 )
 
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 
 def register() -> None:
     @ui.page("/housekeeping")
@@ -42,7 +45,7 @@ def register() -> None:
         payee_max_distance = get_payee_dedupe_max_distance()
 
         async def _load(
-            session: Any,
+            session: AsyncSession,
         ) -> tuple[
             list[TxGroup],
             list[PayeeGroup],
@@ -52,10 +55,13 @@ def register() -> None:
         ]:
             svc = DedupeService(session)
             merge_svc = PayeeMergeService(session)
+            payee_groups = await svc.similar_payees(payee_max_distance=payee_max_distance)
             return (
                 await svc.duplicate_transactions(window_days=dup_window_days),
-                await svc.similar_payees(payee_max_distance=payee_max_distance),
-                await merge_svc.propose_merges(),
+                payee_groups,
+                await merge_svc.propose_merges(
+                    grouped=[[item.id for item in g.items] for g in payee_groups]
+                ),
                 await merge_svc.recent_auto_merges(),
                 await svc.redundant_categories(),
             )
@@ -67,7 +73,6 @@ def register() -> None:
             recent_merges,
             category_groups,
         ) = await with_session(_load)
-        proposals = _uncovered_proposals(proposals, payee_groups)
 
         with page_layout(t("housekeeping.title"), wide=True):
             # ── Header ───────────────────────────────────────────────────
@@ -199,7 +204,7 @@ def _render_proposal(proposal: MergeProposal, ask_confirm: Any) -> None:
     )
 
     async def _dismiss() -> None:
-        async def _run(session: Any) -> None:
+        async def _run(session: AsyncSession) -> None:
             await PayeeMergeService(session).dismiss(proposal.left_id, proposal.right_id)
 
         await with_session(_run)
@@ -217,18 +222,6 @@ def _render_proposal(proposal: MergeProposal, ask_confirm: Any) -> None:
         ),
         on_dismiss=_dismiss,
     )
-
-
-def _uncovered_proposals(
-    proposals: list[MergeProposal], groups: list[PayeeGroup]
-) -> list[MergeProposal]:
-    """Proposals whose pair is not already sitting together in a detector group."""
-    group_of = {item.id: index for index, g in enumerate(groups) for item in g.items}
-    return [
-        p
-        for p in proposals
-        if p.left_id not in group_of or group_of[p.left_id] != group_of.get(p.right_id)
-    ]
 
 
 def _render_recent_merges_section(entries: list[AutoMergeEntry]) -> None:
@@ -250,7 +243,7 @@ def _render_recent_merges_section(entries: list[AutoMergeEntry]) -> None:
                 ui.label(entry.merged_at.date().isoformat()).classes("text-xs text-slate-500")
 
                 async def _undo(_e: object = None, record_id: int = entry.id) -> None:
-                    async def _run(session: Any) -> None:
+                    async def _run(session: AsyncSession) -> None:
                         await PayeeMergeService(session).undo(record_id)
 
                     try:

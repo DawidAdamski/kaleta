@@ -2,7 +2,8 @@
 from __future__ import annotations
 
 import html
-from typing import Any
+from collections.abc import Awaitable, Callable
+from typing import TYPE_CHECKING, Any
 
 from nicegui import ui
 
@@ -29,6 +30,9 @@ from kaleta.views.theme import (
     SELECTION_BAR,
     TABLE_SURFACE,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 def register() -> None:
@@ -283,7 +287,7 @@ def register() -> None:
         @ui.refreshable
         async def payees_list() -> None:
             async def _load(
-                session: Any,
+                session: AsyncSession,
             ) -> tuple[list[tuple[PayeeResponse, int]], dict[int, list[PayeeIdentityResponse]]]:
                 svc = PayeeService(session)
                 rows_with_counts = await svc.list_with_counts()
@@ -379,7 +383,7 @@ def register() -> None:
                 selection_bar.refresh()
 
             async def _refresh_identities(payee_id: int) -> None:
-                async def _load_one(session: Any) -> list[PayeeIdentityResponse]:
+                async def _load_one(session: AsyncSession) -> list[PayeeIdentityResponse]:
                     items = await PayeeService(session).list_identities(payee_id)
                     return [PayeeIdentityResponse.model_validate(i) for i in items]
 
@@ -389,7 +393,9 @@ def register() -> None:
                         row.update(_identity_fields(fresh))
                 tbl.update()
 
-            async def _identity_call(payee_id: int, action: Any) -> bool:
+            async def _identity_call(
+                payee_id: int, action: Callable[[AsyncSession], Awaitable[None]]
+            ) -> bool:
                 try:
                     await with_session(action)
                 except Exception as exc:
@@ -408,7 +414,7 @@ def register() -> None:
                     return
                 data = PayeeIdentityCreate(pattern=pattern[:200])
 
-                async def _add(session: Any) -> None:
+                async def _add(session: AsyncSession) -> None:
                     await PayeeService(session).add_identity(payee_id, data)
 
                 if await _identity_call(payee_id, _add):
@@ -424,7 +430,7 @@ def register() -> None:
                     return
                 data = PayeeIdentityUpdate(pattern=pattern[:200])
 
-                async def _edit(session: Any) -> None:
+                async def _edit(session: AsyncSession) -> None:
                     await PayeeService(session).update_identity(payee_id, identity_id, data)
 
                 if await _identity_call(payee_id, _edit):
@@ -438,7 +444,7 @@ def register() -> None:
                 if payee is None:
                     return
 
-                async def _delete(session: Any) -> None:
+                async def _delete(session: AsyncSession) -> None:
                     await PayeeService(session).delete_identity(payee_id, identity_id)
 
                 try:

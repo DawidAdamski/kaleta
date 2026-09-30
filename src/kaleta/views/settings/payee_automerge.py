@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 
 from nicegui import ui
 
@@ -21,6 +21,9 @@ from kaleta.views.settings.user_prefs import (
     get_payee_automerge_enabled,
     get_payee_automerge_threshold,
 )
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
 
 
 class PayeeAutoMergeSettings:
@@ -67,7 +70,7 @@ class PayeeAutoMergeSettings:
     async def _run_scan() -> None:
         threshold = get_payee_automerge_threshold() if get_payee_automerge_enabled() else None
 
-        async def _scan(session: Any) -> MergeScanResult:
+        async def _scan(session: AsyncSession) -> MergeScanResult:
             return await PayeeMergeService(session).scan(auto_merge_threshold=threshold)
 
         try:

@@ -201,8 +201,8 @@ Out of scope:
 - **Dismissals** persist in `dismissed_payee_merges` (ids stored lowest
   first, CASCADE on either payee).
 - **Housekeeping list.** Proposals whose two payees already sit in one
-  `DedupeService.similar_payees` group are hidden, so a pair is never
-  offered twice; the rest render under "Similar payees" with confidence,
+  `DedupeService.similar_payees` group are hidden
+  (`propose_merges(grouped=...)`), so a pair is never offered twice; the rest render under "Similar payees" with confidence,
   reason and a "Not the same" (dismiss) button.
 - **Performance.** `propose_merges` is O(n²) over payees with a
   bag-distance upper bound skipping most Levenshtein calls: ~0.6 s for 400

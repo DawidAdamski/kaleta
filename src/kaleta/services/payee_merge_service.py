@@ -22,8 +22,9 @@ import builtins
 import datetime
 import functools
 from collections import Counter
+from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Any
+from typing import TypedDict, cast
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,6 +68,16 @@ _PAYEE_FIELDS = (
 
 
 # ── Shapes ────────────────────────────────────────────────────────────────────
+
+
+class AutoMergeSnapshot(TypedDict):
+    """What ``PayeeAutoMerge.snapshot`` holds: all undo needs to give back."""
+
+    fields: dict[str, str | int | None]
+    identity_ids: builtins.list[int]
+    transaction_ids: builtins.list[int]
+    planned_transaction_ids: builtins.list[int]
+    subscription_ids: builtins.list[int]
 
 
 @dataclass(frozen=True)
@@ -126,15 +137,26 @@ class PayeeMergeService:
     # ── Proposals ─────────────────────────────────────────────────────────
 
     async def propose_merges(
-        self, *, min_score: float = PROPOSAL_THRESHOLD
+        self,
+        *,
+        min_score: float = PROPOSAL_THRESHOLD,
+        grouped: Iterable[Iterable[int]] = (),
     ) -> builtins.list[MergeProposal]:
-        """Every undismissed pair of payees scoring at least *min_score*, best first."""
+        """Every undismissed pair of payees scoring at least *min_score*, best first.
+
+        *grouped* are payee-id groups already offered for merging elsewhere
+        (the similar-payees detector); a pair inside one of them is left out
+        so the user is never offered the same merge twice.
+        """
         candidates = await self._candidates()
         dismissed = await self._dismissed_pairs()
+        group_of = {pid: index for index, ids in enumerate(grouped) for pid in ids}
         proposals: builtins.list[MergeProposal] = []
         for i, a in enumerate(candidates):
             for b in candidates[i + 1 :]:
                 if _pair(a.id, b.id) in dismissed:
+                    continue
+                if a.id in group_of and group_of[a.id] == group_of.get(b.id):
                     continue
                 scored = _score(a, b, min_score)
                 if scored is None:
@@ -246,8 +268,8 @@ class PayeeMergeService:
         if moment - _aware(record.created_at) > UNDO_WINDOW:
             raise ConflictError("This merge is older than 7 days and can no longer be undone")
         keeper_id = record.keeper_id
-        snapshot: dict[str, Any] = record.snapshot
-        fields: dict[str, Any] = snapshot["fields"]
+        snapshot = cast("AutoMergeSnapshot", record.snapshot)
+        fields = snapshot["fields"]
         clash = await self.session.execute(select(Payee.id).where(Payee.name == fields["name"]))
         if clash.first() is not None:
             raise ConflictError(f"A payee named '{fields['name']}' already exists")
@@ -263,12 +285,14 @@ class PayeeMergeService:
         self.session.add(restored)
         await self.session.flush()
 
-        for model, key in (
-            (Transaction, "transaction_ids"),
-            (PlannedTransaction, "planned_transaction_ids"),
-            (Subscription, "subscription_ids"),
-        ):
-            ids = snapshot[key]
+        repointed: tuple[
+            tuple[type[Transaction | PlannedTransaction | Subscription], list[int]], ...
+        ] = (
+            (Transaction, snapshot["transaction_ids"]),
+            (PlannedTransaction, snapshot["planned_transaction_ids"]),
+            (Subscription, snapshot["subscription_ids"]),
+        )
+        for model, ids in repointed:
             if ids:
                 await self.session.execute(
                     update(model)
@@ -285,17 +309,24 @@ class PayeeMergeService:
         merged = await self.session.get(Payee, merged_id)
         if merged is None:
             raise NotFoundError("Payee not found")
-        snapshot: dict[str, Any] = {
-            "fields": {field: getattr(merged, field) for field in _PAYEE_FIELDS},
-            "transaction_ids": await self._ids_of(Transaction, merged_id),
-            "planned_transaction_ids": await self._ids_of(PlannedTransaction, merged_id),
-            "subscription_ids": await self._ids_of(Subscription, merged_id),
+        fields: dict[str, str | int | None] = {
+            field: getattr(merged, field) for field in _PAYEE_FIELDS
         }
-        snapshot["identity_ids"] = await PayeeService(self.session).absorb_identities(
-            keeper_id, [merged_id]
+        transaction_ids = await self._ids_of(Transaction, merged_id)
+        planned_ids = await self._ids_of(PlannedTransaction, merged_id)
+        subscription_ids = await self._ids_of(Subscription, merged_id)
+        snapshot = AutoMergeSnapshot(
+            fields=fields,
+            identity_ids=await PayeeService(self.session).absorb_identities(keeper_id, [merged_id]),
+            transaction_ids=transaction_ids,
+            planned_transaction_ids=planned_ids,
+            subscription_ids=subscription_ids,
         )
         record = PayeeAutoMerge(
-            keeper_id=keeper_id, merged_name=merged.name, score=score, snapshot=snapshot
+            keeper_id=keeper_id,
+            merged_name=merged.name,
+            score=score,
+            snapshot=dict(snapshot),
         )
         self.session.add(record)
         await self.session.flush()
@@ -449,6 +480,7 @@ __all__ = [
     "PROPOSAL_THRESHOLD",
     "UNDO_WINDOW",
     "AutoMergeEntry",
+    "AutoMergeSnapshot",
     "MergeProposal",
     "MergeScanResult",
     "PayeeMergeService",
