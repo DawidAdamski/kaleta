@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.api.deps import get_session
+from kaleta.exceptions import KaletaError
 from kaleta.schemas.account import AccountCreate, AccountResponse, AccountUpdate
 from kaleta.services.account_service import AccountService
 
@@ -40,7 +41,7 @@ async def create_account(
     created = await svc.create(data)
     response = await svc.get_response(created.id)
     if response is None:
-        raise HTTPException(status_code=404, detail="Account not found")
+        raise KaletaError(f"Account id={created.id} not found after commit")
     return response
 
 

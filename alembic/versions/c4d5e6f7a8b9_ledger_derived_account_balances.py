@@ -37,6 +37,7 @@ depends_on: str | Sequence[str] | None = None
 logger = logging.getLogger("alembic.runtime.migration")
 
 # Enums are stored by member name (no ``values_callable`` on the models).
+# Constant SQL, no user input: interpolated into the two UPDATEs below.
 _SIGNED_LEDGER = """
     SELECT COALESCE(SUM(CASE
         WHEN t.type = 'INCOME' THEN t.amount
@@ -91,9 +92,7 @@ def upgrade() -> None:
         )
 
     bind.execute(
-        sa.text(
-            f"UPDATE accounts SET opening_balance = opening_balance - ({_SIGNED_LEDGER})"  # noqa: S608 — constant SQL, no user input
-        )
+        sa.text(f"UPDATE accounts SET opening_balance = opening_balance - ({_SIGNED_LEDGER})")
     )
 
 
@@ -101,9 +100,7 @@ def downgrade() -> None:
     bind = op.get_bind()
     # Back to a stored figure: the balance as it stands today.
     bind.execute(
-        sa.text(
-            f"UPDATE accounts SET opening_balance = opening_balance + ({_SIGNED_LEDGER})"  # noqa: S608 — constant SQL, no user input
-        )
+        sa.text(f"UPDATE accounts SET opening_balance = opening_balance + ({_SIGNED_LEDGER})")
     )
     with op.batch_alter_table("accounts", schema=None) as batch_op:
         batch_op.alter_column(
