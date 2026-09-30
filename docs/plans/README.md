@@ -307,7 +307,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [wizard-pay-yourself-salary](archive/wizard-pay-yourself-salary.md) | archived | Wizard — dogfooding gap (Coming soon tile) |
 | [reports-money-flow](archive/reports-money-flow.md) | archived | Reports — money flow Sankey |
 | [rules-auto-categorisation](archive/rules-auto-categorisation.md) | archived | Import / Rules |
-| [payees-identities-automerge](payees-identities-automerge.md) | draft | Payees |
+| [payees-identities-automerge](archive/payees-identities-automerge.md) | archived | Payees |
 | [auth-two-factor](archive/auth-two-factor.md) | archived | Auth — see Hosted programme |
 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | Observability — see Hosted programme |
 | [settings-week-debug-seed](archive/settings-week-debug-seed.md) | archived | Settings |
