@@ -94,6 +94,13 @@ def list_payees() -> list[dict[str, Any]]:
     return list(resp.json())
 
 
+def list_payee_identities(payee_id: int) -> list[str]:
+    """A payee's identity patterns, oldest first."""
+    resp = _client.get(f"{API_BASE}/payees/{payee_id}/identities")
+    resp.raise_for_status()
+    return [item["pattern"] for item in resp.json()]
+
+
 def get_or_seed_payee(name: str) -> int:
     """Return an existing payee's id by exact name, or create it."""
     for payee in list_payees():

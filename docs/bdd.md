@@ -700,6 +700,92 @@ Feature: Payee Identities
     Given transactions across several payees exist
     When I open the "Top payees" report
     Then I see payees ranked by total amount spent in the selected period
+
+  KAL-PID-004 @automated
+  Scenario: Add an identity to a payee inline
+    Given there is a payee "Lidl sp z o o"
+    When I expand its identities on the Payees page
+    And I add the identity "LIDL POZNAN"
+    Then the payee's identities read "Lidl sp z o o" and "LIDL POZNAN"
+    And there is still a single payee "Lidl sp z o o"
+
+  KAL-PID-005 @automated
+  Scenario: A transaction under an identity's spelling attaches to that payee
+    Given the payee "Lidl sp z o o" has the identity "LIDL POZNAN"
+    When I save a transaction with the payee name "LIDL POZNAN"
+    Then the transaction belongs to "Lidl sp z o o"
+    And no payee named "LIDL POZNAN" is created
+
+  KAL-PID-006 @automated
+  Scenario: Imported rows match identities, ignoring case
+    Given the payee "Lidl sp z o o" has the identity "LIDL POZNAN"
+    When I import an mBank row whose counterparty is "Lidl Poznan"
+    Then the imported row belongs to "Lidl sp z o o"
+    And a row whose counterparty is "ROSSMANN 12" creates the payee "ROSSMANN 12"
+
+  KAL-PID-007 @automated
+  Scenario: Merging payees consolidates their identities
+    Given the payee "ORLEN SA" and the payee "ORLEN STACJA 401" with the identity "PKN ORLEN 401"
+    When I merge "ORLEN STACJA 401" into "ORLEN SA" in Housekeeping
+    Then "ORLEN SA" has the identities "ORLEN SA", "ORLEN STACJA 401" and "PKN ORLEN 401"
+    And a transaction with the payee name "PKN ORLEN 401" belongs to "ORLEN SA"
+
+  KAL-PID-008 @automated
+  Scenario: Deleting the last identity offers to delete the payee
+    Given there is a payee "Kiosk Ruch" with only its own name as identity
+    When I remove that identity on the Payees page
+    Then I am asked whether to delete the payee "Kiosk Ruch" instead
+    And confirming deletes the payee
+
+  KAL-PID-009 @automated
+  Scenario: Upgrading gives every existing payee one identity
+    Given payees "Biedronka" and "ŻABKA  Poznań" exist before the identities upgrade
+    When the database is upgraded
+    Then "Biedronka" has exactly one identity "Biedronka"
+    And "ŻABKA  Poznań" has exactly one identity "ŻABKA Poznań"
+
+  KAL-PID-010 @automated
+  Scenario: Auto-merge merges confident pairs and proposes the rest
+    Given payees "Rossmann Drogeria 12" and "Rossmann Drogeria 13" (name similarity 0.95)
+    And payees "Decathlon Sport 1234" and "Decathlon Sport 1987" (name similarity 0.85)
+    And auto-merge is on at threshold 0.92
+    When the merge scan runs
+    Then "Rossmann Drogeria 13" is merged into "Rossmann Drogeria 12" with score 0.96
+    And "Decathlon Sport 1234" and "Decathlon Sport 1987" stay as a proposal with score 0.88
+
+  KAL-PID-011 @automated
+  Scenario: A dismissed merge proposal is not proposed again
+    Given the merge proposal "Decathlon Sport 1234" and "Decathlon Sport 1987"
+    When I dismiss it
+    Then the merge proposals no longer list that pair
+
+  KAL-PID-012 @automated
+  Scenario: Undo an automatic merge within 7 days
+    Given "Rossmann Drogeria 13" was auto-merged into "Rossmann Drogeria 12" with its transaction
+    When I undo that merge from "Recently merged" within 7 days
+    Then "Rossmann Drogeria 13" exists again with its identity and its transaction
+    And after 7 days the same merge can no longer be undone
+
+  KAL-PID-013 @automated
+  Scenario: A spelling belongs to one payee only
+    Given the payee "Lidl sp z o o" has the identity "LIDL POZNAN"
+    When I add the identity "lidl poznan" to the payee "Kaufland"
+    Then I am told the spelling already belongs to "Lidl sp z o o"
+    And removing the last identity of "Kaufland" is refused
+
+  KAL-PID-014 @manual
+  Scenario: Run the merge scan from Settings
+    Given auto-merge is on in Settings → Features → Housekeeping at threshold 0.92
+    When I click "Run merge scan now"
+    Then a toast reports how many payees were merged and how many proposals remain
+    And the merged pairs appear under "Recently merged" on the Housekeeping page
+
+  KAL-PID-015 @manual
+  Scenario: Merge proposals appear on the Housekeeping page
+    Given two payees score at least 0.75 but are not grouped by the similar-payees detector
+    When I open the Housekeeping page
+    Then the "Similar payees" section lists the pair with its confidence
+    And "Not the same" dismisses it for good
 ```
 
 ---
