@@ -170,8 +170,12 @@ def seed_transaction(
     description: str = "seed",
     payee_id: int | None = None,
     notes: str | None = None,
+    transfer_direction: str | None = None,
 ) -> int:
-    """Create a single transaction; returns its ID."""
+    """Create a single transaction; returns its ID.
+
+    A transfer leg defaults to ``out`` (money leaving *account_id*).
+    """
     body: dict[str, Any] = {
         "account_id": account_id,
         "category_id": category_id,
@@ -180,6 +184,8 @@ def seed_transaction(
         "date": str(date or datetime.date.today()),
         "description": description,
     }
+    if tx_type == "transfer":
+        body["transfer_direction"] = transfer_direction or "out"
     if payee_id is not None:
         body["payee_id"] = payee_id
     if notes is not None:
@@ -195,13 +201,25 @@ def seed_transfer_pair(
     category_id: int,
     amount: float,
     description: str,
+    date: datetime.date | None = None,
 ) -> tuple[int, int]:
     """Create two transfer legs that point at each other; returns both ids."""
     out_id = seed_transaction(
-        out_account_id, category_id, amount, tx_type="transfer", description=f"{description} out"
+        out_account_id,
+        category_id,
+        amount,
+        tx_type="transfer",
+        date=date,
+        description=f"{description} out",
     )
     in_id = seed_transaction(
-        in_account_id, category_id, amount, tx_type="transfer", description=f"{description} in"
+        in_account_id,
+        category_id,
+        amount,
+        tx_type="transfer",
+        date=date,
+        description=f"{description} in",
+        transfer_direction="in",
     )
     for tx_id, other in ((out_id, in_id), (in_id, out_id)):
         resp = _client.put(

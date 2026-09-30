@@ -110,7 +110,7 @@ async def test_integrity_clean_and_orphan(session: AsyncSession) -> None:
     await session.execute(text("PRAGMA foreign_keys=OFF"))
     await session.execute(
         text(
-            "INSERT INTO accounts (name, type, balance, currency, institution_id) "
+            "INSERT INTO accounts (name, type, opening_balance, currency, institution_id) "
             "VALUES ('Orphan', 'checking', 0, 'PLN', 99999)"
         )
     )

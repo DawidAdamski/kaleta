@@ -7,7 +7,7 @@ from typing import Annotated, Any, cast
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, model_validator
 
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 
 __all__ = [
     "TransactionBase",
@@ -17,6 +17,7 @@ __all__ = [
     "TransactionSplitResponse",
     "TransactionType",
     "TransactionUpdate",
+    "TransferDirection",
 ]
 
 
@@ -55,6 +56,9 @@ class TransactionBase(BaseModel):
     # Exchange rate for cross-currency transfers: dest_currency per 1 src_currency unit
     exchange_rate: Decimal | None = None
     type: TransactionType
+    # Required on a transfer leg (``out`` = money left this account), absent
+    # on everything else. See ``TransferDirection``.
+    transfer_direction: TransferDirection | None = None
     date: datetime.date
     description: str = Field(default="", max_length=500)
     notes: Notes = None
@@ -76,6 +80,10 @@ class TransactionCreate(TransactionBase):
     def validate_rules(self) -> TransactionCreate:
         if self.is_internal_transfer and self.type != TransactionType.TRANSFER:
             raise ValueError("Internal transfers must have type='transfer'.")
+        if self.type == TransactionType.TRANSFER and self.transfer_direction is None:
+            raise ValueError("A transfer leg needs transfer_direction ('out' or 'in').")
+        if self.type != TransactionType.TRANSFER and self.transfer_direction is not None:
+            raise ValueError("Only a transfer leg has a transfer_direction.")
         if self.type in (TransactionType.INCOME, TransactionType.EXPENSE):
             if self.is_split:
                 if not self.splits:
@@ -102,6 +110,7 @@ class TransactionUpdate(BaseModel):
     payee_id: int | None = None
     amount: Decimal | None = Field(default=None, decimal_places=2)
     type: TransactionType | None = None
+    transfer_direction: TransferDirection | None = None
     date: datetime.date | None = None
     description: str | None = Field(default=None, max_length=500)
     notes: Notes = None

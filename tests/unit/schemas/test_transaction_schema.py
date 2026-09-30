@@ -9,7 +9,7 @@ from decimal import Decimal
 import pytest
 from pydantic import ValidationError
 
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.transaction import (
     TransactionCreate,
     TransactionSplitCreate,
@@ -62,6 +62,7 @@ class TestTransactionCreate:
             category_id=None,
             amount=Decimal("500.00"),
             type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.OUT,
             date=TODAY,
             description="Transfer",
             is_internal_transfer=True,
@@ -136,6 +137,7 @@ class TestTransactionCreate:
             **_base(
                 category_id=None,
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 is_internal_transfer=True,
             )
         )
@@ -243,6 +245,7 @@ class TestTransactionExchangeRate:
             category_id=None,
             amount=Decimal("500.00"),
             type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.OUT,
             date=TODAY,
             description="Cross-currency transfer",
             is_internal_transfer=True,

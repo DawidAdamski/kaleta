@@ -31,7 +31,8 @@ class TestAccountServiceCreate:
 
     async def test_create_sets_defaults(self, svc: AccountService):
         account = await svc.create(AccountCreate(name="Test"))
-        assert account.balance == Decimal("0.00")
+        assert account.opening_balance == Decimal("0.00")
+        assert await svc.balance(account.id) == Decimal("0.00")
         assert account.type == AccountType.CHECKING
 
     async def test_create_preserves_all_fields(self, svc: AccountService):
@@ -40,7 +41,9 @@ class TestAccountServiceCreate:
         )
         assert account.name == "Savings"
         assert account.type == AccountType.SAVINGS
-        assert account.balance == Decimal("1234.56")
+        # A new account has no rows yet: the balance given is the opening one.
+        assert account.opening_balance == Decimal("1234.56")
+        assert await svc.balance(account.id) == Decimal("1234.56")
 
     @pytest.mark.parametrize("payload", SQL_INJECTION_NAMES)
     async def test_sql_injection_name_stored_verbatim(self, svc: AccountService, payload: str):
@@ -105,22 +108,6 @@ class TestAccountServiceDelete:
     async def test_delete_nonexistent_returns_false(self, svc: AccountService):
         result = await svc.delete(99999)
         assert result is False
-
-
-class TestAccountServiceAdjustBalance:
-    async def test_adjust_balance_positive(self, svc: AccountService):
-        account = await svc.create(AccountCreate(name="Test", balance=Decimal("100.00")))
-        await svc.adjust_balance(account.id, Decimal("50.00"))
-        updated = await svc.get(account.id)
-        assert updated is not None
-        assert updated.balance == Decimal("150.00")
-
-    async def test_adjust_balance_negative(self, svc: AccountService):
-        account = await svc.create(AccountCreate(name="Test", balance=Decimal("100.00")))
-        await svc.adjust_balance(account.id, Decimal("-30.00"))
-        updated = await svc.get(account.id)
-        assert updated is not None
-        assert updated.balance == Decimal("70.00")
 
 
 class TestAccountServiceListWithActivity:

@@ -886,6 +886,7 @@
     "new_name_placeholder": "Keep the keeper's name"
   },
   "accounts": {
+    "balance_hint": "Enter what your bank shows. Your transactions stay as they are.",
     "title": "Accounts",
     "add": "Add Account",
     "edit": "Edit Account",

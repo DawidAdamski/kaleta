@@ -34,6 +34,7 @@ from kaleta.seeders import (
     seed_features,
     seed_status,
 )
+from kaleta.services.account_service import AccountService
 
 #: The table behind each feature, for the "only its own rows" assertions.
 _MODEL_FOR = {
@@ -211,6 +212,9 @@ class TestLedgerShape:
     async def test_account_balances_match_the_rows_behind_them(self, session: AsyncSession) -> None:
         await seed_features(session, ["transactions"])
         accounts = (await session.execute(select(Account))).scalars().all()
-        # Every account the ledger posts to ends up with a balance the rows
-        # explain — zero would mean the builder never applied them.
-        assert any(account.balance != 0 for account in accounts)
+        # Balances are derived from the rows, so the builder opens every
+        # account at zero and the ledger alone moves them — all-zero balances
+        # would mean it wrote nothing that counts.
+        assert all(account.opening_balance == 0 for account in accounts)
+        balances = await AccountService(session).balances()
+        assert any(balance != 0 for balance in balances.values())

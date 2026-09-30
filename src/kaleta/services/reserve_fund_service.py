@@ -9,7 +9,6 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ValidationError
-from kaleta.models.account import Account
 from kaleta.models.reserve_fund import (
     ReserveFund,
     ReserveFundBackingMode,
@@ -21,6 +20,7 @@ from kaleta.schemas.reserve_fund import (
     ReserveFundUpdate,
     ReserveFundWithProgress,
 )
+from kaleta.services.account_service import AccountService
 
 TRAILING_WINDOW_DAYS = 90
 
@@ -115,9 +115,7 @@ class ReserveFundService:
         return True
 
     async def _account_balance(self, account_id: int) -> Decimal:
-        result = await self.session.execute(select(Account.balance).where(Account.id == account_id))
-        bal = result.scalar_one_or_none()
-        return bal if bal is not None else Decimal("0.00")
+        return await AccountService(self.session).balance(account_id)
 
     async def trailing_monthly_expense(
         self,

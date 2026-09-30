@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
@@ -239,6 +239,7 @@ class TestMoneyFlowBuild:
                 account_id=checking,
                 amount=Decimal("500"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=d,
                 description="to savings",
                 is_internal_transfer=True,
@@ -247,6 +248,7 @@ class TestMoneyFlowBuild:
                 account_id=savings,
                 amount=Decimal("500"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.IN,
                 date=d,
                 description="from checking",
                 is_internal_transfer=True,
@@ -287,6 +289,7 @@ class TestMoneyFlowBuild:
                 account_id=checking,
                 amount=Decimal("100"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=d,
                 description="to savings",
                 is_internal_transfer=True,
@@ -295,6 +298,7 @@ class TestMoneyFlowBuild:
                 account_id=savings,
                 amount=Decimal("100"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.IN,
                 date=d,
                 description="from checking",
                 is_internal_transfer=True,

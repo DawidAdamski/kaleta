@@ -3,7 +3,17 @@ import enum
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    Date,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -18,6 +28,19 @@ class TransactionType(str, enum.Enum):  # noqa: UP042
     TRANSFER = "transfer"
 
 
+class TransferDirection(enum.StrEnum):
+    """Which way the money moved on one leg of a transfer.
+
+    ``amount`` is unsigned on every row, and ``type`` gives the sign of an
+    income or an expense. A transfer leg needs this to say whether the money
+    left its account (``out``) or arrived on it (``in``), and account
+    balances are derived from it (see ``AccountService.balances``).
+    """
+
+    OUT = "out"
+    IN = "in"
+
+
 class Transaction(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "transactions"
     __table_args__ = (
@@ -25,6 +48,12 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
             "planned_transaction_id",
             "date",
             name="uq_transactions_planned_occurrence",
+        ),
+        # A transfer leg always knows its direction, and nothing else has one.
+        # Enums are stored by member name (no ``values_callable``).
+        CheckConstraint(
+            "(type = 'TRANSFER') = (transfer_direction IS NOT NULL)",
+            name="ck_transactions_transfer_direction",
         ),
     )
 
@@ -58,6 +87,9 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
     # Long-form user note kept apart from the bank-imported ``description``.
     # Blank input is normalised to NULL by the schema — one empty representation only.
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    transfer_direction: Mapped[TransferDirection | None] = mapped_column(
+        SAEnum(TransferDirection, native_enum=False), nullable=True
+    )
     is_internal_transfer: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     is_split: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 

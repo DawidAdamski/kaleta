@@ -19,7 +19,7 @@ from sqlalchemy.orm import selectinload
 
 from kaleta.exceptions import ConflictError, NotFoundError
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
-from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
 from kaleta.services.transaction_service import TransactionService
 
@@ -592,6 +592,11 @@ class PlannedTransactionService:
             category_id=pt.category_id,
             amount=abs(pt.amount),
             type=pt.type,
+            # A planned transfer posts only the leg on its own account, the
+            # one the money leaves (``SalaryService`` plans from the source).
+            transfer_direction=(
+                TransferDirection.OUT if pt.type == TransactionType.TRANSFER else None
+            ),
             date=occurrence_date,
             description=description,
             is_internal_transfer=False,

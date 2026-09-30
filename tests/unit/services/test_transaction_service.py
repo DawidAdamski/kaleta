@@ -13,7 +13,7 @@ from kaleta.core.weeks import WeekStartMode
 from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.tag import TagCreate
@@ -84,6 +84,7 @@ class TestTransactionCreate:
                 category_id=None,
                 amount=Decimal("500.00"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=TODAY,
                 description="Transfer",
                 is_internal_transfer=True,
@@ -412,6 +413,7 @@ class TestTransactionListFilters:
                 category_id=None,
                 amount=Decimal("200.00"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=TODAY,
                 description="Transfer",
                 is_internal_transfer=True,
@@ -978,6 +980,7 @@ def _transfer_leg(account_id: int, amount: Decimal, **kwargs) -> TransactionCrea
         category_id=None,
         amount=amount,
         type=TransactionType.TRANSFER,
+        transfer_direction=TransferDirection.OUT,
         date=TODAY,
         description="Transfer",
         is_internal_transfer=True,

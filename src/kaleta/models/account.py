@@ -20,6 +20,13 @@ class AccountType(enum.StrEnum):
 
 
 class Account(TimestampMixin, UserOwnedMixin, Base):
+    """A place money sits.
+
+    There is no stored balance. ``opening_balance`` is what the account held
+    before its first transaction; the current balance is that plus the
+    signed sum of the ledger, computed by ``AccountService.balances``.
+    """
+
     __tablename__ = "accounts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -27,7 +34,7 @@ class Account(TimestampMixin, UserOwnedMixin, Base):
     type: Mapped[AccountType] = mapped_column(
         SAEnum(AccountType, native_enum=False), nullable=False, default=AccountType.CHECKING
     )
-    balance: Mapped[Decimal] = mapped_column(
+    opening_balance: Mapped[Decimal] = mapped_column(
         Numeric(precision=15, scale=2), nullable=False, default=Decimal("0.00")
     )
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="PLN")

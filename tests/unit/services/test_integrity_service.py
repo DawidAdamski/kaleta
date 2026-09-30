@@ -26,7 +26,7 @@ class TestIntegrityService:
         await session.execute(text("PRAGMA foreign_keys=OFF"))
         await session.execute(
             text(
-                "INSERT INTO accounts (name, type, balance, currency, institution_id) "
+                "INSERT INTO accounts (name, type, opening_balance, currency, institution_id) "
                 "VALUES ('Orphan acct', 'checking', 0, 'PLN', 99999)"
             )
         )
