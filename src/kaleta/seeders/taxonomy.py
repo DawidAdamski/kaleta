@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.models.categorisation_rule import CategorisationRule, RuleMatchMode
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.payee import Payee
+from kaleta.models.payee_identity import PayeeIdentity
+from kaleta.models.payee_merge import DismissedPayeeMerge, PayeeAutoMerge
 from kaleta.models.tag import Tag
 from kaleta.seeders.base import Seeder, row_count
 from kaleta.seeders.catalog import (
@@ -88,6 +90,10 @@ class TaxonomySeeder(Seeder):
     async def remove(self, session: AsyncSession) -> None:
         await session.execute(delete(CategorisationRule))
         await session.execute(delete(Tag))
+        # Bulk deletes skip the ORM cascade, and SQLite may run with FKs off:
+        # clear what hangs off payees before the payees themselves.
+        for dependant in (PayeeAutoMerge, DismissedPayeeMerge, PayeeIdentity):
+            await session.execute(delete(dependant))
         await session.execute(delete(Payee))
         # Children first: the parent FK is SET NULL, but deleting a root while
         # its children still point at it leaves orphans in the tree the

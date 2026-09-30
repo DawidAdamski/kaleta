@@ -907,7 +907,7 @@
     "integrity_violation_row": "Table {table}, row {rowid} → missing parent in {parent}",
     "new_name_label": "New name (optional)",
     "new_name_placeholder": "Keep the keeper's name",
-    "proposal_caption": "Merge proposal · {score} confidence · mostly {reason}",
+    "proposal_caption": "Merge proposal · {score} confidence · mainly: {reason}",
     "proposal_reason_name": "similar names",
     "proposal_reason_identity": "similar identities",
     "proposal_reason_merchant_key": "same merchant word",
@@ -2012,7 +2012,7 @@
     "mfa_unreadable": "This second factor cannot be read on this install. Run `kaleta --reset-password --disable-mfa` and set it up again.",
     "mfa_rate_limited": "Too many wrong codes. Try again in {seconds} seconds.",
     "payee_automerge_hint": "The merge scan scores every pair of payees. Pairs above 75% are proposed on the Housekeeping page; with auto-merge on, pairs at or above the threshold are merged right away (undo for 7 days).",
-    "payee_automerge_enabled": "Auto-merge payees above confidence",
+    "payee_automerge_enabled": "Auto-merge payees at or above the confidence threshold",
     "payee_automerge_threshold": "Auto-merge threshold: {value}",
     "payee_automerge_run": "Run merge scan now",
     "payee_automerge_done": "Merge scan done: {merged} merged, {proposals} proposal(s) to review."

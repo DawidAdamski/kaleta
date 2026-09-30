@@ -40,7 +40,7 @@ class PayeeAutoMergeSettings:
             )
             threshold = get_payee_automerge_threshold()
             threshold_label = ui.label(
-                t("settings.payee_automerge_threshold", value=f"{threshold:.2f}")
+                t("settings.payee_automerge_threshold", value=f"{threshold:.0%}")
             ).classes("text-sm mt-2")
             ui.slider(
                 min=AUTO_MERGE_THRESHOLD_MIN,
@@ -60,7 +60,7 @@ class PayeeAutoMergeSettings:
     @staticmethod
     def _save_threshold(raw: object, label: ui.label) -> None:
         value = round(float(str(raw)), 2)
-        label.set_text(t("settings.payee_automerge_threshold", value=f"{value:.2f}"))
+        label.set_text(t("settings.payee_automerge_threshold", value=f"{value:.0%}"))
         set_user_key("payee_automerge_threshold", value)
 
     @staticmethod

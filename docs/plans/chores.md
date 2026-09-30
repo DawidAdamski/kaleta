@@ -269,3 +269,8 @@ check it still reproduces before acting on it.
       slice. Sweep them onto the helper. Found by
       `plan/funds-savings-goals`.
 
+- [ ] `notify_kaleta_error` toasts `exc.message` verbatim, so service errors
+      reach Polish users in English — now common with payee identity
+      conflicts ("'…' is already an identity of payee '…'") and merge undo.
+      Map error codes to `t()` keys. Found by
+      `plan/payees-identities-automerge`.
