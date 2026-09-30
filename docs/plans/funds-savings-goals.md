@@ -3,7 +3,7 @@ plan_id: funds-savings-goals
 title: Savings goals (skarbonki) on reserve funds — target date, contributions, pace, release
 area: budgets
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#budgets
 ---
 

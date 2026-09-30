@@ -1,13 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
+import datetime
 from decimal import Decimal
 from typing import Any
 
 from nicegui import ui
 
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.reserve_fund import (
+    GoalClose,
+    GoalContribution,
     ReserveFundBackingMode,
     ReserveFundCreate,
     ReserveFundKind,
@@ -15,6 +19,8 @@ from kaleta.schemas.reserve_fund import (
     ReserveFundWithProgress,
 )
 from kaleta.services import AccountService, ReserveFundService, with_session
+from kaleta.services.reserve_fund_service import GOAL_KIND
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     BODY_MUTED,
@@ -34,6 +40,21 @@ def _fmt_amount(d: Decimal) -> str:
     return f"{d:,.2f}"
 
 
+#: The page's filter values (``?show=``). Goals are a view of this page, not a
+#: page of their own: every fund lives in one place.
+SHOW_ALL = "all"
+SHOW_GOALS = "goals"
+
+
+def _parse_date(value: Any) -> datetime.date | None:
+    if not value:
+        return None
+    try:
+        return datetime.date.fromisoformat(str(value))
+    except ValueError:
+        return None
+
+
 def _progress_color(pct: Decimal) -> str:
     """Return a Quasar colour token for the progress bar."""
     if pct >= Decimal("1"):
@@ -45,7 +66,9 @@ def _progress_color(pct: Decimal) -> str:
 
 def register() -> None:
     @ui.page("/wizard/safety-funds")
-    async def safety_funds_page() -> None:
+    async def safety_funds_page(show: str = SHOW_ALL) -> None:
+        goals_only = show == SHOW_GOALS
+
         async def _load(
             session: Any,
         ) -> tuple[
@@ -62,6 +85,9 @@ def register() -> None:
         account_opts, active_funds, all_funds, target_monthly = await with_session(_load)
 
         archived_funds = [f for f in all_funds if f.is_archived]
+        if goals_only:
+            active_funds = [f for f in active_funds if f.kind == GOAL_KIND]
+            archived_funds = [f for f in archived_funds if f.kind == GOAL_KIND]
 
         with page_layout(t("safety_funds.title"), wide=True):
             # ── Header ───────────────────────────────────────────────────
@@ -69,9 +95,19 @@ def register() -> None:
                 with ui.column().classes("gap-1"):
                     ui.label(t("safety_funds.title")).classes(PAGE_TITLE)
                     ui.label(t("safety_funds.subtitle")).classes(BODY_MUTED)
-                add_btn = ui.button(t("safety_funds.add"), icon="add").props(
-                    "color=primary unelevated size=md"
-                )
+                with ui.row().classes("items-center gap-2"):
+                    ui.toggle(
+                        {
+                            SHOW_ALL: t("safety_funds.filter_all"),
+                            SHOW_GOALS: t("safety_funds.filter_goals"),
+                        },
+                        value=SHOW_GOALS if goals_only else SHOW_ALL,
+                        on_change=lambda e: ui.navigate.to(f"/wizard/safety-funds?show={e.value}"),
+                    ).props("dense no-caps unelevated")
+                    add_btn = ui.button(
+                        t("safety_funds.add_goal" if goals_only else "safety_funds.add"),
+                        icon="add",
+                    ).props("color=primary unelevated size=md")
 
             # ── Add/Edit dialog ──────────────────────────────────────────
             editing_state: dict[str, int | None] = {"id": None}
@@ -149,6 +185,12 @@ def register() -> None:
                 derive_in.on_value_change(lambda _e: _refresh_derive())
                 multiplier_in.on_value_change(lambda _e: _refresh_derive())
 
+                target_date_in = (
+                    ui.input(label=t("safety_funds.target_date"))
+                    .props("dense outlined type=date")
+                    .classes("w-full")
+                )
+
                 if account_opts:
                     account_in = (
                         ui.select(
@@ -170,6 +212,7 @@ def register() -> None:
                     is_emergency = e.args == ReserveFundKind.EMERGENCY.value
                     multiplier_row.set_visibility(is_emergency)
                     derive_row.set_visibility(is_emergency)
+                    target_date_in.set_visibility(e.args == GOAL_KIND.value)
                     if not is_emergency:
                         derive_in.set_value(False)
                     if editing_state["id"] is None:
@@ -207,6 +250,7 @@ def register() -> None:
                         int(multiplier_in.value or 3) if kind == ReserveFundKind.EMERGENCY else None
                     )
                     from_spending = bool(derive_in.value) and kind == ReserveFundKind.EMERGENCY
+                    target_date = _parse_date(target_date_in.value) if kind == GOAL_KIND else None
                 except Exception as exc:  # pragma: no cover — defensive
                     ui.notify(str(exc), type="negative")
                     return
@@ -223,6 +267,7 @@ def register() -> None:
                                 backing_account_id=account_id,
                                 emergency_multiplier=multiplier,
                                 target_from_spending=from_spending,
+                                target_date=target_date,
                             )
                         except Exception as exc:  # pragma: no cover — defensive
                             ui.notify(str(exc), type="negative")
@@ -238,6 +283,7 @@ def register() -> None:
                                 backing_account_id=account_id,
                                 emergency_multiplier=multiplier,
                                 target_from_spending=from_spending,
+                                target_date=target_date,
                             ),
                         )
 
@@ -254,13 +300,17 @@ def register() -> None:
                     return
                 editing_state["id"] = None
                 dialog_title.set_text(t("safety_funds.dialog_title"))
-                kind_in.set_value(ReserveFundKind.EMERGENCY.value)
-                name_in.set_value(t("safety_funds.default_name_emergency"))
+                # On the Goals filter "Add" means a goal.
+                kind = GOAL_KIND if goals_only else ReserveFundKind.EMERGENCY
+                kind_in.set_value(kind.value)
+                name_in.set_value(t(f"safety_funds.default_name_{kind.value}"))
                 target_in.set_value(0)
                 multiplier_in.set_value(3)
-                multiplier_row.set_visibility(True)
+                multiplier_row.set_visibility(kind == ReserveFundKind.EMERGENCY)
                 derive_in.set_value(False)
-                derive_row.set_visibility(True)
+                derive_row.set_visibility(kind == ReserveFundKind.EMERGENCY)
+                target_date_in.set_value("")
+                target_date_in.set_visibility(kind == GOAL_KIND)
                 _refresh_derive()
                 if account_in is not None and account_opts:
                     account_in.set_value(next(iter(account_opts)))
@@ -278,6 +328,8 @@ def register() -> None:
                 multiplier_row.set_visibility(fund.kind == ReserveFundKind.EMERGENCY)
                 derive_in.set_value(fund.target_from_spending)
                 derive_row.set_visibility(fund.kind == ReserveFundKind.EMERGENCY)
+                target_date_in.set_value(fund.target_date.isoformat() if fund.target_date else "")
+                target_date_in.set_visibility(fund.kind == GOAL_KIND)
                 _refresh_derive()
                 if (
                     account_in is not None
@@ -334,6 +386,127 @@ def register() -> None:
                 ui.notify(t("safety_funds.unarchived_msg"), type="positive")
                 ui.navigate.reload()
 
+            # ── Contribute dialog (goals) ────────────────────────────────
+            goal_state: dict[str, Any] = {"fund": None}
+
+            with ui.dialog() as contribute_dialog, ui.card().classes("w-[420px] gap-3"):
+                contribute_title = ui.label("").classes("text-lg font-bold")
+                contribute_amount = (
+                    ui.number(label=t("safety_funds.contribute_amount"), min=0.01, format="%.2f")
+                    .props("dense outlined")
+                    .classes("w-full")
+                )
+                contribute_from = (
+                    ui.select(options={}, label=t("safety_funds.contribute_from"))
+                    .props("dense outlined")
+                    .classes("w-full")
+                )
+                with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                    ui.button(t("common.cancel"), on_click=contribute_dialog.close).props("flat")
+                    contribute_btn = ui.button(t("safety_funds.contribute"), icon="savings").props(
+                        "color=primary unelevated"
+                    )
+
+            def _other_accounts(fund: ReserveFundWithProgress) -> dict[int, str]:
+                return {
+                    aid: name
+                    for aid, name in account_opts.items()
+                    if aid != fund.backing_account_id
+                }
+
+            def _open_contribute(fund: ReserveFundWithProgress) -> None:
+                options = _other_accounts(fund)
+                if not options:
+                    ui.notify(t("safety_funds.need_second_account"), type="warning")
+                    return
+                goal_state["fund"] = fund
+                contribute_title.set_text(t("safety_funds.contribute_title", name=fund.name))
+                contribute_amount.set_value(None)
+                contribute_from.set_options(options, value=next(iter(options)))
+                contribute_dialog.open()
+
+            async def _contribute() -> None:
+                fund: ReserveFundWithProgress = goal_state["fund"]
+                if not contribute_amount.value or contribute_amount.value <= 0:
+                    ui.notify(t("safety_funds.amount_positive"), type="warning")
+                    return
+                payload = GoalContribution(
+                    amount=Decimal(str(contribute_amount.value)).quantize(Decimal("0.01")),
+                    from_account_id=int(contribute_from.value),
+                    date=datetime.date.today(),
+                    description=t("safety_funds.contribution_description", name=fund.name),
+                )
+
+                async def _save(session: Any) -> None:
+                    await ReserveFundService(session).contribute(fund.id, payload)
+
+                try:
+                    await with_session(_save)
+                except KaletaError as exc:
+                    notify_kaleta_error(exc)
+                    return
+                contribute_dialog.close()
+                ui.notify(t("safety_funds.contributed"), type="positive")
+                ui.navigate.reload()
+
+            contribute_btn.on_click(_contribute)
+
+            # ── Close-goal dialog ────────────────────────────────────────
+            with ui.dialog() as close_dialog, ui.card().classes("w-[440px] gap-3"):
+                close_title = ui.label("").classes("text-lg font-bold")
+                close_body = ui.label("").classes(BODY_MUTED)
+                release_to = (
+                    ui.select(options={}, label=t("safety_funds.release_to"))
+                    .props("dense outlined")
+                    .classes("w-full")
+                )
+                with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                    ui.button(t("common.cancel"), on_click=close_dialog.close).props("flat")
+                    close_btn = ui.button(t("safety_funds.close_goal"), icon="check_circle").props(
+                        "color=primary unelevated"
+                    )
+
+            async def _open_close(fund: ReserveFundWithProgress) -> None:
+                async def _source(session: Any) -> int | None:
+                    return await ReserveFundService(session).last_contribution_source(fund.id)
+
+                source = await with_session(_source)
+                # 0 = keep the money where it is.
+                options: dict[int, str] = {0: t("safety_funds.release_keep")}
+                options.update(_other_accounts(fund))
+                goal_state["fund"] = fund
+                close_title.set_text(t("safety_funds.close_title", name=fund.name))
+                close_body.set_text(
+                    t("safety_funds.close_body", amount=_fmt_amount(fund.current_balance))
+                )
+                # Back where the money came from; with no contribution on
+                # record, nowhere until the user picks an account.
+                release_to.set_options(options, value=source if source in options else 0)
+                close_dialog.open()
+
+            async def _close_goal() -> None:
+                fund: ReserveFundWithProgress = goal_state["fund"]
+                target = int(release_to.value or 0)
+                payload = GoalClose(
+                    release_to_account_id=target or None,
+                    date=datetime.date.today(),
+                    description=t("safety_funds.release_description", name=fund.name),
+                )
+
+                async def _save(session: Any) -> None:
+                    await ReserveFundService(session).close(fund.id, payload)
+
+                try:
+                    await with_session(_save)
+                except KaletaError as exc:
+                    notify_kaleta_error(exc)
+                    return
+                close_dialog.close()
+                ui.notify(t("safety_funds.closed_msg"), type="positive")
+                ui.navigate.reload()
+
+            close_btn.on_click(_close_goal)
+
             # ── Active funds ─────────────────────────────────────────────
             if not active_funds:
                 with (
@@ -352,6 +525,8 @@ def register() -> None:
                     on_edit=_open_edit_dialog,
                     on_archive=_archive_fund,
                     on_delete=_open_delete_dialog,
+                    on_contribute=_open_contribute,
+                    on_close=_open_close,
                 )
 
             # ── Archived funds ───────────────────────────────────────────
@@ -383,7 +558,10 @@ def _render_fund_card(
     on_edit: Any,
     on_archive: Any,
     on_delete: Any,
+    on_contribute: Any,
+    on_close: Any,
 ) -> None:
+    is_goal = fund.kind == GOAL_KIND
     pct_clamped = min(float(fund.progress_pct), 1.0)
     colour = _progress_color(fund.progress_pct)
     account_name = (
@@ -410,13 +588,26 @@ def _render_fund_card(
                         ui.label(t("safety_funds.target_derived_badge")).classes(
                             f"{BODY_MUTED} text-xs"
                         )
+                if is_goal:
+                    ui.button(
+                        t("safety_funds.contribute"),
+                        icon="savings",
+                        on_click=lambda _e, f=fund: on_contribute(f),
+                    ).props("flat dense no-caps color=primary")
                 ui.button(icon="edit", on_click=lambda _e, f=fund: on_edit(f)).props(
                     "flat dense round color=grey-7"
                 ).tooltip(t("safety_funds.edit"))
-                ui.button(
-                    icon="archive",
-                    on_click=lambda _e, fid=fund.id: on_archive(fid),
-                ).props("flat dense round color=grey-7").tooltip(t("safety_funds.archive"))
+                if is_goal:
+                    # Closing a goal is archiving it, with the money released.
+                    ui.button(
+                        icon="check_circle",
+                        on_click=lambda _e, f=fund: on_close(f),
+                    ).props("flat dense round color=grey-7").tooltip(t("safety_funds.close_goal"))
+                else:
+                    ui.button(
+                        icon="archive",
+                        on_click=lambda _e, fid=fund.id: on_archive(fid),
+                    ).props("flat dense round color=grey-7").tooltip(t("safety_funds.archive"))
                 ui.button(
                     icon="delete",
                     on_click=lambda _e, f=fund: on_delete(f),
@@ -455,6 +646,8 @@ def _render_fund_card(
 
         with ui.row().classes("w-full items-center justify-between mt-2 text-xs"):
             ui.label(t("safety_funds.backed_by", account=account_name)).classes(BODY_MUTED)
+            if is_goal and fund.target_date is not None and fund.monthly_pace is not None:
+                ui.label(_goal_pace_text(fund)).classes(BODY_MUTED)
             # Survival-months footer: only for emergency funds with a multiplier
             # and a non-zero target (required for the per-chunk math).
             if (
@@ -488,6 +681,17 @@ def _render_fund_card(
                         months=months_txt,
                     )
                 ui.label(label_text).classes(BODY_MUTED)
+
+
+def _goal_pace_text(fund: ReserveFundWithProgress) -> str:
+    """The goal footer: what to put in each month to be ready on time."""
+    by = fund.target_date.isoformat() if fund.target_date else ""
+    pace = fund.monthly_pace or Decimal("0")
+    if pace == 0:
+        return t("safety_funds.goal_reached", date=by)
+    if not fund.months_left:
+        return t("safety_funds.goal_due_now", amount=_fmt_amount(pace), date=by)
+    return t("safety_funds.goal_pace", amount=_fmt_amount(pace), date=by)
 
 
 def _render_archived_card(
