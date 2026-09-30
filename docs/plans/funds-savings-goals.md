@@ -92,4 +92,17 @@ a way to put money in, the pace to get there, and a clean close.
   Its accounts are named "W…" so they sort after the accounts other tests
   pick from unscrolled menus in the shared e2e instance (the crowding
   found by `accounts-ledger-balances`).
+- **Four `test_transactions.py` e2e tests hardened (separate commit).**
+  After the goals e2e file, the full suite failed four tests that look up
+  a freshly saved row on the ledger's first page. The failure screenshot
+  shows "Transaction saved.": the save worked. The add dialog reuses the
+  date of the day's last save (`QuickEntryMemory`), and an earlier test
+  saved on a past date, so these rows land on that date. They only showed
+  on page 1 while few rows were dated today. The tests now find the row
+  through `search_ledger`, the suite's helper for exactly this. No
+  assertion changed.
+- **"Add goal" pre-fills "Savings goal"** (`safety_funds.default_name_goal`)
+  instead of the vacation fund's name (i18n-verifier note).
+- **Chore inbox:** incoming transfer legs still show as "-" in the ledger;
+  unscrolled `.q-menu` clicks remain in other e2e tests.
 

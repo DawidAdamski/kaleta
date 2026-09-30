@@ -523,6 +523,7 @@
     "source_loan": "Loan"
   },
   "safety_funds": {
+    "default_name_goal": "Savings goal",
     "filter_all": "All funds",
     "filter_goals": "Goals",
     "add_goal": "Add goal",

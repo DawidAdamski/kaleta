@@ -303,7 +303,11 @@ def register() -> None:
                 # On the Goals filter "Add" means a goal.
                 kind = GOAL_KIND if goals_only else ReserveFundKind.EMERGENCY
                 kind_in.set_value(kind.value)
-                name_in.set_value(t(f"safety_funds.default_name_{kind.value}"))
+                name_in.set_value(
+                    t("safety_funds.default_name_goal")
+                    if goals_only
+                    else t(f"safety_funds.default_name_{kind.value}")
+                )
                 target_in.set_value(0)
                 multiplier_in.set_value(3)
                 multiplier_row.set_visibility(kind == ReserveFundKind.EMERGENCY)

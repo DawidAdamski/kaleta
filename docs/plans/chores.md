@@ -257,3 +257,15 @@ check it still reproduces before acting on it.
       history (`NetWorthService._monthly_history`) skips every transfer row,
       so it does not see that lone leg either, while the current balance
       does. Found by `plan/accounts-ledger-balances`.
+- [ ] The ledger shows every transfer leg as money out
+      (`TransactionService.signed_amount` signs by type only), so the
+      incoming leg of a goal contribution reads "-500.00" on the account
+      it arrived on. Sign it by `transfer_direction`, which rows now
+      carry. Found by `plan/funds-savings-goals`.
+- [ ] e2e tests still click options straight from an open `.q-menu`
+      (`page.locator(".q-menu").get_by_text(...).click()`) instead of
+      `tests/e2e/ledger.pick_open_menu_option`, so they break once the shared
+      instance holds enough rows to push their option out of the rendered
+      slice. Sweep them onto the helper. Found by
+      `plan/funds-savings-goals`.
+
