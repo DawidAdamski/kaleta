@@ -257,6 +257,10 @@ class SupabaseAuthProvider:
         if not isinstance(subject, str) or not subject or not isinstance(email, str):
             msg = "The sign-in service sent an incomplete user."
             raise ExternalServiceError(msg)
+        # Unverified decode, deliberately: this token came straight from GoTrue
+        # over TLS in answer to our own request. A token that ever arrives from
+        # a browser or client instead must have its signature checked (JWKS or
+        # the project's JWT secret) before any claim in it is believed.
         claims = decode_jwt_claims(access_token)
         claim_email = claims.get("email")
         if claims.get("sub") != subject or not isinstance(claim_email, str):

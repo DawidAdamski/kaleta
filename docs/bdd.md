@@ -3413,6 +3413,16 @@ Feature: Hosted accounts (multi-tenant)
     Or with no account prefix at all
     Then the request is refused as unauthorized
     And each token keeps working on its own account
+
+  KAL-TEN-005 @automated
+  Scenario: A forgotten password is reset through an e-mailed link
+    Given a confirmed hosted account
+    When I choose "Forgot password?" on the login page and enter my e-mail address
+    Then I am told a reset link is on its way, whether or not the address has an account
+    When I follow the link and choose a new password
+    Then I am sent to the login page with a note that the password changed
+    And the old password no longer signs me in
+    And the new one signs me in to the same account
 ```
 
 ## Feature: Demo instance

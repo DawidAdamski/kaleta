@@ -46,6 +46,9 @@ class FakeGoTrue:
     #: e-mail → the last link "sent" to it.
     inbox: dict[str, str] = field(default_factory=dict)
     _tokens: dict[str, str] = field(default_factory=dict)
+    #: recovery token hash → e-mail; access token → e-mail.
+    _recovery: dict[str, str] = field(default_factory=dict)
+    _sessions: dict[str, str] = field(default_factory=dict)
 
     def app(self) -> FastAPI:
         app = FastAPI()
@@ -97,23 +100,58 @@ class FakeGoTrue:
                     {"code": 400, "error_code": "email_not_confirmed", "msg": "Not confirmed"},
                     400,
                 )
-            claims = {"sub": user.id, "email": user.email, "exp": int(time.time()) + 3600}
-            return JSONResponse(
-                {
-                    "access_token": _jwt(claims),
-                    "token_type": "bearer",
-                    "expires_in": 3600,
-                    "refresh_token": secrets.token_urlsafe(8),
-                    "user": _user_json(user),
-                }
-            )
+            return JSONResponse(_session(user))
+
+        def _session(user: _User) -> dict[str, Any]:
+            claims = {
+                "sub": user.id,
+                "email": user.email,
+                "exp": int(time.time()) + 3600,
+                "jti": secrets.token_hex(4),
+            }
+            access_token = _jwt(claims)
+            self._sessions[access_token] = user.email
+            return {
+                "access_token": access_token,
+                "token_type": "bearer",
+                "expires_in": 3600,
+                "refresh_token": secrets.token_urlsafe(8),
+                "user": _user_json(user),
+            }
+
+        @app.post("/auth/v1/verify")
+        async def verify_recovery(request: Request) -> JSONResponse:
+            body = await request.json()
+            email = self._recovery.pop(str(body.get("token_hash", "")), None)
+            if body.get("type") != "recovery" or email is None:
+                return JSONResponse({"code": 403, "error_code": "otp_expired"}, 403)
+            return JSONResponse(_session(self.users[email]))
+
+        @app.put("/auth/v1/user")
+        async def update_user(request: Request) -> JSONResponse:
+            token = request.headers.get("Authorization", "").removeprefix("Bearer ")
+            email = self._sessions.get(token)
+            if email is None:
+                return JSONResponse({"code": 401, "error_code": "bad_jwt"}, 401)
+            body = await request.json()
+            self.users[email].password = str(body["password"])
+            return JSONResponse(_user_json(self.users[email]))
 
         @app.post("/auth/v1/logout")
         async def logout() -> Response:
             return Response(status_code=204)
 
         @app.post("/auth/v1/recover")
-        async def recover() -> JSONResponse:
+        async def recover(request: Request) -> JSONResponse:
+            body = await request.json()
+            email = str(body["email"]).strip().lower()
+            if email in self.users:
+                # What the Supabase "Reset password" template in
+                # docs/deployment.md sends: Kaleta's page with the token hash.
+                token_hash = secrets.token_urlsafe(16)
+                self._recovery[token_hash] = email
+                redirect_to = request.query_params.get("redirect_to", "")
+                self.inbox[email] = f"{redirect_to}?token_hash={token_hash}"
             return JSONResponse({})
 
         @app.get("/_test/inbox")

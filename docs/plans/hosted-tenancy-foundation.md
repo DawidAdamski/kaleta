@@ -329,6 +329,25 @@ sits with `kaleta.auth`), `docker-compose.yml`, `.github/workflows/ci.yml`,
   The same process-level check is also a unit test
   (`test_importing_the_config_with_multi_and_local_exits_non_zero`).
 
+- **Modules beyond the listed Touchpoints, and why each exists:**
+  - `schemas/identity.py` — `Identity`/`MfaRequired`/`SignUpResult` from §2.
+    Here rather than in `auth/providers/` because `TenantService.provision`
+    (a service) takes an `Identity`, and services may not import `kaleta.auth`.
+  - `auth/sign_in.py` (`SignInFlow`) — §2 says `login_session` takes "an
+    `Identity` plus the resolved tenant". Turning an identity into that
+    (provision on first verified sign-in, check the tenant is active, record
+    the login in the tenant's audit log, end the GoTrue session) is shared by
+    the login and sign-up pages; one class keeps the views thin and tested.
+  - `services/attribution.py` — §4's "services that create rows on
+    `UserOwnedMixin` tables set `user_id` from it", as one flush hook.
+  - `db/tenant_schemas.py` — schema-name minting/validation (§4 "never derived
+    from the e-mail") and the SQLite attach helper.
+  - `views/reset_password.py` + KAL-TEN-005 — §2's "forgot password" link has
+    to land on a page that asks for the e-mail and, from the e-mailed link,
+    for the new password. Covered end to end by
+    `test_forgotten_password_is_reset_through_an_emailed_link`.
+  - `tests/fake_gotrue.py` — the §6 "verification stub", as a GoTrue stand-in.
+
 ### Not done here (by scope)
 
 - MFA on the hosted path (`auth-two-factor-hosted`), encryption and the

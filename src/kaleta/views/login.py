@@ -8,7 +8,7 @@ sign up and to reset a forgotten password.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from fastapi import Request
@@ -24,6 +24,10 @@ from kaleta.config import settings
 from kaleta.exceptions import EmailNotVerifiedError, KaletaError, UnauthorizedError
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
+
+if TYPE_CHECKING:
+    from sqlalchemy.ext.asyncio import AsyncSession
+
 from kaleta.views.auth_common import (
     auth_error_slot,
     auth_field,
@@ -51,7 +55,7 @@ def register() -> None:
 
         hosted = get_auth_provider().name == "supabase"
 
-        async def _bootstrap(session: Any) -> str | None:
+        async def _bootstrap(session: AsyncSession) -> str | None:
             state = await AuthService(session).auth_state()
             if state == "no_user":
                 return "/create-account"

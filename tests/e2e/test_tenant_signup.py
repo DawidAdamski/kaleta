@@ -6,7 +6,7 @@ against ``tests.fake_gotrue`` (a local stand-in for Supabase Auth whose
 verification link the test reads instead of a mailbox), on a multi-tenant
 SQLite database — each tenant schema a file of its own.
 
-Covers: KAL-TEN-001
+Covers: KAL-TEN-001, KAL-TEN-005
 """
 
 from __future__ import annotations
@@ -172,3 +172,42 @@ def test_signing_in_again_reuses_the_account(hosted: HostedInstance, fresh_page:
     expect(fresh_page.get_by_text("Dashboard", exact=True).first).to_be_visible(timeout=15000)
 
     assert hosted.tenant_schemas() == before
+
+
+def test_forgotten_password_is_reset_through_an_emailed_link(
+    hosted: HostedInstance, fresh_page: Page
+) -> None:
+    """Covers: KAL-TEN-005"""
+    assert hosted.tenant_schemas(), "runs after the sign-up test in this module"
+    page = fresh_page
+    base = hosted.base
+    new_password = "a-brand-new-passphrase"
+
+    page.goto(f"{base}/login")
+    page.get_by_role("link", name="Forgot password?").click()
+    expect(page).to_have_url(f"{base}/reset-password", timeout=10000)
+    page.get_by_label("E-mail", exact=True).fill(EMAIL)
+    page.get_by_role("button", name="Send link").click()
+    expect(
+        page.get_by_text("a link to reset the password is on its way", exact=False)
+    ).to_be_visible(timeout=10000)
+
+    link = httpx.get(f"{hosted.gotrue.base_url}/_test/inbox", params={"email": EMAIL}).json()
+    assert link["link"].startswith(f"{base}/reset-password?token_hash=")
+    page.goto(link["link"])
+    page.get_by_label("Password", exact=True).fill(new_password)
+    page.get_by_label("Confirm password", exact=True).fill(new_password)
+    page.get_by_role("button", name="Save password").click()
+    expect(page).to_have_url(f"{base}/login?reason=password_reset", timeout=10000)
+    expect(page.get_by_text("Your password was changed.", exact=False)).to_be_visible(timeout=10000)
+
+    page.get_by_label("E-mail", exact=True).fill(EMAIL)
+    page.get_by_label("Password", exact=True).fill(PASSWORD)
+    page.get_by_role("button", name="Log in").click()
+    expect(page.get_by_text("Invalid e-mail or password.")).to_be_visible(timeout=10000)
+
+    page.get_by_label("Password", exact=True).fill(new_password)
+    page.get_by_role("button", name="Log in").click()
+    expect(page).not_to_have_url(_ON_LOGIN, timeout=15000)
+    # Same account as before: the reset changed a password, not an identity.
+    assert len(hosted.tenant_schemas()) == 1
