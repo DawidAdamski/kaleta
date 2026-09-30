@@ -3,8 +3,9 @@ plan_id: payees-identities-automerge
 title: Payees — multiple identities and automatic merge
 area: payees
 effort: medium
-roadmap_ref: ../roadmap.md#cross-cutting-automatic-deduplication-suggestions
-status: in-progress
+roadmap_ref: ../../roadmap.md#cross-cutting-automatic-deduplication-suggestions
+status: archived
+archived_at: 2026-09-30
 deferred_to: q4-2026
 ---
 
@@ -240,3 +241,55 @@ Out of scope:
 ### BDD
 KAL-PID-004…013 `@automated` (integration + e2e), KAL-PID-014 (Settings scan
 button) and KAL-PID-015 (proposals in Housekeeping) `@manual`.
+
+## Implementation
+
+Landed on 2026-09-30 (PR #176).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `8a60ebe` | Dawid Adamski | 2026-09-30 | Merge pull request #176 from DawidAdamski/plan/payees-identities-automerge |
+
+**Files changed:**
+- alembic/versions/e6f7a8b9c0d1_add_payee_identities.py
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/payees-identities-automerge.md
+- src/kaleta/api/v1/payees.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/__init__.py
+- src/kaleta/models/payee.py
+- src/kaleta/models/payee_identity.py
+- src/kaleta/models/payee_merge.py
+- src/kaleta/schemas/payee_identity.py
+- src/kaleta/seeders/taxonomy.py
+- src/kaleta/services/data_service.py
+- src/kaleta/services/dedupe_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/payee_merge_service.py
+- src/kaleta/services/payee_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/components/payee_merge.py
+- src/kaleta/views/housekeeping.py
+- src/kaleta/views/payees.py
+- src/kaleta/views/settings/about_tab.py
+- src/kaleta/views/settings/constants.py
+- src/kaleta/views/settings/features_tab.py
+- src/kaleta/views/settings/payee_automerge.py
+- src/kaleta/views/settings/user_prefs.py
+- tests/backup_helpers.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_payee_identities.py
+- tests/integration/test_payee_identities.py
+- tests/unit/services/test_dedupe_service.py
+- tests/unit/services/test_payee_identities.py
+- tests/unit/services/test_payee_merge_service.py
+- tests/unit/services/test_payee_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
