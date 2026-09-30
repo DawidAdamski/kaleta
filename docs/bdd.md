@@ -310,6 +310,45 @@ Feature: Account Management
     And I click "Save"
     Then I see a validation error
     And the account is not created
+
+  KAL-ACC-005 @planned
+  Scenario: Balance follows income and expenses
+    Given an account "PKO Main" opened with balance 1000.00
+    When I add an expense of 200.00 and an income of 50.00 to it
+    Then "PKO Main" shows balance 850.00
+
+  KAL-ACC-006 @planned
+  Scenario: A transfer moves both balances
+    Given "PKO Main" with balance 1000.00 and "Oszczędności" with balance 0.00
+    When I transfer 500.00 from "PKO Main" to "Oszczędności"
+    Then "PKO Main" shows 500.00 and "Oszczędności" shows 500.00
+
+  KAL-ACC-007 @planned
+  Scenario: Editing or deleting a transaction moves the balance back
+    Given "PKO Main" opened with 1000.00 and an expense of 200.00
+    When I change the expense to 150.00
+    Then "PKO Main" shows 850.00
+    When I delete the expense
+    Then "PKO Main" shows 1000.00
+
+  KAL-ACC-008 @planned
+  Scenario: Setting the current balance by hand
+    Given "PKO Main" shows 850.00
+    When I edit the account and set its balance to 900.00
+    Then "PKO Main" shows 900.00
+    And a later expense of 100.00 leaves it at 800.00
+
+  KAL-ACC-009 @planned
+  Scenario: Upgrading keeps every balance the user saw
+    Given a database from before this change where "PKO Main" shows 1234.56
+    When the app migrates it
+    Then "PKO Main" still shows 1234.56
+
+  KAL-ACC-010 @planned
+  Scenario: An imported own-account transfer lowers the source balance
+    Given "PKO Main" is at 1000.00 and "Oszczędności" is a registered own account
+    When I import an mBank row of -300.00 to "Oszczędności"'s account number
+    Then "PKO Main" shows 700.00
 ```
 
 ## Feature: Category Management

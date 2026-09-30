@@ -225,8 +225,8 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 | [debts-ledger-link](archive/debts-ledger-link.md) | archived | medium | draft | — |
 | [recurring-to-planned](archive/recurring-to-planned.md) | archived | medium | draft | — |
 | [budgets-plan-comparisons-gaps](archive/budgets-plan-comparisons-gaps.md) | archived | medium | draft | coordinate with budgets-plan-unification |
-| [funds-savings-goals](funds-savings-goals.md) | #12 GOL | medium | draft | fund balances follow the ledger (chore inbox) |
-| [funds-irregular-items](funds-irregular-items.md) | #10 IRR | large | draft | fund balances follow the ledger (chore inbox) |
+| [funds-savings-goals](funds-savings-goals.md) | #12 GOL | medium | draft | [accounts-ledger-balances](accounts-ledger-balances.md) |
+| [funds-irregular-items](funds-irregular-items.md) | #10 IRR | large | draft | [accounts-ledger-balances](accounts-ledger-balances.md) |
 | [budgets-annual-review](budgets-annual-review.md) | #9 ANR | large | draft | funds-irregular-items (step 3) |
 
 ### Q4 2026 — Open-source launch (execute in this order)
@@ -338,6 +338,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [accounts-ledger-balances](accounts-ledger-balances.md) | draft | Accounts — balances follow the ledger (blocks funds-savings-goals, funds-irregular-items) |
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
 | [hosted-tenancy-foundation](hosted-tenancy-foundation.md) | draft | Hosted programme (1) |
 | [hosted-field-encryption](hosted-field-encryption.md) | draft | Hosted programme (2) |

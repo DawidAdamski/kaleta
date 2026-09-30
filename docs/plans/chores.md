@@ -157,7 +157,8 @@ check it still reproduces before acting on it.
       tried to run `[owner]` as a shell command. Normalise the three
       archived ones, or teach the gate both spellings.
 
-- [ ] Reserve fund balances never follow the ledger.
+- [x] Reserve fund balances never follow the ledger. → promoted to
+      [`accounts-ledger-balances`](accounts-ledger-balances.md) (2026-09-30).
       `ReserveFundService._account_balance` (`reserve_fund_service.py`)
       reads `Account.balance`, and nothing but the seeder and the account
       form writes it — `AccountService.adjust_balance` has no caller. So a
