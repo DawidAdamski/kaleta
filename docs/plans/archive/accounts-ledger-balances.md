@@ -12,7 +12,7 @@ roadmap_ref: ../../roadmap.md#accounts
 
 Promoted from the chore inbox ("Reserve fund balances never follow the
 ledger", found by `plan/audit-planned-vs-code`). Blocks
-[`funds-savings-goals`](../funds-savings-goals.md) (GOL-002/004) and
+[`funds-savings-goals`](funds-savings-goals.md) (GOL-002/004) and
 [`funds-irregular-items`](../funds-irregular-items.md) (IRR-004/005).
 
 ## Intent

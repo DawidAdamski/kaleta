@@ -225,7 +225,7 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 | [debts-ledger-link](archive/debts-ledger-link.md) | archived | medium | draft | — |
 | [recurring-to-planned](archive/recurring-to-planned.md) | archived | medium | draft | — |
 | [budgets-plan-comparisons-gaps](archive/budgets-plan-comparisons-gaps.md) | archived | medium | draft | coordinate with budgets-plan-unification |
-| [funds-savings-goals](funds-savings-goals.md) | #12 GOL | medium | draft | [accounts-ledger-balances](archive/accounts-ledger-balances.md) |
+| [funds-savings-goals](archive/funds-savings-goals.md) | archived | medium | draft | [accounts-ledger-balances](archive/accounts-ledger-balances.md) |
 | [funds-irregular-items](funds-irregular-items.md) | #10 IRR | large | draft | [accounts-ledger-balances](archive/accounts-ledger-balances.md) |
 | [budgets-annual-review](budgets-annual-review.md) | #9 ANR | large | draft | funds-irregular-items (step 3) |
 

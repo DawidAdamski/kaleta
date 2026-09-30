@@ -3,14 +3,15 @@ plan_id: funds-savings-goals
 title: Savings goals (skarbonki) on reserve funds — target date, contributions, pace, release
 area: budgets
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets
+status: archived
+archived_at: 2026-09-30
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Savings goals (skarbonki) on reserve funds
 
 Gap-closing plan for issue #12 (`KAL-GOL-001`…`004`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
+[`audit-planned-vs-code`](audit-planned-vs-code.md).
 
 ## Intent
 
@@ -27,7 +28,7 @@ a way to put money in, the pace to get there, and a clean close.
 - **Blocker:** a fund's balance is its backing account's
   `Account.balance`, which no transaction moves (chore inbox,
   2026-09-23) — so GOL-002 "record a contribution" cannot show up.
-  Fixed by [`accounts-ledger-balances`](archive/accounts-ledger-balances.md);
+  Fixed by [`accounts-ledger-balances`](accounts-ledger-balances.md);
   do that plan first.
 
 ## Scope
@@ -106,3 +107,35 @@ a way to put money in, the pace to get there, and a clean close.
 - **Chore inbox:** incoming transfer legs still show as "-" in the ledger;
   unscrolled `.q-menu` clicks remain in other e2e tests.
 
+
+## Implementation
+
+Landed on 2026-09-30 (PR #174).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `be37da2` | Dawid Adamski | 2026-09-30 | Merge pull request #174 from DawidAdamski/plan/funds-savings-goals |
+
+**Files changed:**
+- alembic/versions/d5e6f7a8b9c0_reserve_fund_target_date.py
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/funds-savings-goals.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/reserve_fund.py
+- src/kaleta/schemas/reserve_fund.py
+- src/kaleta/services/reserve_fund_service.py
+- src/kaleta/views/safety_funds.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_savings_goals.py
+- tests/e2e/test_transactions.py
+- tests/integration/test_savings_goals.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
