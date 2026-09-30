@@ -1,5 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""First-run account creation when the database has no user row."""
+"""Account creation, through whichever ``AuthProvider`` this install uses.
+
+Self-hosted (``local``): the first-run page, only while the database has no
+user row. Hosted (``supabase``): sign-up with an e-mail address, which ends in
+"check your inbox" — the account itself is provisioned at the first sign-in
+after the address is confirmed.
+"""
 
 from __future__ import annotations
 
@@ -8,15 +14,20 @@ from typing import Any
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
+from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.session import finish_login, is_authenticated
+from kaleta.auth.sign_in import SignInFlow
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
 from kaleta.views.auth_common import (
     auth_error_slot,
     auth_field,
+    auth_link,
     auth_page_shell,
     auth_submit,
 )
+from kaleta.views.theme import AUTH_SUBTITLE
 
 
 def register() -> None:
@@ -25,16 +36,22 @@ def register() -> None:
         if is_authenticated():
             return RedirectResponse("/")
 
+        provider = get_auth_provider()
+        hosted = provider.name == "supabase"
+
         async def _guard(session: Any) -> bool:
             return await AuthService(session).auth_state() == "no_user"
 
-        if not await with_session(_guard):
+        if not hosted and not await with_session(_guard):
             return RedirectResponse("/login")
 
-        shell = await auth_page_shell("auth.create_title", "auth.create_subtitle")
+        if hosted:
+            shell = await auth_page_shell("auth.signup_title", "auth.signup_subtitle")
+        else:
+            shell = await auth_page_shell("auth.create_title", "auth.create_subtitle")
 
-        with shell, ui.column().classes("w-full gap-4"):
-            username = auth_field("auth.username").props("autofocus")
+        with shell, ui.column().classes("w-full gap-4") as form:
+            username = auth_field("auth.email" if hosted else "auth.username").props("autofocus")
             password = auth_field("auth.password", password=True, password_toggle_button=True)
             confirm = auth_field(
                 "auth.password_confirm", password=True, password_toggle_button=True
@@ -50,7 +67,7 @@ def register() -> None:
                 pwd2 = confirm.value or ""
 
                 if not name:
-                    _say(t("auth.username_required"))
+                    _say(t("auth.email_required" if hosted else "auth.username_required"))
                     return
                 if len(pwd) < 8:
                     _say(t("auth.password_too_short"))
@@ -59,22 +76,35 @@ def register() -> None:
                     _say(t("auth.password_mismatch"))
                     return
 
-                async def _create(session: Any) -> tuple[bool, str, int | None]:
-                    auth = AuthService(session)
-                    if await auth.auth_state() != "no_user":
-                        return False, t("auth.create_not_allowed"), None
-                    user = await auth.create_user(name, pwd)
-                    await auth.record_login(username=user.username, success=True)
-                    return True, user.username, user.id
-
-                ok, message, user_id = await with_session(_create)
-                if not ok or user_id is None:
-                    _say(message)
+                try:
+                    result = await provider.sign_up(name, pwd)
+                    if result.identity is None:
+                        _show_check_inbox()
+                        return
+                    signed_in = await SignInFlow().complete(result.identity)
+                except KaletaError as exc:
+                    # The local provider says "an account already exists" in
+                    # the one language the service speaks; keep the page's.
+                    _say(t("auth.create_not_allowed") if not hosted else exc.message)
                     return
 
-                finish_login(user_id=user_id, username=message, target="/wizard")
+                finish_login(
+                    user_id=signed_in.user_id,
+                    username=signed_in.username,
+                    target="/wizard",
+                    tenant=signed_in.tenant,
+                )
+
+            def _show_check_inbox() -> None:
+                form.clear()
+                with form:
+                    ui.label(t("auth.check_inbox_title")).classes("text-lg font-semibold")
+                    ui.label(t("auth.check_inbox_body")).classes(AUTH_SUBTITLE)
+                    auth_link("auth.have_account_link", "/login")
 
             confirm.on("keydown.enter", _submit)
-            auth_submit("auth.create_button", _submit)
+            auth_submit("auth.signup_button" if hosted else "auth.create_button", _submit)
+            if hosted:
+                auth_link("auth.have_account_link", "/login")
 
         return None

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
 
+from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.services import DedupeService, IntegrityService, with_session
 from kaleta.services.dedupe_service import (
@@ -101,7 +102,10 @@ def register() -> None:
             _render_category_section(category_groups, confirm.ask)
 
             # ── Integrity (SQLite FK check) ───────────────────────────────
-            _render_integrity_section()
+            # A hosted database is the provider's to keep; the check is
+            # SQLite file maintenance.
+            if settings.tenancy != "multi":
+                _render_integrity_section()
 
 
 # ── Sections ─────────────────────────────────────────────────────────────────
