@@ -1,0 +1,6 @@
+Tenant registry migrations (public schema) for KALETA_TENANCY=multi.
+
+    KALETA_MIGRATE_URL=<url> uv run alembic -c alembic_public.ini upgrade head
+
+Tenant schemas are migrated by alembic.ini with `-x tenant_schema=t_…`
+(scripts/migrate_tenants.py does both).
