@@ -32,7 +32,7 @@ the fund against its item.
   account, which no transaction moves (see the chore inbox entry of
   2026-09-23). `KAL-IRR-004` / `005` cannot hold until that is fixed or
   the fund balance is derived from transactions. Fixed by
-  [`accounts-ledger-balances`](accounts-ledger-balances.md); do that plan first.
+  [`accounts-ledger-balances`](archive/accounts-ledger-balances.md); do that plan first.
 
 ## Scope
 

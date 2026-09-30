@@ -32,4 +32,4 @@ status: accepted
 - **Rejected alternative**: a running `balance` column kept up to date by the
   services (`AccountService.adjust_balance` existed for that and was never
   called).
-- **Plan**: [`accounts-ledger-balances`](../plans/accounts-ledger-balances.md)
+- **Plan**: [`accounts-ledger-balances`](../plans/archive/accounts-ledger-balances.md)
