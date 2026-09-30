@@ -182,7 +182,8 @@ Out of scope:
 - **Merges** (both `PayeeService.merge` and `DedupeService.merge_payees`)
   move the merged payees' identities to the keeper through
   `PayeeService.absorb_identities`, dropping spellings the keeper already
-  has. Loaded `identities` collections of the merged payees are expired
+  has. `PayeeService.merge` now also reassigns subscriptions (chore
+  ticked). Loaded `identities` collections of the merged payees are expired
   first — otherwise the delete-orphan cascade would delete the moved rows.
 - **Scheduler.** There is no notifications system/scheduler, and the
   auto-merge settings live in per-browser `app.storage.user`, so the scan
@@ -194,7 +195,8 @@ Out of scope:
   identity ids, re-pointed transaction/planned/subscription ids) and listed
   under "Recently merged" in Housekeeping for 7 days with an Undo button.
   Undo restores the payee, its moved identities and the rows still pointing
-  at the keeper; rows the keeper gained after the merge stay. Subscription
+  at the keeper; rows the keeper gained after the merge stay. Undo also
+  dismisses the pair, or the next scan would merge it straight back. Subscription
   dismissals (`dismissed_candidate_patterns`, CASCADE) of the merged payee
   are not restored. Manual merges are not logged (unchanged behaviour: the
   confirm dialog already warns they are final).
