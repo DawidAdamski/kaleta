@@ -217,7 +217,7 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 
 | Plan | Issue | Effort | Status | Depends on |
 |---|---|---|---|---|
-| [transfers-manual-pairing](transfers-manual-pairing.md) | #4 TRF | medium | draft | — |
+| [transfers-manual-pairing](archive/transfers-manual-pairing.md) | archived | medium | draft | — |
 | [payees-merge-suggestions-gaps](archive/payees-merge-suggestions-gaps.md) | archived | small | draft | — |
 | [subscriptions-panel-gaps](archive/subscriptions-panel-gaps.md) | archived | small | draft | — |
 | [transactions-quick-entry-flow](archive/transactions-quick-entry-flow.md) | archived | small | draft | — |
