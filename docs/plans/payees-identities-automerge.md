@@ -229,6 +229,12 @@ Out of scope:
 - **Dismiss errors** in Housekeeping are caught by
   `PayeeMergeSuggestion._dismiss` (`handle_kaleta_error`).
 
+- **Backfill on PostgreSQL** is not exercised by a test: KAL-PID-009 runs
+  the migration chain on a SQLite file and is skipped under the Postgres
+  test run, like the other SQLite-file migration tests. The backfill uses
+  only portable SQL (`SELECT` + `bulk_insert`), with the key computed in
+  Python.
+
 ### BDD
 KAL-PID-004…013 `@automated` (integration + e2e), KAL-PID-014 (Settings scan
 button) and KAL-PID-015 (proposals in Housekeeping) `@manual`.

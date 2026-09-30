@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from nicegui import app, ui
@@ -21,7 +22,11 @@ from kaleta.services.payee_merge_service import (
     MergeProposal,
     PayeeMergeService,
 )
-from kaleta.views.components.payee_merge import MergeConfirmDialog, PayeeMergeSuggestion
+from kaleta.views.components.payee_merge import (
+    MergeAction,
+    MergeConfirmDialog,
+    PayeeMergeSuggestion,
+)
 from kaleta.views.error_handling import handle_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.user_prefs import get_payee_dedupe_max_distance
@@ -178,7 +183,9 @@ def _render_tx_section(groups: list[TxGroup], ask_confirm: Any) -> None:
 
 
 def _render_payee_section(
-    groups: list[PayeeGroup], proposals: list[MergeProposal], ask_confirm: Any
+    groups: list[PayeeGroup],
+    proposals: list[MergeProposal],
+    ask_confirm: Callable[[int, MergeAction], None],
 ) -> None:
     with ui.card().classes(SECTION_CARD):
         _section_header(
@@ -195,7 +202,9 @@ def _render_payee_section(
             _render_proposal(proposal, ask_confirm)
 
 
-def _render_proposal(proposal: MergeProposal, ask_confirm: Any) -> None:
+def _render_proposal(
+    proposal: MergeProposal, ask_confirm: Callable[[int, MergeAction], None]
+) -> None:
     group = PayeeGroup(
         items=(
             PayeeGroupItem(proposal.left_id, proposal.left_name, proposal.left_tx_count),
