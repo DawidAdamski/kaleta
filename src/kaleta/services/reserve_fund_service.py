@@ -3,24 +3,33 @@ from __future__ import annotations
 
 import builtins
 import datetime
-from decimal import Decimal
+from decimal import ROUND_UP, Decimal
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.exceptions import ValidationError
+from kaleta.exceptions import NotFoundError, ValidationError
+from kaleta.models.account import Account
 from kaleta.models.reserve_fund import (
     ReserveFund,
     ReserveFundBackingMode,
     ReserveFundKind,
 )
-from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.reserve_fund import (
+    GoalClose,
+    GoalContribution,
     ReserveFundCreate,
     ReserveFundUpdate,
     ReserveFundWithProgress,
 )
+from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.account_service import AccountService
+from kaleta.services.transaction_service import TransactionService
+
+#: The kind a savings goal (skarbonka) is. Target date, contributions, pace
+#: and close-with-release are goal features.
+GOAL_KIND = ReserveFundKind.VACATION
 
 TRAILING_WINDOW_DAYS = 90
 
@@ -50,6 +59,7 @@ class ReserveFundService:
             backing_category_id=payload.backing_category_id,
             emergency_multiplier=payload.emergency_multiplier,
             target_from_spending=payload.target_from_spending,
+            target_date=payload.target_date,
         )
         await self._snapshot_derived_target(fund)
         self.session.add(fund)
@@ -81,6 +91,9 @@ class ReserveFundService:
             )
         for key, value in data.items():
             setattr(fund, key, value)
+        if fund.kind != GOAL_KIND:
+            # A fund edited out of being a goal leaves its date behind.
+            fund.target_date = None
         await self._snapshot_derived_target(fund)
         await self.session.commit()
         await self.session.refresh(fund)
@@ -197,6 +210,146 @@ class ReserveFundService:
         if fund.target_from_spending:
             fund.target_amount = await self._effective_target(fund)
 
+    # ── Savings goals ────────────────────────────────────────────────────────
+
+    @staticmethod
+    def months_left(today: datetime.date, target_date: datetime.date) -> int:
+        """Whole months from *today* until *target_date*, never negative.
+
+        2026-07-01 → 2027-06-01 is 11. A month only counts once its day has
+        come round: 2026-07-15 → 2027-06-01 is 10.
+        """
+        months = (target_date.year - today.year) * 12 + target_date.month - today.month
+        if target_date.day < today.day:
+            months -= 1
+        return max(months, 0)
+
+    @staticmethod
+    def monthly_pace(target: Decimal, saved: Decimal, months_left: int) -> Decimal:
+        """What must go in each remaining month to reach *target*.
+
+        Rounded up to the grosz, so paying the pace every month gets there.
+        With no whole month left the whole remainder is due now; a goal
+        already reached needs nothing more.
+        """
+        remaining = target - saved
+        if remaining <= 0:
+            return Decimal("0.00")
+        return (remaining / Decimal(max(months_left, 1))).quantize(
+            Decimal("0.01"), rounding=ROUND_UP
+        )
+
+    async def _goal(self, fund_id: int) -> tuple[ReserveFund, int]:
+        """The active goal *fund_id* and its backing account id, or an error."""
+        fund = await self.get(fund_id)
+        if fund is None:
+            raise NotFoundError(f"Reserve fund {fund_id} not found.")
+        if fund.kind != GOAL_KIND:
+            raise ValidationError("Only a savings goal takes contributions or closes.")
+        if fund.is_archived:
+            raise ValidationError("This goal is already closed.")
+        if fund.backing_account_id is None:
+            raise ValidationError("This goal has no backing account.")
+        return fund, fund.backing_account_id
+
+    async def _move(
+        self,
+        *,
+        source_id: int,
+        target_id: int,
+        amount: Decimal,
+        on: datetime.date,
+        description: str,
+    ) -> None:
+        """One internal transfer between two of the user's accounts."""
+        if source_id == target_id:
+            raise ValidationError("Money cannot move from an account to itself.")
+        result = await self.session.execute(
+            select(Account.id, Account.currency).where(Account.id.in_([source_id, target_id]))
+        )
+        currencies: dict[int, str] = {account_id: currency for account_id, currency in result}
+        for account_id in (source_id, target_id):
+            if account_id not in currencies:
+                raise NotFoundError(f"Account {account_id} not found.")
+        if currencies[source_id] != currencies[target_id]:
+            raise ValidationError("Both accounts must use the same currency.")
+
+        def leg(account_id: int, direction: TransferDirection) -> TransactionCreate:
+            return TransactionCreate(
+                account_id=account_id,
+                amount=amount,
+                type=TransactionType.TRANSFER,
+                transfer_direction=direction,
+                date=on,
+                description=description,
+                is_internal_transfer=True,
+            )
+
+        await TransactionService(self.session).create_transfer(
+            leg(source_id, TransferDirection.OUT), leg(target_id, TransferDirection.IN)
+        )
+
+    async def contribute(self, fund_id: int, payload: GoalContribution) -> None:
+        """Put money into a goal: a transfer into its backing account.
+
+        The goal's balance is that account's, which follows the ledger, so
+        the card moves with no bookkeeping of its own.
+        """
+        _, backing_id = await self._goal(fund_id)
+        await self._move(
+            source_id=payload.from_account_id,
+            target_id=backing_id,
+            amount=payload.amount,
+            on=payload.date,
+            description=payload.description,
+        )
+
+    async def last_contribution_source(self, fund_id: int) -> int | None:
+        """The account the goal's latest incoming transfer came from, if any.
+
+        The close dialog offers it as where the money goes back to.
+        """
+        fund = await self.get(fund_id)
+        if fund is None or fund.backing_account_id is None:
+            return None
+        incoming = (
+            select(Transaction.linked_transaction_id)
+            .where(
+                Transaction.account_id == fund.backing_account_id,
+                Transaction.transfer_direction == TransferDirection.IN,
+                Transaction.linked_transaction_id.is_not(None),
+            )
+            .order_by(Transaction.date.desc(), Transaction.id.desc())
+            .limit(1)
+            .scalar_subquery()
+        )
+        result = await self.session.execute(
+            select(Transaction.account_id).where(Transaction.id == incoming)
+        )
+        return result.scalar_one_or_none()
+
+    async def close(self, fund_id: int, payload: GoalClose) -> ReserveFund:
+        """Archive a goal, first moving its balance to *release_to_account_id*.
+
+        No account means the money stays where it is. Nothing is moved when
+        the backing account holds nothing.
+        """
+        _, backing_id = await self._goal(fund_id)
+        if payload.release_to_account_id is not None:
+            balance = await AccountService(self.session).balance(backing_id)
+            if balance > 0:
+                await self._move(
+                    source_id=backing_id,
+                    target_id=payload.release_to_account_id,
+                    amount=balance,
+                    on=payload.date,
+                    description=payload.description,
+                )
+        archived = await self.archive(fund_id)
+        if archived is None:  # deleted between the two steps
+            raise NotFoundError(f"Reserve fund {fund_id} not found.")
+        return archived
+
     async def with_progress(
         self, fund: ReserveFund, *, today: datetime.date | None = None
     ) -> ReserveFundWithProgress:
@@ -211,6 +364,11 @@ class ReserveFundService:
         pct = (balance / target).quantize(Decimal("0.01")) if target > 0 else Decimal("0.00")
 
         months_of_coverage: Decimal | None = None
+        months_left: int | None = None
+        monthly_pace: Decimal | None = None
+        if fund.kind == GOAL_KIND and fund.target_date is not None:
+            months_left = self.months_left(today or datetime.date.today(), fund.target_date)
+            monthly_pace = self.monthly_pace(target, balance, months_left)
         if fund.kind == ReserveFundKind.EMERGENCY:
             monthly = await self.trailing_monthly_expense(today=today)
             if monthly > 0:
@@ -232,6 +390,9 @@ class ReserveFundService:
                 "current_balance": balance,
                 "progress_pct": pct,
                 "months_of_coverage": months_of_coverage,
+                "target_date": fund.target_date,
+                "months_left": months_left,
+                "monthly_pace": monthly_pace,
             }
         )
 
@@ -286,6 +447,7 @@ class ReserveFundService:
 
 
 __all__ = [
+    "GOAL_KIND",
     "TARGET_WINDOW_DAYS",
     "TARGET_WINDOW_MONTHS",
     "TRAILING_WINDOW_DAYS",

@@ -2316,29 +2316,31 @@ Feature: Savings Goals (Skarbonki)
   I want piggy-bank style goals with targets and progress
   So that saving for holidays is visible and deliberate
 
-  KAL-GOL-001 @planned
+  KAL-GOL-001 @automated
   Scenario: Create a savings goal
-    Given I am on the Goals page
-    When I add goal "Holidays 2027" with target 6000.00 by 2027-06-01
+    Given an empty account "Konto wakacyjne"
+    And I am on Safety & Reserve Funds filtered to "Goals"
+    When I add goal "Holidays 2027" with target 6000.00 by 2027-06-01 backed by "Konto wakacyjne"
     Then the goal appears with 0% progress
 
-  KAL-GOL-002 @planned
+  KAL-GOL-002 @automated
   Scenario: Contribute to a goal
-    Given goal "Holidays 2027" with target 6000.00
-    When I record a 500.00 contribution to it
+    Given goal "Holidays 2027" with target 6000.00 backed by an empty account
+    When I record a 500.00 contribution to it from "PKO Main"
     Then the goal shows 500.00 saved and 8% progress
+    And "PKO Main" holds 500.00 less
 
-  KAL-GOL-003 @planned
+  KAL-GOL-003 @automated
   Scenario: Pace hint against the target date
     Given goal "Holidays 2027" is 500.00 of 6000.00 with 11 months left
     When I view the goal
     Then I see the required monthly pace of 500.00 to reach the target
 
-  KAL-GOL-004 @planned
+  KAL-GOL-004 @automated
   Scenario: Close a goal and release the money
-    Given goal "Holidays 2027" has reached its target
+    Given goal "Holidays 2027" has reached its target with money from "PKO Main"
     When I close the goal
-    Then its balance is released back to the source account
+    Then its balance is released back to "PKO Main"
     And the goal moves to the archive
 ```
 

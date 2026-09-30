@@ -105,6 +105,9 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
     page.locator(".q-menu").get_by_text(food_cat, exact=True).click()
     dialog.get_by_role("button", name="Save", exact=True).click()
 
+    # The dialog reuses the date of the day's last save (QuickEntryMemory), so
+    # the row need not be on today's first page: find it through the search.
+    search_ledger(page, "Supermarket")
     expect(page.get_by_text("Supermarket Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-45.50").first).to_be_visible(timeout=5000)
 
@@ -150,6 +153,7 @@ def test_add_edit_split_transaction(page: Page, base_url: str) -> None:
 
     _save_when_balanced(dialog)
 
+    search_ledger(page, "Split Grocery Tx E2E")
     expect(page.get_by_text("Split Grocery Tx E2E").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("-100.00").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Split (2)", exact=True).first).to_be_visible(timeout=5000)
@@ -229,6 +233,9 @@ def test_split_row_indicator_and_plain_row(page: Page, base_url: str) -> None:
     dialog.get_by_role("button", name="Fill last").click()
     _save_when_balanced(dialog)
 
+    # The dialog reuses the date of the day's last save (QuickEntryMemory), so
+    # the row need not be on today's first page: find it through the search.
+    search_ledger(page, "Ind E2E")
     split_row = page.locator(".q-table tbody tr").filter(has_text="Split Ind E2E")
     plain_row = page.locator(".q-table tbody tr").filter(has_text="Plain Ind E2E")
 
@@ -264,6 +271,9 @@ def test_split_row_action_prearms_editor(page: Page, base_url: str) -> None:
     dialog.get_by_label("Category").click()
     page.locator(".q-menu").get_by_text(food_cat, exact=True).click()
     dialog.get_by_role("button", name="Save", exact=True).click()
+    # The dialog reuses the date of the day's last save (QuickEntryMemory), so
+    # the row need not be on today's first page: find it through the search.
+    search_ledger(page, "Arm Split E2E")
     expect(page.get_by_text("Arm Split E2E").first).to_be_visible(timeout=5000)
 
     row = page.locator(".q-table tbody tr").filter(has_text="Arm Split E2E")
@@ -324,6 +334,9 @@ def test_add_note_then_clear_it(page: Page, base_url: str) -> None:
     page.locator(".q-menu").get_by_text(category_name, exact=True).click()
     dialog.get_by_role("button", name="Save", exact=True).click()
 
+    # The dialog reuses the date of the day's last save (QuickEntryMemory), so
+    # the row need not be on today's first page: find it through the search.
+    search_ledger(page, described)
     row = page.locator(".q-table tbody tr").filter(has_text=described)
     expect(row).to_have_count(1, timeout=5000)
     note_icon = row.locator(".notes-row-icon")

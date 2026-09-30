@@ -295,6 +295,13 @@ def delete_account(account_id: int) -> None:
     resp.raise_for_status()
 
 
+def get_account(account_id: int) -> dict[str, Any]:
+    """Fetch one account (with its derived balance) via the REST API."""
+    resp = _client.get(f"{API_BASE}/accounts/{account_id}")
+    resp.raise_for_status()
+    return resp.json()
+
+
 def update_account(account_id: int, **fields: Any) -> dict:
     """PATCH-style update via PUT; only supplied fields are changed."""
     resp = _client.put(f"{API_BASE}/accounts/{account_id}", json=fields)
@@ -545,6 +552,7 @@ def seed_reserve_fund(
     *,
     kind: str = "emergency",
     emergency_multiplier: int | None = 3,
+    target_date: datetime.date | None = None,
 ) -> int:
     """Create a reserve fund via the service layer; return its ID."""
     from decimal import Decimal
@@ -564,6 +572,7 @@ def seed_reserve_fund(
                     backing_mode=ReserveFundBackingMode.ACCOUNT,
                     backing_account_id=backing_account_id,
                     emergency_multiplier=emergency_multiplier,
+                    target_date=target_date,
                 )
             )
             return fund.id

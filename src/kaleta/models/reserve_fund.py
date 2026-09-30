@@ -5,7 +5,7 @@ import datetime
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -60,6 +60,9 @@ class ReserveFund(TimestampMixin, UserOwnedMixin, Base):
     )
     emergency_multiplier: Mapped[int | None] = mapped_column(Integer, nullable=True)
     target_from_spending: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    #: When a savings goal (skarbonka) should be full. Only goals carry one;
+    #: it drives the monthly pace on the card.
+    target_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     archived_at: Mapped[datetime.datetime | None] = mapped_column(DateTime, nullable=True)
 
