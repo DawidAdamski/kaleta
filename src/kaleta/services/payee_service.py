@@ -11,6 +11,7 @@ from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.payee import Payee
 from kaleta.models.payee_identity import PayeeIdentity, identity_key
 from kaleta.models.planned_transaction import PlannedTransaction
+from kaleta.models.subscription import Subscription
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.payee import PayeeCreate, PayeeLastUsed, PayeeUpdate
 from kaleta.schemas.payee_identity import PayeeIdentityCreate, PayeeIdentityUpdate
@@ -100,6 +101,11 @@ class PayeeService:
         await self.session.execute(
             update(PlannedTransaction)
             .where(PlannedTransaction.payee_id.in_(merge_ids))
+            .values(payee_id=keep_id)
+        )
+        await self.session.execute(
+            update(Subscription)
+            .where(Subscription.payee_id.in_(merge_ids))
             .values(payee_id=keep_id)
         )
         await self.absorb_identities(keep_id, merge_ids)

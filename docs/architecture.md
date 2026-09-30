@@ -43,6 +43,20 @@ the account's transactions (income `+`, expense `−`, a transfer leg by its
 is the one place that computes it. See
 [ADR-37](adr/037-account-balances-derived-from-the-ledger.md).
 
+### Payee identities
+
+A payee answers to one or more literal spellings (`PayeeIdentity`), and
+every payee holds at least one — its own name, added by a `before_flush`
+listener in `models/payee_identity.py`, so no creation path can skip it.
+`PayeeService.match_or_create_from_name()` is the single way a raw name
+(CSV import, a typed payee in manual entry) becomes a payee: exact
+identity, then case-insensitive identity (`pattern_key`, casefolded in
+Python because SQLite `lower()` folds ASCII only), then exact payee name,
+else a new payee. Merges move the merged payees' identities to the keeper.
+`PayeeMergeService` scores payee pairs for merge proposals and, when the
+user opts in, merges confident pairs automatically; each automatic merge is
+logged in `payee_auto_merges` so it can be undone for 7 days.
+
 ## Directory Structure
 
 ```

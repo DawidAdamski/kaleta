@@ -317,6 +317,11 @@ async def test_undo_auto_merge_within_seven_days(session: AsyncSession):
     )
     assert [e.merged_name for e in await merge_svc.recent_auto_merges()] == ["Rossmann Drogeria 13"]
 
+    eight_days_later = record.merged_at + datetime.timedelta(days=8)
+    assert await merge_svc.recent_auto_merges(now=eight_days_later) == []
+    with pytest.raises(ConflictError):
+        await merge_svc.undo(record.id, now=eight_days_later)
+
     restored = await merge_svc.undo(record.id)
 
     assert restored.name == "Rossmann Drogeria 13"
@@ -328,8 +333,9 @@ async def test_undo_auto_merge_within_seven_days(session: AsyncSession):
     assert tx.payee_id == restored.id
     assert await merge_svc.recent_auto_merges() == []
 
-    again = (await merge_svc.scan(auto_merge_threshold=0.92)).merged[0]
-    eight_days_later = again.merged_at + datetime.timedelta(days=8)
-    assert await merge_svc.recent_auto_merges(now=eight_days_later) == []
-    with pytest.raises(ConflictError):
-        await merge_svc.undo(again.id, now=eight_days_later)
+    # The undone pair is dismissed: the next scan neither merges nor proposes it.
+    rescan = await merge_svc.scan(auto_merge_threshold=0.92)
+    assert rescan.merged == []
+    assert [(p.left_name, p.right_name) for p in rescan.proposals] == [
+        ("Decathlon Sport 1234", "Decathlon Sport 1987")
+    ]

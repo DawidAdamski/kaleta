@@ -3,6 +3,9 @@
 
 from __future__ import annotations
 
+import datetime
+from decimal import Decimal
+
 import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.exceptions import ConflictError, NotFoundError
 from kaleta.models.payee import Payee
 from kaleta.models.payee_identity import PayeeIdentity, identity_key
+from kaleta.models.subscription import Subscription, SubscriptionStatus
 from kaleta.schemas.payee import PayeeCreate, PayeeUpdate
 from kaleta.schemas.payee_identity import PayeeIdentityCreate, PayeeIdentityUpdate
 from kaleta.services import PayeeService
@@ -171,3 +175,23 @@ class TestMergeIdentities:
             "Lidl 1234 Warszawa",
             "Lidl",
         ]
+
+    async def test_merge_moves_subscriptions_to_keeper(self, svc: PayeeService) -> None:
+        keeper = await svc.create(PayeeCreate(name="Netflix"))
+        other = await svc.create(PayeeCreate(name="NETFLIX.COM"))
+        subscription = Subscription(
+            payee_id=other.id,
+            name="Netflix",
+            amount=Decimal("43.00"),
+            cadence_days=30,
+            first_seen_at=datetime.date(2026, 1, 15),
+            next_expected_at=datetime.date(2026, 10, 15),
+            status=SubscriptionStatus.ACTIVE,
+        )
+        svc.session.add(subscription)
+        await svc.session.commit()
+
+        await svc.merge(keeper.id, [other.id])
+
+        await svc.session.refresh(subscription)
+        assert subscription.payee_id == keeper.id

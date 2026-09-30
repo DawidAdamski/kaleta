@@ -259,7 +259,8 @@ class PayeeMergeService:
         The payee returns with its own fields and the identities it handed
         over; the rows the merge re-pointed at the keeper go back to it unless
         the user has since moved them elsewhere. Rows the keeper gained after
-        the merge stay with the keeper.
+        the merge stay with the keeper. The pair is dismissed as well — it
+        scores the same as before, and the next scan must not merge it again.
         """
         moment = now or datetime.datetime.now(datetime.UTC)
         record = await self.session.get(PayeeAutoMerge, record_id)
@@ -299,6 +300,8 @@ class PayeeMergeService:
                     .where(model.id.in_(ids), model.payee_id == keeper_id)
                     .values(payee_id=restored.id)
                 )
+        first, second = _pair(keeper_id, restored.id)
+        self.session.add(DismissedPayeeMerge(first_payee_id=first, second_payee_id=second))
         record.undone_at = moment
         await self.session.commit()
         await self.session.refresh(restored)

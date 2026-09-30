@@ -764,7 +764,8 @@ Feature: Payee Identities
     Given "Rossmann Drogeria 13" was auto-merged into "Rossmann Drogeria 12" with its transaction
     When I undo that merge from "Recently merged" within 7 days
     Then "Rossmann Drogeria 13" exists again with its identity and its transaction
-    And after 7 days the same merge can no longer be undone
+    And the next merge scan neither merges nor proposes that pair again
+    And a merge older than 7 days can no longer be undone
 
   KAL-PID-013 @automated
   Scenario: A spelling belongs to one payee only
