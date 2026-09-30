@@ -180,7 +180,7 @@ leaves the hooks it needs.
 
 - `uv run pytest tests/unit/auth tests/unit/services/test_tenant_service.py -q`
 - `uv run pytest tests/integration/test_tenant_isolation.py -q` (Postgres job)
-- `KALETA_TENANCY=multi KALETA_AUTH_BACKEND=local uv run python -c "import kaleta.config"` exits non-zero
+- `! KALETA_TENANCY=multi KALETA_AUTH_BACKEND=local uv run python -c "import kaleta.config"` (the import must exit non-zero)
 - `uv run pytest tests/e2e/test_auth.py -q` (existing single-mode flows unchanged)
 - `uv run python scripts/spec_coverage.py`
 - `./scripts/verify.sh --e2e`
@@ -321,6 +321,13 @@ sits with `kaleta.auth`), `docker-compose.yml`, `.github/workflows/ci.yml`,
   whose verification link the test reads instead of a mailbox — the
   "verification stub" of §6. This exercises the real `SupabaseAuthProvider`
   over HTTP rather than swapping the provider class.
+
+- **Acceptance criterion rewritten in form, not meaning.** The DoD gate
+  treats a non-zero exit as a failed criterion, so "`KALETA_TENANCY=multi
+  KALETA_AUTH_BACKEND=local … import kaleta.config` exits non-zero" was stated
+  as `! <that command>`, which succeeds exactly when the import is refused.
+  The same process-level check is also a unit test
+  (`test_importing_the_config_with_multi_and_local_exits_non_zero`).
 
 ### Not done here (by scope)
 
