@@ -79,6 +79,8 @@ class MergeProposal:
     right_name: str
     score: float
     reason: PayeeMergeReason
+    left_tx_count: int = 0
+    right_tx_count: int = 0
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,8 @@ class PayeeMergeService:
                         right_name=other.name,
                         score=round(score, 4),
                         reason=reason,
+                        left_tx_count=keep.tx_count,
+                        right_tx_count=other.tx_count,
                     )
                 )
         proposals.sort(key=lambda p: (-p.score, p.left_name, p.right_name))

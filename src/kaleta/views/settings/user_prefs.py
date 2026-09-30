@@ -9,12 +9,18 @@ from decimal import Decimal
 from nicegui import app
 
 from kaleta.core.weeks import WeekStartMode, coerce_mode
+from kaleta.services.payee_merge_service import (
+    AUTO_MERGE_THRESHOLD_MAX,
+    AUTO_MERGE_THRESHOLD_MIN,
+    DEFAULT_AUTO_MERGE_THRESHOLD,
+)
 from kaleta.views.settings.constants import (
     DEFAULT_BUDGET_MONTH_START_DAY,
     DEFAULT_EVENT_RETENTION_DAYS,
     DEFAULT_EVENTS_ENABLED,
     DEFAULT_IMPORT_SKIP_DUPLICATES,
     DEFAULT_NUMBER_FORMAT,
+    DEFAULT_PAYEE_AUTOMERGE_ENABLED,
     DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE,
     DEFAULT_TRANSACTIONS_UPCOMING_DAYS,
     DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
@@ -32,6 +38,8 @@ __all__ = [
     "get_events_enabled",
     "get_import_skip_duplicates_default",
     "get_number_format",
+    "get_payee_automerge_enabled",
+    "get_payee_automerge_threshold",
     "get_payee_dedupe_max_distance",
     "get_transactions_upcoming_days",
     "get_transfer_amount_tolerance",
@@ -103,6 +111,20 @@ def get_payee_dedupe_max_distance() -> int:
         return max(1, min(5, int(raw)))
     except (TypeError, ValueError):
         return DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE
+
+
+def get_payee_automerge_enabled() -> bool:
+    return bool(app.storage.user.get("payee_automerge_enabled", DEFAULT_PAYEE_AUTOMERGE_ENABLED))
+
+
+def get_payee_automerge_threshold() -> float:
+    """Confidence at or above which a merge scan merges payees on its own."""
+    raw = app.storage.user.get("payee_automerge_threshold", DEFAULT_AUTO_MERGE_THRESHOLD)
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_AUTO_MERGE_THRESHOLD
+    return round(max(AUTO_MERGE_THRESHOLD_MIN, min(AUTO_MERGE_THRESHOLD_MAX, value)), 2)
 
 
 def get_import_skip_duplicates_default() -> bool:

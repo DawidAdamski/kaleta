@@ -38,14 +38,15 @@ class PayeeService:
         result = await self.session.execute(stmt)
         return [(row.Payee, row.tx_count) for row in result]
 
-    async def identity_counts(self) -> dict[int, int]:
-        """Number of identities per payee id."""
+    async def identities_by_payee(self) -> dict[int, builtins.list[PayeeIdentity]]:
+        """Every payee's identities, oldest first, keyed by payee id."""
         result = await self.session.execute(
-            select(PayeeIdentity.payee_id, func.count(PayeeIdentity.id)).group_by(
-                PayeeIdentity.payee_id
-            )
+            select(PayeeIdentity).order_by(PayeeIdentity.payee_id, PayeeIdentity.id)
         )
-        return {payee_id: count for payee_id, count in result.all()}
+        grouped: dict[int, builtins.list[PayeeIdentity]] = {}
+        for identity in result.scalars().all():
+            grouped.setdefault(identity.payee_id, []).append(identity)
+        return grouped
 
     async def get(self, payee_id: int) -> Payee | None:
         result = await self.session.execute(select(Payee).where(Payee.id == payee_id))

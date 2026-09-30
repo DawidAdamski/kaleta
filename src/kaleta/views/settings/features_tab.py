@@ -17,6 +17,7 @@ from kaleta.views.settings.constants import (
     DEFAULT_TRANSFER_PAIRING_DAYS,
 )
 from kaleta.views.settings.helpers import set_user_key
+from kaleta.views.settings.payee_automerge import PayeeAutoMergeSettings
 from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
 from kaleta.views.theme import SEGMENT
 
@@ -81,6 +82,8 @@ def render_features_tab() -> None:
                 step=30,
                 on_change=lambda e: set_user_key("housekeeping_duplicate_days", int(e.value or 0)),
             ).classes("max-w-60")
+
+            PayeeAutoMergeSettings()
 
         with ui.card().classes("p-6 w-full"):
             with ui.row().classes("items-center gap-2 mb-1"):
