@@ -3,16 +3,17 @@ plan_id: accounts-ledger-balances
 title: Account balances follow the ledger — opening balance + sum of transactions
 area: accounts
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#accounts
+status: archived
+archived_at: 2026-09-30
+roadmap_ref: ../../roadmap.md#accounts
 ---
 
 # Account balances follow the ledger
 
 Promoted from the chore inbox ("Reserve fund balances never follow the
 ledger", found by `plan/audit-planned-vs-code`). Blocks
-[`funds-savings-goals`](funds-savings-goals.md) (GOL-002/004) and
-[`funds-irregular-items`](funds-irregular-items.md) (IRR-004/005).
+[`funds-savings-goals`](../funds-savings-goals.md) (GOL-002/004) and
+[`funds-irregular-items`](../funds-irregular-items.md) (IRR-004/005).
 
 ## Intent
 
@@ -276,3 +277,73 @@ database seeded at the previous head.
   `transfer_direction`. A new chore covers the one-legged planned transfer.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-30 (PR #172).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `950f4e6` | Dawid Adamski | 2026-09-30 | Merge pull request #172 from DawidAdamski/plan/accounts-ledger-balances |
+
+**Files changed:**
+- alembic/versions/c4d5e6f7a8b9_ledger_derived_account_balances.py
+- docs/adr/037-account-balances-derived-from-the-ledger.md
+- docs/architecture.md
+- docs/bdd.md
+- docs/plans/accounts-ledger-balances.md
+- docs/plans/chores.md
+- src/kaleta/api/v1/accounts.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/__init__.py
+- src/kaleta/models/account.py
+- src/kaleta/models/transaction.py
+- src/kaleta/schemas/account.py
+- src/kaleta/schemas/transaction.py
+- src/kaleta/seeders/accounts.py
+- src/kaleta/seeders/transactions.py
+- src/kaleta/services/account_service.py
+- src/kaleta/services/credit_service.py
+- src/kaleta/services/forecast_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/net_worth_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/report_service.py
+- src/kaleta/services/reserve_fund_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/accounts.py
+- src/kaleta/views/transactions/add_dialog.py
+- tests/backup_helpers.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_account_balances.py
+- tests/e2e/test_planned_transactions.py
+- tests/integration/test_account_balances.py
+- tests/integration/test_analysis_api.py
+- tests/integration/test_payees.py
+- tests/integration/test_sqlite_integrity_backups.py
+- tests/unit/schemas/test_transaction_schema.py
+- tests/unit/seeders/test_registry.py
+- tests/unit/services/test_account_balances.py
+- tests/unit/services/test_account_service.py
+- tests/unit/services/test_budget_service.py
+- tests/unit/services/test_integrity_service.py
+- tests/unit/services/test_loan_ledger_link.py
+- tests/unit/services/test_money_flow_service.py
+- tests/unit/services/test_net_worth_service.py
+- tests/unit/services/test_payee_service.py
+- tests/unit/services/test_report_service.py
+- tests/unit/services/test_reserve_fund_service.py
+- tests/unit/services/test_scenario_service.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/services/test_transfer_pairing.py
+- tests/unit/services/test_wizard_action_service.py
+- tests/unit/services/test_wizard_mentor_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

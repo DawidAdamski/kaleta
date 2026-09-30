@@ -27,7 +27,7 @@ a way to put money in, the pace to get there, and a clean close.
 - **Blocker:** a fund's balance is its backing account's
   `Account.balance`, which no transaction moves (chore inbox,
   2026-09-23) — so GOL-002 "record a contribution" cannot show up.
-  Fixed by [`accounts-ledger-balances`](accounts-ledger-balances.md);
+  Fixed by [`accounts-ledger-balances`](archive/accounts-ledger-balances.md);
   do that plan first.
 
 ## Scope
