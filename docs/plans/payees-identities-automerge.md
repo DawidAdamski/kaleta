@@ -4,7 +4,7 @@ title: Payees — multiple identities and automatic merge
 area: payees
 effort: medium
 roadmap_ref: ../roadmap.md#cross-cutting-automatic-deduplication-suggestions
-status: draft
+status: in-progress
 deferred_to: q4-2026
 ---
 

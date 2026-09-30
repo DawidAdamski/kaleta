@@ -24,6 +24,12 @@ class Payee(TimestampMixin, UserOwnedMixin, Base):
     transactions: Mapped[list[Transaction]] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Transaction", back_populates="payee"
     )
+    identities: Mapped[list[PayeeIdentity]] = relationship(  # type: ignore[name-defined]  # noqa: F821
+        "PayeeIdentity",
+        back_populates="payee",
+        cascade="all, delete-orphan",
+        order_by="PayeeIdentity.id",
+    )
 
     def __repr__(self) -> str:
         return f"<Payee id={self.id} name={self.name!r}>"

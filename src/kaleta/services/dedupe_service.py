@@ -376,6 +376,9 @@ class DedupeService:
             .where(PlannedTransaction.payee_id.in_(victims))
             .values(payee_id=keeper_id)
         )
+        # The keeper answers to every spelling the merged payees did.
+        payee_svc = PayeeService(self.session)
+        await payee_svc.absorb_identities(keeper_id, victims)
         # Delete the victim payees. DismissedCandidate.payee_id → CASCADE.
         result = await self.session.execute(select(Payee).where(Payee.id.in_(victims)))
         for p in result.scalars().all():
@@ -385,6 +388,7 @@ class DedupeService:
             # deletes, so taking a merged payee's name would trip UNIQUE.
             await self.session.flush()
             keeper.name = name
+            await payee_svc.add_name_identity(keeper_id, name)
         await self.session.commit()
         return len(victims)
 

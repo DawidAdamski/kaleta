@@ -17,6 +17,8 @@ from kaleta.models.import_run import ImportRun
 from kaleta.models.institution import Institution, InstitutionType
 from kaleta.models.monthly_readiness import MonthlyReadiness
 from kaleta.models.payee import Payee
+from kaleta.models.payee_identity import PayeeIdentity
+from kaleta.models.payee_merge import DismissedPayeeMerge, PayeeAutoMerge
 from kaleta.models.personal_loan import (
     Counterparty,
     LoanDirection,
@@ -59,6 +61,7 @@ __all__ = [
     "CurrencyRate",
     "DismissedCandidate",
     "DismissedCandidateKind",
+    "DismissedPayeeMerge",
     "DismissedTransferPair",
     "ImportRule",
     "ImportRun",
@@ -69,6 +72,8 @@ __all__ = [
     "LoanStatus",
     "MonthlyReadiness",
     "Payee",
+    "PayeeAutoMerge",
+    "PayeeIdentity",
     "PersonalLoan",
     "PersonalLoanRepayment",
     "PlannedTransaction",
