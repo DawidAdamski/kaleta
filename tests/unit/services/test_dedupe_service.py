@@ -27,9 +27,9 @@ from kaleta.services import (
 from kaleta.services.dedupe_service import (
     _core_tokens,
     _descriptions_look_alike,
-    _levenshtein,
     _levenshtein_close,
-    _normalise_name,
+    levenshtein,
+    normalise_name,
 )
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
@@ -89,14 +89,14 @@ async def _make_tx(
 
 class TestHelpers:
     def test_normalise_strips_case_diacritics_punct(self):
-        assert _normalise_name("Żabka Sp. z o.o.") == "zabka sp z o o"
-        assert _normalise_name("  Netflix  ") == "netflix"
-        assert _normalise_name("") == ""
+        assert normalise_name("Żabka Sp. z o.o.") == "zabka sp z o o"
+        assert normalise_name("  Netflix  ") == "netflix"
+        assert normalise_name("") == ""
 
     def test_levenshtein_basic(self):
-        assert _levenshtein("netflix", "netflix") == 0
-        assert _levenshtein("netflix", "netflxx") == 1
-        assert _levenshtein("kitten", "sitting") == 3
+        assert levenshtein("netflix", "netflix") == 0
+        assert levenshtein("netflix", "netflxx") == 1
+        assert levenshtein("kitten", "sitting") == 3
 
     def test_levenshtein_close_respects_short_threshold(self):
         assert _levenshtein_close("Netflix", "Netflxx") is True

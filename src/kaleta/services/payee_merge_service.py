@@ -37,7 +37,7 @@ from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.subscription import Subscription
 from kaleta.models.transaction import Transaction
 from kaleta.schemas.payee_identity import PayeeMergeReason
-from kaleta.services.dedupe_service import DedupeService, _levenshtein, _normalise_name
+from kaleta.services.dedupe_service import DedupeService, levenshtein, normalise_name
 from kaleta.services.payee_service import PayeeService
 
 # ── Tunables ──────────────────────────────────────────────────────────────────
@@ -360,11 +360,11 @@ class PayeeMergeService:
         payees = await self.session.execute(select(Payee).order_by(Payee.id))
         candidates: builtins.list[_Candidate] = []
         for payee in payees.scalars().all():
-            norm_name = _normalise_name(payee.name)
+            norm_name = normalise_name(payee.name)
             norm_spellings = tuple(
                 dict.fromkeys(
                     n
-                    for n in (norm_name, *(_normalise_name(s) for s in spellings.get(payee.id, [])))
+                    for n in (norm_name, *(normalise_name(s) for s in spellings.get(payee.id, [])))
                     if n
                 )
             )
@@ -398,7 +398,7 @@ def similarity(a: str, b: str) -> float:
     if not a or not b:
         return 0.0
     longest = max(len(a), len(b))
-    return 1.0 - _levenshtein(a, b) / longest
+    return 1.0 - levenshtein(a, b) / longest
 
 
 def _similarity_ceiling(a: str, b: str) -> float:
