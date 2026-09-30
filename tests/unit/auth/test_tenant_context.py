@@ -163,14 +163,23 @@ async def test_the_resolver_supplies_the_tenant_for_ui_events(hosted: str) -> No
     assert await _account_names() == ["From the resolver"]
 
 
-async def test_the_public_session_cannot_see_tenant_tables(hosted: str) -> None:
-    """Covers: KAL-TEN-003"""
+async def test_the_public_session_cannot_see_tenant_rows(hosted: str) -> None:
+    """Covers: KAL-TEN-003
+
+    A fresh hosted database has no ``accounts`` outside the tenant schemas, so
+    the query errors; a database that also carries single-tenant tables in
+    ``public`` (the CI ``postgres`` job) answers from those. Neither answer may
+    contain a tenant's row.
+    """
     a = await _provision(hosted, 1)
     with use_tenant(a):
         await _add_account("Private")
     async with AsyncSessionFactory.public() as session:
-        with pytest.raises(Exception, match=r"(?i)no such table|does not exist"):
-            await session.execute(select(Account.name))
+        try:
+            names = list((await session.execute(select(Account.name))).scalars())
+        except DBAPIError:
+            names = []
+    assert "Private" not in names
 
 
 def test_a_context_refuses_a_schema_name_it_did_not_mint() -> None:
