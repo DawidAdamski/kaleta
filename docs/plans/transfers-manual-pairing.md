@@ -3,7 +3,7 @@ plan_id: transfers-manual-pairing
 title: Transfer recognition — pair existing rows, suggest pairs, one summary
 area: import
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#import
 ---
 
@@ -75,3 +75,69 @@ i18n `en.json` / `pl.json`, `docs/bdd.md`,
 - Pair window for suggestions: scenario says 2 days, setting defaults to
   3. Default: use the setting; change the scenario literal to the
   setting's default only if the owner prefers.
+
+## Implementation notes
+
+- **Open question (pair window).** Took the default: suggestions use the
+  `transfer_pairing_days` setting (default 3). The scenario's "within 2 days"
+  stays as written — 2 is inside the default window, and the tests use it.
+- **KAL-TRF-001.** `TransactionService.pair_as_transfer(expense_id, income_id,
+  *, amount_tolerance=0)` validates: two distinct rows, different accounts,
+  same currency (cross-currency is out of scope), equal absolute amount
+  (within tolerance), neither already linked, neither split, and direction
+  (an income cannot be the outgoing leg, an expense cannot be the incoming
+  one; a row already typed `transfer` may stand on either side, which is
+  what an mBank import that recognised one side produces). Both legs become
+  `type=TRANSFER`, `is_internal_transfer=True`, `category_id=None`, linked to
+  each other. Payee, tags, notes, dates and descriptions are kept.
+  The ledger doesn't know which selected row is which leg, so the bar
+  calls `pair_selected_as_transfer(a, b)`, which orients them by type via
+  `TransactionService.orient_transfer_legs` (shared with the suggester).
+  Button is always on the selection bar, disabled unless exactly two rows
+  are ticked (`data-mark-transfer`).
+- **KAL-TRF-002.** `ImportService.suggest_transfer_pairs(max_days_apart,
+  amount_tolerance, date_from, date_to)` considers every unlinked, non-split
+  row — ordinary income/expense as well as flagged transfer legs — and
+  returns `TransferPairSuggestion`s without writing anything. Two expenses
+  or two incomes never pair. Each row appears in at most one pair; closest
+  date wins, then closest amount, then lowest ids. Sorting by amount keeps
+  the scan to the rows within tolerance instead of all pairs.
+  Dismissals persist in a new table `dismissed_transfer_pairs`
+  (`DismissedTransferPair`, migration `3b168fa7bb71`), keyed by the two row
+  ids stored lowest-first, so a dismissal holds whichever way round the
+  pair was offered. `DismissedCandidate` itself was not reused: it is keyed
+  by payee/merchant pattern and amount bucket, and a pair is a fact about
+  two rows. Rows cascade-delete their dismissals (FK `ON DELETE CASCADE`;
+  SQLite enforces it because `db/session.py` turns on `PRAGMA foreign_keys`.
+  The in-memory unit-test engine does not, so no unit test asserts the cascade).
+- **Where the review lives.** The transfer card moved from the Preview step
+  (where it was shown only for the generic profile, before the rows existed)
+  to the Confirm step, for every profile, shown once a run has finished.
+  Suggestions are scoped to the span of dates of the rows this run
+  imported, widened by the pairing window, so years of unrelated history
+  are not offered at once.
+- **Accept all.** `detect_and_link_transfers` keeps its name and return
+  value (pairs linked) but is now "accept every current suggestion" —
+  same pairs, dismissals respected, same date bounds. Behaviour change:
+  it now also converts matching ordinary income/expense pairs, and it
+  refuses pairs across currencies (the old code didn't check). It had
+  no tests; `tests/unit/services/test_transfer_pairing.py` covers it.
+- **KAL-TRF-003.** Decision: "the monthly summary" is the dashboard's month
+  widgets (`month_income`, `month_expenses`, `month_net`, all reading
+  `ReportService.current_month_summary` → `_month_summary`), plus the
+  ledger's neutral colouring (`theme.amount_class("transfer")`). Scenario
+  reworded to name both. No production change was needed: `_month_summary`
+  already excludes `is_internal_transfer`; the new integration test pins it.
+- **Tests.** `tests/integration/test_transfer_pairing.py` covers
+  TRF-001/002/003 at the service level; `tests/e2e/test_transfer_detection.py`
+  covers TRF-001 (ledger bar) and TRF-002 (import Confirm step, new fixture
+  `mbank_transfer_pairs.csv` dated 2019-03 with odd amounts, to keep clear of
+  other tests' rows in the shared e2e DB).
+- **Review follow-ups.** The review window moved into
+  `ImportService.transfer_review_window` (unit-tested) instead of living in
+  the view. The "Mark as transfer" tooltip now says both rows lose their
+  category, since pairing clears it and there is no undo. Accept-all commits
+  pair by pair: a failure part-way leaves the earlier pairs linked, and the
+  view refreshes the list, which the docstring now says.
+- **Found, not fixed** (chore inbox): Money Flow infers transfer direction
+  from row ids, which pairing does not guarantee.

@@ -238,3 +238,10 @@ check it still reproduces before acting on it.
       limiter calls in `views/login.py`, `views/login_mfa.py` and
       `views/settings/security_tab.py` and show a "try again shortly" toast.
       Found by `plan/auth-session-hosted-readiness`.
+- [ ] `MoneyFlowService` reads a transfer's direction as "lower id is the
+      source leg" (`src.id < dst.id`). Rows paired after the fact
+      (`TransactionService.pair_as_transfer`, import "accept") can have the
+      incoming leg older than the outgoing one, so the flow is drawn
+      backwards. Store the direction (or read it from which leg was the
+      expense) instead of inferring it from ids. Found by
+      `plan/transfers-manual-pairing`.

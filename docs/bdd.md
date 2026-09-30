@@ -1368,26 +1368,26 @@ Feature: Transfer Recognition
   I want transfers between my own accounts recognised as transfers
   So that they do not inflate my income and expense totals
 
-  KAL-TRF-001 @planned
+  KAL-TRF-001 @automated
   Scenario: Manually pair two imported rows as a transfer
     Given an imported expense of 500.00 on "mBank" dated 2026-07-01
     And an imported income of 500.00 on "PKO BP" dated 2026-07-01
     When I select both and choose "Mark as transfer"
     Then the two rows become one transfer between "mBank" and "PKO BP"
 
-  KAL-TRF-002 @planned
+  KAL-TRF-002 @automated
   Scenario: Import suggests transfer pairs across accounts
     Given imports on two accounts contain matching amounts within 2 days
     When I review the import
     Then the matching rows are suggested as transfer pairs
     And I can accept or dismiss each suggestion
 
-  KAL-TRF-003 @planned
+  KAL-TRF-003 @automated
   Scenario: Recognised transfers are excluded from totals
     Given a recognised transfer of 500.00 between my accounts
-    When I open the monthly summary
-    Then income and expense totals exclude the 500.00
-    And the transfer is listed with neutral colouring
+    When I open the dashboard's month widgets
+    Then this month's income and expense totals exclude the 500.00
+    And the transfer is listed in the ledger with neutral colouring
 ```
 
 ## Feature: Auto-categorisation Rules

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
-from kaleta.exceptions import KaletaError, ValidationError
+from kaleta.exceptions import ConflictError, KaletaError, NotFoundError, ValidationError
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
 from kaleta.schemas.transaction import (
@@ -269,6 +269,112 @@ class TransactionService:
         if fetched_out is None or fetched_in is None:
             raise KaletaError("Transfer legs not found after commit")
         return fetched_out, fetched_in
+
+    async def pair_as_transfer(
+        self,
+        expense_id: int,
+        income_id: int,
+        *,
+        amount_tolerance: Decimal = Decimal("0"),
+    ) -> tuple[Transaction, Transaction]:
+        """Turn two existing rows into the two legs of one internal transfer.
+
+        The common import mess: money moved between two of the user's own
+        accounts arrives as an ordinary expense on one statement and an
+        ordinary income on the other, and both inflate the totals. The rows
+        stay where they are — same accounts, dates, descriptions — and only
+        become what they were: type ``transfer``, flagged internal, linked to
+        each other, with no category.
+
+        ``expense_id`` is the leg the money left, ``income_id`` the leg it
+        arrived on. A leg already typed ``transfer`` (an import that
+        recognised one side) may stand on either side; an income cannot be
+        the outgoing leg, nor an expense the incoming one.
+        """
+        if expense_id == income_id:
+            raise ValidationError("A transfer needs two different transactions.")
+        outgoing = await self.get(expense_id)
+        incoming = await self.get(income_id)
+        if outgoing is None:
+            raise NotFoundError(f"Transaction {expense_id} not found.")
+        if incoming is None:
+            raise NotFoundError(f"Transaction {income_id} not found.")
+        # ``get`` eager-loads ``account``; the currency check below reads it.
+        self._validate_transfer_pair(outgoing, incoming, amount_tolerance)
+
+        for leg in (outgoing, incoming):
+            leg.type = TransactionType.TRANSFER
+            leg.is_internal_transfer = True
+            leg.category_id = None
+        outgoing.linked_transaction_id = incoming.id
+        incoming.linked_transaction_id = outgoing.id
+        await self.session.commit()
+        fetched_out = await self.get(expense_id)
+        fetched_in = await self.get(income_id)
+        if fetched_out is None or fetched_in is None:
+            raise KaletaError("Transfer legs not found after commit")
+        return fetched_out, fetched_in
+
+    async def pair_selected_as_transfer(self, first_id: int, second_id: int) -> None:
+        """Pair two rows picked in the ledger, whichever order they were picked in.
+
+        The ledger's "Mark as transfer" knows two ids, not which leg is which;
+        the rows' own types say that (see :meth:`orient_transfer_legs`).
+        """
+        first = await self.get(first_id)
+        second = await self.get(second_id)
+        if first is None or second is None:
+            raise NotFoundError("Transaction not found.")
+        oriented = self.orient_transfer_legs(first, second)
+        if oriented is None:
+            raise ValidationError(
+                "A transfer needs money leaving one account and entering another."
+            )
+        outgoing, incoming = oriented
+        await self.pair_as_transfer(outgoing.id, incoming.id)
+
+    @staticmethod
+    def orient_transfer_legs(
+        row_a: Transaction, row_b: Transaction
+    ) -> tuple[Transaction, Transaction] | None:
+        """Return ``(outgoing, incoming)``, or ``None`` when the types cannot pair.
+
+        An income is always the incoming leg and an expense always the
+        outgoing one; two expenses (or two incomes) are never a transfer. Two
+        rows already typed ``transfer`` carry no direction, so the lower id
+        goes first — the order a manually entered transfer's legs are saved in.
+        """
+        types = (row_a.type, row_b.type)
+        if types in (
+            (TransactionType.INCOME, TransactionType.INCOME),
+            (TransactionType.EXPENSE, TransactionType.EXPENSE),
+        ):
+            return None
+        if row_a.type == TransactionType.INCOME or row_b.type == TransactionType.EXPENSE:
+            return row_b, row_a
+        if row_a.type == TransactionType.EXPENSE or row_b.type == TransactionType.INCOME:
+            return row_a, row_b
+        return (row_a, row_b) if row_a.id < row_b.id else (row_b, row_a)
+
+    @staticmethod
+    def _validate_transfer_pair(
+        outgoing: Transaction, incoming: Transaction, amount_tolerance: Decimal
+    ) -> None:
+        if outgoing.type == TransactionType.INCOME:
+            raise ValidationError("The outgoing leg of a transfer cannot be an income.")
+        if incoming.type == TransactionType.EXPENSE:
+            raise ValidationError("The incoming leg of a transfer cannot be an expense.")
+        if outgoing.account_id == incoming.account_id:
+            raise ValidationError("A transfer moves money between two different accounts.")
+        if outgoing.account.currency != incoming.account.currency:
+            raise ValidationError("Pairing rows in different currencies is not supported.")
+        if abs(abs(outgoing.amount) - abs(incoming.amount)) > amount_tolerance:
+            raise ValidationError("Both legs of a transfer must have the same amount.")
+        for leg in (outgoing, incoming):
+            if leg.linked_transaction_id is not None:
+                raise ConflictError(f"Transaction {leg.id} is already linked to another row.")
+            if leg.is_split:
+                raise ValidationError("A split transaction cannot be part of a transfer.")
 
     @staticmethod
     def _validate_split_sum(amount: Decimal, splits: builtins.list[TransactionSplitCreate]) -> None:
