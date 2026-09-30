@@ -564,7 +564,9 @@ class TestTrailingIncome:
 
         s: Any = session
         if await s.get(Account, account_id) is None:
-            s.add(Account(id=account_id, name=f"Account {account_id}", balance=Decimal("0")))
+            s.add(
+                Account(id=account_id, name=f"Account {account_id}", opening_balance=Decimal("0"))
+            )
             await s.flush()
         s.add(
             Transaction(
@@ -631,7 +633,7 @@ class TestSimulate:
         )
 
         s: Any = session
-        account = Account(name=f"{name} backing", balance=Decimal(balance))
+        account = Account(name=f"{name} backing", opening_balance=Decimal(balance))
         s.add(account)
         await s.flush()
         s.add(
@@ -652,7 +654,7 @@ class TestSimulate:
         from kaleta.models.transaction import Transaction, TransactionType
 
         s: Any = session
-        spender = Account(name="Spender", balance=Decimal("0"))
+        spender = Account(name="Spender", opening_balance=Decimal("0"))
         s.add(spender)
         await s.flush()
         s.add(

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.exceptions import ConflictError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.payee import PayeeCreate, PayeeUpdate
@@ -604,6 +604,7 @@ class TestLastUsedFor:
                 payee_id=payee_id,
                 amount=Decimal("99.00"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=datetime.date(2025, 9, 1),
             )
         )

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate
@@ -75,6 +75,9 @@ class _Ledger:
             "date": day,
             "description": "row",
             "is_internal_transfer": tx_type == TransactionType.TRANSFER,
+            "transfer_direction": (
+                TransferDirection.OUT if tx_type == TransactionType.TRANSFER else None
+            ),
         }
         data.update(extra)
         return (await self.svc.create(TransactionCreate.model_validate(data))).id

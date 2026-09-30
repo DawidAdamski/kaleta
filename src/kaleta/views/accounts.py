@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from decimal import Decimal
 from typing import Any
 
 from nicegui import app, ui
@@ -162,10 +163,7 @@ def register() -> None:
 
                     async def _persist(session: Any) -> AccountActivityResponse | None:
                         created = await AccountService(session).create(data)
-                        reloaded = await AccountService(session).get(created.id)
-                        if reloaded is None:
-                            return None
-                        return AccountActivityResponse.model_validate(reloaded)
+                        return await AccountService(session).get_activity_row(created.id)
 
                     reloaded_acc = await with_session(_persist)
                     if reloaded_acc:
@@ -203,6 +201,11 @@ def register() -> None:
                     .classes("w-full")
                     .tooltip(t("accounts.currency_hint"))
                 )
+                edit_balance = (
+                    ui.number(t("common.balance"), format="%.2f")
+                    .classes("w-full")
+                    .props(f'hint="{t("accounts.balance_hint")}"')
+                )
                 edit_inst = ui.select(inst_options, label=t("common.institution"), value=0).classes(
                     "w-full"
                 )
@@ -221,16 +224,23 @@ def register() -> None:
                         currency=edit_currency.value or "PLN",
                         institution_id=inst_id,
                     )
+                    # Only a balance the user actually changed is sent: resending
+                    # the figure the dialog opened with would pin the balance to
+                    # it even if a transaction landed in between.
+                    new_balance = edit_balance.value
+                    if new_balance is not None and Decimal(str(new_balance)).quantize(
+                        Decimal("0.01")
+                    ) != state.get("opened_balance"):
+                        data.balance = Decimal(str(new_balance)).quantize(Decimal("0.01"))
 
                     async def _persist(session: Any) -> AccountActivityResponse | None:
                         updated_row = await AccountService(session).update(aid, data)
                         if updated_row is None:
                             return None
-                        reloaded = await AccountService(session).get(aid)
-                        if reloaded is None:
+                        row = await AccountService(session).get_activity_row(aid)
+                        if row is None:
                             return None
                         previous = next((a for a in account_list if a.id == aid), None)
-                        row = AccountActivityResponse.model_validate(reloaded)
                         if previous is None:
                             return row
                         return row.model_copy(
@@ -303,6 +313,8 @@ def register() -> None:
                 edit_name.set_value(a.name)
                 edit_type.set_value(a.type.value)
                 edit_currency.set_value(a.currency)
+                edit_balance.set_value(float(a.balance))
+                state["opened_balance"] = a.balance
                 edit_inst.set_value(a.institution_id or 0)
                 edit_dialog.open()
 

@@ -58,24 +58,24 @@ class AccountsSeeder(Seeder):
             Account(
                 name=ACCOUNT_NAMES["checking"],
                 type=AccountType.CHECKING,
-                balance=Decimal("0.00"),
+                opening_balance=Decimal("0.00"),
                 institution_id=pko.id,
             ),
             Account(
                 name=ACCOUNT_NAMES["savings"],
                 type=AccountType.SAVINGS,
-                balance=Decimal("0.00"),
+                opening_balance=Decimal("0.00"),
                 institution_id=mbank.id,
             ),
             Account(
                 name=ACCOUNT_NAMES["cash"],
                 type=AccountType.CASH,
-                balance=Decimal("0.00"),
+                opening_balance=Decimal("0.00"),
             ),
             Account(
                 name=ACCOUNT_NAMES["credit"],
                 type=AccountType.CREDIT,
-                balance=Decimal("0.00"),
+                opening_balance=Decimal("0.00"),
                 institution_id=revolut.id,
             ),
         ]

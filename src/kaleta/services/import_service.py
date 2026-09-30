@@ -24,7 +24,7 @@ from kaleta.exceptions import ImportError_
 from kaleta.models.dismissed_transfer_pair import DismissedTransferPair
 from kaleta.models.import_run import ImportRun
 from kaleta.models.payee import Payee
-from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.import_profiles import (
     GENERIC_PROFILE,
@@ -1945,6 +1945,11 @@ class ImportService:
                         payee_id=payee_id,
                         amount=abs(row.amount),
                         type=TransactionType.TRANSFER,
+                        # The statement's sign is the only record of which way
+                        # the money went; ``amount`` drops it.
+                        transfer_direction=(
+                            TransferDirection.OUT if row.amount < 0 else TransferDirection.IN
+                        ),
                         date=row.date,
                         description=description,
                         is_internal_transfer=True,

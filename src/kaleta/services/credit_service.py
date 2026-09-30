@@ -23,6 +23,7 @@ from kaleta.schemas.credit import (
     LoanProfileUpdate,
     LoanView,
 )
+from kaleta.services.account_service import AccountService
 
 # Grace period between the statement date and the overdue threshold. We treat
 # the payment_due_day as the hard cutoff — a balance paid on or before that day
@@ -80,12 +81,14 @@ class CreditService:
             .where(Account.type == AccountType.CREDIT)
             .order_by(Account.name)
         )
+        rows = result.all()
+        balances = await AccountService(self.session).balances([a.id for a, _ in rows])
         today = datetime.date.today()
         views: list[CardView] = []
-        for account, profile in result.all():
+        for account, profile in rows:
             # Current balance on a credit card is negative when money owed —
             # normalise to positive "amount owed".
-            balance_owed = abs(min(account.balance, Decimal("0")))
+            balance_owed = abs(min(balances[account.id], Decimal("0")))
             utilization = _compute_utilization(balance_owed, profile.credit_limit)
             min_payment = compute_min_payment(
                 balance=balance_owed,

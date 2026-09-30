@@ -13,6 +13,7 @@ from kaleta.db.sql_compat import date_month, date_year
 from kaleta.models.account import Account, AccountType
 from kaleta.models.asset import Asset
 from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.services.account_service import AccountService
 from kaleta.services.currency_rate_service import CurrencyRateService
 
 # Account-type → asset/liability bucket. See plan net-worth-layout-refresh.
@@ -210,6 +211,7 @@ class NetWorthService:
     ) -> NetWorthSummary:
         today = datetime.date.today()
         accounts_raw = await self._load_accounts_raw()
+        current = await AccountService(self.session).balances()
         physical_assets = await self._load_physical_assets()
 
         # Determine which foreign currencies we need rates for
@@ -221,10 +223,10 @@ class NetWorthService:
         )
 
         # Build current account snapshots using today's rate
-        accounts = self._apply_rates(accounts_raw, rate_history, today, default_currency)
+        accounts = self._apply_rates(accounts_raw, current, rate_history, today, default_currency)
 
         history = await self._monthly_history(
-            accounts_raw, rate_history, physical_assets, history_months, default_currency
+            accounts_raw, current, rate_history, physical_assets, history_months, default_currency
         )
 
         prev = history[-2].net_worth if len(history) >= 2 else None
@@ -239,6 +241,7 @@ class NetWorthService:
     def _apply_rates(
         self,
         accounts_raw: list[Account],
+        current: dict[int, Decimal],
         rate_history: dict[str, list[tuple[datetime.date, Decimal]]],
         on_date: datetime.date,
         default_currency: str,
@@ -260,9 +263,9 @@ class NetWorthService:
                     name=a.name,
                     type=a.type,
                     institution_name=a.institution.name if a.institution else None,
-                    balance=a.balance,
+                    balance=current[a.id],
                     currency=a.currency,
-                    balance_in_default=a.balance * rate,
+                    balance_in_default=current[a.id] * rate,
                     rate_known=known,
                 )
             )
@@ -290,6 +293,7 @@ class NetWorthService:
     async def _monthly_history(
         self,
         accounts_raw: list[Account],
+        current: dict[int, Decimal],
         rate_history: dict[str, list[tuple[datetime.date, Decimal]]],
         physical_assets: list[PhysicalAssetSnapshot],
         months: int,
@@ -312,7 +316,7 @@ class NetWorthService:
                 rate = Decimal("1")
             else:
                 rate = _nearest_rate(rate_history.get(a.currency, []), today) or Decimal("1")
-            balances[a.id] = a.balance * rate
+            balances[a.id] = current[a.id] * rate
             kinds[a.id] = a.type
 
         # Per-account monthly signed delta from real transactions.

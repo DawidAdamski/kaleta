@@ -13,7 +13,7 @@ from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 from kaleta.schemas.category import CategoryCreate
@@ -327,6 +327,7 @@ class TestRangeSummaryMultiMonth:
                 category_id=None,
                 amount=Decimal("999.00"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=datetime.date(2025, 8, 15),
                 is_internal_transfer=True,
             )
@@ -571,6 +572,7 @@ class TestRealizationForMonth:
                 category_id=cat_id,
                 amount=Decimal("500.00"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=datetime.date(2026, 4, 10),
                 is_internal_transfer=True,
             )

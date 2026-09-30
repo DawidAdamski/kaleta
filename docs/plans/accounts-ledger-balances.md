@@ -3,7 +3,7 @@ plan_id: accounts-ledger-balances
 title: Account balances follow the ledger — opening balance + sum of transactions
 area: accounts
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#accounts
 ---
 

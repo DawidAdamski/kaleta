@@ -12,7 +12,12 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.schemas.transaction import TransactionCreate, TransactionSplitCreate, TransactionType
+from kaleta.schemas.transaction import (
+    TransactionCreate,
+    TransactionSplitCreate,
+    TransactionType,
+    TransferDirection,
+)
 from kaleta.services import CurrencyRateService, PayeeService, TransactionService, with_session
 from kaleta.views.settings.user_prefs import get_default_account_id
 from kaleta.views.transactions.payee_field import build_payee_select, split_payee_value
@@ -368,6 +373,7 @@ def build_add_dialog(
                         amount=Decimal(str(amount_input.value)),
                         exchange_rate=rate,
                         type=TransactionType.TRANSFER,
+                        transfer_direction=TransferDirection.OUT,
                         date=parsed_date,
                         description=desc_input.value or "",
                         notes=notes_input.value,
@@ -378,6 +384,7 @@ def build_add_dialog(
                         amount=dest_amt,
                         exchange_rate=rate,
                         type=TransactionType.TRANSFER,
+                        transfer_direction=TransferDirection.IN,
                         date=parsed_date,
                         description=desc_input.value or "",
                         notes=notes_input.value,

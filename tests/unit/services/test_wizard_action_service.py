@@ -18,7 +18,7 @@ from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.personal_loan import LoanDirection
 from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.payee import PayeeCreate
@@ -317,6 +317,7 @@ class TestGettingStarted:
                     category_id=None,
                     amount=Decimal("10.00"),
                     type=TransactionType.TRANSFER,
+                    transfer_direction=TransferDirection.OUT,
                     date=TODAY - datetime.timedelta(days=i),
                 )
             )

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.institution import InstitutionType
-from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.institution import InstitutionCreate
@@ -54,6 +54,9 @@ async def _add_tx(
             category_id=category_id,
             amount=Decimal("10.00"),
             type=tx_type,
+            transfer_direction=TransferDirection.OUT
+            if tx_type == TransactionType.TRANSFER
+            else None,
             date=datetime.date.today(),
             description="t",
         )

@@ -886,6 +886,7 @@
     "new_name_placeholder": "Zostaw nazwę zachowanego wpisu"
   },
   "accounts": {
+    "balance_hint": "Wpisz saldo z banku. Transakcje zostaną bez zmian.",
     "title": "Konta",
     "add": "Dodaj konto",
     "edit": "Edytuj konto",

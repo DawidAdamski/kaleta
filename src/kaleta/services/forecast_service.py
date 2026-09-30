@@ -9,6 +9,7 @@ import datetime
 import enum
 import logging
 from dataclasses import dataclass, field
+from decimal import Decimal
 from functools import partial
 from typing import TYPE_CHECKING
 
@@ -17,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import Account
 from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.services.account_service import AccountService
 from kaleta.services.forecasters import active_forecaster_model, get_forecaster
 
 if TYPE_CHECKING:
@@ -314,13 +316,10 @@ class ForecastService:
             )
 
         # Get current balance as starting point
-        if account_id is not None:
-            account_obj = await self.session.get(Account, account_id)
-            current_balance = float(account_obj.balance) if account_obj else 0.0
-        else:
-            total = await self.session.execute(select(func.sum(Account.balance)))
-            val = total.scalar()
-            current_balance = float(val) if val else 0.0
+        balances = await AccountService(self.session).balances(
+            [account_id] if account_id is not None else None
+        )
+        current_balance = float(sum(balances.values(), start=Decimal("0")))
 
         # Build cumulative balance series (working backwards from current balance)
         sorted_days = sorted(daily.keys())

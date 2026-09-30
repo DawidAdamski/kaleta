@@ -183,7 +183,7 @@ async def test_reports_money_flow_shows_internal_transfers(api_client, db_engine
     """Covers: KAL-FLW-004"""
     from kaleta.models.account import AccountType
     from kaleta.models.category import CategoryType
-    from kaleta.models.transaction import TransactionType
+    from kaleta.models.transaction import TransactionType, TransferDirection
     from kaleta.schemas.account import AccountCreate
     from kaleta.schemas.category import CategoryCreate
     from kaleta.schemas.transaction import TransactionCreate
@@ -233,6 +233,7 @@ async def test_reports_money_flow_shows_internal_transfers(api_client, db_engine
                 account_id=checking.id,
                 amount=Decimal("250.00"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.OUT,
                 date=today,
                 description="to savings",
                 is_internal_transfer=True,
@@ -241,6 +242,7 @@ async def test_reports_money_flow_shows_internal_transfers(api_client, db_engine
                 account_id=savings.id,
                 amount=Decimal("250.00"),
                 type=TransactionType.TRANSFER,
+                transfer_direction=TransferDirection.IN,
                 date=today,
                 description="from checking",
                 is_internal_transfer=True,

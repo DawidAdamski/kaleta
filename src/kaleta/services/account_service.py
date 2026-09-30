@@ -6,24 +6,46 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from kaleta.models.account import Account
 from kaleta.models.import_run import ImportRun
-from kaleta.models.transaction import Transaction
-from kaleta.schemas.account import AccountActivityResponse, AccountCreate, AccountUpdate
+from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
+from kaleta.schemas.account import (
+    AccountActivityResponse,
+    AccountCreate,
+    AccountResponse,
+    AccountUpdate,
+)
 
 # Days without a new transaction before the coverage panel marks an account stale.
 STALE_ACTIVITY_DAYS = 35
+
+_CENT = Decimal("0.01")
+
+
+def signed_ledger_amount() -> ColumnElement[Decimal]:
+    """What one transaction row does to its account's balance, as SQL.
+
+    ``amount`` is unsigned: an income adds it, an expense takes it away, and
+    a transfer leg does either according to its ``transfer_direction``.
+    """
+    return case(
+        (Transaction.type == TransactionType.INCOME, Transaction.amount),
+        (Transaction.type == TransactionType.EXPENSE, -Transaction.amount),
+        (Transaction.transfer_direction == TransferDirection.IN, Transaction.amount),
+        (Transaction.transfer_direction == TransferDirection.OUT, -Transaction.amount),
+        else_=Decimal("0"),
+    )
 
 
 @dataclass(frozen=True)
 class BalanceBreakdown:
     """The accounts a total is worth naming, and what the rest add up to."""
 
-    shown: builtins.list[Account]
+    shown: builtins.list[AccountResponse]
     hidden_count: int
     hidden_total: Decimal
 
@@ -48,13 +70,80 @@ class AccountService:
         +4 000, so hiding it among "N more" would explain the least about the
         figure it sits under.
         """
-        accounts = sorted(await self.list(), key=lambda a: abs(a.balance), reverse=True)
+        accounts = sorted(await self.list_responses(), key=lambda a: abs(a.balance), reverse=True)
         shown, rest = accounts[:limit], accounts[limit:]
         return BalanceBreakdown(
             shown=shown,
             hidden_count=len(rest),
             hidden_total=sum((a.balance for a in rest), start=Decimal("0")),
         )
+
+    async def ledger_sums(
+        self,
+        account_ids: builtins.list[int] | None = None,
+        *,
+        as_of: date | None = None,
+    ) -> dict[int, Decimal]:
+        """Signed sum of each account's transactions; accounts with none are absent."""
+        stmt = select(
+            Transaction.account_id, func.coalesce(func.sum(signed_ledger_amount()), 0)
+        ).group_by(Transaction.account_id)
+        if account_ids is not None:
+            stmt = stmt.where(Transaction.account_id.in_(account_ids))
+        if as_of is not None:
+            stmt = stmt.where(Transaction.date <= as_of)
+        result = await self.session.execute(stmt)
+        return {
+            int(account_id): Decimal(str(total)).quantize(_CENT)
+            for account_id, total in result.all()
+        }
+
+    async def balances(
+        self,
+        account_ids: builtins.list[int] | None = None,
+        *,
+        as_of: date | None = None,
+    ) -> dict[int, Decimal]:
+        """Current balance of each account: opening balance + signed ledger.
+
+        The one place a balance comes from. Every row counts, whatever its
+        date, unless ``as_of`` cuts the ledger off at that day (inclusive).
+        Two queries whatever the number of accounts.
+        """
+        stmt = select(Account.id, Account.opening_balance)
+        if account_ids is not None:
+            stmt = stmt.where(Account.id.in_(account_ids))
+        openings = (await self.session.execute(stmt)).all()
+        sums = await self.ledger_sums(account_ids, as_of=as_of)
+        return {
+            int(account_id): (Decimal(opening) + sums.get(int(account_id), Decimal("0"))).quantize(
+                _CENT
+            )
+            for account_id, opening in openings
+        }
+
+    async def balance(self, account_id: int, *, as_of: date | None = None) -> Decimal:
+        """One account's balance; zero for an account that does not exist."""
+        return (await self.balances([account_id], as_of=as_of)).get(account_id, Decimal("0.00"))
+
+    async def list_responses(self) -> builtins.list[AccountResponse]:
+        """Every account with its derived balance, ordered by name."""
+        accounts = await self.list()
+        balances = await self.balances()
+        return [AccountResponse.from_account(a, balances[a.id]) for a in accounts]
+
+    async def get_response(self, account_id: int) -> AccountResponse | None:
+        account = await self.get(account_id)
+        if account is None:
+            return None
+        return AccountResponse.from_account(account, await self.balance(account_id))
+
+    async def get_activity_row(self, account_id: int) -> AccountActivityResponse | None:
+        """One account as the accounts page lists it (balance, no coverage fields)."""
+        account = await self.get(account_id)
+        if account is None:
+            return None
+        return AccountActivityResponse.from_account(account, await self.balance(account_id))
 
     async def list_with_activity(self) -> builtins.list[AccountActivityResponse]:
         """List accounts with newest transaction date and last import (no N+1)."""
@@ -102,16 +191,16 @@ class AccountService:
             .order_by(Account.name)
         )
 
+        balances = await self.balances()
         rows: builtins.list[AccountActivityResponse] = []
         for account, newest_date, last_at, last_filename in result.all():
-            base = AccountActivityResponse.model_validate(account)
             rows.append(
-                base.model_copy(
-                    update={
-                        "newest_transaction_date": newest_date,
-                        "last_import_at": last_at,
-                        "last_import_filename": last_filename,
-                    }
+                AccountActivityResponse.from_account(
+                    account,
+                    balances[account.id],
+                    newest_transaction_date=newest_date,
+                    last_import_at=last_at,
+                    last_import_filename=last_filename,
                 )
             )
         return rows
@@ -125,7 +214,8 @@ class AccountService:
         return result.scalar_one_or_none()
 
     async def create(self, data: AccountCreate) -> Account:
-        account = Account(**data.model_dump())
+        values = data.model_dump(exclude={"balance"})
+        account = Account(**values, opening_balance=data.balance)
         self.session.add(account)
         await self.session.commit()
         await self.session.refresh(account)
@@ -135,8 +225,12 @@ class AccountService:
         account = await self.get(account_id)
         if account is None:
             return None
-        for field, value in data.model_dump(exclude_unset=True).items():
+        updates = data.model_dump(exclude_unset=True, exclude={"balance"})
+        for field, value in updates.items():
             setattr(account, field, value)
+        if data.balance is not None:
+            ledger = (await self.ledger_sums([account_id])).get(account_id, Decimal("0"))
+            account.opening_balance = data.balance - ledger
         await self.session.commit()
         await self.session.refresh(account)
         return account
@@ -163,12 +257,6 @@ class AccountService:
         account = await self.get(account_id)
         if account is not None:
             account.external_account_number = number[-10:]
-            await self.session.commit()
-
-    async def adjust_balance(self, account_id: int, delta: Decimal) -> None:
-        account = await self.get(account_id)
-        if account is not None:
-            account.balance += delta
             await self.session.commit()
 
     @staticmethod

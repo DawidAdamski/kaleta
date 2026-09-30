@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.models.account import AccountType
 from kaleta.models.reserve_fund import ReserveFundBackingMode, ReserveFundKind
 from kaleta.models.transaction import TransactionType
-from kaleta.schemas.account import AccountCreate
+from kaleta.schemas.account import AccountCreate, AccountUpdate
 from kaleta.schemas.reserve_fund import (
     ReserveFundCreate,
     ReserveFundUpdate,
@@ -27,6 +27,15 @@ async def _make_account(session: AsyncSession, balance: Decimal) -> int:
         AccountCreate(name="Savings", type=AccountType.SAVINGS, balance=balance)
     )
     return a.id
+
+
+async def _settle_balance(session: AsyncSession, account_id: int, balance: Decimal) -> None:
+    """State the account's balance as it stands now, after its rows are written.
+
+    Balances follow the ledger, so a balance given at creation is the
+    opening one; tests that mean "the account holds X today" say so here.
+    """
+    await AccountService(session).update(account_id, AccountUpdate(balance=balance))
 
 
 async def _make_fund(
@@ -201,6 +210,7 @@ class TestProgress:
                     description=f"expense-{i}",
                 )
             )
+        await _settle_balance(session, acc, Decimal("9000"))
 
         fund = await _make_fund(session, account_id=acc, multiplier=3)
         p = await ReserveFundService(session).with_progress(fund, today=today)
@@ -267,6 +277,7 @@ class TestDerivedTarget:
             [(5 + i * 30, Decimal("5200.00")) for i in range(12)] + [(400, Decimal("99999.00"))],
             self.TODAY,
         )
+        await _settle_balance(session, acc, balance)
         fund = await ReserveFundService(session).create(
             ReserveFundCreate(
                 name="Security fund",

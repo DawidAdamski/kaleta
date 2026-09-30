@@ -187,6 +187,7 @@ class TestPayeeLastUsed:
             json={
                 **transaction_payload(account["id"], category["id"], payee_id=payee["id"]),
                 "type": "transfer",
+                "transfer_direction": "out",
                 "category_id": None,
             },
         )

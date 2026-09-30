@@ -16,8 +16,6 @@ from __future__ import annotations
 
 import datetime
 import random
-from collections import defaultdict
-from decimal import Decimal
 
 from sqlalchemy import delete, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,7 +24,12 @@ from kaleta.models.account import Account, AccountType
 from kaleta.models.category import Category
 from kaleta.models.payee import Payee
 from kaleta.models.tag import Tag
-from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
+from kaleta.models.transaction import (
+    Transaction,
+    TransactionSplit,
+    TransactionType,
+    TransferDirection,
+)
 from kaleta.seeders.base import Seeder, inflation, month_offset, rng, row_count, salary, zloty
 from kaleta.seeders.catalog import (
     BASE_BUDGETS,
@@ -87,7 +90,7 @@ class TransactionsSeeder(Seeder):
 
 
 class _LedgerBuilder:
-    """One pass over the months, writing the rows and the balances they imply."""
+    """One pass over the months, writing the rows (balances follow from them)."""
 
     def __init__(
         self,
@@ -109,7 +112,6 @@ class _LedgerBuilder:
         self.subscription_ids = subscription_ids
         self.written = 0
         self.transfer_pairs = 0
-        self.balance: dict[int, Decimal] = defaultdict(Decimal)
         self.expense_categories = [categories[name] for name in EXPENSE_CATEGORIES]
 
     # ── row helpers ───────────────────────────────────────────────────────────
@@ -155,10 +157,6 @@ class _LedgerBuilder:
         if tags:
             transaction.tags.extend(tags)
         self.written += 1
-        if transaction.type == TransactionType.INCOME:
-            self.balance[transaction.account_id] += transaction.amount
-        elif transaction.type == TransactionType.EXPENSE:
-            self.balance[transaction.account_id] -= transaction.amount
 
     def _add_expense(self, transaction: Transaction, account: Account, category: Category) -> None:
         payee = self._pick_payee(category.name)
@@ -275,9 +273,6 @@ class _LedgerBuilder:
 
             await self._add_transfer(checking, savings, year, month, factor)
 
-        for account in self.accounts.values():
-            account.balance = self.balance[account.id]
-
     async def _add_transfer(
         self,
         source: Account,
@@ -294,6 +289,7 @@ class _LedgerBuilder:
             category_id=None,
             amount=amount,
             type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.OUT,
             date=on,
             description=f"Przelew własny → oszczędności {month:02d}/{year}",
             is_internal_transfer=True,
@@ -303,6 +299,7 @@ class _LedgerBuilder:
             category_id=None,
             amount=amount,
             type=TransactionType.TRANSFER,
+            transfer_direction=TransferDirection.IN,
             date=on,
             description=f"Przelew własny ← konto główne {month:02d}/{year}",
             is_internal_transfer=True,
@@ -313,7 +310,5 @@ class _LedgerBuilder:
         await self.session.flush()
         out_leg.linked_transaction_id = in_leg.id
         in_leg.linked_transaction_id = out_leg.id
-        self.balance[source.id] -= amount
-        self.balance[target.id] += amount
         self.written += 2
         self.transfer_pairs += 1

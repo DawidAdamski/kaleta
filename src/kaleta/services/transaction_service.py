@@ -13,7 +13,12 @@ from sqlalchemy.orm import selectinload
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
 from kaleta.exceptions import ConflictError, KaletaError, NotFoundError, ValidationError
 from kaleta.models.tag import Tag
-from kaleta.models.transaction import Transaction, TransactionSplit, TransactionType
+from kaleta.models.transaction import (
+    Transaction,
+    TransactionSplit,
+    TransactionType,
+    TransferDirection,
+)
 from kaleta.schemas.transaction import (
     TransactionCreate,
     TransactionSplitCreate,
@@ -252,12 +257,21 @@ class TransactionService:
         outgoing: TransactionCreate,
         incoming: TransactionCreate,
     ) -> tuple[Transaction, Transaction]:
-        """Create a paired internal transfer (two linked legs) atomically."""
-        tx_out = Transaction(**outgoing.model_dump(exclude={"splits", "tag_ids", "payee_name"}))
+        """Create a paired internal transfer (two linked legs) atomically.
+
+        The legs' directions come from their position, whatever the payloads
+        say: the first is where the money left, the second where it arrived.
+        """
+        excluded = {"splits", "tag_ids", "payee_name", "transfer_direction"}
+        tx_out = Transaction(
+            **outgoing.model_dump(exclude=excluded), transfer_direction=TransferDirection.OUT
+        )
         self.session.add(tx_out)
         await self.session.flush()  # get tx_out.id
 
-        tx_in = Transaction(**incoming.model_dump(exclude={"splits", "tag_ids", "payee_name"}))
+        tx_in = Transaction(
+            **incoming.model_dump(exclude=excluded), transfer_direction=TransferDirection.IN
+        )
         tx_in.linked_transaction_id = tx_out.id
         self.session.add(tx_in)
         await self.session.flush()  # get tx_in.id
@@ -302,8 +316,12 @@ class TransactionService:
         # ``get`` eager-loads ``account``; the currency check below reads it.
         self._validate_transfer_pair(outgoing, incoming, amount_tolerance)
 
-        for leg in (outgoing, incoming):
+        for leg, direction in (
+            (outgoing, TransferDirection.OUT),
+            (incoming, TransferDirection.IN),
+        ):
             leg.type = TransactionType.TRANSFER
+            leg.transfer_direction = direction
             leg.is_internal_transfer = True
             leg.category_id = None
         outgoing.linked_transaction_id = incoming.id
@@ -427,8 +445,10 @@ class TransactionService:
                 f"{effective_type.value.capitalize()} transactions require a category."
             )
 
+        previous_type = transaction.type
         for field, value in updates.items():
             setattr(transaction, field, value)
+        self._settle_transfer_direction(transaction, previous_type)
 
         if is_split is not None:
             transaction.is_split = is_split
@@ -449,6 +469,29 @@ class TransactionService:
             transaction.tags = await self._load_tags(tag_ids)
         await self.session.commit()
         return await self.get(transaction_id)
+
+    @staticmethod
+    def _settle_transfer_direction(
+        transaction: Transaction, previous_type: TransactionType
+    ) -> None:
+        """Keep ``transfer_direction`` consistent with the row's (new) type.
+
+        Only a transfer leg has a direction. A row edited into a transfer
+        without saying which way keeps the way its money already went (an
+        expense left the account, an income arrived), so the balance does not
+        move just because the type changed.
+        """
+        if transaction.type != TransactionType.TRANSFER:
+            transaction.transfer_direction = None
+            return
+        if transaction.transfer_direction is not None:
+            return
+        if previous_type == TransactionType.INCOME:
+            transaction.transfer_direction = TransferDirection.IN
+        elif previous_type == TransactionType.EXPENSE:
+            transaction.transfer_direction = TransferDirection.OUT
+        else:
+            raise ValidationError("A transfer leg needs transfer_direction ('out' or 'in').")
 
     async def delete(self, transaction_id: int) -> bool:
         transaction = await self.get(transaction_id)

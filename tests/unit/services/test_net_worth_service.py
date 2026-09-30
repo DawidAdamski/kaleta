@@ -11,8 +11,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
-from kaleta.models.transaction import TransactionType
-from kaleta.schemas.account import AccountCreate
+from kaleta.models.transaction import TransactionType, TransferDirection
+from kaleta.schemas.account import AccountCreate, AccountUpdate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.currency_rate import CurrencyRateCreate
 from kaleta.schemas.transaction import TransactionCreate
@@ -46,6 +46,15 @@ async def _make_account(
     return acc.id
 
 
+async def _settle_balance(session: AsyncSession, account_id: int, balance: Decimal) -> None:
+    """State the account's balance as it stands now, after its rows are written.
+
+    Balances follow the ledger, so a balance given at creation is the
+    opening one; tests that mean "the account holds X today" say so here.
+    """
+    await AccountService(session).update(account_id, AccountUpdate(balance=balance))
+
+
 async def _make_category(
     session: AsyncSession,
     name: str = "Salary",
@@ -75,6 +84,9 @@ async def _make_transaction(
             category_id=None if is_internal_transfer else category_id,
             amount=amount,
             type=tx_type_arg,
+            transfer_direction=TransferDirection.OUT
+            if tx_type_arg == TransactionType.TRANSFER
+            else None,
             date=date,
             description="",
             is_internal_transfer=is_internal_transfer,
@@ -526,6 +538,7 @@ class TestGetSummaryWithTransactions:
         await _make_transaction(
             session, acc_id, cat_id, Decimal("500.00"), TransactionType.INCOME, date=TODAY
         )
+        await _settle_balance(session, acc_id, Decimal("1500.00"))
         summary = await svc.get_summary(history_months=2)
         assert summary.history[-1].net_worth == Decimal("1500.00")
         assert summary.history[-2].net_worth == Decimal("1000.00")
@@ -539,6 +552,7 @@ class TestGetSummaryWithTransactions:
         await _make_transaction(
             session, acc_id, cat_id, Decimal("200.00"), TransactionType.EXPENSE, date=TODAY
         )
+        await _settle_balance(session, acc_id, Decimal("800.00"))
         summary = await svc.get_summary(history_months=2)
         assert summary.history[-1].net_worth == Decimal("800.00")
         assert summary.history[-2].net_worth == Decimal("1000.00")
@@ -589,6 +603,7 @@ class TestGetSummaryWithTransactions:
         await _make_transaction(
             session, acc_id, cat_id, Decimal("400.00"), TransactionType.INCOME, date=last_month_date
         )
+        await _settle_balance(session, acc_id, Decimal("1000.00"))
         summary = await svc.get_summary(history_months=3)
         # history[-1] = current month (1000, no tx here)
         # history[-2] = last month — has the 400 income, so the entry records net_worth BEFORE
@@ -642,6 +657,7 @@ class TestInternalTransfersExcluded:
             date=TODAY,
             is_internal_transfer=True,
         )
+        await _settle_balance(session, acc_id, Decimal("1000.00"))
         summary = await svc.get_summary(history_months=2)
         # No net change from transfers — both months should equal current net worth
         assert summary.history[-1].net_worth == Decimal("1000.00")
@@ -937,6 +953,7 @@ class TestMonthlySplit:
         await _make_transaction(
             session, acc_id, cat_id, Decimal("500.00"), TransactionType.INCOME, date=TODAY
         )
+        await _settle_balance(session, acc_id, Decimal("1500.00"))
         summary = await svc.get_summary(history_months=2)
         assert summary.history[-1].total_assets == Decimal("1500.00")
         assert summary.history[-2].total_assets == Decimal("1000.00")
@@ -954,6 +971,7 @@ class TestMonthlySplit:
         await _make_transaction(
             session, credit_id, cat_id, Decimal("300.00"), TransactionType.EXPENSE, date=TODAY
         )
+        await _settle_balance(session, credit_id, Decimal("-200.00"))
         summary = await svc.get_summary(history_months=2)
         # Current: -200 balance → liabilities 200. Prior month: -200 + 300 = +100
         # balance, so liabilities were -100 (i.e. the card was in credit). The

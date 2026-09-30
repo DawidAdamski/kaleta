@@ -14,7 +14,7 @@ from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.models.subscription import Subscription, SubscriptionStatus
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.budget import BudgetCreate
 from kaleta.schemas.category import CategoryCreate
@@ -87,6 +87,9 @@ async def _make_tx(
             category_id=category_id,
             amount=amount,
             type=tx_type,
+            transfer_direction=TransferDirection.OUT
+            if tx_type == TransactionType.TRANSFER
+            else None,
             date=date,
             description=description,
             payee_id=payee_id,

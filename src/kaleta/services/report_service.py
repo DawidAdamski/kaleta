@@ -28,11 +28,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from kaleta.db.sql_compat import date_month, date_year
-from kaleta.models.account import Account
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.services.account_service import AccountService
 from kaleta.services.categorised_flows import categorised_flows_selectable
 from kaleta.services.loan_links import loan_linked_transaction_ids
 
@@ -423,9 +423,8 @@ class ReportService:
     # ── Legacy helpers (used by Dashboard) ───────────────────────────────────
 
     async def total_balance(self) -> Decimal:
-        result = await self.session.execute(select(func.sum(Account.balance)))
-        val = result.scalar()
-        return Decimal(str(val)) if val else Decimal("0.00")
+        balances = await AccountService(self.session).balances()
+        return sum(balances.values(), start=Decimal("0.00"))
 
     async def _net_flow_since(self, since: datetime.date) -> Decimal:
         """Net balance change from non-transfer txs strictly after *since*."""

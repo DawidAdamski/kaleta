@@ -91,7 +91,7 @@ async def seed_every_model(session: AsyncSession) -> None:
     account = Account(
         name="Checking",
         type=AccountType.CHECKING,
-        balance=Decimal("1000.00"),
+        opening_balance=Decimal("1000.00"),
         currency="PLN",
         institution_id=institution.id,
         user_id=user.id,
@@ -99,7 +99,7 @@ async def seed_every_model(session: AsyncSession) -> None:
     credit_account = Account(
         name="Credit card",
         type=AccountType.CREDIT,
-        balance=Decimal("-200.00"),
+        opening_balance=Decimal("-200.00"),
         currency="PLN",
         institution_id=institution.id,
         user_id=user.id,
@@ -107,7 +107,7 @@ async def seed_every_model(session: AsyncSession) -> None:
     loan_account = Account(
         name="Car loan",
         type=AccountType.CREDIT,
-        balance=Decimal("-5000.00"),
+        opening_balance=Decimal("-5000.00"),
         currency="PLN",
         user_id=user.id,
     )

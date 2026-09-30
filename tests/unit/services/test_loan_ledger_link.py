@@ -18,7 +18,7 @@ from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.personal_loan import LoanDirection
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import TransactionType, TransferDirection
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate
 from kaleta.schemas.personal_loan import (
@@ -87,6 +87,9 @@ async def _tx(
             category_id=category_id,
             amount=Decimal(amount),
             type=tx_type,
+            transfer_direction=TransferDirection.OUT
+            if tx_type == TransactionType.TRANSFER
+            else None,
             date=date,
             description=description,
             is_internal_transfer=is_internal_transfer,
