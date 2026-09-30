@@ -194,6 +194,17 @@ class TestBalances:
         assert row.amount == Decimal("150.00")
 
 
+class TestEditedBalance:
+    def test_an_untouched_figure_is_not_sent(self) -> None:
+        assert AccountService.edited_balance(Decimal("850.00"), 850.0) is None
+
+    def test_a_changed_figure_is_sent_to_the_grosz(self) -> None:
+        assert AccountService.edited_balance(Decimal("850.00"), 900.004) == Decimal("900.00")
+
+    def test_an_empty_field_is_not_sent(self) -> None:
+        assert AccountService.edited_balance(Decimal("850.00"), None) is None
+
+
 class TestTransferDirection:
     async def test_create_transfer_orients_legs_by_position(self, books: _Books) -> None:
         pko = await books.account("PKO Main", "1000.00")

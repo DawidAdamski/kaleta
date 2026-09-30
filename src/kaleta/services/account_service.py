@@ -126,6 +126,19 @@ class AccountService:
         """One account's balance; zero for an account that does not exist."""
         return (await self.balances([account_id], as_of=as_of)).get(account_id, Decimal("0.00"))
 
+    @staticmethod
+    def edited_balance(opened: Decimal, entered: float | Decimal | None) -> Decimal | None:
+        """The balance an edit form should send, or ``None`` to leave it alone.
+
+        Only a figure the user actually changed is sent: resending the one
+        the form opened with would pin the balance to it even if a
+        transaction landed while the form was open.
+        """
+        if entered is None:
+            return None
+        value = Decimal(str(entered)).quantize(_CENT)
+        return None if value == opened else value
+
     async def list_responses(self) -> builtins.list[AccountResponse]:
         """Every account with its derived balance, ordered by name."""
         accounts = await self.list()

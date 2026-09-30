@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Ledger-derived balances end to end: the upgrade, the mBank import, the API.
 
-Covers: KAL-ACC-005, KAL-ACC-009, KAL-ACC-010
+Covers: KAL-ACC-005, KAL-ACC-007, KAL-ACC-009, KAL-ACC-010
 """
 
 from __future__ import annotations
@@ -13,7 +13,6 @@ import sqlite3
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -23,7 +22,6 @@ from kaleta.schemas.account import AccountCreate
 from kaleta.services import AccountService, TransactionService
 from kaleta.services.import_service import ImportService, ParsedRow
 from kaleta.services.setup_service import _alembic_config
-from tests.conftest import _USE_POSTGRES
 from tests.integration.conftest import create_account, create_category, transaction_payload
 
 # The revision before balances followed the ledger.
@@ -38,9 +36,12 @@ def _migrate(db_url: str, revision: str) -> None:
         os.environ.pop("KALETA_MIGRATE_URL", None)
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="seeds the pre-upgrade schema through sqlite3")
 def test_upgrading_keeps_every_balance_the_user_saw(tmp_path: Path) -> None:
-    """Covers: KAL-ACC-009"""
+    """Covers: KAL-ACC-009
+
+    Runs on its own SQLite file whatever backend the suite uses, so it needs
+    no backend guard: the pre-upgrade rows go in through ``sqlite3``.
+    """
     db_path = tmp_path / "before.db"
     db_url = f"sqlite+aiosqlite:///{db_path}"
     _migrate(db_url, _PREVIOUS_HEAD)
@@ -136,6 +137,28 @@ class TestApiBalances:
         assert [a["balance"] for a in listed.json()] == ["850.00"]
         got = await api_client.get(f"/api/v1/accounts/{account['id']}")
         assert got.json()["balance"] == "850.00"
+
+    async def test_editing_or_deleting_moves_the_balance_back(
+        self, api_client: AsyncClient
+    ) -> None:
+        """Covers: KAL-ACC-007"""
+        account = await create_account(api_client, name="PKO Main", balance="1000.00")
+        food = await create_category(api_client, name="Jedzenie", type="expense")
+        created = await api_client.post(
+            "/api/v1/transactions/",
+            json=transaction_payload(account["id"], food["id"], amount="200.00"),
+        )
+        assert created.status_code == 201
+        tx_id = created.json()["id"]
+
+        edited = await api_client.put(f"/api/v1/transactions/{tx_id}", json={"amount": "150.00"})
+        assert edited.status_code == 200
+        got = await api_client.get(f"/api/v1/accounts/{account['id']}")
+        assert got.json()["balance"] == "850.00"
+
+        assert (await api_client.delete(f"/api/v1/transactions/{tx_id}")).status_code == 204
+        got = await api_client.get(f"/api/v1/accounts/{account['id']}")
+        assert got.json()["balance"] == "1000.00"
 
     async def test_put_balance_sets_the_current_balance(self, api_client: AsyncClient) -> None:
         account = await create_account(api_client, name="PKO Main", balance="1000.00")

@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from collections import defaultdict
-from decimal import Decimal
 from typing import Any
 
 from nicegui import app, ui
@@ -224,14 +223,11 @@ def register() -> None:
                         currency=edit_currency.value or "PLN",
                         institution_id=inst_id,
                     )
-                    # Only a balance the user actually changed is sent: resending
-                    # the figure the dialog opened with would pin the balance to
-                    # it even if a transaction landed in between.
-                    new_balance = edit_balance.value
-                    if new_balance is not None and Decimal(str(new_balance)).quantize(
-                        Decimal("0.01")
-                    ) != state.get("opened_balance"):
-                        data.balance = Decimal(str(new_balance)).quantize(Decimal("0.01"))
+                    new_balance = AccountService.edited_balance(
+                        state["opened_balance"], edit_balance.value
+                    )
+                    if new_balance is not None:
+                        data.balance = new_balance
 
                     async def _persist(session: Any) -> AccountActivityResponse | None:
                         updated_row = await AccountService(session).update(aid, data)

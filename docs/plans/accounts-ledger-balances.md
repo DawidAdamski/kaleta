@@ -244,7 +244,8 @@ database seeded at the previous head.
 - **Account edit dialog** gained a Balance field (KAL-ACC-008), prefilled
   with the current balance. It is sent only when changed, so saving a
   renamed account cannot pin the balance to a figure that went stale while
-  the dialog was open. New i18n key `accounts.balance_hint` (en + pl).
+  the dialog was open (`AccountService.edited_balance`, unit-tested). New
+  i18n key `accounts.balance_hint` (en + pl).
 - **Existing tests.** Fixtures that built transfer legs without a direction
   now pass one: `out`, and `in` for the incoming leg of a pair.
   `Account(balance=…)` became `opening_balance=`. Nine tests in
@@ -254,6 +255,12 @@ database seeded at the previous head.
   with the same literals and assertions. `TestAccountServiceAdjustBalance`
   was deleted along with `adjust_balance`. The seeder-registry check now
   asserts opening balances are zero and derived balances are not.
+- **Upgrade test runs on every backend.** It seeds its own SQLite file
+  through `sqlite3`, so it carries no `_USE_POSTGRES` guard. `spec_coverage`
+  only scans `tests/e2e` and `tests/integration`, so KAL-ACC-007 also has an
+  API integration test.
+- **Not exercised locally:** the migration and the CHECK constraint on
+  PostgreSQL. The SQL is portable, but the Postgres CI job is the check.
 - **Docs.** ADR-037 records the decision; `docs/architecture.md` links it.
   The existing chore about money flow's id-order guess now points at
   `transfer_direction`. A new chore covers the one-legged planned transfer.

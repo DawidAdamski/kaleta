@@ -253,5 +253,7 @@ check it still reproduces before acting on it.
       account. The target account is named only in the description, so
       now that balances follow the ledger the money leaves one account and
       arrives nowhere. Give `PlannedTransaction` a target account and post
-      both legs through `create_transfer`. Found by
-      `plan/accounts-ledger-balances`.
+      both legs through `create_transfer`. Net worth's month-by-month
+      history (`NetWorthService._monthly_history`) skips every transfer row,
+      so it does not see that lone leg either, while the current balance
+      does. Found by `plan/accounts-ledger-balances`.
