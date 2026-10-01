@@ -3,7 +3,7 @@ plan_id: auth-hosted-email-links
 title: Auth — resend the confirmation e-mail, and sign in with a magic link (hosted)
 area: auth
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
@@ -127,4 +127,48 @@ installs (`KALETA_AUTH_BACKEND=local`) have no mail and get neither.
 
 ## Implementation notes
 
-_Filled in as work progresses._
+- **Open questions, defaults taken.**
+  1. A magic link never creates an account: `POST /otp` carries
+     `create_user: false`. An unknown address gets GoTrue's 422
+     `otp_disabled`, which the provider swallows so the page answers the same
+     for both (no enumeration). e2e checks the fake receives no user and sends
+     no mail.
+  2. Kaleta throttles resend to one per address per 60 s:
+     `SendThrottle` in `kaleta/auth/login_rate_limit.py`, using the lock half
+     of the existing `AttemptStore`, so with `KALETA_REDIS_URL` the interval
+     holds across replicas. The key is the lower-cased, stripped address. A
+     throttled resend answers exactly like a sent one. The magic-link request
+     is **not** throttled by Kaleta, because Scope names the throttle for
+     resend only; GoTrue's own per-address OTP limit (60 s by default) applies.
+  3. The magic-link control is a quiet text button on the same row as
+     "Forgot password?" (`auth_action` in `views/auth_common.py`, styled like
+     `auth_link` but a button because it acts on the e-mail field instead of
+     navigating).
+- **No-enumeration answers.** `resend_confirmation` and `request_magic_link`
+  raise only on 5xx (`ExternalServiceError`). Every 4xx — 422 invalid
+  address, 429 project mail limit, 400 already confirmed — returns normally,
+  and the page shows the "on its way" text.
+- **`park_login` split out of `finish_login`.** `/auth/magic` is a plain HTTP
+  page that finishes a login with no client to navigate, so it needs the
+  rotation URL as a value. It returns
+  `RedirectResponse(park_login(...))`. `finish_login` now calls
+  `ui.navigate.to(park_login(...))`; behaviour is unchanged, and the existing
+  rotation tests cover it.
+- **`/auth/magic`** is in the middleware's public paths. It goes through
+  `SignInFlow().complete`, so a magic link to a confirmed identity that has
+  never signed in provisions its account like a password sign-in would.
+  Outcomes:
+  - Any GoTrue 4xx on `/verify` (expired, reused, garbled) →
+    `/login?reason=link_expired`.
+  - Other `KaletaError` (unreachable provider, suspended account) →
+    `/login?reason=link_failed`, which does not say which.
+  - The page does nothing on a self-hosted install or for an
+    already-signed-in visitor.
+- **Self-hosted.** `LocalAuthProvider` implements the three methods by raising
+  `ValidationError` ("A self-hosted install sends no e-mail…"). The views
+  never show the controls there.
+- **fake_gotrue.** It learned `/resend` (resends only to an existing,
+  unconfirmed user, and the new link replaces the old one, as GoTrue's does),
+  `/otp`, and `/verify` with `type: magiclink`. Its `sent[(email, kind)]`
+  counter is how e2e proves a throttled resend reached nobody.
+

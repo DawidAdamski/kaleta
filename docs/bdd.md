@@ -3423,6 +3423,29 @@ Feature: Hosted accounts (multi-tenant)
     Then I am sent to the login page with a note that the password changed
     And the old password no longer signs me in
     And the new one signs me in to the same account
+
+  KAL-TEN-006 @automated
+  Scenario: A lost confirmation e-mail is sent again
+    Given I signed up on a hosted instance and never got the confirmation e-mail
+    When I choose "Resend confirmation e-mail" on the "Check your inbox" page
+    Then I am told a new link is on its way, whether or not the address can be used
+    And the earlier link no longer confirms the address
+    When I sign in with the right password before confirming
+    Then the login page tells me to confirm first and offers "Resend confirmation e-mail"
+    And asking again within a minute sends nothing more, with the same answer
+    When I follow the new link
+    Then the address is confirmed and I can sign in
+
+  KAL-TEN-007 @automated
+  Scenario: A magic link signs in to an existing account
+    Given a confirmed hosted account
+    When I enter my e-mail address on the login page and choose "E-mail me a sign-in link"
+    Then I am told a sign-in link is on its way, whether or not the address has an account
+    When I follow the link
+    Then I am signed in to the same account, with nothing new provisioned
+    When I follow the same link again
+    Then I am sent to the login page, told the link is invalid or has expired
+    And an address with no account gets no e-mail and no account
 ```
 
 ## Feature: Demo instance
