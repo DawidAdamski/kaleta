@@ -54,8 +54,22 @@ def _sync_url(db_url: str) -> str:
     PostgreSQL names ``psycopg2`` explicitly: since SQLAlchemy 2.1 a bare
     ``postgresql://`` URL means psycopg 3, which the ``postgres`` extra does
     not install.
+
+    The TLS option is spelled differently by the two drivers: asyncpg takes
+    ``?ssl=require`` (what ``docs/deployment.md`` tells hosted installs to
+    use), psycopg2 only ``?sslmode=require`` and refuses the URL otherwise.
     """
-    return db_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    sync = db_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    url = make_url(sync)
+    if url.get_backend_name() != "postgresql" or "ssl" not in url.query:
+        return sync
+    ssl = url.query["ssl"]
+    mode = ssl if isinstance(ssl, str) else ssl[-1]
+    # asyncpg also accepts booleans for `ssl`.
+    mode = {"true": "require", "false": "disable"}.get(mode.lower(), mode)
+    query = {k: v for k, v in url.query.items() if k != "ssl"}
+    query.setdefault("sslmode", mode)
+    return url.set(query=query).render_as_string(hide_password=False)
 
 
 def head_revision(*, public: bool = False) -> str:

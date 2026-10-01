@@ -348,6 +348,14 @@ sits with `kaleta.auth`), `docker-compose.yml`, `.github/workflows/ci.yml`,
     `test_forgotten_password_is_reset_through_an_emailed_link`.
   - `tests/fake_gotrue.py` — the §6 "verification stub", as a GoTrue stand-in.
 
+- **Found in the manual run against Supabase:** startup failed with
+  `psycopg2 … invalid connection option "ssl"`. Revision reads use a sync
+  psycopg2 engine built from `KALETA_DB_URL`, and `?ssl=require` (asyncpg's
+  spelling, which `docs/deployment.md` prescribes) is not a libpq option.
+  `_sync_url` now translates it to `sslmode`. Pre-existing for single-tenant
+  installs on PostgreSQL with that URL too; fixed here because the hosted
+  startup hits it first.
+
 ### Not done here (by scope)
 
 - MFA on the hosted path (`auth-two-factor-hosted`), encryption and the
