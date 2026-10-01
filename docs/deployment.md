@@ -207,6 +207,66 @@ reads the volume under another uid** (a backup shipper, say) can no longer
 read new files. Run such a sidecar under Kaleta's uid; the umask is not
 configurable.
 
+## Multi-tenant hosting (schema per account)
+
+The hosted layout of [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
+serves many accounts from one Supabase project. It is switched on with:
+
+```env
+KALETA_TENANCY=multi
+KALETA_AUTH_BACKEND=supabase
+KALETA_DB_URL=postgresql+asyncpg://...:6543/postgres?ssl=require
+KALETA_SUPABASE_URL=https://<project-ref>.supabase.co
+KALETA_SUPABASE_ANON_KEY=<anon key>
+KALETA_SUPABASE_SERVICE_ROLE_KEY=<service_role key>   # never shipped to a browser
+KALETA_PUBLIC_URL=https://app.example
+```
+
+Install with the `hosted` extra (`uv sync --extra hosted`): Redis, the
+PostgreSQL drivers and httpx for Supabase Auth.
+
+**What lives where.** `public.tenants`, `public.tenant_members` and
+`public.tenant_invites` are the only cross-tenant tables; they hold no
+financial data. Every account's ledger lives in its own schema `t_<12 hex>`,
+created at the account's **first verified sign-in** (not at sign-up, so
+unconfirmed bots leave nothing behind). The schema name never contains the
+e-mail.
+
+**Migrations.** On startup a `multi` instance migrates the registry
+(`alembic_public/`, version table `alembic_version_public`) and then every
+tenant schema to head, refusing to start if one fails. The same run as a
+one-off job before a rollout, against the direct connection:
+
+```bash
+KALETA_TENANCY=multi KALETA_AUTH_BACKEND=supabase KALETA_DB_URL=<direct url> \
+  KALETA_SUPABASE_URL=... KALETA_SUPABASE_ANON_KEY=... \
+  uv run python scripts/migrate_tenants.py          # --check: report only
+```
+
+The health endpoint adds `tenants_pending_migration` (count of schemas
+behind head; `null` on a single-tenant install).
+
+**Supabase Auth e-mail templates.** Sign-up confirmation links need no
+change: GoTrue verifies and redirects to `KALETA_PUBLIC_URL/login?reason=verified`
+(add that URL to *Redirect URLs*). The **Reset password** template must
+send people to Kaleta with the token hash in the query string:
+
+```html
+<a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}">Reset your password</a>
+```
+
+with *Site URL* set to `KALETA_PUBLIC_URL`.
+
+**Sessions.** Kaleta's own session (NiceGUI storage, Redis on a hosted
+instance) is the session of record and holds the account id, schema name,
+auth subject and e-mail — nothing secret. The Supabase session is ended right
+after sign-in, so no refresh token outlives the login.
+
+**Not in `multi` mode:** the setup wizard, `~/.kaleta/config.json`,
+`KALETA_API_TOKEN`, scheduled SQLite backups, the event retention sweep, the
+NBP startup fetch and the SQLite integrity check. Supabase backs up the
+database; per-account export in Settings → Data stays available.
+
 ## Health check
 
 After deploy, verify:
@@ -219,7 +279,7 @@ Expect `"database_ok": true` and `"migrations_pending": false`.
 
 ## Related
 
-- CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job)
+- CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job; `postgres-multi` for tenant isolation)
 - CI Valkey mode (sessions + rate limiter): `.github/workflows/ci.yml` (`valkey` job, `valkey/valkey:8`)
 - Plan: [`docs/plans/archive/q4-supabase-deployment.md`](plans/archive/q4-supabase-deployment.md)
 - Observability: [`docs/privacy-events.md`](privacy-events.md)

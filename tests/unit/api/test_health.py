@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta import __version__
 from kaleta.api import create_api_router
-from kaleta.api.deps import get_session
+from kaleta.api.deps import get_public_session
 from kaleta.api.errors import register_error_handlers
 from kaleta.api.v1.health import register_health_alias
 from kaleta.services.health_service import HealthService
@@ -36,7 +36,7 @@ async def test_health_unauthenticated_returns_version_and_db_ok(db_engine) -> No
         async with factory() as s:
             yield s
 
-    app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_public_session] = override_session
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/api/v1/health")
@@ -66,7 +66,7 @@ async def test_health_alias_unauthenticated(db_engine) -> None:
         async with factory() as s:
             yield s
 
-    app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[get_public_session] = override_session
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         resp = await client.get("/health")

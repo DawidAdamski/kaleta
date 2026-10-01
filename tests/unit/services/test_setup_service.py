@@ -100,3 +100,24 @@ class TestSyncUrl:
             _sync_url("postgresql+asyncpg://kaleta:kaleta@localhost:5432/kaleta")
             == "postgresql+psycopg2://kaleta:kaleta@localhost:5432/kaleta"
         )
+
+    @pytest.mark.parametrize(
+        ("query", "expected"),
+        [
+            ("?ssl=require", "?sslmode=require"),
+            ("?ssl=verify-full", "?sslmode=verify-full"),
+            ("?ssl=true", "?sslmode=require"),
+            ("?ssl=disable", "?sslmode=disable"),
+            ("?sslmode=require", "?sslmode=require"),
+            ("?ssl=require&sslmode=verify-ca", "?sslmode=verify-ca"),
+        ],
+    )
+    def test_postgres_tls_option_is_translated_for_psycopg2(
+        self, query: str, expected: str
+    ) -> None:
+        """asyncpg spells it ``ssl``; psycopg2 rejects that and wants ``sslmode``."""
+        base = "postgres.ref:p%40ss@aws-0-eu-central-1.pooler.supabase.com:5432/postgres"
+        assert (
+            _sync_url(f"postgresql+asyncpg://{base}{query}")
+            == f"postgresql+psycopg2://{base}{expected}"
+        )

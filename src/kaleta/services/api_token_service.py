@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import secrets
 from datetime import UTC, datetime
 
@@ -9,6 +10,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.config import settings
+from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import ValidationError
 from kaleta.models.api_token import ApiToken
 from kaleta.services.auth_service import PLACEHOLDER_USERNAME, AuthService
@@ -16,6 +18,9 @@ from kaleta.services.mfa_service import MfaService
 
 _MIN_API_TOKEN_LENGTH = 16
 MIN_API_TOKEN_LENGTH = _MIN_API_TOKEN_LENGTH
+#: ``kt_<tenant id>_<secret>`` — a hosted token names its tenant, because the
+#: token table lives inside the tenant's schema and has to be found first.
+_TENANT_TOKEN_RE = re.compile(r"^kt_([1-9][0-9]{0,18})_([A-Za-z0-9_-]{16,})$")
 
 
 class ApiTokenService:
@@ -24,7 +29,25 @@ class ApiTokenService:
 
     @staticmethod
     def generate_raw_token() -> str:
-        return secrets.token_urlsafe(32)
+        """A new raw token; prefixed with its tenant in ``KALETA_TENANCY=multi``."""
+        secret = secrets.token_urlsafe(32)
+        if settings.tenancy != "multi":
+            return secret
+        ctx = current_tenant()
+        if ctx is None:
+            msg = "No tenant context to mint an API token for"
+            raise ValidationError(msg)
+        return f"kt_{ctx.tenant_id}_{secret}"
+
+    @staticmethod
+    def tenant_id_from_token(raw_token: str) -> int | None:
+        """The tenant a ``kt_`` token names, or ``None`` for any other shape.
+
+        Only routing: the whole token is still hashed and looked up inside
+        that tenant's schema, so a forged prefix finds nothing.
+        """
+        match = _TENANT_TOKEN_RE.fullmatch(raw_token)
+        return int(match.group(1)) if match else None
 
     @staticmethod
     def hash_token(raw_token: str) -> str:
@@ -98,6 +121,10 @@ class ApiTokenService:
         return token.user_id
 
     async def _authenticate_env_token(self, raw_token: str) -> int | None:
+        if settings.tenancy == "multi":
+            # `KALETA_API_TOKEN` stands for "the one user"; a hosted instance
+            # has no such user.
+            return None
         env_token = settings.api_token
         if not env_token or len(env_token) < _MIN_API_TOKEN_LENGTH:
             return None

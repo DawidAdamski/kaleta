@@ -76,6 +76,21 @@ class Settings(BaseSettings):
     #: the login rate limiter. Unset means files under ``~/.kaleta/nicegui``
     #: and counters in the process — one replica. Needs the ``hosted`` extra.
     redis_url: str | None = None
+    #: ``single`` is one database, one household, no schema translation — every
+    #: self-hosted install. ``multi`` is the hosted layout of ADR-35: a
+    #: ``public`` tenant registry and one schema per account.
+    tenancy: Literal["single", "multi"] = "single"
+    #: Who checks passwords: ``local`` (argon2 hashes in the ``users`` table)
+    #: or ``supabase`` (Supabase Auth over HTTPS). ``multi`` needs ``supabase``.
+    auth_backend: Literal["local", "supabase"] = "local"
+    supabase_url: str | None = None
+    supabase_anon_key: str | None = None
+    #: Server-side only — admin calls such as deleting an auth user. Never sent
+    #: to a browser, never logged.
+    supabase_service_role_key: str | None = None
+    #: Where this instance is reachable, for links in e-mails (verification,
+    #: password reset). No trailing slash needed.
+    public_url: str | None = None
 
     @field_validator("db_url", mode="before")
     @classmethod
@@ -131,6 +146,41 @@ class Settings(BaseSettings):
                 ttl,
             )
             self.session_idle_hours = ttl
+        return self
+
+    @field_validator("tenancy", "auth_backend", mode="before")
+    @classmethod
+    def _normalize_mode_names(cls, value: object) -> object:
+        return value.strip().lower() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def _validate_tenancy(self) -> "Settings":
+        # Two layouts exist, and each has one identity backend: a self-hosted
+        # database with its own argon2 user, or the hosted registry of
+        # accounts that sign up through Supabase. Anything else is refused.
+        if self.tenancy == "multi" and self.auth_backend != "supabase":
+            raise ValueError(
+                "KALETA_TENANCY=multi requires KALETA_AUTH_BACKEND=supabase: accounts are "
+                "created by sign-up, and the local backend has exactly one user per database."
+            )
+        if self.tenancy == "single" and self.auth_backend != "local":
+            raise ValueError(
+                "KALETA_AUTH_BACKEND=supabase requires KALETA_TENANCY=multi: a single-tenant "
+                "database has one local user and no registry to map identities to."
+            )
+        if self.auth_backend == "supabase":
+            missing = [
+                name
+                for name, value in (
+                    ("KALETA_SUPABASE_URL", self.supabase_url),
+                    ("KALETA_SUPABASE_ANON_KEY", self.supabase_anon_key),
+                )
+                if not value
+            ]
+            if missing:
+                raise ValueError(
+                    "KALETA_AUTH_BACKEND=supabase needs " + " and ".join(missing) + " to be set."
+                )
         return self
 
     @field_validator("session_cookie_samesite", mode="before")

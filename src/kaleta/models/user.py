@@ -12,7 +12,13 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    #: ``NULL`` for a member of a hosted account: Supabase Auth holds the
+    #: credential, and ``LocalAuthProvider`` refuses to sign such a row in.
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    #: The member's e-mail on a hosted account (also their ``username`` there).
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    #: What the household sees this member as; theirs to edit.
+    display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

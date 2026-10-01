@@ -276,3 +276,9 @@ check it still reproduces before acting on it.
       conflicts ("'…' is already an identity of payee '…'") and merge undo.
       Map error codes to `t()` keys. Found by
       `plan/payees-identities-automerge`.
+
+- [ ] A settings validation error prints pydantic's `input_value` dict, which
+      includes the start of `KALETA_SECRET_KEY` (and any other secret set in
+      the environment or `.env`) on stderr at startup. Wrap `Settings()` so a
+      `ValidationError` is reported by message only. Found by
+      `plan/hosted-tenancy-foundation`.

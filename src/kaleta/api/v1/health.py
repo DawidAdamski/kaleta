@@ -6,7 +6,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, FastAPI, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.api.deps import get_session
+from kaleta.api.deps import get_public_session
 from kaleta.schemas.health import HealthResponse
 from kaleta.services.health_service import HealthService
 
@@ -25,6 +25,7 @@ async def _health_payload(
         version=snapshot.version,
         database_ok=snapshot.database_ok,
         migrations_pending=snapshot.migrations_pending,
+        tenants_pending_migration=snapshot.tenants_pending_migration,
     )
 
 
@@ -40,7 +41,7 @@ async def _health_payload(
 )
 async def health(
     response: Response,
-    session: AsyncSession = Depends(get_session),
+    session: AsyncSession = Depends(get_public_session),
 ) -> HealthResponse:
     return await _health_payload(response, session)
 
@@ -56,6 +57,6 @@ def register_health_alias(app: FastAPI) -> None:
     )
     async def health_alias(
         response: Response,
-        session: AsyncSession = Depends(get_session),
+        session: AsyncSession = Depends(get_public_session),
     ) -> HealthResponse:
         return await _health_payload(response, session)

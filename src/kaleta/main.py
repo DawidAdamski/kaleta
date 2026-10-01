@@ -111,7 +111,7 @@ async def _ensure_api_env_token_user() -> None:
     from kaleta.services.auth_service import AuthService
 
     token = settings.api_token
-    if not token or len(token) < MIN_API_TOKEN_LENGTH:
+    if not token or len(token) < MIN_API_TOKEN_LENGTH or _multi_tenant():
         return
     async with AsyncSessionFactory() as session:
         user = await AuthService(session).ensure_api_bootstrap_user()
@@ -122,17 +122,46 @@ async def _ensure_api_env_token_user() -> None:
     )
 
 
+def _multi_tenant() -> bool:
+    return settings.tenancy == "multi"
+
+
+def _preload_multi_tenant() -> None:
+    """Hosted layout (ADR-35): the registry first, then every tenant schema, to head."""
+    import logging
+
+    from kaleta.db import configure_database
+    from kaleta.exceptions import MigrationError
+    from kaleta.services.setup_service import ensure_multi_tenant_current
+
+    configure_database(settings.db_url, debug=settings.debug)
+    try:
+        migrated = ensure_multi_tenant_current(settings.db_url)
+    except MigrationError as exc:
+        logging.getLogger(__name__).error("Refusing to start: %s", exc.message)
+        raise SystemExit(f"Refusing to start: {exc.message}") from exc
+    logging.getLogger(__name__).info(
+        "Multi-tenant database ready (%d tenant schema(s) upgraded)", len(migrated)
+    )
+
+
 def _preload_config() -> None:
     """Read ~/.kaleta/config.json and reconfigure the DB proxy before views are registered.
 
     When a database is already configured, also bring its schema to the installed
     alembic head (with a pre-migration VACUUM INTO safety copy for on-disk SQLite).
+    A multi-tenant instance takes ``KALETA_DB_URL`` and migrates its registry
+    and every tenant schema instead.
     """
     import logging
 
     from kaleta.config import settings as app_settings
     from kaleta.config.setup_config import get_db_url
     from kaleta.exceptions import MigrationError
+
+    if _multi_tenant():
+        _preload_multi_tenant()
+        return
 
     db_url = get_db_url()
     if db_url:
@@ -179,6 +208,7 @@ def _register_views() -> None:
         planned_transactions,
         reports,
         reports_canned,
+        reset_password,
         rules,
         safety_funds,
         secure_app,
@@ -197,6 +227,7 @@ def _register_views() -> None:
     login.register()
     login_mfa.register()
     create_account.register()
+    reset_password.register()
     secure_app.register()
     dashboard.register()
     transactions.register()
@@ -243,18 +274,33 @@ def _sweep_nicegui_storage() -> None:
 def _register_event_retention_scheduler() -> None:
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
 
+    if _multi_tenant():
+        # Its tables live in every tenant schema; a per-tenant sweep is not
+        # part of the tenancy foundation.
+        return
+
     nicegui_app.on_startup(EventRetentionScheduler.start)
     nicegui_app.on_shutdown(EventRetentionScheduler.stop)
 
 
 def _register_backup_scheduler() -> None:
-    """Start/stop scheduled SQLite file backups with the NiceGUI process."""
+    """Start/stop scheduled SQLite file backups with the NiceGUI process.
+
+    Single-tenant only: a hosted database is backed up by its provider.
+    """
+    if _multi_tenant():
+        return
     nicegui_app.on_startup(BackupScheduler.start)
     nicegui_app.on_shutdown(BackupScheduler.stop)
 
 
 def _register_nbp_startup_fetch() -> None:
-    """Opt-in NBP Table A import on process start (default OFF)."""
+    """Opt-in NBP Table A import on process start (default OFF).
+
+    Single-tenant only: the rates table lives in each tenant schema.
+    """
+    if _multi_tenant():
+        return
     nicegui_app.on_startup(NbpStartupFetcher.start)
     nicegui_app.on_shutdown(NbpStartupFetcher.stop)
 
@@ -268,11 +314,13 @@ async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _warn_repo_root_data_leftovers()
     _sweep_nicegui_storage()
     await _ensure_api_env_token_user()
-    BackupScheduler.start()
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
 
-    EventRetentionScheduler.start()
-    NbpStartupFetcher.start()
+    # Same single-tenant-only rule as the web process (see the _register_*).
+    if not _multi_tenant():
+        BackupScheduler.start()
+        EventRetentionScheduler.start()
+        NbpStartupFetcher.start()
     try:
         yield
     finally:

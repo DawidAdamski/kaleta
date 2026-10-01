@@ -20,9 +20,12 @@ from kaleta.auth.session import (
     is_authenticated,
     logout_session,
     session_expiry_reason,
+    session_tenant_context,
     touch_session,
 )
+from kaleta.config import settings
 from kaleta.config.setup_config import is_configured
+from kaleta.db.tenant_context import install_tenant_resolver, set_tenant
 from kaleta.services import AuthService, with_session
 from kaleta.services.auth_service import AuthState
 
@@ -34,6 +37,7 @@ _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
         "/login",
         "/login/mfa",
         "/create-account",
+        "/reset-password",
         "/secure-app",
         # Rotating a session means it is not authenticated under its new id
         # yet; the route checks its own nonce instead.
@@ -70,7 +74,13 @@ def _is_framework_or_api(path: str) -> bool:
 
 
 async def _bootstrap_redirect_path() -> str | None:
-    """Return a bootstrap page when the database is not ready for login yet."""
+    """Return a bootstrap page when the database is not ready for login yet.
+
+    Single-tenant only: a hosted instance has no "first user" — every account
+    starts at sign-up — and no tenant to ask before someone has signed in.
+    """
+    if settings.tenancy == "multi":
+        return None
 
     async def _state(session: AsyncSession) -> AuthState:
         return await AuthService(session).auth_state()
@@ -86,6 +96,12 @@ async def _bootstrap_redirect_path() -> str | None:
 def register_auth_middleware() -> None:
     """Install the UI auth guard on the NiceGUI/FastAPI app."""
     from nicegui import app as nicegui_app
+
+    multi = settings.tenancy == "multi"
+    if multi:
+        # UI event handlers run over the websocket, past this middleware; the
+        # resolver gives them the same tenant the page load had.
+        install_tenant_resolver(session_tenant_context)
 
     @nicegui_app.add_middleware
     class AuthMiddleware(BaseHTTPMiddleware):
@@ -105,6 +121,17 @@ def register_auth_middleware() -> None:
             except RuntimeError:
                 log.debug("No NiceGUI client context for %s — treating as unauthenticated", path)
                 authenticated = False
+
+            if authenticated and multi:
+                ctx = session_tenant_context()
+                if ctx is None:
+                    # Authenticated but no account: a session from before the
+                    # instance went multi-tenant, or a damaged one. Sign it out
+                    # rather than serve a page that cannot find its data.
+                    with suppress(RuntimeError):
+                        logout_session()
+                    return RedirectResponse(f"/login?redirect_to={quote(path, safe='/')}")
+                set_tenant(ctx)
 
             if authenticated:
                 expiry: SessionExpiry | None

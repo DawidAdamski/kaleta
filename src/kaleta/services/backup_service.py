@@ -12,12 +12,25 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, cast
 
-from sqlalchemy import Date, DateTime, LargeBinary, Numeric, insert, inspect, text
+from sqlalchemy import (
+    Date,
+    DateTime,
+    LargeBinary,
+    Numeric,
+    delete,
+    insert,
+    inspect,
+    literal_column,
+    select,
+    text,
+)
+from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 
 import kaleta.models  # noqa: F401 — register every table on Base.metadata
 from kaleta.db.base import Base
+from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import ValidationError
 
 _BACKUP_VERSION = "1"
@@ -151,8 +164,13 @@ class BackupService:
 
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for table in tables:
-                # Table names come only from Base.metadata.sorted_tables.
-                result = await self.session.execute(text(f"SELECT * FROM {table}"))  # noqa: S608
+                # `SELECT *` from the Table object, not from a string: the
+                # schema translate map then puts a hosted tenant's schema on it,
+                # and the rows still come back raw — no type decorator runs, so
+                # an encrypted column stays ciphertext in the export.
+                result: Result[Any] = await self.session.execute(
+                    select(literal_column("*")).select_from(Base.metadata.tables[table])
+                )
                 columns = list(result.keys())
                 rows = [
                     {col: _serialize(val) for col, val in zip(columns, row, strict=False)}
@@ -208,18 +226,22 @@ class BackupService:
         try:
             # Clear every ORM table so restore never leaves a hybrid state.
             for table in reversed(tables):
-                # Table names come only from Base.metadata.sorted_tables.
-                await self.session.execute(text(f"DELETE FROM {table}"))  # noqa: S608
+                await self.session.execute(delete(Base.metadata.tables[table]))
 
             # Build a map of known columns per table from the live schema.
             # run_sync is required because SQLAlchemy's inspect() is synchronous.
             conn = await self.session.connection()
+            # Reflection does not go through the translate map; name the
+            # tenant's schema outright (``None`` on a single-tenant install).
+            tenant = current_tenant()
+            schema = tenant.schema if tenant is not None else None
             schema_cols: dict[str, set[str]] = {}
             for _t in tables:
 
                 def _column_names(sync_conn: Any, table_name: str = _t) -> set[str]:
                     return {
-                        cast(str, col["name"]) for col in inspect(sync_conn).get_columns(table_name)
+                        cast(str, col["name"])
+                        for col in inspect(sync_conn).get_columns(table_name, schema=schema)
                     }
 
                 schema_cols[_t] = await conn.run_sync(_column_names)

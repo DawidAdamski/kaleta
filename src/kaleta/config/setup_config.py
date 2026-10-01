@@ -30,7 +30,15 @@ def _write(data: dict[str, Any]) -> None:
 
 
 def get_db_url() -> str | None:
-    """Return the configured database URL, or None if not yet set up."""
+    """Return the configured database URL, or None if not yet set up.
+
+    A multi-tenant (hosted) instance has no first-run wizard and no
+    ``config.json``: its database is ``KALETA_DB_URL``, full stop.
+    """
+    from kaleta.config.settings import settings
+
+    if settings.tenancy == "multi":
+        return settings.db_url
     return _read().get("db_url") or None
 
 

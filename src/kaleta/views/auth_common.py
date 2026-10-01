@@ -17,6 +17,7 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
 from kaleta.services import with_session
@@ -111,6 +112,13 @@ def auth_error_slot() -> Callable[[str], None]:
     return say
 
 
+def auth_link(label_key: str, target: str) -> ui.link:
+    """A quiet secondary way off an auth page (sign up, forgot password)."""
+    return ui.link(t(label_key), target).classes(
+        f"{ACCENT_TEXT} text-sm no-underline hover:underline {AUTH_CONTROL} flex items-center"
+    )
+
+
 def auth_submit(label_key: str, on_click: Callable[[], Any]) -> ui.button:
     """The one button on an auth page: ink, full width, and no icon.
 
@@ -163,6 +171,11 @@ async def _landing_stats() -> AuthLandingStats | None:
     is worse than a login page without three numbers on it, so every failure
     here is the absence of the counts and never the absence of the page.
     """
+
+    if settings.tenancy == "multi":
+        # Nobody has signed in, so there is no account to count — and the
+        # counts of any account are not a stranger's to see.
+        return None
 
     async def _read(session: Any) -> AuthLandingStats | None:
         return await AuthStatsService(session).landing_stats()
