@@ -2102,7 +2102,13 @@
     "reset_sent": "Jeśli jakieś konto używa tego adresu, link do zmiany hasła jest już w drodze.",
     "reset_new_title": "Ustaw nowe hasło",
     "reset_new_subtitle": "Co najmniej 8 znaków.",
-    "reset_new_button": "Zapisz hasło"
+    "reset_new_button": "Zapisz hasło",
+    "resend_button": "Wyślij ponownie e-mail potwierdzający",
+    "resend_sent": "Nowy link jest w drodze — jeśli nie dotrze, odczekaj kilka minut i zajrzyj do spamu.",
+    "magic_link_button": "Wyślij mi link do logowania",
+    "magic_link_sent": "Jeśli jakieś konto używa tego adresu, link do logowania jest już w drodze.",
+    "reason_link_expired": "Ten link do logowania jest nieprawidłowy albo wygasł. Poproś o nowy.",
+    "reason_link_failed": "Logowanie tym linkiem się nie udało. Spróbuj ponownie za chwilę."
   },
   "setup": {
     "welcome": "Witaj w Kalecie",

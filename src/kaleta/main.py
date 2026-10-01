@@ -200,6 +200,7 @@ def _register_views() -> None:
         institutions,
         login,
         login_mfa,
+        magic_link,
         monthly_readiness,
         net_worth,
         payees,
@@ -226,6 +227,7 @@ def _register_views() -> None:
     setup.register()
     login.register()
     login_mfa.register()
+    magic_link.register()
     create_account.register()
     reset_password.register()
     secure_app.register()

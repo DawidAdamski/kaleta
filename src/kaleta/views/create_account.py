@@ -16,11 +16,12 @@ from nicegui import ui
 
 from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.session import finish_login, is_authenticated
-from kaleta.auth.sign_in import SignInFlow
+from kaleta.auth.sign_in import SignInFlow, resend_confirmation
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
 from kaleta.views.auth_common import (
+    auth_action,
     auth_error_slot,
     auth_field,
     auth_link,
@@ -79,7 +80,7 @@ def register() -> None:
                 try:
                     result = await provider.sign_up(name, pwd)
                     if result.identity is None:
-                        _show_check_inbox()
+                        _show_check_inbox(name)
                         return
                     signed_in = await SignInFlow().complete(result.identity)
                 except KaletaError as exc:
@@ -95,11 +96,22 @@ def register() -> None:
                     tenant=signed_in.tenant,
                 )
 
-            def _show_check_inbox() -> None:
+            def _show_check_inbox(address: str) -> None:
                 form.clear()
                 with form:
                     ui.label(t("auth.check_inbox_title")).classes("text-lg font-semibold")
                     ui.label(t("auth.check_inbox_body")).classes(AUTH_SUBTITLE)
+                    _say_sent = auth_error_slot()
+
+                    async def _resend() -> None:
+                        try:
+                            await resend_confirmation(address)
+                        except KaletaError as exc:
+                            _say_sent(exc.message)
+                            return
+                        _say_sent(t("auth.resend_sent"))
+
+                    auth_action("auth.resend_button", _resend)
                     auth_link("auth.have_account_link", "/login")
 
             confirm.on("keydown.enter", _submit)
