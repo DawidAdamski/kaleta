@@ -293,3 +293,11 @@ check it still reproduces before acting on it.
       rows. Count only the seeder's own categories (or check for
       "Żywność"), and add a test on a migrated database. Found in the manual
       run of `hosted-tenancy-foundation`.
+- [ ] **Flaky e2e `test_a_late_upload_does_not_take_the_step_you_chose`
+      (KAL-CSV-028).** Failed once in a full `verify.sh --e2e` run (1 of 219)
+      and passed 3/3 when rerun on its own. Under load, step panel 2 stays
+      hidden for 5 s after its node is clicked (`_step` in
+      `tests/e2e/test_csv_import.py`). Most likely the second file's upload
+      handler finishes late and takes the step back. Look for the race in the
+      view, not the timeout. Seen on `plan/auth-hosted-email-links`, which
+      does not touch import.
