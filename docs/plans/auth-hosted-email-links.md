@@ -181,3 +181,24 @@ installs (`KALETA_AUTH_BACKEND=local`) have no mail and get neither.
   go through `begin_mfa_challenge` instead of `park_login`, otherwise a magic
   link would skip the second factor. Not done here: there is no factor to
   check yet, and it belongs to that plan's scope.
+- **Review follow-ups.**
+  - **Error mapping.** `/auth/magic` maps `ValidationError` to
+    `link_expired` only when it comes from `verify_magic_link`. A refusal
+    from `SignInFlow` (provisioning, closed account) goes to `link_failed`.
+  - **Login layout.** The hosted login row is now "Forgot password?" plus
+    "E-mail me a sign-in link", and "Create an account" moved to its own line
+    below them, because three controls do not fit one row at 390 px. The `3f`
+    fidelity report is read from a self-hosted login, which shows neither
+    row, so it is unaffected.
+  - **Mail prefetch (known limitation).** The token is spent on a plain GET
+    of `/auth/magic`. A mail scanner that follows links can use it up before
+    the person clicks, and they then see "link expired" and ask again. This
+    is the same as Supabase's own default magic-link flow. A
+    click-to-continue interstitial would fix it; it is not in this plan's
+    Scope.
+  - **No Kaleta throttle on magic-link requests.** This was deliberate (open
+    question 2 names resend). GoTrue itself refuses a second OTP mail to the
+    same address within 60 s (`over_email_send_rate_limit`), so the
+    per-address case is covered on both paths. Flooding across many
+    addresses is covered by neither throttle. It belongs with the login
+    limiter's IP bucket, which would be a separate change.

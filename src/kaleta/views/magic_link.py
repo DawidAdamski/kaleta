@@ -32,11 +32,15 @@ def register() -> None:
             return RedirectResponse("/login?reason=link_expired")
         try:
             identity = await provider.verify_magic_link(token_hash)
-            signed_in = await SignInFlow().complete(identity)
         except EmailNotVerifiedError:
             return RedirectResponse("/login")
         except ValidationError:
+            # Only the link itself: a provisioning refusal below is not "expired".
             return RedirectResponse("/login?reason=link_expired")
+        except KaletaError:
+            return RedirectResponse("/login?reason=link_failed")
+        try:
+            signed_in = await SignInFlow().complete(identity)
         except KaletaError:
             # Unreachable provider, a closed account: the login page is where
             # a person can try again, and it never says which one it was.
