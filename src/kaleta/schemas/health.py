@@ -17,3 +17,10 @@ class HealthResponse(BaseModel):
     migrations_pending: bool = Field(
         description="True when the DB alembic revision differs from the installed head"
     )
+    tenants_pending_migration: int | None = Field(
+        default=None,
+        description=(
+            "Multi-tenant instances only: how many tenant schemas are behind the installed "
+            "head. Null on a single-tenant install."
+        ),
+    )

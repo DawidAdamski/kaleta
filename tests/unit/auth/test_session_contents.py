@@ -34,6 +34,14 @@ _SECRET_WORDS = re.compile(
 
 _USER_ID = 7
 _USERNAME = "ania"
+# A hosted sign-in also leaves its account behind: an id, a schema name, the
+# provider's opaque subject and the e-mail — still no secret among them.
+_TENANT = session_mod.SessionTenant(
+    tenant_id=3,
+    schema="t_0123456789ab",
+    auth_subject="0b7c2c8e-6f1a-4c55-9d7e-1c2b3a4d5e6f",
+    email="ania@example.com",
+)
 
 
 def _storage_key_constants() -> dict[str, str]:
@@ -104,9 +112,11 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
 
     session_mod.begin_mfa_challenge(user_id=_USER_ID, username=_USERNAME)
     snapshot()
-    session_mod.finish_login(user_id=_USER_ID, username=_USERNAME, target="/", mfa_verified=True)
+    session_mod.finish_login(
+        user_id=_USER_ID, username=_USERNAME, target="/", mfa_verified=True, tenant=_TENANT
+    )
     snapshot()
-    session_mod.login_session(user_id=_USER_ID, username=_USERNAME)
+    session_mod.login_session(user_id=_USER_ID, username=_USERNAME, tenant=_TENANT)
     session_mod.mark_mfa_verified()
     session_mod.keep_session_after_revocation(_USER_ID)
     bucket.pop(session_mod.SESSION_LAST_SEEN_AT)
@@ -123,12 +133,13 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
 
     for key, values in seen.items():
         for value in values:
-            if isinstance(value, bool) or value == _USER_ID:
+            if isinstance(value, bool) or value in (_USER_ID, _TENANT.tenant_id):
                 continue
             assert isinstance(value, str), f"{key} holds {type(value).__name__}"
             assert (
                 value == _USERNAME
                 or value in {"login", "logout"}
+                or value in {_TENANT.schema, _TENANT.auth_subject, _TENANT.email}
                 or _is_iso_timestamp(value)
                 or (key == session_mod.SESSION_ROTATE_NONCE and len(value) == len(nonce))
             ), f"{key} holds an unexpected value {value!r}"

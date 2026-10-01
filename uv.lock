@@ -1332,6 +1332,9 @@ forecast = [
     { name = "prophet" },
 ]
 hosted = [
+    { name = "asyncpg" },
+    { name = "httpx" },
+    { name = "psycopg2-binary" },
     { name = "redis" },
 ]
 import-xlsx = [
@@ -1369,15 +1372,18 @@ requires-dist = [
     { name = "aiosqlite", specifier = ">=0.20" },
     { name = "alembic", specifier = ">=1.13" },
     { name = "argon2-cffi", specifier = ">=23.1" },
+    { name = "asyncpg", marker = "extra == 'hosted'", specifier = ">=0.29" },
     { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29" },
     { name = "cryptography", specifier = ">=50.0.1" },
     { name = "fastapi", specifier = ">=0.139.0" },
     { name = "greenlet", specifier = ">=3.5" },
+    { name = "httpx", marker = "extra == 'hosted'", specifier = ">=0.27" },
     { name = "mkdocs", marker = "extra == 'docs'", specifier = ">=1.6" },
     { name = "mkdocs-material", marker = "extra == 'docs'", specifier = ">=9.5" },
     { name = "nicegui", specifier = ">=3.14.0" },
     { name = "openpyxl", marker = "extra == 'import-xlsx'", specifier = ">=3.1" },
     { name = "prophet", marker = "extra == 'forecast'", specifier = ">=1.1" },
+    { name = "psycopg2-binary", marker = "extra == 'hosted'", specifier = ">=2.9" },
     { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.9" },
     { name = "pydantic", specifier = ">=2.13" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },

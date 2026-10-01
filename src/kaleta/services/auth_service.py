@@ -27,7 +27,11 @@ class AuthService:
     def hash_password(self, password: str) -> str:
         return self._hasher.hash(password)
 
-    def verify_password(self, password: str, password_hash: str) -> bool:
+    def verify_password(self, password: str, password_hash: str | None) -> bool:
+        # A member of a hosted account has no local password at all: Supabase
+        # Auth holds it. No password matches a missing hash.
+        if password_hash is None:
+            return False
         try:
             self._hasher.verify(password_hash, password)
             return True

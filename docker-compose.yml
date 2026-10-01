@@ -37,6 +37,28 @@ services:
   #     - postgres-data:/var/lib/postgresql/data
   #   restart: unless-stopped
 
+  # Uncomment for the hosted layout (ADR-35) against an external PostgreSQL —
+  # the Supabase CLI local stack (`supabase start`) or plain postgres:16 with
+  # a Supabase Auth you can reach. Every account gets a schema of its own.
+  # kaleta-hosted:
+  #   build: .
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - KALETA_TENANCY=multi
+  #     - KALETA_AUTH_BACKEND=supabase
+  #     - KALETA_DB_URL=postgresql://postgres:postgres@db:5432/postgres
+  #     - KALETA_SUPABASE_URL=http://host.containers.internal:54321
+  #     - KALETA_SUPABASE_ANON_KEY=<anon key from `supabase status`>
+  #     - KALETA_SUPABASE_SERVICE_ROLE_KEY=<service_role key from `supabase status`>
+  #     - KALETA_PUBLIC_URL=http://localhost:8080
+  #     - KALETA_SECRET_KEY=<change-me>
+  #     - KALETA_HOST=0.0.0.0
+  #     - KALETA_PORT=8080
+  #   depends_on:
+  #     - db
+  #   restart: unless-stopped
+
 volumes:
   kaleta-data:
   # postgres-data:

@@ -1,4 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
+from kaleta.services import attribution as _attribution  # noqa: F401 — registers the flush hook
 from kaleta.services.account_service import AccountService
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.asset_service import AssetService
@@ -36,6 +37,7 @@ from kaleta.services.session import dispose_sessions, with_session
 from kaleta.services.setup_service import activate_database, ensure_schema_current
 from kaleta.services.subscription_service import SubscriptionService
 from kaleta.services.tag_service import TagService
+from kaleta.services.tenant_service import TenantService
 from kaleta.services.transaction_service import TransactionService
 from kaleta.services.unplanned_radar_service import UnplannedRadarService
 from kaleta.services.wizard_action_service import WizardActionService
@@ -83,6 +85,7 @@ __all__ = [
     "ScheduledBackupService",
     "SubscriptionService",
     "TagService",
+    "TenantService",
     "TransactionService",
     "UnplannedRadarService",
     "WizardActionService",

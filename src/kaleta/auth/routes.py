@@ -42,7 +42,7 @@ def build_session_router() -> APIRouter:
         await rotate_session_id(request)
         if pending.user_id is None or pending.username is None:
             return RedirectResponse("/login", status_code=_SEE_OTHER)
-        login_session(user_id=pending.user_id, username=pending.username)
+        login_session(user_id=pending.user_id, username=pending.username, tenant=pending.tenant)
         if pending.mfa_verified:
             mark_mfa_verified()
         return RedirectResponse(safe_redirect(redirect_to), status_code=_SEE_OTHER)

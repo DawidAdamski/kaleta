@@ -9,6 +9,7 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.config import settings
 from kaleta.config.setup_config import get_nbp_fetch_on_startup, set_nbp_fetch_on_startup
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
@@ -206,17 +207,20 @@ async def render_data_tab(
             ).props("outline color=primary")
 
         ui.label(t("settings.nbp_hint")).classes("text-xs text-slate-500 mt-2")
-        nbp_startup = ui.checkbox(
-            t("settings.nbp_fetch_on_startup"),
-            value=get_nbp_fetch_on_startup(),
-        ).classes("mt-1")
+        # An install-wide switch in `config.json`, and a job that only runs
+        # on a single-tenant install: a hosted account has neither.
+        if settings.tenancy != "multi":
+            nbp_startup = ui.checkbox(
+                t("settings.nbp_fetch_on_startup"),
+                value=get_nbp_fetch_on_startup(),
+            ).classes("mt-1")
 
-        def _toggle_nbp_startup(e: object) -> None:
-            enabled = bool(getattr(e, "value", False))
-            set_nbp_fetch_on_startup(enabled)
-            ui.notify(t("settings.saved"), type="positive")
+            def _toggle_nbp_startup(e: object) -> None:
+                enabled = bool(getattr(e, "value", False))
+                set_nbp_fetch_on_startup(enabled)
+                ui.notify(t("settings.saved"), type="positive")
 
-        nbp_startup.on_value_change(_toggle_nbp_startup)
+            nbp_startup.on_value_change(_toggle_nbp_startup)
 
     with ui.card().classes("p-6 w-full mt-4"):
         with ui.row().classes("items-center gap-2 mb-1"):

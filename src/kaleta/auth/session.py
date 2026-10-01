@@ -17,6 +17,7 @@ from starlette.requests import Request
 
 from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.config import settings
+from kaleta.db.tenant_context import TenantContext, set_tenant
 
 if TYPE_CHECKING:
     from kaleta.config.settings import Settings
@@ -44,6 +45,16 @@ SESSION_LAST_SEEN_AT = "last_seen_at"
 #: ``SESSION_LOGIN_AT`` on purpose: moving the login stamp would also restart
 #: the absolute TTL, and changing a setting must not buy a session more life.
 SESSION_REVALIDATED_AT = "revalidated_at"
+
+#: ``KALETA_TENANCY=multi`` only: which account this session works in, and who
+#: the identity provider said signed in. None of it is secret — the storage is
+#: server-side and keyed by a signed cookie — and none of it may ever be: this
+#: dict is written to disk (or Redis) by NiceGUI.
+SESSION_TENANT_ID = "tenant_id"
+SESSION_TENANT_SCHEMA = "tenant_schema"
+SESSION_AUTH_SUBJECT = "auth_subject"
+SESSION_EMAIL = "email"
+_TENANT_KEYS = (SESSION_TENANT_ID, SESSION_TENANT_SCHEMA, SESSION_AUTH_SUBJECT, SESSION_EMAIL)
 
 #: ``touch_session()`` rewrites the activity stamp at most this often. Every
 #: write to ``app.storage.user`` is a file write, so a busy session costs one
@@ -83,6 +94,7 @@ _AUTH_KEYS = (
     SESSION_LAST_SEEN_AT,
     SESSION_REVALIDATED_AT,
     SESSION_MFA_VERIFIED_AT,
+    *_TENANT_KEYS,
     *_MFA_PENDING_KEYS,
 )
 
@@ -106,6 +118,10 @@ SESSION_ROTATE_PURPOSE = "rotate_purpose"
 SESSION_ROTATE_USER_ID = "rotate_user_id"
 SESSION_ROTATE_USERNAME = "rotate_username"
 SESSION_ROTATE_MFA_VERIFIED = "rotate_mfa_verified"
+SESSION_ROTATE_TENANT_ID = "rotate_tenant_id"
+SESSION_ROTATE_TENANT_SCHEMA = "rotate_tenant_schema"
+SESSION_ROTATE_AUTH_SUBJECT = "rotate_auth_subject"
+SESSION_ROTATE_EMAIL = "rotate_email"
 
 _ROTATE_KEYS = (
     SESSION_ROTATE_NONCE,
@@ -114,17 +130,49 @@ _ROTATE_KEYS = (
     SESSION_ROTATE_USER_ID,
     SESSION_ROTATE_USERNAME,
     SESSION_ROTATE_MFA_VERIFIED,
+    SESSION_ROTATE_TENANT_ID,
+    SESSION_ROTATE_TENANT_SCHEMA,
+    SESSION_ROTATE_AUTH_SUBJECT,
+    SESSION_ROTATE_EMAIL,
 )
 
 #: Why a nonce was stamped.
 RotatePurpose = Literal["login", "logout"]
 
 
+@dataclass(frozen=True)
+class SessionTenant:
+    """The account a hosted sign-in resolved to, and who signed in."""
+
+    tenant_id: int
+    schema: str
+    auth_subject: str
+    email: str
+
+    @classmethod
+    def read(
+        cls, id_key: str, schema_key: str, subject_key: str, email_key: str
+    ) -> SessionTenant | None:
+        """The tenant stored under these four session keys, if all are there and sane."""
+        raw = [app.storage.user.get(key) for key in (id_key, schema_key, subject_key, email_key)]
+        if any(value is None for value in raw):
+            return None
+        try:
+            return cls(
+                tenant_id=int(str(raw[0])),
+                schema=str(raw[1]),
+                auth_subject=str(raw[2]),
+                email=str(raw[3]),
+            )
+        except (TypeError, ValueError):
+            return None
+
+
 def is_authenticated() -> bool:
     return bool(app.storage.user.get(SESSION_AUTHENTICATED, False))
 
 
-def login_session(*, user_id: int, username: str) -> None:
+def login_session(*, user_id: int, username: str, tenant: SessionTenant | None = None) -> None:
     # A finished login leaves no half-finished one behind it — and no
     # step-up stamp either. Every path that un-authenticates today goes
     # through `logout_session()`, which pops it, so this is belt and braces;
@@ -135,12 +183,26 @@ def login_session(*, user_id: int, username: str) -> None:
     app.storage.user[SESSION_AUTHENTICATED] = True
     app.storage.user[SESSION_USER_ID] = user_id
     app.storage.user[SESSION_USERNAME] = username
+    for key in _TENANT_KEYS:
+        app.storage.user.pop(key, None)
+    if tenant is not None:
+        app.storage.user[SESSION_TENANT_ID] = tenant.tenant_id
+        app.storage.user[SESSION_TENANT_SCHEMA] = tenant.schema
+        app.storage.user[SESSION_AUTH_SUBJECT] = tenant.auth_subject
+        app.storage.user[SESSION_EMAIL] = tenant.email
     now = datetime.now(UTC).isoformat()
     app.storage.user[SESSION_LOGIN_AT] = now
     app.storage.user[SESSION_LAST_SEEN_AT] = now
 
 
-def finish_login(*, user_id: int, username: str, target: str, mfa_verified: bool = False) -> None:
+def finish_login(
+    *,
+    user_id: int,
+    username: str,
+    target: str,
+    mfa_verified: bool = False,
+    tenant: SessionTenant | None = None,
+) -> None:
     """End a login handler: park the user, stamp a nonce, go and rotate.
 
     Runs over the websocket, where no cookie can be set, so the login itself is
@@ -152,6 +214,11 @@ def finish_login(*, user_id: int, username: str, target: str, mfa_verified: bool
     app.storage.user[SESSION_ROTATE_USER_ID] = user_id
     app.storage.user[SESSION_ROTATE_USERNAME] = username
     app.storage.user[SESSION_ROTATE_MFA_VERIFIED] = mfa_verified
+    if tenant is not None:
+        app.storage.user[SESSION_ROTATE_TENANT_ID] = tenant.tenant_id
+        app.storage.user[SESSION_ROTATE_TENANT_SCHEMA] = tenant.schema
+        app.storage.user[SESSION_ROTATE_AUTH_SUBJECT] = tenant.auth_subject
+        app.storage.user[SESSION_ROTATE_EMAIL] = tenant.email
     ui.navigate.to(f"{SESSION_ROTATE_PATH}?nonce={nonce}&redirect_to={quote(target, safe='/')}")
 
 
@@ -181,6 +248,7 @@ class PendingRotation:
     user_id: int | None
     username: str | None
     mfa_verified: bool
+    tenant: SessionTenant | None = None
 
 
 def consume_rotation_nonce(given: str, purpose: RotatePurpose) -> PendingRotation | None:
@@ -198,6 +266,12 @@ def consume_rotation_nonce(given: str, purpose: RotatePurpose) -> PendingRotatio
     raw_id = app.storage.user.get(SESSION_ROTATE_USER_ID)
     raw_name = app.storage.user.get(SESSION_ROTATE_USERNAME)
     mfa_verified = bool(app.storage.user.get(SESSION_ROTATE_MFA_VERIFIED, False))
+    tenant = SessionTenant.read(
+        SESSION_ROTATE_TENANT_ID,
+        SESSION_ROTATE_TENANT_SCHEMA,
+        SESSION_ROTATE_AUTH_SUBJECT,
+        SESSION_ROTATE_EMAIL,
+    )
     for key in _ROTATE_KEYS:
         app.storage.user.pop(key, None)
     stamp = _stamp(stamped_at)
@@ -213,7 +287,13 @@ def consume_rotation_nonce(given: str, purpose: RotatePurpose) -> PendingRotatio
         user_id = None
     if user_id is None or raw_name is None:
         return None
-    return PendingRotation(purpose, user_id, str(raw_name), mfa_verified=mfa_verified)
+    if settings.tenancy == "multi" and tenant is None:
+        # A hosted login without its account would be a session no page can
+        # serve; better no login than one that fails on every request.
+        return None
+    return PendingRotation(
+        purpose, user_id, str(raw_name), mfa_verified=mfa_verified, tenant=tenant
+    )
 
 
 async def rotate_session_id(request: Request) -> None:
@@ -300,6 +380,36 @@ def mfa_pending_user() -> tuple[int, str] | None:
         return int(raw_id), str(username)
     except (TypeError, ValueError):
         clear_mfa_challenge()
+        return None
+
+
+def session_tenant() -> SessionTenant | None:
+    """The account this authenticated session works in (``multi`` only)."""
+    if not app.storage.user.get(SESSION_AUTHENTICATED, False):
+        return None
+    return SessionTenant.read(
+        SESSION_TENANT_ID, SESSION_TENANT_SCHEMA, SESSION_AUTH_SUBJECT, SESSION_EMAIL
+    )
+
+
+def session_tenant_context() -> TenantContext | None:
+    """``TenantContext`` for the session bound to this request or UI event.
+
+    Installed as the tenant resolver (``kaleta.db.tenant_context``), so it runs
+    wherever a database session is opened — also outside any request, where
+    there is no storage to read. Every failure to read one is "no tenant",
+    which makes the session proxy refuse; it never guesses.
+    """
+    try:
+        tenant = session_tenant()
+        if tenant is None:
+            return None
+        raw_user = app.storage.user.get(SESSION_USER_ID)
+        member_user_id = int(raw_user) if raw_user is not None else None
+        return TenantContext(
+            tenant_id=tenant.tenant_id, schema=tenant.schema, member_user_id=member_user_id
+        )
+    except (RuntimeError, KeyError, AssertionError, TypeError, ValueError):
         return None
 
 
@@ -475,6 +585,13 @@ async def authenticated_user_id(request: Request) -> int | None:
     user_id = user_id_from_request(request)
     if user_id is None:
         return None
+    if settings.tenancy == "multi":
+        # Before the revocation check: its watermark lives in the tenant's
+        # own `users` table.
+        ctx = session_tenant_context()
+        if ctx is None:
+            return None
+        set_tenant(ctx)
     try:
         # `user_id_from_request` bound this request's storage, so the session
         # read here is the one the cookie names.
