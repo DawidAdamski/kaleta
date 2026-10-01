@@ -282,3 +282,14 @@ check it still reproduces before acting on it.
       the environment or `.env`) on stderr at startup. Wrap `Settings()` so a
       `ValidationError` is reported by message only. Found by
       `plan/hosted-tenancy-foundation`.
+
+- [ ] "Seed example data" fails with `KeyError: 'Żywność'`
+      (`seeders/transactions.py`) on any database built by the migrations —
+      self-hosted and hosted alike, also on `main`. The migrations seed the
+      Subscriptions category tree, so `TaxonomySeeder.count()` (all
+      categories) is non-zero, the taxonomy step is skipped, and the later
+      seeders look up categories that were never created. Tests miss it
+      because they build the schema with `create_all`, which has no seed
+      rows. Count only the seeder's own categories (or check for
+      "Żywność"), and add a test on a migrated database. Found in the manual
+      run of `hosted-tenancy-foundation`.
