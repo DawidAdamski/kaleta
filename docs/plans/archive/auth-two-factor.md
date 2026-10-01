@@ -18,7 +18,7 @@ app, plus one-time recovery codes for a lost phone. Self-hosted installs
 get a local TOTP implementation; the hosted instance uses Supabase
 Auth's MFA so enrolment, verification and the "AAL2" session claim are
 handled by the identity provider. Both hide behind the `AuthProvider`
-interface from [`hosted-tenancy-foundation`](../hosted-tenancy-foundation.md),
+interface from [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md),
 and the local half ships first because it does not depend on that plan.
 
 ## Scope
@@ -63,7 +63,7 @@ and the local half ships first because it does not depend on that plan.
 ### Phase B — hosted through Supabase Auth (after the foundation plan)
 
 > **Deferred, not delivered.** Phase B is written against the `AuthProvider`
-> interface from [`hosted-tenancy-foundation`](../hosted-tenancy-foundation.md),
+> interface from [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md),
 > which is still `draft`: `src/kaleta/auth/providers/` does not exist, and
 > neither does any Supabase integration to hang `SupabaseAuthProvider` off.
 > Building it would mean implementing another plan inside this branch, which

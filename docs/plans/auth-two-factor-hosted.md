@@ -23,7 +23,7 @@ view knows which is in play.
 
 Phase B could not ship with Phase A because that interface does not
 exist yet. It arrives with
-[`hosted-tenancy-foundation`](hosted-tenancy-foundation.md), which is
+[`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md), which is
 still `draft`: `src/kaleta/auth/providers/` is not a package, and there
 is no Supabase integration for `SupabaseAuthProvider` to hang off.
 Building both inside one branch would have meant implementing another

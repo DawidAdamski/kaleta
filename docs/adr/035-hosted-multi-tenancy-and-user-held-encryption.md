@@ -130,7 +130,7 @@ status: proposed
     `KALETA_ENCRYPTION=off` by default and change nothing. Encryption
     can be switched on for a single-tenant install; the same code path
     then protects a self-hoster's SQLite file.
-- **Plans**: [`hosted-tenancy-foundation`](../plans/hosted-tenancy-foundation.md),
+- **Plans**: [`hosted-tenancy-foundation`](../plans/archive/hosted-tenancy-foundation.md),
   [`hosted-field-encryption`](../plans/hosted-field-encryption.md),
   [`hosted-household-sharing`](../plans/hosted-household-sharing.md),
   [`hosted-supabase-rollout`](../plans/hosted-supabase-rollout.md).

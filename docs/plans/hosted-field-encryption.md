@@ -23,7 +23,7 @@ aggregation keeps working ([ADR-35](../adr/035-hosted-multi-tenancy-and-user-hel
 lists what the operator can still see). The same machinery, switched on,
 protects a self-hoster's SQLite file.
 
-Depends on [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md)
+Depends on [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
 for `TenantContext`, `public.tenant_members` and the key-material
 columns. The keypair-per-member design is what lets
 [`hosted-household-sharing`](hosted-household-sharing.md) add and remove

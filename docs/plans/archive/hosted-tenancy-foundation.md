@@ -3,8 +3,9 @@ plan_id: hosted-tenancy-foundation
 title: Hosted — auth provider, tenant registry and schema per account
 area: auth / db / setup
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-01
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Hosted — auth provider, tenant registry and schema per account
@@ -15,11 +16,11 @@ The hosted Kaleta must serve many accounts from one Supabase project
 while the operator knows only each account's user id and e-mail, and the
 self-hosted Podman/SQLite install must keep working exactly as it does.
 This plan lays the multi-tenant foundation decided in
-[ADR-35](../adr/035-hosted-multi-tenancy-and-user-held-encryption.md):
+[ADR-35](../../adr/035-hosted-multi-tenancy-and-user-held-encryption.md):
 identity through Supabase Auth behind an `AuthProvider` interface, a
 `public.tenants` registry, one Postgres schema per account selected per
 request, and provisioning at sign-up. Encryption is the next plan
-([`hosted-field-encryption`](hosted-field-encryption.md)); this plan
+([`hosted-field-encryption`](../hosted-field-encryption.md)); this plan
 leaves the hooks it needs.
 
 ## Scope
@@ -82,7 +83,7 @@ leaves the hooks it needs.
     registry migration.
   - `TenantInvite` (`token_hash`, `tenant_id`, `email`, `role`,
     `expires_at`, `accepted_at`) — used by
-    [`hosted-household-sharing`](hosted-household-sharing.md); created
+    [`hosted-household-sharing`](../hosted-household-sharing.md); created
     here so the registry migration is one file.
   This plan creates every tenant with exactly one `owner` member; the
   household plan adds the second to fourth.
@@ -170,7 +171,7 @@ leaves the hooks it needs.
   `hosted-supabase-rollout`.
 - MFA → `auth-two-factor`.
 - Inviting, approving and removing members, re-keying →
-  [`hosted-household-sharing`](hosted-household-sharing.md). This plan
+  [`hosted-household-sharing`](../hosted-household-sharing.md). This plan
   only lays down the tables and the one-row-per-member rule.
 - Migrating an existing single-tenant SQLite database into a hosted
   account (a later "import my self-hosted data" plan; the full-schema
@@ -364,3 +365,89 @@ sits with `kaleta.auth`), `docker-compose.yml`, `.github/workflows/ci.yml`,
 - A settings validation error echoes part of `KALETA_SECRET_KEY` (pydantic
   prints the input dict); pre-existing for every validator, filed in
   `docs/plans/chores.md`.
+
+## Implementation
+
+Landed on 2026-10-01 (PR #178).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1689164` | Dawid Adamski | 2026-10-01 | Merge pull request #178 from DawidAdamski/plan/hosted-tenancy-foundation |
+
+**Files changed:**
+- .github/workflows/ci.yml
+- alembic/env.py
+- alembic/versions/f7a8b9c0d1e2_users_email_and_nullable_password.py
+- alembic_public.ini
+- alembic_public/README
+- alembic_public/env.py
+- alembic_public/script.py.mako
+- alembic_public/versions/a0b1c2d3e4f5_tenant_registry.py
+- docker-compose.yml
+- docs/bdd.md
+- docs/deployment.md
+- docs/plans/chores.md
+- docs/plans/hosted-tenancy-foundation.md
+- docs/tech-stack.md
+- pyproject.toml
+- scripts/migrate_tenants.py
+- src/kaleta/api/deps.py
+- src/kaleta/api/v1/health.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/providers/__init__.py
+- src/kaleta/auth/providers/base.py
+- src/kaleta/auth/providers/local.py
+- src/kaleta/auth/providers/supabase.py
+- src/kaleta/auth/revocation_cache.py
+- src/kaleta/auth/routes.py
+- src/kaleta/auth/session.py
+- src/kaleta/auth/sign_in.py
+- src/kaleta/config/settings.py
+- src/kaleta/config/setup_config.py
+- src/kaleta/db/base.py
+- src/kaleta/db/session.py
+- src/kaleta/db/tenant_context.py
+- src/kaleta/db/tenant_schemas.py
+- src/kaleta/exceptions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/tenant.py
+- src/kaleta/models/user.py
+- src/kaleta/schemas/health.py
+- src/kaleta/schemas/identity.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/api_token_service.py
+- src/kaleta/services/attribution.py
+- src/kaleta/services/auth_service.py
+- src/kaleta/services/backup_service.py
+- src/kaleta/services/data_service.py
+- src/kaleta/services/health_service.py
+- src/kaleta/services/setup_service.py
+- src/kaleta/services/tenant_service.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/housekeeping.py
+- src/kaleta/views/login.py
+- src/kaleta/views/reset_password.py
+- src/kaleta/views/settings/data_tab.py
+- tests/e2e/test_tenant_signup.py
+- tests/fake_gotrue.py
+- tests/integration/test_tenant_isolation.py
+- tests/tenancy_helpers.py
+- tests/unit/api/test_health.py
+- tests/unit/auth/test_session_contents.py
+- tests/unit/auth/test_supabase_provider.py
+- tests/unit/auth/test_tenancy_settings.py
+- tests/unit/auth/test_tenant_context.py
+- tests/unit/services/test_setup_service.py
+- tests/unit/services/test_tenant_service.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
