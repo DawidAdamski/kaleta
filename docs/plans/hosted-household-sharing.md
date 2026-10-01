@@ -21,7 +21,7 @@ records who made it, and removing a member revokes access for real by
 re-keying the household. The same flow works for a self-hosted family
 install with local logins.
 
-Depends on [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md)
+Depends on [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
 (the `tenant_members` registry and the per-member `users` rows are laid
 down there) and [`hosted-field-encryption`](hosted-field-encryption.md)
 (the per-member keypair hierarchy is defined there so a single-member
