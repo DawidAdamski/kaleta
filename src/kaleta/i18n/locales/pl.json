@@ -2108,7 +2108,7 @@
     "magic_link_button": "Wyślij mi link do logowania",
     "magic_link_sent": "Jeśli jakieś konto używa tego adresu, link do logowania jest już w drodze.",
     "reason_link_expired": "Ten link do logowania jest nieprawidłowy albo wygasł. Poproś o nowy.",
-    "reason_link_failed": "Logowanie tym linkiem się nie udało. Spróbuj ponownie za chwilę."
+    "reason_link_failed": "Nie udało się zalogować tym linkiem. Spróbuj ponownie za chwilę."
   },
   "setup": {
     "welcome": "Witaj w Kalecie",
