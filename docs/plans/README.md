@@ -172,6 +172,7 @@ and is untouched.
 | 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
 | 4 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | medium | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](archive/auth-two-factor.md) | archived | draft | Phase A: — ; Phase B: 1 |
+| 5b | [auth-hosted-email-links](auth-hosted-email-links.md) | medium | draft | 1 |
 | [auth-session-rotate-on-login](archive/auth-session-rotate-on-login.md) | archived | Auth — session hardening (2) |
 | [auth-session-revocation](archive/auth-session-revocation.md) | archived | Auth — session hardening (3) |
 | [auth-session-hosted-readiness](auth-session-hosted-readiness.md) | draft | Auth — session hardening (5) |
@@ -286,6 +287,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [auth-hosted-email-links](auth-hosted-email-links.md) | draft | Hosted programme — resend confirmation, magic-link sign-in |
 | [audit-production-readiness](archive/audit-production-readiness.md) | archived | Cross-cutting audit (data-safety / ops lens) |
 | [p2-hardening-analysis](archive/p2-hardening-analysis.md) | archived | Auth / API / Settings (audit P2) |
 | [sqlite-integrity-scheduled-backups](archive/sqlite-integrity-scheduled-backups.md) | archived | DB / Housekeeping / Settings |
