@@ -301,3 +301,13 @@ check it still reproduces before acting on it.
       handler finishes late and takes the step back. Look for the race in the
       view, not the timeout. Seen on `plan/auth-hosted-email-links`, which
       does not touch import.
+- [ ] **Two e2e runs at once share ports and corrupt each other.** The e2e
+      servers use fixed ports (8081–8086), and `_wait_for_server` in
+      `tests/e2e/conftest.py` accepts whichever server answers. A second
+      `pytest tests/e2e/` started during a first one logs in to the *first*
+      run's instance. If that instance's `test_mfa` has already enrolled 2FA,
+      every login lands on `/login/mfa` and around 200 tests error with 401s
+      and timeouts. It happened when the goal-mode DoD gate ran
+      `verify.sh --e2e` while `review_gate.sh`'s reviewer was running the e2e
+      suite too. Fix: fail fast when the port is already bound before
+      spawning, or pick free ports.
