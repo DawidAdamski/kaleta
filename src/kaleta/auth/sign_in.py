@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from kaleta.auth.login_rate_limit import resend_throttle
 from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.session import SessionTenant
 from kaleta.config import settings
@@ -73,3 +74,14 @@ class SignInFlow:
                 email=identity.email,
             ),
         )
+
+
+async def resend_confirmation(address: str) -> None:
+    """Resend the sign-up confirmation, at most once a minute per address.
+
+    A throttled press returns exactly like a sent one, so the page can say "a
+    new link is on its way" either way: neither the throttle nor the provider
+    tells anyone whether the address has an account.
+    """
+    if resend_throttle.allow(address.strip().lower()):
+        await get_auth_provider().resend_confirmation(address)

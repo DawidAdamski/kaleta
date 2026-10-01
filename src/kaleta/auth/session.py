@@ -209,6 +209,31 @@ def finish_login(
     completed by ``SESSION_ROTATE_PATH`` on the HTTP request that follows —
     under a storage id issued there, never under the one the browser came with.
     """
+    ui.navigate.to(
+        park_login(
+            user_id=user_id,
+            username=username,
+            target=target,
+            mfa_verified=mfa_verified,
+            tenant=tenant,
+        )
+    )
+
+
+def park_login(
+    *,
+    user_id: int,
+    username: str,
+    target: str,
+    mfa_verified: bool = False,
+    tenant: SessionTenant | None = None,
+) -> str:
+    """Park the user and stamp a nonce; return the rotation URL to go to.
+
+    ``finish_login`` navigates there over the websocket. A plain HTTP page that
+    completes a login (the magic-link landing page) redirects there instead —
+    the same single hop through ``SESSION_ROTATE_PATH`` either way.
+    """
     clear_mfa_challenge()
     nonce = stamp_rotation_nonce("login")
     app.storage.user[SESSION_ROTATE_USER_ID] = user_id
@@ -219,7 +244,7 @@ def finish_login(
         app.storage.user[SESSION_ROTATE_TENANT_SCHEMA] = tenant.schema
         app.storage.user[SESSION_ROTATE_AUTH_SUBJECT] = tenant.auth_subject
         app.storage.user[SESSION_ROTATE_EMAIL] = tenant.email
-    ui.navigate.to(f"{SESSION_ROTATE_PATH}?nonce={nonce}&redirect_to={quote(target, safe='/')}")
+    return f"{SESSION_ROTATE_PATH}?nonce={nonce}&redirect_to={quote(target, safe='/')}"
 
 
 def finish_logout() -> None:

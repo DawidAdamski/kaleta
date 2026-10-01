@@ -38,6 +38,8 @@ _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
         "/login/mfa",
         "/create-account",
         "/reset-password",
+        # The magic-link landing page signs the browser in itself.
+        "/auth/magic",
         "/secure-app",
         # Rotating a session means it is not authenticated under its new id
         # yet; the route checks its own nonce instead.

@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from kaleta.models.user import User
 
 _CLI_RESET = "On a self-hosted install, reset the password with `kaleta --reset-password`."
+_NO_MAIL = "A self-hosted install sends no e-mail; sign in with your username and password."
 
 
 class LocalAuthProvider:
@@ -77,3 +78,12 @@ class LocalAuthProvider:
     async def delete_identity(self, subject: str) -> None:
         msg = "A self-hosted install deletes its account by deleting its database."
         raise ValidationError(msg)
+
+    async def resend_confirmation(self, email: str) -> None:
+        raise ValidationError(_NO_MAIL)
+
+    async def request_magic_link(self, email: str) -> None:
+        raise ValidationError(_NO_MAIL)
+
+    async def verify_magic_link(self, token_hash: str) -> Identity:
+        raise ValidationError(_NO_MAIL)
