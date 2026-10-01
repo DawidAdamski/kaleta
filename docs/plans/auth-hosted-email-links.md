@@ -12,7 +12,7 @@ roadmap_ref: ../roadmap.md#2027-directions
 ## Intent
 
 Found in the manual run of
-[`hosted-tenancy-foundation`](hosted-tenancy-foundation.md) against a real
+[`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md) against a real
 Supabase project: a person whose confirmation e-mail never arrived, or
 expired, is told "Confirm your e-mail address first" and has no way to get a
 new link — the only way out was confirming the user by hand in the Supabase
@@ -26,7 +26,7 @@ installs (`KALETA_AUTH_BACKEND=local`) have no mail and get neither.
 
 ## Preconditions
 
-- `hosted-tenancy-foundation` is merged: `AuthProvider`,
+- `hosted-tenancy-foundation` is merged (it is, as #178): `AuthProvider`,
   `SupabaseAuthProvider`, `SignInFlow` and `tests/fake_gotrue.py` exist.
 
 ## Scope
