@@ -172,3 +172,12 @@ installs (`KALETA_AUTH_BACKEND=local`) have no mail and get neither.
   `/otp`, and `/verify` with `type: magiclink`. Its `sent[(email, kind)]`
   counter is how e2e proves a throttled resend reached nobody.
 
+- **Second factor (forward hazard).** Today a hosted sign-in never asks for a
+  second factor: `SupabaseAuthProvider.sign_in` never returns `MfaRequired`,
+  and `auth-two-factor-hosted` has not landed. So a magic link grants exactly
+  what a password does. When hosted 2FA lands, `verify_magic_link` must do
+  what the password path does: when the session's `aal` is `aal1` and the
+  user has a verified factor, return `MfaRequired`. `/auth/magic` must then
+  go through `begin_mfa_challenge` instead of `park_login`, otherwise a magic
+  link would skip the second factor. Not done here: there is no factor to
+  check yet, and it belongs to that plan's scope.
