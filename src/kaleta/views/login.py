@@ -18,7 +18,12 @@ from nicegui import ui
 from kaleta.auth.login_rate_limit import login_rate_limiter
 from kaleta.auth.providers import MfaRequired, get_auth_provider
 from kaleta.auth.redirects import safe_redirect
-from kaleta.auth.session import begin_mfa_challenge, finish_login, is_authenticated
+from kaleta.auth.session import (
+    begin_hosted_mfa_challenge,
+    begin_mfa_challenge,
+    finish_login,
+    is_authenticated,
+)
 from kaleta.auth.sign_in import SignInFlow, resend_confirmation
 from kaleta.config import settings
 from kaleta.exceptions import EmailNotVerifiedError, KaletaError, UnauthorizedError
@@ -143,9 +148,14 @@ def register() -> None:
                 if isinstance(result, MfaRequired):
                     # The session stays unauthenticated until the code lands:
                     # a half-finished login must not open a single data page.
-                    begin_mfa_challenge(
-                        user_id=int(result.identity.subject), username=result.identity.email
-                    )
+                    if hosted:
+                        # The provider holds the factor; its aal1 session is
+                        # what the code gets checked against.
+                        begin_hosted_mfa_challenge(result)
+                    else:
+                        begin_mfa_challenge(
+                            user_id=int(result.identity.subject), username=result.identity.email
+                        )
                     ui.navigate.to(f"/login/mfa?redirect_to={quote(target, safe='/')}")
                     return
                 try:
@@ -156,7 +166,7 @@ def register() -> None:
                 finish_login(
                     user_id=signed_in.user_id,
                     username=signed_in.username,
-                    target=target,
+                    target=signed_in.target(target),
                     tenant=signed_in.tenant,
                 )
 

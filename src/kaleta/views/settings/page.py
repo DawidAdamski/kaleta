@@ -21,7 +21,8 @@ from kaleta.views.settings.privacy_tab import render_privacy_tab
 from kaleta.views.settings.security_tab import render_security_tab
 
 
-async def settings_page() -> None:
+async def settings_page(*, tab: str = "") -> None:
+    """``tab`` opens that tab first (``?tab=security`` after a recovery-code sign-in)."""
     default_currency: str = app.storage.user.get("currency", "PLN")
 
     async def _load_data_context(
@@ -58,7 +59,19 @@ async def settings_page() -> None:
             history_tab = ui.tab("history", label=t("settings.tab_history"), icon="history")
             about_tab = ui.tab("about", label=t("settings.tab_about"), icon="info")
 
-        with ui.tab_panels(tabs, value=general_tab).classes("w-full"):
+        names = {
+            "general",
+            "appearance",
+            "features",
+            "privacy",
+            "import",
+            "data",
+            "security",
+            "history",
+            "about",
+        }
+        opening = tab if tab in names else "general"
+        with ui.tab_panels(tabs, value=opening).classes("w-full"):
             with ui.tab_panel(general_tab):
                 render_general_tab(account_options=account_options)
             with ui.tab_panel(appearance_tab):

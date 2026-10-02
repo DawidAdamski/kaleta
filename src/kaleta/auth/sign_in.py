@@ -11,6 +11,7 @@ schema, as that member's ``users`` row.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from kaleta.auth.login_rate_limit import resend_throttle
 from kaleta.auth.providers import get_auth_provider
@@ -19,8 +20,15 @@ from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import UnauthorizedError
-from kaleta.schemas.identity import Identity
-from kaleta.services import AuthService, TenantService
+from kaleta.schemas.identity import Identity, MfaRequired
+from kaleta.services import AuthService, HostedMfaService, MfaService, TenantService
+from kaleta.services.mfa_service import normalise_code
+
+if TYPE_CHECKING:
+    from kaleta.services.tenant_service import TenantMembership
+
+#: Where a sign-in lands while the account owes a new second factor.
+MFA_REENROL_TARGET = "/settings?tab=security"
 
 
 @dataclass(frozen=True)
@@ -30,6 +38,12 @@ class SignedIn:
     user_id: int
     username: str
     tenant: SessionTenant | None = None
+    #: A recovery code spent the provider's factor and none has been set up
+    #: since: the login goes to Settings → Security instead of its target.
+    reenrol_mfa: bool = False
+
+    def target(self, requested: str) -> str:
+        return MFA_REENROL_TARGET if self.reenrol_mfa else requested
 
 
 class SignInFlow:
@@ -51,21 +65,63 @@ class SignInFlow:
         await get_auth_provider().sign_out(identity)
         return signed_in
 
-    async def _complete_multi(self, identity: Identity) -> SignedIn:
+    async def verify_code(self, pending: MfaRequired, code: str) -> SignedIn:
+        """Finish a hosted sign-in with the authenticator's code.
+
+        The provider checks the code and lifts the session to ``aal2`` — the
+        one place that claim is enforced (see the plan's Implementation
+        notes): Kaleta's own session is the session of record afterwards, and
+        the provider's is ended in :meth:`complete`. A wrong code is a
+        ``ValidationError``; a factor removed meanwhile a ``ConflictError``.
+        """
+        lifted = await get_auth_provider().mfa_challenge_verify(
+            pending.identity, pending.factor_id, normalise_code(code)
+        )
+        return await self.complete(lifted)
+
+    async def recover(self, pending: MfaRequired, code: str) -> SignedIn | None:
+        """Finish a hosted sign-in with a recovery code instead of the authenticator.
+
+        ``None`` when the code is not one of this account's unused codes. On a
+        right one the provider's factor is removed (``HostedMfaService``) and
+        the sign-in completes — on to Settings → Security, to set a new one up.
+        """
+        identity = pending.identity
+        membership = await self._membership(identity)
+        user_id = self._member_user_id(membership)
+        with use_tenant(membership.context()):
+            async with AsyncSessionFactory() as session:
+                recovered = await HostedMfaService(session, get_auth_provider()).recover(
+                    user_id, code, subject=identity.subject, factor_id=pending.factor_id
+                )
+        if not recovered:
+            return None
+        return await self.complete(identity)
+
+    async def _membership(self, identity: Identity) -> TenantMembership:
         if self._tenant_service is not None:
-            membership = await self._tenant_service.membership_for_sign_in(identity)
-        else:
-            async with AsyncSessionFactory.public() as public:
-                membership = await TenantService(public).membership_for_sign_in(identity)
+            return await self._tenant_service.membership_for_sign_in(identity)
+        async with AsyncSessionFactory.public() as public:
+            return await TenantService(public).membership_for_sign_in(identity)
+
+    @staticmethod
+    def _member_user_id(membership: TenantMembership) -> int:
         if membership.member.user_id is None:
             msg = "Your account is still being set up. Try again in a moment."
             raise UnauthorizedError(msg)
+        return membership.member.user_id
+
+    async def _complete_multi(self, identity: Identity) -> SignedIn:
+        membership = await self._membership(identity)
+        user_id = self._member_user_id(membership)
         ctx = membership.context()
         with use_tenant(ctx):
             async with AsyncSessionFactory() as session:
                 await AuthService(session).record_login(username=identity.email, success=True)
+                reenrol = await MfaService(session).reenrolment_required(user_id)
         return SignedIn(
-            user_id=membership.member.user_id,
+            reenrol_mfa=reenrol,
+            user_id=user_id,
             username=identity.email,
             tenant=SessionTenant(
                 tenant_id=membership.tenant.id,

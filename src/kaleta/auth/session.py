@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import logging
 import secrets
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Literal
@@ -21,6 +22,7 @@ from kaleta.db.tenant_context import TenantContext, set_tenant
 
 if TYPE_CHECKING:
     from kaleta.config.settings import Settings
+    from kaleta.schemas.identity import MfaRequired
 
 logger = logging.getLogger(__name__)
 
@@ -76,11 +78,19 @@ SESSION_MFA_PENDING_AT = "mfa_pending_at"
 #: When the second factor was last proved, for step-up on sensitive actions.
 SESSION_MFA_VERIFIED_AT = "mfa_verified_at"
 
+#: The hosted (Supabase) variant of the same wait: a reference into
+#: :data:`hosted_mfa_challenges`, never the challenge itself — that holds the
+#: provider's ``aal1`` access token, and this dict is written to disk or Redis.
+SESSION_HOSTED_MFA_REF = "hosted_mfa_ref"
+SESSION_HOSTED_MFA_AT = "hosted_mfa_at"
+
 _MFA_PENDING_KEYS = (
     SESSION_MFA_PENDING,
     SESSION_MFA_PENDING_USER_ID,
     SESSION_MFA_PENDING_USERNAME,
     SESSION_MFA_PENDING_AT,
+    SESSION_HOSTED_MFA_REF,
+    SESSION_HOSTED_MFA_AT,
 )
 
 #: Everything that says who this browser is. Whatever is not in here — theme,
@@ -361,6 +371,48 @@ def logout_session() -> None:
         app.storage.user.pop(key, None)
 
 
+class HostedMfaChallenges:
+    """Hosted sign-ins waiting on their code, in this process's memory only.
+
+    The provider answers a right password with an ``aal1`` session whose token
+    the code is later checked with, so it has to outlive the navigation from
+    the password form to ``/login/mfa``. It must not be written where
+    ``app.storage.user`` goes (a file, or Redis), so the session carries only a
+    random reference into this store.
+
+    Two consequences, both deliberate: a restart forgets every challenge (the
+    prompt then says it took too long, and the password is asked again), and
+    replicas need sticky sessions for the two pages to meet — which NiceGUI's
+    websocket already demands.
+    """
+
+    def __init__(self, ttl_seconds: int) -> None:
+        self._ttl = ttl_seconds
+        self._items: dict[str, tuple[float, MfaRequired]] = {}
+
+    def put(self, pending: MfaRequired) -> str:
+        self._prune()
+        ref = secrets.token_urlsafe(32)
+        self._items[ref] = (time.monotonic(), pending)
+        return ref
+
+    def get(self, ref: str) -> MfaRequired | None:
+        self._prune()
+        item = self._items.get(ref)
+        return item[1] if item is not None else None
+
+    def drop(self, ref: str) -> None:
+        self._items.pop(ref, None)
+
+    def _prune(self) -> None:
+        cutoff = time.monotonic() - self._ttl
+        for ref in [ref for ref, (born, _) in self._items.items() if born < cutoff]:
+            del self._items[ref]
+
+
+hosted_mfa_challenges = HostedMfaChallenges(MFA_CHALLENGE_TTL_MINUTES * 60)
+
+
 def begin_mfa_challenge(*, user_id: int, username: str) -> None:
     """Park a password-authenticated user in front of the code prompt."""
     clear_mfa_challenge()
@@ -370,9 +422,37 @@ def begin_mfa_challenge(*, user_id: int, username: str) -> None:
     app.storage.user[SESSION_MFA_PENDING_AT] = datetime.now(UTC).isoformat()
 
 
+def begin_hosted_mfa_challenge(pending: MfaRequired) -> None:
+    """Park a hosted sign-in (``aal1``) in front of the code prompt."""
+    clear_mfa_challenge()
+    app.storage.user[SESSION_HOSTED_MFA_REF] = hosted_mfa_challenges.put(pending)
+    app.storage.user[SESSION_HOSTED_MFA_AT] = datetime.now(UTC).isoformat()
+
+
 def clear_mfa_challenge() -> None:
+    ref = app.storage.user.get(SESSION_HOSTED_MFA_REF)
+    if isinstance(ref, str):
+        hosted_mfa_challenges.drop(ref)
     for key in _MFA_PENDING_KEYS:
         app.storage.user.pop(key, None)
+
+
+def is_hosted_mfa_pending() -> bool:
+    return app.storage.user.get(SESSION_HOSTED_MFA_REF) is not None
+
+
+def hosted_mfa_pending() -> MfaRequired | None:
+    """The hosted sign-in waiting on a code, or ``None`` (stale, restarted, or none)."""
+    ref = app.storage.user.get(SESSION_HOSTED_MFA_REF)
+    if not isinstance(ref, str):
+        return None
+    if not _within(app.storage.user.get(SESSION_HOSTED_MFA_AT), MFA_CHALLENGE_TTL_MINUTES):
+        clear_mfa_challenge()
+        return None
+    pending = hosted_mfa_challenges.get(ref)
+    if pending is None:
+        clear_mfa_challenge()
+    return pending
 
 
 def is_mfa_pending() -> bool:

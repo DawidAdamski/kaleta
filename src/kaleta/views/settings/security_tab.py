@@ -1,5 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Settings — Security tab (two-factor authentication, API bearer tokens)."""
+"""Settings — Security tab (two-factor authentication, API bearer tokens).
+
+The two-factor card is one component over two backends. Locally
+``MfaService`` holds the factor; hosted (``KALETA_AUTH_BACKEND=supabase``)
+``HostedMfaService`` asks Supabase Auth, which needs the password again for
+every act that changes or proves the factor — Kaleta keeps no provider session
+to do it with. So the hosted dialogs carry a password field the local ones do
+not, and that is the whole visible difference.
+"""
 
 from __future__ import annotations
 
@@ -10,6 +18,7 @@ from typing import Any
 from nicegui import app, ui
 
 from kaleta.auth.login_rate_limit import mfa_rate_limiter
+from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.auth.session import (
     SESSION_USER_ID,
@@ -17,12 +26,15 @@ from kaleta.auth.session import (
     keep_session_after_revocation,
     mark_mfa_verified,
     mfa_verified_at,
+    session_tenant,
 )
 from kaleta.exceptions import ConflictError, EncryptionError, KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
 from kaleta.services import (
     ApiTokenService,
     AuthService,
+    HostedEnrolment,
+    HostedMfaService,
     MfaEnrolment,
     MfaService,
     MfaStatus,
@@ -50,9 +62,24 @@ async def render_security_tab() -> None:
 # ── Two-factor authentication ─────────────────────────────────────────────────
 
 
-async def _mfa_status(user_id: int) -> MfaStatus:
-    async def _load(session: Any) -> MfaStatus:
-        return await MfaService(session).status(user_id)
+def _hosted_email() -> str | None:
+    """The address the provider knows this account by, when the provider holds the factor."""
+    if get_auth_provider().name != "supabase":
+        return None
+    tenant = session_tenant()
+    return tenant.email if tenant is not None else ""
+
+
+def _hosted(session: Any) -> HostedMfaService:
+    return HostedMfaService(session, get_auth_provider())
+
+
+async def _mfa_status(user_id: int) -> tuple[MfaStatus, bool]:
+    """The card's status line, and whether a spent recovery code left it owing a new factor."""
+
+    async def _load(session: Any) -> tuple[MfaStatus, bool]:
+        service = MfaService(session)
+        return await service.status(user_id), await service.reenrolment_required(user_id)
 
     return await with_session(_load)
 
@@ -85,9 +112,14 @@ async def _ask_for_code(user_id: int) -> bool:
     otherwise have unlimited guesses at six digits.
     """
     rate_key = str(user_id)
+    email = _hosted_email()
     with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
         ui.label(t("settings.mfa_step_up_title")).classes("text-lg font-semibold mb-1")
-        ui.label(t("settings.mfa_step_up_hint")).classes("text-sm text-slate-500 mb-4")
+        ui.label(
+            t("settings.mfa_step_up_hint" if email is None else "settings.mfa_step_up_hint_hosted")
+        ).classes("text-sm text-slate-500 mb-4")
+        password_input = ui.input(label=t("settings.mfa_password"), password=True).classes("w-full")
+        password_input.set_visibility(email is not None)
         code_input = ui.input(label=t("settings.mfa_code")).classes("w-full")
         error = ui.label("").classes("text-sm text-negative mt-2")
 
@@ -97,18 +129,23 @@ async def _ask_for_code(user_id: int) -> bool:
                 error.set_text(t("settings.mfa_rate_limited", seconds=secs))
                 return
             entered = (code_input.value or "").strip()
-            if not entered:
+            password = password_input.value or ""
+            if not entered or (email is not None and not password):
                 error.set_text(t("settings.mfa_code_required"))
                 return
 
             async def _verify(session: Any) -> bool | None:
-                service = MfaService(session)
+                service = MfaService(session) if email is None else _hosted(session)
                 # None means the factor stopped existing between the check
                 # that opened this dialog and this submit. `verify_challenge`
                 # folds that into the same False as a wrong code, and the two
                 # must not cost the same — see the branch below.
                 if not await service.is_enabled(user_id):
                     return None
+                if isinstance(service, HostedMfaService) and email is not None:
+                    return await service.prove(
+                        user_id, email=email, password=password, code=entered
+                    )
                 return await service.verify_challenge(user_id, entered)
 
             try:
@@ -144,6 +181,7 @@ async def _ask_for_code(user_id: int) -> bool:
             mfa_rate_limiter.clear(rate_key)
             dialog.submit(True)
 
+        password_input.on("keydown.enter", _confirm)
         code_input.on("keydown.enter", _confirm)
         with ui.row().classes("gap-2 mt-4 justify-end w-full"):
             ui.button(t("common.cancel"), on_click=lambda: dialog.submit(False)).props("flat")
@@ -163,7 +201,11 @@ async def _render_mfa_card(user_id: int) -> None:
 
         @ui.refreshable
         async def body() -> None:
-            status = await _mfa_status(user_id)
+            status, reenrol = await _mfa_status(user_id)
+            if reenrol:
+                with ui.row().classes("items-center gap-2 mb-3 no-wrap"):
+                    ui.icon("warning", color="warning")
+                    ui.label(t("settings.mfa_reenrol_required")).classes("text-sm")
             with ui.row().classes("items-center gap-3 mb-4"):
                 ui.icon(
                     "verified_user" if status.enabled else "gpp_maybe",
@@ -205,12 +247,80 @@ async def _render_mfa_card(user_id: int) -> None:
         await body()
 
 
+async def _begin_hosted(user_id: int, email: str) -> HostedEnrolment | None:
+    """Ask for the password, then have the provider mint a factor. ``None`` on cancel.
+
+    Counted on the same limiter as every other prompt here: a wrong password
+    is a guess like a wrong code is.
+    """
+    rate_key = str(user_id)
+    with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
+        ui.label(t("settings.mfa_setup_title")).classes("text-lg font-semibold mb-1")
+        ui.label(t("settings.mfa_setup_password_hint")).classes("text-sm text-slate-500 mb-4")
+        password_input = ui.input(label=t("settings.mfa_password"), password=True).classes("w-full")
+        error = ui.label("").classes("text-sm text-negative mt-2")
+
+        async def _confirm() -> None:
+            if mfa_rate_limiter.is_locked(rate_key):
+                secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                return
+            password = password_input.value or ""
+            if not password:
+                error.set_text(t("settings.mfa_password_required"))
+                return
+
+            async def _begin(session: Any) -> HostedEnrolment:
+                return await _hosted(session).begin_hosted_enrolment(
+                    user_id, email=email, password=password
+                )
+
+            try:
+                enrolment = await with_session(_begin)
+            except ValidationError as exc:
+                if mfa_rate_limiter.record_failure(rate_key):
+                    secs = mfa_rate_limiter.remaining_lock_seconds(rate_key)
+                    error.set_text(t("settings.mfa_rate_limited", seconds=secs))
+                else:
+                    error.set_text(exc.message)
+                password_input.value = ""
+                return
+            except ConflictError:
+                ui.notify(t("settings.mfa_stale"), type="warning")
+                dialog.submit(None)
+                return
+            except KaletaError as exc:
+                error.set_text(exc.message)
+                return
+            mfa_rate_limiter.clear(rate_key)
+            dialog.submit(enrolment)
+
+        password_input.on("keydown.enter", _confirm)
+        with ui.row().classes("gap-2 mt-4 justify-end w-full"):
+            ui.button(t("common.cancel"), on_click=lambda: dialog.submit(None)).props("flat")
+            ui.button(t("settings.mfa_continue"), on_click=_confirm).props("color=primary")
+
+    result = await dialog
+    dialog.delete()
+    return result if isinstance(result, HostedEnrolment) else None
+
+
 async def _open_setup(user_id: int, refresh: Refresh) -> None:
+    email = _hosted_email()
+
     async def _begin(session: Any) -> MfaEnrolment:
         return await MfaService(session).begin_enrolment(user_id)
 
+    enrolment: MfaEnrolment
     try:
-        enrolment = await with_session(_begin)
+        if email is not None:
+            hosted = await _begin_hosted(user_id, email)
+            if hosted is None:
+                refresh()
+                return
+            enrolment = hosted
+        else:
+            enrolment = await with_session(_begin)
     except ConflictError:
         # Another tab confirmed an enrolment meanwhile, so the card behind
         # this toast is showing a stale "Off" and a button that would fail
@@ -250,6 +360,10 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
                 return
 
             async def _do(session: Any) -> list[str]:
+                if isinstance(enrolment, HostedEnrolment):
+                    return await _hosted(session).confirm_hosted_enrolment(
+                        user_id, enrolment, entered
+                    )
                 return await MfaService(session).confirm_enrolment(user_id, entered)
 
             try:
@@ -288,8 +402,12 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
     dialog.delete()
     if not codes:
         # Cancelled, or given up on. The pending row holds a live secret and
-        # nothing else in the UI can reach it, so it goes with the dialog.
+        # nothing else in the UI can reach it, so it goes with the dialog —
+        # hosted, the unverified factor at the provider goes instead.
         async def _abandon(session: Any) -> bool:
+            if isinstance(enrolment, HostedEnrolment):
+                await _hosted(session).abandon_hosted_enrolment(enrolment)
+                return True
             return await MfaService(session).abandon_enrolment(user_id)
 
         await with_session(_abandon)
@@ -366,9 +484,12 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
     from simply asking often enough.
     """
     rate_key = str(user_id)
+    email = _hosted_email()
     with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm"):
         ui.label(t("settings.mfa_disable_title")).classes("text-lg font-semibold mb-1")
-        ui.label(t("settings.mfa_disable_hint")).classes("text-sm text-slate-500 mb-4")
+        ui.label(
+            t("settings.mfa_disable_hint" if email is None else "settings.mfa_disable_hint_hosted")
+        ).classes("text-sm text-slate-500 mb-4")
         password_input = ui.input(label=t("settings.mfa_password"), password=True).classes("w-full")
         code_input = ui.input(label=t("settings.mfa_code")).classes("w-full")
         error = ui.label("").classes("text-sm text-negative mt-2")
@@ -391,6 +512,11 @@ async def _open_disable(user_id: int, refresh: Refresh) -> None:
                 return
 
             async def _do(session: Any) -> None:
+                if email is not None:
+                    await _hosted(session).disable_hosted(
+                        user_id, email=email, password=password, code=entered
+                    )
+                    return
                 await MfaService(session).disable(
                     user_id,
                     password=password,

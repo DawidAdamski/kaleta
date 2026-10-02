@@ -14,8 +14,8 @@ from __future__ import annotations
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
-from kaleta.auth.providers import get_auth_provider
-from kaleta.auth.session import is_authenticated, park_login
+from kaleta.auth.providers import MfaRequired, get_auth_provider
+from kaleta.auth.session import begin_hosted_mfa_challenge, is_authenticated, park_login
 from kaleta.auth.sign_in import SignInFlow
 from kaleta.exceptions import EmailNotVerifiedError, KaletaError, ValidationError
 
@@ -39,6 +39,10 @@ def register() -> None:
             return RedirectResponse("/login?reason=link_expired")
         except KaletaError:
             return RedirectResponse("/login?reason=link_failed")
+        if isinstance(identity, MfaRequired):
+            # The link stands in for the password, not for the second factor.
+            begin_hosted_mfa_challenge(identity)
+            return RedirectResponse("/login/mfa")
         try:
             signed_in = await SignInFlow().complete(identity)
         except KaletaError:
@@ -49,7 +53,7 @@ def register() -> None:
             park_login(
                 user_id=signed_in.user_id,
                 username=signed_in.username,
-                target="/",
+                target=signed_in.target("/"),
                 tenant=signed_in.tenant,
             )
         )
