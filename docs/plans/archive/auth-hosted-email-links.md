@@ -3,8 +3,9 @@ plan_id: auth-hosted-email-links
 title: Auth — resend the confirmation e-mail, and sign in with a magic link (hosted)
 area: auth
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-02
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Auth — resend the confirmation e-mail, and sign in with a magic link (hosted)
@@ -12,7 +13,7 @@ roadmap_ref: ../roadmap.md#2027-directions
 ## Intent
 
 Found in the manual run of
-[`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md) against a real
+[`hosted-tenancy-foundation`](hosted-tenancy-foundation.md) against a real
 Supabase project: a person whose confirmation e-mail never arrived, or
 expired, is told "Confirm your e-mail address first" and has no way to get a
 new link — the only way out was confirming the user by hand in the Supabase
@@ -79,7 +80,7 @@ installs (`KALETA_AUTH_BACKEND=local`) have no mail and get neither.
   e-mail + password, so the data-passphrase plan (`hosted-field-encryption`)
   has one entry point to hook.
 - Magic links or e-mail codes as a *second* factor — MFA is
-  [`auth-two-factor-hosted`](auth-two-factor-hosted.md). A magic-link
+  [`auth-two-factor-hosted`](../auth-two-factor-hosted.md). A magic-link
   session is `aal1` exactly like a password one; when that plan lands, it
   asks for the code after either.
 - One-time e-mail *codes* (6-digit OTP typed into the page) instead of links.
@@ -202,3 +203,43 @@ installs (`KALETA_AUTH_BACKEND=local`) have no mail and get neither.
     per-address case is covered on both paths. Flooding across many
     addresses is covered by neither throttle. It belongs with the login
     limiter's IP bucket, which would be a separate change.
+
+## Implementation
+
+Landed on 2026-10-02 (PR #181).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `7b83445` | Dawid Adamski | 2026-10-02 | Merge pull request #181 from DawidAdamski/plan/auth-hosted-email-links |
+
+**Files changed:**
+- docs/bdd.md
+- docs/deployment.md
+- docs/plans/auth-hosted-email-links.md
+- docs/plans/chores.md
+- src/kaleta/auth/login_rate_limit.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/providers/base.py
+- src/kaleta/auth/providers/local.py
+- src/kaleta/auth/providers/supabase.py
+- src/kaleta/auth/session.py
+- src/kaleta/auth/sign_in.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/login.py
+- src/kaleta/views/magic_link.py
+- tests/e2e/test_tenant_signup.py
+- tests/fake_gotrue.py
+- tests/unit/auth/test_email_links.py
+- tests/unit/auth/test_supabase_provider.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
