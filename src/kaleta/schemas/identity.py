@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field
 
-__all__ = ["Identity", "MfaRequired", "SignUpResult"]
+__all__ = ["FactorEnrolment", "Identity", "MfaRequired", "SignUpResult"]
 
 
 class Identity(BaseModel):
@@ -38,6 +38,20 @@ class MfaRequired(BaseModel):
 
     identity: Identity
     factor_id: str
+
+
+class FactorEnrolment(BaseModel):
+    """A second factor the provider has minted but nobody has proved yet.
+
+    ``secret`` and ``uri`` are what the authenticator app needs; they are shown
+    once in the setup dialog and never stored by Kaleta.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    factor_id: str
+    secret: str = Field(repr=False)
+    uri: str = Field(repr=False)
 
 
 class SignUpResult(BaseModel):

@@ -12,7 +12,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from kaleta.exceptions import UnauthorizedError, ValidationError
-from kaleta.schemas.identity import Identity, MfaRequired, SignUpResult
+from kaleta.schemas.identity import FactorEnrolment, Identity, MfaRequired, SignUpResult
 from kaleta.services import AuthService, MfaService, with_session
 
 if TYPE_CHECKING:
@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 _CLI_RESET = "On a self-hosted install, reset the password with `kaleta --reset-password`."
 _NO_MAIL = "A self-hosted install sends no e-mail; sign in with your username and password."
+_LOCAL_MFA = "On a self-hosted install, two-factor authentication is set up in Settings → Security."
 
 
 class LocalAuthProvider:
@@ -85,5 +86,14 @@ class LocalAuthProvider:
     async def request_magic_link(self, email: str) -> None:
         raise ValidationError(_NO_MAIL)
 
-    async def verify_magic_link(self, token_hash: str) -> Identity:
+    async def verify_magic_link(self, token_hash: str) -> Identity | MfaRequired:
         raise ValidationError(_NO_MAIL)
+
+    async def mfa_enrol(self, identity: Identity) -> FactorEnrolment:
+        raise ValidationError(_LOCAL_MFA)
+
+    async def mfa_challenge_verify(self, identity: Identity, factor_id: str, code: str) -> Identity:
+        raise ValidationError(_LOCAL_MFA)
+
+    async def mfa_unenrol(self, subject: str, factor_id: str) -> None:
+        raise ValidationError(_LOCAL_MFA)

@@ -3,13 +3,20 @@
 
 from __future__ import annotations
 
-from kaleta.auth.providers.base import AuthProvider, Identity, MfaRequired, SignUpResult
+from kaleta.auth.providers.base import (
+    AuthProvider,
+    FactorEnrolment,
+    Identity,
+    MfaRequired,
+    SignUpResult,
+)
 from kaleta.auth.providers.local import LocalAuthProvider
 from kaleta.auth.providers.supabase import SupabaseAuthProvider
 from kaleta.config import settings
 
 __all__ = [
     "AuthProvider",
+    "FactorEnrolment",
     "Identity",
     "LocalAuthProvider",
     "MfaRequired",

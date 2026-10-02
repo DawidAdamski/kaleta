@@ -38,7 +38,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.user import User
-from kaleta.models.user_mfa import MFA_KIND_TOTP, UserMfa
+from kaleta.models.user_mfa import MFA_KIND_SUPABASE, MFA_KIND_TOTP, UserMfa
 from kaleta.services.auth_service import AuthService
 
 if TYPE_CHECKING:
@@ -141,6 +141,23 @@ class MfaService:
             recovery_codes_remaining=len(self._parse_hashes(recovery_codes_hash, user_id)),
         )
 
+    async def reenrolment_required(self, user_id: int) -> bool:
+        """Whether a provider-held factor was spent by a recovery code and not set up again.
+
+        Only the hosted path leaves this state behind (see
+        ``HostedMfaService.recover``): a row of ``MFA_KIND_SUPABASE`` with no
+        ``enabled_at``. A local enrolment abandoned at the QR code is
+        ``MFA_KIND_TOTP`` and does not count.
+        """
+        result = await self.session.execute(
+            select(UserMfa.id).where(
+                UserMfa.user_id == user_id,
+                UserMfa.kind == MFA_KIND_SUPABASE,
+                UserMfa.enabled_at.is_(None),
+            )
+        )
+        return result.scalar_one_or_none() is not None
+
     async def step_up_required(self, user_id: int, verified_at: datetime | None) -> bool:
         """Whether a sensitive action should ask for a code first.
 
@@ -209,7 +226,7 @@ class MfaService:
             name=user.username,
             issuer_name=TOTP_ISSUER,
         )
-        return MfaEnrolment(secret=secret, uri=uri, qr_svg=_qr_svg(uri))
+        return MfaEnrolment(secret=secret, uri=uri, qr_svg=qr_svg(uri))
 
     async def abandon_enrolment(self, user_id: int) -> bool:
         """Drop an enrolment that was started and never confirmed.
@@ -615,6 +632,10 @@ class MfaService:
         A step at or below ``last_used_counter`` is refused even when the code
         itself is right: that is the replay this method exists to stop.
         """
+        if row.kind != MFA_KIND_TOTP:
+            # A provider-held factor: the column holds an id, not a secret,
+            # and a code computed from it would be a code anyone could compute.
+            return None
         candidate = normalise_code(code)
         # `isascii()` as well as `isdigit()`: the normaliser already drops
         # non-ASCII, and this is the line that must not be the one relied on
@@ -705,7 +726,7 @@ class MfaService:
         )
 
 
-def _qr_svg(uri: str) -> str:
+def qr_svg(uri: str) -> str:
     """The provisioning URI as an inline SVG element (no XML declaration).
 
     An SVG rather than a PNG data URI: it is a fraction of the bytes, it stays
