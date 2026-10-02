@@ -213,6 +213,29 @@ class LoginRateLimiter:
         self.store.clear(key)
 
 
+@dataclass
+class SendThrottle:
+    """At most one e-mail per key every ``interval_seconds``.
+
+    For "send me that e-mail again" buttons. GoTrue rate-limits mail for the
+    whole project — a few messages an hour on Supabase's built-in mailer — so
+    one impatient person pressing resend would use the budget up for
+    everyone. Uses the lock half of an ``AttemptStore``, so with
+    ``KALETA_REDIS_URL`` the interval holds across replicas.
+    """
+
+    interval_seconds: float = 60.0
+    store: AttemptStore = field(default_factory=MemoryStore)
+
+    def allow(self, key: str, *, now: float | None = None) -> bool:
+        """True and start the interval, or False while the last one is running."""
+        current = now if now is not None else time.time()
+        if current < self.store.locked_until(key):
+            return False
+        self.store.lock(key, until=current + self.interval_seconds, now=current)
+        return True
+
+
 #: Failed passwords, keyed by client IP.
 login_rate_limiter = LoginRateLimiter(store=default_store("login"))
 
@@ -221,3 +244,6 @@ login_rate_limiter = LoginRateLimiter(store=default_store("login"))
 #: bucket would lock the account out of a retry it is entitled to, and sharing
 #: a bucket would let a wrong code hide a password-guessing run.
 mfa_rate_limiter = LoginRateLimiter(store=default_store("mfa"))
+
+#: "Resend confirmation e-mail", keyed by the lower-cased address.
+resend_throttle = SendThrottle(store=default_store("resend"))

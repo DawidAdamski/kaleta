@@ -19,7 +19,7 @@ from kaleta.auth.login_rate_limit import login_rate_limiter
 from kaleta.auth.providers import MfaRequired, get_auth_provider
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import begin_mfa_challenge, finish_login, is_authenticated
-from kaleta.auth.sign_in import SignInFlow
+from kaleta.auth.sign_in import SignInFlow, resend_confirmation
 from kaleta.config import settings
 from kaleta.exceptions import EmailNotVerifiedError, KaletaError, UnauthorizedError
 from kaleta.i18n import t
@@ -29,6 +29,7 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.views.auth_common import (
+    auth_action,
     auth_error_slot,
     auth_field,
     auth_link,
@@ -102,6 +103,11 @@ def register() -> None:
                 _say(t("auth.reason_verified"))
             elif reason == "password_reset":
                 _say(t("auth.reason_password_reset"))
+            elif reason == "link_expired":
+                # Sent here by /auth/magic when the sign-in link was stale.
+                _say(t("auth.reason_link_expired"))
+            elif reason == "link_failed":
+                _say(t("auth.reason_link_failed"))
 
             async def _submit() -> None:
                 _say("")
@@ -113,11 +119,13 @@ def register() -> None:
                 name = (username.value or "").strip()
                 pwd = password.value or ""
 
+                resend.set_visibility(False)
                 try:
                     result = await get_auth_provider().sign_in(name, pwd)
                 except EmailNotVerifiedError:
                     # Right password: not a failure the rate limiter counts.
                     _say(t("auth.email_not_verified"))
+                    resend.set_visibility(hosted)
                     return
                 except UnauthorizedError:
                     locked = login_rate_limiter.record_failure(rate_key)
@@ -152,11 +160,41 @@ def register() -> None:
                     tenant=signed_in.tenant,
                 )
 
+            async def _resend() -> None:
+                address = (username.value or "").strip()
+                if not address:
+                    _say(t("auth.email_required"))
+                    return
+                try:
+                    await resend_confirmation(address)
+                except KaletaError as exc:
+                    _say(exc.message)
+                    return
+                _say(t("auth.resend_sent"))
+
+            async def _magic_link() -> None:
+                _say("")
+                address = (username.value or "").strip()
+                if not address:
+                    _say(t("auth.email_required"))
+                    return
+                try:
+                    await get_auth_provider().request_magic_link(address)
+                except KaletaError as exc:
+                    _say(exc.message)
+                    return
+                _say(t("auth.magic_link_sent"))
+
+            # Shown only after a sign-in was refused for an unconfirmed address.
+            resend = auth_action("auth.resend_button", _resend)
+            resend.set_visibility(False)
+
             password.on("keydown.enter", _submit)
             auth_submit("auth.login_button", _submit)
             if hosted:
                 with ui.row().classes("w-full justify-between gap-2"):
                     auth_link("auth.forgot_password", "/reset-password")
-                    auth_link("auth.sign_up_link", "/create-account")
+                    auth_action("auth.magic_link_button", _magic_link)
+                auth_link("auth.sign_up_link", "/create-account")
 
         return None

@@ -119,6 +119,19 @@ def auth_link(label_key: str, target: str) -> ui.link:
     )
 
 
+def auth_action(label_key: str, on_click: Callable[[], Any]) -> ui.button:
+    """``auth_link``'s look for something that acts in place rather than navigates.
+
+    A real button (screen readers and keyboards treat it as one), dressed as
+    the quiet secondary line so the submit button stays the page's one action.
+    """
+    return (
+        ui.button(t(label_key), on_click=on_click, color=None)
+        .props("flat dense no-caps padding=0")
+        .classes(f"{ACCENT_TEXT} text-sm hover:underline {AUTH_CONTROL}")
+    )
+
+
 def auth_submit(label_key: str, on_click: Callable[[], Any]) -> ui.button:
     """The one button on an auth page: ink, full width, and no icon.
 

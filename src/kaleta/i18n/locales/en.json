@@ -2102,7 +2102,13 @@
     "reset_sent": "If an account uses this address, a link to reset the password is on its way.",
     "reset_new_title": "Choose a new password",
     "reset_new_subtitle": "At least 8 characters.",
-    "reset_new_button": "Save password"
+    "reset_new_button": "Save password",
+    "resend_button": "Resend confirmation e-mail",
+    "resend_sent": "A new link is on its way — if it does not arrive, wait a few minutes and check your spam folder.",
+    "magic_link_button": "E-mail me a sign-in link",
+    "magic_link_sent": "If an account uses this address, a sign-in link is on its way.",
+    "reason_link_expired": "That sign-in link is invalid or has expired. Ask for a new one.",
+    "reason_link_failed": "Signing in with that link did not work. Try again in a moment."
   },
   "setup": {
     "welcome": "Welcome to Kaleta",

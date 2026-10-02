@@ -255,7 +255,20 @@ send people to Kaleta with the token hash in the query string:
 <a href="{{ .SiteURL }}/reset-password?token_hash={{ .TokenHash }}">Reset your password</a>
 ```
 
-with *Site URL* set to `KALETA_PUBLIC_URL`.
+with *Site URL* set to `KALETA_PUBLIC_URL`. The **Magic Link** template
+("E-mail me a sign-in link" on the login page) likewise points at Kaleta's
+landing page, which verifies the link and signs the person in:
+
+```html
+<a href="{{ .SiteURL }}/auth/magic?token_hash={{ .TokenHash }}">Sign in to Kaleta</a>
+```
+
+Add `KALETA_PUBLIC_URL/auth/magic` to *Redirect URLs* too. A magic link never
+creates an account (Kaleta asks with `create_user: false`); "Resend
+confirmation e-mail" reuses the **Confirm signup** template unchanged. Kaleta
+sends at most one confirmation per address a minute on top of Supabase's own
+project-wide mail rate limit — the built-in mailer allows only a few messages
+an hour, so a hosted instance should configure custom SMTP.
 
 **Sessions.** Kaleta's own session (NiceGUI storage, Redis on a hosted
 instance) is the session of record and holds the account id, schema name,

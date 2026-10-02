@@ -46,8 +46,13 @@ class FakeGoTrue:
     #: e-mail → the last link "sent" to it.
     inbox: dict[str, str] = field(default_factory=dict)
     _tokens: dict[str, str] = field(default_factory=dict)
-    #: recovery token hash → e-mail; access token → e-mail.
+    #: recovery token hash → e-mail; magic-link token hash → e-mail;
+    #: access token → e-mail.
     _recovery: dict[str, str] = field(default_factory=dict)
+    _magic: dict[str, str] = field(default_factory=dict)
+    #: How many mails each address was sent, by kind — what a test checks to
+    #: see a throttled resend reached nobody.
+    sent: dict[tuple[str, str], int] = field(default_factory=dict)
     _sessions: dict[str, str] = field(default_factory=dict)
 
     def app(self) -> FastAPI:
@@ -71,13 +76,48 @@ class FakeGoTrue:
                 )
             user = _User(id=str(uuid.uuid4()), email=email, password=str(body["password"]))
             self.users[email] = user
+            _send_confirmation(email, request.query_params.get("redirect_to", ""))
+            return JSONResponse(_user_json(user))
+
+        def _send_confirmation(email: str, redirect_to: str) -> None:
+            # A new link replaces the last one, as GoTrue's does.
+            for old in [t for t, e in self._tokens.items() if e == email]:
+                del self._tokens[old]
             token = secrets.token_urlsafe(16)
             self._tokens[token] = email
-            redirect_to = request.query_params.get("redirect_to", "")
             self.inbox[email] = (
                 f"{self.base_url}/auth/v1/verify?token={token}&type=signup&redirect_to={redirect_to}"
             )
-            return JSONResponse(_user_json(user))
+            self.sent[(email, "signup")] = self.sent.get((email, "signup"), 0) + 1
+
+        @app.post("/auth/v1/resend")
+        async def resend(request: Request) -> JSONResponse:
+            body = await request.json()
+            email = str(body["email"]).strip().lower()
+            user = self.users.get(email)
+            if body.get("type") == "signup" and user is not None and not user.confirmed:
+                _send_confirmation(email, request.query_params.get("redirect_to", ""))
+            return JSONResponse({})
+
+        @app.post("/auth/v1/otp")
+        async def otp(request: Request) -> JSONResponse:
+            body = await request.json()
+            email = str(body["email"]).strip().lower()
+            user = self.users.get(email)
+            if user is None:
+                if body.get("create_user", True) is False:
+                    return JSONResponse(
+                        {"code": 422, "error_code": "otp_disabled", "msg": "Signups not allowed"},
+                        422,
+                    )
+                return JSONResponse({"code": 500, "msg": "not modelled"}, 500)
+            token_hash = secrets.token_urlsafe(16)
+            self._magic[token_hash] = email
+            redirect_to = request.query_params.get("redirect_to", "")
+            # What the Supabase "Magic Link" template in docs/deployment.md sends.
+            self.inbox[email] = f"{redirect_to}?token_hash={token_hash}"
+            self.sent[(email, "magiclink")] = self.sent.get((email, "magiclink"), 0) + 1
+            return JSONResponse({})
 
         @app.get("/auth/v1/verify")
         async def verify(token: str, redirect_to: str = "") -> Response:
@@ -122,9 +162,15 @@ class FakeGoTrue:
         @app.post("/auth/v1/verify")
         async def verify_recovery(request: Request) -> JSONResponse:
             body = await request.json()
-            email = self._recovery.pop(str(body.get("token_hash", "")), None)
-            if body.get("type") != "recovery" or email is None:
+            store = {"recovery": self._recovery, "magiclink": self._magic}.get(
+                str(body.get("type"))
+            )
+            email = store.pop(str(body.get("token_hash", "")), None) if store is not None else None
+            if email is None:
                 return JSONResponse({"code": 403, "error_code": "otp_expired"}, 403)
+            if body.get("type") == "magiclink":
+                # Following a magic link proves the address, as GoTrue treats it.
+                self.users[email].confirmed = True
             return JSONResponse(_session(self.users[email]))
 
         @app.put("/auth/v1/user")

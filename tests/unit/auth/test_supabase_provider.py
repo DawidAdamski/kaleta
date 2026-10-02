@@ -285,3 +285,86 @@ async def test_delete_identity_without_a_service_role_key_is_refused() -> None:
     with pytest.raises(ValidationError, match="SERVICE_ROLE_KEY"):
         await _provider(rec, service_role_key=None).delete_identity(SUBJECT)
     assert rec.requests == []
+
+
+# ── resend confirmation ───────────────────────────────────────────────────────
+
+
+async def test_resend_confirmation_asks_for_a_new_signup_link() -> None:
+    rec = _Recorder(httpx.Response(200, json={}))
+    await _provider(rec).resend_confirmation(" ania@example.com ")
+    request = rec.requests[0]
+    assert request.method == "POST"
+    assert request.url.path == "/auth/v1/resend"
+    assert json.loads(request.content) == {"type": "signup", "email": EMAIL}
+    assert request.url.params["redirect_to"] == "https://kaleta.example/login?reason=verified"
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [
+        (429, {"code": 429, "error_code": "over_email_send_rate_limit", "msg": "Too many"}),
+        (422, {"code": 422, "error_code": "email_address_invalid", "msg": "Invalid"}),
+        (400, {"code": 400, "error_code": "validation_failed", "msg": "Already confirmed"}),
+    ],
+)
+async def test_resend_confirmation_does_not_reveal_why_nothing_was_sent(
+    status: int, body: dict[str, Any]
+) -> None:
+    rec = _Recorder(httpx.Response(status, json=body))
+    await _provider(rec).resend_confirmation(EMAIL)
+
+
+async def test_resend_confirmation_reports_a_server_error() -> None:
+    rec = _Recorder(httpx.Response(503, text="Service Unavailable"))
+    with pytest.raises(ExternalServiceError):
+        await _provider(rec).resend_confirmation(EMAIL)
+
+
+# ── magic link ────────────────────────────────────────────────────────────────
+
+
+async def test_magic_link_request_never_creates_an_account() -> None:
+    rec = _Recorder(httpx.Response(200, json={}))
+    await _provider(rec).request_magic_link(EMAIL)
+    request = rec.requests[0]
+    assert request.url.path == "/auth/v1/otp"
+    assert json.loads(request.content) == {"email": EMAIL, "create_user": False}
+    assert request.url.params["redirect_to"] == "https://kaleta.example/auth/magic"
+
+
+@pytest.mark.parametrize(
+    ("status", "body"),
+    [
+        (422, {"code": 422, "error_code": "otp_disabled", "msg": "Signups not allowed for otp"}),
+        (429, {"code": 429, "error_code": "over_email_send_rate_limit", "msg": "Too many"}),
+    ],
+)
+async def test_magic_link_request_answers_alike_for_unknown_and_throttled(
+    status: int, body: dict[str, Any]
+) -> None:
+    rec = _Recorder(httpx.Response(status, json=body))
+    await _provider(rec).request_magic_link("nobody@example.com")
+
+
+async def test_verifying_a_magic_link_returns_the_checked_identity() -> None:
+    rec = _Recorder(httpx.Response(200, json=_session()))
+    identity = await _provider(rec).verify_magic_link("pkce_magic123")
+    assert (identity.subject, identity.email, identity.email_verified) == (SUBJECT, EMAIL, True)
+    request = rec.requests[0]
+    assert request.url.path == "/auth/v1/verify"
+    assert json.loads(request.content) == {"type": "magiclink", "token_hash": "pkce_magic123"}
+
+
+async def test_an_expired_magic_link_is_a_validation_error() -> None:
+    body = {"code": 403, "error_code": "otp_expired", "msg": "Email link is invalid or has expired"}
+    rec = _Recorder(httpx.Response(403, json=body))
+    with pytest.raises(ValidationError, match="invalid or has expired"):
+        await _provider(rec).verify_magic_link("stale")
+
+
+async def test_a_magic_link_token_for_someone_else_is_rejected() -> None:
+    other = {"sub": "ffffffff-0000-4000-8000-000000000000", "email": EMAIL}
+    rec = _Recorder(httpx.Response(200, json=_session(claims=other)))
+    with pytest.raises(ExternalServiceError, match="someone else"):
+        await _provider(rec).verify_magic_link("pkce_magic123")

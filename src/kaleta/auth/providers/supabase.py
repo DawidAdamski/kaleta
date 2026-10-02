@@ -1,10 +1,17 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """``KALETA_AUTH_BACKEND=supabase`` — Supabase Auth (GoTrue) over HTTPS.
 
-Five GoTrue endpoints, called with ``httpx`` (already here through NiceGUI), so
-no ``supabase-py``: ``/signup``, ``/token?grant_type=password``, ``/recover``,
-``/verify`` + ``/user`` for the reset link, ``/logout``, and the admin
-``/admin/users/{id}`` for deleting an identity with the service-role key.
+A handful of GoTrue endpoints, called with ``httpx`` (already here through
+NiceGUI), so no ``supabase-py``: ``/signup``, ``/token?grant_type=password``,
+``/recover``, ``/verify`` + ``/user`` for the reset link, ``/resend`` for a
+lost confirmation e-mail, ``/otp`` + ``/verify`` for magic-link sign-in,
+``/logout``, and the admin ``/admin/users/{id}`` for deleting an identity with
+the service-role key.
+
+Every "send an e-mail" call answers the same whether or not the address has an
+account, is already confirmed, or GoTrue's mail rate limit was hit: the forms
+that call them must not tell anyone which addresses exist. Only a server error
+is reported.
 
 The access token GoTrue returns is checked against the user object it came
 with — its ``sub`` and ``email`` claims must name the same person. The
@@ -153,6 +160,43 @@ class SupabaseAuthProvider:
         await self.sign_out(
             Identity(subject="", email="", email_verified=True, access_token=access_token)
         )
+
+    async def resend_confirmation(self, email: str) -> None:
+        response = await self._request(
+            "POST",
+            "/resend",
+            json={"type": "signup", "email": email.strip()},
+            params=self._redirect("/login?reason=verified"),
+        )
+        if response.status_code >= 500:
+            raise self._unusable(response)
+
+    async def request_magic_link(self, email: str) -> None:
+        # `create_user: false`: a link signs in an existing account and never
+        # makes one — sign-up stays e-mail + password (see the plan).
+        response = await self._request(
+            "POST",
+            "/otp",
+            json={"email": email.strip(), "create_user": False},
+            params=self._redirect("/auth/magic"),
+        )
+        if response.status_code >= 500:
+            raise self._unusable(response)
+
+    async def verify_magic_link(self, token_hash: str) -> Identity:
+        response = await self._request(
+            "POST", "/verify", json={"type": "magiclink", "token_hash": token_hash}
+        )
+        if response.status_code >= 500:
+            raise self._unusable(response)
+        if response.status_code >= 400:
+            msg = "This sign-in link is invalid or has expired."
+            raise ValidationError(msg)
+        identity = self._identity(self._json(response))
+        if not identity.email_verified:
+            msg = "Confirm your e-mail address before signing in."
+            raise EmailNotVerifiedError(msg)
+        return identity
 
     async def delete_identity(self, subject: str) -> None:
         if not self._service_role_key:
