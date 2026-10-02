@@ -3,7 +3,7 @@ plan_id: auth-two-factor-hosted
 title: Auth — two-factor authentication on the hosted instance (Supabase MFA)
 area: auth
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
