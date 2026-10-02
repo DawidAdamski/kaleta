@@ -115,6 +115,13 @@ one-issue-one-branch-one-PR rule both forbid.
   warning, not a hard gate in the middleware — a gate would block every page
   for an account that chose to stay password-only, which is a policy
   decision (`KALETA_MFA_REQUIRED`) this plan lists as out of scope.
+- **Recovery ordering** (review finding): the code is checked without being
+  spent, the GoTrue factor removed, and only then the code spent and the
+  marker written, in one conditional UPDATE. A provider outage or a missing
+  `KALETA_SUPABASE_SERVICE_ROLE_KEY` therefore costs no code; the missing key
+  is an `ExternalServiceError` so the prompt shows it instead of counting a
+  wrong code. Sticky sessions for hosted replicas are documented in
+  `docs/deployment.md`.
 - **No migration.** A hosted row is `kind = "supabase_totp"`
   (`MFA_KIND_SUPABASE`) and `totp_secret` holds GoTrue's factor id (still
   encrypted; it is an identifier). `MfaService._matching_counter` returns
