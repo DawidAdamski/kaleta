@@ -44,7 +44,7 @@ _TENANT = session_mod.SessionTenant(
     email="ania@example.com",
 )
 
-_ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiJ9.aal1-access-token.c2ln"  # noqa: S105 — a fixture
+_ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiJ9.aal1-access-token.c2ln"
 _HOSTED_PENDING = MfaRequired(
     identity=Identity(
         subject=_TENANT.auth_subject,
