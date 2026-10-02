@@ -317,4 +317,4 @@ check it still reproduces before acting on it.
       it". But when today *is* the 2nd, the file's other tests seed "today",
       so the cell reads `-3 273.99`, not `-12.99`. It passes alone and fails
       with its file, on `main` too (seen 2026-10-02). Fix: pick a day that is
-      neither today nor seeded, e.g. day 2, or day 3 when today is the 2nd.
+      neither today nor seeded, e.g. the 3rd, or the 4th when today is the 3rd.

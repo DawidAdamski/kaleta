@@ -306,8 +306,13 @@ class SupabaseAuthProvider:
         one holding no ``aal2`` session to remove a verified factor with.
         """
         if not self._service_role_key:
-            msg = "KALETA_SUPABASE_SERVICE_ROLE_KEY is required to remove a second factor."
-            raise ValidationError(msg)
+            # Not the user's mistake, so not a ValidationError: the login
+            # prompt reads that as a wrong code and counts it against them.
+            msg = (
+                "This instance cannot remove a second factor: "
+                "KALETA_SUPABASE_SERVICE_ROLE_KEY is not set."
+            )
+            raise ExternalServiceError(msg)
         response = await self._request(
             "DELETE",
             f"/admin/users/{quote(subject, safe='')}/factors/{quote(factor_id, safe='')}",

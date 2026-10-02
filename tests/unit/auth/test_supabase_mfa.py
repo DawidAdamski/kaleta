@@ -286,7 +286,7 @@ async def test_unenrolling_a_factor_already_gone_is_fine() -> None:
 
 async def test_unenrol_without_the_service_role_key_says_what_is_missing() -> None:
     """Covers: KAL-AUTH-038"""
-    with pytest.raises(ValidationError, match="SERVICE_ROLE_KEY"):
+    with pytest.raises(ExternalServiceError, match="SERVICE_ROLE_KEY"):
         await _provider(_Recorder(), service_role_key=None).mfa_unenrol(SUBJECT, FACTOR)
 
 

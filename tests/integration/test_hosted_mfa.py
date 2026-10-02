@@ -33,7 +33,12 @@ from kaleta.auth.providers import (
 from kaleta.auth.sign_in import MFA_REENROL_TARGET, SignInFlow
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
-from kaleta.exceptions import ConflictError, UnauthorizedError, ValidationError
+from kaleta.exceptions import (
+    ConflictError,
+    ExternalServiceError,
+    UnauthorizedError,
+    ValidationError,
+)
 from kaleta.models.audit_log import AuditLog
 from kaleta.models.user_mfa import MFA_KIND_SUPABASE, UserMfa
 from kaleta.services.auth_service import AuthService
@@ -290,6 +295,30 @@ async def test_a_recovery_code_removes_the_factor_and_asks_for_a_new_one(
     await _enrol(hosted_mfa, user.id)
     assert await hosted_mfa.is_enabled(user.id)
     assert not await hosted_mfa.reenrolment_required(user.id)
+
+
+async def test_a_provider_that_cannot_remove_the_factor_costs_no_code(
+    user, gotrue: FakeGoTrue, hosted_mfa: HostedMfaService, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-AUTH-038"""
+    enrolment, codes = await _enrol(hosted_mfa, user.id)
+
+    async def _outage(subject: str, factor_id: str) -> None:
+        msg = "The sign-in service is not answering properly."
+        raise ExternalServiceError(msg)
+
+    monkeypatch.setattr(gotrue, "mfa_unenrol", _outage)
+    with pytest.raises(ExternalServiceError):
+        await hosted_mfa.recover(user.id, codes[0], subject=SUBJECT, factor_id=enrolment.factor_id)
+
+    assert await hosted_mfa.is_enabled(user.id)
+    assert not await hosted_mfa.reenrolment_required(user.id)
+    assert (await hosted_mfa.status(user.id)).recovery_codes_remaining == RECOVERY_CODE_COUNT
+
+    monkeypatch.undo()
+    assert await hosted_mfa.recover(
+        user.id, codes[0], subject=SUBJECT, factor_id=enrolment.factor_id
+    )
 
 
 async def test_an_abandoned_local_enrolment_is_not_a_reenrolment(

@@ -238,21 +238,42 @@ class HostedMfaService(MfaService):
         return True
 
     async def recover(self, user_id: int, code: str, *, subject: str, factor_id: str) -> bool:
-        """Spend a recovery code at the login prompt; on success remove the provider's factor.
+        """Accept a recovery code at the login prompt by removing the provider's factor.
 
         GoTrue cannot be told "this person proved a recovery code", so the
         factor it holds is removed with the service-role key instead, and the
-        row is left with no ``enabled_at``: the next sign-in is sent to set a
-        new one up. A code that matches nothing removes nothing.
+        row is left with no ``enabled_at`` and no codes: the next sign-in is
+        sent to set a new one up. A code that matches nothing removes nothing.
+
+        Order matters, both ways. The code is *checked* first, so nothing at
+        the provider moves for a guess; the provider's factor goes next, so a
+        GoTrue outage or a missing service-role key costs no code (the person
+        can simply try again); and only then is the code spent — in the same
+        transaction that clears the row, so there is no state in which the
+        code is gone but the marker is not, or the reverse.
         """
-        if not await self.consume_recovery_code(user_id, code):
+        row = await self._row(user_id)
+        if row is None or not row.is_enabled or self._find_recovery_code(row, code) is None:
+            await self._record_failure(user_id, event="mfa_failure")
             return False
+        spent_from = row.recovery_codes_hash
         await self._gateway.mfa_unenrol(subject, factor_id)
-        await self.session.execute(
+        # Conditional on the set the code was found in: a second tab spending
+        # a code meanwhile changed it, and that tab's recovery is the one that
+        # stands.
+        result = await self.session.execute(
             update(UserMfa)
-            .where(UserMfa.user_id == user_id)
+            .where(
+                UserMfa.id == row.id,
+                UserMfa.enabled_at.is_not(None),
+                UserMfa.recovery_codes_hash == spent_from,
+            )
             .values(enabled_at=None, last_used_counter=None, recovery_codes_hash="[]")
         )
+        if not self._claimed(result):
+            await self.session.rollback()
+            msg = "That recovery code was used in another tab."
+            raise ConflictError(msg)
         await self._record(user_id, event="mfa_recovered", success=True, commit=False)
         # Whoever holds the lost authenticator may be signed in elsewhere.
         await AuthService(self.session).revoke_sessions(user_id, commit=False)
