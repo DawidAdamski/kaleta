@@ -5,6 +5,16 @@ app's anonymous error telemetry and bug reports capture.
 
 ## Encryption
 
+![How Kaleta keeps your data private: your data passphrase, or your recovery code, unlocks your private key in server memory while you are signed in; it opens the account's data key, which encrypts what you write. The database holds ciphertext for descriptions, payees, categories, names and notes, while amounts, dates and currencies stay readable.](images/encryption-overview.svg)
+
+The picture in one paragraph: your data passphrase (or, if you lose it,
+your recovery code) unlocks your private key, and only in the server's
+memory, only while you are signed in. That key opens your account's data
+key, which encrypts everything you write before it reaches the database
+and decrypts it on the way back. What sits in the database — and in every
+backup or dump of it — is ciphertext for the text and plain numbers for
+amounts and dates. The sections below say exactly which is which.
+
 ### What is encrypted
 
 Each member chooses a *data passphrase*, separate from their login

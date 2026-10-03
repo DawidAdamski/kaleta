@@ -1,0 +1,114 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="1000" height="640" role="img" aria-labelledby="title desc" font-family="system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif">
+  <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+  <title id="title">How Kaleta keeps your data private</title>
+  <desc id="desc">Your data passphrase, or your recovery code, unlocks your private key in the server's memory while you are signed in. The private key opens the account's data key, which encrypts and decrypts what you write. The database stores only ciphertext for descriptions, payees, categories, names and notes; amounts, dates and currencies stay readable. The operator cannot read what a transaction was for, with whom, on which account or in which category, but can see amounts, dates, types, currencies, counts and your e-mail.</desc>
+
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#334155"/>
+    </marker>
+    <g id="padlock">
+      <path d="M-3.5,-1 v-3 a3.5,3.5 0 0 1 7,0 v3" fill="none" stroke="#0f766e" stroke-width="1.6"/>
+      <rect x="-5.5" y="-1" width="11" height="8" rx="1.5" fill="#0f766e"/>
+    </g>
+    <g id="key">
+      <circle cx="-6" cy="0" r="5.5" fill="none" stroke="#b45309" stroke-width="2.4"/>
+      <path d="M-0.5,0 h12 m-4,0 v5 m4,-5 v4" fill="none" stroke="#b45309" stroke-width="2.4"/>
+    </g>
+  </defs>
+
+  <rect width="1000" height="640" fill="#ffffff"/>
+
+  <text x="40" y="44" font-size="24" font-weight="700" fill="#0f172a">How Kaleta keeps your data private</text>
+
+  <!-- Column 1: you -->
+  <text x="40" y="92" font-size="13" font-weight="700" fill="#64748b" letter-spacing="1">YOU</text>
+  <rect x="40" y="108" width="240" height="86" rx="10" fill="#fef3c7" stroke="#b45309" stroke-width="1.5"/>
+  <use href="#key" x="66" y="138"/>
+  <text x="86" y="143" font-size="16" font-weight="700" fill="#0f172a">Data passphrase</text>
+  <text x="58" y="166" font-size="13" fill="#334155">Only you know it. Kaleta stores</text>
+  <text x="58" y="183" font-size="13" fill="#334155">no copy of it anywhere.</text>
+
+  <rect x="40" y="226" width="240" height="86" rx="10" fill="#fff7ed" stroke="#b45309" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <use href="#key" x="66" y="256"/>
+  <text x="86" y="261" font-size="16" font-weight="700" fill="#0f172a">Recovery code</text>
+  <text x="58" y="284" font-size="13" fill="#334155">Shown once, kept on paper —</text>
+  <text x="58" y="301" font-size="13" fill="#334155">for when the passphrase is lost.</text>
+
+  <!-- Column 2: server memory -->
+  <rect x="320" y="72" width="330" height="300" rx="14" fill="#f0fdfa" stroke="#0f766e" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="340" y="96" font-size="12" font-weight="700" fill="#0f766e" letter-spacing="0.6">SERVER MEMORY · WHILE YOU ARE SIGNED IN</text>
+
+  <rect x="345" y="112" width="280" height="70" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="1.5"/>
+  <text x="365" y="140" font-size="16" font-weight="700" fill="#0f172a">Your private key</text>
+  <text x="365" y="162" font-size="13" fill="#334155">unlocked from the passphrase (Argon2id)</text>
+
+  <rect x="345" y="222" width="280" height="70" rx="10" fill="#ffffff" stroke="#0f766e" stroke-width="1.5"/>
+  <text x="365" y="250" font-size="16" font-weight="700" fill="#0f172a">Your account's data key</text>
+  <text x="365" y="272" font-size="13" fill="#334155">encrypts and decrypts your data</text>
+
+  <text x="345" y="320" font-size="13" fill="#0f766e">Forgotten when you sign out, press</text>
+  <text x="345" y="338" font-size="13" fill="#0f766e">"Lock now", or the server restarts —</text>
+  <text x="345" y="356" font-size="13" fill="#0f766e">never written to disk or to a log.</text>
+
+  <!-- Column 3: database -->
+  <rect x="680" y="72" width="290" height="300" rx="14" fill="#f8fafc" stroke="#475569" stroke-width="1.5"/>
+  <text x="700" y="96" font-size="13" font-weight="700" fill="#475569" letter-spacing="1">DATABASE · BACKUPS · DUMPS</text>
+  <text x="700" y="122" font-size="12" font-weight="700" fill="#64748b">FIELD</text>
+  <text x="815" y="122" font-size="12" font-weight="700" fill="#64748b">STORED AS</text>
+  <line x1="700" y1="130" x2="950" y2="130" stroke="#cbd5e1"/>
+
+  <g font-size="13">
+    <text x="700" y="152" fill="#0f172a">Description</text>
+    <use href="#padlock" x="822" y="145"/>
+    <text x="840" y="152" fill="#0f766e" font-family="ui-monospace, Menlo, monospace">9c1f…a7e2</text>
+    <text x="700" y="178" fill="#0f172a">Payee</text>
+    <use href="#padlock" x="822" y="171"/>
+    <text x="840" y="178" fill="#0f766e" font-family="ui-monospace, Menlo, monospace">e04b…3dd1</text>
+    <text x="700" y="204" fill="#0f172a">Category</text>
+    <use href="#padlock" x="822" y="197"/>
+    <text x="840" y="204" fill="#0f766e" font-family="ui-monospace, Menlo, monospace">71aa…0f5c</text>
+    <text x="700" y="230" fill="#0f172a">Notes, names</text>
+    <use href="#padlock" x="822" y="223"/>
+    <text x="840" y="230" fill="#0f766e" font-family="ui-monospace, Menlo, monospace">b3e9…44c0</text>
+    <line x1="700" y1="242" x2="950" y2="242" stroke="#e2e8f0"/>
+    <text x="700" y="264" fill="#0f172a">Amount</text>
+    <text x="815" y="264" fill="#334155">−42.50</text>
+    <text x="700" y="290" fill="#0f172a">Date, currency</text>
+    <text x="815" y="290" fill="#334155">2026-10-03, PLN</text>
+  </g>
+  <text x="700" y="324" font-size="12" fill="#475569">Also stored: your private key, locked</text>
+  <text x="700" y="341" font-size="12" fill="#475569">by your passphrase, and the data key,</text>
+  <text x="700" y="358" font-size="12" fill="#475569">sealed so only your private key opens it.</text>
+
+  <!-- Arrows -->
+  <path d="M280,151 L343,148" stroke="#334155" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="286" y="140" font-size="12" fill="#334155">unlocks</text>
+  <path d="M280,268 C310,268 315,175 343,165" stroke="#334155" stroke-width="2" stroke-dasharray="5 4" fill="none" marker-end="url(#arrow)"/>
+  <text x="290" y="226" font-size="12" fill="#334155">or</text>
+  <path d="M485,182 L485,220" stroke="#334155" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
+  <text x="493" y="206" font-size="12" fill="#334155">opens</text>
+  <path d="M625,257 C655,257 655,200 678,190" stroke="#334155" stroke-width="2" fill="none" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+
+  <!-- What the operator can and cannot see -->
+  <rect x="40" y="400" width="450" height="150" rx="12" fill="#ecfdf5" stroke="#059669" stroke-width="1.5"/>
+  <text x="62" y="430" font-size="16" font-weight="700" fill="#065f46">The operator cannot read</text>
+  <g font-size="14" fill="#064e3b">
+    <text x="62" y="458">• what any transaction was for, or with whom</text>
+    <text x="62" y="482">• on which account, in which category</text>
+    <text x="62" y="506">• any note, name, address or account number</text>
+    <text x="62" y="530">— not from the console, a backup or a dump</text>
+  </g>
+
+  <rect x="510" y="400" width="460" height="150" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="532" y="430" font-size="16" font-weight="700" fill="#334155">The operator can still see</text>
+  <g font-size="14" fill="#334155">
+    <text x="532" y="458">• how many accounts and transactions exist</text>
+    <text x="532" y="482">• their amounts, dates, types and currencies</text>
+    <text x="532" y="506">• budget figures</text>
+    <text x="532" y="530">• your e-mail address and user id</text>
+  </g>
+
+  <text x="40" y="584" font-size="13" fill="#475569">Not end-to-end encryption: the server decrypts while you are signed in, so this protects stored data, not a server that has been taken over.</text>
+  <text x="40" y="606" font-size="13" fill="#475569">Lose both the passphrase and the recovery code and nobody — including the operator — can open the data again.</text>
+</svg>

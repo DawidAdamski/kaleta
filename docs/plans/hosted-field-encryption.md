@@ -368,6 +368,12 @@ no user text by design), `ApiToken.label` (operator-visible on purpose
   path); bearer tokens ride on a real `key_ring` entry for the API user;
   CLI tests give their file database a key holder sealing the suite's key
   (`tests/encryption_helpers.py`).
+- **Manual acceptance (Supabase)**: verified by the owner on 2026-10-03 —
+  the app ran against Supabase with encryption on and worked.
+- **Docs**: `docs/images/encryption-overview.svg` explains the model in one
+  picture at the top of `docs/privacy.md` (SVG rather than Mermaid: it
+  renders the same on GitHub and in the MkDocs site, which has no Mermaid
+  fence configured).
 - **Docs**: `docs/privacy-events.md` is renamed `docs/privacy.md` (as the
   touchpoints say) and opens with the Encryption section; live links are
   updated, archived plans keep their old mention.
