@@ -80,7 +80,7 @@ installs (`KALETA_AUTH_BACKEND=local`) have no mail and get neither.
   e-mail + password, so the data-passphrase plan (`hosted-field-encryption`)
   has one entry point to hook.
 - Magic links or e-mail codes as a *second* factor — MFA is
-  [`auth-two-factor-hosted`](../auth-two-factor-hosted.md). A magic-link
+  [`auth-two-factor-hosted`](auth-two-factor-hosted.md). A magic-link
   session is `aal1` exactly like a password one; when that plan lands, it
   asks for the code after either.
 - One-time e-mail *codes* (6-digit OTP typed into the page) instead of links.
