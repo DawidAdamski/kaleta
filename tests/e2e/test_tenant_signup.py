@@ -6,7 +6,7 @@ against ``tests.fake_gotrue`` (a local stand-in for Supabase Auth whose
 verification link the test reads instead of a mailbox), on a multi-tenant
 SQLite database — each tenant schema a file of its own.
 
-Covers: KAL-TEN-001, KAL-TEN-005, KAL-TEN-006, KAL-TEN-007
+Covers: KAL-TEN-001, KAL-TEN-005, KAL-TEN-006, KAL-TEN-007, KAL-TEN-009
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from tests.e2e.conftest import (
     _terminate_process,
     _wait_for_server,
 )
-from tests.fake_gotrue import FakeGoTrueServer
+from tests.fake_gotrue import SERVICE_ROLE_KEY, FakeGoTrueServer
 
 # Their own ports: 8081–8084 are taken by the other e2e servers.
 HOSTED_PORT = 8085
@@ -76,6 +76,7 @@ def hosted(tmp_path_factory: pytest.TempPathFactory) -> Generator[HostedInstance
                 "KALETA_AUTH_BACKEND": "supabase",
                 "KALETA_SUPABASE_URL": gotrue.base_url,
                 "KALETA_SUPABASE_ANON_KEY": "anon-e2e",
+                "KALETA_SUPABASE_SERVICE_ROLE_KEY": SERVICE_ROLE_KEY,
                 "KALETA_PUBLIC_URL": HOSTED_BASE,
                 "NICEGUI_SCREEN_TEST_PORT": str(HOSTED_PORT),
             }
@@ -344,3 +345,51 @@ def test_a_used_magic_link_is_refused(hosted: HostedInstance, fresh_page: Page) 
     expect(page.get_by_text("That sign-in link is invalid or has expired.")).to_be_visible(
         timeout=10000
     )
+
+
+def test_the_owner_deletes_the_account_from_settings(
+    hosted: HostedInstance, fresh_page: Page
+) -> None:
+    """Covers: KAL-TEN-009"""
+    page = fresh_page
+    base = hosted.base
+    address = "leaving@example.com"
+
+    page.goto(f"{base}/create-account")
+    page.get_by_label("E-mail", exact=True).fill(address)
+    page.get_by_label("Password", exact=True).fill(PASSWORD)
+    page.get_by_label("Confirm password", exact=True).fill(PASSWORD)
+    page.get_by_role("button", name="Sign up").click()
+    expect(page.get_by_text("Check your inbox", exact=True)).to_be_visible(timeout=10000)
+    page.goto(_inbox(hosted, address))
+    expect(page).to_have_url(f"{base}/login?reason=verified", timeout=10000)
+    schemas_before = set(hosted.tenant_schemas())
+    _log_in_as(page, base, address, PASSWORD)
+    expect(page).not_to_have_url(_ON_LOGIN, timeout=15000)
+    _choose_data_passphrase(page)
+    (mine,) = set(hosted.tenant_schemas()) - schemas_before
+
+    page.goto(f"{base}/settings")
+    page.get_by_role("tab", name="Data").click()
+    page.get_by_role("button", name="Delete my account").click()
+    members = page.get_by_test_id("delete-account-members")
+    expect(members).to_contain_text(f"{address} · owner", timeout=10000)
+    page.get_by_role("button", name="Continue").click()
+
+    # A wrong passphrase deletes nothing.
+    page.get_by_label("Data passphrase", exact=True).fill("not my passphrase")
+    page.get_by_role("button", name="Delete for good").click()
+    expect(page.get_by_text("That passphrase does not unlock your data.")).to_be_visible(
+        timeout=15000
+    )
+    assert mine in hosted.tenant_schemas()
+
+    page.get_by_label("Data passphrase", exact=True).fill(DATA_PASSPHRASE)
+    page.get_by_role("button", name="Delete for good").click()
+    expect(page).to_have_url(_ON_LOGIN, timeout=20000)
+
+    assert mine not in hosted.tenant_schemas()
+    assert not any(mine in p.name for p in hosted.schema_files())
+    assert address not in hosted.gotrue.gotrue.users
+    _log_in_as(page, base, address, PASSWORD)
+    expect(page.get_by_text("Invalid e-mail or password.")).to_be_visible(timeout=10000)

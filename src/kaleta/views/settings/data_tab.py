@@ -20,6 +20,7 @@ from kaleta.services.data_service import DataService
 from kaleta.services.transaction_service import TransactionService
 from kaleta.views.accounts import COMMON_CURRENCIES
 from kaleta.views.error_handling import notify_kaleta_error
+from kaleta.views.settings.delete_account_section import render_delete_account_section
 from kaleta.views.settings.example_data_section import render_example_data_section
 
 
@@ -396,3 +397,4 @@ async def render_data_tab(
             ).props("outline color=negative")
 
     await render_example_data_section()
+    await render_delete_account_section()

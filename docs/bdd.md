@@ -3525,7 +3525,7 @@ Feature: Hosted accounts (multi-tenant)
     And one JSON audit line naming the account is printed
     And when the provider cannot remove an identity, nothing is dropped
 
-  KAL-TEN-009 @planned
+  KAL-TEN-009 @automated
   Scenario: The owner deletes the account from Settings
     Given I am signed in as the owner of a hosted account
     When I open Settings, Data and choose "Delete my account"

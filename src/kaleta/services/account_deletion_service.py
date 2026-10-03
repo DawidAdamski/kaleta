@@ -43,6 +43,12 @@ class AccountMember:
     email: str
     role: TenantRole
     status: TenantMemberStatus
+    #: Their row in the tenant's ``users`` table; ``None`` until provisioned.
+    user_id: int | None = None
+
+    @property
+    def is_owner(self) -> bool:
+        return self.role is TenantRole.OWNER
 
 
 @dataclass(frozen=True)
@@ -78,7 +84,10 @@ class AccountDeletionService:
         )
         rows = list(result.scalars().all())
         rows.sort(key=lambda m: m.role is not TenantRole.OWNER)
-        return [AccountMember(email=m.email, role=m.role, status=m.status) for m in rows]
+        return [
+            AccountMember(email=m.email, role=m.role, status=m.status, user_id=m.user_id)
+            for m in rows
+        ]
 
     async def is_owner(self, tenant_id: int, auth_subject: str) -> bool:
         membership = await self._tenants.get_member_by_subject(auth_subject)
