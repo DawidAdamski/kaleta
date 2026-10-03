@@ -1985,18 +1985,15 @@ class ImportService:
         description: str,
     ) -> bool:
         """Return True if a transaction with the same (account, date, amount, description) exists."""  # noqa: E501
-        stmt = (
-            select(Transaction)
-            .where(
-                Transaction.account_id == account_id,
-                Transaction.date == date,
-                Transaction.amount == amount,
-                Transaction.description == description,
-            )
-            .limit(1)
+        # The description is ciphertext, so SQL narrows on the plain columns
+        # and the description is compared here.
+        stmt = select(Transaction.description).where(
+            Transaction.account_id == account_id,
+            Transaction.date == date,
+            Transaction.amount == amount,
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none() is not None
+        return any(found == description for found in result.scalars())
 
     async def filter_duplicates(
         self, creates: list[TransactionCreate]

@@ -8,6 +8,7 @@ from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -17,7 +18,9 @@ class ImportRule(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "import_rules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    filename_pattern: Mapped[str] = mapped_column(String(200), nullable=False)
+    filename_pattern: Mapped[str] = mapped_column(
+        EncryptedText("import_rules.filename_pattern"), nullable=False
+    )
     account_id: Mapped[int] = mapped_column(
         ForeignKey("accounts.id", ondelete="CASCADE"),
         nullable=False,

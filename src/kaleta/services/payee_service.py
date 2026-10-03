@@ -7,9 +7,10 @@ from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.db.types import exact_index
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.payee import Payee
-from kaleta.models.payee_identity import PayeeIdentity, identity_key
+from kaleta.models.payee_identity import PayeeIdentity, identity_index
 from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.subscription import Subscription
 from kaleta.models.transaction import Transaction, TransactionType
@@ -25,8 +26,9 @@ class PayeeService:
         self.session = session
 
     async def list(self) -> builtins.list[Payee]:
-        result = await self.session.execute(select(Payee).order_by(Payee.name))
-        return builtins.list(result.scalars().all())
+        # Sorted here, not in SQL: the name is ciphertext in the database.
+        result = await self.session.execute(select(Payee))
+        return sorted(result.scalars().all(), key=lambda p: p.name.casefold())
 
     async def list_with_counts(self) -> builtins.list[tuple[Payee, int]]:
         """Return (payee, tx_count) tuples ordered by name."""
@@ -34,10 +36,10 @@ class PayeeService:
             select(Payee, func.count(Transaction.id).label("tx_count"))
             .outerjoin(Transaction, Transaction.payee_id == Payee.id)
             .group_by(Payee.id)
-            .order_by(Payee.name)
         )
         result = await self.session.execute(stmt)
-        return [(row.Payee, row.tx_count) for row in result]
+        rows = [(row.Payee, row.tx_count) for row in result]
+        return sorted(rows, key=lambda row: row[0].name.casefold())
 
     async def identities_by_payee(self) -> dict[int, builtins.list[PayeeIdentity]]:
         """Every payee's identities, oldest first, keyed by payee id."""
@@ -138,7 +140,9 @@ class PayeeService:
         if keeper is None:
             raise NotFoundError("Payee not found")
         clash = await self.session.execute(
-            select(Payee.id).where(Payee.name == name, Payee.id.not_in([keeper_id, *merged_ids]))
+            select(Payee.id).where(
+                Payee.name_bidx == exact_index(name), Payee.id.not_in([keeper_id, *merged_ids])
+            )
         )
         if clash.first() is not None:
             raise ConflictError(f"A payee named '{name}' already exists")
@@ -165,10 +169,12 @@ class PayeeService:
         new ID available within the current session.
         """
         cleaned = " ".join(name.split())
-        key = identity_key(cleaned)
+        # An exact spelling has the same key as a case-insensitive one, so the
+        # blind index finds both; which of them actually matches is decided on
+        # the decrypted patterns below.
         result = await self.session.execute(
             select(PayeeIdentity)
-            .where((PayeeIdentity.pattern == cleaned) | (PayeeIdentity.pattern_key == key))
+            .where(PayeeIdentity.pattern_key == identity_index(cleaned))
             .order_by(PayeeIdentity.id)
         )
         candidates = builtins.list(result.scalars().all())
@@ -180,7 +186,9 @@ class PayeeService:
             if payee is not None:
                 return payee
 
-        named = await self.session.execute(select(Payee).where(Payee.name == cleaned))
+        named = await self.session.execute(
+            select(Payee).where(Payee.name_bidx == exact_index(cleaned))
+        )
         existing = named.scalar_one_or_none()
         if existing is not None:
             return existing
@@ -293,7 +301,7 @@ class PayeeService:
     async def _check_spelling_free(
         self, pattern: str, *, payee_id: int, ignore_identity_id: int | None = None
     ) -> None:
-        stmt = select(PayeeIdentity).where(PayeeIdentity.pattern_key == identity_key(pattern))
+        stmt = select(PayeeIdentity).where(PayeeIdentity.pattern_key == identity_index(pattern))
         if ignore_identity_id is not None:
             stmt = stmt.where(PayeeIdentity.id != ignore_identity_id)
         clash = (await self.session.execute(stmt)).scalars().first()
@@ -311,7 +319,7 @@ class PayeeService:
         The old spelling stays: bank lines still arrive under it.
         """
         taken = await self.session.execute(
-            select(PayeeIdentity.id).where(PayeeIdentity.pattern_key == identity_key(name))
+            select(PayeeIdentity.id).where(PayeeIdentity.pattern_key == identity_index(name))
         )
         if taken.first() is None:
             self.session.add(PayeeIdentity(payee_id=payee_id, pattern=name))

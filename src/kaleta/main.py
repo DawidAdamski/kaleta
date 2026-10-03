@@ -218,6 +218,7 @@ def _register_views() -> None:
         subscriptions,
         tags,
         transactions,
+        unlock,
         wizard,
         wizard_salary,
         wizard_scenarios,
@@ -227,6 +228,7 @@ def _register_views() -> None:
     setup.register()
     login.register()
     login_mfa.register()
+    unlock.register()
     magic_link.register()
     create_account.register()
     reset_password.register()

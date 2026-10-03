@@ -6,11 +6,12 @@ import enum
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 from kaleta.models.transaction import TransactionType
 
@@ -34,7 +35,7 @@ class PlannedTransaction(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "planned_transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(EncryptedText("planned_transactions.name"), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(15, 2), nullable=False)
     type: Mapped[TransactionType] = mapped_column(
         SAEnum(TransactionType, native_enum=False), nullable=False
@@ -45,7 +46,9 @@ class PlannedTransaction(TimestampMixin, UserOwnedMixin, Base):
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
-    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    description: Mapped[str | None] = mapped_column(
+        EncryptedText("planned_transactions.description"), nullable=True
+    )
     # Who the plan pays. Set when a plan is made from a detected recurring
     # charge; incoming payments are matched to the plan by it (KAL-REC-004).
     payee_id: Mapped[int | None] = mapped_column(

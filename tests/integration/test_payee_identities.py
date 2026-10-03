@@ -53,8 +53,9 @@ async def _patterns(session: AsyncSession, payee_id: int) -> list[str]:
 
 
 async def _payee_names(session: AsyncSession) -> list[str]:
-    result = await session.execute(select(Payee.name).order_by(Payee.name))
-    return list(result.scalars().all())
+    # Sorted here: under KALETA_ENCRYPTION the column holds ciphertext.
+    result = await session.execute(select(Payee.name))
+    return sorted(result.scalars().all())
 
 
 async def _account(session: AsyncSession) -> int:

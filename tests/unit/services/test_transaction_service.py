@@ -7,6 +7,7 @@ import datetime
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.core.weeks import WeekStartMode
@@ -433,6 +434,39 @@ class TestTransactionListFilters:
         txs = await svc.list(search="grocery")
         assert len(txs) == 1
         assert txs[0].description == "Grocery store visit"
+
+    async def test_a_search_is_scanned_once_per_page_and_count(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        await svc.create(_tx(acc_id, cat_id, description="Grocery store visit"))
+        statements: list[str] = []
+
+        def _record(_conn, _cursor, statement, *_rest) -> None:  # type: ignore[no-untyped-def]
+            statements.append(statement)
+
+        engine = session.bind.sync_engine  # type: ignore[union-attr]
+        event.listen(engine, "before_cursor_execute", _record)
+        try:
+            assert len(await svc.list(search="grocery")) == 1
+            assert await svc.count(search="grocery") == 1
+        finally:
+            event.remove(engine, "before_cursor_execute", _record)
+        scans = [s for s in statements if "transactions.description" in s and " IN " not in s]
+        assert len(scans) == 1
+
+    async def test_a_write_between_page_and_count_is_seen(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session)
+        await svc.create(_tx(acc_id, cat_id, description="Grocery store visit"))
+        assert await svc.count(search="grocery") == 1
+
+        await svc.create(_tx(acc_id, cat_id, description="Grocery again"))
+
+        assert await svc.count(search="grocery") == 2
 
     async def test_filter_search_is_case_insensitive(
         self, svc: TransactionService, session: AsyncSession

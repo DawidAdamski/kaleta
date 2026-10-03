@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -192,25 +192,27 @@ class RuleService:
         return category
 
     async def _find_rule_by_pattern(self, pattern: str) -> CategorisationRule | None:
-        stmt = select(CategorisationRule).where(
-            func.lower(CategorisationRule.pattern) == pattern.casefold()
+        # Patterns are encrypted, so they are compared here rather than in SQL;
+        # a household holds a few dozen rules at most.
+        wanted = pattern.casefold()
+        result = await self.session.execute(
+            select(CategorisationRule).order_by(CategorisationRule.id)
         )
-        result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return next((r for r in result.scalars() if r.pattern.casefold() == wanted), None)
 
     async def _count_matching_categorisations(self, *, pattern: str, category_id: int) -> int:
-        needle = f"%{pattern.casefold()}%"
+        # The payee name and the description are encrypted: the category narrows
+        # the rows in SQL, the substring test runs on the decrypted text.
+        needle = pattern.casefold()
         stmt = (
-            select(func.count())
+            select(Payee.name, Transaction.description)
             .select_from(Transaction)
             .outerjoin(Payee, Payee.id == Transaction.payee_id)
-            .where(
-                Transaction.category_id == category_id,
-                or_(
-                    func.lower(Payee.name).like(needle),
-                    func.lower(Transaction.description).like(needle),
-                ),
-            )
+            .where(Transaction.category_id == category_id)
         )
         result = await self.session.execute(stmt)
-        return int(result.scalar_one())
+        return sum(
+            1
+            for payee_name, description in result.all()
+            if needle in (payee_name or "").casefold() or needle in (description or "").casefold()
+        )

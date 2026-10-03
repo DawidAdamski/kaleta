@@ -4,10 +4,11 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Float, ForeignKey, String, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedJSON, EncryptedText
 from kaleta.models.mixins import TimestampMixin
 
 
@@ -55,9 +56,15 @@ class PayeeAutoMerge(TimestampMixin, Base):
     keeper_id: Mapped[int] = mapped_column(
         ForeignKey("payees.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    merged_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    merged_name: Mapped[str] = mapped_column(
+        EncryptedText("payee_auto_merges.merged_name"), nullable=False
+    )
     score: Mapped[float] = mapped_column(Float, nullable=False)
-    snapshot: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    #: Carries the merged payee's name, identities and contact fields, so it
+    #: is encrypted whole like any other user text.
+    snapshot: Mapped[dict[str, Any]] = mapped_column(
+        EncryptedJSON("payee_auto_merges.snapshot"), nullable=False
+    )
     undone_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     def __repr__(self) -> str:

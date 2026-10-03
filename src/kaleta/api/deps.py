@@ -5,22 +5,31 @@ import math
 from collections.abc import AsyncGenerator
 from contextlib import suppress
 from dataclasses import replace
-from typing import NoReturn, TypeVar
+from typing import TYPE_CHECKING, NoReturn, TypeVar
 
 from fastapi import Depends, Query, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.auth.session import authenticated_user_id, touch_session
+from kaleta.auth.session import (
+    authenticated_user_id,
+    session_data_key,
+    touch_session,
+)
 from kaleta.config import settings
 from kaleta.config.setup_config import is_configured
+from kaleta.crypto import key_ring, local_member_ref, tenant_member_ref
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import TenantContext, current_tenant, set_tenant
-from kaleta.exceptions import SetupRequiredError, UnauthorizedError
+from kaleta.db.types import set_data_key
+from kaleta.exceptions import SetupRequiredError, TenantLockedError, UnauthorizedError
 from kaleta.models.tenant import TenantStatus
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.tenant_service import TenantService
+
+if TYPE_CHECKING:
+    from kaleta.crypto import DataKey
 
 T = TypeVar("T")
 
@@ -124,6 +133,7 @@ async def get_current_user_id(
             if ctx is not None:
                 # New rows this request creates are attributed to the token's owner.
                 set_tenant(replace(ctx, member_user_id=user_id))
+            _bind_bearer_data_key(user_id)
             return user_id
         if settings.tenancy == "multi":
             # `session` belongs to the tenant this token's prefix named; the
@@ -142,10 +152,39 @@ async def get_current_user_id(
             # none of them may turn an accepted read into a 500.
             with suppress(RuntimeError, KeyError, AssertionError):
                 touch_session()
+            _bind_data_key(session_data_key())
             return session_user_id
         _unauthorized("Bearer token required for state-changing API requests")
 
     _unauthorized()
+
+
+def _bind_data_key(data_key: DataKey | None) -> None:
+    """Work under ``data_key`` for the rest of this request, or answer ``423``."""
+    if not settings.encryption_enabled:
+        return
+    if data_key is None:
+        raise TenantLockedError(
+            "Your data is locked. Sign in to Kaleta in the browser and unlock it "
+            "with your data passphrase."
+        )
+    set_data_key(data_key)
+
+
+def _bind_bearer_data_key(user_id: int) -> None:
+    """A token cannot unlock: it rides on a session its member has unlocked.
+
+    Any live unlock by the token's owner will do (``KeyRing.for_member``) —
+    the plan's documented limitation, until a token-scoped unlock exists.
+    """
+    if not settings.encryption_enabled:
+        return
+    ctx = current_tenant()
+    member_ref = (
+        tenant_member_ref(ctx.tenant_id, user_id) if ctx is not None else local_member_ref(user_id)
+    )
+    entry = key_ring.for_member(member_ref)
+    _bind_data_key(entry.data_key if entry is not None else None)
 
 
 async def require_api_auth(user_id: int = Depends(get_current_user_id)) -> int:

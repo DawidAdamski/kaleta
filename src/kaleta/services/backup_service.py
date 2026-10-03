@@ -13,14 +13,15 @@ from pathlib import Path
 from typing import Any, cast
 
 from sqlalchemy import (
+    ColumnElement,
     Date,
     DateTime,
     LargeBinary,
     Numeric,
+    column,
     delete,
     insert,
     inspect,
-    literal_column,
     select,
     text,
 )
@@ -30,8 +31,11 @@ from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 
 import kaleta.models  # noqa: F401 — register every table on Base.metadata
 from kaleta.db.base import Base
+from kaleta.db.blind_index import with_blind_indexes
 from kaleta.db.tenant_context import current_tenant
+from kaleta.db.types import EncryptedJSON, EncryptedText
 from kaleta.exceptions import ValidationError
+from kaleta.models.local_key_material import LocalKeyMaterial
 
 _BACKUP_VERSION = "1"
 
@@ -59,9 +63,40 @@ def _current_alembic_revision() -> str:
     return head
 
 
+#: Tables that belong to the install, not to the data, and stay out of a backup.
+#: ``local_key_material`` holds the sealed data key: the export is plaintext
+#: and a restore re-encrypts under the key the install already has, so carrying
+#: the exporter's key block over would leave the data under a key nobody holds.
+_NOT_BACKED_UP = frozenset({"local_key_material"})
+
+
 def _backup_tables() -> list[str]:
     """ORM tables in FK-safe order — single source of truth for export/restore."""
-    return [table.name for table in Base.metadata.sorted_tables]
+    return [table.name for table in Base.metadata.sorted_tables if table.name not in _NOT_BACKED_UP]
+
+
+def _is_user_text(col_type: TypeEngine[Any]) -> bool:
+    """A column ``hosted-field-encryption`` encrypts under the account's data key.
+
+    These travel through a backup as plaintext (plan §6: the export is the
+    unlocked session's plaintext, a restore re-encrypts on insert), unlike an
+    ``EncryptedString`` secret, which stays ciphertext.
+    """
+    return isinstance(col_type, (EncryptedText, EncryptedJSON))
+
+
+def _export_columns(table_name: str) -> list[ColumnElement[Any]]:
+    """The ``SELECT`` list of one table's export.
+
+    Untyped columns come back raw, as ``SELECT *`` did — no type decorator
+    runs, so an ``EncryptedString`` stays ciphertext. User text is selected
+    with its type, which decrypts it.
+    """
+    table = Base.metadata.tables[table_name]
+    return [
+        column(col.name, col.type) if _is_user_text(col.type) else column(col.name)
+        for col in table.columns
+    ]
 
 
 def _serialize(val: object) -> object:
@@ -91,6 +126,9 @@ def _deserialize_value(val: object, col_type: TypeEngine[Any]) -> object:
     """Convert JSON-scalar values back to driver-friendly Python types (asyncpg-safe)."""
     if val is None:
         return None
+    if _is_user_text(col_type):
+        # Plaintext from the export; the column type encrypts it on insert.
+        return val
     if isinstance(_storage_type(col_type), LargeBinary):
         if isinstance(val, str):
             try:
@@ -164,12 +202,11 @@ class BackupService:
 
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
             for table in tables:
-                # `SELECT *` from the Table object, not from a string: the
-                # schema translate map then puts a hosted tenant's schema on it,
-                # and the rows still come back raw — no type decorator runs, so
-                # an encrypted column stays ciphertext in the export.
+                # Selected from the Table object, not from a string: the
+                # schema translate map then puts a hosted tenant's schema on
+                # it. See `_export_columns` for which values come back raw.
                 result: Result[Any] = await self.session.execute(
-                    select(literal_column("*")).select_from(Base.metadata.tables[table])
+                    select(*_export_columns(table)).select_from(Base.metadata.tables[table])
                 )
                 columns = list(result.keys())
                 rows = [
@@ -182,6 +219,24 @@ class BackupService:
             zf.writestr("metadata.json", json.dumps(meta, ensure_ascii=False, indent=2))
 
         return buf.getvalue()
+
+    async def _refuse_restore_without_key_holder(self, users: list[dict[str, Any]]) -> None:
+        """Refuse a restore after which nobody could unlock this install's data.
+
+        The key material is not restored (`_NOT_BACKED_UP`), so at least one
+        user who holds it must be among the users the backup brings back.
+        """
+        holders = set(
+            (await self.session.execute(select(LocalKeyMaterial.user_id))).scalars().all()
+        )
+        if not holders:
+            return
+        if not holders & {row.get("id") for row in users}:
+            msg = (
+                "Invalid backup: none of its users holds this install's encryption key, "
+                "so nobody could unlock the restored data."
+            )
+            raise ValidationError(msg)
 
     async def restore(self, data: bytes) -> dict[str, int]:
         """Replace all data with the contents of a backup ZIP.
@@ -218,6 +273,8 @@ class BackupService:
             for table in tables:
                 fname = f"{table}.json"
                 table_data[table] = json.loads(zf.read(fname)) if fname in names else []
+
+        await self._refuse_restore_without_key_holder(table_data.get("users", []))
 
         # Disable FK constraints for the duration of the restore (SQLite only).
         # Do not run PRAGMA on PostgreSQL — a failed statement aborts the transaction.
@@ -265,7 +322,9 @@ class BackupService:
                     table_obj = Base.metadata.tables[table]
                     payload = [
                         {c: prepared[c] for c in cols}
-                        for prepared in (_deserialize_row(table, row) for row in rows)
+                        for prepared in (
+                            with_blind_indexes(table, _deserialize_row(table, row)) for row in rows
+                        )
                     ]
                     await self.session.execute(insert(table_obj), payload)
                 counts[table] = len(rows)

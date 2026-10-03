@@ -27,7 +27,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ValidationError
 from kaleta.models.category import Category
-from kaleta.models.dismissed_candidate import DismissedCandidate, DismissedCandidateKind
+from kaleta.models.dismissed_candidate import (
+    DismissedCandidate,
+    DismissedCandidateKind,
+    merchant_key_index,
+)
 from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.subscription import Subscription, SubscriptionStatus
@@ -36,6 +40,7 @@ from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.unplanned_radar import RadarCandidate, RadarPlannedRow
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.subscription_service import merchant_key_from_description
+from kaleta.services.text_order import text_key
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +140,7 @@ class UnplannedRadarService:
                 by_payee[payee.id].append(occ)
                 continue
             key = merchant_key_from_description(tx.description)
-            if not key or key in tracked_keys or key in dismissed_keys:
+            if not key or key in tracked_keys or merchant_key_index(key) in dismissed_keys:
                 continue
             by_key[key].append(occ)
 
@@ -160,7 +165,10 @@ class UnplannedRadarService:
     async def dismiss(self, candidate: RadarCandidate) -> None:
         """Persist "this is not a repeating cost" so it stops resurfacing."""
         bucket = _amount_bucket(candidate.typical_amount)
-        merchant_key = None if candidate.payee_id is not None else candidate.source_name
+        # The key's blind index, never the key: it is derived from descriptions.
+        merchant_key = (
+            None if candidate.payee_id is not None else merchant_key_index(candidate.source_name)
+        )
         existing = await self.session.execute(
             select(DismissedCandidate).where(
                 DismissedCandidate.payee_id == candidate.payee_id,
@@ -245,7 +253,7 @@ class UnplannedRadarService:
                 Transaction.planned_transaction_id == PlannedTransaction.id,
             )
             .where(Transaction.date < PlannedTransaction.start_date)
-            .order_by(PlannedTransaction.name, Transaction.date)
+            .order_by(Transaction.date)
         )
         rows: dict[int, RadarPlannedRow] = {}
         for planned_id, tx_date, planned in result.all():
@@ -264,7 +272,7 @@ class UnplannedRadarService:
                 rows[planned_id] = row
             row.linked_count += 1
             row.linked_dates.append(tx_date)
-        return sorted(rows.values(), key=lambda r: r.name)
+        return sorted(rows.values(), key=lambda r: text_key(r.name))
 
     # ── Exclusion sources ─────────────────────────────────────────────────
 
@@ -319,6 +327,7 @@ class UnplannedRadarService:
         return payee_ids, keys
 
     async def _dismissed_sources(self) -> tuple[set[int], set[str]]:
+        """Dismissed payee ids, and the *blind indexes* of dismissed merchant keys."""
         # Deliberately coarser than the row that was dismissed: ``dismiss``
         # records an ``amount_bucket`` because it is part of the uniqueness
         # key, but suppression is by source alone. Re-offering the same cost

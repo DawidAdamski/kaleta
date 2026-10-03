@@ -15,6 +15,7 @@ from kaleta.exceptions import NotFoundError, ValidationError
 from kaleta.models.account import Account
 from kaleta.models.import_rule import ImportRule
 from kaleta.schemas.import_rule import ImportRuleCreate, ImportRuleUpdate
+from kaleta.services.text_order import text_key
 
 logger = logging.getLogger(__name__)
 
@@ -30,12 +31,13 @@ class ImportRuleService:
         stmt = (
             select(ImportRule)
             .options(selectinload(ImportRule.account))
-            .order_by(ImportRule.filename_pattern.asc(), ImportRule.id.asc())
+            .order_by(ImportRule.id.asc())
         )
         if active_only:
             stmt = stmt.where(ImportRule.is_active.is_(True))
         result = await self.session.execute(stmt)
-        return list(result.scalars())
+        # By pattern, then id — in Python: the pattern is encrypted text.
+        return sorted(result.scalars(), key=lambda rule: (text_key(rule.filename_pattern), rule.id))
 
     async def get(self, rule_id: int) -> ImportRule | None:
         stmt = (

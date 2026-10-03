@@ -3,7 +3,7 @@ plan_id: hosted-field-encryption
 title: Hosted — user-held data passphrase and field-level encryption
 area: db / auth / settings
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
@@ -264,4 +264,124 @@ no user text by design), `ApiToken.label` (operator-visible on purpose
 
 ## Implementation notes
 
-(filled in as work progresses)
+### Open questions — defaults taken
+
+- **Argon2id cost**: kept the plan's `t=3, m=64 MiB, p=1`. Every derivation
+  runs in a worker thread (it would otherwise stall the event loop) behind a
+  process-wide `threading.Lock`, so a burst of unlocks costs time, never
+  N × 64 MiB. A `threading.Lock`, not an `asyncio.Semaphore`: the latter
+  binds to the first event loop that waits on it.
+- **"Remember this device"**: not built (the plan's default no).
+- **Category and payee autocompletes**: they load the full list through the
+  services (`CategoryService.list`, `PayeeService.list`) and filter in the
+  browser — no `ILIKE` from the UI; nothing to change.
+- **Demo**: runs single mode with encryption off by default. When it runs
+  with `KALETA_ENCRYPTION=passphrase`, `scripts/reset_demo.py` sets up (first
+  reset) or opens the demo user's key with the published passphrase
+  `demo-kaleta-data` (`--data-passphrase`), documented next to the demo login.
+
+### Deviations and decisions
+
+- **Blind index with encryption off.** The plan has `blind_index()` return
+  `None` while encryption is off and the plain column carry the constraint.
+  Instead the text columns are bytes in both modes and the indexes are
+  computed under a fixed, public plaintext-mode key — one code path for
+  equality and uniqueness, and switching encryption on is a rewrite of
+  values and indexes rather than a schema change.
+- **Name indexes are exact, not normalised.** `name_bidx` (payees, tags,
+  institutions, categories, counterparties) is the HMAC of the name as
+  written (`exact_index`). A normalised index would have made "LIDL" and
+  "Lidl" collide — the very pairs the dedupe screens exist to find — and
+  the migration fail on any database that holds them (verified: a database
+  with both upgrades fine). Uniqueness and every lookup keep exactly the
+  semantics the plain `==` had. The normalised `blind_index` (NFKC,
+  casefold, collapsed whitespace — the plan's) serves the keys that were
+  normalised already: payee identity keys and dismissed merchant keys.
+  Account numbers get a digits index and an 8-digit suffix index (ADR-20).
+- **Also encrypted, beyond the plan's table**: `payee_identities.pattern`
+  (its `pattern_key` becomes the blind index of the casefolded key; the
+  case-sensitive comparison happens in Python) and `payee_auto_merges`
+  (`merged_name`, `snapshot` as `EncryptedJSON`) — both hold payee names.
+  `EncryptedString` (the TOTP seed under `KALETA_SECRET_KEY`) is unchanged.
+- **Queries moved to Python**: every `ORDER BY` on a name (`text_order.by_name`),
+  transaction search (`SEARCH_SCAN_LIMIT` 100 000 rows per scan), rule
+  matching, duplicate detection on import, transfer detection (suffix index,
+  then `endswith` in Python), and report axes: saved reports and the report
+  service group by **id** in SQL and name the groups in Python (categories
+  sharing a name still merge into one row in the income statement, as
+  before). Grouping on a name column next to its row's id (money flow)
+  stays in SQL — that is grouping one row's own bytes.
+- **Search budget** (acceptance, `tests/unit/services/test_transaction_search_budget.py`):
+  50 000 encrypted transactions, 500 matches, first page + count, cold:
+  101–123 ms on SQLite, 79–101 ms on Postgres 16 (Podman, M-series Mac).
+  The first cut scanned twice (page, then count) and took 195–224 / 173–176
+  ms locally — and 340 ms on the CI Postgres runner, over budget. The page's
+  scan is now kept on the session for its count (`Session.info`, dropped at
+  the next flush or rollback), so a search reads the table once. Under the
+  300 ms budget, so no n-gram index.
+- **Recovery lives on `/unlock`**, not on Settings → Security: the settings
+  page renders every tab, and the others read data a locked session cannot.
+  `/unlock` is the only page the guard exempts. Using the recovery code
+  sets a new passphrase *and* issues a new code (the used one has been on
+  screen).
+- **Sign-up step 2** is the first visit to `/unlock` (hosted: the first
+  sign-in after the e-mail is confirmed, when the account is provisioned);
+  the "check your inbox" step says it is coming. The first member of an
+  account generates the data key; a later one gets a keypair only and sees
+  "Waiting for access" until the owner seals the key (sharing plan §2).
+  An existing hosted tenant, or a self-hosted database switched on, is
+  rewritten under the new key at that first set-up
+  (`DataEncryptionService.rewrite_all`).
+- **Key ring keying.** The ring is keyed by the browser's storage id. Sign-out
+  and session expiry lock it; a session-id rotation *drops* the old entry
+  rather than moving it (whoever completes the rotation may not be who
+  unlocked). "Sign out everywhere" also drops every unlock of that member,
+  so a bearer token cannot keep riding on a revoked browser.
+- **API**: a bearer token rides on any live unlock of its member
+  (`KeyRing.for_member`); otherwise `423 tenant_locked`. Bind-time errors
+  arrive wrapped in SQLAlchemy's `StatementError`; `register_error_handlers`
+  unwraps a domain error from it.
+- **Backups** (plan §6): Settings → Data export decrypts (plaintext from the
+  unlocked session); restore binds plaintext through the column types (so it
+  re-encrypts) and recomputes every blind index (`db.blind_index.with_blind_indexes`).
+  `local_key_material` is not backed up — a restore re-encrypts under the
+  key the install already holds — and has no FK to `users`, since a restore
+  empties `users` and a cascade would delete the only sealed data key. A
+  restore whose users include no key holder is refused before anything is
+  deleted. Scheduled on-disk backups (`VACUUM INTO`) copy ciphertext as is.
+- **Scripts**: `seed.py`, `reset_demo.py` and `encrypt_database.py` unlock with
+  `KALETA_DATA_PASSPHRASE` or a prompt (`scripts/data_passphrase.py`); with no
+  key holder they stop with a message. `seed.py --fresh` keeps
+  `local_key_material`. `encrypt_database.py` takes a plaintext backup
+  first (its output says to delete it), prints the recovery code once, and
+  `--decrypt` reverses everything (needed before downgrading past this
+  revision, whose downgrade refuses while any ciphertext remains).
+- **Migration** also drops the plain-text indexes earlier revisions put on
+  columns it encrypts (`ix_payee_identities_pattern`,
+  `ix_categorisation_rules_pattern`, `ix_import_rules_filename_pattern`).
+  Tested upgrade → downgrade → upgrade on SQLite and Postgres 16 with
+  case-variant names present.
+- **Dismissed merchant keys** store only an index, so they cannot be
+  rewritten under a new key: after switching encryption on, those dismissed
+  candidates are offered once more. Accepted and documented.
+- **`local_key_material`** is excluded from the audit log, like `user_mfa`.
+- **Test suite under encryption**: `KALETA_ENCRYPTION=passphrase uv run pytest
+  tests/unit tests/integration` runs green on SQLite and on Postgres. The
+  autouse fixture stands in an unlocked keyring for services and browser
+  sessions (`real_unlock` undoes the browser part for tests of the locked
+  path); bearer tokens ride on a real `key_ring` entry for the API user;
+  CLI tests give their file database a key holder sealing the suite's key
+  (`tests/encryption_helpers.py`).
+- **Manual acceptance (Supabase)**: verified by the owner on 2026-10-03 —
+  the app ran against Supabase with encryption on and worked.
+- **Docs**: `docs/images/encryption-overview.svg` explains the model in one
+  picture at the top of `docs/privacy.md` (SVG rather than Mermaid: it
+  renders the same on GitHub and in the MkDocs site, which has no Mermaid
+  fence configured).
+- **Docs**: `docs/privacy-events.md` is renamed `docs/privacy.md` (as the
+  touchpoints say) and opens with the Encryption section; live links are
+  updated, archived plans keep their old mention.
+- **Not done**: a CI matrix entry for the encrypted run (parked in
+  `docs/plans/chores.md`) (no workflow change in
+  this plan's touchpoints); `Tenant.name` stays `Text` — nothing writes it
+  yet, and it lives in the registry, outside any tenant's key.

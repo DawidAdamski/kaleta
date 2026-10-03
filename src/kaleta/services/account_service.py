@@ -10,6 +10,8 @@ from sqlalchemy import ColumnElement, case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.db.types import ACCOUNT_SUFFIX_DIGITS, account_suffix_index, digits_only
+from kaleta.exceptions import ConflictError
 from kaleta.models.account import Account
 from kaleta.models.import_run import ImportRun
 from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
@@ -19,6 +21,7 @@ from kaleta.schemas.account import (
     AccountResponse,
     AccountUpdate,
 )
+from kaleta.services.text_order import by_name, text_key
 
 # Days without a new transaction before the coverage panel marks an account stale.
 STALE_ACTIVITY_DAYS = 35
@@ -56,9 +59,9 @@ class AccountService:
 
     async def list(self) -> builtins.list[Account]:
         result = await self.session.execute(
-            select(Account).options(selectinload(Account.institution)).order_by(Account.name)
+            select(Account).options(selectinload(Account.institution))
         )
-        return list(result.scalars().all())
+        return by_name(result.scalars().all())
 
     async def balance_breakdown(self, limit: int = 3) -> BalanceBreakdown:
         """The *limit* largest accounts, plus how many and how much they omit.
@@ -201,12 +204,12 @@ class AccountService:
             .options(selectinload(Account.institution))
             .outerjoin(newest_tx, Account.id == newest_tx.c.account_id)
             .outerjoin(last_import, Account.id == last_import.c.account_id)
-            .order_by(Account.name)
         )
 
         balances = await self.balances()
         rows: builtins.list[AccountActivityResponse] = []
-        for account, newest_date, last_at, last_filename in result.all():
+        ordered = sorted(result.all(), key=lambda row: text_key(row[0].name))
+        for account, newest_date, last_at, last_filename in ordered:
             rows.append(
                 AccountActivityResponse.from_account(
                     account,
@@ -257,13 +260,30 @@ class AccountService:
         return True
 
     async def find_by_external_number(self, digits: str) -> Account | None:
-        """Find account whose ``external_account_number`` ends with the given digit string."""
+        """Find account whose ``external_account_number`` ends with the given digit string.
+
+        The number is encrypted, so the candidates are the accounts sharing the
+        blind index of its last ``ACCOUNT_SUFFIX_DIGITS`` digits (ADR-20), and
+        "ends with" is checked on the decrypted numbers.
+        """
+        wanted = digits_only(digits)
+        if len(wanted) < ACCOUNT_SUFFIX_DIGITS:
+            return None
         result = await self.session.execute(
             select(Account)
             .options(selectinload(Account.institution))
-            .where(Account.external_account_number.ilike(f"%{digits}"))
+            .where(Account.external_account_number_sfx_bidx == account_suffix_index(wanted))
+            .order_by(Account.id)
         )
-        return result.scalar_one_or_none()
+        matches = [
+            account
+            for account in result.scalars().all()
+            if digits_only(account.external_account_number or "").endswith(wanted)
+        ]
+        if len(matches) > 1:
+            msg = "More than one account matches that account number."
+            raise ConflictError(msg)
+        return matches[0] if matches else None
 
     async def save_external_number(self, account_id: int, number: str) -> None:
         """Persist the last-10-digits of an external account number for auto-matching."""

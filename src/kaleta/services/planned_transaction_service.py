@@ -21,6 +21,7 @@ from kaleta.exceptions import ConflictError, NotFoundError
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate, PlannedTransactionUpdate
+from kaleta.services.text_order import text_key
 from kaleta.services.transaction_service import TransactionService
 
 logger = logging.getLogger(__name__)
@@ -126,13 +127,9 @@ class PlannedTransactionService:
         ]
 
     async def list(self) -> builtins.list[PlannedTransaction]:
-        stmt = (
-            select(PlannedTransaction)
-            .options(*self._opts())
-            .order_by(PlannedTransaction.start_date, PlannedTransaction.name)
-        )
+        stmt = select(PlannedTransaction).options(*self._opts())
         result = await self._session.execute(stmt)
-        return builtins.list(result.scalars().all())
+        return sorted(result.scalars().all(), key=lambda p: (p.start_date, text_key(p.name)))
 
     async def get(self, pt_id: int) -> PlannedTransaction | None:
         stmt = (

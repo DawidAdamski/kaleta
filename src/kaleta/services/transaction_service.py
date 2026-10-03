@@ -6,9 +6,9 @@ import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
 from kaleta.exceptions import ConflictError, KaletaError, NotFoundError, ValidationError
@@ -25,6 +25,25 @@ from kaleta.schemas.transaction import (
     TransactionUpdate,
 )
 from kaleta.services.payee_service import PayeeService
+
+#: The most rows a text search reads (newest first). Descriptions are
+#: encrypted, so the search decrypts and filters in Python; this bounds what
+#: one keystroke in the search box can cost. Measured budget: see
+#: ``tests/unit/services/test_transaction_search_budget.py`` and the plan's
+#: Implementation notes.
+SEARCH_SCAN_LIMIT = 100_000
+
+#: ``Session.info`` key of the last search's matching ids (``_search_ids``).
+_SEARCH_MEMO = "kaleta.transaction_search"
+
+
+def _forget_search(session: Session, *_args: object) -> None:
+    session.info.pop(_SEARCH_MEMO, None)
+
+
+# Any flush may have changed what a search would find; so may a rollback.
+event.listen(Session, "after_flush", _forget_search)
+event.listen(Session, "after_soft_rollback", _forget_search)
 
 LEDGER_CSV_HEADERS: tuple[str, ...] = (
     "date",
@@ -54,6 +73,10 @@ class TransactionService:
         search: str | None = None,
         tag_ids: builtins.list[int] | None = None,
     ) -> Select[Transaction]:
+        """Every filter that SQL can answer. ``search`` is not one of them (see
+        :meth:`_search_ids`); the parameter stays so every caller passes the
+        same arguments to ``list`` and ``count``."""
+        del search
         stmt = select(Transaction)
         if account_ids:
             stmt = stmt.where(Transaction.account_id.in_(account_ids))
@@ -65,8 +88,6 @@ class TransactionService:
             stmt = stmt.where(Transaction.date <= date_to)
         if tx_types:
             stmt = stmt.where(Transaction.type.in_(tx_types))
-        if search:
-            stmt = stmt.where(Transaction.description.ilike(f"%{search}%"))
         if tag_ids:
             stmt = stmt.where(Transaction.tags.any(Tag.id.in_(tag_ids)))
         return stmt
@@ -83,23 +104,56 @@ class TransactionService:
         limit: int = 50,
         offset: int = 0,
     ) -> builtins.list[Transaction]:
-        stmt = (
-            self._base_stmt(
-                account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
-            )
-            .options(
-                selectinload(Transaction.account),
-                selectinload(Transaction.category),
-                selectinload(Transaction.payee),
-                selectinload(Transaction.splits).selectinload(TransactionSplit.category),
-                selectinload(Transaction.tags),
-            )
-            .order_by(Transaction.date.desc(), Transaction.id.desc())
-            .limit(limit)
-            .offset(offset)
+        base = self._base_stmt(
+            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids
         )
+        stmt = base.options(
+            selectinload(Transaction.account),
+            selectinload(Transaction.category),
+            selectinload(Transaction.payee),
+            selectinload(Transaction.splits).selectinload(TransactionSplit.category),
+            selectinload(Transaction.tags),
+        ).order_by(Transaction.date.desc(), Transaction.id.desc())
+        if search:
+            # The page is cut from the ids that matched, in the same order SQL
+            # would have given; only that page is loaded whole.
+            page_ids = (await self._search_ids(base, search))[offset : offset + limit]
+            if not page_ids:
+                return []
+            stmt = stmt.where(Transaction.id.in_(page_ids))
+        else:
+            stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return builtins.list(result.scalars().all())
+
+    async def _search_ids(self, base: Select[Transaction], search: str) -> builtins.list[int]:
+        """Ids of the rows under ``base`` whose description contains ``search``, newest first.
+
+        Case-insensitive, like the ``ILIKE`` it replaces. Reads two columns of
+        at most ``SEARCH_SCAN_LIMIT`` rows — never whole transactions — and
+        tests the decrypted descriptions here, because in the database they are
+        ciphertext.
+
+        A page and its count ask the same question one after the other (the
+        ledger view and ``GET /transactions`` both do), so the answer is kept
+        on the session for the next call and dropped at its next flush — a
+        write in between can never be answered from it.
+        """
+        compiled = base.compile()
+        key = (str(compiled), repr(sorted(compiled.params.items())), search)
+        memo: tuple[tuple[str, str, str], builtins.list[int]] | None = self.session.info.get(
+            _SEARCH_MEMO
+        )
+        if memo is not None and memo[0] == key:
+            return memo[1]
+        needle = search.casefold()
+        ids = base.with_only_columns(Transaction.id, Transaction.description).order_by(
+            Transaction.date.desc(), Transaction.id.desc()
+        )
+        rows = await self.session.execute(ids.limit(SEARCH_SCAN_LIMIT))
+        found = [tx_id for tx_id, description in rows.all() if needle in description.casefold()]
+        self.session.info[_SEARCH_MEMO] = (key, found)
+        return found
 
     async def count(
         self,
@@ -112,8 +166,10 @@ class TransactionService:
         tag_ids: builtins.list[int] | None = None,
     ) -> int:
         stmt = self._base_stmt(
-            account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
+            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids
         )
+        if search:
+            return len(await self._search_ids(stmt, search))
         count_stmt = select(func.count()).select_from(stmt.subquery())
         result = await self.session.execute(count_stmt)
         return result.scalar_one()

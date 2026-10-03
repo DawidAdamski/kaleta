@@ -191,12 +191,53 @@ and the SQLite integrity check are single-tenant only. Multi-tenant SQLite
 (every schema an attached file next to the main one) exists for development
 and tests; production runs PostgreSQL.
 
+### Field-level encryption
+
+```
+KALETA_ENCRYPTION=off                 # off (default in single mode) | passphrase
+                                      # multi mode is always on; off is refused unless KALETA_DEBUG
+KALETA_DATA_PASSPHRASE=               # scripts only (seed.py, reset_demo.py, encrypt_database.py);
+                                      # prompted when unset
+```
+
+When `passphrase` is on, every user-written text column — account,
+payee, category, tag and institution names, transaction descriptions
+and notes, payee contact fields, saved reports, rule patterns and more
+— is stored as ciphertext (`EncryptedText`: AES-256-GCM, a format byte,
+a key-version byte, a 12-byte nonce, AAD of `table.column`). With
+encryption off the same columns hold a `\x00` format byte and UTF-8
+plaintext, so a database can be switched on later without a schema
+change.
+
+Keys come from a three-layer hierarchy, built on `cryptography` and
+`argon2-cffi`: a member's data passphrase stretches through Argon2id
+(`t=3, m=64 MiB, p=1`, parameters stored per member) into a
+key-encryption key that unwraps an X25519 private key, which opens the
+account's AES-256 data key (DEK) sealed to that member's public key. A
+26-character Crockford base32 recovery code wraps the private key a
+second time. Equality and uniqueness use `_bidx` columns — an HMAC of
+the normalised value, keyed from the DEK via HKDF, stored next to the
+ciphertext — so unique names and account-number matching keep working
+without decrypting rows in SQL.
+
+Search and sort over encrypted text run in Python rather than SQL
+(`ILIKE` cannot see into ciphertext). Measured on 50 000 encrypted
+transactions: a search page + count takes ≈100–125 ms on SQLite and
+≈80–100 ms on Postgres 16, against a 300 ms budget (the page's scan is
+reused for its count within one session).
+
+See [privacy.md](privacy.md#encryption) for what this protects against
+and [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
+for the full design. To switch encryption on for an existing
+self-hosted database, see
+[deployment.md](deployment.md#encrypting-an-existing-self-hosted-database).
+
 ### Observability and bug reports
 
 ```
 KALETA_LOG_FORMAT=text                # text (terminal) | json (one object per line)
 KALETA_LOG_LEVEL=INFO                 # Python level name; KALETA_DEBUG=true forces DEBUG
-KALETA_EVENTS_ENABLED=true            # Anonymous error events (docs/privacy-events.md)
+KALETA_EVENTS_ENABLED=true            # Anonymous error events (docs/privacy.md)
 KALETA_EVENT_RETENTION_DAYS=7         # Rolling deletion window for events
 KALETA_BUG_REPORTS_ENABLED=true       # In-app "Report a problem" retention reaper
 KALETA_BUG_REPORT_RETENTION_DAYS=90   # Rolling deletion window for filed reports
@@ -217,7 +258,7 @@ and `app_version` to every line, so the ID a user reads off an error leads to
 the lines around it. Records are redacted (bearer tokens, e-mail addresses,
 query strings, over-long arguments) before any handler writes them, and the
 last 200 lines of a session are held in memory so a bug report can attach them
-— only when the user ticks the box. See [privacy-events.md](privacy-events.md).
+— only when the user ticks the box. See [privacy.md](privacy.md).
 
 Scheduled backups are SQLite file snapshots (`VACUUM INTO`), separate from the
 Settings → Data ZIP export/restore format. They are a no-op for PostgreSQL and

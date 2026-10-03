@@ -126,3 +126,32 @@ uv run kaleta --reset-password --disable-mfa
 This removes every second-factor enrolment along with setting the new password.
 Without the flag a password reset leaves the second factor exactly as it was —
 resetting a password must not be a way around it.
+
+## Field-level encryption
+
+Kaleta can encrypt every column a person writes free text into — names,
+descriptions, notes, contact details and more — under a key derived from a
+*data passphrase* that only the signed-in member holds (see
+[docs/privacy.md](docs/privacy.md#encryption) and
+[ADR-35](docs/adr/035-hosted-multi-tenancy-and-user-held-encryption.md)).
+This protects against someone who only has the database file, a backup, a
+dump, or a leaked connection string. It does **not** protect against a
+compromised app host: the server decrypts rows while a member is signed in,
+so a key can be captured from process memory during that window. Losing both
+the passphrase and the recovery code makes that member's data unrecoverable —
+there is no server-side master key to fall back to.
+
+Self-hosted installs run with encryption off by default
+(`KALETA_ENCRYPTION=off`). To switch it on for a new install, set
+`KALETA_ENCRYPTION=passphrase` before first run. To switch it on for an
+existing database, back it up, then run:
+
+```bash
+KALETA_ENCRYPTION=passphrase uv run python scripts/encrypt_database.py
+```
+
+The script writes its own plaintext pre-encryption backup to
+`KALETA_BACKUP_DIR` first, re-encrypts every row and blind index, and prints a
+recovery code once — save it before deleting that plaintext backup.
+`scripts/encrypt_database.py --decrypt` reverses it (needed before an Alembic
+downgrade past the encryption migration).

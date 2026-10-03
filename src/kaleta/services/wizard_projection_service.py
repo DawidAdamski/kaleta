@@ -32,6 +32,7 @@ from kaleta.schemas.wizard_projections import (
     PulledRow,
     SubscriptionCharge,
 )
+from kaleta.services.text_order import by_name
 
 # ── Frequency → monthly equivalent ───────────────────────────────────────────
 
@@ -110,11 +111,9 @@ class WizardProjectionService:
 
         # Planned transactions — active, non-transfer, filtered by type.
         planned_result = await self.session.execute(
-            select(PlannedTransaction)
-            .where(PlannedTransaction.is_active.is_(True))
-            .order_by(PlannedTransaction.name)
+            select(PlannedTransaction).where(PlannedTransaction.is_active.is_(True))
         )
-        for pt in planned_result.scalars().all():
+        for pt in by_name(planned_result.scalars().all()):
             if pt.frequency == RecurrenceFrequency.ONCE:
                 continue  # ONCE items are not recurring; skip for monthly view
             if pt.type == TransactionType.TRANSFER:

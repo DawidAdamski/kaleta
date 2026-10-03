@@ -318,3 +318,16 @@ check it still reproduces before acting on it.
       so the cell reads `-3 273.99`, not `-12.99`. It passes alone and fails
       with its file, on `main` too (seen 2026-10-02). Fix: pick a day that is
       neither today nor seeded, e.g. the 3rd, or the 4th when today is the 3rd.
+- [ ] **`alembic check` reports drift that predates the models it names**:
+      `ix_import_runs_account_id` and `ix_import_runs_created_at` exist in the
+      migrations but not on `ImportRun`; on Postgres also `TIMESTAMP` vs
+      `DateTime(timezone=True)` on `currency_rates`, `saved_reports`, `tags`,
+      `reserve_funds.archived_at`, and the `fk_categories_parent_id` ondelete.
+      Seen while checking `hosted-field-encryption`'s revision, which is clean.
+      Fix: declare the indexes on the model (or drop them) and align the types
+      in one revision.
+- [ ] **CI does not run the suite with `KALETA_ENCRYPTION=passphrase`.**
+      `hosted-field-encryption` made `uv run pytest tests/unit tests/integration`
+      green in that mode on SQLite and Postgres, but only locally; add a
+      matrix entry (SQLite + the Postgres job) so a regression under
+      encryption is caught.

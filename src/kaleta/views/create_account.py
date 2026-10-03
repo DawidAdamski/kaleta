@@ -17,6 +17,7 @@ from nicegui import ui
 from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.session import finish_login, is_authenticated
 from kaleta.auth.sign_in import SignInFlow, resend_confirmation
+from kaleta.config import settings
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.services import AuthService, with_session
@@ -101,6 +102,10 @@ def register() -> None:
                 with form:
                     ui.label(t("auth.check_inbox_title")).classes("text-lg font-semibold")
                     ui.label(t("auth.check_inbox_body")).classes(AUTH_SUBTITLE)
+                    if settings.encryption_enabled:
+                        # Step 2 of the sign-up (hosted-field-encryption): it
+                        # happens at the first sign-in, on /unlock.
+                        ui.label(t("auth.check_inbox_passphrase")).classes(AUTH_SUBTITLE)
                     _say_sent = auth_error_slot()
 
                     async def _resend() -> None:

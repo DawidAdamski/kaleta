@@ -7,6 +7,7 @@ from sqlalchemy import Date, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -20,7 +21,7 @@ class ImportRun(TimestampMixin, UserOwnedMixin, Base):
         ForeignKey("accounts.id", ondelete="CASCADE"),
         nullable=False,
     )
-    filename: Mapped[str] = mapped_column(String(260), nullable=False)
+    filename: Mapped[str] = mapped_column(EncryptedText("import_runs.filename"), nullable=False)
     profile: Mapped[str] = mapped_column(String(40), nullable=False)
     imported_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     skipped_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import enum
 
-from sqlalchemy import Boolean, ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -19,7 +20,9 @@ class CategorisationRule(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "categorisation_rules"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    pattern: Mapped[str] = mapped_column(String(200), nullable=False)
+    pattern: Mapped[str] = mapped_column(
+        EncryptedText("categorisation_rules.pattern"), nullable=False
+    )
     match_mode: Mapped[RuleMatchMode] = mapped_column(
         SAEnum(RuleMatchMode, native_enum=False),
         nullable=False,

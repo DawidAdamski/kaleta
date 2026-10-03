@@ -91,6 +91,12 @@ class Settings(BaseSettings):
     #: Where this instance is reachable, for links in e-mails (verification,
     #: password reset). No trailing slash needed.
     public_url: str | None = None
+    #: Field-level encryption of user-written text (``hosted-field-encryption``).
+    #: ``passphrase``: every such column is AES-256-GCM under a data key only an
+    #: unlocked session holds. ``off``: the same columns hold UTF-8 under a
+    #: plaintext format byte. Unset means ``off`` for ``single`` and
+    #: ``passphrase`` for ``multi`` — see :attr:`encryption_enabled`.
+    encryption: Literal["off", "passphrase"] | None = None
 
     @field_validator("db_url", mode="before")
     @classmethod
@@ -148,7 +154,14 @@ class Settings(BaseSettings):
             self.session_idle_hours = ttl
         return self
 
-    @field_validator("tenancy", "auth_backend", mode="before")
+    @property
+    def encryption_enabled(self) -> bool:
+        """Whether encrypted columns encrypt (rather than store plaintext)."""
+        if self.encryption is None:
+            return self.tenancy == "multi"
+        return self.encryption == "passphrase"
+
+    @field_validator("tenancy", "auth_backend", "encryption", mode="before")
     @classmethod
     def _normalize_mode_names(cls, value: object) -> object:
         return value.strip().lower() if isinstance(value, str) else value
@@ -167,6 +180,13 @@ class Settings(BaseSettings):
             raise ValueError(
                 "KALETA_AUTH_BACKEND=supabase requires KALETA_TENANCY=multi: a single-tenant "
                 "database has one local user and no registry to map identities to."
+            )
+        if self.tenancy == "multi" and self.encryption == "off" and not self.debug:
+            # The hosted promise is that the operator cannot read an account;
+            # turning that off is for a developer's laptop, not a deployment.
+            raise ValueError(
+                "KALETA_TENANCY=multi encrypts every account: KALETA_ENCRYPTION=off is "
+                "accepted only with KALETA_DEBUG=true."
             )
         if self.auth_backend == "supabase":
             missing = [

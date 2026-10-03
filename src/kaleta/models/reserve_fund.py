@@ -5,11 +5,12 @@ import datetime
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Integer, Numeric
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -40,7 +41,7 @@ class ReserveFund(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "reserve_funds"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(EncryptedText("reserve_funds.name"), nullable=False)
     kind: Mapped[ReserveFundKind] = mapped_column(
         SAEnum(ReserveFundKind, native_enum=False), nullable=False
     )

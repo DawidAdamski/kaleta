@@ -3,12 +3,15 @@ from __future__ import annotations
 
 import enum
 from decimal import Decimal
+from typing import ClassVar
 
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy import ForeignKey, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.blind_index import BlindIndexSpec
+from kaleta.db.types import EncryptedText, account_suffix_index, blind_index_digits
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -28,9 +31,13 @@ class Account(TimestampMixin, UserOwnedMixin, Base):
     """
 
     __tablename__ = "accounts"
+    __blind_indexes__: ClassVar[BlindIndexSpec] = {
+        "external_account_number_bidx": ("external_account_number", blind_index_digits),
+        "external_account_number_sfx_bidx": ("external_account_number", account_suffix_index),
+    }
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(EncryptedText("accounts.name"), nullable=False)
     type: Mapped[AccountType] = mapped_column(
         SAEnum(AccountType, native_enum=False), nullable=False, default=AccountType.CHECKING
     )
@@ -41,7 +48,17 @@ class Account(TimestampMixin, UserOwnedMixin, Base):
     institution_id: Mapped[int | None] = mapped_column(
         ForeignKey("institutions.id", ondelete="SET NULL"), nullable=True
     )
-    external_account_number: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    external_account_number: Mapped[str | None] = mapped_column(
+        EncryptedText("accounts.external_account_number"), nullable=True
+    )
+    #: Blind index of the number's digits, and of its last eight (ADR-20
+    #: suffix matching) — equality without the number.
+    external_account_number_bidx: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
+    external_account_number_sfx_bidx: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
 
     institution: Mapped[Institution | None] = relationship(  # type: ignore[name-defined]  # noqa: F821
         "Institution", back_populates="accounts"

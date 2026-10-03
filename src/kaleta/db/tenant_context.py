@@ -17,8 +17,9 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
+from kaleta.crypto import DataKey
 from kaleta.db.tenant_schemas import require_valid_schema_name
 
 
@@ -35,7 +36,7 @@ class TenantContext:
     tenant_id: int
     schema: str
     member_user_id: int | None = None
-    key_ring: object | None = None
+    key_ring: DataKey | None = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
         require_valid_schema_name(self.schema)

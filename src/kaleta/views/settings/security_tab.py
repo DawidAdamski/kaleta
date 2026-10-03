@@ -28,6 +28,8 @@ from kaleta.auth.session import (
     mfa_verified_at,
     session_tenant,
 )
+from kaleta.auth.unlock import lock_member_everywhere
+from kaleta.config import settings as app_settings
 from kaleta.exceptions import ConflictError, EncryptionError, KaletaError, ValidationError
 from kaleta.i18n import plural_key, t
 from kaleta.services import (
@@ -41,6 +43,7 @@ from kaleta.services import (
     with_session,
 )
 from kaleta.views.error_handling import notify_kaleta_error
+from kaleta.views.settings.data_passphrase_card import render_data_passphrase_card
 
 #: Redraw the two-factor card after something changed underneath it. NiceGUI's
 #: ``refreshable.refresh`` hands back an awaitable these callers do not want,
@@ -54,6 +57,8 @@ async def render_security_tab() -> None:
         ui.label(t("settings.security_login_required")).classes("text-slate-500")
         return
 
+    if app_settings.encryption_enabled:
+        await render_data_passphrase_card()
     await _render_mfa_card(int(user_id))
     _render_sessions_card(int(user_id))
     await _render_token_card(int(user_id))
@@ -608,6 +613,9 @@ async def _sign_out_everywhere(user_id: int) -> None:
         notify_kaleta_error(exc)
         return
     revocation_cache.forget(user_id)
+    # Every browser this member unlocked forgets the key now, not at its next
+    # page load — a bearer token could otherwise keep riding on one of them.
+    lock_member_everywhere()
     finish_logout()
 
 

@@ -18,11 +18,13 @@ from kaleta.auth.session import (
     SessionExpiry,
     current_session_revoked,
     is_authenticated,
+    is_unlocked,
     logout_session,
     session_expiry_reason,
     session_tenant_context,
     touch_session,
 )
+from kaleta.auth.unlock import UNLOCK_EXEMPT_PATHS, install_unlock_resolver, unlock_redirect
 from kaleta.config import settings
 from kaleta.config.setup_config import is_configured
 from kaleta.db.tenant_context import install_tenant_resolver, set_tenant
@@ -95,6 +97,13 @@ async def _bootstrap_redirect_path() -> str | None:
     return None
 
 
+def _unlocked() -> bool:
+    try:
+        return is_unlocked()
+    except RuntimeError:
+        return False
+
+
 def register_auth_middleware() -> None:
     """Install the UI auth guard on the NiceGUI/FastAPI app."""
     from nicegui import app as nicegui_app
@@ -104,6 +113,7 @@ def register_auth_middleware() -> None:
         # UI event handlers run over the websocket, past this middleware; the
         # resolver gives them the same tenant the page load had.
         install_tenant_resolver(session_tenant_context)
+    install_unlock_resolver()
 
     @nicegui_app.add_middleware
     class AuthMiddleware(BaseHTTPMiddleware):
@@ -165,6 +175,10 @@ def register_auth_middleware() -> None:
                 # rescue the very session the idle rule is about to end.
                 with suppress(RuntimeError):
                     touch_session()
+                # Last: an expired or revoked session goes to the login page,
+                # not to a passphrase prompt it could never get past.
+                if path not in UNLOCK_EXEMPT_PATHS and not _unlocked():
+                    return RedirectResponse(unlock_redirect(path))
                 return await call_next(request)
 
             try:

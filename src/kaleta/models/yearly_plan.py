@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
-from sqlalchemy import Integer, Text, UniqueConstraint
+from sqlalchemy import Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin
 
 
@@ -22,10 +23,18 @@ class YearlyPlan(TimestampMixin, Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     year: Mapped[int] = mapped_column(Integer, nullable=False)
-    income_lines: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
-    fixed_lines: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
-    variable_lines: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
-    reserves_lines: Mapped[str] = mapped_column(Text, nullable=False, default="[]")
+    income_lines: Mapped[str] = mapped_column(
+        EncryptedText("yearly_plans.income_lines"), nullable=False, default="[]"
+    )
+    fixed_lines: Mapped[str] = mapped_column(
+        EncryptedText("yearly_plans.fixed_lines"), nullable=False, default="[]"
+    )
+    variable_lines: Mapped[str] = mapped_column(
+        EncryptedText("yearly_plans.variable_lines"), nullable=False, default="[]"
+    )
+    reserves_lines: Mapped[str] = mapped_column(
+        EncryptedText("yearly_plans.reserves_lines"), nullable=False, default="[]"
+    )
 
     def __repr__(self) -> str:
         return f"<YearlyPlan id={self.id} year={self.year}>"

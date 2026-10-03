@@ -8,6 +8,7 @@ from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
+from kaleta.db.types import blind_index
 from kaleta.models.mixins import TimestampMixin
 
 
@@ -20,6 +21,11 @@ class DismissedCandidateKind(enum.StrEnum):
 
     SUBSCRIPTION = "subscription"
     UNPLANNED = "unplanned"
+
+
+def merchant_key_index(merchant_key: str | None) -> str | None:
+    """What ``merchant_key`` stores for a description-derived key: its blind index."""
+    return blind_index(merchant_key) if merchant_key else None
 
 
 class DismissedCandidate(TimestampMixin, Base):
@@ -49,7 +55,9 @@ class DismissedCandidate(TimestampMixin, Base):
     payee_id: Mapped[int | None] = mapped_column(
         ForeignKey("payees.id", ondelete="CASCADE"), nullable=True
     )
-    merchant_key: Mapped[str | None] = mapped_column(String(60), nullable=True)
+    #: The blind index of the description-derived merchant key — equality is
+    #: all this column is ever asked, so the key itself is not kept.
+    merchant_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     amount_bucket: Mapped[str] = mapped_column(String(30), nullable=False)
     kind: Mapped[DismissedCandidateKind] = mapped_column(
         SAEnum(DismissedCandidateKind, native_enum=False),

@@ -10,14 +10,13 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Numeric,
-    String,
-    Text,
     UniqueConstraint,
 )
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 from kaleta.models.tag import transaction_tags
 
@@ -83,10 +82,12 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
         SAEnum(TransactionType, native_enum=False), nullable=False
     )
     date: Mapped[date] = mapped_column(Date, nullable=False)
-    description: Mapped[str] = mapped_column(String(500), nullable=False, default="")
+    description: Mapped[str] = mapped_column(
+        EncryptedText("transactions.description"), nullable=False, default=""
+    )
     # Long-form user note kept apart from the bank-imported ``description``.
     # Blank input is normalised to NULL by the schema — one empty representation only.
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(EncryptedText("transactions.notes"), nullable=True)
     transfer_direction: Mapped[TransferDirection | None] = mapped_column(
         SAEnum(TransferDirection, native_enum=False), nullable=True
     )
@@ -131,7 +132,9 @@ class TransactionSplit(Base):
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
-    note: Mapped[str] = mapped_column(String(255), nullable=False, default="")
+    note: Mapped[str] = mapped_column(
+        EncryptedText("transaction_splits.note"), nullable=False, default=""
+    )
 
     transaction: Mapped["Transaction"] = relationship("Transaction", back_populates="splits")
     category: Mapped["Category | None"] = relationship(  # type: ignore[name-defined]  # noqa: F821

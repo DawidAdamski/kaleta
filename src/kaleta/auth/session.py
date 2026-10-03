@@ -18,10 +18,12 @@ from starlette.requests import Request
 
 from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.config import settings
+from kaleta.crypto import key_ring, local_member_ref, tenant_member_ref
 from kaleta.db.tenant_context import TenantContext, set_tenant
 
 if TYPE_CHECKING:
     from kaleta.config.settings import Settings
+    from kaleta.crypto import DataKey
     from kaleta.schemas.identity import MfaRequired
 
 logger = logging.getLogger(__name__)
@@ -348,6 +350,9 @@ async def rotate_session_id(request: Request) -> None:
     # again so that `app.storage.user` below and the `request.session` written
     # below are guaranteed to be the same session whatever the caller.
     request_contextvar.set(request)
+    # Dropped, never moved to the new id: whoever completes this rotation
+    # may not be who unlocked under the old one.
+    key_ring.lock(request.session.get("id"))
     old = app.storage.user
     snapshot = {k: v for k, v in old.items() if k not in _AUTH_KEYS and k not in _ROTATE_KEYS}
     old.clear()
@@ -367,6 +372,9 @@ def touch_session() -> None:
 
 
 def logout_session() -> None:
+    # The data key goes with the session: a signed-out browser that signs in
+    # again (as anyone) unlocks again.
+    key_ring.lock(storage_session_key())
     for key in _AUTH_KEYS:
         app.storage.user.pop(key, None)
 
@@ -512,10 +520,65 @@ def session_tenant_context() -> TenantContext | None:
         raw_user = app.storage.user.get(SESSION_USER_ID)
         member_user_id = int(raw_user) if raw_user is not None else None
         return TenantContext(
-            tenant_id=tenant.tenant_id, schema=tenant.schema, member_user_id=member_user_id
+            tenant_id=tenant.tenant_id,
+            schema=tenant.schema,
+            member_user_id=member_user_id,
+            key_ring=session_data_key(),
         )
     except (RuntimeError, KeyError, AssertionError, TypeError, ValueError):
         return None
+
+
+def storage_session_key() -> str | None:
+    """This browser's storage id — what the ``key_ring`` files its unlock under.
+
+    ``None`` outside a request or UI event. Never written anywhere: the id is
+    already the cookie's, and the key ring lives in this process's memory.
+    """
+    request = request_contextvar.get()
+    if request is None:
+        return None
+    raw = request.session.get("id")
+    return str(raw) if raw is not None else None
+
+
+def session_member_ref() -> str | None:
+    """``"tenant:<id>:user:<n>"`` or ``"local:<n>"`` for the signed-in member."""
+    if not app.storage.user.get(SESSION_AUTHENTICATED, False):
+        return None
+    raw_user = app.storage.user.get(SESSION_USER_ID)
+    if raw_user is None:
+        return None
+    user_id = int(raw_user)
+    if settings.tenancy == "multi":
+        tenant = session_tenant()
+        if tenant is None:
+            return None
+        return tenant_member_ref(tenant.tenant_id, user_id)
+    return local_member_ref(user_id)
+
+
+def session_data_key() -> DataKey | None:
+    """The data key this session unlocked, if it did — ``None`` when locked.
+
+    The entry must belong to the member signed in now: a storage id is
+    rotated at every sign-in and the entry dropped with it, so a mismatch
+    here would be a bug elsewhere, answered by refusing rather than serving.
+    """
+    if not settings.encryption_enabled:
+        return None
+    try:
+        entry = key_ring.get(storage_session_key())
+        if entry is None or entry.member_ref != session_member_ref():
+            return None
+        return entry.data_key
+    except (RuntimeError, KeyError, AssertionError, TypeError, ValueError):
+        return None
+
+
+def is_unlocked() -> bool:
+    """Whether this session can read its data (always, with encryption off)."""
+    return not settings.encryption_enabled or session_data_key() is not None
 
 
 def mark_mfa_verified() -> None:

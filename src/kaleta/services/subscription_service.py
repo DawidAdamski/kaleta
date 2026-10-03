@@ -15,7 +15,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ValidationError
 from kaleta.models.category import Category
-from kaleta.models.dismissed_candidate import DismissedCandidate, DismissedCandidateKind
+from kaleta.models.dismissed_candidate import (
+    DismissedCandidate,
+    DismissedCandidateKind,
+    merchant_key_index,
+)
 from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.subscription import Subscription, SubscriptionStatus
@@ -29,6 +33,7 @@ from kaleta.schemas.subscription import (
     SubscriptionUpdate,
 )
 from kaleta.services.planned_transaction_service import PlannedTransactionService
+from kaleta.services.text_order import by_name
 
 # Detector tuning ─ start conservative, revisit after dogfood.
 # Window = 24 months so yearly subs that last charged up to ~18 mo ago still
@@ -158,11 +163,11 @@ class SubscriptionService:
     async def list(
         self, *, status: SubscriptionStatus | None = None
     ) -> builtins.list[Subscription]:
-        stmt = select(Subscription).order_by(Subscription.name)
+        stmt = select(Subscription)
         if status is not None:
             stmt = stmt.where(Subscription.status == status)
         result = await self.session.execute(stmt)
-        return list(result.scalars().all())
+        return by_name(result.scalars().all())
 
     async def create(self, payload: SubscriptionCreate) -> Subscription:
         sub = Subscription(
@@ -396,7 +401,7 @@ class SubscriptionService:
             if key in tracked_merchant_keys:
                 continue
             bucket = _amount_bucket(abs(tx.amount))
-            if (key, bucket) in dismissed_by_key:
+            if (merchant_key_index(key), bucket) in dismissed_by_key:
                 continue
             pass2_groups[(key, bucket)].append(tx)
 
@@ -411,7 +416,10 @@ class SubscriptionService:
     async def dismiss_candidate(self, candidate: DetectorCandidate) -> None:
         """Persist a 'not a subscription' decision so it doesn't resurface."""
         bucket = _amount_bucket(candidate.amount)
-        merchant_key = None if candidate.payee_id is not None else candidate.payee_name
+        # The key's blind index, never the key: it is derived from descriptions.
+        merchant_key = (
+            None if candidate.payee_id is not None else merchant_key_index(candidate.payee_name)
+        )
         existing = await self.session.execute(
             select(DismissedCandidate).where(
                 DismissedCandidate.payee_id == candidate.payee_id,
@@ -605,9 +613,9 @@ class SubscriptionService:
         )
         root_id = root_result.scalar_one()
         cats_result = await self.session.execute(
-            select(Category).where(Category.parent_id == root_id).order_by(Category.name)
+            select(Category).where(Category.parent_id == root_id)
         )
-        children = list(cats_result.scalars().all())
+        children = by_name(cats_result.scalars().all())
         by_cat: dict[int, builtins.list[SubscriptionMerchantRow]] = defaultdict(list)
         merchant_state: dict[tuple[int, str], SubscriptionMerchantRow] = {}
 
