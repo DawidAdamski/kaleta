@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# The hosted layout (ADR-35) on a laptop: PostgreSQL 16 + Kaleta in `multi`
+# mode, with the debug sign-in backend standing in for Supabase Auth — every
+# address is confirmed at sign-up, no mail is sent. Not a deployment: the
+# `fake` backend is refused unless KALETA_DEBUG=true.
+#
+#   podman compose -f compose.hosted-dev.yml up -d --build
+#   ./scripts/hosted_smoke.sh http://localhost:8090
+#   podman compose -f compose.hosted-dev.yml down -v
+#
+# `./scripts/hosted_smoke.sh` with no URL does all three. The self-hosted
+# default stays `docker-compose.yml` (SQLite, one household).
+
+name: kaleta-hosted-dev
+
+services:
+  db:
+    image: docker.io/library/postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: kaleta
+    volumes:
+      - hosted-dev-pg:/var/lib/postgresql/data
+      # Creates `kaleta_app`, the non-superuser role the app connects as.
+      - ./deploy/postgres/init-app-role.sql:/docker-entrypoint-initdb.d/10-app-role.sql:ro,z
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kaleta"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  kaleta:
+    build:
+      context: .
+      dockerfile: Containerfile.full
+    image: kaleta:full
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${KALETA_HOSTED_DEV_PORT:-8090}:8080"
+    environment:
+      KALETA_TENANCY: multi
+      KALETA_AUTH_BACKEND: fake
+      KALETA_DEBUG: "true"
+      KALETA_DB_URL: postgresql://kaleta_app:kaleta_app@db:5432/kaleta
+      KALETA_SECRET_KEY: hosted-dev-only-not-a-secret
+      KALETA_PUBLIC_URL: http://localhost:${KALETA_HOSTED_DEV_PORT:-8090}
+      KALETA_HOST: 0.0.0.0
+      KALETA_PORT: "8080"
+    volumes:
+      # NiceGUI's session files and the fake backend's identities: a restarted
+      # container keeps its sessions (and asks every member to unlock again).
+      - hosted-dev-state:/root/.kaleta
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/v1/health', timeout=3)"
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+volumes:
+  hosted-dev-pg:
+  hosted-dev-state:

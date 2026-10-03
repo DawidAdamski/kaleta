@@ -8,13 +8,17 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 # Copy dependency files first for layer caching
 COPY pyproject.toml uv.lock* README.md ./
 
-# Full image — includes Prophet forecasting extra; excludes dev group
-RUN uv sync --frozen --no-dev --extra forecast
+# Full image — Prophet forecasting and the hosted layout's drivers (Redis,
+# PostgreSQL); excludes the dev group. One image, two layouts: env decides.
+RUN uv sync --frozen --no-dev --extra forecast --extra hosted
 
 # Copy application code
 COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini* ./
+# The tenant registry's migrations (KALETA_TENANCY=multi).
+COPY alembic_public/ alembic_public/
+COPY alembic_public.ini ./
 
 EXPOSE 8080
 
