@@ -148,4 +148,101 @@ account), `docs/{deployment,privacy,getting-started,tech-stack,roadmap}.md`,
 
 ## Implementation notes
 
-(filled in as work progresses)
+**Open questions, defaults taken (2026-10-03, goal mode — no questions asked).**
+
+- *App host*: **Fly.io** — the earlier recommendation, and the one that costs
+  the least operating time (container + volume + TLS in one place). Hetzner
+  stays the cheaper move once the service is stable. Not wired into the repo:
+  `docs/deployment.md` documents the env block for any container host.
+- *Redis vs a persistent volume*: **a persistent volume, one replica.** A
+  mount at `~/.kaleta` keeps NiceGUI's session files (and nothing secret)
+  across restarts; `KALETA_REDIS_URL` stays the documented path to a second
+  replica, which §2 does not ask for. Verified on `compose.hosted-dev.yml`
+  (named volume at `/root/.kaleta`): signed in, unlocked, `restart kaleta` →
+  `keyring_sessions` 1 → 0, still signed in, sent to `/unlock`, unlocks again.
+- *Public demo*: **recommended as a separate `single` instance, encryption
+  off** (simplest; keeps the hosted privacy statement clean) —
+  `docs/deployment.md` § Public demo says so. §3's `reset_demo.py --tenant demo`
+  is implemented anyway, because Scope asks for it: it signs the demo owner in
+  at the provider (the `fake` backend signs it up; with Supabase the identity
+  is created once, auto-confirmed, in the dashboard), provisions the account
+  if missing, sets up/opens the published passphrase and reseeds in place.
+  `--tenant` is refused on a single-tenant install and vice versa.
+
+**Decisions a reviewer should know.**
+
+- *`fake` backend*: `kaleta.auth.providers.fake.FakeAuthProvider`, accepted only
+  with `KALETA_TENANCY=multi` **and** `KALETA_DEBUG=true` (settings validator).
+  Every address is confirmed at sign-up (sign-up signs in at once); identities
+  are argon2 hashes in `~/.kaleta/fake-auth.json` (0600) with a subject derived
+  from the address (uuid5), so a restarted container keeps them. No reset, magic
+  link or MFA — those raise `ValidationError` with a sentence. Views now treat
+  any provider but `local` as the hosted e-mail form; the "Forgot password" /
+  magic-link links stay Supabase-only.
+- *Startup ordering*: `ensure_multi_tenant_current` returns a
+  `TenantMigrationRun(migrated, suspended)`. The registry failing still stops
+  startup; a tenant failing is logged, marked `suspended` (one `UPDATE` on the
+  registry) and the loop continues. It is **not** un-suspended automatically
+  when a later migration succeeds — an operator suspension must not be undone
+  by a restart — hence `tenant_admin.py resume`, a fifth command beyond the
+  four §3 lists, and `TenantService.resume` (only from `suspended`).
+  `migrate_tenants.py` exits 3 when it suspended an account.
+- *Health*: `tenancy`, `auth_backend`, `keyring_sessions` (`KeyRing.count()`),
+  `suspended_tenants` (ids; `null` in `single`). Unauthenticated, as before —
+  the ids are registry integers, nothing about the people.
+- *Deletion order* (`AccountDeletionService`): every member's identity is
+  removed at the provider **first**, then the schema and registry rows. A
+  provider failure therefore drops nothing and the command can be repeated;
+  the opposite order could leave a live identity that would re-provision an
+  empty account at its next sign-in. `tenant_admin.py delete` needs `--yes`
+  and prints one JSON audit line (account id, schema, identity count — no
+  e-mail). SQL echo is off in the script even under `KALETA_DEBUG` so stdout
+  stays parseable.
+- *Settings → Data → Delete my account*: orchestration in
+  `kaleta.auth.account_deletion` (views may not open sessions). Owner-only
+  (button hidden otherwise, and re-checked on delete), step 1 lists members
+  with their role, step 2 needs the data passphrase (`KeyService.open`; a wrong
+  one deletes nothing), then every member's key-ring entry is dropped and the
+  browser signed out. Other members' open sessions are not chased: their
+  identities and schema are gone, so their next request fails and their next
+  sign-in is refused.
+- *"The login page says why"*: the explanation is on **`/unlock`**
+  (`unlock.restart_note`), because with sessions surviving a restart that is
+  the page people land on — and also after a fresh login. Tested in e2e
+  (KAL-TEN-012); the restart itself is KAL-TEN-013 `@manual`.
+- *Connections* (§1): PostgreSQL engines now use `pool_size=5`,
+  `max_overflow=5`, `pool_pre_ping=True`; with asyncpg, `statement_cache_size=0`
+  and a fresh `prepared_statement_name_func` name per statement, so a
+  transaction-mode pooler (6543) can never hand a statement to a connection
+  that did not prepare it. Ran the tenancy suites against `postgres:16`
+  (29 passed).
+- *Images*: `Containerfile.full` installs the `hosted` extra and copies
+  `alembic_public/` + `alembic_public.ini` — without them `kaleta:full` could
+  not start in `multi` mode at all. `docker-compose.yml` is unchanged.
+- *`compose.hosted-dev.yml`*: `postgres:16-alpine` with
+  `deploy/postgres/init-app-role.sql` creating the non-superuser `kaleta_app`
+  role the app connects as (the same statements as the Supabase SQL editor
+  step); app on port 8090 (`KALETA_HOSTED_DEV_PORT`).
+- *Smoke*: `scripts/hosted_smoke.sh [URL]` → `scripts/hosted_smoke.py`
+  (Playwright, dev group). No URL: brings the dev stack up, runs, `down -v`.
+  The identity: `fake` → sign-up page; `supabase` → GoTrue admin API with the
+  service-role key (`email_confirm: true`), so no mailbox is needed. Steps:
+  health → identity → data passphrase → API token (Settings → Security) →
+  `POST`/`GET` a transaction (description round-trips through encryption) →
+  Delete my account → old password refused. Passed against the dev stack.
+- *E-mail templates*: Supabase sends one template per project to everyone, so
+  "in English and Polish" is **one bilingual file per template** (Polish
+  first), not a pair. A magic-link template is included too: the login page
+  already offers magic links.
+- *Privacy*: `docs/privacy.md` gained "What the operator stores about an
+  account" and "Deletion and retention". Writing it surfaced that error events
+  and bug reports live in each tenant schema and are **not swept** in `multi`
+  mode — stated in the doc, added to `docs/plans/chores.md` rather than fixed
+  here (out of scope).
+- *Chores added*: missing `.containerignore` (180 MB build context), the
+  per-tenant retention sweep.
+- *Test-only change*: `tests/fake_gotrue.py` gained the admin
+  `DELETE /admin/users/{id}` endpoint (service-role key checked) so the e2e
+  module can cover the Supabase deletion path.
+
+**Scenarios.** New: KAL-TEN-008…014 (013 `@manual`); KAL-API-004 extended.
