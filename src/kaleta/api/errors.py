@@ -9,6 +9,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from sqlalchemy.exc import StatementError
 
 from kaleta.exceptions import (
     KaletaError,
@@ -111,9 +112,23 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
     )
 
 
+async def statement_error_handler(request: Request, exc: StatementError) -> JSONResponse:
+    """A domain error raised while binding a value reaches us wrapped by SQLAlchemy.
+
+    ``EncryptedText`` refuses to write while the account is locked; SQLAlchemy
+    wraps that ``TenantLockedError`` in a ``StatementError`` whose ``orig`` is
+    the domain error. Unwrapped, it answers like any other (``423``); any
+    other statement error is the unhandled kind.
+    """
+    if isinstance(exc.orig, KaletaError):
+        return await kaleta_error_handler(request, exc.orig)
+    return await unhandled_exception_handler(request, exc)
+
+
 def register_error_handlers(app: FastAPI) -> None:
     """Install Kaleta error handlers on a FastAPI (or NiceGUI) app."""
     app.add_exception_handler(KaletaError, kaleta_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(StatementError, statement_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(HTTPException, http_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(RequestValidationError, validation_error_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_exception_handler)

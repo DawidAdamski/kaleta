@@ -212,6 +212,16 @@ def use_data_key(key: DataKey | None) -> Iterator[None]:
         _explicit_key.reset(token)
 
 
+def set_data_key(key: DataKey | None) -> None:
+    """Bind ``key`` to the current context until it ends — the API dependency's form.
+
+    ``use_data_key`` for code that has no ``with`` around the work it guards:
+    a FastAPI dependency runs in the request's context, so what it sets here is
+    what the route's services see, the way ``set_tenant`` works.
+    """
+    _explicit_key.set(key)
+
+
 def current_data_key() -> DataKey | None:
     """The data key for this request, task or block — ``None`` when locked."""
     explicit = _explicit_key.get()

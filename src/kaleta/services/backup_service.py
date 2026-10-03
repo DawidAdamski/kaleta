@@ -31,7 +31,7 @@ from sqlalchemy.sql.type_api import TypeDecorator, TypeEngine
 
 import kaleta.models  # noqa: F401 — register every table on Base.metadata
 from kaleta.db.base import Base
-from kaleta.db.blind_index import BlindIndexSpec
+from kaleta.db.blind_index import with_blind_indexes
 from kaleta.db.tenant_context import current_tenant
 from kaleta.db.types import EncryptedJSON, EncryptedText
 from kaleta.exceptions import ValidationError
@@ -97,35 +97,6 @@ def _export_columns(table_name: str) -> list[ColumnElement[Any]]:
         column(col.name, col.type) if _is_user_text(col.type) else column(col.name)
         for col in table.columns
     ]
-
-
-@lru_cache(maxsize=1)
-def _blind_index_specs() -> dict[str, BlindIndexSpec]:
-    """``{table: __blind_indexes__}`` of every mapped class that declares them."""
-    specs: dict[str, BlindIndexSpec] = {}
-    for mapper in Base.registry.mappers:
-        spec: BlindIndexSpec | None = getattr(mapper.class_, "__blind_indexes__", None)
-        if spec:
-            for table in mapper.tables:
-                specs[table.name] = spec
-    return specs
-
-
-def _with_blind_indexes(table_name: str, row: dict[str, Any]) -> dict[str, Any]:
-    """``row`` with every blind index recomputed from its plaintext.
-
-    A restore may land under a different key than the export was taken
-    under (a self-hosted backup restored into an encrypted account), and an
-    index under the wrong key matches nothing. The ORM's flush hook does not
-    run for a Core insert, so this is its stand-in.
-    """
-    spec = _blind_index_specs().get(table_name)
-    if not spec:
-        return row
-    for target, (source, index) in spec.items():
-        if source in row:
-            row[target] = index(row[source])
-    return row
 
 
 def _serialize(val: object) -> object:
@@ -352,7 +323,7 @@ class BackupService:
                     payload = [
                         {c: prepared[c] for c in cols}
                         for prepared in (
-                            _with_blind_indexes(table, _deserialize_row(table, row)) for row in rows
+                            with_blind_indexes(table, _deserialize_row(table, row)) for row in rows
                         )
                     ]
                     await self.session.execute(insert(table_obj), payload)
