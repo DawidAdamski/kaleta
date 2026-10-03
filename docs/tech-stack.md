@@ -222,8 +222,9 @@ without decrypting rows in SQL.
 
 Search and sort over encrypted text run in Python rather than SQL
 (`ILIKE` cannot see into ciphertext). Measured on 50 000 encrypted
-transactions: a search page + count takes ≈195–224 ms on SQLite and
-≈175 ms on Postgres 16, against a 300 ms budget.
+transactions: a search page + count takes ≈100–125 ms on SQLite and
+≈80–100 ms on Postgres 16, against a 300 ms budget (the page's scan is
+reused for its count within one session).
 
 See [privacy.md](privacy.md#encryption) for what this protects against
 and [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md)

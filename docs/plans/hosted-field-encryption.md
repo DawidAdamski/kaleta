@@ -312,9 +312,13 @@ no user text by design), `ApiToken.label` (operator-visible on purpose
   before). Grouping on a name column next to its row's id (money flow)
   stays in SQL — that is grouping one row's own bytes.
 - **Search budget** (acceptance, `tests/unit/services/test_transaction_search_budget.py`):
-  50 000 encrypted transactions, 500 matches, first page + count:
-  195–224 ms on SQLite, 173–176 ms on Postgres 16 (Podman, M-series Mac);
-  the scan alone ≈ 80–100 ms. Under the 300 ms budget, so no n-gram index.
+  50 000 encrypted transactions, 500 matches, first page + count, cold:
+  101–123 ms on SQLite, 79–101 ms on Postgres 16 (Podman, M-series Mac).
+  The first cut scanned twice (page, then count) and took 195–224 / 173–176
+  ms locally — and 340 ms on the CI Postgres runner, over budget. The page's
+  scan is now kept on the session for its count (`Session.info`, dropped at
+  the next flush or rollback), so a search reads the table once. Under the
+  300 ms budget, so no n-gram index.
 - **Recovery lives on `/unlock`**, not on Settings → Security: the settings
   page renders every tab, and the others read data a locked session cannot.
   `/unlock` is the only page the guard exempts. Using the recovery code

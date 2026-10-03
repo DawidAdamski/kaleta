@@ -4,8 +4,8 @@
 The description is ciphertext, so the search runs in Python over the
 decrypted rows of the filtered period. The plan's acceptance: 50 000
 transactions searched — the page *and* its count — within 300 ms. Best of
-three runs, so a stray scheduler hiccup on a shared CI runner does not decide
-it; the measured figures are in the plan's Implementation notes.
+three cold runs, so a stray scheduler hiccup on a shared CI runner does not
+decide it; the measured figures are in the plan's Implementation notes.
 
 A performance gate, not a user scenario — the plan's acceptance criterion
 names this file.
@@ -70,6 +70,9 @@ async def test_searching_50000_encrypted_transactions_stays_in_budget(
 
     timings: list[float] = []
     for _ in range(3):
+        # Each run cold, as a new request would be: the page's scan is kept
+        # on the session for its count, and a rollback drops it.
+        await session.rollback()
         began = time.perf_counter()
         page = await service.list(search="biedronka", limit=50)
         total = await service.count(search="biedronka")

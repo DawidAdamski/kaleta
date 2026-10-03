@@ -6,9 +6,9 @@ import datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Select, event, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import Session, selectinload
 
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
 from kaleta.exceptions import ConflictError, KaletaError, NotFoundError, ValidationError
@@ -32,6 +32,18 @@ from kaleta.services.payee_service import PayeeService
 #: ``tests/unit/services/test_transaction_search_budget.py`` and the plan's
 #: Implementation notes.
 SEARCH_SCAN_LIMIT = 100_000
+
+#: ``Session.info`` key of the last search's matching ids (``_search_ids``).
+_SEARCH_MEMO = "kaleta.transaction_search"
+
+
+def _forget_search(session: Session, *_args: object) -> None:
+    session.info.pop(_SEARCH_MEMO, None)
+
+
+# Any flush may have changed what a search would find; so may a rollback.
+event.listen(Session, "after_flush", _forget_search)
+event.listen(Session, "after_soft_rollback", _forget_search)
 
 LEDGER_CSV_HEADERS: tuple[str, ...] = (
     "date",
@@ -121,13 +133,27 @@ class TransactionService:
         at most ``SEARCH_SCAN_LIMIT`` rows — never whole transactions — and
         tests the decrypted descriptions here, because in the database they are
         ciphertext.
+
+        A page and its count ask the same question one after the other (the
+        ledger view and ``GET /transactions`` both do), so the answer is kept
+        on the session for the next call and dropped at its next flush — a
+        write in between can never be answered from it.
         """
+        compiled = base.compile()
+        key = (str(compiled), repr(sorted(compiled.params.items())), search)
+        memo: tuple[tuple[str, str, str], builtins.list[int]] | None = self.session.info.get(
+            _SEARCH_MEMO
+        )
+        if memo is not None and memo[0] == key:
+            return memo[1]
         needle = search.casefold()
         ids = base.with_only_columns(Transaction.id, Transaction.description).order_by(
             Transaction.date.desc(), Transaction.id.desc()
         )
         rows = await self.session.execute(ids.limit(SEARCH_SCAN_LIMIT))
-        return [tx_id for tx_id, description in rows.all() if needle in description.casefold()]
+        found = [tx_id for tx_id, description in rows.all() if needle in description.casefold()]
+        self.session.info[_SEARCH_MEMO] = (key, found)
+        return found
 
     async def count(
         self,

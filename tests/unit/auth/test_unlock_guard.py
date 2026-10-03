@@ -73,8 +73,18 @@ def test_signing_out_locks(locked_browser: dict[str, Any]) -> None:
 async def test_a_locked_page_load_goes_to_unlock(
     locked_browser: dict[str, Any],
     auth_middleware_client: httpx.AsyncClient,  # noqa: F811 — the imported fixture
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Covers: KAL-ENC-003"""
+    from kaleta.auth import middleware as middleware_mod
+
+    async def _not_revoked() -> bool:
+        return False
+
+    # A signed-in user id sends the guard to the revocation watermark in the
+    # database, which this unit test has none of; revocation has its own
+    # tests (test_session_revocation.py) — here it is the unlock step alone.
+    monkeypatch.setattr(middleware_mod, "current_session_revoked", _not_revoked)
     locked = await auth_middleware_client.get("/transactions")
     assert locked.status_code == 307
     assert locked.headers["location"] == "/unlock?redirect_to=/transactions"
