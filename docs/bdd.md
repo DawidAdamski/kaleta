@@ -3569,6 +3569,16 @@ Feature: Hosted accounts (multi-tenant)
     Then my next page load keeps me signed in
     And I am sent to /unlock and asked for my data passphrase
     And the health probe reports keyring_sessions 0 until someone unlocks
+
+  KAL-TEN-014 @automated
+  Scenario: The hosted demo is an account of its own, reset in place
+    Given a hosted Kaleta with KALETA_DEMO=true
+    When the nightly job runs "reset_demo.py --tenant demo" for the first time
+    Then the demo owner signs in at the provider and their account is provisioned
+    And the published demo data passphrase is set up and the account is seeded
+    When the job runs again
+    Then the same account is reseeded, with no second account provisioned
+    And "--tenant" on a self-hosted install is refused
 ```
 
 ## Feature: Data encryption (user-held passphrase)

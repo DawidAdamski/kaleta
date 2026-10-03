@@ -1,13 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Operating a hosted instance: startup migration, the admin script, the debug backend.
 
-Covers: KAL-TEN-008, KAL-TEN-010, KAL-TEN-011
+Covers: KAL-TEN-008, KAL-TEN-010, KAL-TEN-011, KAL-TEN-014
 """
 
 from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from collections.abc import AsyncIterator
@@ -157,3 +158,74 @@ async def test_the_operator_lists_suspends_and_deletes_an_account(
     assert await _status(tenant_id) is None
     with pytest.raises(UnauthorizedError):
         await provider.sign_in("ania@example.com", "correct-horse-battery")
+
+
+RESET_DEMO = PROJECT_ROOT / "scripts" / "reset_demo.py"
+
+
+def _reset_demo(db_url: str, home: Path, *args: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [sys.executable, str(RESET_DEMO), "--force", *args],
+        cwd=PROJECT_ROOT,
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "KALETA_DB_URL": db_url,
+            "KALETA_TENANCY": "multi",
+            "KALETA_AUTH_BACKEND": "fake",
+            "KALETA_DEBUG": "true",
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+
+async def test_the_hosted_demo_is_provisioned_once_and_reset_in_place(
+    hosted: str, tmp_path: Path
+) -> None:
+    """Covers: KAL-TEN-014"""
+    home = tmp_path / "home"
+
+    first = _reset_demo(hosted, home, "--tenant", "demo")
+    assert first.returncode == 0, first.stderr + first.stdout
+    assert "Demo data passphrase set up." in first.stdout
+    second = _reset_demo(hosted, home, "--tenant", "demo")
+    assert second.returncode == 0, second.stderr + second.stdout
+    assert "Demo data passphrase set up." not in second.stdout
+
+    demo = await FakeAuthProvider(home / ".kaleta" / "fake-auth.json").sign_in(
+        "demo@kaleta.app", "demo-kaleta"
+    )
+    assert isinstance(demo, Identity)
+    async with AsyncSessionFactory.public() as public:
+        tenants = await TenantService(public).list_tenants()
+        owner = await TenantService(public).get_member_by_subject(demo.subject)
+    assert len(tenants) == 1
+    assert owner is not None
+    assert owner.tenant.id == tenants[0].id
+    assert f"account {tenants[0].id}" in second.stdout
+    seeded = re.search(r"(\d+) transactions", second.stdout)
+    assert seeded is not None
+    assert int(seeded.group(1)) > 0
+
+
+def test_reset_demo_refuses_tenant_on_a_single_tenant_install(tmp_path: Path) -> None:
+    """Covers: KAL-TEN-014"""
+    result = subprocess.run(
+        [sys.executable, str(RESET_DEMO), "--force", "--tenant", "demo"],
+        cwd=PROJECT_ROOT,
+        env={
+            **os.environ,
+            "HOME": str(tmp_path),
+            "KALETA_DB_URL": f"sqlite+aiosqlite:///{tmp_path / 'single.db'}",
+            "KALETA_TENANCY": "single",
+            "KALETA_AUTH_BACKEND": "local",
+            "KALETA_DEBUG": "true",
+        },
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 1
+    assert "--tenant goes with KALETA_TENANCY=multi" in result.stderr
