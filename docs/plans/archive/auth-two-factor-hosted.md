@@ -3,15 +3,16 @@ plan_id: auth-two-factor-hosted
 title: Auth — two-factor authentication on the hosted instance (Supabase MFA)
 area: auth
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-03
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Auth — two-factor authentication on the hosted instance (Supabase MFA)
 
 ## Intent
 
-This is Phase B of [`auth-two-factor`](archive/auth-two-factor.md), carried out
+This is Phase B of [`auth-two-factor`](auth-two-factor.md), carried out
 of that plan rather than dropped from it. Phase A shipped the local TOTP
 implementation: `MfaService`, the `user_mfa` table with its encrypted
 secret, the `/login/mfa` prompt, the Settings card, recovery codes and
@@ -23,7 +24,7 @@ view knows which is in play.
 
 Phase B could not ship with Phase A because that interface does not
 exist yet. It arrives with
-[`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md), which is
+[`hosted-tenancy-foundation`](hosted-tenancy-foundation.md), which is
 still `draft`: `src/kaleta/auth/providers/` is not a package, and there
 is no Supabase integration for `SupabaseAuthProvider` to hang off.
 Building both inside one branch would have meant implementing another
@@ -164,3 +165,47 @@ one-issue-one-branch-one-PR rule both forbid.
   `tests/integration/test_hosted_mfa.py`; provider HTTP shapes in
   `tests/unit/auth/test_supabase_mfa.py`). KAL-AUTH-040 `@planned` — the
   plan's manual criterion on a real Supabase project.
+
+## Implementation
+
+Landed on 2026-10-03 (PR #183).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `9feef94` | Dawid Adamski | 2026-10-03 | Merge pull request #183 from DawidAdamski/plan/auth-two-factor-hosted |
+
+**Files changed:**
+- docs/bdd.md
+- docs/deployment.md
+- docs/plans/auth-two-factor-hosted.md
+- docs/plans/chores.md
+- src/kaleta/auth/providers/__init__.py
+- src/kaleta/auth/providers/base.py
+- src/kaleta/auth/providers/local.py
+- src/kaleta/auth/providers/supabase.py
+- src/kaleta/auth/session.py
+- src/kaleta/auth/sign_in.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/user_mfa.py
+- src/kaleta/schemas/identity.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/hosted_mfa_service.py
+- src/kaleta/services/mfa_service.py
+- src/kaleta/views/login.py
+- src/kaleta/views/login_mfa.py
+- src/kaleta/views/magic_link.py
+- src/kaleta/views/settings/__init__.py
+- src/kaleta/views/settings/page.py
+- src/kaleta/views/settings/security_tab.py
+- tests/integration/test_hosted_mfa.py
+- tests/unit/auth/test_session_contents.py
+- tests/unit/auth/test_supabase_mfa.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA. Still @planned in docs/bdd.md: KAL-AUTH-040 — retag before or after archiving.

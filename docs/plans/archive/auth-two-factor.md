@@ -69,7 +69,7 @@ and the local half ships first because it does not depend on that plan.
 > Building it would mean implementing another plan inside this branch, which
 > Working Agreement §1 and the one-issue-one-branch-one-PR rule both forbid.
 > Phase A ships on its own — the plan says so in its Intent — and Phase B
-> moves to [`auth-two-factor-hosted`](../auth-two-factor-hosted.md), which
+> moves to [`auth-two-factor-hosted`](auth-two-factor-hosted.md), which
 > carries everything below and the acceptance criterion
 > (`tests/unit/auth/test_supabase_mfa.py`) with it, to be picked up once
 > the foundation lands.
