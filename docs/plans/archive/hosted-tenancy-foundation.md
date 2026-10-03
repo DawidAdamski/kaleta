@@ -20,7 +20,7 @@ This plan lays the multi-tenant foundation decided in
 identity through Supabase Auth behind an `AuthProvider` interface, a
 `public.tenants` registry, one Postgres schema per account selected per
 request, and provisioning at sign-up. Encryption is the next plan
-([`hosted-field-encryption`](../hosted-field-encryption.md)); this plan
+([`hosted-field-encryption`](hosted-field-encryption.md)); this plan
 leaves the hooks it needs.
 
 ## Scope

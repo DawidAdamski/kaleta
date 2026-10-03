@@ -3,8 +3,9 @@ plan_id: hosted-field-encryption
 title: Hosted — user-held data passphrase and field-level encryption
 area: db / auth / settings
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-03
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Hosted — user-held data passphrase and field-level encryption
@@ -19,14 +20,14 @@ opens the account's data key — held only in memory while the member is
 signed in. Every column carrying user-written text is stored as
 ciphertext; equality the schema depends on is served by keyed blind
 indexes. Amounts, dates, currencies and enums stay readable so SQL
-aggregation keeps working ([ADR-35](../adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
+aggregation keeps working ([ADR-35](../../adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
 lists what the operator can still see). The same machinery, switched on,
 protects a self-hoster's SQLite file.
 
-Depends on [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
+Depends on [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md)
 for `TenantContext`, `public.tenant_members` and the key-material
 columns. The keypair-per-member design is what lets
-[`hosted-household-sharing`](hosted-household-sharing.md) add and remove
+[`hosted-household-sharing`](../hosted-household-sharing.md) add and remove
 members later without changing this plan.
 
 ## Scope
@@ -71,7 +72,7 @@ members later without changing this plan.
 - Passphrase change: unwrap the private key with the old KEK, wrap
   with the new, update the row; the recovery wrap and the sealed DEK
   are untouched. Rotating the DEK itself (re-encrypting every row) is
-  built in [`hosted-household-sharing`](hosted-household-sharing.md)
+  built in [`hosted-household-sharing`](../hosted-household-sharing.md)
   §3; this plan leaves the ciphertext header room for it (a key-version
   byte after the format byte).
 
@@ -98,7 +99,7 @@ members later without changing this plan.
 
 | Model | Columns | Blind index |
 |---|---|---|
-| `Account` | `name`, `external_account_number` | `external_account_number_bidx` on the normalised digits; a second `external_account_number_sfx_bidx` on the last 8 digits for [ADR-20](../adr/020-transfer-detection-via-counterparty-account-number-matching.md) suffix matching |
+| `Account` | `name`, `external_account_number` | `external_account_number_bidx` on the normalised digits; a second `external_account_number_sfx_bidx` on the last 8 digits for [ADR-20](../../adr/020-transfer-detection-via-counterparty-account-number-matching.md) suffix matching |
 | `Transaction` | `description`, `notes` | — |
 | `TransactionSplit` | `note` | — |
 | `Payee` | `name`, `website`, `address`, `city`, `country`, `email`, `phone`, `notes` | `name_bidx` (unique) |
@@ -385,3 +386,130 @@ no user text by design), `ApiToken.label` (operator-visible on purpose
   `docs/plans/chores.md`) (no workflow change in
   this plan's touchpoints); `Tenant.name` stays `Text` — nothing writes it
   yet, and it lives in the registry, outside any tenant's key.
+
+## Implementation
+
+Landed on 2026-10-03 (PR #185).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `7b70256` | Dawid Adamski | 2026-10-03 | Merge pull request #185 from DawidAdamski/plan/hosted-field-encryption |
+
+**Files changed:**
+- README.md
+- SECURITY.md
+- alembic/versions/r2s3t4u5v6w7_encrypted_columns.py
+- docs/bdd.md
+- docs/deployment.md
+- docs/images/encryption-overview.svg
+- docs/plans/chores.md
+- docs/plans/hosted-field-encryption.md
+- docs/privacy-events.md
+- docs/privacy.md
+- docs/tech-stack.md
+- pyproject.toml
+- scripts/data_passphrase.py
+- scripts/encrypt_database.py
+- scripts/reset_demo.py
+- scripts/seed.py
+- src/kaleta/api/deps.py
+- src/kaleta/api/errors.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/session.py
+- src/kaleta/auth/unlock.py
+- src/kaleta/config/settings.py
+- src/kaleta/crypto/__init__.py
+- src/kaleta/crypto/keyring.py
+- src/kaleta/crypto/keys.py
+- src/kaleta/crypto/recovery.py
+- src/kaleta/db/audit.py
+- src/kaleta/db/blind_index.py
+- src/kaleta/db/tenant_context.py
+- src/kaleta/db/types.py
+- src/kaleta/exceptions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/account.py
+- src/kaleta/models/asset.py
+- src/kaleta/models/audit_log.py
+- src/kaleta/models/categorisation_rule.py
+- src/kaleta/models/category.py
+- src/kaleta/models/dismissed_candidate.py
+- src/kaleta/models/import_rule.py
+- src/kaleta/models/import_run.py
+- src/kaleta/models/institution.py
+- src/kaleta/models/local_key_material.py
+- src/kaleta/models/payee.py
+- src/kaleta/models/payee_identity.py
+- src/kaleta/models/payee_merge.py
+- src/kaleta/models/personal_loan.py
+- src/kaleta/models/planned_transaction.py
+- src/kaleta/models/report.py
+- src/kaleta/models/reserve_fund.py
+- src/kaleta/models/subscription.py
+- src/kaleta/models/tag.py
+- src/kaleta/models/transaction.py
+- src/kaleta/models/yearly_plan.py
+- src/kaleta/seeders/lookups.py
+- src/kaleta/services/account_service.py
+- src/kaleta/services/asset_service.py
+- src/kaleta/services/backup_service.py
+- src/kaleta/services/category_service.py
+- src/kaleta/services/credit_service.py
+- src/kaleta/services/data_encryption_service.py
+- src/kaleta/services/dedupe_service.py
+- src/kaleta/services/forecast_service.py
+- src/kaleta/services/import_rule_service.py
+- src/kaleta/services/import_service.py
+- src/kaleta/services/institution_service.py
+- src/kaleta/services/key_service.py
+- src/kaleta/services/net_worth_service.py
+- src/kaleta/services/payee_merge_service.py
+- src/kaleta/services/payee_service.py
+- src/kaleta/services/personal_loan_service.py
+- src/kaleta/services/planned_price_drift_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/report_service.py
+- src/kaleta/services/rule_service.py
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/services/subscription_service.py
+- src/kaleta/services/tag_service.py
+- src/kaleta/services/text_order.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/services/unplanned_radar_service.py
+- src/kaleta/services/wizard_projection_service.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/settings/data_passphrase_card.py
+- src/kaleta/views/settings/privacy_tab.py
+- src/kaleta/views/settings/security_tab.py
+- src/kaleta/views/unlock.py
+- tests/conftest.py
+- tests/e2e/test_encryption_unlock.py
+- tests/e2e/test_tenant_signup.py
+- tests/encryption_helpers.py
+- tests/integration/conftest.py
+- tests/integration/test_encrypt_database_script.py
+- tests/integration/test_encryption_at_rest.py
+- tests/integration/test_example_data.py
+- tests/integration/test_payee_identities.py
+- tests/integration/test_seed_payees_tags.py
+- tests/integration/test_seed_payment_calendar.py
+- tests/tenancy_helpers.py
+- tests/unit/auth/test_unlock_guard.py
+- tests/unit/crypto/__init__.py
+- tests/unit/crypto/test_keys.py
+- tests/unit/db/test_encrypted_text.py
+- tests/unit/services/test_backup_service.py
+- tests/unit/services/test_key_service.py
+- tests/unit/services/test_transaction_search_budget.py
+- tests/unit/services/test_transaction_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

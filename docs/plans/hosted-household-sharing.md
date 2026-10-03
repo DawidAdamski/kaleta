@@ -23,7 +23,7 @@ install with local logins.
 
 Depends on [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
 (the `tenant_members` registry and the per-member `users` rows are laid
-down there) and [`hosted-field-encryption`](hosted-field-encryption.md)
+down there) and [`hosted-field-encryption`](archive/hosted-field-encryption.md)
 (the per-member keypair hierarchy is defined there so a single-member
 account and a household use one code path).
 

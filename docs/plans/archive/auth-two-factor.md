@@ -27,7 +27,7 @@ and the local half ships first because it does not depend on that plan.
 
 - **Model** `UserMfa` in the tenant schema: `user_id` (FK, unique),
   `totp_secret` (`EncryptedText` when
-  [`hosted-field-encryption`](../hosted-field-encryption.md) has landed,
+  [`hosted-field-encryption`](hosted-field-encryption.md) has landed,
   otherwise `String` encrypted with `KALETA_SECRET_KEY` via the same
   `TypeDecorator` under a static key — the type is written so the key
   source is swappable), `enabled_at`, `last_used_counter` (rejects
