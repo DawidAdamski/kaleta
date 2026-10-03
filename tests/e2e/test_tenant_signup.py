@@ -111,6 +111,30 @@ def _log_in(page: Page, base: str) -> None:
     _log_in_as(page, base, EMAIL, PASSWORD)
 
 
+#: A hosted account always encrypts (hosted-field-encryption): the first
+#: sign-in chooses this, every later one types it on /unlock.
+DATA_PASSPHRASE = "our hosted data passphrase"
+
+
+def _choose_data_passphrase(page: Page) -> None:
+    """Sign-up step 2 — the data passphrase and its recovery code (KAL-ENC-002)."""
+    expect(page).to_have_url(re.compile(r"/unlock"), timeout=15000)
+    page.get_by_label("New data passphrase", exact=True).fill(DATA_PASSPHRASE)
+    page.get_by_label("Repeat the passphrase", exact=True).fill(DATA_PASSPHRASE)
+    page.get_by_role("button", name="Set passphrase").click()
+    expect(page.get_by_test_id("recovery-code")).to_be_visible(timeout=20000)
+    page.get_by_text("I have saved my recovery code").click()
+    page.get_by_role("button", name="Continue").click()
+    expect(page).not_to_have_url(re.compile(r"/unlock"), timeout=20000)
+
+
+def _unlock(page: Page) -> None:
+    expect(page).to_have_url(re.compile(r"/unlock"), timeout=15000)
+    page.get_by_label("Data passphrase", exact=True).fill(DATA_PASSPHRASE)
+    page.get_by_role("button", name="Unlock", exact=True).click()
+    expect(page).not_to_have_url(re.compile(r"/unlock"), timeout=20000)
+
+
 def _log_in_as(page: Page, base: str, email: str, password: str) -> None:
     page.goto(f"{base}/login")
     page.get_by_label("E-mail", exact=True).fill(email)
@@ -155,6 +179,7 @@ def test_sign_up_verify_and_first_login_provisions_an_account(
     page.get_by_label("Password", exact=True).fill(PASSWORD)
     page.get_by_role("button", name="Log in").click()
     expect(page).not_to_have_url(_ON_LOGIN, timeout=15000)
+    _choose_data_passphrase(page)
     page.goto(f"{base}/")
     expect(page.get_by_text("Dashboard", exact=True).first).to_be_visible(timeout=15000)
 
@@ -172,6 +197,7 @@ def test_signing_in_again_reuses_the_account(hosted: HostedInstance, fresh_page:
 
     _log_in(fresh_page, hosted.base)
     expect(fresh_page).not_to_have_url(_ON_LOGIN, timeout=15000)
+    _unlock(fresh_page)
     fresh_page.goto(f"{hosted.base}/")
     expect(fresh_page.get_by_text("Dashboard", exact=True).first).to_be_visible(timeout=15000)
 
@@ -286,6 +312,7 @@ def test_a_magic_link_signs_in_to_an_existing_account(
 
     page.goto(link)
     expect(page).not_to_have_url(_ON_LOGIN, timeout=15000)
+    _unlock(page)
     page.goto(f"{base}/")
     expect(page.get_by_text("Dashboard", exact=True).first).to_be_visible(timeout=15000)
     # The same account as the password signs in to; nothing new provisioned.

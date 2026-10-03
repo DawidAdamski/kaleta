@@ -3447,8 +3447,9 @@ Feature: Hosted accounts (multi-tenant)
     When I follow the confirmation link and sign in
     Then a new schema named "t_" plus 12 hex characters exists for my account
     And the schema name says nothing about my e-mail
-    And the dashboard loads
-    And signing in again reuses the same schema
+    When I choose my data passphrase and acknowledge the recovery code
+    Then the dashboard loads
+    And signing in again, and unlocking, reuses the same schema
 
   KAL-TEN-002 @automated
   Scenario: Two accounts with the same data each see only their own
