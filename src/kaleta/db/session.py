@@ -8,6 +8,7 @@ without requiring importers to re-import anything.
 
 from __future__ import annotations
 
+import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
@@ -24,6 +25,27 @@ from sqlalchemy.pool import NullPool
 from kaleta.config import settings
 from kaleta.db.tenant_context import TenantContextMissingError, current_tenant
 from kaleta.db.tenant_schemas import attach_sqlite_schemas
+
+#: Connections per process on PostgreSQL: Supabase's pooler counts every
+#: client connection against the project's limit, so a replica takes at most
+#: ten (docs/deployment.md, "Database").
+_PG_POOL_SIZE = 5
+_PG_MAX_OVERFLOW = 5
+
+
+def _asyncpg_connect_args() -> dict[str, Any]:
+    """No prepared statement may outlive its transaction.
+
+    A transaction-mode pooler (Supabase's, on port 6543) hands each transaction
+    whichever server connection is free, so a statement asyncpg prepared on
+    one is unknown on the next. No statement cache, and a fresh name per
+    statement, keep that from ever mattering; on a direct connection it costs a
+    re-parse per query and nothing else.
+    """
+    return {
+        "statement_cache_size": 0,
+        "prepared_statement_name_func": lambda: f"__kaleta_{uuid.uuid4().hex}__",
+    }
 
 
 def _register_sqlite_pragmas(sync_engine: Engine) -> None:
@@ -74,7 +96,15 @@ class _SessionProxy:
     def _create_engine(self, *, tenant: str | None) -> AsyncEngine:
         url = self._url
         if "sqlite" not in url:
-            return create_async_engine(url, echo=self._debug)
+            connect = _asyncpg_connect_args() if url.startswith("postgresql+asyncpg") else {}
+            return create_async_engine(
+                url,
+                echo=self._debug,
+                connect_args=connect,
+                pool_size=_PG_POOL_SIZE,
+                max_overflow=_PG_MAX_OVERFLOW,
+                pool_pre_ping=True,
+            )
         connect_args: dict[str, Any] = {"check_same_thread": False}
         if not self._multi:
             engine = create_async_engine(url, echo=self._debug, connect_args=connect_args)
