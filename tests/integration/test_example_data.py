@@ -36,6 +36,7 @@ from kaleta.models.subscription import Subscription
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction
 from kaleta.seeders import SEED_FEATURE_KEYS, seed_all, seed_features
+from tests.encryption_helpers import script_env
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SEED_SCRIPT = PROJECT_ROOT / "scripts" / "seed.py"
@@ -127,7 +128,7 @@ def _run_seed_cli(tmp_path: Path, db_url: str, *args: str) -> subprocess.Complet
     return subprocess.run(
         [sys.executable, str(SEED_SCRIPT), *args],
         cwd=PROJECT_ROOT,
-        env={**os.environ, "HOME": str(home), "KALETA_DB_URL": db_url},
+        env={**os.environ, "HOME": str(home), "KALETA_DB_URL": db_url, **script_env(db_url)},
         check=False,
         capture_output=True,
         text=True,

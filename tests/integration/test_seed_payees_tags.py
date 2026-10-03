@@ -23,6 +23,7 @@ import kaleta.models  # noqa: F401 — register ORM tables on Base.metadata
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.report_service import ReportService
+from tests.encryption_helpers import script_env
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SEED_SCRIPT = PROJECT_ROOT / "scripts" / "seed.py"
@@ -42,7 +43,7 @@ def seeded_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
     proc = subprocess.run(
         [sys.executable, str(SEED_SCRIPT)],
         cwd=PROJECT_ROOT,
-        env={**os.environ, "HOME": str(home), "KALETA_DB_URL": db_url},
+        env={**os.environ, "HOME": str(home), "KALETA_DB_URL": db_url, **script_env(db_url)},
         check=False,
         capture_output=True,
         text=True,

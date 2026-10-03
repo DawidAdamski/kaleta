@@ -13,9 +13,11 @@ from httpx import ASGITransport, AsyncClient
 from kaleta.api import create_api_router
 from kaleta.api.deps import get_session, get_session_configured
 from kaleta.api.errors import register_error_handlers
+from kaleta.config import settings
+from kaleta.crypto import key_ring, local_member_ref
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.auth_service import AuthService
-from tests.conftest import make_session_factory
+from tests.conftest import TEST_DATA_KEY, make_session_factory
 
 ACCOUNT_PAYLOAD: dict[str, Any] = {
     "name": "Main Checking",
@@ -43,7 +45,11 @@ async def api_user(db_engine):
     factory = make_session_factory(db_engine)
     async with factory() as session:
         user = await AuthService(session).create_user("api-test", "test-password")
-        return user
+    if settings.encryption_enabled:
+        # A bearer token rides on its member's unlocked browser session; stand
+        # one in, so the 423 path stays the real one for everyone else.
+        key_ring.put("api-test-browser", TEST_DATA_KEY, member_ref=local_member_ref(user.id))
+    return user
 
 
 @pytest_asyncio.fixture
