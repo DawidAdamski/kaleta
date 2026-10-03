@@ -11,9 +11,13 @@ from __future__ import annotations
 
 from nicegui import ui
 
-from kaleta.auth.account_deletion import delete_signed_in_account, deletion_overview
+from kaleta.auth.account_deletion import (
+    WrongPassphraseError,
+    delete_signed_in_account,
+    deletion_overview,
+)
 from kaleta.auth.session import finish_logout
-from kaleta.exceptions import KaletaError, ValidationError
+from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.services.account_deletion_service import AccountMember
 from kaleta.views.error_handling import notify_kaleta_error
@@ -79,7 +83,7 @@ def _passphrase_step(dialog: ui.dialog) -> None:
         error.set_text("")
         try:
             await delete_signed_in_account(passphrase.value or "")
-        except ValidationError:
+        except WrongPassphraseError:
             error.set_text(t("unlock.wrong_passphrase"))
             return
         except KaletaError as exc:

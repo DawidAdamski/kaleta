@@ -229,3 +229,25 @@ def test_reset_demo_refuses_tenant_on_a_single_tenant_install(tmp_path: Path) ->
     )
     assert result.returncode == 1
     assert "--tenant goes with KALETA_TENANCY=multi" in result.stderr
+
+
+async def test_only_the_active_owner_of_that_account_may_delete_it(hosted: str) -> None:
+    """Covers: KAL-TEN-009 — the owner check behind Settings → Data."""
+    from kaleta.services.account_deletion_service import AccountDeletionService
+
+    class _NoRemover:
+        async def delete_identity(self, subject: str) -> None:
+            raise AssertionError("nothing may be removed here")
+
+    async with AsyncSessionFactory.public() as public:
+        tenants = TenantService(public, provisioner=MetadataProvisioner(hosted))
+        first = await tenants.provision(identity(1))
+        second = await tenants.provision(identity(2))
+        service = AccountDeletionService(public, _NoRemover())
+
+        assert await service.is_owner(first.id, identity(1).subject) is True
+        assert await service.is_owner(first.id, identity(2).subject) is False
+        assert await service.is_owner(second.id, identity(1).subject) is False
+        assert await service.is_owner(first.id, "no-such-subject") is False
+        members = await service.members(first.id)
+    assert [(m.email, m.is_owner) for m in members] == [("member1@example.com", True)]

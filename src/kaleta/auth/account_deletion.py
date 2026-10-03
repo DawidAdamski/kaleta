@@ -20,7 +20,7 @@ from kaleta.auth.unlock import with_key_service
 from kaleta.config import settings
 from kaleta.crypto import key_ring, tenant_member_ref
 from kaleta.db import AsyncSessionFactory
-from kaleta.exceptions import UnauthorizedError
+from kaleta.exceptions import UnauthorizedError, ValidationError
 from kaleta.services.account_deletion_service import (
     AccountDeletion,
     AccountDeletionService,
@@ -29,6 +29,15 @@ from kaleta.services.account_deletion_service import (
 from kaleta.services.key_service import KeyService
 
 logger = logging.getLogger(__name__)
+
+
+class WrongPassphraseError(ValidationError):
+    """The data passphrase did not open the key — nothing was deleted.
+
+    Its own type so the dialog can say "wrong passphrase" for this alone, and
+    not for a ``ValidationError`` the provider raises while removing identities
+    (a missing service-role key, say).
+    """
 
 
 @dataclass(frozen=True)
@@ -54,7 +63,7 @@ async def deletion_overview() -> DeletionOverview:
 async def delete_signed_in_account(passphrase: str) -> AccountDeletion:
     """Delete the signed-in owner's account, once ``passphrase`` proves it is them.
 
-    A wrong passphrase raises ``ValidationError`` before anything is touched;
+    A wrong passphrase raises ``WrongPassphraseError`` before anything is touched;
     a session that is not the owner's raises ``UnauthorizedError``.
     """
     tenant = session_tenant() if settings.tenancy == "multi" else None
@@ -63,7 +72,10 @@ async def delete_signed_in_account(passphrase: str) -> AccountDeletion:
         raise UnauthorizedError(msg)
 
     async def _prove(service: KeyService) -> None:
-        await service.open(passphrase)
+        try:
+            await service.open(passphrase)
+        except ValidationError as exc:
+            raise WrongPassphraseError(exc.message) from exc
 
     await with_key_service(_prove)
     async with AsyncSessionFactory.public() as public:
