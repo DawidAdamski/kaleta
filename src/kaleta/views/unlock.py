@@ -26,6 +26,7 @@ from kaleta.auth.session import finish_logout, is_authenticated, is_unlocked
 from kaleta.auth.unlock import (
     current_session_key,
     is_login_password,
+    unlock_redirect,
     with_key_service,
 )
 from kaleta.config import settings
@@ -139,6 +140,11 @@ def _setup_form(target: str) -> None:
 
             try:
                 code = await with_key_service(_setup)
+            except ConflictError:
+                # Set up meanwhile (a second tab, a double submit): this page
+                # is now the unlock form.
+                ui.navigate.to(unlock_redirect(target))
+                return
             except KaletaError as exc:
                 button.enable()
                 say(exc.message)

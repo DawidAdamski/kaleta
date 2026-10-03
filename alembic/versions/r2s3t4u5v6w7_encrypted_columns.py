@@ -202,12 +202,22 @@ def _identity_index(value: str | None) -> str | None:
     return None if value is None else _index(_normalise(" ".join(value.split()).casefold()))
 
 
+#: Plain-text indexes the earlier revisions created on columns this one encrypts.
+_TEXT_INDEXES: tuple[tuple[str, str], ...] = (
+    ("payee_identities", "ix_payee_identities_pattern"),
+    ("categorisation_rules", "ix_categorisation_rules_pattern"),
+    ("import_rules", "ix_import_rules_filename_pattern"),
+)
+
+
 def upgrade() -> None:
     bind = op.get_bind()
 
-    # An index on the spelling means nothing once the spelling is ciphertext.
-    with op.batch_alter_table("payee_identities") as batch_op:
-        batch_op.drop_index("ix_payee_identities_pattern")
+    # An index on a value means nothing once the value is ciphertext (a fresh
+    # nonce per write): these three only cost space and write time.
+    for table, index in _TEXT_INDEXES:
+        with op.batch_alter_table(table) as batch_op:
+            batch_op.drop_index(index)
 
     # Uniques on plain names first: on Postgres they would otherwise be carried
     # over onto the bytea column, where ciphertext can never collide.
@@ -383,8 +393,10 @@ def downgrade() -> None:
         {"pattern_key": lambda v: None if v is None else " ".join(v.split()).casefold()},
         bind,
     )
-    with op.batch_alter_table("payee_identities") as batch_op:
-        batch_op.create_index("ix_payee_identities_pattern", ["pattern"])
+    for table, index in _TEXT_INDEXES:
+        column = index.removeprefix(f"ix_{table}_")
+        with op.batch_alter_table(table) as batch_op:
+            batch_op.create_index(index, [column])
 
     with op.batch_alter_table("counterparties") as batch_op:
         batch_op.create_unique_constraint("uq_counterparty_name", ["name"])

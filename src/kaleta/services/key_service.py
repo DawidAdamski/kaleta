@@ -337,16 +337,16 @@ class KeyService:
     async def open(self, passphrase: str) -> tuple[DataKey, bytes]:
         """The data key and private key ``passphrase`` opens — nothing is kept."""
         material = await self._material()
+        if material.dek_sealed is None:
+            msg = "Your data key has not been shared with you yet."
+            raise ConflictError(msg)
         version = await self.store.key_version()
         try:
             private_key = await _derive(partial(open_private_key, material, passphrase))
-            return open_data_key(material, private_key, version), private_key
         except EncryptionError as exc:
-            if material.dek_sealed is None:
-                msg = "Your data key has not been shared with you yet."
-                raise ConflictError(msg) from exc
             msg = "That passphrase does not unlock your data."
             raise ValidationError(msg) from exc
+        return open_data_key(material, private_key, version), private_key
 
     async def unlock(self, session_key: str, passphrase: str) -> Unlocked:
         data_key, private_key = await self.open(passphrase)
