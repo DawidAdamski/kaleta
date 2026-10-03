@@ -3508,6 +3508,105 @@ Feature: Hosted accounts (multi-tenant)
     And an address with no account gets no e-mail and no account
 ```
 
+## Feature: Data encryption (user-held passphrase)
+
+[ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) and the
+`hosted-field-encryption` plan: every column of user-written text is stored
+as ciphertext under a data key that only a member's data passphrase (or
+recovery code) opens. Always on in a hosted account; a self-hosted install
+switches it on with `KALETA_ENCRYPTION=passphrase`. Amounts, dates,
+currencies and types stay readable so SQL can still add them up.
+
+```gherkin
+Feature: Data encryption (user-held passphrase)
+  As someone keeping my finances in Kaleta
+  I want my data encrypted with a key only I hold
+  So that whoever runs the server, or gets hold of its database, cannot read it
+
+  KAL-ENC-001 @automated
+  Scenario: What I write is stored as ciphertext
+    Given an account with encryption on, unlocked
+    When I record a transaction described "Rent to Mr Kowalski, flat 7"
+    Then the database column holds bytes that do not contain "Kowalski"
+    And the API lists the transaction with its description as I wrote it
+
+  KAL-ENC-002 @automated
+  Scenario: Choosing the data passphrase at the first sign-in
+    Given a user signing in for the first time on an install with encryption on
+    Then I am asked to choose a data passphrase before any page with data
+    And a passphrase of "too short" is refused with "Choose a passphrase of at least 12 characters."
+    When I choose "our household passphrase" and repeat it
+    Then my recovery code is shown once, with "Copy" and "Download"
+    And "Continue" stays disabled until I tick "I have saved my recovery code"
+    When I tick it and continue
+    Then I am in the app
+
+  KAL-ENC-003 @automated
+  Scenario: Unlocking after signing in
+    Given I have chosen my data passphrase
+    When I sign in again
+    Then every page sends me to "Unlock your data" first
+    When I type my data passphrase
+    Then I continue to the page I asked for
+
+  KAL-ENC-004 @automated
+  Scenario: A wrong passphrase does not unlock
+    Given I am on "Unlock your data"
+    When I type a passphrase that is not mine
+    Then I see "That passphrase does not unlock your data."
+    And I stay on the unlock page
+
+  KAL-ENC-005 @automated
+  Scenario: Setting a new passphrase with the recovery code
+    Given I have forgotten my data passphrase but kept my recovery code
+    When I choose "Forgot it? Use your recovery code" on the unlock page
+    And I type the code, in any case, and a new passphrase twice
+    Then my data unlocks
+    And a new recovery code is shown once, and the one I used no longer works
+    And only the new passphrase unlocks from then on
+
+  KAL-ENC-006 @automated
+  Scenario: Changing the data passphrase
+    Given I am unlocked
+    When I change my data passphrase in Settings → Security, giving the current one
+    Then I see "Data passphrase changed."
+    And only the new passphrase unlocks from then on
+    And my recovery code still works
+
+  KAL-ENC-007 @automated
+  Scenario: Locking
+    Given I am unlocked
+    When I choose "Lock now" in Settings → Security, or sign out
+    Then the next page asks for my data passphrase again
+    And an API request on my behalf is refused with 423 and error code "tenant_locked"
+
+  KAL-ENC-008 @automated
+  Scenario: The privacy page says what is encrypted
+    Given an install with encryption on
+    When I open Settings → Privacy
+    Then "What is encrypted" says nobody running the server can read what any transaction was for
+    And it says they can see the shape of my account: amounts, dates, types and currencies
+
+  KAL-ENC-009 @automated
+  Scenario: Switching encryption on for an existing self-hosted database
+    Given a self-hosted database with data written while encryption was off
+    When the owner runs "scripts/encrypt_database.py" with KALETA_ENCRYPTION=passphrase
+    Then a backup is written first
+    And the recovery code is printed once
+    And every stored text is ciphertext that the chosen passphrase opens
+    When the owner runs it again with "--decrypt"
+    Then every stored text is plain again and the key material is gone
+
+  KAL-ENC-010 @automated
+  Scenario: The data export is readable, and a restore encrypts it again
+    Given an unlocked account with encryption on
+    When I export my data from Settings → Data
+    Then the export holds my payee names as I wrote them
+    When I restore that export
+    Then the database holds ciphertext again and looking the payees up by name still works
+    And a restore after which no key holder remains is refused and changes nothing
+```
+
 ## Feature: Demo instance
 
 ```gherkin

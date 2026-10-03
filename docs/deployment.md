@@ -125,6 +125,12 @@ rotate the password):
 | Username | `demo` |
 | Password | `demo-kaleta` |
 
+If the demo instance runs with `KALETA_ENCRYPTION=passphrase`, the demo
+user's data passphrase is `demo-kaleta-data` (set via `scripts/reset_demo.py
+--data-passphrase`). The default demo runs single mode with encryption off,
+so this passphrase does not apply unless encryption has been switched on —
+see [Encrypting an existing self-hosted database](#encrypting-an-existing-self-hosted-database).
+
 Document the live URL in `README.md` once hosting is in place (`[manual]`
 acceptance criterion in the deployment plan).
 
@@ -286,6 +292,34 @@ after sign-in, so no refresh token outlives the login.
 NBP startup fetch and the SQLite integrity check. Supabase backs up the
 database; per-account export in Settings → Data stays available.
 
+## Encrypting an existing self-hosted database
+
+Self-hosted (`single` mode) installs run with `KALETA_ENCRYPTION=off` by
+default. To protect an existing SQLite or PostgreSQL database with
+field-level encryption (see [tech-stack.md](tech-stack.md#field-level-encryption)
+and [privacy.md](privacy.md#encryption)):
+
+1. **Back up first.** The script takes its own plaintext snapshot before
+   touching anything, but keep your own backup too.
+2. Run the one-off migration:
+
+   ```bash
+   KALETA_ENCRYPTION=passphrase uv run python scripts/encrypt_database.py
+   ```
+
+   It prompts for the data passphrase (or reads `KALETA_DATA_PASSPHRASE`),
+   writes a plaintext pre-encryption backup ZIP to `KALETA_BACKUP_DIR`,
+   re-encrypts every row and blind index, and prints the recovery code
+   **once**.
+3. **Save the recovery code** somewhere safe — it is not shown again.
+4. Start the app with `KALETA_ENCRYPTION=passphrase` set and confirm it
+   opens.
+5. **Delete the plaintext backup ZIP** from `KALETA_BACKUP_DIR` once the
+   app opens correctly.
+
+`scripts/encrypt_database.py --decrypt` reverses the process (needed
+before an Alembic downgrade past the encryption migration).
+
 ## Health check
 
 After deploy, verify:
@@ -301,4 +335,4 @@ Expect `"database_ok": true` and `"migrations_pending": false`.
 - CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job; `postgres-multi` for tenant isolation)
 - CI Valkey mode (sessions + rate limiter): `.github/workflows/ci.yml` (`valkey` job, `valkey/valkey:8`)
 - Plan: [`docs/plans/archive/q4-supabase-deployment.md`](plans/archive/q4-supabase-deployment.md)
-- Observability: [`docs/privacy-events.md`](privacy-events.md)
+- Privacy and observability: [`docs/privacy.md`](privacy.md)
