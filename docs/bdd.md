@@ -3507,6 +3507,52 @@ Feature: Hosted accounts (multi-tenant)
     When I follow the same link again
     Then I am sent to the login page, told the link is invalid or has expired
     And an address with no account gets no e-mail and no account
+
+  KAL-TEN-008 @automated
+  Scenario: The operator lists, suspends and deletes an account from the command line
+    Given a hosted Kaleta with one account owned by "ania@example.com"
+    When the operator runs "tenant_admin.py list"
+    Then the account is listed with its schema, status "active" and 1 member
+    When the operator runs "tenant_admin.py members" for it
+    Then "ania@example.com" is listed as its owner
+    When the operator suspends it
+    Then its status is "suspended" and its members cannot sign in
+    When the operator deletes it without "--yes"
+    Then nothing is deleted
+    When the operator deletes it with "--yes"
+    Then every member's identity is removed at the provider
+    And the account's schema and registry rows are gone
+    And one JSON audit line naming the account is printed
+    And when the provider cannot remove an identity, nothing is dropped
+
+  KAL-TEN-009 @planned
+  Scenario: The owner deletes the account from Settings
+    Given I am signed in as the owner of a hosted account
+    When I open Settings, Data and choose "Delete my account"
+    Then I see every member who will lose access
+    When I confirm, type my data passphrase and confirm a second time
+    Then the account's data and every member's identity are deleted
+    And I am signed out
+    And signing in with my old password is refused
+    And a wrong passphrase deletes nothing
+    And a member who is not the owner is not offered the button
+
+  KAL-TEN-010 @automated
+  Scenario: An account whose migration fails at startup is suspended, the rest start
+    Given a hosted Kaleta with two accounts, both behind the installed schema version
+    When the instance starts and the first account's migration fails
+    Then the first account is suspended and the second is migrated
+    And the health probe lists the first account's id as suspended
+    And the first account's members are refused at sign-in, the second's are let in
+
+  KAL-TEN-011 @automated
+  Scenario: The hosted flow runs on a laptop with the debug sign-in backend
+    Given KALETA_TENANCY=multi and KALETA_AUTH_BACKEND=fake
+    Then the instance refuses to start unless KALETA_DEBUG=true
+    When I sign up with an e-mail address and a password
+    Then the address counts as confirmed and my account is provisioned at once
+    And the identity is still known after a restart, under the same account
+    And deleting the identity means the password no longer signs in
 ```
 
 ## Feature: Data encryption (user-held passphrase)
@@ -4038,6 +4084,8 @@ Feature: Public API
     And the body includes version "0.1.0"
     And database_ok is true
     And migrations_pending is a boolean
+    And tenancy, auth_backend and keyring_sessions (a count) are reported
+    And on a hosted instance the ids of suspended accounts are listed
 
   KAL-API-005 @automated
   Scenario: Reading two-factor status over the API

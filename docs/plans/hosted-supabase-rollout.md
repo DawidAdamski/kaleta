@@ -3,7 +3,7 @@ plan_id: hosted-supabase-rollout
 title: Hosted — Supabase project, app host, operations and Podman parity
 area: ops / docs
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 

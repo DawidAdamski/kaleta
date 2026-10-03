@@ -81,8 +81,10 @@ class Settings(BaseSettings):
     #: ``public`` tenant registry and one schema per account.
     tenancy: Literal["single", "multi"] = "single"
     #: Who checks passwords: ``local`` (argon2 hashes in the ``users`` table)
-    #: or ``supabase`` (Supabase Auth over HTTPS). ``multi`` needs ``supabase``.
-    auth_backend: Literal["local", "supabase"] = "local"
+    #: or ``supabase`` (Supabase Auth over HTTPS). ``multi`` needs ``supabase`` —
+    #: or ``fake``, an in-process stand-in for it, accepted only with
+    #: ``KALETA_DEBUG=true`` (``compose.hosted-dev.yml``).
+    auth_backend: Literal["local", "supabase", "fake"] = "local"
     supabase_url: str | None = None
     supabase_anon_key: str | None = None
     #: Server-side only — admin calls such as deleting an auth user. Never sent
@@ -171,16 +173,20 @@ class Settings(BaseSettings):
         # Two layouts exist, and each has one identity backend: a self-hosted
         # database with its own argon2 user, or the hosted registry of
         # accounts that sign up through Supabase. Anything else is refused.
-        if self.tenancy == "multi" and self.auth_backend != "supabase":
+        if self.tenancy == "multi" and self.auth_backend == "local":
             raise ValueError(
                 "KALETA_TENANCY=multi requires KALETA_AUTH_BACKEND=supabase: accounts are "
                 "created by sign-up, and the local backend has exactly one user per database."
             )
         if self.tenancy == "single" and self.auth_backend != "local":
             raise ValueError(
-                "KALETA_AUTH_BACKEND=supabase requires KALETA_TENANCY=multi: a single-tenant "
-                "database has one local user and no registry to map identities to."
+                f"KALETA_AUTH_BACKEND={self.auth_backend} requires KALETA_TENANCY=multi: a "
+                "single-tenant database has one local user and no registry to map identities to."
             )
+        if self.auth_backend == "fake" and not self.debug:
+            # It confirms every address and keeps identities in a file: a
+            # stand-in for Supabase on a laptop, never a way to run a service.
+            raise ValueError("KALETA_AUTH_BACKEND=fake is accepted only with KALETA_DEBUG=true.")
         if self.tenancy == "multi" and self.encryption == "off" and not self.debug:
             # The hosted promise is that the operator cannot read an account;
             # turning that off is for a developer's laptop, not a deployment.

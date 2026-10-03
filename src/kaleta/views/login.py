@@ -59,7 +59,10 @@ def register() -> None:
         if is_authenticated():
             return RedirectResponse(safe_redirect(redirect_to))
 
-        hosted = get_auth_provider().name == "supabase"
+        # Any provider but `local` signs people up by e-mail; only Supabase
+        # also sends mail (the debug `fake` backend confirms at sign-up).
+        hosted = get_auth_provider().name != "local"
+        sends_mail = get_auth_provider().name == "supabase"
 
         async def _bootstrap(session: AsyncSession) -> str | None:
             state = await AuthService(session).auth_state()
@@ -201,10 +204,11 @@ def register() -> None:
 
             password.on("keydown.enter", _submit)
             auth_submit("auth.login_button", _submit)
-            if hosted:
+            if sends_mail:
                 with ui.row().classes("w-full justify-between gap-2"):
                     auth_link("auth.forgot_password", "/reset-password")
                     auth_action("auth.magic_link_button", _magic_link)
+            if hosted:
                 auth_link("auth.sign_up_link", "/create-account")
 
         return None

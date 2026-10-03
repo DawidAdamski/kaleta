@@ -10,6 +10,7 @@ from kaleta.auth.providers.base import (
     MfaRequired,
     SignUpResult,
 )
+from kaleta.auth.providers.fake import FakeAuthProvider
 from kaleta.auth.providers.local import LocalAuthProvider
 from kaleta.auth.providers.supabase import SupabaseAuthProvider
 from kaleta.config import settings
@@ -17,6 +18,7 @@ from kaleta.config import settings
 __all__ = [
     "AuthProvider",
     "FactorEnrolment",
+    "FakeAuthProvider",
     "Identity",
     "LocalAuthProvider",
     "MfaRequired",
@@ -42,6 +44,9 @@ def _build() -> AuthProvider:
             service_role_key=settings.supabase_service_role_key,
             public_url=settings.public_url,
         )
+    if settings.auth_backend == "fake":
+        # The settings refuse it without KALETA_DEBUG=true.
+        return FakeAuthProvider()
     return LocalAuthProvider()
 
 

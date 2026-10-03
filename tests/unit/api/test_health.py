@@ -150,3 +150,58 @@ def test_configure_environment_respects_existing_env(
     path = NiceguiStorageService.configure_environment(tmp_path / "ignored")
     assert path == custom.resolve()
     assert custom.is_dir()
+
+
+@pytest.mark.asyncio
+async def test_health_reports_tenancy_backend_and_keyring_count(db_engine) -> None:
+    """Covers: KAL-API-004 — the operator's fields on a self-hosted install"""
+    from fastapi import FastAPI
+
+    from kaleta.crypto import DataKey, key_ring
+
+    app = FastAPI()
+    register_error_handlers(app)
+    app.include_router(create_api_router())
+
+    factory = make_session_factory(db_engine)
+
+    async def override_session():
+        async with factory() as s:
+            yield s
+
+    app.dependency_overrides[get_public_session] = override_session
+
+    before = key_ring.count()
+    key_ring.put("health-probe-session", DataKey(dek=b"\x01" * 32), member_ref="u:1")
+    try:
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            body = (await client.get("/api/v1/health")).json()
+    finally:
+        key_ring.lock("health-probe-session")
+
+    assert body["tenancy"] == "single"
+    assert body["auth_backend"] == "local"
+    assert body["keyring_sessions"] == before + 1
+    assert body["suspended_tenants"] is None
+    assert body["tenants_pending_migration"] is None
+
+
+@pytest.mark.asyncio
+async def test_health_lists_suspended_tenants_on_a_hosted_instance(tmp_path) -> None:
+    """Covers: KAL-API-004, KAL-TEN-010"""
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.services.tenant_service import TenantService
+    from tests.tenancy_helpers import MetadataProvisioner, identity, multi_tenant_database
+
+    async with multi_tenant_database(tmp_path) as url:
+        async with AsyncSessionFactory.public() as public:
+            service = TenantService(public, provisioner=MetadataProvisioner(url))
+            first = await service.provision(identity(1))
+            await service.provision(identity(2))
+            await service.suspend(first.id)
+        async with AsyncSessionFactory.public() as public:
+            snap = await HealthService(public).check()
+
+    assert snap.tenancy == "multi"
+    assert snap.auth_backend == "supabase"
+    assert snap.suspended_tenants == [first.id]
