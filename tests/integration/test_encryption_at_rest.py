@@ -6,7 +6,7 @@ Runs with encryption on whatever the suite's mode, under the suite's
 ``key_ring`` entry ``api_user`` puts there), and is refused with ``423`` once
 that member is locked.
 
-Covers: KAL-ENC-001, KAL-ENC-007, KAL-ENC-011
+Covers: KAL-ENC-001, KAL-ENC-007, KAL-ENC-010
 """
 
 from __future__ import annotations
@@ -85,7 +85,7 @@ async def test_a_locked_member_gets_423(api_client: AsyncClient, api_user: User)
 
 
 async def test_export_is_plaintext_and_restore_encrypts_again(session: AsyncSession) -> None:
-    """Covers: KAL-ENC-011"""
+    """Covers: KAL-ENC-010"""
     session.add(Payee(name="Biedronka"))
     await session.commit()
 

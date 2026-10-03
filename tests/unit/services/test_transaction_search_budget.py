@@ -7,7 +7,8 @@ transactions searched — the page *and* its count — within 300 ms. Best of
 three runs, so a stray scheduler hiccup on a shared CI runner does not decide
 it; the measured figures are in the plan's Implementation notes.
 
-Covers: KAL-ENC-010
+A performance gate, not a user scenario — the plan's acceptance criterion
+names this file.
 """
 
 from __future__ import annotations
@@ -27,7 +28,7 @@ from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.transaction_service import TransactionService
 from tests.conftest import TEST_DATA_KEY
 
-# Literals from KAL-ENC-010.
+# Literals from the plan's acceptance criterion.
 ROWS = 50_000
 BUDGET_MS = 300
 MATCHES = 500
@@ -44,7 +45,6 @@ def _encrypted(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 async def test_searching_50000_encrypted_transactions_stays_in_budget(
     session: AsyncSession,
 ) -> None:
-    """Covers: KAL-ENC-010"""
     account = Account(name="Konto")
     session.add(account)
     await session.commit()

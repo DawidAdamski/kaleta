@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The key hierarchy: wrap, seal, recover, and the key ring that holds the result.
 
-Covers: KAL-ENC-001, KAL-ENC-002, KAL-ENC-003, KAL-ENC-004, KAL-ENC-005, KAL-ENC-006
+Covers: KAL-ENC-002, KAL-ENC-004, KAL-ENC-005, KAL-ENC-006, KAL-ENC-007
 """
 
 from __future__ import annotations
