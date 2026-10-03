@@ -34,6 +34,7 @@ from kaleta.models.reserve_fund import ReserveFund
 from kaleta.models.subscription import Subscription
 from kaleta.models.transaction import Transaction, TransactionSplit
 from kaleta.services.payee_service import PayeeService
+from kaleta.services.text_order import by_name
 
 # ── Tunables ──────────────────────────────────────────────────────────────────
 
@@ -272,8 +273,8 @@ class DedupeService:
         )
         counts: dict[int, int] = {pid: cnt for pid, cnt in count_result.all() if pid is not None}
 
-        payees_result = await self.session.execute(select(Payee).order_by(Payee.name))
-        payees = list(payees_result.scalars().all())
+        payees_result = await self.session.execute(select(Payee))
+        payees = by_name(payees_result.scalars().all())
         if len(payees) < 2:
             return []
 
@@ -403,8 +404,8 @@ class DedupeService:
         )
         counts: dict[int, int] = {cid: cnt for cid, cnt in count_result.all() if cid is not None}
 
-        cats_result = await self.session.execute(select(Category).order_by(Category.name))
-        cats = list(cats_result.scalars().all())
+        cats_result = await self.session.execute(select(Category))
+        cats = by_name(cats_result.scalars().all())
         if len(cats) < 2:
             return []
 

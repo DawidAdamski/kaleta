@@ -11,9 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.interfaces import LoaderOption
 
+from kaleta.db.types import exact_index
 from kaleta.exceptions import ConflictError, KaletaError, NotFoundError
 from kaleta.models.category import Category, CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from kaleta.services.text_order import by_name
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "category_templates"
 
@@ -48,11 +50,11 @@ class CategoryService:
 
     async def list(self, type: CategoryType | None = None) -> builtins.list[Category]:
         """Return all categories (flat), children eagerly loaded."""
-        stmt = select(Category).options(_category_tree_load_options()).order_by(Category.name)
+        stmt = select(Category).options(_category_tree_load_options())
         if type is not None:
             stmt = stmt.where(Category.type == type)
         result = await self.session.execute(stmt)
-        return builtins.list(result.scalars().all())
+        return by_name(result.scalars().all())
 
     async def list_roots(self, type: CategoryType | None = None) -> builtins.list[Category]:
         """Return only top-level categories with children eagerly loaded."""
@@ -60,12 +62,11 @@ class CategoryService:
             select(Category)
             .options(_category_tree_load_options())
             .where(Category.parent_id.is_(None))
-            .order_by(Category.name)
         )
         if type is not None:
             stmt = stmt.where(Category.type == type)
         result = await self.session.execute(stmt)
-        return builtins.list(result.scalars().all())
+        return by_name(result.scalars().all())
 
     async def list_tree(self, type: CategoryType | None = None) -> builtins.list[CategoryResponse]:
         """Return root categories as response DTOs with nested children fully loaded."""
@@ -106,7 +107,7 @@ class CategoryService:
         # SQLite treats NULL != NULL in unique constraints, so enforce
         # (name, parent_id, type) uniqueness manually for root categories.
         stmt = select(Category).where(
-            Category.name == name,
+            Category.name_bidx == exact_index(name),
             Category.type == category_type,
         )
         if parent_id is None:
@@ -221,10 +222,8 @@ class CategoryService:
         root = await self.get_subscriptions_root()
         if root is None:
             return []
-        result = await self.session.execute(
-            select(Category).where(Category.parent_id == root.id).order_by(Category.name)
-        )
-        return builtins.list(result.scalars().all())
+        result = await self.session.execute(select(Category).where(Category.parent_id == root.id))
+        return by_name(result.scalars().all())
 
     async def subscription_category_ids(self) -> set[int]:
         """Return the id set: root + every direct child. Used as a membership test."""

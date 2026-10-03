@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, LargeBinary, Text
+from sqlalchemy import DateTime, Integer, LargeBinary, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
@@ -21,9 +21,10 @@ class LocalKeyMaterial(Base):
     __tablename__ = "local_key_material"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    user_id: Mapped[int] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True
-    )
+    #: ``users.id`` — deliberately not a foreign key. A backup restore empties
+    #: ``users``; an ``ON DELETE CASCADE`` would delete the only copy of the
+    #: sealed data key with it, and a restrictive FK would block the restore.
+    user_id: Mapped[int] = mapped_column(Integer, nullable=False, unique=True)
     #: ``Tenant.key_version``'s counterpart: the header byte of every value
     #: written under this database's data key.
     key_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)

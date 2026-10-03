@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from kaleta.models.institution import Institution
 from kaleta.schemas.institution import InstitutionCreate, InstitutionUpdate
+from kaleta.services.text_order import by_name
 
 
 class InstitutionService:
@@ -14,8 +15,8 @@ class InstitutionService:
         self.session = session
 
     async def list(self) -> list[Institution]:
-        result = await self.session.execute(select(Institution).order_by(Institution.name))
-        return list(result.scalars().all())
+        result = await self.session.execute(select(Institution))
+        return by_name(result.scalars().all())
 
     async def get(self, institution_id: int) -> Institution | None:
         return await self.session.get(Institution, institution_id)

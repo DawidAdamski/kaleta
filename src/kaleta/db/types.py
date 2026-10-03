@@ -369,6 +369,21 @@ def blind_index(value: str | None) -> str | None:
     return _hmac(normalise_for_index(value))
 
 
+def exact_index(value: str | None) -> str | None:
+    """Hex HMAC-SHA256 of the value exactly as written — the ``name_bidx`` columns.
+
+    Not normalised, unlike ``blind_index``: those columns carry the unique
+    constraints and lookups the plain ``name`` columns had, and those compared
+    exactly. A normalised one would make "LIDL" and "Lidl" collide — the very
+    pairs the dedupe screens exist to find — and would make the migration fail
+    on a database that holds them. The ``=`` keeps it apart from both other
+    index kinds under the same key.
+    """
+    if value is None:
+        return None
+    return _hmac("=" + value)
+
+
 def blind_index_digits(value: str | None, *, last: int | None = None) -> str | None:
     """The index of a number's digits (all, or the ``last`` few); ``None`` when it has none."""
     if value is None:

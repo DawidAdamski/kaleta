@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.asset import Asset
 from kaleta.schemas.asset import AssetCreate, AssetUpdate
+from kaleta.services.text_order import by_name
 
 
 class AssetService:
@@ -13,8 +14,8 @@ class AssetService:
         self.session = session
 
     async def list(self) -> list[Asset]:
-        result = await self.session.execute(select(Asset).order_by(Asset.name))
-        return list(result.scalars().all())
+        result = await self.session.execute(select(Asset))
+        return by_name(result.scalars().all())
 
     async def get(self, asset_id: int) -> Asset | None:
         result = await self.session.execute(select(Asset).where(Asset.id == asset_id))

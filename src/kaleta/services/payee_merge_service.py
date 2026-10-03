@@ -29,6 +29,7 @@ from typing import TypedDict, cast
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.types import exact_index
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.payee import Payee
 from kaleta.models.payee_identity import PayeeIdentity
@@ -271,7 +272,9 @@ class PayeeMergeService:
         keeper_id = record.keeper_id
         snapshot = cast("AutoMergeSnapshot", record.snapshot)
         fields = snapshot["fields"]
-        clash = await self.session.execute(select(Payee.id).where(Payee.name == fields["name"]))
+        clash = await self.session.execute(
+            select(Payee.id).where(Payee.name_bidx == exact_index(str(fields["name"])))
+        )
         if clash.first() is not None:
             raise ConflictError(f"A payee named '{fields['name']}' already exists")
 

@@ -15,6 +15,7 @@ from kaleta.models.asset import Asset
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.account_service import AccountService
 from kaleta.services.currency_rate_service import CurrencyRateService
+from kaleta.services.text_order import by_name
 
 # Account-type → asset/liability bucket. See plan net-worth-layout-refresh.
 _LIABILITY_TYPES: frozenset[AccountType] = frozenset({AccountType.CREDIT})
@@ -272,7 +273,7 @@ class NetWorthService:
         return snapshots
 
     async def _load_physical_assets(self) -> list[PhysicalAssetSnapshot]:
-        result = await self.session.execute(select(Asset).order_by(Asset.name))
+        result = await self.session.execute(select(Asset))
         return [
             PhysicalAssetSnapshot(
                 id=a.id,
@@ -281,14 +282,14 @@ class NetWorthService:
                 value=a.value,
                 description=a.description,
             )
-            for a in result.scalars().all()
+            for a in by_name(result.scalars().all())
         ]
 
     async def _load_accounts_raw(self) -> list[Account]:
         result = await self.session.execute(
-            select(Account).options(selectinload(Account.institution)).order_by(Account.name)
+            select(Account).options(selectinload(Account.institution))
         )
-        return list(result.scalars().all())
+        return by_name(result.scalars().all())
 
     async def _monthly_history(
         self,

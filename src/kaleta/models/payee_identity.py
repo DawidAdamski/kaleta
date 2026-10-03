@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy import Boolean, ForeignKey, String, event
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship, validates
 
 from kaleta.db.base import Base
+from kaleta.db.blind_index import BlindIndexSpec
 from kaleta.db.types import EncryptedText, blind_index
 from kaleta.models.mixins import TimestampMixin
 from kaleta.models.payee import Payee
@@ -37,6 +38,10 @@ def identity_index(pattern: str) -> str:
     return index
 
 
+def _pattern_index(pattern: str | None) -> str | None:
+    return None if pattern is None else identity_index(pattern)
+
+
 class PayeeIdentity(TimestampMixin, Base):
     """One spelling under which a payee shows up in bank data.
 
@@ -50,6 +55,9 @@ class PayeeIdentity(TimestampMixin, Base):
     """
 
     __tablename__ = "payee_identities"
+    #: Declared for the code that writes rows without the ORM (a backup
+    #: restore); the ``validates`` hook below keeps it current on the ORM path.
+    __blind_indexes__: ClassVar[BlindIndexSpec] = {"pattern_key": ("pattern", _pattern_index)}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     payee_id: Mapped[int] = mapped_column(

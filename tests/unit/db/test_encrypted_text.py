@@ -21,6 +21,7 @@ from kaleta.db.types import (
     EncryptedText,
     blind_index,
     blind_index_digits,
+    exact_index,
     install_data_key_resolver,
     normalise_for_index,
     use_data_key,
@@ -48,8 +49,15 @@ def engine() -> Iterator[object]:
 
 
 @pytest.fixture
-def encrypted(monkeypatch: pytest.MonkeyPatch) -> None:
+def encrypted(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
+    """Encryption on and *locked*: no key until a test supplies one.
+
+    Removes the suite-wide test keyring the autouse fixture installs when the
+    suite runs with ``KALETA_ENCRYPTION=passphrase``.
+    """
     monkeypatch.setattr(settings, "encryption", "passphrase")
+    install_data_key_resolver(None)
+    yield
 
 
 @pytest.fixture
@@ -204,3 +212,21 @@ def test_blind_index_needs_the_key_when_encryption_is_on(encrypted) -> None:  # 
 
 def test_blind_index_works_without_a_key_when_encryption_is_off(plain) -> None:  # type: ignore[no-untyped-def]
     assert blind_index("Food") == blind_index("food")
+
+
+def test_exact_index_tells_case_apart(plain) -> None:  # type: ignore[no-untyped-def]
+    # The name_bidx columns keep the exact uniqueness the plain names had.
+    assert exact_index("Lidl") == exact_index("Lidl")
+    assert exact_index("Lidl") != exact_index("LIDL")
+    assert exact_index("Lidl") != blind_index("Lidl")
+    assert exact_index(None) is None
+
+
+def test_exact_index_depends_on_the_data_key(encrypted) -> None:  # type: ignore[no-untyped-def]
+    with use_data_key(DataKey(generate_dek())):
+        first = exact_index("Lidl")
+    with use_data_key(DataKey(generate_dek())):
+        second = exact_index("Lidl")
+    assert first != second
+    with pytest.raises(TenantLockedError):
+        exact_index("Lidl")

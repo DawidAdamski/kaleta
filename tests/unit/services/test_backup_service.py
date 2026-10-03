@@ -43,7 +43,12 @@ class TestBackupService:
         assert _deserialize_value("42.50", Numeric(12, 2)) == Decimal("42.50")
 
     def test_backup_tables_matches_metadata(self) -> None:
-        assert _backup_tables() == [t.name for t in Base.metadata.sorted_tables]
+        # Every table but the install's own key block (hosted-field-encryption:
+        # a restore re-encrypts under the key the install already holds).
+        assert _backup_tables() == [
+            t.name for t in Base.metadata.sorted_tables if t.name != "local_key_material"
+        ]
+        assert "local_key_material" not in _backup_tables()
         # Sanity: previously missing domains must be present.
         names = set(_backup_tables())
         for required in (

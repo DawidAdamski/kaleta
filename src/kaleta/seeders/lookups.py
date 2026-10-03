@@ -12,6 +12,7 @@ from __future__ import annotations
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.types import exact_index
 from kaleta.exceptions import NotFoundError
 from kaleta.models.account import Account, AccountType
 from kaleta.models.category import Category, CategoryType
@@ -73,7 +74,7 @@ async def subscription_category_ids(session: AsyncSession) -> set[int]:
     flat = (
         await session.execute(
             select(Category).where(
-                Category.name == "Subskrypcje",
+                Category.name_bidx == exact_index("Subskrypcje"),
                 Category.type == CategoryType.EXPENSE,
                 Category.parent_id.is_(None),
             )
@@ -92,7 +93,9 @@ async def subscription_child(session: AsyncSession, name: str) -> Category:
         raise MissingSeedDependencyError("the subscriptions root category is missing")
     child = (
         await session.execute(
-            select(Category).where(Category.parent_id == root.id, Category.name == name)
+            select(Category).where(
+                Category.parent_id == root.id, Category.name_bidx == exact_index(name)
+            )
         )
     ).scalar_one_or_none()
     if child is None:

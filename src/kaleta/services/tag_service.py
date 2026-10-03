@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.tag import Tag
 from kaleta.schemas.tag import TagCreate, TagUpdate
+from kaleta.services.text_order import by_name
 
 
 class TagService:
@@ -13,8 +14,8 @@ class TagService:
         self.session = session
 
     async def list(self) -> list[Tag]:
-        result = await self.session.execute(select(Tag).order_by(Tag.name))
-        return list(result.scalars())
+        result = await self.session.execute(select(Tag))
+        return by_name(result.scalars())
 
     async def get(self, tag_id: int) -> Tag | None:
         return await self.session.get(Tag, tag_id)

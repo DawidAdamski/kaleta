@@ -26,6 +26,13 @@ from kaleta.schemas.transaction import (
 )
 from kaleta.services.payee_service import PayeeService
 
+#: The most rows a text search reads (newest first). Descriptions are
+#: encrypted, so the search decrypts and filters in Python; this bounds what
+#: one keystroke in the search box can cost. Measured budget: see
+#: ``tests/unit/services/test_transaction_search_budget.py`` and the plan's
+#: Implementation notes.
+SEARCH_SCAN_LIMIT = 100_000
+
 LEDGER_CSV_HEADERS: tuple[str, ...] = (
     "date",
     "type",
@@ -54,6 +61,10 @@ class TransactionService:
         search: str | None = None,
         tag_ids: builtins.list[int] | None = None,
     ) -> Select[Transaction]:
+        """Every filter that SQL can answer. ``search`` is not one of them (see
+        :meth:`_search_ids`); the parameter stays so every caller passes the
+        same arguments to ``list`` and ``count``."""
+        del search
         stmt = select(Transaction)
         if account_ids:
             stmt = stmt.where(Transaction.account_id.in_(account_ids))
@@ -65,8 +76,6 @@ class TransactionService:
             stmt = stmt.where(Transaction.date <= date_to)
         if tx_types:
             stmt = stmt.where(Transaction.type.in_(tx_types))
-        if search:
-            stmt = stmt.where(Transaction.description.ilike(f"%{search}%"))
         if tag_ids:
             stmt = stmt.where(Transaction.tags.any(Tag.id.in_(tag_ids)))
         return stmt
@@ -83,23 +92,42 @@ class TransactionService:
         limit: int = 50,
         offset: int = 0,
     ) -> builtins.list[Transaction]:
-        stmt = (
-            self._base_stmt(
-                account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
-            )
-            .options(
-                selectinload(Transaction.account),
-                selectinload(Transaction.category),
-                selectinload(Transaction.payee),
-                selectinload(Transaction.splits).selectinload(TransactionSplit.category),
-                selectinload(Transaction.tags),
-            )
-            .order_by(Transaction.date.desc(), Transaction.id.desc())
-            .limit(limit)
-            .offset(offset)
+        base = self._base_stmt(
+            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids
         )
+        stmt = base.options(
+            selectinload(Transaction.account),
+            selectinload(Transaction.category),
+            selectinload(Transaction.payee),
+            selectinload(Transaction.splits).selectinload(TransactionSplit.category),
+            selectinload(Transaction.tags),
+        ).order_by(Transaction.date.desc(), Transaction.id.desc())
+        if search:
+            # The page is cut from the ids that matched, in the same order SQL
+            # would have given; only that page is loaded whole.
+            page_ids = (await self._search_ids(base, search))[offset : offset + limit]
+            if not page_ids:
+                return []
+            stmt = stmt.where(Transaction.id.in_(page_ids))
+        else:
+            stmt = stmt.limit(limit).offset(offset)
         result = await self.session.execute(stmt)
         return builtins.list(result.scalars().all())
+
+    async def _search_ids(self, base: Select[Transaction], search: str) -> builtins.list[int]:
+        """Ids of the rows under ``base`` whose description contains ``search``, newest first.
+
+        Case-insensitive, like the ``ILIKE`` it replaces. Reads two columns of
+        at most ``SEARCH_SCAN_LIMIT`` rows — never whole transactions — and
+        tests the decrypted descriptions here, because in the database they are
+        ciphertext.
+        """
+        needle = search.casefold()
+        ids = base.with_only_columns(Transaction.id, Transaction.description).order_by(
+            Transaction.date.desc(), Transaction.id.desc()
+        )
+        rows = await self.session.execute(ids.limit(SEARCH_SCAN_LIMIT))
+        return [tx_id for tx_id, description in rows.all() if needle in description.casefold()]
 
     async def count(
         self,
@@ -112,8 +140,10 @@ class TransactionService:
         tag_ids: builtins.list[int] | None = None,
     ) -> int:
         stmt = self._base_stmt(
-            account_ids, category_ids, date_from, date_to, tx_types, search, tag_ids
+            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids
         )
+        if search:
+            return len(await self._search_ids(stmt, search))
         count_stmt = select(func.count()).select_from(stmt.subquery())
         result = await self.session.execute(count_stmt)
         return result.scalar_one()

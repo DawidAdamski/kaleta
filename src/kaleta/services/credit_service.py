@@ -24,6 +24,7 @@ from kaleta.schemas.credit import (
     LoanView,
 )
 from kaleta.services.account_service import AccountService
+from kaleta.services.text_order import text_key
 
 # Grace period between the statement date and the overdue threshold. We treat
 # the payment_due_day as the hard cutoff — a balance paid on or before that day
@@ -79,9 +80,8 @@ class CreditService:
             select(Account, CreditCardProfile)
             .join(CreditCardProfile, CreditCardProfile.account_id == Account.id)
             .where(Account.type == AccountType.CREDIT)
-            .order_by(Account.name)
         )
-        rows = result.all()
+        rows = sorted(result.all(), key=lambda row: text_key(row[0].name))
         balances = await AccountService(self.session).balances([a.id for a, _ in rows])
         today = datetime.date.today()
         views: list[CardView] = []

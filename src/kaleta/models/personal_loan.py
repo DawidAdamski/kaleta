@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
 from kaleta.db.blind_index import BlindIndexSpec
-from kaleta.db.types import EncryptedText, blind_index
+from kaleta.db.types import EncryptedText, exact_index
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -37,7 +37,7 @@ class Counterparty(TimestampMixin, UserOwnedMixin, Base):
 
     __tablename__ = "counterparties"
     __table_args__ = (UniqueConstraint("name_bidx", name="uq_counterparty_name_bidx"),)
-    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", blind_index)}
+    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", exact_index)}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(EncryptedText("counterparties.name"), nullable=False)

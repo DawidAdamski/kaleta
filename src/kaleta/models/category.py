@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
 from kaleta.db.blind_index import BlindIndexSpec
-from kaleta.db.types import EncryptedText, blind_index
+from kaleta.db.types import EncryptedText, exact_index
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -21,7 +21,7 @@ class CategoryType(str, enum.Enum):  # noqa: UP042
 
 class Category(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "categories"
-    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", blind_index)}
+    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", exact_index)}
     __table_args__ = (
         UniqueConstraint(
             "parent_id", "type", "name_bidx", name="uq_categories_parent_type_name_bidx"

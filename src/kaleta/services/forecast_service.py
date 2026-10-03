@@ -20,6 +20,7 @@ from kaleta.models.account import Account
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.account_service import AccountService
 from kaleta.services.forecasters import active_forecaster_model, get_forecaster
+from kaleta.services.text_order import by_name
 
 if TYPE_CHECKING:
     from kaleta.services.planned_transaction_service import PlannedOccurrence
@@ -249,8 +250,8 @@ class ForecastService:
         self.session = session
 
     async def available_accounts(self) -> list[Account]:
-        result = await self.session.execute(select(Account).order_by(Account.name))
-        return list(result.scalars().all())
+        result = await self.session.execute(select(Account))
+        return by_name(result.scalars().all())
 
     async def forecast_account(
         self,

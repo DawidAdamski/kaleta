@@ -23,6 +23,7 @@ from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.planned_transaction import PlannedPriceDrift
 from kaleta.services.subscription_service import merchant_key_from_description
+from kaleta.services.text_order import text_key
 
 logger = logging.getLogger(__name__)
 
@@ -50,14 +51,12 @@ class PlannedPriceDriftService:
         the new price, the flag clears by itself.
         """
         plans_result = await self.session.execute(
-            select(PlannedTransaction)
-            .where(
+            select(PlannedTransaction).where(
                 PlannedTransaction.is_active.is_(True),
                 PlannedTransaction.type == TransactionType.EXPENSE,
             )
-            .order_by(PlannedTransaction.name, PlannedTransaction.id)
         )
-        plans = list(plans_result.scalars().all())
+        plans = sorted(plans_result.scalars().all(), key=lambda p: (text_key(p.name), p.id))
         if not plans:
             return []
 

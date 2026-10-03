@@ -14,9 +14,10 @@ below rather than imported, so this revision keeps meaning what it meant when
 it was written.
 
 Unique constraints on the plain ``name`` columns go — on ciphertext they can
-never fire — and ``uq_<table>_name_bidx`` replace them. That makes those names
-unique case-insensitively (the index normalises: NFKC, case-folded,
-whitespace collapsed).
+never fire — and ``uq_<table>_name_bidx`` replace them. A name index is
+*exact* (the HMAC of the value as written), so the names stay unique exactly
+as they were: "LIDL" and "Lidl" may both exist, and existing rows that
+differ only in case cannot make this revision fail.
 
 Revision ID: r2s3t4u5v6w7
 Revises: f7a8b9c0d1e2
@@ -94,8 +95,12 @@ def _index(normalised: str) -> str:
     return hmac.new(_PLAIN_INDEX_KEY, normalised.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
-def _name_index(value: str | None) -> str | None:
+def _key_index(value: str | None) -> str | None:
     return None if value is None else _index(_normalise(value))
+
+
+def _name_index(value: str | None) -> str | None:
+    return None if value is None else _index("=" + value)
 
 
 def _digits_index(value: str | None, last: int | None = None) -> str | None:
@@ -268,18 +273,14 @@ def upgrade() -> None:
             type_=sa.String(length=64),
             existing_nullable=True,
         )
-    _fill("dismissed_candidate_patterns", "merchant_key", {"merchant_key": _name_index}, bind)
+    _fill("dismissed_candidate_patterns", "merchant_key", {"merchant_key": _key_index}, bind)
 
     op.create_table(
         "local_key_material",
         sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column(
-            "user_id",
-            sa.Integer(),
-            sa.ForeignKey("users.id", ondelete="CASCADE"),
-            nullable=False,
-            unique=True,
-        ),
+        # No FK to users on purpose: a backup restore empties `users`, and a
+        # cascade would take the only copy of the sealed data key with it.
+        sa.Column("user_id", sa.Integer(), nullable=False, unique=True),
         sa.Column("key_version", sa.Integer(), nullable=False),
         sa.Column("public_key", sa.LargeBinary(), nullable=False),
         sa.Column("private_key_wrapped", sa.LargeBinary(), nullable=False),

@@ -18,6 +18,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from kaleta.db.types import exact_index
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.account import Account
 from kaleta.models.personal_loan import (
@@ -39,6 +40,7 @@ from kaleta.schemas.personal_loan import (
     RepaymentResponse,
 )
 from kaleta.services.loan_links import loan_linked_transaction_ids
+from kaleta.services.text_order import by_name
 
 
 class PersonalLoanService:
@@ -48,15 +50,17 @@ class PersonalLoanService:
     # ── Counterparty CRUD ─────────────────────────────────────────────────
 
     async def list_counterparties(self) -> builtins.list[Counterparty]:
-        result = await self.session.execute(select(Counterparty).order_by(Counterparty.name))
-        return list(result.scalars().all())
+        result = await self.session.execute(select(Counterparty))
+        return by_name(result.scalars().all())
 
     async def get_counterparty(self, cp_id: int) -> Counterparty | None:
         result = await self.session.execute(select(Counterparty).where(Counterparty.id == cp_id))
         return result.scalar_one_or_none()
 
     async def get_counterparty_by_name(self, name: str) -> Counterparty | None:
-        result = await self.session.execute(select(Counterparty).where(Counterparty.name == name))
+        result = await self.session.execute(
+            select(Counterparty).where(Counterparty.name_bidx == exact_index(name))
+        )
         return result.scalar_one_or_none()
 
     async def upsert_counterparty(self, name: str) -> Counterparty:

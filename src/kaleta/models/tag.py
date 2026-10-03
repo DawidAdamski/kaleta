@@ -8,7 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
 from kaleta.db.blind_index import BlindIndexSpec
-from kaleta.db.types import EncryptedText, blind_index
+from kaleta.db.types import EncryptedText, exact_index
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 # Association table — no ORM class, just a plain Table
@@ -33,7 +33,7 @@ transaction_tags = Table(
 class Tag(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "tags"
     __table_args__ = (UniqueConstraint("name_bidx", name="uq_tags_name_bidx"),)
-    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", blind_index)}
+    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", exact_index)}
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(EncryptedText("tags.name"), nullable=False)

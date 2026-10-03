@@ -19,6 +19,7 @@ from kaleta.models.report import SavedReport
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.report import SavedReportCreate
 from kaleta.services.categorised_flows import categorised_flows_selectable
+from kaleta.services.text_order import by_name, text_key
 
 if TYPE_CHECKING:  # report_columns imports this module's result types at runtime
     from kaleta.services.report_columns import DerivedResult
@@ -253,6 +254,14 @@ def build_report_table_data(result: ReportResult) -> ReportTableData:
     return ReportTableData(columns=columns, rows=rows)
 
 
+#: Axes grouped by id and named in Python, with the label of their null bucket.
+_NAMED_AXES: dict[str, tuple[type[Category] | type[Account] | type[Institution], str]] = {
+    "category": (Category, "Uncategorised"),
+    "account": (Account, "—"),
+    "institution": (Institution, "No Institution"),
+}
+
+
 # ── Service ────────────────────────────────────────────────────────────────────
 
 
@@ -263,8 +272,8 @@ class SavedReportService:
     # ── CRUD ──────────────────────────────────────────────────────────────────
 
     async def list(self) -> builtins.list[SavedReport]:
-        result = await self.session.execute(select(SavedReport).order_by(SavedReport.name))
-        return builtins.list(result.scalars().all())
+        result = await self.session.execute(select(SavedReport))
+        return by_name(result.scalars().all())
 
     async def get(self, report_id: int) -> SavedReport | None:
         result = await self.session.execute(select(SavedReport).where(SavedReport.id == report_id))
@@ -369,6 +378,10 @@ class SavedReportService:
                 config=config,
                 headers=(col_header, series_header, metric_header),
                 weekday_axes=(is_weekday, series_is_weekday),
+                names=(
+                    await self._axis_names(config.dimension, {r.label for r in rows}),
+                    await self._axis_names(config.series, {r.series for r in rows}),
+                ),
             )
 
         stmt = (
@@ -383,7 +396,8 @@ class SavedReportService:
             stmt = stmt.limit(limit)
 
         rows = builtins.list((await self.session.execute(stmt)).fetchall())
-        return self._rows_to_result(rows, col_header, metric_header, is_weekday)
+        names = await self._axis_names(config.dimension, {r.label for r in rows})
+        return self._rows_to_result(rows, col_header, metric_header, is_weekday, names)
 
     async def _execute_on_flows(
         self,
@@ -418,6 +432,10 @@ class SavedReportService:
                 config=config,
                 headers=(col_header, series_header, metric_header),
                 weekday_axes=(is_weekday, series_is_weekday),
+                names=(
+                    await self._axis_names(config.dimension, {r.label for r in rows}),
+                    await self._axis_names(config.series, {r.series for r in rows}),
+                ),
             )
 
         stmt = (
@@ -433,7 +451,28 @@ class SavedReportService:
             stmt = stmt.limit(limit)
 
         rows = builtins.list((await self.session.execute(stmt)).fetchall())
-        return self._rows_to_result(rows, col_header, metric_header, is_weekday)
+        names = await self._axis_names(config.dimension, {r.label for r in rows})
+        return self._rows_to_result(rows, col_header, metric_header, is_weekday, names)
+
+    async def _axis_names(
+        self, dimension: Dimension | None, keys: set[Any]
+    ) -> dict[Any, str] | None:
+        """``{id: name}`` for an axis grouped by id; None for any other axis.
+
+        The id ``None`` is the axis's own bucket for "nothing": an
+        uncategorised flow, an account without an institution.
+        """
+        if dimension not in _NAMED_AXES:
+            return None
+        model, nothing = _NAMED_AXES[dimension]
+        ids = [key for key in keys if key is not None]
+        names: dict[Any, str] = {None: nothing}
+        if ids:
+            rows = await self.session.execute(select(model.id, model.name).where(model.id.in_(ids)))
+            names.update({row.id: row.name for row in rows})
+        for key in ids:
+            names.setdefault(key, "—")
+        return names
 
     @staticmethod
     def _merge_joins(
@@ -466,6 +505,7 @@ class SavedReportService:
         config: ReportConfig,
         headers: tuple[str, str, str],
         weekday_axes: tuple[bool, bool],
+        names: tuple[dict[Any, str] | None, dict[Any, str] | None] = (None, None),
     ) -> PivotResult:
         """Turn ``(row, series, value)`` triples into the matrix the view draws.
 
@@ -475,6 +515,7 @@ class SavedReportService:
         """
         row_header, series_header, metric_header = headers
         row_is_weekday, series_is_weekday = weekday_axes
+        row_names, series_names = names
         if config.series is None:  # only ever called on the pivot path
             raise ValueError("A pivot needs a series dimension.")
 
@@ -491,11 +532,13 @@ class SavedReportService:
                 series_totals[series_key] = series_totals.get(series_key, 0.0) + value
 
         kept, folded = cls._cut_rows(row_totals, config)
-        row_order = cls._axis_order(kept, config.dimension, row_totals)
-        series_order = cls._axis_order(builtins.list(series_totals), config.series, series_totals)
+        row_order = cls._axis_order(kept, config.dimension, row_totals, row_names)
+        series_order = cls._axis_order(
+            builtins.list(series_totals), config.series, series_totals, series_names
+        )
 
         matrix = [[cells.get(key, {}).get(s, 0.0) for s in series_order] for key in row_order]
-        labels = [cls._label_of(key, row_is_weekday) for key in row_order]
+        labels = [cls._label_of(key, row_is_weekday, row_names) for key in row_order]
         if folded:
             matrix.append(
                 [sum(cells.get(key, {}).get(s, 0.0) for key in folded) for s in series_order]
@@ -506,7 +549,9 @@ class SavedReportService:
             row_header=row_header,
             series_header=series_header,
             row_labels=labels,
-            series_labels=[cls._label_of(key, series_is_weekday) for key in series_order],
+            series_labels=[
+                cls._label_of(key, series_is_weekday, series_names) for key in series_order
+            ],
             cells=matrix,
             metric_header=metric_header,
             row_totals=[sum(cell_row) for cell_row in matrix],
@@ -542,20 +587,25 @@ class SavedReportService:
         keys: builtins.list[Any],
         dimension: Dimension,
         totals: dict[Any, float],
+        names: dict[Any, str] | None = None,
     ) -> builtins.list[Any]:
         """A sequence stays in its own order; a bucket is ranked by its total.
 
         Sorted on the raw grouped value rather than on the label, so weekdays
         run Sunday-first off their index instead of alphabetically off their
-        name.
+        name. A named axis (grouped by id) breaks ties on the name.
         """
         if dimension in TIME_DIMENSIONS:
             return sorted(keys, key=lambda key: (key is None, str(key)))
+        if names is not None:
+            return sorted(keys, key=lambda key: (-totals.get(key, 0.0), text_key(names[key])))
         return sorted(keys, key=lambda key: (-totals.get(key, 0.0), str(key)))
 
     @staticmethod
-    def _label_of(raw: Any, is_weekday: bool) -> str:
+    def _label_of(raw: Any, is_weekday: bool, names: dict[Any, str] | None = None) -> str:
         """The same labelling the one-dimensional path does, for one value."""
+        if names is not None:
+            return names[raw]
         if raw is None:
             return "?" if is_weekday else "—"
         return _WEEKDAY_NAMES[int(raw)] if is_weekday else str(raw)
@@ -566,8 +616,11 @@ class SavedReportService:
         col_header: str,
         metric_header: str,
         is_weekday: bool,
+        names: dict[Any, str] | None = None,
     ) -> ReportResult:
-        if is_weekday:
+        if names is not None:
+            labels = [names[r.label] for r in rows]
+        elif is_weekday:
             labels = [_WEEKDAY_NAMES[int(r.label)] if r.label is not None else "?" for r in rows]
         else:
             labels = [str(r.label) if r.label is not None else "—" for r in rows]
@@ -682,28 +735,20 @@ class SavedReportService:
     def _dimension(
         dim: Dimension,
     ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool]:
-        """Return (dim_expr, joins, column_header, is_weekday)."""
+        """Return (dim_expr, joins, column_header, is_weekday).
+
+        Category, account and institution group by **id**: their names are
+        ciphertext, which SQL can neither group nor order by. ``_axis_names``
+        turns the ids into names afterwards, in Python.
+        """
         if dim == "category":
-            return (
-                func.coalesce(Category.name, "Uncategorised"),
-                [(Category, Transaction.category_id == Category.id, True)],
-                "Category",
-                False,
-            )
+            return (Transaction.category_id, [], "Category", False)
         if dim == "account":
-            return (
-                Account.name,
-                [(Account, Transaction.account_id == Account.id, False)],
-                "Account",
-                False,
-            )
+            return (Transaction.account_id, [], "Account", False)
         if dim == "institution":
             return (
-                func.coalesce(Institution.name, "No Institution"),
-                [
-                    (Account, Transaction.account_id == Account.id, False),
-                    (Institution, Account.institution_id == Institution.id, True),
-                ],
+                Account.institution_id,
+                [(Account, Transaction.account_id == Account.id, False)],
                 "Institution",
                 False,
             )
@@ -736,7 +781,7 @@ class SavedReportService:
                 True,
             )
         # fallback
-        return (func.coalesce(Category.name, "Uncategorised"), [], "Category", False)
+        return (Transaction.category_id, [], "Category", False)
 
     @staticmethod
     def _flow_dimension(
@@ -745,26 +790,13 @@ class SavedReportService:
     ) -> tuple[Any, builtins.list[tuple[Any, Any, bool]], str, bool]:
         """Return (dim_expr, joins, column_header, is_weekday) for categorised flows."""
         if dim == "category":
-            return (
-                func.coalesce(Category.name, "Uncategorised"),
-                [(Category, flow.c.category_id == Category.id, True)],
-                "Category",
-                False,
-            )
+            return (flow.c.category_id, [], "Category", False)
         if dim == "account":
-            return (
-                Account.name,
-                [(Account, flow.c.account_id == Account.id, False)],
-                "Account",
-                False,
-            )
+            return (flow.c.account_id, [], "Account", False)
         if dim == "institution":
             return (
-                func.coalesce(Institution.name, "No Institution"),
-                [
-                    (Account, flow.c.account_id == Account.id, False),
-                    (Institution, Account.institution_id == Institution.id, True),
-                ],
+                Account.institution_id,
+                [(Account, flow.c.account_id == Account.id, False)],
                 "Institution",
                 False,
             )
@@ -796,4 +828,4 @@ class SavedReportService:
                 "Weekday",
                 True,
             )
-        return (func.coalesce(Category.name, "Uncategorised"), [], "Category", False)
+        return (flow.c.category_id, [], "Category", False)

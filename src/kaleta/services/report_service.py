@@ -21,7 +21,6 @@ import datetime
 from collections import Counter
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
-from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -40,6 +39,15 @@ from kaleta.services.loan_links import loan_linked_transaction_ids
 _CENT = Decimal("0.01")
 
 # ── Shared dataclasses ────────────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class _CategoryTotal:
+    """One (category name, flow type) total; ``name`` is None for uncategorised."""
+
+    name: str | None
+    type: TransactionType
+    total: Decimal
 
 
 @dataclass
@@ -821,7 +829,7 @@ class ReportService:
                 Transaction.is_internal_transfer == False,  # noqa: E712
                 Transaction.id.not_in(loan_linked_transaction_ids()),
             )
-            .group_by(Payee.name)
+            .group_by(Payee.id, Payee.name)
             .order_by(func.sum(Transaction.amount).desc())
             .limit(limit)
         )
@@ -980,7 +988,7 @@ class ReportService:
         start: datetime.date,
         end: datetime.date,
         only_type: TransactionType | None = None,
-    ) -> list[Any]:
+    ) -> list[_CategoryTotal]:
         """Return list of rows with .name (category), .type, .total columns.
 
         Uncategorised transactions are bucketed under a NULL name row so the
@@ -989,19 +997,18 @@ class ReportService:
         flow = categorised_flows_selectable()
         stmt = (
             select(
-                Category.name.label("name"),
+                flow.c.category_id.label("category_id"),
                 flow.c.type.label("type"),
                 func.sum(flow.c.amount).label("total"),
             )
             .select_from(flow)
-            .join(Category, flow.c.category_id == Category.id, isouter=True)
             .where(
                 flow.c.date >= start,
                 flow.c.date < end,
                 flow.c.is_internal_transfer == False,  # noqa: E712
                 flow.c.transaction_id.not_in(loan_linked_transaction_ids()),
             )
-            .group_by(Category.name, flow.c.type)
+            .group_by(flow.c.category_id, flow.c.type)
         )
         if only_type is not None:
             stmt = stmt.where(flow.c.type == only_type)
@@ -1010,5 +1017,18 @@ class ReportService:
             # account-to-account movement, not income or expense.
             stmt = stmt.where(flow.c.type.in_([TransactionType.INCOME, TransactionType.EXPENSE]))
 
-        result = await self.session.execute(stmt)
-        return list(result.all())
+        grouped = list((await self.session.execute(stmt)).all())
+        ids = {row.category_id for row in grouped if row.category_id is not None}
+        names: dict[int, str] = {}
+        if ids:
+            named = await self.session.execute(
+                select(Category.id, Category.name).where(Category.id.in_(ids))
+            )
+            names = {row.id: row.name for row in named}
+        # Grouped by id in SQL (names are ciphertext), merged by name here so
+        # two categories that share a name still report as one, as before.
+        totals: dict[tuple[str | None, TransactionType], Decimal] = {}
+        for row in grouped:
+            key = (names.get(row.category_id), row.type)
+            totals[key] = totals.get(key, Decimal("0")) + Decimal(str(row.total or 0))
+        return [_CategoryTotal(name, kind, total) for (name, kind), total in totals.items()]
