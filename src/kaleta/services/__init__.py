@@ -13,6 +13,7 @@ from kaleta.services.credit_service import CreditService
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.day_totals import DayTotals
 from kaleta.services.dedupe_service import DedupeService
+from kaleta.services.hosted_mfa_service import FactorGateway, HostedEnrolment, HostedMfaService
 from kaleta.services.import_rule_service import ImportRuleService
 from kaleta.services.institution_service import InstitutionService
 from kaleta.services.integrity_service import IntegrityService
@@ -60,6 +61,9 @@ __all__ = [
     # own: no session, nothing to construct.
     "DayTotals",
     "DedupeService",
+    "FactorGateway",
+    "HostedEnrolment",
+    "HostedMfaService",
     "ImportRuleService",
     "InstitutionService",
     "IntegrityService",

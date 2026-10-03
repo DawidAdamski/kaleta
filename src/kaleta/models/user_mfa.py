@@ -17,6 +17,10 @@ from kaleta.db.types import EncryptedString
 #: authenticator means dropping that uniqueness first; the column alone does
 #: not buy it.
 MFA_KIND_TOTP = "totp"
+#: A TOTP factor Supabase Auth holds (``KALETA_AUTH_BACKEND=supabase``). The
+#: shared secret never reaches Kaleta: the row keeps GoTrue's factor id in
+#: ``totp_secret`` (see there), the recovery codes, and ``enabled_at``.
+MFA_KIND_SUPABASE = "supabase_totp"
 
 
 class UserMfa(Base):
@@ -35,6 +39,11 @@ class UserMfa(Base):
         default=MFA_KIND_TOTP,
         server_default=MFA_KIND_TOTP,
     )
+    #: The TOTP shared secret for ``MFA_KIND_TOTP``. For ``MFA_KIND_SUPABASE``
+    #: it holds GoTrue's factor id instead — not a secret, but an identifier
+    #: worth no more in plain text than encrypted, and keeping it here spares a
+    #: second column that only one kind would ever fill. ``MfaService`` never
+    #: computes a code from a row of that kind.
     totp_secret: Mapped[str] = mapped_column(
         EncryptedString(aad="user_mfa.totp_secret"),
         nullable=False,

@@ -193,6 +193,12 @@ the load balancer**: a browser that bounces between replicas mid-login may
 briefly see the state from before it. Session keys in Redis have no TTL; the
 app's own `KALETA_SESSION_TTL_HOURS` / `KALETA_SESSION_IDLE_HOURS` still end
 the session, and a `maxmemory-policy` of `allkeys-lru` bounds the rest.
+Sticky sessions are a hard requirement for hosted two-factor sign-in, not
+only a nicety: between the password and the code, the provider's `aal1`
+session waits in the memory of the replica that took the password (it holds
+an access token, so it is never written to Redis). A code prompt served by
+another replica, or by a restarted one, finds nothing and sends the person
+back to the password with "That took too long".
 
 **Permission model.** Nothing secret goes into session storage — no password
 hash, TOTP secret, recovery code or key (ADR-035, enforced by

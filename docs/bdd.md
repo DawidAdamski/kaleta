@@ -3361,6 +3361,66 @@ Feature: Two-factor authentication
     When five logins from one address fail on the first replica
     Then a login from that address on the second replica is refused for 15 minutes
     And failures split between the replicas add up to the same lock
+
+  # Hosted (KALETA_AUTH_BACKEND=supabase): Supabase Auth holds the factor and
+  # checks the codes; Kaleta keeps the recovery codes.
+
+  KAL-AUTH-036 @automated
+  Scenario: On the hosted instance the second factor is set up with the provider
+    Given I am signed in to a hosted account
+    And two-factor authentication is off
+    When I start the two-factor setup in Settings → Security
+    Then I am asked for my password before anything else
+    And with the right one I see a QR code from the sign-in service
+    When I enter the code the authenticator app shows
+    Then the sign-in service holds a verified factor for me
+    And I am shown ten one-time recovery codes that Kaleta keeps
+    But a wrong password, a wrong code or a cancel leaves no factor behind
+
+  KAL-AUTH-037 @automated
+  Scenario: A hosted sign-in reaches aal2 before it opens anything
+    Given two-factor authentication is on for my hosted account
+    When I give the right password, or follow a magic sign-in link
+    Then I am sent to the code prompt and nothing else is open to me
+    And the provider's half-finished session is held in memory, never in the session store
+    When I enter a wrong code
+    Then I stay on the code prompt and see that the code is not right
+    When I enter the code the authenticator app shows
+    Then the sign-in service confirms the session at aal2
+    And I am signed in
+
+  KAL-AUTH-038 @automated
+  Scenario: A hosted recovery code removes the factor and asks for a new one
+    Given two-factor authentication is on for my hosted account
+    And I have given the right password
+    When I choose to use a recovery code
+    Then I am told it works once and turns two-factor authentication off
+    When I enter one of my recovery codes
+    Then I am signed in
+    And the sign-in service no longer holds my factor
+    And I land on Settings → Security, which asks me to set it up again
+    And every sign-in until I do lands there too
+    But a code that is not one of mine removes nothing
+
+  KAL-AUTH-039 @automated
+  Scenario: Hosted step-up and turning it off ask the provider
+    Given two-factor authentication is on for my hosted account
+    When an action asks me to confirm it is me
+    Then I give my password and a current code, and the sign-in service checks both
+    And a recovery code is not taken there
+    When I turn two-factor authentication off with the right password and code
+    Then the sign-in service no longer holds my factor
+    And a wrong password and a wrong code are answered with the same sentence
+
+  # Implemented; @planned until someone walks it on the hosted instance (it
+  # needs a real Supabase project and an authenticator app).
+  KAL-AUTH-040 @planned
+  Scenario: The hosted second factor, end to end
+    Given a hosted account on the deployed instance
+    When I enrol, sign out and sign in again with the code
+    Then the session the sign-in service issued reports aal2
+    When I sign out and sign in with a recovery code instead
+    Then I am sent to set two-factor authentication up again
 ```
 
 ## Feature: Hosted accounts (multi-tenant)

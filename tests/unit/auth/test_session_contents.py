@@ -21,6 +21,7 @@ from typing import Any
 import pytest
 
 from kaleta.auth import session as session_mod
+from kaleta.schemas.identity import Identity, MfaRequired
 
 _SESSION_PY = Path(session_mod.__file__)
 
@@ -41,6 +42,17 @@ _TENANT = session_mod.SessionTenant(
     schema="t_0123456789ab",
     auth_subject="0b7c2c8e-6f1a-4c55-9d7e-1c2b3a4d5e6f",
     email="ania@example.com",
+)
+
+_ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiJ9.aal1-access-token.c2ln"
+_HOSTED_PENDING = MfaRequired(
+    identity=Identity(
+        subject=_TENANT.auth_subject,
+        email=_TENANT.email,
+        email_verified=True,
+        access_token=_ACCESS_TOKEN,
+    ),
+    factor_id="f-1",
 )
 
 
@@ -112,6 +124,10 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
 
     session_mod.begin_mfa_challenge(user_id=_USER_ID, username=_USERNAME)
     snapshot()
+    # The hosted variant parks an aal1 access token — in process memory only;
+    # the bucket gets a reference to it.
+    session_mod.begin_hosted_mfa_challenge(_HOSTED_PENDING)
+    snapshot()
     session_mod.finish_login(
         user_id=_USER_ID, username=_USERNAME, target="/", mfa_verified=True, tenant=_TENANT
     )
@@ -142,4 +158,10 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
                 or value in {_TENANT.schema, _TENANT.auth_subject, _TENANT.email}
                 or _is_iso_timestamp(value)
                 or (key == session_mod.SESSION_ROTATE_NONCE and len(value) == len(nonce))
+                or (
+                    key == session_mod.SESSION_HOSTED_MFA_REF
+                    and len(value) == len(nonce)
+                    and _ACCESS_TOKEN not in value
+                )
             ), f"{key} holds an unexpected value {value!r}"
+    assert not any(_ACCESS_TOKEN in str(v) for vs in seen.values() for v in vs)

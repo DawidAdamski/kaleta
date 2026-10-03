@@ -10,5 +10,5 @@ from kaleta.views.settings.page import settings_page
 
 def register() -> None:
     @ui.page("/settings")
-    async def _route() -> None:
-        await settings_page()
+    async def _route(tab: str = "") -> None:
+        await settings_page(tab=tab)

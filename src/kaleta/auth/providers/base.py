@@ -15,9 +15,9 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from kaleta.schemas.identity import Identity, MfaRequired, SignUpResult
+from kaleta.schemas.identity import FactorEnrolment, Identity, MfaRequired, SignUpResult
 
-__all__ = ["AuthProvider", "Identity", "MfaRequired", "SignUpResult"]
+__all__ = ["AuthProvider", "FactorEnrolment", "Identity", "MfaRequired", "SignUpResult"]
 
 
 class AuthProvider(Protocol):
@@ -41,4 +41,16 @@ class AuthProvider(Protocol):
 
     async def request_magic_link(self, email: str) -> None: ...
 
-    async def verify_magic_link(self, token_hash: str) -> Identity: ...
+    async def verify_magic_link(self, token_hash: str) -> Identity | MfaRequired: ...
+
+    # The second factor, where the provider owns it. ``local`` refuses all
+    # three: a self-hosted install keeps its factor in ``user_mfa`` and goes
+    # through ``MfaService`` instead.
+
+    async def mfa_enrol(self, identity: Identity) -> FactorEnrolment: ...
+
+    async def mfa_challenge_verify(
+        self, identity: Identity, factor_id: str, code: str
+    ) -> Identity: ...
+
+    async def mfa_unenrol(self, subject: str, factor_id: str) -> None: ...

@@ -311,3 +311,10 @@ check it still reproduces before acting on it.
       `verify.sh --e2e` while `review_gate.sh`'s reviewer was running the e2e
       suite too. Fix: fail fast when the port is already bound before
       spawning, or pick free ports.
+- [ ] **`test_a_days_totals_count_its_subscription_charges` fails on the 2nd
+      of every month** (`tests/e2e/test_planned_transactions.py`). It seeds
+      its subscription on day 2 "because no other test in this file seeds
+      it". But when today *is* the 2nd, the file's other tests seed "today",
+      so the cell reads `-3 273.99`, not `-12.99`. It passes alone and fails
+      with its file, on `main` too (seen 2026-10-02). Fix: pick a day that is
+      neither today nor seeded, e.g. the 3rd, or the 4th when today is the 3rd.
