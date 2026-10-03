@@ -368,6 +368,10 @@ no user text by design), `ApiToken.label` (operator-visible on purpose
   path); bearer tokens ride on a real `key_ring` entry for the API user;
   CLI tests give their file database a key holder sealing the suite's key
   (`tests/encryption_helpers.py`).
-- **Not done**: a CI matrix entry for the encrypted run (no workflow change in
+- **Docs**: `docs/privacy-events.md` is renamed `docs/privacy.md` (as the
+  touchpoints say) and opens with the Encryption section; live links are
+  updated, archived plans keep their old mention.
+- **Not done**: a CI matrix entry for the encrypted run (parked in
+  `docs/plans/chores.md`) (no workflow change in
   this plan's touchpoints); `Tenant.name` stays `Text` — nothing writes it
   yet, and it lives in the registry, outside any tenant's key.

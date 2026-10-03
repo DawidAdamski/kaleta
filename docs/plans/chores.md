@@ -326,3 +326,8 @@ check it still reproduces before acting on it.
       Seen while checking `hosted-field-encryption`'s revision, which is clean.
       Fix: declare the indexes on the model (or drop them) and align the types
       in one revision.
+- [ ] **CI does not run the suite with `KALETA_ENCRYPTION=passphrase`.**
+      `hosted-field-encryption` made `uv run pytest tests/unit tests/integration`
+      green in that mode on SQLite and Postgres, but only locally; add a
+      matrix entry (SQLite + the Postgres job) so a regression under
+      encryption is caught.
