@@ -3,7 +3,7 @@ plan_id: hosted-field-encryption
 title: Hosted — user-held data passphrase and field-level encryption
 area: db / auth / settings
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
