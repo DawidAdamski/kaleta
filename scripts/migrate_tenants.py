@@ -8,7 +8,8 @@ as a one-off job before a rollout (ADR-35):
     uv run python scripts/migrate_tenants.py --check   # report only, exit 1 if behind
 
 Exit status: 0 when everything is at head, 1 when ``--check`` finds a schema
-behind, 2 when a migration fails (the failing schema is named).
+behind, 2 when the registry fails to migrate, 3 when a tenant schema failed —
+that account is now ``suspended`` and every other one was migrated.
 """
 
 from __future__ import annotations
@@ -40,13 +41,15 @@ class MigrateTenantsCli:
         if self._check_only:
             return self._check()
         try:
-            migrated = ensure_multi_tenant_current(self._db_url)
+            run = ensure_multi_tenant_current(self._db_url)
         except MigrationError as exc:
             print(f"migrate_tenants: {exc.message}", file=sys.stderr)
             return 2
         total = len(tenant_schema_names(self._db_url))
-        print(f"migrate_tenants: {len(migrated)} of {total} tenant schema(s) upgraded to head.")
-        return 0
+        print(f"migrate_tenants: {len(run.migrated)} of {total} tenant schema(s) upgraded to head.")
+        for schema in run.suspended:
+            print(f"migrate_tenants: {schema} failed to migrate; suspended.", file=sys.stderr)
+        return 3 if run.suspended else 0
 
     def _check(self) -> int:
         registry_behind = current_revision(self._db_url, public=True) != head_revision(public=True)

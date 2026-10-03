@@ -23,6 +23,9 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 
+#: What ``KALETA_SUPABASE_SERVICE_ROLE_KEY`` is set to against this stand-in.
+SERVICE_ROLE_KEY = "service-role-e2e"
+
 
 def _jwt(claims: dict[str, Any]) -> str:
     def _part(data: dict[str, Any]) -> str:
@@ -199,6 +202,17 @@ class FakeGoTrue:
                 redirect_to = request.query_params.get("redirect_to", "")
                 self.inbox[email] = f"{redirect_to}?token_hash={token_hash}"
             return JSONResponse({})
+
+        @app.delete("/auth/v1/admin/users/{user_id}")
+        async def admin_delete_user(user_id: str, request: Request) -> JSONResponse:
+            # The service-role key is the e2e fixture's; anything else is refused.
+            if request.headers.get("authorization") != f"Bearer {SERVICE_ROLE_KEY}":
+                return JSONResponse({"code": 401, "error_code": "not_admin"}, 401)
+            for email, user in list(self.users.items()):
+                if user.id == user_id:
+                    del self.users[email]
+                    return JSONResponse({})
+            return JSONResponse({"code": 404, "error_code": "user_not_found"}, 404)
 
         @app.get("/_test/inbox")
         async def inbox(email: str) -> JSONResponse:

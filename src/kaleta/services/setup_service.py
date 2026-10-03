@@ -7,6 +7,7 @@ import asyncio
 import logging
 import os
 from argparse import Namespace
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from alembic.config import Config
@@ -270,23 +271,21 @@ async def activate_database(db_url: str, *, name: str) -> None:
 # ── KALETA_TENANCY=multi ──────────────────────────────────────────────────────
 
 
+def _registry_url_and_table(db_url: str) -> tuple[str, str]:
+    from kaleta.db.tenant_schemas import PUBLIC_SCHEMA, is_sqlite_url, sqlite_schema_file
+
+    if is_sqlite_url(db_url):
+        return "sqlite:///" + str(sqlite_schema_file(db_url, PUBLIC_SCHEMA)), "tenants"
+    return db_url, f"{PUBLIC_SCHEMA}.tenants"
+
+
 def tenant_schema_names(db_url: str) -> list[str]:
     """Every tenant schema the registry knows of, except those being deleted."""
     from sqlalchemy import text
 
-    from kaleta.db.tenant_schemas import (
-        PUBLIC_SCHEMA,
-        is_sqlite_url,
-        is_valid_schema_name,
-        sqlite_schema_file,
-    )
+    from kaleta.db.tenant_schemas import is_valid_schema_name
 
-    if is_sqlite_url(db_url):
-        url = "sqlite:///" + str(sqlite_schema_file(db_url, PUBLIC_SCHEMA))
-        table = "tenants"
-    else:
-        url = db_url
-        table = f"{PUBLIC_SCHEMA}.tenants"
+    url, table = _registry_url_and_table(db_url)
     engine = create_engine(_sync_url(url))
     try:
         with engine.connect() as conn:
@@ -309,13 +308,41 @@ def tenants_pending_migration(db_url: str) -> list[str]:
     ]
 
 
-def ensure_multi_tenant_current(db_url: str) -> list[str]:
-    """Bring the registry, then every tenant schema, to head; return those migrated.
+@dataclass(frozen=True)
+class TenantMigrationRun:
+    """What one pass over the tenant schemas did."""
+
+    #: Schemas brought to head.
+    migrated: list[str] = field(default_factory=list)
+    #: Schemas whose migration failed; their accounts are now ``suspended``.
+    suspended: list[str] = field(default_factory=list)
+
+
+def suspend_tenant_schema(db_url: str, schema: str) -> None:
+    """Mark the account living in ``schema`` ``suspended`` — its sign-ins are refused."""
+    from sqlalchemy import text
+
+    url, table = _registry_url_and_table(db_url)
+    engine = create_engine(_sync_url(url))
+    try:
+        with engine.begin() as conn:
+            conn.execute(
+                text(f"UPDATE {table} SET status = 'suspended' WHERE schema_name = :schema"),  # noqa: S608 — constant table name
+                {"schema": schema},
+            )
+    finally:
+        engine.dispose()
+
+
+def ensure_multi_tenant_current(db_url: str) -> TenantMigrationRun:
+    """Bring the registry, then every tenant schema, to head.
 
     Startup of a multi-tenant instance and ``scripts/migrate_tenants.py``. No
     safety copy: that is SQLite's file backup, and a hosted database is backed
-    up by its provider. One schema failing stops the run with that schema
-    named — the others keep whatever revision they reached.
+    up by its provider. The registry failing stops the run — nothing can start
+    without it. A tenant schema failing suspends that one account (its members
+    are refused at sign-in, the health probe lists it) and the run goes on, so
+    one broken schema does not keep every other household out.
     """
     try:
         if current_revision(db_url, public=True) != head_revision(public=True):
@@ -324,11 +351,20 @@ def ensure_multi_tenant_current(db_url: str) -> list[str]:
     except Exception as exc:
         raise MigrationError(f"Failed to migrate the tenant registry: {exc}") from exc
     migrated: list[str] = []
+    suspended: list[str] = []
     for schema in tenants_pending_migration(db_url):
         logger.info("Upgrading tenant schema %s to head", schema)
         try:
             upgrade_to_head(db_url, schema=schema)
-        except Exception as exc:
-            raise MigrationError(f"Failed to migrate tenant schema {schema}: {exc}") from exc
+        except Exception:
+            logger.exception("Failed to migrate tenant schema %s; suspending its account", schema)
+            try:
+                suspend_tenant_schema(db_url, schema)
+            except Exception as exc:
+                raise MigrationError(
+                    f"Failed to migrate tenant schema {schema} and could not suspend it: {exc}"
+                ) from exc
+            suspended.append(schema)
+            continue
         migrated.append(schema)
-    return migrated
+    return TenantMigrationRun(migrated=migrated, suspended=suspended)

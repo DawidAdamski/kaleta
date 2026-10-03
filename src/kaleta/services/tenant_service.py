@@ -305,6 +305,16 @@ class TenantService:
         await self.session.commit()
         return tenant
 
+    async def resume(self, tenant_id: int) -> Tenant:
+        """A suspended account is let in again; any other status is left alone."""
+        tenant = await self._require_tenant(tenant_id)
+        if tenant.status is not TenantStatus.SUSPENDED:
+            msg = f"Tenant {tenant_id} is {tenant.status.value}, not suspended."
+            raise ConflictError(msg)
+        tenant.status = TenantStatus.ACTIVE
+        await self.session.commit()
+        return tenant
+
     async def delete(self, tenant_id: int) -> list[str]:
         """Drop the tenant's schema and registry rows; return its members' subjects.
 

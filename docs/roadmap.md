@@ -170,7 +170,9 @@ Feature-flag mechanism separating core from commercial modules
 - Multi-user & workspaces (household sharing) on the Q3 user-model
   groundwork.
 - Commercial tier v1: AI categorisation + monthly narrative summary
-  behind the paywall; managed hosting.
+  behind the paywall; managed hosting — **in progress**: multi-tenant
+  accounts, user-held encryption and the Supabase rollout tooling
+  (`hosted-supabase-rollout`) are built; billing is not.
 - Bank connectivity (open banking / PSD2 aggregator) replacing manual
   CSV import as the primary path.
 - Mobile: PWA push notifications (bill reminders from Payment
