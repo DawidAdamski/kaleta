@@ -20,7 +20,7 @@ the earlier plans introduce (session storage on disk, single-process
 keyring) so the hosted instance can be restarted without surprises.
 
 Depends on [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
-and [`hosted-field-encryption`](hosted-field-encryption.md).
+and [`hosted-field-encryption`](archive/hosted-field-encryption.md).
 
 ## Scope
 

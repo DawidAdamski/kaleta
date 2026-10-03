@@ -168,7 +168,7 @@ and is untouched.
 | # | Plan | Effort | Status | Depends on |
 |---|---|---|---|---|
 | 1 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | draft | — |
-| 2 | [hosted-field-encryption](hosted-field-encryption.md) | large | draft | 1 |
+| 2 | [hosted-field-encryption](archive/hosted-field-encryption.md) | archived | draft | 1 |
 | 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
 | 4 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | medium | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](archive/auth-two-factor.md) | archived | draft | Phase A: — ; Phase B: 1 |
@@ -343,7 +343,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [accounts-ledger-balances](archive/accounts-ledger-balances.md) | archived | Accounts — balances follow the ledger (blocks funds-savings-goals, funds-irregular-items) |
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | Hosted programme (1) |
-| [hosted-field-encryption](hosted-field-encryption.md) | draft | Hosted programme (2) |
+| [hosted-field-encryption](archive/hosted-field-encryption.md) | archived | Hosted programme (2) |
 | [hosted-household-sharing](hosted-household-sharing.md) | draft | Hosted programme (3) |
 | [wizard-what-if-scenarios](archive/wizard-what-if-scenarios.md) | archived | Wizard / Forecast — dogfooding gap (Coming soon tile) |
 | [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
