@@ -5,11 +5,12 @@ import datetime
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Date, Numeric, String
+from sqlalchemy import Date, Numeric
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -24,14 +25,16 @@ class Asset(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "assets"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(EncryptedText("assets.name"), nullable=False)
     type: Mapped[AssetType] = mapped_column(
         SAEnum(AssetType, native_enum=False), nullable=False, default=AssetType.OTHER
     )
     value: Mapped[Decimal] = mapped_column(
         Numeric(precision=15, scale=2), nullable=False, default=Decimal("0.00")
     )
-    description: Mapped[str] = mapped_column(String(500), nullable=False, server_default="")
+    description: Mapped[str] = mapped_column(
+        EncryptedText("assets.description"), nullable=False, default=""
+    )
     purchase_date: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     purchase_price: Mapped[Decimal | None] = mapped_column(
         Numeric(precision=15, scale=2), nullable=True

@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import enum
+from typing import ClassVar
 
 from sqlalchemy import Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.blind_index import BlindIndexSpec
+from kaleta.db.types import EncryptedText, blind_index
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -18,12 +21,16 @@ class CategoryType(str, enum.Enum):  # noqa: UP042
 
 class Category(TimestampMixin, UserOwnedMixin, Base):
     __tablename__ = "categories"
+    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", blind_index)}
     __table_args__ = (
-        UniqueConstraint("name", "parent_id", "type", name="uq_categories_name_parent_type"),
+        UniqueConstraint(
+            "parent_id", "type", "name_bidx", name="uq_categories_parent_type_name_bidx"
+        ),
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    name: Mapped[str] = mapped_column(EncryptedText("categories.name"), nullable=False)
+    name_bidx: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     type: Mapped[CategoryType] = mapped_column(
         SAEnum(CategoryType, native_enum=False), nullable=False
     )

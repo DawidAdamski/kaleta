@@ -15,6 +15,7 @@ from kaleta.models.dismissed_transfer_pair import DismissedTransferPair
 from kaleta.models.import_rule import ImportRule
 from kaleta.models.import_run import ImportRun
 from kaleta.models.institution import Institution, InstitutionType
+from kaleta.models.local_key_material import LocalKeyMaterial
 from kaleta.models.monthly_readiness import MonthlyReadiness
 from kaleta.models.payee import Payee
 from kaleta.models.payee_identity import PayeeIdentity
@@ -70,6 +71,7 @@ __all__ = [
     "LoanDirection",
     "LoanProfile",
     "LoanStatus",
+    "LocalKeyMaterial",
     "MonthlyReadiness",
     "Payee",
     "PayeeAutoMerge",

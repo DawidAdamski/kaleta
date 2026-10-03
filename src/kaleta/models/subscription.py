@@ -5,11 +5,12 @@ import datetime
 import enum
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Date, ForeignKey, Integer, Numeric
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
+from kaleta.db.types import EncryptedText
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -36,7 +37,7 @@ class Subscription(TimestampMixin, UserOwnedMixin, Base):
     category_id: Mapped[int | None] = mapped_column(
         ForeignKey("categories.id", ondelete="SET NULL"), nullable=True
     )
-    name: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(EncryptedText("subscriptions.name"), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     cadence_days: Mapped[int] = mapped_column(Integer, nullable=False, default=30)
     first_seen_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
@@ -48,9 +49,9 @@ class Subscription(TimestampMixin, UserOwnedMixin, Base):
     )
     muted_until: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
     cancelled_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    url: Mapped[str | None] = mapped_column(EncryptedText("subscriptions.url"), nullable=True)
     auto_renew: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(EncryptedText("subscriptions.notes"), nullable=True)
 
     def __repr__(self) -> str:
         return (

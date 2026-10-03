@@ -20,8 +20,15 @@ For the TOTP secret that means re-enrolling, and ``kaleta --reset-password
 
 from __future__ import annotations
 
+import hashlib
+import hmac
 import os
-from collections.abc import Callable
+import re
+import unicodedata
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from functools import lru_cache
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -31,7 +38,9 @@ from sqlalchemy import Dialect, LargeBinary
 from sqlalchemy.types import TypeDecorator
 
 from kaleta.config import settings
-from kaleta.exceptions import EncryptionError
+from kaleta.crypto import DataKey
+from kaleta.db.tenant_context import current_tenant
+from kaleta.exceptions import EncryptionError, TenantLockedError
 
 #: A callable that returns the 32-byte key every :class:`EncryptedString`
 #: column encrypts under.
@@ -159,3 +168,221 @@ class EncryptedString(TypeDecorator[str]):
                 "KALETA_SECRET_KEY changed after the value was written."
             )
             raise EncryptionError(msg) from exc
+
+
+# ── Field-level encryption under the account's data key ──────────────────────
+#
+# ``EncryptedString`` above protects one *server* secret (the TOTP seed) under
+# a key derived from ``KALETA_SECRET_KEY``. ``EncryptedText`` below protects
+# the *user's* text under the data key only an unlocked session holds
+# (``hosted-field-encryption``): the operator, holding ``KALETA_SECRET_KEY``
+# and the database, still cannot read it.
+
+#: Plain UTF-8: ``KALETA_ENCRYPTION=off``, and rows written before it was on.
+TEXT_FORMAT_PLAIN = 0x00
+#: AES-256-GCM under the data key: ``\x01``, one key-version byte, a 12-byte
+#: nonce, then ciphertext and tag. AAD = ``table.column``.
+TEXT_FORMAT_AES_GCM = 0x01
+
+DataKeyResolver = Callable[[], DataKey | None]
+
+_explicit_key: ContextVar[DataKey | None] = ContextVar("kaleta_data_key", default=None)
+_key_resolver: DataKeyResolver | None = None
+
+
+def install_data_key_resolver(resolver: DataKeyResolver | None) -> None:
+    """Where ``single`` mode finds the unlocked data key outside an explicit block.
+
+    ``multi`` mode carries it on ``TenantContext.key_ring`` instead; this one
+    answers for the self-hosted session (``KALETA_ENCRYPTION=passphrase``).
+    """
+    global _key_resolver  # one process-wide resolver by design, like the tenant one
+    _key_resolver = resolver
+
+
+@contextmanager
+def use_data_key(key: DataKey | None) -> Iterator[None]:
+    """Encrypt and decrypt under ``key`` for the duration of the block (scripts, tests)."""
+    token = _explicit_key.set(key)
+    try:
+        yield
+    finally:
+        _explicit_key.reset(token)
+
+
+def current_data_key() -> DataKey | None:
+    """The data key for this request, task or block — ``None`` when locked."""
+    explicit = _explicit_key.get()
+    if explicit is not None:
+        return explicit
+    ctx = current_tenant()
+    if ctx is not None:
+        return ctx.key_ring
+    if _key_resolver is not None:
+        return _key_resolver()
+    return None
+
+
+def _locked() -> TenantLockedError:
+    return TenantLockedError("Unlock your data with your passphrase first.")
+
+
+def _require_key() -> DataKey:
+    key = current_data_key()
+    if key is None:
+        raise _locked()
+    return key
+
+
+class EncryptedText(TypeDecorator[str]):
+    """``str`` in Python; ciphertext (or format-``\\x00`` plaintext) in the database.
+
+    Nothing but ``IS NULL`` may be asked of such a column in SQL: equality on
+    ciphertext never matches (every write has a fresh nonce), and ordering or
+    ``LIKE`` on bytes is meaningless. Equality goes through a ``*_bidx``
+    column (:func:`blind_index`); search and sort happen in Python.
+    """
+
+    impl = LargeBinary
+    cache_ok = True
+
+    def __init__(self, aad: str, plaintext_while_locked: bool = False) -> None:
+        """``aad`` is ``table.column``; it binds a ciphertext to the column it was written to.
+
+        ``plaintext_while_locked`` is for ``audit_log`` alone: authentication
+        events are written before the account is unlocked (a sign-in, a
+        second-factor check) and carry nothing the operator does not already
+        hold — an e-mail address and an event name — so they are stored under
+        the plaintext format byte rather than refused. Everything written
+        after the unlock is encrypted like any other column.
+        """
+        super().__init__()
+        # Public and positional-or-keyword for SQLAlchemy's cache key, exactly
+        # as ``EncryptedString.aad`` (see there).
+        self.aad = aad
+        self.plaintext_while_locked = plaintext_while_locked
+
+    def process_bind_param(self, value: str | bytes | None, dialect: Dialect) -> bytes | None:
+        if value is None:
+            return None
+        if isinstance(value, bytes):
+            # A stored value carried through untouched (backup restore). Only
+            # a ciphertext passes while encryption is on: a plaintext blob
+            # handed in would otherwise land unencrypted in an encrypted
+            # account. With encryption off either format is accepted, so a
+            # database can be restored from before it was switched off.
+            allowed = {TEXT_FORMAT_AES_GCM}
+            if not settings.encryption_enabled:
+                allowed.add(TEXT_FORMAT_PLAIN)
+            if not value or value[0] not in allowed:
+                msg = "Refusing to store a value that is not an encrypted payload"
+                raise EncryptionError(msg)
+            return value
+        plain = value.encode("utf-8")
+        if not settings.encryption_enabled:
+            return bytes([TEXT_FORMAT_PLAIN]) + plain
+        key = current_data_key()
+        if key is None:
+            if self.plaintext_while_locked:
+                return bytes([TEXT_FORMAT_PLAIN]) + plain
+            raise _locked()
+        nonce = os.urandom(_NONCE_BYTES)
+        sealed = _aead(key.dek).encrypt(nonce, plain, self.aad.encode("utf-8"))
+        return bytes([TEXT_FORMAT_AES_GCM, key.version]) + nonce + sealed
+
+    def process_result_value(self, value: bytes | None, dialect: Dialect) -> str | None:
+        if value is None:
+            return None
+        value = bytes(value)
+        if not value:
+            msg = "Encrypted column holds an empty value"
+            raise EncryptionError(msg)
+        marker = value[0]
+        if marker == TEXT_FORMAT_PLAIN:
+            return value[1:].decode("utf-8")
+        if marker != TEXT_FORMAT_AES_GCM:
+            msg = f"Unknown encrypted column format {marker:#04x}"
+            raise EncryptionError(msg)
+        key = _require_key()
+        version = value[1]
+        if version != key.version:
+            msg = (
+                f"This value was written under key version {version}; "
+                f"the unlocked key is version {key.version}."
+            )
+            raise EncryptionError(msg)
+        nonce, body = value[2 : 2 + _NONCE_BYTES], value[2 + _NONCE_BYTES :]
+        try:
+            return _aead(key.dek).decrypt(nonce, body, self.aad.encode("utf-8")).decode("utf-8")
+        except InvalidTag as exc:
+            msg = f"Could not decrypt {self.aad}: wrong key, or the value was moved or damaged."
+            raise EncryptionError(msg) from exc
+
+
+@lru_cache(maxsize=8)
+def _aead(dek: bytes) -> AESGCM:
+    """One AES-GCM context per key: the key schedule is the expensive part of a small value."""
+    return AESGCM(dek)
+
+
+# ── Blind indexes ─────────────────────────────────────────────────────────────
+
+#: The index key while encryption is off. Public on purpose — there is nothing
+#: to hide in a database that stores the plaintext next to it — and present so
+#: equality and uniqueness go through the same ``*_bidx`` column in both modes:
+#: an ``EncryptedText`` column is bytes either way, so SQL ``lower()`` and
+#: collations no longer apply to it.
+_PLAIN_INDEX_KEY = HKDF(
+    algorithm=SHA256(), length=_KEY_BYTES, salt=None, info=b"kaleta-blind-index-plaintext"
+).derive(b"\x00" * _KEY_BYTES)
+
+_WHITESPACE = re.compile(r"\s+")
+
+
+def normalise_for_index(value: str) -> str:
+    """NFKC, case-folded, whitespace collapsed and trimmed."""
+    return _WHITESPACE.sub(" ", unicodedata.normalize("NFKC", value).casefold()).strip()
+
+
+def digits_only(value: str) -> str:
+    return "".join(
+        ch for ch in unicodedata.normalize("NFKC", value) if ch.isascii() and ch.isdigit()
+    )
+
+
+def _index_key() -> bytes:
+    if not settings.encryption_enabled:
+        return _PLAIN_INDEX_KEY
+    return _require_key().index_key
+
+
+def _hmac(normalised: str) -> str:
+    return hmac.new(_index_key(), normalised.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def blind_index(value: str | None) -> str | None:
+    """Hex HMAC-SHA256 of the normalised value — equality without the plaintext."""
+    if value is None:
+        return None
+    return _hmac(normalise_for_index(value))
+
+
+def blind_index_digits(value: str | None, *, last: int | None = None) -> str | None:
+    """The index of a number's digits (all, or the ``last`` few); ``None`` when it has none."""
+    if value is None:
+        return None
+    digits = digits_only(value)
+    if last is not None:
+        digits = digits[-last:]
+    if not digits:
+        return None
+    return _hmac("#" + digits)
+
+
+#: ADR-20 matches a counterparty account by its last eight digits.
+ACCOUNT_SUFFIX_DIGITS = 8
+
+
+def account_suffix_index(value: str | None) -> str | None:
+    """The blind index of an account number's last ``ACCOUNT_SUFFIX_DIGITS`` digits."""
+    return blind_index_digits(value, last=ACCOUNT_SUFFIX_DIGITS)

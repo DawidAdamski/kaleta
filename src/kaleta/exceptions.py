@@ -60,6 +60,17 @@ class EncryptionError(KaletaError):
     code = "encryption_error"
 
 
+class TenantLockedError(KaletaError):
+    """The account's data key is not unlocked in this session (or for this token).
+
+    Encrypted columns can be neither read nor written until the member gives
+    their data passphrase on ``/unlock``. A bearer token cannot unlock; it
+    rides on an unlock its member made in a browser session.
+    """
+
+    code = "tenant_locked"
+
+
 class MigrationError(KaletaError):
     """Schema cannot be brought to the installed alembic head safely."""
 
@@ -76,6 +87,8 @@ def kaleta_error_http_status(exc: KaletaError) -> int:
     """Map domain errors to HTTP status codes (shared by API handlers and event capture)."""
     if isinstance(exc, UnauthorizedError):
         return 401
+    if isinstance(exc, TenantLockedError):
+        return 423
     if isinstance(exc, SetupRequiredError):
         return 503
     if isinstance(exc, NotFoundError):

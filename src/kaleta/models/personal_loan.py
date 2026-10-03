@@ -4,12 +4,15 @@ from __future__ import annotations
 import datetime
 import enum
 from decimal import Decimal
+from typing import ClassVar
 
-from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Numeric, String, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from kaleta.db.base import Base
+from kaleta.db.blind_index import BlindIndexSpec
+from kaleta.db.types import EncryptedText, blind_index
 from kaleta.models.mixins import TimestampMixin, UserOwnedMixin
 
 
@@ -33,11 +36,13 @@ class Counterparty(TimestampMixin, UserOwnedMixin, Base):
     """A person on the other end of a personal loan. Reused across loans."""
 
     __tablename__ = "counterparties"
-    __table_args__ = (UniqueConstraint("name", name="uq_counterparty_name"),)
+    __table_args__ = (UniqueConstraint("name_bidx", name="uq_counterparty_name_bidx"),)
+    __blind_indexes__: ClassVar[BlindIndexSpec] = {"name_bidx": ("name", blind_index)}
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(200), nullable=False)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    name: Mapped[str] = mapped_column(EncryptedText("counterparties.name"), nullable=False)
+    name_bidx: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    notes: Mapped[str | None] = mapped_column(EncryptedText("counterparties.notes"), nullable=True)
 
     loans: Mapped[list[PersonalLoan]] = relationship(
         "PersonalLoan", back_populates="counterparty", cascade="all, delete-orphan"
@@ -65,7 +70,7 @@ class PersonalLoan(TimestampMixin, UserOwnedMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False, default="PLN")
     opened_at: Mapped[datetime.date] = mapped_column(Date, nullable=False)
     due_at: Mapped[datetime.date | None] = mapped_column(Date, nullable=True)
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    notes: Mapped[str | None] = mapped_column(EncryptedText("personal_loans.notes"), nullable=True)
     status: Mapped[LoanStatus] = mapped_column(
         SAEnum(LoanStatus, native_enum=False),
         nullable=False,
@@ -111,7 +116,9 @@ class PersonalLoanRepayment(TimestampMixin, Base):
     )
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     date: Mapped[datetime.date] = mapped_column(Date, nullable=False)
-    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    note: Mapped[str | None] = mapped_column(
+        EncryptedText("personal_loan_repayments.note"), nullable=True
+    )
     # Optional link to a real Transaction — filled when the user opted to
     # mirror this repayment as a transaction on a bank account.
     linked_transaction_id: Mapped[int | None] = mapped_column(
