@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import os
 import re
 import unicodedata
@@ -29,6 +30,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from functools import lru_cache
+from typing import Any
 
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -386,3 +388,24 @@ ACCOUNT_SUFFIX_DIGITS = 8
 def account_suffix_index(value: str | None) -> str | None:
     """The blind index of an account number's last ``ACCOUNT_SUFFIX_DIGITS`` digits."""
     return blind_index_digits(value, last=ACCOUNT_SUFFIX_DIGITS)
+
+
+class EncryptedJSON(TypeDecorator[Any]):
+    """A JSON document stored as ``EncryptedText`` — for snapshots that carry user text."""
+
+    impl = LargeBinary
+    cache_ok = True
+
+    def __init__(self, aad: str) -> None:
+        super().__init__()
+        self.aad = aad
+        self._text = EncryptedText(aad)
+
+    def process_bind_param(self, value: Any, dialect: Dialect) -> bytes | None:
+        if value is None:
+            return None
+        return self._text.process_bind_param(json.dumps(value, sort_keys=True), dialect)
+
+    def process_result_value(self, value: bytes | None, dialect: Dialect) -> Any:
+        text = self._text.process_result_value(value, dialect)
+        return None if text is None else json.loads(text)

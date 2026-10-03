@@ -16,6 +16,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
@@ -60,10 +61,17 @@ def _drop_postgres_multi_tenant_state(url: str) -> None:
 
 
 @asynccontextmanager
-async def multi_tenant_database(tmp_path: Path) -> AsyncIterator[str]:
-    """Yield the URL of a fresh multi-tenant database with its registry migrated."""
+async def multi_tenant_database(
+    tmp_path: Path, *, encryption: Literal["off", "passphrase"] = "off"
+) -> AsyncIterator[str]:
+    """Yield the URL of a fresh multi-tenant database with its registry migrated.
+
+    ``encryption`` is ``off`` unless a test asks: these tests are about schemas
+    and sign-in, and a hosted instance's field encryption has tests of its own
+    that pass ``"passphrase"`` and unlock a key first.
+    """
     url = POSTGRES_URL if USE_POSTGRES else f"sqlite+aiosqlite:///{tmp_path / 'hosted.db'}"
-    saved = (settings.tenancy, settings.auth_backend, settings.db_url)
+    saved = (settings.tenancy, settings.auth_backend, settings.db_url, settings.encryption)
     loop = asyncio.get_running_loop()
     if USE_POSTGRES:
         await loop.run_in_executor(None, _drop_postgres_multi_tenant_state, url)
@@ -73,6 +81,7 @@ async def multi_tenant_database(tmp_path: Path) -> AsyncIterator[str]:
     settings.tenancy = "multi"
     settings.auth_backend = "supabase"
     settings.db_url = url
+    settings.encryption = encryption
     AsyncSessionFactory.configure(url)
     set_tenant(None)
     try:
@@ -81,7 +90,7 @@ async def multi_tenant_database(tmp_path: Path) -> AsyncIterator[str]:
         set_tenant(None)
         install_tenant_resolver(None)
         await AsyncSessionFactory.dispose()
-        settings.tenancy, settings.auth_backend, settings.db_url = saved
+        settings.tenancy, settings.auth_backend, settings.db_url, settings.encryption = saved
         AsyncSessionFactory.configure(settings.db_url, debug=settings.debug)
         if USE_POSTGRES:
             await loop.run_in_executor(None, _drop_postgres_multi_tenant_state, url)

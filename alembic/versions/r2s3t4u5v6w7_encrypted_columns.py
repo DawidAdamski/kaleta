@@ -64,6 +64,10 @@ ENCRYPTED: dict[str, tuple[str, ...]] = {
     "import_runs": ("filename",),
     "yearly_plans": ("income_lines", "fixed_lines", "variable_lines", "reserves_lines"),
     "audit_log": ("old_data", "new_data"),
+    # Not in the plan's table, which predates them; both carry payee names,
+    # which would otherwise sit in plaintext next to the encrypted ones.
+    "payee_identities": ("pattern",),
+    "payee_auto_merges": ("merged_name", "snapshot"),
 }
 
 #: Tables whose ``name`` gets a unique blind index (categories: see below).
@@ -153,7 +157,9 @@ def _to_binary(table: str, columns: tuple[str, ...], bind: sa.engine.Connection)
                 "type_": sa.LargeBinary(),
             }
             if postgres:
-                kwargs["postgresql_using"] = f"('\\x00'::bytea || convert_to({column}, 'UTF8'))"
+                kwargs["postgresql_using"] = (
+                    f"('\\x00'::bytea || convert_to({column}::text, 'UTF8'))"
+                )
             batch_op.alter_column(column, **kwargs)
     if postgres:
         return
@@ -186,8 +192,17 @@ def _fill(table: str, source: str, targets: dict[str, object], bind: sa.engine.C
     )
 
 
+def _identity_index(value: str | None) -> str | None:
+    """``PayeeIdentity.pattern_key``: the index of the collapsed, case-folded spelling."""
+    return None if value is None else _index(_normalise(" ".join(value.split()).casefold()))
+
+
 def upgrade() -> None:
     bind = op.get_bind()
+
+    # An index on the spelling means nothing once the spelling is ciphertext.
+    with op.batch_alter_table("payee_identities") as batch_op:
+        batch_op.drop_index("ix_payee_identities_pattern")
 
     # Uniques on plain names first: on Postgres they would otherwise be carried
     # over onto the bytea column, where ciphertext can never collide.
@@ -234,6 +249,16 @@ def upgrade() -> None:
         },
         bind,
     )
+
+    # The identity key becomes the blind index of the key.
+    with op.batch_alter_table("payee_identities") as batch_op:
+        batch_op.alter_column(
+            "pattern_key",
+            existing_type=sa.String(length=200),
+            type_=sa.String(length=64),
+            existing_nullable=False,
+        )
+    _fill("payee_identities", "pattern", {"pattern_key": _identity_index}, bind)
 
     # The merchant key is only ever compared: keep its index, not the key.
     with op.batch_alter_table("dismissed_candidate_patterns") as batch_op:
@@ -325,9 +350,16 @@ def downgrade() -> None:
             }
         with op.batch_alter_table(table) as batch_op:
             for column in columns:
-                kwargs: dict[str, object] = {"existing_type": sa.LargeBinary(), "type_": sa.Text()}
+                is_json = (table, column) == ("payee_auto_merges", "snapshot")
+                kwargs: dict[str, object] = {
+                    "existing_type": sa.LargeBinary(),
+                    "type_": sa.JSON() if is_json else sa.Text(),
+                }
                 if postgres:
-                    kwargs["postgresql_using"] = f"convert_from(substring({column} from 2), 'UTF8')"
+                    cast = "::json" if is_json else ""
+                    kwargs["postgresql_using"] = (
+                        f"convert_from(substring({column} from 2), 'UTF8'){cast}"
+                    )
                 batch_op.alter_column(column, **kwargs)
         if not postgres:
             for column, params in decoded.items():
@@ -336,6 +368,22 @@ def downgrade() -> None:
                         sa.text(f"UPDATE {table} SET {column} = :value WHERE id = :id"),
                         params,
                     )
+
+    with op.batch_alter_table("payee_identities") as batch_op:
+        batch_op.alter_column(
+            "pattern_key",
+            existing_type=sa.String(length=64),
+            type_=sa.String(length=200),
+            existing_nullable=False,
+        )
+    _fill(
+        "payee_identities",
+        "pattern",
+        {"pattern_key": lambda v: None if v is None else " ".join(v.split()).casefold()},
+        bind,
+    )
+    with op.batch_alter_table("payee_identities") as batch_op:
+        batch_op.create_index("ix_payee_identities_pattern", ["pattern"])
 
     with op.batch_alter_table("counterparties") as batch_op:
         batch_op.create_unique_constraint("uq_counterparty_name", ["name"])
