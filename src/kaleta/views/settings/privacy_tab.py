@@ -61,8 +61,35 @@ def _trigger_test_error() -> None:
     notify_kaleta_error(KaletaError(t("settings.test_error_message")))
 
 
+def _render_encryption_box() -> None:
+    """What is encrypted and what the operator can still see — ADR-35's words.
+
+    The ADR requires the privacy page to say this plainly; it says it for the
+    install's actual state, so a self-hoster with encryption off is not told
+    their data is encrypted.
+    """
+    on = app_settings.encryption_enabled
+    with ui.card().classes("p-6 w-full").props('data-testid="encryption-box"'):
+        with ui.row().classes("items-center gap-2 mb-1"):
+            ui.icon("lock" if on else "lock_open", color="primary").classes("text-xl")
+            ui.label(t("settings.encryption_title")).classes("text-lg font-semibold")
+        ui.label(t("settings.encryption_on" if on else "settings.encryption_off")).classes(
+            "text-sm mb-3"
+        )
+        if not on:
+            return
+        for key in (
+            "settings.encryption_encrypted",
+            "settings.encryption_visible",
+            "settings.encryption_plain",
+            "settings.encryption_limit",
+        ):
+            ui.label(t(key)).classes("text-sm text-slate-600 mb-2")
+
+
 async def render_privacy_tab() -> None:
     with ui.column().classes("w-full gap-4"):
+        _render_encryption_box()
         with ui.card().classes("p-6 w-full"):
             with ui.row().classes("items-center gap-2 mb-1"):
                 ui.icon("shield", color="primary").classes("text-xl")
