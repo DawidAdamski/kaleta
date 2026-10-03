@@ -2,6 +2,23 @@
 
 Detailed setup, configuration, and development reference for Kaleta.
 
+## Self-hosted or hosted
+
+Kaleta runs two ways, from the same image — only the environment differs:
+
+| | Self-hosted (this page) | Hosted ([deployment.md](deployment.md)) |
+|---|---|---|
+| Runs on | Your machine, or Podman + SQLite on a small server | Supabase (Auth + PostgreSQL) and one app container |
+| Accounts | One household, one local user | Many accounts, each in a schema of its own |
+| Sign-in | Username and password, checked locally | E-mail sign-up through Supabase Auth |
+| Encryption | Optional (`KALETA_ENCRYPTION=passphrase`) | Always on; the operator cannot read your data |
+| Setting | `KALETA_TENANCY=single` (default) | `KALETA_TENANCY=multi`, `KALETA_AUTH_BACKEND=supabase` |
+
+To try the hosted flow on a laptop without Supabase, run
+`podman compose -f compose.hosted-dev.yml up -d --build` — PostgreSQL plus a
+debug-only sign-in backend — and open http://localhost:8090
+([deployment.md](deployment.md#4-the-hosted-flow-on-a-laptop)).
+
 ## Prerequisites
 
 - Python 3.13+
@@ -104,7 +121,9 @@ Set via the `KALETA_MODE` environment variable:
 | `KALETA_SESSION_IDLE_HOURS` | `12` | Sign a UI session out after this many hours without a request (`0` disables; capped at `KALETA_SESSION_TTL_HOURS`) |
 | `KALETA_SESSION_COOKIE_SECURE` | `false` | Mark the `kaleta_session` cookie `Secure` — only behind TLS; on plain http login stops working |
 | `KALETA_SESSION_COOKIE_SAMESITE` | `lax` | `lax` or `strict` (`strict` drops the cookie on links from outside, e.g. e-mail confirmations) |
-| `KALETA_REDIS_URL` | _(unset)_ | Keep sessions and the login rate limiter in Valkey (or any Redis-protocol server), so several replicas share them (extra: `hosted`) — see [deployment.md](deployment.md#session-state-and-replicas) |
+| `KALETA_TENANCY` | `single` | `single` (self-hosted, one household) or `multi` (hosted, one schema per account) — see [deployment.md](deployment.md) |
+| `KALETA_AUTH_BACKEND` | `local` | `local` with `single`; `supabase` with `multi` (`fake`, a debug stand-in for Supabase, only with `KALETA_DEBUG=true`) |
+| `KALETA_REDIS_URL` | _(unset)_ | Keep sessions and the login rate limiter in Valkey (or any Redis-protocol server), so several replicas share them (extra: `hosted`) — see [deployment.md](deployment.md#sessions-restarts-and-replicas) |
 | `KALETA_BACKUP_ENABLED` | `true` | Enable scheduled SQLite `VACUUM INTO` backups |
 | `KALETA_BACKUP_INTERVAL_HOURS` | `24` | Hours between scheduled backups |
 | `KALETA_BACKUP_RETAIN` | `7` | Keep the last K `kaleta-*.db` files |
