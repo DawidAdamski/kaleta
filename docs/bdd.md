@@ -3553,6 +3553,22 @@ Feature: Hosted accounts (multi-tenant)
     Then the address counts as confirmed and my account is provisioned at once
     And the identity is still known after a restart, under the same account
     And deleting the identity means the password no longer signs in
+
+  KAL-TEN-012 @automated
+  Scenario: The unlock page says why it asks for the passphrase again
+    Given a hosted account whose data passphrase is set
+    When I sign in again
+    Then the unlock page asks for my data passphrase
+    And it says the unlocked key is kept in memory only, so a new sign-in or a server restart asks again
+
+  KAL-TEN-013 @manual
+  Scenario: A restarted hosted instance keeps the session and locks the data
+    Given a hosted instance with KALETA_REDIS_URL set, or its NiceGUI storage on a persistent volume
+    And I am signed in and unlocked
+    When the operator restarts the container
+    Then my next page load keeps me signed in
+    And I am sent to /unlock and asked for my data passphrase
+    And the health probe reports keyring_sessions 0 until someone unlocks
 ```
 
 ## Feature: Data encryption (user-held passphrase)

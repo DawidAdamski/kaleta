@@ -2232,6 +2232,7 @@
     "passphrase_is_password": "Hasło do danych musi różnić się od hasła logowania.",
     "wrong_passphrase": "To hasło nie odblokowuje Twoich danych.",
     "wrong_recovery_code": "Ten kod odzyskiwania nie otwiera Twoich danych.",
+    "restart_note": "Kaleta trzyma odblokowany klucz wyłącznie w pamięci, nigdy na dysku. Gdy zalogujesz się ponownie albo serwer zostanie zrestartowany lub zaktualizowany, poprosi o hasło jeszcze raz.",
     "recovery_code": "Kod odzyskiwania",
     "use_recovery": "Nie pamiętasz? Użyj kodu odzyskiwania",
     "use_passphrase": "Użyj hasła do danych",

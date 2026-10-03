@@ -2232,6 +2232,7 @@
     "passphrase_is_password": "Choose a passphrase that is not your login password.",
     "wrong_passphrase": "That passphrase does not unlock your data.",
     "wrong_recovery_code": "That recovery code does not open your data.",
+    "restart_note": "Kaleta keeps your unlocked key in memory only, never on disk. When you sign in again, or the server restarts or is updated, it asks for the passphrase once more.",
     "recovery_code": "Recovery code",
     "use_recovery": "Forgot it? Use your recovery code",
     "use_passphrase": "Use your passphrase instead",

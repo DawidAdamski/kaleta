@@ -6,7 +6,8 @@ against ``tests.fake_gotrue`` (a local stand-in for Supabase Auth whose
 verification link the test reads instead of a mailbox), on a multi-tenant
 SQLite database — each tenant schema a file of its own.
 
-Covers: KAL-TEN-001, KAL-TEN-005, KAL-TEN-006, KAL-TEN-007, KAL-TEN-009
+Covers: KAL-TEN-001, KAL-TEN-005, KAL-TEN-006, KAL-TEN-007, KAL-TEN-009,
+KAL-TEN-012
 """
 
 from __future__ import annotations
@@ -192,12 +193,16 @@ def test_sign_up_verify_and_first_login_provisions_an_account(
 
 
 def test_signing_in_again_reuses_the_account(hosted: HostedInstance, fresh_page: Page) -> None:
-    """Covers: KAL-TEN-001 — provisioning happens once; the next login finds it."""
+    """Covers: KAL-TEN-001, KAL-TEN-012 — provisioning happens once; the next login finds it."""
     before = hosted.tenant_schemas()
     assert len(before) == 1, "runs after the sign-up test in this module"
 
     _log_in(fresh_page, hosted.base)
     expect(fresh_page).not_to_have_url(_ON_LOGIN, timeout=15000)
+    # KAL-TEN-012: the page that asks again says why it asks again.
+    expect(fresh_page.get_by_test_id("unlock-restart-note")).to_contain_text(
+        "the server restarts", timeout=15000
+    )
     _unlock(fresh_page)
     fresh_page.goto(f"{hosted.base}/")
     expect(fresh_page.get_by_text("Dashboard", exact=True).first).to_be_visible(timeout=15000)
