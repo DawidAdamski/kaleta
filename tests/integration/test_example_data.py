@@ -38,6 +38,9 @@ from kaleta.models.transaction import Transaction
 from kaleta.seeders import SEED_FEATURE_KEYS, seed_all, seed_features
 from tests.encryption_helpers import script_env
 
+# Slow tier (test-suite-speed): seed CLIs in subprocesses, whole-dataset seeding.
+pytestmark = pytest.mark.slow
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SEED_SCRIPT = PROJECT_ROOT / "scripts" / "seed.py"
 

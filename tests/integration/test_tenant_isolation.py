@@ -4,8 +4,7 @@
 Runs the real provisioning — ``CREATE SCHEMA`` (a file, on SQLite) and every
 tenant migration through ``alembic/`` — then drives the public REST API with
 each tenant's bearer token. On SQLite by default; against real PostgreSQL
-schemas when ``KALETA_DB_URL`` is a PostgreSQL URL (the CI ``postgres-multi``
-job).
+schemas when ``KALETA_DB_URL`` is a PostgreSQL URL (the CI ``postgres`` job).
 
 Covers: KAL-TEN-001, KAL-TEN-002, KAL-TEN-003, KAL-TEN-004
 """

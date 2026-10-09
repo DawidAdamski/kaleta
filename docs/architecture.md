@@ -171,7 +171,7 @@ out of sequence in the original monolithic document).
 | ADR | Title | Status |
 |-----|-------|--------|
 | [001](adr/001-nicegui-as-ui-framework.md) | NiceGUI as UI Framework | accepted |
-| [002](adr/002-sqlalchemy-20-with-dual-database-support.md) | SQLAlchemy 2.0 with Dual Database Support | accepted |
+| [002](adr/002-sqlalchemy-20-with-dual-database-support.md) | SQLAlchemy 2.0 with Dual Database Support | superseded by 038 |
 | [003](adr/003-mvc-service-layer-separation.md) | MVC + Service Layer Separation | accepted |
 | [004](adr/004-pydantic-for-validation-settings.md) | Pydantic for Validation & Settings | accepted |
 | [005](adr/005-rest-api-available-by-default.md) | REST API Available by Default | accepted |
@@ -207,6 +207,7 @@ out of sequence in the original monolithic document).
 | [035](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) | Hosted Multi-Tenancy: Schema per Account and User-Held Field Encryption | proposed |
 | [036](adr/036-local-column-encryption-and-totp-as-base-dependencies.md) | Local Column Encryption and TOTP as Base Dependencies | accepted |
 | [037](adr/037-account-balances-derived-from-the-ledger.md) | Account Balances Derived from the Ledger | accepted |
+| [038](adr/038-postgresql-only-one-tenancy-layout.md) | PostgreSQL Only, One Tenancy Layout for Self-Hosted and Hosted | accepted |
 
 ## UI Colour Schema
 

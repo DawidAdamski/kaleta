@@ -157,6 +157,22 @@ built `1e`, which is not a target. Targets are `1c` / `1d` / `1f`, `2a`–`2d`,
 | 1 | [restyle-fidelity-shell-dashboard](archive/restyle-fidelity-shell-dashboard.md) | archived | draft | — |
 | 2 | [restyle-fidelity-screens](archive/restyle-fidelity-screens.md) | archived | draft | 1 |
 
+### PostgreSQL only — one layout, self-hosted or hosted (execute in this order)
+
+Decision record: [ADR-38](../adr/038-postgresql-only-one-tenancy-layout.md)
+— PostgreSQL is the only database, every instance (a homelab or the hosted
+one) runs ADR-35's registry + schema per family with encryption always on,
+local logins work on that layout, a family has up to ten members. SQLite,
+the desktop window and app-managed backups are removed.
+
+| # | Plan | Effort | Status | Depends on |
+|---|---|---|---|---|
+| 1 | [test-suite-speed](test-suite-speed.md) | medium | draft | — |
+| 2 | [postgres-only](postgres-only.md) | large | draft | 1 |
+| 3 | [instance-admin-panel](instance-admin-panel.md) | medium | draft | 2 |
+| 4 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 2 |
+| 5 | [self-host-guide](self-host-guide.md) | small | draft | 2 |
+
 ### Hosted — Supabase multi-tenant (execute in this order)
 
 Decision record: [ADR-35](../adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
@@ -169,7 +185,7 @@ and is untouched.
 |---|---|---|---|---|
 | 1 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | draft | — |
 | 2 | [hosted-field-encryption](archive/hosted-field-encryption.md) | archived | draft | 1 |
-| 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
+| 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 — now also PostgreSQL-only plan 2 |
 | 4 | [hosted-supabase-rollout](archive/hosted-supabase-rollout.md) | archived | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](archive/auth-two-factor.md) | archived | draft | Phase A: — ; Phase B: 1 |
 | 5b | [auth-hosted-email-links](archive/auth-hosted-email-links.md) | archived | draft | 1 |

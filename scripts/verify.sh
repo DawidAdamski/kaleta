@@ -32,8 +32,11 @@ echo "==> mypy"
 uv run mypy src/
 echo "==> import-linter (architecture contracts)"
 uv run lint-imports
-echo "==> unit + integration tests"
-uv run pytest tests/unit tests/integration -q
+echo "==> unit + integration tests (parallel, fast tier)"
+uv run pytest tests/unit tests/integration -n auto -q -m "not slow"
+# The slow tier holds a timing budget, so it runs without parallel load.
+echo "==> unit + integration tests (slow tier, serial)"
+uv run pytest tests/unit tests/integration -q -m slow
 echo "==> spec coverage (BDD <-> tests)"
 uv run python scripts/spec_coverage.py
 echo "==> doc link checker"

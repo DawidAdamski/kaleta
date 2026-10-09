@@ -3,11 +3,17 @@
 
 import os
 
+from tests.xdist_postgres import worker_database_env
+
 # Allow default secret key during test runs (see kaleta.config.settings).
 os.environ.setdefault("KALETA_DEBUG", "true")
+# Under ``pytest -n`` each worker gets a PostgreSQL database of its own; the
+# settings read KALETA_DB_URL on import, so this precedes every kaleta import.
+os.environ.update(worker_database_env())
 
 import pytest
 import pytest_asyncio
+from argon2 import PasswordHasher
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
@@ -29,6 +35,12 @@ from kaleta.models.institution import Institution  # noqa: F401
 
 _POSTGRES_URL = os.environ.get("KALETA_DB_URL", "")
 _USE_POSTGRES = _POSTGRES_URL.startswith("postgresql")
+if _USE_POSTGRES and os.environ.get("PYTEST_XDIST_WORKER"):
+    # A worker's database starts empty; outside xdist CI migrates the one
+    # database before pytest runs (``alembic upgrade head``).
+    from kaleta.services.setup_service import upgrade_to_head
+
+    upgrade_to_head(_POSTGRES_URL)
 _postgres_truncated = False
 
 
@@ -92,6 +104,24 @@ TEST_DATA_KEY = DataKey(generate_dek())
 
 #: The real lookup, for tests of the locked path to put back (``real_unlock``).
 REAL_SESSION_DATA_KEY = session_mod.session_data_key
+
+
+class _CheapPasswordHasher(PasswordHasher):
+    """Argon2id at the cost the KDF tests use (``_FAST_KDF``), not 64 MiB × 3.
+
+    Every MFA enrolment hashes ten recovery codes; at production cost that was
+    a sixth of the suite's time (test-suite-speed audit). The hash format and
+    verification path are the real ones; only the cost parameters differ.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(time_cost=1, memory_cost=8 * 1024, parallelism=1)
+
+
+@pytest.fixture(autouse=True)
+def _cheap_password_hashing(monkeypatch: pytest.MonkeyPatch) -> None:
+    for module in ("kaleta.services.mfa_service", "kaleta.services.auth_service"):
+        monkeypatch.setattr(f"{module}.PasswordHasher", _CheapPasswordHasher)
 
 
 @pytest.fixture(autouse=True)

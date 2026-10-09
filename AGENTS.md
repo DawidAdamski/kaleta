@@ -90,7 +90,11 @@ uv sync                      # Install dependencies
 uv sync --group dev          # Install with dev tools
 uv sync --extra postgres     # Install with PostgreSQL driver
 uv run kaleta                # Run the app (web mode)
-uv run pytest                # Run tests
+uv run pytest tests/unit tests/integration -n auto -m "not slow"  # Fast tier, parallel (pre-push)
+uv run pytest tests/unit tests/integration -m slow                # Slow tier, serial (verify.sh, main/nightly CI)
+uv run python scripts/test_cost_report.py  # Where the suite spends its time
+# Postgres: KALETA_DB_URL=postgresql+asyncpg://… (role needs CREATEDB under -n:
+# each worker uses <db>_gw<N>); one pytest session at a time per server.
 uv run ruff check .          # Lint
 uv run ruff format .         # Format
 uv run mypy src/             # Type check

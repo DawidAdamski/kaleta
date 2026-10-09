@@ -1,27 +1,28 @@
 ---
 plan_id: hosted-household-sharing
-title: Household sharing — two to four members on one account
+title: Household sharing — up to ten members on one family account
 area: auth / db / settings
 effort: large
 status: draft
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
-# Household sharing — two to four members on one account
+# Household sharing — up to ten members on one family account
 
 ## Intent
 
 Parents run one set of finances together. One Kaleta account (one
-tenant schema) must be usable by two to four people, each with their
+tenant schema) must be usable by up to ten people, each with their
 own login, second factor and data passphrase, and the operator must
 still be unable to read the data. An owner invites a partner; the
 partner signs up, sets a passphrase, and asks to join; the owner
 approves — after which both see and edit the same ledger, every change
 records who made it, and removing a member revokes access for real by
-re-keying the household. The same flow works for a self-hosted family
-install with local logins.
+re-keying the household. The same flow works on a self-hosted instance
+with local logins (ADR-38: one layout everywhere).
 
-Depends on [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
+Depends on [`postgres-only`](postgres-only.md) (local logins on the
+multi layout, ADR-38), [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
 (the `tenant_members` registry and the per-member `users` rows are laid
 down there) and [`hosted-field-encryption`](archive/hosted-field-encryption.md)
 (the per-member keypair hierarchy is defined there so a single-member
@@ -38,7 +39,7 @@ account and a household use one code path).
   `users` table), plus the key columns from the encryption plan
   (`public_key`, `private_key_wrapped`, `private_key_salt`,
   `kdf_params`, `recovery_wrapped`, `dek_sealed`).
-- Limits: `KALETA_HOUSEHOLD_MAX_MEMBERS` (default 4); exactly one
+- Limits: `KALETA_HOUSEHOLD_MAX_MEMBERS` (default 10, ADR-38); exactly one
   `owner`; the owner can hand ownership to another active member
   ("Make owner", needs a fresh MFA code when MFA is on).
 - Roles are deliberately two: `owner` (invite, approve, remove,

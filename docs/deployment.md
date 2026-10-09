@@ -348,7 +348,7 @@ testing), and refuses `--tenant` on a single-tenant install.
 
 ## Related
 
-- CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job; `postgres-multi` for tenant isolation)
+- CI Postgres matrix: `.github/workflows/ci.yml` (`postgres` job, including the tenant-isolation suites)
 - CI Valkey mode (sessions + rate limiter): `.github/workflows/ci.yml` (`valkey` job, `valkey/valkey:8`)
 - Plan: [`q4-supabase-deployment`](plans/archive/q4-supabase-deployment.md)
 - What the operator stores and sees: [`docs/privacy.md`](privacy.md)
