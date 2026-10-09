@@ -19,7 +19,7 @@ that need no e-mail provider; they lose SQLite, the desktop window and the
 app-managed backups. Every "keep SQLite compatibility" rule, dialect branch
 and doubled CI run goes with them.
 
-Depends on [`test-suite-speed`](test-suite-speed.md) (parallel Postgres
+Depends on [`test-suite-speed`](archive/test-suite-speed.md) (parallel Postgres
 test runs exist before the SQLite runs are deleted).
 
 ## Scope
