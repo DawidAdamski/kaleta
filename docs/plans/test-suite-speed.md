@@ -126,7 +126,7 @@ changes.
 | fast tier, Postgres 16, `-n auto` | — | **14.9 s** |
 | slow tier (24 tests), serial | — | 26–29 s |
 | e2e (227 tests, serial, unchanged) | 401 s | 401 s |
-| CI wall-clock, `main` push | ≈ 5.5 min (`postgres` job) | after the first PR, below |
+| CI wall-clock, pull request (#191, run 37995925370) | ≈ 5.5 min (`postgres`; `test` ≈ 3.5 min) | **2 min 15 s** (`postgres`; `test` 1 min 33 s, `lint` 23 s) |
 
 Parallelism alone gave 130 → 29 s; the audit's first finding gave the rest.
 
