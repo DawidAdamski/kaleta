@@ -275,4 +275,4 @@ Landed on 2026-10-10.
 | `uv run python scripts/test_cost_report.py --help` | 0 |
 | `./scripts/verify.sh` | 0 |
 
-**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
+**Notes:** Landed through PR #192 (merge 760f011), then PR #191 (merge a4488f4 on main). The two `[manual]` criteria are recorded in the plan's Implementation notes.
