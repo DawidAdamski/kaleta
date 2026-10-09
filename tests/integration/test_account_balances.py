@@ -13,6 +13,7 @@ import sqlite3
 from decimal import Decimal
 from pathlib import Path
 
+import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
@@ -36,6 +37,8 @@ def _migrate(db_url: str, revision: str) -> None:
         os.environ.pop("KALETA_MIGRATE_URL", None)
 
 
+# Slow tier (test-suite-speed): Alembic migrations of a file database.
+@pytest.mark.slow
 def test_upgrading_keeps_every_balance_the_user_saw(tmp_path: Path) -> None:
     """Covers: KAL-ACC-009
 

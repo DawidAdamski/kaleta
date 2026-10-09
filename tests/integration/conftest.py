@@ -11,7 +11,7 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from kaleta.api import create_api_router
-from kaleta.api.deps import get_session, get_session_configured
+from kaleta.api.deps import get_public_session, get_session, get_session_configured
 from kaleta.api.errors import register_error_handlers
 from kaleta.config import settings
 from kaleta.crypto import key_ring, local_member_ref
@@ -79,6 +79,9 @@ async def api_client(db_engine, api_bearer_token):
 
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_session_configured] = override_session
+    # Single tenancy: the registry session is the same database. Without this
+    # the health route used whatever engine an earlier test left configured.
+    app.dependency_overrides[get_public_session] = override_session
 
     headers = {"Authorization": f"Bearer {api_bearer_token}"}
     async with AsyncClient(
@@ -104,6 +107,9 @@ async def api_client_unauth(db_engine):
 
     app.dependency_overrides[get_session] = override_session
     app.dependency_overrides[get_session_configured] = override_session
+    # Single tenancy: the registry session is the same database. Without this
+    # the health route used whatever engine an earlier test left configured.
+    app.dependency_overrides[get_public_session] = override_session
 
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client

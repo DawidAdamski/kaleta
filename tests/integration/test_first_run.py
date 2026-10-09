@@ -16,6 +16,8 @@ from kaleta.services.setup_service import activate_database, current_revision, h
 
 
 class TestFirstRunSetup:
+    # Slow tier (test-suite-speed): migrates a new database to head.
+    @pytest.mark.slow
     @pytest.mark.asyncio
     async def test_recommended_activate_persists_config(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

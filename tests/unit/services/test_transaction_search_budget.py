@@ -28,6 +28,9 @@ from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.transaction_service import TransactionService
 from tests.conftest import TEST_DATA_KEY
 
+# Slow tier (test-suite-speed): a timing budget: run without parallel load.
+pytestmark = pytest.mark.slow
+
 # Literals from the plan's acceptance criterion.
 ROWS = 50_000
 BUDGET_MS = 300

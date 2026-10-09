@@ -25,6 +25,9 @@ from kaleta.models.payee import Payee
 from kaleta.services import AuthService
 from kaleta.services.key_service import open_local_data_key
 
+# Slow tier (test-suite-speed): encrypt_database.py over a migrated file database.
+pytestmark = pytest.mark.slow
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = PROJECT_ROOT / "scripts" / "encrypt_database.py"
 PASSPHRASE = "the household passphrase"
