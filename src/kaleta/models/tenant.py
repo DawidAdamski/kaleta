@@ -13,6 +13,7 @@ import enum
 from datetime import UTC, datetime
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum,
     ForeignKey,
@@ -147,3 +148,44 @@ class TenantInvite(PublicBase):
     role: Mapped[TenantRole] = mapped_column(_enum(TenantRole, "tenant_role"), nullable=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class LocalIdentity(PublicBase):
+    """A login of ``KALETA_AUTH_BACKEND=local`` on the registry layout (ADR-38).
+
+    The password lives here, not in a tenant's ``users`` table: one login maps
+    to one family through ``tenant_members.auth_subject`` (``local:<id>``), and
+    the instance administrator is a login that may belong to no family at all.
+    """
+
+    __tablename__ = "local_identities"
+    __table_args__ = _PUBLIC
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    #: Lower-cased.
+    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True)
+    password_hash: Mapped[str] = mapped_column(Text, nullable=False)
+    is_instance_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now, server_default=func.now()
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def subject(self) -> str:
+        return f"local:{self.id}"
+
+    def __repr__(self) -> str:
+        return f"<LocalIdentity id={self.id} admin={self.is_instance_admin}>"
+
+
+class InstanceSetting(PublicBase):
+    """One instance-wide setting, e.g. ``registration_mode`` (ADR-38)."""
+
+    __tablename__ = "instance_settings"
+    __table_args__ = _PUBLIC
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(Text, nullable=False)
