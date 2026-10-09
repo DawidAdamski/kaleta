@@ -342,3 +342,10 @@ check it still reproduces before acting on it.
       instance (the tables live in every tenant schema), so events and
       reports stay until the account is deleted — `docs/privacy.md` says so.
       Seen in `hosted-supabase-rollout`. Fix: sweep each tenant schema in turn.
+- [ ] **`scripts/plan_archive.sh` writes the status into the wrong column.**
+      Archiving `test-suite-speed` put "archived" in the Effort column of the
+      programme table (Plan | Effort | Status | Depends on) and added a
+      spurious "no touchpoints matched" note; fixed by hand in PR #193. Also:
+      `.github/workflows/plan-archive.yml` fires for any merged `plan/*`
+      branch and failed on `plan/postgres-only-programme`, which is a
+      programme branch, not a plan id. Seen while archiving `test-suite-speed`.
