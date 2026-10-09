@@ -26,7 +26,10 @@ documentation site (GitHub Pages, `mkdocs.yml`).
   - Install: `docker-compose.yml`, the `.env` it needs (generated
     `KALETA_SECRET_KEY` and database password), first run (admin + first
     family), what the data passphrase and recovery code are and why
-    losing both loses the data.
+    losing both loses the data. **Finish the first run (or run
+    `tenant_admin.py create-login --admin`) before the instance is
+    reachable from outside**: the first sign-up of an empty instance becomes
+    its administrator.
   - HTTPS, needed for the PWA: (a) Cloudflare Tunnel with `cloudflared`
     as a compose service — no open ports; (b) Caddy reverse proxy with an
     automatic certificate. One worked example each.

@@ -195,9 +195,39 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
   `TenantService.provision`). Later sign-ups need `registration_mode=open`;
   the default is `closed`. The plan's "first family name" field is not there:
   `tenants.name` stays empty until the admin panel (or household plan) names it.
-- *No `must_change_password` enforcement yet*: the column exists; the admin
-  panel plan resets passwords that must be changed at the next sign-in.
+- *No `must_change_password` enforcement yet*: the column exists (reserved,
+  documented on the model) and nothing sets or reads it; the admin panel plan
+  resets passwords that must be changed at the next sign-in.
   `tenant_admin.py reset-password` sets a new password and prints it once.
+
+**After review (PR #194).**
+
+- *First-run race*: "is the instance empty" + the insert, and the
+  last-administrator guards, run under one decision lock — an
+  `asyncio.Lock` in-process plus `pg_advisory_xact_lock` on Postgres
+  (released by the commit or rollback). Two first sign-ups at once: one
+  administrator, the other meets the closed registration. Tested.
+- *Disabling ends what the login holds*: `kaleta.auth.local_logins.set_login_disabled`
+  sets the flag, raises the member's session watermark, revokes their API
+  tokens (`ApiTokenService.revoke_all`) and drops their unlocked key from this
+  process's key ring. Another replica notices within the revocation cache's
+  60 s TTL. Nothing calls it yet but the tests; the admin panel will.
+- *Deleting a family keeps the administrator's login*: an instance
+  administrator's login belongs to the instance, so `delete_identity` keeps
+  it (their next sign-in starts a new, empty family); other members' logins
+  go. Kept rather than refused so a multi-member deletion never stops
+  half-way (the last-admin guard used to be able to raise mid-loop).
+- *Input limits*: passwords over 1 024 characters are refused before
+  hashing; an e-mail needs exactly one `@`, a local part, a domain and no
+  whitespace.
+- *Recovery hint*: the code prompt says "Each recovery code works once" for a
+  local factor, not the Supabase sentence about turning the factor off.
+- *Known limits, accepted*: (1) whoever reaches a fresh instance first
+  becomes its administrator — the self-hosting guide must say to create the
+  administrator with `tenant_admin.py create-login --admin` (or finish the
+  first run) before exposing the instance; (2) the password form is
+  throttled per client address, not per account, as on every backend today —
+  a per-account throttle is a chore, not this plan.
 - *Settings tests changed on purpose*: `test_tenancy_settings.py` asserted
   that `multi` + `local` is refused (the hosted-tenancy-foundation decision);
   ADR-38 reverses it, so both tests now assert it starts.

@@ -349,3 +349,8 @@ check it still reproduces before acting on it.
       `.github/workflows/plan-archive.yml` fires for any merged `plan/*`
       branch and failed on `plan/postgres-only-programme`, which is a
       programme branch, not a plan id. Seen while archiving `test-suite-speed`.
+- [ ] **The password form has no per-account throttle.** `login_rate_limiter`
+      is keyed by client address, so guesses against one e-mail from many
+      addresses are unbounded (every backend). Seen in the review of
+      `postgres-only` part A. Fix: a second limiter keyed by the normalised
+      e-mail, with the same lock-out sentence.
