@@ -5,7 +5,8 @@
 #   uv sync --group dev && uv run pre-commit install --hook-type pre-commit --hook-type pre-push
 #
 # pre-commit stage: fast, file-scoped (ruff on the staged files).
-# pre-push stage: the slower whole-tree gates (mypy, import-linter).
+# pre-push stage: the slower whole-tree gates (mypy, import-linter) and the
+# fast test tier in parallel — the full suite is ./scripts/verify.sh.
 repos:
   - repo: local
     hooks:
@@ -30,6 +31,12 @@ repos:
       - id: lint-imports
         name: import-linter (architecture contracts)
         entry: uv run --no-sync lint-imports
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: pytest-fast
+        name: pytest (unit + integration, fast tier, parallel)
+        entry: uv run --no-sync pytest tests/unit tests/integration -n auto -q -m "not slow"
         language: system
         pass_filenames: false
         stages: [pre-push]

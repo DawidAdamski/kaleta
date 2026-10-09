@@ -30,6 +30,8 @@ def _downgrade_one(db_url: str) -> None:
         os.environ.pop("KALETA_MIGRATE_URL", None)
 
 
+# Slow tier (test-suite-speed): Alembic migrations of a file database.
+@pytest.mark.slow
 class TestEnsureSchemaCurrent:
     def test_noop_when_already_at_head(
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch

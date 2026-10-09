@@ -19,6 +19,9 @@ import kaleta.models  # noqa: F401 — register ORM tables on Base.metadata
 from kaleta.db.base import Base
 from kaleta.services.auth_service import AuthService
 
+# Slow tier (test-suite-speed): reset_demo.py in a subprocess.
+pytestmark = pytest.mark.slow
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RESET_SCRIPT = PROJECT_ROOT / "scripts" / "reset_demo.py"
 

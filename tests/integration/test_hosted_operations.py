@@ -25,6 +25,9 @@ from kaleta.services.health_service import HealthService
 from kaleta.services.tenant_service import TenantService
 from tests.tenancy_helpers import MetadataProvisioner, identity, multi_tenant_database
 
+# Slow tier (test-suite-speed): operator scripts in subprocesses, tenant migrations.
+pytestmark = pytest.mark.slow
+
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 TENANT_ADMIN = PROJECT_ROOT / "scripts" / "tenant_admin.py"
 
