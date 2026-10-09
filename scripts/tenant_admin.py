@@ -8,6 +8,13 @@
     uv run python scripts/tenant_admin.py resume 12        # let them in again
     uv run python scripts/tenant_admin.py delete 12 --yes  # schema, rows, identities
 
+With ``KALETA_AUTH_BACKEND=local`` (ADR-38) the logins are the registry's too::
+
+    uv run python scripts/tenant_admin.py logins                     # every local login
+    uv run python scripts/tenant_admin.py create-login a@b.pl [--admin]
+    uv run python scripts/tenant_admin.py reset-password a@b.pl      # prints a new password once
+    uv run python scripts/tenant_admin.py registration [closed|invite|open]
+
 Reads only the ``public`` registry: e-mail addresses, roles, statuses — never a
 tenant's data, which is encrypted anyway. ``delete`` removes every member's
 Supabase identity with ``KALETA_SUPABASE_SERVICE_ROLE_KEY``, drops the schema
@@ -23,6 +30,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
+import secrets
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -36,7 +44,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import KaletaError
 from kaleta.models.tenant import Tenant, TenantMember, TenantMemberStatus
+from kaleta.schemas.identity import RegistrationMode
 from kaleta.services.account_deletion_service import AccountDeletionService, IdentityRemover
+from kaleta.services.local_identity_service import LocalIdentityService
 from kaleta.services.tenant_service import TenantService
 
 
@@ -131,6 +141,48 @@ class TenantAdminCli:
         )
         return 0
 
+    # ── Local logins (KALETA_AUTH_BACKEND=local) ──────────────────────────────
+
+    async def logins(self) -> int:
+        async with self._public() as session:
+            rows = await LocalIdentityService(session).list()
+        for row in rows:
+            marks = (("admin", row.is_instance_admin), ("disabled", row.disabled))
+            flags = [name for name, on in marks if on]
+            seen = row.last_login_at.isoformat(timespec="seconds") if row.last_login_at else "-"
+            self._print(f"{row.id}\t{row.email}\t{','.join(flags) or '-'}\t{seen}")
+        return 0
+
+    async def create_login(self, email: str, *, admin: bool) -> int:
+        password = secrets.token_urlsafe(12)
+        async with self._public() as session:
+            try:
+                row = await LocalIdentityService(session).create(email, password, admin=admin)
+            except KaletaError as exc:
+                return self._refuse(exc.message)
+        self._print(f"login {row.id} {row.email} created; password (shown once): {password}")
+        return 0
+
+    async def reset_password(self, email: str) -> int:
+        password = secrets.token_urlsafe(12)
+        async with self._public() as session:
+            identities = LocalIdentityService(session)
+            row = await identities.get_by_email(email)
+            if row is None:
+                return self._refuse(f"no login {email!r}")
+            await identities.set_password(row.id, password)
+        self._print(f"login {row.id} {row.email}: new password (shown once): {password}")
+        return 0
+
+    async def registration(self, mode: RegistrationMode | None) -> int:
+        async with self._public() as session:
+            identities = LocalIdentityService(session)
+            if mode is not None:
+                await identities.set_registration_mode(mode)
+            current = await identities.registration_mode()
+        self._print(f"registration {current.value}")
+        return 0
+
     def _print(self, line: str) -> None:
         print(line, file=self._out)
 
@@ -153,7 +205,18 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("tenant_id", type=int)
         if name == "delete":
             command.add_argument("--yes", action="store_true", help="confirm the deletion")
+    commands.add_parser("logins", help="every local login (KALETA_AUTH_BACKEND=local)")
+    create = commands.add_parser("create-login", help="a new local login; prints its password")
+    create.add_argument("email")
+    create.add_argument("--admin", action="store_true", help="make it an instance administrator")
+    reset = commands.add_parser("reset-password", help="a new password for a local login")
+    reset.add_argument("email")
+    registration = commands.add_parser("registration", help="show or set who may sign up")
+    registration.add_argument("mode", nargs="?", choices=[m.value for m in RegistrationMode])
     return parser
+
+
+_LOCAL_COMMANDS = frozenset({"logins", "create-login", "reset-password", "registration"})
 
 
 async def _run(args: argparse.Namespace) -> int:
@@ -173,6 +236,18 @@ async def _run(args: argparse.Namespace) -> int:
             return await cli.suspend(args.tenant_id)
         if args.command == "resume":
             return await cli.resume(args.tenant_id)
+        if args.command in _LOCAL_COMMANDS and settings.auth_backend != "local":
+            print(f"tenant_admin: {args.command} needs KALETA_AUTH_BACKEND=local.", file=sys.stderr)
+            return 2
+        if args.command == "logins":
+            return await cli.logins()
+        if args.command == "create-login":
+            return await cli.create_login(args.email, admin=args.admin)
+        if args.command == "reset-password":
+            return await cli.reset_password(args.email)
+        if args.command == "registration":
+            mode = RegistrationMode(args.mode) if args.mode else None
+            return await cli.registration(mode)
         return await cli.delete(args.tenant_id, confirmed=args.yes)
     finally:
         await AsyncSessionFactory.dispose()
