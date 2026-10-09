@@ -3,8 +3,9 @@ plan_id: test-suite-speed
 title: Tests — parallel locally, tiered in CI, and an audit of what they cost
 area: tests / ci
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-10
+roadmap_ref: ../../roadmap.md
 ---
 
 # Tests — parallel locally, tiered in CI, and an audit of what they cost
@@ -21,7 +22,7 @@ Make the full suite a sub-30-second habit on the laptop, keep CI as the
 merge gate but fast, and move the genuinely slow tier off the per-PR path.
 Measure first, so the selection is evidence, not taste.
 
-This plan lands **before** [`postgres-only`](postgres-only.md) and is
+This plan lands **before** [`postgres-only`](../postgres-only.md) and is
 written so that plan only has to delete the SQLite half.
 
 ## Scope
@@ -224,3 +225,54 @@ Post-fix cost report (Postgres, serial, `scripts/test_cost_report.py --top 15`):
 `test_mfa_service` 5.1 s.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-10-10.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `b6927b1` | Dawid (Ani) | 2026-10-09 | test(api): API client fixtures override the registry session too |
+| `9ed3fa0` | Dawid (Ani) | 2026-10-09 | test: run the suite in parallel — pytest-xdist, a PostgreSQL database per worker, test-cost Argon2 |
+| `f11487c` | Dawid (Ani) | 2026-10-09 | ci: fast tier per pull request, slow tier on main and nightly |
+| `114b126` | Dawid (Ani) | 2026-10-09 | docs(plans): test-suite-speed measurements and audit; test_cost_report.py |
+| `46139a5` | Dawid (Ani) | 2026-10-09 | test: harden worker databases after review; record the PR-path risk |
+| `5093d29` | Dawid (Ani) | 2026-10-09 | docs(plans): test-suite-speed CI wall-clock after the change |
+
+**Files changed:**
+- .github/workflows/ci.yml
+- .pre-commit-config.yaml
+- AGENTS.md
+- docs/deployment.md
+- docs/plans/test-suite-speed.md
+- pyproject.toml
+- scripts/test_cost_report.py
+- scripts/verify.sh
+- tests/conftest.py
+- tests/integration/conftest.py
+- tests/integration/test_account_balances.py
+- tests/integration/test_encrypt_database_script.py
+- tests/integration/test_example_data.py
+- tests/integration/test_first_run.py
+- tests/integration/test_hosted_operations.py
+- tests/integration/test_reset_demo.py
+- tests/integration/test_tenant_isolation.py
+- tests/unit/services/test_setup_service.py
+- tests/unit/services/test_transaction_search_budget.py
+- tests/xdist_postgres.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit tests/integration -n auto -q` | 0 |
+| `uv run pytest tests/unit tests/integration -n auto -q -m "not slow"` | 0 |
+| `uv run pytest tests/unit tests/integration -n auto -q -m slow` | 0 |
+| `grep -q "pytest-xdist" pyproject.toml` | 0 |
+| `grep -q '"not slow"' .pre-commit-config.yaml` | 0 |
+| `grep -q "schedule:" .github/workflows/ci.yml` | 0 |
+| `uv run python scripts/test_cost_report.py --help` | 0 |
+| `./scripts/verify.sh` | 0 |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

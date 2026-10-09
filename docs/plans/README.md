@@ -167,7 +167,7 @@ the desktop window and app-managed backups are removed.
 
 | # | Plan | Effort | Status | Depends on |
 |---|---|---|---|---|
-| 1 | [test-suite-speed](test-suite-speed.md) | medium | draft | — |
+| 1 | [test-suite-speed](archive/test-suite-speed.md) | archived | draft | — |
 | 2 | [postgres-only](postgres-only.md) | large | draft | 1 |
 | 3 | [instance-admin-panel](instance-admin-panel.md) | medium | draft | 2 |
 | 4 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 2 |
