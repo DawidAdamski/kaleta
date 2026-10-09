@@ -9,9 +9,15 @@ first parallel run pays for ``CREATE DATABASE`` and the migrations.
 
 Imported by ``tests/conftest.py`` before ``kaleta`` is, because the settings
 read ``KALETA_DB_URL`` at import time.
+
+The role in ``KALETA_DB_URL`` needs ``CREATEDB``. Two pytest sessions at once
+against the same server (say ``verify.sh`` and the pre-push hook) share these
+databases and truncate each other's rows — run one at a time, or point the
+second at another database name.
 """
 
 import asyncio
+import contextlib
 import os
 
 from sqlalchemy.engine import make_url
@@ -29,19 +35,25 @@ def worker_database_env() -> dict[str, str]:
 def worker_database_url(url: str, worker: str) -> str:
     """Return ``url`` pointing at the worker's database, creating it if missing."""
     base = make_url(url)
+    if not base.database:
+        msg = f"KALETA_DB_URL names no database; pytest -n derives <database>_{worker} from it"
+        raise RuntimeError(msg)
     name = f"{base.database}_{worker}"
-    asyncio.run(_create_if_missing(base.render_as_string(hide_password=False), name))
+    # asyncpg takes a plain libpq URL: no driver suffix, no SQLAlchemy query options.
+    dsn = base.set(drivername="postgresql", query={}).render_as_string(hide_password=False)
+    asyncio.run(_create_if_missing(dsn, name))
     return base.set(database=name).render_as_string(hide_password=False)
 
 
-async def _create_if_missing(url: str, name: str) -> None:
+async def _create_if_missing(dsn: str, name: str) -> None:
     import asyncpg
 
-    dsn = url.replace("postgresql+asyncpg://", "postgresql://", 1)
     conn = await asyncpg.connect(dsn)
     try:
         exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", name)
         if not exists:
-            await conn.execute(f'CREATE DATABASE "{name}"')
+            # Another session may create it between the check and here.
+            with contextlib.suppress(asyncpg.DuplicateDatabaseError):
+                await conn.execute(f'CREATE DATABASE "{name}"')
     finally:
         await conn.close()

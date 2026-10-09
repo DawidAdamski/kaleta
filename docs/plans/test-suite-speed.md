@@ -31,8 +31,9 @@ written so that plan only has to delete the SQLite half.
 - Add `pytest-xdist` to the dev group. `uv run pytest -n auto` must pass
   for `tests/unit` and `tests/integration` on both backends.
 - SQLite in-memory engines are already per-test. For Postgres, each xdist
-  worker gets its own database (`<db>_<worker id>`, created on first use
-  from the configured `KALETA_DB_URL`, dropped at session end); the
+  worker gets its own database (`<db>_<worker id>`, created and migrated on
+  first use from the configured `KALETA_DB_URL`, kept for the next run —
+  see Implementation notes); the
   existing truncate-once + outer-transaction isolation stays per worker.
 - Tests that provision tenant schemas or run Alembic (`tenancy_helpers`,
   `test_tenant_isolation`, `test_hosted_operations`, migration tests) work
@@ -50,8 +51,9 @@ written so that plan only has to delete the SQLite half.
   subprocesses or performance budgets (the 50 000-transaction search
   budget, `reset_demo`, seed CLIs, `encrypt_database`, hosted
   operations). Marked from the measured `--durations` list, not by guess.
-- `scripts/verify.sh` runs everything, in parallel (`-n auto`), slow tier
-  included — the laptop is where the full suite lives.
+- `scripts/verify.sh` runs everything — the fast tier in parallel
+  (`-n auto`), the slow tier serially (it holds a timing budget) — the
+  laptop is where the full suite lives.
 - The pre-push hook runs `pytest -n auto -m "not slow"` on unit +
   integration (target < 30 s), after mypy and import-linter.
 - CI on a pull request: lint job unchanged; one test job per backend runs
@@ -165,6 +167,31 @@ Parallelism alone gave 130 → 29 s; the audit's first finding gave the rest.
   8.6 s). Each test provisions two fresh tenants on purpose — sharing them
   would let one test's rows leak into the next one's isolation check, which
   is the property under test. Under xdist it costs one worker ~9 s.
+
+**Accepted risk: what a pull request no longer runs.** Until push to `main`
+(or the nightly run), a PR is not checked by the slow tier — tenant
+migrations and the operator CLI (`test_hosted_operations`), `reset_demo`,
+the seed CLIs (`test_example_data`), `encrypt_database`, Alembic upgrades of
+a file database (`TestEnsureSchemaCurrent`, KAL-ACC-009's balance-preserving
+upgrade, first-run activation), the 50 000-row search budget — nor by the
+`valkey` job. A migration, CLI or Redis-path regression can therefore merge
+and be caught only after. Mitigation: `verify.sh` (the Definition-of-Done
+gate and the goal-mode Stop hook) runs the slow tier, so an agent or a human
+following the Working Agreement has run it before opening the PR. `valkey`
+is not a required check (the ruleset requires `lint`, `test`, `postgres`),
+so its being skipped on a PR blocks nothing.
+
+**Also recorded after review.**
+
+- No test exercises Argon2 at production cost; with the autouse fixture
+  none can by accident. `kaleta.auth.providers.fake` still hashes at full
+  cost — left alone, `postgres-only` removes that backend.
+- `tests/xdist_postgres.py` needs a role with `CREATEDB` (CI's `kaleta` is a
+  superuser), builds the asyncpg DSN with `make_url` (any `postgresql*`
+  driver, no SQLAlchemy query options leak), refuses a URL without a
+  database name, and tolerates a concurrent `CREATE DATABASE`. Two pytest
+  sessions at once on the same server share the worker databases and
+  truncate each other — documented in the module; run one at a time.
 
 **Audit — candidates for the maintainer (nothing below was changed).**
 
