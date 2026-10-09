@@ -123,6 +123,9 @@ warn_required_dynamic_aliases = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
+markers = [
+    "slow: CLIs in subprocesses, migrations of a file database, timing budgets — run by verify.sh and on main/nightly CI, not per pull request (test-suite-speed)",
+]
 
 [tool.importlinter]
 root_package = "kaleta"
@@ -193,4 +196,5 @@ dev = [
     "types-qrcode>=8.2.0.20260518",
     "redis>=5.0",
     "fakeredis>=2.26",
+    "pytest-xdist>=3.8.0",
 ]
