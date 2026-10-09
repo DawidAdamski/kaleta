@@ -3,7 +3,7 @@ plan_id: test-suite-speed
 title: Tests — parallel locally, tiered in CI, and an audit of what they cost
 area: tests / ci
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -114,5 +114,86 @@ changes.
   `HOME` under `tmp_path_factory` if any such leak shows up.
 
 ## Implementation notes
+
+**Measurements (2026-10-09, M5 Max, 18 cores; `main` at `ee7e52c` → this branch).**
+
+| Run | Before | After |
+|---|---:|---:|
+| unit + integration, SQLite, serial | 130.7 s | — |
+| fast tier, SQLite, `-n auto` | — | **16.8 s** |
+| fast tier, Postgres 16, `-n auto` | — | **14.9 s** |
+| slow tier (24 tests), serial | — | 26–29 s |
+| e2e (227 tests, serial, unchanged) | 401 s | 401 s |
+| CI wall-clock, `main` push | ≈ 5.5 min (`postgres` job) | after the first PR, below |
+
+Parallelism alone gave 130 → 29 s; the audit's first finding gave the rest.
+
+**Decisions a reviewer should know.**
+
+- *Worker databases are kept, not dropped.* `tests/xdist_postgres.py` creates
+  `<db>_gw<N>` on first use and the worker migrates it to head
+  (`upgrade_to_head`); the next session truncates it like the main one. Only
+  the first parallel run pays for `CREATE DATABASE` + migrations. The plan
+  said "dropped at session end"; keeping them is faster and leaves nothing a
+  rerun cannot reuse. `conftest.py` sets the worker URL through
+  `os.environ.update(worker_database_env())` before any `kaleta` import,
+  because the settings read `KALETA_DB_URL` at import time.
+- *Argon2 cost in tests.* `MfaService` and `AuthService` build a default
+  `PasswordHasher()` (t=3, 64 MiB); every MFA enrolment hashes ten recovery
+  codes. An autouse fixture swaps in a `PasswordHasher` with the cost the KDF
+  tests already use (`_FAST_KDF`: t=1, 8 MiB). Same hash format, same verify
+  path; `test_mfa_service.py` went 22.0 → 5.1 s. Production parameters are
+  untouched and still asserted where they matter (`KdfParams()` defaults in
+  `tests/unit/crypto/test_keys.py`). Test-only change; no `src/` file touched.
+- *One order-dependent test found by xdist.* `test_health_without_credentials`
+  passed serially only because an earlier test left `AsyncSessionFactory`
+  configured; the API client fixtures now override `get_public_session` too.
+- *`slow` tier* = 24 tests, chosen from `--durations` by the plan's rule
+  (subprocess CLIs, migrations of a file database, a timing budget):
+  `test_example_data`, `test_hosted_operations`, `test_reset_demo`,
+  `test_encrypt_database_script`, `test_transaction_search_budget` (whole
+  files), `TestEnsureSchemaCurrent`, `test_upgrading_keeps_every_balance_the_user_saw`,
+  `test_recommended_activate_persists_config`. The search budget failed
+  (339 ms > 300 ms) under `-n auto` with e2e running beside it — the reason
+  the slow tier runs serially in `verify.sh` and CI.
+- *CI*: `postgres-multi` folded into `postgres` (it now installs `hosted`, so
+  the tenant suites run there); required checks `lint`, `test`, `postgres`
+  keep their names (ruleset "protect the queen"). Pull requests run the fast
+  tier; push to `main`, the nightly schedule and `workflow_dispatch` add the
+  slow tier and the `valkey` job.
+- *Not moved to module scope*: `test_tenant_isolation` setup (76 % of its
+  8.6 s). Each test provisions two fresh tenants on purpose — sharing them
+  would let one test's rows leak into the next one's isolation check, which
+  is the property under test. Under xdist it costs one worker ~9 s.
+
+**Audit — candidates for the maintainer (nothing below was changed).**
+
+1. *e2e MFA test, 76.6 s of 401 s*: `tests/e2e/test_mfa.py::test_two_factor_authentication`
+   waits for real TOTP windows. Generating codes for an explicit
+   `for_time` (or a clock the app reads) would cut ~70 s.
+2. *Tests of code `postgres-only` deletes*: `tests/unit/db/test_sqlite_pragmas.py`,
+   `tests/integration/test_sqlite_integrity_backups.py`, `test_backup.py`,
+   `tests/unit/services/test_scheduled_backup_service.py`, the SQLite parts of
+   `test_integrity_service.py`, `test_migrate_on_startup.py` (safety copy),
+   `test_encrypt_database_script.py`, `TestSyncUrl::test_sqlite_drops_async_driver`
+   — 11 of them already skip on Postgres.
+3. *Setup-heavy integration files* (59–86 % setup: `test_payees`,
+   `test_transactions`, `test_institutions`, `test_categories`,
+   `test_accounts`, `test_budgets`): each test creates the API user and a
+   bearer token. A module-scoped user with per-test rollback would halve them;
+   worth doing only if they grow.
+4. *Seeder registry tests* (`tests/unit/seeders/test_registry.py`, 8.1 s, 17
+   tests) seed the whole dataset several times; `test_example_data.py`
+   (slow tier) covers the same seeding through the CLI. Overlap to review:
+   `TestSeedAll::test_replace_rewrites_without_growing` vs
+   `test_replace_rewrites_the_dataset_with_foreign_keys_enforced`.
+5. No near-duplicate unit tests were identified with confidence from timings
+   alone; a coverage-diff pass (`--cov-context=test`) would be the tool if
+   the maintainer wants one.
+
+Post-fix cost report (Postgres, serial, `scripts/test_cost_report.py --top 15`):
+107 s summed over 3 185 tests — top files `test_hosted_operations` 9.4 s,
+`test_tenant_isolation` 8.6 s, `test_registry` 8.1 s, `test_example_data` 7.9 s,
+`test_mfa_service` 5.1 s.
 
 ## Implementation (filled by plan-archiver)
