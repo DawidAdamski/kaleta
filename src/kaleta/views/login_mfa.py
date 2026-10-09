@@ -202,8 +202,14 @@ def register() -> None:
 
 
 async def _hosted_prompt(pending: MfaRequired, target: str) -> None:
-    """The same prompt, answered by Supabase Auth (``KALETA_AUTH_BACKEND=supabase``)."""
+    """The same prompt, answered by the provider (Supabase, or local logins on the registry).
+
+    Supabase removes its factor when a recovery code is spent; a local factor
+    (``factor_id == "local"``, ADR-38) stays and the code is crossed off.
+    """
     rate_key = pending.identity.subject
+    local_factor = pending.factor_id == "local"
+    recovery_hint = "auth.mfa_recovery_hint" if local_factor else "auth.mfa_recovery_hint_hosted"
     shell = await auth_page_shell("auth.mfa_title", "auth.mfa_subtitle")
 
     with shell, ui.column().classes("w-full gap-4"):
@@ -220,9 +226,9 @@ async def _hosted_prompt(pending: MfaRequired, target: str) -> None:
             code_block.set_visibility(not to_recovery)
             recovery_block.set_visibility(to_recovery)
             switch.set_text(t("auth.mfa_use_code" if to_recovery else "auth.mfa_use_recovery"))
-            # Said before the code is spent, not after: on this backend a
+            # Said before the code is spent, not after: with Supabase a
             # recovery code turns the factor off.
-            hint.set_text(t("auth.mfa_recovery_hint_hosted" if to_recovery else "auth.mfa_hint"))
+            hint.set_text(t(recovery_hint if to_recovery else "auth.mfa_hint"))
             (recovery if to_recovery else code).run_method("focus")
 
         async def _submit() -> None:

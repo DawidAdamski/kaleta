@@ -13,11 +13,14 @@ The family a login belongs to is not here: that is
 
 from __future__ import annotations
 
+import asyncio
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
@@ -29,6 +32,13 @@ _REGISTRATION_KEY = "registration_mode"
 _SUBJECT_PREFIX = "local:"
 #: The same sentence for an unknown address and a wrong password.
 _BAD_CREDENTIALS = "Invalid e-mail or password."
+#: Longer input is refused before hashing: argon2 of a multi-megabyte string
+#: is a way to make the server work, not a password.
+MAX_PASSWORD_LENGTH = 1024
+#: ``pg_advisory_xact_lock`` key for "who is an administrator" decisions.
+_ADMIN_LOCK_KEY = 0x4B414C4554410001  # "KALETA" + 1
+#: The same, within one process (and the only guard on SQLite).
+_admin_lock = asyncio.Lock()
 
 
 def subject_of(identity_id: int) -> str:
@@ -102,11 +112,11 @@ class LocalIdentityService:
         password: str,
         *,
         admin: bool = False,
-        must_change_password: bool = False,
     ) -> LocalIdentity:
         """A new login. ``ConflictError`` when the address is taken."""
         address = normalise_email(email)
-        if "@" not in address or address.startswith("@") or address.endswith("@"):
+        local, _, domain = address.partition("@")
+        if not local or not domain or "@" in domain or any(c.isspace() for c in address):
             msg = "Enter an e-mail address."
             raise ValidationError(msg)
         self._validate_password(password)
@@ -117,7 +127,6 @@ class LocalIdentityService:
             email=address,
             password_hash=self._hasher.hash(password),
             is_instance_admin=admin,
-            must_change_password=must_change_password,
         )
         self.session.add(identity)
         await self.session.commit()
@@ -130,16 +139,23 @@ class LocalIdentityService:
         The first login becomes the instance administrator. Afterwards sign-up
         needs ``RegistrationMode.OPEN``; ``closed`` and ``invite`` refuse it
         with a sentence (the invitation path is ``hosted-household-sharing``'s).
+
+        "Is the instance empty" and the insert run under one lock, so two
+        first sign-ups racing each other yield one administrator: the second
+        finds a login and meets the (closed) registration mode.
         """
-        if await self.is_empty():
-            return await self.create(email, password, admin=True)
-        if await self.registration_mode() is not RegistrationMode.OPEN:
-            msg = "Sign-up is closed on this instance. Ask its administrator for an account."
-            raise ValidationError(msg)
-        return await self.create(email, password)
+        async with self._admin_decision():
+            if await self.is_empty():
+                return await self.create(email, password, admin=True)
+            if await self.registration_mode() is not RegistrationMode.OPEN:
+                msg = "Sign-up is closed on this instance. Ask its administrator for an account."
+                raise ValidationError(msg)
+            return await self.create(email, password)
 
     async def authenticate(self, email: str, password: str) -> LocalIdentity:
         """The login for these credentials, or ``UnauthorizedError``."""
+        if len(password) > MAX_PASSWORD_LENGTH:
+            raise UnauthorizedError(_BAD_CREDENTIALS)
         identity = await self.get_by_email(email)
         if identity is None:
             # Hash anyway, so an unknown address costs what a known one does.
@@ -155,34 +171,70 @@ class LocalIdentityService:
         identity = await self.get(identity_id)
         return identity is not None and self._matches(identity.password_hash, password)
 
-    async def set_password(
-        self, identity_id: int, password: str, *, must_change: bool = False
-    ) -> None:
+    async def set_password(self, identity_id: int, password: str) -> None:
         identity = await self._require(identity_id)
         self._validate_password(password)
         identity.password_hash = self._hasher.hash(password)
-        identity.must_change_password = must_change
         await self.session.commit()
 
     async def set_disabled(self, identity_id: int, disabled: bool) -> None:
-        identity = await self._require(identity_id)
-        if disabled and identity.is_instance_admin and await self._admin_count() == 1:
-            msg = "The last administrator cannot be disabled."
-            raise ValidationError(msg)
-        identity.disabled = disabled
-        await self.session.commit()
+        """Refuse or allow this login's sign-ins.
+
+        Only the sign-in: a disabled login's open sessions, API tokens and
+        unlocked key are ended by ``kaleta.auth.local_logins.set_login_disabled``,
+        which calls this and then reaches into the login's family.
+        """
+        async with self._admin_decision():
+            identity = await self._require(identity_id)
+            if (
+                disabled
+                and identity.is_instance_admin
+                and not identity.disabled
+                and await self._admin_count() == 1
+            ):
+                msg = "The last administrator cannot be disabled."
+                raise ValidationError(msg)
+            identity.disabled = disabled
+            await self.session.commit()
 
     async def delete(self, identity_id: int) -> None:
-        identity = await self.get(identity_id)
-        if identity is None:
-            return
-        if identity.is_instance_admin and await self._admin_count() == 1:
-            msg = "The last administrator cannot be deleted."
-            raise ValidationError(msg)
-        await self.session.delete(identity)
-        await self.session.commit()
+        async with self._admin_decision():
+            identity = await self.get(identity_id)
+            if identity is None:
+                return
+            if (
+                identity.is_instance_admin
+                and not identity.disabled
+                and await self._admin_count() == 1
+            ):
+                msg = "The last administrator cannot be deleted."
+                raise ValidationError(msg)
+            await self.session.delete(identity)
+            await self.session.commit()
 
     # ── Internals ────────────────────────────────────────────────────────────
+
+    @asynccontextmanager
+    async def _admin_decision(self) -> AsyncIterator[None]:
+        """Serialise decisions about who is an administrator.
+
+        In-process with an ``asyncio.Lock``; across processes with a
+        transaction-level advisory lock on Postgres, released by the commit (or
+        rollback) that ends the decision.
+        """
+        async with _admin_lock:
+            bind = self.session.bind
+            if bind is not None and bind.dialect.name == "postgresql":
+                await self.session.execute(
+                    text("SELECT pg_advisory_xact_lock(:k)"), {"k": _ADMIN_LOCK_KEY}
+                )
+            try:
+                yield
+            except BaseException:
+                # A refused decision commits nothing; ending the transaction
+                # also releases the advisory lock.
+                await self.session.rollback()
+                raise
 
     async def _require(self, identity_id: int) -> LocalIdentity:
         identity = await self.get(identity_id)
@@ -209,4 +261,7 @@ class LocalIdentityService:
     def _validate_password(password: str) -> None:
         if len(password) < MIN_PASSWORD_LENGTH:
             msg = f"Password must be at least {MIN_PASSWORD_LENGTH} characters."
+            raise ValidationError(msg)
+        if len(password) > MAX_PASSWORD_LENGTH:
+            msg = f"Password must be at most {MAX_PASSWORD_LENGTH} characters."
             raise ValidationError(msg)

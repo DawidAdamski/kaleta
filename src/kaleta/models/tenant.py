@@ -167,6 +167,8 @@ class LocalIdentity(PublicBase):
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     is_instance_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    #: Reserved for ``instance-admin-panel`` (a reset the user must change at
+    #: the next sign-in); nothing sets or reads it yet.
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now, server_default=func.now()

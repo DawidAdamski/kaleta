@@ -82,6 +82,22 @@ class ApiTokenService:
         )
         return list(result.scalars().all())
 
+    async def revoke_all(self, *, user_id: int) -> int:
+        """Revoke every live token of ``user_id`` (a disabled login); return how many.
+
+        No step-up: the caller is the instance administrator acting on someone
+        else's login, not the owner of the tokens.
+        """
+        result = await self.session.execute(
+            select(ApiToken).where(ApiToken.user_id == user_id, ApiToken.revoked_at.is_(None))
+        )
+        tokens = list(result.scalars().all())
+        now = datetime.now(UTC)
+        for token in tokens:
+            token.revoked_at = now
+        await self.session.commit()
+        return len(tokens)
+
     async def revoke_token(
         self,
         *,

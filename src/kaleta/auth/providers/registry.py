@@ -71,11 +71,22 @@ class RegistryAuthProvider:
         """Kaleta's own session is the only one."""
 
     async def delete_identity(self, subject: str) -> None:
+        """Delete a member's login when their family is deleted.
+
+        An instance administrator's login is kept: it is the instance's, not
+        the family's, and deleting it could leave nobody to run the instance.
+        Their next sign-in starts a new, empty family. Kept rather than refused
+        so that deleting a family with several members never stops half-way.
+        """
         identity_id = identity_id_of(subject)
         if identity_id is None:
             return
         async with AsyncSessionFactory.public() as session:
-            await LocalIdentityService(session).delete(identity_id)
+            identities = LocalIdentityService(session)
+            row = await identities.get(identity_id)
+            if row is None or row.is_instance_admin:
+                return
+            await identities.delete(identity_id)
 
     async def request_password_reset(self, email: str) -> None:
         raise ValidationError(_ADMIN_RESET)

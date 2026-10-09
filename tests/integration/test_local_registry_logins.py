@@ -10,6 +10,8 @@ Covers: KAL-TEN-015, KAL-TEN-016, KAL-TEN-017, KAL-TEN-018, KAL-TEN-019
 
 from __future__ import annotations
 
+import argparse
+import asyncio
 import importlib.util
 import io
 import sys
@@ -20,6 +22,7 @@ from pathlib import Path
 import pyotp
 import pytest
 
+from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import MfaRequired, RegistryAuthProvider, set_auth_provider
 from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state
 from kaleta.db import AsyncSessionFactory
@@ -27,6 +30,7 @@ from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import ConflictError, UnauthorizedError, ValidationError
 from kaleta.models.tenant import TenantRole
 from kaleta.schemas.identity import Identity, RegistrationMode
+from kaleta.services import ApiTokenService, AuthService
 from kaleta.services.local_identity_service import LocalIdentityService
 from kaleta.services.mfa_service import TOTP_INTERVAL, MfaService
 from kaleta.services.tenant_service import TenantService
@@ -160,10 +164,11 @@ async def test_the_last_administrator_is_kept(instance: str) -> None:
         identities = LocalIdentityService(public)
         row = await identities.get_by_email(ADMIN)
         assert row is not None
+        admin_id = row.id  # a refused decision rolls back and expires `row`
         with pytest.raises(ValidationError, match="last administrator"):
-            await identities.set_disabled(row.id, True)
+            await identities.set_disabled(admin_id, True)
         with pytest.raises(ValidationError, match="last administrator"):
-            await identities.delete(row.id)
+            await identities.delete(admin_id)
 
 
 async def test_a_local_second_factor_is_checked_inside_the_family(instance: str) -> None:
@@ -193,6 +198,8 @@ async def test_a_local_second_factor_is_checked_inside_the_family(instance: str)
     next_code = totp.at(int(time.time()) + TOTP_INTERVAL)
     verified = await _flow(instance).verify_code(pending, next_code)
     assert verified.user_id == signed_in.user_id
+    with pytest.raises(ValidationError):
+        await _flow(instance).verify_code(pending, next_code)
 
     assert await _flow(instance).recover(pending, "NOTACODE00") is None
     recovered = await _flow(instance).recover(pending, codes[0])
@@ -240,3 +247,97 @@ async def test_the_administrator_manages_local_logins(instance: str) -> None:
     assert out.getvalue().splitlines()[-1] == "registration closed"
     assert await cli.registration(RegistrationMode.OPEN) == 0
     assert out.getvalue().splitlines()[-1] == "registration open"
+
+
+async def test_two_first_sign_ups_at_once_make_one_administrator(instance: str) -> None:
+    """Covers: KAL-TEN-015"""
+    outcomes = await asyncio.gather(
+        RegistryAuthProvider().sign_up("first@example.com", PASSWORD),
+        RegistryAuthProvider().sign_up("second@example.com", PASSWORD),
+        return_exceptions=True,
+    )
+
+    created = [o for o in outcomes if not isinstance(o, BaseException)]
+    refused = [o for o in outcomes if isinstance(o, BaseException)]
+    assert len(created) == 1
+    assert len(refused) == 1
+    assert isinstance(refused[0], ValidationError)
+    async with AsyncSessionFactory.public() as public:
+        rows = await LocalIdentityService(public).list()
+    assert [(r.email, r.is_instance_admin) for r in rows] == [
+        (created[0].identity.email, True)  # type: ignore[union-attr]
+    ]
+
+
+async def test_an_overlong_password_is_refused_before_hashing(instance: str) -> None:
+    """Covers: KAL-TEN-017"""
+    await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    with pytest.raises(UnauthorizedError, match="Invalid e-mail or password"):
+        await RegistryAuthProvider().sign_in(ADMIN, "x" * 1025)
+    await _set_mode(RegistrationMode.OPEN)
+    with pytest.raises(ValidationError, match="at most"):
+        await RegistryAuthProvider().sign_up("new@example.com", "x" * 1025)
+    with pytest.raises(ValidationError, match="e-mail"):
+        async with AsyncSessionFactory.public() as public:
+            await LocalIdentityService(public).create("a@b@c", PASSWORD)
+
+
+async def test_disabling_a_login_ends_its_sessions_and_tokens(instance: str) -> None:
+    """Covers: KAL-TEN-017"""
+    await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    await _set_mode(RegistrationMode.OPEN)
+    result = await RegistryAuthProvider().sign_up("member@example.com", PASSWORD)
+    assert result.identity is not None
+    signed_in = await _flow(instance).complete(result.identity)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+    assert membership is not None
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            _token, raw = await ApiTokenService(session).create_token(
+                user_id=signed_in.user_id, label="script"
+            )
+            assert await AuthService(session).sessions_valid_from(signed_in.user_id) is None
+
+    identity_id = int(result.identity.subject.removeprefix("local:"))
+    await set_login_disabled(identity_id, True)
+
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            watermark = await AuthService(session).sessions_valid_from(signed_in.user_id)
+            assert await ApiTokenService(session).authenticate_bearer(raw) is None
+    assert watermark is not None
+    with pytest.raises(UnauthorizedError):
+        await RegistryAuthProvider().sign_in("member@example.com", PASSWORD)
+
+    await set_login_disabled(identity_id, False)
+    again = await RegistryAuthProvider().sign_in("member@example.com", PASSWORD)
+    assert isinstance(again, Identity)
+
+
+async def test_deleting_a_family_keeps_the_administrators_login(instance: str) -> None:
+    """Covers: KAL-TEN-017"""
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+    await _set_mode(RegistrationMode.OPEN)
+    member = await RegistryAuthProvider().sign_up("member@example.com", PASSWORD)
+    assert member.identity is not None
+
+    await RegistryAuthProvider().delete_identity(result.identity.subject)
+    await RegistryAuthProvider().delete_identity(member.identity.subject)
+
+    async with AsyncSessionFactory.public() as public:
+        identities = LocalIdentityService(public)
+        assert await identities.get_by_email(ADMIN) is not None
+        assert await identities.get_by_email("member@example.com") is None
+
+
+async def test_the_login_commands_refuse_another_backend(tmp_path: Path) -> None:
+    """Covers: KAL-TEN-019"""
+    async with multi_tenant_database(tmp_path) as _url:  # auth_backend="supabase"
+        set_auth_provider(_NoRemover())  # type: ignore[arg-type]
+        try:
+            status = await tenant_admin._run(argparse.Namespace(command="logins"))
+        finally:
+            set_auth_provider(None)
+    assert status == 2
