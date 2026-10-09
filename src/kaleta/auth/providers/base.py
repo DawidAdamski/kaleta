@@ -25,6 +25,9 @@ class AuthProvider(Protocol):
     #: Supabase) — for the login page's form, never for branching on security
     #: decisions. Anything but ``"local"`` is the hosted, e-mail sign-up form.
     name: str
+    #: The login form asks for an e-mail address (every backend but the
+    #: single-tenant ``local`` one, whose login is a username).
+    email_login: bool
 
     async def sign_up(self, email: str, password: str) -> SignUpResult: ...
 

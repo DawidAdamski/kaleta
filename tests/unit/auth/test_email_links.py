@@ -35,6 +35,7 @@ class TestSendThrottle:
 
 class _CountingProvider(LocalAuthProvider):
     name = "supabase"
+    email_login = True
 
     def __init__(self) -> None:
         self.resent: list[str] = []

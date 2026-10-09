@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """KALETA_TENANCY / KALETA_AUTH_BACKEND — only the two real layouts start.
 
-Self-hosted is ``single`` + ``local``; hosted is ``multi`` + ``supabase``, or
-``multi`` + ``fake`` on a developer's laptop (``KALETA_DEBUG=true`` only).
+Self-hosted is ``single`` + ``local`` or, on the registry layout of ADR-38,
+``multi`` + ``local``; hosted is ``multi`` + ``supabase``, or ``multi`` +
+``fake`` on a developer's laptop (``KALETA_DEBUG=true`` only).
 """
 
 from __future__ import annotations
@@ -35,10 +36,10 @@ def test_multi_tenancy_with_supabase_is_accepted() -> None:
     assert (settings.tenancy, settings.auth_backend) == ("multi", "supabase")
 
 
-def test_multi_tenancy_with_the_local_backend_is_refused() -> None:
-    """Refused by the settings validator, before anything else can start."""
-    with pytest.raises(ValidationError, match="KALETA_TENANCY=multi requires"):
-        Settings.model_validate({"debug": True, "tenancy": "multi", "auth_backend": "local"})
+def test_multi_tenancy_with_the_local_backend_is_accepted() -> None:
+    """ADR-38: local logins live in the registry, so ``multi`` + ``local`` starts."""
+    settings = Settings.model_validate({"debug": True, "tenancy": "multi", "auth_backend": "local"})
+    assert (settings.tenancy, settings.auth_backend) == ("multi", "local")
 
 
 def test_supabase_on_a_single_tenant_database_is_refused() -> None:
@@ -85,8 +86,8 @@ def test_mode_names_are_case_insensitive() -> None:
     assert (settings.tenancy, settings.auth_backend) == ("multi", "supabase")
 
 
-def test_importing_the_config_with_multi_and_local_exits_non_zero(tmp_path: Path) -> None:
-    """The acceptance criterion's own command, as a process."""
+def test_importing_the_config_with_multi_and_local_starts(tmp_path: Path) -> None:
+    """ADR-38: the layout a homelab runs imports cleanly, as a process."""
     env = {
         **os.environ,
         "HOME": str(tmp_path),
@@ -102,5 +103,4 @@ def test_importing_the_config_with_multi_and_local_exits_non_zero(tmp_path: Path
         check=False,
         cwd=tmp_path,
     )
-    assert result.returncode != 0
-    assert "KALETA_TENANCY=multi requires KALETA_AUTH_BACKEND=supabase" in result.stderr
+    assert result.returncode == 0, result.stderr
