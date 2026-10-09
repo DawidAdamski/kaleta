@@ -170,7 +170,7 @@ and is untouched.
 | 1 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | draft | — |
 | 2 | [hosted-field-encryption](archive/hosted-field-encryption.md) | archived | draft | 1 |
 | 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 |
-| 4 | [hosted-supabase-rollout](hosted-supabase-rollout.md) | medium | draft | 1, 2 (3 before public launch) |
+| 4 | [hosted-supabase-rollout](archive/hosted-supabase-rollout.md) | archived | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](archive/auth-two-factor.md) | archived | draft | Phase A: — ; Phase B: 1 |
 | 5b | [auth-hosted-email-links](archive/auth-hosted-email-links.md) | archived | draft | 1 |
 | [auth-session-rotate-on-login](archive/auth-session-rotate-on-login.md) | archived | Auth — session hardening (2) |
@@ -313,7 +313,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [auth-two-factor](archive/auth-two-factor.md) | archived | Auth — see Hosted programme |
 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | Observability — see Hosted programme |
 | [settings-week-debug-seed](archive/settings-week-debug-seed.md) | archived | Settings |
-| [hosted-supabase-rollout](hosted-supabase-rollout.md) | draft | Hosted programme (4) |
+| [hosted-supabase-rollout](archive/hosted-supabase-rollout.md) | archived | Hosted programme (4) |
 | [planned-transactions-post-due](archive/planned-transactions-post-due.md) | archived | Planned transactions |
 | [transactions-splits-integrity](archive/transactions-splits-integrity.md) | archived | Transactions |
 | [transactions-payee-autocomplete](archive/transactions-payee-autocomplete.md) | archived | Transactions |

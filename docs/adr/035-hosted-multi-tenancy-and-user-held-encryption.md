@@ -133,4 +133,4 @@ status: proposed
 - **Plans**: [`hosted-tenancy-foundation`](../plans/archive/hosted-tenancy-foundation.md),
   [`hosted-field-encryption`](../plans/archive/hosted-field-encryption.md),
   [`hosted-household-sharing`](../plans/hosted-household-sharing.md),
-  [`hosted-supabase-rollout`](../plans/hosted-supabase-rollout.md).
+  [`hosted-supabase-rollout`](../plans/archive/hosted-supabase-rollout.md).
