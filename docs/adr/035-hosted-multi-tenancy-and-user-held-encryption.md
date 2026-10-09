@@ -130,6 +130,9 @@ status: proposed
     `KALETA_ENCRYPTION=off` by default and change nothing. Encryption
     can be switched on for a single-tenant install; the same code path
     then protects a self-hoster's SQLite file.
+    *Amended by [ADR-38](038-postgresql-only-one-tenancy-layout.md):
+    self-hosted installs use this same layout on PostgreSQL, with local
+    logins, encryption always on and up to ten members per family.*
 - **Plans**: [`hosted-tenancy-foundation`](../plans/archive/hosted-tenancy-foundation.md),
   [`hosted-field-encryption`](../plans/archive/hosted-field-encryption.md),
   [`hosted-household-sharing`](../plans/hosted-household-sharing.md),
