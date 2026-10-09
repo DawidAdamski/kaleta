@@ -21,8 +21,9 @@ __all__ = ["AuthProvider", "FactorEnrolment", "Identity", "MfaRequired", "SignUp
 
 
 class AuthProvider(Protocol):
-    #: ``"local"`` or ``"supabase"`` — for the login page's form, never for
-    #: branching on security decisions.
+    #: ``"local"``, ``"supabase"`` or ``"fake"`` (the debug stand-in for
+    #: Supabase) — for the login page's form, never for branching on security
+    #: decisions. Anything but ``"local"`` is the hosted, e-mail sign-up form.
     name: str
 
     async def sign_up(self, email: str, password: str) -> SignUpResult: ...

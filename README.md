@@ -33,6 +33,18 @@ Manual migrate (targets the live DB — bare `alembic upgrade head` uses
 KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/path/to/kaleta.db uv run alembic upgrade head
 ```
 
+## Hosted Kaleta
+
+A hosted instance (Supabase sign-in, one account per household) is being
+rolled out; its address will be listed here once it is public. **The privacy
+promise:** everything you write — descriptions, payees, categories, names,
+notes — is encrypted under a key that only your data passphrase or recovery
+code opens, and only in the server's memory while you are signed in. The
+operator, a database dump and every backup see ciphertext for that text, and
+plain amounts and dates. Deleting your account removes its data and your
+sign-in. Details: [docs/privacy.md](docs/privacy.md); running one yourself:
+[docs/deployment.md](docs/deployment.md).
+
 ## Optional forecasting
 
 The Forecast view works out of the box with a seasonal-naive projection.
@@ -50,7 +62,7 @@ the naive fallback.
 
 - [Documentation site](https://dawidadamski.github.io/kaleta/) — product guides, architecture, roadmap
 - [Getting started](docs/getting-started.md) — Docker/Podman volumes, environment variables, development
-- [Hosted deployment (Supabase)](docs/deployment.md) — Postgres demo instance, env wiring, daily reset
+- [Hosted deployment (Supabase)](docs/deployment.md) — multi-tenant instance, operations, hosted-dev stack, demo
 - [Privacy](docs/privacy.md) — what is encrypted, anonymous error events, retention, bug reports
 - [Local deploy (launchd / systemd)](docs/deploy-local.md) — autostart on localhost + `/api/v1/health`
 - [Contributing](CONTRIBUTING.md) — how we work and open a PR

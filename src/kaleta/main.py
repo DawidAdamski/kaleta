@@ -136,12 +136,14 @@ def _preload_multi_tenant() -> None:
 
     configure_database(settings.db_url, debug=settings.debug)
     try:
-        migrated = ensure_multi_tenant_current(settings.db_url)
+        run = ensure_multi_tenant_current(settings.db_url)
     except MigrationError as exc:
         logging.getLogger(__name__).error("Refusing to start: %s", exc.message)
         raise SystemExit(f"Refusing to start: {exc.message}") from exc
     logging.getLogger(__name__).info(
-        "Multi-tenant database ready (%d tenant schema(s) upgraded)", len(migrated)
+        "Multi-tenant database ready (%d tenant schema(s) upgraded, %d suspended)",
+        len(run.migrated),
+        len(run.suspended),
     )
 
 

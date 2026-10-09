@@ -1,7 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """KALETA_TENANCY / KALETA_AUTH_BACKEND — only the two real layouts start.
 
-Self-hosted is ``single`` + ``local``; hosted is ``multi`` + ``supabase``.
+Self-hosted is ``single`` + ``local``; hosted is ``multi`` + ``supabase``, or
+``multi`` + ``fake`` on a developer's laptop (``KALETA_DEBUG=true`` only).
 """
 
 from __future__ import annotations
@@ -51,6 +52,30 @@ def test_supabase_on_a_single_tenant_database_is_refused() -> None:
 def test_supabase_without_its_url_and_key_is_refused() -> None:
     with pytest.raises(ValidationError, match="KALETA_SUPABASE_URL and KALETA_SUPABASE_ANON_KEY"):
         Settings.model_validate({"debug": True, "tenancy": "multi", "auth_backend": "supabase"})
+
+
+def test_the_fake_backend_is_accepted_with_debug_on_a_multi_tenant_database() -> None:
+    """Covers: KAL-TEN-011"""
+    settings = Settings.model_validate({"debug": True, "tenancy": "multi", "auth_backend": "fake"})
+    assert (settings.tenancy, settings.auth_backend) == ("multi", "fake")
+
+
+def test_the_fake_backend_is_refused_without_debug() -> None:
+    """Covers: KAL-TEN-011"""
+    with pytest.raises(ValidationError, match="KALETA_AUTH_BACKEND=fake is accepted only with"):
+        Settings.model_validate(
+            {
+                "debug": False,
+                "secret_key": "a-real-secret-for-this-test",
+                "tenancy": "multi",
+                "auth_backend": "fake",
+            }
+        )
+
+
+def test_the_fake_backend_is_refused_on_a_single_tenant_database() -> None:
+    with pytest.raises(ValidationError, match="KALETA_AUTH_BACKEND=fake requires"):
+        Settings.model_validate({"debug": True, "tenancy": "single", "auth_backend": "fake"})
 
 
 def test_mode_names_are_case_insensitive() -> None:

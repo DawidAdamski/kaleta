@@ -1,0 +1,21 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Supabase → Authentication → Emails → "Confirm signup".
+     Subject: Potwierdź adres e-mail w Kalecie / Confirm your Kaleta e-mail address
+     Supabase sends one template to everyone, so it carries both languages. -->
+<div style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; max-width: 520px; color: #1e293b;">
+  <h2 style="margin: 0 0 12px;">Kaleta</h2>
+
+  <p lang="pl">Ktoś — mamy nadzieję, że Ty — założył konto w Kalecie na adres {{ .Email }}.
+  Potwierdź go, a przy pierwszym logowaniu wybierzesz hasło do danych.</p>
+  <p lang="pl"><a href="{{ .ConfirmationURL }}" style="color: #0f766e;">Potwierdź adres e-mail</a></p>
+
+  <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+  <p lang="en">Someone — we hope you — created a Kaleta account for {{ .Email }}.
+  Confirm it, and at your first sign-in you will choose your data passphrase.</p>
+  <p lang="en"><a href="{{ .ConfirmationURL }}" style="color: #0f766e;">Confirm your e-mail address</a></p>
+
+  <p style="color: #64748b; font-size: 12px;">Jeśli to nie Ty, zignoruj tę wiadomość — bez potwierdzenia
+  nie powstanie żadne konto. / If this was not you, ignore this message — no account is created
+  until the address is confirmed.</p>
+</div>

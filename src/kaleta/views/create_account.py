@@ -39,7 +39,7 @@ def register() -> None:
             return RedirectResponse("/")
 
         provider = get_auth_provider()
-        hosted = provider.name == "supabase"
+        hosted = provider.name != "local"
 
         async def _guard(session: Any) -> bool:
             return await AuthService(session).auth_state() == "no_user"

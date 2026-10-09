@@ -235,3 +235,8 @@ def _unlock_form(target: str) -> None:
         submit = auth_submit("unlock.button", _submit)
         switch = auth_action("unlock.use_recovery", _toggle)
         auth_action("unlock.sign_out", finish_logout)
+        # The key ring is memory only: a restart (or a deploy) locks everyone,
+        # and this is the page they land on — say why it is asking again.
+        ui.label(t("unlock.restart_note")).classes(f"{AUTH_SUBTITLE} text-xs").props(
+            'data-testid="unlock-restart-note"'
+        )

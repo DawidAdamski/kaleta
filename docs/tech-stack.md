@@ -171,7 +171,8 @@ KALETA_BACKUP_DIR=~/.kaleta/backups   # Directory for kaleta-*.db files (not ZIP
 ```
 KALETA_TENANCY=single                 # single (self-hosted, default) | multi (hosted)
 KALETA_AUTH_BACKEND=local             # local (argon2 users table) | supabase (Supabase Auth)
-                                      # only single+local and multi+supabase start
+                                      # | fake (debug stand-in for Supabase; KALETA_DEBUG only)
+                                      # only single+local and multi+supabase (or fake) start
 KALETA_SUPABASE_URL=                  # https://<project>.supabase.co — required for supabase
 KALETA_SUPABASE_ANON_KEY=             # public anon key — required for supabase
 KALETA_SUPABASE_SERVICE_ROLE_KEY=     # server-side only: admin calls (deleting an identity)
@@ -190,6 +191,20 @@ Scheduled SQLite backups, the event retention sweep, the NBP startup fetch
 and the SQLite integrity check are single-tenant only. Multi-tenant SQLite
 (every schema an attached file next to the main one) exists for development
 and tests; production runs PostgreSQL.
+
+On PostgreSQL each process keeps at most ten connections (`pool_size=5`,
+`max_overflow=5`, pre-ping on) and asyncpg prepares no reusable statements,
+so the app runs behind a transaction-mode pooler (Supabase, port 6543). On
+startup the registry is migrated first, then each tenant schema; a schema that
+fails is marked `suspended` and the rest start. `GET /api/v1/health` reports
+`tenancy`, `auth_backend`, `tenants_pending_migration`, `suspended_tenants` and
+`keyring_sessions` (unlocked sessions in this process, a count).
+`KALETA_AUTH_BACKEND=fake` (`kaleta.auth.providers.fake`) confirms every
+address at sign-up and keeps argon2 hashes in `~/.kaleta/fake-auth.json`; it
+drives `compose.hosted-dev.yml` and is refused without `KALETA_DEBUG=true`.
+Operator scripts: `migrate_tenants.py` (deploy hook), `tenant_admin.py`
+(list, members, suspend, resume, delete), `hosted_smoke.sh` (post-deploy
+smoke) and `reset_demo.py --tenant` (the demo as an account).
 
 ### Field-level encryption
 

@@ -331,3 +331,14 @@ check it still reproduces before acting on it.
       green in that mode on SQLite and Postgres, but only locally; add a
       matrix entry (SQLite + the Postgres job) so a regression under
       encryption is caught.
+- [ ] **No `.containerignore`: every image build sends the whole repo.**
+      `podman compose -f compose.hosted-dev.yml up --build` ships ~180 MB of
+      build context (`.venv`, `site/`, caches, `.env`) to the builder, though
+      the Containerfiles `COPY` only `src/`, `alembic*/` and the lock files.
+      Seen in `hosted-supabase-rollout`. Fix: a `.containerignore` (and
+      `.dockerignore` symlink) that excludes everything but those paths.
+- [ ] **No retention sweep for error events and bug reports in `multi` mode.**
+      `main._register_event_retention_scheduler` returns early on a hosted
+      instance (the tables live in every tenant schema), so events and
+      reports stay until the account is deleted — `docs/privacy.md` says so.
+      Seen in `hosted-supabase-rollout`. Fix: sweep each tenant schema in turn.

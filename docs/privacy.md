@@ -39,6 +39,22 @@ shape of an account: how many accounts and transactions exist, their
 amounts, dates, types and currencies, budget figures, and the e-mail
 and user id.
 
+### What the operator stores about an account
+
+On the hosted instance, outside the account's own (encrypted) schema:
+
+| What | Where | Why |
+|---|---|---|
+| Your user id at the identity provider and your e-mail address | Supabase Auth, and the `public` account registry | Signing in; mapping you to your account |
+| Your role in the account and its status (active, suspended) | The registry | Who may do what |
+| Key-wrapping material: your public key, your private key wrapped under your passphrase (and under your recovery code), a salt and the KDF parameters | The registry | Unlocking — none of it opens anything without your passphrase or recovery code |
+| When the account was created and last used | The registry | Operating the service |
+| Anonymous error events | Your account's own schema | Fixing bugs; no content, see below |
+| Bug reports, only if you send one | Your account's own schema | What you chose to send, in the clear |
+
+Your password itself is held by the identity provider (Supabase Auth) as a
+hash; Kaleta never stores it.
+
 ### What stays in the clear on purpose
 
 Amounts, dates, currencies, enum values, colours, icons and foreign
@@ -91,6 +107,29 @@ Self-hosted installs can turn the same protection on for their SQLite
 or PostgreSQL database; see
 [Field-level encryption](tech-stack.md#field-level-encryption) in
 `docs/tech-stack.md`.
+
+### Deletion and retention
+
+The owner deletes the account from Settings → Data → *Delete my account*
+(the data passphrase is required, and the members who lose access are shown
+first); the operator can do the same with `scripts/tenant_admin.py delete`.
+Either way every member's sign-in identity is removed from Supabase Auth,
+then the account's schema and its registry rows are dropped. A member who is
+not the owner leaves the household instead, which removes only their own
+identity.
+
+What remains afterwards: the database provider's backups, for as long as
+the instance's backup retention (see
+[deployment.md](deployment.md#backups) — 7 days of daily backups, or up to
+28 days with point-in-time recovery); those copies hold the same ciphertext,
+so they are as unreadable without a passphrase as the live data was. The
+operator's audit line for a deletion records the account id, the schema name
+and how many identities were removed — no e-mail address. Error events and
+bug reports live in the account's own schema, so they go with it. On a
+self-hosted install they expire after `KALETA_EVENT_RETENTION_DAYS` (7 by
+default) and `KALETA_BUG_REPORT_RETENTION_DAYS` (90); on the hosted instance
+that sweep does not run per account yet, so they are kept until the account
+is deleted.
 
 ## Anonymous error events
 

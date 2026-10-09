@@ -1,0 +1,18 @@
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Supabase → Authentication → Emails → "Magic Link".
+     Subject: Link do logowania w Kalecie / Your Kaleta sign-in link
+     Kaleta's /auth/magic verifies the token hash and signs the person in. -->
+<div style="font-family: -apple-system, 'Segoe UI', Roboto, sans-serif; max-width: 520px; color: #1e293b;">
+  <h2 style="margin: 0 0 12px;">Kaleta</h2>
+
+  <p lang="pl">Oto link do zalogowania się na konto {{ .Email }}. Działa raz i przez krótki czas.</p>
+  <p lang="pl"><a href="{{ .SiteURL }}/auth/magic?token_hash={{ .TokenHash }}" style="color: #0f766e;">Zaloguj się do Kalety</a></p>
+
+  <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;">
+
+  <p lang="en">Here is your link to sign in as {{ .Email }}. It works once, for a short time.</p>
+  <p lang="en"><a href="{{ .SiteURL }}/auth/magic?token_hash={{ .TokenHash }}" style="color: #0f766e;">Sign in to Kaleta</a></p>
+
+  <p style="color: #64748b; font-size: 12px;">Jeśli to nie Ty, zignoruj tę wiadomość. / If this was not
+  you, ignore this message.</p>
+</div>

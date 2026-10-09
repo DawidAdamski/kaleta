@@ -4,14 +4,17 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine, AsyncSession
 
 from kaleta import __version__
 from kaleta.config import settings
 from kaleta.config.setup_config import get_db_url
+from kaleta.crypto import key_ring
+from kaleta.models.tenant import Tenant, TenantStatus
+from kaleta.schemas.health import AuthBackendName, TenancyName
 from kaleta.services.setup_service import (
     current_revision,
     head_revision,
@@ -31,6 +34,12 @@ class HealthSnapshot:
     migrations_pending: bool
     #: ``None`` on a single-tenant install.
     tenants_pending_migration: int | None = None
+    tenancy: TenancyName = "single"
+    auth_backend: AuthBackendName = "local"
+    #: Unlocked sessions in this process's key ring — a count, never a key.
+    keyring_sessions: int = 0
+    #: ``None`` on a single-tenant install.
+    suspended_tenants: list[int] | None = field(default=None)
 
 
 class HealthService:
@@ -43,9 +52,11 @@ class HealthService:
         database_ok = await self._database_reachable()
         migrations_pending = False
         tenants_pending: int | None = None
+        suspended: list[int] | None = None
         if database_ok:
             if settings.tenancy == "multi":
                 migrations_pending, tenants_pending = self._multi_tenant_pending()
+                suspended = await self._suspended_tenants()
             else:
                 migrations_pending = self._migrations_pending()
         status = "ok" if database_ok else "error"
@@ -55,7 +66,22 @@ class HealthService:
             database_ok=database_ok,
             migrations_pending=migrations_pending,
             tenants_pending_migration=tenants_pending,
+            tenancy=settings.tenancy,
+            auth_backend=settings.auth_backend,
+            keyring_sessions=key_ring.count(),
+            suspended_tenants=suspended,
         )
+
+    async def _suspended_tenants(self) -> list[int] | None:
+        """Ids of suspended accounts, read from the registry on this public session."""
+        try:
+            result = await self.session.execute(
+                select(Tenant.id).where(Tenant.status == TenantStatus.SUSPENDED).order_by(Tenant.id)
+            )
+        except Exception:
+            logger.exception("Health check: could not read suspended tenants")
+            return None
+        return list(result.scalars().all())
 
     def _multi_tenant_pending(self) -> tuple[bool, int | None]:
         """Registry or any tenant behind head; and how many tenants are.
