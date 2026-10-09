@@ -3,8 +3,9 @@ plan_id: hosted-supabase-rollout
 title: Hosted — Supabase project, app host, operations and Podman parity
 area: ops / docs
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-09
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Hosted — Supabase project, app host, operations and Podman parity
@@ -19,8 +20,8 @@ self-host path first-class. Also removes the operator-side footguns
 the earlier plans introduce (session storage on disk, single-process
 keyring) so the hosted instance can be restarted without surprises.
 
-Depends on [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
-and [`hosted-field-encryption`](archive/hosted-field-encryption.md).
+Depends on [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md)
+and [`hosted-field-encryption`](hosted-field-encryption.md).
 
 ## Scope
 
@@ -246,3 +247,69 @@ account), `docs/{deployment,privacy,getting-started,tech-stack,roadmap}.md`,
   module can cover the Supabase deletion path.
 
 **Scenarios.** New: KAL-TEN-008…014 (013 `@manual`); KAL-API-004 extended.
+
+## Implementation
+
+Landed on 2026-10-09 (PR #187).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `fa47fe0` | Dawid Adamski | 2026-10-09 | Merge pull request #187 from DawidAdamski/plan/hosted-supabase-rollout |
+
+**Files changed:**
+- Containerfile.full
+- README.md
+- compose.hosted-dev.yml
+- deploy/postgres/init-app-role.sql
+- deploy/supabase/templates/confirm-signup.html
+- deploy/supabase/templates/magic-link.html
+- deploy/supabase/templates/reset-password.html
+- docs/bdd.md
+- docs/deployment.md
+- docs/getting-started.md
+- docs/plans/chores.md
+- docs/plans/hosted-supabase-rollout.md
+- docs/privacy.md
+- docs/roadmap.md
+- docs/tech-stack.md
+- scripts/hosted_smoke.py
+- scripts/hosted_smoke.sh
+- scripts/migrate_tenants.py
+- scripts/reset_demo.py
+- scripts/tenant_admin.py
+- src/kaleta/api/v1/health.py
+- src/kaleta/auth/account_deletion.py
+- src/kaleta/auth/providers/__init__.py
+- src/kaleta/auth/providers/base.py
+- src/kaleta/auth/providers/fake.py
+- src/kaleta/config/settings.py
+- src/kaleta/db/session.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/schemas/health.py
+- src/kaleta/services/account_deletion_service.py
+- src/kaleta/services/health_service.py
+- src/kaleta/services/setup_service.py
+- src/kaleta/services/tenant_service.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/login.py
+- src/kaleta/views/settings/data_tab.py
+- src/kaleta/views/settings/delete_account_section.py
+- src/kaleta/views/unlock.py
+- tests/e2e/test_tenant_signup.py
+- tests/fake_gotrue.py
+- tests/integration/test_hosted_operations.py
+- tests/unit/api/test_health.py
+- tests/unit/auth/test_fake_provider.py
+- tests/unit/auth/test_tenancy_settings.py
+- tests/unit/scripts/__init__.py
+- tests/unit/scripts/test_tenant_admin.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
