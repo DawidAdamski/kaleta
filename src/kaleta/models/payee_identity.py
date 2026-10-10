@@ -22,9 +22,10 @@ PAYEE_IDENTITY_PATTERN_MAX_LENGTH = 200
 def identity_key(pattern: str) -> str:
     """The case-insensitive lookup key of a spelling.
 
-    ``casefold`` rather than SQL ``lower()``: SQLite folds ASCII only, so
-    "ŻABKA" would never meet "żabka". Runs of whitespace collapse too — bank
-    lines pad fields ("LIDL  POZNAN") inconsistently.
+    ``casefold`` in Python rather than SQL ``lower()``: the key is stored only
+    as a blind index, so the database never sees it to fold. "ŻABKA" meets
+    "żabka". Runs of whitespace collapse too — bank lines pad fields
+    ("LIDL  POZNAN") inconsistently.
     """
     return " ".join(pattern.split()).casefold()
 

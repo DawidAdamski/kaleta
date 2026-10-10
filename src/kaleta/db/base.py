@@ -1,13 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from sqlalchemy import MetaData
-from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.orm import DeclarativeBase
-
-from kaleta.config import settings
 
 
 class Base(DeclarativeBase):
-    """Every table of one household: the SQLite file, or one tenant schema."""
+    """Every table of one household: one tenant schema (ADR-35)."""
 
 
 class PublicBase(DeclarativeBase):
@@ -20,15 +17,3 @@ class PublicBase(DeclarativeBase):
     """
 
     metadata = MetaData()
-
-
-def create_engine() -> AsyncEngine:
-    connect_args = {"check_same_thread": False} if "sqlite" in settings.db_url else {}
-    return create_async_engine(
-        settings.db_url,
-        echo=settings.debug,
-        connect_args=connect_args,
-    )
-
-
-engine: AsyncEngine = create_engine()

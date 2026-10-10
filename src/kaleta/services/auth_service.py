@@ -43,11 +43,7 @@ class AuthService:
         result = await self.session.execute(
             select(User.sessions_valid_from).where(User.id == user_id)
         )
-        stamp = result.scalar_one_or_none()
-        if stamp is None:
-            return None
-        # SQLite hands back naive datetimes even for a timezone-aware column.
-        return stamp if stamp.tzinfo else stamp.replace(tzinfo=UTC)
+        return result.scalar_one_or_none()
 
     async def record_login(self, *, username: str | None, success: bool) -> None:
         from kaleta.db.audit import record_auth_event

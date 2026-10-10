@@ -125,7 +125,7 @@ class _Candidate:
 
     def keeper_rank(self) -> tuple[int, datetime.datetime, int]:
         """Sorts the payee a merge should keep first: most used, then oldest."""
-        return (-self.tx_count, _aware(self.created_at), self.id)
+        return (-self.tx_count, self.created_at, self.id)
 
 
 # ── Service ───────────────────────────────────────────────────────────────────
@@ -248,10 +248,10 @@ class PayeeMergeService:
                 keeper_name=keeper_name,
                 merged_name=record.merged_name,
                 score=record.score,
-                merged_at=_aware(record.created_at),
+                merged_at=record.created_at,
             )
             for record, keeper_name in result.all()
-            if _aware(record.created_at) >= cutoff
+            if record.created_at >= cutoff
         ]
 
     async def undo(self, record_id: int, *, now: datetime.datetime | None = None) -> Payee:
@@ -267,7 +267,7 @@ class PayeeMergeService:
         record = await self.session.get(PayeeAutoMerge, record_id)
         if record is None or record.undone_at is not None:
             raise NotFoundError("Automatic merge not found")
-        if moment - _aware(record.created_at) > UNDO_WINDOW:
+        if moment - record.created_at > UNDO_WINDOW:
             raise ConflictError("This merge is older than 7 days and can no longer be undone")
         keeper_id = record.keeper_id
         snapshot = cast("AutoMergeSnapshot", record.snapshot)
@@ -472,11 +472,6 @@ def _score(a: _Candidate, b: _Candidate, min_score: float) -> tuple[float, Payee
 
 def _pair(a: int, b: int) -> tuple[int, int]:
     return (a, b) if a < b else (b, a)
-
-
-def _aware(moment: datetime.datetime) -> datetime.datetime:
-    """SQLite hands timestamps back naive; they were written in UTC."""
-    return moment if moment.tzinfo is not None else moment.replace(tzinfo=datetime.UTC)
 
 
 __all__ = [

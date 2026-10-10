@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for DedupeService — uses in-memory SQLite."""
+"""Unit tests for DedupeService."""
 
 from __future__ import annotations
 

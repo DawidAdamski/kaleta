@@ -119,8 +119,8 @@ class TaxonomySeeder(Seeder):
     async def remove(self, session: AsyncSession) -> None:
         await session.execute(delete(CategorisationRule))
         await session.execute(delete(Tag))
-        # Bulk deletes skip the ORM cascade, and SQLite may run with FKs off:
-        # clear what hangs off payees before the payees themselves.
+        # Bulk deletes skip the ORM cascade: clear what hangs off payees
+        # before the payees themselves.
         for dependant in (PayeeAutoMerge, DismissedPayeeMerge, PayeeIdentity):
             await session.execute(delete(dependant))
         await session.execute(delete(Payee))

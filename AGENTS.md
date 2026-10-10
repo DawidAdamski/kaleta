@@ -88,7 +88,7 @@ docs/                    # Architecture ADRs, tech stack, product docs
 ```bash
 uv sync                      # Install dependencies
 uv sync --group dev          # Install with dev tools
-uv sync --extra postgres     # Install with PostgreSQL driver
+uv sync --extra hosted       # Redis + Supabase Auth client (hosted layout)
 uv run kaleta                # Run the app (web mode)
 ./scripts/test_db.sh up      # The tests' PostgreSQL (podman/docker, :55432, tmpfs) — the only test DB
 uv run pytest tests/unit tests/integration -n auto -m "not slow"  # Fast tier, parallel (pre-push)

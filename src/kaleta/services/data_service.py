@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from sqlalchemy import delete, text
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import Account
@@ -79,14 +79,6 @@ _CLEARED_MODELS = (
 )
 
 
-async def _set_sqlite_foreign_keys(session: AsyncSession, *, enabled: bool) -> None:
-    """Toggle SQLite FK enforcement. No-op on PostgreSQL."""
-    conn = await session.connection()
-    if conn.dialect.name != "sqlite":
-        return
-    await session.execute(text(f"PRAGMA foreign_keys = {'ON' if enabled else 'OFF'}"))
-
-
 class DataService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
@@ -94,15 +86,11 @@ class DataService:
     async def clear_all(self) -> None:
         """Delete every row the example data can occupy, preserving the schema."""
         s = self.session
-        await _set_sqlite_foreign_keys(s, enabled=False)
-        try:
-            for model in _CLEARED_MODELS:
-                await s.execute(delete(model))
-            # The many-to-many join table has no ORM class of its own.
-            await s.execute(delete(transaction_tags))
-            await s.commit()
-        finally:
-            await _set_sqlite_foreign_keys(s, enabled=True)
+        for model in _CLEARED_MODELS:
+            await s.execute(delete(model))
+        # The many-to-many join table has no ORM class of its own.
+        await s.execute(delete(transaction_tags))
+        await s.commit()
 
     async def seed_features(
         self,

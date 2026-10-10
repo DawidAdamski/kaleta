@@ -27,12 +27,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from kaleta.db.tenant_context import TenantContext, use_tenant
-from kaleta.db.tenant_schemas import (
-    is_sqlite_url,
-    new_schema_name,
-    quote_schema,
-    sqlite_schema_file,
-)
+from kaleta.db.tenant_schemas import new_schema_name, quote_schema
 from kaleta.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from kaleta.models.tenant import (
     Tenant,
@@ -61,7 +56,7 @@ class SchemaProvisioner(Protocol):
 
 
 class AlembicSchemaProvisioner:
-    """``CREATE SCHEMA`` (a file, on SQLite) plus ``alembic upgrade head``."""
+    """``CREATE SCHEMA`` plus ``alembic upgrade head``."""
 
     def __init__(self, db_url: str, session_factory: Callable[[], AsyncSession]) -> None:
         self._db_url = db_url
@@ -70,22 +65,14 @@ class AlembicSchemaProvisioner:
     async def create(self, schema: str) -> None:
         from kaleta.services.setup_service import upgrade_to_head
 
-        if not is_sqlite_url(self._db_url):
-            async with self._public() as session:
-                await session.execute(text(f"CREATE SCHEMA IF NOT EXISTS {quote_schema(schema)}"))
-                await session.commit()
+        async with self._public() as session:
+            await session.execute(text(f"CREATE SCHEMA IF NOT EXISTS {quote_schema(schema)}"))
+            await session.commit()
         # Alembic's API is synchronous and runs its own event loop.
         loop = asyncio.get_running_loop()
         await loop.run_in_executor(None, lambda: upgrade_to_head(self._db_url, schema=schema))
 
     async def drop(self, schema: str) -> None:
-        if is_sqlite_url(self._db_url):
-            path = sqlite_schema_file(self._db_url, schema)
-            for suffix in ("", "-wal", "-shm"):
-                candidate = path.with_name(path.name + suffix)
-                if candidate.exists():
-                    candidate.unlink()
-            return
         async with self._public() as session:
             await session.execute(text(f"DROP SCHEMA IF EXISTS {quote_schema(schema)} CASCADE"))
             await session.commit()
@@ -239,7 +226,7 @@ class TenantService:
         lock = self._local_locks.setdefault(subject, asyncio.Lock())
         async with lock:
             bind = self.session.bind
-            if bind is None or bind.dialect.name != "postgresql":
+            if bind is None:
                 yield
                 return
             digest = hashlib.sha256(subject.encode()).digest()[:8]

@@ -5,11 +5,10 @@ import datetime
 from dataclasses import dataclass, field
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from kaleta.db.sql_compat import date_month, date_year
 from kaleta.models.account import Account, AccountType
 from kaleta.models.asset import Asset
 from kaleta.models.transaction import Transaction, TransactionType
@@ -329,8 +328,8 @@ class NetWorthService:
         result = await self.session.execute(
             select(
                 Transaction.account_id,
-                date_year(Transaction.date),
-                date_month(Transaction.date),
+                extract("year", Transaction.date).label("year"),
+                extract("month", Transaction.date).label("month"),
                 Transaction.type,
                 func.sum(Transaction.amount).label("total"),
             )

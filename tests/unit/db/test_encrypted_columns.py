@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import pytest
-from sqlalchemy.dialects.sqlite import dialect as sqlite_dialect
+from sqlalchemy.dialects.postgresql import dialect as postgresql_dialect
 
 from kaleta.db import types as types_mod
 from kaleta.db.types import FORMAT_AES_GCM, FORMAT_PLAINTEXT, EncryptedString
@@ -12,7 +12,7 @@ from kaleta.exceptions import EncryptionError
 
 #: The type never looks at the dialect, but passing a real one keeps the
 #: signature honest.
-DIALECT = sqlite_dialect()
+DIALECT = postgresql_dialect()
 
 
 @pytest.fixture

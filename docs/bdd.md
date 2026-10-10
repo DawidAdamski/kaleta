@@ -4022,7 +4022,8 @@ Feature: Settings — Data safety
     Then each run creates a file matching "kaleta-*.db" under the backup directory
     And exactly 2 backup files remain after retention
 
-  KAL-SET-018 @automated
+  KAL-SET-018 @removed
+    # Removed by ADR-38 (postgres-only B3): there is no SQLite connection to set pragmas on.
   Scenario: SQLite connections enable foreign keys and WAL
     Given the app is configured with an on-disk SQLite database
     When a new database connection is opened
@@ -4030,6 +4031,13 @@ Feature: Settings — Data safety
     And PRAGMA journal_mode is wal
     And PRAGMA busy_timeout is 5000
     And PRAGMA synchronous is 1
+
+  KAL-SET-030 @automated
+  Scenario: A SQLite database URL is refused at start-up
+    Given KALETA_DB_URL is "sqlite:///kaleta.db"
+    When Kaleta reads its settings
+    Then it refuses to start with a message naming PostgreSQL 16+ and ADR-38
+    And a "postgresql://" URL is accepted and rewritten to the asyncpg driver
 
   KAL-SET-019 @removed
     # Removed by ADR-38 (postgres-only B2b): a family schema is upgraded by the start-up migration of the registry layout.
@@ -4513,6 +4521,6 @@ Feature: Wizard Action Items
 - Each feature file maps to one test module: `test_<feature>.py`
 - Use `pytest-playwright` (sync API via `page` fixture)
 - The app must be running on `http://localhost:8080` before the suite starts
-- Use a dedicated test database (set `KALETA_DB_URL` env var to a temp SQLite file)
+- Each e2e app gets a database of its own on the suite's PostgreSQL (`fresh_database_url`)
 - Fixtures in `tests/e2e/conftest.py` handle: starting the app with a test DB, seeding prerequisite data via the service layer, and cleanup
 - Scenario steps translate directly to Playwright actions — no `pytest-bdd` required unless Gherkin step-binding is desired

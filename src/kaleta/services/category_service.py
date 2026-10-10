@@ -104,7 +104,7 @@ class CategoryService:
         category_type: CategoryType,
         exclude_id: int | None = None,
     ) -> None:
-        # SQLite treats NULL != NULL in unique constraints, so enforce
+        # A unique constraint treats NULL != NULL, so enforce
         # (name, parent_id, type) uniqueness manually for root categories.
         stmt = select(Category).where(
             Category.name_bidx == exact_index(name),

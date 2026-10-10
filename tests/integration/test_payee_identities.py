@@ -7,17 +7,13 @@ Expected values are the literals of the KAL-PID scenarios in docs/bdd.md.
 from __future__ import annotations
 
 import datetime
-import os
-import sqlite3
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from alembic import command
 from kaleta.exceptions import ConflictError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
@@ -37,8 +33,8 @@ from kaleta.services import (
 )
 from kaleta.services.import_service import ImportService, ParsedRow
 from kaleta.services.payee_merge_service import PayeeMergeService
-from kaleta.services.setup_service import _alembic_config
 from tests.integration.conftest import create_account, create_category, transaction_payload
+from tests.migration_schema import migration_schema
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -204,28 +200,21 @@ async def test_spelling_belongs_to_one_payee_only(api_client: AsyncClient):
 # ── Backfill ──────────────────────────────────────────────────────────────────
 
 
-def test_upgrade_backfills_one_identity_per_payee(tmp_path: Path):
+def test_upgrade_backfills_one_identity_per_payee():
     """Covers: KAL-PID-009"""
-    db_path = tmp_path / "backfill.db"
-    os.environ["KALETA_MIGRATE_URL"] = f"sqlite+aiosqlite:///{db_path}"
-    try:
-        command.upgrade(_alembic_config(), "d5e6f7a8b9c0")
-        with sqlite3.connect(db_path) as conn:
-            conn.executemany(
-                "INSERT INTO payees (name, created_at, updated_at) "
-                "VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
-                [("Biedronka",), ("ŻABKA  Poznań",)],
-            )
-        command.upgrade(_alembic_config(), "e6f7a8b9c0d1")
-    finally:
-        os.environ.pop("KALETA_MIGRATE_URL", None)
+    family = migration_schema("pid_backfill", "d5e6f7a8b9c0")
+    family.execute(
+        "INSERT INTO payees (name, created_at, updated_at) "
+        "VALUES (:name, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)",
+        [{"name": "Biedronka"}, {"name": "ŻABKA  Poznań"}],
+    )
+    family.upgrade("e6f7a8b9c0d1")
 
-    with sqlite3.connect(db_path) as conn:
-        rows = conn.execute(
-            "SELECT p.name, i.pattern, i.case_sensitive FROM payee_identities i "
-            "JOIN payees p ON p.id = i.payee_id ORDER BY p.id, i.id"
-        ).fetchall()
-    assert rows == [("Biedronka", "Biedronka", 0), ("ŻABKA  Poznań", "ŻABKA Poznań", 0)]
+    rows = family.execute(
+        "SELECT p.name, i.pattern, i.case_sensitive FROM payee_identities i "
+        "JOIN payees p ON p.id = i.payee_id ORDER BY p.id, i.id"
+    )
+    assert rows == [("Biedronka", "Biedronka", False), ("ŻABKA  Poznań", "ŻABKA Poznań", False)]
 
 
 # ── Merge proposals and automatic merge ──────────────────────────────────────

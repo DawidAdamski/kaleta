@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for PayeeService — uses in-memory SQLite."""
+"""Unit tests for PayeeService."""
 
 from __future__ import annotations
 
@@ -492,7 +492,7 @@ class TestMatchOrCreateByName:
         assert matched.id == existing.id
 
     async def test_polish_name_matches_case_insensitively(self, svc: PayeeService):
-        """SQLite's lower() does not fold Ż/Ł, so the fold happens in Python."""
+        """Żabka and żabka are one payee: case folds beyond ASCII."""
         existing = await svc.create(PayeeCreate(name="Żabka"))
         matched = await svc.match_or_create_from_name("żabka")
         assert matched.id == existing.id
