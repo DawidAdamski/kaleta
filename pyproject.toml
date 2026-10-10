@@ -62,6 +62,7 @@ hosted = [
 
 [project.scripts]
 kaleta = "kaleta.main:main"
+kaleta-admin = "kaleta.cli.tenant_admin:entry_point"
 
 [build-system]
 requires = ["hatchling"]

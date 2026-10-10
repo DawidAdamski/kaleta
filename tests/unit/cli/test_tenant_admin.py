@@ -1,41 +1,25 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""``scripts/tenant_admin.py`` — the operator's commands over the tenant registry.
+"""``kaleta-admin`` — the operator's commands over the registry.
 
 Covers: KAL-TEN-008
 """
 
 from __future__ import annotations
 
-import importlib.util
 import io
 import json
-import sys
 from collections.abc import AsyncIterator
 from pathlib import Path
-from types import ModuleType
 
 import pytest
 from sqlalchemy import select
 
+from kaleta.cli import tenant_admin
 from kaleta.db import AsyncSessionFactory
 from kaleta.exceptions import ExternalServiceError
 from kaleta.models.tenant import Tenant, TenantMember, TenantStatus
 from kaleta.services.tenant_service import TenantService
 from tests.tenancy_helpers import MetadataProvisioner, identity, multi_tenant_database
-
-SCRIPT = Path(__file__).resolve().parents[3] / "scripts" / "tenant_admin.py"
-
-
-def _load_script() -> ModuleType:
-    spec = importlib.util.spec_from_file_location("tenant_admin", SCRIPT)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["tenant_admin"] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-tenant_admin = _load_script()
 
 
 class RecordingRemover:
