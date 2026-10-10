@@ -3627,6 +3627,21 @@ Feature: Hosted accounts (multi-tenant)
     Then a new password is printed once and the old one no longer signs in
     And "tenant_admin.py registration open" opens sign-up, "registration" alone shows the mode
     And the login commands refuse to run when the instance does not use local logins
+
+  KAL-TEN-020 @automated
+  Scenario: The data passphrase may not be a local login's password
+    Given a local login on the registry layout, signed in for the first time
+    When I choose my login password as the data passphrase
+    Then it is refused: "Choose a passphrase that is not your login password."
+    And a member signing in through Supabase is not asked about it
+
+  KAL-TEN-021 @automated
+  Scenario: The administrator turns off a member's lost second factor
+    Given a local login whose member turned two-factor authentication on and lost the authenticator
+    When the operator runs "tenant_admin.py reset-password <e-mail> --disable-mfa"
+    Then a new password is printed once, the second factor is gone and its sessions end
+    And the next sign-in asks only for the new password
+    And running it again reports that there is no second factor to remove
 ```
 
 ## Feature: Data encryption (user-held passphrase)

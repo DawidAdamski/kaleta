@@ -5,7 +5,8 @@
 ``public.local_identities``, the first one is the instance administrator, and
 a sign-in provisions the login's family exactly as a Supabase sign-in does.
 
-Covers: KAL-TEN-015, KAL-TEN-016, KAL-TEN-017, KAL-TEN-018, KAL-TEN-019
+Covers: KAL-TEN-015, KAL-TEN-016, KAL-TEN-017, KAL-TEN-018, KAL-TEN-019, KAL-TEN-020,
+KAL-TEN-021
 """
 
 from __future__ import annotations
@@ -25,6 +26,7 @@ import pytest
 from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import MfaRequired, RegistryAuthProvider, set_auth_provider
 from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state
+from kaleta.auth.unlock import is_local_login_password
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import ConflictError, UnauthorizedError, ValidationError
@@ -341,3 +343,48 @@ async def test_the_login_commands_refuse_another_backend(tmp_path: Path) -> None
         finally:
             set_auth_provider(None)
     assert status == 2
+
+
+async def test_the_data_passphrase_may_not_be_the_local_login_password(instance: str) -> None:
+    """Covers: KAL-TEN-020"""
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+
+    assert await is_local_login_password(result.identity.subject, PASSWORD)
+    assert not await is_local_login_password(result.identity.subject, "another passphrase")
+    # A Supabase member's password is the provider's: nothing to compare with.
+    assert not await is_local_login_password("00000000-0000-4000-8000-000000000001", PASSWORD)
+
+
+async def test_the_administrator_turns_a_members_second_factor_off(instance: str) -> None:
+    """Covers: KAL-TEN-021"""
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+    signed_in = await _flow(instance).complete(result.identity)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+    assert membership is not None
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            mfa = MfaService(session)
+            enrolment = await mfa.begin_enrolment(signed_in.user_id)
+            totp = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL)
+            await mfa.confirm_enrolment(signed_in.user_id, totp.now())
+    assert isinstance(await RegistryAuthProvider().sign_in(ADMIN, PASSWORD), MfaRequired)
+
+    out = io.StringIO()
+    cli = tenant_admin.TenantAdminCli(
+        AsyncSessionFactory.public, _NoRemover(), tenant_session=AsyncSessionFactory, out=out
+    )
+    assert await cli.reset_password(ADMIN, disable_mfa=True) == 0
+    new_password = out.getvalue().splitlines()[-2].rsplit(": ", 1)[1]
+    assert out.getvalue().splitlines()[-1] == "two-factor authentication: removed"
+
+    assert isinstance(await RegistryAuthProvider().sign_in(ADMIN, new_password), Identity)
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            assert not await MfaService(session).is_enabled(signed_in.user_id)
+            assert await AuthService(session).sessions_valid_from(signed_in.user_id) is not None
+
+    assert await cli.reset_password(ADMIN, disable_mfa=True) == 0
+    assert out.getvalue().splitlines()[-1] == "two-factor authentication: none"

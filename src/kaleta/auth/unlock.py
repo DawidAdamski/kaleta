@@ -35,6 +35,7 @@ from kaleta.exceptions import UnauthorizedError
 from kaleta.models.user import User
 from kaleta.services import AuthService, with_session
 from kaleta.services.key_service import KeyService, KeyStore, LocalKeyStore, TenantKeyStore
+from kaleta.services.local_identity_service import LocalIdentityService, identity_id_of
 
 UNLOCK_PATH = "/unlock"
 
@@ -95,12 +96,16 @@ async def with_key_service[T](fn: Callable[[KeyService], Awaitable[T]]) -> T:
 
 
 async def is_login_password(passphrase: str) -> bool:
-    """Whether ``passphrase`` is the signed-in user's login password (self-hosted only).
+    """Whether ``passphrase`` is the signed-in member's login password.
 
     The plan's one rule beyond length: the data passphrase must not be the
-    password, or whoever learns one has both. A hosted member's password is
-    held by the identity provider, so there is nothing here to compare with.
+    password, or whoever learns one has both. On the registry layout the
+    password of a ``local`` login is in ``public.local_identities``; a Supabase
+    member's is held by the identity provider, so there is nothing to compare.
     """
+    if settings.tenancy == "multi":
+        tenant = session_tenant()
+        return tenant is not None and await is_local_login_password(tenant.auth_subject, passphrase)
     user_id = _signed_in_user_id()
 
     async def _check(session: AsyncSession) -> bool:
@@ -110,6 +115,15 @@ async def is_login_password(passphrase: str) -> bool:
         )
 
     return bool(await with_session(_check))
+
+
+async def is_local_login_password(subject: str, passphrase: str) -> bool:
+    """Whether ``passphrase`` is the password of the ``local`` login ``subject``."""
+    identity_id = identity_id_of(subject)
+    if identity_id is None:
+        return False
+    async with AsyncSessionFactory.public() as public:
+        return await LocalIdentityService(public).verify_password(identity_id, passphrase)
 
 
 def lock_this_session() -> None:

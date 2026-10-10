@@ -572,6 +572,19 @@ class MfaService:
         """Drop every enrolment; return how many were actually switched on.
 
         The CLI escape hatch for a lost authenticator.
+        """
+        return await self._disable_without_proof(None)
+
+    async def disable_for_admin(self, user_id: int) -> bool:
+        """Drop one member's enrolment; whether a confirmed factor was removed.
+
+        The registry layout's escape hatch (``tenant_admin.py reset-password
+        --disable-mfa``): the instance administrator, not the member, asks.
+        """
+        return await self._disable_without_proof(user_id) > 0
+
+    async def _disable_without_proof(self, user_id: int | None) -> int:
+        """Drop the enrolments of ``user_id`` (everyone's when ``None``).
 
         Removing a second factor from a shell leaves a trace in the audit log
         for the same reason removing it from the UI does: it is the one state
@@ -584,10 +597,10 @@ class MfaService:
         # when every secret in the table is unreadable. Loading the objects
         # would decrypt them and fail before deleting anything — leaving the
         # locked-out owner with the new password and the old enrolment.
-        result = await self.session.execute(
-            select(UserMfa.user_id, UserMfa.enabled_at.is_not(None))
-        )
-        rows = list(result.all())
+        query = select(UserMfa.user_id, UserMfa.enabled_at.is_not(None))
+        if user_id is not None:
+            query = query.where(UserMfa.user_id == user_id)
+        rows = list((await self.session.execute(query)).all())
         if not rows:
             return 0
         # Counted for the message, not for the delete: an enrolment abandoned
@@ -602,13 +615,16 @@ class MfaService:
         # factor, so there is nothing about it to say was disabled.
         usernames: list[str | None] = []
         auth = AuthService(self.session)
-        for user_id, is_enabled in rows:
+        for enrolled, is_enabled in rows:
             if not is_enabled:
                 continue
-            user = await self.session.get(User, user_id)
+            user = await self.session.get(User, enrolled)
             usernames.append(user.username if user is not None else None)
-            await auth.revoke_sessions(user_id, commit=False)
-        await self.session.execute(delete(UserMfa))
+            await auth.revoke_sessions(enrolled, commit=False)
+        removal = delete(UserMfa)
+        if user_id is not None:
+            removal = removal.where(UserMfa.user_id == user_id)
+        await self.session.execute(removal)
         # The trace goes in the same transaction as the removal. Committing
         # the delete first and writing the rows after would let the one
         # removal nobody had to prove anything to make be the one that leaves

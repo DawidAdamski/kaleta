@@ -13,10 +13,13 @@ With ``KALETA_AUTH_BACKEND=local`` (ADR-38) the logins are the registry's too::
     uv run python scripts/tenant_admin.py logins                     # every local login
     uv run python scripts/tenant_admin.py create-login a@b.pl [--admin]
     uv run python scripts/tenant_admin.py reset-password a@b.pl      # prints a new password once
+    uv run python scripts/tenant_admin.py reset-password a@b.pl --disable-mfa  # …and drops 2FA
     uv run python scripts/tenant_admin.py registration [closed|invite|open]
 
 Reads only the ``public`` registry: e-mail addresses, roles, statuses — never a
-tenant's data, which is encrypted anyway. ``delete`` removes every member's
+tenant's data, which is encrypted anyway. (``--disable-mfa`` deletes the
+member's second-factor row in their family's schema, and writes the audit row
+there, as the UI would.) ``delete`` removes every member's
 Supabase identity with ``KALETA_SUPABASE_SERVICE_ROLE_KEY``, drops the schema
 and writes one audit line (JSON) to stdout. ``resume`` is how an account
 suspended by a failed migration at startup comes back, once fixed.
@@ -42,11 +45,13 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.tenant_context import TenantContext, use_tenant
 from kaleta.exceptions import KaletaError
 from kaleta.models.tenant import Tenant, TenantMember, TenantMemberStatus
 from kaleta.schemas.identity import RegistrationMode
 from kaleta.services.account_deletion_service import AccountDeletionService, IdentityRemover
-from kaleta.services.local_identity_service import LocalIdentityService
+from kaleta.services.local_identity_service import LocalIdentityService, subject_of
+from kaleta.services.mfa_service import MfaService
 from kaleta.services.tenant_service import TenantService
 
 
@@ -58,10 +63,12 @@ class TenantAdminCli:
         public_session: Callable[[], AsyncSession],
         remover: IdentityRemover,
         *,
+        tenant_session: Callable[[], AsyncSession] | None = None,
         out: TextIO = sys.stdout,
         err: TextIO = sys.stderr,
     ) -> None:
         self._public = public_session
+        self._tenant_session = tenant_session
         self._remover = remover
         self._out = out
         self._err = err
@@ -163,16 +170,31 @@ class TenantAdminCli:
         self._print(f"login {row.id} {row.email} created; password (shown once): {password}")
         return 0
 
-    async def reset_password(self, email: str) -> int:
+    async def reset_password(self, email: str, *, disable_mfa: bool = False) -> int:
         password = secrets.token_urlsafe(12)
         async with self._public() as session:
             identities = LocalIdentityService(session)
             row = await identities.get_by_email(email)
             if row is None:
                 return self._refuse(f"no login {email!r}")
+            membership = await TenantService(session).get_member_by_subject(subject_of(row.id))
             await identities.set_password(row.id, password)
         self._print(f"login {row.id} {row.email}: new password (shown once): {password}")
+        if disable_mfa:
+            if membership is None or membership.member.user_id is None:
+                self._print("two-factor authentication: none (no family yet)")
+                return 0
+            removed = await self._disable_mfa(membership.context(), membership.member.user_id)
+            self._print(f"two-factor authentication: {'removed' if removed else 'none'}")
         return 0
+
+    async def _disable_mfa(self, ctx: TenantContext, user_id: int) -> bool:
+        if self._tenant_session is None:
+            msg = "TenantAdminCli needs tenant_session for --disable-mfa"
+            raise RuntimeError(msg)
+        with use_tenant(ctx):
+            async with self._tenant_session() as session:
+                return await MfaService(session).disable_for_admin(user_id)
 
     async def registration(self, mode: RegistrationMode | None) -> int:
         async with self._public() as session:
@@ -211,6 +233,9 @@ def _parser() -> argparse.ArgumentParser:
     create.add_argument("--admin", action="store_true", help="make it an instance administrator")
     reset = commands.add_parser("reset-password", help="a new password for a local login")
     reset.add_argument("email")
+    reset.add_argument(
+        "--disable-mfa", action="store_true", help="also turn the login's two-factor sign-in off"
+    )
     registration = commands.add_parser("registration", help="show or set who may sign up")
     registration.add_argument("mode", nargs="?", choices=[m.value for m in RegistrationMode])
     return parser
@@ -226,7 +251,9 @@ async def _run(args: argparse.Namespace) -> int:
 
     # Never echo SQL here, even with KALETA_DEBUG: stdout carries the audit line.
     AsyncSessionFactory.configure(settings.db_url)
-    cli = TenantAdminCli(AsyncSessionFactory.public, get_auth_provider())
+    cli = TenantAdminCli(
+        AsyncSessionFactory.public, get_auth_provider(), tenant_session=AsyncSessionFactory
+    )
     try:
         if args.command == "list":
             return await cli.list()
@@ -244,7 +271,7 @@ async def _run(args: argparse.Namespace) -> int:
         if args.command == "create-login":
             return await cli.create_login(args.email, admin=args.admin)
         if args.command == "reset-password":
-            return await cli.reset_password(args.email)
+            return await cli.reset_password(args.email, disable_mfa=args.disable_mfa)
         if args.command == "registration":
             mode = RegistrationMode(args.mode) if args.mode else None
             return await cli.registration(mode)
