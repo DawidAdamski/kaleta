@@ -125,15 +125,6 @@ wheels = [
 ]
 
 [[package]]
-name = "aiosqlite"
-version = "0.22.1"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/4e/8a/64761f4005f17809769d23e518d915db74e6310474e733e3593cfc854ef1/aiosqlite-0.22.1.tar.gz", hash = "sha256:043e0bd78d32888c0a9ca90fc788b38796843360c855a7262a532813133a0650", size = 14821, upload-time = "2025-12-23T19:25:43.997Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/00/b7/e3bf5133d697a08128598c8d0abc5e16377b51465a33756de24fa7dee953/aiosqlite-0.22.1-py3-none-any.whl", hash = "sha256:21c002eb13823fad740196c5a2e9d8e62f6243bd9e7e4a1f87fb5e44ecb4fceb", size = 17405, upload-time = "2025-12-23T19:25:42.139Z" },
-]
-
-[[package]]
 name = "alembic"
 version = "1.20.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1331,13 +1322,14 @@ name = "kaleta"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "aiosqlite" },
     { name = "alembic" },
     { name = "argon2-cffi" },
+    { name = "asyncpg" },
     { name = "cryptography" },
     { name = "fastapi" },
     { name = "greenlet" },
     { name = "nicegui" },
+    { name = "psycopg2-binary" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pyotp" },
@@ -1355,17 +1347,11 @@ forecast = [
     { name = "prophet" },
 ]
 hosted = [
-    { name = "asyncpg" },
     { name = "httpx" },
-    { name = "psycopg2-binary" },
     { name = "redis" },
 ]
 import-xlsx = [
     { name = "openpyxl" },
-]
-postgres = [
-    { name = "asyncpg" },
-    { name = "psycopg2-binary" },
 ]
 tracker = [
     { name = "sentry-sdk" },
@@ -1373,7 +1359,6 @@ tracker = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "asyncpg" },
     { name = "coverage" },
     { name = "faker" },
     { name = "fakeredis" },
@@ -1381,7 +1366,6 @@ dev = [
     { name = "mypy" },
     { name = "openpyxl" },
     { name = "pre-commit" },
-    { name = "psycopg2-binary" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -1395,11 +1379,9 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aiosqlite", specifier = ">=0.20" },
     { name = "alembic", specifier = ">=1.13" },
     { name = "argon2-cffi", specifier = ">=23.1" },
-    { name = "asyncpg", marker = "extra == 'hosted'", specifier = ">=0.29" },
-    { name = "asyncpg", marker = "extra == 'postgres'", specifier = ">=0.29" },
+    { name = "asyncpg", specifier = ">=0.29" },
     { name = "cryptography", specifier = ">=50.0.1" },
     { name = "fastapi", specifier = ">=0.139.0" },
     { name = "greenlet", specifier = ">=3.5" },
@@ -1409,8 +1391,7 @@ requires-dist = [
     { name = "nicegui", specifier = ">=3.14.0" },
     { name = "openpyxl", marker = "extra == 'import-xlsx'", specifier = ">=3.1" },
     { name = "prophet", marker = "extra == 'forecast'", specifier = ">=1.1" },
-    { name = "psycopg2-binary", marker = "extra == 'hosted'", specifier = ">=2.9" },
-    { name = "psycopg2-binary", marker = "extra == 'postgres'", specifier = ">=2.9" },
+    { name = "psycopg2-binary", specifier = ">=2.9" },
     { name = "pydantic", specifier = ">=2.13" },
     { name = "pydantic-settings", specifier = ">=2.14.2" },
     { name = "pyotp", specifier = ">=2.10.0" },
@@ -1420,11 +1401,10 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.1" },
     { name = "uvicorn", specifier = ">=0.42.0" },
 ]
-provides-extras = ["forecast", "postgres", "import-xlsx", "docs", "tracker", "hosted"]
+provides-extras = ["forecast", "import-xlsx", "docs", "tracker", "hosted"]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "asyncpg", specifier = ">=0.29" },
     { name = "coverage", specifier = ">=7.13.5" },
     { name = "faker", specifier = ">=40.11.1" },
     { name = "fakeredis", specifier = ">=2.26" },
@@ -1432,7 +1412,6 @@ dev = [
     { name = "mypy", specifier = ">=1.10" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "pre-commit", specifier = ">=3.7" },
-    { name = "psycopg2-binary", specifier = ">=2.9" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "pytest-cov", specifier = ">=7.1.0" },

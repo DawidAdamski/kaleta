@@ -3,8 +3,8 @@
 
 Today one column uses this: the TOTP shared secret. A shared secret sitting in
 plain text next to the password hash it is meant to back up would make the
-second factor worth exactly as much as the first one to anyone holding the
-SQLite file.
+second factor worth exactly as much as the first one to anyone holding a
+copy of the database.
 
 The key comes from a *source* rather than from settings directly. Right now the
 source derives a key from ``KALETA_SECRET_KEY``; when

@@ -323,8 +323,7 @@ class PlannedTransactionService:
         planned row belonging to another. ``search`` is the one that is not
         quite the same rule: a plan has no description, so it matches the
         plan's name, and it folds case in Python where the ledger's own search
-        runs as SQL ``ILIKE``. On SQLite that makes this side the more
-        forgiving of the two over non-ASCII letters.
+        runs as SQL ``ILIKE``.
 
         Already-posted occurrences are left out: the ledger is holding the
         real transaction for them, and a row promising money that has already

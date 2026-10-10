@@ -436,4 +436,42 @@ encryption.
   hand-kept list and missed the new one; it now drops whatever
   `PublicBase.metadata` knows.
 
+**Part B3 (branch `feat/postgres-only-part-b3`, on top of B2c).**
+
+- *The refusal* (KAL-SET-030): the `db_url` validator refuses any URL that is
+  not `postgresql…` with one sentence naming PostgreSQL 16+, ADR-38 and
+  `docs/getting-started.md` (the self-hosting guide is its own plan). Every
+  backend is refused, not only `sqlite`: nothing else was ever supported.
+  The default became `postgresql+asyncpg://kaleta@localhost:5432/kaleta` — no
+  password in a default; asyncpg reads `PGPASSWORD`/`.pgpass`.
+- *Gone*: `kaleta.db.sql_compat` (its three callers use `extract`,
+  `to_char` and `extract('dow')` directly), the pragmas and per-tenant SQLite
+  engines in `kaleta.db.session`, the attached-file schemas in
+  `tenant_schemas` and both Alembic `env.py`s, `render_as_batch` (existing
+  revisions keep their explicit `batch_alter_table`, which runs as plain
+  `ALTER` on PostgreSQL), the FK pragma toggles in `data_service` and
+  `backup_service`, the dialect checks around the advisory locks, the unused
+  `kaleta.db.base.engine` (a chore), and the naive-datetime fallbacks in
+  `auth_service`, `import_rule_service` and `payee_merge_service` — their
+  columns are `timestamptz`. Five other family columns are naive on
+  PostgreSQL despite their models: a chore, not this part.
+- *Dependencies*: `aiosqlite` left; `asyncpg` and `psycopg2-binary` are base
+  dependencies (psycopg2 for Alembic's synchronous runs); the `postgres`
+  extra is gone and `hosted` lost the duplicated drivers. CI and AGENTS.md
+  stopped passing `--extra postgres`.
+- *Tests*: the SQLite pragma tests went with KAL-SET-018 (`@removed`); the
+  two data-migration tests (KAL-PID-009, KAL-ACC-009) now stop a family
+  schema at the old revision in a fresh PostgreSQL database
+  (`tests/migration_schema.py`) — under a second each, so KAL-PID-009 stays in
+  the fast tier; the `EncryptedText` round trips use a table in the worker
+  database's `public` rather than an in-memory SQLite.
+- *After review*: only `postgresql+asyncpg://` passes (a `+psycopg2` URL
+  failed later with an obscure async-engine error), and settings errors no
+  longer echo the refused value (`hide_input_in_errors`: a URL may carry a
+  password).
+- *Left for part C*: `docker-compose.yml` still sets a SQLite URL, so
+  `podman compose up` is refused at start-up until C replaces it with
+  Kaleta + PostgreSQL; the prose docs, `compose.hosted-dev.yml`'s comment and
+  the bug template still mention SQLite.
+
 ## Implementation (filled by plan-archiver)

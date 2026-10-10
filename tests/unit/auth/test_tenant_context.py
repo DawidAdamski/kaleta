@@ -99,9 +99,8 @@ async def test_the_schema_is_rewritten_into_the_statement_not_the_search_path(ho
 async def test_raw_sql_in_a_tenant_session_never_reaches_another_tenant(hosted: str) -> None:
     """Covers: KAL-TEN-002 — unqualified SQL is outside the translate map's reach.
 
-    SQLite would look an unqualified name up in every attached database, so a
-    tenant's connection attaches only that tenant; PostgreSQL finds no tenant
-    table on the default search path and errors. Either way, never A's rows.
+    PostgreSQL finds no tenant table on the default search path and errors:
+    never A's rows.
     """
     a = await _provision(hosted, 1)
     b = await _provision(hosted, 2)

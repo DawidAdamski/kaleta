@@ -74,8 +74,8 @@ def mask_db_url(url: str) -> str:
     """The database URL with the password taken out, host and name kept.
 
     ``postgresql+asyncpg://kaleta:s3cret@db:5432/kaleta`` becomes
-    ``postgresql+asyncpg://kaleta:***@db:5432/kaleta``. A SQLite URL has no
-    credentials and comes back untouched.
+    ``postgresql+asyncpg://kaleta:***@db:5432/kaleta``. A URL without a
+    password comes back untouched.
     """
     scheme, sep, remainder = url.partition("://")
     if not sep or "@" not in remainder:

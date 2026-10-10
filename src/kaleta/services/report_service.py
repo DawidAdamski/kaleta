@@ -22,11 +22,10 @@ from collections import Counter
 from dataclasses import dataclass, field
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import extract, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from kaleta.db.sql_compat import date_month, date_year
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category
 from kaleta.models.payee import Payee
@@ -667,8 +666,8 @@ class ReportService:
 
         result = await self.session.execute(
             select(
-                date_year(Transaction.date),
-                date_month(Transaction.date),
+                extract("year", Transaction.date).label("year"),
+                extract("month", Transaction.date).label("month"),
                 Transaction.type,
                 func.sum(Transaction.amount).label("total"),
             )
@@ -853,8 +852,8 @@ class ReportService:
 
         result = await self.session.execute(
             select(
-                date_year(Transaction.date, label="yr"),
-                date_month(Transaction.date, label="mo"),
+                extract("year", Transaction.date).label("yr"),
+                extract("month", Transaction.date).label("mo"),
                 func.sum(Transaction.amount).label("total"),
             )
             .where(

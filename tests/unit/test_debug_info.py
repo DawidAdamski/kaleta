@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import pytest
 
+from kaleta.config import settings
 from kaleta.debug_info import (
     MASK,
     DebugSection,
@@ -26,10 +27,6 @@ class TestMaskDbUrl:
         masked = mask_db_url("postgresql+asyncpg://kaleta:s3cret@db.example:5432/kaleta")
         assert masked == f"postgresql+asyncpg://kaleta:{MASK}@db.example:5432/kaleta"
         assert "s3cret" not in masked
-
-    def test_sqlite_url_has_no_credentials_to_mask(self) -> None:
-        url = "sqlite+aiosqlite:////home/u/.kaleta/kaleta.db"
-        assert mask_db_url(url) == url
 
     def test_password_containing_an_at_sign_still_goes(self) -> None:
         masked = mask_db_url("postgresql://u:p@ss@db:5432/k")
@@ -101,7 +98,7 @@ class TestSections:
         rows = dict(sections["Settings in force"].rows)
         assert rows["secret_key"] == MASK
         assert rows["smtp_password"] in {MASK, ""}
-        assert "***" in rows["db_url"] or rows["db_url"].startswith("sqlite")
+        assert rows["db_url"] == mask_db_url(settings.db_url)
 
     def test_storage_keys_are_reported_by_type_not_by_value(self) -> None:
         sections = {

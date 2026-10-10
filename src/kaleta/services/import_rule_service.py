@@ -198,11 +198,9 @@ class ImportRuleService:
 
     @staticmethod
     def _aware_last_used(value: datetime | None) -> datetime:
-        """SQLite may return naive datetimes; normalise for sort comparisons."""
+        """A never-used rule sorts as the oldest."""
         if value is None:
             return datetime.min.replace(tzinfo=UTC)
-        if value.tzinfo is None:
-            return value.replace(tzinfo=UTC)
         return value
 
     async def _find_by_pattern(self, pattern: str) -> ImportRule | None:

@@ -28,6 +28,7 @@ from kaleta.db.types import (
     use_data_key,
 )
 from kaleta.exceptions import EncryptionError, TenantLockedError
+from kaleta.services.setup_service import _sync_url
 from tests.conftest import SUITE_FAMILY
 
 metadata = MetaData()
@@ -44,9 +45,12 @@ notes = Table(
 
 @pytest.fixture
 def engine() -> Iterator[object]:
-    eng = create_engine("sqlite://")
+    # In ``public`` of this process's own database, beside the registry.
+    eng = create_engine(_sync_url(settings.db_url))
+    metadata.drop_all(eng)
     metadata.create_all(eng)
     yield eng
+    metadata.drop_all(eng)
     eng.dispose()
 
 
@@ -70,7 +74,8 @@ def plain(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _raw(engine, column: str = "body") -> bytes:  # type: ignore[no-untyped-def]
     with engine.connect() as conn:
-        return conn.exec_driver_sql(f"SELECT {column} FROM notes").scalar_one()
+        # psycopg2 hands ``bytea`` back as a memoryview.
+        return bytes(conn.exec_driver_sql(f"SELECT {column} FROM notes").scalar_one())
 
 
 def _write(engine, **values: object) -> None:  # type: ignore[no-untyped-def]
@@ -116,7 +121,7 @@ def test_a_ciphertext_copied_to_another_column_does_not_decrypt(engine, encrypte
         _write(engine, body="secret")
     stolen = _raw(engine)
     with engine.begin() as conn:
-        conn.exec_driver_sql("UPDATE notes SET other = ?", (stolen,))
+        conn.exec_driver_sql("UPDATE notes SET other = %s", (stolen,))
 
     with use_data_key(key), pytest.raises(EncryptionError):
         _read(engine, "other")

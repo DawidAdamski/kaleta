@@ -354,11 +354,11 @@ check it still reproduces before acting on it.
       addresses are unbounded (every backend). Seen in the review of
       `postgres-only` part A. Fix: a second limiter keyed by the normalised
       e-mail, with the same lock-out sentence.
-- [ ] **`kaleta.db.base.engine` is built at import and used by nobody.**
+- [x] **`kaleta.db.base.engine` is built at import and used by nobody.**
       `create_engine()` runs when `kaleta.db` is imported and is re-exported
       from `kaleta.db.__init__`, but every session goes through
-      `AsyncSessionFactory`. Seen in `postgres-only` part B2b. Fix: delete it
-      and the export.
+      `AsyncSessionFactory`. Seen in `postgres-only` part B2b. Deleted in
+      part B3 (it was the last SQLite `connect_args` branch).
 - [ ] **`SignedIn.tenant` and the `login_session` family are still optional.**
       Since ADR-38 every sign-in has a family and `rotate_session` refuses one
       without; `tenant: SessionTenant | None = None` in `auth/sign_in.py` and
@@ -381,3 +381,12 @@ check it still reproduces before acting on it.
       instance (idempotent, public data). Seen in the review of `postgres-only`
       part B2c. Fix: a per-instance minimum interval, or skip when today's
       table is already stored after NBP's publication hour.
+- [ ] **Some family timestamp columns are `timestamp without time zone`.**
+      The models say `DateTime(timezone=True)` (`TimestampMixin`) but the
+      migrations built `tags`, `currency_rates` and `saved_reports`
+      `created_at`/`updated_at` naive on PostgreSQL; `audit_log.timestamp`
+      and `personal_loans.settled_at` are naive in the models too. Seen in
+      `postgres-only` part B3, which dropped the "SQLite hands back naive
+      datetimes" fallbacks only where the columns are `timestamptz`. Fix: one
+      migration to `timestamptz` (`USING … AT TIME ZONE 'UTC'`) and the models
+      to match.

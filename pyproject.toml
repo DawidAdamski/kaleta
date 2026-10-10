@@ -18,7 +18,10 @@ dependencies = [
     "pydantic>=2.13",
     "pydantic-settings>=2.14.2",
     "uvicorn>=0.42.0",
-    "aiosqlite>=0.20",
+    # PostgreSQL 16+ is the only database (ADR-38): asyncpg for the app,
+    # psycopg2 for Alembic's synchronous migrations.
+    "asyncpg>=0.29",
+    "psycopg2-binary>=2.9",
     "greenlet>=3.5",
     "fastapi>=0.139.0",
     "argon2-cffi>=23.1",
@@ -30,10 +33,6 @@ dependencies = [
 [project.optional-dependencies]
 forecast = [
     "prophet>=1.1",
-]
-postgres = [
-    "psycopg2-binary>=2.9",
-    "asyncpg>=0.29",
 ]
 # XLSX bank statements (Wise). An extra rather than a base dependency: one
 # bank offers XLSX today, and every one of them also offers CSV.
@@ -49,14 +48,11 @@ docs = [
 tracker = [
     "sentry-sdk>=2.20",
 ]
-# The hosted layout (ADR-35): Redis for shared session state, the PostgreSQL
-# drivers (the same pins as `postgres`, which stays for self-hosters on
-# PostgreSQL), and httpx for Supabase Auth — NiceGUI already brings httpx in;
-# naming it here keeps the hosted install honest about what it calls.
+# The hosted layout (ADR-35): Redis for shared session state and httpx for
+# Supabase Auth — NiceGUI already brings httpx in; naming it here keeps the
+# hosted install honest about what it calls.
 hosted = [
     "redis>=5.0",
-    "psycopg2-binary>=2.9",
-    "asyncpg>=0.29",
     "httpx>=0.27",
 ]
 
@@ -198,8 +194,4 @@ dev = [
     "redis>=5.0",
     "fakeredis>=2.26",
     "pytest-xdist>=3.8.0",
-    # The suite runs on PostgreSQL only (ADR-38): the drivers of the
-    # `postgres` extra, which part B3 of postgres-only folds into the base.
-    "asyncpg>=0.29",
-    "psycopg2-binary>=2.9",
 ]

@@ -12,19 +12,15 @@ import uuid
 from collections.abc import AsyncGenerator
 from typing import Any
 
-from sqlalchemy import event
-from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.pool import NullPool
 
 from kaleta.config import settings
 from kaleta.db.tenant_context import TenantContextMissingError, current_tenant
-from kaleta.db.tenant_schemas import attach_sqlite_schemas
 
 #: Connections per process on PostgreSQL: Supabase's pooler counts every
 #: client connection against the project's limit, so a replica takes at most
@@ -48,28 +44,13 @@ def _asyncpg_connect_args() -> dict[str, Any]:
     }
 
 
-def _register_sqlite_pragmas(sync_engine: Engine) -> None:
-    """Apply durability/integrity PRAGMAs on every new SQLite connection."""
-
-    @event.listens_for(sync_engine, "connect")
-    def _set_sqlite_pragma(dbapi_connection: Any, _connection_record: Any) -> None:
-        cursor = dbapi_connection.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.execute("PRAGMA journal_mode=WAL")
-        cursor.execute("PRAGMA busy_timeout=5000")
-        cursor.execute("PRAGMA synchronous=NORMAL")
-        cursor.close()
-
-
 class _SessionProxy:
     """Thin proxy around ``async_sessionmaker`` that can be reconfigured at runtime.
 
     Every session is bound to the current family's schema through
-    ``schema_translate_map`` — on PostgreSQL one engine and one
-    pool for all tenants, the schema rewritten into each compiled statement,
-    never a ``SET search_path`` (ADR-35). On SQLite each tenant has an engine
-    that attaches only its own file (see ``attach_sqlite_schemas``). No tenant
-    known means no session.
+    ``schema_translate_map`` — one engine and one pool for all tenants, the
+    schema rewritten into each compiled statement, never a ``SET search_path``
+    (ADR-35). No tenant known means no session.
     """
 
     def __init__(self) -> None:
@@ -84,36 +65,24 @@ class _SessionProxy:
         self._url = url
         self._debug = debug
         self._tenant_engines = {}
-        self._engine = self._create_engine(tenant=None)
+        self._engine = self._create_engine()
         self._factory = async_sessionmaker(
             bind=self._engine,
             expire_on_commit=False,
             autoflush=False,
         )
 
-    def _create_engine(self, *, tenant: str | None) -> AsyncEngine:
+    def _create_engine(self) -> AsyncEngine:
         url = self._url
-        if "sqlite" not in url:
-            connect = _asyncpg_connect_args() if url.startswith("postgresql+asyncpg") else {}
-            return create_async_engine(
-                url,
-                echo=self._debug,
-                connect_args=connect,
-                pool_size=_PG_POOL_SIZE,
-                max_overflow=_PG_MAX_OVERFLOW,
-                pool_pre_ping=True,
-            )
-        connect_args: dict[str, Any] = {"check_same_thread": False}
-        # Multi-tenant SQLite (dev/test): an engine per tenant, each attaching
-        # only `public` and its own file, so no connection can name two
-        # tenants. No pooling — a tenant file can be created or dropped while
-        # the process runs, and a pooled connection would outlive that.
-        engine = create_async_engine(
-            url, echo=self._debug, connect_args=connect_args, poolclass=NullPool
+        connect = _asyncpg_connect_args() if url.startswith("postgresql+asyncpg") else {}
+        return create_async_engine(
+            url,
+            echo=self._debug,
+            connect_args=connect,
+            pool_size=_PG_POOL_SIZE,
+            max_overflow=_PG_MAX_OVERFLOW,
+            pool_pre_ping=True,
         )
-        _register_sqlite_pragmas(engine.sync_engine)
-        attach_sqlite_schemas(engine.sync_engine, url, tenant=tenant)
-        return engine
 
     def configure(self, url: str, debug: bool = False) -> None:
         """Replace the underlying engine and session factory with a new database URL."""
@@ -122,9 +91,7 @@ class _SessionProxy:
     async def dispose(self) -> None:
         """Close all pooled connections on the current engine."""
         if self._engine is not None:
-            for bound in self._tenant_engines.values():
-                if bound.sync_engine.pool is not self._engine.sync_engine.pool:
-                    await bound.dispose()
+            # The tenants' engines are views of this one: one pool between them.
             await self._engine.dispose()
             self._engine = None
             self._factory = None
@@ -133,8 +100,7 @@ class _SessionProxy:
     def _tenant_engine(self, engine: AsyncEngine, schema: str) -> AsyncEngine:
         bound = self._tenant_engines.get(schema)
         if bound is None:
-            base = self._create_engine(tenant=schema) if "sqlite" in self._url else engine
-            bound = base.execution_options(schema_translate_map={None: schema})
+            bound = engine.execution_options(schema_translate_map={None: schema})
             self._tenant_engines[schema] = bound
         return bound
 

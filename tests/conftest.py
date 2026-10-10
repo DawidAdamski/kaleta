@@ -33,7 +33,6 @@ from kaleta.auth import session as session_mod
 from kaleta.config import settings
 from kaleta.crypto import DataKey, generate_dek, key_ring
 from kaleta.db import AsyncSessionFactory
-from kaleta.db.base import Base
 from kaleta.db.tenant_context import set_tenant
 from kaleta.db.types import install_data_key_resolver
 from kaleta.models.currency_rate import CurrencyRate  # noqa: F401
@@ -71,20 +70,6 @@ async def db_engine():
         await conn.begin()
         yield conn
         await conn.rollback()
-    await engine.dispose()
-
-
-@pytest_asyncio.fixture
-async def sqlite_session():
-    """An in-memory SQLite session, for the SQLite-only code that is still in ``src``.
-
-    Goes with that code (``postgres-only`` part B3); nothing else uses it.
-    """
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    async with async_sessionmaker(engine, expire_on_commit=False)() as s:
-        yield s
     await engine.dispose()
 
 

@@ -8,74 +8,59 @@ from __future__ import annotations
 
 import asyncio
 import datetime
-import os
-import sqlite3
 from decimal import Decimal
-from pathlib import Path
 
 import pytest
 from httpx import AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from alembic import command
 from kaleta.models.account import AccountType
 from kaleta.schemas.account import AccountCreate
 from kaleta.services import AccountService, TransactionService
 from kaleta.services.import_service import ImportService, ParsedRow
-from kaleta.services.setup_service import _alembic_config
 from tests.integration.conftest import create_account, create_category, transaction_payload
+from tests.migration_schema import migration_schema
 
 # The revision before balances followed the ledger.
 _PREVIOUS_HEAD = "3b168fa7bb71"
 
 
-def _migrate(db_url: str, revision: str) -> None:
-    os.environ["KALETA_MIGRATE_URL"] = db_url
-    try:
-        command.upgrade(_alembic_config(), revision)
-    finally:
-        os.environ.pop("KALETA_MIGRATE_URL", None)
-
-
-# Slow tier (test-suite-speed): Alembic migrations of a file database.
+# Slow tier (test-suite-speed): Alembic migrations of a schema of its own.
 @pytest.mark.slow
-def test_upgrading_keeps_every_balance_the_user_saw(tmp_path: Path) -> None:
-    """Covers: KAL-ACC-009
+def test_upgrading_keeps_every_balance_the_user_saw() -> None:
+    """Covers: KAL-ACC-009"""
+    family = migration_schema("acc_balances", _PREVIOUS_HEAD)
+    family.execute(
+        "INSERT INTO accounts (id, name, type, balance, currency) "
+        "VALUES (:id, :name, :type, :balance, 'PLN')",
+        [
+            {"id": 1, "name": "PKO Main", "type": "CHECKING", "balance": "1234.56"},
+            {"id": 2, "name": "Oszczędności", "type": "SAVINGS", "balance": "500.00"},
+        ],
+    )
+    family.execute(
+        "INSERT INTO transactions (id, account_id, amount, type, date, description, "
+        "is_internal_transfer, is_split, linked_transaction_id) "
+        "VALUES (:id, :account, :amount, :type, '2026-09-01', '', :internal, false, NULL)",
+        [
+            {"id": 1, "account": 1, "amount": "200.00", "type": "EXPENSE", "internal": False},
+            {"id": 2, "account": 1, "amount": "50.00", "type": "INCOME", "internal": False},
+            # A linked pair saved the way create_transfer saves it.
+            {"id": 3, "account": 1, "amount": "300.00", "type": "TRANSFER", "internal": True},
+            {"id": 4, "account": 2, "amount": "300.00", "type": "TRANSFER", "internal": True},
+            # A lone leg from an old mBank import: its direction is lost.
+            {"id": 5, "account": 2, "amount": "100.00", "type": "TRANSFER", "internal": True},
+        ],
+    )
+    family.execute("UPDATE transactions SET linked_transaction_id = 4 WHERE id = 3")
+    family.execute("UPDATE transactions SET linked_transaction_id = 3 WHERE id = 4")
 
-    Runs on its own SQLite file whatever backend the suite uses, so it needs
-    no backend guard: the pre-upgrade rows go in through ``sqlite3``.
-    """
-    db_path = tmp_path / "before.db"
-    db_url = f"sqlite+aiosqlite:///{db_path}"
-    _migrate(db_url, _PREVIOUS_HEAD)
-
-    with sqlite3.connect(db_path) as raw:
-        raw.executemany(
-            "INSERT INTO accounts (id, name, type, balance, currency) VALUES (?, ?, ?, ?, 'PLN')",
-            [(1, "PKO Main", "CHECKING", "1234.56"), (2, "Oszczędności", "SAVINGS", "500.00")],
-        )
-        raw.executemany(
-            "INSERT INTO transactions (id, account_id, amount, type, date, description, "
-            "is_internal_transfer, is_split, linked_transaction_id) "
-            "VALUES (?, ?, ?, ?, '2026-09-01', '', ?, 0, ?)",
-            [
-                (1, 1, "200.00", "EXPENSE", 0, None),
-                (2, 1, "50.00", "INCOME", 0, None),
-                # A linked pair saved the way create_transfer saves it.
-                (3, 1, "300.00", "TRANSFER", 1, None),
-                (4, 2, "300.00", "TRANSFER", 1, 3),
-                # A lone leg from an old mBank import: its direction is lost.
-                (5, 2, "100.00", "TRANSFER", 1, None),
-            ],
-        )
-        raw.execute("UPDATE transactions SET linked_transaction_id = 4 WHERE id = 3")
-
-    _migrate(db_url, "head")
+    family.upgrade("head")
 
     async def read_balances() -> dict[int, Decimal]:
         # Alembic's env.py runs its own event loop, so this test is sync and
         # opens one only for the read.
-        engine = create_async_engine(db_url)
+        engine = family.async_engine()
         try:
             async with AsyncSession(engine) as session:
                 return await AccountService(session).balances()
@@ -85,10 +70,9 @@ def test_upgrading_keeps_every_balance_the_user_saw(tmp_path: Path) -> None:
     balances = asyncio.run(read_balances())
     assert balances == {1: Decimal("1234.56"), 2: Decimal("500.00")}
 
-    with sqlite3.connect(db_path) as raw:
-        directions = dict(
-            raw.execute("SELECT id, transfer_direction FROM transactions WHERE type = 'TRANSFER'")
-        )
+    directions = dict(
+        family.execute("SELECT id, transfer_direction FROM transactions WHERE type = 'TRANSFER'")
+    )
     assert directions == {3: "OUT", 4: "IN", 5: "OUT"}
 
 

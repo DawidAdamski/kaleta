@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for ReportService — uses in-memory SQLite."""
+"""Unit tests for ReportService."""
 
 from __future__ import annotations
 

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for PlannedTransactionService — uses in-memory SQLite.
+"""Unit tests for PlannedTransactionService.
 
 Note: The PlannedTransaction model does not have `occurrence_limit` or
 `destination_account_id` fields. Tests for those concepts are omitted.

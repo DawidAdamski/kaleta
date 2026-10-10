@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for AccountService — uses in-memory SQLite."""
+"""Unit tests for AccountService."""
 
 from decimal import Decimal
 

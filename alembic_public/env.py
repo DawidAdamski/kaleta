@@ -15,7 +15,6 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from alembic import context
 from kaleta.config import settings
 from kaleta.db.base import PublicBase
-from kaleta.db.tenant_schemas import PUBLIC_SCHEMA, is_sqlite_url, sqlite_schema_file
 from kaleta.models import nbp_rate as _nbp_rate  # noqa: F401 — registers public.nbp_rates
 from kaleta.models import tenant as _tenant  # noqa: F401 — registers the registry tables
 
@@ -28,13 +27,6 @@ if config.config_file_name is not None:
 target_metadata = PublicBase.metadata
 
 _effective_db_url: str = os.environ.get("KALETA_MIGRATE_URL") or settings.db_url
-_sqlite = is_sqlite_url(_effective_db_url)
-if _sqlite:
-    # On SQLite `public` is a file of its own next to the main database,
-    # attached under that name at runtime; migrate it as the main database.
-    _effective_db_url = "sqlite+aiosqlite:///" + str(
-        sqlite_schema_file(_effective_db_url, PUBLIC_SCHEMA)
-    )
 
 
 def run_migrations_offline() -> None:
@@ -50,13 +42,10 @@ def run_migrations_offline() -> None:
 
 
 def do_run_migrations(connection):  # type: ignore[no-untyped-def]
-    if _sqlite:
-        connection = connection.execution_options(schema_translate_map={PUBLIC_SCHEMA: None})
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         version_table=VERSION_TABLE,
-        render_as_batch=_sqlite,
     )
     with context.begin_transaction():
         context.run_migrations()

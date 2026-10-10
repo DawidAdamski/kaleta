@@ -23,7 +23,6 @@ from sqlalchemy import (
     insert,
     inspect,
     select,
-    text,
 )
 from sqlalchemy.engine import Result
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -37,14 +36,6 @@ from kaleta.db.types import EncryptedJSON, EncryptedText
 from kaleta.exceptions import ValidationError
 
 _BACKUP_VERSION = "1"
-
-
-async def _set_sqlite_foreign_keys(session: AsyncSession, *, enabled: bool) -> None:
-    """Toggle SQLite FK enforcement. No-op on other dialects (avoids aborting PG txns)."""
-    conn = await session.connection()
-    if conn.dialect.name != "sqlite":
-        return
-    await session.execute(text(f"PRAGMA foreign_keys = {'ON' if enabled else 'OFF'}"))
 
 
 @lru_cache(maxsize=1)
@@ -253,10 +244,6 @@ class BackupService:
                 fname = f"{table}.json"
                 table_data[table] = json.loads(zf.read(fname)) if fname in names else []
 
-        # Disable FK constraints for the duration of the restore (SQLite only).
-        # Do not run PRAGMA on PostgreSQL — a failed statement aborts the transaction.
-        await _set_sqlite_foreign_keys(self.session, enabled=False)
-
         try:
             # Clear every ORM table so restore never leaves a hybrid state.
             for table in reversed(tables):
@@ -311,5 +298,3 @@ class BackupService:
         except Exception:
             await self.session.rollback()
             raise
-        finally:
-            await _set_sqlite_foreign_keys(self.session, enabled=True)

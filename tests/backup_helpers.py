@@ -60,7 +60,7 @@ from kaleta.models import (
     YearlyPlan,
     transaction_tags,
 )
-from kaleta.services.backup_service import _backup_tables, _set_sqlite_foreign_keys
+from kaleta.services.backup_service import _backup_tables
 
 
 async def row_counts(session: AsyncSession) -> dict[str, int]:
@@ -75,11 +75,9 @@ async def row_counts(session: AsyncSession) -> dict[str, int]:
 
 
 async def wipe_all(session: AsyncSession) -> None:
-    await _set_sqlite_foreign_keys(session, enabled=False)
     for table in reversed(_backup_tables()):
         await session.execute(delete(Base.metadata.tables[table]))
     await session.commit()
-    await _set_sqlite_foreign_keys(session, enabled=True)
 
 
 async def seed_every_model(session: AsyncSession) -> None:
