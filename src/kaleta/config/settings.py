@@ -170,14 +170,9 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _validate_tenancy(self) -> "Settings":
-        # Two layouts exist, and each has one identity backend: a self-hosted
-        # database with its own argon2 user, or the hosted registry of
-        # accounts that sign up through Supabase. Anything else is refused.
-        if self.tenancy == "multi" and self.auth_backend == "local":
-            raise ValueError(
-                "KALETA_TENANCY=multi requires KALETA_AUTH_BACKEND=supabase: accounts are "
-                "created by sign-up, and the local backend has exactly one user per database."
-            )
+        # The registry layout takes either backend — local logins kept in the
+        # registry (ADR-38) or Supabase Auth; a single-tenant database has one
+        # local user and nowhere to map another provider's identities to.
         if self.tenancy == "single" and self.auth_backend != "local":
             raise ValueError(
                 f"KALETA_AUTH_BACKEND={self.auth_backend} requires KALETA_TENANCY=multi: a "

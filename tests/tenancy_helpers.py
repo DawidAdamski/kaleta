@@ -54,7 +54,14 @@ def _drop_postgres_multi_tenant_state(url: str) -> None:
             ).scalars()
             for schema in list(schemas):
                 conn.execute(text(f"DROP SCHEMA {quote_schema(schema)} CASCADE"))
-            for table in ("tenant_invites", "tenant_members", "tenants", "alembic_version_public"):
+            for table in (
+                "tenant_invites",
+                "tenant_members",
+                "tenants",
+                "local_identities",
+                "instance_settings",
+                "alembic_version_public",
+            ):
                 conn.execute(text(f"DROP TABLE IF EXISTS public.{table} CASCADE"))
     finally:
         engine.dispose()
@@ -62,13 +69,17 @@ def _drop_postgres_multi_tenant_state(url: str) -> None:
 
 @asynccontextmanager
 async def multi_tenant_database(
-    tmp_path: Path, *, encryption: Literal["off", "passphrase"] = "off"
+    tmp_path: Path,
+    *,
+    encryption: Literal["off", "passphrase"] = "off",
+    auth_backend: Literal["supabase", "local"] = "supabase",
 ) -> AsyncIterator[str]:
     """Yield the URL of a fresh multi-tenant database with its registry migrated.
 
     ``encryption`` is ``off`` unless a test asks: these tests are about schemas
     and sign-in, and a hosted instance's field encryption has tests of its own
-    that pass ``"passphrase"`` and unlock a key first.
+    that pass ``"passphrase"`` and unlock a key first. ``auth_backend="local"``
+    is the registry layout with local logins (ADR-38).
     """
     url = POSTGRES_URL if USE_POSTGRES else f"sqlite+aiosqlite:///{tmp_path / 'hosted.db'}"
     saved = (settings.tenancy, settings.auth_backend, settings.db_url, settings.encryption)
@@ -79,7 +90,7 @@ async def multi_tenant_database(
     # Attribute assignment skips the settings validator on purpose: these
     # tests fake the identity provider, so no Supabase URL exists.
     settings.tenancy = "multi"
-    settings.auth_backend = "supabase"
+    settings.auth_backend = auth_backend
     settings.db_url = url
     settings.encryption = encryption
     AsyncSessionFactory.configure(url)

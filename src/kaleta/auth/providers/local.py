@@ -27,6 +27,7 @@ _LOCAL_MFA = "On a self-hosted install, two-factor authentication is set up in S
 
 class LocalAuthProvider:
     name = "local"
+    email_login = False
 
     @staticmethod
     def identity_for(user: User) -> Identity:

@@ -24,7 +24,7 @@ from kaleta.auth.session import (
     finish_login,
     is_authenticated,
 )
-from kaleta.auth.sign_in import SignInFlow, resend_confirmation
+from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state, resend_confirmation
 from kaleta.config import settings
 from kaleta.exceptions import EmailNotVerifiedError, KaletaError, UnauthorizedError
 from kaleta.i18n import t
@@ -59,10 +59,11 @@ def register() -> None:
         if is_authenticated():
             return RedirectResponse(safe_redirect(redirect_to))
 
-        # Any provider but `local` signs people up by e-mail; only Supabase
-        # also sends mail (the debug `fake` backend confirms at sign-up).
-        hosted = get_auth_provider().name != "local"
-        sends_mail = get_auth_provider().name == "supabase"
+        # Every backend but the single-tenant `local` one signs in by e-mail;
+        # only Supabase also sends mail.
+        provider = get_auth_provider()
+        hosted = provider.email_login
+        sends_mail = provider.name == "supabase"
 
         async def _bootstrap(session: AsyncSession) -> str | None:
             state = await AuthService(session).auth_state()
@@ -72,9 +73,14 @@ def register() -> None:
                 return "/secure-app"
             return None
 
-        # A hosted instance has no "first user" to create and no tenant to ask
-        # before someone signs in.
-        bootstrap = None if settings.tenancy == "multi" else await with_session(_bootstrap)
+        # The registry layout has no tenant to ask before someone signs in;
+        # with local logins its first run is the administrator's sign-up.
+        if settings.tenancy == "multi":
+            signup = await registry_sign_up_state()
+            bootstrap = "/create-account" if signup.first_run else None
+        else:
+            signup = None
+            bootstrap = await with_session(_bootstrap)
         if bootstrap is not None:
             return RedirectResponse(bootstrap)
 
@@ -208,7 +214,7 @@ def register() -> None:
                 with ui.row().classes("w-full justify-between gap-2"):
                     auth_link("auth.forgot_password", "/reset-password")
                     auth_action("auth.magic_link_button", _magic_link)
-            if hosted:
+            if hosted and (signup is None or signup.open):
                 auth_link("auth.sign_up_link", "/create-account")
 
         return None

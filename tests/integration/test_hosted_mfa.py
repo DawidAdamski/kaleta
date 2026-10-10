@@ -76,6 +76,7 @@ class FakeGoTrue(LocalAuthProvider):
     """A gateway that holds one account's factors the way GoTrue would."""
 
     name = "supabase"
+    email_login = True
 
     def __init__(self) -> None:
         self.factors: dict[str, str] = {}  # id → "verified" | "unverified"

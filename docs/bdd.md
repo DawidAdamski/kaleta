@@ -3579,6 +3579,54 @@ Feature: Hosted accounts (multi-tenant)
     When the job runs again
     Then the same account is reseeded, with no second account provisioned
     And "--tenant" on a self-hosted install is refused
+
+  KAL-TEN-015 @automated
+  Scenario: The first sign-up of an empty self-hosted instance creates its administrator
+    Given a Kaleta on the registry layout with local logins and no login yet
+    When I open the login page
+    Then I am sent to the page that sets up the administrator account
+    When I sign up with an e-mail address and a password
+    Then my login is the instance administrator
+    And my first sign-in provisions the first family, which I own
+    And two first sign-ups at once make exactly one administrator
+    And the last administrator cannot be disabled or deleted
+
+  KAL-TEN-016 @automated
+  Scenario: Sign-up on a self-hosted instance follows its registration mode
+    Given a Kaleta on the registry layout with local logins and an administrator
+    When the registration mode is "closed"
+    Then the sign-up page is not offered and a sign-up is refused
+    When the registration mode is "open"
+    Then anyone can sign up, and their first sign-in provisions a family of their own
+
+  KAL-TEN-017 @automated
+  Scenario: A local login signs in by e-mail, refuses a wrong or disabled one
+    Given a local login on the registry layout
+    When I sign in with its e-mail in any letter case and the right password
+    Then I am signed in to my family
+    When the password is wrong, or the administrator disabled the login
+    Then the sign-in is refused with the same sentence
+    And disabling a login also ends its open sessions and revokes its API tokens
+    And deleting a family keeps its owner's login when it is the administrator's
+
+  KAL-TEN-018 @automated
+  Scenario: A local login's second factor is checked inside its family
+    Given a local login on the registry layout whose member turned two-factor authentication on
+    When I sign in with the right password
+    Then I am asked for the code from my authenticator
+    And a wrong code is refused, the right one signs me in, and the same code twice is refused
+    And a recovery code signs me in and is crossed off
+
+  KAL-TEN-019 @automated
+  Scenario: The administrator manages local logins from the command line
+    Given a Kaleta on the registry layout with local logins
+    When the operator runs "tenant_admin.py create-login <e-mail> --admin"
+    Then the login exists and its password is printed once
+    And creating the same address again is refused
+    When the operator runs "tenant_admin.py reset-password <e-mail>"
+    Then a new password is printed once and the old one no longer signs in
+    And "tenant_admin.py registration open" opens sign-up, "registration" alone shows the mode
+    And the login commands refuse to run when the instance does not use local logins
 ```
 
 ## Feature: Data encryption (user-held passphrase)

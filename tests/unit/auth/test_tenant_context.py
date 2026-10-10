@@ -274,6 +274,7 @@ async def test_revocation_watermarks_are_kept_per_tenant(hosted: str) -> None:
 
 class _RecordingProvider(LocalAuthProvider):
     name = "supabase"
+    email_login = True
 
     def __init__(self) -> None:
         self.signed_out: list[Identity] = []

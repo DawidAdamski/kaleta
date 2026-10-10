@@ -8,9 +8,11 @@ auth layer above them.
 
 from __future__ import annotations
 
+import enum
+
 from pydantic import BaseModel, ConfigDict, Field
 
-__all__ = ["FactorEnrolment", "Identity", "MfaRequired", "SignUpResult"]
+__all__ = ["FactorEnrolment", "Identity", "MfaRequired", "RegistrationMode", "SignUpResult"]
 
 
 class Identity(BaseModel):
@@ -61,3 +63,16 @@ class SignUpResult(BaseModel):
 
     identity: Identity | None
     needs_verification: bool
+
+
+class RegistrationMode(enum.StrEnum):
+    """Who may create a family on this instance (ADR-38).
+
+    ``closed``: only the instance administrator (or ``tenant_admin.py``).
+    ``invite``: an invitation link is needed (``hosted-household-sharing``).
+    ``open``: anyone who reaches the sign-up page.
+    """
+
+    CLOSED = "closed"
+    INVITE = "invite"
+    OPEN = "open"

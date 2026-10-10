@@ -39,6 +39,7 @@ _SUBJECT_NAMESPACE = uuid.UUID("6f1d2c1e-6a4e-4d0b-9a59-6b3c1f0d9e21")
 
 class FakeAuthProvider:
     name = "fake"
+    email_login = True
 
     def __init__(self, store_path: Path | None = None) -> None:
         self._path = store_path or _DEFAULT_STORE

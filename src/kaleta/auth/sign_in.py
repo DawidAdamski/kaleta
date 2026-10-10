@@ -14,14 +14,15 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from kaleta.auth.login_rate_limit import resend_throttle
-from kaleta.auth.providers import get_auth_provider
+from kaleta.auth.providers import RegistryAuthProvider, get_auth_provider
 from kaleta.auth.session import SessionTenant
 from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import UnauthorizedError
-from kaleta.schemas.identity import Identity, MfaRequired
+from kaleta.schemas.identity import Identity, MfaRequired, RegistrationMode
 from kaleta.services import AuthService, HostedMfaService, MfaService, TenantService
+from kaleta.services.local_identity_service import LocalIdentityService
 from kaleta.services.mfa_service import normalise_code
 
 if TYPE_CHECKING:
@@ -87,6 +88,13 @@ class SignInFlow:
         the sign-in completes — on to Settings → Security, to set a new one up.
         """
         identity = pending.identity
+        provider = get_auth_provider()
+        if isinstance(provider, RegistryAuthProvider):
+            # A local factor: the code is crossed off in `user_mfa`, the factor
+            # stays — exactly as on a single-tenant install.
+            if not await provider.consume_recovery_code(identity, code):
+                return None
+            return await self.complete(identity)
         membership = await self._membership(identity)
         user_id = self._member_user_id(membership)
         with use_tenant(membership.context()):
@@ -141,3 +149,29 @@ async def resend_confirmation(address: str) -> None:
     """
     if resend_throttle.allow(address.strip().lower()):
         await get_auth_provider().resend_confirmation(address)
+
+
+@dataclass(frozen=True)
+class SignUpState:
+    """What the login and sign-up pages offer on the registry layout."""
+
+    #: No login exists yet: the next sign-up creates the instance administrator.
+    first_run: bool
+    #: The sign-up page is offered to anyone.
+    open: bool
+
+
+async def registry_sign_up_state() -> SignUpState:
+    """Whether this instance is on its first run, and whether sign-up is open.
+
+    Supabase (and the debug ``fake`` backend) always offer sign-up; local
+    logins follow the instance's registration mode (ADR-38).
+    """
+    if not isinstance(get_auth_provider(), RegistryAuthProvider):
+        return SignUpState(first_run=False, open=True)
+    async with AsyncSessionFactory.public() as session:
+        identities = LocalIdentityService(session)
+        if await identities.is_empty():
+            return SignUpState(first_run=True, open=True)
+        mode = await identities.registration_mode()
+    return SignUpState(first_run=False, open=mode is RegistrationMode.OPEN)

@@ -16,7 +16,7 @@ from nicegui import ui
 
 from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.session import finish_login, is_authenticated
-from kaleta.auth.sign_in import SignInFlow, resend_confirmation
+from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state, resend_confirmation
 from kaleta.config import settings
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
@@ -39,16 +39,28 @@ def register() -> None:
             return RedirectResponse("/")
 
         provider = get_auth_provider()
-        hosted = provider.name != "local"
+        hosted = provider.email_login
 
         async def _guard(session: Any) -> bool:
             return await AuthService(session).auth_state() == "no_user"
 
-        if not hosted and not await with_session(_guard):
+        first_run = False
+        if settings.tenancy == "multi":
+            # The registry layout: the administrator's sign-up on an empty
+            # instance, afterwards only while registration is open (ADR-38).
+            signup = await registry_sign_up_state()
+            if not signup.open:
+                return RedirectResponse("/login")
+            first_run = signup.first_run
+        elif not await with_session(_guard):
             return RedirectResponse("/login")
 
-        if hosted:
-            shell = await auth_page_shell("auth.signup_title", "auth.signup_subtitle")
+        if first_run:
+            shell = await auth_page_shell("auth.admin_title", "auth.admin_subtitle")
+        elif hosted:
+            # Local logins on the registry layout send no confirmation mail.
+            subtitle = "auth.signup_subtitle_local" if provider.name == "local" else None
+            shell = await auth_page_shell("auth.signup_title", subtitle or "auth.signup_subtitle")
         else:
             shell = await auth_page_shell("auth.create_title", "auth.create_subtitle")
 
@@ -121,7 +133,7 @@ def register() -> None:
 
             confirm.on("keydown.enter", _submit)
             auth_submit("auth.signup_button" if hosted else "auth.create_button", _submit)
-            if hosted:
+            if hosted and not first_run:
                 auth_link("auth.have_account_link", "/login")
 
         return None

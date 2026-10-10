@@ -3,7 +3,7 @@ plan_id: postgres-only
 title: PostgreSQL only — one tenancy layout, local logins per family, SQLite removed
 area: db / auth / ops
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
@@ -21,6 +21,19 @@ and doubled CI run goes with them.
 
 Depends on [`test-suite-speed`](archive/test-suite-speed.md) (parallel Postgres
 test runs exist before the SQLite runs are deleted).
+
+## Delivery
+
+Three pull requests on `plan/postgres-only*` branches, each green on its own
+(decided 2026-10-10 after mapping the code: most SQLite code is the
+`single` layout's, so the layout goes first and SQLite with it):
+
+- **A — local logins on the registry layout** (§3, §4 and the CLI half of
+  §4): additive; `single` keeps working. `KALETA_TENANCY=multi` +
+  `KALETA_AUTH_BACKEND=local` becomes a valid instance.
+- **B — one layout, PostgreSQL only** (§1, §2, §6): `single`, SQLite and the
+  SQLite test runs go.
+- **C — removals, packaging, docs** (§5, §7).
 
 ## Scope
 
@@ -154,5 +167,71 @@ test runs exist before the SQLite runs are deleted).
   goes. Default: yes.
 
 ## Implementation notes
+
+**Part A (branch `plan/postgres-only`).**
+
+- *Registry*: `alembic_public` revision `b1c2d3e4f5a6` adds
+  `public.local_identities` (e-mail, argon2id hash, `is_instance_admin`,
+  `disabled`, `must_change_password`, `created_at`, `last_login_at`) and
+  `public.instance_settings` (key/value; `registration_mode`). Models
+  `LocalIdentity`, `InstanceSetting` sit beside `Tenant` on `PublicBase`;
+  `RegistrationMode` is in `kaleta.schemas.identity`.
+- *Subject*: `local:<identity id>` — never collides with a GoTrue UUID, so
+  `tenant_members.auth_subject` stays one namespace.
+- *Provider*: `RegistryAuthProvider` (`name = "local"`) is built when
+  `tenancy == "multi"` and the backend is `local`; the single-tenant
+  `LocalAuthProvider` stays until part B. Providers gained `email_login`
+  so views stop inferring the form from the name.
+- *Second factor*: kept in `user_mfa` inside the family's schema
+  (`MfaService`), not moved to the registry. A right password for a member
+  with MFA on answers `MfaRequired(factor_id="local")`; the code is checked by
+  `RegistryAuthProvider.mfa_challenge_verify` inside that family, so the login
+  prompt takes the same `SignInFlow.verify_code` path as a hosted sign-in.
+  A recovery code goes through `RegistryAuthProvider.consume_recovery_code`
+  (crossed off, factor kept — as on a single-tenant install).
+- *First run*: an empty `local_identities` makes `/login` redirect to
+  `/create-account`, titled "Set up this Kaleta"; that sign-up is the
+  administrator; its first sign-in provisions the first family (the same
+  `TenantService.provision`). Later sign-ups need `registration_mode=open`;
+  the default is `closed`. The plan's "first family name" field is not there:
+  `tenants.name` stays empty until the admin panel (or household plan) names it.
+- *No `must_change_password` enforcement yet*: the column exists (reserved,
+  documented on the model) and nothing sets or reads it; the admin panel plan
+  resets passwords that must be changed at the next sign-in.
+  `tenant_admin.py reset-password` sets a new password and prints it once.
+
+**After review (PR #194).**
+
+- *First-run race*: "is the instance empty" + the insert, and the
+  last-administrator guards, run under one decision lock — an
+  `asyncio.Lock` in-process plus `pg_advisory_xact_lock` on Postgres
+  (released by the commit or rollback). Two first sign-ups at once: one
+  administrator, the other meets the closed registration. Tested.
+- *Disabling ends what the login holds*: `kaleta.auth.local_logins.set_login_disabled`
+  sets the flag, raises the member's session watermark, revokes their API
+  tokens (`ApiTokenService.revoke_all`) and drops their unlocked key from this
+  process's key ring. Another replica notices within the revocation cache's
+  60 s TTL. Nothing calls it yet but the tests; the admin panel will.
+- *Deleting a family keeps the administrator's login*: an instance
+  administrator's login belongs to the instance, so `delete_identity` keeps
+  it (their next sign-in starts a new, empty family); other members' logins
+  go. Kept rather than refused so a multi-member deletion never stops
+  half-way (the last-admin guard used to be able to raise mid-loop).
+- *Input limits*: passwords over 1 024 characters are refused before
+  hashing; an e-mail needs exactly one `@`, a local part, a domain and no
+  whitespace.
+- *Recovery hint*: the code prompt says "Each recovery code works once" for a
+  local factor, not the Supabase sentence about turning the factor off.
+- *Known limits, accepted*: (1) whoever reaches a fresh instance first
+  becomes its administrator — the self-hosting guide must say to create the
+  administrator with `tenant_admin.py create-login --admin` (or finish the
+  first run) before exposing the instance; (2) the password form is
+  throttled per client address, not per account, as on every backend today —
+  a per-account throttle is a chore, not this plan.
+- *Settings tests changed on purpose*: `test_tenancy_settings.py` asserted
+  that `multi` + `local` is refused (the hosted-tenancy-foundation decision);
+  ADR-38 reverses it, so both tests now assert it starts.
+- *Not done in A*: `kaleta --reset-password` (single-tenant CLI) — part B
+  replaces it with `tenant_admin.py reset-password`.
 
 ## Implementation (filled by plan-archiver)

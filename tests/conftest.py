@@ -120,7 +120,11 @@ class _CheapPasswordHasher(PasswordHasher):
 
 @pytest.fixture(autouse=True)
 def _cheap_password_hashing(monkeypatch: pytest.MonkeyPatch) -> None:
-    for module in ("kaleta.services.mfa_service", "kaleta.services.auth_service"):
+    for module in (
+        "kaleta.services.mfa_service",
+        "kaleta.services.auth_service",
+        "kaleta.services.local_identity_service",
+    ):
         monkeypatch.setattr(f"{module}.PasswordHasher", _CheapPasswordHasher)
 
 
