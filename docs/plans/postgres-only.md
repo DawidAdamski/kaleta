@@ -39,7 +39,10 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
     job goes. Production code untouched. Tests that build a SQLite file of
     their own to exercise SQLite-only code (pragmas, VACUUM backups, the setup
     wizard's file picker) stay until that code goes in B2/B3.
-  - **B2 — one layout** (§2): `single` and `KALETA_TENANCY` go; encryption is
+  - **B2a — what `single` alone did, on the registry layout** (decided with
+    the maintainer 2026-10-10, see "Decisions for B2"): additive, `single`
+    still works.
+  - **B2b — one layout** (§2): `single` and `KALETA_TENANCY` go; encryption is
     always on.
   - **B3 — SQLite out of `src/`** (§1): the dialect branches, `aiosqlite`, the
     refusal of a `sqlite` URL.
@@ -165,6 +168,33 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
 `tests/**`, `docker-compose.yml`, `Containerfile*`, `compose.hosted-dev.yml`,
 `.github/workflows/ci.yml`, `pyproject.toml`, `AGENTS.md`, `docs/*.md`,
 `docs/bdd.md`, i18n `en.json` / `pl.json`.
+
+## Decisions for B2 (maintainer, 2026-10-10)
+
+A map of every `single`/`multi` branch found fifteen things only `single`
+does. Kept, on the registry layout:
+
+- **NBP rates move to `public`.** Exchange rates are public data, the same
+  for every family: one `public.currency_rates` table (registry migration),
+  one startup/scheduled fetch per instance, the Settings "fetch now" button
+  unchanged. The per-family copies are dropped by a tenant migration.
+- **Event retention loops over families.** One scheduler, once a day, sweeps
+  each tenant schema in turn (events stay per family).
+- **"The data passphrase is not the login password"** is checked against
+  `public.local_identities` for `local` logins.
+- **`tenant_admin.py reset-password EMAIL --disable-mfa`** turns the
+  member's second factor off, as `kaleta --reset-password --disable-mfa` did.
+- **`KALETA_API_TOKEN` stays** for headless use: on the registry layout it
+  authenticates as the instance administrator in their family (refused when
+  there is no administrator or no family yet). Like every bearer token, it
+  reads encrypted fields only while that member has an unlocked session.
+
+Dropped with `single`: the `/setup` database chooser, `config.json` and
+"close database"; the SQLite safety copy before migrations (backups are the
+operator's, ADR-38); scheduled SQLite backups; the login-page statistics; the
+placeholder user and `/secure-app`; opening a browser on first run; username
+(non-e-mail) logins; `encrypt_database.py`; a production install without
+encryption.
 
 ## Open questions
 
