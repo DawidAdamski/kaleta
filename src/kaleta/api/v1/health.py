@@ -26,7 +26,6 @@ async def _health_payload(
         database_ok=snapshot.database_ok,
         migrations_pending=snapshot.migrations_pending,
         tenants_pending_migration=snapshot.tenants_pending_migration,
-        tenancy=snapshot.tenancy,
         auth_backend=snapshot.auth_backend,
         keyring_sessions=snapshot.keyring_sessions,
         suspended_tenants=snapshot.suspended_tenants,
@@ -39,8 +38,8 @@ async def _health_payload(
     summary="Unauthenticated health probe",
     description=(
         "Returns app version, database reachability, whether Alembic migrations are "
-        "pending, the tenancy and sign-in backend, how many sessions hold an unlocked "
-        "data key (a count), and on a hosted instance the suspended account ids. No "
+        "pending, the sign-in backend, how many sessions hold an unlocked data key (a "
+        "count), and the suspended family ids. No "
         "authentication required. HTTP 503 when the database is unreachable."
     ),
     responses={503: {"description": "Database unreachable", "model": HealthResponse}},

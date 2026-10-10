@@ -11,24 +11,21 @@ from datetime import UTC, datetime, timedelta
 
 import pyotp
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ValidationError
+from kaleta.models.user import User
 from kaleta.services.api_token_service import ApiTokenService
-from kaleta.services.auth_service import AuthService
 from kaleta.services.mfa_service import (
     STEP_UP_WINDOW_MINUTES,
     TOTP_INTERVAL,
     MfaService,
 )
 
-PASSWORD = "owner-password-1"
 
-
-@pytest_asyncio.fixture
-async def user(session: AsyncSession):
-    return await AuthService(session).create_user("owner", PASSWORD)
+@pytest.fixture
+def user(suite_owner: User) -> User:
+    return suite_owner
 
 
 async def enrol(session: AsyncSession, user_id: int) -> str:

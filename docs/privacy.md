@@ -112,7 +112,7 @@ or PostgreSQL database; see
 
 The owner deletes the account from Settings → Data → *Delete my account*
 (the data passphrase is required, and the members who lose access are shown
-first); the operator can do the same with `scripts/tenant_admin.py delete`.
+first); the operator can do the same with `kaleta-admin delete`.
 Either way every member's sign-in identity is removed from Supabase Auth,
 then the account's schema and its registry rows are dropped. A member who is
 not the owner leaves the household instead, which removes only their own
@@ -200,8 +200,9 @@ A report is rate-limited to 5 per session per hour.
 | `KALETA_BUG_REPORT_EMAIL` + `KALETA_SMTP_*` | *(unset)* | Also e-mail the report |
 | `KALETA_BUG_REPORT_RETENTION_DAYS` | `90` | Rolling deletion window |
 
-With neither configured the report only lands in the instance database.
-The maintainer reads it with:
+With neither configured the report only lands in the instance database, in
+the schema of the family that filed it. The maintainer reads it with
+(`--family <id>` before the command limits it to one family):
 
 ```bash
 scripts/bug_reports.py list

@@ -1,47 +1,46 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Local logins on the registry layout (ADR-38, ``postgres-only`` part A).
 
-``KALETA_TENANCY=multi`` with ``KALETA_AUTH_BACKEND=local``: logins live in
+``KALETA_AUTH_BACKEND=local``: logins live in
 ``public.local_identities``, the first one is the instance administrator, and
 a sign-in provisions the login's family exactly as a Supabase sign-in does.
 
-Covers: KAL-TEN-015, KAL-TEN-016, KAL-TEN-017, KAL-TEN-018, KAL-TEN-019
+Covers: KAL-TEN-015, KAL-TEN-016, KAL-TEN-017, KAL-TEN-018, KAL-TEN-019, KAL-TEN-020,
+KAL-TEN-021, KAL-TEN-022, KAL-AUTH-022
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import importlib.util
 import io
-import sys
 import time
 from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pyotp
 import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
+from kaleta.api import create_api_router
+from kaleta.api.errors import register_error_handlers
 from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import MfaRequired, RegistryAuthProvider, set_auth_provider
 from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state
+from kaleta.auth.unlock import is_local_login_password
+from kaleta.cli import tenant_admin
+from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import ConflictError, UnauthorizedError, ValidationError
-from kaleta.models.tenant import TenantRole
+from kaleta.models.tenant import TenantMemberStatus, TenantRole
 from kaleta.schemas.identity import Identity, RegistrationMode
 from kaleta.services import ApiTokenService, AuthService
 from kaleta.services.local_identity_service import LocalIdentityService
 from kaleta.services.mfa_service import TOTP_INTERVAL, MfaService
 from kaleta.services.tenant_service import TenantService
 from tests.tenancy_helpers import MetadataProvisioner, multi_tenant_database
-
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "tenant_admin.py"
-_spec = importlib.util.spec_from_file_location("tenant_admin", SCRIPT)
-assert _spec is not None and _spec.loader is not None
-tenant_admin = importlib.util.module_from_spec(_spec)
-sys.modules.setdefault("tenant_admin", tenant_admin)
-_spec.loader.exec_module(tenant_admin)
 
 ADMIN = "Admin@Example.com"
 PASSWORD = "correct horse battery"
@@ -52,7 +51,7 @@ async def instance(tmp_path: Path) -> AsyncIterator[str]:
     provider = RegistryAuthProvider()
     set_auth_provider(provider)
     try:
-        async with multi_tenant_database(tmp_path, auth_backend="local") as url:
+        async with multi_tenant_database(auth_backend="local") as url:
             yield url
     finally:
         set_auth_provider(None)
@@ -208,6 +207,33 @@ async def test_a_local_second_factor_is_checked_inside_the_family(instance: str)
     assert await _flow(instance).recover(pending, codes[0]) is None
 
 
+async def test_a_prompt_whose_local_factor_was_turned_off_says_so(instance: str) -> None:
+    """Covers: KAL-AUTH-022 — not "wrong code", and no try charged for it."""
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+    signed_in = await _flow(instance).complete(result.identity)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+    assert membership is not None
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            mfa = MfaService(session)
+            enrolment = await mfa.begin_enrolment(signed_in.user_id)
+            totp = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL)
+            codes = await mfa.confirm_enrolment(signed_in.user_id, totp.now())
+    pending = await RegistryAuthProvider().sign_in(ADMIN, PASSWORD)
+    assert isinstance(pending, MfaRequired)
+
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            await MfaService(session).disable_for_admin(signed_in.user_id)
+
+    with pytest.raises(ConflictError):
+        await _flow(instance).verify_code(pending, totp.at(int(time.time()) + TOTP_INTERVAL))
+    with pytest.raises(ConflictError):
+        await _flow(instance).recover(pending, codes[0])
+
+
 class _NoRemover:
     async def delete_identity(self, subject: str) -> None:
         raise AssertionError("no identity is removed here")
@@ -334,10 +360,113 @@ async def test_deleting_a_family_keeps_the_administrators_login(instance: str) -
 
 async def test_the_login_commands_refuse_another_backend(tmp_path: Path) -> None:
     """Covers: KAL-TEN-019"""
-    async with multi_tenant_database(tmp_path) as _url:  # auth_backend="supabase"
+    async with multi_tenant_database() as _url:  # auth_backend="supabase"
         set_auth_provider(_NoRemover())  # type: ignore[arg-type]
         try:
             status = await tenant_admin._run(argparse.Namespace(command="logins"))
         finally:
             set_auth_provider(None)
     assert status == 2
+
+
+async def test_the_data_passphrase_may_not_be_the_local_login_password(instance: str) -> None:
+    """Covers: KAL-TEN-020"""
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+
+    assert await is_local_login_password(result.identity.subject, PASSWORD)
+    assert not await is_local_login_password(result.identity.subject, "another passphrase")
+    # A Supabase member's password is the provider's: nothing to compare with.
+    assert not await is_local_login_password("00000000-0000-4000-8000-000000000001", PASSWORD)
+
+
+async def test_the_administrator_turns_a_members_second_factor_off(instance: str) -> None:
+    """Covers: KAL-TEN-021"""
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+    signed_in = await _flow(instance).complete(result.identity)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+    assert membership is not None
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            mfa = MfaService(session)
+            enrolment = await mfa.begin_enrolment(signed_in.user_id)
+            totp = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL)
+            await mfa.confirm_enrolment(signed_in.user_id, totp.now())
+    assert isinstance(await RegistryAuthProvider().sign_in(ADMIN, PASSWORD), MfaRequired)
+
+    out = io.StringIO()
+    cli = tenant_admin.TenantAdminCli(
+        AsyncSessionFactory.public, _NoRemover(), tenant_session=AsyncSessionFactory, out=out
+    )
+    assert await cli.reset_password(ADMIN, disable_mfa=True) == 0
+    password_line, signed_out, removed = out.getvalue().splitlines()[-3:]
+    new_password = password_line.rsplit(": ", 1)[1]
+    assert signed_out == (
+        "All browser sessions have been signed out; API bearer tokens are unchanged."
+    )
+    assert removed == "two-factor authentication: removed"
+
+    assert isinstance(await RegistryAuthProvider().sign_in(ADMIN, new_password), Identity)
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            assert not await MfaService(session).is_enabled(signed_in.user_id)
+            assert await AuthService(session).sessions_valid_from(signed_in.user_id) is not None
+
+    assert await cli.reset_password(ADMIN, disable_mfa=True) == 0
+    assert out.getvalue().splitlines()[-1] == "two-factor authentication: none"
+
+
+ENV_TOKEN = "env-token-for-the-headless-api-0123"
+
+
+async def _accounts_with(token: str) -> int:
+    """The status of ``GET /accounts/`` with ``token``, sent as latin-1 bytes like any header."""
+    app = FastAPI()
+    register_error_handlers(app)
+    app.include_router(create_api_router())
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {token}".encode("latin-1")},
+    ) as client:
+        return (await client.get("/api/v1/accounts/")).status_code
+
+
+async def test_the_environment_token_acts_as_the_administrator_in_their_family(
+    instance: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-TEN-022"""
+    monkeypatch.setattr(settings, "api_token", ENV_TOKEN)
+    assert await _accounts_with(ENV_TOKEN) == 401  # no administrator yet
+
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+    assert await _accounts_with(ENV_TOKEN) == 401  # no family until the first sign-in
+
+    await _flow(instance).complete(result.identity)
+    assert await _accounts_with(ENV_TOKEN) == 200
+    assert await _accounts_with(ENV_TOKEN[:-1] + "X") == 401
+    assert await _accounts_with("é" * 20) == 401  # not a 500: compared as bytes
+
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+        assert membership is not None
+        membership.member.status = TenantMemberStatus.REMOVED
+        await public.commit()
+    assert await _accounts_with(ENV_TOKEN) == 401
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+        assert membership is not None
+        membership.member.status = TenantMemberStatus.ACTIVE
+        await public.commit()
+    assert await _accounts_with(ENV_TOKEN) == 200
+
+    # The token follows the oldest enabled administrator: disable this one and
+    # it is the second's, who has no family yet.
+    async with AsyncSessionFactory.public() as public:
+        await LocalIdentityService(public).create("second@example.com", PASSWORD, admin=True)
+    identity_id = int(result.identity.subject.removeprefix("local:"))
+    await set_login_disabled(identity_id, True)
+    assert await _accounts_with(ENV_TOKEN) == 401

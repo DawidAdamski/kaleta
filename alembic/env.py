@@ -35,9 +35,8 @@ target_metadata = Base.metadata
 # Allow programmatic migration runs to override the DB URL without restarting.
 _effective_db_url: str = os.environ.get("KALETA_MIGRATE_URL") or settings.db_url
 
-# `-x tenant_schema=t_…` migrates one tenant schema of a multi-tenant database
-# (`KALETA_TENANCY=multi`, ADR-35). Unset, this is the single-tenant database
-# exactly as before.
+# `-x tenant_schema=t_…` migrates one tenant schema of the database (ADR-35).
+# Unset, this migrates the main database exactly as before.
 _tenant_schema: str | None = context.get_x_argument(as_dictionary=True).get("tenant_schema")
 if _tenant_schema is not None:
     from kaleta.db.tenant_schemas import is_sqlite_url, require_valid_schema_name

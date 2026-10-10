@@ -1,7 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# The hosted layout (ADR-35) on a laptop: PostgreSQL 16 + Kaleta in `multi`
-# mode, with the debug sign-in backend standing in for Supabase Auth — every
+# The hosted layout (ADR-35) on a laptop: PostgreSQL 16 + Kaleta, with the debug sign-in backend standing in for Supabase Auth — every
 # address is confirmed at sign-up, no mail is sent. Not a deployment: the
 # `fake` backend is refused unless KALETA_DEBUG=true.
 #
@@ -42,7 +41,6 @@ services:
     ports:
       - "${KALETA_HOSTED_DEV_PORT:-8090}:8080"
     environment:
-      KALETA_TENANCY: multi
       KALETA_AUTH_BACKEND: fake
       KALETA_DEBUG: "true"
       KALETA_DB_URL: postgresql://kaleta_app:kaleta_app@db:5432/kaleta

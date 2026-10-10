@@ -1,8 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Bring a multi-tenant database to head: the registry, then every tenant schema.
+"""Bring the database to head: the registry, then every family's schema.
 
-What a ``KALETA_TENANCY=multi`` instance does on startup, runnable on its own
-as a one-off job before a rollout (ADR-35):
+What every instance does on startup, runnable on its own as a one-off job
+before a rollout (ADR-35):
 
     KALETA_DB_URL=postgresql+asyncpg://… uv run python scripts/migrate_tenants.py
     uv run python scripts/migrate_tenants.py --check   # report only, exit 1 if behind
@@ -69,9 +69,6 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="report only; do not migrate")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    if settings.tenancy != "multi":
-        print("migrate_tenants: KALETA_TENANCY is not 'multi'; nothing to do.", file=sys.stderr)
-        return 2
     return MigrateTenantsCli(settings.db_url, check_only=args.check).run()
 
 

@@ -26,12 +26,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
 from kaleta.models.tenant import InstanceSetting, LocalIdentity
 from kaleta.schemas.identity import RegistrationMode
-from kaleta.services.auth_service import MIN_PASSWORD_LENGTH
 
 _REGISTRATION_KEY = "registration_mode"
 _SUBJECT_PREFIX = "local:"
 #: The same sentence for an unknown address and a wrong password.
 _BAD_CREDENTIALS = "Invalid e-mail or password."
+MIN_PASSWORD_LENGTH = 8
 #: Longer input is refused before hashing: argon2 of a multi-megabyte string
 #: is a way to make the server work, not a password.
 MAX_PASSWORD_LENGTH = 1024

@@ -127,7 +127,7 @@ def _setup_form(target: str) -> None:
             say("")
             value = passphrase.value or ""
             problem = passphrase_problem(value, confirm.value or "")
-            if problem is None and settings.tenancy != "multi" and await is_login_password(value):
+            if problem is None and await is_login_password(value):
                 problem = t("unlock.passphrase_is_password")
             if problem is not None:
                 say(problem)

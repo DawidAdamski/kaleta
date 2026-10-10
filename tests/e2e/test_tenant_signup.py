@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E: a hosted instance — sign up, confirm the e-mail, first login provisions.
 
-The app runs with ``KALETA_TENANCY=multi`` and ``KALETA_AUTH_BACKEND=supabase``
+The app runs with ``KALETA_AUTH_BACKEND=supabase``
 against ``tests.fake_gotrue`` (a local stand-in for Supabase Auth whose
-verification link the test reads instead of a mailbox), on a multi-tenant
-SQLite database — each tenant schema a file of its own.
+verification link the test reads instead of a mailbox), on a fresh
+PostgreSQL database — each tenant a schema of its own.
 
 Covers: KAL-TEN-001, KAL-TEN-005, KAL-TEN-006, KAL-TEN-007, KAL-TEN-009,
 KAL-TEN-012
@@ -14,11 +14,9 @@ from __future__ import annotations
 
 import os
 import re
-import sqlite3
 import subprocess
 import threading
 from collections.abc import Generator
-from pathlib import Path
 
 import httpx
 import pytest
@@ -31,6 +29,7 @@ from tests.e2e.conftest import (
     _wait_for_server,
 )
 from tests.fake_gotrue import SERVICE_ROLE_KEY, FakeGoTrueServer
+from tests.suite_database import fresh_database_url, query
 
 # Their own ports: 8081–8084 are taken by the other e2e servers.
 HOSTED_PORT = 8085
@@ -45,24 +44,28 @@ PASSWORD = "correct-horse-battery"
 
 
 class HostedInstance:
-    def __init__(self, base: str, db_path: Path, gotrue: FakeGoTrueServer) -> None:
+    def __init__(self, base: str, db_url: str, gotrue: FakeGoTrueServer) -> None:
         self.base = base
-        self.db_path = db_path
+        self.db_url = db_url
         self.gotrue = gotrue
 
     def tenant_schemas(self) -> list[str]:
-        registry = self.db_path.with_name(f"{self.db_path.stem}.public.db")
-        with sqlite3.connect(registry) as conn:
-            return [row[0] for row in conn.execute("SELECT schema_name FROM tenants")]
+        return [str(row[0]) for row in query(self.db_url, "SELECT schema_name FROM tenants")]
 
-    def schema_files(self) -> list[Path]:
-        return sorted(self.db_path.parent.glob(f"{self.db_path.stem}.t_*.db"))
+    def schemas(self) -> list[str]:
+        """The ``t_…`` schemas that exist in the database, registered or not."""
+        rows = query(
+            self.db_url,
+            "SELECT schema_name FROM information_schema.schemata "
+            "WHERE schema_name LIKE 't\\_%' ORDER BY 1",
+        )
+        return [str(row[0]) for row in rows]
 
 
 @pytest.fixture(scope="module")
 def hosted(tmp_path_factory: pytest.TempPathFactory) -> Generator[HostedInstance]:
     home = tmp_path_factory.mktemp("hosted_home")
-    db_path = tmp_path_factory.mktemp("hosted_db") / "hosted.db"
+    db_url = fresh_database_url("e2e_hosted")
     log_path = tmp_path_factory.mktemp("hosted_logs") / "kaleta-hosted.log"
 
     with FakeGoTrueServer(GOTRUE_PORT) as gotrue:
@@ -72,8 +75,7 @@ def hosted(tmp_path_factory: pytest.TempPathFactory) -> Generator[HostedInstance
                 "HOME": str(home),
                 "KALETA_PORT": str(HOSTED_PORT),
                 "KALETA_DEBUG": "true",
-                "KALETA_DB_URL": f"sqlite+aiosqlite:///{db_path}",
-                "KALETA_TENANCY": "multi",
+                "KALETA_DB_URL": db_url,
                 "KALETA_AUTH_BACKEND": "supabase",
                 "KALETA_SUPABASE_URL": gotrue.base_url,
                 "KALETA_SUPABASE_ANON_KEY": "anon-e2e",
@@ -95,7 +97,7 @@ def hosted(tmp_path_factory: pytest.TempPathFactory) -> Generator[HostedInstance
         pump.start()
         try:
             _wait_for_server(HOSTED_BASE)
-            yield HostedInstance(HOSTED_BASE, db_path, gotrue)
+            yield HostedInstance(HOSTED_BASE, db_url, gotrue)
         finally:
             _terminate_process(proc)
             pump.join(timeout=5)
@@ -189,7 +191,7 @@ def test_sign_up_verify_and_first_login_provisions_an_account(
     assert len(schemas) == 1
     assert schemas[0].startswith("t_")
     assert "ania" not in schemas[0]
-    assert [p.name for p in hosted.schema_files()] == [f"hosted.{schemas[0]}.db"]
+    assert hosted.schemas() == [schemas[0]]
 
 
 def test_signing_in_again_reuses_the_account(hosted: HostedInstance, fresh_page: Page) -> None:
@@ -394,7 +396,7 @@ def test_the_owner_deletes_the_account_from_settings(
     expect(page).to_have_url(_ON_LOGIN, timeout=20000)
 
     assert mine not in hosted.tenant_schemas()
-    assert not any(mine in p.name for p in hosted.schema_files())
+    assert mine not in hosted.schemas()
     assert address not in hosted.gotrue.gotrue.users
     _log_in_as(page, base, address, PASSWORD)
     expect(page.get_by_text("Invalid e-mail or password.")).to_be_visible(timeout=10000)

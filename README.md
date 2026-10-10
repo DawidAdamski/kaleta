@@ -17,17 +17,16 @@ Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
 uv sync && uv run kaleta
 ```
 
-On first launch the browser opens at **/setup** — pick **Use recommended
-location** (or choose a custom path) and Kaleta creates the database and runs
-migrations. Later starts auto-upgrade the configured DB (from
-`~/.kaleta/config.json`) to the installed schema, with a SQLite safety copy
-under `~/.kaleta/backups` first. Create your account, then sign in. Optional
+Kaleta runs migrations on start against `KALETA_DB_URL`. On first launch sign
+up with an e-mail address and a password: the first sign-up on an empty
+instance creates the instance administrator and the first family. Forgotten
+password: `uv run kaleta-admin reset-password <e-mail>`. Optional
 demo data: `uv run python scripts/seed.py` — six years of transactions
 named by merchant and tagged by payment method, with budgets, assets and
 a payment calendar of recurring commitments.
 
-Manual migrate (targets the live DB — bare `alembic upgrade head` uses
-`KALETA_DB_URL` / cwd `kaleta.db`, which may differ from the configured one):
+Manual migrate (bare `alembic upgrade head` uses `KALETA_DB_URL`; set
+`KALETA_MIGRATE_URL` to target another database):
 
 ```bash
 KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/path/to/kaleta.db uv run alembic upgrade head

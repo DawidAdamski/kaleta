@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Settings → Data → "Delete my account": the owner's GDPR path (``multi`` only).
+"""Settings → Data → "Delete my account": the owner's GDPR path.
 
 Here rather than in the view because it opens registry sessions, which views
 may not. The view asks :func:`deletion_overview` whether to offer the button at
@@ -17,7 +17,6 @@ from dataclasses import dataclass
 from kaleta.auth.providers import get_auth_provider
 from kaleta.auth.session import session_tenant
 from kaleta.auth.unlock import with_key_service
-from kaleta.config import settings
 from kaleta.crypto import key_ring, tenant_member_ref
 from kaleta.db import AsyncSessionFactory
 from kaleta.exceptions import UnauthorizedError, ValidationError
@@ -49,8 +48,8 @@ class DeletionOverview:
 
 
 async def deletion_overview() -> DeletionOverview:
-    """Owner-only: anyone else (and a self-hosted install) sees no button."""
-    tenant = session_tenant() if settings.tenancy == "multi" else None
+    """Owner-only: anyone else sees no button."""
+    tenant = session_tenant()
     if tenant is None:
         return DeletionOverview(allowed=False, members=[])
     async with AsyncSessionFactory.public() as public:
@@ -66,9 +65,9 @@ async def delete_signed_in_account(passphrase: str) -> AccountDeletion:
     A wrong passphrase raises ``WrongPassphraseError`` before anything is touched;
     a session that is not the owner's raises ``UnauthorizedError``.
     """
-    tenant = session_tenant() if settings.tenancy == "multi" else None
+    tenant = session_tenant()
     if tenant is None:
-        msg = "Only a hosted account can be deleted here."
+        msg = "Sign in first."
         raise UnauthorizedError(msg)
 
     async def _prove(service: KeyService) -> None:

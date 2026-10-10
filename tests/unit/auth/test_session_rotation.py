@@ -76,12 +76,35 @@ class TestRotationNonce:
         store[session_mod.SESSION_ROTATE_USER_ID] = 7
         store[session_mod.SESSION_ROTATE_USERNAME] = "ania"
         store[session_mod.SESSION_ROTATE_MFA_VERIFIED] = True
+        _park_family(store)
         pending = session_mod.consume_rotation_nonce(nonce, "login")
-        assert pending == session_mod.PendingRotation("login", 7, "ania", mfa_verified=True)
+        assert pending == session_mod.PendingRotation(
+            "login", 7, "ania", mfa_verified=True, tenant=_FAMILY
+        )
 
     def test_a_login_nonce_without_a_user_is_refused(self, store: dict[str, Any]) -> None:
         nonce = session_mod.stamp_rotation_nonce("login")
         assert session_mod.consume_rotation_nonce(nonce, "login") is None
+
+    def test_a_login_nonce_without_a_family_is_refused(self, store: dict[str, Any]) -> None:
+        """A login no page could serve is no login (ADR-38: every session has a family)."""
+        nonce = session_mod.stamp_rotation_nonce("login")
+        store[session_mod.SESSION_ROTATE_USER_ID] = 7
+        store[session_mod.SESSION_ROTATE_USERNAME] = "ania"
+        assert session_mod.consume_rotation_nonce(nonce, "login") is None
+
+
+_FAMILY = session_mod.SessionTenant(
+    tenant_id=3, schema="t_0123456789ab", auth_subject="local:7", email="ania@example.com"
+)
+
+
+def _park_family(store: Any) -> None:
+    """What ``park_login`` writes for the family a login opens."""
+    store[session_mod.SESSION_ROTATE_TENANT_ID] = _FAMILY.tenant_id
+    store[session_mod.SESSION_ROTATE_TENANT_SCHEMA] = _FAMILY.schema
+    store[session_mod.SESSION_ROTATE_AUTH_SUBJECT] = _FAMILY.auth_subject
+    store[session_mod.SESSION_ROTATE_EMAIL] = _FAMILY.email
 
 
 # ── the route, behind NiceGUI's real storage middleware ───────────────────────
@@ -109,6 +132,7 @@ async def client(
             nicegui_app.storage.user[session_mod.SESSION_ROTATE_USER_ID] = 1
             nicegui_app.storage.user[session_mod.SESSION_ROTATE_USERNAME] = "ania"
             nicegui_app.storage.user[session_mod.SESSION_ROTATE_MFA_VERIFIED] = mfa
+            _park_family(nicegui_app.storage.user)
         else:
             session_mod.logout_session()
             nonce = session_mod.stamp_rotation_nonce("logout")

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Which tenant schema the current request or UI event is working in.
 
-``KALETA_TENANCY=multi`` only (ADR-35). The auth middleware and the API
+Every instance has families (ADR-35, ADR-38). The auth middleware and the API
 dependencies set the context for HTTP requests; a NiceGUI event handler runs
 over the websocket, past every middleware, so for those the auth layer installs
 a *resolver* that reads the same answer from the session. ``_SessionProxy``

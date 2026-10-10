@@ -18,7 +18,7 @@ from starlette.requests import Request
 
 from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.config import settings
-from kaleta.crypto import key_ring, local_member_ref, tenant_member_ref
+from kaleta.crypto import key_ring, tenant_member_ref
 from kaleta.db.tenant_context import TenantContext, set_tenant
 
 if TYPE_CHECKING:
@@ -50,7 +50,7 @@ SESSION_LAST_SEEN_AT = "last_seen_at"
 #: the absolute TTL, and changing a setting must not buy a session more life.
 SESSION_REVALIDATED_AT = "revalidated_at"
 
-#: ``KALETA_TENANCY=multi`` only: which account this session works in, and who
+#: Which family this session works in, and who
 #: the identity provider said signed in. None of it is secret — the storage is
 #: server-side and keyed by a signed cookie — and none of it may ever be: this
 #: dict is written to disk (or Redis) by NiceGUI.
@@ -69,31 +69,19 @@ IDLE_TOUCH_INTERVAL_SECONDS = 300
 #: Why ``session_expiry_reason()`` ended a session.
 SessionExpiry = Literal["ttl", "idle"]
 
-#: A password was accepted but the second factor has not been given yet. The
-#: session deliberately carries no ``SESSION_AUTHENTICATED`` while this is set,
-#: so every guard in the app — UI middleware and the API cookie path alike —
-#: sees a pending session as no session at all.
-SESSION_MFA_PENDING = "mfa_pending"
-SESSION_MFA_PENDING_USER_ID = "mfa_pending_user_id"
-SESSION_MFA_PENDING_USERNAME = "mfa_pending_username"
-SESSION_MFA_PENDING_AT = "mfa_pending_at"
 #: When the second factor was last proved, for step-up on sensitive actions.
 SESSION_MFA_VERIFIED_AT = "mfa_verified_at"
 
-#: The hosted (Supabase) variant of the same wait: a reference into
-#: :data:`hosted_mfa_challenges`, never the challenge itself — that holds the
-#: provider's ``aal1`` access token, and this dict is written to disk or Redis.
+#: A password was accepted but the second factor has not been given yet: a
+#: reference into :data:`hosted_mfa_challenges`, never the challenge itself —
+#: that holds the provider's ``aal1`` token, and this dict is written to disk
+#: or Redis. The session deliberately carries no ``SESSION_AUTHENTICATED``
+#: while this is set, so every guard in the app — UI middleware and the API
+#: cookie path alike — sees a pending session as no session at all.
 SESSION_HOSTED_MFA_REF = "hosted_mfa_ref"
 SESSION_HOSTED_MFA_AT = "hosted_mfa_at"
 
-_MFA_PENDING_KEYS = (
-    SESSION_MFA_PENDING,
-    SESSION_MFA_PENDING_USER_ID,
-    SESSION_MFA_PENDING_USERNAME,
-    SESSION_MFA_PENDING_AT,
-    SESSION_HOSTED_MFA_REF,
-    SESSION_HOSTED_MFA_AT,
-)
+_MFA_PENDING_KEYS = (SESSION_HOSTED_MFA_REF, SESSION_HOSTED_MFA_AT)
 
 #: Everything that says who this browser is. Whatever is not in here — theme,
 #: language, dashboard layout — is a per-browser preference and moves across a
@@ -324,9 +312,9 @@ def consume_rotation_nonce(given: str, purpose: RotatePurpose) -> PendingRotatio
         user_id = None
     if user_id is None or raw_name is None:
         return None
-    if settings.tenancy == "multi" and tenant is None:
-        # A hosted login without its account would be a session no page can
-        # serve; better no login than one that fails on every request.
+    if tenant is None:
+        # A login without its family would be a session no page can serve;
+        # better no login than one that fails on every request.
         return None
     return PendingRotation(
         purpose, user_id, str(raw_name), mfa_verified=mfa_verified, tenant=tenant
@@ -421,15 +409,6 @@ class HostedMfaChallenges:
 hosted_mfa_challenges = HostedMfaChallenges(MFA_CHALLENGE_TTL_MINUTES * 60)
 
 
-def begin_mfa_challenge(*, user_id: int, username: str) -> None:
-    """Park a password-authenticated user in front of the code prompt."""
-    clear_mfa_challenge()
-    app.storage.user[SESSION_MFA_PENDING] = True
-    app.storage.user[SESSION_MFA_PENDING_USER_ID] = user_id
-    app.storage.user[SESSION_MFA_PENDING_USERNAME] = username
-    app.storage.user[SESSION_MFA_PENDING_AT] = datetime.now(UTC).isoformat()
-
-
 def begin_hosted_mfa_challenge(pending: MfaRequired) -> None:
     """Park a hosted sign-in (``aal1``) in front of the code prompt."""
     clear_mfa_challenge()
@@ -463,41 +442,8 @@ def hosted_mfa_pending() -> MfaRequired | None:
     return pending
 
 
-def is_mfa_pending() -> bool:
-    return bool(app.storage.user.get(SESSION_MFA_PENDING, False))
-
-
-def mfa_pending_user() -> tuple[int, str] | None:
-    """The user waiting on a code, or ``None`` when nobody is.
-
-    A challenge goes stale. Someone who gives the right password and walks
-    away leaves a browser that needs only the code; after
-    ``MFA_CHALLENGE_TTL_MINUTES`` the password has to be given again.
-    """
-    if not is_mfa_pending():
-        return None
-    if not _within(app.storage.user.get(SESSION_MFA_PENDING_AT), MFA_CHALLENGE_TTL_MINUTES):
-        clear_mfa_challenge()
-        return None
-    # A half-written challenge is cleared, exactly like a stale one. Leaving
-    # it would keep `is_mfa_pending()` True forever, and `/login/mfa` reads
-    # that as "this one expired" — so the page would bounce to
-    # `?reason=mfa_expired` on every visit until a full login or logout
-    # rewrote the keys.
-    raw_id = app.storage.user.get(SESSION_MFA_PENDING_USER_ID)
-    username = app.storage.user.get(SESSION_MFA_PENDING_USERNAME)
-    if raw_id is None or username is None:
-        clear_mfa_challenge()
-        return None
-    try:
-        return int(raw_id), str(username)
-    except (TypeError, ValueError):
-        clear_mfa_challenge()
-        return None
-
-
 def session_tenant() -> SessionTenant | None:
-    """The account this authenticated session works in (``multi`` only)."""
+    """The family this authenticated session works in."""
     if not app.storage.user.get(SESSION_AUTHENTICATED, False):
         return None
     return SessionTenant.read(
@@ -543,19 +489,16 @@ def storage_session_key() -> str | None:
 
 
 def session_member_ref() -> str | None:
-    """``"tenant:<id>:user:<n>"`` or ``"local:<n>"`` for the signed-in member."""
+    """``"tenant:<id>:user:<n>"`` for the signed-in member."""
     if not app.storage.user.get(SESSION_AUTHENTICATED, False):
         return None
     raw_user = app.storage.user.get(SESSION_USER_ID)
     if raw_user is None:
         return None
-    user_id = int(raw_user)
-    if settings.tenancy == "multi":
-        tenant = session_tenant()
-        if tenant is None:
-            return None
-        return tenant_member_ref(tenant.tenant_id, user_id)
-    return local_member_ref(user_id)
+    tenant = session_tenant()
+    if tenant is None:
+        return None
+    return tenant_member_ref(tenant.tenant_id, int(raw_user))
 
 
 def session_data_key() -> DataKey | None:
@@ -753,13 +696,12 @@ async def authenticated_user_id(request: Request) -> int | None:
     user_id = user_id_from_request(request)
     if user_id is None:
         return None
-    if settings.tenancy == "multi":
-        # Before the revocation check: its watermark lives in the tenant's
-        # own `users` table.
-        ctx = session_tenant_context()
-        if ctx is None:
-            return None
-        set_tenant(ctx)
+    # Before the revocation check: its watermark lives in the family's own
+    # `users` table.
+    ctx = session_tenant_context()
+    if ctx is None:
+        return None
+    set_tenant(ctx)
     try:
         # `user_id_from_request` bound this request's storage, so the session
         # read here is the one the cookie names.

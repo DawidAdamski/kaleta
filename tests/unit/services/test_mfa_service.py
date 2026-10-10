@@ -20,6 +20,7 @@ from kaleta.db import types as types_mod
 from kaleta.db.types import FORMAT_AES_GCM
 from kaleta.exceptions import ConflictError, EncryptionError, ValidationError
 from kaleta.models.audit_log import AuditLog
+from kaleta.models.user import User
 from kaleta.models.user_mfa import UserMfa
 from kaleta.services.auth_service import AuthService
 from kaleta.services.mfa_service import (
@@ -30,13 +31,15 @@ from kaleta.services.mfa_service import (
     MfaService,
     normalise_code,
 )
+from tests.conftest import SUITE_EMAIL, SUITE_PASSWORD, family_table
 
-PASSWORD = "owner-password-1"
+#: The suite owner's login password: ``disable`` checks it in the registry.
+PASSWORD = SUITE_PASSWORD
 
 
-@pytest_asyncio.fixture
-async def user(session: AsyncSession):
-    return await AuthService(session).create_user("owner", PASSWORD)
+@pytest.fixture
+def user(suite_owner: User) -> User:
+    return suite_owner
 
 
 @pytest.fixture
@@ -168,7 +171,7 @@ class TestEnrolment:
         secret, _codes = await enrol(mfa, user.id)
         # Raw SQL on purpose: reading through the ORM would hand back the
         # decrypted string and prove nothing about what is on disk.
-        raw = await session.execute(text("SELECT totp_secret FROM user_mfa"))
+        raw = await session.execute(text(f"SELECT totp_secret FROM {family_table('user_mfa')}"))
         stored = bytes(raw.scalar_one())
         assert secret.encode() not in stored
         assert stored[0] == FORMAT_AES_GCM
@@ -299,7 +302,7 @@ class TestTheAuditTrail:
         await enrol(mfa, user.id)
         assert await mfa.verify_code(user.id, "000000") is False
         events = await self._auth_events(session)
-        assert {"event": "mfa_failure", "username": "owner", "success": False} in events
+        assert {"event": "mfa_failure", "username": SUITE_EMAIL, "success": False} in events
 
     @pytest.mark.asyncio
     async def test_a_wrong_recovery_code_at_the_login_prompt(
@@ -336,7 +339,7 @@ class TestTheAuditTrail:
         assert await mfa.verify_code(user.id, code_for(secret, offset_steps=1)) is True
         events = await self._auth_events(session)
         assert [e for e in events if not e["success"]] == []
-        assert {"event": "mfa_verified", "username": "owner", "success": True} in events
+        assert {"event": "mfa_verified", "username": SUITE_EMAIL, "success": True} in events
 
     @pytest.mark.asyncio
     async def test_a_step_up_says_which_prompt_was_satisfied(
@@ -545,7 +548,7 @@ class TestDisable:
             .all()
         )
         events = [json.loads(row.new_data or "{}") for row in rows]
-        assert {"event": "mfa_disabled_cli", "username": "owner", "success": True} in events
+        assert {"event": "mfa_disabled_cli", "username": SUITE_EMAIL, "success": True} in events
 
     @pytest.mark.asyncio
     async def test_disable_all_on_an_empty_table_is_quiet(

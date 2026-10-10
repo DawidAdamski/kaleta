@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Integration coverage for scripts/reset_demo.py.
+"""Integration coverage for scripts/reset_demo.py on a self-hosted instance.
 
 Covers: KAL-PLT-002
 """
@@ -8,16 +8,18 @@ from __future__ import annotations
 
 import asyncio
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
-import kaleta.models  # noqa: F401 — register ORM tables on Base.metadata
-from kaleta.db.base import Base
-from kaleta.services.auth_service import AuthService
+from kaleta.services.local_identity_service import LocalIdentityService
+from kaleta.services.setup_service import upgrade_public_to_head
+from tests.suite_database import fresh_database_url
 
 # Slow tier (test-suite-speed): reset_demo.py in a subprocess.
 pytestmark = pytest.mark.slow
@@ -26,85 +28,50 @@ PROJECT_ROOT = Path(__file__).resolve().parents[2]
 RESET_SCRIPT = PROJECT_ROOT / "scripts" / "reset_demo.py"
 
 
-async def _prepare_db(db_url: str) -> None:
-    engine = create_async_engine(db_url)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await engine.dispose()
-
-
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="subprocess env demo reset test uses POSIX sqlite paths",
-)
-def test_reset_demo_script_seeds_demo_user(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Covers: KAL-PLT-002"""
-    db_path = tmp_path / "demo.db"
-    db_url = f"sqlite+aiosqlite:///{db_path}"
-    home = tmp_path / "home"
-    home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
-
-    asyncio.run(_prepare_db(db_url))
-
-    env = {
-        **os.environ,
-        "HOME": str(home),
-        "KALETA_DEBUG": "true",
-        "KALETA_DEMO": "true",
-        "KALETA_DB_URL": db_url,
-    }
-    proc = subprocess.run(
+def _reset_demo(db_url: str, home: Path, **extra: str) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
         [sys.executable, str(RESET_SCRIPT)],
         cwd=PROJECT_ROOT,
-        env=env,
+        env={
+            **os.environ,
+            "HOME": str(home),
+            "KALETA_DEBUG": "true",
+            "KALETA_AUTH_BACKEND": "local",
+            "KALETA_DB_URL": db_url,
+            **extra,
+        },
         check=False,
         capture_output=True,
         text=True,
     )
+
+
+def test_reset_demo_script_seeds_demo_user(tmp_path: Path) -> None:
+    """Covers: KAL-PLT-002"""
+    db_url = fresh_database_url("reset_demo")
+    upgrade_public_to_head(db_url)
+
+    proc = _reset_demo(db_url, tmp_path, KALETA_DEMO="true")
     assert proc.returncode == 0, proc.stderr or proc.stdout
+    seeded = re.search(r"(\d+) transactions", proc.stdout)
+    assert seeded is not None
+    assert int(seeded.group(1)) > 0
 
     async def _verify() -> None:
-        engine = create_async_engine(db_url)
-        factory = async_sessionmaker(engine, expire_on_commit=False)
+        engine = create_async_engine(db_url, poolclass=NullPool)
         try:
-            async with factory() as session:
-                auth = AuthService(session)
-                user = await auth.authenticate("demo", "demo-kaleta")
-                assert user is not None
-                assert user.username == "demo"
+            async with async_sessionmaker(engine, expire_on_commit=False)() as public:
+                login = await LocalIdentityService(public).authenticate(
+                    "demo@kaleta.app", "demo-kaleta"
+                )
+                assert login.email == "demo@kaleta.app"
         finally:
             await engine.dispose()
 
     asyncio.run(_verify())
 
-    config = home / ".kaleta" / "config.json"
-    assert config.is_file()
-    assert "demo" in config.read_text(encoding="utf-8")
 
-
-def test_reset_demo_refuses_without_demo_flag(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    db_path = tmp_path / "demo.db"
-    db_url = f"sqlite+aiosqlite:///{db_path}"
-    home = tmp_path / "home"
-    home.mkdir()
-    monkeypatch.setenv("HOME", str(home))
-
-    env = {
-        **os.environ,
-        "HOME": str(home),
-        "KALETA_DEBUG": "true",
-        "KALETA_DB_URL": db_url,
-    }
-    proc = subprocess.run(
-        [sys.executable, str(RESET_SCRIPT)],
-        cwd=PROJECT_ROOT,
-        env=env,
-        check=False,
-        capture_output=True,
-        text=True,
-    )
+def test_reset_demo_refuses_without_demo_flag(tmp_path: Path) -> None:
+    proc = _reset_demo(fresh_database_url("reset_demo_refused"), tmp_path)
     assert proc.returncode == 1
     assert "KALETA_DEMO" in (proc.stderr or proc.stdout)

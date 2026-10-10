@@ -62,6 +62,7 @@ hosted = [
 
 [project.scripts]
 kaleta = "kaleta.main:main"
+kaleta-admin = "kaleta.cli.tenant_admin:entry_point"
 
 [build-system]
 requires = ["hatchling"]
@@ -197,4 +198,8 @@ dev = [
     "redis>=5.0",
     "fakeredis>=2.26",
     "pytest-xdist>=3.8.0",
+    # The suite runs on PostgreSQL only (ADR-38): the drivers of the
+    # `postgres` extra, which part B3 of postgres-only folds into the base.
+    "asyncpg>=0.29",
+    "psycopg2-binary>=2.9",
 ]

@@ -18,14 +18,17 @@ from kaleta.auth.session import (
     touch_session,
 )
 from kaleta.config import settings
-from kaleta.config.setup_config import is_configured
-from kaleta.crypto import key_ring, local_member_ref, tenant_member_ref
+from kaleta.crypto import key_ring, tenant_member_ref
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import TenantContext, current_tenant, set_tenant
 from kaleta.db.types import set_data_key
-from kaleta.exceptions import SetupRequiredError, TenantLockedError, UnauthorizedError
+from kaleta.exceptions import TenantLockedError, UnauthorizedError
 from kaleta.models.tenant import TenantStatus
-from kaleta.services.api_token_service import ApiTokenService
+from kaleta.services.api_token_service import (
+    ApiTokenService,
+    env_token_membership,
+    is_env_token,
+)
 from kaleta.services.tenant_service import TenantService
 
 if TYPE_CHECKING:
@@ -37,7 +40,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 _SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 
 
-# ── Tenant (KALETA_TENANCY=multi) ─────────────────────────────────────────────
+# ── Family (tenant) ──────────────────────────────────────────────────────────
 
 
 async def resolve_request_tenant(
@@ -57,12 +60,13 @@ async def resolve_request_tenant(
     tenant is refused here with 401; were a route ever to open a session
     without passing through this, the session proxy refuses with a 500.
     """
-    if settings.tenancy != "multi":
-        return
     set_tenant(None)
     if credentials is not None and credentials.scheme.lower() == "bearer":
         tenant_id = ApiTokenService.tenant_id_from_token(credentials.credentials)
         if tenant_id is None:
+            if is_env_token(credentials.credentials):
+                await _resolve_env_token_tenant()
+                return
             _unauthorized("Invalid API token")
         async with AsyncSessionFactory.public() as public:
             tenant = await TenantService(public).get_tenant(tenant_id)
@@ -74,6 +78,15 @@ async def resolve_request_tenant(
     # revoked one) — the same call the cookie branch below repeats.
     if await authenticated_user_id(request) is None:
         _unauthorized()
+
+
+async def _resolve_env_token_tenant() -> None:
+    """``KALETA_API_TOKEN``: the instance administrator, in their family."""
+    async with AsyncSessionFactory.public() as public:
+        membership = await env_token_membership(public)
+    if membership is None or membership.tenant.status is not TenantStatus.ACTIVE:
+        _unauthorized("Invalid API token")
+    set_tenant(membership.context())
 
 
 # ── Database session ──────────────────────────────────────────────────────────
@@ -92,34 +105,14 @@ async def get_public_session() -> AsyncGenerator[AsyncSession]:
         yield session
 
 
-async def get_session_configured(
-    _tenant: None = Depends(resolve_request_tenant),
-) -> AsyncGenerator[AsyncSession]:
-    """Session for authenticated API routes — blocked until first-run setup completes."""
-    if not is_configured():
-        raise SetupRequiredError(
-            "Complete first-run setup in the browser at /setup before using the API"
-        )
-    async with AsyncSessionFactory() as session:
-        yield session
-
-
 def _unauthorized(message: str = "Authentication required") -> NoReturn:
     raise UnauthorizedError(message)
-
-
-async def require_setup() -> None:
-    """Reject API use until first-run setup has written ``~/.kaleta/config.json``."""
-    if not is_configured():
-        raise SetupRequiredError(
-            "Complete first-run setup in the browser at /setup before using the API"
-        )
 
 
 async def get_current_user_id(
     request: Request,
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-    session: AsyncSession = Depends(get_session_configured),
+    session: AsyncSession = Depends(get_session),
 ) -> int:
     """Resolve the authenticated user from a bearer token or UI session cookie.
 
@@ -135,10 +128,9 @@ async def get_current_user_id(
                 set_tenant(replace(ctx, member_user_id=user_id))
             _bind_bearer_data_key(user_id)
             return user_id
-        if settings.tenancy == "multi":
-            # `session` belongs to the tenant this token's prefix named; the
-            # cookie, if any, may be somebody else's. See resolve_request_tenant.
-            _unauthorized("Invalid API token")
+        # `session` belongs to the family this token's prefix named; the
+        # cookie, if any, may be somebody else's. See resolve_request_tenant.
+        _unauthorized("Invalid API token")
 
     # Bearer tokens never reach this: they have their own revocation.
     session_user_id = await authenticated_user_id(request)
@@ -180,10 +172,11 @@ def _bind_bearer_data_key(user_id: int) -> None:
     if not settings.encryption_enabled:
         return
     ctx = current_tenant()
-    member_ref = (
-        tenant_member_ref(ctx.tenant_id, user_id) if ctx is not None else local_member_ref(user_id)
-    )
-    entry = key_ring.for_member(member_ref)
+    if ctx is None:
+        # resolve_request_tenant set it; without one there is no member to ride on.
+        _bind_data_key(None)
+        return
+    entry = key_ring.for_member(tenant_member_ref(ctx.tenant_id, user_id))
     _bind_data_key(entry.data_key if entry is not None else None)
 
 

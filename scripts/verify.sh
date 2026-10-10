@@ -24,6 +24,13 @@ require_dev_tools() {
 
 require_dev_tools
 
+# The suite runs on PostgreSQL only (ADR-38). Unless KALETA_DB_URL names one,
+# start the throwaway test server (podman or docker; data in tmpfs).
+if [[ -z "${KALETA_DB_URL:-}" ]]; then
+  echo "==> test database (./scripts/test_db.sh up)"
+  ./scripts/test_db.sh up
+fi
+
 echo "==> ruff check"
 uv run ruff check .
 echo "==> ruff format"

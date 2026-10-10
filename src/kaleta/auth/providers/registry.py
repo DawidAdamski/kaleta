@@ -13,7 +13,9 @@ The second factor stays Kaleta's own (``MfaService`` over ``user_mfa`` in the
 family's schema). A right password for a member who has one turned on answers
 ``MfaRequired``; :meth:`mfa_challenge_verify` checks the code inside that
 member's family, so the login prompt goes through the same
-``SignInFlow.verify_code`` as a hosted sign-in.
+``SignInFlow.verify_code`` as a hosted sign-in. A factor turned off while the
+prompt sat open is a ``ConflictError`` there, as a factor removed at Supabase
+is (KAL-AUTH-022): the password is all the login needs now.
 """
 
 from __future__ import annotations
@@ -22,7 +24,7 @@ from typing import TYPE_CHECKING
 
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
-from kaleta.exceptions import ValidationError
+from kaleta.exceptions import ConflictError, ValidationError
 from kaleta.schemas.identity import FactorEnrolment, Identity, MfaRequired, SignUpResult
 from kaleta.services.local_identity_service import LocalIdentityService, identity_id_of
 from kaleta.services.mfa_service import MfaService
@@ -38,13 +40,12 @@ LOCAL_FACTOR = "local"
 _ADMIN_RESET = "This instance sends no e-mail; ask its administrator to reset your password."
 _NO_MAIL = "This instance sends no e-mail; sign in with your e-mail address and password."
 _LOCAL_MFA = "Two-factor authentication is set up in Settings → Security."
+_MFA_GONE = "Two-factor authentication was turned off; sign in with your password."
 _WRONG_CODE = "That code is not right. Try the current one from your app."
 
 
 class RegistryAuthProvider:
     name = "local"
-    #: The sign-in form asks for an e-mail address (``views.login``).
-    email_login = True
 
     @staticmethod
     def identity_for(row: LocalIdentity) -> Identity:
@@ -116,7 +117,10 @@ class RegistryAuthProvider:
             raise ValidationError(_WRONG_CODE)
         with use_tenant(membership.context()):
             async with AsyncSessionFactory() as session:
-                ok = await MfaService(session).verify_code(user_id, code)
+                mfa = MfaService(session)
+                if not await mfa.is_enabled(user_id):
+                    raise ConflictError(_MFA_GONE)
+                ok = await mfa.verify_code(user_id, code)
         if not ok:
             raise ValidationError(_WRONG_CODE)
         return identity
@@ -132,7 +136,10 @@ class RegistryAuthProvider:
             return False
         with use_tenant(membership.context()):
             async with AsyncSessionFactory() as session:
-                return await MfaService(session).consume_recovery_code(user_id, code)
+                mfa = MfaService(session)
+                if not await mfa.is_enabled(user_id):
+                    raise ConflictError(_MFA_GONE)
+                return await mfa.consume_recovery_code(user_id, code)
 
     # ── Internals ────────────────────────────────────────────────────────────
 

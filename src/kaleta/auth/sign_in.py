@@ -2,9 +2,8 @@
 """From "the provider accepted this identity" to "this is the session to open".
 
 Kept out of the views so the login page, the sign-up page and the tests all go
-through one path. Local mode: the identity's subject is the ``users`` row.
-Multi-tenant mode: the identity is looked up in the registry — provisioned on
-its first verified sign-in — and the session is opened for that tenant's
+through one path. The identity is looked up in the registry — provisioned on
+its first verified sign-in — and the session is opened for that family's
 schema, as that member's ``users`` row.
 """
 
@@ -16,7 +15,6 @@ from typing import TYPE_CHECKING
 from kaleta.auth.login_rate_limit import resend_throttle
 from kaleta.auth.providers import RegistryAuthProvider, get_auth_provider
 from kaleta.auth.session import SessionTenant
-from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import UnauthorizedError
@@ -53,14 +51,7 @@ class SignInFlow:
         self._tenant_service = tenant_service
 
     async def complete(self, identity: Identity) -> SignedIn:
-        if settings.tenancy != "multi":
-            try:
-                user_id = int(identity.subject)
-            except ValueError as exc:
-                msg = "This identity has no account on this install."
-                raise UnauthorizedError(msg) from exc
-            return SignedIn(user_id=user_id, username=identity.email)
-        signed_in = await self._complete_multi(identity)
+        signed_in = await self._complete_in_family(identity)
         # Kaleta's session is the session of record; nothing keeps the
         # provider's, so end it rather than leave a refresh token behind.
         await get_auth_provider().sign_out(identity)
@@ -90,8 +81,8 @@ class SignInFlow:
         identity = pending.identity
         provider = get_auth_provider()
         if isinstance(provider, RegistryAuthProvider):
-            # A local factor: the code is crossed off in `user_mfa`, the factor
-            # stays — exactly as on a single-tenant install.
+            # A local factor: the code is crossed off in `user_mfa`, and the
+            # factor stays.
             if not await provider.consume_recovery_code(identity, code):
                 return None
             return await self.complete(identity)
@@ -119,7 +110,7 @@ class SignInFlow:
             raise UnauthorizedError(msg)
         return membership.member.user_id
 
-    async def _complete_multi(self, identity: Identity) -> SignedIn:
+    async def _complete_in_family(self, identity: Identity) -> SignedIn:
         membership = await self._membership(identity)
         user_id = self._member_user_id(membership)
         ctx = membership.context()

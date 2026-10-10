@@ -38,7 +38,6 @@ from kaleta.services import (
 from kaleta.services.import_service import ImportService, ParsedRow
 from kaleta.services.payee_merge_service import PayeeMergeService
 from kaleta.services.setup_service import _alembic_config
-from tests.conftest import _USE_POSTGRES
 from tests.integration.conftest import create_account, create_category, transaction_payload
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
@@ -205,7 +204,6 @@ async def test_spelling_belongs_to_one_payee_only(api_client: AsyncClient):
 # ── Backfill ──────────────────────────────────────────────────────────────────
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="Runs the migration chain on a SQLite file")
 def test_upgrade_backfills_one_identity_per_payee(tmp_path: Path):
     """Covers: KAL-PID-009"""
     db_path = tmp_path / "backfill.db"

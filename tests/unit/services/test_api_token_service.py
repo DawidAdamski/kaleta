@@ -3,20 +3,22 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.tenant_context import set_tenant
 from kaleta.exceptions import ValidationError
+from kaleta.models.user import User
 from kaleta.services.api_token_service import ApiTokenService
-from kaleta.services.auth_service import AuthService
+from tests.conftest import SUITE_FAMILY
 
 
-@pytest_asyncio.fixture
-async def user(session: AsyncSession):
-    return await AuthService(session).create_user("owner", "password-123")
+@pytest.fixture
+def user(suite_owner: User) -> User:
+    return suite_owner
 
 
 @pytest.fixture
@@ -28,7 +30,7 @@ class TestApiTokenService:
     @pytest.mark.asyncio
     async def test_create_returns_raw_token_once(self, tokens: ApiTokenService, user) -> None:
         token, raw = await tokens.create_token(user_id=user.id, label="ci")
-        assert raw
+        assert raw.startswith(f"kt_{SUITE_FAMILY.tenant_id}_")
         assert token.label == "ci"
         assert token.token_hash == ApiTokenService.hash_token(raw)
         assert token.is_active
@@ -57,9 +59,10 @@ class TestApiTokenService:
         assert await tokens.authenticate_bearer("short") is None
 
     @pytest.mark.asyncio
-    async def test_env_token_authenticates_existing_user(
+    async def test_env_token_authenticates_the_member_in_the_context(
         self, tokens: ApiTokenService, user, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """``resolve_request_tenant`` put the administrator's membership there."""
         from kaleta.services import api_token_service as mod
 
         env = "bootstrap-token-16chars"
@@ -76,26 +79,14 @@ class TestApiTokenService:
         assert await tokens.authenticate_bearer("wrong-token-16chars!") is None
 
     @pytest.mark.asyncio
-    async def test_env_token_rejected_when_no_user(
+    async def test_env_token_rejected_without_a_member(
         self, tokens: ApiTokenService, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         from kaleta.services import api_token_service as mod
 
         monkeypatch.setattr(mod.settings, "api_token", "bootstrap-token-16chars")
+        set_tenant(replace(SUITE_FAMILY, member_user_id=None))
         assert await tokens.authenticate_bearer("bootstrap-token-16chars") is None
-
-    @pytest.mark.asyncio
-    async def test_env_token_after_bootstrap(
-        self, session: AsyncSession, monkeypatch: pytest.MonkeyPatch
-    ) -> None:
-        from kaleta.services import api_token_service as mod
-
-        env = "bootstrap-token-16chars"
-        monkeypatch.setattr(mod.settings, "api_token", env)
-        auth = AuthService(session)
-        user = await auth.ensure_api_bootstrap_user()
-        tokens = ApiTokenService(session)
-        assert await tokens.authenticate_bearer(env) == user.id
 
 
 class TestStepUp:

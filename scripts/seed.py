@@ -1,20 +1,23 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Fill the configured database with Kaleta's example data.
+"""Fill a family's schema with Kaleta's example data.
 
 Run:
     uv run python scripts/seed.py            # add what is missing
     uv run python scripts/seed.py --replace  # rewrite the example data
-    uv run python scripts/seed.py --fresh    # drop and recreate the tables first
+    uv run python scripts/seed.py --fresh    # drop and recreate the family's tables first
     uv run python scripts/seed.py --only transactions budgets
+    uv run python scripts/seed.py --family 3 # on an instance with more than one family
 
 A thin wrapper on purpose: the data itself lives in :mod:`kaleta.seeders`, the
 same registry the Settings → Data buttons call, so the CLI and the UI cannot
 produce two different datasets. Every run is idempotent — a feature that
 already has example data is reported as skipped rather than doubled.
 
-With ``KALETA_ENCRYPTION=passphrase`` the data is written under the key a local
-key holder's passphrase opens (``KALETA_DATA_PASSPHRASE``, or a prompt);
-``--fresh`` keeps that key holder, so the database still opens afterwards.
+Without ``--family`` the instance's only family is used. With encryption on
+(every production instance) the data is written under the key a member's
+passphrase opens (``KALETA_DATA_PASSPHRASE``, or a prompt); the key block is
+the registry's, so ``--fresh`` leaves it where it is and the family still
+opens afterwards.
 """
 
 from __future__ import annotations
@@ -27,47 +30,70 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from data_passphrase import data_passphrase
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from kaleta.config import settings
 from kaleta.crypto import DataKey
-from kaleta.db.base import Base, engine
+from kaleta.db.base import Base
 from kaleta.db.session import AsyncSessionFactory
+from kaleta.db.tenant_context import TenantContext, use_tenant
 from kaleta.db.types import use_data_key
+from kaleta.exceptions import NotFoundError, ValidationError
+from kaleta.models.tenant import TenantStatus
 from kaleta.seeders import SEED_FEATURE_KEYS, SeedOutcome, seed_features
-from kaleta.services.key_service import open_local_data_key
-
-#: Never dropped by ``--fresh``: it holds the only copy of the sealed data key.
-_KEPT_TABLES = frozenset({"local_key_material"})
+from kaleta.services.key_service import open_family_data_key
+from kaleta.services.tenant_service import TenantService
 
 
-async def _recreate_schema() -> None:
-    dropped = [t for t in Base.metadata.sorted_tables if t.name not in _KEPT_TABLES]
-    async with engine.begin() as conn:
-        await conn.run_sync(lambda sync: Base.metadata.drop_all(sync, tables=dropped))
-        await conn.run_sync(Base.metadata.create_all)
+async def _family(family_id: int | None) -> TenantContext:
+    async with AsyncSessionFactory.public() as public:
+        tenants = [
+            t for t in await TenantService(public).list_tenants() if t.status is TenantStatus.ACTIVE
+        ]
+    if family_id is not None:
+        tenants = [t for t in tenants if t.id == family_id]
+        if not tenants:
+            msg = f"No active family {family_id}."
+            raise NotFoundError(msg)
+    if not tenants:
+        msg = "No family yet: sign in once, which sets the first one up."
+        raise NotFoundError(msg)
+    if len(tenants) > 1:
+        ids = ", ".join(str(t.id) for t in tenants)
+        msg = f"More than one family ({ids}): choose one with --family."
+        raise ValidationError(msg)
+    return TenantContext(tenant_id=tenants[0].id, schema=tenants[0].schema_name)
 
 
-async def _data_key() -> DataKey | None:
+async def _recreate_schema(family: TenantContext) -> None:
+    engine = create_async_engine(settings.db_url)
+    try:
+        async with engine.begin() as conn:
+            translated = await conn.execution_options(schema_translate_map={None: family.schema})
+            await translated.run_sync(Base.metadata.drop_all)
+            await translated.run_sync(Base.metadata.create_all)
+    finally:
+        await engine.dispose()
+
+
+async def _data_key(family: TenantContext) -> DataKey | None:
     if not settings.encryption_enabled:
         return None
-    async with AsyncSessionFactory() as session:
-        return await open_local_data_key(session, data_passphrase())
+    async with AsyncSessionFactory.public() as public, AsyncSessionFactory() as data:
+        return await open_family_data_key(public, data, family.tenant_id, data_passphrase())
 
 
-async def _ensure_schema() -> None:
-    """Create any missing table, so an empty database needs no separate step."""
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-
-async def run(*, keys: list[str], replace: bool, fresh: bool) -> list[SeedOutcome]:
-    await _ensure_schema()
-    data_key = await _data_key()
-    if fresh:
-        await _recreate_schema()
-    with use_data_key(data_key):
-        async with AsyncSessionFactory() as session:
-            return await seed_features(session, keys, replace=replace)
+async def run(
+    *, keys: list[str], replace: bool, fresh: bool, family_id: int | None = None
+) -> list[SeedOutcome]:
+    family = await _family(family_id)
+    with use_tenant(family):
+        data_key = await _data_key(family)
+        if fresh:
+            await _recreate_schema(family)
+        with use_data_key(data_key):
+            async with AsyncSessionFactory() as session:
+                return await seed_features(session, keys, replace=replace)
 
 
 def _report(outcomes: list[SeedOutcome]) -> None:
@@ -100,11 +126,20 @@ def main() -> int:
     parser.add_argument(
         "--fresh",
         action="store_true",
-        help="Drop and recreate every table from the models before seeding.",
+        help="Drop and recreate the family's tables from the models before seeding.",
+    )
+    parser.add_argument(
+        "--family", type=int, help="The family to seed (required with more than one)."
     )
     args = parser.parse_args()
     keys = list(args.only) if args.only else list(SEED_FEATURE_KEYS)
-    outcomes = asyncio.run(run(keys=keys, replace=args.replace, fresh=args.fresh))
+    try:
+        outcomes = asyncio.run(
+            run(keys=keys, replace=args.replace, fresh=args.fresh, family_id=args.family)
+        )
+    except (NotFoundError, ValidationError) as exc:
+        print(f"seed: {exc.message}", file=sys.stderr)
+        return 1
     _report(outcomes)
     return 0
 

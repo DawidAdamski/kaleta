@@ -36,10 +36,13 @@ from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
+from kaleta.models.tenant import TenantMember
 from kaleta.models.user import User
 from kaleta.models.user_mfa import MFA_KIND_SUPABASE, MFA_KIND_TOTP, UserMfa
 from kaleta.services.auth_service import AuthService
+from kaleta.services.local_identity_service import LocalIdentityService, identity_id_of
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -521,7 +524,7 @@ class MfaService:
         # would answer in one argon2 verify where a right password answers in
         # up to eleven, and that difference is a password oracle no matter
         # what the message says.
-        password_ok = AuthService(self.session).verify_password(password, user.password_hash)
+        password_ok = await self._login_password_matches(user_id, password)
         counter = self._matching_counter(row, code)
         # Looked for whatever the TOTP check said, so that the reply does not
         # time differently depending on the password — which is the oracle
@@ -568,10 +571,44 @@ class MfaService:
             msg = "Two-factor authentication is not enabled."
             raise ConflictError(msg)
 
+    async def _login_password_matches(self, user_id: int, password: str) -> bool:
+        """``password`` is the member's local login password (ADR-38).
+
+        The hash is the registry's (``public.local_identities``), reached from
+        this family's session through the member row; ``users.password_hash``
+        holds nothing. A member signed in through another provider has no
+        local password, and none matches.
+        """
+        ctx = current_tenant()
+        if ctx is None:
+            return False
+        subject = await self.session.scalar(
+            select(TenantMember.auth_subject).where(
+                TenantMember.tenant_id == ctx.tenant_id, TenantMember.user_id == user_id
+            )
+        )
+        identity_id = identity_id_of(subject) if subject is not None else None
+        if identity_id is None:
+            return False
+        return await LocalIdentityService(self.session).verify_password(identity_id, password)
+
     async def disable_all(self) -> int:
         """Drop every enrolment; return how many were actually switched on.
 
         The CLI escape hatch for a lost authenticator.
+        """
+        return await self._disable_without_proof(None)
+
+    async def disable_for_admin(self, user_id: int) -> bool:
+        """Drop one member's enrolment; whether a confirmed factor was removed.
+
+        The registry layout's escape hatch (``kaleta-admin reset-password
+        --disable-mfa``): the instance administrator, not the member, asks.
+        """
+        return await self._disable_without_proof(user_id) > 0
+
+    async def _disable_without_proof(self, user_id: int | None) -> int:
+        """Drop the enrolments of ``user_id`` (everyone's when ``None``).
 
         Removing a second factor from a shell leaves a trace in the audit log
         for the same reason removing it from the UI does: it is the one state
@@ -584,10 +621,10 @@ class MfaService:
         # when every secret in the table is unreadable. Loading the objects
         # would decrypt them and fail before deleting anything — leaving the
         # locked-out owner with the new password and the old enrolment.
-        result = await self.session.execute(
-            select(UserMfa.user_id, UserMfa.enabled_at.is_not(None))
-        )
-        rows = list(result.all())
+        query = select(UserMfa.user_id, UserMfa.enabled_at.is_not(None))
+        if user_id is not None:
+            query = query.where(UserMfa.user_id == user_id)
+        rows = list((await self.session.execute(query)).all())
         if not rows:
             return 0
         # Counted for the message, not for the delete: an enrolment abandoned
@@ -602,13 +639,16 @@ class MfaService:
         # factor, so there is nothing about it to say was disabled.
         usernames: list[str | None] = []
         auth = AuthService(self.session)
-        for user_id, is_enabled in rows:
+        for enrolled, is_enabled in rows:
             if not is_enabled:
                 continue
-            user = await self.session.get(User, user_id)
+            user = await self.session.get(User, enrolled)
             usernames.append(user.username if user is not None else None)
-            await auth.revoke_sessions(user_id, commit=False)
-        await self.session.execute(delete(UserMfa))
+            await auth.revoke_sessions(enrolled, commit=False)
+        removal = delete(UserMfa)
+        if user_id is not None:
+            removal = removal.where(UserMfa.user_id == user_id)
+        await self.session.execute(removal)
         # The trace goes in the same transaction as the removal. Committing
         # the delete first and writing the rows after would let the one
         # removal nobody had to prove anything to make be the one that leaves

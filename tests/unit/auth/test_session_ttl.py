@@ -18,6 +18,7 @@ from starlette.responses import PlainTextResponse
 from starlette.routing import Route
 
 from kaleta.auth import session as session_mod
+from tests.conftest import sign_into_suite_family
 
 
 @pytest.fixture
@@ -157,7 +158,6 @@ def auth_middleware_client(
         return cls
 
     monkeypatch.setattr(nicegui_app, "add_middleware", _capture)
-    monkeypatch.setattr(middleware_mod, "is_configured", lambda: True)
     middleware_mod.register_auth_middleware()
 
     async def _page(_: Request) -> PlainTextResponse:
@@ -166,6 +166,7 @@ def auth_middleware_client(
     inner = Starlette(routes=[Route("/transactions", _page)])
     inner.add_middleware(captured[0])
     fake_storage[session_mod.SESSION_AUTHENTICATED] = True
+    sign_into_suite_family(fake_storage)
     return httpx.AsyncClient(transport=httpx.ASGITransport(app=inner), base_url="http://test")
 
 

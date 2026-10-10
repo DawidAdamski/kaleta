@@ -193,10 +193,10 @@ _key_resolver: DataKeyResolver | None = None
 
 
 def install_data_key_resolver(resolver: DataKeyResolver | None) -> None:
-    """Where ``single`` mode finds the unlocked data key outside an explicit block.
+    """Where code with no family context finds the unlocked data key.
 
-    ``multi`` mode carries it on ``TenantContext.key_ring`` instead; this one
-    answers for the self-hosted session (``KALETA_ENCRYPTION=passphrase``).
+    A family's sessions carry it on ``TenantContext.key_ring``, which wins
+    whenever a context is set; this answers only outside one.
     """
     global _key_resolver  # one process-wide resolver by design, like the tenant one
     _key_resolver = resolver

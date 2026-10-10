@@ -26,7 +26,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from kaleta.auth.providers import (
     FactorEnrolment,
     Identity,
-    LocalAuthProvider,
     MfaRequired,
     set_auth_provider,
 )
@@ -40,8 +39,8 @@ from kaleta.exceptions import (
     ValidationError,
 )
 from kaleta.models.audit_log import AuditLog
+from kaleta.models.user import User
 from kaleta.models.user_mfa import MFA_KIND_SUPABASE, UserMfa
-from kaleta.services.auth_service import AuthService
 from kaleta.services.hosted_mfa_service import HostedEnrolment, HostedMfaService
 from kaleta.services.mfa_service import RECOVERY_CODE_COUNT, TOTP_INTERVAL, MfaService
 from kaleta.services.tenant_service import TenantService
@@ -72,11 +71,14 @@ def _aal1() -> Identity:
 # ── HostedMfaService against a fake gateway ───────────────────────────────────
 
 
-class FakeGoTrue(LocalAuthProvider):
-    """A gateway that holds one account's factors the way GoTrue would."""
+class FakeGoTrue:
+    """A gateway that holds one account's factors the way GoTrue would.
+
+    No base class: ``SignInFlow`` tells a local login's factor from a
+    provider's by the provider's type, and this is a provider's.
+    """
 
     name = "supabase"
-    email_login = True
 
     def __init__(self) -> None:
         self.factors: dict[str, str] = {}  # id → "verified" | "unverified"
@@ -129,8 +131,12 @@ class FakeGoTrue(LocalAuthProvider):
 
 
 @pytest_asyncio.fixture
-async def user(session: AsyncSession):
-    return await AuthService(session).create_user(EMAIL, PASSWORD)
+async def user(session: AsyncSession) -> User:
+    """A member whose password the (fake) provider holds, as a Supabase member's is."""
+    row = User(username=EMAIL, email=EMAIL)
+    session.add(row)
+    await session.commit()
+    return row
 
 
 @pytest.fixture
@@ -340,7 +346,7 @@ async def tenancy(tmp_path: Path) -> AsyncIterator[tuple[str, FakeGoTrue]]:
     gotrue.me = identity(1)
     set_auth_provider(gotrue)
     try:
-        async with multi_tenant_database(tmp_path) as url:
+        async with multi_tenant_database() as url:
             yield url, gotrue
     finally:
         set_auth_provider(None)

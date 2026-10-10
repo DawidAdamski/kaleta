@@ -160,37 +160,31 @@ KALETA_SESSION_TTL_HOURS=72           # UI session TTL; 0 disables
 KALETA_SESSION_IDLE_HOURS=12          # UI idle timeout; 0 disables, capped at TTL
 KALETA_REDIS_URL=                     # Sessions + login rate limiter in Valkey/Redis, for more
                                       # than one replica (extra: hosted); unset = files + memory
-KALETA_BACKUP_ENABLED=true            # Scheduled SQLite VACUUM INTO backups
-KALETA_BACKUP_INTERVAL_HOURS=24       # Hours between scheduled backups
-KALETA_BACKUP_RETAIN=7                # Keep last K on-disk .db snapshots
-KALETA_BACKUP_DIR=~/.kaleta/backups   # Directory for kaleta-*.db files (not ZIP exports)
 ```
 
-### Hosted multi-tenancy (ADR-35)
+### Tenancy layout (ADR-35, ADR-38)
 
 ```
-KALETA_TENANCY=single                 # single (self-hosted, default) | multi (hosted)
-KALETA_AUTH_BACKEND=local             # local (argon2 users table) | supabase (Supabase Auth)
+KALETA_AUTH_BACKEND=local             # local (argon2, public.local_identities) | supabase (Supabase Auth)
                                       # | fake (debug stand-in for Supabase; KALETA_DEBUG only)
-                                      # only single+local and multi+supabase (or fake) start
 KALETA_SUPABASE_URL=                  # https://<project>.supabase.co — required for supabase
 KALETA_SUPABASE_ANON_KEY=             # public anon key — required for supabase
 KALETA_SUPABASE_SERVICE_ROLE_KEY=     # server-side only: admin calls (deleting an identity)
 KALETA_PUBLIC_URL=                    # this instance's URL, for links in e-mails
 ```
 
-In `multi` mode the database is `KALETA_DB_URL` (no first-run wizard, no
-`~/.kaleta/config.json`). A `public` registry (`tenants`, `tenant_members`,
+Every instance uses one layout: the database is `KALETA_DB_URL` (no first-run
+wizard, no `~/.kaleta/config.json`; `KALETA_TENANCY` is no longer read). A `public` registry (`tenants`, `tenant_members`,
 `tenant_invites`, migrated by `alembic_public/`) names each account's schema
 (`t_` + 12 random hex characters); tenant schemas are migrated by `alembic/`
 with `-x tenant_schema=`. Every session is bound to the current tenant with
 SQLAlchemy's `schema_translate_map` — never `SET search_path` — and a request
 that has not resolved its tenant gets no session at all. API tokens are
 `kt_<tenant>_<secret>` so the tenant is known before the token is looked up.
-Scheduled SQLite backups, the event retention sweep, the NBP startup fetch
-and the SQLite integrity check are single-tenant only. Multi-tenant SQLite
-(every schema an attached file next to the main one) exists for development
-and tests; production runs PostgreSQL.
+Scheduled backups, the NBP startup fetch (it returns per instance in part B2c)
+and the integrity check no longer exist; the event retention sweep visits
+every active family. Multi-tenant SQLite (every schema an attached file next
+to the main one) exists for development and tests; production runs PostgreSQL.
 
 On PostgreSQL each process keeps at most ten connections (`pool_size=5`,
 `max_overflow=5`, pre-ping on) and asyncpg prepares no reusable statements,
@@ -209,9 +203,9 @@ smoke) and `reset_demo.py --tenant` (the demo as an account).
 ### Field-level encryption
 
 ```
-KALETA_ENCRYPTION=off                 # off (default in single mode) | passphrase
-                                      # multi mode is always on; off is refused unless KALETA_DEBUG
-KALETA_DATA_PASSPHRASE=               # scripts only (seed.py, reset_demo.py, encrypt_database.py);
+KALETA_ENCRYPTION=passphrase          # passphrase (default, always on) | off
+                                      # off is refused unless KALETA_DEBUG
+KALETA_DATA_PASSPHRASE=               # scripts only (seed.py, reset_demo.py);
                                       # prompted when unset
 ```
 
@@ -243,9 +237,8 @@ reused for its count within one session).
 
 See [privacy.md](privacy.md#encryption) for what this protects against
 and [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
-for the full design. To switch encryption on for an existing
-self-hosted database, see
-[deployment.md](deployment.md#encrypting-an-existing-self-hosted-database).
+for the full design. For data written before encryption was on, see
+[deployment.md](deployment.md#encrypting-data-that-predates-encryption).
 
 ### Observability and bug reports
 

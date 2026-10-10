@@ -3074,7 +3074,8 @@ Feature: Single-user authentication
     Then I am redirected to the login page
     And the redirect preserves the originally requested path
 
-  KAL-AUTH-004 @automated
+  KAL-AUTH-004 @removed
+    # Removed by ADR-38 (postgres-only B2b): there is no setup page; every instance starts at the registry.
   Scenario: Unauthenticated setup page on a configured install redirects to login
     Given a database is already configured
     And I am not signed in
@@ -3095,7 +3096,8 @@ Feature: Single-user authentication
     When I request "/api/v1/accounts/" with the bearer token
     Then the response status is 200
 
-  KAL-AUTH-007 @automated
+  KAL-AUTH-007 @removed
+    # Removed by ADR-38 (postgres-only B2b): logins live in the registry; `kaleta-admin reset-password` (KAL-TEN-019) resets them.
   Scenario: CLI resets the single-user password interactively
     Given a configured database with one user "alice" whose password is "old-password-1"
     When I run `uv run kaleta --reset-password` and enter "new-password-9" twice
@@ -3136,7 +3138,8 @@ Feature: Single-user authentication
     Then the message "Invalid username or password." is shown
       And the Log in button is exactly where it was before I clicked it
 
-  KAL-AUTH-012 @automated
+  KAL-AUTH-012 @removed
+    # Removed by ADR-38 (postgres-only B2b): the login page is the same for every instance and shows no counts.
   Scenario: The login panel counts, and says nothing more
     Given there are transactions in the ledger
     When I open the login page without logging in
@@ -3203,7 +3206,8 @@ Feature: Two-factor authentication
     And a recovery code is accepted in place of the current code
     But with two-factor authentication off neither is asked for
 
-  KAL-AUTH-018 @automated
+  KAL-AUTH-018 @removed
+    # Removed by ADR-38 (postgres-only B2b): `kaleta-admin reset-password --disable-mfa` (KAL-TEN-021) does this now.
   Scenario: The CLI can drop the second factor for a locked-out self-hoster
     Given a configured database whose user has two-factor authentication on
     When I run `uv run kaleta --reset-password --disable-mfa`
@@ -3258,7 +3262,7 @@ Feature: Two-factor authentication
     And KALETA_SECRET_KEY has been changed since I enrolled
     When I give the right password and then any code
     Then I am told the second factor cannot be read on this install
-    And I am told to run `kaleta --reset-password --disable-mfa` and set it up again
+    And I am told to ask for `kaleta-admin reset-password --disable-mfa` and set it up again
 
   # Implemented (views/login_mfa.py checks is_enabled() before submitting, so
   # this answer never reaches mfa_rate_limiter.record_failure). @planned
@@ -3300,7 +3304,7 @@ Feature: Two-factor authentication
   KAL-AUTH-028 @automated
   Scenario: Resetting the password from the shell signs every browser out
     Given I am signed in in a browser
-    When I run "kaleta --reset-password" and set a new password
+    When the operator runs "kaleta-admin reset-password <my e-mail>"
     Then the command says "All browser sessions have been signed out; API bearer tokens are unchanged."
     And on its next page load that browser is sent to the login page with "reason=signed_out_everywhere"
     And a browser that signs in after the reset is let in
@@ -3426,10 +3430,11 @@ Feature: Two-factor authentication
 ## Feature: Hosted accounts (multi-tenant)
 
 The hosted layout of [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md):
-`KALETA_TENANCY=multi` with `KALETA_AUTH_BACKEND=supabase`. Each account
-(household) lives in a PostgreSQL schema of its own, named `t_` plus twelve
-random hex characters; a `public` registry maps identities to accounts.
-Self-hosted installs (`single` + `local`) are untouched by all of this.
+`KALETA_AUTH_BACKEND=supabase`. Each account (household) lives in a
+PostgreSQL schema of its own, named `t_` plus twelve random hex characters; a
+`public` registry maps identities to accounts. Since
+[ADR-38](adr/038-postgresql-only-one-tenancy-layout.md) every instance has this layout; a
+self-hosted one keeps its logins in the registry (`KALETA_AUTH_BACKEND=local`).
 
 ```gherkin
 Feature: Hosted accounts (multi-tenant)
@@ -3511,9 +3516,9 @@ Feature: Hosted accounts (multi-tenant)
   KAL-TEN-008 @automated
   Scenario: The operator lists, suspends and deletes an account from the command line
     Given a hosted Kaleta with one account owned by "ania@example.com"
-    When the operator runs "tenant_admin.py list"
+    When the operator runs "kaleta-admin list"
     Then the account is listed with its schema, status "active" and 1 member
-    When the operator runs "tenant_admin.py members" for it
+    When the operator runs "kaleta-admin members" for it
     Then "ania@example.com" is listed as its owner
     When the operator suspends it
     Then its status is "suspended" and its members cannot sign in
@@ -3547,7 +3552,7 @@ Feature: Hosted accounts (multi-tenant)
 
   KAL-TEN-011 @automated
   Scenario: The hosted flow runs on a laptop with the debug sign-in backend
-    Given KALETA_TENANCY=multi and KALETA_AUTH_BACKEND=fake
+    Given KALETA_AUTH_BACKEND=fake
     Then the instance refuses to start unless KALETA_DEBUG=true
     When I sign up with an e-mail address and a password
     Then the address counts as confirmed and my account is provisioned at once
@@ -3578,7 +3583,6 @@ Feature: Hosted accounts (multi-tenant)
     And the published demo data passphrase is set up and the account is seeded
     When the job runs again
     Then the same account is reseeded, with no second account provisioned
-    And "--tenant" on a self-hosted install is refused
 
   KAL-TEN-015 @automated
   Scenario: The first sign-up of an empty self-hosted instance creates its administrator
@@ -3620,13 +3624,48 @@ Feature: Hosted accounts (multi-tenant)
   KAL-TEN-019 @automated
   Scenario: The administrator manages local logins from the command line
     Given a Kaleta on the registry layout with local logins
-    When the operator runs "tenant_admin.py create-login <e-mail> --admin"
+    When the operator runs "kaleta-admin create-login <e-mail> --admin"
     Then the login exists and its password is printed once
     And creating the same address again is refused
-    When the operator runs "tenant_admin.py reset-password <e-mail>"
+    When the operator runs "kaleta-admin reset-password <e-mail>"
     Then a new password is printed once and the old one no longer signs in
-    And "tenant_admin.py registration open" opens sign-up, "registration" alone shows the mode
+    And "kaleta-admin registration open" opens sign-up, "registration" alone shows the mode
     And the login commands refuse to run when the instance does not use local logins
+
+  KAL-TEN-020 @automated
+  Scenario: The data passphrase may not be a local login's password
+    Given a local login on the registry layout, signed in for the first time
+    When I choose my login password as the data passphrase
+    Then it is refused: "Choose a passphrase that is not your login password."
+    And a member signing in through Supabase is not asked about it
+
+  KAL-TEN-021 @automated
+  Scenario: The administrator turns off a member's lost second factor
+    Given a local login whose member turned two-factor authentication on and lost the authenticator
+    When the operator runs "kaleta-admin reset-password <e-mail> --disable-mfa"
+    Then a new password is printed once, the second factor is gone and its sessions end
+    And the next sign-in asks only for the new password
+    And running it again reports that there is no second factor to remove
+
+  KAL-TEN-022 @automated
+  Scenario: KALETA_API_TOKEN acts as the instance administrator in their family
+    Given a Kaleta on the registry layout with local logins and KALETA_API_TOKEN set
+    When a script calls the API with that token before the administrator exists or has signed in
+    Then it is refused with 401
+    When the administrator has signed in once
+    Then the token reads and writes the administrator's family
+    And a different token is refused, and so is the token once the administrator's membership is closed
+    And once that login is disabled the token belongs to the next enabled administrator
+
+  KAL-TEN-023 @automated
+  Scenario: Every instance has one layout, and the old switches say where they went
+    Given an instance configured without KALETA_TENANCY
+    Then it keeps a registry and one schema per family
+    And its data is encrypted unless KALETA_ENCRYPTION=off, which needs KALETA_DEBUG=true
+    When KALETA_TENANCY is still set
+    Then the start-up log says it is no longer read
+    When I run "kaleta --reset-password" or "kaleta --disable-mfa"
+    Then it exits with status 2 and names "kaleta-admin reset-password <e-mail> [--disable-mfa]"
 ```
 
 ## Feature: Data encryption (user-held passphrase)
@@ -3634,8 +3673,8 @@ Feature: Hosted accounts (multi-tenant)
 [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) and the
 `hosted-field-encryption` plan: every column of user-written text is stored
 as ciphertext under a data key that only a member's data passphrase (or
-recovery code) opens. Always on in a hosted account; a self-hosted install
-switches it on with `KALETA_ENCRYPTION=passphrase`. Amounts, dates,
+recovery code) opens. Always on: since ADR-38 `KALETA_ENCRYPTION=off` is
+accepted only with `KALETA_DEBUG=true`. Amounts, dates,
 currencies and types stay readable so SQL can still add them up.
 
 ```gherkin
@@ -3708,7 +3747,9 @@ Feature: Data encryption (user-held passphrase)
     Then "What is encrypted" says nobody running the server can read what any transaction was for
     And it says they can see the shape of my account: amounts, dates, types and currencies
 
-  KAL-ENC-009 @automated
+  KAL-ENC-009 @removed
+    # Removed by ADR-38 (postgres-only B2b): encryption is always on, and setting up the
+    # first passphrase encrypts whatever a family held before (KeyService.setup).
   Scenario: Switching encryption on for an existing self-hosted database
     Given a self-hosted database with data written while encryption was off
     When the owner runs "scripts/encrypt_database.py" with KALETA_ENCRYPTION=passphrase
@@ -3747,12 +3788,12 @@ Feature: Demo instance banner
 
   KAL-PLT-002 @automated
   Scenario: Demo reset script restores the published demo credentials
-    Given an empty configured database
+    Given an instance with an empty registry and local logins
     And KALETA_DEMO is true
     When I run `uv run python scripts/reset_demo.py`
     Then the command exits successfully
-    And user "demo" can authenticate with password "demo-kaleta"
-    And the database contains seeded demo data
+    And "demo@kaleta.app" can sign in with password "demo-kaleta"
+    And the demo family holds seeded demo data
 ```
 
 ## Feature: Example seed data
@@ -3840,6 +3881,14 @@ Feature: Per-feature example data
       rewritten with them
     And features that do not stand on the accounts are untouched
     And every seeded table holds the same number of rows as before
+
+  KAL-PLT-010 @automated
+  Scenario: A new family's subscriptions tree is not example data
+    Given a new family holding only the subscriptions tree its schema starts with
+    When I seed "Categories, tags & payees"
+    Then the categories are seeded, not left alone
+    And there is still exactly one subscriptions root
+    And the Polish subscription children are filed under it
 ```
 
 ## Feature: Anonymous error events
@@ -3868,6 +3917,14 @@ Feature: Anonymous error events
     Given an app event older than the retention window exists
     When the retention purge runs
     Then the old event is deleted
+
+  KAL-OBS-004 @automated
+  Scenario: On the registry layout the retention purge visits every active family
+    Given two active families each hold an app event 30 days old and one from today
+    And a third, suspended family holds an app event 30 days old
+    When the retention purge runs with a 7-day window
+    Then each active family keeps only today's event
+    And the suspended family's event is left until the family is resumed
 ```
 
 ## Feature: Bug reports
@@ -3956,7 +4013,8 @@ Feature: Settings — Data safety
     Then restore fails with a clear schema-mismatch error
     And my existing data is unchanged
 
-  KAL-SET-017 @automated
+  KAL-SET-017 @removed
+    # Removed by ADR-38 (postgres-only B2b): the SQLite backup scheduler is gone; a PostgreSQL server is backed up by its own tools.
   Scenario: Scheduled VACUUM backup writes a timestamped file and respects retention
     Given I am using an on-disk SQLite database
     And the backup directory is configured with retain K of 2
@@ -3973,7 +4031,8 @@ Feature: Settings — Data safety
     And PRAGMA busy_timeout is 5000
     And PRAGMA synchronous is 1
 
-  KAL-SET-019 @automated
+  KAL-SET-019 @removed
+    # Removed by ADR-38 (postgres-only B2b): a family schema is upgraded by the start-up migration of the registry layout.
   Scenario: Configured database auto-upgrades to alembic head on start
     Given I have an on-disk SQLite database stamped at an older alembic revision
     And a backup directory is configured
@@ -3988,21 +4047,24 @@ Feature: Settings — Data safety
     Then the CSV header is "date,type,amount,currency,account,category,payee,description,tags,is_internal_transfer"
     And a row contains "2026-01-15", "expense", "12.50", "Checking", "Food", and "Groceries"
 
-  KAL-SET-021 @automated
+  KAL-SET-021 @removed
+    # Removed by ADR-38 (postgres-only B2b): there is no first-run database choice and no config.json.
   Scenario: Recommended first-run path creates the default SQLite database
     Given the app is not yet configured
     When I activate the recommended database location
     Then ~/.kaleta/config.json stores a sqlite+aiosqlite URL for kaleta.db
     And the database alembic revision matches the installed head
 
-  KAL-SET-022 @automated
+  KAL-SET-022 @removed
+    # Removed by ADR-38 (postgres-only B2b): there is no unconfigured state for the API to refuse.
   Scenario: API rejects requests before first-run setup
     Given the app is not yet configured
     When I GET "/api/v1/accounts/" without completing setup
     Then the response status is 503
     And the JSON error code is "setup_required"
 
-  KAL-SET-023 @automated
+  KAL-SET-023 @removed
+    # Removed by ADR-38 (postgres-only B2b): the SQLite backup scheduler is gone, and config.json with it.
   Scenario: Scheduled backup snapshots the active database from config.json
     Given ~/.kaleta/config.json points at an on-disk SQLite database at a non-default path
     And KALETA_DB_URL still points at the environment default path
@@ -4090,12 +4152,13 @@ Feature: Currency rates — NBP Table A
     Then an ExternalServiceError is raised with a clear offline message
     And no currency_rates rows are written
 
-  KAL-FXR-003 @automated
+  # The per-install config.json flag went with ADR-38 (postgres-only B2b);
+  # the fetch returns per instance, into public.nbp_rates, in part B2c.
+  KAL-FXR-003 @planned
   Scenario: Fetch on startup is opt-in and defaults to off
-    Given nbp_fetch_on_startup is unset in ~/.kaleta/config.json
-    When the NBP startup fetcher starts
+    Given the instance has not switched the NBP startup fetch on
+    When the instance starts
     Then no HTTP request is made to NBP
-    And get_nbp_fetch_on_startup returns false
 ```
 
 ## Feature: Housekeeping — Integrity
@@ -4106,13 +4169,15 @@ Feature: Housekeeping — Integrity
   I want to detect orphan foreign-key rows in my SQLite database
   So that I can clean up data left behind by imports or older builds
 
-  KAL-INT-001 @automated
+  KAL-INT-001 @removed
+    # Removed by ADR-38 (postgres-only B2b): the SQLite orphan check went with the SQLite single-family layout.
   Scenario: Integrity check reports clean when there are no orphans
     Given I am using SQLite with a consistent database
     When I run the Housekeeping integrity foreign-key check
     Then the result is empty
 
-  KAL-INT-002 @automated
+  KAL-INT-002 @removed
+    # Removed by ADR-38 (postgres-only B2b): the SQLite orphan check went with the SQLite single-family layout.
   Scenario: Integrity check lists foreign-key orphans
     Given I am using SQLite
     And an orphan row references a missing parent (foreign keys disabled during insert)

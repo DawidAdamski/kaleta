@@ -122,10 +122,8 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
         for key, value in bucket.items():
             seen.setdefault(key, set()).add(value)
 
-    session_mod.begin_mfa_challenge(user_id=_USER_ID, username=_USERNAME)
-    snapshot()
-    # The hosted variant parks an aal1 access token — in process memory only;
-    # the bucket gets a reference to it.
+    # The code prompt parks an aal1 access token — in process memory only; the
+    # bucket gets a reference to it.
     session_mod.begin_hosted_mfa_challenge(_HOSTED_PENDING)
     snapshot()
     session_mod.finish_login(

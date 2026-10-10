@@ -177,7 +177,6 @@ def test_the_avatar_menu_carries_the_account_actions(page: Page, base_url: str) 
     menu = page.locator(".q-menu")
     expect(menu).to_be_visible(timeout=10000)
     expect(menu.get_by_text("Log out", exact=True)).to_be_visible()
-    expect(menu.get_by_text("Close database", exact=True)).to_be_visible()
     page.keyboard.press("Escape")
     expect(menu).to_be_hidden(timeout=10000)
 

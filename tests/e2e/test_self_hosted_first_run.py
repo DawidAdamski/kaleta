@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E: a self-hosted instance on the registry layout — the administrator's first run.
 
-The app runs with ``KALETA_TENANCY=multi`` and ``KALETA_AUTH_BACKEND=local``
-(ADR-38) on a multi-tenant SQLite database. Nothing exists yet: the login page
-sends the first visitor to set up the administrator, whose first sign-in
-provisions the first family; afterwards registration is closed.
+The app runs with ``KALETA_AUTH_BACKEND=local`` (ADR-38) on a fresh PostgreSQL
+database. Nothing exists yet: the login page sends the first visitor to set up
+the administrator, whose first sign-in provisions the first family; afterwards
+registration is closed.
 
 Covers: KAL-TEN-015, KAL-TEN-016
 """
@@ -13,11 +13,9 @@ from __future__ import annotations
 
 import os
 import re
-import sqlite3
 import subprocess
 import threading
 from collections.abc import Generator
-from pathlib import Path
 
 import pytest
 from playwright.sync_api import Browser, Page, expect
@@ -28,6 +26,7 @@ from tests.e2e.conftest import (
     _terminate_process,
     _wait_for_server,
 )
+from tests.suite_database import fresh_database_url, query
 
 # Its own port: 8081–8086 are taken by the other e2e servers.
 SELF_HOSTED_PORT = 8087
@@ -39,14 +38,12 @@ DATA_PASSPHRASE = "our family data passphrase"
 
 
 class SelfHostedInstance:
-    def __init__(self, base: str, db_path: Path) -> None:
+    def __init__(self, base: str, db_url: str) -> None:
         self.base = base
-        self.db_path = db_path
+        self.db_url = db_url
 
     def _registry(self, sql: str) -> list[tuple[object, ...]]:
-        registry = self.db_path.with_name(f"{self.db_path.stem}.public.db")
-        with sqlite3.connect(registry) as conn:
-            return list(conn.execute(sql))
+        return query(self.db_url, sql)
 
     def tenant_schemas(self) -> list[str]:
         return [str(row[0]) for row in self._registry("SELECT schema_name FROM tenants")]
@@ -61,7 +58,7 @@ class SelfHostedInstance:
 @pytest.fixture(scope="module")
 def instance(tmp_path_factory: pytest.TempPathFactory) -> Generator[SelfHostedInstance]:
     home = tmp_path_factory.mktemp("self_hosted_home")
-    db_path = tmp_path_factory.mktemp("self_hosted_db") / "family.db"
+    db_url = fresh_database_url("e2e_self_hosted")
     log_path = tmp_path_factory.mktemp("self_hosted_logs") / "kaleta-self-hosted.log"
 
     env = os.environ.copy()
@@ -71,8 +68,7 @@ def instance(tmp_path_factory: pytest.TempPathFactory) -> Generator[SelfHostedIn
             "HOME": str(home),
             "KALETA_PORT": str(SELF_HOSTED_PORT),
             "KALETA_DEBUG": "true",
-            "KALETA_DB_URL": f"sqlite+aiosqlite:///{db_path}",
-            "KALETA_TENANCY": "multi",
+            "KALETA_DB_URL": db_url,
             "KALETA_AUTH_BACKEND": "local",
             "NICEGUI_SCREEN_TEST_PORT": str(SELF_HOSTED_PORT),
         }
@@ -90,7 +86,7 @@ def instance(tmp_path_factory: pytest.TempPathFactory) -> Generator[SelfHostedIn
     pump.start()
     try:
         _wait_for_server(SELF_HOSTED_BASE)
-        yield SelfHostedInstance(SELF_HOSTED_BASE, db_path)
+        yield SelfHostedInstance(SELF_HOSTED_BASE, db_url)
     finally:
         _terminate_process(proc)
         pump.join(timeout=5)

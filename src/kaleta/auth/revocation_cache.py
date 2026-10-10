@@ -35,9 +35,9 @@ class _Entry:
     fetched_at: float
 
 
-#: ``(tenant_id, user_id)``: in ``KALETA_TENANCY=multi`` every tenant schema
-#: numbers its ``users`` from 1, so a user id alone names several people. The
-#: tenant is ``None`` on a single-tenant install.
+#: ``(tenant_id, user_id)``: every family's schema numbers its ``users`` from
+#: 1, so a user id alone names several people. The family is ``None`` only for
+#: code that runs outside one.
 _Key = tuple[int | None, int]
 
 

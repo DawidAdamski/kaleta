@@ -9,7 +9,6 @@ from urllib.parse import quote
 
 from fastapi import Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
@@ -25,15 +24,11 @@ from kaleta.auth.session import (
     touch_session,
 )
 from kaleta.auth.unlock import UNLOCK_EXEMPT_PATHS, install_unlock_resolver, unlock_redirect
-from kaleta.config import settings
-from kaleta.config.setup_config import is_configured
 from kaleta.db.tenant_context import install_tenant_resolver, set_tenant
-from kaleta.services import AuthService, with_session
-from kaleta.services.auth_service import AuthState
 
 log = logging.getLogger(__name__)
 
-# Pages reachable without an authenticated session (only when already configured).
+# Pages reachable without an authenticated session.
 _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
     {
         "/login",
@@ -42,7 +37,6 @@ _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
         "/reset-password",
         # The magic-link landing page signs the browser in itself.
         "/auth/magic",
-        "/secure-app",
         # Rotating a session means it is not authenticated under its new id
         # yet; the route checks its own nonce instead.
         SESSION_ROTATE_PATH,
@@ -71,32 +65,6 @@ def is_public_path(path: str) -> bool:
     return any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
 
 
-def _is_framework_or_api(path: str) -> bool:
-    if path in _ASSET_PATHS or path == "/health":
-        return True
-    return any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
-
-
-async def _bootstrap_redirect_path() -> str | None:
-    """Return a bootstrap page when the database is not ready for login yet.
-
-    Single-tenant only: a hosted instance has no "first user" — every account
-    starts at sign-up — and no tenant to ask before someone has signed in.
-    """
-    if settings.tenancy == "multi":
-        return None
-
-    async def _state(session: AsyncSession) -> AuthState:
-        return await AuthService(session).auth_state()
-
-    state = await with_session(_state)
-    if state == "no_user":
-        return "/create-account"
-    if state == "placeholder":
-        return "/secure-app"
-    return None
-
-
 def _unlocked() -> bool:
     try:
         return is_unlocked()
@@ -108,22 +76,15 @@ def register_auth_middleware() -> None:
     """Install the UI auth guard on the NiceGUI/FastAPI app."""
     from nicegui import app as nicegui_app
 
-    multi = settings.tenancy == "multi"
-    if multi:
-        # UI event handlers run over the websocket, past this middleware; the
-        # resolver gives them the same tenant the page load had.
-        install_tenant_resolver(session_tenant_context)
+    # UI event handlers run over the websocket, past this middleware; the
+    # resolver gives them the same family the page load had.
+    install_tenant_resolver(session_tenant_context)
     install_unlock_resolver()
 
     @nicegui_app.add_middleware
     class AuthMiddleware(BaseHTTPMiddleware):
         async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
             path = request.url.path
-
-            if not is_configured():
-                if path == "/setup" or _is_framework_or_api(path):
-                    return await call_next(request)
-                return RedirectResponse("/setup")
 
             if is_public_path(path):
                 return await call_next(request)
@@ -134,11 +95,11 @@ def register_auth_middleware() -> None:
                 log.debug("No NiceGUI client context for %s — treating as unauthenticated", path)
                 authenticated = False
 
-            if authenticated and multi:
+            if authenticated:
                 ctx = session_tenant_context()
                 if ctx is None:
-                    # Authenticated but no account: a session from before the
-                    # instance went multi-tenant, or a damaged one. Sign it out
+                    # Authenticated but no family: a session from before the
+                    # registry layout (ADR-38), or a damaged one. Sign it out
                     # rather than serve a page that cannot find its data.
                     with suppress(RuntimeError):
                         logout_session()
@@ -181,13 +142,7 @@ def register_auth_middleware() -> None:
                     return RedirectResponse(unlock_redirect(path))
                 return await call_next(request)
 
-            try:
-                bootstrap = await _bootstrap_redirect_path()
-            except Exception:
-                log.exception("Auth bootstrap check failed")
-                bootstrap = None
-            if bootstrap and path != bootstrap:
-                return RedirectResponse(bootstrap)
-
+            # The login page sends an empty instance's first visitor on to set
+            # up the administrator.
             redirect_to = quote(path, safe="/")
             return RedirectResponse(f"/login?redirect_to={redirect_to}")

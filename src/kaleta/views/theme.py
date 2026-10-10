@@ -282,12 +282,6 @@ AUTH_PANEL = "k-auth-panel"
 ERROR_SLOT = "k-error-slot"
 #: The same slot with nothing to say: it keeps its height and drops its tint.
 ERROR_SLOT_EMPTY = "k-error-slot--empty"
-#: A count on that panel: large, mono, and paper-coloured.
-AUTH_PANEL_FIGURE = "k-auth-figure"
-#: Its label underneath, dimmed against the ink rather than muted on paper.
-AUTH_PANEL_LABEL = "k-auth-label"
-#: The hairline above those counts, on ink rather than on paper.
-AUTH_PANEL_RULE = "k-auth-rule"
 #: "Welcome back" — the one line on the page set as a title.
 AUTH_TITLE = "k-auth-title"
 AUTH_SUBTITLE = "k-auth-subtitle"
@@ -1158,15 +1152,6 @@ a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
 @media (min-width:768px){
   .k-auth-panel{display:flex;flex-direction:column}
 }
-.k-auth-figure{
-  font-family:'IBM Plex Mono',ui-monospace,monospace;
-  font-variant-numeric:tabular-nums;
-  font-size:22px;line-height:1.1;font-weight:400;color:var(--k-ground)
-}
-/* Lowercase, and quiet: on ink the label is a caption under a figure, not a
-   heading over one, so it takes neither caps nor letter-spacing. */
-.k-auth-label{font-size:11px;color:var(--k-on-ink-muted)}
-.k-auth-rule{border-top:1px solid var(--k-ink-rule);padding-top:22px;margin-top:26px}
 .k-auth-title{
   font-size:30px;font-weight:300;line-height:1.2;
   letter-spacing:-.02em;color:var(--k-ink)

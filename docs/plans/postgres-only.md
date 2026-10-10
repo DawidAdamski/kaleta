@@ -32,7 +32,28 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
   §4): additive; `single` keeps working. `KALETA_TENANCY=multi` +
   `KALETA_AUTH_BACKEND=local` becomes a valid instance.
 - **B — one layout, PostgreSQL only** (§1, §2, §6): `single`, SQLite and the
-  SQLite test runs go.
+  SQLite test runs go. Split in three on 2026-10-10, after the fast tier was
+  seen passing on Postgres unchanged (3196 tests, 15 s — the same as SQLite):
+  - **B1 — the test suite on PostgreSQL** (§6): the shared fixtures, the e2e
+    servers and CI use Postgres only; `scripts/test_db.sh`; the SQLite `test`
+    job goes. Production code untouched. Tests that build a SQLite file of
+    their own to exercise SQLite-only code (pragmas, VACUUM backups, the setup
+    wizard's file picker) stay until that code goes in B2/B3.
+  - **B2a — what `single` alone did, on the registry layout** (decided with
+    the maintainer 2026-10-10, see "Decisions for B2"): additive, `single`
+    still works.
+  - **B2b — one layout** (§2): `single` and `KALETA_TENANCY` go; encryption is
+    always on. One PR in two kinds of commit (planned as two PRs on
+    2026-10-10, merged back into one the same day: pinning `single` in the
+    tests only to delete them a PR later was work thrown away): the tests on
+    the registry layout — the suite's database is a registry with one family
+    (`tests/conftest.py`), the API fixtures mint family tokens, every e2e
+    server runs `local` with e-mail logins — and `single` with its code,
+    settings and tests.
+  - **B2c — NBP rates in `public`** (see "Decisions for B2"): after B2b, when
+    every instance has a `public` schema (single-tenant SQLite has none).
+  - **B3 — SQLite out of `src/`** (§1): the dialect branches, `aiosqlite`, the
+    refusal of a `sqlite` URL.
 - **C — removals, packaging, docs** (§5, §7).
 
 ## Scope
@@ -156,6 +177,37 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
 `.github/workflows/ci.yml`, `pyproject.toml`, `AGENTS.md`, `docs/*.md`,
 `docs/bdd.md`, i18n `en.json` / `pl.json`.
 
+## Decisions for B2 (maintainer, 2026-10-10)
+
+A map of every `single`/`multi` branch found fifteen things only `single`
+does. Kept, on the registry layout:
+
+- **NBP rates move to `public`.** Exchange rates are public data, the same
+  for every family: one `public.nbp_rates` table (registry migration), one
+  startup/scheduled fetch per instance, the Settings "fetch now" button
+  unchanged. *Refined while building B2a:* the family's `currency_rates`
+  stays, because it also holds the rates a member typed in and the ones
+  recorded from their own currency transfers — those reveal the family's
+  transactions and must not be shared. A lookup takes the latest rate on or
+  before the date from either table, the family's own winning a tie.
+- **Event retention loops over families.** One scheduler, once a day, sweeps
+  each tenant schema in turn (events stay per family).
+- **"The data passphrase is not the login password"** is checked against
+  `public.local_identities` for `local` logins.
+- **`tenant_admin.py reset-password EMAIL --disable-mfa`** turns the
+  member's second factor off, as `kaleta --reset-password --disable-mfa` did.
+- **`KALETA_API_TOKEN` stays** for headless use: on the registry layout it
+  authenticates as the instance administrator in their family (refused when
+  there is no administrator or no family yet). Like every bearer token, it
+  reads encrypted fields only while that member has an unlocked session.
+
+Dropped with `single`: the `/setup` database chooser, `config.json` and
+"close database"; the SQLite safety copy before migrations (backups are the
+operator's, ADR-38); scheduled SQLite backups; the login-page statistics; the
+placeholder user and `/secure-app`; opening a browser on first run; username
+(non-e-mail) logins; `encrypt_database.py`; a production install without
+encryption.
+
 ## Open questions
 
 - `users` rows in each tenant schema keep display name and attribution;
@@ -233,5 +285,112 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
   ADR-38 reverses it, so both tests now assert it starts.
 - *Not done in A*: `kaleta --reset-password` (single-tenant CLI) — part B
   replaces it with `tenant_admin.py reset-password`.
+
+**Part B1 (branch `feat/postgres-only-part-b1`).**
+
+- *One database for the suite*: `tests/suite_database.py` (was
+  `xdist_postgres.py`) reads `KALETA_DB_URL`, defaulting to the server of
+  `scripts/test_db.sh` (`postgresql+asyncpg://kaleta:kaleta@127.0.0.1:55432/kaleta`);
+  a non-Postgres URL or a silent server ends the session with
+  "Start one: ./scripts/test_db.sh up". `tests/conftest.py` migrates to head on
+  every start (idempotent), so CI lost its separate `alembic upgrade head` step.
+- *The e2e apps* each get a database of their own, `<db>_e2e_<name>`, dropped
+  `WITH (FORCE)` and created again per run (`fresh_database_url`, synchronous
+  because Playwright's sync API keeps a loop running in the test thread).
+  Behind-the-app checks in the tenant e2e tests query Postgres (`query`), and
+  "the schema file exists" became "the schema exists".
+- *A finding SQLite hid*: the e2e seed helpers ran each call under its own
+  `asyncio.run` on a pooled engine; asyncpg connections belong to the loop that
+  opened them, so the second call failed. `_run_async_worker` now builds the
+  engine for the call and disposes it before the loop ends.
+- *SQLite-only code still in `src/`* keeps its tests: `IntegrityService`
+  (`PRAGMA foreign_key_check`) runs on a `sqlite_session` fixture; the pragma,
+  VACUUM-backup, migration-chain and CLI-reset tests build their own SQLite
+  file and put the shared session factory back afterwards. They were skipped on
+  the old Postgres job; now they run everywhere (3207 passed, 0 skipped).
+  They go with that code in B2/B3.
+- *Drivers*: `asyncpg` and `psycopg2-binary` joined the `dev` group (B3 moves
+  them into the base install).
+- *CI*: the SQLite `test` job is gone; `postgres` runs both tiers and spec
+  coverage; the `valkey` job got a Postgres service for its e2e. The ruleset's
+  required checks must drop `test` (maintainer).
+- `verify.sh` and the pre-push hook run `./scripts/test_db.sh up` unless
+  `KALETA_DB_URL` is set.
+
+**Part B2a (branch `feat/postgres-only-part-b2a`, on top of B1).**
+
+- *Retention* (KAL-OBS-004): `EventRetentionScheduler._purge_once` lists the
+  families from the registry and purges each `active` one under
+  `use_tenant`; a failing family is logged and the sweep goes on; suspended
+  ones wait for `resume`. `main.py` starts it on both layouts.
+- *Passphrase ≠ password* (KAL-TEN-020): `is_local_login_password(subject, …)`
+  checks a `local:<id>` subject against `local_identities`; a Supabase subject
+  answers no (nothing to compare with). The unlock view no longer skips the
+  rule on `multi`.
+- *`--disable-mfa`* (KAL-TEN-021): `MfaService.disable_for_admin(user_id)`
+  shares `disable_all`'s body (bulk delete that works with unreadable
+  secrets, sessions revoked, an `mfa_disabled_cli` audit row in the same
+  transaction), narrowed to one member. `TenantAdminCli` takes a
+  `tenant_session` factory for it.
+- *`KALETA_API_TOKEN`* (KAL-TEN-022): `resolve_request_tenant` recognises the
+  token before the `kt_` prefix check is refused, and resolves the oldest
+  enabled instance administrator's membership (`env_token_membership`);
+  `ApiTokenService` then authenticates it as that member. 401 until an
+  administrator exists and has signed in once (no family before that).
+- *NBP* moved out of B2a into B2c (above).
+- *After review*: the env token also requires the administrator's membership
+  to be `active` (a closed membership was accepted); it is compared as bytes
+  (`compare_digest` raises on a non-ASCII `str`, so a crafted header gave 500,
+  not 401 — the test fails on the old compare); a `kt_<digits>_…` value is
+  documented as unusable; "oldest enabled administrator" moving to the next
+  one is documented in `docs/deployment.md`; `--disable-mfa` refuses a
+  suspended family instead of failing on its schema.
+
+**Part B2b (branch `feat/postgres-only-part-b2b`, on top of B2a).**
+
+- *The suite's family* (`tests/suite_family.py`): the suite database is a
+  registry with one family, provisioned by Alembic once per session and
+  emptied (every family table but `users`, then every user but the owner);
+  each test runs under its `TenantContext` with `TEST_DATA_KEY` on it. The
+  shared session pool is disposed and reconfigured after every test: asyncpg
+  connections belong to the test's loop. The e2e conftest overrides that
+  fixture with a sync no-op (Playwright owns the test thread's loop).
+- *Raw SQL is not translated*: `schema_translate_map` rewrites only
+  SQLAlchemy-built statements. Tests name the family's tables with
+  `family_table()`; `search_path` was deliberately not used.
+- *Two bugs `single` hid*: the transactions seeder cleared tags with a raw
+  `DELETE FROM transaction_tags`, which hit `public` (no such table) in a
+  family — now a Core `delete()`; `MfaService.disable()` checked the password
+  against `users.password_hash`, which a registry login never has, so turning
+  2FA off always failed — it now asks `LocalIdentityService` through the
+  member's `auth_subject`.
+- *A third, from Alembic-built families*: migration `a4e9b2f1c6d8` plants an
+  English subscriptions tree (and `b9d4e2c8a1f5` eight tags) in every family
+  schema, so the taxonomy seeder counted 4 categories and skipped — example
+  data on a new family crashed in the transactions seeder. `count()` now
+  ignores the subscriptions tree and `create()` files the Polish children under
+  the existing root (KAL-PLT-010). `--replace` still clears whole tables, the
+  planted defaults included, so the CLI replace test compares the second
+  replace with the first.
+- *KAL-AUTH-022 on local factors*: the registry provider answered "wrong code"
+  when the factor was turned off under an open prompt; it now raises
+  `ConflictError` from `mfa_challenge_verify` and `consume_recovery_code`,
+  as Supabase does.
+- *`kaleta-admin`*: `scripts/tenant_admin.py` moved to
+  `kaleta.cli.tenant_admin` with a console script (the script stays as a
+  wrapper). `reset-password` now also revokes the member's browser sessions
+  (KAL-AUTH-028, which `kaleta --reset-password` did). `kaleta
+  --reset-password` / `--disable-mfa` exit 2 naming it (KAL-TEN-023).
+- *Removed with `single`*: the setup wizard and `config.json`, `/secure-app`
+  and the placeholder user, username logins, the login-panel counts, the
+  SQLite integrity panel, "Close database", the scheduled VACUUM backups and
+  `KALETA_BACKUP_*` (§5 came forward: the scheduler only ever backed up the
+  SQLite file), `encrypt_database.py`, `LocalKeyMaterial` (dropped by
+  `s3t4u5v6w7x8`) and the per-install NBP-on-startup flag (back in B2c,
+  KAL-FXR-003 `@planned`). Their scenarios are `@removed` with the reason.
+- *The data-key resolver* (`install_data_key_resolver`) only answers outside a
+  family's context now; whether anything still needs it is a chore.
+- *Docs*: the pages that described removed commands and settings were
+  corrected here; the full SQLite/packaging sweep stays in part C.
 
 ## Implementation (filled by plan-archiver)

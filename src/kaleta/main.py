@@ -28,8 +28,6 @@ from kaleta.api.errors import register_error_handlers
 from kaleta.api.v1.health import register_health_alias
 from kaleta.auth.session import session_middleware_kwargs, warn_secure_cookie_in_debug
 from kaleta.logging_config import RequestContextMiddleware, configure_logging
-from kaleta.services.backup_scheduler import BackupScheduler
-from kaleta.services.nbp_startup import NbpStartupFetcher
 
 # Cached OpenAPI spec — generated once from our router tree.
 _openapi_spec: dict[str, Any] | None = None
@@ -102,32 +100,8 @@ def _warn_repo_root_data_leftovers() -> None:
     )
 
 
-async def _ensure_api_env_token_user() -> None:
-    """When KALETA_API_TOKEN is set, ensure a real user exists for bearer auth."""
-    import logging
-
-    from kaleta.db import AsyncSessionFactory
-    from kaleta.services.api_token_service import MIN_API_TOKEN_LENGTH
-    from kaleta.services.auth_service import AuthService
-
-    token = settings.api_token
-    if not token or len(token) < MIN_API_TOKEN_LENGTH or _multi_tenant():
-        return
-    async with AsyncSessionFactory() as session:
-        user = await AuthService(session).ensure_api_bootstrap_user()
-    logging.getLogger(__name__).info(
-        "API env-token bootstrap ready for user %r (id=%s)",
-        user.username,
-        user.id,
-    )
-
-
-def _multi_tenant() -> bool:
-    return settings.tenancy == "multi"
-
-
-def _preload_multi_tenant() -> None:
-    """Hosted layout (ADR-35): the registry first, then every tenant schema, to head."""
+def _preload_database() -> None:
+    """The registry first, then every family's schema, to head (ADR-35, ADR-38)."""
     import logging
 
     from kaleta.db import configure_database
@@ -141,41 +115,10 @@ def _preload_multi_tenant() -> None:
         logging.getLogger(__name__).error("Refusing to start: %s", exc.message)
         raise SystemExit(f"Refusing to start: {exc.message}") from exc
     logging.getLogger(__name__).info(
-        "Multi-tenant database ready (%d tenant schema(s) upgraded, %d suspended)",
+        "Database ready (%d family schema(s) upgraded, %d suspended)",
         len(run.migrated),
         len(run.suspended),
     )
-
-
-def _preload_config() -> None:
-    """Read ~/.kaleta/config.json and reconfigure the DB proxy before views are registered.
-
-    When a database is already configured, also bring its schema to the installed
-    alembic head (with a pre-migration VACUUM INTO safety copy for on-disk SQLite).
-    A multi-tenant instance takes ``KALETA_DB_URL`` and migrates its registry
-    and every tenant schema instead.
-    """
-    import logging
-
-    from kaleta.config import settings as app_settings
-    from kaleta.config.setup_config import get_db_url
-    from kaleta.exceptions import MigrationError
-
-    if _multi_tenant():
-        _preload_multi_tenant()
-        return
-
-    db_url = get_db_url()
-    if db_url:
-        from kaleta.db import configure_database
-        from kaleta.services.setup_service import ensure_schema_current
-
-        configure_database(db_url, debug=app_settings.debug)
-        try:
-            ensure_schema_current(db_url)
-        except MigrationError as exc:
-            logging.getLogger(__name__).error("Refusing to start: %s", exc.message)
-            raise SystemExit(f"Refusing to start: {exc.message}") from exc
 
 
 def _register_auth() -> None:
@@ -214,9 +157,7 @@ def _register_views() -> None:
         reset_password,
         rules,
         safety_funds,
-        secure_app,
         settings,
-        setup,
         subscriptions,
         tags,
         transactions,
@@ -227,14 +168,12 @@ def _register_views() -> None:
         wizard_unplanned_radar,
     )
 
-    setup.register()
     login.register()
     login_mfa.register()
     unlock.register()
     magic_link.register()
     create_account.register()
     reset_password.register()
-    secure_app.register()
     dashboard.register()
     transactions.register()
     accounts.register()
@@ -280,35 +219,9 @@ def _sweep_nicegui_storage() -> None:
 def _register_event_retention_scheduler() -> None:
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
 
-    if _multi_tenant():
-        # Its tables live in every tenant schema; a per-tenant sweep is not
-        # part of the tenancy foundation.
-        return
-
+    # On the registry layout one sweep visits every family's schema.
     nicegui_app.on_startup(EventRetentionScheduler.start)
     nicegui_app.on_shutdown(EventRetentionScheduler.stop)
-
-
-def _register_backup_scheduler() -> None:
-    """Start/stop scheduled SQLite file backups with the NiceGUI process.
-
-    Single-tenant only: a hosted database is backed up by its provider.
-    """
-    if _multi_tenant():
-        return
-    nicegui_app.on_startup(BackupScheduler.start)
-    nicegui_app.on_shutdown(BackupScheduler.stop)
-
-
-def _register_nbp_startup_fetch() -> None:
-    """Opt-in NBP Table A import on process start (default OFF).
-
-    Single-tenant only: the rates table lives in each tenant schema.
-    """
-    if _multi_tenant():
-        return
-    nicegui_app.on_startup(NbpStartupFetcher.start)
-    nicegui_app.on_shutdown(NbpStartupFetcher.stop)
 
 
 def _register_storage_sweep() -> None:
@@ -319,20 +232,13 @@ def _register_storage_sweep() -> None:
 async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _warn_repo_root_data_leftovers()
     _sweep_nicegui_storage()
-    await _ensure_api_env_token_user()
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
 
-    # Same single-tenant-only rule as the web process (see the _register_*).
-    if not _multi_tenant():
-        BackupScheduler.start()
-        EventRetentionScheduler.start()
-        NbpStartupFetcher.start()
+    EventRetentionScheduler.start()
     try:
         yield
     finally:
-        await NbpStartupFetcher.stop()
         await EventRetentionScheduler.stop()
-        await BackupScheduler.stop()
 
 
 def create_api() -> FastAPI:
@@ -349,24 +255,20 @@ def run_web() -> None:
     # Before the views register the log ring buffer's NiceGUI session resolver:
     # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
     warn_secure_cookie_in_debug()
-    _preload_config()
+    _preload_database()
     _setup_pwa()
     _register_request_context()
     _register_api()
     _register_auth()
     _register_views()
-    _register_backup_scheduler()
     _register_event_retention_scheduler()
-    _register_nbp_startup_fetch()
     _register_storage_sweep()
-    from kaleta.config.setup_config import is_configured
-
     ui.run(
         host=settings.host,
         port=settings.port,
         title="Kaleta",
         reload=False,
-        show=not is_configured(),
+        show=False,
         storage_secret=settings.secret_key,
         session_middleware_kwargs=session_middleware_kwargs(),
     )
@@ -379,15 +281,13 @@ def run_app() -> None:
     # Before the views register the log ring buffer's NiceGUI session resolver:
     # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
     warn_secure_cookie_in_debug()
-    _preload_config()
+    _preload_database()
     _setup_pwa()
     _register_request_context()
     _register_api()
     _register_auth()
     _register_views()
-    _register_backup_scheduler()
     _register_event_retention_scheduler()
-    _register_nbp_startup_fetch()
     _register_storage_sweep()
     ui.run(
         host=settings.host,
@@ -403,7 +303,7 @@ def run_app() -> None:
 def run_api() -> None:
     configure_logging()
     _register_error_tracker()
-    _preload_config()
+    _preload_database()
     api = create_api()
     api.add_middleware(RequestContextMiddleware, access_log=True)
     api.include_router(create_api_router())
@@ -415,17 +315,14 @@ def main() -> None:
     # change the umask of whoever imported it. Child processes inherit it.
     NiceguiStorageService.restrict_new_files()
 
-    if "--reset-password" in sys.argv:
-        from kaleta.cli.reset_password import ResetPasswordCli
-
-        raise SystemExit(ResetPasswordCli(disable_mfa="--disable-mfa" in sys.argv).run())
-
-    if "--disable-mfa" in sys.argv:
-        # Said out loud rather than ignored. This is the escape hatch
-        # SECURITY.md points a locked-out self-hoster at, and the person
-        # typing it has already lost their phone — starting the app normally
-        # and saying nothing is the worst possible answer.
-        sys.stderr.write("--disable-mfa only works together with --reset-password.\n")
+    if "--reset-password" in sys.argv or "--disable-mfa" in sys.argv:
+        # Said out loud rather than ignored: SECURITY.md once pointed a
+        # locked-out self-hoster here, and starting the app instead would be
+        # the worst possible answer.
+        sys.stderr.write(
+            "kaleta --reset-password is gone (ADR-38): logins live in the registry now.\n"
+            "Run: kaleta-admin reset-password <e-mail> [--disable-mfa]\n"
+        )
         raise SystemExit(2)
 
     match settings.mode:

@@ -16,7 +16,7 @@ class PublicBase(DeclarativeBase):
     Its own ``MetaData`` on purpose: ``Base.metadata`` is what a tenant schema
     is built from (``create_all`` in tests, autogenerate in ``alembic/``), and
     the registry must never appear inside a tenant. Migrated by
-    ``alembic_public/``, only in ``KALETA_TENANCY=multi``.
+    ``alembic_public/``.
     """
 
     metadata = MetaData()

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """The data-passphrase gate between "signed in" and "can read the data".
 
-With ``KALETA_ENCRYPTION=passphrase`` (always, in ``multi`` mode) a signed-in
+With ``KALETA_ENCRYPTION=passphrase`` (every production instance) a signed-in
 session still holds no key until its member types the data passphrase on
 ``/unlock``. The page guard sends every other page there while the session is
 locked; the API answers ``423`` (``kaleta.api.deps``).
@@ -18,7 +18,6 @@ from contextlib import AsyncExitStack
 from urllib.parse import quote
 
 from nicegui import app
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.auth.session import (
     SESSION_USER_ID,
@@ -32,9 +31,8 @@ from kaleta.crypto import key_ring
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.types import install_data_key_resolver
 from kaleta.exceptions import UnauthorizedError
-from kaleta.models.user import User
-from kaleta.services import AuthService, with_session
-from kaleta.services.key_service import KeyService, KeyStore, LocalKeyStore, TenantKeyStore
+from kaleta.services.key_service import KeyService, TenantKeyStore
+from kaleta.services.local_identity_service import LocalIdentityService, identity_id_of
 
 UNLOCK_PATH = "/unlock"
 
@@ -46,11 +44,10 @@ UNLOCK_EXEMPT_PATHS: frozenset[str] = frozenset({UNLOCK_PATH})
 
 
 def install_unlock_resolver() -> None:
-    """Let ``single`` mode's database sessions find the key this browser unlocked.
+    """Let code that runs with no family context find the key this browser unlocked.
 
-    ``multi`` mode carries it on the ``TenantContext`` instead
-    (``session_tenant_context``); installing the resolver there too is
-    harmless and keeps one code path for code that runs with no tenant.
+    A family's sessions carry it on the ``TenantContext``
+    (``session_tenant_context``); this is the fallback for the rest.
     """
     if settings.encryption_enabled:
         install_data_key_resolver(session_data_key)
@@ -80,36 +77,35 @@ async def with_key_service[T](fn: Callable[[KeyService], Awaitable[T]]) -> T:
     """Run ``fn`` with the signed-in member's ``KeyService``."""
     user_id = _signed_in_user_id()
     async with AsyncExitStack() as stack:
+        tenant = session_tenant()
+        if tenant is None:
+            msg = "Sign in first."
+            raise UnauthorizedError(msg)
         data_session = await stack.enter_async_context(AsyncSessionFactory())
-        store: KeyStore
-        if settings.tenancy == "multi":
-            tenant = session_tenant()
-            if tenant is None:
-                msg = "Sign in first."
-                raise UnauthorizedError(msg)
-            public = await stack.enter_async_context(AsyncSessionFactory.public())
-            store = TenantKeyStore(public, tenant.tenant_id, user_id)
-        else:
-            store = LocalKeyStore(data_session, user_id)
+        public = await stack.enter_async_context(AsyncSessionFactory.public())
+        store = TenantKeyStore(public, tenant.tenant_id, user_id)
         return await fn(KeyService(store, data_session))
 
 
 async def is_login_password(passphrase: str) -> bool:
-    """Whether ``passphrase`` is the signed-in user's login password (self-hosted only).
+    """Whether ``passphrase`` is the signed-in member's login password.
 
     The plan's one rule beyond length: the data passphrase must not be the
-    password, or whoever learns one has both. A hosted member's password is
-    held by the identity provider, so there is nothing here to compare with.
+    password, or whoever learns one has both. The password of a ``local``
+    login is in ``public.local_identities``; a Supabase member's is held by
+    the identity provider, so there is nothing to compare.
     """
-    user_id = _signed_in_user_id()
+    tenant = session_tenant()
+    return tenant is not None and await is_local_login_password(tenant.auth_subject, passphrase)
 
-    async def _check(session: AsyncSession) -> bool:
-        user = await session.get(User, user_id)
-        return user is not None and AuthService(session).verify_password(
-            passphrase, user.password_hash
-        )
 
-    return bool(await with_session(_check))
+async def is_local_login_password(subject: str, passphrase: str) -> bool:
+    """Whether ``passphrase`` is the password of the ``local`` login ``subject``."""
+    identity_id = identity_id_of(subject)
+    if identity_id is None:
+        return False
+    async with AsyncSessionFactory.public() as public:
+        return await LocalIdentityService(public).verify_password(identity_id, passphrase)
 
 
 def lock_this_session() -> None:

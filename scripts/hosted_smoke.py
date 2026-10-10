@@ -23,7 +23,7 @@ How the identity is made depends on the instance's ``auth_backend`` (read from
 Needs the dev dependencies and a Playwright Chromium (``uv sync --group dev``,
 ``uv run playwright install chromium``). Exit status 0 when every step passed;
 1 with the failing step named otherwise. A run that fails after sign-up says
-which address it left behind (``scripts/tenant_admin.py delete`` removes it).
+which address it left behind (``kaleta-admin delete`` removes it).
 """
 
 from __future__ import annotations
@@ -94,8 +94,8 @@ class HostedSmoke:
     def _step_health(self) -> str:
         def _check() -> str:
             body = httpx.get(f"{self.base}/api/v1/health", timeout=15).json()
-            if body.get("status") != "ok" or body.get("tenancy") != "multi":
-                raise SmokeError(f"health: not a healthy hosted instance: {body}")
+            if body.get("status") != "ok":
+                raise SmokeError(f"health: not a healthy instance: {body}")
             if body.get("migrations_pending"):
                 raise SmokeError(f"health: migrations pending: {body}")
             return str(body.get("auth_backend"))
@@ -269,7 +269,7 @@ def main() -> int:
         if smoke.signed_up and not smoke.deleted:
             print(
                 f"hosted_smoke: {smoke.email} was left behind; remove it with "
-                "scripts/tenant_admin.py delete <tenant id> --yes",
+                "kaleta-admin delete <tenant id> --yes",
                 file=sys.stderr,
             )
         return 1

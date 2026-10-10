@@ -23,11 +23,8 @@ __all__ = ["AuthProvider", "FactorEnrolment", "Identity", "MfaRequired", "SignUp
 class AuthProvider(Protocol):
     #: ``"local"``, ``"supabase"`` or ``"fake"`` (the debug stand-in for
     #: Supabase) — for the login page's form, never for branching on security
-    #: decisions. Anything but ``"local"`` is the hosted, e-mail sign-up form.
+    #: decisions.
     name: str
-    #: The login form asks for an e-mail address (every backend but the
-    #: single-tenant ``local`` one, whose login is a username).
-    email_login: bool
 
     async def sign_up(self, email: str, password: str) -> SignUpResult: ...
 
@@ -47,9 +44,8 @@ class AuthProvider(Protocol):
 
     async def verify_magic_link(self, token_hash: str) -> Identity | MfaRequired: ...
 
-    # The second factor, where the provider owns it. ``local`` refuses all
-    # three: a self-hosted install keeps its factor in ``user_mfa`` and goes
-    # through ``MfaService`` instead.
+    # The second factor, where the provider owns it (a local login's is in
+    # the family's ``user_mfa``, behind the same three calls).
 
     async def mfa_enrol(self, identity: Identity) -> FactorEnrolment: ...
 

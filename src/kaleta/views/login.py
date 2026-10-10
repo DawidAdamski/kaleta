@@ -1,9 +1,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Login page — through whichever ``AuthProvider`` this install uses.
 
-Self-hosted (``local``): username + password against the single app user,
-exactly as before. Hosted (``supabase``): e-mail + password, with links to
-sign up and to reset a forgotten password.
+E-mail + password, with a link to sign up while registration is open; with
+``supabase`` also a forgotten-password link and a magic link.
 """
 
 from __future__ import annotations
@@ -20,18 +19,15 @@ from kaleta.auth.providers import MfaRequired, get_auth_provider
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import (
     begin_hosted_mfa_challenge,
-    begin_mfa_challenge,
     finish_login,
     is_authenticated,
 )
 from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state, resend_confirmation
-from kaleta.config import settings
 from kaleta.exceptions import EmailNotVerifiedError, KaletaError, UnauthorizedError
 from kaleta.i18n import t
-from kaleta.services import AuthService, with_session
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncSession
+    pass
 
 from kaleta.views.auth_common import (
     auth_action,
@@ -59,41 +55,26 @@ def register() -> None:
         if is_authenticated():
             return RedirectResponse(safe_redirect(redirect_to))
 
-        # Every backend but the single-tenant `local` one signs in by e-mail;
-        # only Supabase also sends mail.
+        # Every backend signs in by e-mail; only Supabase also sends mail.
         provider = get_auth_provider()
-        hosted = provider.email_login
         sends_mail = provider.name == "supabase"
 
-        async def _bootstrap(session: AsyncSession) -> str | None:
-            state = await AuthService(session).auth_state()
-            if state == "no_user":
-                return "/create-account"
-            if state == "placeholder":
-                return "/secure-app"
-            return None
-
-        # The registry layout has no tenant to ask before someone signs in;
-        # with local logins its first run is the administrator's sign-up.
-        if settings.tenancy == "multi":
-            signup = await registry_sign_up_state()
-            bootstrap = "/create-account" if signup.first_run else None
-        else:
-            signup = None
-            bootstrap = await with_session(_bootstrap)
-        if bootstrap is not None:
-            return RedirectResponse(bootstrap)
+        # No family to ask before someone signs in; with local logins an empty
+        # instance's first run is the administrator's sign-up.
+        signup = await registry_sign_up_state()
+        if signup.first_run:
+            return RedirectResponse("/create-account")
 
         target = safe_redirect(redirect_to)
         rate_key = _client_key(request)
-        subtitle = "auth.login_subtitle_hosted" if hosted else "auth.login_subtitle"
+        subtitle = "auth.login_subtitle_hosted"
         shell = await auth_page_shell("auth.login_title", subtitle)
 
         # `AUTH_CONTROL` is `min-h-[48px]`, shared by all three auth pages: on
         # a phone this form is the whole screen, and a 40px field in the
         # middle of it is a target the thumb has to aim at.
         with shell, ui.column().classes("w-full gap-4"):
-            username = auth_field("auth.email" if hosted else "auth.username").props("autofocus")
+            username = auth_field("auth.email").props("autofocus")
             password = auth_field("auth.password", password=True, password_toggle_button=True).on(
                 "keydown.enter", lambda: None
             )
@@ -139,7 +120,7 @@ def register() -> None:
                 except EmailNotVerifiedError:
                     # Right password: not a failure the rate limiter counts.
                     _say(t("auth.email_not_verified"))
-                    resend.set_visibility(hosted)
+                    resend.set_visibility(True)
                     return
                 except UnauthorizedError:
                     locked = login_rate_limiter.record_failure(rate_key)
@@ -147,7 +128,7 @@ def register() -> None:
                         secs = login_rate_limiter.remaining_lock_seconds(rate_key)
                         _say(t("auth.login_rate_limited", seconds=secs))
                     else:
-                        _say(t("auth.login_failed_email" if hosted else "auth.login_failed"))
+                        _say(t("auth.login_failed_email"))
                     return
                 except KaletaError as exc:
                     _say(exc.message)
@@ -157,14 +138,9 @@ def register() -> None:
                 if isinstance(result, MfaRequired):
                     # The session stays unauthenticated until the code lands:
                     # a half-finished login must not open a single data page.
-                    if hosted:
-                        # The provider holds the factor; its aal1 session is
-                        # what the code gets checked against.
-                        begin_hosted_mfa_challenge(result)
-                    else:
-                        begin_mfa_challenge(
-                            user_id=int(result.identity.subject), username=result.identity.email
-                        )
+                    # The provider holds the factor; its aal1 session is what
+                    # the code gets checked against.
+                    begin_hosted_mfa_challenge(result)
                     ui.navigate.to(f"/login/mfa?redirect_to={quote(target, safe='/')}")
                     return
                 try:
@@ -214,7 +190,7 @@ def register() -> None:
                 with ui.row().classes("w-full justify-between gap-2"):
                     auth_link("auth.forgot_password", "/reset-password")
                     auth_action("auth.magic_link_button", _magic_link)
-            if hosted and (signup is None or signup.open):
+            if signup.open:
                 auth_link("auth.sign_up_link", "/create-account")
 
         return None

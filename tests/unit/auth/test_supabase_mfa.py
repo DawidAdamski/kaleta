@@ -24,8 +24,8 @@ from kaleta.auth import session as session_mod
 from kaleta.auth.providers import (
     FactorEnrolment,
     Identity,
-    LocalAuthProvider,
     MfaRequired,
+    RegistryAuthProvider,
     SupabaseAuthProvider,
 )
 from kaleta.exceptions import (
@@ -290,13 +290,11 @@ async def test_unenrol_without_the_service_role_key_says_what_is_missing() -> No
         await _provider(_Recorder(), service_role_key=None).mfa_unenrol(SUBJECT, FACTOR)
 
 
-async def test_the_local_provider_leaves_the_factor_to_mfa_service() -> None:
-    """Covers: KAL-AUTH-036"""
-    local = LocalAuthProvider()
+async def test_local_logins_leave_setting_the_factor_up_to_mfa_service() -> None:
+    """Covers: KAL-AUTH-036 — a local factor is enrolled and removed in Settings, not here."""
+    local = RegistryAuthProvider()
     with pytest.raises(ValidationError):
         await local.mfa_enrol(_aal1())
-    with pytest.raises(ValidationError):
-        await local.mfa_challenge_verify(_aal1(), FACTOR, RIGHT_CODE)
     with pytest.raises(ValidationError):
         await local.mfa_unenrol(SUBJECT, FACTOR)
 
@@ -321,9 +319,6 @@ def test_a_hosted_challenge_lives_in_memory_and_ends_with_the_prompt(
 
     assert session_mod.hosted_mfa_pending() == pending
     assert pending.identity.access_token not in json.dumps(bucket)
-    # The local prompt does not mistake it for one of its own, nor clear it.
-    assert session_mod.mfa_pending_user() is None
-    assert session_mod.hosted_mfa_pending() == pending
 
     session_mod.clear_mfa_challenge()
 

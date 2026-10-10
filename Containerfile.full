@@ -16,7 +16,7 @@ RUN uv sync --frozen --no-dev --extra forecast --extra hosted
 COPY src/ src/
 COPY alembic/ alembic/
 COPY alembic.ini* ./
-# The tenant registry's migrations (KALETA_TENANCY=multi).
+# The tenant registry's migrations (every instance keeps a `public` registry).
 COPY alembic_public/ alembic_public/
 COPY alembic_public.ini ./
 

@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""The hosted tenant registry: who belongs to which account, and making accounts.
+"""The tenant registry: who belongs to which account, and making accounts.
 
-``KALETA_TENANCY=multi`` only (ADR-35). Works on a *public* session — the
+Every instance keeps one (ADR-35, ADR-38). Works on a *public* session — the
 registry lives in ``public`` — and reaches into a tenant schema only to create
 it and to write the owner's ``users`` row.
 

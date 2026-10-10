@@ -18,7 +18,7 @@ async def test_sqlite_connect_pragmas(tmp_path: Path) -> None:
     url = f"sqlite+aiosqlite:///{db_path}"
     AsyncSessionFactory.configure(url, debug=False)
     try:
-        async with AsyncSessionFactory() as session:
+        async with AsyncSessionFactory.public() as session:
             foreign_keys = (await session.execute(text("PRAGMA foreign_keys"))).scalar()
             journal_mode = (await session.execute(text("PRAGMA journal_mode"))).scalar()
             busy_timeout = (await session.execute(text("PRAGMA busy_timeout"))).scalar()
