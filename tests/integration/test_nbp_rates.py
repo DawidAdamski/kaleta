@@ -6,6 +6,7 @@ Covers: KAL-FXR-001, KAL-FXR-002, KAL-FXR-003, KAL-FXR-004
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import urllib.error
@@ -157,3 +158,37 @@ async def test_the_instance_fetch_is_opt_in(
         await NbpRateScheduler.fetch_once()
     async with AsyncSessionFactory.public() as public:
         assert await _nbp_rows(public) == 2
+
+
+async def test_an_import_racing_another_keeps_what_the_other_stored(session: AsyncSession) -> None:
+    """Covers: KAL-FXR-001 — a row another fetch committed first is no conflict."""
+    session.add(NbpRate(date=JULY_22, currency="EUR", mid=Decimal("4.25")))
+    await session.flush()
+
+    result = await _service(session, _table_a()).import_latest()
+
+    assert (result.currencies_stored, result.rows_written) == (2, 1)
+    assert await _nbp_rows(session) == 2
+
+
+async def test_switched_on_the_fetch_runs_in_the_background_until_stopped(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Covers: KAL-FXR-003 — the start-up task, which then repeats once a day."""
+    fetched = asyncio.Event()
+
+    async def _fetch() -> None:
+        fetched.set()
+
+    monkeypatch.setattr(settings, "nbp_fetch", True)
+    monkeypatch.setattr(NbpRateScheduler, "fetch_once", _fetch)
+    NbpRateScheduler.start()
+    try:
+        task = NbpRateScheduler._task
+        assert task is not None
+        await asyncio.wait_for(fetched.wait(), timeout=5)
+        assert not task.done()  # asleep until tomorrow's fetch
+    finally:
+        await NbpRateScheduler.stop()
+    assert task.cancelled()
+    assert NbpRateScheduler._task is None

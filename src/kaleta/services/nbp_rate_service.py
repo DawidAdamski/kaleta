@@ -8,6 +8,7 @@ data, the same for every family, and every family's lookups read them
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import logging
@@ -17,7 +18,7 @@ from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ExternalServiceError, ValidationError
@@ -129,10 +130,12 @@ class NbpRateService:
     async def import_latest(self) -> NbpFetchResult:
         """Fetch the latest Table A and store one mid per currency for its date.
 
-        Idempotent: a currency already stored for that date is left alone, so
-        the daily fetch and the Settings button may both run on the same day.
+        Idempotent: a currency already stored for that date is left alone —
+        ``ON CONFLICT DO NOTHING``, so the daily fetch and the Settings button
+        may even run at the same moment. The HTTP call runs in a thread: it may
+        take up to 15 s, and the server's event loop must not wait for it.
         """
-        payload = self.fetch_table_a_payload()
+        payload = await asyncio.to_thread(self.fetch_table_a_payload)
         effective_s, table_no, mids = self.parse_mids(payload[0])
         try:
             on_date = datetime.date.fromisoformat(effective_s)
@@ -140,28 +143,31 @@ class NbpRateService:
             raise ValidationError(f"NBP effectiveDate is invalid: {effective_s!r}") from exc
 
         mids.pop("PLN", None)
-        stored = set(
-            (
-                await self.session.execute(select(NbpRate.currency).where(NbpRate.date == on_date))
-            ).scalars()
-        )
-        fresh = {code: mid for code, mid in mids.items() if code not in stored}
-        self.session.add_all(
-            NbpRate(date=on_date, currency=code, mid=mid, table_no=table_no)
-            for code, mid in fresh.items()
-        )
-        if fresh:
+        written = 0
+        if mids:
+            result = await self.session.execute(
+                insert(NbpRate)
+                .values(
+                    [
+                        {"date": on_date, "currency": code, "mid": mid, "table_no": table_no}
+                        for code, mid in mids.items()
+                    ]
+                )
+                .on_conflict_do_nothing(index_elements=["date", "currency"])
+                .returning(NbpRate.id)
+            )
+            written = len(result.all())
             await self.session.commit()
         logger.info(
             "Imported NBP Table A %s (%s): %s currencies, %s new",
             table_no or "?",
             on_date.isoformat(),
             len(mids),
-            len(fresh),
+            written,
         )
         return NbpFetchResult(
             effective_date=on_date,
             table_no=table_no,
             currencies_stored=len(mids),
-            rows_written=len(fresh),
+            rows_written=written,
         )

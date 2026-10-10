@@ -424,6 +424,14 @@ encryption.
   fetch button writes through `with_public_session`.
 - *`NbpRateScheduler`*: `KALETA_NBP_FETCH` (decided 2026-10-10: an
   environment switch, start-up plus daily) — web, app and api modes alike.
+- *After review*: the import is `INSERT … ON CONFLICT DO NOTHING` (a button
+  racing the start-up fetch hit the unique constraint and showed a raw SQL
+  error), and the HTTP call runs in a thread (up to 15 s that the event loop
+  no longer waits). The scheduler's task and the non-deletable NBP row have
+  tests (`tests/e2e/test_nbp_rates.py`). *Accepted*: any member may press
+  "Fetch NBP rates", which fetches for the whole instance — public data, one
+  idempotent request per press; a throttle is a chore. After a failed fetch
+  the next try is the next day (documented).
 - *A finding*: `tests/tenancy_helpers.py` dropped the registry tables from a
   hand-kept list and missed the new one; it now drops whatever
   `PublicBase.metadata` knows.

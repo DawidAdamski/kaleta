@@ -376,3 +376,8 @@ check it still reproduces before acting on it.
       message (line ~178); `test_auth.py` + `test_mfa.py` passed 3/3 together
       and the file passes alone. Cause not found — a click before the page's
       websocket is up is the suspect. Fix: find it before adding any wait.
+- [ ] **"Fetch NBP rates" has no throttle.** Any member of any family can
+      press it, and each press is one request to api.nbp.pl for the whole
+      instance (idempotent, public data). Seen in the review of `postgres-only`
+      part B2c. Fix: a per-instance minimum interval, or skip when today's
+      table is already stored after NBP's publication hour.
