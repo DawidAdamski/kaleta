@@ -17,13 +17,13 @@ from __future__ import annotations
 import datetime
 import random
 
-from sqlalchemy import delete, text
+from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import Account, AccountType
 from kaleta.models.category import Category
 from kaleta.models.payee import Payee
-from kaleta.models.tag import Tag
+from kaleta.models.tag import Tag, transaction_tags
 from kaleta.models.transaction import (
     Transaction,
     TransactionSplit,
@@ -84,7 +84,9 @@ class TransactionsSeeder(Seeder):
         return {"transactions": builder.written, "transfer_pairs": builder.transfer_pairs}
 
     async def remove(self, session: AsyncSession) -> None:
-        await session.execute(text("DELETE FROM transaction_tags"))
+        # A Core delete, not raw SQL: only statements built from the table get
+        # the family's schema (`schema_translate_map`).
+        await session.execute(delete(transaction_tags))
         await session.execute(delete(TransactionSplit))
         await session.execute(delete(Transaction))
 
