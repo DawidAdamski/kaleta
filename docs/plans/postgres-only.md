@@ -465,6 +465,10 @@ encryption.
   (`tests/migration_schema.py`) — under a second each, so KAL-PID-009 stays in
   the fast tier; the `EncryptedText` round trips use a table in the worker
   database's `public` rather than an in-memory SQLite.
+- *After review*: only `postgresql+asyncpg://` passes (a `+psycopg2` URL
+  failed later with an obscure async-engine error), and settings errors no
+  longer echo the refused value (`hide_input_in_errors`: a URL may carry a
+  password).
 - *Left for part C*: `docker-compose.yml` still sets a SQLite URL, so
   `podman compose up` is refused at start-up until C replaces it with
   Kaleta + PostgreSQL; the prose docs, `compose.hosted-dev.yml`'s comment and

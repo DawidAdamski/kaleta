@@ -7,7 +7,7 @@ import datetime
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, get_args
 
-from sqlalchemy import Integer, cast, extract, func, or_, select
+from sqlalchemy import Integer, String, cast, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ValidationError
@@ -753,7 +753,7 @@ class SavedReportService:
             )
         if dim == "month":
             return (
-                func.to_char(Transaction.date, "YYYY-MM"),
+                func.to_char(Transaction.date, "YYYY-MM", type_=String),
                 [],
                 "Month",
                 False,
@@ -801,7 +801,7 @@ class SavedReportService:
             )
         if dim == "month":
             return (
-                func.to_char(flow.c.date, "YYYY-MM"),
+                func.to_char(flow.c.date, "YYYY-MM", type_=String),
                 [],
                 "Month",
                 False,

@@ -52,7 +52,12 @@ def test_settings_logs_db_url_rewrite(caplog: pytest.LogCaptureFixture) -> None:
 
 @pytest.mark.parametrize(
     "url",
-    ["sqlite:///kaleta.db", "sqlite+aiosqlite:////home/u/.kaleta/kaleta.db", "mysql://db/k"],
+    [
+        "sqlite:///kaleta.db",
+        "sqlite+aiosqlite:////home/u/.kaleta/kaleta.db",
+        "mysql://db/k",
+        "postgresql+psycopg2://kaleta@db/kaleta",
+    ],
 )
 def test_a_url_that_is_not_postgresql_is_refused(url: str) -> None:
     """Covers: KAL-SET-030"""
@@ -61,3 +66,9 @@ def test_a_url_that_is_not_postgresql_is_refused(url: str) -> None:
     message = str(excinfo.value)
     assert "PostgreSQL 16+" in message
     assert "ADR-38" in message
+
+
+def test_a_refused_url_is_not_echoed_with_its_password() -> None:
+    with pytest.raises(ValidationError) as excinfo:
+        Settings.model_validate({"debug": True, "db_url": "mysql://u:s3cret@db/k"})
+    assert "s3cret" not in str(excinfo.value)

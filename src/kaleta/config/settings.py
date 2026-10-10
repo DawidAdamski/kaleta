@@ -14,7 +14,8 @@ _DEFAULT_DATA_DIR = Path.home() / ".kaleta"
 #: A PostgreSQL on this machine; anything else is set with ``KALETA_DB_URL``.
 _DEFAULT_DB_URL = "postgresql+asyncpg://kaleta@localhost:5432/kaleta"
 _POSTGRES_ONLY = (
-    "KALETA_DB_URL must name a PostgreSQL database (postgresql://…): Kaleta runs on "
+    "KALETA_DB_URL must name a PostgreSQL database (postgresql:// or "
+    "postgresql+asyncpg://): Kaleta runs on "
     "PostgreSQL 16+ only (ADR-38) and does not migrate SQLite databases — "
     "see docs/getting-started.md."
 )
@@ -31,7 +32,10 @@ def normalize_db_url(url: str) -> str:
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="KALETA_", env_file=".env", extra="ignore")
+    # A refused value is never echoed: a database URL or a key may carry a secret.
+    model_config = SettingsConfigDict(
+        env_prefix="KALETA_", env_file=".env", extra="ignore", hide_input_in_errors=True
+    )
 
     db_url: str = _DEFAULT_DB_URL
     host: str = "127.0.0.1"
@@ -107,7 +111,8 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_db_url(cls, value: str) -> str:
         normalized = normalize_db_url(value)
-        if not normalized.startswith("postgresql"):
+        # asyncpg is the one async driver installed; psycopg2 serves Alembic only.
+        if not normalized.startswith("postgresql+asyncpg://"):
             raise ValueError(_POSTGRES_ONLY)
         if normalized != value:
             logger.info(
