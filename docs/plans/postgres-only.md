@@ -44,6 +44,8 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
     still works.
   - **B2b — one layout** (§2): `single` and `KALETA_TENANCY` go; encryption is
     always on.
+  - **B2c — NBP rates in `public`** (see "Decisions for B2"): after B2b, when
+    every instance has a `public` schema (single-tenant SQLite has none).
   - **B3 — SQLite out of `src/`** (§1): the dialect branches, `aiosqlite`, the
     refusal of a `sqlite` URL.
 - **C — removals, packaging, docs** (§5, §7).
@@ -175,9 +177,13 @@ A map of every `single`/`multi` branch found fifteen things only `single`
 does. Kept, on the registry layout:
 
 - **NBP rates move to `public`.** Exchange rates are public data, the same
-  for every family: one `public.currency_rates` table (registry migration),
-  one startup/scheduled fetch per instance, the Settings "fetch now" button
-  unchanged. The per-family copies are dropped by a tenant migration.
+  for every family: one `public.nbp_rates` table (registry migration), one
+  startup/scheduled fetch per instance, the Settings "fetch now" button
+  unchanged. *Refined while building B2a:* the family's `currency_rates`
+  stays, because it also holds the rates a member typed in and the ones
+  recorded from their own currency transfers — those reveal the family's
+  transactions and must not be shared. A lookup takes the latest rate on or
+  before the date from either table, the family's own winning a tie.
 - **Event retention loops over families.** One scheduler, once a day, sweeps
   each tenant schema in turn (events stay per family).
 - **"The data passphrase is not the login password"** is checked against
@@ -304,5 +310,27 @@ encryption.
   required checks must drop `test` (maintainer).
 - `verify.sh` and the pre-push hook run `./scripts/test_db.sh up` unless
   `KALETA_DB_URL` is set.
+
+**Part B2a (branch `feat/postgres-only-part-b2a`, on top of B1).**
+
+- *Retention* (KAL-OBS-004): `EventRetentionScheduler._purge_once` lists the
+  families from the registry and purges each `active` one under
+  `use_tenant`; a failing family is logged and the sweep goes on; suspended
+  ones wait for `resume`. `main.py` starts it on both layouts.
+- *Passphrase ≠ password* (KAL-TEN-020): `is_local_login_password(subject, …)`
+  checks a `local:<id>` subject against `local_identities`; a Supabase subject
+  answers no (nothing to compare with). The unlock view no longer skips the
+  rule on `multi`.
+- *`--disable-mfa`* (KAL-TEN-021): `MfaService.disable_for_admin(user_id)`
+  shares `disable_all`'s body (bulk delete that works with unreadable
+  secrets, sessions revoked, an `mfa_disabled_cli` audit row in the same
+  transaction), narrowed to one member. `TenantAdminCli` takes a
+  `tenant_session` factory for it.
+- *`KALETA_API_TOKEN`* (KAL-TEN-022): `resolve_request_tenant` recognises the
+  token before the `kt_` prefix check is refused, and resolves the oldest
+  enabled instance administrator's membership (`env_token_membership`);
+  `ApiTokenService` then authenticates it as that member. 401 until an
+  administrator exists and has signed in once (no family before that).
+- *NBP* moved out of B2a into B2c (above).
 
 ## Implementation (filled by plan-archiver)
