@@ -1,21 +1,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Local logins on the registry layout (ADR-38, ``postgres-only`` part A).
 
-``KALETA_TENANCY=multi`` with ``KALETA_AUTH_BACKEND=local``: logins live in
+``KALETA_AUTH_BACKEND=local``: logins live in
 ``public.local_identities``, the first one is the instance administrator, and
 a sign-in provisions the login's family exactly as a Supabase sign-in does.
 
 Covers: KAL-TEN-015, KAL-TEN-016, KAL-TEN-017, KAL-TEN-018, KAL-TEN-019, KAL-TEN-020,
-KAL-TEN-021, KAL-TEN-022
+KAL-TEN-021, KAL-TEN-022, KAL-AUTH-022
 """
 
 from __future__ import annotations
 
 import argparse
 import asyncio
-import importlib.util
 import io
-import sys
 import time
 from collections.abc import AsyncIterator
 from pathlib import Path
@@ -31,6 +29,7 @@ from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import MfaRequired, RegistryAuthProvider, set_auth_provider
 from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state
 from kaleta.auth.unlock import is_local_login_password
+from kaleta.cli import tenant_admin
 from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
@@ -42,13 +41,6 @@ from kaleta.services.local_identity_service import LocalIdentityService
 from kaleta.services.mfa_service import TOTP_INTERVAL, MfaService
 from kaleta.services.tenant_service import TenantService
 from tests.tenancy_helpers import MetadataProvisioner, multi_tenant_database
-
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "tenant_admin.py"
-_spec = importlib.util.spec_from_file_location("tenant_admin", SCRIPT)
-assert _spec is not None and _spec.loader is not None
-tenant_admin = importlib.util.module_from_spec(_spec)
-sys.modules.setdefault("tenant_admin", tenant_admin)
-_spec.loader.exec_module(tenant_admin)
 
 ADMIN = "Admin@Example.com"
 PASSWORD = "correct horse battery"
@@ -213,6 +205,33 @@ async def test_a_local_second_factor_is_checked_inside_the_family(instance: str)
     assert recovered is not None
     assert recovered.user_id == signed_in.user_id
     assert await _flow(instance).recover(pending, codes[0]) is None
+
+
+async def test_a_prompt_whose_local_factor_was_turned_off_says_so(instance: str) -> None:
+    """Covers: KAL-AUTH-022 — not "wrong code", and no try charged for it."""
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+    signed_in = await _flow(instance).complete(result.identity)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+    assert membership is not None
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            mfa = MfaService(session)
+            enrolment = await mfa.begin_enrolment(signed_in.user_id)
+            totp = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL)
+            codes = await mfa.confirm_enrolment(signed_in.user_id, totp.now())
+    pending = await RegistryAuthProvider().sign_in(ADMIN, PASSWORD)
+    assert isinstance(pending, MfaRequired)
+
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            await MfaService(session).disable_for_admin(signed_in.user_id)
+
+    with pytest.raises(ConflictError):
+        await _flow(instance).verify_code(pending, totp.at(int(time.time()) + TOTP_INTERVAL))
+    with pytest.raises(ConflictError):
+        await _flow(instance).recover(pending, codes[0])
 
 
 class _NoRemover:
@@ -382,8 +401,12 @@ async def test_the_administrator_turns_a_members_second_factor_off(instance: str
         AsyncSessionFactory.public, _NoRemover(), tenant_session=AsyncSessionFactory, out=out
     )
     assert await cli.reset_password(ADMIN, disable_mfa=True) == 0
-    new_password = out.getvalue().splitlines()[-2].rsplit(": ", 1)[1]
-    assert out.getvalue().splitlines()[-1] == "two-factor authentication: removed"
+    password_line, signed_out, removed = out.getvalue().splitlines()[-3:]
+    new_password = password_line.rsplit(": ", 1)[1]
+    assert signed_out == (
+        "All browser sessions have been signed out; API bearer tokens are unchanged."
+    )
+    assert removed == "two-factor authentication: removed"
 
     assert isinstance(await RegistryAuthProvider().sign_in(ADMIN, new_password), Identity)
     with use_tenant(membership.context()):
@@ -416,7 +439,6 @@ async def test_the_environment_token_acts_as_the_administrator_in_their_family(
 ) -> None:
     """Covers: KAL-TEN-022"""
     monkeypatch.setattr(settings, "api_token", ENV_TOKEN)
-    monkeypatch.setattr("kaleta.api.deps.is_configured", lambda: True)
     assert await _accounts_with(ENV_TOKEN) == 401  # no administrator yet
 
     result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)

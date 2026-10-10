@@ -36,10 +36,13 @@ from sqlalchemy.engine import Result
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
+from kaleta.models.tenant import TenantMember
 from kaleta.models.user import User
 from kaleta.models.user_mfa import MFA_KIND_SUPABASE, MFA_KIND_TOTP, UserMfa
 from kaleta.services.auth_service import AuthService
+from kaleta.services.local_identity_service import LocalIdentityService, identity_id_of
 
 if TYPE_CHECKING:
     from sqlalchemy.engine import CursorResult
@@ -521,7 +524,7 @@ class MfaService:
         # would answer in one argon2 verify where a right password answers in
         # up to eleven, and that difference is a password oracle no matter
         # what the message says.
-        password_ok = AuthService(self.session).verify_password(password, user.password_hash)
+        password_ok = await self._login_password_matches(user_id, password)
         counter = self._matching_counter(row, code)
         # Looked for whatever the TOTP check said, so that the reply does not
         # time differently depending on the password — which is the oracle
@@ -568,6 +571,27 @@ class MfaService:
             msg = "Two-factor authentication is not enabled."
             raise ConflictError(msg)
 
+    async def _login_password_matches(self, user_id: int, password: str) -> bool:
+        """``password`` is the member's local login password (ADR-38).
+
+        The hash is the registry's (``public.local_identities``), reached from
+        this family's session through the member row; ``users.password_hash``
+        holds nothing. A member signed in through another provider has no
+        local password, and none matches.
+        """
+        ctx = current_tenant()
+        if ctx is None:
+            return False
+        subject = await self.session.scalar(
+            select(TenantMember.auth_subject).where(
+                TenantMember.tenant_id == ctx.tenant_id, TenantMember.user_id == user_id
+            )
+        )
+        identity_id = identity_id_of(subject) if subject is not None else None
+        if identity_id is None:
+            return False
+        return await LocalIdentityService(self.session).verify_password(identity_id, password)
+
     async def disable_all(self) -> int:
         """Drop every enrolment; return how many were actually switched on.
 
@@ -578,7 +602,7 @@ class MfaService:
     async def disable_for_admin(self, user_id: int) -> bool:
         """Drop one member's enrolment; whether a confirmed factor was removed.
 
-        The registry layout's escape hatch (``tenant_admin.py reset-password
+        The registry layout's escape hatch (``kaleta-admin reset-password
         --disable-mfa``): the instance administrator, not the member, asks.
         """
         return await self._disable_without_proof(user_id) > 0
