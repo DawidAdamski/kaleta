@@ -186,7 +186,9 @@ class TenantAdminCli:
                 self._print("two-factor authentication: none (no family yet)")
             return 0
         if membership.tenant.status is not TenantStatus.ACTIVE:
-            # A suspended schema may be one that did not migrate.
+            # A suspended schema may be one that did not migrate, so it is not
+            # opened: its sessions stay as they are, and a suspended family's
+            # sign-ins are refused anyway until it is resumed.
             if not disable_mfa:
                 return 0
             return self._refuse(

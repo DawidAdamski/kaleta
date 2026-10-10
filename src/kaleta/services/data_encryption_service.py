@@ -8,8 +8,9 @@ value (either format decodes), write it back (the column type encrypts under
 the data key bound to this context) and recompute every blind index from the
 plaintext, since an index under the old key matches nothing under the new.
 
-The same pass runs the other way for ``scripts/encrypt_database.py
---decrypt``: read under the key, write with encryption switched off.
+``KeyService.setup`` runs it when a family's first data passphrase is set up.
+The same pass can run the other way: read under the key, write with
+encryption switched off.
 
 What it cannot recompute is ``dismissed_candidate_patterns.merchant_key``,
 which stores only an index, never the merchant name: those dismissals stop
