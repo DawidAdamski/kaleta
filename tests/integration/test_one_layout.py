@@ -2,11 +2,11 @@
 """KALETA_AUTH_BACKEND / KALETA_ENCRYPTION — one layout, and what may run on it (ADR-38).
 
 Every instance is a registry and a schema per family. Logins are ``local``
-(kept in the registry) or ``supabase``, or ``fake`` on a developer's laptop
-(``KALETA_DEBUG=true`` only). Encryption is on; ``off`` is a laptop setting too.
-The single-family switches are gone and say where they went.
+(kept in the registry) or ``supabase``. Encryption is on; ``off`` is a
+developer's laptop setting (``KALETA_DEBUG=true`` only). The single-family
+switches, the ``fake`` backend and the desktop window are gone and say where they went.
 
-Covers: KAL-TEN-011, KAL-TEN-023
+Covers: KAL-TEN-023, KAL-TEN-024, KAL-TEN-025
 """
 
 from __future__ import annotations
@@ -47,16 +47,27 @@ def test_supabase_without_its_url_and_key_is_refused() -> None:
         Settings.model_validate({"debug": True, "auth_backend": "supabase"})
 
 
-def test_the_fake_backend_is_accepted_with_debug() -> None:
-    """Covers: KAL-TEN-011"""
-    settings = Settings.model_validate({"debug": True, "auth_backend": "fake"})
-    assert settings.auth_backend == "fake"
+@pytest.mark.parametrize("value", ["app", " App "])
+def test_the_desktop_window_is_refused_naming_web(value: str) -> None:
+    """Covers: KAL-TEN-025"""
+    gone = r"KALETA_MODE=app \(the desktop window\) is gone \(ADR-38\): run web"
+    with pytest.raises(ValidationError, match=gone):
+        Settings.model_validate({"debug": True, "mode": value})
 
 
-def test_the_fake_backend_is_refused_without_debug() -> None:
-    """Covers: KAL-TEN-011"""
-    with pytest.raises(ValidationError, match="KALETA_AUTH_BACKEND=fake is accepted only with"):
-        Settings.model_validate({**_PRODUCTION, "auth_backend": "fake"})
+@pytest.mark.parametrize("value", ["web", "api"])
+def test_web_and_api_are_the_modes(value: str) -> None:
+    """Covers: KAL-TEN-025"""
+    assert Settings.model_validate({"debug": True, "mode": value}).mode == value
+
+
+@pytest.mark.parametrize("value", ["fake", " FAKE "])
+def test_the_fake_backend_is_refused_naming_local(value: str) -> None:
+    """Covers: KAL-TEN-024"""
+    with pytest.raises(
+        ValidationError, match=r"KALETA_AUTH_BACKEND=fake is gone \(ADR-38\): use local"
+    ):
+        Settings.model_validate({"debug": True, "auth_backend": value})
 
 
 def test_encryption_off_is_refused_without_debug() -> None:

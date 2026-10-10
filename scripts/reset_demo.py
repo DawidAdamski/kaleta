@@ -70,19 +70,10 @@ async def _ensure_local_login(email: str, password: str) -> None:
 
 
 async def _demo_identity(provider: AuthProvider, email: str, password: str) -> Identity:
-    """Sign the demo owner in; the debug backend signs it up the first time."""
+    """Sign the demo owner in; a local login is created the first time."""
     if provider.name == "local":
         await _ensure_local_login(email, password)
-    try:
-        result = await provider.sign_in(email, password)
-    except UnauthorizedError:
-        if provider.name != "fake":
-            raise
-        signed_up = await provider.sign_up(email, password)
-        if signed_up.identity is None:
-            raise
-        print(f"[OK] Demo identity {email!r} signed up.")
-        return signed_up.identity
+    result = await provider.sign_in(email, password)
     if not isinstance(result, Identity):
         msg = "The demo identity has a second factor; remove it."
         raise UnauthorizedError(msg)

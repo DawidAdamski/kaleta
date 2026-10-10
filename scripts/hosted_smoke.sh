@@ -8,8 +8,9 @@
 #   ./scripts/hosted_smoke.sh                              # the hosted-dev stack
 #
 # With no URL it brings up compose.hosted-dev.yml (PostgreSQL + Kaleta in
-# `multi` mode with the debug sign-in backend), waits for it to be healthy,
-# runs the smoke against it and takes the stack down again, volumes included.
+# local logins), waits for it to be healthy, creates an administrator and opens
+# registration, runs the smoke against it and takes the stack down again,
+# volumes included.
 # KALETA_HOSTED_DEV_PORT picks the port (default 8090); KALETA_SMOKE_KEEP=1
 # leaves the stack running afterwards. Needs podman (or docker) compose.
 set -euo pipefail
@@ -52,5 +53,11 @@ if ! curl -fsS "${base}/api/v1/health" >/dev/null 2>&1; then
   "${compose[@]}" logs --tail 40 kaleta >&2 || true
   exit 1
 fi
+
+# The smoke's identity must be an ordinary member: an administrator's login
+# outlives "Delete my account", which the smoke checks is refused afterwards.
+"${compose[@]}" exec -T kaleta uv run kaleta-admin create-login admin@kaleta.invalid --admin \
+  >/dev/null
+"${compose[@]}" exec -T kaleta uv run kaleta-admin registration open >/dev/null
 
 uv run python scripts/hosted_smoke.py "${base}"

@@ -155,7 +155,7 @@ class SignUpState:
 async def registry_sign_up_state() -> SignUpState:
     """Whether this instance is on its first run, and whether sign-up is open.
 
-    Supabase (and the debug ``fake`` backend) always offer sign-up; local
+    Supabase always offers sign-up; local
     logins follow the instance's registration mode (ADR-38).
     """
     if not isinstance(get_auth_provider(), RegistryAuthProvider):

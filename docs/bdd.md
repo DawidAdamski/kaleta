@@ -3550,7 +3550,8 @@ Feature: Hosted accounts (multi-tenant)
     And the health probe lists the first account's id as suspended
     And the first account's members are refused at sign-in, the second's are let in
 
-  KAL-TEN-011 @automated
+  KAL-TEN-011 @removed
+    # Removed by ADR-38 (postgres-only C1): the fake backend is gone; local logins need no e-mail provider either (KAL-TEN-024).
   Scenario: The hosted flow runs on a laptop with the debug sign-in backend
     Given KALETA_AUTH_BACKEND=fake
     Then the instance refuses to start unless KALETA_DEBUG=true
@@ -3666,6 +3667,19 @@ Feature: Hosted accounts (multi-tenant)
     Then the start-up log says it is no longer read
     When I run "kaleta --reset-password" or "kaleta --disable-mfa"
     Then it exits with status 2 and names "kaleta-admin reset-password <e-mail> [--disable-mfa]"
+
+  KAL-TEN-024 @automated
+  Scenario: The debug sign-in backend is refused, naming local logins
+    Given KALETA_AUTH_BACKEND=fake, with or without KALETA_DEBUG=true
+    When Kaleta reads its settings
+    Then it refuses to start with "KALETA_AUTH_BACKEND=fake is gone (ADR-38): use local"
+
+  KAL-TEN-025 @automated
+  Scenario: The desktop window is refused, naming the browser app
+    Given KALETA_MODE=app
+    When Kaleta reads its settings
+    Then it refuses to start with "KALETA_MODE=app (the desktop window) is gone (ADR-38): run web"
+    And KALETA_MODE=web and KALETA_MODE=api still start
 ```
 
 ## Feature: Data encryption (user-held passphrase)
