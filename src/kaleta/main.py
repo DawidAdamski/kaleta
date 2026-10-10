@@ -280,11 +280,7 @@ def _sweep_nicegui_storage() -> None:
 def _register_event_retention_scheduler() -> None:
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
 
-    if _multi_tenant():
-        # Its tables live in every tenant schema; a per-tenant sweep is not
-        # part of the tenancy foundation.
-        return
-
+    # On the registry layout one sweep visits every family's schema.
     nicegui_app.on_startup(EventRetentionScheduler.start)
     nicegui_app.on_shutdown(EventRetentionScheduler.stop)
 
@@ -322,10 +318,10 @@ async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     await _ensure_api_env_token_user()
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
 
+    EventRetentionScheduler.start()
     # Same single-tenant-only rule as the web process (see the _register_*).
     if not _multi_tenant():
         BackupScheduler.start()
-        EventRetentionScheduler.start()
         NbpStartupFetcher.start()
     try:
         yield

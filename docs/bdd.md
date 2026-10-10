@@ -3868,6 +3868,14 @@ Feature: Anonymous error events
     Given an app event older than the retention window exists
     When the retention purge runs
     Then the old event is deleted
+
+  KAL-OBS-004 @automated
+  Scenario: On the registry layout the retention purge visits every active family
+    Given two active families each hold an app event 30 days old and one from today
+    And a third, suspended family holds an app event 30 days old
+    When the retention purge runs with a 7-day window
+    Then each active family keeps only today's event
+    And the suspended family's event is left until the family is resumed
 ```
 
 ## Feature: Bug reports
