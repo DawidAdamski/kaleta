@@ -202,7 +202,8 @@ run it under Kaleta's uid.
 SQLite backups, the NBP startup fetch and the SQLite integrity check. The event
 retention sweep visits every active family once a day. `KALETA_API_TOKEN`
 authenticates as the instance administrator (local logins only), in their
-family.
+family — the oldest enabled one, so disabling that login moves the token to
+the next administrator's family.
 
 ## 3. Operations
 

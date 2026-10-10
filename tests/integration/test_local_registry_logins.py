@@ -35,7 +35,7 @@ from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import ConflictError, UnauthorizedError, ValidationError
-from kaleta.models.tenant import TenantRole
+from kaleta.models.tenant import TenantMemberStatus, TenantRole
 from kaleta.schemas.identity import Identity, RegistrationMode
 from kaleta.services import ApiTokenService, AuthService
 from kaleta.services.local_identity_service import LocalIdentityService
@@ -399,13 +399,14 @@ ENV_TOKEN = "env-token-for-the-headless-api-0123"
 
 
 async def _accounts_with(token: str) -> int:
+    """The status of ``GET /accounts/`` with ``token``, sent as latin-1 bytes like any header."""
     app = FastAPI()
     register_error_handlers(app)
     app.include_router(create_api_router())
     async with AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        headers={"Authorization": f"Bearer {token}"},
+        headers={"Authorization": f"Bearer {token}".encode("latin-1")},
     ) as client:
         return (await client.get("/api/v1/accounts/")).status_code
 
@@ -425,6 +426,20 @@ async def test_the_environment_token_acts_as_the_administrator_in_their_family(
     await _flow(instance).complete(result.identity)
     assert await _accounts_with(ENV_TOKEN) == 200
     assert await _accounts_with(ENV_TOKEN[:-1] + "X") == 401
+    assert await _accounts_with("é" * 20) == 401  # not a 500: compared as bytes
+
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+        assert membership is not None
+        membership.member.status = TenantMemberStatus.REMOVED
+        await public.commit()
+    assert await _accounts_with(ENV_TOKEN) == 401
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(result.identity.subject)
+        assert membership is not None
+        membership.member.status = TenantMemberStatus.ACTIVE
+        await public.commit()
+    assert await _accounts_with(ENV_TOKEN) == 200
 
     # The token follows the oldest enabled administrator: disable this one and
     # it is the second's, who has no family yet.

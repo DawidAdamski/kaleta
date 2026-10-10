@@ -47,7 +47,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.db.tenant_context import TenantContext, use_tenant
 from kaleta.exceptions import KaletaError
-from kaleta.models.tenant import Tenant, TenantMember, TenantMemberStatus
+from kaleta.models.tenant import Tenant, TenantMember, TenantMemberStatus, TenantStatus
 from kaleta.schemas.identity import RegistrationMode
 from kaleta.services.account_deletion_service import AccountDeletionService, IdentityRemover
 from kaleta.services.local_identity_service import LocalIdentityService, subject_of
@@ -184,6 +184,12 @@ class TenantAdminCli:
             if membership is None or membership.member.user_id is None:
                 self._print("two-factor authentication: none (no family yet)")
                 return 0
+            if membership.tenant.status is not TenantStatus.ACTIVE:
+                # A suspended schema may be one that did not migrate.
+                return self._refuse(
+                    f"family {membership.tenant.id} is {membership.tenant.status.value}; "
+                    "two-factor authentication was left on — resume the family first"
+                )
             removed = await self._disable_mfa(membership.context(), membership.member.user_id)
             self._print(f"two-factor authentication: {'removed' if removed else 'none'}")
         return 0

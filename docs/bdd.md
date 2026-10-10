@@ -3650,7 +3650,7 @@ Feature: Hosted accounts (multi-tenant)
     Then it is refused with 401
     When the administrator has signed in once
     Then the token reads and writes the administrator's family
-    And a different token is refused
+    And a different token is refused, and so is the token once the administrator's membership is closed
     And once that login is disabled the token belongs to the next enabled administrator
 ```
 

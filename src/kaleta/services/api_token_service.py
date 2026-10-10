@@ -13,7 +13,7 @@ from kaleta.config import settings
 from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import ValidationError
 from kaleta.models.api_token import ApiToken
-from kaleta.models.tenant import LocalIdentity
+from kaleta.models.tenant import LocalIdentity, TenantMemberStatus
 from kaleta.services.auth_service import PLACEHOLDER_USERNAME, AuthService
 from kaleta.services.local_identity_service import subject_of
 from kaleta.services.mfa_service import MfaService
@@ -33,7 +33,9 @@ def is_env_token(raw_token: str) -> bool:
         return False
     if len(raw_token) < _MIN_API_TOKEN_LENGTH:
         return False
-    return secrets.compare_digest(raw_token, env_token)
+    # Bytes: `compare_digest` refuses a non-ASCII str with TypeError, and a
+    # header is whatever the client sent (Starlette decodes it as latin-1).
+    return secrets.compare_digest(raw_token.encode(), env_token.encode())
 
 
 async def env_token_membership(public: AsyncSession) -> TenantMembership | None:
@@ -41,8 +43,12 @@ async def env_token_membership(public: AsyncSession) -> TenantMembership | None:
 
     The instance administrator — the oldest enabled one — in their family;
     ``None`` while there is no administrator, or they have not signed in yet
-    (no family). Self-hosted, headless use: a hosted (Supabase) instance has no
-    administrator login, so the variable authenticates no one there.
+    (no family), or their membership is not active. Self-hosted, headless use:
+    a hosted (Supabase) instance has no administrator login, so the variable
+    authenticates no one there.
+
+    "Oldest enabled" moves: disabling that administrator hands the token to
+    the next one, and their family (``docs/deployment.md``).
     """
     result = await public.execute(
         select(LocalIdentity.id)
@@ -54,7 +60,11 @@ async def env_token_membership(public: AsyncSession) -> TenantMembership | None:
     if admin_id is None:
         return None
     membership = await TenantService(public).get_member_by_subject(subject_of(admin_id))
-    if membership is None or membership.member.user_id is None:
+    if (
+        membership is None
+        or membership.member.user_id is None
+        or membership.member.status is not TenantMemberStatus.ACTIVE
+    ):
         return None
     return membership
 

@@ -42,7 +42,8 @@ class Settings(BaseSettings):
     #: A bearer token from the environment, for headless use (≥16 characters).
     #: ``single``: the one user. Registry layout: the instance administrator, in
     #: their family — like any token, it reads encrypted data only while that
-    #: member has an unlocked session.
+    #: member has an unlocked session. A value shaped like a family token
+    #: (``kt_<digits>_…``) is read as one and never matches: choose another.
     api_token: str | None = None
     session_ttl_hours: int = 72
     #: Hours without a request after which a UI session ends, however young it

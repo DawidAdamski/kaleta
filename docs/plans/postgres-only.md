@@ -332,5 +332,12 @@ encryption.
   `ApiTokenService` then authenticates it as that member. 401 until an
   administrator exists and has signed in once (no family before that).
 - *NBP* moved out of B2a into B2c (above).
+- *After review*: the env token also requires the administrator's membership
+  to be `active` (a closed membership was accepted); it is compared as bytes
+  (`compare_digest` raises on a non-ASCII `str`, so a crafted header gave 500,
+  not 401 — the test fails on the old compare); a `kt_<digits>_…` value is
+  documented as unusable; "oldest enabled administrator" moving to the next
+  one is documented in `docs/deployment.md`; `--disable-mfa` refuses a
+  suspended family instead of failing on its schema.
 
 ## Implementation (filled by plan-archiver)
