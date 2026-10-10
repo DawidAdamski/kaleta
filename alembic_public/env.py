@@ -16,6 +16,7 @@ from alembic import context
 from kaleta.config import settings
 from kaleta.db.base import PublicBase
 from kaleta.db.tenant_schemas import PUBLIC_SCHEMA, is_sqlite_url, sqlite_schema_file
+from kaleta.models import nbp_rate as _nbp_rate  # noqa: F401 — registers public.nbp_rates
 from kaleta.models import tenant as _tenant  # noqa: F401 — registers the registry tables
 
 VERSION_TABLE = "alembic_version_public"

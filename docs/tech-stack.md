@@ -181,9 +181,10 @@ with `-x tenant_schema=`. Every session is bound to the current tenant with
 SQLAlchemy's `schema_translate_map` — never `SET search_path` — and a request
 that has not resolved its tenant gets no session at all. API tokens are
 `kt_<tenant>_<secret>` so the tenant is known before the token is looked up.
-Scheduled backups, the NBP startup fetch (it returns per instance in part B2c)
-and the integrity check no longer exist; the event retention sweep visits
-every active family. Multi-tenant SQLite (every schema an attached file next
+Scheduled backups and the integrity check no longer exist; the event
+retention sweep visits every active family. NBP rates live once per instance
+in `public.nbp_rates` (`KALETA_NBP_FETCH`), under each family's own
+`currency_rates`. Multi-tenant SQLite (every schema an attached file next
 to the main one) exists for development and tests; production runs PostgreSQL.
 
 On PostgreSQL each process keeps at most ten connections (`pool_size=5`,
@@ -247,6 +248,7 @@ KALETA_LOG_FORMAT=text                # text (terminal) | json (one object per l
 KALETA_LOG_LEVEL=INFO                 # Python level name; KALETA_DEBUG=true forces DEBUG
 KALETA_EVENTS_ENABLED=true            # Anonymous error events (docs/privacy.md)
 KALETA_EVENT_RETENTION_DAYS=7         # Rolling deletion window for events
+KALETA_NBP_FETCH=false                # Fetch NBP Table A at start-up and daily (shared)
 KALETA_BUG_REPORTS_ENABLED=true       # In-app "Report a problem" retention reaper
 KALETA_BUG_REPORT_RETENTION_DAYS=90   # Rolling deletion window for filed reports
 KALETA_BUG_REPORT_WEBHOOK=            # POST each report as JSON (n8n, generic endpoint)

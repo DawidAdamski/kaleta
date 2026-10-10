@@ -20,9 +20,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
-from kaleta.db.base import Base
+from kaleta.db.base import Base, PublicBase
 from kaleta.db.tenant_context import install_tenant_resolver, set_tenant
 from kaleta.db.tenant_schemas import quote_schema
+from kaleta.models import nbp_rate as _nbp_rate  # noqa: F401 — registers public.nbp_rates
+from kaleta.models import tenant as _tenant  # noqa: F401 — registers the registry tables
 from kaleta.schemas.identity import Identity
 from kaleta.services.setup_service import _sync_url, upgrade_public_to_head
 from tests.suite_database import companion_database_url
@@ -59,14 +61,9 @@ def _drop_postgres_multi_tenant_state(url: str) -> None:
             ).scalars()
             for schema in list(schemas):
                 conn.execute(text(f"DROP SCHEMA {quote_schema(schema)} CASCADE"))
-            for table in (
-                "tenant_invites",
-                "tenant_members",
-                "tenants",
-                "local_identities",
-                "instance_settings",
-                "alembic_version_public",
-            ):
+            # Every registry table the models know, so a new one cannot be missed.
+            tables = [t.name for t in reversed(PublicBase.metadata.sorted_tables)]
+            for table in (*tables, "alembic_version_public"):
                 conn.execute(text(f"DROP TABLE IF EXISTS public.{table} CASCADE"))
     finally:
         engine.dispose()

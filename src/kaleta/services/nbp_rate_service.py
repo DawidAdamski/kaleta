@@ -1,8 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Fetch NBP Table A mid rates and store them via CurrencyRateService."""
+"""Fetch NBP Table A mid rates into ``public.nbp_rates`` — once for the whole instance.
+
+The table is the registry's (ADR-38, part B2c): exchange rates are public
+data, the same for every family, and every family's lookups read them
+(``CurrencyRateService``). Works on a *public* session.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import json
 import logging
@@ -12,11 +18,12 @@ from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ExternalServiceError, ValidationError
+from kaleta.models.nbp_rate import NbpRate
 from kaleta.schemas.nbp import NbpFetchResult
-from kaleta.services.currency_rate_service import CurrencyRateService
 
 logger = logging.getLogger(__name__)
 
@@ -28,16 +35,16 @@ _USER_AGENT = "Kaleta/0.1 (+https://github.com/dawidadamski/kaleta)"
 
 
 class NbpRateService:
-    """Import the latest NBP Table A publication into ``currency_rates``."""
+    """Import the latest NBP Table A publication into ``public.nbp_rates``."""
 
     def __init__(
         self,
-        session: AsyncSession,
+        public: AsyncSession,
         *,
         http_get: HttpGet | None = None,
         url: str = NBP_TABLE_A_URL,
     ) -> None:
-        self.session = session
+        self.session = public
         self._http_get = http_get or self.default_http_get
         self._url = url
 
@@ -121,26 +128,46 @@ class NbpRateService:
         return effective, table_no, mids
 
     async def import_latest(self) -> NbpFetchResult:
-        """Fetch the latest Table A and store XXX↔PLN pairs for every mid rate."""
-        payload = self.fetch_table_a_payload()
+        """Fetch the latest Table A and store one mid per currency for its date.
+
+        Idempotent: a currency already stored for that date is left alone —
+        ``ON CONFLICT DO NOTHING``, so the daily fetch and the Settings button
+        may even run at the same moment. The HTTP call runs in a thread: it may
+        take up to 15 s, and the server's event loop must not wait for it.
+        """
+        payload = await asyncio.to_thread(self.fetch_table_a_payload)
         effective_s, table_no, mids = self.parse_mids(payload[0])
         try:
             on_date = datetime.date.fromisoformat(effective_s)
         except ValueError as exc:
             raise ValidationError(f"NBP effectiveDate is invalid: {effective_s!r}") from exc
 
-        rows = await CurrencyRateService(self.session).store_pln_mid_rates(on_date, mids)
-        currencies = rows // 2
+        mids.pop("PLN", None)
+        written = 0
+        if mids:
+            result = await self.session.execute(
+                insert(NbpRate)
+                .values(
+                    [
+                        {"date": on_date, "currency": code, "mid": mid, "table_no": table_no}
+                        for code, mid in mids.items()
+                    ]
+                )
+                .on_conflict_do_nothing(index_elements=["date", "currency"])
+                .returning(NbpRate.id)
+            )
+            written = len(result.all())
+            await self.session.commit()
         logger.info(
-            "Imported NBP Table A %s (%s): %s currencies, %s rows",
+            "Imported NBP Table A %s (%s): %s currencies, %s new",
             table_no or "?",
             on_date.isoformat(),
-            currencies,
-            rows,
+            len(mids),
+            written,
         )
         return NbpFetchResult(
             effective_date=on_date,
             table_no=table_no,
-            currencies_stored=currencies,
-            rows_written=rows,
+            currencies_stored=len(mids),
+            rows_written=written,
         )

@@ -618,3 +618,71 @@ def disable_mfa_for_all() -> int:
             return await MfaService(session).disable_all()
 
     return _run_async_worker(_disable)
+
+
+def seed_nbp_rate(on: datetime.date, currency: str, mid: str) -> int:
+    """An NBP mid in the instance's ``public.nbp_rates``; return its ID."""
+    from decimal import Decimal
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.nbp_rate import NbpRate
+
+    async def _create() -> int:
+        async with AsyncSessionFactory.public() as public:
+            row = NbpRate(date=on, currency=currency, mid=Decimal(mid))
+            public.add(row)
+            await public.commit()
+            return row.id
+
+    return _run_async_worker(_create)
+
+
+def delete_nbp_rates() -> None:
+    """Empty ``public.nbp_rates`` — the instance's rates are shared by every test."""
+    from sqlalchemy import delete
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.nbp_rate import NbpRate
+
+    async def _delete() -> None:
+        async with AsyncSessionFactory.public() as public:
+            await public.execute(delete(NbpRate))
+            await public.commit()
+
+    _run_async_worker(_delete)
+
+
+def seed_family_rate(on: datetime.date, from_currency: str, to_currency: str, rate: str) -> int:
+    """A rate in the e2e family's own ``currency_rates``; return its ID."""
+    from decimal import Decimal
+
+    from kaleta.schemas.currency_rate import CurrencyRateCreate
+    from kaleta.services import CurrencyRateService
+
+    async def _create() -> int:
+        from kaleta.db import AsyncSessionFactory
+
+        async with AsyncSessionFactory() as session:
+            row = await CurrencyRateService(session).create(
+                CurrencyRateCreate(
+                    date=on,
+                    from_currency=from_currency,
+                    to_currency=to_currency,
+                    rate=Decimal(rate),
+                )
+            )
+            return row.id
+
+    return _run_async_worker(_create)
+
+
+def delete_family_rate(rate_id: int) -> None:
+    from kaleta.services import CurrencyRateService
+
+    async def _delete() -> None:
+        from kaleta.db import AsyncSessionFactory
+
+        async with AsyncSessionFactory() as session:
+            await CurrencyRateService(session).delete(rate_id)
+
+    _run_async_worker(_delete)

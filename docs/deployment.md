@@ -201,9 +201,12 @@ reads the volume under another uid (a backup shipper) cannot read new files;
 run it under Kaleta's uid.
 
 **Not in Kaleta any more:** the setup wizard, `~/.kaleta/config.json`,
-scheduled SQLite backups, the Housekeeping integrity panel and the NBP startup
-fetch (it returns per instance in part B2c of the `postgres-only` plan). The event
-retention sweep visits every active family once a day. `KALETA_API_TOKEN`
+scheduled SQLite backups and the Housekeeping integrity panel. NBP exchange
+rates are fetched once per instance into `public.nbp_rates` and shared by
+every family; `KALETA_NBP_FETCH=true` fetches them at start-up and once a
+day (off by default; Settings → Data → "Fetch NBP rates" works either way).
+A family's own rate on the same day wins. The event retention sweep visits
+every active family once a day. `KALETA_API_TOKEN`
 authenticates as the instance administrator (local logins only), in their
 family — the oldest enabled one, so disabling that login moves the token to
 the next administrator's family.

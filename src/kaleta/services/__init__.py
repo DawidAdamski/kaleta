@@ -31,7 +31,7 @@ from kaleta.services.rule_service import RuleService
 from kaleta.services.salary_service import SalaryService
 from kaleta.services.saved_report_service import SavedReportService
 from kaleta.services.scenario_service import ScenarioService
-from kaleta.services.session import with_session
+from kaleta.services.session import with_public_session, with_session
 from kaleta.services.subscription_service import SubscriptionService
 from kaleta.services.tag_service import TagService
 from kaleta.services.tenant_service import TenantService
@@ -88,5 +88,6 @@ __all__ = [
     "WizardActionService",
     "WizardProjectionService",
     "YearlyPlanService",
+    "with_public_session",
     "with_session",
 ]

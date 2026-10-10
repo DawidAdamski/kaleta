@@ -1773,7 +1773,7 @@
     "rate_from_currency": "From Currency",
     "also_store_inverse": "Also store inverse rate",
     "nbp_fetch": "Fetch NBP rates",
-    "nbp_hint": "Downloads the latest NBP Table A mid rates (public API, no key) and stores both directions against PLN. Optional — the app works fully offline without this.",
+    "nbp_hint": "Downloads the latest NBP Table A mid rates (public API, no key). They are shared by every family on this Kaleta and count against PLN in both directions; a rate of your own on the same day wins. Optional — the app works fully offline without this.",
     "nbp_fetching": "Fetching NBP rates…",
     "nbp_fetch_done": "Imported {count} NBP currencies for {date}.",
     "nbp_fetch_error": "NBP fetch failed: {error}",
@@ -2039,7 +2039,10 @@
     "encryption_encrypted": "Nobody running this server can read what any transaction was for, with whom, on which account, in which category, or any note, name, address or account number — not from the database console, not from a backup, not from a dump.",
     "encryption_visible": "They can see the shape of your account: how many accounts and transactions exist, their amounts, dates, types and currencies, budget figures, and your e-mail address and user id.",
     "encryption_plain": "Bug reports you send and your display name are not encrypted.",
-    "encryption_limit": "Kaleta decrypts your data on the server while you are signed in. This protects the stored data — the database, backups and exports — not a server that has been taken over."
+    "encryption_limit": "Kaleta decrypts your data on the server while you are signed in. This protects the stored data — the database, backups and exports — not a server that has been taken over.",
+    "rate_source": "Source",
+    "rate_source_family": "Yours",
+    "rate_source_nbp": "NBP"
   },
   "audit": {
     "title": "Change History",
