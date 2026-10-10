@@ -101,6 +101,30 @@ def fresh_database_url(name: str) -> str:
     return base.set(database=database).render_as_string(hide_password=False)
 
 
+def companion_database_url(suffix: str) -> str:
+    """``<this process's database>_<suffix>``, created if missing and kept.
+
+    For tests that build a registry of their own and drop it again: they get
+    a database beside the suite's, whose family they would otherwise drop.
+    Synchronous, like ``fresh_database_url``.
+    """
+    from sqlalchemy import create_engine, text
+
+    base = make_url(os.environ["KALETA_DB_URL"])
+    database = f"{base.database}_{suffix}"
+    engine = create_engine(_sync(base), isolation_level="AUTOCOMMIT")
+    try:
+        with engine.connect() as conn:
+            exists = conn.execute(
+                text("SELECT 1 FROM pg_database WHERE datname = :name"), {"name": database}
+            ).scalar()
+            if not exists:
+                conn.execute(text(f'CREATE DATABASE "{database}"'))
+    finally:
+        engine.dispose()
+    return base.set(database=database).render_as_string(hide_password=False)
+
+
 def query(url: str, sql: str) -> list[tuple[object, ...]]:
     """Rows of ``sql`` on the database at ``url`` — for e2e tests that look behind the app."""
     from sqlalchemy import create_engine, text

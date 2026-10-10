@@ -6,7 +6,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.api.deps import get_current_user_id, get_session_configured
+from kaleta.api.deps import get_current_user_id, get_session
 from kaleta.schemas.auth import MfaStatusResponse
 from kaleta.services.mfa_service import MfaService
 
@@ -25,7 +25,7 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 )
 async def mfa_status(
     user_id: int = Depends(get_current_user_id),
-    session: AsyncSession = Depends(get_session_configured),
+    session: AsyncSession = Depends(get_session),
 ) -> MfaStatusResponse:
     status = await MfaService(session).status(user_id)
     return MfaStatusResponse(

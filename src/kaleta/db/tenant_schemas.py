@@ -3,8 +3,8 @@
 
 On PostgreSQL a tenant is a schema (``CREATE SCHEMA t_…``) and the registry is
 ``public``. SQLite has no schemas, but it has attached databases, and SQLAlchemy
-treats an attached database's alias exactly like a schema name — so in
-``KALETA_TENANCY=multi`` on SQLite every schema is a file next to the main
+treats an attached database's alias exactly like a schema name — so on
+SQLite every schema is a file next to the main
 database, attached under its schema name. Each tenant gets an engine of its
 own that attaches ``public`` and that one tenant (``attach_sqlite_schemas``).
 That is a development and test backend; a hosted deployment runs PostgreSQL.

@@ -64,8 +64,8 @@ def _register_sqlite_pragmas(sync_engine: Engine) -> None:
 class _SessionProxy:
     """Thin proxy around ``async_sessionmaker`` that can be reconfigured at runtime.
 
-    In ``KALETA_TENANCY=multi`` every session is bound to the current tenant's
-    schema through ``schema_translate_map`` — on PostgreSQL one engine and one
+    Every session is bound to the current family's schema through
+    ``schema_translate_map`` — on PostgreSQL one engine and one
     pool for all tenants, the schema rewritten into each compiled statement,
     never a ``SET search_path`` (ADR-35). On SQLite each tenant has an engine
     that attaches only its own file (see ``attach_sqlite_schemas``). No tenant
@@ -75,14 +75,12 @@ class _SessionProxy:
     def __init__(self) -> None:
         self._engine: AsyncEngine | None = None
         self._factory: async_sessionmaker[AsyncSession] | None = None
-        self._multi = False
         self._url = ""
         self._debug = False
         self._tenant_engines: dict[str, AsyncEngine] = {}
         self._init(settings.db_url, debug=settings.debug)
 
     def _init(self, url: str, debug: bool = False) -> None:
-        self._multi = settings.tenancy == "multi"
         self._url = url
         self._debug = debug
         self._tenant_engines = {}
@@ -106,10 +104,6 @@ class _SessionProxy:
                 pool_pre_ping=True,
             )
         connect_args: dict[str, Any] = {"check_same_thread": False}
-        if not self._multi:
-            engine = create_async_engine(url, echo=self._debug, connect_args=connect_args)
-            _register_sqlite_pragmas(engine.sync_engine)
-            return engine
         # Multi-tenant SQLite (dev/test): an engine per tenant, each attaching
         # only `public` and its own file, so no connection can name two
         # tenants. No pooling — a tenant file can be created or dropped while
@@ -136,10 +130,6 @@ class _SessionProxy:
             self._factory = None
             self._tenant_engines = {}
 
-    @property
-    def multi_tenant(self) -> bool:
-        return self._multi
-
     def _tenant_engine(self, engine: AsyncEngine, schema: str) -> AsyncEngine:
         bound = self._tenant_engines.get(schema)
         if bound is None:
@@ -151,8 +141,6 @@ class _SessionProxy:
     def __call__(self) -> AsyncSession:
         if self._factory is None or self._engine is None:
             raise RuntimeError("Database not configured. Call configure() first.")
-        if not self._multi:
-            return self._factory()
         ctx = current_tenant()
         if ctx is None:
             raise TenantContextMissingError(

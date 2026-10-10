@@ -68,7 +68,6 @@ _TOTP_ISSUER = "Kaleta"
 
 class SupabaseAuthProvider:
     name = "supabase"
-    email_login = True
 
     def __init__(
         self,

@@ -17,21 +17,14 @@ from typing import Any
 
 from nicegui import ui
 
-from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
-from kaleta.services import with_session
-from kaleta.services.auth_stats_service import AuthLandingStats, AuthStatsService
-from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.theme import (
     ACCENT_TEXT,
     AUTH_FIELD,
     AUTH_FIELD_LABEL,
     AUTH_FOOT,
     AUTH_PANEL,
-    AUTH_PANEL_FIGURE,
-    AUTH_PANEL_LABEL,
-    AUTH_PANEL_RULE,
     AUTH_SUBTITLE,
     AUTH_TITLE,
     BUTTON_INK_WIDE,
@@ -155,8 +148,6 @@ async def auth_page_shell(title_key: str, subtitle_key: str) -> ui.column:
     # panel floating 16px short of every edge. This page is the panel.
     ui.query(".nicegui-content").classes("p-0 gap-0")
 
-    stats = await _landing_stats()
-
     with ui.row().classes("w-full min-h-screen no-wrap gap-0 items-stretch"):
         # The wordmark at the top, the form in the middle, the version at the
         # foot: artboard `3f` spaces the column with two equal flexible gaps
@@ -172,56 +163,20 @@ async def auth_page_shell(title_key: str, subtitle_key: str) -> ui.column:
             ui.element("div").classes("flex-1 min-h-[36px]")
             ui.label(f"{app_version()} · {LICENCE}").classes(AUTH_FOOT)
 
-        _side_panel(stats)
+        _side_panel()
 
     return form_column
 
 
-async def _landing_stats() -> AuthLandingStats | None:
-    """The counts, or nothing at all.
+def _side_panel() -> None:
+    """The ink panel: one line about the app.
 
-    A login page that will not render because the database is not there yet
-    is worse than a login page without three numbers on it, so every failure
-    here is the absence of the counts and never the absence of the page.
-    """
-
-    if settings.tenancy == "multi":
-        # Nobody has signed in, so there is no account to count — and the
-        # counts of any account are not a stranger's to see.
-        return None
-
-    async def _read(session: Any) -> AuthLandingStats | None:
-        return await AuthStatsService(session).landing_stats()
-
-    try:
-        return await with_session(_read)
-    except Exception:
-        # The service catches its own read; this catches not getting a session
-        # at all, which is what a database that has never been created looks
-        # like. Logged so the two are told apart in a log rather than both
-        # showing up as a panel with no numbers on it.
-        logger.warning("Login panel stats could not be read", exc_info=True)
-        return None
-
-
-def _side_panel(stats: AuthLandingStats | None) -> None:
-    """The ink panel: one line about the app, and what is already in it.
-
-    Bottom-aligned, as artboard `3f` draws it — the copy and the counts sit
-    on the foot of the panel, not in the middle of an empty one.
+    Bottom-aligned, as artboard `3f` draws it — the copy sits on the foot of
+    the panel, not in the middle of an empty one. The artboard's counts of
+    what is in the database are gone (ADR-38): nobody has signed in yet, so
+    there is no family to count, and no family's counts are a stranger's.
     """
     with ui.column().classes(
         f"{AUTH_PANEL} w-[37%] max-w-[560px] flex-none justify-end gap-0 py-16 px-10"
     ):
         ui.label(t("auth.panel_copy")).classes("text-[15px] leading-[1.7]")
-        if stats is None:
-            return
-        with ui.row().classes(f"{AUTH_PANEL_RULE} w-full gap-[26px] flex-wrap"):
-            for value, label_key in (
-                (stats.transactions, "auth.panel_count_transactions"),
-                (stats.accounts, "auth.panel_count_accounts"),
-                (stats.months, "auth.panel_count_months"),
-            ):
-                with ui.column().classes("gap-[3px]"):
-                    ui.label(spaced_thousands(f"{value:,}")).classes(AUTH_PANEL_FIGURE)
-                    ui.label(t(label_key)).classes(AUTH_PANEL_LABEL)

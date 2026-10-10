@@ -3,25 +3,37 @@
 
 All helpers write to the isolated e2e database via the ephemeral app's REST
 API (configured by ``tests/e2e/conftest.py``). Direct DB access uses the same
-URL via ``configure(..., db_url=...)``.
+URL via ``configure(..., db_url=...)``, in the e2e login's family
+(``configure(..., family=...)``).
 """
 
 from __future__ import annotations
 
 import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import httpx
+
+if TYPE_CHECKING:
+    from kaleta.db.tenant_context import TenantContext
 
 API_BASE = "http://127.0.0.1:8081/api/v1"
 _client = httpx.Client(timeout=10.0)
 #: The e2e database, for the helpers that go through the service layer.
 _db_url: str | None = None
+#: The family the e2e login works in; the service-layer helpers run in it.
+_family: TenantContext | None = None
 
 
-def configure(base_url: str, *, db_url: str | None = None, api_token: str | None = None) -> None:
+def configure(
+    base_url: str,
+    *,
+    db_url: str | None = None,
+    api_token: str | None = None,
+    family: TenantContext | None = None,
+) -> None:
     """Point helpers at the active e2e Kaleta instance."""
-    global API_BASE, _client, _db_url
+    global API_BASE, _client, _db_url, _family
     API_BASE = f"{base_url.rstrip('/')}/api/v1"
     headers: dict[str, str] = {}
     if api_token:
@@ -29,6 +41,7 @@ def configure(base_url: str, *, db_url: str | None = None, api_token: str | None
     _client = httpx.Client(timeout=10.0, base_url=base_url.rstrip("/"), headers=headers)
 
     _db_url = db_url
+    _family = family
 
 
 def seed_account(name: str, currency: str = "PLN", institution_id: int | None = None) -> int:
@@ -380,12 +393,14 @@ def _run_async_worker(coro_factory):
     from concurrent.futures import ThreadPoolExecutor
 
     from kaleta.db import AsyncSessionFactory, configure_database
+    from kaleta.db.tenant_context import use_tenant
 
     async def _in_own_engine() -> Any:
         if _db_url is not None:
             configure_database(_db_url, debug=True)
         try:
-            return await coro_factory()
+            with use_tenant(_family):
+                return await coro_factory()
         finally:
             await AsyncSessionFactory.dispose()
 

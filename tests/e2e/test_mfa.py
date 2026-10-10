@@ -22,7 +22,7 @@ import pytest
 from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e import seed_helpers
-from tests.e2e.conftest import E2E_PASSWORD, E2E_USERNAME, session_cookie, storage_id
+from tests.e2e.conftest import E2E_EMAIL, E2E_PASSWORD, session_cookie, storage_id
 
 TOTP_INTERVAL = 30
 
@@ -109,7 +109,7 @@ def enrol(page: Page) -> tuple[str, list[str]]:
 
 def sign_in_with_password(page: Page, base_url: str) -> None:
     page.goto(f"{base_url}/login")
-    page.get_by_label("Username", exact=True).fill(E2E_USERNAME)
+    page.get_by_label("E-mail", exact=True).fill(E2E_EMAIL)
     page.get_by_label("Password", exact=True).fill(E2E_PASSWORD)
     page.get_by_role("button", name="Log in").click()
 

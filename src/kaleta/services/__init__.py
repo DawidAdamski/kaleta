@@ -16,12 +16,10 @@ from kaleta.services.dedupe_service import DedupeService
 from kaleta.services.hosted_mfa_service import FactorGateway, HostedEnrolment, HostedMfaService
 from kaleta.services.import_rule_service import ImportRuleService
 from kaleta.services.institution_service import InstitutionService
-from kaleta.services.integrity_service import IntegrityService
 from kaleta.services.mfa_service import MfaEnrolment, MfaService, MfaStatus
 from kaleta.services.money_flow_service import MoneyFlowService
 from kaleta.services.monthly_readiness_service import MonthlyReadinessService
 from kaleta.services.nbp_rate_service import NbpRateService
-from kaleta.services.nbp_startup import NbpStartupFetcher
 from kaleta.services.net_worth_service import NetWorthService
 from kaleta.services.payee_service import PayeeService
 from kaleta.services.personal_loan_service import PersonalLoanService
@@ -33,9 +31,7 @@ from kaleta.services.rule_service import RuleService
 from kaleta.services.salary_service import SalaryService
 from kaleta.services.saved_report_service import SavedReportService
 from kaleta.services.scenario_service import ScenarioService
-from kaleta.services.scheduled_backup_service import ScheduledBackupService
-from kaleta.services.session import dispose_sessions, with_session
-from kaleta.services.setup_service import activate_database, ensure_schema_current
+from kaleta.services.session import with_session
 from kaleta.services.subscription_service import SubscriptionService
 from kaleta.services.tag_service import TagService
 from kaleta.services.tenant_service import TenantService
@@ -66,14 +62,12 @@ __all__ = [
     "HostedMfaService",
     "ImportRuleService",
     "InstitutionService",
-    "IntegrityService",
     "MfaEnrolment",
     "MfaService",
     "MfaStatus",
     "MoneyFlowService",
     "MonthlyReadinessService",
     "NbpRateService",
-    "NbpStartupFetcher",
     "NetWorthService",
     "PayeeService",
     "PersonalLoanService",
@@ -86,7 +80,6 @@ __all__ = [
     "SalaryService",
     "SavedReportService",
     "ScenarioService",
-    "ScheduledBackupService",
     "SubscriptionService",
     "TagService",
     "TenantService",
@@ -95,8 +88,5 @@ __all__ = [
     "WizardActionService",
     "WizardProjectionService",
     "YearlyPlanService",
-    "activate_database",
-    "dispose_sessions",
-    "ensure_schema_current",
     "with_session",
 ]

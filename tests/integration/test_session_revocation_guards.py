@@ -18,7 +18,6 @@ from unittest.mock import MagicMock
 import httpx
 import pyotp
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.applications import Starlette
 from starlette.requests import Request
@@ -31,9 +30,17 @@ from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.models.user import User
 from kaleta.services.auth_service import AuthService
 from kaleta.services.mfa_service import TOTP_INTERVAL, MfaService
+from tests.conftest import SUITE_EMAIL, SUITE_FAMILY, SUITE_SUBJECT
 
-PASSWORD = "owner-password-1"
 REVOKED = "/login?redirect_to=/transactions&reason=signed_out_everywhere"
+
+
+_FAMILY = session_mod.SessionTenant(
+    tenant_id=SUITE_FAMILY.tenant_id,
+    schema=SUITE_FAMILY.schema,
+    auth_subject=SUITE_SUBJECT,
+    email=SUITE_EMAIL,
+)
 
 
 def _ago(**kwargs: float) -> str:
@@ -75,7 +82,7 @@ class Browsers:
 
     def sign_in(self, name: str, user: User, *, minutes_ago: float = 10) -> dict[str, Any]:
         bucket = self.use(name)
-        session_mod.login_session(user_id=user.id, username=user.username)
+        session_mod.login_session(user_id=user.id, username=user.username, tenant=_FAMILY)
         bucket[session_mod.SESSION_LOGIN_AT] = _ago(minutes=minutes_ago)
         return bucket
 
@@ -85,9 +92,9 @@ def browsers(monkeypatch: pytest.MonkeyPatch) -> Browsers:
     return Browsers(monkeypatch)
 
 
-@pytest_asyncio.fixture
-async def user(session: AsyncSession) -> User:
-    return await AuthService(session).create_user("owner", PASSWORD)
+@pytest.fixture
+def user(suite_owner: User) -> User:
+    return suite_owner
 
 
 @pytest.fixture
@@ -104,7 +111,6 @@ def ui(monkeypatch: pytest.MonkeyPatch) -> httpx.AsyncClient:
         return cls
 
     monkeypatch.setattr(nicegui_app, "add_middleware", _capture)
-    monkeypatch.setattr(middleware_mod, "is_configured", lambda: True)
     middleware_mod.register_auth_middleware()
 
     async def _page(_: Request) -> PlainTextResponse:
@@ -121,8 +127,8 @@ async def test_page_load_after_reset_password_goes_to_login_with_reason(
     """Covers: KAL-AUTH-028"""
     before = browsers.sign_in("laptop", user)
 
-    # What `kaleta --reset-password` does, minus the prompts.
-    await AuthService(session).reset_password("brand-new-password-2")
+    # What `kaleta-admin reset-password` does in the member's family.
+    await AuthService(session).revoke_sessions(user.id)
 
     resp = await ui.get("/transactions")
     assert resp.status_code == 307

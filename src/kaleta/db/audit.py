@@ -35,12 +35,8 @@ log = logging.getLogger(__name__)
 # Tables we never audit (prevents infinite recursion and noise).
 # ``user_mfa`` is skipped because auditing it would copy the decrypted TOTP
 # secret into ``audit_log`` in plain text, which is the one place the
-# encrypted column exists to keep it out of. ``local_key_material`` likewise:
-# its wrapped keys and sealed data key have no business in a change log (and,
-# being bytes, no JSON form either).
-_SKIP_TABLES: frozenset[str] = frozenset(
-    {"audit_log", "app_events", "user_mfa", "local_key_material"}
-)
+# encrypted column exists to keep it out of.
+_SKIP_TABLES: frozenset[str] = frozenset({"audit_log", "app_events", "user_mfa"})
 
 
 # ── Serialisation helpers ─────────────────────────────────────────────────────

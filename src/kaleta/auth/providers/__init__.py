@@ -11,7 +11,6 @@ from kaleta.auth.providers.base import (
     SignUpResult,
 )
 from kaleta.auth.providers.fake import FakeAuthProvider
-from kaleta.auth.providers.local import LocalAuthProvider
 from kaleta.auth.providers.registry import RegistryAuthProvider
 from kaleta.auth.providers.supabase import SupabaseAuthProvider
 from kaleta.config import settings
@@ -21,7 +20,6 @@ __all__ = [
     "FactorEnrolment",
     "FakeAuthProvider",
     "Identity",
-    "LocalAuthProvider",
     "MfaRequired",
     "RegistryAuthProvider",
     "SignUpResult",
@@ -49,10 +47,8 @@ def _build() -> AuthProvider:
     if settings.auth_backend == "fake":
         # The settings refuse it without KALETA_DEBUG=true.
         return FakeAuthProvider()
-    if settings.tenancy == "multi":
-        # Local logins on the registry layout (ADR-38).
-        return RegistryAuthProvider()
-    return LocalAuthProvider()
+    # Local logins, kept in the registry (ADR-38).
+    return RegistryAuthProvider()
 
 
 def get_auth_provider() -> AuthProvider:

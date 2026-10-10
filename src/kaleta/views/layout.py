@@ -330,7 +330,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     its own padding and grid gap (``DASH_PAGE_CONTAINER``); every other page
     keeps ``PAGE_CONTAINER``.
     """
-    from kaleta.config.setup_config import is_configured
     from kaleta.views.auto_post import maybe_auto_post_due
 
     # Imported here, not at module scope: the report dialog reaches back into
@@ -342,11 +341,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     ui.add_head_html(PWA_HEAD)
     ui.add_head_html(f"<style>{theme_css()}</style>")
     apply_brand()
-
-    if not is_configured():
-        ui.navigate.to("/setup")
-        yield
-        return
 
     # Session-start equivalent of auto-post (storage.user unavailable at process startup).
     ui.timer(0.01, maybe_auto_post_due, once=True)
@@ -361,7 +355,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
     drawer: ui.left_drawer
     toggle_btn: ui.button
     mini_btn: ui.button
-    close_dialog: ui.dialog
 
     def toggle_dark() -> None:
         dark_mode.toggle()
@@ -443,28 +436,9 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
             await with_session(_record)
             finish_logout()
 
-        async def _close_db() -> None:
-            from kaleta.config.setup_config import clear_db
-            from kaleta.services import dispose_sessions
-
-            close_dialog.close()
-            clear_db()
-            await dispose_sessions()
-            ui.navigate.to("/setup")
-
-        with ui.dialog() as close_dialog, ui.card():
-            ui.label(t("common.close_confirm")).classes("text-base")
-            with ui.row().classes("justify-end gap-2 mt-4"):
-                ui.button(t("common.cancel"), on_click=close_dialog.close).props("flat")
-                ui.button(
-                    t("common.close_db"),
-                    icon="eject",
-                    on_click=_close_db,
-                ).props("color=negative unelevated")
-
         # The artboards end the header with a 28px initials disc and nothing
-        # else, so the two controls that used to sit beside it — logout and
-        # "close database" — moved into the menu it already dropped.
+        # else, so logout, which used to sit beside it, moved into the menu
+        # it already dropped.
         account_btn = (
             ui.button(_initials(session_username), color=None)
             .props("flat dense no-caps")
@@ -479,7 +453,6 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                 on_click=open_bug_report_dialog,
             ).props("icon=bug_report")
             ui.menu_item(t("auth.logout"), on_click=_logout).props("icon=logout")
-            ui.menu_item(t("common.close_db"), on_click=close_dialog.open).props("icon=eject")
 
     # No explicit value: NiceGUI then sets Quasar's `show-if-above`, which
     # opens the drawer on a desktop and leaves it shut on a phone. Forcing it

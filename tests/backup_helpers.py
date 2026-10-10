@@ -6,9 +6,10 @@ from __future__ import annotations
 from datetime import UTC, date, datetime
 from decimal import Decimal
 
-from sqlalchemy import text
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.db.base import Base
 from kaleta.models import (
     Account,
     AccountType,
@@ -65,8 +66,10 @@ from kaleta.services.backup_service import _backup_tables, _set_sqlite_foreign_k
 async def row_counts(session: AsyncSession) -> dict[str, int]:
     counts: dict[str, int] = {}
     for table in _backup_tables():
-        # nosec B608: table names from Base.metadata only.
-        result = await session.execute(text(f"SELECT COUNT(*) FROM {table}"))  # nosec B608
+        # Core statements, so the family's schema is translated in.
+        result = await session.execute(
+            select(func.count()).select_from(Base.metadata.tables[table])
+        )
         counts[table] = int(result.scalar_one())
     return counts
 
@@ -74,8 +77,7 @@ async def row_counts(session: AsyncSession) -> dict[str, int]:
 async def wipe_all(session: AsyncSession) -> None:
     await _set_sqlite_foreign_keys(session, enabled=False)
     for table in reversed(_backup_tables()):
-        # nosec B608: table names from Base.metadata only.
-        await session.execute(text(f"DELETE FROM {table}"))  # nosec B608
+        await session.execute(delete(Base.metadata.tables[table]))
     await session.commit()
     await _set_sqlite_foreign_keys(session, enabled=True)
 

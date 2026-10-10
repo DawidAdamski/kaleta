@@ -15,14 +15,13 @@ import pytest
 from playwright.sync_api import Page
 
 from tests.e2e.conftest import (
+    E2E_APP_ENV,
     PROJECT_ROOT,
-    _ensure_e2e_user_subprocess,
     _pump_stdout_to_log,
-    _run_alembic,
     _terminate_process,
     _wait_for_server,
-    _write_kaleta_config,
     login,
+    prepare_e2e_database,
 )
 from tests.suite_database import fresh_database_url
 
@@ -37,14 +36,12 @@ def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
     db_url = fresh_database_url("e2e_demo")
     log_path = log_dir / "kaleta-demo-e2e-server.log"
 
-    _write_kaleta_config(home, db_url)
-    _run_alembic(db_url)
-    _ensure_e2e_user_subprocess(db_url, home)
+    prepare_e2e_database(db_url)
 
     env = os.environ.copy()
+    env.update(E2E_APP_ENV)
     env["HOME"] = str(home)
     env["KALETA_PORT"] = str(DEMO_PORT)
-    env["KALETA_DEBUG"] = "true"
     env["KALETA_DEMO"] = "true"
     env["KALETA_DB_URL"] = db_url
     env["NICEGUI_SCREEN_TEST_PORT"] = str(DEMO_PORT)

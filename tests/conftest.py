@@ -2,11 +2,15 @@
 """Shared pytest fixtures for all tests."""
 
 import os
+from collections.abc import Iterator
+from dataclasses import replace
 
 from tests.suite_database import suite_database_env_or_exit
 
 # Allow default secret key during test runs (see kaleta.config.settings).
 os.environ.setdefault("KALETA_DEBUG", "true")
+# Local logins in the registry (ADR-38), unless a run asks for another backend.
+os.environ.setdefault("KALETA_AUTH_BACKEND", "local")
 # The suite runs on PostgreSQL only (ADR-38); under ``pytest -n`` each worker
 # gets a database of its own. The settings read KALETA_DB_URL on import, so
 # this precedes every kaleta import.
@@ -15,7 +19,6 @@ os.environ.update(suite_database_env_or_exit())
 import pytest
 import pytest_asyncio
 from argon2 import PasswordHasher
-from sqlalchemy import text
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncEngine,
@@ -29,16 +32,21 @@ import kaleta.models  # noqa: F401
 from kaleta.auth import session as session_mod
 from kaleta.config import settings
 from kaleta.crypto import DataKey, generate_dek, key_ring
+from kaleta.db import AsyncSessionFactory
 from kaleta.db.base import Base
+from kaleta.db.tenant_context import set_tenant
 from kaleta.db.types import install_data_key_resolver
 from kaleta.models.currency_rate import CurrencyRate  # noqa: F401
 from kaleta.models.institution import Institution  # noqa: F401
-from kaleta.services.setup_service import upgrade_to_head
+from kaleta.models.user import User
+from tests.suite_family import SUITE_EMAIL, SUITE_PASSWORD, bootstrap_suite_family  # noqa: F401
 
 _POSTGRES_URL = os.environ["KALETA_DB_URL"]
-# Idempotent: a fresh database is built, a current one costs a version check.
-upgrade_to_head(_POSTGRES_URL)
-_postgres_truncated = False
+_suite = bootstrap_suite_family(_POSTGRES_URL)
+#: The family every test's ``session`` works in; see ``tests.suite_family``.
+SUITE_FAMILY = _suite.context
+#: Its administrator's subject (``local:<id>``).
+SUITE_SUBJECT = _suite.subject
 
 
 def make_session_factory(bind: AsyncEngine | AsyncConnection):
@@ -50,25 +58,16 @@ def make_session_factory(bind: AsyncEngine | AsyncConnection):
     )
 
 
-async def _truncate_postgres_once(engine: AsyncEngine) -> None:
-    global _postgres_truncated
-    if _postgres_truncated:
-        return
-    table_names = ", ".join(f'"{table.name}"' for table in Base.metadata.sorted_tables)
-    if not table_names:
-        _postgres_truncated = True
-        return
-    async with engine.begin() as conn:
-        await conn.execute(text(f"TRUNCATE {table_names} RESTART IDENTITY CASCADE"))
-    _postgres_truncated = True
-
-
 @pytest_asyncio.fixture
 async def db_engine():
-    """A PostgreSQL connection whose transaction is rolled back after the test."""
+    """A connection to the suite family's schema, rolled back after the test.
+
+    Statements name the family's schema the way the app's do —
+    ``schema_translate_map`` — and registry models name ``public`` themselves.
+    """
     engine = create_async_engine(_POSTGRES_URL, echo=False, poolclass=NullPool)
-    await _truncate_postgres_once(engine)
     async with engine.connect() as conn:
+        await conn.execution_options(schema_translate_map={None: SUITE_FAMILY.schema})
         await conn.begin()
         yield conn
         await conn.rollback()
@@ -89,12 +88,72 @@ async def sqlite_session():
     await engine.dispose()
 
 
+def family_table(name: str) -> str:
+    """``name`` qualified with the suite family's schema, for raw SQL in tests.
+
+    The app never relies on ``search_path`` (statements carry the schema
+    through ``schema_translate_map``), so neither does the test connection:
+    raw SQL has to say where it looks.
+    """
+    return f'"{SUITE_FAMILY.schema}".{name}'
+
+
+def sign_into_suite_family(storage: dict[str, object]) -> None:
+    """Write the suite family into a (fake) ``app.storage.user``, as a sign-in does.
+
+    Every authenticated session names its family; a test that builds a
+    session by hand puts these next to ``SESSION_AUTHENTICATED``.
+    """
+    storage[session_mod.SESSION_TENANT_ID] = SUITE_FAMILY.tenant_id
+    storage[session_mod.SESSION_TENANT_SCHEMA] = SUITE_FAMILY.schema
+    storage[session_mod.SESSION_AUTH_SUBJECT] = SUITE_SUBJECT
+    storage[session_mod.SESSION_EMAIL] = SUITE_EMAIL
+
+
+@pytest.fixture(autouse=True)
+def _in_the_suite_family() -> Iterator[None]:
+    """Every test runs as a request does: in a family (the suite's).
+
+    Unlocked, while encryption is on: the context carries ``TEST_DATA_KEY``,
+    as an unlocked member's request does. Tests of what happens without one,
+    locked, or in families of their own, set the context themselves
+    (``set_tenant``, ``use_tenant``).
+    """
+    key = TEST_DATA_KEY if settings.encryption_enabled else None
+    set_tenant(replace(SUITE_FAMILY, key_ring=key))
+    try:
+        yield
+    finally:
+        set_tenant(None)
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _session_pool_per_test():
+    """No pooled connection outlives its test's event loop.
+
+    Code under test opens sessions on the shared proxy too — the API resolves
+    a bearer token's family in the registry — and asyncpg connections belong
+    to the loop that opened them; every test has a loop of its own.
+    """
+    yield
+    await AsyncSessionFactory.dispose()
+    AsyncSessionFactory.configure(_POSTGRES_URL, debug=settings.debug)
+
+
 @pytest_asyncio.fixture
 async def session(db_engine):
     """Async SQLAlchemy session backed by the test database."""
     factory = make_session_factory(db_engine)
     async with factory() as s:
         yield s
+
+
+@pytest_asyncio.fixture
+async def suite_owner(session):
+    """The suite family's owner, whose login (``SUITE_PASSWORD``) is in the registry."""
+    user = await session.get(User, SUITE_FAMILY.member_user_id)
+    assert user is not None
+    return user
 
 
 #: The data key every test runs under when the suite is started with
@@ -123,7 +182,6 @@ class _CheapPasswordHasher(PasswordHasher):
 def _cheap_password_hashing(monkeypatch: pytest.MonkeyPatch) -> None:
     for module in (
         "kaleta.services.mfa_service",
-        "kaleta.services.auth_service",
         "kaleta.services.local_identity_service",
     ):
         monkeypatch.setattr(f"{module}.PasswordHasher", _CheapPasswordHasher)

@@ -72,13 +72,10 @@ class EventRetentionScheduler:
     async def _purge_once(cls) -> None:
         """Expire anonymous events and bug reports — each on its own window.
 
-        On the registry layout, in every active family; one family failing
-        does not stop the others. Suspended families (a schema that did not
-        migrate) are skipped until they are resumed.
+        In every active family; one family failing does not stop the others.
+        Suspended families (a schema that did not migrate) are skipped until
+        they are resumed.
         """
-        if not AsyncSessionFactory.multi_tenant:
-            await cls._purge_current()
-            return
         try:
             async with AsyncSessionFactory.public() as registry:
                 tenants = await TenantService(registry).list_tenants()

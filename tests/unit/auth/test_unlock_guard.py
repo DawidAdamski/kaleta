@@ -17,9 +17,9 @@ from nicegui.storage import request_contextvar
 
 from kaleta.auth import session as session_mod
 from kaleta.config import settings
-from kaleta.crypto import key_ring, local_member_ref
+from kaleta.crypto import key_ring, tenant_member_ref
 from kaleta.exceptions import TenantLockedError
-from tests.conftest import TEST_DATA_KEY
+from tests.conftest import SUITE_FAMILY, TEST_DATA_KEY, sign_into_suite_family
 from tests.unit.auth.test_session_ttl import (  # noqa: F401 — fixtures
     _ago,
     auth_middleware_client,
@@ -28,6 +28,10 @@ from tests.unit.auth.test_session_ttl import (  # noqa: F401 — fixtures
 )
 
 BROWSER = "browser-1"
+
+
+def _member(user_id: int) -> str:
+    return tenant_member_ref(SUITE_FAMILY.tenant_id, user_id)
 
 
 @pytest.fixture
@@ -42,6 +46,7 @@ def locked_browser(
     token = request_contextvar.set(SimpleNamespace(session={"id": BROWSER}))  # type: ignore[arg-type]
     fake_storage[session_mod.SESSION_AUTHENTICATED] = True
     fake_storage[session_mod.SESSION_USER_ID] = 1
+    sign_into_suite_family(fake_storage)
     fake_storage[session_mod.SESSION_LOGIN_AT] = _ago(minutes=5)
     fake_storage[session_mod.SESSION_LAST_SEEN_AT] = _ago(minutes=1)
     yield fake_storage
@@ -52,17 +57,17 @@ def locked_browser(
 def test_a_session_is_unlocked_only_by_its_own_member(locked_browser: dict[str, Any]) -> None:
     assert not session_mod.is_unlocked()
 
-    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=local_member_ref(2))
+    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=_member(2))
     assert not session_mod.is_unlocked()
 
-    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=local_member_ref(1))
+    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=_member(1))
     assert session_mod.is_unlocked()
     assert session_mod.session_data_key() == TEST_DATA_KEY
 
 
 def test_signing_out_locks(locked_browser: dict[str, Any]) -> None:
     """Covers: KAL-ENC-007"""
-    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=local_member_ref(1))
+    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=_member(1))
 
     session_mod.logout_session()
 
@@ -89,7 +94,7 @@ async def test_a_locked_page_load_goes_to_unlock(
     assert locked.status_code == 307
     assert locked.headers["location"] == "/unlock?redirect_to=/transactions"
 
-    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=local_member_ref(1))
+    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=_member(1))
     unlocked = await auth_middleware_client.get("/transactions")
     assert unlocked.status_code == 200
 
@@ -110,5 +115,5 @@ async def test_the_api_cookie_path_answers_423_while_locked(
     with pytest.raises(TenantLockedError):
         await deps.get_current_user_id(request, None, MagicMock())
 
-    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=local_member_ref(1))
+    key_ring.put(BROWSER, TEST_DATA_KEY, member_ref=_member(1))
     assert await deps.get_current_user_id(request, None, MagicMock()) == 1

@@ -1,9 +1,13 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Playwright e2e test configuration.
 
-Default: pytest launches an isolated Kaleta instance (ephemeral SQLite DB on
-port 8081). No manual ``uv run kaleta`` and no writes to the developer's
-``~/.kaleta/config.json`` or project ``kaleta.db``.
+Default: pytest launches an isolated Kaleta instance on port 8081, in a fresh
+database ``<suite database>_e2e`` on the suite's PostgreSQL server. Like every
+instance (ADR-38) it keeps a registry and one schema per family: the e2e login
+is the instance's administrator, a local login in the registry, and owns the one
+family the suite works in. The apps run with ``KALETA_ENCRYPTION=off``
+(accepted under ``KALETA_DEBUG``), so no test has to unlock first; the
+encryption e2e tests start apps of their own with it on.
 
 Prerequisites:
   1. Install browsers once:  uv run playwright install chromium
@@ -20,10 +24,11 @@ import base64
 import json
 import os
 import subprocess
-import sys
 import threading
 import time
 from collections.abc import Generator
+from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -31,15 +36,23 @@ import httpx
 import pytest
 from playwright.sync_api import Browser, BrowserContext
 
+from kaleta.config import settings
+from kaleta.db.tenant_context import TenantContext
 from tests.e2e import seed_helpers
 from tests.suite_database import fresh_database_url
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 E2E_PORT = 8081
 DEFAULT_E2E_BASE = f"http://127.0.0.1:{E2E_PORT}"
-E2E_USERNAME = "e2e"
+E2E_EMAIL = "e2e@example.com"
 E2E_PASSWORD = "e2e-test-password"
 E2E_API_TOKEN: str | None = None
+#: What every e2e app runs with, whatever the environment pytest was started in.
+E2E_APP_ENV = {
+    "KALETA_DEBUG": "true",
+    "KALETA_AUTH_BACKEND": "local",
+    "KALETA_ENCRYPTION": "off",
+}
 
 # Set by e2e_server when it spawns a subprocess; read by pytest_runtest_makereport.
 _server_log_path: Path | None = None
@@ -78,29 +91,6 @@ def _wait_for_server(base_url: str, timeout: float = 90.0) -> None:
     raise RuntimeError(f"Kaleta e2e server at {base_url} did not become ready") from last_error
 
 
-def _run_alembic(db_url: str) -> None:
-    env = os.environ.copy()
-    env["KALETA_MIGRATE_URL"] = db_url
-    env["KALETA_DEBUG"] = "true"
-    subprocess.run(
-        ["uv", "run", "alembic", "upgrade", "head"],
-        cwd=PROJECT_ROOT,
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
-def _write_kaleta_config(home: Path, db_url: str) -> None:
-    config_dir = home / ".kaleta"
-    config_dir.mkdir(parents=True, exist_ok=True)
-    (config_dir / "config.json").write_text(
-        json.dumps({"db_url": db_url, "name": "e2e"}),
-        encoding="utf-8",
-    )
-
-
 def _terminate_process(proc: subprocess.Popen[str]) -> None:
     if proc.poll() is not None:
         return
@@ -127,106 +117,83 @@ def pytest_runtest_makereport(item: Any, call: Any) -> Generator[None, Any, Any]
         rep.longrepr = f"{rep.longrepr}\n\n--- e2e server log (last 50 lines) ---\n{tail}"
 
 
-def _ensure_e2e_user_subprocess(db_url: str, home: Path) -> None:
-    """Create the shared e2e user without asyncio.run in the pytest process."""
-    env = {
-        **os.environ,
-        "HOME": str(home),
-        "KALETA_DEBUG": "true",
-        "KALETA_DB_URL": db_url,
-    }
-    bootstrap = """
-import asyncio
-import os
+@dataclass(frozen=True)
+class E2ELogin:
+    """The e2e login's family, and a bearer token of its own."""
 
-from kaleta.db import configure_database
-from kaleta.services import AuthService, with_session
-
-USERNAME = "e2e"
-PASSWORD = "e2e-test-password"
+    family: TenantContext
+    api_token: str
 
 
-async def _ensure() -> None:
-    configure_database(os.environ["KALETA_DB_URL"], debug=True)
+def prepare_e2e_database(db_url: str) -> E2ELogin:
+    """A registry in ``db_url``, the e2e login as its administrator, and that login's family.
 
-    async def _create(session):
-        auth = AuthService(session)
-        state = await auth.auth_state()
-        if state == "no_user":
-            await auth.create_user(USERNAME, PASSWORD)
-        elif state == "placeholder":
-            await auth.secure_placeholder(USERNAME, PASSWORD)
-
-    await with_session(_create)
+    Done before the app starts, as an administrator's first run would leave it.
+    In a worker thread: Playwright's sync API keeps an event loop running in
+    the test thread, and the registry's migrations run one of their own.
+    """
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        return executor.submit(_prepare, db_url).result()
 
 
-asyncio.run(_ensure())
-"""
-    subprocess.run(
-        [sys.executable, "-c", bootstrap],
-        cwd=PROJECT_ROOT,
-        env=env,
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-
-
-def _ensure_e2e_user(db_url: str) -> None:
-    """Create the shared e2e user in the ephemeral database."""
+def _prepare(db_url: str) -> E2ELogin:
     import asyncio
 
+    from kaleta.services.setup_service import upgrade_public_to_head
+
+    upgrade_public_to_head(db_url)
+    return asyncio.run(_provision_e2e_login(db_url))
+
+
+async def _provision_e2e_login(db_url: str) -> E2ELogin:
     from kaleta.db import AsyncSessionFactory, configure_database
-    from kaleta.services import AuthService, with_session
+    from kaleta.db.tenant_context import use_tenant
+    from kaleta.schemas.identity import Identity
+    from kaleta.services import ApiTokenService
+    from kaleta.services.local_identity_service import LocalIdentityService, subject_of
+    from kaleta.services.tenant_service import AlembicSchemaProvisioner, TenantService
 
     configure_database(db_url, debug=True)
-
-    async def _ensure() -> None:
-        async def _create(session):
-            auth = AuthService(session)
-            state = await auth.auth_state()
-            if state == "no_user":
-                await auth.create_user(E2E_USERNAME, E2E_PASSWORD)
-                return
-            if state == "placeholder":
-                await auth.secure_placeholder(E2E_USERNAME, E2E_PASSWORD)
-
-        await with_session(_create)
+    try:
+        async with AsyncSessionFactory.public() as public:
+            row = await LocalIdentityService(public).create(E2E_EMAIL, E2E_PASSWORD, admin=True)
+            tenants = TenantService(
+                public, provisioner=AlembicSchemaProvisioner(db_url, AsyncSessionFactory.public)
+            )
+            membership = await tenants.membership_for_sign_in(
+                Identity(subject=subject_of(row.id), email=E2E_EMAIL, email_verified=True)
+            )
+        family = membership.context()
+        if family.member_user_id is None:
+            msg = "the e2e family has no owner row"
+            raise RuntimeError(msg)
+        with use_tenant(family):
+            async with AsyncSessionFactory() as session:
+                _token_row, raw = await ApiTokenService(session).create_token(
+                    user_id=family.member_user_id, label="e2e"
+                )
+        return E2ELogin(family=family, api_token=raw)
+    finally:
         # The connections belong to this loop, which ends here.
         await AsyncSessionFactory.dispose()
 
-    asyncio.run(_ensure())
+
+@pytest.fixture(autouse=True)
+def _session_pool_per_test() -> None:
+    """Overrides the suite's async one: Playwright's sync API owns the test thread's loop.
+
+    No e2e test uses the suite's session pool; the helpers open and dispose
+    their own, in worker threads (``seed_helpers._run_async_worker``).
+    """
 
 
-def _ensure_e2e_api_token(db_url: str) -> str:
-    """Create a bearer token for e2e API helpers."""
-    import asyncio
-
-    from kaleta.db import AsyncSessionFactory, configure_database
-    from kaleta.services import ApiTokenService, AuthService, with_session
-
-    configure_database(db_url, debug=True)
-
-    async def _create() -> str:
-        async def _token(session):
-            auth = AuthService(session)
-            user = await auth.get_user_by_username(E2E_USERNAME)
-            if user is None:
-                msg = "e2e user must exist before creating API token"
-                raise RuntimeError(msg)
-            _token_row, raw = await ApiTokenService(session).create_token(
-                user_id=user.id,
-                label="e2e",
-            )
-            return raw
-
-        try:
-            return await with_session(_token)
-        finally:
-            # The connections belong to this loop, which ends here.
-            await AsyncSessionFactory.dispose()
-
-    return asyncio.run(_create())
+@pytest.fixture(scope="session", autouse=True)
+def _plaintext_like_the_apps() -> Generator[None]:
+    """The helpers that write through the service layer do so as the apps read it."""
+    previous = settings.encryption
+    settings.encryption = "off"
+    yield
+    settings.encryption = previous
 
 
 @pytest.fixture(scope="session")
@@ -247,13 +214,12 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
     db_url = fresh_database_url("e2e")
     _server_log_path = log_dir / "kaleta-e2e-server.log"
 
-    _write_kaleta_config(home, db_url)
-    _run_alembic(db_url)
+    e2e_login = prepare_e2e_database(db_url)
 
     env = os.environ.copy()
+    env.update(E2E_APP_ENV)
     env["HOME"] = str(home)
     env["KALETA_PORT"] = str(E2E_PORT)
-    env["KALETA_DEBUG"] = "true"
     env["KALETA_DB_URL"] = db_url
     # NiceGUI detects pytest and reads NICEGUI_SCREEN_TEST_PORT instead of KALETA_PORT.
     env["NICEGUI_SCREEN_TEST_PORT"] = str(E2E_PORT)
@@ -277,9 +243,10 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
     base_url = DEFAULT_E2E_BASE
     try:
         _wait_for_server(base_url)
-        _ensure_e2e_user(db_url)
-        E2E_API_TOKEN = _ensure_e2e_api_token(db_url)
-        seed_helpers.configure(base_url, db_url=db_url, api_token=E2E_API_TOKEN)
+        E2E_API_TOKEN = e2e_login.api_token
+        seed_helpers.configure(
+            base_url, db_url=db_url, api_token=E2E_API_TOKEN, family=e2e_login.family
+        )
         yield base_url
     except Exception:
         raise
@@ -321,7 +288,7 @@ def storage_id(raw_cookie: str) -> str:
 def login(page, base_url: str) -> None:
     """Sign in via the login page using the shared e2e credentials."""
     page.goto(f"{base_url}/login")
-    page.get_by_label("Username", exact=True).fill(E2E_USERNAME)
+    page.get_by_label("E-mail", exact=True).fill(E2E_EMAIL)
     page.get_by_label("Password", exact=True).fill(E2E_PASSWORD)
     page.get_by_role("button", name="Log in").click()
     page.wait_for_url(lambda url: "/login" not in url, timeout=15000)

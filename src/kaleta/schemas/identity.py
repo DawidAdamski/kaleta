@@ -18,9 +18,8 @@ __all__ = ["FactorEnrolment", "Identity", "MfaRequired", "RegistrationMode", "Si
 class Identity(BaseModel):
     """A person the identity provider vouches for.
 
-    ``subject`` is the provider's opaque, stable id: ``str(user.id)`` locally,
-    the GoTrue user id with Supabase. ``email`` is the local username on a
-    self-hosted install, which has no e-mail.
+    ``subject`` is the provider's opaque, stable id: ``local:<id>`` for a
+    local login (ADR-38), the GoTrue user id with Supabase.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -68,7 +67,7 @@ class SignUpResult(BaseModel):
 class RegistrationMode(enum.StrEnum):
     """Who may create a family on this instance (ADR-38).
 
-    ``closed``: only the instance administrator (or ``tenant_admin.py``).
+    ``closed``: only the instance administrator (or ``kaleta-admin``).
     ``invite``: an invitation link is needed (``hosted-household-sharing``).
     ``open``: anyone who reaches the sign-up page.
     """

@@ -76,46 +76,31 @@ async def test_health_alias_unauthenticated(db_engine) -> None:
 
 
 @pytest.mark.asyncio
-async def test_health_service_reports_pending_when_unstamped() -> None:
-    """Unstamped DBs (no alembic_version) report migrations_pending=true.
+async def test_health_service_reports_pending_for_a_family_schema_behind_head() -> None:
+    """A family schema with no ``alembic_version`` counts as behind head."""
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.services.tenant_service import TenantService
+    from tests.tenancy_helpers import MetadataProvisioner, identity, multi_tenant_database
 
-    Uses a private in-memory SQLite engine so CI postgres (which migrates and
-    stamps alembic_version before tests) cannot leak a head revision into this
-    assertion via the shared session fixture.
-    """
-    from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
-
-    engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
-    try:
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        async with factory() as s:
-            snap = await HealthService(s).check()
-        assert snap.database_ok is True
-        assert snap.migrations_pending is True
-        assert snap.version == "0.1.0"
-    finally:
-        await engine.dispose()
+    async with multi_tenant_database() as url:
+        async with AsyncSessionFactory.public() as public:
+            # Built from the models, never stamped: what a failed migration leaves.
+            await TenantService(public, provisioner=MetadataProvisioner(url)).provision(identity(1))
+        async with AsyncSessionFactory.public() as public:
+            snap = await HealthService(public).check()
+    assert snap.database_ok is True
+    assert snap.migrations_pending is True
+    assert snap.tenants_pending_migration == 1
+    assert snap.version == "0.1.0"
 
 
 @pytest.mark.asyncio
 async def test_health_service_reports_not_pending_when_at_head(session: AsyncSession) -> None:
-    """When the DB revision matches alembic head, migrations_pending is false."""
-    from sqlalchemy.ext.asyncio import AsyncConnection, AsyncEngine
-
-    from kaleta.services.setup_service import current_revision, head_revision
-
-    bind = session.bind
-    if isinstance(bind, AsyncEngine):
-        url = bind.url.render_as_string(hide_password=False)
-    elif isinstance(bind, AsyncConnection):
-        url = bind.engine.url.render_as_string(hide_password=False)
-    else:
-        pytest.skip("no usable session bind")
-    if current_revision(url) != head_revision():
-        pytest.skip("fixture DB is not stamped at alembic head")
+    """The suite's registry and family are migrated to head: nothing is pending."""
     snap = await HealthService(session).check()
     assert snap.database_ok is True
     assert snap.migrations_pending is False
+    assert snap.tenants_pending_migration == 0
 
 
 def test_nicegui_storage_sweep_removes_stale_files(
@@ -153,8 +138,8 @@ def test_configure_environment_respects_existing_env(
 
 
 @pytest.mark.asyncio
-async def test_health_reports_tenancy_backend_and_keyring_count(db_engine) -> None:
-    """Covers: KAL-API-004 — the operator's fields on a self-hosted install"""
+async def test_health_reports_backend_and_keyring_count(db_engine) -> None:
+    """Covers: KAL-API-004 — the operator's fields"""
     from fastapi import FastAPI
 
     from kaleta.crypto import DataKey, key_ring
@@ -179,11 +164,11 @@ async def test_health_reports_tenancy_backend_and_keyring_count(db_engine) -> No
     finally:
         key_ring.lock("health-probe-session")
 
-    assert body["tenancy"] == "single"
+    assert "tenancy" not in body
     assert body["auth_backend"] == "local"
     assert body["keyring_sessions"] == before + 1
-    assert body["suspended_tenants"] is None
-    assert body["tenants_pending_migration"] is None
+    assert body["suspended_tenants"] == []
+    assert body["tenants_pending_migration"] == 0
 
 
 @pytest.mark.asyncio
@@ -202,6 +187,5 @@ async def test_health_lists_suspended_tenants_on_a_hosted_instance(tmp_path) -> 
         async with AsyncSessionFactory.public() as public:
             snap = await HealthService(public).check()
 
-    assert snap.tenancy == "multi"
     assert snap.auth_backend == "supabase"
     assert snap.suspended_tenants == [first.id]

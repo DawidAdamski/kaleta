@@ -2,7 +2,7 @@
 """The cross-tenant registry of the hosted layout (ADR-35).
 
 Lives in ``public`` on ``PublicBase`` — never in ``Base.metadata``, so no tenant
-schema ever contains it — and exists only in ``KALETA_TENANCY=multi``. It holds
+schema ever contains it. It holds
 no financial data: which schema an account lives in, and per member the auth
 subject, e-mail, role and (filled by ``hosted-field-encryption``) key material.
 """

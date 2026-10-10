@@ -12,10 +12,10 @@ class User(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
-    #: ``NULL`` for a member of a hosted account: Supabase Auth holds the
-    #: credential, and ``LocalAuthProvider`` refuses to sign such a row in.
+    #: ``NULL``: a member's credential is a ``public.local_identities`` row or
+    #: Supabase Auth's (ADR-38). The column outlived the single-tenant layout.
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    #: The member's e-mail on a hosted account (also their ``username`` there).
+    #: The member's e-mail (also their ``username``).
     email: Mapped[str | None] = mapped_column(String(320), nullable=True)
     #: What the household sees this member as; theirs to edit.
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)

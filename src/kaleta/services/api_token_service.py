@@ -14,7 +14,6 @@ from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import ValidationError
 from kaleta.models.api_token import ApiToken
 from kaleta.models.tenant import LocalIdentity, TenantMemberStatus
-from kaleta.services.auth_service import PLACEHOLDER_USERNAME, AuthService
 from kaleta.services.local_identity_service import subject_of
 from kaleta.services.mfa_service import MfaService
 from kaleta.services.tenant_service import TenantMembership, TenantService
@@ -75,10 +74,8 @@ class ApiTokenService:
 
     @staticmethod
     def generate_raw_token() -> str:
-        """A new raw token; prefixed with its tenant in ``KALETA_TENANCY=multi``."""
+        """A new raw token, prefixed with its family: ``kt_<family>_<secret>``."""
         secret = secrets.token_urlsafe(32)
-        if settings.tenancy != "multi":
-            return secret
         ctx = current_tenant()
         if ctx is None:
             msg = "No tenant context to mint an API token for"
@@ -185,15 +182,10 @@ class ApiTokenService:
     async def _authenticate_env_token(self, raw_token: str) -> int | None:
         if not is_env_token(raw_token):
             return None
-        if settings.tenancy == "multi":
-            # `resolve_request_tenant` put the instance administrator's
-            # family and member in the context (`env_token_membership`).
-            ctx = current_tenant()
-            return ctx.member_user_id if ctx is not None else None
-        user = await AuthService(self.session).get_single_user()
-        if user is None or user.username == PLACEHOLDER_USERNAME:
-            return None
-        return user.id
+        # `resolve_request_tenant` put the instance administrator's family and
+        # member in the context (`env_token_membership`).
+        ctx = current_tenant()
+        return ctx.member_user_id if ctx is not None else None
 
     async def _require_step_up(self, user_id: int, *, mfa_verified_at: datetime | None) -> None:
         """A bearer token outlives a session, so minting one is a second-factor act.

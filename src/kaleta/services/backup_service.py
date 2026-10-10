@@ -35,7 +35,6 @@ from kaleta.db.blind_index import with_blind_indexes
 from kaleta.db.tenant_context import current_tenant
 from kaleta.db.types import EncryptedJSON, EncryptedText
 from kaleta.exceptions import ValidationError
-from kaleta.models.local_key_material import LocalKeyMaterial
 
 _BACKUP_VERSION = "1"
 
@@ -63,16 +62,14 @@ def _current_alembic_revision() -> str:
     return head
 
 
-#: Tables that belong to the install, not to the data, and stay out of a backup.
-#: ``local_key_material`` holds the sealed data key: the export is plaintext
-#: and a restore re-encrypts under the key the install already has, so carrying
-#: the exporter's key block over would leave the data under a key nobody holds.
-_NOT_BACKED_UP = frozenset({"local_key_material"})
-
-
 def _backup_tables() -> list[str]:
-    """ORM tables in FK-safe order — single source of truth for export/restore."""
-    return [table.name for table in Base.metadata.sorted_tables if table.name not in _NOT_BACKED_UP]
+    """ORM tables in FK-safe order — single source of truth for export/restore.
+
+    The family's key block is not among them: it is the registry's
+    (``public.tenant_members``), and a restore re-encrypts under the key the
+    family already has.
+    """
+    return [table.name for table in Base.metadata.sorted_tables]
 
 
 def _is_user_text(col_type: TypeEngine[Any]) -> bool:
@@ -220,24 +217,6 @@ class BackupService:
 
         return buf.getvalue()
 
-    async def _refuse_restore_without_key_holder(self, users: list[dict[str, Any]]) -> None:
-        """Refuse a restore after which nobody could unlock this install's data.
-
-        The key material is not restored (`_NOT_BACKED_UP`), so at least one
-        user who holds it must be among the users the backup brings back.
-        """
-        holders = set(
-            (await self.session.execute(select(LocalKeyMaterial.user_id))).scalars().all()
-        )
-        if not holders:
-            return
-        if not holders & {row.get("id") for row in users}:
-            msg = (
-                "Invalid backup: none of its users holds this install's encryption key, "
-                "so nobody could unlock the restored data."
-            )
-            raise ValidationError(msg)
-
     async def restore(self, data: bytes) -> dict[str, int]:
         """Replace all data with the contents of a backup ZIP.
 
@@ -273,8 +252,6 @@ class BackupService:
             for table in tables:
                 fname = f"{table}.json"
                 table_data[table] = json.loads(zf.read(fname)) if fname in names else []
-
-        await self._refuse_restore_without_key_holder(table_data.get("users", []))
 
         # Disable FK constraints for the duration of the restore (SQLite only).
         # Do not run PRAGMA on PostgreSQL — a failed statement aborts the transaction.

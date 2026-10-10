@@ -30,7 +30,6 @@ import argparse
 import datetime
 import hashlib
 import html
-import json
 import os
 import re
 import subprocess
@@ -58,8 +57,13 @@ VIEWS = "src/kaleta/views"
 SHELL_SOURCES = (f"{VIEWS}/theme.py", f"{VIEWS}/layout.py")
 
 PORT = 8082  # 8080 is the developer's app, 8081 is the e2e suite's.
-USERNAME = "demo"
+#: ``scripts/reset_demo.py``'s defaults: the demo family's login and passphrase.
+EMAIL = "demo@kaleta.app"
 PASSWORD = "demo-kaleta"
+DATA_PASSPHRASE = "demo-kaleta-data"
+#: The developer's PostgreSQL (``./scripts/test_db.sh up``) unless
+#: ``KALETA_DB_URL`` names another; the shoot gets a database of its own on it.
+DEFAULT_DB_URL = "postgresql+asyncpg://kaleta:kaleta@127.0.0.1:55432/kaleta"
 MIN_REPORT_ROWS = 8
 STATUSES = ("match", "deviation", "open")
 
@@ -356,8 +360,27 @@ class Report:
 # ── shoot ────────────────────────────────────────────────────────────────
 
 
+def _fresh_database(server_url: str) -> str:
+    """``<database>_fidelity`` on ``server_url``'s server, dropped and created again."""
+    from sqlalchemy import create_engine, text
+    from sqlalchemy.engine import make_url
+
+    base = make_url(server_url)
+    database = f"{base.database}_fidelity"
+    engine = create_engine(
+        base.set(drivername="postgresql+psycopg2", query={}), isolation_level="AUTOCOMMIT"
+    )
+    try:
+        with engine.connect() as conn:
+            conn.execute(text(f'DROP DATABASE IF EXISTS "{database}" WITH (FORCE)'))
+            conn.execute(text(f'CREATE DATABASE "{database}"'))
+    finally:
+        engine.dispose()
+    return base.set(database=database).render_as_string(hide_password=False)
+
+
 class EphemeralApp:
-    """A seeded Kaleta on its own port, HOME and SQLite file — the e2e recipe."""
+    """A seeded Kaleta on its own port, HOME and database — the e2e recipe."""
 
     def __init__(self) -> None:
         self._tmp = tempfile.TemporaryDirectory(prefix="kaleta-fidelity-")
@@ -367,28 +390,24 @@ class EphemeralApp:
 
     def __enter__(self) -> EphemeralApp:
         home = Path(self._tmp.name)
-        db_url = f"sqlite+aiosqlite:///{home / 'fidelity.db'}"
+        db_url = _fresh_database(os.environ.get("KALETA_DB_URL") or DEFAULT_DB_URL)
         env = {
             **os.environ,
             "HOME": str(home),
             "KALETA_DB_URL": db_url,
-            "KALETA_MIGRATE_URL": db_url,
             "KALETA_PORT": str(PORT),
             "KALETA_HOST": "127.0.0.1",
+            "KALETA_AUTH_BACKEND": "local",
+            "KALETA_DATA_PASSPHRASE": DATA_PASSPHRASE,
         }
         env.pop("KALETA_DEMO", None)  # the demo banner is not on any artboard
-        (home / ".kaleta").mkdir()
-        (home / ".kaleta" / "config.json").write_text(
-            json.dumps({"db_url": db_url, "name": "fidelity"}), encoding="utf-8"
-        )
-        # `scripts/seed.py` fills the migrated schema in place — it no longer
-        # drops the tables, so the revision stays at head and the artboards are
-        # drawn on a ledger with payees, tags, planned transactions,
-        # subscriptions and physical assets in it. The demo login is made
-        # separately, without a second seed on top.
-        self._run(["uv", "run", "alembic", "upgrade", "head"], env)
-        self._run(["uv", "run", "python", "scripts/seed.py"], env)
+        # The demo family first (its login, its schema, its data passphrase),
+        # then `scripts/seed.py` fills that schema, so the artboards are drawn
+        # on a ledger with payees, tags, planned transactions, subscriptions
+        # and physical assets in it.
+        self._run(["uv", "run", "python", "scripts/migrate_tenants.py"], env)
         self._run(["uv", "run", "python", "scripts/reset_demo.py", "--force", "--no-seed"], env)
+        self._run(["uv", "run", "python", "scripts/seed.py"], env)
         self._log = (home / "server.log").open("wb")
         self._proc = subprocess.Popen(
             ["uv", "run", "kaleta"], cwd=ROOT, env=env, stdout=self._log, stderr=subprocess.STDOUT
@@ -491,10 +510,14 @@ class Shooter:
 
     def _login(self, page: Page) -> None:
         page.goto(f"{self._base_url}/login")
-        page.get_by_label("Username", exact=True).fill(USERNAME)
+        page.get_by_label("E-mail", exact=True).fill(EMAIL)
         page.get_by_label("Password", exact=True).fill(PASSWORD)
         page.get_by_role("button", name="Log in").click()
         page.wait_for_url(lambda url: "/login" not in url, timeout=15000)
+        if "/unlock" in page.url:
+            page.get_by_label("Data passphrase", exact=True).fill(DATA_PASSPHRASE)
+            page.get_by_role("button", name="Unlock", exact=True).click()
+            page.wait_for_url(lambda url: "/unlock" not in url, timeout=30000)
 
     @staticmethod
     def _go_dark(page: Page) -> None:
@@ -550,7 +573,7 @@ class Shooter:
         button from moving out from under a second try, and an empty one says
         nothing about whether it works.
         """
-        page.get_by_label("Username", exact=True).fill("dawid")
+        page.get_by_label("E-mail", exact=True).fill("dawid@example.com")
         page.get_by_label("Password", exact=True).fill("not-the-password")
         page.get_by_role("button", name="Log in").click()
         # Off the button before the shutter: a pointer left resting on it
@@ -649,7 +672,7 @@ class Cli:
                 sub.add_argument(
                     "--base-url",
                     help="shoot an app that is already running (seeded, with the login "
-                    f"{USERNAME}/{PASSWORD}) instead of starting an ephemeral one",
+                    f"{EMAIL}/{PASSWORD}) instead of starting an ephemeral one",
                 )
         args = parser.parse_args(argv)
         try:

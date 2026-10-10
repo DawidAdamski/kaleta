@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E: a self-hosted instance on the registry layout — the administrator's first run.
 
-The app runs with ``KALETA_TENANCY=multi`` and ``KALETA_AUTH_BACKEND=local``
-(ADR-38) on a fresh PostgreSQL database. Nothing exists yet: the login page
-sends the first visitor to set up the administrator, whose first sign-in
-provisions the first family; afterwards registration is closed.
+The app runs with ``KALETA_AUTH_BACKEND=local`` (ADR-38) on a fresh PostgreSQL
+database. Nothing exists yet: the login page sends the first visitor to set up
+the administrator, whose first sign-in provisions the first family; afterwards
+registration is closed.
 
 Covers: KAL-TEN-015, KAL-TEN-016
 """
@@ -69,7 +69,6 @@ def instance(tmp_path_factory: pytest.TempPathFactory) -> Generator[SelfHostedIn
             "KALETA_PORT": str(SELF_HOSTED_PORT),
             "KALETA_DEBUG": "true",
             "KALETA_DB_URL": db_url,
-            "KALETA_TENANCY": "multi",
             "KALETA_AUTH_BACKEND": "local",
             "NICEGUI_SCREEN_TEST_PORT": str(SELF_HOSTED_PORT),
         }

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Resend-confirmation throttle and the self-hosted answer to e-mail links."""
+"""Resend-confirmation throttle and the local-login answer to e-mail links."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import pytest
 
 from kaleta.auth import sign_in as sign_in_mod
 from kaleta.auth.login_rate_limit import MemoryStore, SendThrottle
-from kaleta.auth.providers import LocalAuthProvider, set_auth_provider
+from kaleta.auth.providers import RegistryAuthProvider, set_auth_provider
 from kaleta.exceptions import ValidationError
 
 
@@ -33,9 +33,8 @@ class TestSendThrottle:
         assert throttle.allow("jan@example.com", now=1001.0) is True
 
 
-class _CountingProvider(LocalAuthProvider):
+class _CountingProvider(RegistryAuthProvider):
     name = "supabase"
-    email_login = True
 
     def __init__(self) -> None:
         self.resent: list[str] = []
@@ -68,6 +67,6 @@ async def test_resend_reaches_the_provider_once_per_interval(counting: _Counting
     "call",
     ["resend_confirmation", "request_magic_link", "verify_magic_link"],
 )
-async def test_a_self_hosted_install_sends_no_mail(call: str) -> None:
+async def test_local_logins_send_no_mail(call: str) -> None:
     with pytest.raises(ValidationError, match="sends no e-mail"):
-        await getattr(LocalAuthProvider(), call)("ania@example.com")
+        await getattr(RegistryAuthProvider(), call)("ania@example.com")

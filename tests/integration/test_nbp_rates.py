@@ -9,17 +9,13 @@ from __future__ import annotations
 import json
 import urllib.error
 from decimal import Decimal
-from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.config import setup_config
 from kaleta.exceptions import ExternalServiceError
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.nbp_rate_service import NbpRateService
-from kaleta.services.nbp_startup import NbpStartupFetcher
 
 
 def _table_a_payload() -> bytes:
@@ -76,25 +72,3 @@ async def test_nbp_import_offline_fails_soft(session: AsyncSession) -> None:
         await NbpRateService(session, http_get=_offline).import_latest()
 
     assert await CurrencyRateService(session).list_pairs() == []
-
-
-def test_nbp_fetch_on_startup_defaults_off(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Covers: KAL-FXR-003
-
-    Given nbp_fetch_on_startup is unset in ~/.kaleta/config.json
-    When the NBP startup fetcher starts
-    Then no HTTP request is made to NBP
-    And get_nbp_fetch_on_startup returns false
-    """
-    monkeypatch.setattr(setup_config, "_CONFIG_DIR", tmp_path)
-    monkeypatch.setattr(setup_config, "_CONFIG_FILE", tmp_path / "config.json")
-
-    assert setup_config.get_nbp_fetch_on_startup() is False
-
-    http_get = MagicMock(side_effect=AssertionError("live NBP must not be called"))
-    with patch.object(NbpRateService, "default_http_get", http_get):
-        NbpStartupFetcher._task = None
-        NbpStartupFetcher.start()
-
-    assert NbpStartupFetcher._task is None
-    http_get.assert_not_called()

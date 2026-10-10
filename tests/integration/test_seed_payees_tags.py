@@ -6,24 +6,24 @@ Covers: KAL-PLT-003, KAL-PLT-004
 
 from __future__ import annotations
 
-import asyncio
 import datetime
 import os
 import subprocess
 import sys
-from collections.abc import Iterator
+from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+import pytest_asyncio
 from sqlalchemy import func, select
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 import kaleta.models  # noqa: F401 — register ORM tables on Base.metadata
 from kaleta.models.payee import Payee
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.services.report_service import ReportService
-from tests.encryption_helpers import script_env
+from tests.script_family import ScriptFamily, script_family
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 SEED_SCRIPT = PROJECT_ROOT / "scripts" / "seed.py"
@@ -34,38 +34,31 @@ MIN_TRANSACTIONS_PER_PAYEE = 3
 
 
 @pytest.fixture(scope="module")
-def seeded_db_url(tmp_path_factory: pytest.TempPathFactory) -> str:
-    """Run scripts/seed.py once against a throwaway SQLite file."""
-    tmp_path = tmp_path_factory.mktemp("seed")
-    db_url = f"sqlite+aiosqlite:///{tmp_path / 'seed.db'}"
-    home = tmp_path / "home"
+def seeded_family(tmp_path_factory: pytest.TempPathFactory) -> ScriptFamily:
+    """Run scripts/seed.py once, in a family of a fresh database."""
+    home = tmp_path_factory.mktemp("seed") / "home"
     home.mkdir()
+    target = script_family("seed_payees")
     proc = subprocess.run(
         [sys.executable, str(SEED_SCRIPT)],
         cwd=PROJECT_ROOT,
-        env={**os.environ, "HOME": str(home), "KALETA_DB_URL": db_url, **script_env(db_url)},
+        env={**os.environ, "HOME": str(home), **target.env},
         check=False,
         capture_output=True,
         text=True,
     )
     assert proc.returncode == 0, proc.stderr or proc.stdout
-    return db_url
+    return target
 
 
-@pytest.fixture
-def seeded_session(seeded_db_url: str) -> Iterator[AsyncSession]:
-    """An open session on the seeded database, closed after the test."""
-    engine = create_async_engine(seeded_db_url)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-    session = factory()
-    try:
+@pytest_asyncio.fixture
+async def seeded_session(seeded_family: ScriptFamily) -> AsyncIterator[AsyncSession]:
+    """An open session on the seeded family, closed after the test."""
+    async with seeded_family.session() as session:
         yield session
-    finally:
-        asyncio.run(session.close())
-        asyncio.run(engine.dispose())
 
 
-def test_seed_attaches_payees_to_transactions(seeded_session: AsyncSession) -> None:
+async def test_seed_attaches_payees_to_transactions(seeded_session: AsyncSession) -> None:
     """Covers: KAL-PLT-003"""
 
     async def _check() -> None:
@@ -93,10 +86,10 @@ def test_seed_attaches_payees_to_transactions(seeded_session: AsyncSession) -> N
         )
         assert merchants != []
 
-    asyncio.run(_check())
+    await _check()
 
 
-def test_seed_tags_expenses_transfers_and_subscriptions(seeded_session: AsyncSession) -> None:
+async def test_seed_tags_expenses_transfers_and_subscriptions(seeded_session: AsyncSession) -> None:
     """Covers: KAL-PLT-004"""
 
     async def _check() -> None:
@@ -136,4 +129,4 @@ def test_seed_tags_expenses_transfers_and_subscriptions(seeded_session: AsyncSes
         assert income
         assert all(names(tx) == set() for tx in income)
 
-    asyncio.run(_check())
+    await _check()

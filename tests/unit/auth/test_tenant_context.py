@@ -12,14 +12,11 @@ from pathlib import Path
 import pytest
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from kaleta.auth.providers import LocalAuthProvider, MfaRequired, set_auth_provider
+from kaleta.auth.providers import RegistryAuthProvider, set_auth_provider
 from kaleta.auth.revocation_cache import RevocationCache
 from kaleta.auth.sign_in import SignInFlow
-from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
-from kaleta.db.base import Base
 from kaleta.db.tenant_context import (
     TenantContext,
     TenantContextMissingError,
@@ -39,22 +36,6 @@ from tests.tenancy_helpers import MetadataProvisioner, identity, multi_tenant_da
 async def hosted(tmp_path: Path) -> AsyncIterator[str]:
     async with multi_tenant_database() as url:
         yield url
-
-
-@pytest.fixture
-async def session_factory_single(tmp_path: Path) -> AsyncIterator[None]:
-    """The shared session proxy on a fresh single-tenant SQLite file."""
-    url = f"sqlite+aiosqlite:///{tmp_path / 'single.db'}"
-    engine = create_async_engine(url)
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    await engine.dispose()
-    AsyncSessionFactory.configure(url)
-    try:
-        yield
-    finally:
-        await AsyncSessionFactory.dispose()
-        AsyncSessionFactory.configure(settings.db_url, debug=settings.debug)
 
 
 async def _provision(url: str, n: int) -> TenantContext:
@@ -166,10 +147,9 @@ async def test_the_resolver_supplies_the_tenant_for_ui_events(hosted: str) -> No
 async def test_the_public_session_cannot_see_tenant_rows(hosted: str) -> None:
     """Covers: KAL-TEN-003
 
-    A fresh hosted database has no ``accounts`` outside the tenant schemas, so
-    the query errors; a database that also carries single-tenant tables in
-    ``public`` (the CI ``postgres`` job) answers from those. Neither answer may
-    contain a tenant's row.
+    The registry database has no ``accounts`` outside the tenant schemas, so
+    the query errors; were there ever an ``accounts`` table in ``public`` it
+    would answer from that. Neither answer may contain a tenant's row.
     """
     a = await _provision(hosted, 1)
     with use_tenant(a):
@@ -272,9 +252,8 @@ async def test_revocation_watermarks_are_kept_per_tenant(hosted: str) -> None:
 # ── Sign-in flow ──────────────────────────────────────────────────────────────
 
 
-class _RecordingProvider(LocalAuthProvider):
+class _RecordingProvider(RegistryAuthProvider):
     name = "supabase"
-    email_login = True
 
     def __init__(self) -> None:
         self.signed_out: list[Identity] = []
@@ -308,56 +287,3 @@ async def test_an_unverified_identity_cannot_sign_in(hosted: str) -> None:
         service = TenantService(public, provisioner=MetadataProvisioner(hosted))
         with pytest.raises(UnauthorizedError):
             await SignInFlow(service).complete(identity(1, verified=False))
-
-
-# ── Local provider (self-hosted, unchanged behaviour) ─────────────────────────
-
-
-async def test_local_provider_signs_in_the_single_user(session_factory_single: None) -> None:
-    provider = LocalAuthProvider()
-    await provider.sign_up("ania", "correct-horse")
-    identity_ = await provider.sign_in("ania", "correct-horse")
-    assert isinstance(identity_, Identity)
-    assert identity_.email == "ania"
-    assert identity_.email_verified is True
-    signed_in = await SignInFlow().complete(identity_)
-    assert (signed_in.user_id, signed_in.tenant) == (int(identity_.subject), None)
-    with pytest.raises(UnauthorizedError):
-        await provider.sign_in("ania", "wrong-password")
-
-
-async def test_local_provider_asks_for_the_second_factor(session_factory_single: None) -> None:
-    from kaleta.services import MfaService, with_session
-
-    provider = LocalAuthProvider()
-    await provider.sign_up("ania", "correct-horse")
-
-    async def _enable(session: AsyncSession) -> None:
-        from kaleta.services import AuthService
-
-        user = await AuthService(session).get_user_by_username("ania")
-        assert user is not None
-        mfa = MfaService(session)
-        enrolment = await mfa.begin_enrolment(user.id)
-        import pyotp
-
-        await mfa.confirm_enrolment(user.id, pyotp.TOTP(enrolment.secret).now())
-
-    await with_session(_enable)
-    result = await provider.sign_in("ania", "correct-horse")
-    assert isinstance(result, MfaRequired)
-
-
-async def test_local_provider_refuses_a_user_without_a_local_password(
-    session_factory_single: None,
-) -> None:
-    from kaleta.models.user import User
-    from kaleta.services import with_session
-
-    async def _add(session: AsyncSession) -> None:
-        session.add(User(username="hosted@example.com", password_hash=None))
-        await session.commit()
-
-    await with_session(_add)
-    with pytest.raises(UnauthorizedError):
-        await LocalAuthProvider().sign_in("hosted@example.com", "")

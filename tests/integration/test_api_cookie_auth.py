@@ -11,18 +11,19 @@ from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
 
 from kaleta.api import create_api_router
-from kaleta.api.deps import get_session, get_session_configured
+from kaleta.api.deps import get_session
 from kaleta.api.errors import register_error_handlers
-from kaleta.services.auth_service import AuthService
-from tests.conftest import make_session_factory
+from kaleta.models.user import User
+from tests.conftest import SUITE_FAMILY, make_session_factory
 from tests.integration.conftest import ACCOUNT_PAYLOAD
 
 
 @pytest_asyncio.fixture
 async def cookie_user(db_engine):
+    """The suite family's owner, signed in with a browser cookie."""
     factory = make_session_factory(db_engine)
     async with factory() as session:
-        return await AuthService(session).create_user("cookie-user", "password-123")
+        return await session.get(User, SUITE_FAMILY.member_user_id)
 
 
 @pytest_asyncio.fixture
@@ -38,7 +39,6 @@ async def api_app_cookie(db_engine, cookie_user, monkeypatch: pytest.MonkeyPatch
             yield s
 
     app.dependency_overrides[get_session] = override_session
-    app.dependency_overrides[get_session_configured] = override_session
 
     async def _uid_from_request(_request: Any) -> int | None:
         return cookie_user.id

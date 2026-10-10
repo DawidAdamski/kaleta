@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""``KeyService`` over ``local_key_material`` — the passphrase flows end to end.
+"""``KeyService`` over the suite family's member rows — the passphrase flows end to end.
 
 Covers: KAL-ENC-002, KAL-ENC-003, KAL-ENC-004, KAL-ENC-005, KAL-ENC-006, KAL-ENC-007
 """
@@ -7,6 +7,7 @@ Covers: KAL-ENC-002, KAL-ENC-003, KAL-ENC-004, KAL-ENC-005, KAL-ENC-006, KAL-ENC
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import replace
 
 import pytest
 from sqlalchemy import select, text
@@ -14,10 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.config import settings
 from kaleta.crypto import KdfParams, key_ring
+from kaleta.db.tenant_context import set_tenant
 from kaleta.db.types import TEXT_FORMAT_AES_GCM, install_data_key_resolver, use_data_key
 from kaleta.exceptions import ConflictError, TenantLockedError, ValidationError
 from kaleta.models.payee import Payee
-from kaleta.services.key_service import KeyService, LocalKeyStore, open_local_data_key
+from kaleta.models.tenant import TenantMember, TenantMemberStatus, TenantRole
+from kaleta.models.user import User
+from kaleta.services.key_service import KeyService, TenantKeyStore, open_family_data_key
+from tests.conftest import SUITE_FAMILY, family_table
 
 PASSPHRASE = "correct horse battery"
 OTHER = "another long passphrase"
@@ -30,13 +35,40 @@ def _encrypted_and_locked(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Encryption on and no key anywhere: only what the service opens is there."""
     monkeypatch.setattr(settings, "encryption", "passphrase")
     install_data_key_resolver(None)
+    # The family's context, without the key the suite's own carries.
+    set_tenant(replace(SUITE_FAMILY, key_ring=None))
     key_ring.clear()
     yield
     key_ring.clear()
 
 
-def _service(session: AsyncSession, user_id: int = 1) -> KeyService:
-    return KeyService(LocalKeyStore(session, user_id), session, params=FAST)
+OWNER = SUITE_FAMILY.member_user_id or 0
+
+
+def _service(session: AsyncSession, user_id: int = OWNER) -> KeyService:
+    # The test's session reaches `public` too: registry models name it.
+    return KeyService(
+        TenantKeyStore(session, SUITE_FAMILY.tenant_id, user_id), session, params=FAST
+    )
+
+
+async def _second_member(session: AsyncSession) -> int:
+    """Another member of the suite family (rolled back with the test)."""
+    user = User(username="second@example.com", email="second@example.com")
+    session.add(user)
+    await session.flush()
+    session.add(
+        TenantMember(
+            tenant_id=SUITE_FAMILY.tenant_id,
+            auth_subject="local:second",
+            email="second@example.com",
+            role=TenantRole.MEMBER,
+            status=TenantMemberStatus.ACTIVE,
+            user_id=user.id,
+        )
+    )
+    await session.flush()
+    return user.id
 
 
 async def test_setup_creates_the_key_and_unlocks_the_browser(session: AsyncSession) -> None:
@@ -51,7 +83,7 @@ async def test_setup_creates_the_key_and_unlocks_the_browser(session: AsyncSessi
     assert await service.has_recovery()
     entry = key_ring.get(BROWSER)
     assert entry is not None
-    assert entry.member_ref == "local:1"
+    assert entry.member_ref == f"tenant:{SUITE_FAMILY.tenant_id}:user:{OWNER}"
     assert entry.data_key == setup.data_key
 
 
@@ -80,7 +112,7 @@ async def test_setup_encrypts_the_data_already_there(session: AsyncSession) -> N
 
     setup = await _service(session).setup(BROWSER, PASSPHRASE)
 
-    raw = (await session.execute(text("SELECT name FROM payees"))).scalar_one()
+    raw = (await session.execute(text(f"SELECT name FROM {family_table('payees')}"))).scalar_one()
     assert bytes(raw)[0] == TEXT_FORMAT_AES_GCM
     assert b"Biedronka" not in bytes(raw)
     session.expire_all()
@@ -177,8 +209,8 @@ async def test_lock_forgets_the_key(session: AsyncSession) -> None:
 
 
 async def test_a_second_member_waits_for_the_key(session: AsyncSession) -> None:
-    await _service(session, user_id=1).setup(None, PASSPHRASE)
-    second = _service(session, user_id=2)
+    await _service(session).setup(None, PASSPHRASE)
+    second = _service(session, user_id=await _second_member(session))
 
     await second.setup(None, OTHER)
 
@@ -190,6 +222,7 @@ async def test_a_second_member_waits_for_the_key(session: AsyncSession) -> None:
 async def test_scripts_open_the_key_with_any_holders_passphrase(session: AsyncSession) -> None:
     setup = await _service(session).setup(None, PASSPHRASE)
 
-    assert await open_local_data_key(session, PASSPHRASE) == setup.data_key
+    tenant_id = SUITE_FAMILY.tenant_id
+    assert await open_family_data_key(session, session, tenant_id, PASSPHRASE) == setup.data_key
     with pytest.raises(ValidationError):
-        await open_local_data_key(session, OTHER)
+        await open_family_data_key(session, session, tenant_id, OTHER)

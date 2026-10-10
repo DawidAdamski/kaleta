@@ -7,6 +7,7 @@ Covers: KAL-ENC-001, KAL-ENC-007
 from __future__ import annotations
 
 from collections.abc import Iterator
+from dataclasses import replace
 
 import pytest
 from sqlalchemy import Column, Integer, MetaData, String, Table, create_engine, insert, select
@@ -14,7 +15,7 @@ from sqlalchemy.exc import StatementError
 
 from kaleta.config import settings
 from kaleta.crypto import DataKey, generate_dek
-from kaleta.db.tenant_context import TenantContext, use_tenant
+from kaleta.db.tenant_context import TenantContext, set_tenant, use_tenant
 from kaleta.db.types import (
     TEXT_FORMAT_AES_GCM,
     TEXT_FORMAT_PLAIN,
@@ -27,6 +28,7 @@ from kaleta.db.types import (
     use_data_key,
 )
 from kaleta.exceptions import EncryptionError, TenantLockedError
+from tests.conftest import SUITE_FAMILY
 
 metadata = MetaData()
 notes = Table(
@@ -52,11 +54,12 @@ def engine() -> Iterator[object]:
 def encrypted(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Encryption on and *locked*: no key until a test supplies one.
 
-    Removes the suite-wide test keyring the autouse fixture installs when the
-    suite runs with ``KALETA_ENCRYPTION=passphrase``.
+    Takes the suite's test key off the family context the autouse fixture
+    sets, and removes any resolver.
     """
     monkeypatch.setattr(settings, "encryption", "passphrase")
     install_data_key_resolver(None)
+    set_tenant(replace(SUITE_FAMILY, key_ring=None))
     yield
 
 
@@ -156,13 +159,15 @@ def test_a_key_version_mismatch_is_reported(engine, encrypted) -> None:  # type:
         _read(engine)
 
 
-def test_the_tenant_context_and_the_single_resolver_supply_the_key(engine, encrypted) -> None:  # type: ignore[no-untyped-def]
+def test_the_tenant_context_and_the_resolver_supply_the_key(engine, encrypted) -> None:  # type: ignore[no-untyped-def]
     key = DataKey(generate_dek())
     with use_tenant(TenantContext(tenant_id=1, schema="t_0123456789ab", key_ring=key)):
         _write(engine, body="hosted")
+    # Outside any family's context, the resolver answers.
     install_data_key_resolver(lambda: key)
     try:
-        assert _read(engine) == "hosted"
+        with use_tenant(None):
+            assert _read(engine) == "hosted"
     finally:
         install_data_key_resolver(None)
 

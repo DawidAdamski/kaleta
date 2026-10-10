@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 import logging
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -9,7 +10,6 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 logger = logging.getLogger(__name__)
 
 _INSECURE_KEY = "change-me-in-production"
-_DEFAULT_BACKUP_DIR = "~/.kaleta/backups"
 _DEFAULT_DATA_DIR = Path.home() / ".kaleta"
 _DEFAULT_DB_PATH = _DEFAULT_DATA_DIR / "kaleta.db"
 _DEFAULT_DB_URL = f"sqlite+aiosqlite:///{_DEFAULT_DB_PATH}"
@@ -39,11 +39,11 @@ class Settings(BaseSettings):
     mode: str = "web"  # web | app | api
     secret_key: str = _INSECURE_KEY
     debug: bool = False
-    #: A bearer token from the environment, for headless use (≥16 characters).
-    #: ``single``: the one user. Registry layout: the instance administrator, in
-    #: their family — like any token, it reads encrypted data only while that
-    #: member has an unlocked session. A value shaped like a family token
-    #: (``kt_<digits>_…``) is read as one and never matches: choose another.
+    #: A bearer token from the environment, for headless use (≥16 characters):
+    #: the instance administrator, in their family — like any token, it reads
+    #: encrypted data only while that member has an unlocked session. A value
+    #: shaped like a family token (``kt_<digits>_…``) is read as one and never
+    #: matches: choose another.
     api_token: str | None = None
     session_ttl_hours: int = 72
     #: Hours without a request after which a UI session ends, however young it
@@ -56,10 +56,6 @@ class Settings(BaseSettings):
     #: ``strict`` drops the cookie on every navigation that starts outside the
     #: app, e-mail confirmation links included; ``lax`` is the safe default.
     session_cookie_samesite: Literal["lax", "strict"] = "lax"
-    backup_enabled: bool = True
-    backup_interval_hours: int = 24
-    backup_retain: int = 7
-    backup_dir: str = _DEFAULT_BACKUP_DIR
     demo: bool = False
     events_enabled: bool = True
     event_retention_days: int = 7
@@ -81,14 +77,12 @@ class Settings(BaseSettings):
     #: the login rate limiter. Unset means files under ``~/.kaleta/nicegui``
     #: and counters in the process — one replica. Needs the ``hosted`` extra.
     redis_url: str | None = None
-    #: ``single`` is one database, one household, no schema translation — every
-    #: self-hosted install. ``multi`` is the hosted layout of ADR-35: a
-    #: ``public`` tenant registry and one schema per account.
-    tenancy: Literal["single", "multi"] = "single"
-    #: Who checks passwords: ``local`` (argon2 hashes in the ``users`` table)
-    #: or ``supabase`` (Supabase Auth over HTTPS). ``multi`` needs ``supabase`` —
-    #: or ``fake``, an in-process stand-in for it, accepted only with
-    #: ``KALETA_DEBUG=true`` (``compose.hosted-dev.yml``).
+    #: Who checks passwords: ``local`` (argon2 hashes in the registry's
+    #: ``local_identities``, ADR-38) or ``supabase`` (Supabase Auth over
+    #: HTTPS) — or ``fake``, an in-process stand-in for Supabase, accepted only
+    #: with ``KALETA_DEBUG=true`` (``compose.hosted-dev.yml``). Every instance
+    #: is the registry layout of ADR-35: a ``public`` registry and one schema
+    #: per family.
     auth_backend: Literal["local", "supabase", "fake"] = "local"
     supabase_url: str | None = None
     supabase_anon_key: str | None = None
@@ -99,11 +93,11 @@ class Settings(BaseSettings):
     #: password reset). No trailing slash needed.
     public_url: str | None = None
     #: Field-level encryption of user-written text (``hosted-field-encryption``).
-    #: ``passphrase``: every such column is AES-256-GCM under a data key only an
-    #: unlocked session holds. ``off``: the same columns hold UTF-8 under a
-    #: plaintext format byte. Unset means ``off`` for ``single`` and
-    #: ``passphrase`` for ``multi`` — see :attr:`encryption_enabled`.
-    encryption: Literal["off", "passphrase"] | None = None
+    #: ``passphrase`` (the only production setting): every such column is
+    #: AES-256-GCM under a data key only an unlocked session holds. ``off``,
+    #: accepted only with ``KALETA_DEBUG=true``: the same columns hold UTF-8
+    #: under a plaintext format byte.
+    encryption: Literal["off", "passphrase"] = "passphrase"
 
     @field_validator("db_url", mode="before")
     @classmethod
@@ -116,20 +110,6 @@ class Settings(BaseSettings):
                 normalized,
             )
         return normalized
-
-    @field_validator("backup_interval_hours")
-    @classmethod
-    def _validate_backup_interval(cls, value: int) -> int:
-        if value < 1:
-            raise ValueError("KALETA_BACKUP_INTERVAL_HOURS must be >= 1")
-        return value
-
-    @field_validator("backup_retain")
-    @classmethod
-    def _validate_backup_retain(cls, value: int) -> int:
-        if value < 1:
-            raise ValueError("KALETA_BACKUP_RETAIN must be >= 1")
-        return value
 
     @field_validator("session_ttl_hours")
     @classmethod
@@ -164,34 +144,31 @@ class Settings(BaseSettings):
     @property
     def encryption_enabled(self) -> bool:
         """Whether encrypted columns encrypt (rather than store plaintext)."""
-        if self.encryption is None:
-            return self.tenancy == "multi"
         return self.encryption == "passphrase"
 
-    @field_validator("tenancy", "auth_backend", "encryption", mode="before")
+    @field_validator("auth_backend", "encryption", mode="before")
     @classmethod
     def _normalize_mode_names(cls, value: object) -> object:
         return value.strip().lower() if isinstance(value, str) else value
 
     @model_validator(mode="after")
-    def _validate_tenancy(self) -> "Settings":
-        # The registry layout takes either backend — local logins kept in the
-        # registry (ADR-38) or Supabase Auth; a single-tenant database has one
-        # local user and nowhere to map another provider's identities to.
-        if self.tenancy == "single" and self.auth_backend != "local":
-            raise ValueError(
-                f"KALETA_AUTH_BACKEND={self.auth_backend} requires KALETA_TENANCY=multi: a "
-                "single-tenant database has one local user and no registry to map identities to."
+    def _validate_auth_and_encryption(self) -> "Settings":
+        if "KALETA_TENANCY" in os.environ:
+            # Read by releases before ADR-38; a `single` install's database is
+            # not migrated (the ADR), so say why the variable changes nothing.
+            logger.warning(
+                "KALETA_TENANCY is no longer read: every instance keeps a registry "
+                "and one schema per family (ADR-38)."
             )
         if self.auth_backend == "fake" and not self.debug:
             # It confirms every address and keeps identities in a file: a
             # stand-in for Supabase on a laptop, never a way to run a service.
             raise ValueError("KALETA_AUTH_BACKEND=fake is accepted only with KALETA_DEBUG=true.")
-        if self.tenancy == "multi" and self.encryption == "off" and not self.debug:
-            # The hosted promise is that the operator cannot read an account;
+        if self.encryption == "off" and not self.debug:
+            # The promise is that the operator cannot read a family's data;
             # turning that off is for a developer's laptop, not a deployment.
             raise ValueError(
-                "KALETA_TENANCY=multi encrypts every account: KALETA_ENCRYPTION=off is "
+                "Kaleta encrypts every family's data: KALETA_ENCRYPTION=off is "
                 "accepted only with KALETA_DEBUG=true."
             )
         if self.auth_backend == "supabase":
@@ -213,11 +190,6 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_samesite(cls, value: object) -> object:
         return value.strip().lower() if isinstance(value, str) else value
-
-    @field_validator("backup_dir")
-    @classmethod
-    def _expand_backup_dir(cls, value: str) -> str:
-        return str(Path(value).expanduser())
 
     @field_validator("event_retention_days")
     @classmethod

@@ -7,9 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-__all__ = ["AuthBackendName", "HealthResponse", "TenancyName"]
+__all__ = ["AuthBackendName", "HealthResponse"]
 
-TenancyName = Literal["single", "multi"]
 AuthBackendName = Literal["local", "supabase", "fake"]
 
 
@@ -20,17 +19,14 @@ class HealthResponse(BaseModel):
     version: str = Field(description="Installed Kaleta package version")
     database_ok: bool = Field(description="True when SELECT 1 against the configured DB succeeds")
     migrations_pending: bool = Field(
-        description="True when the DB alembic revision differs from the installed head"
+        description=("True when the registry or any family schema is behind the installed head")
     )
     tenants_pending_migration: int | None = Field(
         default=None,
         description=(
-            "Multi-tenant instances only: how many tenant schemas are behind the installed "
-            "head. Null on a single-tenant install."
+            "How many family schemas are behind the installed head. Null when the "
+            "revisions could not be read."
         ),
-    )
-    tenancy: TenancyName = Field(
-        description="'single' (self-hosted, one household) or 'multi' (hosted, one schema each)"
     )
     auth_backend: AuthBackendName = Field(
         description="Who checks passwords: 'local', 'supabase', or the debug-only 'fake'"
@@ -44,7 +40,7 @@ class HealthResponse(BaseModel):
     suspended_tenants: list[int] | None = Field(
         default=None,
         description=(
-            "Multi-tenant instances only: ids of suspended accounts — among them any whose "
-            "migration failed at startup. Null on a single-tenant install."
+            "Ids of suspended families — among them any whose migration failed at "
+            "startup. Null when the registry could not be read."
         ),
     )

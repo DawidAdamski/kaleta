@@ -50,12 +50,6 @@ CORE_LISTS = (
 )
 
 
-@pytest.fixture(autouse=True)
-def _api_assumes_configured(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Undo the integration conftest's patch: multi mode is configured by itself."""
-    monkeypatch.setattr("kaleta.api.deps.is_configured", lambda: True)
-
-
 @dataclass
 class Household:
     ctx: TenantContext

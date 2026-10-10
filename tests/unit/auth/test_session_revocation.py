@@ -4,7 +4,7 @@
 The guards themselves — middleware and API cookie path against a real
 database — are in ``tests/integration/test_session_revocation_guards.py``.
 
-Covers: KAL-AUTH-028, KAL-AUTH-035
+Covers: KAL-AUTH-035
 """
 
 from __future__ import annotations
@@ -15,7 +15,6 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
-import pytest_asyncio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.auth import revocation_cache as cache_mod
@@ -23,8 +22,6 @@ from kaleta.auth import session as session_mod
 from kaleta.auth.revocation_cache import RevocationCache, revocation_cache
 from kaleta.models.user import User
 from kaleta.services.auth_service import AuthService
-
-PASSWORD = "owner-password-1"
 
 
 def _ago(**kwargs: float) -> str:
@@ -58,9 +55,9 @@ def cache_reads_test_db(session: AsyncSession, monkeypatch: pytest.MonkeyPatch) 
     return reads
 
 
-@pytest_asyncio.fixture
-async def user(session: AsyncSession) -> User:
-    return await AuthService(session).create_user("owner", PASSWORD)
+@pytest.fixture
+def user(suite_owner: User) -> User:
+    return suite_owner
 
 
 class TestWatermark:
@@ -75,19 +72,6 @@ class TestWatermark:
         assert stored is not None
         assert stored.tzinfo is not None
         assert stored >= before
-
-    async def test_reset_password_revokes(self, session: AsyncSession, user: User) -> None:
-        """Covers: KAL-AUTH-028"""
-        before = datetime.now(UTC)
-        await AuthService(session).reset_password("brand-new-password-2")
-        stored = await AuthService(session).sessions_valid_from(user.id)
-        assert stored is not None
-        assert stored >= before
-
-    async def test_failed_reset_does_not_revoke(self, session: AsyncSession, user: User) -> None:
-        with pytest.raises(Exception, match="at least"):
-            await AuthService(session).reset_password("short")
-        assert await AuthService(session).sessions_valid_from(user.id) is None
 
 
 class TestRevocationCache:

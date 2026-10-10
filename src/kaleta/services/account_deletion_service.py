@@ -1,9 +1,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Deleting a hosted account: its members' identities, its schema, its registry rows.
+"""Deleting an account: its members' identities, its schema, its registry rows.
 
-``KALETA_TENANCY=multi`` only. Two callers: ``scripts/tenant_admin.py delete``
-(the operator) and Settings → Data → "Delete my account" (the owner — the GDPR
-path). Both go through here so the order is the same:
+Two callers: ``kaleta-admin delete`` (the operator) and Settings → Data →
+"Delete my account" (the owner — the GDPR path). Both go through here so the
+order is the same:
 
 1. every member's identity is removed at the provider (Supabase Auth with the
    service-role key), so nobody can sign in to what is about to vanish;

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""E2E: the data passphrase on an install with ``KALETA_ENCRYPTION=passphrase``.
+"""E2E: the data passphrase, on an app of its own with encryption on (the default).
 
 One app of its own (port 8083), one user, and the scenarios in the order a
 person meets them: choose the passphrase at the first sign-in, unlock after
@@ -23,14 +23,13 @@ import pytest
 from playwright.sync_api import Browser, Page, expect
 
 from tests.e2e.conftest import (
+    E2E_APP_ENV,
     PROJECT_ROOT,
-    _ensure_e2e_user_subprocess,
     _pump_stdout_to_log,
-    _run_alembic,
     _terminate_process,
     _wait_for_server,
-    _write_kaleta_config,
     login,
+    prepare_e2e_database,
 )
 from tests.suite_database import fresh_database_url
 
@@ -55,14 +54,12 @@ def encrypted_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]
     db_url = fresh_database_url("e2e_encryption")
     log_path = log_dir / "kaleta-enc-e2e-server.log"
 
-    _write_kaleta_config(home, db_url)
-    _run_alembic(db_url)
-    _ensure_e2e_user_subprocess(db_url, home)
+    prepare_e2e_database(db_url)
 
     env = os.environ.copy()
+    env.update(E2E_APP_ENV)
     env["HOME"] = str(home)
     env["KALETA_PORT"] = str(ENC_PORT)
-    env["KALETA_DEBUG"] = "true"
     env["KALETA_DB_URL"] = db_url
     env["KALETA_ENCRYPTION"] = "passphrase"
     env["NICEGUI_SCREEN_TEST_PORT"] = str(ENC_PORT)

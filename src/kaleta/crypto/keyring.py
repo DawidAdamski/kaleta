@@ -61,7 +61,7 @@ class DataKey:
 
 @dataclass(frozen=True)
 class KeyMaterial:
-    """One member's stored key block — the ``tenant_members`` / ``local_key_material`` columns.
+    """One member's stored key block — the ``tenant_members`` key columns.
 
     Everything here is safe for the operator to hold: the public key, salts,
     KDF parameters and three ciphertexts that only the passphrase, the
@@ -176,11 +176,6 @@ def _check_pair(private_key: bytes, material: KeyMaterial) -> None:
         raise EncryptionError(msg)
 
 
-def local_member_ref(user_id: int) -> str:
-    """The ``member_ref`` of a self-hosted user."""
-    return f"local:{user_id}"
-
-
 def tenant_member_ref(tenant_id: int, user_id: int) -> str:
     """The ``member_ref`` of a hosted account's member."""
     return f"tenant:{tenant_id}:user:{user_id}"
@@ -191,7 +186,7 @@ class Unlocked:
     """What one unlocked session holds."""
 
     data_key: DataKey
-    #: ``"tenant:<id>:user:<n>"`` or ``"local:<n>"`` — who unlocked, for
+    #: ``"tenant:<id>:user:<n>"`` — who unlocked, for
     #: ``lock_member`` and for bearer requests that ride on a member's unlock.
     member_ref: str
     private_key: bytes | None = field(default=None, repr=False)

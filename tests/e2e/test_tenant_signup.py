@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """E2E: a hosted instance — sign up, confirm the e-mail, first login provisions.
 
-The app runs with ``KALETA_TENANCY=multi`` and ``KALETA_AUTH_BACKEND=supabase``
+The app runs with ``KALETA_AUTH_BACKEND=supabase``
 against ``tests.fake_gotrue`` (a local stand-in for Supabase Auth whose
 verification link the test reads instead of a mailbox), on a fresh
 PostgreSQL database — each tenant a schema of its own.
@@ -76,7 +76,6 @@ def hosted(tmp_path_factory: pytest.TempPathFactory) -> Generator[HostedInstance
                 "KALETA_PORT": str(HOSTED_PORT),
                 "KALETA_DEBUG": "true",
                 "KALETA_DB_URL": db_url,
-                "KALETA_TENANCY": "multi",
                 "KALETA_AUTH_BACKEND": "supabase",
                 "KALETA_SUPABASE_URL": gotrue.base_url,
                 "KALETA_SUPABASE_ANON_KEY": "anon-e2e",

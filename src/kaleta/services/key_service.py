@@ -3,14 +3,9 @@
 
 ``kaleta.crypto`` turns bytes into bytes; this service reads and writes the
 stored key block and puts what an unlock opens into the process's
-``key_ring``. Where the key block lives depends on the install:
-
-- ``single`` mode (``KALETA_ENCRYPTION=passphrase``): ``local_key_material``,
-  one row per local user, in the same database as the data;
-- ``multi`` mode: the member's ``public.tenant_members`` row.
-
-Both stores answer the same five questions (:class:`KeyStore`), so every flow
-here is written once.
+``key_ring``. The key block is the member's ``public.tenant_members`` row
+(:class:`TenantKeyStore`); the flows are written against :class:`KeyStore`,
+the five questions any store answers.
 
 Argon2id at 64 MiB is what makes a guessed passphrase expensive, and also what
 makes a burst of unlocks expensive for a small host: every derivation runs in
@@ -42,7 +37,6 @@ from kaleta.crypto import (
     create_key_material,
     generate_dek,
     key_ring,
-    local_member_ref,
     new_recovery_code,
     open_data_key,
     open_private_key,
@@ -53,7 +47,6 @@ from kaleta.crypto import (
 )
 from kaleta.db.types import use_data_key
 from kaleta.exceptions import ConflictError, EncryptionError, NotFoundError, ValidationError
-from kaleta.models.local_key_material import LocalKeyMaterial
 from kaleta.models.tenant import Tenant, TenantMember
 from kaleta.services.data_encryption_service import DataEncryptionService
 
@@ -94,64 +87,8 @@ class KeyStore(Protocol):
         ...
 
 
-class LocalKeyStore:
-    """``local_key_material`` — the self-hosted install."""
-
-    def __init__(self, session: AsyncSession, user_id: int) -> None:
-        self.session = session
-        self.user_id = user_id
-        self.member_ref = local_member_ref(user_id)
-
-    async def _row(self) -> LocalKeyMaterial | None:
-        result = await self.session.execute(
-            select(LocalKeyMaterial).where(LocalKeyMaterial.user_id == self.user_id)
-        )
-        return result.scalar_one_or_none()
-
-    async def load(self) -> KeyMaterial | None:
-        row = await self._row()
-        if row is None:
-            return None
-        return KeyMaterial(
-            public_key=row.public_key,
-            private_key_wrapped=row.private_key_wrapped,
-            private_key_salt=row.private_key_salt,
-            kdf_params=row.kdf_params,
-            dek_sealed=row.dek_sealed,
-            recovery_wrapped=row.recovery_wrapped,
-            recovery_salt=row.recovery_salt,
-        )
-
-    async def save(self, material: KeyMaterial) -> None:
-        row = await self._row()
-        if row is None:
-            row = LocalKeyMaterial(user_id=self.user_id, key_version=1)
-            self.session.add(row)
-        row.public_key = material.public_key
-        row.private_key_wrapped = material.private_key_wrapped
-        row.private_key_salt = material.private_key_salt
-        row.kdf_params = material.kdf_params
-        row.dek_sealed = material.dek_sealed
-        row.recovery_wrapped = material.recovery_wrapped
-        row.recovery_salt = material.recovery_salt
-        await self.session.commit()
-
-    async def key_version(self) -> int:
-        row = await self._row()
-        return row.key_version if row is not None else 1
-
-    async def others_hold_a_key(self) -> bool:
-        result = await self.session.execute(
-            select(LocalKeyMaterial.id).where(
-                LocalKeyMaterial.user_id != self.user_id,
-                LocalKeyMaterial.dek_sealed.is_not(None),
-            )
-        )
-        return result.first() is not None
-
-
 class TenantKeyStore:
-    """``public.tenant_members`` — the hosted install. ``session`` is a public one."""
+    """``public.tenant_members``. ``session`` is a public one (or any that reaches ``public``)."""
 
     def __init__(self, session: AsyncSession, tenant_id: int, user_id: int) -> None:
         self.session = session
@@ -227,9 +164,8 @@ class KeySetup:
 class KeyService:
     """One member's passphrase flows over a :class:`KeyStore`.
 
-    ``data_session`` is the session on the account's own data (the tenant
-    schema, or the single database): a first set-up rewrites what is already
-    there under the new key.
+    ``data_session`` is the session on the family's own data (its schema): a
+    first set-up rewrites what is already there under the new key.
     """
 
     def __init__(
@@ -411,27 +347,42 @@ class KeyService:
         return fresh
 
 
-async def open_local_data_key(session: AsyncSession, passphrase: str) -> DataKey:
-    """The single-mode data key any local key holder's ``passphrase`` opens — for scripts.
+async def open_family_data_key(
+    public: AsyncSession, data_session: AsyncSession, tenant_id: int, passphrase: str
+) -> DataKey:
+    """The data key any member of family ``tenant_id``'s ``passphrase`` opens — for scripts.
 
-    ``scripts/seed.py``, ``scripts/reset_demo.py`` and
-    ``scripts/encrypt_database.py`` run without a browser session; they are
-    given the passphrase (``KALETA_DATA_PASSPHRASE`` or a prompt) and work
-    under the key it opens.
+    ``scripts/seed.py`` and ``scripts/reset_demo.py`` run without a browser
+    session; they are given the passphrase (``KALETA_DATA_PASSPHRASE`` or a
+    prompt) and work under the key it opens.
     """
-    holders = (await session.execute(select(LocalKeyMaterial.user_id))).scalars().all()
+    holders = (
+        (
+            await public.execute(
+                select(TenantMember.user_id).where(
+                    TenantMember.tenant_id == tenant_id,
+                    TenantMember.user_id.is_not(None),
+                    TenantMember.dek_sealed.is_not(None),
+                )
+            )
+        )
+        .scalars()
+        .all()
+    )
     if not holders:
         msg = (
-            "No data passphrase is set up for this database yet. Sign in once and "
-            "choose one, or run with KALETA_ENCRYPTION=off."
+            "No data passphrase is set up in this family yet. Sign in once and "
+            "choose one, or run with KALETA_DEBUG=true KALETA_ENCRYPTION=off."
         )
         raise NotFoundError(msg)
     for user_id in holders:
-        service = KeyService(LocalKeyStore(session, user_id), session)
+        if user_id is None:
+            continue
+        service = KeyService(TenantKeyStore(public, tenant_id, user_id), data_session)
         try:
             data_key, _private_key = await service.open(passphrase)
         except (ValidationError, ConflictError):
             continue
         return data_key
-    msg = "That passphrase does not unlock this database."
+    msg = "That passphrase does not unlock this family's data."
     raise ValidationError(msg)
