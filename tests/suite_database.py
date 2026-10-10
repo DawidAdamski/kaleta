@@ -51,7 +51,7 @@ def suite_database_env() -> dict[str, str]:
             url = worker_database_url(url, worker)
         else:
             asyncio.run(_ping(_dsn(make_url(url))))
-    except (OSError, ConnectionError) as exc:
+    except Exception as exc:  # refused, wrong password, no such database: all say the same
         where = make_url(url).render_as_string(hide_password=True)
         msg = f"No PostgreSQL answers at {where} ({exc}); {_START_ONE}"
         raise SuiteDatabaseUnavailableError(msg) from exc
@@ -83,7 +83,8 @@ def fresh_database_url(name: str) -> str:
     """An empty database ``<suite database>_<name>`` on the suite's server, for one app.
 
     The e2e servers each get one: dropped (with whoever is still connected)
-    and created again, so a run never sees the last run's rows. Synchronous:
+    and created again, so a run never sees the last run's rows (``WITH (FORCE)``
+    needs PostgreSQL 13+; the suite's server is 16). Synchronous:
     Playwright's sync API keeps an event loop running in the test thread.
     """
     from sqlalchemy import create_engine, text
