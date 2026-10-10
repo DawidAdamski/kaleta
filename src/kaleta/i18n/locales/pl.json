@@ -1773,7 +1773,7 @@
     "rate_from_currency": "Waluta źródłowa",
     "also_store_inverse": "Zapisz też odwrotny kurs",
     "nbp_fetch": "Pobierz kursy NBP",
-    "nbp_hint": "Pobiera najnowsze kursy średnie z tabeli A NBP (publiczne API, bez klucza) i zapisuje obie strony względem PLN. Opcjonalne — aplikacja działa offline bez tej funkcji.",
+    "nbp_hint": "Pobiera najnowsze kursy średnie z tabeli A NBP (publiczne API, bez klucza). Są wspólne dla wszystkich rodzin tej Kalety i działają w obie strony względem PLN; Twój własny kurs z tego samego dnia ma pierwszeństwo. Opcjonalne — aplikacja działa offline bez tej funkcji.",
     "nbp_fetching": "Pobieranie kursów NBP…",
     "nbp_fetch_done": "Zaimportowano {count} walut NBP na {date}.",
     "nbp_fetch_error": "Pobieranie NBP nie powiodło się: {error}",
@@ -2039,7 +2039,10 @@
     "encryption_encrypted": "Nikt, kto utrzymuje ten serwer, nie odczyta, za co była transakcja, z kim, na którym koncie, w jakiej kategorii, ani żadnej notatki, nazwy, adresu czy numeru konta — ani z konsoli bazy danych, ani z kopii zapasowej, ani ze zrzutu.",
     "encryption_visible": "Osoby te widzą natomiast ogólny obraz Twojego konta: ile jest kont i transakcji, ich kwoty, daty, typy i waluty, kwoty budżetów oraz Twój adres e-mail i identyfikator użytkownika.",
     "encryption_plain": "Wysyłane zgłoszenia błędów i Twoja nazwa wyświetlana nie są szyfrowane.",
-    "encryption_limit": "Kaleta odszyfrowuje dane na serwerze w trakcie Twojej sesji. To chroni przechowywane dane — bazę, kopie zapasowe i eksporty — a nie serwer, który ktoś przejął."
+    "encryption_limit": "Kaleta odszyfrowuje dane na serwerze w trakcie Twojej sesji. To chroni przechowywane dane — bazę, kopie zapasowe i eksporty — a nie serwer, który ktoś przejął.",
+    "rate_source": "Źródło",
+    "rate_source_family": "Twój",
+    "rate_source_nbp": "NBP"
   },
   "audit": {
     "title": "Historia zmian",

@@ -59,6 +59,10 @@ class Settings(BaseSettings):
     demo: bool = False
     events_enabled: bool = True
     event_retention_days: int = 7
+    #: Fetch NBP Table A into ``public.nbp_rates`` at start-up and once a day
+    #: (KAL-FXR-003). Off by default: a self-hosted instance stays offline
+    #: unless its operator says otherwise.
+    nbp_fetch: bool = False
     log_format: str = "text"  # text | json
     log_level: str = "INFO"
     bug_reports_enabled: bool = True

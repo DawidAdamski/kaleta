@@ -11,9 +11,15 @@ from nicegui import ui
 
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
-from kaleta.schemas.currency_rate import CurrencyRateCreate, CurrencyRateResponse
+from kaleta.schemas.currency_rate import CurrencyRateCreate, CurrencyRateResponse, RateSource
 from kaleta.schemas.nbp import NbpFetchResult
-from kaleta.services import BackupService, CurrencyRateService, NbpRateService, with_session
+from kaleta.services import (
+    BackupService,
+    CurrencyRateService,
+    NbpRateService,
+    with_public_session,
+    with_session,
+)
 from kaleta.services.data_service import DataService
 from kaleta.services.transaction_service import TransactionService
 from kaleta.views.accounts import COMMON_CURRENCIES
@@ -68,23 +74,34 @@ async def render_data_tab(
                             "align": "right",
                         },
                         {
+                            "name": "source",
+                            "label": t("settings.rate_source"),
+                            "field": "source",
+                            "align": "left",
+                        },
+                        {
                             "name": "actions",
                             "label": "",
                             "field": "id",
                             "align": "right",
                         },
                     ]
+                    # An NBP row is the instance's: its id is public.nbp_rates',
+                    # and no family may delete it — hence the key and the flag.
                     table_rows = [
                         {
+                            "key": f"{row.source.value}:{row.id}",
                             "id": row.id,
                             "date": str(row.date),
                             "pair": f"1 {row.from_currency} = ? {row.to_currency}",
                             "rate": f"{row.rate:.6f}",
+                            "source": t(f"settings.rate_source_{row.source.value}"),
+                            "deletable": row.source is RateSource.FAMILY,
                         }
                         for row in all_rows
                     ]
                     tbl = (
-                        ui.table(columns=cols, rows=table_rows, row_key="id")
+                        ui.table(columns=cols, rows=table_rows, row_key="key")
                         .classes("w-full")
                         .props("flat dense")
                     )
@@ -92,7 +109,8 @@ async def render_data_tab(
                         "body-cell-actions",
                         """
                         <q-td :props="props">
-                          <q-btn flat dense round icon="delete" size="sm"
+                          <q-btn v-if="props.row.deletable"
+                                 flat dense round icon="delete" size="sm"
                                  color="negative"
                                  @click="$emit('delete_rate', props.row)" />
                         </q-td>
@@ -177,10 +195,11 @@ async def render_data_tab(
                 notif = ui.notification(t("settings.nbp_fetching"), spinner=True, timeout=0)
                 try:
 
-                    async def _import(session: Any) -> NbpFetchResult:
-                        return await NbpRateService(session).import_latest()
+                    async def _import(public: Any) -> NbpFetchResult:
+                        return await NbpRateService(public).import_latest()
 
-                    result = await with_session(_import)
+                    # Into public.nbp_rates: one fetch serves every family.
+                    result = await with_public_session(_import)
                     notif.dismiss()
                     ui.notify(
                         t(

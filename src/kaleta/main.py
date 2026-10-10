@@ -224,6 +224,14 @@ def _register_event_retention_scheduler() -> None:
     nicegui_app.on_shutdown(EventRetentionScheduler.stop)
 
 
+def _register_nbp_rate_scheduler() -> None:
+    from kaleta.services.nbp_rate_scheduler import NbpRateScheduler
+
+    # One fetch for the whole instance, into public.nbp_rates (KALETA_NBP_FETCH).
+    nicegui_app.on_startup(NbpRateScheduler.start)
+    nicegui_app.on_shutdown(NbpRateScheduler.stop)
+
+
 def _register_storage_sweep() -> None:
     nicegui_app.on_startup(_sweep_nicegui_storage)
 
@@ -233,11 +241,14 @@ async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
     _warn_repo_root_data_leftovers()
     _sweep_nicegui_storage()
     from kaleta.services.event_retention_scheduler import EventRetentionScheduler
+    from kaleta.services.nbp_rate_scheduler import NbpRateScheduler
 
     EventRetentionScheduler.start()
+    NbpRateScheduler.start()
     try:
         yield
     finally:
+        await NbpRateScheduler.stop()
         await EventRetentionScheduler.stop()
 
 
@@ -262,6 +273,7 @@ def run_web() -> None:
     _register_auth()
     _register_views()
     _register_event_retention_scheduler()
+    _register_nbp_rate_scheduler()
     _register_storage_sweep()
     ui.run(
         host=settings.host,
@@ -288,6 +300,7 @@ def run_app() -> None:
     _register_auth()
     _register_views()
     _register_event_retention_scheduler()
+    _register_nbp_rate_scheduler()
     _register_storage_sweep()
     ui.run(
         host=settings.host,

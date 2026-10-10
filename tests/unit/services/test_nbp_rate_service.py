@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import urllib.error
 import urllib.request
@@ -56,26 +57,25 @@ class TestNbpRateServiceParse:
 
 class TestNbpRateServiceImport:
     @pytest.mark.asyncio
-    async def test_import_stores_both_directions(self, session: AsyncSession) -> None:
+    async def test_import_stores_one_mid_and_reads_both_directions(
+        self, session: AsyncSession
+    ) -> None:
         """Covers: KAL-FXR-001"""
         svc = NbpRateService(session, http_get=lambda _url: _table_a_bytes())
         result = await svc.import_latest()
 
         assert result.effective_date.isoformat() == "2024-07-22"
         assert result.currencies_stored == 2
-        assert result.rows_written == 4
+        assert result.rows_written == 2
 
         rates = CurrencyRateService(session)
-        eur_pln = await rates.list_for_pair("EUR", "PLN")
-        pln_eur = await rates.list_for_pair("PLN", "EUR")
-        usd_pln = await rates.list_for_pair("USD", "PLN")
-        pln_usd = await rates.list_for_pair("PLN", "USD")
-
-        assert len(eur_pln) == 1
-        assert eur_pln[0].rate == Decimal("4.250000")
-        assert pln_eur[0].rate == Decimal("0.235294")
-        assert usd_pln[0].rate == Decimal("3.900000")
-        assert pln_usd[0].rate == Decimal("0.256410")
+        on = datetime.date(2024, 7, 22)
+        assert await rates.get_rate_on(on, "EUR", "PLN") == Decimal("4.250000")
+        assert await rates.get_rate_on(on, "PLN", "EUR") == Decimal("0.235294")
+        assert await rates.get_rate_on(on, "USD", "PLN") == Decimal("3.900000")
+        assert await rates.get_rate_on(on, "PLN", "USD") == Decimal("0.256410")
+        # The family's own table is untouched: the rates are the instance's.
+        assert await rates.list_for_pair("EUR", "PLN") == []
 
     @pytest.mark.asyncio
     async def test_import_offline_raises_external_service_error(

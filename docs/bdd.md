@@ -4135,30 +4135,44 @@ Feature: Settings — weekly grouping and the debug panel
 ```gherkin
 Feature: Currency rates — NBP Table A
   As a user with foreign-currency accounts
-  I want optional NBP mid rates against PLN
+  I want optional NBP mid rates against PLN, fetched once for the whole instance
   So that net worth stays accurate without paid FX APIs or mandatory network
 
   KAL-FXR-001 @automated
-  Scenario: Fetching NBP Table A stores both directions for each currency
+  Scenario: Fetching NBP Table A stores one mid per currency for the instance
     Given the NBP Table A API returns mid 4.2500 for EUR and mid 3.9000 for USD on effective date 2024-07-22
     When I import the latest NBP rates
-    Then currency_rates contains EUR→PLN at 4.250000 and PLN→EUR at 0.235294 on 2024-07-22
-    And currency_rates contains USD→PLN at 3.900000 and PLN→USD at 0.256410 on 2024-07-22
+    Then public.nbp_rates holds EUR at 4.250000 and USD at 3.900000 for 2024-07-22
+    And a family's rate on 2024-07-22 is 4.250000 for EUR→PLN and 0.235294 for PLN→EUR
+    And 3.900000 for USD→PLN and 0.256410 for PLN→USD
+    When I import the same table again
+    Then no row is added
 
   KAL-FXR-002 @automated
   Scenario: Offline NBP fetch fails soft without crashing
     Given the NBP Table A HTTP call raises a network error
     When I import the latest NBP rates
     Then an ExternalServiceError is raised with a clear offline message
-    And no currency_rates rows are written
+    And no nbp_rates rows are written
 
-  # The per-install config.json flag went with ADR-38 (postgres-only B2b);
-  # the fetch returns per instance, into public.nbp_rates, in part B2c.
-  KAL-FXR-003 @planned
-  Scenario: Fetch on startup is opt-in and defaults to off
-    Given the instance has not switched the NBP startup fetch on
+  KAL-FXR-003 @automated
+  Scenario: The instance's NBP fetch is opt-in and defaults to off
+    Given KALETA_NBP_FETCH is not set
     When the instance starts
     Then no HTTP request is made to NBP
+    When KALETA_NBP_FETCH is true
+    Then the instance fetches NBP Table A at start-up and once a day
+    And a failed fetch is logged, not raised
+
+  KAL-FXR-004 @automated
+  Scenario: A family's own rate wins its day, a later NBP rate wins after it
+    Given NBP has published EUR at mid 4.2500 on 2024-07-22
+    And my family recorded EUR→PLN at 4.3000 on 2024-07-22 and at 4.1000 on 2024-07-19
+    Then the EUR→PLN rate on 2024-07-22 is 4.300000
+    When NBP publishes EUR at mid 4.2800 on 2024-07-23
+    Then the EUR→PLN rate on 2024-07-23 is 4.280000
+    And the rate history for EUR→PLN is 4.100000, 4.300000, 4.280000
+    And the rate list marks the NBP rows as the instance's, which no family can delete
 ```
 
 ## Feature: Housekeeping — Integrity
