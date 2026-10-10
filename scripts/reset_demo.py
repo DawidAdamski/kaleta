@@ -10,8 +10,7 @@ The demo is one family among the others, owned by ``--email``. The script
 signs that identity in and provisions its family if it is missing. With
 ``KALETA_AUTH_BACKEND=local`` it creates the login (or puts its password back)
 first; with Supabase the identity must exist and be confirmed (add it once,
-"auto confirm", in the Supabase dashboard); the debug ``fake`` backend signs
-it up on the first run.
+"auto confirm", in the Supabase dashboard).
 
 The demo's data passphrase is the published ``DEFAULT_DEMO_PASSPHRASE`` (see
 ``docs/deployment.md``): the first reset sets it up, every later one unlocks
