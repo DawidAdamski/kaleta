@@ -52,6 +52,15 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
     settings and tests.
   - **B2c — NBP rates in `public`** (see "Decisions for B2"): after B2b, when
     every instance has a `public` schema (single-tenant SQLite has none).
+    `public.nbp_rates` (one row per date and currency: the mid, PLN per
+    unit; the inverse is derived) filled by `NbpRateService` on a public
+    session, idempotent per date; `CurrencyRateService`'s readers
+    (`get_rate_on`, `load_rates_for_currencies`, `list_pairs`,
+    `list_recent_for_pairs`) see both tables, the family's row winning a
+    tie; Settings lists NBP rows marked as such and without a delete
+    button; `NbpRateScheduler` runs when `KALETA_NBP_FETCH` is on. NBP rows a
+    family fetched before B2c stay in its `currency_rates` (they cannot be
+    told from typed ones) — harmless, same values.
   - **B3 — SQLite out of `src/`** (§1): the dialect branches, `aiosqlite`, the
     refusal of a `sqlite` URL.
 - **C — removals, packaging, docs** (§5, §7).
@@ -190,6 +199,10 @@ does. Kept, on the registry layout:
   recorded from their own currency transfers — those reveal the family's
   transactions and must not be shared. A lookup takes the latest rate on or
   before the date from either table, the family's own winning a tie.
+  *Decided 2026-10-10 for B2c:* the instance switches the automatic fetch
+  on with `KALETA_NBP_FETCH=true` (default off, KAL-FXR-003) — no UI, the
+  admin panel may take it over later; when on, it fetches at start-up and
+  then once a day.
 - **Event retention loops over families.** One scheduler, once a day, sweeps
   each tenant schema in turn (events stay per family).
 - **"The data passphrase is not the login password"** is checked against
@@ -392,5 +405,27 @@ encryption.
   family's context now; whether anything still needs it is a chore.
 - *Docs*: the pages that described removed commands and settings were
   corrected here; the full SQLite/packaging sweep stays in part C.
+
+**Part B2c (branch `feat/postgres-only-part-b2c`, on top of B2b).**
+
+- *`public.nbp_rates`* (`c2d3e4f5a6b7`): one row per date and currency, the
+  mid only; `PLN → X` is derived as `1 / mid`, quantized to the six places
+  `currency_rates.rate` keeps, so a derived inverse reads as a stored one did
+  (KAL-FXR-001 keeps its literals). A unique `(date, currency)` makes the
+  import idempotent; the daily fetch and the Settings button may both run.
+- *Lookups*: `get_rate_on` takes the family's rate (direct, else inverted,
+  as before) and the NBP one, the later date winning and the family's on a
+  tie; `load_rates_for_currencies` merges both histories by date, the
+  family's entries overwriting; `list_pairs` stays the family's alone, or
+  Settings would list a pair for every NBP currency. Cross pairs (EUR→USD)
+  come only from the family's table, as before.
+- *Settings*: the list shows NBP rows with source "NBP" and no delete
+  button; their keys are `<source>:<id>` (two tables, two id spaces). The
+  fetch button writes through `with_public_session`.
+- *`NbpRateScheduler`*: `KALETA_NBP_FETCH` (decided 2026-10-10: an
+  environment switch, start-up plus daily) — web, app and api modes alike.
+- *A finding*: `tests/tenancy_helpers.py` dropped the registry tables from a
+  hand-kept list and missed the new one; it now drops whatever
+  `PublicBase.metadata` knows.
 
 ## Implementation (filled by plan-archiver)

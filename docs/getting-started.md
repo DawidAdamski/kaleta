@@ -124,6 +124,7 @@ Set via the `KALETA_MODE` environment variable:
 | `KALETA_SESSION_IDLE_HOURS` | `12` | Sign a UI session out after this many hours without a request (`0` disables; capped at `KALETA_SESSION_TTL_HOURS`) |
 | `KALETA_SESSION_COOKIE_SECURE` | `false` | Mark the `kaleta_session` cookie `Secure` — only behind TLS; on plain http login stops working |
 | `KALETA_SESSION_COOKIE_SAMESITE` | `lax` | `lax` or `strict` (`strict` drops the cookie on links from outside, e.g. e-mail confirmations) |
+| `KALETA_NBP_FETCH` | `false` | Fetch NBP Table A exchange rates at start-up and once a day, for every family of the instance |
 | `KALETA_ENCRYPTION` | `passphrase` | Field-level encryption; `off` is accepted only with `KALETA_DEBUG=true` — see [deployment.md](deployment.md) |
 | `KALETA_AUTH_BACKEND` | `local` | `local` (logins in `public.local_identities`) or `supabase` (`fake`, a debug stand-in for Supabase, only with `KALETA_DEBUG=true`) |
 | `KALETA_REDIS_URL` | _(unset)_ | Keep sessions and the login rate limiter in Valkey (or any Redis-protocol server), so several replicas share them (extra: `hosted`) — see [deployment.md](deployment.md#sessions-restarts-and-replicas) |
