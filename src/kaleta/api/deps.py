@@ -25,7 +25,11 @@ from kaleta.db.tenant_context import TenantContext, current_tenant, set_tenant
 from kaleta.db.types import set_data_key
 from kaleta.exceptions import SetupRequiredError, TenantLockedError, UnauthorizedError
 from kaleta.models.tenant import TenantStatus
-from kaleta.services.api_token_service import ApiTokenService
+from kaleta.services.api_token_service import (
+    ApiTokenService,
+    env_token_membership,
+    is_env_token,
+)
 from kaleta.services.tenant_service import TenantService
 
 if TYPE_CHECKING:
@@ -63,6 +67,9 @@ async def resolve_request_tenant(
     if credentials is not None and credentials.scheme.lower() == "bearer":
         tenant_id = ApiTokenService.tenant_id_from_token(credentials.credentials)
         if tenant_id is None:
+            if is_env_token(credentials.credentials):
+                await _resolve_env_token_tenant()
+                return
             _unauthorized("Invalid API token")
         async with AsyncSessionFactory.public() as public:
             tenant = await TenantService(public).get_tenant(tenant_id)
@@ -74,6 +81,15 @@ async def resolve_request_tenant(
     # revoked one) — the same call the cookie branch below repeats.
     if await authenticated_user_id(request) is None:
         _unauthorized()
+
+
+async def _resolve_env_token_tenant() -> None:
+    """``KALETA_API_TOKEN``: the instance administrator, in their family."""
+    async with AsyncSessionFactory.public() as public:
+        membership = await env_token_membership(public)
+    if membership is None or membership.tenant.status is not TenantStatus.ACTIVE:
+        _unauthorized("Invalid API token")
+    set_tenant(membership.context())
 
 
 # ── Database session ──────────────────────────────────────────────────────────

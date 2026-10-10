@@ -198,9 +198,11 @@ hash, TOTP secret, recovery code or key (ADR-035, enforced by
 reads the volume under another uid (a backup shipper) cannot read new files;
 run it under Kaleta's uid.
 
-**Not in `multi` mode:** the setup wizard, `~/.kaleta/config.json`,
-`KALETA_API_TOKEN`, scheduled SQLite backups, the event retention sweep, the
-NBP startup fetch and the SQLite integrity check.
+**Not in `multi` mode:** the setup wizard, `~/.kaleta/config.json`, scheduled
+SQLite backups, the NBP startup fetch and the SQLite integrity check. The event
+retention sweep visits every active family once a day. `KALETA_API_TOKEN`
+authenticates as the instance administrator (local logins only), in their
+family.
 
 ## 3. Operations
 

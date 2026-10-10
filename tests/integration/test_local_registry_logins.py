@@ -6,7 +6,7 @@
 a sign-in provisions the login's family exactly as a Supabase sign-in does.
 
 Covers: KAL-TEN-015, KAL-TEN-016, KAL-TEN-017, KAL-TEN-018, KAL-TEN-019, KAL-TEN-020,
-KAL-TEN-021
+KAL-TEN-021, KAL-TEN-022
 """
 
 from __future__ import annotations
@@ -22,11 +22,16 @@ from pathlib import Path
 
 import pyotp
 import pytest
+from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
 
+from kaleta.api import create_api_router
+from kaleta.api.errors import register_error_handlers
 from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import MfaRequired, RegistryAuthProvider, set_auth_provider
 from kaleta.auth.sign_in import SignInFlow, registry_sign_up_state
 from kaleta.auth.unlock import is_local_login_password
+from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import ConflictError, UnauthorizedError, ValidationError
@@ -388,3 +393,43 @@ async def test_the_administrator_turns_a_members_second_factor_off(instance: str
 
     assert await cli.reset_password(ADMIN, disable_mfa=True) == 0
     assert out.getvalue().splitlines()[-1] == "two-factor authentication: none"
+
+
+ENV_TOKEN = "env-token-for-the-headless-api-0123"
+
+
+async def _accounts_with(token: str) -> int:
+    app = FastAPI()
+    register_error_handlers(app)
+    app.include_router(create_api_router())
+    async with AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        headers={"Authorization": f"Bearer {token}"},
+    ) as client:
+        return (await client.get("/api/v1/accounts/")).status_code
+
+
+async def test_the_environment_token_acts_as_the_administrator_in_their_family(
+    instance: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-TEN-022"""
+    monkeypatch.setattr(settings, "api_token", ENV_TOKEN)
+    monkeypatch.setattr("kaleta.api.deps.is_configured", lambda: True)
+    assert await _accounts_with(ENV_TOKEN) == 401  # no administrator yet
+
+    result = await RegistryAuthProvider().sign_up(ADMIN, PASSWORD)
+    assert result.identity is not None
+    assert await _accounts_with(ENV_TOKEN) == 401  # no family until the first sign-in
+
+    await _flow(instance).complete(result.identity)
+    assert await _accounts_with(ENV_TOKEN) == 200
+    assert await _accounts_with(ENV_TOKEN[:-1] + "X") == 401
+
+    # The token follows the oldest enabled administrator: disable this one and
+    # it is the second's, who has no family yet.
+    async with AsyncSessionFactory.public() as public:
+        await LocalIdentityService(public).create("second@example.com", PASSWORD, admin=True)
+    identity_id = int(result.identity.subject.removeprefix("local:"))
+    await set_login_disabled(identity_id, True)
+    assert await _accounts_with(ENV_TOKEN) == 401

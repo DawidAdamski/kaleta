@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     mode: str = "web"  # web | app | api
     secret_key: str = _INSECURE_KEY
     debug: bool = False
+    #: A bearer token from the environment, for headless use (≥16 characters).
+    #: ``single``: the one user. Registry layout: the instance administrator, in
+    #: their family — like any token, it reads encrypted data only while that
+    #: member has an unlocked session.
     api_token: str | None = None
     session_ttl_hours: int = 72
     #: Hours without a request after which a UI session ends, however young it

@@ -116,7 +116,7 @@ Set via the `KALETA_MODE` environment variable:
 | `KALETA_MODE` | `web` | Runtime mode (`web` / `app` / `api`) |
 | `KALETA_SECRET_KEY` | `change-me-in-production` | Secret key for sessions (required outside debug) |
 | `KALETA_DEBUG` | `false` | Enable debug mode (allows default secret key) |
-| `KALETA_API_TOKEN` | _(unset)_ | Bootstrap bearer for `KALETA_MODE=api` (≥16 chars). On API startup with this set, Kaleta ensures a real user exists (creates locked user `api` if needed) so the token can authenticate. UI-managed tokens remain the normal path for `web`/`app`. |
+| `KALETA_API_TOKEN` | _(unset)_ | Bootstrap bearer for `KALETA_MODE=api` (≥16 chars). On API startup with this set, Kaleta ensures a real user exists (creates locked user `api` if needed) so the token can authenticate. With `KALETA_TENANCY=multi` and local logins it acts as the instance administrator in their family. UI-managed tokens remain the normal path for `web`/`app`. |
 | `KALETA_SESSION_TTL_HOURS` | `72` | UI session lifetime in hours (`0` disables expiry) |
 | `KALETA_SESSION_IDLE_HOURS` | `12` | Sign a UI session out after this many hours without a request (`0` disables; capped at `KALETA_SESSION_TTL_HOURS`) |
 | `KALETA_SESSION_COOKIE_SECURE` | `false` | Mark the `kaleta_session` cookie `Secure` — only behind TLS; on plain http login stops working |

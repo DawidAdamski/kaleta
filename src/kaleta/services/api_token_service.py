@@ -13,14 +13,50 @@ from kaleta.config import settings
 from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import ValidationError
 from kaleta.models.api_token import ApiToken
+from kaleta.models.tenant import LocalIdentity
 from kaleta.services.auth_service import PLACEHOLDER_USERNAME, AuthService
+from kaleta.services.local_identity_service import subject_of
 from kaleta.services.mfa_service import MfaService
+from kaleta.services.tenant_service import TenantMembership, TenantService
 
 _MIN_API_TOKEN_LENGTH = 16
 MIN_API_TOKEN_LENGTH = _MIN_API_TOKEN_LENGTH
 #: ``kt_<tenant id>_<secret>`` — a hosted token names its tenant, because the
 #: token table lives inside the tenant's schema and has to be found first.
 _TENANT_TOKEN_RE = re.compile(r"^kt_([1-9][0-9]{0,18})_([A-Za-z0-9_-]{16,})$")
+
+
+def is_env_token(raw_token: str) -> bool:
+    """Whether ``raw_token`` is ``KALETA_API_TOKEN`` (set, long enough, equal)."""
+    env_token = settings.api_token
+    if not env_token or len(env_token) < _MIN_API_TOKEN_LENGTH:
+        return False
+    if len(raw_token) < _MIN_API_TOKEN_LENGTH:
+        return False
+    return secrets.compare_digest(raw_token, env_token)
+
+
+async def env_token_membership(public: AsyncSession) -> TenantMembership | None:
+    """Whom ``KALETA_API_TOKEN`` acts as on the registry layout.
+
+    The instance administrator — the oldest enabled one — in their family;
+    ``None`` while there is no administrator, or they have not signed in yet
+    (no family). Self-hosted, headless use: a hosted (Supabase) instance has no
+    administrator login, so the variable authenticates no one there.
+    """
+    result = await public.execute(
+        select(LocalIdentity.id)
+        .where(LocalIdentity.is_instance_admin.is_(True), LocalIdentity.disabled.is_(False))
+        .order_by(LocalIdentity.id)
+        .limit(1)
+    )
+    admin_id = result.scalar_one_or_none()
+    if admin_id is None:
+        return None
+    membership = await TenantService(public).get_member_by_subject(subject_of(admin_id))
+    if membership is None or membership.member.user_id is None:
+        return None
+    return membership
 
 
 class ApiTokenService:
@@ -137,17 +173,13 @@ class ApiTokenService:
         return token.user_id
 
     async def _authenticate_env_token(self, raw_token: str) -> int | None:
+        if not is_env_token(raw_token):
+            return None
         if settings.tenancy == "multi":
-            # `KALETA_API_TOKEN` stands for "the one user"; a hosted instance
-            # has no such user.
-            return None
-        env_token = settings.api_token
-        if not env_token or len(env_token) < _MIN_API_TOKEN_LENGTH:
-            return None
-        if len(raw_token) < _MIN_API_TOKEN_LENGTH:
-            return None
-        if not secrets.compare_digest(raw_token, env_token):
-            return None
+            # `resolve_request_tenant` put the instance administrator's
+            # family and member in the context (`env_token_membership`).
+            ctx = current_tenant()
+            return ctx.member_user_id if ctx is not None else None
         user = await AuthService(self.session).get_single_user()
         if user is None or user.username == PLACEHOLDER_USERNAME:
             return None

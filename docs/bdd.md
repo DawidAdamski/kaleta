@@ -3642,6 +3642,16 @@ Feature: Hosted accounts (multi-tenant)
     Then a new password is printed once, the second factor is gone and its sessions end
     And the next sign-in asks only for the new password
     And running it again reports that there is no second factor to remove
+
+  KAL-TEN-022 @automated
+  Scenario: KALETA_API_TOKEN acts as the instance administrator in their family
+    Given a Kaleta on the registry layout with local logins and KALETA_API_TOKEN set
+    When a script calls the API with that token before the administrator exists or has signed in
+    Then it is refused with 401
+    When the administrator has signed in once
+    Then the token reads and writes the administrator's family
+    And a different token is refused
+    And once that login is disabled the token belongs to the next enabled administrator
 ```
 
 ## Feature: Data encryption (user-held passphrase)
