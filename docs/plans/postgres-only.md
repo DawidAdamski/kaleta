@@ -43,7 +43,13 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
     the maintainer 2026-10-10, see "Decisions for B2"): additive, `single`
     still works.
   - **B2b — one layout** (§2): `single` and `KALETA_TENANCY` go; encryption is
-    always on.
+    always on. One PR in two kinds of commit (planned as two PRs on
+    2026-10-10, merged back into one the same day: pinning `single` in the
+    tests only to delete them a PR later was work thrown away): the tests on
+    the registry layout — the suite's database is a registry with one family
+    (`tests/conftest.py`), the API fixtures mint family tokens, every e2e
+    server runs `local` with e-mail logins — and `single` with its code,
+    settings and tests.
   - **B2c — NBP rates in `public`** (see "Decisions for B2"): after B2b, when
     every instance has a `public` schema (single-tenant SQLite has none).
   - **B3 — SQLite out of `src/`** (§1): the dialect branches, `aiosqlite`, the
@@ -339,5 +345,52 @@ encryption.
   documented as unusable; "oldest enabled administrator" moving to the next
   one is documented in `docs/deployment.md`; `--disable-mfa` refuses a
   suspended family instead of failing on its schema.
+
+**Part B2b (branch `feat/postgres-only-part-b2b`, on top of B2a).**
+
+- *The suite's family* (`tests/suite_family.py`): the suite database is a
+  registry with one family, provisioned by Alembic once per session and
+  emptied (every family table but `users`, then every user but the owner);
+  each test runs under its `TenantContext` with `TEST_DATA_KEY` on it. The
+  shared session pool is disposed and reconfigured after every test: asyncpg
+  connections belong to the test's loop. The e2e conftest overrides that
+  fixture with a sync no-op (Playwright owns the test thread's loop).
+- *Raw SQL is not translated*: `schema_translate_map` rewrites only
+  SQLAlchemy-built statements. Tests name the family's tables with
+  `family_table()`; `search_path` was deliberately not used.
+- *Two bugs `single` hid*: the transactions seeder cleared tags with a raw
+  `DELETE FROM transaction_tags`, which hit `public` (no such table) in a
+  family — now a Core `delete()`; `MfaService.disable()` checked the password
+  against `users.password_hash`, which a registry login never has, so turning
+  2FA off always failed — it now asks `LocalIdentityService` through the
+  member's `auth_subject`.
+- *A third, from Alembic-built families*: migration `a4e9b2f1c6d8` plants an
+  English subscriptions tree (and `b9d4e2c8a1f5` eight tags) in every family
+  schema, so the taxonomy seeder counted 4 categories and skipped — example
+  data on a new family crashed in the transactions seeder. `count()` now
+  ignores the subscriptions tree and `create()` files the Polish children under
+  the existing root (KAL-PLT-010). `--replace` still clears whole tables, the
+  planted defaults included, so the CLI replace test compares the second
+  replace with the first.
+- *KAL-AUTH-022 on local factors*: the registry provider answered "wrong code"
+  when the factor was turned off under an open prompt; it now raises
+  `ConflictError` from `mfa_challenge_verify` and `consume_recovery_code`,
+  as Supabase does.
+- *`kaleta-admin`*: `scripts/tenant_admin.py` moved to
+  `kaleta.cli.tenant_admin` with a console script (the script stays as a
+  wrapper). `reset-password` now also revokes the member's browser sessions
+  (KAL-AUTH-028, which `kaleta --reset-password` did). `kaleta
+  --reset-password` / `--disable-mfa` exit 2 naming it (KAL-TEN-023).
+- *Removed with `single`*: the setup wizard and `config.json`, `/secure-app`
+  and the placeholder user, username logins, the login-panel counts, the
+  SQLite integrity panel, "Close database", the scheduled VACUUM backups and
+  `KALETA_BACKUP_*` (§5 came forward: the scheduler only ever backed up the
+  SQLite file), `encrypt_database.py`, `LocalKeyMaterial` (dropped by
+  `s3t4u5v6w7x8`) and the per-install NBP-on-startup flag (back in B2c,
+  KAL-FXR-003 `@planned`). Their scenarios are `@removed` with the reason.
+- *The data-key resolver* (`install_data_key_resolver`) only answers outside a
+  family's context now; whether anything still needs it is a chore.
+- *Docs*: the pages that described removed commands and settings were
+  corrected here; the full SQLite/packaging sweep stays in part C.
 
 ## Implementation (filled by plan-archiver)

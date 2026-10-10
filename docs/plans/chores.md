@@ -354,3 +354,25 @@ check it still reproduces before acting on it.
       addresses are unbounded (every backend). Seen in the review of
       `postgres-only` part A. Fix: a second limiter keyed by the normalised
       e-mail, with the same lock-out sentence.
+- [ ] **`kaleta.db.base.engine` is built at import and used by nobody.**
+      `create_engine()` runs when `kaleta.db` is imported and is re-exported
+      from `kaleta.db.__init__`, but every session goes through
+      `AsyncSessionFactory`. Seen in `postgres-only` part B2b. Fix: delete it
+      and the export.
+- [ ] **`SignedIn.tenant` and the `login_session` family are still optional.**
+      Since ADR-38 every sign-in has a family and `rotate_session` refuses one
+      without; `tenant: SessionTenant | None = None` in `auth/sign_in.py` and
+      `auth/session.py` only lets a caller forget it. Seen in `postgres-only`
+      part B2b. Fix: make it required and drop the `None` branches.
+- [ ] **`install_data_key_resolver` may have no caller left that needs it.**
+      A family's `TenantContext.key_ring` wins whenever a context is set, and
+      every data session has one now; the resolver answers only outside a
+      family. Seen in `postgres-only` part B2b. Fix: find what still reads a
+      data key with no context, then drop the resolver (and
+      `install_unlock_resolver`) or say why it stays.
+- [ ] **Flaky e2e `test_mfa.py::test_two_factor_authentication` at KAL-AUTH-015.**
+      Once in four full `verify.sh --e2e` runs on `postgres-only` part B2b, the
+      password sign-in after `clear_cookies()` stayed on `/login` with no
+      message (line ~178); `test_auth.py` + `test_mfa.py` passed 3/3 together
+      and the file passes alone. Cause not found — a click before the page's
+      websocket is up is the suspect. Fix: find it before adding any wait.

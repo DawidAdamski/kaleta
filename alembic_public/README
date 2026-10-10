@@ -1,4 +1,4 @@
-Tenant registry migrations (public schema) for KALETA_TENANCY=multi.
+Tenant registry migrations (public schema), run once per database.
 
     KALETA_MIGRATE_URL=<url> uv run alembic -c alembic_public.ini upgrade head
 

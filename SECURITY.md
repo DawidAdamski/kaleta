@@ -36,19 +36,21 @@ We prefer coordinated disclosure. Please allow reasonable time for a fix before
 public discussion. We will credit reporters in the advisory when they wish to
 be named.
 
-## Forgotten password (local single-user)
+## Forgotten password (local logins)
 
-Kaleta is single-user and does not offer email or in-app password recovery.
-If you forget your password on a local install:
+Kaleta does not offer email or in-app password recovery for local logins
+(`KALETA_AUTH_BACKEND=local`, the default). If you forget your password, the
+instance operator resets it from a shell:
 
 ```bash
-uv run kaleta --reset-password
+uv run kaleta-admin reset-password <e-mail>
 ```
 
-This updates the argon2 password hash for the sole user in the database
-configured in `~/.kaleta/config.json`. The command refuses to run when no user
-exists (complete first-run bootstrap instead) or when more than one user row is
-present.
+This updates the argon2 password hash of that member in
+`public.local_identities` and signs every browser session of that member out.
+The command refuses to run for an e-mail address that has no local login.
+(`kaleta --reset-password` no longer exists; it exits with status 2 and points
+to this command.)
 
 **Sessions and tokens:** resetting the password signs every browser out. So
 does turning two-factor on or off and reissuing recovery codes — except the
@@ -120,10 +122,10 @@ enrolling — there is no factor yet for a login to ask about.)
 **Locked out with shell access** (no phone, no recovery codes):
 
 ```bash
-uv run kaleta --reset-password --disable-mfa
+uv run kaleta-admin reset-password <e-mail> --disable-mfa
 ```
 
-This removes every second-factor enrolment along with setting the new password.
+This removes every second-factor enrolment of that member along with setting the new password.
 Without the flag a password reset leaves the second factor exactly as it was —
 resetting a password must not be a way around it.
 
@@ -141,17 +143,8 @@ so a key can be captured from process memory during that window. Losing both
 the passphrase and the recovery code makes that member's data unrecoverable —
 there is no server-side master key to fall back to.
 
-Self-hosted installs run with encryption off by default
-(`KALETA_ENCRYPTION=off`). To switch it on for a new install, set
-`KALETA_ENCRYPTION=passphrase` before first run. To switch it on for an
-existing database, back it up, then run:
-
-```bash
-KALETA_ENCRYPTION=passphrase uv run python scripts/encrypt_database.py
-```
-
-The script writes its own plaintext pre-encryption backup to
-`KALETA_BACKUP_DIR` first, re-encrypts every row and blind index, and prints a
-recovery code once — save it before deleting that plaintext backup.
-`scripts/encrypt_database.py --decrypt` reverses it (needed before an Alembic
-downgrade past the encryption migration).
+Encryption is always on (`KALETA_ENCRYPTION=passphrase` is the default).
+`KALETA_ENCRYPTION=off` is accepted only with `KALETA_DEBUG=true`. A family
+that already holds data from before encryption is encrypted when its first data
+passphrase is set up: that step re-encrypts every row and blind index and shows
+a recovery code once — save it.

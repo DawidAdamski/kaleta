@@ -14,7 +14,7 @@ roadmap_ref: ../roadmap.md#2027-directions
 Whoever runs a Kaleta instance — a parent on a homelab, or the maintainer
 for the hosted one — needs to create families, decide who may sign up,
 help someone who forgot their login password, and suspend or delete a
-family, without a terminal. Today all of it is `scripts/tenant_admin.py`.
+family, without a terminal. Today all of it is `kaleta-admin` (`kaleta.cli.tenant_admin`).
 Put the same operations behind a page only the instance administrator
 sees, showing nothing the operator may not see (ADR-35: e-mails, counts,
 statuses — never financial data).
@@ -71,7 +71,7 @@ Depends on [`postgres-only`](postgres-only.md) (instance admin,
 `src/kaleta/services/instance_admin_service.py` (new),
 `src/kaleta/services/tenant_service.py`,
 `src/kaleta/auth/account_deletion.py`, `alembic_public/versions/` (new:
-`admin_audit`), `scripts/tenant_admin.py` (reuse the service),
+`admin_audit`), `src/kaleta/cli/tenant_admin.py` (reuse the service),
 i18n `en.json` / `pl.json`, `docs/bdd.md`.
 
 ## Open questions

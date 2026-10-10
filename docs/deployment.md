@@ -1,14 +1,15 @@
 # Hosted deployment (Supabase + one app container)
 
 How to run the hosted Kaleta: many accounts on one instance
-(`KALETA_TENANCY=multi`, [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md)),
+([ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md),
+[ADR-38](adr/038-postgresql-only-one-tenancy-layout.md)),
 with **Supabase** for sign-in and PostgreSQL and **one container** of
 `kaleta:full` for the app. Every account lives in a schema of its own and is
 encrypted under a key only its members' data passphrases open.
 
-Self-hosting is a different, simpler path — Podman + SQLite, one household —
+Self-hosting is a simpler path — Podman, local logins instead of Supabase —
 described in [getting-started.md](getting-started.md#docker-podman). It is
-the same image; only the environment differs. For localhost autostart
+the same image and the same layout; only the environment differs. For localhost autostart
 (launchd / systemd) see [deploy-local.md](deploy-local.md).
 
 ## Overview
@@ -21,7 +22,7 @@ the same image; only the environment differs. For localhost autostart
 | Redis-compatible store (optional) | Shared sessions, needed only for a second replica |
 | `scripts/migrate_tenants.py` | Deploy hook: registry, then every account, to head |
 | `scripts/hosted_smoke.sh` | Run after every deploy: one throwaway account end to end |
-| `scripts/tenant_admin.py` | The operator's commands: list, members, suspend, resume, delete |
+| `kaleta-admin`            | The operator's commands: list, members, suspend, resume, delete, reset-password |
 
 Secrets (`KALETA_DB_URL`, `KALETA_SECRET_KEY`, the Supabase keys, SMTP
 credentials) are **env-only** — never commit them.
@@ -96,8 +97,8 @@ that costs a re-parse per query and nothing else.
 
 ### Backups
 
-Supabase backs the database up; Kaleta's own SQLite backups do not run in
-`multi` mode. On the Pro plan daily backups are kept for **7 days**;
+Supabase backs the database up; Kaleta writes no scheduled backups of its
+own (the per-family export ZIP in Settings → Data stays). On the Pro plan daily backups are kept for **7 days**;
 **point-in-time recovery** is an add-on with 7, 14 or 28 days of history.
 Pick one before the first real account signs up and write the retention into
 the instance's runbook — together with the warning that restoring the
@@ -110,7 +111,6 @@ One container, `kaleta:full` (it ships the `hosted` extra and the registry
 migrations), HTTPS at the edge, `KALETA_HOST=0.0.0.0` inside:
 
 ```env
-KALETA_TENANCY=multi
 KALETA_AUTH_BACKEND=supabase
 KALETA_DB_URL=postgresql+asyncpg://...:6543/postgres?ssl=require
 KALETA_SUPABASE_URL=https://<project-ref>.supabase.co
@@ -123,8 +123,10 @@ KALETA_HOST=0.0.0.0
 KALETA_PORT=8080
 ```
 
-Encryption needs no variable: `multi` always encrypts, and
-`KALETA_ENCRYPTION=off` is refused outside `KALETA_DEBUG=true`.
+Encryption needs no variable: it is always on (`KALETA_ENCRYPTION=passphrase`
+is the default), and `KALETA_ENCRYPTION=off` is refused outside
+`KALETA_DEBUG=true`. `KALETA_TENANCY` is no longer read; if it is still set,
+startup logs a notice and ignores it.
 
 **Which host.** Fly.io (container deploy, one volume, TLS included), Railway
 (similar) or a Hetzner VPS (cheapest, more to operate yourself). Choose by
@@ -141,12 +143,12 @@ expires after `KALETA_SESSION_TTL_HOURS`.
 
 ### Startup order and health
 
-On start a `multi` instance migrates the registry (`alembic_public/`), then
+On start an instance migrates the registry (`alembic_public/`), then
 every account's schema, then serves. The registry failing stops the start —
 nothing works without it. **One account failing to migrate does not**: that
 account is marked `suspended` (its members are refused at sign-in), the
 error is logged, and every other account starts. Fix the cause, run
-`scripts/migrate_tenants.py`, then `scripts/tenant_admin.py resume <id>`.
+`scripts/migrate_tenants.py`, then `kaleta-admin resume <id>`.
 
 `GET /api/v1/health` (no authentication) reports:
 
@@ -198,8 +200,9 @@ hash, TOTP secret, recovery code or key (ADR-035, enforced by
 reads the volume under another uid (a backup shipper) cannot read new files;
 run it under Kaleta's uid.
 
-**Not in `multi` mode:** the setup wizard, `~/.kaleta/config.json`, scheduled
-SQLite backups, the NBP startup fetch and the SQLite integrity check. The event
+**Not in Kaleta any more:** the setup wizard, `~/.kaleta/config.json`,
+scheduled SQLite backups, the Housekeeping integrity panel and the NBP startup
+fetch (it returns per instance in part B2c of the `postgres-only` plan). The event
 retention sweep visits every active family once a day. `KALETA_API_TOKEN`
 authenticates as the instance administrator (local logins only), in their
 family — the oldest enabled one, so disabling that login moves the token to
@@ -213,7 +216,7 @@ the next administrator's family.
    so a slow migration does not hold the new container's health check:
 
    ```bash
-   KALETA_TENANCY=multi KALETA_AUTH_BACKEND=supabase KALETA_DB_URL=<direct url> \
+   KALETA_AUTH_BACKEND=supabase KALETA_DB_URL=<direct url> \
      KALETA_SUPABASE_URL=... KALETA_SUPABASE_ANON_KEY=... \
      uv run python scripts/migrate_tenants.py          # --check: report only
    ```
@@ -240,15 +243,17 @@ the next administrator's family.
 
 ### Accounts
 
-`scripts/tenant_admin.py` reads only the registry — e-mail addresses,
-roles, statuses — never an account's data:
+`kaleta-admin` (`kaleta.cli.tenant_admin`; `scripts/tenant_admin.py` is a thin
+wrapper) reads only the registry — e-mail addresses, roles, statuses — never
+an account's data:
 
 ```bash
-uv run python scripts/tenant_admin.py list               # id, schema, status, members, last seen
-uv run python scripts/tenant_admin.py members 12         # e-mail, role, status
-uv run python scripts/tenant_admin.py suspend 12         # refuse its sign-ins
-uv run python scripts/tenant_admin.py resume 12          # let them in again
-uv run python scripts/tenant_admin.py delete 12 --yes    # identities, schema, rows
+uv run kaleta-admin list                          # id, schema, status, members, last seen
+uv run kaleta-admin members 12                    # e-mail, role, status
+uv run kaleta-admin suspend 12                    # refuse its sign-ins
+uv run kaleta-admin resume 12                     # let them in again
+uv run kaleta-admin delete 12 --yes               # identities, schema, rows
+uv run kaleta-admin reset-password <e-mail> [--disable-mfa]   # local logins; signs the member's browsers out
 ```
 
 `delete` removes every member's Supabase identity first (with the
@@ -264,7 +269,7 @@ member who is not the owner leaves the household instead.
 ## 4. The hosted flow on a laptop
 
 `compose.hosted-dev.yml` runs the same layout locally: `postgres:16` with the
-non-superuser `kaleta_app` role, and `kaleta:full` in `multi` mode with
+non-superuser `kaleta_app` role, and `kaleta:full` with
 `KALETA_AUTH_BACKEND=fake` — a debug stand-in for Supabase Auth that confirms
 every address at sign-up and keeps identities in a file. It is refused unless
 `KALETA_DEBUG=true`, so it cannot reach a real deployment by accident.
@@ -280,45 +285,30 @@ leaves the stack up). The app's `~/.kaleta` is a named volume, so
 `podman compose -f compose.hosted-dev.yml restart kaleta` shows the restart
 behaviour: still signed in, asked to unlock again.
 
-## Encrypting an existing self-hosted database
+## Encrypting data that predates encryption
 
-Self-hosted (`single` mode) installs run with `KALETA_ENCRYPTION=off` by
-default. To protect an existing SQLite or PostgreSQL database with
-field-level encryption (see [tech-stack.md](tech-stack.md#field-level-encryption)
-and [privacy.md](privacy.md#encryption)):
+There is no separate migration script (`scripts/encrypt_database.py` is
+gone). A family whose rows were written before encryption is encrypted when
+its first data passphrase is set up (see
+[tech-stack.md](tech-stack.md#field-level-encryption) and
+[privacy.md](privacy.md#encryption)):
 
-1. **Back up first.** The script takes its own plaintext snapshot before
-   touching anything, but keep your own backup too.
-2. Run the one-off migration:
-
-   ```bash
-   KALETA_ENCRYPTION=passphrase uv run python scripts/encrypt_database.py
-   ```
-
-   It prompts for the data passphrase (or reads `KALETA_DATA_PASSPHRASE`),
-   writes a plaintext pre-encryption backup ZIP to `KALETA_BACKUP_DIR`,
-   re-encrypts every row and blind index, and prints the recovery code
-   **once**.
+1. **Export first.** Settings → Data → export ZIP gives you a copy to fall
+   back on.
+2. Sign in as a member of that family and choose the data passphrase when
+   asked. Setting it up re-encrypts every row and blind index and shows the
+   recovery code **once**.
 3. **Save the recovery code** somewhere safe — it is not shown again.
-4. Start the app with `KALETA_ENCRYPTION=passphrase` set and confirm it
-   opens.
-5. **Delete the plaintext backup ZIP** from `KALETA_BACKUP_DIR` once the
-   app opens correctly.
-
-`scripts/encrypt_database.py --decrypt` reverses the process (needed
-before an Alembic downgrade past the encryption migration).
 
 ## Public demo
 
-The recommended demo is a **separate, single-tenant instance** with
-encryption off: one published login, no passphrase step, and nothing about
-it complicates the privacy statement of the real instance.
+The recommended demo is a **separate instance**: one published login and
+nothing about it complicates the privacy statement of the real instance.
 
 ```env
 KALETA_DEMO=true                 # the dismissible demo banner
-KALETA_DB_URL=postgresql+asyncpg://...   # its own database (or SQLite)
+KALETA_DB_URL=postgresql+asyncpg://...   # its own database
 KALETA_SECRET_KEY=...
-KALETA_BACKUP_ENABLED=false
 ```
 
 Seed it once and every night (03:00 UTC here):
@@ -333,21 +323,21 @@ uv run python scripts/reset_demo.py
 
 | Field | Value |
 |---|---|
-| Username | `demo` |
+| E-mail | `demo@kaleta.app` |
 | Password | `demo-kaleta` |
-| Data passphrase (only with `KALETA_ENCRYPTION=passphrase`) | `demo-kaleta-data` |
+| Data passphrase | `demo-kaleta-data` |
 
-**The demo as an account of the hosted instance** works too:
-`reset_demo.py --tenant demo` (with `KALETA_DEMO=true` on that instance)
-signs in `demo@kaleta.app` (`--email`) at the provider, provisions its account
-on the first run, sets up the published passphrase and reseeds it in place
-every night. With Supabase the identity must exist and be confirmed first —
-add it once in *Authentication → Users* with "Auto confirm". The demo's
-password and passphrase are public, so anyone can read that one account;
-every other account stays as private as before.
+**The demo as a family of a shared instance** works too: run
+`reset_demo.py` with `KALETA_DEMO=true` on that instance. It signs in
+`demo@kaleta.app` (`--email`) at the provider, provisions its family on the
+first run, sets up the published passphrase and reseeds it in place every
+night. With Supabase the identity must exist and be confirmed first — add it
+once in *Authentication → Users* with "Auto confirm". The demo's password and
+passphrase are public, so anyone can read that one family; every other family
+stays as private as before.
 
 The script refuses to run unless `KALETA_DEMO=true` (`--force` for local
-testing), and refuses `--tenant` on a single-tenant install.
+testing). `--tenant` is accepted for older cron lines and ignored.
 
 ## Related
 
