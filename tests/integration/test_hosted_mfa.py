@@ -340,7 +340,7 @@ async def tenancy(tmp_path: Path) -> AsyncIterator[tuple[str, FakeGoTrue]]:
     gotrue.me = identity(1)
     set_auth_provider(gotrue)
     try:
-        async with multi_tenant_database(tmp_path) as url:
+        async with multi_tenant_database() as url:
             yield url, gotrue
     finally:
         set_auth_provider(None)

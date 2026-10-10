@@ -15,21 +15,20 @@ import httpx
 
 API_BASE = "http://127.0.0.1:8081/api/v1"
 _client = httpx.Client(timeout=10.0)
+#: The e2e database, for the helpers that go through the service layer.
+_db_url: str | None = None
 
 
 def configure(base_url: str, *, db_url: str | None = None, api_token: str | None = None) -> None:
     """Point helpers at the active e2e Kaleta instance."""
-    global API_BASE, _client
+    global API_BASE, _client, _db_url
     API_BASE = f"{base_url.rstrip('/')}/api/v1"
     headers: dict[str, str] = {}
     if api_token:
         headers["Authorization"] = f"Bearer {api_token}"
     _client = httpx.Client(timeout=10.0, base_url=base_url.rstrip("/"), headers=headers)
 
-    if db_url is not None:
-        from kaleta.db import configure_database
-
-        configure_database(db_url, debug=True)
+    _db_url = db_url
 
 
 def seed_account(name: str, currency: str = "PLN", institution_id: int | None = None) -> int:
@@ -111,29 +110,22 @@ def get_or_seed_payee(name: str) -> int:
 
 def seed_rule(pattern: str, category_id: int, *, priority: int = 0) -> int:
     """Create a categorisation rule via the service layer; return its ID."""
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
-
     from kaleta.db import AsyncSessionFactory
     from kaleta.schemas.categorisation_rule import CategorisationRuleCreate
     from kaleta.services import RuleService
 
-    def _worker() -> int:
-        async def _create() -> int:
-            async with AsyncSessionFactory() as session:
-                rule = await RuleService(session).create(
-                    CategorisationRuleCreate(
-                        pattern=pattern,
-                        category_id=category_id,
-                        priority=priority,
-                    )
+    async def _create() -> int:
+        async with AsyncSessionFactory() as session:
+            rule = await RuleService(session).create(
+                CategorisationRuleCreate(
+                    pattern=pattern,
+                    category_id=category_id,
+                    priority=priority,
                 )
-                return rule.id
+            )
+            return rule.id
 
-        return asyncio.run(_create())
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(_worker).result()
+    return _run_async_worker(_create)
 
 
 def seed_import_rule(
@@ -348,8 +340,6 @@ def seed_planned_transaction(
     Runs in a worker thread so ``asyncio.run`` is not invoked from pytest-
     playwright's already-running event loop.
     """
-    import asyncio
-    from concurrent.futures import ThreadPoolExecutor
     from decimal import Decimal
 
     from kaleta.db import AsyncSessionFactory
@@ -358,38 +348,49 @@ def seed_planned_transaction(
     from kaleta.schemas.planned_transaction import PlannedTransactionCreate
     from kaleta.services import PlannedTransactionService
 
-    def _worker() -> int:
-        async def _create() -> int:
-            async with AsyncSessionFactory() as session:
-                svc = PlannedTransactionService(session)
-                pt = await svc.create(
-                    PlannedTransactionCreate(
-                        name=name,
-                        amount=Decimal(str(amount)),
-                        type=TransactionType(tx_type),
-                        account_id=account_id,
-                        category_id=category_id,
-                        payee_id=payee_id,
-                        frequency=RecurrenceFrequency(frequency),
-                        start_date=start_date or datetime.date.today(),
-                        is_active=is_active,
-                    )
+    async def _create() -> int:
+        async with AsyncSessionFactory() as session:
+            svc = PlannedTransactionService(session)
+            pt = await svc.create(
+                PlannedTransactionCreate(
+                    name=name,
+                    amount=Decimal(str(amount)),
+                    type=TransactionType(tx_type),
+                    account_id=account_id,
+                    category_id=category_id,
+                    payee_id=payee_id,
+                    frequency=RecurrenceFrequency(frequency),
+                    start_date=start_date or datetime.date.today(),
+                    is_active=is_active,
                 )
-                return pt.id
+            )
+            return pt.id
 
-        return asyncio.run(_create())
-
-    with ThreadPoolExecutor(max_workers=1) as executor:
-        return executor.submit(_worker).result()
+    return _run_async_worker(_create)
 
 
 def _run_async_worker(coro_factory):
-    """Run an async coroutine factory in a worker thread (pytest-playwright safe)."""
+    """Run an async coroutine factory in a worker thread (pytest-playwright safe).
+
+    Each call is a new event loop, and an asyncpg connection belongs to the
+    loop that opened it: the e2e database gets a fresh engine for the call and
+    has its connections closed before the loop goes.
+    """
     import asyncio
     from concurrent.futures import ThreadPoolExecutor
 
+    from kaleta.db import AsyncSessionFactory, configure_database
+
+    async def _in_own_engine() -> Any:
+        if _db_url is not None:
+            configure_database(_db_url, debug=True)
+        try:
+            return await coro_factory()
+        finally:
+            await AsyncSessionFactory.dispose()
+
     def _worker() -> Any:
-        return asyncio.run(coro_factory())
+        return asyncio.run(_in_own_engine())
 
     with ThreadPoolExecutor(max_workers=1) as executor:
         return executor.submit(_worker).result()

@@ -36,7 +36,9 @@ repos:
         stages: [pre-push]
       - id: pytest-fast
         name: pytest (unit + integration, fast tier, parallel)
-        entry: uv run --no-sync pytest tests/unit tests/integration -n auto -q -m "not slow"
+        # PostgreSQL only (ADR-38): start the throwaway test server unless
+        # KALETA_DB_URL names another.
+        entry: bash -c '[[ -n "${KALETA_DB_URL:-}" ]] || ./scripts/test_db.sh up >/dev/null; exec uv run --no-sync pytest tests/unit tests/integration -n auto -q -m "not slow"'
         language: system
         pass_filenames: false
         stages: [pre-push]

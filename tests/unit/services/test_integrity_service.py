@@ -9,10 +9,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.exceptions import ValidationError
 from kaleta.services.integrity_service import IntegrityService
-from tests.conftest import _USE_POSTGRES
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only integrity PRAGMA")
+@pytest.fixture
+def session(sqlite_session: AsyncSession) -> AsyncSession:
+    """``IntegrityService`` reads SQLite's ``foreign_key_check``: a SQLite database."""
+    return sqlite_session
+
+
 class TestIntegrityService:
     @pytest.mark.asyncio
     async def test_clean_database_returns_empty(self, session: AsyncSession) -> None:

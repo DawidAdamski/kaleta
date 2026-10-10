@@ -32,6 +32,7 @@ from tests.e2e.conftest import (
     session_cookie,
     storage_id,
 )
+from tests.suite_database import fresh_database_url
 
 # Its own port: 8081 is the shared e2e server, 8082 the demo-banner one.
 SECURE_COOKIE_PORT = 8083
@@ -281,8 +282,7 @@ def secure_cookie_server(
 ) -> Generator[tuple[str, Path]]:
     """An isolated app started with ``KALETA_SESSION_COOKIE_SECURE=true``."""
     home = tmp_path_factory.mktemp("secure_cookie_home")
-    db_path = tmp_path_factory.mktemp("secure_cookie_db") / "secure-cookie.db"
-    db_url = f"sqlite+aiosqlite:///{db_path}"
+    db_url = fresh_database_url("e2e_secure_cookie")
     log_path = tmp_path_factory.mktemp("secure_cookie_logs") / "kaleta-secure-cookie.log"
 
     _write_kaleta_config(home, db_url)
@@ -388,7 +388,7 @@ def restartable_server(
     tmp_path_factory: pytest.TempPathFactory,
 ) -> Generator[_RestartableServer]:
     home = tmp_path_factory.mktemp("restart_home")
-    db_url = f"sqlite+aiosqlite:///{tmp_path_factory.mktemp('restart_db') / 'restart.db'}"
+    db_url = fresh_database_url("e2e_restart")
     _write_kaleta_config(home, db_url)
     _run_alembic(db_url)
     _ensure_e2e_user_subprocess(db_url, home)

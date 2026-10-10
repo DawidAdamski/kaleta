@@ -18,10 +18,14 @@ from kaleta.config import settings
 from kaleta.db.session import AsyncSessionFactory
 from kaleta.services.integrity_service import IntegrityService
 from kaleta.services.scheduled_backup_service import ScheduledBackupService
-from tests.conftest import _USE_POSTGRES
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only scheduled VACUUM backups")
+@pytest.fixture
+def session(sqlite_session: AsyncSession) -> AsyncSession:
+    """``IntegrityService`` reads SQLite's ``foreign_key_check``: a SQLite database."""
+    return sqlite_session
+
+
 def test_scheduled_backup_retention_keeps_two(tmp_path: Path) -> None:
     """Covers: KAL-SET-017"""
     source = tmp_path / "live.db"
@@ -46,7 +50,6 @@ def test_scheduled_backup_retention_keeps_two(tmp_path: Path) -> None:
     assert all(p.name.startswith("kaleta-") and p.suffix == ".db" for p in svc.list_backups())
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only scheduled VACUUM backups")
 def test_scheduled_backup_uses_active_config_url(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -83,7 +86,6 @@ def test_scheduled_backup_uses_active_config_url(
     assert row == ("active",)
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only connect pragmas")
 @pytest.mark.asyncio
 async def test_connect_pragmas_on_session_factory(tmp_path: Path) -> None:
     """Covers: KAL-SET-018"""
@@ -98,9 +100,9 @@ async def test_connect_pragmas_on_session_factory(tmp_path: Path) -> None:
             assert (await session.execute(text("PRAGMA synchronous"))).scalar() == 1
     finally:
         await AsyncSessionFactory.dispose()
+        AsyncSessionFactory.configure(settings.db_url, debug=settings.debug)
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="SQLite-only foreign_key_check")
 @pytest.mark.asyncio
 async def test_integrity_clean_and_orphan(session: AsyncSession) -> None:
     """Covers: KAL-INT-001, KAL-INT-002"""

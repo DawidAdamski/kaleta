@@ -32,6 +32,7 @@ from tests.e2e.conftest import (
     _write_kaleta_config,
     login,
 )
+from tests.suite_database import fresh_database_url
 
 ENC_PORT = 8083
 ENC_BASE = f"http://127.0.0.1:{ENC_PORT}"
@@ -50,9 +51,8 @@ _state: dict[str, str] = {}
 @pytest.fixture(scope="module")
 def encrypted_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
     home = tmp_path_factory.mktemp("enc_e2e_home")
-    db_dir = tmp_path_factory.mktemp("enc_e2e_db")
     log_dir = tmp_path_factory.mktemp("enc_e2e_logs")
-    db_url = f"sqlite+aiosqlite:///{db_dir / 'enc-e2e.db'}"
+    db_url = fresh_database_url("e2e_encryption")
     log_path = log_dir / "kaleta-enc-e2e-server.log"
 
     _write_kaleta_config(home, db_url)

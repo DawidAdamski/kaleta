@@ -1,6 +1,7 @@
 name: CI
 
-# Tiers (docs/plans/test-suite-speed.md): a pull request runs the fast tier
+# PostgreSQL is the only database (ADR-38): the `postgres` job is the suite.
+# Tiers (docs/plans/archive/test-suite-speed.md): a pull request runs the fast tier
 # in parallel; push to main and the nightly run add the slow tier (serial — it
 # holds a timing budget) and the Valkey job. The laptop runs everything
 # through ./scripts/verify.sh.
@@ -51,33 +52,6 @@ jobs:
       - name: SPDX headers
         run: uv run python scripts/check_spdx_headers.py
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Set up Python
-        run: uv python install 3.13
-
-      - name: Install dependencies
-        run: uv sync --group dev
-
-      - name: Unit + integration tests (fast tier)
-        run: uv run pytest tests/unit tests/integration -n auto -q -m "not slow"
-
-      - name: Unit + integration tests (slow tier)
-        if: github.event_name != 'pull_request'
-        run: uv run pytest tests/unit tests/integration -q -m slow
-
-      - name: Spec coverage
-        run: uv run python scripts/spec_coverage.py
-
   postgres:
     runs-on: ubuntu-latest
     services:
@@ -110,13 +84,10 @@ jobs:
         run: uv python install 3.13
 
       # `hosted` brings the multi-tenant suites (registry, provisioning,
-      # tenant isolation) into this job; under -n each worker migrates a
-      # database of its own (tests/xdist_postgres.py).
+      # tenant isolation) into this job; the suite migrates its databases
+      # itself — under -n one per worker (tests/suite_database.py).
       - name: Install dependencies
         run: uv sync --group dev --extra postgres --extra hosted
-
-      - name: Alembic upgrade head
-        run: uv run alembic upgrade head
 
       - name: Unit + integration tests (fast tier)
         run: uv run pytest tests/unit tests/integration -n auto -q -m "not slow"
@@ -124,6 +95,9 @@ jobs:
       - name: Unit + integration tests (slow tier)
         if: github.event_name != 'pull_request'
         run: uv run pytest tests/unit tests/integration -q -m slow
+
+      - name: Spec coverage
+        run: uv run python scripts/spec_coverage.py
 
   # KALETA_REDIS_URL moves both NiceGUI session storage and the login rate
   # limiter into a Redis-protocol server — the hosted multi-replica
@@ -141,8 +115,23 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: kaleta
+          POSTGRES_PASSWORD: kaleta
+          POSTGRES_DB: kaleta
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U kaleta -d kaleta"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       KALETA_REDIS_URL: redis://localhost:6379/0
+      KALETA_DB_URL: postgresql+asyncpg://kaleta:kaleta@localhost:5432/kaleta
+      KALETA_DEBUG: "true"
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -156,7 +145,7 @@ jobs:
         run: uv python install 3.13
 
       - name: Install dependencies
-        run: uv sync --group dev --extra hosted
+        run: uv sync --group dev --extra postgres --extra hosted
 
       - name: Install Playwright browser
         run: uv run playwright install --with-deps chromium

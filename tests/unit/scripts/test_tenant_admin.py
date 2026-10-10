@@ -54,7 +54,7 @@ class RecordingRemover:
 
 @pytest.fixture
 async def hosted(tmp_path: Path) -> AsyncIterator[str]:
-    async with multi_tenant_database(tmp_path) as url:
+    async with multi_tenant_database() as url:
         yield url
 
 

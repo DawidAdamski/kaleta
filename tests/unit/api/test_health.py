@@ -193,7 +193,7 @@ async def test_health_lists_suspended_tenants_on_a_hosted_instance(tmp_path) -> 
     from kaleta.services.tenant_service import TenantService
     from tests.tenancy_helpers import MetadataProvisioner, identity, multi_tenant_database
 
-    async with multi_tenant_database(tmp_path) as url:
+    async with multi_tenant_database() as url:
         async with AsyncSessionFactory.public() as public:
             service = TenantService(public, provisioner=MetadataProvisioner(url))
             first = await service.provision(identity(1))

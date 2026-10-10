@@ -52,7 +52,7 @@ async def instance(tmp_path: Path) -> AsyncIterator[str]:
     provider = RegistryAuthProvider()
     set_auth_provider(provider)
     try:
-        async with multi_tenant_database(tmp_path, auth_backend="local") as url:
+        async with multi_tenant_database(auth_backend="local") as url:
             yield url
     finally:
         set_auth_provider(None)
@@ -334,7 +334,7 @@ async def test_deleting_a_family_keeps_the_administrators_login(instance: str) -
 
 async def test_the_login_commands_refuse_another_backend(tmp_path: Path) -> None:
     """Covers: KAL-TEN-019"""
-    async with multi_tenant_database(tmp_path) as _url:  # auth_backend="supabase"
+    async with multi_tenant_database() as _url:  # auth_backend="supabase"
         set_auth_provider(_NoRemover())  # type: ignore[arg-type]
         try:
             status = await tenant_admin._run(argparse.Namespace(command="logins"))

@@ -3,13 +3,14 @@
 
 import os
 
-from tests.xdist_postgres import worker_database_env
+from tests.suite_database import suite_database_env_or_exit
 
 # Allow default secret key during test runs (see kaleta.config.settings).
 os.environ.setdefault("KALETA_DEBUG", "true")
-# Under ``pytest -n`` each worker gets a PostgreSQL database of its own; the
-# settings read KALETA_DB_URL on import, so this precedes every kaleta import.
-os.environ.update(worker_database_env())
+# The suite runs on PostgreSQL only (ADR-38); under ``pytest -n`` each worker
+# gets a database of its own. The settings read KALETA_DB_URL on import, so
+# this precedes every kaleta import.
+os.environ.update(suite_database_env_or_exit())
 
 import pytest
 import pytest_asyncio
@@ -32,27 +33,21 @@ from kaleta.db.base import Base
 from kaleta.db.types import install_data_key_resolver
 from kaleta.models.currency_rate import CurrencyRate  # noqa: F401
 from kaleta.models.institution import Institution  # noqa: F401
+from kaleta.services.setup_service import upgrade_to_head
 
-_POSTGRES_URL = os.environ.get("KALETA_DB_URL", "")
-_USE_POSTGRES = _POSTGRES_URL.startswith("postgresql")
-if _USE_POSTGRES and os.environ.get("PYTEST_XDIST_WORKER"):
-    # A worker's database starts empty; outside xdist CI migrates the one
-    # database before pytest runs (``alembic upgrade head``).
-    from kaleta.services.setup_service import upgrade_to_head
-
-    upgrade_to_head(_POSTGRES_URL)
+_POSTGRES_URL = os.environ["KALETA_DB_URL"]
+# Idempotent: a fresh database is built, a current one costs a version check.
+upgrade_to_head(_POSTGRES_URL)
 _postgres_truncated = False
 
 
 def make_session_factory(bind: AsyncEngine | AsyncConnection):
-    """Build a session factory; postgres tests use savepoints around service commits."""
-    if _USE_POSTGRES:
-        return async_sessionmaker(
-            bind,
-            expire_on_commit=False,
-            join_transaction_mode="create_savepoint",
-        )
-    return async_sessionmaker(bind, expire_on_commit=False)
+    """Build a session factory; savepoints keep service commits inside the test's transaction."""
+    return async_sessionmaker(
+        bind,
+        expire_on_commit=False,
+        join_transaction_mode="create_savepoint",
+    )
 
 
 async def _truncate_postgres_once(engine: AsyncEngine) -> None:
@@ -70,21 +65,27 @@ async def _truncate_postgres_once(engine: AsyncEngine) -> None:
 
 @pytest_asyncio.fixture
 async def db_engine():
-    """In-memory SQLite per test, or a rolled-back postgres connection."""
-    if _USE_POSTGRES:
-        engine = create_async_engine(_POSTGRES_URL, echo=False, poolclass=NullPool)
-        await _truncate_postgres_once(engine)
-        async with engine.connect() as conn:
-            await conn.begin()
-            yield conn
-            await conn.rollback()
-        await engine.dispose()
-        return
+    """A PostgreSQL connection whose transaction is rolled back after the test."""
+    engine = create_async_engine(_POSTGRES_URL, echo=False, poolclass=NullPool)
+    await _truncate_postgres_once(engine)
+    async with engine.connect() as conn:
+        await conn.begin()
+        yield conn
+        await conn.rollback()
+    await engine.dispose()
 
+
+@pytest_asyncio.fixture
+async def sqlite_session():
+    """An in-memory SQLite session, for the SQLite-only code that is still in ``src``.
+
+    Goes with that code (``postgres-only`` part B3); nothing else uses it.
+    """
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    yield engine
+    async with async_sessionmaker(engine, expire_on_commit=False)() as s:
+        yield s
     await engine.dispose()
 
 

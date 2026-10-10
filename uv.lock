@@ -1373,6 +1373,7 @@ tracker = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "asyncpg" },
     { name = "coverage" },
     { name = "faker" },
     { name = "fakeredis" },
@@ -1380,6 +1381,7 @@ dev = [
     { name = "mypy" },
     { name = "openpyxl" },
     { name = "pre-commit" },
+    { name = "psycopg2-binary" },
     { name = "pytest" },
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
@@ -1422,6 +1424,7 @@ provides-extras = ["forecast", "postgres", "import-xlsx", "docs", "tracker", "ho
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "asyncpg", specifier = ">=0.29" },
     { name = "coverage", specifier = ">=7.13.5" },
     { name = "faker", specifier = ">=40.11.1" },
     { name = "fakeredis", specifier = ">=2.26" },
@@ -1429,6 +1432,7 @@ dev = [
     { name = "mypy", specifier = ">=1.10" },
     { name = "openpyxl", specifier = ">=3.1" },
     { name = "pre-commit", specifier = ">=3.7" },
+    { name = "psycopg2-binary", specifier = ">=2.9" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-asyncio", specifier = ">=0.23" },
     { name = "pytest-cov", specifier = ">=7.1.0" },

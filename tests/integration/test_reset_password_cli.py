@@ -21,7 +21,7 @@ from kaleta.db import types as types_mod
 from kaleta.db.base import Base
 from kaleta.exceptions import ValidationError
 from kaleta.services.auth_service import AuthService
-from tests.conftest import _POSTGRES_URL, _USE_POSTGRES
+from tests.conftest import _POSTGRES_URL
 
 
 @pytest.fixture
@@ -31,20 +31,14 @@ def global_db_restored() -> Generator[None]:
     ``ResetPasswordCli`` calls ``configure_database`` on the URL it was given,
     which is a one-shot process in production and a landmine in a test run:
     every later test reaching for ``with_session`` would get this test's
-    throwaway SQLite file. The two older tests here dodge it by skipping the
-    whole case under postgres; restoring the URL is what that skip was
-    standing in for, and it keeps these cases running on both backends.
+    throwaway SQLite file.
 
-    Under postgres only, because that is where a shared URL exists to put
-    back. On the default SQLite run the factory is left pointing at this
-    test's ``tmp_path`` file — the same leak the two older tests already
-    have, and harmless there because every test that matters builds its own
-    engine. Worth closing if a SQLite test ever starts depending on the
-    global factory.
+    The suite's database is PostgreSQL (ADR-38); the CLI cases still drive a
+    SQLite file of their own until the single-tenant CLI goes (``postgres-only``
+    part B2), so every one of them takes this fixture.
     """
     yield
-    if _USE_POSTGRES:
-        configure_database(_POSTGRES_URL, debug=True)
+    configure_database(_POSTGRES_URL, debug=True)
 
 
 async def _prepare_db(db_url: str, *, username: str | None, password: str | None) -> None:
@@ -104,9 +98,8 @@ async def _authenticate(db_url: str, username: str, password: str) -> bool:
         await engine.dispose()
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="CLI reset integration uses on-disk SQLite")
 def test_reset_password_cli_updates_configured_user(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, global_db_restored: None
 ) -> None:
     """Covers: KAL-AUTH-007"""
     db_path = tmp_path / "kaleta.db"
@@ -130,9 +123,8 @@ def test_reset_password_cli_updates_configured_user(
     assert asyncio.run(_authenticate(db_url, "alice", "old-password-1")) is False
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="CLI reset integration uses on-disk SQLite")
 def test_reset_password_cli_no_user_points_to_bootstrap(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, global_db_restored: None
 ) -> None:
     """Covers: KAL-AUTH-007"""
     db_path = tmp_path / "empty.db"

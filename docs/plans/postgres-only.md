@@ -32,7 +32,17 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
   §4): additive; `single` keeps working. `KALETA_TENANCY=multi` +
   `KALETA_AUTH_BACKEND=local` becomes a valid instance.
 - **B — one layout, PostgreSQL only** (§1, §2, §6): `single`, SQLite and the
-  SQLite test runs go.
+  SQLite test runs go. Split in three on 2026-10-10, after the fast tier was
+  seen passing on Postgres unchanged (3196 tests, 15 s — the same as SQLite):
+  - **B1 — the test suite on PostgreSQL** (§6): the shared fixtures, the e2e
+    servers and CI use Postgres only; `scripts/test_db.sh`; the SQLite `test`
+    job goes. Production code untouched. Tests that build a SQLite file of
+    their own to exercise SQLite-only code (pragmas, VACUUM backups, the setup
+    wizard's file picker) stay until that code goes in B2/B3.
+  - **B2 — one layout** (§2): `single` and `KALETA_TENANCY` go; encryption is
+    always on.
+  - **B3 — SQLite out of `src/`** (§1): the dialect branches, `aiosqlite`, the
+    refusal of a `sqlite` URL.
 - **C — removals, packaging, docs** (§5, §7).
 
 ## Scope
@@ -233,5 +243,36 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
   ADR-38 reverses it, so both tests now assert it starts.
 - *Not done in A*: `kaleta --reset-password` (single-tenant CLI) — part B
   replaces it with `tenant_admin.py reset-password`.
+
+**Part B1 (branch `feat/postgres-only-part-b1`).**
+
+- *One database for the suite*: `tests/suite_database.py` (was
+  `xdist_postgres.py`) reads `KALETA_DB_URL`, defaulting to the server of
+  `scripts/test_db.sh` (`postgresql+asyncpg://kaleta:kaleta@127.0.0.1:55432/kaleta`);
+  a non-Postgres URL or a silent server ends the session with
+  "Start one: ./scripts/test_db.sh up". `tests/conftest.py` migrates to head on
+  every start (idempotent), so CI lost its separate `alembic upgrade head` step.
+- *The e2e apps* each get a database of their own, `<db>_e2e_<name>`, dropped
+  `WITH (FORCE)` and created again per run (`fresh_database_url`, synchronous
+  because Playwright's sync API keeps a loop running in the test thread).
+  Behind-the-app checks in the tenant e2e tests query Postgres (`query`), and
+  "the schema file exists" became "the schema exists".
+- *A finding SQLite hid*: the e2e seed helpers ran each call under its own
+  `asyncio.run` on a pooled engine; asyncpg connections belong to the loop that
+  opened them, so the second call failed. `_run_async_worker` now builds the
+  engine for the call and disposes it before the loop ends.
+- *SQLite-only code still in `src/`* keeps its tests: `IntegrityService`
+  (`PRAGMA foreign_key_check`) runs on a `sqlite_session` fixture; the pragma,
+  VACUUM-backup, migration-chain and CLI-reset tests build their own SQLite
+  file and put the shared session factory back afterwards. They were skipped on
+  the old Postgres job; now they run everywhere (3207 passed, 0 skipped).
+  They go with that code in B2/B3.
+- *Drivers*: `asyncpg` and `psycopg2-binary` joined the `dev` group (B3 moves
+  them into the base install).
+- *CI*: the SQLite `test` job is gone; `postgres` runs both tiers and spec
+  coverage; the `valkey` job got a Postgres service for its e2e. The ruleset's
+  required checks must drop `test` (maintainer).
+- `verify.sh` and the pre-push hook run `./scripts/test_db.sh up` unless
+  `KALETA_DB_URL` is set.
 
 ## Implementation (filled by plan-archiver)

@@ -265,7 +265,8 @@ for the Working Agreement and PR process.
 
 ```bash
 uv sync --group dev
-./scripts/verify.sh          # add --e2e when changing views/
+./scripts/verify.sh          # add --e2e when changing views/; starts the test database
+./scripts/test_db.sh up      # the tests run on PostgreSQL only — a throwaway server on :55432
 uv run pytest
 uv run ruff check .
 uv run mypy src/

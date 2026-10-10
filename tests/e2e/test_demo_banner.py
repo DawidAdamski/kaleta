@@ -24,6 +24,7 @@ from tests.e2e.conftest import (
     _write_kaleta_config,
     login,
 )
+from tests.suite_database import fresh_database_url
 
 DEMO_PORT = 8082
 DEMO_BASE = f"http://127.0.0.1:{DEMO_PORT}"
@@ -32,10 +33,8 @@ DEMO_BASE = f"http://127.0.0.1:{DEMO_PORT}"
 @pytest.fixture(scope="module")
 def demo_e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
     home = tmp_path_factory.mktemp("demo_e2e_home")
-    db_dir = tmp_path_factory.mktemp("demo_e2e_db")
     log_dir = tmp_path_factory.mktemp("demo_e2e_logs")
-    db_path = db_dir / "demo-e2e.db"
-    db_url = f"sqlite+aiosqlite:///{db_path}"
+    db_url = fresh_database_url("e2e_demo")
     log_path = log_dir / "kaleta-demo-e2e-server.log"
 
     _write_kaleta_config(home, db_url)

@@ -20,10 +20,8 @@ from kaleta.services.setup_service import (
     head_revision,
     upgrade_to_head,
 )
-from tests.conftest import _USE_POSTGRES
 
 
-@pytest.mark.skipif(_USE_POSTGRES, reason="SQLite auto-migrate safety copy path")
 def test_ensure_schema_current_upgrades_with_vacuum_safety_copy(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

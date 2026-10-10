@@ -32,6 +32,7 @@ import pytest
 from playwright.sync_api import Browser, BrowserContext
 
 from tests.e2e import seed_helpers
+from tests.suite_database import fresh_database_url
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 E2E_PORT = 8081
@@ -175,7 +176,7 @@ def _ensure_e2e_user(db_url: str) -> None:
     """Create the shared e2e user in the ephemeral database."""
     import asyncio
 
-    from kaleta.db import configure_database
+    from kaleta.db import AsyncSessionFactory, configure_database
     from kaleta.services import AuthService, with_session
 
     configure_database(db_url, debug=True)
@@ -191,6 +192,8 @@ def _ensure_e2e_user(db_url: str) -> None:
                 await auth.secure_placeholder(E2E_USERNAME, E2E_PASSWORD)
 
         await with_session(_create)
+        # The connections belong to this loop, which ends here.
+        await AsyncSessionFactory.dispose()
 
     asyncio.run(_ensure())
 
@@ -199,7 +202,7 @@ def _ensure_e2e_api_token(db_url: str) -> str:
     """Create a bearer token for e2e API helpers."""
     import asyncio
 
-    from kaleta.db import configure_database
+    from kaleta.db import AsyncSessionFactory, configure_database
     from kaleta.services import ApiTokenService, AuthService, with_session
 
     configure_database(db_url, debug=True)
@@ -217,7 +220,11 @@ def _ensure_e2e_api_token(db_url: str) -> str:
             )
             return raw
 
-        return await with_session(_token)
+        try:
+            return await with_session(_token)
+        finally:
+            # The connections belong to this loop, which ends here.
+            await AsyncSessionFactory.dispose()
 
     return asyncio.run(_create())
 
@@ -236,10 +243,8 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
         return
 
     home = tmp_path_factory.mktemp("e2e_home")
-    db_dir = tmp_path_factory.mktemp("e2e_db")
     log_dir = tmp_path_factory.mktemp("e2e_logs")
-    db_path = db_dir / "e2e.db"
-    db_url = f"sqlite+aiosqlite:///{db_path}"
+    db_url = fresh_database_url("e2e")
     _server_log_path = log_dir / "kaleta-e2e-server.log"
 
     _write_kaleta_config(home, db_url)
@@ -274,9 +279,6 @@ def e2e_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
         _wait_for_server(base_url)
         _ensure_e2e_user(db_url)
         E2E_API_TOKEN = _ensure_e2e_api_token(db_url)
-        from kaleta.db import configure_database
-
-        configure_database(db_url, debug=True)
         seed_helpers.configure(base_url, db_url=db_url, api_token=E2E_API_TOKEN)
         yield base_url
     except Exception:

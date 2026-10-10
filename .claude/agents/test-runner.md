@@ -12,6 +12,7 @@ You are a test specialist for the Kaleta personal finance app (Python 3.13, uv, 
 Always run from the project root using uv — never plain python or pip:
 
 ```bash
+./scripts/test_db.sh up                # the tests run on PostgreSQL only (ADR-38)
 uv run pytest                          # all tests
 uv run pytest tests/unit/ -v           # unit tests with detail
 uv run pytest <path>::<Class>::<test>  # single test
