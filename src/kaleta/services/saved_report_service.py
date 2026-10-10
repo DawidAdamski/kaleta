@@ -7,10 +7,9 @@ import datetime
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Literal, get_args
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import Integer, cast, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.db.sql_compat import date_weekday, date_year, date_year_month
 from kaleta.exceptions import ValidationError
 from kaleta.models.account import Account
 from kaleta.models.category import Category
@@ -754,14 +753,14 @@ class SavedReportService:
             )
         if dim == "month":
             return (
-                date_year_month(Transaction.date),
+                func.to_char(Transaction.date, "YYYY-MM"),
                 [],
                 "Month",
                 False,
             )
         if dim == "year":
             return (
-                date_year(Transaction.date),
+                extract("year", Transaction.date).label("year"),
                 [],
                 "Year",
                 False,
@@ -775,7 +774,7 @@ class SavedReportService:
             )
         if dim == "weekday":
             return (
-                date_weekday(Transaction.date),
+                cast(extract("dow", Transaction.date), Integer),
                 [],
                 "Weekday",
                 True,
@@ -802,14 +801,14 @@ class SavedReportService:
             )
         if dim == "month":
             return (
-                date_year_month(flow.c.date),
+                func.to_char(flow.c.date, "YYYY-MM"),
                 [],
                 "Month",
                 False,
             )
         if dim == "year":
             return (
-                date_year(flow.c.date),
+                extract("year", flow.c.date).label("year"),
                 [],
                 "Year",
                 False,
@@ -823,7 +822,7 @@ class SavedReportService:
             )
         if dim == "weekday":
             return (
-                date_weekday(flow.c.date),
+                cast(extract("dow", flow.c.date), Integer),
                 [],
                 "Weekday",
                 True,

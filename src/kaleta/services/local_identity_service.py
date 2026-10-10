@@ -37,7 +37,7 @@ MIN_PASSWORD_LENGTH = 8
 MAX_PASSWORD_LENGTH = 1024
 #: ``pg_advisory_xact_lock`` key for "who is an administrator" decisions.
 _ADMIN_LOCK_KEY = 0x4B414C4554410001  # "KALETA" + 1
-#: The same, within one process (and the only guard on SQLite).
+#: The same, within one process: no round trip for a decision this replica serialises.
 _admin_lock = asyncio.Lock()
 
 
@@ -224,7 +224,7 @@ class LocalIdentityService:
         """
         async with _admin_lock:
             bind = self.session.bind
-            if bind is not None and bind.dialect.name == "postgresql":
+            if bind is not None:
                 await self.session.execute(
                     text("SELECT pg_advisory_xact_lock(:k)"), {"k": _ADMIN_LOCK_KEY}
                 )

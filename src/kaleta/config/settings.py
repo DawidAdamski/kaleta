@@ -11,21 +11,21 @@ logger = logging.getLogger(__name__)
 
 _INSECURE_KEY = "change-me-in-production"
 _DEFAULT_DATA_DIR = Path.home() / ".kaleta"
-_DEFAULT_DB_PATH = _DEFAULT_DATA_DIR / "kaleta.db"
-_DEFAULT_DB_URL = f"sqlite+aiosqlite:///{_DEFAULT_DB_PATH}"
+#: A PostgreSQL on this machine; anything else is set with ``KALETA_DB_URL``.
+_DEFAULT_DB_URL = "postgresql+asyncpg://kaleta@localhost:5432/kaleta"
+_POSTGRES_ONLY = (
+    "KALETA_DB_URL must name a PostgreSQL database (postgresql://…): Kaleta runs on "
+    "PostgreSQL 16+ only (ADR-38) and does not migrate SQLite databases — "
+    "see docs/getting-started.md."
+)
 
 
 def normalize_db_url(url: str) -> str:
-    """Rewrite driverless SQLAlchemy URLs to their async equivalents."""
+    """Rewrite a driverless PostgreSQL URL to its async (asyncpg) equivalent."""
     scheme, _, remainder = url.partition("://")
     if "+" in scheme or "://" not in url:
         return url
-
-    if scheme == "sqlite":
-        return f"sqlite+aiosqlite://{remainder}"
-    if scheme == "postgresql":
-        return f"postgresql+asyncpg://{remainder}"
-    if scheme == "postgres":
+    if scheme in {"postgresql", "postgres"}:
         return f"postgresql+asyncpg://{remainder}"
     return url
 
@@ -107,6 +107,8 @@ class Settings(BaseSettings):
     @classmethod
     def _normalize_db_url(cls, value: str) -> str:
         normalized = normalize_db_url(value)
+        if not normalized.startswith("postgresql"):
+            raise ValueError(_POSTGRES_ONLY)
         if normalized != value:
             logger.info(
                 "KALETA_DB_URL rewritten from %r to %r for async SQLAlchemy",

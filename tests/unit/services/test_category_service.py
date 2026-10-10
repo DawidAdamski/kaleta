@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for CategoryService — uses in-memory SQLite."""
+"""Unit tests for CategoryService."""
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker

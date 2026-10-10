@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Unit tests for WizardActionService — uses in-memory SQLite.
+"""Unit tests for WizardActionService.
 
 One class per contributing wizard section, plus ranking and the empty case.
 """

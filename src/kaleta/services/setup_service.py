@@ -52,14 +52,13 @@ def _sync_url(db_url: str) -> str:
     """Swap async drivers for sync ones so sync SQLAlchemy can open the DB.
 
     PostgreSQL names ``psycopg2`` explicitly: since SQLAlchemy 2.1 a bare
-    ``postgresql://`` URL means psycopg 3, which the ``postgres`` extra does
-    not install.
+    ``postgresql://`` URL means psycopg 3, which Kaleta does not install.
 
     The TLS option is spelled differently by the two drivers: asyncpg takes
     ``?ssl=require`` (what ``docs/deployment.md`` tells hosted installs to
     use), psycopg2 only ``?sslmode=require`` and refuses the URL otherwise.
     """
-    sync = db_url.replace("+aiosqlite", "").replace("+asyncpg", "+psycopg2")
+    sync = db_url.replace("+asyncpg", "+psycopg2")
     url = make_url(sync)
     if url.get_backend_name() != "postgresql" or "ssl" not in url.query:
         return sync
@@ -83,25 +82,14 @@ def head_revision(*, public: bool = False) -> str:
     return head
 
 
-def _revision_target(db_url: str, schema: str | None, public: bool) -> tuple[str, dict[str, str]]:
-    """The URL to open and the MigrationContext options that find the version table.
-
-    On SQLite a schema is a file of its own (``kaleta.db.tenant_schemas``), so
-    the URL moves and the version table stays unqualified.
-    """
-    from kaleta.db.tenant_schemas import PUBLIC_SCHEMA, is_sqlite_url, sqlite_schema_file
-
+def _revision_options(schema: str | None, public: bool) -> dict[str, str]:
+    """The MigrationContext options that find the version table."""
     opts: dict[str, str] = {}
     if public:
         opts["version_table"] = PUBLIC_VERSION_TABLE
-    if not is_sqlite_url(db_url):
-        if schema is not None:
-            opts["version_table_schema"] = schema
-        return db_url, opts
-    target = PUBLIC_SCHEMA if public else schema
-    if target is None:
-        return db_url, opts
-    return "sqlite:///" + str(sqlite_schema_file(db_url, target)), opts
+    if schema is not None:
+        opts["version_table_schema"] = schema
+    return opts
 
 
 def current_revision(db_url: str, *, schema: str | None = None, public: bool = False) -> str | None:
@@ -111,11 +99,10 @@ def current_revision(db_url: str, *, schema: str | None = None, public: bool = F
     """
     from alembic.runtime.migration import MigrationContext
 
-    url, opts = _revision_target(db_url, schema, public)
-    engine = create_engine(_sync_url(url))
+    engine = create_engine(_sync_url(db_url))
     try:
         with engine.connect() as conn:
-            context = MigrationContext.configure(conn, opts=opts)
+            context = MigrationContext.configure(conn, opts=_revision_options(schema, public))
             return context.get_current_revision()
     finally:
         engine.dispose()
@@ -145,26 +132,19 @@ def upgrade_public_to_head(db_url: str) -> None:
 # ── The registry and the families ─────────────────────────────────────────────
 
 
-def _registry_url_and_table(db_url: str) -> tuple[str, str]:
-    from kaleta.db.tenant_schemas import PUBLIC_SCHEMA, is_sqlite_url, sqlite_schema_file
-
-    if is_sqlite_url(db_url):
-        return "sqlite:///" + str(sqlite_schema_file(db_url, PUBLIC_SCHEMA)), "tenants"
-    return db_url, f"{PUBLIC_SCHEMA}.tenants"
-
-
 def tenant_schema_names(db_url: str) -> list[str]:
     """Every tenant schema the registry knows of, except those being deleted."""
     from sqlalchemy import text
 
     from kaleta.db.tenant_schemas import is_valid_schema_name
 
-    url, table = _registry_url_and_table(db_url)
-    engine = create_engine(_sync_url(url))
+    engine = create_engine(_sync_url(db_url))
     try:
         with engine.connect() as conn:
             rows = conn.execute(
-                text(f"SELECT schema_name FROM {table} WHERE status != 'deleting' ORDER BY id")  # noqa: S608 — constant table name
+                text(
+                    "SELECT schema_name FROM public.tenants WHERE status != 'deleting' ORDER BY id"
+                )
             )
             names = [str(row[0]) for row in rows]
     finally:
@@ -196,12 +176,11 @@ def suspend_tenant_schema(db_url: str, schema: str) -> None:
     """Mark the account living in ``schema`` ``suspended`` — its sign-ins are refused."""
     from sqlalchemy import text
 
-    url, table = _registry_url_and_table(db_url)
-    engine = create_engine(_sync_url(url))
+    engine = create_engine(_sync_url(db_url))
     try:
         with engine.begin() as conn:
             conn.execute(
-                text(f"UPDATE {table} SET status = 'suspended' WHERE schema_name = :schema"),  # noqa: S608 — constant table name
+                text("UPDATE public.tenants SET status = 'suspended' WHERE schema_name = :schema"),
                 {"schema": schema},
             )
     finally:
@@ -212,11 +191,11 @@ def ensure_multi_tenant_current(db_url: str) -> TenantMigrationRun:
     """Bring the registry, then every tenant schema, to head.
 
     Startup of a multi-tenant instance and ``scripts/migrate_tenants.py``. No
-    safety copy: that is SQLite's file backup, and a hosted database is backed
-    up by its provider. The registry failing stops the run — nothing can start
-    without it. A tenant schema failing suspends that one account (its members
-    are refused at sign-in, the health probe lists it) and the run goes on, so
-    one broken schema does not keep every other household out.
+    safety copy: backing the database up is the operator's (ADR-38). The
+    registry failing stops the run — nothing can start without it. A tenant
+    schema failing suspends that one account (its members are refused at
+    sign-in, the health probe lists it) and the run goes on, so one broken
+    schema does not keep every other household out.
     """
     try:
         if current_revision(db_url, public=True) != head_revision(public=True):
