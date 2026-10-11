@@ -7,6 +7,7 @@ from typing import Any
 
 from nicegui import app, ui
 
+from kaleta.auth.admin import ADMIN_PATH, session_is_admin
 from kaleta.config import settings
 from kaleta.i18n import t
 from kaleta.pwa import PWA_HEAD
@@ -521,6 +522,14 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
                 ui.icon("api")
             with ui.item_section():
                 ui.item_label(t("nav.api_docs"))
+        if session_is_admin():
+            # The instance's, not the family's: below the hairline with the API.
+            admin_cls = f"{NAV_ITEM} {NAV_ITEM_ACTIVE if _nav_active(ADMIN_PATH) else ''}".strip()
+            with ui.item(on_click=lambda: ui.navigate.to(ADMIN_PATH)).classes(admin_cls):
+                with ui.item_section().props("avatar"):
+                    ui.icon("admin_panel_settings")
+                with ui.item_section():
+                    ui.item_label(t("nav.admin"))
 
         ui.space()
         # Left-aligned under the index, in mono, where artboard `1c` puts it.

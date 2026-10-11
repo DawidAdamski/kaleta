@@ -3749,7 +3749,7 @@ Feature: Instance administration
     And no row holds the e-mail address of the family or login acted on
     And a "kaleta-admin" action is recorded with no administrator
 
-  KAL-ADM-007 @planned
+  KAL-ADM-007 @automated
   Scenario: The administrator's page is in the navigation of administrators only
     Given a local instance whose administrator is "admin@example.com"
     When "admin@example.com" signs in
@@ -3757,21 +3757,21 @@ Feature: Instance administration
     When a member of another family signs in
     Then the navigation has no "Administration" and "/admin" answers "not found"
 
-  KAL-ADM-008 @planned
+  KAL-ADM-008 @automated
   Scenario: Administrator actions ask for the password again after fifteen minutes
     Given the administrator signed in more than fifteen minutes ago
     When they suspend a family
     Then they are asked for their password (and a code, with two-factor sign-in on)
     And for the next fifteen minutes no action asks again
 
-  KAL-ADM-009 @planned
+  KAL-ADM-009 @automated
   Scenario: A password set by the administrator is changed at the next sign-in
     Given the administrator created "jan@example.com" with a one-time password
     When "jan@example.com" signs in with it
     Then they must choose a new password before any other page opens
     And afterwards they sign in with the new one only
 
-  KAL-ADM-010 @planned
+  KAL-ADM-010 @automated
   Scenario: Closed registration shows no sign-up link
     Given the administrator sets registration to "closed" on the administrator's page
     When someone opens the sign-in page

@@ -131,10 +131,12 @@ def _register_auth() -> None:
 def _register_views() -> None:
     from kaleta.views import (
         accounts,
+        admin,
         budget_builder,
         budget_plan,
         budgets,
         categories,
+        change_password,
         create_account,
         credit,
         credit_calculator,
@@ -174,6 +176,8 @@ def _register_views() -> None:
     magic_link.register()
     create_account.register()
     reset_password.register()
+    change_password.register()
+    admin.register()
     dashboard.register()
     transactions.register()
     accounts.register()
