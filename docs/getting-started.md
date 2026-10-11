@@ -57,8 +57,8 @@ If you forget the login password, the instance operator resets it from a shell:
 uv run kaleta-admin reset-password <e-mail>
 ```
 
-You will be prompted for a new password and confirmation (minimum 8 characters).
-There is no email reset and no in-app “forgot password” flow. Every browser
+It prints a one-time password, which the member must replace at their next
+sign-in. There is no email reset and no in-app “forgot password” flow. Every browser
 session of that member is signed out (within a minute of the reset); API bearer
 tokens are unchanged. `kaleta --reset-password` no longer exists. See
 [SECURITY.md](../SECURITY.md). In the Compose stack, run it in the container:
@@ -123,6 +123,7 @@ Set via the `KALETA_MODE` environment variable:
 | `KALETA_NBP_FETCH` | `false` | Fetch NBP Table A exchange rates at start-up and once a day, for every family of the instance |
 | `KALETA_ENCRYPTION` | `passphrase` | Field-level encryption; `off` is accepted only with `KALETA_DEBUG=true` — see [deployment.md](deployment.md) |
 | `KALETA_AUTH_BACKEND` | `local` | `local` (logins in `public.local_identities`) or `supabase` |
+| `KALETA_INSTANCE_ADMINS` | _(unset)_ | Instance administrators of a `supabase` instance, by e-mail (comma-separated). Local logins carry the flag themselves (the first sign-up, or `kaleta-admin create-login --admin`) |
 | `KALETA_REDIS_URL` | _(unset)_ | Keep sessions and the login rate limiter in Valkey (or any Redis-protocol server), so several replicas share them (extra: `hosted`) — see [deployment.md](deployment.md#sessions-restarts-and-replicas) |
 
 Any setting can also be a file under `/run/secrets` named after the variable
