@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.auth.session import (
     authenticated_user_id,
+    password_set_by_admin,
     session_data_key,
     touch_session,
 )
@@ -135,6 +136,10 @@ async def get_current_user_id(
     # Bearer tokens never reach this: they have their own revocation.
     session_user_id = await authenticated_user_id(request)
     if session_user_id is not None:
+        if _password_pending():
+            # The page guard holds such a session on /change-password; the API
+            # is past that guard, so it says no here (KAL-ADM-009).
+            _unauthorized("Choose your own password in the browser first.")
         if request.method.upper() in _SAFE_METHODS:
             # `authenticated_user_id` already ran the expiry check and bound
             # this request's storage; a rejected write below does not count
@@ -149,6 +154,12 @@ async def get_current_user_id(
         _unauthorized("Bearer token required for state-changing API requests")
 
     _unauthorized()
+
+
+def _password_pending() -> bool:
+    with suppress(RuntimeError, KeyError, AssertionError):
+        return password_set_by_admin()
+    return False
 
 
 def _bind_data_key(data_key: DataKey | None) -> None:

@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import ast
 import re
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -135,6 +135,9 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
     session_mod.keep_session_after_revocation(_USER_ID)
     bucket.pop(session_mod.SESSION_LAST_SEEN_AT)
     session_mod.touch_session()
+    # What a sign-in learns from the registry (instance-admin-panel): flags and a stamp.
+    session_mod.stamp_admin_flags(instance_admin=True, set_by_admin=True)
+    session_mod.mark_admin_step_up()
     snapshot()
     nonce = session_mod.stamp_rotation_nonce("logout")
     snapshot()
@@ -163,3 +166,14 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
                 )
             ), f"{key} holds an unexpected value {value!r}"
     assert not any(_ACCESS_TOKEN in str(v) for vs in seen.values() for v in vs)
+
+
+def test_the_admin_step_up_lasts_its_window(bucket: dict[str, Any]) -> None:
+    """The window behind KAL-ADM-008: fresh for fifteen minutes, then asked again."""
+    assert not session_mod.admin_step_up_within(15)
+    session_mod.mark_admin_step_up()
+    assert session_mod.admin_step_up_within(15)
+    bucket[session_mod.SESSION_ADMIN_STEP_UP_AT] = (
+        datetime.now(UTC) - timedelta(minutes=16)
+    ).isoformat()
+    assert not session_mod.admin_step_up_within(15)

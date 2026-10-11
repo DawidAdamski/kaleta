@@ -72,6 +72,16 @@ SessionExpiry = Literal["ttl", "idle"]
 #: When the second factor was last proved, for step-up on sensitive actions.
 SESSION_MFA_VERIFIED_AT = "mfa_verified_at"
 
+#: Stamped at sign-in (``kaleta.auth.admin``): this login is an instance
+#: administrator, so the navigation offers ``/admin``. A hint only — the page
+#: and every action ask the registry again.
+SESSION_INSTANCE_ADMIN = "instance_admin"
+#: The login's password was set by an administrator: every page goes to
+#: ``/change-password`` until its owner picks a new one.
+SESSION_SET_BY_ADMIN = "set_by_admin"
+#: When the administrator last proved their password for ``/admin`` actions.
+SESSION_ADMIN_STEP_UP_AT = "admin_step_up_at"
+
 #: A password was accepted but the second factor has not been given yet: a
 #: reference into :data:`hosted_mfa_challenges`, never the challenge itself —
 #: that holds the provider's ``aal1`` token, and this dict is written to disk
@@ -94,6 +104,9 @@ _AUTH_KEYS = (
     SESSION_LAST_SEEN_AT,
     SESSION_REVALIDATED_AT,
     SESSION_MFA_VERIFIED_AT,
+    SESSION_INSTANCE_ADMIN,
+    SESSION_SET_BY_ADMIN,
+    SESSION_ADMIN_STEP_UP_AT,
     *_TENANT_KEYS,
     *_MFA_PENDING_KEYS,
 )
@@ -522,6 +535,34 @@ def session_data_key() -> DataKey | None:
 def is_unlocked() -> bool:
     """Whether this session can read its data (always, with encryption off)."""
     return not settings.encryption_enabled or session_data_key() is not None
+
+
+def stamp_admin_flags(*, instance_admin: bool, set_by_admin: bool) -> None:
+    """What a sign-in learned from the registry (``kaleta.auth.admin.stamp_login_flags``)."""
+    app.storage.user[SESSION_INSTANCE_ADMIN] = instance_admin
+    if set_by_admin:
+        app.storage.user[SESSION_SET_BY_ADMIN] = True
+
+
+def is_instance_admin_session() -> bool:
+    """The navigation's hint; ``/admin`` itself asks the registry."""
+    return bool(app.storage.user.get(SESSION_INSTANCE_ADMIN, False))
+
+
+def password_set_by_admin() -> bool:
+    return bool(app.storage.user.get(SESSION_SET_BY_ADMIN, False))
+
+
+def clear_password_set_by_admin() -> None:
+    app.storage.user.pop(SESSION_SET_BY_ADMIN, None)
+
+
+def mark_admin_step_up() -> None:
+    app.storage.user[SESSION_ADMIN_STEP_UP_AT] = datetime.now(UTC).isoformat()
+
+
+def admin_step_up_within(minutes: int) -> bool:
+    return _within(app.storage.user.get(SESSION_ADMIN_STEP_UP_AT), minutes)
 
 
 def mark_mfa_verified() -> None:
