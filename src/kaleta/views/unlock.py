@@ -8,9 +8,12 @@ here. Three faces, by the member's key status:
 - **set up** — no key block yet: the hosted sign-up's second step (at the first
   sign-in after the e-mail is confirmed) and a self-hosted install's first
   sign-in. Ends on the recovery code, shown once, which must be acknowledged;
-- **waiting** — an invited member whose data key has not been shared yet;
+- **waiting** — an invited member whose data key has not been shared yet:
+  whom they wait for, and their key's fingerprint to compare with the owner;
+- **being re-keyed** — the household is moving to a new key (a member was
+  removed); nobody unlocks until it is done, a few seconds;
 - **unlock** — the passphrase, or (behind a link) the recovery code and a new
-  passphrase.
+  passphrase; a household member who lost both may reset their keys there.
 """
 
 from __future__ import annotations
@@ -21,6 +24,7 @@ from typing import Any
 from fastapi.responses import RedirectResponse
 from nicegui import ui
 
+from kaleta.auth.household import household_is_rekeying, reset_my_keys, with_household
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import finish_logout, is_authenticated, is_unlocked
 from kaleta.auth.unlock import (
@@ -32,6 +36,7 @@ from kaleta.auth.unlock import (
 from kaleta.config import settings
 from kaleta.exceptions import ConflictError, KaletaError, ValidationError
 from kaleta.i18n import t
+from kaleta.services.household_service import HouseholdService, WaitingRoom
 from kaleta.services.key_service import PASSPHRASE_MIN_LENGTH, KeyService, KeyStatus
 from kaleta.views.auth_common import (
     auth_action,
@@ -40,6 +45,7 @@ from kaleta.views.auth_common import (
     auth_page_shell,
     auth_submit,
 )
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.theme import AUTH_SUBTITLE
 
 RECOVERY_FILENAME = "kaleta-recovery-code.txt"
@@ -99,19 +105,61 @@ def register() -> None:
             return await service.status()
 
         status = await with_key_service(_status)
-        if status == "setup_required":
+        if household_is_rekeying():
+            shell = await auth_page_shell("unlock.rekeying_title", "unlock.rekeying_subtitle")
+            with shell:
+                _try_again(target)
+        elif status == "setup_required":
             shell = await auth_page_shell("unlock.setup_title", "unlock.setup_subtitle")
             with shell:
                 _setup_form(target)
         elif status == "awaiting_key":
+            room = await _waiting_room()
             shell = await auth_page_shell("unlock.waiting_title", "unlock.waiting_subtitle")
             with shell:
-                auth_action("unlock.sign_out", finish_logout)
+                _waiting(room, target)
         else:
+
+            async def _is_owner(service: HouseholdService) -> bool:
+                return service.is_owner
+
+            may_reset = not await with_household(_is_owner)
             shell = await auth_page_shell("unlock.title", "unlock.subtitle")
             with shell:
-                _unlock_form(target)
+                _unlock_form(target, may_reset=may_reset)
         return None
+
+
+async def _waiting_room() -> WaitingRoom | None:
+    """``None`` for a member the owner approved meanwhile (the next load unlocks)."""
+
+    async def _room(service: HouseholdService) -> WaitingRoom:
+        return await service.waiting_room()
+
+    try:
+        return await with_household(_room)
+    except ConflictError:
+        return None
+
+
+def _try_again(target: str) -> None:
+    auth_submit("unlock.try_again", lambda: ui.navigate.to(unlock_redirect(target)))
+    auth_action("unlock.sign_out", finish_logout)
+
+
+def _waiting(room: WaitingRoom | None, target: str) -> None:
+    """Whom the member waits for, and the fingerprint to read out to them."""
+    with ui.column().classes("w-full gap-3 mb-2"):
+        if room is not None and room.owner_email:
+            ui.label(t("unlock.waiting_for", owner=room.owner_email)).classes(
+                "text-sm font-medium"
+            ).props('data-testid="waiting-for"')
+        if room is not None and room.fingerprint is not None:
+            ui.label(t("unlock.waiting_fingerprint")).classes(f"{AUTH_SUBTITLE} text-xs")
+            ui.label(room.fingerprint).classes(
+                "font-mono text-sm select-all p-3 rounded border border-slate-300 w-full"
+            ).props('data-testid="my-fingerprint"')
+    _try_again(target)
 
 
 def _setup_form(target: str) -> None:
@@ -161,7 +209,7 @@ def _setup_form(target: str) -> None:
         button = auth_submit("unlock.setup_button", _submit)
 
 
-def _unlock_form(target: str) -> None:
+def _unlock_form(target: str, *, may_reset: bool) -> None:
     with ui.column().classes("w-full gap-4") as form:
         with ui.column().classes("w-full gap-0") as passphrase_block:
             passphrase = auth_field(
@@ -188,7 +236,8 @@ def _unlock_form(target: str) -> None:
                 passphrase.set_value("")
                 return
             except ConflictError:
-                say(t("unlock.waiting_subtitle"))
+                # Approved, re-keyed or frozen since the page was drawn: draw it again.
+                ui.navigate.to(unlock_redirect(target))
                 return
             ui.navigate.to(target)
 
@@ -234,9 +283,34 @@ def _unlock_form(target: str) -> None:
         confirm.on("keydown.enter", _submit)
         submit = auth_submit("unlock.button", _submit)
         switch = auth_action("unlock.use_recovery", _toggle)
+        if may_reset:
+            with recovery_block:
+                auth_action("unlock.reset_keys", lambda: _confirm_reset(target))
         auth_action("unlock.sign_out", finish_logout)
         # The key ring is memory only: a restart (or a deploy) locks everyone,
         # and this is the page they land on — say why it is asking again.
         ui.label(t("unlock.restart_note")).classes(f"{AUTH_SUBTITLE} text-xs").props(
             'data-testid="unlock-restart-note"'
         )
+
+
+async def _confirm_reset(target: str) -> None:
+    """Lost passphrase and code: a new keypair, and the owner approves it again."""
+    with ui.dialog() as dialog, ui.card().classes("p-6 w-full max-w-sm gap-3"):
+        ui.label(t("unlock.reset_keys")).classes("text-lg font-semibold")
+        ui.label(t("unlock.reset_keys_hint")).classes("text-sm text-slate-500")
+        with ui.row().classes("gap-2 justify-end w-full"):
+            ui.button(t("common.cancel"), on_click=lambda: dialog.submit(False)).props("flat")
+            ui.button(t("unlock.reset_keys_confirm"), on_click=lambda: dialog.submit(True)).props(
+                "color=negative"
+            )
+    confirmed = await dialog
+    dialog.delete()
+    if not confirmed:
+        return
+    try:
+        await reset_my_keys()
+    except KaletaError as exc:
+        notify_kaleta_error(exc)
+        return
+    ui.navigate.to(unlock_redirect(target))

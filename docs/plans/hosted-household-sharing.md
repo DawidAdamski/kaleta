@@ -359,3 +359,8 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
 - **The e2e shares a payee, not a transaction**: one dialog instead of an account plus a
   transaction, and the same proof — a row written under the household's key by one member
   is read by the other.
+- **Tests (Part B)**: `tests/e2e/test_household.py` (`KAL-HHS-013`, `-014`) runs the plan's
+  e2e criterion on an app of its own (port 8089, `local` logins, encryption on), two
+  browser contexts. The *being re-keyed* face of `/unlock` has no e2e: the re-key of an
+  e2e-sized ledger lasts milliseconds, too short to land a page load inside it. It is the
+  key ring's `is_frozen` (covered in `tests/unit/crypto/test_rekey.py`) drawn as a page.

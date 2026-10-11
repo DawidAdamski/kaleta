@@ -400,3 +400,15 @@ check it still reproduces before acting on it.
       datetimes" fallbacks only where the columns are `timestamptz`. Fix: one
       migration to `timestamptz` (`USING … AT TIME ZONE 'UTC'`) and the models
       to match.
+- [ ] **Household name and the "MFA on/off" column are not built.**
+      `hosted-household-sharing` §5 lists both on Settings → Household; Part B
+      left them out (a new `EncryptedText` column and migration with nothing
+      reading it yet; a provider call per member on every render). Fix: the
+      column on `tenants` or the family's settings, and an MFA status cached
+      at sign-in.
+- [ ] **Disabling a login from `/admin` forgets the wrong revocation-cache
+      entry.** `forget_revoked_member` calls `revocation_cache.forget(user_id)`,
+      which keys by the *current* tenant — the administrator's family, not the
+      disabled member's — so another family's member keeps a cached watermark
+      for up to `TTL_SECONDS` (60 s). Seen while wiring household removal (same
+      family there, so not affected). Fix: `forget(user_id, tenant_id=…)`.

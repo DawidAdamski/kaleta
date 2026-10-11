@@ -16,6 +16,7 @@ from kaleta.views.settings.data_tab import render_data_tab
 from kaleta.views.settings.features_tab import render_features_tab
 from kaleta.views.settings.general_tab import render_general_tab
 from kaleta.views.settings.history_tab import render_history_tab
+from kaleta.views.settings.household_tab import render_household_tab
 from kaleta.views.settings.import_tab import render_import_tab
 from kaleta.views.settings.privacy_tab import render_privacy_tab
 from kaleta.views.settings.security_tab import render_security_tab
@@ -56,6 +57,7 @@ async def settings_page(*, tab: str = "") -> None:
             import_tab = ui.tab("import", label=t("settings.tab_import"), icon="upload_file")
             data_tab = ui.tab("data", label=t("settings.tab_data"), icon="storage")
             security_tab = ui.tab("security", label=t("settings.tab_security"), icon="security")
+            household_tab = ui.tab("household", label=t("settings.tab_household"), icon="group")
             history_tab = ui.tab("history", label=t("settings.tab_history"), icon="history")
             about_tab = ui.tab("about", label=t("settings.tab_about"), icon="info")
 
@@ -67,6 +69,7 @@ async def settings_page(*, tab: str = "") -> None:
             "import",
             "data",
             "security",
+            "household",
             "history",
             "about",
         }
@@ -90,6 +93,8 @@ async def settings_page(*, tab: str = "") -> None:
                 )
             with ui.tab_panel(security_tab):
                 await render_security_tab()
+            with ui.tab_panel(household_tab):
+                await render_household_tab()
             with ui.tab_panel(history_tab):
                 await render_history_tab()
             with ui.tab_panel(about_tab):
