@@ -3686,7 +3686,7 @@ Feature: Hosted accounts (multi-tenant)
 
 The instance administrator of [ADR-38](adr/038-postgresql-only-one-tenancy-layout.md) §5:
 families, registration, logins, without a terminal
-([`instance-admin-panel`](plans/instance-admin-panel.md)). The `/admin` page and
+([`instance-admin-panel`](plans/archive/instance-admin-panel.md)). The `/admin` page and
 `kaleta-admin` go through one service, and every action leaves an audit row.
 
 ```gherkin
