@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Nightly pg_dump of the self-hosted stack (docs/self-hosting.md, "Backups").
+#
+#   podman compose -f docker-compose.yml -f deploy/selfhost/backup.yml up -d
+#
+# Every night at 03:00 (the container's TZ, UTC unless set) it writes
+# kaleta-YYYY-MM-DD.dump — pg_dump's custom format — into KALETA_BACKUP_DIR
+# (default ./backups, beside docker-compose.yml) and deletes dumps older than
+# KALETA_BACKUP_KEEP_DAYS (default 14). A dump now:
+#
+#   podman compose -f docker-compose.yml -f deploy/selfhost/backup.yml exec backup kaleta-backup
+#
+# The directory is still on this machine: copy it somewhere else as well.
+
+services:
+  backup:
+    image: docker.io/library/postgres:18-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      KALETA_BACKUP_KEEP_DAYS: ${KALETA_BACKUP_KEEP_DAYS:-14}
+      TZ: ${TZ:-UTC}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        cat > /usr/local/bin/kaleta-backup <<'SCRIPT'
+        #!/bin/sh
+        set -eu
+        umask 077
+        out="/backups/kaleta-$$(date +%F).dump"
+        PGPASSWORD="$$(cat /secrets/db_password)" \
+          pg_dump -h db -U kaleta -d kaleta -Fc -f "$$out.partial"
+        mv "$$out.partial" "$$out"
+        find /backups -name 'kaleta-*.dump' -mtime +"$${KALETA_BACKUP_KEEP_DAYS}" -delete
+        echo "kaleta-backup: wrote $$out ($$(du -h "$$out" | cut -f1))"
+        SCRIPT
+        chmod 0755 /usr/local/bin/kaleta-backup
+        echo "0 3 * * * /usr/local/bin/kaleta-backup" > /etc/crontabs/root
+        exec crond -f -l 8
+    volumes:
+      - kaleta-secrets:/secrets:ro
+      - ${KALETA_BACKUP_DIR:-./backups}:/backups
+    restart: unless-stopped

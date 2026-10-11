@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# HTTPS through a Cloudflare Tunnel — no open port on this machine
+# (docs/self-hosting.md, "HTTPS, option A").
+#
+#   CLOUDFLARE_TUNNEL_TOKEN=… KALETA_PUBLIC_URL=https://kaleta.example.com \
+#     podman compose -f docker-compose.yml -f deploy/selfhost/cloudflared.yml up -d
+#
+# (or put both in a .env file next to docker-compose.yml). In the Cloudflare
+# dashboard the tunnel's public hostname points at http://kaleta:8080.
+
+services:
+  cloudflared:
+    image: docker.io/cloudflare/cloudflared:2025.9.1
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN (Cloudflare → Zero Trust → Tunnels)}
+    depends_on:
+      kaleta:
+        condition: service_healthy
+    restart: unless-stopped
+
+  kaleta:
+    # Reached through the tunnel only: the host port is bound to loopback.
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    environment:
+      KALETA_PUBLIC_URL: ${KALETA_PUBLIC_URL:?set KALETA_PUBLIC_URL to the tunnel's https:// address}
+      KALETA_SESSION_COOKIE_SECURE: "true"

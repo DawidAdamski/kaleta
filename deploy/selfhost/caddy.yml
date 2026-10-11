@@ -1,0 +1,33 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# HTTPS with Caddy and an automatic certificate (docs/self-hosting.md,
+# "HTTPS, option B"). Needs ports 80 and 443 reachable from the internet and
+# a DNS name pointing at this machine.
+#
+#   KALETA_DOMAIN=kaleta.example.com \
+#     podman compose -f docker-compose.yml -f deploy/selfhost/caddy.yml up -d
+
+services:
+  caddy:
+    image: docker.io/library/caddy:2.10-alpine
+    command: ["caddy", "reverse-proxy", "--from", "${KALETA_DOMAIN:?set KALETA_DOMAIN}", "--to", "kaleta:8080"]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - kaleta-caddy:/data
+    depends_on:
+      kaleta:
+        condition: service_healthy
+    restart: unless-stopped
+
+  kaleta:
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    environment:
+      KALETA_PUBLIC_URL: https://${KALETA_DOMAIN:?set KALETA_DOMAIN}
+      KALETA_SESSION_COOKIE_SECURE: "true"
+
+volumes:
+  kaleta-caddy:
