@@ -178,6 +178,7 @@ def test_a_new_familys_owner_must_replace_the_one_time_password(
     owner.get_by_label("Confirm password", exact=True).fill(JAN_PASSWORD)
     owner.get_by_role("button", name="Save password").click()
     _set_passphrase(owner)
+    instance.shared["one_time_password"] = password
 
     # A member of another family: no Administration, and /admin is not there.
     expect(owner.locator(".k-drawer").get_by_text("Administration", exact=True)).to_have_count(0)
@@ -189,6 +190,13 @@ def test_a_new_familys_owner_must_replace_the_one_time_password(
     instance.shared["jan_password"] = JAN_PASSWORD
 
 
+def test_the_one_time_password_signs_in_no_more(instance: Instance, fresh_page: Page) -> None:
+    """Covers: KAL-ADM-009 — afterwards the owner signs in with the new one only."""
+    _log_in(fresh_page, JAN, instance.shared["one_time_password"])
+    expect(fresh_page.get_by_text("Invalid e-mail or password.")).to_be_visible(timeout=10000)
+    expect(fresh_page).to_have_url(re.compile(r"/login"))
+
+
 def test_a_suspended_familys_owner_is_refused(
     instance: Instance, admin_page: Page, fresh_page: Page
 ) -> None:
@@ -198,10 +206,11 @@ def test_a_suspended_familys_owner_is_refused(
     tenant_id = instance.registry("SELECT id FROM tenants WHERE name = 'Kowalscy'")[0][0]
     row = page.get_by_test_id(f"admin-family-{tenant_id}")
     row.get_by_role("button", name="Suspend").click()
-    expect(page.get_by_text("Confirm it is you")).to_have_count(0)
     expect(page.get_by_test_id(f"admin-family-{tenant_id}")).to_contain_text(
         "suspended", timeout=10000
     )
+    # Done without a second prompt: the test before proved the password.
+    expect(page.get_by_text("Confirm it is you")).to_have_count(0)
 
     _log_in(fresh_page, JAN, instance.shared["jan_password"])
     expect(fresh_page.get_by_text("This account is not available.")).to_be_visible(timeout=10000)

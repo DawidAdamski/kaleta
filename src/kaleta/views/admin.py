@@ -79,7 +79,7 @@ async def _load(service: InstanceAdminService) -> _Snapshot:
             at=entry.at,
             action=entry.action.value,
             actor=email_of.get(entry.actor or "", entry.actor or "kaleta-admin"),
-            target=_target(entry.tenant_id, entry.identity_id, entry.detail),
+            target=_target(entry.tenant_id, entry.identity_id, _detail(entry.detail)),
         )
         for entry in await service.audit_trail()
     ]
@@ -97,6 +97,12 @@ def _target(tenant_id: int | None, identity_id: int | None, detail: str | None) 
     return " · ".join(parts)
 
 
+def _detail(detail: str | None) -> str | None:
+    """The only detail written is a registration mode: say it in the page's language."""
+    modes = {m.value for m in RegistrationMode}
+    return t(f"admin.registration_{detail}") if detail in modes else detail
+
+
 def _when(moment: datetime | None) -> str:
     return moment.strftime("%Y-%m-%d %H:%M") if moment is not None else "—"
 
@@ -105,25 +111,25 @@ def register() -> None:
     @ui.page(ADMIN_PATH)
     async def admin_page() -> Response | None:
         try:
-            await with_admin_service(_load)
+            snapshot = await with_admin_service(_load)
         except NotFoundError:
             return Response("Not Found", status_code=404, media_type="text/plain")
         with page_layout(t("admin.title")):
             ui.label(t("admin.title")).classes(PAGE_TITLE)
             ui.label(t("admin.subtitle")).classes(f"{BODY_MUTED} mb-2")
-            await _AdminPage().render()
+            _AdminPage().render(snapshot)
         return None
 
 
 class _AdminPage:
     """The page's sections, redrawn together after every action."""
 
-    async def render(self) -> None:
+    def render(self, snapshot: _Snapshot) -> None:
         # Dialogs live here: a button's own slot is gone once the redraw after
         # its action has cleared the body it sat in.
         self._anchor = ui.element("div")
         self._body = ui.column().classes("w-full gap-4")
-        await self._refresh()
+        self._draw(snapshot)
 
     async def _refresh(self) -> None:
         try:
@@ -132,6 +138,10 @@ class _AdminPage:
             # No longer an administrator (demoted elsewhere): nothing to show.
             ui.navigate.to("/")
             return
+        self._draw(snapshot)
+
+    def _draw(self, snapshot: _Snapshot) -> None:
+        """Every section, from one snapshot of the registry."""
         self._body.clear()
         with self._body:
             self._instance(snapshot.info)
@@ -369,15 +379,10 @@ class _AdminPage:
         await self._act(_do, done="admin.sessions_revoked")
 
     async def _toggle_disabled(self, login: LoginRow) -> None:
-        if admin_step_up_needed() and not await self._step_up():
-            return
-        try:
-            await set_login_disabled_as_admin(login.identity_id, not login.disabled)
-        except KaletaError as exc:
-            notify_kaleta_error(exc)
-            return
-        ui.notify(t("admin.enabled" if login.disabled else "admin.disabled"), type="positive")
-        await self._refresh()
+        async def _do(service: InstanceAdminService) -> None:
+            await set_login_disabled_as_admin(service, login.identity_id, not login.disabled)
+
+        await self._act(_do, done="admin.enabled" if login.disabled else "admin.disabled")
 
     async def _toggle_admin(self, login: LoginRow) -> None:
         async def _do(service: InstanceAdminService) -> None:

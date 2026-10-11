@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import ast
 import re
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -166,3 +166,14 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
                 )
             ), f"{key} holds an unexpected value {value!r}"
     assert not any(_ACCESS_TOKEN in str(v) for vs in seen.values() for v in vs)
+
+
+def test_the_admin_step_up_lasts_its_window(bucket: dict[str, Any]) -> None:
+    """The window behind KAL-ADM-008: fresh for fifteen minutes, then asked again."""
+    assert not session_mod.admin_step_up_within(15)
+    session_mod.mark_admin_step_up()
+    assert session_mod.admin_step_up_within(15)
+    bucket[session_mod.SESSION_ADMIN_STEP_UP_AT] = (
+        datetime.now(UTC) - timedelta(minutes=16)
+    ).isoformat()
+    assert not session_mod.admin_step_up_within(15)

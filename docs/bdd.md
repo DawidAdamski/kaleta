@@ -3759,7 +3759,7 @@ Feature: Instance administration
 
   KAL-ADM-008 @automated
   Scenario: Administrator actions ask for the password again after fifteen minutes
-    Given the administrator signed in more than fifteen minutes ago
+    Given the administrator has not confirmed their password in the last fifteen minutes
     When they suspend a family
     Then they are asked for their password (and a code, with two-factor sign-in on)
     And for the next fifteen minutes no action asks again

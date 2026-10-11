@@ -171,11 +171,20 @@ i18n `en.json` / `pl.json`, `docs/bdd.md`.
   `HostedMfaService.prove`; without one it is a provider sign-in, signed out
   straight after. Failures count on `mfa_rate_limiter` under `admin:<user id>`.
 - **Forced password change.** `stamp_login_flags` sets
-  `SESSION_MUST_CHANGE_PASSWORD` when the login's `must_change_password` is
-  on. While it is set, the page guard sends every page to `/change-password`,
-  ahead of `/unlock`. The new password may not be the one that was given. The
-  cookie API path needs an unlocked key, and such a session cannot unlock
-  before changing the password, so the API is closed to it too (423).
+  `SESSION_SET_BY_ADMIN` when the login's `must_change_password` is on.
+  While it is set, the page guard sends every page to `/change-password`,
+  ahead of `/unlock`, and the cookie API answers 401 (`api/deps.py`). The
+  check is there because `/api/v1/` is past the page guard, and with
+  encryption off nothing else would stop the session. The new password may not
+  be the one that was given, and setting it signs the member's other browsers
+  out. The flags are stamped at session rotation, and if stamping fails the
+  session is signed out again (fail closed): a session that could not learn it
+  must change its password is no session.
+- **Review findings, part B.** Every action goes through the view's one `_act`,
+  which is where the step-up is (disabling a login took its own path before).
+  The audit line shows the registration mode in the page's language. Not
+  done: a unit test of `prove_admin`'s lockout. The limiter is the same
+  `mfa_rate_limiter` the code prompts use, and those prompts have such tests.
 - **A latent leak found by the e2e (fixed here).**
   `TenantService._ensure_owner_user` and `_sync_email` opened the new
   family's session under `use_tenant` but flushed outside it. The audit row of

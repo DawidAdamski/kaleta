@@ -76,3 +76,18 @@ async def test_bearer_still_allows_post(api_client) -> None:
     """Covers: KAL-AUTH-010"""
     resp = await api_client.post("/api/v1/accounts/", json=ACCOUNT_PAYLOAD)
     assert resp.status_code == 201
+
+
+@pytest.mark.asyncio
+async def test_a_session_with_a_password_to_replace_gets_no_api(
+    api_app_cookie, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Covers: KAL-ADM-009 — the page guard holds it on /change-password; the API says no."""
+    monkeypatch.setattr("kaleta.api.deps.password_set_by_admin", lambda: True)
+    async with AsyncClient(
+        transport=ASGITransport(app=api_app_cookie),
+        base_url="http://test",
+    ) as client:
+        resp = await client.get("/api/v1/accounts/")
+    assert resp.status_code == 401
+    assert resp.json()["error"]["message"] == "Choose your own password in the browser first."

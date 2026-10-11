@@ -29,6 +29,7 @@ from kaleta.auth.session import (
     admin_step_up_within,
     clear_password_set_by_admin,
     is_instance_admin_session,
+    keep_session_after_revocation,
     mark_admin_step_up,
     password_set_by_admin,
     session_tenant,
@@ -38,7 +39,7 @@ from kaleta.config import settings
 from kaleta.db import AsyncSessionFactory
 from kaleta.exceptions import NotFoundError, UnauthorizedError, ValidationError
 from kaleta.schemas.identity import Identity
-from kaleta.services import HostedMfaService, MfaService
+from kaleta.services import AuthService, HostedMfaService, MfaService
 from kaleta.services.instance_admin_service import InstanceAdminService, is_instance_admin
 from kaleta.services.local_identity_service import LocalIdentityService, identity_id_of
 
@@ -83,7 +84,11 @@ def must_change_password() -> bool:
 
 
 async def change_own_password(new_password: str) -> None:
-    """The signed-in member replaces the password an administrator gave them."""
+    """The signed-in member replaces the password an administrator gave them.
+
+    Every other browser of theirs is signed out (whoever held the given
+    password may have used it); this one stays.
+    """
     tenant = session_tenant()
     identity_id = identity_id_of(tenant.auth_subject) if tenant is not None else None
     if identity_id is None:
@@ -95,6 +100,10 @@ async def change_own_password(new_password: str) -> None:
             msg = "Choose a password other than the one you were given."
             raise ValidationError(msg)
         await identities.set_password(identity_id, new_password)
+    user_id = _user_id()
+    async with AsyncSessionFactory() as session:
+        await AuthService(session).revoke_sessions(user_id)
+    keep_session_after_revocation(user_id)
     clear_password_set_by_admin()
 
 
@@ -119,15 +128,13 @@ async def with_admin_service[T](fn: Callable[[InstanceAdminService], Awaitable[T
         return await fn(service)
 
 
-async def set_login_disabled_as_admin(identity_id: int, disabled: bool) -> None:
+async def set_login_disabled_as_admin(
+    service: InstanceAdminService, identity_id: int, disabled: bool
+) -> None:
     """Disable or enable a login from the panel — and forget what this process holds."""
-
-    async def _set(service: InstanceAdminService) -> None:
-        revoked = await service.set_disabled(identity_id, disabled)
-        if revoked is not None:
-            forget_revoked_member(revoked)
-
-    await with_admin_service(_set)
+    revoked = await service.set_disabled(identity_id, disabled)
+    if revoked is not None:
+        forget_revoked_member(revoked)
 
 
 def admin_step_up_needed() -> bool:
