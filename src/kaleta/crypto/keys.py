@@ -19,6 +19,7 @@ blob sealed to somebody else all look the same from outside, on purpose.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from dataclasses import dataclass
@@ -195,6 +196,12 @@ def open_sealed(sealed: bytes, private_key: bytes) -> bytes:
     except InvalidTag as exc:
         msg = "This data key was not sealed to this member."
         raise EncryptionError(msg) from exc
+
+
+def fingerprint(public_key: bytes) -> str:
+    """What a household compares over the phone: 8 groups of 4 hex of SHA-256(public key)."""
+    digest = hashlib.sha256(public_key).hexdigest()[:32]
+    return " ".join(digest[i : i + 4] for i in range(0, 32, 4))
 
 
 def derive_index_key(dek: bytes) -> bytes:

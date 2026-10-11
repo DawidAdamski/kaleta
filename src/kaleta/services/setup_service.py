@@ -187,6 +187,29 @@ def suspend_tenant_schema(db_url: str, schema: str) -> None:
         engine.dispose()
 
 
+def release_interrupted_rekeys(db_url: str) -> int:
+    """Put back to ``active`` a household a crash left ``rekeying``; return how many.
+
+    The re-key is one transaction (``HouseholdRekey``): if the process died
+    during it, nothing of it was committed but the mark, and the household's
+    rows and keys are still the old ones. Nothing else needs undoing.
+    """
+    from sqlalchemy import text
+
+    engine = create_engine(_sync_url(db_url))
+    try:
+        with engine.begin() as conn:
+            result = conn.execute(
+                text("UPDATE public.tenants SET status = 'active' WHERE status = 'rekeying'")
+            )
+            released = int(result.rowcount or 0)
+    finally:
+        engine.dispose()
+    if released:
+        logger.warning("Released %d household(s) left mid re-key by a crash", released)
+    return released
+
+
 def ensure_multi_tenant_current(db_url: str) -> TenantMigrationRun:
     """Bring the registry, then every tenant schema, to head.
 
@@ -203,6 +226,7 @@ def ensure_multi_tenant_current(db_url: str) -> TenantMigrationRun:
             upgrade_public_to_head(db_url)
     except Exception as exc:
         raise MigrationError(f"Failed to migrate the tenant registry: {exc}") from exc
+    release_interrupted_rekeys(db_url)
     migrated: list[str] = []
     suspended: list[str] = []
     for schema in tenants_pending_migration(db_url):

@@ -125,11 +125,12 @@ class ApiTokenService:
         )
         return list(result.scalars().all())
 
-    async def revoke_all(self, *, user_id: int) -> int:
-        """Revoke every live token of ``user_id`` (a disabled login); return how many.
+    async def revoke_all(self, *, user_id: int, commit: bool = True) -> int:
+        """Revoke every live token of ``user_id`` (a disabled login, a removed member).
 
-        No step-up: the caller is the instance administrator acting on someone
-        else's login, not the owner of the tokens.
+        Returns how many. No step-up: the caller is the instance administrator
+        or the household's owner acting on someone else's tokens.
+        ``commit=False`` lets a re-key revoke them in its own transaction.
         """
         result = await self.session.execute(
             select(ApiToken).where(ApiToken.user_id == user_id, ApiToken.revoked_at.is_(None))
@@ -138,7 +139,10 @@ class ApiTokenService:
         now = datetime.now(UTC)
         for token in tokens:
             token.revoked_at = now
-        await self.session.commit()
+        if commit:
+            await self.session.commit()
+        else:
+            await self.session.flush()
         return len(tokens)
 
     async def revoke_token(

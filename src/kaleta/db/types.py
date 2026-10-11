@@ -189,6 +189,10 @@ TEXT_FORMAT_AES_GCM = 0x01
 DataKeyResolver = Callable[[], DataKey | None]
 
 _explicit_key: ContextVar[DataKey | None] = ContextVar("kaleta_data_key", default=None)
+#: A second key the reader accepts by its version byte — only while a household
+#: is re-keyed (``HouseholdRekey``), which reads under the old key and writes
+#: under the new one in the same pass.
+_previous_key: ContextVar[DataKey | None] = ContextVar("kaleta_previous_data_key", default=None)
 _key_resolver: DataKeyResolver | None = None
 
 
@@ -210,6 +214,20 @@ def use_data_key(key: DataKey | None) -> Iterator[None]:
         yield
     finally:
         _explicit_key.reset(token)
+
+
+@contextmanager
+def also_read_under(key: DataKey) -> Iterator[None]:
+    """Let the block also *read* values written under ``key`` (by its version byte).
+
+    Writes stay under the current key. This is the re-key's reader: one pass
+    meets rows still under the old key and rows already rewritten.
+    """
+    token = _previous_key.set(key)
+    try:
+        yield
+    finally:
+        _previous_key.reset(token)
 
 
 def set_data_key(key: DataKey | None) -> None:
@@ -317,6 +335,9 @@ class EncryptedText(TypeDecorator[str]):
             raise EncryptionError(msg)
         key = _require_key()
         version = value[1]
+        previous = _previous_key.get()
+        if version != key.version and previous is not None and previous.version == version:
+            key = previous
         if version != key.version:
             msg = (
                 f"This value was written under key version {version}; "

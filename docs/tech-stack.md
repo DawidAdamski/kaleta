@@ -231,6 +231,17 @@ Search and sort over encrypted text run in Python rather than SQL
 transactions: a search page + count took ≈80–100 ms on Postgres 16, against a 300 ms budget (the page's scan is
 reused for its count within one session).
 
+A household shares one DEK: approving a member seals it to their public
+key, and removing one **re-keys** the household — a new DEK, every
+encrypted column and blind index rewritten in one transaction, the new
+key sealed to each remaining member, and `tenants.key_version` bumped
+(the header's version byte). Measured: 50 000 transactions re-key in
+≈1.2 s on the test PostgreSQL, against a 60 s budget.
+
+```
+KALETA_HOUSEHOLD_MAX_MEMBERS=10       # members per family, owner and open invitations included
+```
+
 See [privacy.md](privacy.md#encryption) for what this protects against
 and [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md)
 for the full design. For data written before encryption was on, see

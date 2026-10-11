@@ -170,7 +170,7 @@ the desktop window and app-managed backups are removed.
 | 1 | [test-suite-speed](archive/test-suite-speed.md) | medium | archived | — |
 | 2 | [postgres-only](archive/postgres-only.md) | archived | draft | 1 |
 | 3 | [instance-admin-panel](archive/instance-admin-panel.md) | medium | archived | 2 |
-| 4 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 2 |
+| 4 | [hosted-household-sharing](hosted-household-sharing.md) | large | in-progress | 2 |
 | 5 | [self-host-guide](archive/self-host-guide.md) | small | archived | 2 |
 
 ### Hosted — Supabase multi-tenant (execute in this order)
@@ -185,7 +185,7 @@ and is untouched.
 |---|---|---|---|---|
 | 1 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | draft | — |
 | 2 | [hosted-field-encryption](archive/hosted-field-encryption.md) | archived | draft | 1 |
-| 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 1, 2 — now also PostgreSQL-only plan 2 |
+| 3 | [hosted-household-sharing](hosted-household-sharing.md) | large | in-progress | 1, 2 — now also PostgreSQL-only plan 2 |
 | 4 | [hosted-supabase-rollout](archive/hosted-supabase-rollout.md) | archived | draft | 1, 2 (3 before public launch) |
 | 5 | [auth-two-factor](archive/auth-two-factor.md) | archived | draft | Phase A: — ; Phase B: 1 |
 | 5b | [auth-hosted-email-links](archive/auth-hosted-email-links.md) | archived | draft | 1 |
@@ -360,7 +360,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | Hosted programme (1) |
 | [hosted-field-encryption](archive/hosted-field-encryption.md) | archived | Hosted programme (2) |
-| [hosted-household-sharing](hosted-household-sharing.md) | draft | Hosted programme (3) |
+| [hosted-household-sharing](hosted-household-sharing.md) | in-progress | Hosted programme (3) |
 | [wizard-what-if-scenarios](archive/wizard-what-if-scenarios.md) | archived | Wizard / Forecast — dogfooding gap (Coming soon tile) |
 | [wizard-reminders](wizard-reminders.md) | draft | Wizard → notifications |
 | [funds-reservoir-view](funds-reservoir-view.md) | draft | Funds — reservoir view (after reports-money-flow) |

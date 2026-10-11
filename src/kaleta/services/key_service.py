@@ -47,13 +47,15 @@ from kaleta.crypto import (
 )
 from kaleta.db.types import use_data_key
 from kaleta.exceptions import ConflictError, EncryptionError, NotFoundError, ValidationError
-from kaleta.models.tenant import Tenant, TenantMember
+from kaleta.models.tenant import Tenant, TenantMember, TenantMemberStatus
 from kaleta.services.data_encryption_service import DataEncryptionService
 
 log = logging.getLogger(__name__)
 
 #: The plan's floor; a strength meter is out of scope.
 PASSPHRASE_MIN_LENGTH = 12
+
+REKEYING_MESSAGE = "Your household is being re-keyed. Try again in a moment."
 
 #: One derivation at a time, process-wide — see the module docstring.
 _derivations = threading.Lock()
@@ -75,6 +77,7 @@ class KeyStore(Protocol):
     """Where one member's key block is kept."""
 
     member_ref: str
+    tenant_id: int
 
     async def load(self) -> KeyMaterial | None: ...
 
@@ -82,8 +85,12 @@ class KeyStore(Protocol):
 
     async def key_version(self) -> int: ...
 
-    async def others_hold_a_key(self) -> bool:
-        """Whether another member of the same account already has the data key sealed."""
+    async def creates_the_data_key(self) -> bool:
+        """Whether a set-up here makes the account's data key.
+
+        Only an active member's, and only while nobody holds one: an invited
+        member waits for the key to be sealed to them (``HouseholdService``).
+        """
         ...
 
 
@@ -142,7 +149,9 @@ class TenantKeyStore:
         tenant = await self.session.get(Tenant, self.tenant_id)
         return tenant.key_version if tenant is not None else 1
 
-    async def others_hold_a_key(self) -> bool:
+    async def creates_the_data_key(self) -> bool:
+        if (await self._member()).status is not TenantMemberStatus.ACTIVE:
+            return False
         result = await self.session.execute(
             select(TenantMember.id).where(
                 TenantMember.tenant_id == self.tenant_id,
@@ -150,7 +159,7 @@ class TenantKeyStore:
                 TenantMember.dek_sealed.is_not(None),
             )
         )
-        return result.first() is not None
+        return result.first() is None
 
 
 @dataclass(frozen=True)
@@ -225,7 +234,7 @@ class KeyService:
         if await self.store.load() is not None:
             msg = "A data passphrase is already set up for this account."
             raise ConflictError(msg)
-        first = not await self.store.others_hold_a_key()
+        first = await self.store.creates_the_data_key()
         dek = generate_dek() if first else None
         code = new_recovery_code()
         material, private_key = await _derive(
@@ -276,6 +285,8 @@ class KeyService:
         if material.dek_sealed is None:
             msg = "Your data key has not been shared with you yet."
             raise ConflictError(msg)
+        if key_ring.is_frozen(self.store.tenant_id):
+            raise ConflictError(REKEYING_MESSAGE)
         version = await self.store.key_version()
         try:
             private_key = await _derive(partial(open_private_key, material, passphrase))
@@ -339,7 +350,8 @@ class KeyService:
         updated = await _derive(partial(with_passphrase, material, private_key, new_passphrase))
         updated = await _derive(partial(with_recovery_code, updated, private_key, fresh))
         await self.store.save(updated)
-        if updated.dek_sealed is not None:
+        # Frozen: the new passphrase is set, the unlock waits for the re-key.
+        if updated.dek_sealed is not None and not key_ring.is_frozen(self.store.tenant_id):
             data_key = open_data_key(updated, private_key, await self.store.key_version())
             key_ring.put(
                 session_key, data_key, member_ref=self.store.member_ref, private_key=private_key

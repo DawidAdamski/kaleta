@@ -3,7 +3,7 @@ plan_id: hosted-household-sharing
 title: Household sharing — up to ten members on one family account
 area: auth / db / settings
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
@@ -162,8 +162,8 @@ account and a household use one code path).
   approves, both see the same transaction, owner removes, second
   context is locked out
 - `uv run python scripts/spec_coverage.py`
-- `grep -c "KAL-HH-" docs/bdd.md | grep -qE '^[1-9]'` — new area
-  `KAL-HH-*`: invite, join, approve, decline, remove/re-key, transfer
+- `grep -c "KAL-HHS-" docs/bdd.md | grep -qE '^[1-9]'` — new area
+  `KAL-HHS-*`: invite, join, approve, decline, remove/re-key, transfer
   ownership, attribution in history
 - `./scripts/verify.sh --e2e`
 - `[manual]` Two phones, two authenticator apps, one household on the
@@ -209,4 +209,114 @@ e-mail, display name, fingerprint), `docs/tech-stack.md`.
 
 ## Implementation notes
 
-(filled in as work progresses)
+### Delivery in three PRs
+
+The plan spans every layer, so it lands as three branches, each green on its own:
+
+- **Part A — the household core** (`feat/household-sharing-part-a`): `HouseholdService`
+  (invite, join, approve, decline, remove, leave, transfer ownership, reset keys), the
+  re-key, sign-in of pending members, revocation of a removed one, the member limit.
+  Service-level `KAL-HHS-*` scenarios, unit and integration tests, the re-key budget.
+- **Part B — the pages**: Settings → Household, `/join`, the waiting and "being re-keyed"
+  screens, the fingerprint, the e2e test, `docs/privacy.md`.
+- **Part C — working together**: `audit_log.user_id` and "who" in History, "Added by" on
+  transactions, the stale-write guard, the wizard's household copy.
+
+### What was already in place
+
+The encryption and tenancy plans laid most of the ground: the `tenant_members` key
+columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
+`awaiting_key` key status (a member with a keypair and no sealed key), `users.email` /
+`display_name`, the session watermark (`users.sessions_valid_from`) and the key ring's
+`lock_member`. Part A builds on these and adds no migration.
+
+### Decisions (Part A)
+
+- **One invite flow on both layouts: a link.** Kaleta has no SMTP of its own, so the
+  owner is shown the link to pass on, hosted included; sending it by e-mail waits for the
+  rollout plan's SMTP choice (open question 4). On a `local` instance the invitee sets
+  their password on the link's page, which creates the login; the "owner pre-creates a
+  login with a one-time password" variant of §6 is not built — one path, not two.
+- **The token proves the invitation; an e-mail match does so only where the provider
+  verified the address.** A Supabase identity signing in for the first time with no
+  membership joins the household that invited its (verified) e-mail instead of getting a
+  family of its own. A `local` identity never joins by e-mail match — a local address is
+  whatever was typed — only through the token.
+- **A member joins as `pending` with a `users` row.** The plan put the `users` row at
+  approval, but a pending member must sign in to set their passphrase (that is what makes
+  the keypair to approve), and a session is opened as a `users` row. The row carries
+  nothing but the e-mail and display name.
+- **Only an active member creates a data key.** A pending member whose household has no
+  key yet (the owner never unlocked) gets a keypair only — otherwise the newcomer's
+  set-up would generate the household's key and encrypt the ledger under it.
+- **Pending without encryption.** With `KALETA_ENCRYPTION=off` (debug only) there is no
+  keypair to wait for: a pending member's sign-in is refused until approved, and approval
+  is one step.
+- **Re-key in one transaction, then a sweep.** The rows are rewritten (read under the old
+  key, written under the new, blind indexes recomputed), the new key sealed to every
+  remaining member, the removed member marked and `key_version` bumped — all in one
+  transaction on the family's session, which reaches `public` too. A crash rolls it all
+  back; nothing is half re-keyed, so "resumable" is "run it again". Before it starts, the
+  key ring *freezes* the family (every unlock of it reads as locked, a new unlock is
+  refused, the tenant is marked `rekeying`); after the commit the ring's entries of the
+  remaining members get the new key, and a sweep rewrites any row still carrying the old
+  version (a write that bound its parameters before the freeze and committed after the
+  pass) while the old key is still in memory. Then the family thaws.
+- **The key version stays one byte.** The header already carries it (`\x01 | version`);
+  the plan's two-byte header is not needed. After 255 it wraps to 1 — only old and new
+  must differ.
+- **A tenant left `rekeying`** by a crash is put back to `active` at start-up: the
+  transaction rolled back, so its rows and keys are the old ones.
+- **Remove without re-key** is offered (open question 2): the member is removed and their
+  sealed key deleted, the ledger keeps its key. Default is re-key.
+- **Decline deletes the pending member** and, for a `local` login the invite created,
+  the login too — otherwise its next sign-in would provision a family of its own. "Created
+  by the invite" is "created after the invitation was issued" (`accept_with_password` is
+  the only way a login with that address appears then); an older login, or the
+  administrator's, is never deleted. A *returning* member (one with `removed_at`) who is
+  declined goes back to `removed` instead, row and login kept.
+- **A removed member's row stays** (`removed`, `removed_at`) so the household's history
+  keeps the name; a sign-in is refused, and a new invitation for the address reuses the
+  row as `pending` with no keys.
+- **The owner cannot leave or reset keys** — ownership goes to another active member
+  first. The household always has exactly one owner.
+- **Fingerprint**: the first 16 bytes of SHA-256 of the public key, as 8 groups of 4 hex.
+- **Re-key budget, measured**: 50 000 transactions (descriptions, a third with notes)
+  re-key in 1.2 s on the test PostgreSQL 18 (macOS, Podman), against the 60 s budget
+  (`tests/integration/test_household_rekey_budget.py`, slow tier). The pass is
+  `executemany` in batches of 1 000; AES-GCM per value is microseconds, so the database
+  round trips dominate.
+- **Tests' location**: `spec_coverage` reads `tests/integration` and `tests/e2e` only, so
+  the `KAL-HHS-*` scenarios are covered by `tests/integration/test_household_isolation.py`;
+  the plan's unit files hold the refusals and edges (`test_household_service.py`) and the
+  re-key's mechanics (`tests/unit/crypto/test_rekey.py`: interrupted pass, late writes,
+  freeze). Each safeguard was checked by breaking it: no sweep, no old-key reader and a
+  pending member allowed to create the key each fail a test.
+- **`KAL-HHS-*`, not `KAL-HH-*`**: scenario areas are three or four letters
+  (`scripts/spec_coverage.py`, `KAL-[A-Z]{3,4}-NNN`); the acceptance criterion is updated
+  to match rather than the checker widened.
+
+### After review (Part A)
+
+- **A removed member's API tokens are revoked** in the same transaction as the removal
+  (both with and without re-key): with encryption on they were already inert (no unlock
+  to ride on), but not with it off, and a re-approved member would have got them back.
+- **Approval checks the key and the keypair**: the owner's key must be the household's
+  current version, the household not mid re-key, and `expected_fingerprint` (what the page
+  showed) must still match — a keypair replaced between showing and the click is refused.
+- **One re-key at a time**: the tenant row is claimed `FOR UPDATE` from `active` to
+  `rekeying` before the freeze; a second run is refused without freezing or thawing.
+- **The sweep looks twice** and logs an error if the second look still finds rows under the
+  old version. **Known residual**: a transaction that wrote under the old key before the
+  freeze and stays open past the last look commits rows no key opens (the old key is gone
+  after the thaw). The freeze confines that to a write in flight across the whole re-key
+  (≈1 s for 50 000 rows); closing it fully needs a lock every writer takes, which is not
+  worth a lock on every write.
+- **`release_interrupted_rekeys` runs at every start.** With one process (the key ring is
+  per-process by design, ADR-35) that is only after a crash. A second replica starting
+  during a live re-key would reset its mark and let sign-ins in mid-pass; multi-replica
+  deployments are not supported by the key ring anyway, and this is one more reason.
+- **Spending an invitation locks its row**, and two tabs accepting one link at once get a
+  `ConflictError`, not a raw `IntegrityError`.
+- **Re-inviting at the limit** counts the replaced link as freed, and the limit is checked
+  before the old link is deleted.
