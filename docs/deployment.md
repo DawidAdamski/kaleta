@@ -64,7 +64,7 @@ creates an account (Kaleta asks with `create_user: false`).
   (one per account) and the registry tables in `public`, nothing more. Run
   once in the SQL editor, with a real password — the same statements
   `compose.hosted-dev.yml` runs from
-  [`deploy/postgres/init-app-role.sql`](../deploy/postgres/init-app-role.sql):
+  [`deploy/postgres/init-app-role.sql`](https://github.com/DawidAdamski/kaleta/blob/main/deploy/postgres/init-app-role.sql):
 
   ```sql
   CREATE ROLE kaleta_app LOGIN PASSWORD '<long random>' NOSUPERUSER NOCREATEDB NOCREATEROLE;

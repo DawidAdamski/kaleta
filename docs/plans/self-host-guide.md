@@ -3,7 +3,7 @@ plan_id: self-host-guide
 title: Self-hosting guide — one machine, HTTPS for the PWA, backups you own
 area: docs / ops
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
@@ -69,5 +69,71 @@ documentation site (GitHub Pages, `mkdocs.yml`).
   user-written text is already ciphertext.
 
 ## Implementation notes
+
+- **No `.env` with secrets.** Since `postgres-only` C2 the compose file
+  generates the database password and `KALETA_SECRET_KEY` itself (the
+  `kaleta-secrets` volume). The guide says so. `.env` holds only what the
+  HTTPS overlays need (tunnel token, public URL or domain) and, optionally,
+  `COMPOSE_FILE`.
+- **Measured, not guessed (2026-10-11, Podman 6.1 on arm64, PostgreSQL 18.6).**
+  With six years of example data (`scripts/seed.py`: 1,584 transactions,
+  576 budgets), Kaleta idled at about 150 MB and peaked at about 320 MB while
+  drawing the dashboard, the forecast and the reports. PostgreSQL used about
+  60 MB. The database was 11 MB empty and 13.2 MB seeded; the family's schema
+  was 3.2 MB, of which the audit log was 1.2 MB. That is about 2 kB per
+  transaction. The `-Fc` dump was 1.2 MB. CPU stayed in single digits, which
+  `podman stats` samples too coarsely to give a peak worth printing, so the
+  guide says "one or two cores".
+- **The `[manual]` criterion, run on this machine.** `backup` overlay up;
+  `kaleta-backup` wrote the dump; `kaleta` and `backup` stopped; `db` removed;
+  `kaleta_kaleta-pg` dropped; `up -d --wait db`; `pg_restore --no-owner`;
+  `up -d --wait kaleta`. The same family schema and 1,584 transactions came
+  back. A browser signed in, unlocked with the data passphrase and showed
+  decrypted payees. The first attempt, without `--wait`, ran `pg_restore`
+  against a server that was not up yet: nothing was restored and Kaleta
+  started on an empty database. The guide's restore uses `--wait` and says
+  why.
+- **`KALETA_SECRET_KEY` is part of a backup.** Only the TOTP secrets
+  (`user_mfa.totp_secret`, `EncryptedString`) are sealed under it. The guide
+  says to keep a copy next to the recovery code, and what to do without it
+  (`reset-password --disable-mfa`).
+- **Three overlays, not two.** `deploy/selfhost/caddy.yml` sits beside
+  `cloudflared.yml` and `backup.yml`, so the Caddy example is a file CI
+  validates and not a snippet in prose. Each HTTPS overlay re-binds 8080 to
+  loopback with `ports: !override` (Compose 2.24+). The CI `compose` job runs
+  `config` for the base file and every overlay.
+- **`mkdocs build --strict` was failing on `main`.** Four links from `docs/`
+  pointed at files outside it (`../SECURITY.md` twice, `../docker-compose.yml`
+  from C2, `../deploy/postgres/init-app-role.sql`). They now point at GitHub.
+  The `pages` workflow runs the same build, so it was broken too.
+- **Member limit.** The plan's "the member limit" has nothing behind it yet: a
+  family is one login until `hosted-household-sharing`. The guide says that.
+- **Review findings (2026-10-11), all taken.**
+  - `COMPOSE_FILE` in `.env` is the guide's one way to choose overlays. A
+    command typed with fewer `-f` files would rebuild `kaleta` from the base
+    file and undo an HTTPS overlay.
+  - busybox `crond` runs its jobs with no environment. Run under `env -i`,
+    the job failed with `pg_dump: not found`, and `KALETA_BACKUP_KEEP_DAYS`
+    was unset. The script now sets `PATH` and the crontab line carries
+    `TZ` and the retention. A real `crond` run (the schedule set to every
+    minute) wrote the dump and logged it to `podman compose logs backup`.
+  - Dumps are `chown`ed to the owner of the backup directory, and the guide
+    has it created first. Docker's root-made directory is stated.
+  - `kaleta-backup [name]` keeps a pre-upgrade dump apart from the nightly
+    one. Stale `*.partial` files are swept.
+  - `KALETA_PUBLIC_URL` left the HTTPS overlays: only the Supabase provider
+    reads it.
+  - The guide asks for Compose 2.24+, because of `!override`.
+  - On a reachable machine the guide creates the administrator with
+    `kaleta-admin create-login --admin` first.
+  - The new-machine key step writes, installs and removes the file; it was
+    tried on Podman.
+  - The rollback has its order spelled out.
+  - Images re-pinned: `cloudflared:2026.10.0`, `caddy:2.11-alpine`.
+- **How the measurement seeded around the `taxonomy` bug** (chores.md):
+  the fresh family's 8 canonical tags were deleted, and `seed.py` then
+  recreated them with everything else.
+- **Open question (`age`)**: default taken. It is documented as optional, with
+  one command.
 
 ## Implementation (filled by plan-archiver)

@@ -63,7 +63,7 @@ So does data that is not financial content: display names and e-mail
 addresses, the fields in a bug report (you choose to send those to
 the operator in the clear — see below), and the two-factor secret,
 which is already encrypted separately under `KALETA_SECRET_KEY` (see
-[SECURITY.md](../SECURITY.md)).
+[SECURITY.md](https://github.com/DawidAdamski/kaleta/blob/main/SECURITY.md)).
 
 ### Passphrase and recovery code
 

@@ -25,6 +25,7 @@ markdown_extensions:
 nav:
   - Home: index.md
   - Getting started: getting-started.md
+  - Self-hosting: self-hosting.md
   - Product:
       - Overview: product/index.md
       - Dashboard: product/dashboard.md

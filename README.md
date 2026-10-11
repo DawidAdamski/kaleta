@@ -22,7 +22,9 @@ podman compose up -d --build     # or: docker compose up -d --build
 Open http://localhost:8080. The first sign-up on an empty instance creates the
 instance administrator and the first family, then asks for a data passphrase.
 Forgotten password: `podman compose exec kaleta uv run kaleta-admin
-reset-password <e-mail>`.
+reset-password <e-mail>`. For HTTPS (to install the app on a phone), nightly
+backups, a restore drill and upgrades, follow the
+[self-hosting guide](docs/self-hosting.md).
 
 Without containers: Python 3.13+, [uv](https://docs.astral.sh/uv/) and a
 PostgreSQL you point `KALETA_DB_URL` at (`postgresql://user:pass@host/db`).

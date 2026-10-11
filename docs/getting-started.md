@@ -74,7 +74,7 @@ It prints a one-time password, which the member must replace at their next
 sign-in. There is no email reset and no in-app “forgot password” flow. Every browser
 session of that member is signed out (within a minute of the reset); API bearer
 tokens are unchanged. `kaleta --reset-password` no longer exists. See
-[SECURITY.md](../SECURITY.md). In the Compose stack, run it in the container:
+[SECURITY.md](https://github.com/DawidAdamski/kaleta/blob/main/SECURITY.md). In the Compose stack, run it in the container:
 `podman compose exec kaleta uv run kaleta-admin reset-password <e-mail>`.
 
 ### Demo data
@@ -160,7 +160,7 @@ KALETA_SECRET_KEY=your-secret-key-here
 ## Docker / Podman
 
 Kaleta ships `Containerfile` (slim) and `Containerfile.full` (includes Prophet).
-[`docker-compose.yml`](../docker-compose.yml) runs the **full** image with
+[`docker-compose.yml`](https://github.com/DawidAdamski/kaleta/blob/main/docker-compose.yml) runs the **full** image with
 PostgreSQL 18; the same file works with Docker Compose and Podman Compose.
 
 From the repository root:

@@ -99,6 +99,26 @@ jobs:
       - name: Spec coverage
         run: uv run python scripts/spec_coverage.py
 
+  # The self-hosting guide's compose overlays (docs/self-hosting.md) stay valid
+  # against docker-compose.yml. `config` only parses and merges; the required
+  # variables get placeholders.
+  compose:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_TUNNEL_TOKEN: placeholder
+      KALETA_DOMAIN: kaleta.example.com
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: docker compose config
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          for overlay in deploy/selfhost/*.yml; do
+            echo "== $overlay"
+            docker compose -f docker-compose.yml -f "$overlay" config --quiet
+          done
+
   # KALETA_REDIS_URL moves both NiceGUI session storage and the login rate
   # limiter into a Redis-protocol server — the hosted multi-replica
   # configuration. Valkey is the server we recommend and test against.

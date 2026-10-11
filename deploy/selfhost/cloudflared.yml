@@ -1,0 +1,26 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# HTTPS through a Cloudflare Tunnel — no open port on this machine
+# (docs/self-hosting.md, "HTTPS, option A").
+#
+# Needs CLOUDFLARE_TUNNEL_TOKEN in .env, and the file in COMPOSE_FILE. In the
+# Cloudflare dashboard the tunnel's public hostname points at http://kaleta:8080.
+# Re-pin the image now and then: Cloudflare stops supporting old releases.
+
+services:
+  cloudflared:
+    image: docker.io/cloudflare/cloudflared:2026.10.0
+    command: ["tunnel", "--no-autoupdate", "run"]
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN (Cloudflare → Zero Trust → Tunnels)}
+    depends_on:
+      kaleta:
+        condition: service_healthy
+    restart: unless-stopped
+
+  kaleta:
+    # Reached through the tunnel only: the host port is bound to loopback.
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    environment:
+      KALETA_SESSION_COOKIE_SECURE: "true"
