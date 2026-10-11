@@ -162,7 +162,7 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
 - Migrating any SQLite database (ADR-38: dropped).
 - The instance admin panel UI ([`instance-admin-panel`](instance-admin-panel.md)).
 - Household invites and approval ([`hosted-household-sharing`](../hosted-household-sharing.md)).
-- The self-hosting guide and backup routine ([`self-host-guide`](../self-host-guide.md)).
+- The self-hosting guide and backup routine ([`self-host-guide`](self-host-guide.md)).
 - Squashing Alembic history; Postgres-only refactors of existing queries.
 
 ## Acceptance criteria
