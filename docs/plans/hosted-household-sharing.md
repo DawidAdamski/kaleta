@@ -320,3 +320,42 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
   `ConflictError`, not a raw `IntegrityError`.
 - **Re-inviting at the limit** counts the replaced link as freed, and the limit is checked
   before the old link is deleted.
+
+### Decisions (Part B — the pages)
+
+- **Settings → Household** is a tab for everyone in a household: the members (name,
+  e-mail, role, status, joined, fingerprint), the member's own display name and "Leave",
+  and for the owner the invitation form, the open invitations, and per member Approve,
+  Decline, Remove, Make owner. The view reaches the service through
+  `kaleta.auth.household`, which also drops what this process holds for a member who lost
+  access (`forget_revoked_member`: the cached revocation watermark, their key-ring
+  entries) — the service cannot import the auth layer.
+- **Approving asks for the data passphrase again** (open question 1), always, rather
+  than an MFA step-up when MFA is on: it is the deliberate "I am sealing our data to
+  this key" moment, the passphrase is what proves the owner holds the key being sealed,
+  and one path is simpler than two. The dialog shows the fingerprint and passes it as
+  `expected_fingerprint`.
+- **Making someone else the owner asks for a fresh MFA code** when MFA is on — the
+  Security tab's step-up, now shared rather than copied.
+- **Remove** opens one dialog: a "re-key the household" switch, on by default, and one
+  sentence on the difference (open question 2).
+- **`/join?token=…`** is public. With `local` logins it shows the invited address and
+  asks for a password (the login is created for that address only), then signs the
+  invitee in and sends them to `/unlock` to set their passphrase. With Supabase Auth it
+  points to sign-up and sign-in with that address — the first verified sign-in joins (Part
+  A). A used, replaced or expired link says so, without telling whether the address has an
+  account.
+- **`/unlock` gains two faces.** *Waiting*: "Waiting for <owner's e-mail> to approve",
+  with the member's own fingerprint to read out over the phone, "Check again" and "Sign
+  out". *Being re-keyed*: shown while the key ring holds the household frozen, with "Try
+  again". The owner's e-mail rather than a display name: the pending member's session
+  reads only the registry.
+- **"Reset my keys"** sits on `/unlock` behind the recovery-code form ("Lost the code
+  too?"), for members other than the owner — it is for someone who cannot unlock, so it
+  cannot live in Settings.
+- **Not built in Part B**: the household name (a new `EncryptedText` column and a
+  migration, with nothing yet reading it) and the per-member "MFA on/off" column (a
+  provider call per member on every render of the tab). Both are in `chores.md`.
+- **The e2e shares a payee, not a transaction**: one dialog instead of an account plus a
+  transaction, and the same proof — a row written under the household's key by one member
+  is read by the other.
