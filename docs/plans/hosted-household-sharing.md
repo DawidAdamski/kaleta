@@ -270,7 +270,11 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
 - **Remove without re-key** is offered (open question 2): the member is removed and their
   sealed key deleted, the ledger keeps its key. Default is re-key.
 - **Decline deletes the pending member** and, for a `local` login the invite created,
-  the login too — otherwise its next sign-in would provision a family of its own.
+  the login too — otherwise its next sign-in would provision a family of its own. "Created
+  by the invite" is "created after the invitation was issued" (`accept_with_password` is
+  the only way a login with that address appears then); an older login, or the
+  administrator's, is never deleted. A *returning* member (one with `removed_at`) who is
+  declined goes back to `removed` instead, row and login kept.
 - **A removed member's row stays** (`removed`, `removed_at`) so the household's history
   keeps the name; a sign-in is refused, and a new invitation for the address reuses the
   row as `pending` with no keys.
@@ -291,3 +295,28 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
 - **`KAL-HHS-*`, not `KAL-HH-*`**: scenario areas are three or four letters
   (`scripts/spec_coverage.py`, `KAL-[A-Z]{3,4}-NNN`); the acceptance criterion is updated
   to match rather than the checker widened.
+
+### After review (Part A)
+
+- **A removed member's API tokens are revoked** in the same transaction as the removal
+  (both with and without re-key): with encryption on they were already inert (no unlock
+  to ride on), but not with it off, and a re-approved member would have got them back.
+- **Approval checks the key and the keypair**: the owner's key must be the household's
+  current version, the household not mid re-key, and `expected_fingerprint` (what the page
+  showed) must still match — a keypair replaced between showing and the click is refused.
+- **One re-key at a time**: the tenant row is claimed `FOR UPDATE` from `active` to
+  `rekeying` before the freeze; a second run is refused without freezing or thawing.
+- **The sweep looks twice** and logs an error if the second look still finds rows under the
+  old version. **Known residual**: a transaction that wrote under the old key before the
+  freeze and stays open past the last look commits rows no key opens (the old key is gone
+  after the thaw). The freeze confines that to a write in flight across the whole re-key
+  (≈1 s for 50 000 rows); closing it fully needs a lock every writer takes, which is not
+  worth a lock on every write.
+- **`release_interrupted_rekeys` runs at every start.** With one process (the key ring is
+  per-process by design, ADR-35) that is only after a crash. A second replica starting
+  during a live re-key would reset its mark and let sign-ins in mid-pass; multi-replica
+  deployments are not supported by the key ring anyway, and this is one more reason.
+- **Spending an invitation locks its row**, and two tabs accepting one link at once get a
+  `ConflictError`, not a raw `IntegrityError`.
+- **Re-inviting at the limit** counts the replaced link as freed, and the limit is checked
+  before the old link is deleted.

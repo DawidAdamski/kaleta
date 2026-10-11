@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import Update, delete, func, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.config import settings
@@ -48,6 +49,7 @@ from kaleta.models.tenant import (
     TenantStatus,
 )
 from kaleta.models.user import User
+from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.auth_service import AuthService
 from kaleta.services.data_encryption_service import DataEncryptionService
 from kaleta.services.local_identity_service import (
@@ -148,16 +150,15 @@ class HouseholdRekey:
         self.tenant_session = tenant_session
 
     async def run(self, tenant: Tenant, old: DataKey, leaving: TenantMember) -> DataKey:
-        if old.version != tenant.key_version:
-            msg = "The unlocked key is not the household's current one. Sign in again."
-            raise ConflictError(msg)
         remaining = await self._remaining_holders(tenant.id, leaving.id)
         new = DataKey(generate_dek(), version=next_key_version(old.version))
         ctx = TenantContext(tenant_id=tenant.id, schema=tenant.schema_name)
+        # Claimed before the freeze: a second re-key refused here must not
+        # thaw the first one's.
+        await self._claim(tenant.id, old)
         key_ring.freeze(tenant.id)
         committed = False
         try:
-            await self._mark(tenant.id, TenantStatus.REKEYING)
             with use_tenant(ctx), use_data_key(new), also_read_under(old):
                 async with self.tenant_session() as session:
                     counts = await DataEncryptionService(session).rewrite_all()
@@ -170,6 +171,9 @@ class HouseholdRekey:
                     await session.execute(_removal(leaving.id))
                     if leaving.user_id is not None:
                         await AuthService(session).revoke_sessions(leaving.user_id, commit=False)
+                        await ApiTokenService(session).revoke_all(
+                            user_id=leaving.user_id, commit=False
+                        )
                     await session.execute(
                         update(Tenant)
                         .where(Tenant.id == tenant.id)
@@ -211,13 +215,55 @@ class HouseholdRekey:
         return holders
 
     async def _sweep(self, ctx: TenantContext, old: DataKey, new: DataKey) -> int:
-        with use_tenant(ctx), use_data_key(new), also_read_under(old):
-            async with self.tenant_session() as session:
-                counts = await DataEncryptionService(session).rewrite_all(
-                    only_key_version=old.version
+        """Rewrite rows still under ``old``; look twice, and say so if the second look finds any.
+
+        What it cannot catch is a transaction that wrote under the old key and
+        commits only after the last look: those rows stay under the old
+        version, which no key opens once the old one is dropped. The freeze
+        makes that a write already in flight when the re-key began *and*
+        still open when it ended (see the plan's Implementation notes).
+        """
+        swept = 0
+        for look in (1, 2):
+            with use_tenant(ctx), use_data_key(new), also_read_under(old):
+                async with self.tenant_session() as session:
+                    counts = await DataEncryptionService(session).rewrite_all(
+                        only_key_version=old.version
+                    )
+                    await session.commit()
+            found = sum(counts.values())
+            swept += found
+            if not found:
+                break
+            if look == 2:
+                log.error(
+                    "Tenant %s: rows kept arriving under key version %d during the re-key: %s",
+                    ctx.tenant_id,
+                    old.version,
+                    counts,
                 )
-                await session.commit()
-        return sum(counts.values())
+        return swept
+
+    async def _claim(self, tenant_id: int, old: DataKey) -> None:
+        """Mark the tenant ``rekeying`` — only from ``active``, and only for its current key."""
+        tenant = (
+            await self.public.execute(
+                select(Tenant)
+                .where(Tenant.id == tenant_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        if tenant.status is not TenantStatus.ACTIVE:
+            await self.public.rollback()
+            msg = "This household is being re-keyed already. Try again in a moment."
+            raise ConflictError(msg)
+        if tenant.key_version != old.version:
+            await self.public.rollback()
+            msg = "The unlocked key is not the household's current one. Sign in again."
+            raise ConflictError(msg)
+        tenant.status = TenantStatus.REKEYING
+        await self.public.commit()
 
     async def _mark(self, tenant_id: int, status: TenantStatus) -> None:
         await self.public.execute(
@@ -340,6 +386,17 @@ class HouseholdService:
             if existing.status is not TenantMemberStatus.REMOVED:
                 msg = "This person is already a member of your household."
                 raise ConflictError(msg)
+        replaced = await self.public.scalar(
+            select(func.count(TenantInvite.id)).where(
+                TenantInvite.tenant_id == self.tenant.id,
+                TenantInvite.email == address,
+                TenantInvite.accepted_at.is_(None),
+                TenantInvite.expires_at > self._clock(),
+            )
+        )
+        if await self._places_taken() - int(replaced or 0) >= self.max_members:
+            msg = f"A household has at most {self.max_members} members, invitations included."
+            raise ConflictError(msg)
         await self.public.execute(
             delete(TenantInvite).where(
                 TenantInvite.tenant_id == self.tenant.id,
@@ -347,9 +404,6 @@ class HouseholdService:
                 TenantInvite.accepted_at.is_(None),
             )
         )
-        if await self._places_taken() >= self.max_members:
-            msg = f"A household has at most {self.max_members} members, invitations included."
-            raise ConflictError(msg)
         token = secrets.token_urlsafe(_TOKEN_BYTES)
         expires = self._clock() + INVITE_TTL
         self.public.add(
@@ -376,8 +430,18 @@ class HouseholdService:
         )
         await self.public.commit()
 
-    async def approve(self, member_id: int, data_key: DataKey | None) -> None:
-        """Seal the household's key to a pending member's keypair; they are in."""
+    async def approve(
+        self,
+        member_id: int,
+        data_key: DataKey | None,
+        *,
+        expected_fingerprint: str | None = None,
+    ) -> None:
+        """Seal the household's key to a pending member's keypair; they are in.
+
+        ``expected_fingerprint`` is the one the owner was shown: a keypair
+        replaced between showing it and the click is refused, not sealed to.
+        """
         self._require_owner()
         member = await self._member(member_id)
         if member.status is not TenantMemberStatus.PENDING:
@@ -388,6 +452,14 @@ class HouseholdService:
             if member.public_key is None:
                 msg = "This member has not set up their data passphrase yet."
                 raise ConflictError(msg)
+            if expected_fingerprint is not None and fingerprint(member.public_key) != (
+                expected_fingerprint
+            ):
+                msg = (
+                    "This member's key changed since the list was shown. Reload and compare again."
+                )
+                raise ConflictError(msg)
+            await self._require_current_key(key)
             member.dek_sealed = seal(key.dek, member.public_key)
         member.status = TenantMemberStatus.ACTIVE
         member.joined_at = self._clock()
@@ -401,10 +473,18 @@ class HouseholdService:
         if member.status is not TenantMemberStatus.PENDING:
             msg = "Only a member waiting for approval can be declined."
             raise ConflictError(msg)
-        subject = member.auth_subject
+        if member.removed_at is not None:
+            # A former member invited back: they return to where they were
+            # (``removed``), with their row — and the household's history of
+            # them — and their own login untouched.
+            await self.public.execute(_removal(member.id))
+            await self.public.commit()
+            log.info("Tenant %s declined returning member %s", self.tenant.id, member_id)
+            return
+        subject, email = member.auth_subject, member.email
         await self.public.delete(member)
         await self.public.commit()
-        await self._delete_invited_login(subject)
+        await self._delete_invited_login(subject, email)
         log.info("Tenant %s declined member %s", self.tenant.id, member_id)
 
     async def remove(
@@ -504,7 +584,8 @@ class HouseholdService:
             await self.public.commit()
             with use_tenant(self._context()):
                 async with self._session_factory()() as session:
-                    await AuthService(session).revoke_sessions(user_id)
+                    await AuthService(session).revoke_sessions(user_id, commit=False)
+                    await ApiTokenService(session).revoke_all(user_id=user_id)
             key_ring.lock_member(tenant_member_ref(self.tenant.id, user_id))
         log.info("Tenant %s: member %s removed (re-key: %s)", self.tenant.id, member.id, rekey)
         return RemovedMember(tenant_id=self.tenant.id, user_id=user_id, rekeyed=rekey)
@@ -552,15 +633,55 @@ class HouseholdService:
                 )
                 return {uid: name for uid, name in result.all() if name}
 
-    async def _delete_invited_login(self, subject: str) -> None:
-        """The ``local`` login an invitation created, unless it is the administrator's."""
+    async def _delete_invited_login(self, subject: str, email: str) -> None:
+        """The ``local`` login this household's invitation created — no other.
+
+        ``accept_with_password`` is the only way a login comes into being with
+        an invited address after the invitation was issued, so "created after
+        the invitation" is "created by it". An older login, or the
+        administrator's, is never touched.
+        """
         identity_id = identity_id_of(subject)
         if identity_id is None:
             return
         logins = LocalIdentityService(self.public)
         login = await logins.get(identity_id)
-        if login is not None and not login.is_instance_admin:
-            await logins.delete(identity_id)
+        if login is None or login.is_instance_admin:
+            return
+        spent = (
+            (
+                await self.public.execute(
+                    select(TenantInvite)
+                    .where(
+                        TenantInvite.tenant_id == self.tenant.id,
+                        TenantInvite.email == email,
+                        TenantInvite.accepted_at.is_not(None),
+                    )
+                    .order_by(TenantInvite.accepted_at.desc())
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if spent is None or login.created_at < spent.expires_at - INVITE_TTL:
+            return
+        await logins.delete(identity_id)
+
+    async def _require_current_key(self, key: DataKey) -> None:
+        """``key`` is the household's key now: not mid re-key, not the one before it."""
+        tenant = (
+            await self.public.execute(
+                select(Tenant)
+                .where(Tenant.id == self.tenant.id)
+                .execution_options(populate_existing=True)
+            )
+        ).scalar_one()
+        if tenant.status is not TenantStatus.ACTIVE or key_ring.is_frozen(tenant.id):
+            msg = "Your household is being re-keyed. Try again in a moment."
+            raise ConflictError(msg)
+        if tenant.key_version != key.version:
+            msg = "The unlocked key is not the household's current one. Sign in again."
+            raise ConflictError(msg)
 
     def _require_active(self) -> None:
         if self.me.member.status is not TenantMemberStatus.ACTIVE:
@@ -626,7 +747,13 @@ class HouseholdInvitations:
         if await logins.get_by_email(invite.email) is not None:
             msg = "This e-mail address already has a login here. Sign in with it to accept."
             raise ConflictError(msg)
-        login = await logins.create(invite.email, password)
+        try:
+            login = await logins.create(invite.email, password)
+        except IntegrityError as exc:
+            # Two tabs accepting at once: the other one created the login.
+            await self.public.rollback()
+            msg = "This invitation has just been used. Sign in instead."
+            raise ConflictError(msg) from exc
         try:
             await self._tenants.join(invite, subject=subject_of(login.id))
         except Exception:

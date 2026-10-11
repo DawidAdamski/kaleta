@@ -369,7 +369,10 @@ class TenantService:
         row, and so their history, with it) — with its keys cleared, since the
         household was re-keyed when they left.
         """
+        # Locked: two sign-ins spending one invitation at once — one wins.
+        await self.session.refresh(invite, with_for_update=True)
         if not self._is_open(invite):
+            await self.session.rollback()
             raise NotFoundError(INVITE_GONE)
         tenant = await self._require_tenant(invite.tenant_id)
         if tenant.status is not TenantStatus.ACTIVE:
@@ -394,7 +397,8 @@ class TenantService:
         member.status = TenantMemberStatus.PENDING
         member.user_id = user_id
         member.joined_at = None
-        member.removed_at = None
+        # ``removed_at`` stays: a returning member who is declined goes back
+        # to ``removed`` rather than losing the row (``HouseholdService.decline``).
         clear_member_keys(member)
         invite.accepted_at = self._now()
         await self.session.commit()
