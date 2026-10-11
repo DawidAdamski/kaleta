@@ -133,6 +133,14 @@ class PasswordReset:
 
 
 @dataclass(frozen=True)
+class RevokedMember:
+    """A member whose sessions and tokens were revoked in their family."""
+
+    tenant_id: int
+    user_id: int
+
+
+@dataclass(frozen=True)
 class InstanceInfo:
     version: str
     auth_backend: AuthBackend
@@ -306,13 +314,18 @@ class InstanceAdminService:
             raise ValidationError(msg)
         password = _one_time_password()
         login = await self._logins.create(owner_email, password, must_change=True)
-        await self._audit(AdminAction.LOGIN_CREATED, identity_id=login.id)
         identity = Identity(subject=login.subject, email=login.email, email_verified=True)
-        # A failure here leaves a `provisioning` family that the owner's first
-        # sign-in finishes, as after any interrupted provisioning.
-        tenant = await self._tenants.provision(identity)
-        tenant.name = label
-        await self.session.commit()
+        try:
+            tenant = await self._tenants.provision(identity)
+            tenant.name = label
+            await self.session.commit()
+        except BaseException:
+            # Nobody will ever see this password: undo the login and whatever
+            # part of the family exists, so the address can simply be tried again.
+            await self.session.rollback()
+            await self._undo_family_of(login.id)
+            raise
+        await self._audit(AdminAction.LOGIN_CREATED, identity_id=login.id)
         await self._audit(AdminAction.FAMILY_CREATED, tenant_id=tenant.id, identity_id=login.id)
         return CreatedFamily(
             tenant_id=tenant.id,
@@ -387,30 +400,31 @@ class InstanceAdminService:
         msg = f"No login {email!r}."
         raise NotFoundError(msg)
 
-    async def set_disabled(self, identity_id: int, disabled: bool) -> int | None:
+    async def set_disabled(self, identity_id: int, disabled: bool) -> RevokedMember | None:
         """Refuse or allow a login's sign-ins; when refusing, end what it holds.
 
-        Returns the member's ``users`` id in their family when sessions and
-        API tokens were revoked there, so the caller can drop what *this
-        process* keeps for them (the revocation cache, the unlocked key).
+        Sessions and API tokens are revoked in an active *or suspended* family:
+        nothing re-checks a login after sign-in, so a family resumed later must
+        not bring a disabled member's old browsers and tokens back. Returns the
+        member whose were revoked, so the caller can drop what *this process*
+        keeps for them (the revocation cache, the unlocked key).
         """
         self._require_local()
         await self._logins.set_disabled(identity_id, disabled)
+        membership = await self._family_member(identity_id) if disabled else None
+        if membership is not None and membership.member.user_id is not None:
+            user_id = membership.member.user_id
+            with use_tenant(membership.context()):
+                async with self._require_tenant_session()() as session:
+                    await AuthService(session).revoke_sessions(user_id)
+                    await ApiTokenService(session).revoke_all(user_id=user_id)
         await self._audit(
             AdminAction.LOGIN_DISABLED if disabled else AdminAction.LOGIN_ENABLED,
             identity_id=identity_id,
         )
-        if not disabled:
-            return None
-        membership = await self._active_membership(identity_id)
         if membership is None or membership.member.user_id is None:
             return None
-        user_id = membership.member.user_id
-        with use_tenant(membership.context()):
-            async with self._require_tenant_session()() as session:
-                await AuthService(session).revoke_sessions(user_id)
-                await ApiTokenService(session).revoke_all(user_id=user_id)
-        return user_id
+        return RevokedMember(tenant_id=membership.tenant.id, user_id=membership.member.user_id)
 
     async def set_admin(self, identity_id: int, admin: bool) -> None:
         self._require_local()
@@ -423,10 +437,11 @@ class InstanceAdminService:
     async def reset_password(self, identity_id: int, *, disable_mfa: bool = False) -> PasswordReset:
         """A one-time password the member must change at the next sign-in.
 
-        Every browser session of theirs is signed out (KAL-AUTH-028); API
-        bearer tokens stay. ``disable_mfa`` also removes their second factor —
-        refused for a family that is not active, whose schema may be one that
-        did not migrate (nothing is changed then, not even the password).
+        Every browser session of theirs is signed out first (KAL-AUTH-028),
+        in an active or suspended family; API bearer tokens stay. If that
+        fails, the password is left as it was. ``disable_mfa`` also removes
+        their second factor — refused for a family that is not active, whose
+        schema may be one that did not migrate (nothing is changed then).
         """
         self._require_local()
         login = await self._logins.get(identity_id)
@@ -446,15 +461,17 @@ class InstanceAdminService:
                 "two-factor authentication was left on — resume the family first."
             )
             raise ValidationError(msg)
+        family = await self._family_member(identity_id)
+        revoked = False
+        if family is not None:
+            await self._revoke_in_family(family)
+            revoked = True
         password = _one_time_password()
         await self._logins.set_password(identity_id, password, must_change=True)
         await self._audit(AdminAction.PASSWORD_RESET, identity_id=identity_id)
-        revoked = False
-        removed: bool | None = None
-        if active and membership is not None:
-            await self._revoke_in_family(membership)
+        if revoked:
             await self._audit(AdminAction.SESSIONS_REVOKED, identity_id=identity_id)
-            revoked = True
+        removed: bool | None = None
         if disable_mfa:
             removed = False
             if active and membership is not None:
@@ -469,9 +486,9 @@ class InstanceAdminService:
         )
 
     async def revoke_sessions(self, identity_id: int) -> bool:
-        """Sign every browser of this login out; ``False`` when it has no active family."""
+        """Sign every browser of this login out; ``False`` when it has no family."""
         self._require_local()
-        membership = await self._active_membership(identity_id)
+        membership = await self._family_member(identity_id)
         if membership is None:
             return False
         await self._revoke_in_family(membership)
@@ -533,16 +550,29 @@ class InstanceAdminService:
         result = await self.session.execute(select(LocalIdentity.id, LocalIdentity.last_login_at))
         return {row[0]: row[1] for row in result.all()}
 
-    async def _active_membership(self, identity_id: int) -> TenantMembership | None:
+    async def _family_member(self, identity_id: int) -> TenantMembership | None:
+        """The login's family, if its sessions can be revoked there.
+
+        Active or suspended: a suspended family can be resumed, and must not
+        get a revoked member's sessions back. ``users.sessions_valid_from``
+        is in every schema's history, so even one suspended for a failed
+        migration has it. Families being provisioned, re-keyed or deleted are
+        left alone.
+        """
         membership = await self._tenants.get_member_by_subject(subject_of(identity_id))
         if (
             membership is None
             or membership.member.user_id is None
-            or membership.tenant.status is not TenantStatus.ACTIVE
+            or membership.tenant.status not in (TenantStatus.ACTIVE, TenantStatus.SUSPENDED)
         ):
-            # A suspended schema may be one that did not migrate: not opened.
             return None
         return membership
+
+    async def _undo_family_of(self, identity_id: int) -> None:
+        membership = await self._tenants.get_member_by_subject(subject_of(identity_id))
+        if membership is not None:
+            await self._tenants.delete(membership.tenant.id)
+        await self._logins.delete(identity_id)
 
     async def _revoke_in_family(self, membership: TenantMembership) -> None:
         user_id = membership.member.user_id

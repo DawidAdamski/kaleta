@@ -135,10 +135,29 @@ i18n `en.json` / `pl.json`, `docs/bdd.md`.
   what enforces it at sign-in. `reset-password --disable-mfa` on a family that
   is not active is now refused *before* the password changes. Before, it set
   the new password and only then refused to touch the second factor.
-  `set_login_disabled` goes through the service too. On a suspended family it
-  now leaves sessions and tokens alone, as the password reset already did: a
-  suspended schema may be one that did not migrate, and a suspended family
-  cannot sign in anyway.
+  `set_login_disabled` goes through the service too. The CLI's other output
+  changes: `reset-password` of an unknown address says "No login 'x'." (the
+  service's sentence).
+- **Revocation reaches suspended families (review finding).** Nothing
+  re-checks a login after sign-in: the session watermark and the token rows
+  are what end a disabled member's access. Disabling a login, and resetting a
+  password, now revoke in an *active or suspended* family. Before, a reset
+  left a suspended family's sessions alone, so resuming the family brought
+  them back. `users.sessions_valid_from` is in every schema's history, so a
+  family suspended for a failed migration has it too. Only turning the
+  second factor off still needs an active family. A reset revokes first and
+  changes the password afterwards, so a failed revoke leaves the old password
+  in place.
+- **`create_family` undoes itself on failure (review finding).** Nobody sees
+  the one-time password of a family whose provisioning failed. So the login
+  and any part of the family that exists are removed, and the same address
+  can be tried again.
+- **Audit rows are their own commit**, after the action's (the services under
+  it commit themselves). A crash between the two leaves an action without its
+  row; the log line is written with the row. Accepted: the trail is for the
+  administrators, not evidence against them. Any administrator can also reset
+  another administrator's password and take the account; that is what being
+  an administrator means here, and the row records who did it.
 - **Member limit.** `KALETA_HOUSEHOLD_MAX_MEMBERS` does not exist yet; it
   belongs to `hosted-household-sharing`. The panel shows the member count
   only, and the limit is added together with that plan.

@@ -10,20 +10,23 @@ import io
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import pyotp
 import pytest
-from sqlalchemy import select
+from sqlalchemy import select, text
 
+from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import RegistryAuthProvider, set_auth_provider
 from kaleta.auth.sign_in import SignedIn, SignInFlow
 from kaleta.cli import tenant_admin
 from kaleta.db import AsyncSessionFactory
 from kaleta.db.tenant_context import use_tenant
-from kaleta.exceptions import NotFoundError, UnauthorizedError, ValidationError
+from kaleta.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
 from kaleta.models.tenant import AdminAction, AdminAuditEntry, Tenant, TenantStatus
 from kaleta.schemas.identity import Identity, RegistrationMode
-from kaleta.services import AuthService
+from kaleta.services import ApiTokenService, AuthService
 from kaleta.services.instance_admin_service import InstanceAdminService
 from kaleta.services.local_identity_service import LocalIdentityService
+from kaleta.services.mfa_service import TOTP_INTERVAL, MfaService
 from kaleta.services.tenant_service import TenantService
 from tests.tenancy_helpers import MetadataProvisioner, multi_tenant_database
 
@@ -70,14 +73,23 @@ async def _admin_subject(url: str) -> str:
     return result.identity.subject
 
 
-def _service(public, url: str, actor: str | None):  # type: ignore[no-untyped-def]
+def _service(public, url: str, actor: str | None, provisioner=None):  # type: ignore[no-untyped-def]
     return InstanceAdminService(
         public,
         actor=actor,
         auth_backend="local",
         remover=RegistryAuthProvider(),
-        provisioner=MetadataProvisioner(url),
+        provisioner=provisioner or MetadataProvisioner(url),
     )
+
+
+async def _schema_exists(schema: str) -> bool:
+    async with AsyncSessionFactory.public() as public:
+        found = await public.execute(
+            text("SELECT 1 FROM information_schema.schemata WHERE schema_name = :s"),
+            {"s": schema},
+        )
+        return found.scalar_one_or_none() is not None
 
 
 async def _create_family(url: str, actor: str, name: str, owner: str) -> tuple[int, str]:
@@ -167,7 +179,7 @@ async def test_a_family_needs_a_name_and_a_free_address(instance: str) -> None:
             await service.create_family(JAN, "   ")
         with pytest.raises(ValidationError):
             await service.create_family(JAN, "x" * 101)
-        with pytest.raises(Exception, match="already exists"):
+        with pytest.raises(ConflictError, match="already exists"):
             await service.create_family(ADMIN, "Kowalscy")
         assert [f.name for f in await service.families()] == [None]
 
@@ -194,9 +206,12 @@ async def test_suspend_resume_and_delete_a_family(instance: str) -> None:
             await service.delete(tenant_id, typed=None)  # only kaleta-admin may skip it
         assert (await service.family(tenant_id)).status is TenantStatus.ACTIVE
 
+        schema = (await public.get(Tenant, tenant_id)).schema_name  # type: ignore[union-attr]
+        assert await _schema_exists(schema)
         deleted = await service.delete(tenant_id, typed="Kowalscy")
 
         assert deleted.identities_removed == 1
+        assert not await _schema_exists(schema)
         assert await public.get(Tenant, tenant_id) is None
         assert await LocalIdentityService(public).get_by_email(JAN) is None
         assert await LocalIdentityService(public).get_by_email(ADMIN) is not None
@@ -291,6 +306,8 @@ async def test_every_action_leaves_an_audit_row_without_the_targets_address(
 
     assert [(e.action, e.tenant_id, e.identity_id, e.detail) for e in trail] == [
         (AdminAction.REGISTRATION_CHANGED, None, None, "open"),
+        # Suspended, not closed: the reset signs Jan's browsers out there too.
+        (AdminAction.SESSIONS_REVOKED, None, jan.identity_id, None),
         (AdminAction.PASSWORD_RESET, None, jan.identity_id, None),
         (AdminAction.FAMILY_SUSPENDED, tenant_id, None, None),
         (AdminAction.FAMILY_CREATED, tenant_id, jan.identity_id, None),
@@ -315,3 +332,116 @@ async def test_every_action_leaves_an_audit_row_without_the_targets_address(
         None,
         tenant_id,
     )
+
+
+async def test_a_family_whose_provisioning_fails_leaves_nothing_behind(instance: str) -> None:
+    """Covers: KAL-ADM-002"""
+    admin = await _admin_subject(instance)
+    failing = MetadataProvisioner(instance, fail_first=True)
+    async with AsyncSessionFactory.public() as public:
+        with pytest.raises(RuntimeError, match="simulated crash"):
+            await _service(public, instance, admin, failing).create_family(JAN, "Kowalscy")
+    async with AsyncSessionFactory.public() as public:
+        assert await LocalIdentityService(public).get_by_email(JAN) is None
+        assert len(await _service(public, instance, admin).families()) == 1  # the admin's
+        assert await _service(public, instance, admin).audit_trail() == []
+
+    tenant_id, _password = await _create_family(instance, admin, "Kowalscy", JAN)
+    async with AsyncSessionFactory.public() as public:
+        assert (await _service(public, instance, admin).family(tenant_id)).name == "Kowalscy"
+
+
+async def test_a_login_disabled_while_its_family_is_suspended_stays_out_after_resume(
+    instance: str,
+) -> None:
+    """Covers: KAL-ADM-003"""
+    admin = await _admin_subject(instance)
+    tenant_id, password = await _create_family(instance, admin, "Kowalscy", JAN)
+    signed_in = await _sign_in(instance, JAN, password)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(
+            signed_in.tenant.auth_subject  # type: ignore[union-attr]
+        )
+        jan = await _service(public, instance, admin).login_by_email(JAN)
+    assert membership is not None
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            _token, raw = await ApiTokenService(session).create_token(
+                user_id=signed_in.user_id, label="script"
+            )
+
+    async with AsyncSessionFactory.public() as public:
+        await _service(public, instance, admin).suspend(tenant_id)
+    await set_login_disabled(jan.identity_id, True, actor=admin)
+    async with AsyncSessionFactory.public() as public:
+        await _service(public, instance, admin).resume(tenant_id)
+
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            assert await ApiTokenService(session).authenticate_bearer(raw) is None
+            assert await AuthService(session).sessions_valid_from(signed_in.user_id) is not None
+    with pytest.raises(UnauthorizedError):
+        await RegistryAuthProvider().sign_in(JAN, password)
+
+
+async def test_turning_mfa_off_in_a_suspended_family_changes_nothing(instance: str) -> None:
+    """Covers: KAL-ADM-004"""
+    admin = await _admin_subject(instance)
+    tenant_id, password = await _create_family(instance, admin, "Kowalscy", JAN)
+    signed_in = await _sign_in(instance, JAN, password)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(
+            signed_in.tenant.auth_subject  # type: ignore[union-attr]
+        )
+        jan = await _service(public, instance, admin).login_by_email(JAN)
+    assert membership is not None
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            mfa = MfaService(session)
+            enrolment = await mfa.begin_enrolment(signed_in.user_id)
+            totp = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL)
+            await mfa.confirm_enrolment(signed_in.user_id, totp.now())
+
+    async with AsyncSessionFactory.public() as public:
+        service = _service(public, instance, admin)
+        await service.suspend(tenant_id)
+        with pytest.raises(ValidationError, match="resume the family first"):
+            await service.reset_password(jan.identity_id, disable_mfa=True)
+    async with AsyncSessionFactory.public() as public:
+        assert await LocalIdentityService(public).verify_password(jan.identity_id, password)
+
+    async with AsyncSessionFactory.public() as public:
+        service = _service(public, instance, admin)
+        await service.resume(tenant_id)
+        reset = await service.reset_password(jan.identity_id, disable_mfa=True)
+        trail = [e.action for e in await service.audit_trail(limit=3)]
+    assert reset.mfa_removed is True
+    assert reset.sessions_revoked
+    assert trail == [
+        AdminAction.MFA_DISABLED,
+        AdminAction.SESSIONS_REVOKED,
+        AdminAction.PASSWORD_RESET,
+    ]
+
+
+async def test_login_and_family_actions_are_audited(instance: str) -> None:
+    """Covers: KAL-ADM-006"""
+    admin = await _admin_subject(instance)
+    tenant_id, _password = await _create_family(instance, admin, "Kowalscy", JAN)
+    async with AsyncSessionFactory.public() as public:
+        service = _service(public, instance, admin)
+        ania = await service.create_login(ANIA, admin=True)
+        await service.set_admin(ania.identity_id, False)
+        await service.set_disabled(ania.identity_id, True)
+        await service.set_disabled(ania.identity_id, False)
+        await service.delete(tenant_id, typed="Kowalscy")
+        trail = await service.audit_trail(limit=6)
+
+    assert [(e.action, e.tenant_id, e.identity_id) for e in trail] == [
+        (AdminAction.FAMILY_DELETED, tenant_id, None),
+        (AdminAction.LOGIN_ENABLED, None, ania.identity_id),
+        (AdminAction.LOGIN_DISABLED, None, ania.identity_id),
+        (AdminAction.ADMIN_REVOKED, None, ania.identity_id),
+        (AdminAction.ADMIN_GRANTED, None, ania.identity_id),
+        (AdminAction.LOGIN_CREATED, None, ania.identity_id),
+    ]
