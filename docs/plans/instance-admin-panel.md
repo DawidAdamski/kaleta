@@ -19,7 +19,7 @@ Put the same operations behind a page only the instance administrator
 sees, showing nothing the operator may not see (ADR-35: e-mails, counts,
 statuses — never financial data).
 
-Depends on [`postgres-only`](postgres-only.md) (instance admin,
+Depends on [`postgres-only`](archive/postgres-only.md) (instance admin,
 `local_identities`, `registration_mode`).
 
 ## Scope

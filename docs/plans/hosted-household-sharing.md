@@ -21,7 +21,7 @@ records who made it, and removing a member revokes access for real by
 re-keying the household. The same flow works on a self-hosted instance
 with local logins (ADR-38: one layout everywhere).
 
-Depends on [`postgres-only`](postgres-only.md) (local logins on the
+Depends on [`postgres-only`](archive/postgres-only.md) (local logins on the
 multi layout, ADR-38), [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
 (the `tenant_members` registry and the per-member `users` rows are laid
 down there) and [`hosted-field-encryption`](archive/hosted-field-encryption.md)
