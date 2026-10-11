@@ -89,7 +89,7 @@ async def _mfa_status(user_id: int) -> tuple[MfaStatus, bool]:
     return await with_session(_load)
 
 
-async def _step_up(user_id: int) -> bool:
+async def mfa_step_up(user_id: int) -> bool:
     """Make sure a code was given recently. True when the caller may proceed.
 
     With MFA off there is nothing to prove. With MFA on and the last code older
@@ -428,7 +428,7 @@ async def _open_setup(user_id: int, refresh: Refresh) -> None:
 
 
 async def _open_recovery(user_id: int, refresh: Refresh) -> None:
-    if not await _step_up(user_id):
+    if not await mfa_step_up(user_id):
         return
 
     async def _regenerate(session: Any) -> list[str]:
@@ -601,7 +601,7 @@ async def _sign_out_everywhere(user_id: int) -> None:
             ).props("color=negative")
     confirmed = await dialog
     dialog.delete()
-    if not confirmed or not await _step_up(user_id):
+    if not confirmed or not await mfa_step_up(user_id):
         return
 
     async def _revoke(session: Any) -> None:
@@ -663,7 +663,7 @@ async def _render_token_card(user_id: int) -> None:
             if not label:
                 ui.notify(t("settings.security_token_label_required"), type="warning")
                 return
-            if not await _step_up(user_id):
+            if not await mfa_step_up(user_id):
                 # Either a wrong code, which the dialog already explained, or
                 # a cancel, which needs no explaining at all.
                 return
@@ -772,7 +772,7 @@ async def _render_token_card(user_id: int) -> None:
             )
 
             async def _revoke(token_id: int) -> None:
-                if not await _step_up(user_id):
+                if not await mfa_step_up(user_id):
                     return
 
                 async def _do_revoke(session: Any) -> None:
