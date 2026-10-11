@@ -22,12 +22,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from sqlalchemy import Table, bindparam, select, update
+from sqlalchemy import Table, and_, bindparam, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.db.base import Base
 from kaleta.db.blind_index import blind_index_specs, with_blind_indexes
-from kaleta.db.types import EncryptedJSON, EncryptedText
+from kaleta.db.types import TEXT_FORMAT_AES_GCM, EncryptedJSON, EncryptedText
 
 log = logging.getLogger(__name__)
 
@@ -46,8 +46,11 @@ class DataEncryptionService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
-    async def rewrite_all(self) -> dict[str, int]:
+    async def rewrite_all(self, *, only_key_version: int | None = None) -> dict[str, int]:
         """Rewrite every encrypted column and blind index; return rows per table.
+
+        ``only_key_version``: just the rows with a value still encrypted under
+        that key version — the re-key's sweep for stragglers (``HouseholdRekey``).
 
         Does not commit — the caller decides whether the whole pass lands.
         """
@@ -56,18 +59,32 @@ class DataEncryptionService:
             columns = _encrypted_columns(table)
             if not columns:
                 continue
-            counts[table.name] = await self._rewrite_table(table, columns)
+            counts[table.name] = await self._rewrite_table(table, columns, only_key_version)
         return counts
 
-    async def _rewrite_table(self, table: Table, columns: list[str]) -> int:
+    async def _rewrite_table(
+        self, table: Table, columns: list[str], only_key_version: int | None
+    ) -> int:
         keys = [col.name for col in table.primary_key.columns]
         spec = blind_index_specs().get(table.name, {})
         targets = [target for target in spec if target not in columns]
-        result = await self.session.execute(
-            select(*(table.c[name] for name in [*keys, *columns])).order_by(
-                *(table.c[name] for name in keys)
-            )
+        query = select(*(table.c[name] for name in [*keys, *columns])).order_by(
+            *(table.c[name] for name in keys)
         )
+        if only_key_version is not None:
+            # The header, read as bytes: ``\x01`` then the key version.
+            query = query.where(
+                or_(
+                    *(
+                        and_(
+                            func.get_byte(table.c[name], 0) == TEXT_FORMAT_AES_GCM,
+                            func.get_byte(table.c[name], 1) == only_key_version,
+                        )
+                        for name in columns
+                    )
+                )
+            )
+        result = await self.session.execute(query)
         rows = [dict(row._mapping) for row in result]
         if not rows:
             return 0

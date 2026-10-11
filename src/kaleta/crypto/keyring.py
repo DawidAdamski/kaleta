@@ -181,6 +181,14 @@ def tenant_member_ref(tenant_id: int, user_id: int) -> str:
     return f"tenant:{tenant_id}:user:{user_id}"
 
 
+def _tenant_of(member_ref: str) -> int | None:
+    kind, _, rest = member_ref.partition(":")
+    raw, _, _ = rest.partition(":")
+    if kind != "tenant" or not raw.isdigit():
+        return None
+    return int(raw)
+
+
 @dataclass(frozen=True)
 class Unlocked:
     """What one unlocked session holds."""
@@ -205,6 +213,8 @@ class KeyRing:
         self._ttl = ttl_seconds
         self._clock = clock
         self._entries: dict[str, Unlocked] = {}
+        #: Families being re-keyed: their unlocks read as locked meanwhile.
+        self._frozen: set[int] = set()
         self._lock = threading.Lock()
 
     def __repr__(self) -> str:
@@ -260,6 +270,8 @@ class KeyRing:
             if entry.expires_at <= self._clock():
                 del self._entries[session_key]
                 return None
+            if self._is_frozen(entry.member_ref):
+                return None
             return entry
 
     def for_member(self, member_ref: str) -> Unlocked | None:
@@ -270,7 +282,7 @@ class KeyRing:
                 if entry.expires_at <= now:
                     del self._entries[key]
                     continue
-                if entry.member_ref == member_ref:
+                if entry.member_ref == member_ref and not self._is_frozen(member_ref):
                     return entry
         return None
 
@@ -288,6 +300,40 @@ class KeyRing:
                 del self._entries[key]
         return len(keys)
 
+    # ── Re-keying a household ────────────────────────────────────────────────
+
+    def freeze(self, tenant_id: int) -> None:
+        """Every unlock of ``tenant_id`` reads as locked until :meth:`thaw`.
+
+        A page then sends its member to the passphrase prompt, and a request
+        that opens a database session meanwhile finds no key to write under —
+        so nothing new is written under the key being replaced.
+        """
+        with self._lock:
+            self._frozen.add(tenant_id)
+
+    def thaw(self, tenant_id: int) -> None:
+        with self._lock:
+            self._frozen.discard(tenant_id)
+
+    def is_frozen(self, tenant_id: int) -> bool:
+        with self._lock:
+            return tenant_id in self._frozen
+
+    def replace_data_key(self, tenant_id: int, data_key: DataKey) -> int:
+        """Give every live unlock of ``tenant_id`` the household's new key; return how many."""
+        replaced = 0
+        with self._lock:
+            for key, entry in list(self._entries.items()):
+                if _tenant_of(entry.member_ref) == tenant_id:
+                    self._entries[key] = replace(entry, data_key=data_key)
+                    replaced += 1
+        return replaced
+
+    def _is_frozen(self, member_ref: str) -> bool:
+        """Under ``self._lock``."""
+        return bool(self._frozen) and _tenant_of(member_ref) in self._frozen
+
     def move(self, old_key: str, new_key: str) -> None:
         """Carry an unlock across a session-id rotation."""
         with self._lock:
@@ -303,6 +349,7 @@ class KeyRing:
     def clear(self) -> None:
         with self._lock:
             self._entries.clear()
+            self._frozen.clear()
 
 
 def _session_ttl_seconds() -> float:
