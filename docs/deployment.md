@@ -125,8 +125,7 @@ KALETA_PORT=8080
 
 Encryption needs no variable: it is always on (`KALETA_ENCRYPTION=passphrase`
 is the default), and `KALETA_ENCRYPTION=off` is refused outside
-`KALETA_DEBUG=true`. `KALETA_TENANCY` is no longer read; if it is still set,
-startup logs a notice and ignores it.
+`KALETA_DEBUG=true`.
 
 **Which host.** Fly.io (container deploy, one volume, TLS included), Railway
 (similar) or a Hetzner VPS (cheapest, more to operate yourself). Choose by
@@ -200,8 +199,8 @@ hash, TOTP secret, recovery code or key (ADR-035, enforced by
 reads the volume under another uid (a backup shipper) cannot read new files;
 run it under Kaleta's uid.
 
-**Not in Kaleta any more:** the setup wizard, `~/.kaleta/config.json`,
-scheduled SQLite backups and the Housekeeping integrity panel. NBP exchange
+**Not in Kaleta any more:** SQLite, the database picker, `~/.kaleta/config.json`,
+scheduled backups and the Housekeeping integrity panel (ADR-38). NBP exchange
 rates are fetched once per instance into `public.nbp_rates` and shared by
 every family; `KALETA_NBP_FETCH=true` fetches them at start-up and once a
 day (off by default; Settings → Data → "Fetch NBP rates" works either way).
@@ -271,11 +270,11 @@ member who is not the owner leaves the household instead.
 
 ## 4. The hosted flow on a laptop
 
-`compose.hosted-dev.yml` runs the same layout locally: `postgres:16` with the
+`compose.hosted-dev.yml` runs the same layout locally: `postgres:18` with the
 non-superuser `kaleta_app` role, and `kaleta:full` with
-`KALETA_AUTH_BACKEND=fake` — a debug stand-in for Supabase Auth that confirms
-every address at sign-up and keeps identities in a file. It is refused unless
-`KALETA_DEBUG=true`, so it cannot reach a real deployment by accident.
+`KALETA_AUTH_BACKEND=local` and `KALETA_DEBUG=true` — local logins, so no
+mail is sent and no Supabase project is needed. `hosted_smoke.sh` creates an
+administrator and opens registration before its sign-up.
 
 ```bash
 podman compose -f compose.hosted-dev.yml up -d --build   # http://localhost:8090

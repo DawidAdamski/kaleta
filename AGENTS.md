@@ -11,7 +11,7 @@ It handles budgeting, transactions, financial planning, savings, and investments
 - **API**: FastAPI (exposed via NiceGUI, also standalone)
 - **ORM**: SQLAlchemy 2.0 (async-ready)
 - **Validation**: Pydantic v2 (schemas separate from models)
-- **Database**: SQLite (default) / PostgreSQL (optional)
+- **Database**: PostgreSQL 16+ only (ADR-38) — a `public` registry, one schema per family
 - **Migrations**: Alembic
 - **Forecasting**: Prophet (time-series forecasting for budget trends)
 - **Deployment**: Docker / Podman
@@ -25,7 +25,7 @@ Views (NiceGUI) + API (FastAPI)
         ↓
    Models (SQLAlchemy) + Schemas (Pydantic)
         ↓
-   Database (SQLite / PostgreSQL)
+   Database (PostgreSQL)
 ```
 
 ## Project Layout
@@ -62,7 +62,9 @@ docs/                    # Architecture ADRs, tech stack, product docs
 - Pydantic schemas are separate from SQLAlchemy models (never use ORM models in API responses)
 - Use dependency injection for database sessions
 - All database operations go through services, never directly in views or API routes
-- Keep SQLite compatibility — avoid PostgreSQL-only features in models
+- PostgreSQL 16+ only (ADR-38) — no dialect branches; a family's tables live in its
+  own schema through `schema_translate_map`, which raw `text()` SQL does not get —
+  use Core/ORM statements
 
 ### Domain errors and logging
 - Services raise typed exceptions from `kaleta.exceptions` (`ValidationError`,
@@ -104,13 +106,12 @@ uv run pre-commit install --hook-type pre-commit --hook-type pre-push  # once pe
 
 ## Runtime Modes
 Set via `KALETA_MODE` environment variable:
-- `web` (default) — browser-accessible web app
-- `app` — NiceGUI desktop window
+- `web` (default) — browser-accessible web app (installable as a PWA)
 - `api` — headless REST API only
 
 ## Environment Variables
 ```
-KALETA_DB_URL=sqlite+aiosqlite:///$HOME/.kaleta/kaleta.db
+KALETA_DB_URL=postgresql://kaleta:<password>@localhost:5432/kaleta
 KALETA_HOST=0.0.0.0
 KALETA_PORT=8080
 KALETA_MODE=web

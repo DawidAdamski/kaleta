@@ -103,8 +103,8 @@ design: it is your own copy, written in plain form from your unlocked
 session, so keep it as carefully as the passphrase. Restoring it
 encrypts everything again.
 
-Self-hosted installs can turn the same protection on for their SQLite
-or PostgreSQL database; see
+Self-hosted installs get the same protection — encryption is always on
+(ADR-38); see
 [Field-level encryption](tech-stack.md#field-level-encryption) in
 `docs/tech-stack.md`.
 
