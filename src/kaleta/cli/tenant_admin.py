@@ -19,7 +19,11 @@ Shipped in the package (``scripts/tenant_admin.py`` runs the same from a
 checkout), so a container has it: ``podman exec kaleta kaleta-admin …``.
 
 Reads only the ``public`` registry: e-mail addresses, roles, statuses — never a
-tenant's data, which is encrypted anyway. (``--disable-mfa`` deletes the
+tenant's data, which is encrypted anyway. Every command that changes something
+goes through ``InstanceAdminService``, as the ``/admin`` page does, and writes
+the same ``public.admin_audit`` row (with no actor: the operator is whoever
+has a shell). A password ``create-login`` or ``reset-password`` prints must be
+changed at the next sign-in. (``--disable-mfa`` deletes the
 member's second-factor row in their family's schema, and writes the audit row
 there, as the UI would.) ``delete`` removes every member's
 Supabase identity with ``KALETA_SUPABASE_SERVICE_ROLE_KEY``, drops the schema
@@ -36,7 +40,6 @@ from __future__ import annotations
 import argparse
 import asyncio
 import json
-import secrets
 import sys
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -45,14 +48,11 @@ from typing import TextIO
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.db.tenant_context import TenantContext, use_tenant
 from kaleta.exceptions import KaletaError
-from kaleta.models.tenant import Tenant, TenantMember, TenantMemberStatus, TenantStatus
+from kaleta.models.tenant import Tenant, TenantMember, TenantMemberStatus
 from kaleta.schemas.identity import RegistrationMode
 from kaleta.services.account_deletion_service import AccountDeletionService, IdentityRemover
-from kaleta.services.auth_service import AuthService
-from kaleta.services.local_identity_service import LocalIdentityService, subject_of
-from kaleta.services.mfa_service import MfaService
+from kaleta.services.instance_admin_service import AuthBackend, InstanceAdminService
 from kaleta.services.tenant_service import TenantService
 
 
@@ -65,12 +65,14 @@ class TenantAdminCli:
         remover: IdentityRemover,
         *,
         tenant_session: Callable[[], AsyncSession] | None = None,
+        auth_backend: AuthBackend = "local",
         out: TextIO = sys.stdout,
         err: TextIO = sys.stderr,
     ) -> None:
         self._public = public_session
         self._tenant_session = tenant_session
         self._remover = remover
+        self._backend: AuthBackend = auth_backend
         self._out = out
         self._err = err
 
@@ -109,7 +111,7 @@ class TenantAdminCli:
     async def suspend(self, tenant_id: int) -> int:
         async with self._public() as session:
             try:
-                tenant = await TenantService(session).suspend(tenant_id)
+                tenant = await self._service(session).suspend(tenant_id)
             except KaletaError as exc:
                 return self._refuse(exc.message)
         self._print(f"tenant {tenant.id} suspended")
@@ -118,7 +120,7 @@ class TenantAdminCli:
     async def resume(self, tenant_id: int) -> int:
         async with self._public() as session:
             try:
-                tenant = await TenantService(session).resume(tenant_id)
+                tenant = await self._service(session).resume(tenant_id)
             except KaletaError as exc:
                 return self._refuse(exc.message)
         self._print(f"tenant {tenant.id} active")
@@ -132,7 +134,7 @@ class TenantAdminCli:
             )
         async with self._public() as session:
             try:
-                deleted = await AccountDeletionService(session, self._remover).delete(tenant_id)
+                deleted = await self._service(session).delete(tenant_id, typed=None)
             except KaletaError as exc:
                 return self._refuse(exc.message)
         self._print(
@@ -153,77 +155,71 @@ class TenantAdminCli:
 
     async def logins(self) -> int:
         async with self._public() as session:
-            rows = await LocalIdentityService(session).list()
+            rows = await self._service(session).logins()
         for row in rows:
-            marks = (("admin", row.is_instance_admin), ("disabled", row.disabled))
+            marks = (
+                ("admin", row.is_admin),
+                ("disabled", row.disabled),
+                ("must-change", row.must_change_password),
+            )
             flags = [name for name, on in marks if on]
             seen = row.last_login_at.isoformat(timespec="seconds") if row.last_login_at else "-"
-            self._print(f"{row.id}\t{row.email}\t{','.join(flags) or '-'}\t{seen}")
+            self._print(f"{row.identity_id}\t{row.email}\t{','.join(flags) or '-'}\t{seen}")
         return 0
 
     async def create_login(self, email: str, *, admin: bool) -> int:
-        password = secrets.token_urlsafe(12)
         async with self._public() as session:
             try:
-                row = await LocalIdentityService(session).create(email, password, admin=admin)
+                login = await self._service(session).create_login(email, admin=admin)
             except KaletaError as exc:
                 return self._refuse(exc.message)
-        self._print(f"login {row.id} {row.email} created; password (shown once): {password}")
+        self._print(
+            f"login {login.identity_id} {login.email} created; "
+            f"password (shown once): {login.password}"
+        )
         return 0
 
     async def reset_password(self, email: str, *, disable_mfa: bool = False) -> int:
-        password = secrets.token_urlsafe(12)
         async with self._public() as session:
-            identities = LocalIdentityService(session)
-            row = await identities.get_by_email(email)
-            if row is None:
-                return self._refuse(f"no login {email!r}")
-            membership = await TenantService(session).get_member_by_subject(subject_of(row.id))
-            await identities.set_password(row.id, password)
-        self._print(f"login {row.id} {row.email}: new password (shown once): {password}")
-        if membership is None or membership.member.user_id is None:
-            if disable_mfa:
-                self._print("two-factor authentication: none (no family yet)")
-            return 0
-        if membership.tenant.status is not TenantStatus.ACTIVE:
-            # A suspended schema may be one that did not migrate, so it is not
-            # opened: its sessions stay as they are, and a suspended family's
-            # sign-ins are refused anyway until it is resumed.
-            if not disable_mfa:
-                return 0
-            return self._refuse(
-                f"family {membership.tenant.id} is {membership.tenant.status.value}; "
-                "two-factor authentication was left on — resume the family first"
+            service = self._service(session)
+            try:
+                login = await service.login_by_email(email)
+                reset = await service.reset_password(login.identity_id, disable_mfa=disable_mfa)
+            except KaletaError as exc:
+                return self._refuse(exc.message)
+        self._print(
+            f"login {reset.login.identity_id} {reset.login.email}: "
+            f"new password (shown once): {reset.login.password}"
+        )
+        if reset.sessions_revoked:
+            self._print(
+                "All browser sessions have been signed out; API bearer tokens are unchanged."
             )
-        # The moment someone has a password reset is the moment they most want
-        # every other browser out (KAL-AUTH-028).
-        await self._in_family(membership.context(), membership.member.user_id, revoke=True)
-        self._print("All browser sessions have been signed out; API bearer tokens are unchanged.")
-        if disable_mfa:
-            removed = await self._in_family(membership.context(), membership.member.user_id)
-            self._print(f"two-factor authentication: {'removed' if removed else 'none'}")
+        if reset.mfa_removed is not None:
+            if not reset.in_family:
+                self._print("two-factor authentication: none (no family yet)")
+            else:
+                self._print(
+                    f"two-factor authentication: {'removed' if reset.mfa_removed else 'none'}"
+                )
         return 0
-
-    async def _in_family(self, ctx: TenantContext, user_id: int, *, revoke: bool = False) -> bool:
-        """Revoke the member's sessions (``revoke``) or turn their second factor off."""
-        if self._tenant_session is None:
-            msg = "TenantAdminCli needs tenant_session for reset-password"
-            raise RuntimeError(msg)
-        with use_tenant(ctx):
-            async with self._tenant_session() as session:
-                if revoke:
-                    await AuthService(session).revoke_sessions(user_id)
-                    return True
-                return await MfaService(session).disable_for_admin(user_id)
 
     async def registration(self, mode: RegistrationMode | None) -> int:
         async with self._public() as session:
-            identities = LocalIdentityService(session)
+            service = self._service(session)
             if mode is not None:
-                await identities.set_registration_mode(mode)
-            current = await identities.registration_mode()
+                await service.set_registration_mode(mode)
+            current = await service.registration_mode()
         self._print(f"registration {current.value}")
         return 0
+
+    def _service(self, session: AsyncSession) -> InstanceAdminService:
+        return InstanceAdminService.for_operator(
+            session,
+            auth_backend=self._backend,
+            remover=self._remover,
+            tenant_session=self._tenant_session,
+        )
 
     def _print(self, line: str) -> None:
         self._out.write(f"{line}\n")
@@ -274,7 +270,10 @@ async def _run(args: argparse.Namespace) -> int:
     # Never echo SQL here, even with KALETA_DEBUG: stdout carries the audit line.
     AsyncSessionFactory.configure(settings.db_url)
     cli = TenantAdminCli(
-        AsyncSessionFactory.public, get_auth_provider(), tenant_session=AsyncSessionFactory
+        AsyncSessionFactory.public,
+        get_auth_provider(),
+        tenant_session=AsyncSessionFactory,
+        auth_backend=settings.auth_backend,
     )
     try:
         if args.command == "list":

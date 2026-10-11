@@ -112,6 +112,7 @@ class LocalIdentityService:
         password: str,
         *,
         admin: bool = False,
+        must_change: bool = False,
     ) -> LocalIdentity:
         """A new login. ``ConflictError`` when the address is taken."""
         address = normalise_email(email)
@@ -127,6 +128,7 @@ class LocalIdentityService:
             email=address,
             password_hash=self._hasher.hash(password),
             is_instance_admin=admin,
+            must_change_password=must_change,
         )
         self.session.add(identity)
         await self.session.commit()
@@ -171,11 +173,34 @@ class LocalIdentityService:
         identity = await self.get(identity_id)
         return identity is not None and self._matches(identity.password_hash, password)
 
-    async def set_password(self, identity_id: int, password: str) -> None:
+    async def set_password(
+        self, identity_id: int, password: str, *, must_change: bool = False
+    ) -> None:
+        """A new password; ``must_change`` when someone other than its owner saw it."""
         identity = await self._require(identity_id)
         self._validate_password(password)
         identity.password_hash = self._hasher.hash(password)
+        identity.must_change_password = must_change
         await self.session.commit()
+
+    async def set_admin(self, identity_id: int, admin: bool) -> None:
+        """Make a login an instance administrator, or no longer one.
+
+        The last active administrator stays one: an instance nobody can
+        administer is fixed only from a shell.
+        """
+        async with self._admin_decision():
+            identity = await self._require(identity_id)
+            if (
+                not admin
+                and identity.is_instance_admin
+                and not identity.disabled
+                and await self._admin_count() == 1
+            ):
+                msg = "The last administrator cannot stop being one."
+                raise ValidationError(msg)
+            identity.is_instance_admin = admin
+            await self.session.commit()
 
     async def set_disabled(self, identity_id: int, disabled: bool) -> None:
         """Refuse or allow this login's sign-ins.

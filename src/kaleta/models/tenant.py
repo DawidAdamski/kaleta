@@ -73,7 +73,9 @@ class Tenant(PublicBase):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     schema_name: Mapped[str] = mapped_column(String(63), nullable=False, unique=True)
-    #: The household's name. Encrypted by ``hosted-field-encryption``.
+    #: The label the instance administrator gave the family when creating it
+    #: (``instance-admin-panel``): registry-visible like the members' e-mail
+    #: addresses. ``None`` for a family that signed itself up.
     name: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[TenantStatus] = mapped_column(
         _enum(TenantStatus, "tenant_status"), nullable=False, default=TenantStatus.PROVISIONING
@@ -167,8 +169,9 @@ class LocalIdentity(PublicBase):
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     is_instance_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    #: Reserved for ``instance-admin-panel`` (a reset the user must change at
-    #: the next sign-in); nothing sets or reads it yet.
+    #: Set by an administrator's reset (and on a login made for a new family's
+    #: owner): the password was shown to someone else, so the next sign-in
+    #: asks for a new one. Cleared when the login's owner sets one.
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_now, server_default=func.now()
@@ -191,3 +194,46 @@ class InstanceSetting(PublicBase):
 
     key: Mapped[str] = mapped_column(String(64), primary_key=True)
     value: Mapped[str] = mapped_column(Text, nullable=False)
+
+
+class AdminAction(enum.StrEnum):
+    """What an instance administrator did — one ``admin_audit`` row each."""
+
+    FAMILY_CREATED = "family_created"
+    FAMILY_SUSPENDED = "family_suspended"
+    FAMILY_RESUMED = "family_resumed"
+    FAMILY_DELETED = "family_deleted"
+    REGISTRATION_CHANGED = "registration_changed"
+    LOGIN_CREATED = "login_created"
+    LOGIN_DISABLED = "login_disabled"
+    LOGIN_ENABLED = "login_enabled"
+    PASSWORD_RESET = "password_reset"  # noqa: S105 — an action name, not a password
+    MFA_DISABLED = "mfa_disabled"
+    SESSIONS_REVOKED = "sessions_revoked"
+    ADMIN_GRANTED = "admin_granted"
+    ADMIN_REVOKED = "admin_revoked"
+
+
+class AdminAuditEntry(PublicBase):
+    """One administrator action (``instance-admin-panel``).
+
+    Who, what, on which family or login, when — never the target's e-mail
+    address, so the trail outlives a deleted family without keeping its
+    members' addresses. No foreign keys for the same reason.
+    """
+
+    __tablename__ = "admin_audit"
+    __table_args__ = _PUBLIC
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_now, server_default=func.now()
+    )
+    #: The administrator's auth subject (``local:3``); ``None`` for
+    #: ``kaleta-admin``, whose operator is whoever has a shell on the host.
+    actor: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    action: Mapped[AdminAction] = mapped_column(_enum(AdminAction, "admin_action"), nullable=False)
+    tenant_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    identity_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: A non-identifying detail, e.g. the new registration mode.
+    detail: Mapped[str | None] = mapped_column(String(64), nullable=True)

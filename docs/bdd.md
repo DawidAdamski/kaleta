@@ -3682,6 +3682,102 @@ Feature: Hosted accounts (multi-tenant)
     And KALETA_MODE=web and KALETA_MODE=api still start
 ```
 
+## Feature: Instance administration
+
+The instance administrator of [ADR-38](adr/038-postgresql-only-one-tenancy-layout.md) §5:
+families, registration, logins, without a terminal
+([`instance-admin-panel`](plans/instance-admin-panel.md)). The `/admin` page and
+`kaleta-admin` go through one service, and every action leaves an audit row.
+
+```gherkin
+Feature: Instance administration
+  As whoever runs a Kaleta instance
+  I want to create and close families and help members who are locked out
+  So that I never need a shell, and never see a family's data
+
+  KAL-ADM-001 @automated
+  Scenario: Only an instance administrator may administer the instance
+    Given a local instance whose administrator is "admin@example.com"
+    And a member "ania@example.com" of another family
+    When "ania@example.com" asks for the administrator's tools
+    Then the answer is "not found"
+    And on a Supabase instance the administrators are the addresses in KALETA_INSTANCE_ADMINS
+
+  KAL-ADM-002 @automated
+  Scenario: The administrator creates a family with a one-time password for its owner
+    Given a local instance with registration "closed"
+    When the administrator creates the family "Kowalscy" for "jan@example.com"
+    Then a password for "jan@example.com" is shown once
+    And "Kowalscy" is listed with owner "jan@example.com", 1 member and no sign-in yet
+    And "jan@example.com" signs in with that password into the family "Kowalscy"
+    And the password must be changed at the next sign-in
+
+  KAL-ADM-003 @automated
+  Scenario: Suspending, resuming and deleting a family
+    Given the family "Kowalscy" owned by "jan@example.com"
+    When the administrator suspends it
+    Then "jan@example.com" cannot sign in
+    When the administrator resumes it
+    Then "jan@example.com" can sign in again
+    When the administrator deletes it typing "Kowalsk"
+    Then nothing is deleted
+    When the administrator deletes it typing "Kowalscy"
+    Then the family's schema, its registry rows and the login "jan@example.com" are gone
+
+  KAL-ADM-004 @automated
+  Scenario: Resetting a member's password signs their browsers out
+    Given "jan@example.com" is signed in to their family
+    When the administrator resets the password of "jan@example.com"
+    Then a new password is shown once, and the old one no longer signs in
+    And every browser session of "jan@example.com" is signed out
+    And the new password must be changed at the next sign-in
+
+  KAL-ADM-005 @automated
+  Scenario: Administrators promote and demote, but the last one stays
+    Given "admin@example.com" is the only administrator
+    When the administrator makes "jan@example.com" an administrator
+    Then both are administrators
+    When "admin@example.com" stops being one
+    Then "jan@example.com" is the only administrator
+    And "jan@example.com" cannot stop being one, nor be disabled
+
+  KAL-ADM-006 @automated
+  Scenario: Every administrator action leaves an audit row without the target's e-mail
+    Given an administrator who suspends a family, resets a password and opens registration
+    Then the audit trail holds one row per action, newest first
+    And each row names the administrator, the action and the family or login by number
+    And no row holds the e-mail address of the family or login acted on
+    And a "kaleta-admin" action is recorded with no administrator
+
+  KAL-ADM-007 @planned
+  Scenario: The administrator's page is in the navigation of administrators only
+    Given a local instance whose administrator is "admin@example.com"
+    When "admin@example.com" signs in
+    Then the navigation has "Administration"
+    When a member of another family signs in
+    Then the navigation has no "Administration" and "/admin" answers "not found"
+
+  KAL-ADM-008 @planned
+  Scenario: Administrator actions ask for the password again after fifteen minutes
+    Given the administrator signed in more than fifteen minutes ago
+    When they suspend a family
+    Then they are asked for their password (and a code, with two-factor sign-in on)
+    And for the next fifteen minutes no action asks again
+
+  KAL-ADM-009 @planned
+  Scenario: A password set by the administrator is changed at the next sign-in
+    Given the administrator created "jan@example.com" with a one-time password
+    When "jan@example.com" signs in with it
+    Then they must choose a new password before any other page opens
+    And afterwards they sign in with the new one only
+
+  KAL-ADM-010 @planned
+  Scenario: Closed registration shows no sign-up link
+    Given the administrator sets registration to "closed" on the administrator's page
+    When someone opens the sign-in page
+    Then there is no link to sign up
+```
+
 ## Feature: Data encryption (user-held passphrase)
 
 [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) and the

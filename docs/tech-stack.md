@@ -168,6 +168,7 @@ KALETA_AUTH_BACKEND=local             # local (argon2, public.local_identities) 
 KALETA_SUPABASE_URL=                  # https://<project>.supabase.co — required for supabase
 KALETA_SUPABASE_ANON_KEY=             # public anon key — required for supabase
 KALETA_SUPABASE_SERVICE_ROLE_KEY=     # server-side only: admin calls (deleting an identity)
+KALETA_INSTANCE_ADMINS=               # supabase only: administrators by e-mail, comma-separated
 KALETA_PUBLIC_URL=                    # this instance's URL, for links in e-mails
 ```
 

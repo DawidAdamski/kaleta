@@ -46,8 +46,10 @@ instance operator resets it from a shell:
 uv run kaleta-admin reset-password <e-mail>
 ```
 
-This updates the argon2 password hash of that member in
-`public.local_identities` and signs every browser session of that member out.
+This prints a one-time password, stores its argon2 hash in
+`public.local_identities`, marks it to be changed at the next sign-in and signs
+every browser session of that member out. The reset is recorded in
+`public.admin_audit`.
 The command refuses to run for an e-mail address that has no local login.
 (`kaleta --reset-password` no longer exists; it exits with status 2 and points
 to this command.)

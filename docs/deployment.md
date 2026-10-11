@@ -258,6 +258,10 @@ uv run kaleta-admin delete 12 --yes               # identities, schema, rows
 uv run kaleta-admin reset-password <e-mail> [--disable-mfa]   # local logins; signs the member's browsers out
 ```
 
+Every command that changes something writes a row to `public.admin_audit`
+(the action, the family or login by number, the time — never the target's
+e-mail address), as the administrator's page will.
+
 `delete` removes every member's Supabase identity first (with the
 service-role key), then drops the schema and the registry rows, and prints
 one JSON audit line — keep it. If the provider cannot remove an identity,

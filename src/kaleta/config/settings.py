@@ -100,6 +100,10 @@ class Settings(BaseSettings):
     #: registry and one schema per family.
     auth_backend: Literal["local", "supabase"] = "local"
     supabase_url: str | None = None
+    #: The instance administrators of a ``supabase`` instance, by e-mail
+    #: (comma-separated). ``local`` logins carry the flag themselves
+    #: (``local_identities.is_instance_admin``) and ignore this.
+    instance_admins: str = ""
     supabase_anon_key: str | None = None
     #: Server-side only — admin calls such as deleting an auth user. Never sent
     #: to a browser, never logged.
@@ -158,6 +162,13 @@ class Settings(BaseSettings):
             )
             self.session_idle_hours = ttl
         return self
+
+    @property
+    def instance_admin_emails(self) -> frozenset[str]:
+        """``KALETA_INSTANCE_ADMINS``, lower-cased."""
+        return frozenset(
+            part.strip().lower() for part in self.instance_admins.split(",") if part.strip()
+        )
 
     @property
     def encryption_enabled(self) -> bool:
