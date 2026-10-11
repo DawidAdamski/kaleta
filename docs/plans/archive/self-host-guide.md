@@ -3,15 +3,16 @@ plan_id: self-host-guide
 title: Self-hosting guide — one machine, HTTPS for the PWA, backups you own
 area: docs / ops
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-11
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Self-hosting guide — one machine, HTTPS for the PWA, backups you own
 
 ## Intent
 
-After [`postgres-only`](archive/postgres-only.md) a family runs Kaleta on its own
+After [`postgres-only`](postgres-only.md) a family runs Kaleta on its own
 machine with one compose file. ADR-38 hands backups to whoever runs the
 database, so the documentation must make that easy to do right: from an
 empty homelab to an installed PWA on the phone, a nightly `pg_dump`, a
@@ -137,3 +138,37 @@ documentation site (GitHub Pages, `mkdocs.yml`).
   one command.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-10-11 (PR #207).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `c934dba` | Dawid Adamski | 2026-10-11 | Merge pull request #207 from DawidAdamski/docs/self-host-guide |
+
+**Files changed:**
+- .github/workflows/ci.yml
+- deploy/selfhost/backup.yml
+- deploy/selfhost/caddy.yml
+- deploy/selfhost/cloudflared.yml
+- docs/deployment.md
+- docs/getting-started.md
+- docs/plans/chores.md
+- docs/plans/self-host-guide.md
+- docs/privacy.md
+- docs/self-hosting.md
+- mkdocs.yml
+- README.md
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `grep -q "self-hosting.md" mkdocs.yml` | 0 |
+| `podman compose -f docker-compose.yml -f deploy/selfhost/backup.yml config` | 0 |
+| `podman compose -f docker-compose.yml -f deploy/selfhost/cloudflared.yml config` | 0 |
+| `uv run python scripts/check_doc_links.py` | 0 |
+| `uv run mkdocs build --strict --site-dir /tmp/kaleta-site` | 0 |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.
