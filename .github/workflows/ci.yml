@@ -56,7 +56,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: kaleta
           POSTGRES_PASSWORD: kaleta
@@ -116,7 +116,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
       postgres:
-        image: postgres:16
+        image: postgres:18
         env:
           POSTGRES_USER: kaleta
           POSTGRES_PASSWORD: kaleta

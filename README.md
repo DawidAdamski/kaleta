@@ -5,32 +5,36 @@
 
 **Kaleta** (Polish: *leather money pouch*) is a self-hosted personal budget and
 finance app. Track transactions, build budgets, import bank CSV exports, and
-forecast cash flow — from a browser, desktop window, or headless API.
+forecast cash flow — from a browser (installable as an app) or a headless API.
 
 ![Kaleta dashboard (dark mode)](docs/design/screenshot.png)
 
 ## Quick start
 
-Requires Python 3.13+ and [uv](https://docs.astral.sh/uv/).
+Kaleta runs on PostgreSQL 16+ ([ADR-38](docs/adr/038-postgresql-only-one-tenancy-layout.md)).
+The shortest way is the Compose stack — Kaleta plus PostgreSQL 18, with the
+database password and the session key generated on the first start:
 
 ```bash
-uv sync && uv run kaleta
+podman compose up -d --build     # or: docker compose up -d --build
 ```
 
-Kaleta runs migrations on start against `KALETA_DB_URL`. On first launch sign
-up with an e-mail address and a password: the first sign-up on an empty
-instance creates the instance administrator and the first family. Forgotten
-password: `uv run kaleta-admin reset-password <e-mail>`. Optional
-demo data: `uv run python scripts/seed.py` — six years of transactions
-named by merchant and tagged by payment method, with budgets, assets and
-a payment calendar of recurring commitments.
+Open http://localhost:8080. The first sign-up on an empty instance creates the
+instance administrator and the first family, then asks for a data passphrase.
+Forgotten password: `podman compose exec kaleta uv run kaleta-admin
+reset-password <e-mail>`.
 
-Manual migrate (bare `alembic upgrade head` uses `KALETA_DB_URL`; set
-`KALETA_MIGRATE_URL` to target another database):
+Without containers: Python 3.13+, [uv](https://docs.astral.sh/uv/) and a
+PostgreSQL you point `KALETA_DB_URL` at (`postgresql://user:pass@host/db`).
+Kaleta brings the database to the current schema on every start.
 
 ```bash
-KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/path/to/kaleta.db uv run alembic upgrade head
+uv sync && KALETA_DB_URL=postgresql://kaleta:…@localhost/kaleta uv run kaleta
 ```
+
+Optional demo data: `uv run python scripts/seed.py` — six years of
+transactions named by merchant and tagged by payment method, with budgets,
+assets and a payment calendar of recurring commitments.
 
 ## Hosted Kaleta
 

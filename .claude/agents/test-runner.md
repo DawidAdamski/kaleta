@@ -24,7 +24,7 @@ Report: total passed/failed, list each failure with its error message, and sugge
 
 ```
 tests/
-├── conftest.py                        # db_engine + session async fixtures (in-memory SQLite)
+├── conftest.py                        # session fixtures on the suite's PostgreSQL family
 ├── unit/
 │   ├── schemas/                       # Pydantic validation tests (no DB needed)
 │   ├── services/                      # Service layer tests (use session fixture)
@@ -46,10 +46,10 @@ When new code is added, create or update tests following these rules:
 
 All async tests use `async def` — no `@pytest.mark.asyncio` decorator needed (set globally via `asyncio_mode = auto`).
 
-The `session` fixture provides a fresh in-memory SQLite session per test — import it implicitly from conftest.
+The `session` fixture provides a session in the suite's PostgreSQL family per test (start the server with `./scripts/test_db.sh up`) — import it implicitly from conftest.
 
 ```python
-"""Unit tests for XxxService — uses in-memory SQLite."""
+"""Unit tests for XxxService."""
 from __future__ import annotations
 
 import pytest

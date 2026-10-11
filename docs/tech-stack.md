@@ -6,10 +6,10 @@
 |------------------|----------------------|------------------------------------------------|
 | Language         | Python 3.13+         | Primary language                               |
 | Package Manager  | uv                   | Dependency management, venv, scripts           |
-| UI Framework     | NiceGUI 2.x          | Web UI, app mode, desktop mode                 |
+| UI Framework     | NiceGUI 2.x          | Web UI (installable as a PWA)                  |
 | Web Framework    | FastAPI (via NiceGUI) | REST API, request handling                    |
 | ORM              | SQLAlchemy 2.x       | Database models, async queries                 |
-| Migrations       | Alembic              | Schema migrations (`render_as_batch=True`)     |
+| Migrations       | Alembic              | Registry (`alembic_public/`) and family schemas (`alembic/`) |
 | Validation       | Pydantic 2.x         | Data validation, serialization                 |
 | Configuration    | pydantic-settings    | Environment-based config                       |
 | ASGI Server      | Uvicorn              | Production server                              |
@@ -57,13 +57,13 @@ anonymized fixture first (`tests/e2e/fixtures/import/README.md`).
 
 ## Database
 
-| Option           | Use Case                                      |
-|------------------|-----------------------------------------------|
-| SQLite (default) | Single-user, local, zero-config               |
-| PostgreSQL (opt) | Self-hosted on Postgres, or the hosted multi-tenant layout (schema per account, ADR-35) |
+PostgreSQL 16+ is the only database (ADR-38): self-hosted and hosted alike, a
+`public` registry plus one schema per family. The tests and `docker-compose.yml`
+run PostgreSQL 18. A `KALETA_DB_URL` that is not PostgreSQL is refused at
+start-up; SQLite databases are not migrated.
 
-Enum columns use `SAEnum(..., native_enum=False)` for SQLite round-trip compatibility.
-Migrations use `render_as_batch=True` to support SQLite's limited `ALTER TABLE`.
+Enum columns use `SAEnum(..., native_enum=False)` (plain strings, kept
+from the SQLite era: a native enum would need a migration per new value).
 
 ## UI Features
 
@@ -120,7 +120,7 @@ DoD gate with `./scripts/verify.sh` (add `--e2e` when views change).
 Tests live in `tests/unit/` split into three layers:
 
 - **`schemas/`** — Pydantic validation: valid inputs, boundary values, SQL injection payloads accepted verbatim, enum rejection
-- **`services/`** — Service CRUD against in-memory SQLite (`aiosqlite`), ORM round-trip injection tests
+- **`services/`** — Service CRUD against the tests' PostgreSQL (`./scripts/test_db.sh up`), ORM round-trip injection tests
 - **`security/`** — Cross-cutting: SQL injection, XSS, path traversal, oversized inputs, enum field rejection, integer field rejection
 
 All async tests use `async def` with `asyncio_mode = auto` (no `@pytest.mark.asyncio` needed).
@@ -140,16 +140,15 @@ Set via `KALETA_MODE` environment variable:
 | Mode    | Command                          | Description                          |
 |---------|----------------------------------|--------------------------------------|
 | `web`   | `uv run kaleta`                  | Browser-accessible web app (default) |
-| `app`   | `KALETA_MODE=app uv run kaleta`  | NiceGUI native desktop window        |
 | `api`   | `KALETA_MODE=api uv run kaleta`  | Headless REST API only               |
 
 ## Environment Configuration
 
 ```
-KALETA_DB_URL=sqlite+aiosqlite:///{home}/.kaleta/kaleta.db
+KALETA_DB_URL=postgresql+asyncpg://kaleta@localhost:5432/kaleta  # PostgreSQL 16+ only
 KALETA_HOST=127.0.0.1                   # Bind address (Docker Compose sets 0.0.0.0)
 KALETA_PORT=8080                      # Bind port
-KALETA_MODE=web                       # web | app | api
+KALETA_MODE=web                       # web | api
 KALETA_SECRET_KEY=...                 # Session/auth secret (required outside debug);
                                       # also derives the key for encrypted columns —
                                       # rotating it forces re-enrolling two-factor auth
@@ -166,7 +165,6 @@ KALETA_REDIS_URL=                     # Sessions + login rate limiter in Valkey/
 
 ```
 KALETA_AUTH_BACKEND=local             # local (argon2, public.local_identities) | supabase (Supabase Auth)
-                                      # | fake (debug stand-in for Supabase; KALETA_DEBUG only)
 KALETA_SUPABASE_URL=                  # https://<project>.supabase.co — required for supabase
 KALETA_SUPABASE_ANON_KEY=             # public anon key — required for supabase
 KALETA_SUPABASE_SERVICE_ROLE_KEY=     # server-side only: admin calls (deleting an identity)
@@ -174,7 +172,7 @@ KALETA_PUBLIC_URL=                    # this instance's URL, for links in e-mail
 ```
 
 Every instance uses one layout: the database is `KALETA_DB_URL` (no first-run
-wizard, no `~/.kaleta/config.json`; `KALETA_TENANCY` is no longer read). A `public` registry (`tenants`, `tenant_members`,
+database picker, no `~/.kaleta/config.json`). A `public` registry (`tenants`, `tenant_members`,
 `tenant_invites`, migrated by `alembic_public/`) names each account's schema
 (`t_` + 12 random hex characters); tenant schemas are migrated by `alembic/`
 with `-x tenant_schema=`. Every session is bound to the current tenant with
@@ -184,19 +182,16 @@ that has not resolved its tenant gets no session at all. API tokens are
 Scheduled backups and the integrity check no longer exist; the event
 retention sweep visits every active family. NBP rates live once per instance
 in `public.nbp_rates` (`KALETA_NBP_FETCH`), under each family's own
-`currency_rates`. Multi-tenant SQLite (every schema an attached file next
-to the main one) exists for development and tests; production runs PostgreSQL.
+`currency_rates`.
 
 On PostgreSQL each process keeps at most ten connections (`pool_size=5`,
 `max_overflow=5`, pre-ping on) and asyncpg prepares no reusable statements,
 so the app runs behind a transaction-mode pooler (Supabase, port 6543). On
 startup the registry is migrated first, then each tenant schema; a schema that
 fails is marked `suspended` and the rest start. `GET /api/v1/health` reports
-`tenancy`, `auth_backend`, `tenants_pending_migration`, `suspended_tenants` and
+`auth_backend`, `tenants_pending_migration`, `suspended_tenants` and
 `keyring_sessions` (unlocked sessions in this process, a count).
-`KALETA_AUTH_BACKEND=fake` (`kaleta.auth.providers.fake`) confirms every
-address at sign-up and keeps argon2 hashes in `~/.kaleta/fake-auth.json`; it
-drives `compose.hosted-dev.yml` and is refused without `KALETA_DEBUG=true`.
+`compose.hosted-dev.yml` runs this layout with local logins in debug mode.
 Operator scripts: `migrate_tenants.py` (deploy hook), `tenant_admin.py`
 (list, members, suspend, resume, delete), `hosted_smoke.sh` (post-deploy
 smoke) and `reset_demo.py --tenant` (the demo as an account).
@@ -232,8 +227,7 @@ without decrypting rows in SQL.
 
 Search and sort over encrypted text run in Python rather than SQL
 (`ILIKE` cannot see into ciphertext). Measured on 50 000 encrypted
-transactions: a search page + count takes ≈100–125 ms on SQLite and
-≈80–100 ms on Postgres 16, against a 300 ms budget (the page's scan is
+transactions: a search page + count took ≈80–100 ms on Postgres 16, against a 300 ms budget (the page's scan is
 reused for its count within one session).
 
 See [privacy.md](privacy.md#encryption) for what this protects against
@@ -270,6 +264,5 @@ query strings, over-long arguments) before any handler writes them, and the
 last 200 lines of a session are held in memory so a bug report can attach them
 — only when the user ticks the box. See [privacy.md](privacy.md).
 
-Scheduled backups are SQLite file snapshots (`VACUUM INTO`), separate from the
-Settings → Data ZIP export/restore format. They are a no-op for PostgreSQL and
-in-memory SQLite.
+Kaleta makes no backups of its own (ADR-38): the operator backs up PostgreSQL
+(`pg_dump`), and each family can export its data from Settings → Data.

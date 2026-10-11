@@ -31,7 +31,7 @@ and category management.
                    │
     ┌──────────────▼─────────────────┐
     │         Database               │
-    │   (SQLite default / PostgreSQL)│
+    │  PostgreSQL 16+ (ADR-38)       │
     └────────────────────────────────┘
 ```
 
@@ -51,7 +51,7 @@ listener in `models/payee_identity.py`, so no creation path can skip it.
 `PayeeService.match_or_create_from_name()` is the single way a raw name
 (CSV import, a typed payee in manual entry) becomes a payee: exact
 identity, then case-insensitive identity (`pattern_key`, casefolded in
-Python because SQLite `lower()` folds ASCII only), then exact payee name,
+Python, so the match never depends on the database's collation), then exact payee name,
 else a new payee. Merges move the merged payees' identities to the keeper.
 `PayeeMergeService` scores payee pairs for merge proposals and, when the
 user opts in, merges confident pairs automatically; each automatic merge is
@@ -143,7 +143,7 @@ kaleta/
 │       ├── login_mfa.py             # TOTP challenge page (/login/mfa); public route, guards itself
 │       └── wizard.py                # Onboarding wizard (/wizard)
 ├── tests/
-│   ├── conftest.py          # In-memory SQLite async fixtures
+│   ├── conftest.py          # The suite's PostgreSQL family (scripts/test_db.sh)
 │   ├── unit/
 │   │   ├── schemas/         # Pydantic validation tests
 │   │   ├── services/        # Service layer tests

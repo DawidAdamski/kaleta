@@ -6,14 +6,14 @@
 #   ./scripts/test_db.sh down   remove it — its data lives in tmpfs, nothing is kept
 #   ./scripts/test_db.sh url    print the KALETA_DB_URL the tests default to
 #
-# postgres:16-alpine under podman (or docker) on 127.0.0.1:55432, with fsync
+# postgres:18-alpine under podman (or docker) on 127.0.0.1:55432, with fsync
 # off and the data directory in tmpfs: a throwaway server, fast because it
 # promises nothing. Never point it at data you want to keep.
 set -euo pipefail
 
 NAME="${KALETA_TEST_DB_CONTAINER:-kaleta-testpg}"
 PORT="${KALETA_TEST_DB_PORT:-55432}"
-IMAGE="docker.io/library/postgres:16-alpine"
+IMAGE="docker.io/library/postgres:18-alpine"
 URL="postgresql+asyncpg://kaleta:kaleta@127.0.0.1:${PORT}/kaleta"
 
 engine() {
@@ -36,7 +36,7 @@ up() {
     "$ce" run -d --name "$NAME" \
       -e POSTGRES_USER=kaleta -e POSTGRES_PASSWORD=kaleta -e POSTGRES_DB=kaleta \
       -p "127.0.0.1:${PORT}:5432" \
-      --tmpfs /var/lib/postgresql/data \
+      --tmpfs /var/lib/postgresql \
       "$IMAGE" \
       -c fsync=off -c synchronous_commit=off -c full_page_writes=off \
       -c max_connections=300 >/dev/null

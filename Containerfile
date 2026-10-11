@@ -9,12 +9,21 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 COPY pyproject.toml uv.lock* README.md ./
 
 # Slim image — runtime deps only (excludes [dependency-groups] dev)
-RUN uv sync --frozen --no-dev
+RUN uv sync --frozen --no-dev --no-install-project
 
 # Copy application code
 COPY src/ src/
 COPY alembic/ alembic/
-COPY alembic.ini* ./
+COPY alembic.ini ./
+# The tenant registry's migrations (every instance keeps a `public` registry).
+COPY alembic_public/ alembic_public/
+COPY alembic_public.ini ./
+
+# The project itself, now that its code is in place.
+RUN uv sync --frozen --no-dev
+
+# `uv run` would otherwise sync the dev group into the image at every start.
+ENV UV_NO_SYNC=1
 
 EXPOSE 8080
 

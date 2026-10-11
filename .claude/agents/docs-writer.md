@@ -42,13 +42,13 @@ Number ADRs sequentially after the last existing one.
 
 - **Language**: Python 3.13+, package manager `uv`
 - **UI**: NiceGUI 2.x wrapping FastAPI
-- **DB**: SQLite default / PostgreSQL optional, SQLAlchemy 2.0 async
-- **Enums**: `SAEnum(..., native_enum=False)` for SQLite compatibility
-- **Migrations**: Alembic with `render_as_batch=True`
+- **DB**: PostgreSQL 16+ only (ADR-38), a schema per family, SQLAlchemy 2.0 async
+- **Enums**: `SAEnum(..., native_enum=False)` (plain string columns)
+- **Migrations**: Alembic — `alembic/` per family schema, `alembic_public/` for the registry
 - **Forecasting**: Prophet in thread pool (`asyncio.run_in_executor`)
 - **Dark mode**: `ui.dark_mode()` + `app.storage.user` (server-side session storage)
 - **Charts**: ECharts via `ui.echart()`, dark mode via `views/chart_utils.py:apply_dark()`
-- **Tests**: pytest + pytest-asyncio (`asyncio_mode=auto`), in-memory SQLite fixtures
+- **Tests**: pytest + pytest-asyncio (`asyncio_mode=auto`), fixtures on PostgreSQL (`./scripts/test_db.sh up`)
 
 ## Style rules
 

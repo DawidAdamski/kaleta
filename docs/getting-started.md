@@ -14,18 +14,20 @@ Kaleta runs two ways, from the same image — only the environment differs:
 | Encryption | Always on (`KALETA_ENCRYPTION=passphrase`) | Always on; the operator cannot read your data |
 | Setting | `KALETA_AUTH_BACKEND=local` (default) | `KALETA_AUTH_BACKEND=supabase` |
 
-Every instance uses the same layout: a `public` registry plus one PostgreSQL
-schema per family. `KALETA_TENANCY` is no longer read.
+Every instance uses the same layout on PostgreSQL 16+ (ADR-38): a `public`
+registry plus one schema per family.
 
-To try the hosted flow on a laptop without Supabase, run
-`podman compose -f compose.hosted-dev.yml up -d --build` — PostgreSQL plus a
-debug-only sign-in backend — and open http://localhost:8090
+To try the hosted layout on a laptop without Supabase, run
+`podman compose -f compose.hosted-dev.yml up -d --build` — PostgreSQL plus
+local logins in debug mode — and open http://localhost:8090
 ([deployment.md](deployment.md#4-the-hosted-flow-on-a-laptop)).
 
 ## Prerequisites
 
 - Python 3.13+
 - [uv](https://docs.astral.sh/uv/) package manager
+- PostgreSQL 16 or newer — or skip all three and use
+  [Docker / Podman](#docker-podman)
 
 ```bash
 # Install uv (if not already installed)
@@ -36,11 +38,13 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 ```bash
 uv sync
-uv run kaleta
+KALETA_DB_URL=postgresql://kaleta:<password>@localhost:5432/kaleta uv run kaleta
 ```
 
-Open **http://localhost:8080**. The app brings the database (`KALETA_DB_URL`) up
-to the installed alembic head on start. The first sign-up on an empty instance
+The role needs to own its database (it creates one schema per family). Open
+**http://localhost:8080**. On every start Kaleta brings the registry and then
+every family's schema to the installed Alembic head, and refuses to start if a
+migration fails. The first sign-up on an empty instance
 creates the instance administrator and the first family, using an e-mail
 address and a password; it then asks for a data passphrase before any
 financial data pages load.
@@ -57,15 +61,8 @@ You will be prompted for a new password and confirmation (minimum 8 characters).
 There is no email reset and no in-app “forgot password” flow. Every browser
 session of that member is signed out (within a minute of the reset); API bearer
 tokens are unchanged. `kaleta --reset-password` no longer exists. See
-[SECURITY.md](../SECURITY.md).
-
-To migrate the database by hand (for example after restoring a
-file copy), point Alembic at that URL — bare `uv run alembic upgrade head`
-uses `KALETA_DB_URL`:
-
-```bash
-KALETA_MIGRATE_URL=sqlite+aiosqlite:///$HOME/KaletaData/kaleta.db uv run alembic upgrade head
-```
+[SECURITY.md](../SECURITY.md). In the Compose stack, run it in the container:
+`podman compose exec kaleta uv run kaleta-admin reset-password <e-mail>`.
 
 ### Demo data
 
@@ -105,39 +102,42 @@ Set via the `KALETA_MODE` environment variable:
 
 | Mode | Command | Description |
 |------|---------|-------------|
-| `web` (default) | `uv run kaleta` | Browser-accessible web app |
-| `app` | `KALETA_MODE=app uv run kaleta` | NiceGUI desktop window |
+| `web` (default) | `uv run kaleta` | Browser-accessible web app; install it as an app (PWA) from the browser |
 | `api` | `KALETA_MODE=api uv run kaleta` | Headless REST API only |
 
 ## Environment variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KALETA_DB_URL` | `sqlite+aiosqlite:///{home}/.kaleta/kaleta.db` | Database connection URL (default under `~/.kaleta`) |
+| `KALETA_DB_URL` | `postgresql+asyncpg://kaleta@localhost:5432/kaleta` | PostgreSQL 16+ URL; `postgresql://` is rewritten to the asyncpg driver, anything else is refused |
 | `KALETA_HOST` | `127.0.0.1` | Host to bind to (`0.0.0.0` in Docker Compose) |
 | `KALETA_PORT` | `8080` | Port to listen on |
-| `KALETA_MODE` | `web` | Runtime mode (`web` / `app` / `api`) |
+| `KALETA_MODE` | `web` | Runtime mode (`web` / `api`) |
 | `KALETA_SECRET_KEY` | `change-me-in-production` | Secret key for sessions (required outside debug) |
 | `KALETA_DEBUG` | `false` | Enable debug mode (allows default secret key) |
-| `KALETA_API_TOKEN` | _(unset)_ | Bootstrap bearer for `KALETA_MODE=api` (≥16 chars). On API startup with this set, Kaleta ensures a real user exists (creates locked user `api` if needed) so the token can authenticate. With local logins it acts as the instance administrator in their family. UI-managed tokens remain the normal path for `web`/`app`. |
+| `KALETA_API_TOKEN` | _(unset)_ | Bootstrap bearer for `KALETA_MODE=api` (≥16 chars). On API startup with this set, Kaleta ensures a real user exists (creates locked user `api` if needed) so the token can authenticate. With local logins it acts as the instance administrator in their family. Tokens made in Settings remain the normal path. |
 | `KALETA_SESSION_TTL_HOURS` | `72` | UI session lifetime in hours (`0` disables expiry) |
 | `KALETA_SESSION_IDLE_HOURS` | `12` | Sign a UI session out after this many hours without a request (`0` disables; capped at `KALETA_SESSION_TTL_HOURS`) |
 | `KALETA_SESSION_COOKIE_SECURE` | `false` | Mark the `kaleta_session` cookie `Secure` — only behind TLS; on plain http login stops working |
 | `KALETA_SESSION_COOKIE_SAMESITE` | `lax` | `lax` or `strict` (`strict` drops the cookie on links from outside, e.g. e-mail confirmations) |
 | `KALETA_NBP_FETCH` | `false` | Fetch NBP Table A exchange rates at start-up and once a day, for every family of the instance |
 | `KALETA_ENCRYPTION` | `passphrase` | Field-level encryption; `off` is accepted only with `KALETA_DEBUG=true` — see [deployment.md](deployment.md) |
-| `KALETA_AUTH_BACKEND` | `local` | `local` (logins in `public.local_identities`) or `supabase` (`fake`, a debug stand-in for Supabase, only with `KALETA_DEBUG=true`) |
+| `KALETA_AUTH_BACKEND` | `local` | `local` (logins in `public.local_identities`) or `supabase` |
 | `KALETA_REDIS_URL` | _(unset)_ | Keep sessions and the login rate limiter in Valkey (or any Redis-protocol server), so several replicas share them (extra: `hosted`) — see [deployment.md](deployment.md#sessions-restarts-and-replicas) |
 
-Keep production data under `~/.kaleta` (database, NiceGUI sessions in
-`~/.kaleta/nicegui`). Kaleta runs with umask `077`, so everything it
-writes there is readable by its own Unix user only. Repo-root `*.db` / `.nicegui/` leftovers from
-older runs are safe to delete manually — the app does not remove them.
+Any setting can also be a file under `/run/secrets` named after the variable
+in lower case (`/run/secrets/kaleta_secret_key`); an environment variable of
+the same name wins. The Compose stack hands Kaleta its secrets this way.
+
+NiceGUI's session files live in `~/.kaleta/nicegui`. Kaleta runs with umask
+`077`, so everything it writes there is readable by its own Unix user only.
+Repo-root `.nicegui/` leftovers from older runs are safe to delete manually —
+the app does not remove them.
 
 Create a `.env` file in the project root to override defaults:
 
 ```env
-KALETA_DB_URL=sqlite+aiosqlite:////Users/you/.kaleta/kaleta.db
+KALETA_DB_URL=postgresql://kaleta:<password>@localhost:5432/kaleta
 KALETA_HOST=127.0.0.1
 KALETA_PORT=8080
 KALETA_SECRET_KEY=your-secret-key-here
@@ -146,116 +146,54 @@ KALETA_SECRET_KEY=your-secret-key-here
 ## Docker / Podman
 
 Kaleta ships `Containerfile` (slim) and `Containerfile.full` (includes Prophet).
-[`docker-compose.yml`](../docker-compose.yml) builds the **full** image by default
-and persists SQLite under a named volume. The same Compose file works with
-Docker Compose or Podman Compose.
-
-Open **http://localhost:8080** after the container is up. The first sign-up
-creates the instance administrator and the first family unless you already
-have data on the volume.
-
-### Compose (named volume)
+[`docker-compose.yml`](../docker-compose.yml) runs the **full** image with
+PostgreSQL 18; the same file works with Docker Compose and Podman Compose.
 
 From the repository root:
 
 ```bash
-# Docker
-docker compose up --build
-
-# Podman (either form, depending on your install)
-podman compose up --build
-# or:
-podman-compose up --build
+podman compose up -d --build     # or: docker compose up -d --build
 ```
 
-Compose sets:
+Open **http://localhost:8080**. On an empty database the first sign-up creates
+the instance administrator and the first family, then asks for the data
+passphrase.
 
-| Variable / mount | Value |
-|------------------|--------|
-| `KALETA_DB_URL` | `sqlite:///data/kaleta.db` → file `/app/data/kaleta.db` |
-| `KALETA_HOST` | `0.0.0.0` |
-| Volume `kaleta-data` | mounted at `/app/data` |
+What the stack holds:
 
-Set a real secret (required when `KALETA_DEBUG` is not true):
+| Service / volume | What it is |
+|------------------|------------|
+| `secrets` | Runs once per `up`: writes the database password and `KALETA_SECRET_KEY` into `kaleta-secrets` if they are not there yet |
+| `db` | `postgres:18-alpine`, data in the `kaleta-pg` volume |
+| `kaleta` | The app on port 8080; reads `/run/secrets/kaleta_db_url` and `/run/secrets/kaleta_secret_key` |
+| `kaleta-state` | NiceGUI's session files: a restarted container keeps its sessions and asks for the passphrase again |
+
+Nothing secret is written in `docker-compose.yml`. Removing `kaleta-secrets`
+while `kaleta-pg` stays would leave a database whose password nobody has —
+keep the volumes together.
+
+The administrator's CLI runs inside the container:
 
 ```bash
-export KALETA_SECRET_KEY="$(openssl rand -hex 32)"
-podman compose up --build
+podman compose exec kaleta uv run kaleta-admin reset-password <e-mail>
+podman compose exec kaleta uv run kaleta-admin registration open
 ```
 
-Or add under `environment:` in `docker-compose.yml`:
-
-```yaml
-- KALETA_SECRET_KEY=replace-with-a-long-random-string
-```
-
-Stop with `Ctrl+C`, or detach with `-d`. Data survives container recreation
-as long as the `kaleta-data` volume remains.
-
-Inspect / remove the volume (destructive):
+Backups are the operator's (Kaleta makes none): `pg_dump` the database, e.g.
 
 ```bash
-podman volume ls
-podman volume inspect kaleta_kaleta-data   # name may include the project prefix
-# podman volume rm kaleta_kaleta-data
+podman compose exec db pg_dump -U kaleta -Fc kaleta > kaleta-$(date +%F).dump
 ```
 
-### Bind-mount a host folder
+Every family can also export its own data from Settings → Data.
 
-Keep the database on the host (easy backups, visible files):
+Behind a reverse proxy with HTTPS, add `KALETA_PUBLIC_URL` and
+`KALETA_SESSION_COOKIE_SECURE=true` under `kaleta.environment`. To use the
+slim image (no Prophet), point `kaleta.build.dockerfile` at `Containerfile`.
 
-```bash
-mkdir -p "$HOME/KaletaData"
-
-podman build -f Containerfile.full -t kaleta:full .
-
-podman run --name kaleta --rm -it \
-  -p 8080:8080 \
-  -e KALETA_HOST=0.0.0.0 \
-  -e KALETA_PORT=8080 \
-  -e KALETA_DB_URL=sqlite:///data/kaleta.db \
-  -e KALETA_SECRET_KEY="$(openssl rand -hex 32)" \
-  -v "$HOME/KaletaData:/app/data:Z" \
-  kaleta:full
-```
-
-- Host path `$HOME/KaletaData` maps to `/app/data` in the container.
-- `:Z` is for SELinux (Fedora/RHEL); on macOS you can omit it:
-  `-v "$HOME/KaletaData:/app/data"`.
-- SQLite file: `$HOME/KaletaData/kaleta.db`.
-- Backups are per-family export ZIPs from Settings → Data; the app writes no scheduled backups.
-
-Equivalent with Docker:
-
-```bash
-docker build -f Containerfile.full -t kaleta:full .
-docker run --name kaleta --rm -it \
-  -p 8080:8080 \
-  -e KALETA_HOST=0.0.0.0 \
-  -e KALETA_PORT=8080 \
-  -e KALETA_DB_URL=sqlite:///data/kaleta.db \
-  -e KALETA_SECRET_KEY="$(openssl rand -hex 32)" \
-  -v "$HOME/KaletaData:/app/data" \
-  kaleta:full
-```
-
-### Slim image (no Prophet)
-
-Smaller image if you do not need forecasting:
-
-```bash
-podman build -f Containerfile -t kaleta:slim .
-# same podman run as above, image kaleta:slim
-```
-
-### Notes
-
-- Prefer **one** persistent store (Compose volume **or** bind mount). Mixing a
-  host `uv run kaleta` install (`~/.kaleta`) with a container volume means two
-  separate databases unless you deliberately point both at the same file.
-- Bind to loopback on the host if you only use it locally, e.g.
-  `-p 127.0.0.1:8080:8080`, instead of publishing on all interfaces.
-- For non-container autostart on the host, see [Local deploy](deploy-local.md).
+Bind to loopback on the host if you only use it locally — `127.0.0.1:8080:8080`
+in `kaleta.ports`. For autostart without containers, see
+[Local deploy](deploy-local.md).
 
 ## Development
 
@@ -275,8 +213,7 @@ After model changes:
 
 ```bash
 uv run alembic revision --autogenerate -m "description"
-# Prefer starting the app (auto-migrate) or set KALETA_MIGRATE_URL to the target DB:
-KALETA_MIGRATE_URL=sqlite+aiosqlite:///./kaleta.db uv run alembic upgrade head
+# Starting the app migrates the registry and every family's schema.
 ```
 
 ## Project structure
@@ -315,7 +252,7 @@ Kaleta is a self-hosted personal finance app. Capabilities include:
 - Subscriptions detection, payment calendar, and financial wizard panels
 - Customisable dashboard with drag-and-drop widgets
 - Progressive Web App (PWA) support and REST API
-- SQLite (default) or PostgreSQL
+- PostgreSQL 16+, one schema per family
 
 For product design detail see [Product overview](product/index.md).
 

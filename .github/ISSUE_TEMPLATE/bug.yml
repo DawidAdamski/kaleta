@@ -75,7 +75,6 @@ body:
       label: Runtime
       options:
         - web (browser)
-        - app (desktop window)
         - api (headless)
         - Docker / Podman
         - other
@@ -86,7 +85,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, Python version, database (SQLite / PostgreSQL), browser if relevant.
+      description: OS, Python version, PostgreSQL version, browser if relevant.
     validations:
       required: false
 

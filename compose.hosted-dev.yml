@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# The hosted layout (ADR-35) on a laptop: PostgreSQL 16 + Kaleta with local
+# The hosted layout (ADR-35) on a laptop: PostgreSQL 18 + Kaleta with local
 # logins (ADR-38) — no mail is sent — and the app connecting as a
 # non-superuser role, as on Supabase. Not a deployment: KALETA_DEBUG=true.
 #
@@ -15,13 +15,13 @@ name: kaleta-hosted-dev
 
 services:
   db:
-    image: docker.io/library/postgres:16-alpine
+    image: docker.io/library/postgres:18-alpine
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: kaleta
     volumes:
-      - hosted-dev-pg:/var/lib/postgresql/data
+      - hosted-dev-pg:/var/lib/postgresql
       # Creates `kaleta_app`, the non-superuser role the app connects as.
       - ./deploy/postgres/init-app-role.sql:/docker-entrypoint-initdb.d/10-app-role.sql:ro,z
     healthcheck:

@@ -50,8 +50,8 @@ vacuum. The PR description must link the plan file in `docs/plans/`
 ## 5. Data & migrations
 
 - [ ] New/changed models come with an Alembic migration; migration
-      is reversible and works on both SQLite and PostgreSQL (CI
-      postgres job green).
+      is reversible and runs on PostgreSQL in the family's schema
+      (CI postgres job green).
 - [ ] Applied migrations from history are not rewritten (forward
       edits only), unless the PR explicitly justifies it.
 - [ ] No secrets, no real personal/financial data, no `.db` files in
