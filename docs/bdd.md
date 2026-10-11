@@ -3778,6 +3778,107 @@ Feature: Instance administration
     Then there is no link to sign up
 ```
 
+## Feature: Household sharing
+
+Up to ten people on one family's data, each with their own login and data passphrase
+([`hosted-household-sharing`](plans/hosted-household-sharing.md)). The owner invites,
+approves by sealing the household's key to the newcomer's keypair, and removing a member
+re-keys the household. The server never holds the key while nobody is unlocked, so
+approving and re-keying need the owner unlocked.
+
+```gherkin
+Feature: Household sharing
+  As parents who run one set of finances together
+  We want each of us to sign in to the same ledger with our own login and passphrase
+  So that we both keep it up to date, and a member who leaves loses access for real
+
+  KAL-HHS-001 @automated
+  Scenario: The owner invites a member with a link
+    Given "jan@example.com" owns a household
+    When "jan@example.com" invites "ania@example.com"
+    Then a link that is good for 72 hours is shown once
+    And inviting "ania@example.com" again makes the first link stop working
+    And a link that was used, or is older than 72 hours, is refused
+
+  KAL-HHS-002 @automated
+  Scenario: The invitee joins and waits for approval without seeing any data
+    Given "jan@example.com" invited "ania@example.com"
+    When "ania@example.com" opens the link, chooses a password and signs in
+    And sets up their own data passphrase
+    Then they are a pending member of the household of "jan@example.com"
+    And their data stays locked: the payees "Biedronka" and "Orlen" cannot be read in their session
+
+  KAL-HHS-003 @automated
+  Scenario: The owner approves and both work on the same ledger
+    Given "ania@example.com" is waiting for approval with a passphrase set up
+    When "jan@example.com", unlocked, approves them
+    Then "ania@example.com" unlocks with their own passphrase and sees "Biedronka" and "Orlen"
+    And a payee "Lidl" that they add is seen by "jan@example.com"
+    And the members list shows their public-key fingerprint as 8 groups of 4 characters
+
+  KAL-HHS-004 @automated
+  Scenario: The owner declines a pending member
+    Given "ania@example.com" is waiting for approval
+    When "jan@example.com" declines them
+    Then they are no longer listed, and the login the invitation made for them is gone
+
+  KAL-HHS-005 @automated
+  Scenario: Removing a member re-keys the household
+    Given "ania@example.com" is an approved member who is signed in and unlocked
+    When "jan@example.com" removes them
+    Then every session of "ania@example.com" is signed out and their unlock is forgotten
+    And the household's key version goes from 1 to 2, and the old key opens none of its rows
+    And "jan@example.com" still reads "Biedronka" and "Orlen" without unlocking again
+    And "ania@example.com" can no longer sign in
+
+  KAL-HHS-006 @automated
+  Scenario: Removing a member who lost a phone, without re-keying
+    Given "ania@example.com" is an approved member
+    When "jan@example.com" removes them and chooses not to re-key
+    Then they can no longer sign in and the household's key version stays 1
+
+  KAL-HHS-007 @automated
+  Scenario: Handing the household to another member
+    Given "ania@example.com" is an approved member
+    When "jan@example.com" tries to leave the household
+    Then they are told to hand it to another member first
+    When "jan@example.com" makes "ania@example.com" the owner
+    Then "ania@example.com" is the household's only owner and "jan@example.com" a member
+
+  KAL-HHS-008 @automated
+  Scenario: A member leaves the household
+    Given "ania@example.com" is an approved member who is unlocked
+    When they leave the household
+    Then they can no longer sign in, and the household is re-keyed
+
+  KAL-HHS-009 @automated
+  Scenario: A household has at most ten members, invitations included
+    Given a household with KALETA_HOUSEHOLD_MAX_MEMBERS at its default
+    And its owner and 9 open invitations
+    When the owner invites one more person
+    Then the invitation is refused with "at most 10 members"
+
+  KAL-HHS-010 @automated
+  Scenario: A member who lost passphrase and recovery code starts over
+    Given "ania@example.com" is an approved member
+    When they reset their keys
+    Then they are pending again, set up a new passphrase, and are approved again
+    And they see "Biedronka" and "Orlen" with their new passphrase
+
+  KAL-HHS-011 @automated
+  Scenario: A hosted invitee joins by the e-mail address the provider verified
+    Given "jan@example.com" invited "ania@example.com" on an instance with Supabase Auth
+    When "ania@example.com" signs up there and signs in for the first time
+    Then they are a pending member of the household of "jan@example.com", not the owner of a new one
+    And a local login typed with the same address joins nothing without the link
+
+  KAL-HHS-012 @automated
+  Scenario: A removed member who is invited again starts over
+    Given "ania@example.com" was removed from the household
+    When "jan@example.com" invites them again and they sign in
+    Then they are pending, with no keys, until they set up a passphrase and are approved
+```
+
 ## Feature: Data encryption (user-held passphrase)
 
 [ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md) and the

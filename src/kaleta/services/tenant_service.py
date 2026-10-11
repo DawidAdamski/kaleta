@@ -31,6 +31,7 @@ from kaleta.db.tenant_schemas import new_schema_name, quote_schema
 from kaleta.exceptions import ConflictError, NotFoundError, UnauthorizedError
 from kaleta.models.tenant import (
     Tenant,
+    TenantInvite,
     TenantMember,
     TenantMemberStatus,
     TenantRole,
@@ -38,8 +39,40 @@ from kaleta.models.tenant import (
 )
 from kaleta.models.user import User
 from kaleta.schemas.identity import Identity
+from kaleta.services.local_identity_service import identity_id_of
 
 logger = logging.getLogger(__name__)
+
+INVITE_GONE = "This invitation link is no longer valid. Ask for a new one."
+REKEYING_SIGN_IN = "Your household is being re-keyed. Try again in a moment."
+
+
+def invite_token_hash(token: str) -> str:
+    """What ``tenant_invites`` keeps of a token: its SHA-256 — a copy of the table opens nothing."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def identity_is_local(subject: str) -> bool:
+    """A ``local_identities`` login (``local:<id>``) rather than the provider's."""
+    return identity_id_of(subject) is not None
+
+
+def encryption_enabled() -> bool:
+    from kaleta.config import settings
+
+    return settings.encryption_enabled
+
+
+def clear_member_keys(member: TenantMember) -> None:
+    """Forget a member's key block: they set a passphrase up again and wait for approval."""
+    member.public_key = None
+    member.private_key_wrapped = None
+    member.private_key_salt = None
+    member.kdf_params = None
+    member.recovery_wrapped = None
+    member.recovery_salt = None
+    member.dek_sealed = None
+
 
 #: ``users.display_name`` length; it starts out as the e-mail's local part.
 _DISPLAY_NAME_MAX = 100
@@ -158,6 +191,10 @@ class TenantService:
                 return existing.tenant
             if existing is None:
                 email = identity.email.strip().lower()
+                invite = await self._invitation_by_email(identity, email)
+                if invite is not None:
+                    joined = await self.join(invite, subject=identity.subject)
+                    return joined.tenant
                 taken = await self.session.execute(
                     select(TenantMember.id).where(TenantMember.email == email)
                 )
@@ -189,7 +226,7 @@ class TenantService:
         provisioner = self._require_provisioner()
         await provisioner.create(tenant.schema_name)
         ctx = TenantContext(tenant_id=tenant.id, schema=tenant.schema_name)
-        user_id = await self._ensure_owner_user(ctx, member)
+        user_id = await self._ensure_member_user(ctx, member.email)
         now = datetime.now(UTC)
         member.user_id = user_id
         member.status = TenantMemberStatus.ACTIVE
@@ -199,8 +236,12 @@ class TenantService:
         await self.session.commit()
         logger.info("Provisioned tenant %s (schema %s)", tenant.id, tenant.schema_name)
 
-    async def _ensure_owner_user(self, ctx: TenantContext, member: TenantMember) -> int:
-        """The owner's ``users`` row in the new schema — found again on a resumed run."""
+    async def _ensure_member_user(self, ctx: TenantContext, email: str) -> int:
+        """A member's ``users`` row in the family's schema — found again when it exists.
+
+        The owner's on a new schema (and on a resumed run), an invited member's
+        at join, a returning member's from before their removal.
+        """
         # The whole block under the new family's context, not only the
         # session's creation: what the flush writes (the audit row of this
         # insert) is encrypted under the *current* context's key. Outside it, a
@@ -208,13 +249,13 @@ class TenantService:
         # from the panel — would lend its key to the new schema.
         with use_tenant(ctx):
             async with self._require_tenant_session()() as session:
-                result = await session.execute(select(User).where(User.username == member.email))
+                result = await session.execute(select(User).where(User.username == email))
                 user = result.scalar_one_or_none()
                 if user is None:
                     user = User(
-                        username=member.email,
-                        email=member.email,
-                        display_name=member.email.split("@", 1)[0][:_DISPLAY_NAME_MAX],
+                        username=email,
+                        email=email,
+                        display_name=email.split("@", 1)[0][:_DISPLAY_NAME_MAX],
                         password_hash=None,
                     )
                     session.add(user)
@@ -255,14 +296,114 @@ class TenantService:
         if membership is None or membership.tenant.id != tenant.id:
             msg = "Account registry changed during sign-in; try again."
             raise ConflictError(msg)
+        if membership.tenant.status is TenantStatus.REKEYING:
+            raise UnauthorizedError(REKEYING_SIGN_IN)
         if membership.tenant.status is not TenantStatus.ACTIVE:
             msg = "This account is not available."
             raise UnauthorizedError(msg)
-        if membership.member.status is not TenantMemberStatus.ACTIVE:
+        if membership.member.status is TenantMemberStatus.REMOVED:
+            membership = await self._rejoin(membership)
+        if membership.member.status is TenantMemberStatus.PENDING:
+            # Signed in to set a passphrase (the keypair the owner approves)
+            # and to wait; the unlock gate keeps the data out of reach. With
+            # encryption off there is no gate, so no session either.
+            if not encryption_enabled() or membership.member.user_id is None:
+                msg = "Your membership is waiting for the owner's approval."
+                raise UnauthorizedError(msg)
+        elif membership.member.status is not TenantMemberStatus.ACTIVE:
             msg = "Your membership of this account is not active."
             raise UnauthorizedError(msg)
         await self._sync_email(membership, identity.email)
         return membership
+
+    async def _rejoin(self, membership: TenantMembership) -> TenantMembership:
+        """A removed member invited again comes back as ``pending``, with no keys."""
+        invite = await self._open_invitation(membership.member.email, membership.tenant.id)
+        if invite is None:
+            msg = "You are no longer a member of this household."
+            raise UnauthorizedError(msg)
+        return await self.join(invite, subject=membership.member.auth_subject)
+
+    # ── Invitations and joining (hosted-household-sharing) ───────────────────
+
+    async def invitation_by_token(self, token: str) -> TenantInvite:
+        """The open invitation ``token`` stands for; ``NotFoundError`` otherwise."""
+        result = await self.session.execute(
+            select(TenantInvite).where(TenantInvite.token_hash == invite_token_hash(token))
+        )
+        invite = result.scalar_one_or_none()
+        if invite is None or not self._is_open(invite):
+            raise NotFoundError(INVITE_GONE)
+        return invite
+
+    async def _invitation_by_email(self, identity: Identity, email: str) -> TenantInvite | None:
+        """The open invitation for a first sign-in's e-mail — where the provider verified it.
+
+        A ``local`` address is whatever somebody typed: it joins only through
+        the invitation's token (``HouseholdInvitations.accept``).
+        """
+        if identity_is_local(identity.subject) or not identity.email_verified:
+            return None
+        return await self._open_invitation(email)
+
+    async def _open_invitation(
+        self, email: str, tenant_id: int | None = None
+    ) -> TenantInvite | None:
+        query = select(TenantInvite).where(
+            TenantInvite.email == email,
+            TenantInvite.accepted_at.is_(None),
+            TenantInvite.expires_at > self._now(),
+        )
+        if tenant_id is not None:
+            query = query.where(TenantInvite.tenant_id == tenant_id)
+        result = await self.session.execute(query.order_by(TenantInvite.id.desc()))
+        return result.scalars().first()
+
+    def _is_open(self, invite: TenantInvite) -> bool:
+        return invite.accepted_at is None and invite.expires_at > self._now()
+
+    async def join(self, invite: TenantInvite, *, subject: str) -> TenantMembership:
+        """Spend ``invite``: ``subject`` becomes a ``pending`` member of its household.
+
+        A member removed earlier comes back on their old row (their ``users``
+        row, and so their history, with it) — with its keys cleared, since the
+        household was re-keyed when they left.
+        """
+        if not self._is_open(invite):
+            raise NotFoundError(INVITE_GONE)
+        tenant = await self._require_tenant(invite.tenant_id)
+        if tenant.status is not TenantStatus.ACTIVE:
+            msg = "This household is not available."
+            raise ConflictError(msg)
+        result = await self.session.execute(
+            select(TenantMember).where(TenantMember.email == invite.email)
+        )
+        member = result.scalar_one_or_none()
+        if member is not None and (
+            member.tenant_id != tenant.id or member.status is not TenantMemberStatus.REMOVED
+        ):
+            msg = "This e-mail address already belongs to another account."
+            raise ConflictError(msg)
+        ctx = TenantContext(tenant_id=tenant.id, schema=tenant.schema_name)
+        user_id = await self._ensure_member_user(ctx, invite.email)
+        if member is None:
+            member = TenantMember(tenant_id=tenant.id, email=invite.email)
+            self.session.add(member)
+        member.auth_subject = subject
+        member.role = invite.role
+        member.status = TenantMemberStatus.PENDING
+        member.user_id = user_id
+        member.joined_at = None
+        member.removed_at = None
+        clear_member_keys(member)
+        invite.accepted_at = self._now()
+        await self.session.commit()
+        logger.info("Member %s joined tenant %s, pending approval", member.id, tenant.id)
+        return TenantMembership(member=member, tenant=tenant)
+
+    @staticmethod
+    def _now() -> datetime:
+        return datetime.now(UTC)
 
     async def _sync_email(self, membership: TenantMembership, email: str) -> None:
         """An e-mail changed at the provider changes the registry and ``users`` row."""

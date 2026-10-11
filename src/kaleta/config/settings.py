@@ -117,6 +117,9 @@ class Settings(BaseSettings):
     #: accepted only with ``KALETA_DEBUG=true``: the same columns hold UTF-8
     #: under a plaintext format byte.
     encryption: Literal["off", "passphrase"] = "passphrase"
+    #: Members one family may have, the owner and pending invitations included
+    #: (``hosted-household-sharing``, ADR-38).
+    household_max_members: int = 10
 
     @field_validator("db_url", mode="before")
     @classmethod
@@ -132,6 +135,13 @@ class Settings(BaseSettings):
                 normalized,
             )
         return normalized
+
+    @field_validator("household_max_members")
+    @classmethod
+    def _validate_household_max_members(cls, value: int) -> int:
+        if value < 1:
+            raise ValueError("KALETA_HOUSEHOLD_MAX_MEMBERS must be >= 1")
+        return value
 
     @field_validator("session_ttl_hours")
     @classmethod
