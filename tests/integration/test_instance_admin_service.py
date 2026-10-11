@@ -1,25 +1,31 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """InstanceAdminService — what the instance administrator may do (ADR-38 §5).
 
-Covers: KAL-ADM-001, KAL-ADM-002, KAL-ADM-003, KAL-ADM-004, KAL-ADM-005, KAL-ADM-006
+Covers: KAL-ADM-001, KAL-ADM-002, KAL-ADM-003, KAL-ADM-004, KAL-ADM-005, KAL-ADM-006,
+KAL-ADM-008
 """
 
 from __future__ import annotations
 
 import io
+import os
+import time
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from pathlib import Path
 
 import pyotp
 import pytest
 from sqlalchemy import select, text
 
+from kaleta.auth.admin import verify_admin_credentials
 from kaleta.auth.local_logins import set_login_disabled
 from kaleta.auth.providers import RegistryAuthProvider, set_auth_provider
 from kaleta.auth.sign_in import SignedIn, SignInFlow
 from kaleta.cli import tenant_admin
+from kaleta.crypto import DataKey
 from kaleta.db import AsyncSessionFactory
-from kaleta.db.tenant_context import use_tenant
+from kaleta.db.tenant_context import install_tenant_resolver, use_tenant
 from kaleta.exceptions import ConflictError, NotFoundError, UnauthorizedError, ValidationError
 from kaleta.models.tenant import AdminAction, AdminAuditEntry, Tenant, TenantStatus
 from kaleta.schemas.identity import Identity, RegistrationMode
@@ -445,3 +451,76 @@ async def test_login_and_family_actions_are_audited(instance: str) -> None:
         (AdminAction.ADMIN_GRANTED, None, ania.identity_id),
         (AdminAction.LOGIN_CREATED, None, ania.identity_id),
     ]
+
+
+async def test_a_family_created_from_an_unlocked_session_gets_none_of_its_key(
+    tmp_path: Path,
+) -> None:
+    """Covers: KAL-ADM-002 — the panel runs in the administrator's own unlocked family.
+
+    What provisioning writes in the new schema (the owner's ``users`` row and
+    its audit row) must not be sealed with the administrator's data key: the
+    owner could never read it, and their passphrase setup fails re-encrypting it.
+    """
+    set_auth_provider(RegistryAuthProvider())
+    try:
+        async with multi_tenant_database(auth_backend="local", encryption="passphrase") as url:
+            admin = await _admin_subject(url)
+            async with AsyncSessionFactory.public() as public:
+                membership = await TenantService(public).get_member_by_subject(admin)
+            assert membership is not None
+            admin_key = DataKey(dek=os.urandom(32), version=1)
+            unlocked = replace(membership.context(), key_ring=admin_key)
+            install_tenant_resolver(lambda: unlocked)  # what the UI's page guard installs
+            try:
+                tenant_id, _password = await _create_family(url, admin, "Kowalscy", JAN)
+            finally:
+                install_tenant_resolver(None)
+            async with AsyncSessionFactory.public() as public:
+                schema = (await public.get(Tenant, tenant_id)).schema_name  # type: ignore[union-attr]
+                formats = (
+                    (
+                        await public.execute(
+                            text(
+                                f'SELECT get_byte(new_data, 0) FROM "{schema}".audit_log '
+                                "WHERE new_data IS NOT NULL"
+                            )
+                        )
+                    )
+                    .scalars()
+                    .all()
+                )
+    finally:
+        set_auth_provider(None)
+    assert formats  # the owner's users row was audited
+    assert set(formats) == {0}  # plaintext-while-locked, not sealed under the admin's key
+
+
+async def test_the_step_up_needs_the_password_and_with_two_factor_a_code(instance: str) -> None:
+    """Covers: KAL-ADM-008"""
+    admin = await _admin_subject(instance)
+    async with AsyncSessionFactory.public() as public:
+        membership = await TenantService(public).get_member_by_subject(admin)
+    assert membership is not None and membership.member.user_id is not None
+    user_id = membership.member.user_id
+
+    async def proves(password: str, code: str = "", *, needs_code: bool = False) -> bool:
+        with use_tenant(membership.context()):
+            return await verify_admin_credentials(
+                admin, ADMIN, user_id, password, code, needs_code=needs_code
+            )
+
+    assert await proves(PASSWORD)
+    assert not await proves("not the password")
+
+    with use_tenant(membership.context()):
+        async with AsyncSessionFactory() as session:
+            mfa = MfaService(session)
+            enrolment = await mfa.begin_enrolment(user_id)
+            totp = pyotp.TOTP(enrolment.secret, interval=TOTP_INTERVAL)
+            await mfa.confirm_enrolment(user_id, totp.now())
+    assert not await proves(PASSWORD, "000000", needs_code=True)
+    # The enrolment spent the current code; the next one is unused.
+    fresh = totp.at(int(time.time()) + TOTP_INTERVAL)
+    assert not await proves("not the password", fresh, needs_code=True)
+    assert await proves(PASSWORD, fresh, needs_code=True)

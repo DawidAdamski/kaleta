@@ -201,22 +201,26 @@ class TenantService:
 
     async def _ensure_owner_user(self, ctx: TenantContext, member: TenantMember) -> int:
         """The owner's ``users`` row in the new schema — found again on a resumed run."""
+        # The whole block under the new family's context, not only the
+        # session's creation: what the flush writes (the audit row of this
+        # insert) is encrypted under the *current* context's key. Outside it, a
+        # caller's own unlocked family — an administrator creating a family
+        # from the panel — would lend its key to the new schema.
         with use_tenant(ctx):
-            tenant_session = self._require_tenant_session()()
-        async with tenant_session as session:
-            result = await session.execute(select(User).where(User.username == member.email))
-            user = result.scalar_one_or_none()
-            if user is None:
-                user = User(
-                    username=member.email,
-                    email=member.email,
-                    display_name=member.email.split("@", 1)[0][:_DISPLAY_NAME_MAX],
-                    password_hash=None,
-                )
-                session.add(user)
-                await session.commit()
-                await session.refresh(user)
-            return user.id
+            async with self._require_tenant_session()() as session:
+                result = await session.execute(select(User).where(User.username == member.email))
+                user = result.scalar_one_or_none()
+                if user is None:
+                    user = User(
+                        username=member.email,
+                        email=member.email,
+                        display_name=member.email.split("@", 1)[0][:_DISPLAY_NAME_MAX],
+                        password_hash=None,
+                    )
+                    session.add(user)
+                    await session.commit()
+                    await session.refresh(user)
+                return user.id
 
     @asynccontextmanager
     async def _provision_lock(self, subject: str) -> AsyncIterator[None]:
@@ -271,13 +275,12 @@ class TenantService:
         if member.user_id is None:
             return
         with use_tenant(membership.context()):
-            tenant_session = self._require_tenant_session()()
-        async with tenant_session as session:
-            user = await session.get(User, member.user_id)
-            if user is not None:
-                user.email = email
-                user.username = email
-                await session.commit()
+            async with self._require_tenant_session()() as session:
+                user = await session.get(User, member.user_id)
+                if user is not None:
+                    user.email = email
+                    user.username = email
+                    await session.commit()
 
     async def mark_seen(self, tenant_id: int) -> None:
         tenant = await self._require_tenant(tenant_id)
