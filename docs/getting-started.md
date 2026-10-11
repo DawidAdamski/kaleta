@@ -49,9 +49,22 @@ creates the instance administrator and the first family, using an e-mail
 address and a password; it then asks for a data passphrase before any
 financial data pages load.
 
+### The administrator's page
+
+The instance administrator (the first sign-up, or a login made with
+`kaleta-admin create-login --admin`) has **Administration** in the navigation:
+`/admin` lists the families and logins (e-mail addresses, counts and statuses,
+never a family's data). There they create a family for its owner, suspend,
+resume or delete one, choose who may sign up, reset a password and promote
+another administrator. Every action asks for the password again once per
+fifteen minutes, and each one is recorded in `public.admin_audit`. A password
+set there (or by `kaleta-admin`) is shown once, and its owner must pick their
+own at the next sign-in.
+
 ### Forgotten password
 
-If you forget the login password, the instance operator resets it from a shell:
+If you forget the login password, the instance administrator resets it on the
+Administration page, or the operator does it from a shell:
 
 ```bash
 uv run kaleta-admin reset-password <e-mail>

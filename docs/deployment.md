@@ -260,7 +260,9 @@ uv run kaleta-admin reset-password <e-mail> [--disable-mfa]   # local logins; si
 
 Every command that changes something writes a row to `public.admin_audit`
 (the action, the family or login by number, the time — never the target's
-e-mail address), as the administrator's page will.
+e-mail address), as the administrator's page `/admin` does. On a Supabase
+instance that page is for the addresses in `KALETA_INSTANCE_ADMINS`; it lists
+and suspends families, and leaves the logins to Supabase.
 
 `delete` removes every member's Supabase identity first (with the
 service-role key), then drops the schema and the registry rows, and prints

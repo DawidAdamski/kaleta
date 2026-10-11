@@ -158,6 +158,33 @@ i18n `en.json` / `pl.json`, `docs/bdd.md`.
   administrators, not evidence against them. Any administrator can also reset
   another administrator's password and take the account; that is what being
   an administrator means here, and the row records who did it.
+- **Part B — the page.** `/admin` (`views/admin.py`) gets everything through
+  `kaleta.auth.admin.with_admin_service`, which runs `for_actor` on every call.
+  For anyone else the page answers a plain 404. The navigation entry sits below
+  the hairline, next to the API docs, and reads a session flag stamped at
+  sign-in (`stamp_login_flags`, called from the session rotation route). A
+  login promoted while signed in sees the entry after its next sign-in, and a
+  demoted one keeps the entry until then, but the page refuses it.
+- **Step-up.** The password, plus a TOTP or recovery code when the
+  administrator has two-factor sign-in on, at most once per 15 minutes
+  (`SESSION_ADMIN_STEP_UP_AT`). On a Supabase instance with a factor this is
+  `HostedMfaService.prove`; without one it is a provider sign-in, signed out
+  straight after. Failures count on `mfa_rate_limiter` under `admin:<user id>`.
+- **Forced password change.** `stamp_login_flags` sets
+  `SESSION_MUST_CHANGE_PASSWORD` when the login's `must_change_password` is
+  on. While it is set, the page guard sends every page to `/change-password`,
+  ahead of `/unlock`. The new password may not be the one that was given. The
+  cookie API path needs an unlocked key, and such a session cannot unlock
+  before changing the password, so the API is closed to it too (423).
+- **A latent leak found by the e2e (fixed here).**
+  `TenantService._ensure_owner_user` and `_sync_email` opened the new
+  family's session under `use_tenant` but flushed outside it. The audit row of
+  the owner's `users` insert was then sealed under whatever context was
+  current. For a family created from the panel, that was the administrator's
+  own unlocked family, so the owner's passphrase setup failed to decrypt it.
+  Until now, provisioning only ran from a locked sign-in. The whole block now
+  runs under the new family's context, and a regression test makes the
+  administrator's key current while creating a family.
 - **Member limit.** `KALETA_HOUSEHOLD_MAX_MEMBERS` does not exist yet; it
   belongs to `hosted-household-sharing`. The panel shows the member count
   only, and the limit is added together with that plan.
