@@ -1,63 +1,102 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Self-hosted Kaleta (ADR-38): the app + PostgreSQL 18, with local logins.
+#
+#   podman compose up -d --build        (or: docker compose up -d --build)
+#
+# then open http://localhost:8080: the first run creates the instance
+# administrator and the first family, and asks for the data passphrase.
+#
+# The database password and KALETA_SECRET_KEY are generated on the first
+# `up` into the `kaleta-secrets` volume and reused from then on; nothing
+# secret lives in this file. Kaleta reads them as files from /run/secrets
+# (`kaleta_db_url`, `kaleta_secret_key`), so the admin CLI sees them too:
+#
+#   podman compose exec kaleta uv run kaleta-admin reset-password <e-mail>
+# Back up `kaleta-pg` (pg_dump) — Kaleta does not
+# make backups of its own. Behind a reverse proxy with HTTPS, also set
+# KALETA_PUBLIC_URL and KALETA_SESSION_COOKIE_SECURE=true on `kaleta`.
+#
+# The hosted-shaped stack used for development is `compose.hosted-dev.yml`.
+
+name: kaleta
+
 services:
+  # Writes the generated secrets once; an existing file is never replaced.
+  secrets:
+    image: docker.io/library/postgres:18-alpine
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        set -eu
+        umask 077
+        cd /secrets
+        for name in db_password kaleta_secret_key; do
+          if [ ! -s "$$name" ]; then
+            head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' > "$$name"
+          fi
+        done
+        if [ ! -s kaleta_db_url ]; then
+          printf 'postgresql://kaleta:%s@db:5432/kaleta' "$$(cat db_password)" > kaleta_db_url
+        fi
+        # PostgreSQL's entrypoint reads the password as the postgres user too.
+        chown root:postgres db_password
+        chmod 0640 db_password
+    volumes:
+      - kaleta-secrets:/secrets
+    restart: "no"
+
+  db:
+    image: docker.io/library/postgres:18-alpine
+    depends_on:
+      secrets:
+        condition: service_completed_successfully
+    environment:
+      POSTGRES_USER: kaleta
+      POSTGRES_DB: kaleta
+      POSTGRES_PASSWORD_FILE: /secrets/db_password
+    volumes:
+      # PostgreSQL 18 keeps its data under /var/lib/postgresql/18/docker.
+      - kaleta-pg:/var/lib/postgresql
+      - kaleta-secrets:/secrets:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kaleta -d kaleta"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+
   kaleta:
     build:
       context: .
       dockerfile: Containerfile.full
     image: kaleta:full
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
-      - KALETA_DB_URL=sqlite:///data/kaleta.db
-      - KALETA_HOST=0.0.0.0
-      - KALETA_PORT=8080
+      KALETA_HOST: 0.0.0.0
+      KALETA_PORT: "8080"
     volumes:
-      - kaleta-data:/app/data
+      # KALETA_DB_URL and KALETA_SECRET_KEY, as files (see the top of this file).
+      - kaleta-secrets:/run/secrets:ro
+      # NiceGUI's session files: a restarted container keeps its sessions
+      # (and asks every member to unlock again).
+      - kaleta-state:/root/.kaleta
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/api/v1/health', timeout=3)"
+      interval: 5s
+      timeout: 5s
+      retries: 60
     restart: unless-stopped
 
-  # Uncomment for PostgreSQL setup
-  # kaleta-pg:
-  #   build: .
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - KALETA_DB_URL=postgresql://kaleta:kaleta@db:5432/kaleta
-  #     - KALETA_HOST=0.0.0.0
-  #     - KALETA_PORT=8080
-  #   depends_on:
-  #     - db
-  #   restart: unless-stopped
-  #
-  # db:
-  #   image: postgres:16-alpine
-  #   environment:
-  #     - POSTGRES_USER=kaleta
-  #     - POSTGRES_PASSWORD=kaleta
-  #     - POSTGRES_DB=kaleta
-  #   volumes:
-  #     - postgres-data:/var/lib/postgresql/data
-  #   restart: unless-stopped
-
-  # Uncomment for the hosted layout (ADR-35) against an external PostgreSQL —
-  # the Supabase CLI local stack (`supabase start`) or plain postgres:16 with
-  # a Supabase Auth you can reach. Every account gets a schema of its own.
-  # kaleta-hosted:
-  #   build: .
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     - KALETA_AUTH_BACKEND=supabase
-  #     - KALETA_DB_URL=postgresql://postgres:postgres@db:5432/postgres
-  #     - KALETA_SUPABASE_URL=http://host.containers.internal:54321
-  #     - KALETA_SUPABASE_ANON_KEY=<anon key from `supabase status`>
-  #     - KALETA_SUPABASE_SERVICE_ROLE_KEY=<service_role key from `supabase status`>
-  #     - KALETA_PUBLIC_URL=http://localhost:8080
-  #     - KALETA_SECRET_KEY=<change-me>
-  #     - KALETA_HOST=0.0.0.0
-  #     - KALETA_PORT=8080
-  #   depends_on:
-  #     - db
-  #   restart: unless-stopped
-
 volumes:
-  kaleta-data:
-  # postgres-data:
+  kaleta-pg:
+  kaleta-secrets:
+  kaleta-state:
