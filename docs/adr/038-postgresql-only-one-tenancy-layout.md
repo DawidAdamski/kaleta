@@ -114,6 +114,6 @@ status: accepted
     longer holds; its other decisions stand.
 - **Plans**: [`test-suite-speed`](../plans/archive/test-suite-speed.md),
   [`postgres-only`](../plans/archive/postgres-only.md),
-  [`instance-admin-panel`](../plans/instance-admin-panel.md),
+  [`instance-admin-panel`](../plans/archive/instance-admin-panel.md),
   [`hosted-household-sharing`](../plans/hosted-household-sharing.md),
   [`self-host-guide`](../plans/self-host-guide.md).

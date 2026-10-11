@@ -3,8 +3,9 @@ plan_id: instance-admin-panel
 title: Instance admin panel — families, registration mode, password resets
 area: auth / settings
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-11
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Instance admin panel — families, registration mode, password resets
@@ -19,7 +20,7 @@ Put the same operations behind a page only the instance administrator
 sees, showing nothing the operator may not see (ADR-35: e-mails, counts,
 statuses — never financial data).
 
-Depends on [`postgres-only`](archive/postgres-only.md) (instance admin,
+Depends on [`postgres-only`](postgres-only.md) (instance admin,
 `local_identities`, `registration_mode`).
 
 ## Delivery
@@ -66,7 +67,7 @@ its own:
 
 - Reading or exporting a family's data (the operator never can).
 - Invites, approval and re-keying inside a family
-  ([`hosted-household-sharing`](hosted-household-sharing.md)).
+  ([`hosted-household-sharing`](../hosted-household-sharing.md)).
 - Billing or plans.
 
 ## Acceptance criteria
@@ -198,4 +199,51 @@ i18n `en.json` / `pl.json`, `docs/bdd.md`.
   belongs to `hosted-household-sharing`. The panel shows the member count
   only, and the limit is added together with that plan.
 
-## Implementation (filled by plan-archiver)
+## Implementation
+
+Landed on 2026-10-11.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `a15578a` | Dawid Adamski | 2026-10-11 | Merge pull request #204 from DawidAdamski/feat/instance-admin-part-a |
+| `324f5a1` | Dawid Adamski | 2026-10-11 | Merge pull request #205 from DawidAdamski/feat/instance-admin-part-b |
+
+**Files changed:**
+- alembic_public/versions/d3e4f5a6b7c8_admin_audit.py
+- docs/bdd.md
+- docs/deployment.md
+- docs/getting-started.md
+- docs/plans/instance-admin-panel.md
+- docs/tech-stack.md
+- SECURITY.md
+- src/kaleta/api/deps.py
+- src/kaleta/auth/admin.py
+- src/kaleta/auth/local_logins.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/routes.py
+- src/kaleta/auth/session.py
+- src/kaleta/cli/tenant_admin.py
+- src/kaleta/config/settings.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/tenant.py
+- src/kaleta/services/instance_admin_service.py
+- src/kaleta/services/local_identity_service.py
+- src/kaleta/services/tenant_service.py
+- src/kaleta/views/admin.py
+- src/kaleta/views/change_password.py
+- src/kaleta/views/layout.py
+- tests/e2e/test_instance_admin.py
+- tests/integration/test_api_cookie_auth.py
+- tests/integration/test_instance_admin_service.py
+- tests/integration/test_local_registry_logins.py
+- tests/unit/auth/test_session_contents.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(not re-run at archiving; both PRs passed CI, incl. `./scripts/verify.sh --e2e`)_ | – |
+
+**Notes:** Delivered in two PRs, A (#204: service, audit, CLI) and B (#205: the `/admin` page, step-up, forced password change). The listed SHAs are merge commits; the file list is their combined diff against the previous main.

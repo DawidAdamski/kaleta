@@ -169,7 +169,7 @@ the desktop window and app-managed backups are removed.
 |---|---|---|---|---|
 | 1 | [test-suite-speed](archive/test-suite-speed.md) | medium | archived | — |
 | 2 | [postgres-only](archive/postgres-only.md) | archived | draft | 1 |
-| 3 | [instance-admin-panel](instance-admin-panel.md) | medium | draft | 2 |
+| 3 | [instance-admin-panel](archive/instance-admin-panel.md) | medium | archived | 2 |
 | 4 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 2 |
 | 5 | [self-host-guide](self-host-guide.md) | small | draft | 2 |
 

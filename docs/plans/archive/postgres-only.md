@@ -108,7 +108,7 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
   TOTP MFA keep working; MFA secrets move with the identity.
 - No e-mail verification and no self-service password reset without
   SMTP; the instance admin resets passwords (CLI now, panel in
-  [`instance-admin-panel`](../instance-admin-panel.md)). With SMTP set, the
+  [`instance-admin-panel`](instance-admin-panel.md)). With SMTP set, the
   existing reset flow is offered.
 - `local` is valid with every layout; `supabase` stays hosted-only.
   The `fake` backend and its JSON identity file are removed;
@@ -160,7 +160,7 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
 ### Not in scope
 
 - Migrating any SQLite database (ADR-38: dropped).
-- The instance admin panel UI ([`instance-admin-panel`](../instance-admin-panel.md)).
+- The instance admin panel UI ([`instance-admin-panel`](instance-admin-panel.md)).
 - Household invites and approval ([`hosted-household-sharing`](../hosted-household-sharing.md)).
 - The self-hosting guide and backup routine ([`self-host-guide`](../self-host-guide.md)).
 - Squashing Alembic history; Postgres-only refactors of existing queries.
