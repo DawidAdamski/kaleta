@@ -15,7 +15,7 @@ from kaleta.auth.revocation_cache import revocation_cache
 from kaleta.config import settings
 from kaleta.crypto import key_ring, tenant_member_ref
 from kaleta.db import AsyncSessionFactory
-from kaleta.services.instance_admin_service import InstanceAdminService
+from kaleta.services.instance_admin_service import InstanceAdminService, RevokedMember
 
 logger = logging.getLogger(__name__)
 
@@ -38,12 +38,20 @@ async def set_login_disabled(identity_id: int, disabled: bool, *, actor: str | N
             remover=get_auth_provider(),
         )
         revoked = await service.set_disabled(identity_id, disabled)
-    if revoked is None:
-        return
+    if revoked is not None:
+        locked = forget_revoked_member(revoked)
+        logger.info(
+            "Disabled local login %s: sessions and tokens revoked, %d unlocked key(s) dropped",
+            identity_id,
+            locked,
+        )
+
+
+def forget_revoked_member(revoked: RevokedMember) -> int:
+    """Drop what *this process* holds for a member whose sessions were revoked.
+
+    The cached revocation watermark and their unlocked key; returns how many
+    unlocked keys went.
+    """
     revocation_cache.forget(revoked.user_id)
-    locked = key_ring.lock_member(tenant_member_ref(revoked.tenant_id, revoked.user_id))
-    logger.info(
-        "Disabled local login %s: sessions and tokens revoked, %d unlocked key(s) dropped",
-        identity_id,
-        locked,
-    )
+    return key_ring.lock_member(tenant_member_ref(revoked.tenant_id, revoked.user_id))

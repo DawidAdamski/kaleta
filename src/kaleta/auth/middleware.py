@@ -12,6 +12,7 @@ from fastapi.responses import RedirectResponse
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.responses import Response
 
+from kaleta.auth.admin import CHANGE_PASSWORD_PATH, must_change_password
 from kaleta.auth.session import (
     SESSION_ROTATE_PATH,
     SessionExpiry,
@@ -63,6 +64,13 @@ def is_public_path(path: str) -> bool:
     if path in _ASSET_PATHS:
         return True
     return any(path.startswith(prefix) for prefix in _PUBLIC_PREFIXES)
+
+
+def _must_change_password() -> bool:
+    try:
+        return must_change_password()
+    except RuntimeError:
+        return False
 
 
 def _unlocked() -> bool:
@@ -136,6 +144,12 @@ def register_auth_middleware() -> None:
                 # rescue the very session the idle rule is about to end.
                 with suppress(RuntimeError):
                     touch_session()
+                # A password an administrator set is replaced before anything
+                # else, the passphrase prompt included.
+                if _must_change_password():
+                    if path != CHANGE_PASSWORD_PATH:
+                        return RedirectResponse(CHANGE_PASSWORD_PATH)
+                    return await call_next(request)
                 # Last: an expired or revoked session goes to the login page,
                 # not to a passphrase prompt it could never get past.
                 if path not in UNLOCK_EXEMPT_PATHS and not _unlocked():

@@ -135,6 +135,9 @@ def test_values_written_by_every_writer_are_harmless(bucket: dict[str, Any]) -> 
     session_mod.keep_session_after_revocation(_USER_ID)
     bucket.pop(session_mod.SESSION_LAST_SEEN_AT)
     session_mod.touch_session()
+    # What a sign-in learns from the registry (instance-admin-panel): flags and a stamp.
+    session_mod.stamp_admin_flags(instance_admin=True, set_by_admin=True)
+    session_mod.mark_admin_step_up()
     snapshot()
     nonce = session_mod.stamp_rotation_nonce("logout")
     snapshot()

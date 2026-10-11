@@ -13,6 +13,7 @@ import logging
 from fastapi import APIRouter, Request
 from fastapi.responses import RedirectResponse
 
+from kaleta.auth.admin import stamp_login_flags
 from kaleta.auth.redirects import safe_redirect
 from kaleta.auth.session import (
     SESSION_ROTATE_PATH,
@@ -45,6 +46,7 @@ def build_session_router() -> APIRouter:
         login_session(user_id=pending.user_id, username=pending.username, tenant=pending.tenant)
         if pending.mfa_verified:
             mark_mfa_verified()
+        await stamp_login_flags()
         return RedirectResponse(safe_redirect(redirect_to), status_code=_SEE_OTHER)
 
     return router
