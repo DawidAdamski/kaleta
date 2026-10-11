@@ -140,14 +140,14 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
 
 - `tests/conftest.py`: Postgres only; without a reachable database the
   session fails with "start one: `./scripts/test_db.sh up`".
-  `scripts/test_db.sh up|down` runs `postgres:16-alpine` under
+  `scripts/test_db.sh up|down` runs `postgres:18-alpine` (16 until C2) under
   podman (or docker) on port 55432 with `fsync=off` and a tmpfs data dir.
 - CI: the SQLite `test` job is deleted; one Postgres job runs the suite
   (`-n auto`, tiers from `test-suite-speed`).
 
 ### 7. Packaging and docs
 
-- `docker-compose.yml` becomes Kaleta + `postgres:16-alpine` with a named
+- `docker-compose.yml` becomes Kaleta + `postgres:18-alpine` with a named
   volume and a generated password; `Containerfile` and
   `Containerfile.full` drop SQLite paths. `compose.hosted-dev.yml` stays
   for the Supabase-shaped stack.
@@ -170,7 +170,7 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
 - `uv run pytest tests/unit tests/integration -n auto -q`
 - `uv run pytest tests/e2e -q`
 - `test -z "$(grep -rli sqlite src/kaleta --include='*.py' | grep -v config/settings.py)"`
-- `test -z "$(grep -rn 'KALETA_TENANCY\|KALETA_BACKUP_' src docs AGENTS.md README.md --include='*.py' --include='*.md' | grep -v 'adr/0[0-3]' | grep -v plans/archive)"`
+- `test -z "$(grep -rn 'KALETA_TENANCY\|KALETA_BACKUP_' src docs AGENTS.md README.md --include='*.py' --include='*.md' | grep -v 'adr/0[0-3]' | grep -v docs/plans/ | grep -v docs/bdd.md | grep -v config/settings.py)"`
 - `! grep -q aiosqlite pyproject.toml`
 - `! grep -q "^  test:" .github/workflows/ci.yml`
 - `podman compose -f docker-compose.yml config`
@@ -498,5 +498,46 @@ encryption.
   `kaleta.db` / `demo.db`.
 - *Left for C2*: every prose mention of the desktop window, `fake` and SQLite
   in `README.md`, `AGENTS.md` and `docs/`.
+
+**Part C2 (branch `feat/postgres-only-part-c2`, on top of C1).**
+
+- *PostgreSQL 18, not 16* (maintainer, 2026-10-11): a new install should not
+  start on the older major and face a `pg_upgrade` two years in.
+  `docker-compose.yml`, `compose.hosted-dev.yml`, `scripts/test_db.sh` and
+  both CI jobs run 18 (the fast tier passed on 18.6 unchanged: 3148 tests).
+  The supported minimum stays "PostgreSQL 16+" — it is no longer exercised
+  in CI. The 18 image keeps its data in `/var/lib/postgresql/18/docker`, so
+  volumes (and the test tmpfs) mount `/var/lib/postgresql`.
+- *Generated secrets as files* (§7): a one-shot `secrets` service writes the
+  database password, `kaleta_secret_key` and `kaleta_db_url` into the
+  `kaleta-secrets` volume once; `postgres` reads `POSTGRES_PASSWORD_FILE`,
+  Kaleta reads `/run/secrets`. A first draft exported the two variables in
+  the app's `sh -c` command: `compose exec kaleta uv run kaleta-admin …` then
+  started without them and refused the default secret — and the CLI is a
+  self-hoster's only password reset. So `Settings` reads secret files from
+  `/run/secrets` when that directory exists (pydantic-settings `secrets_dir`;
+  an environment variable still wins) — KAL-SET-031, the one production
+  change in C2.
+- *Containerfiles*: the slim image lacked `alembic_public/` (it could not
+  migrate the registry). Both images ran `uv sync` before copying `src/`, so
+  the project itself was never installed and `uv run` re-synced at every
+  container start — pulling the dev group (ruff, mypy, playwright) into the
+  running container. Now `--no-install-project` first, the project after the
+  code, and `UV_NO_SYNC=1`.
+- *The `KALETA_TENANCY` grep* now also skips `docs/plans/`, `docs/bdd.md` and
+  `config/settings.py`: the start-up notice for a leftover `KALETA_TENANCY`,
+  its scenario and the plans that removed it must name it (the SQLite grep
+  skips `settings.py` for the same reason). `deployment.md` lost its sentence
+  about it — the notice says it.
+- *Manual check* on empty volumes (PostgreSQL 18.6): the first page is the
+  administrator sign-up; the family is created with it, the data passphrase
+  and recovery code follow, then `/wizard`. `hosted_smoke.py` against
+  `:8080` (registration opened with `compose exec … kaleta-admin`) passed —
+  sign-up, unlock, API token, a transaction POSTed and read back through
+  encryption, account deletion. `podman compose restart kaleta` then sent the
+  administrator's saved session to `/unlock`; after the passphrase it was
+  back on `/transactions`.
+- *Agent prompts*: `.claude/agents/{migration-creator,test-runner,docs-writer,deps-updater}.md`
+  still taught `batch_alter_table` and in-memory SQLite; updated with the docs.
 
 ## Implementation (filled by plan-archiver)
