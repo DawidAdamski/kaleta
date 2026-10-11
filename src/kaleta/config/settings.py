@@ -40,7 +40,8 @@ class Settings(BaseSettings):
     db_url: str = _DEFAULT_DB_URL
     host: str = "127.0.0.1"
     port: int = 8080
-    mode: str = "web"  # web | app | api
+    #: ``web`` (the browser app, with the REST API) or ``api`` (headless).
+    mode: Literal["web", "api"] = "web"
     secret_key: str = _INSECURE_KEY
     debug: bool = False
     #: A bearer token from the environment, for headless use (≥16 characters):
@@ -87,11 +88,9 @@ class Settings(BaseSettings):
     redis_url: str | None = None
     #: Who checks passwords: ``local`` (argon2 hashes in the registry's
     #: ``local_identities``, ADR-38) or ``supabase`` (Supabase Auth over
-    #: HTTPS) — or ``fake``, an in-process stand-in for Supabase, accepted only
-    #: with ``KALETA_DEBUG=true`` (``compose.hosted-dev.yml``). Every instance
-    #: is the registry layout of ADR-35: a ``public`` registry and one schema
-    #: per family.
-    auth_backend: Literal["local", "supabase", "fake"] = "local"
+    #: HTTPS). Every instance is the registry layout of ADR-35: a ``public``
+    #: registry and one schema per family.
+    auth_backend: Literal["local", "supabase"] = "local"
     supabase_url: str | None = None
     supabase_anon_key: str | None = None
     #: Server-side only — admin calls such as deleting an auth user. Never sent
@@ -162,6 +161,29 @@ class Settings(BaseSettings):
     def _normalize_mode_names(cls, value: object) -> object:
         return value.strip().lower() if isinstance(value, str) else value
 
+    @field_validator("mode", mode="before")
+    @classmethod
+    def _refuse_the_desktop_window(cls, value: object) -> object:
+        normalized = value.strip().lower() if isinstance(value, str) else value
+        if normalized == "app":
+            raise ValueError(
+                "KALETA_MODE=app (the desktop window) is gone (ADR-38): run web and "
+                "open Kaleta in a browser, or install it as an app from there."
+            )
+        return normalized
+
+    @field_validator("auth_backend", mode="before")
+    @classmethod
+    def _refuse_the_fake_backend(cls, value: object) -> object:
+        # Said out loud rather than as a bare "not one of": compose files
+        # from before ADR-38 set it.
+        if isinstance(value, str) and value.strip().lower() == "fake":
+            raise ValueError(
+                "KALETA_AUTH_BACKEND=fake is gone (ADR-38): use local, which needs "
+                "no e-mail provider either."
+            )
+        return value
+
     @model_validator(mode="after")
     def _validate_auth_and_encryption(self) -> "Settings":
         if "KALETA_TENANCY" in os.environ:
@@ -171,10 +193,6 @@ class Settings(BaseSettings):
                 "KALETA_TENANCY is no longer read: every instance keeps a registry "
                 "and one schema per family (ADR-38)."
             )
-        if self.auth_backend == "fake" and not self.debug:
-            # It confirms every address and keeps identities in a file: a
-            # stand-in for Supabase on a laptop, never a way to run a service.
-            raise ValueError("KALETA_AUTH_BACKEND=fake is accepted only with KALETA_DEBUG=true.")
         if self.encryption == "off" and not self.debug:
             # The promise is that the operator cannot read a family's data;
             # turning that off is for a developer's laptop, not a deployment.

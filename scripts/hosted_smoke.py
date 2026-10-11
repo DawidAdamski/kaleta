@@ -14,8 +14,10 @@ refused. Usually started through ``scripts/hosted_smoke.sh``, which brings the
 How the identity is made depends on the instance's ``auth_backend`` (read from
 ``/api/v1/health``):
 
-- ``fake`` (``compose.hosted-dev.yml``): signs up through the page; the debug
-  backend confirms every address at once.
+- ``local`` (``compose.hosted-dev.yml``): signs up through the page, which
+  needs the instance's registration to be ``open`` and an administrator other
+  than the smoke's identity (an administrator's login outlives "Delete my
+  account"); ``hosted_smoke.sh`` sets both up on the dev stack.
 - ``supabase``: created already confirmed through GoTrue's admin API, so no
   mailbox is needed — set ``KALETA_SUPABASE_URL`` and
   ``KALETA_SUPABASE_SERVICE_ROLE_KEY`` in the environment of this script.
@@ -103,7 +105,7 @@ class HostedSmoke:
         return self._do("health", _check)
 
     def _step_identity(self, page: Page, backend: str) -> None:
-        if backend == "fake":
+        if backend == "local":
             self._do("sign up", lambda: self._sign_up_through_the_page(page))
         elif backend == "supabase":
             self._do("create confirmed identity", self._create_supabase_identity)

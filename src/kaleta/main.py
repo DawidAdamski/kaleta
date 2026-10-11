@@ -82,13 +82,13 @@ def _register_api() -> None:
 
 
 def _warn_repo_root_data_leftovers() -> None:
-    """Log if the process CWD is a git checkout with leftover session/DB files."""
+    """Log if the process CWD is a git checkout with leftover NiceGUI session files."""
     import logging
 
     cwd = Path.cwd()
     if not (cwd / ".git").is_dir():
         return
-    leftovers = [name for name in (".nicegui", "kaleta.db", "demo.db") if (cwd / name).exists()]
+    leftovers = [name for name in (".nicegui",) if (cwd / name).exists()]
     if not leftovers:
         return
     logging.getLogger(__name__).warning(
@@ -286,33 +286,6 @@ def run_web() -> None:
     )
 
 
-def run_app() -> None:
-    configure_logging()
-    _register_error_tracker()
-    _warn_repo_root_data_leftovers()
-    # Before the views register the log ring buffer's NiceGUI session resolver:
-    # a warning logged after that, but before ui.run(), trips NiceGUI's script mode.
-    warn_secure_cookie_in_debug()
-    _preload_database()
-    _setup_pwa()
-    _register_request_context()
-    _register_api()
-    _register_auth()
-    _register_views()
-    _register_event_retention_scheduler()
-    _register_nbp_rate_scheduler()
-    _register_storage_sweep()
-    ui.run(
-        host=settings.host,
-        port=settings.port,
-        title="Kaleta",
-        native=True,
-        reload=False,
-        storage_secret=settings.secret_key,
-        session_middleware_kwargs=session_middleware_kwargs(),
-    )
-
-
 def run_api() -> None:
     configure_logging()
     _register_error_tracker()
@@ -341,12 +314,8 @@ def main() -> None:
     match settings.mode:
         case "web":
             run_web()
-        case "app":
-            run_app()
         case "api":
             run_api()
-        case _:
-            raise ValueError(f"Unknown KALETA_MODE: {settings.mode!r}. Use: web | app | api")
 
 
 if __name__ in {"__main__", "__mp_main__"}:

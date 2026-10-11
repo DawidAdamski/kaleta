@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 __all__ = ["AuthBackendName", "HealthResponse"]
 
-AuthBackendName = Literal["local", "supabase", "fake"]
+AuthBackendName = Literal["local", "supabase"]
 
 
 class HealthResponse(BaseModel):
@@ -28,9 +28,7 @@ class HealthResponse(BaseModel):
             "revisions could not be read."
         ),
     )
-    auth_backend: AuthBackendName = Field(
-        description="Who checks passwords: 'local', 'supabase', or the debug-only 'fake'"
-    )
+    auth_backend: AuthBackendName = Field(description="Who checks passwords: 'local' or 'supabase'")
     keyring_sessions: int = Field(
         description=(
             "How many sessions hold an unlocked data key in this process. A count only; "

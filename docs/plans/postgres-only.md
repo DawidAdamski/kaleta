@@ -63,7 +63,12 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
     told from typed ones) — harmless, same values.
   - **B3 — SQLite out of `src/`** (§1): the dialect branches, `aiosqlite`, the
     refusal of a `sqlite` URL.
-- **C — removals, packaging, docs** (§5, §7).
+- **C — removals, packaging, docs** (§5, §7). Split in two on 2026-10-11,
+  when the map showed §3's `fake` backend still in place (part A left it):
+  - **C1 — removals**: the `fake` backend (§3) and `KALETA_MODE=app` (§5),
+    each refused with a sentence naming what replaces it.
+  - **C2 — packaging and docs** (§7): `docker-compose.yml` with PostgreSQL,
+    the Containerfiles, the documentation sweep.
 
 ## Scope
 
@@ -473,5 +478,25 @@ encryption.
   `podman compose up` is refused at start-up until C replaces it with
   Kaleta + PostgreSQL; the prose docs, `compose.hosted-dev.yml`'s comment and
   the bug template still mention SQLite.
+
+**Part C1 (branch `feat/postgres-only-part-c1`, on top of B3).**
+
+- *`fake` is refused, not unknown* (KAL-TEN-024): `KALETA_AUTH_BACKEND=fake`
+  stops start-up with "… is gone (ADR-38): use local", debug or not —
+  `compose.hosted-dev.yml` files from before set it. KAL-TEN-011 is `@removed`.
+- *`compose.hosted-dev.yml` runs `local`* (plan §3). An administrator's login
+  outlives "Delete my account", which `hosted_smoke.py` checks is refused, so
+  `hosted_smoke.sh` creates an administrator with `kaleta-admin create-login
+  --admin` and opens registration before the smoke signs up through the page.
+- *The operator and demo tests* (KAL-TEN-008, KAL-TEN-014) sign in through
+  `RegistryAuthProvider`; the deleted member is an ordinary login next to an
+  administrator, for the same reason.
+- *`KALETA_MODE=app` is refused* (KAL-TEN-025) with a sentence pointing at the
+  browser and the PWA; `mode` is `Literal["web", "api"]` and `run_app` is gone.
+  No dependency left with it (pywebview was never declared).
+- *Start-up warning*: the git-checkout leftovers check no longer names
+  `kaleta.db` / `demo.db`.
+- *Left for C2*: every prose mention of the desktop window, `fake` and SQLite
+  in `README.md`, `AGENTS.md` and `docs/`.
 
 ## Implementation (filled by plan-archiver)

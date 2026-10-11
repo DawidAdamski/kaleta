@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""Operating a hosted instance: startup migration, the admin script, the debug backend.
+"""Operating an instance: startup migration, the admin script, the demo.
 
-Covers: KAL-TEN-008, KAL-TEN-010, KAL-TEN-011, KAL-TEN-014
+Covers: KAL-TEN-008, KAL-TEN-010, KAL-TEN-014
 """
 
 from __future__ import annotations
@@ -16,12 +16,13 @@ from pathlib import Path
 
 import pytest
 
-from kaleta.auth.providers import FakeAuthProvider, Identity
+from kaleta.auth.providers import Identity, RegistryAuthProvider
 from kaleta.db import AsyncSessionFactory
 from kaleta.exceptions import UnauthorizedError
 from kaleta.models.tenant import Tenant, TenantStatus
 from kaleta.services import setup_service
 from kaleta.services.health_service import HealthService
+from kaleta.services.local_identity_service import LocalIdentityService
 from kaleta.services.tenant_service import TenantService
 from tests.tenancy_helpers import MetadataProvisioner, identity, multi_tenant_database
 
@@ -34,7 +35,7 @@ TENANT_ADMIN = PROJECT_ROOT / "scripts" / "tenant_admin.py"
 
 @pytest.fixture
 async def hosted(tmp_path: Path) -> AsyncIterator[str]:
-    async with multi_tenant_database() as url:
+    async with multi_tenant_database(auth_backend="local") as url:
         yield url
 
 
@@ -82,29 +83,6 @@ async def test_a_tenant_that_fails_to_migrate_is_suspended_and_the_rest_start(
         assert membership.tenant.id == healthy.id
 
 
-async def test_the_fake_backend_signs_up_and_provisions_an_account(
-    hosted: str, tmp_path: Path
-) -> None:
-    """Covers: KAL-TEN-011"""
-    provider = FakeAuthProvider(tmp_path / "fake-auth.json")
-
-    result = await provider.sign_up("ania@example.com", "correct-horse-battery")
-    assert result.identity is not None
-    async with AsyncSessionFactory.public() as public:
-        tenants = TenantService(public, provisioner=MetadataProvisioner(hosted))
-        membership = await tenants.membership_for_sign_in(result.identity)
-
-    assert membership.tenant.status is TenantStatus.ACTIVE
-    assert membership.tenant.schema_name.startswith("t_")
-    assert membership.member.email == "ania@example.com"
-    again = await provider.sign_in("ania@example.com", "correct-horse-battery")
-    assert isinstance(again, Identity)
-    async with AsyncSessionFactory.public() as public:
-        same = await TenantService(public).get_member_by_subject(again.subject)
-    assert same is not None
-    assert same.tenant.id == membership.tenant.id
-
-
 def _tenant_admin(db_url: str, home: Path, *args: str) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
         [sys.executable, str(TENANT_ADMIN), *args],
@@ -113,7 +91,7 @@ def _tenant_admin(db_url: str, home: Path, *args: str) -> subprocess.CompletedPr
             **os.environ,
             "HOME": str(home),
             "KALETA_DB_URL": db_url,
-            "KALETA_AUTH_BACKEND": "fake",
+            "KALETA_AUTH_BACKEND": "local",
             "KALETA_DEBUG": "true",
         },
         check=False,
@@ -127,12 +105,14 @@ async def test_the_operator_lists_suspends_and_deletes_an_account(
 ) -> None:
     """Covers: KAL-TEN-008"""
     home = tmp_path / "home"
-    provider = FakeAuthProvider(home / ".kaleta" / "fake-auth.json")
-    signed_up = await provider.sign_up("ania@example.com", "correct-horse-battery")
-    assert signed_up.identity is not None
+    provider = RegistryAuthProvider()
     async with AsyncSessionFactory.public() as public:
+        # Not an administrator: an administrator's login outlives their family.
+        identities = LocalIdentityService(public)
+        await identities.create("admin@example.com", "admin-battery-staple", admin=True)
+        row = await identities.create("ania@example.com", "correct-horse-battery")
         tenant = await TenantService(public, provisioner=MetadataProvisioner(hosted)).provision(
-            signed_up.identity
+            provider.identity_for(row)
         )
         tenant_id = tenant.id
 
@@ -173,7 +153,7 @@ def _reset_demo(db_url: str, home: Path, *args: str) -> subprocess.CompletedProc
             **os.environ,
             "HOME": str(home),
             "KALETA_DB_URL": db_url,
-            "KALETA_AUTH_BACKEND": "fake",
+            "KALETA_AUTH_BACKEND": "local",
             "KALETA_DEBUG": "true",
         },
         check=False,
@@ -195,9 +175,7 @@ async def test_the_hosted_demo_is_provisioned_once_and_reset_in_place(
     assert second.returncode == 0, second.stderr + second.stdout
     assert "Demo data passphrase set up." not in second.stdout
 
-    demo = await FakeAuthProvider(home / ".kaleta" / "fake-auth.json").sign_in(
-        "demo@kaleta.app", "demo-kaleta"
-    )
+    demo = await RegistryAuthProvider().sign_in("demo@kaleta.app", "demo-kaleta")
     assert isinstance(demo, Identity)
     async with AsyncSessionFactory.public() as public:
         tenants = await TenantService(public).list_tenants()

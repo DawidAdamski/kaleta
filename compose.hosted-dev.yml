@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
-# The hosted layout (ADR-35) on a laptop: PostgreSQL 16 + Kaleta, with the debug sign-in backend standing in for Supabase Auth — every
-# address is confirmed at sign-up, no mail is sent. Not a deployment: the
-# `fake` backend is refused unless KALETA_DEBUG=true.
+# The hosted layout (ADR-35) on a laptop: PostgreSQL 16 + Kaleta with local
+# logins (ADR-38) — no mail is sent — and the app connecting as a
+# non-superuser role, as on Supabase. Not a deployment: KALETA_DEBUG=true.
 #
 #   podman compose -f compose.hosted-dev.yml up -d --build
 #   ./scripts/hosted_smoke.sh http://localhost:8090
 #   podman compose -f compose.hosted-dev.yml down -v
 #
 # `./scripts/hosted_smoke.sh` with no URL does all three. The self-hosted
-# default stays `docker-compose.yml` (SQLite, one household).
+# stack is `docker-compose.yml`.
 
 name: kaleta-hosted-dev
 
@@ -41,7 +41,7 @@ services:
     ports:
       - "${KALETA_HOSTED_DEV_PORT:-8090}:8080"
     environment:
-      KALETA_AUTH_BACKEND: fake
+      KALETA_AUTH_BACKEND: local
       KALETA_DEBUG: "true"
       KALETA_DB_URL: postgresql://kaleta_app:kaleta_app@db:5432/kaleta
       KALETA_SECRET_KEY: hosted-dev-only-not-a-secret
@@ -49,8 +49,8 @@ services:
       KALETA_HOST: 0.0.0.0
       KALETA_PORT: "8080"
     volumes:
-      # NiceGUI's session files and the fake backend's identities: a restarted
-      # container keeps its sessions (and asks every member to unlock again).
+      # NiceGUI's session files: a restarted container keeps its sessions
+      # (and asks every member to unlock again).
       - hosted-dev-state:/root/.kaleta
     healthcheck:
       test:
