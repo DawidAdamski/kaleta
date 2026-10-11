@@ -3,7 +3,7 @@ plan_id: self-host-guide
 title: Self-hosting guide — one machine, HTTPS for the PWA, backups you own
 area: docs / ops
 effort: small
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#2027-directions
 ---
 
@@ -69,5 +69,46 @@ documentation site (GitHub Pages, `mkdocs.yml`).
   user-written text is already ciphertext.
 
 ## Implementation notes
+
+- **No `.env` with secrets.** Since `postgres-only` C2 the compose file
+  generates the database password and `KALETA_SECRET_KEY` itself (the
+  `kaleta-secrets` volume). The guide says so. `.env` holds only what the
+  HTTPS overlays need (tunnel token, public URL or domain) and, optionally,
+  `COMPOSE_FILE`.
+- **Measured, not guessed (2026-10-11, Podman 6.1 on arm64, PostgreSQL 18.6).**
+  With six years of example data (`scripts/seed.py`: 1,584 transactions,
+  576 budgets), Kaleta idled at about 150 MB and peaked at about 320 MB while
+  drawing the dashboard, the forecast and the reports. PostgreSQL used about
+  60 MB. The database was 11 MB empty and 13.2 MB seeded; the family's schema
+  was 3.2 MB, of which the audit log was 1.2 MB. That is about 2 kB per
+  transaction. The `-Fc` dump was 1.2 MB. CPU stayed in single digits, which
+  `podman stats` samples too coarsely to give a peak worth printing, so the
+  guide says "one or two cores".
+- **The `[manual]` criterion, run on this machine.** `backup` overlay up;
+  `kaleta-backup` wrote the dump; `kaleta` and `backup` stopped; `db` removed;
+  `kaleta_kaleta-pg` dropped; `up -d --wait db`; `pg_restore --no-owner`;
+  `up -d --wait kaleta`. The same family schema and 1,584 transactions came
+  back. A browser signed in, unlocked with the data passphrase and showed
+  decrypted payees. The first attempt, without `--wait`, ran `pg_restore`
+  against a server that was not up yet: nothing was restored and Kaleta
+  started on an empty database. The guide's restore uses `--wait` and says
+  why.
+- **`KALETA_SECRET_KEY` is part of a backup.** Only the TOTP secrets
+  (`user_mfa.totp_secret`, `EncryptedString`) are sealed under it. The guide
+  says to keep a copy next to the recovery code, and what to do without it
+  (`reset-password --disable-mfa`).
+- **Three overlays, not two.** `deploy/selfhost/caddy.yml` sits beside
+  `cloudflared.yml` and `backup.yml`, so the Caddy example is a file CI
+  validates and not a snippet in prose. Each HTTPS overlay re-binds 8080 to
+  loopback with `ports: !override` (Compose 2.24+). The CI `compose` job runs
+  `config` for the base file and every overlay.
+- **`mkdocs build --strict` was failing on `main`.** Four links from `docs/`
+  pointed at files outside it (`../SECURITY.md` twice, `../docker-compose.yml`
+  from C2, `../deploy/postgres/init-app-role.sql`). They now point at GitHub.
+  The `pages` workflow runs the same build, so it was broken too.
+- **Member limit.** The plan's "the member limit" has nothing behind it yet: a
+  family is one login until `hosted-household-sharing`. The guide says that.
+- **Open question (`age`)**: default taken. It is documented as optional, with
+  one command.
 
 ## Implementation (filled by plan-archiver)

@@ -20,6 +20,16 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] `scripts/seed.py` (and so Settings → Data → Example data) fails on a
+      fresh registry-layout family: the `taxonomy` seeder inserts the 8
+      `CANONICAL_TAGS`, which the new family already has, and dies on
+      `uq_tags_name_bidx`. Skip tags that exist, as it already does for the
+      subscription children. Found while measuring the compose stack for
+      `self-host-guide`.
+- [ ] `docs/plans/README.md`: the archived `postgres-only` row has Effort and
+      Status swapped (`archived | draft`), and `scripts/plan_archive.sh` makes
+      the same swap on every run (the archiver corrected it by hand for
+      `instance-admin-panel`).
 - [ ] Any WARNING+ logged after `_register_views()` but before `ui.run()`
       crashes startup ("ui.page cannot be used in NiceGUI scripts…"). The log
       ring buffer's session resolver `views/error_handling.current_client_id`
