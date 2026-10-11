@@ -364,3 +364,13 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
   browser contexts. The *being re-keyed* face of `/unlock` has no e2e: the re-key of an
   e2e-sized ledger lasts milliseconds, too short to land a page load inside it. It is the
   key ring's `is_frozen` (covered in `tests/unit/crypto/test_rekey.py`) drawn as a page.
+
+### After review (Part B)
+
+- **A spent link is a login, not an error, on `/join`**: once the invitation has created
+  the login, a failure of the sign-in that follows says the login is ready and to sign in
+  on `/login` — the link no longer works, so "try again" there would be a dead end.
+- **The revocation contract of `kaleta.auth.household`** (removal and leaving forget the
+  member in this process) is pinned by `tests/unit/auth/test_household_auth.py`.
+- **The invitation link's base** is `KALETA_PUBLIC_URL` when set, otherwise the request's
+  own base URL — behind a proxy that rewrites `Host`, set `KALETA_PUBLIC_URL`.

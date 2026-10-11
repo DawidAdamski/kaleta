@@ -389,7 +389,7 @@ async def _show_link(invitation: Invitation) -> None:
         ).props('data-testid="invite-link"')
         with ui.row().classes("gap-2 justify-end w-full"):
             ui.button(
-                t("unlock.recovery_copy"),
+                t("household.copy_link"),
                 icon="content_copy",
                 on_click=lambda: ui.clipboard.write(link),
             ).props("outline no-caps")

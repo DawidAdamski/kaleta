@@ -2258,7 +2258,9 @@
     "join_hosted": "Create an account with {email}, or sign in if you have one — you join the household at the first sign-in.",
     "join_button": "Join",
     "join_gone_title": "This invitation no longer works",
-    "join_gone": "The link was used, replaced by a newer one, or is older than 72 hours. Ask for a new one."
+    "join_gone": "The link was used, replaced by a newer one, or is older than 72 hours. Ask for a new one.",
+    "copy_link": "Copy link",
+    "join_signed_up": "Your login is ready, but signing in did not finish. Sign in with it to continue."
   },
   "admin": {
     "title": "Administration",

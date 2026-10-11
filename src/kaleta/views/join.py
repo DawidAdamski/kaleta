@@ -81,6 +81,13 @@ def _password_form(token: str, email: str) -> None:
         button.disable()
         try:
             await accept_invitation(token, value)
+        except KaletaError as exc:
+            button.enable()
+            say(exc.message)
+            return
+        # The invitation is spent from here on: whatever fails now, the
+        # login exists and the way on is the login page, not this link.
+        try:
             result = await get_auth_provider().sign_in(email, value)
             if not isinstance(result, Identity):
                 # A fresh login has no second factor; anything else signs in as usual.
@@ -88,8 +95,7 @@ def _password_form(token: str, email: str) -> None:
                 return
             signed_in = await SignInFlow().complete(result)
         except KaletaError as exc:
-            button.enable()
-            say(exc.message)
+            say(f"{exc.message} {t('household.join_signed_up')}")
             return
         finish_login(
             user_id=signed_in.user_id,
