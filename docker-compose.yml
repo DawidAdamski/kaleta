@@ -13,8 +13,8 @@
 # (`kaleta_db_url`, `kaleta_secret_key`), so the admin CLI sees them too:
 #
 #   podman compose exec kaleta uv run kaleta-admin reset-password <e-mail>
-# Back up `kaleta-pg` (pg_dump) — Kaleta does not
-# make backups of its own. Behind a reverse proxy with HTTPS, also set
+#
+# Back up `kaleta-pg` (pg_dump) — Kaleta does not make backups of its own. Behind a reverse proxy with HTTPS, also set
 # KALETA_PUBLIC_URL and KALETA_SESSION_COOKIE_SECURE=true on `kaleta`.
 #
 # The hosted-shaped stack used for development is `compose.hosted-dev.yml`.

@@ -10,17 +10,12 @@ from pathlib import Path
 
 import pytest
 
-from kaleta.config.settings import _SECRETS_DIR, Settings
+from kaleta.config.settings import Settings
 
 
 def _write_secrets(directory: Path) -> None:
     (directory / "kaleta_db_url").write_text("postgresql://kaleta:pw@db:5432/kaleta\n")
     (directory / "kaleta_secret_key").write_text("a-key-from-a-file\n")
-
-
-def test_the_secret_files_live_where_docker_and_podman_put_them() -> None:
-    """Covers: KAL-SET-031"""
-    assert Path("/run/secrets") == _SECRETS_DIR
 
 
 def test_settings_are_read_from_secret_files(

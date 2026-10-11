@@ -9,11 +9,15 @@ terminal window required. Bind to loopback only; use Docker Compose (see
 - Python 3.13+ and [uv](https://docs.astral.sh/uv/)
 - A clone of this repository (path below is an example — pin
   `WorkingDirectory` / `WorkingDirectory=` to **your** clone)
-- First-run setup completed once (`uv run kaleta`, choose a DB, create account)
+- A PostgreSQL 16+ database for `KALETA_DB_URL` (see
+  [getting started](getting-started.md#install-and-run))
+- First run completed once (`uv run kaleta`, create the administrator and
+  choose the data passphrase)
 
 Recommended env in the unit/plist (or a `.env` in the working directory):
 
 ```env
+KALETA_DB_URL=postgresql://kaleta:<password>@localhost:5432/kaleta
 KALETA_MODE=web
 KALETA_HOST=127.0.0.1
 KALETA_PORT=8080
@@ -78,6 +82,8 @@ Example `~/Library/LaunchAgents/pl.kaleta.app.plist`:
   </array>
   <key>EnvironmentVariables</key>
   <dict>
+    <key>KALETA_DB_URL</key>
+    <string>postgresql://kaleta:REPLACE_WITH_PASSWORD@localhost:5432/kaleta</string>
     <key>KALETA_MODE</key>
     <string>web</string>
     <key>KALETA_HOST</key>
@@ -113,6 +119,7 @@ After=network-online.target
 [Service]
 Type=simple
 WorkingDirectory=/home/YOU/Projects/kaleta
+Environment=KALETA_DB_URL=postgresql://kaleta:REPLACE_WITH_PASSWORD@localhost:5432/kaleta
 Environment=KALETA_MODE=web
 Environment=KALETA_HOST=127.0.0.1
 Environment=KALETA_PORT=8080
