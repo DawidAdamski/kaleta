@@ -168,7 +168,7 @@ the desktop window and app-managed backups are removed.
 | # | Plan | Effort | Status | Depends on |
 |---|---|---|---|---|
 | 1 | [test-suite-speed](archive/test-suite-speed.md) | medium | archived | — |
-| 2 | [postgres-only](postgres-only.md) | large | draft | 1 |
+| 2 | [postgres-only](archive/postgres-only.md) | archived | draft | 1 |
 | 3 | [instance-admin-panel](instance-admin-panel.md) | medium | draft | 2 |
 | 4 | [hosted-household-sharing](hosted-household-sharing.md) | large | draft | 2 |
 | 5 | [self-host-guide](self-host-guide.md) | small | draft | 2 |
@@ -191,7 +191,7 @@ and is untouched.
 | 5b | [auth-hosted-email-links](archive/auth-hosted-email-links.md) | archived | draft | 1 |
 | [auth-session-rotate-on-login](archive/auth-session-rotate-on-login.md) | archived | Auth — session hardening (2) |
 | [auth-session-revocation](archive/auth-session-revocation.md) | archived | Auth — session hardening (3) |
-| [auth-session-hosted-readiness](auth-session-hosted-readiness.md) | draft | Auth — session hardening (5) |
+| [auth-session-hosted-readiness](archive/auth-session-hosted-readiness.md) | archived | Auth — session hardening (5) |
 | 6 | [bug-reports-and-logging](archive/bug-reports-and-logging.md) | archived | draft | — (public-schema table needs 1) |
 
 ### Auth — session hardening (any order; 1 and 4 first)
@@ -210,7 +210,7 @@ precondition for `hosted-supabase-rollout`.
 | 2 | [auth-session-rotate-on-login](archive/auth-session-rotate-on-login.md) | archived | draft | — |
 | 3 | [auth-session-revocation](archive/auth-session-revocation.md) | archived | draft | — |
 | 4 | [auth-session-idle-timeout](archive/auth-session-idle-timeout.md) | archived | draft | — |
-| 5 | [auth-session-hosted-readiness](auth-session-hosted-readiness.md) | medium | draft | — (before hosted rollout 4) |
+| 5 | [auth-session-hosted-readiness](archive/auth-session-hosted-readiness.md) | archived | draft | — (before hosted rollout 4) |
 
 ### Reports — ad-hoc analysis (execute in this order)
 

@@ -3,8 +3,9 @@ plan_id: auth-session-hosted-readiness
 title: Auth — session state that survives restarts, replicas and a shared disk
 area: auth
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#auth
+status: archived
+archived_at: 2026-10-11
+roadmap_ref: ../../roadmap.md#auth
 ---
 
 # Auth — session state that survives restarts, replicas and a shared disk
@@ -189,3 +190,38 @@ Out of scope:
   passes locally against `redis:7` and `valkey:8` (13 passed each).
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-09-29 (PR #168).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `459327a` | Dawid Adamski | 2026-09-29 | Merge pull request #168 from DawidAdamski/plan/auth-session-hosted-readiness |
+
+**Files changed:**
+- .github/workflows/ci.yml
+- docs/bdd.md
+- docs/deployment.md
+- docs/getting-started.md
+- docs/plans/auth-session-hosted-readiness.md
+- docs/plans/chores.md
+- docs/tech-stack.md
+- pyproject.toml
+- src/kaleta/__init__.py
+- src/kaleta/auth/login_rate_limit.py
+- src/kaleta/config/settings.py
+- src/kaleta/main.py
+- src/kaleta/services/nicegui_storage_service.py
+- tests/e2e/test_auth.py
+- tests/integration/test_login_rate_limit_replicas.py
+- tests/unit/auth/test_login_rate_limit.py
+- tests/unit/auth/test_session_contents.py
+- tests/unit/services/test_nicegui_storage_service.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |

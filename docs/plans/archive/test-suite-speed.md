@@ -22,7 +22,7 @@ Make the full suite a sub-30-second habit on the laptop, keep CI as the
 merge gate but fast, and move the genuinely slow tier off the per-PR path.
 Measure first, so the selection is evidence, not taste.
 
-This plan lands **before** [`postgres-only`](../postgres-only.md) and is
+This plan lands **before** [`postgres-only`](postgres-only.md) and is
 written so that plan only has to delete the SQLite half.
 
 ## Scope

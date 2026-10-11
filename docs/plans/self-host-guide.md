@@ -11,7 +11,7 @@ roadmap_ref: ../roadmap.md#2027-directions
 
 ## Intent
 
-After [`postgres-only`](postgres-only.md) a family runs Kaleta on its own
+After [`postgres-only`](archive/postgres-only.md) a family runs Kaleta on its own
 machine with one compose file. ADR-38 hands backups to whoever runs the
 database, so the documentation must make that easy to do right: from an
 empty homelab to an installed PWA on the phone, a nightly `pg_dump`, a

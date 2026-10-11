@@ -3,15 +3,16 @@ plan_id: postgres-only
 title: PostgreSQL only — one tenancy layout, local logins per family, SQLite removed
 area: db / auth / ops
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-11
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # PostgreSQL only — one tenancy layout, local logins per family, SQLite removed
 
 ## Intent
 
-Carry out [ADR-38](../adr/038-postgresql-only-one-tenancy-layout.md):
+Carry out [ADR-38](../../adr/038-postgresql-only-one-tenancy-layout.md):
 Kaleta becomes one web application on PostgreSQL, run the same way on a
 homelab and on the hosted instance — a `public` registry, one schema per
 family, field encryption always on. Self-hosters keep password logins
@@ -19,7 +20,7 @@ that need no e-mail provider; they lose SQLite, the desktop window and the
 app-managed backups. Every "keep SQLite compatibility" rule, dialect branch
 and doubled CI run goes with them.
 
-Depends on [`test-suite-speed`](archive/test-suite-speed.md) (parallel Postgres
+Depends on [`test-suite-speed`](test-suite-speed.md) (parallel Postgres
 test runs exist before the SQLite runs are deleted).
 
 ## Delivery
@@ -107,7 +108,7 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
   TOTP MFA keep working; MFA secrets move with the identity.
 - No e-mail verification and no self-service password reset without
   SMTP; the instance admin resets passwords (CLI now, panel in
-  [`instance-admin-panel`](instance-admin-panel.md)). With SMTP set, the
+  [`instance-admin-panel`](../instance-admin-panel.md)). With SMTP set, the
   existing reset flow is offered.
 - `local` is valid with every layout; `supabase` stays hosted-only.
   The `fake` backend and its JSON identity file are removed;
@@ -159,9 +160,9 @@ Three pull requests on `plan/postgres-only*` branches, each green on its own
 ### Not in scope
 
 - Migrating any SQLite database (ADR-38: dropped).
-- The instance admin panel UI ([`instance-admin-panel`](instance-admin-panel.md)).
-- Household invites and approval ([`hosted-household-sharing`](hosted-household-sharing.md)).
-- The self-hosting guide and backup routine ([`self-host-guide`](self-host-guide.md)).
+- The instance admin panel UI ([`instance-admin-panel`](../instance-admin-panel.md)).
+- Household invites and approval ([`hosted-household-sharing`](../hosted-household-sharing.md)).
+- The self-hosting guide and backup routine ([`self-host-guide`](../self-host-guide.md)).
 - Squashing Alembic history; Postgres-only refactors of existing queries.
 
 ## Acceptance criteria
@@ -541,3 +542,259 @@ encryption.
   still taught `batch_alter_table` and in-memory SQLite; updated with the docs.
 
 ## Implementation (filled by plan-archiver)
+
+## Implementation
+
+Landed on 2026-10-11.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `55e18a2` | Dawid Adamski | 2026-10-10 | Merge pull request #194 from DawidAdamski/feat/postgres-only-part-a |
+| `18df430` | Dawid Adamski | 2026-10-10 | Merge pull request #197 from DawidAdamski/feat/postgres-only-part-b2b |
+| `1c07c7b` | Dawid Adamski | 2026-10-10 | Merge pull request #199 from DawidAdamski/feat/postgres-only-part-b2c |
+| `c3dd44b` | Dawid Adamski | 2026-10-11 | Merge pull request #200 from DawidAdamski/feat/postgres-only-part-b3 |
+| `6451bce` | Dawid Adamski | 2026-10-11 | Merge pull request #201 from DawidAdamski/feat/postgres-only-part-c1 |
+| `7ea3a74` | Dawid Adamski | 2026-10-11 | Merge pull request #202 from DawidAdamski/feat/postgres-only-part-c2 |
+
+**Files changed:**
+- .claude/agents/deps-updater.md
+- .claude/agents/docs-writer.md
+- .claude/agents/migration-creator.md
+- .claude/agents/test-runner.md
+- .github/ISSUE_TEMPLATE/bug.yml
+- .github/workflows/ci.yml
+- .pre-commit-config.yaml
+- AGENTS.md
+- alembic_public.ini
+- alembic_public/env.py
+- alembic_public/README
+- alembic_public/versions/b1c2d3e4f5a6_local_identities.py
+- alembic_public/versions/c2d3e4f5a6b7_nbp_rates.py
+- alembic.ini
+- alembic/env.py
+- alembic/versions/s3t4u5v6w7x8_drop_local_key_material.py
+- compose.hosted-dev.yml
+- Containerfile
+- Containerfile.full
+- deploy/postgres/init-app-role.sql
+- docker-compose.yml
+- docs/architecture.md
+- docs/bdd.md
+- docs/deploy-local.md
+- docs/deployment.md
+- docs/design/restyle/fidelity/3f.md
+- docs/getting-started.md
+- docs/plans/chores.md
+- docs/plans/instance-admin-panel.md
+- docs/plans/postgres-only.md
+- docs/plans/self-host-guide.md
+- docs/privacy.md
+- docs/review-checklist.md
+- docs/tech-stack.md
+- pyproject.toml
+- README.md
+- scripts/bug_reports.py
+- scripts/encrypt_database.py
+- scripts/hosted_smoke.py
+- scripts/hosted_smoke.sh
+- scripts/migrate_tenants.py
+- scripts/reset_demo.py
+- scripts/restyle_fidelity.py
+- scripts/seed.py
+- scripts/spec_coverage.py
+- scripts/tenant_admin.py
+- scripts/test_db.sh
+- scripts/verify.sh
+- SECURITY.md
+- src/kaleta/api/deps.py
+- src/kaleta/api/v1/auth.py
+- src/kaleta/api/v1/health.py
+- src/kaleta/auth/__init__.py
+- src/kaleta/auth/account_deletion.py
+- src/kaleta/auth/local_logins.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/auth/providers/__init__.py
+- src/kaleta/auth/providers/base.py
+- src/kaleta/auth/providers/fake.py
+- src/kaleta/auth/providers/local.py
+- src/kaleta/auth/providers/registry.py
+- src/kaleta/auth/providers/supabase.py
+- src/kaleta/auth/revocation_cache.py
+- src/kaleta/auth/session.py
+- src/kaleta/auth/sign_in.py
+- src/kaleta/auth/unlock.py
+- src/kaleta/cli/__init__.py
+- src/kaleta/cli/reset_password.py
+- src/kaleta/cli/tenant_admin.py
+- src/kaleta/config/settings.py
+- src/kaleta/config/setup_config.py
+- src/kaleta/crypto/__init__.py
+- src/kaleta/crypto/keyring.py
+- src/kaleta/db/__init__.py
+- src/kaleta/db/audit.py
+- src/kaleta/db/base.py
+- src/kaleta/db/session.py
+- src/kaleta/db/sql_compat.py
+- src/kaleta/db/tenant_context.py
+- src/kaleta/db/tenant_schemas.py
+- src/kaleta/db/types.py
+- src/kaleta/debug_info.py
+- src/kaleta/exceptions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/local_key_material.py
+- src/kaleta/models/nbp_rate.py
+- src/kaleta/models/payee_identity.py
+- src/kaleta/models/tenant.py
+- src/kaleta/models/user.py
+- src/kaleta/schemas/currency_rate.py
+- src/kaleta/schemas/health.py
+- src/kaleta/schemas/identity.py
+- src/kaleta/schemas/nbp.py
+- src/kaleta/seeders/taxonomy.py
+- src/kaleta/seeders/transactions.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/account_deletion_service.py
+- src/kaleta/services/api_token_service.py
+- src/kaleta/services/auth_service.py
+- src/kaleta/services/auth_stats_service.py
+- src/kaleta/services/backup_scheduler.py
+- src/kaleta/services/backup_service.py
+- src/kaleta/services/category_service.py
+- src/kaleta/services/currency_rate_service.py
+- src/kaleta/services/data_encryption_service.py
+- src/kaleta/services/data_service.py
+- src/kaleta/services/event_retention_scheduler.py
+- src/kaleta/services/health_service.py
+- src/kaleta/services/import_rule_service.py
+- src/kaleta/services/integrity_service.py
+- src/kaleta/services/key_service.py
+- src/kaleta/services/local_identity_service.py
+- src/kaleta/services/mfa_service.py
+- src/kaleta/services/nbp_rate_scheduler.py
+- src/kaleta/services/nbp_rate_service.py
+- src/kaleta/services/nbp_startup.py
+- src/kaleta/services/net_worth_service.py
+- src/kaleta/services/payee_merge_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/report_service.py
+- src/kaleta/services/saved_report_service.py
+- src/kaleta/services/scheduled_backup_service.py
+- src/kaleta/services/session.py
+- src/kaleta/services/setup_service.py
+- src/kaleta/services/tenant_service.py
+- src/kaleta/views/auth_common.py
+- src/kaleta/views/create_account.py
+- src/kaleta/views/housekeeping.py
+- src/kaleta/views/layout.py
+- src/kaleta/views/login_mfa.py
+- src/kaleta/views/login.py
+- src/kaleta/views/secure_app.py
+- src/kaleta/views/settings/data_tab.py
+- src/kaleta/views/setup.py
+- src/kaleta/views/theme.py
+- src/kaleta/views/unlock.py
+- tests/backup_helpers.py
+- tests/conftest.py
+- tests/e2e/conftest.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_auth.py
+- tests/e2e/test_dashboard_desktop.py
+- tests/e2e/test_demo_banner.py
+- tests/e2e/test_encryption_unlock.py
+- tests/e2e/test_mfa.py
+- tests/e2e/test_nbp_rates.py
+- tests/e2e/test_self_hosted_first_run.py
+- tests/e2e/test_tenant_signup.py
+- tests/encryption_helpers.py
+- tests/integration/conftest.py
+- tests/integration/test_account_balances.py
+- tests/integration/test_api_cookie_auth.py
+- tests/integration/test_encrypt_database_script.py
+- tests/integration/test_encryption_at_rest.py
+- tests/integration/test_event_retention_families.py
+- tests/integration/test_example_data.py
+- tests/integration/test_first_run.py
+- tests/integration/test_hosted_mfa.py
+- tests/integration/test_hosted_operations.py
+- tests/integration/test_local_registry_logins.py
+- tests/integration/test_mfa_step_up.py
+- tests/integration/test_migrate_on_startup.py
+- tests/integration/test_nbp_rates.py
+- tests/integration/test_new_family_seed.py
+- tests/integration/test_one_layout.py
+- tests/integration/test_payee_identities.py
+- tests/integration/test_reset_demo.py
+- tests/integration/test_reset_password_cli.py
+- tests/integration/test_seed_payees_tags.py
+- tests/integration/test_seed_payment_calendar.py
+- tests/integration/test_session_revocation_guards.py
+- tests/integration/test_settings_db_url.py
+- tests/integration/test_settings_secret_files.py
+- tests/integration/test_sqlite_integrity_backups.py
+- tests/integration/test_sqlite_pragmas.py
+- tests/integration/test_tenant_isolation.py
+- tests/migration_schema.py
+- tests/script_family.py
+- tests/suite_database.py
+- tests/suite_family.py
+- tests/tenancy_helpers.py
+- tests/unit/api/test_health.py
+- tests/unit/auth/test_email_links.py
+- tests/unit/auth/test_fake_provider.py
+- tests/unit/auth/test_mfa_guard.py
+- tests/unit/auth/test_session_contents.py
+- tests/unit/auth/test_session_revocation.py
+- tests/unit/auth/test_session_rotation.py
+- tests/unit/auth/test_session_ttl.py
+- tests/unit/auth/test_supabase_mfa.py
+- tests/unit/auth/test_tenancy_settings.py
+- tests/unit/auth/test_tenant_context.py
+- tests/unit/auth/test_unlock_guard.py
+- tests/unit/cli/test_disable_mfa_flag.py
+- tests/unit/cli/test_reset_password.py
+- tests/unit/cli/test_tenant_admin.py
+- tests/unit/db/test_encrypted_columns.py
+- tests/unit/db/test_encrypted_text.py
+- tests/unit/db/test_sqlite_pragmas.py
+- tests/unit/scripts/__init__.py
+- tests/unit/services/test_account_service.py
+- tests/unit/services/test_api_token_service.py
+- tests/unit/services/test_asset_service.py
+- tests/unit/services/test_auth_service.py
+- tests/unit/services/test_auth_stats_service.py
+- tests/unit/services/test_budget_service.py
+- tests/unit/services/test_category_service.py
+- tests/unit/services/test_dedupe_service.py
+- tests/unit/services/test_institution_service.py
+- tests/unit/services/test_integrity_service.py
+- tests/unit/services/test_key_service.py
+- tests/unit/services/test_mfa_service.py
+- tests/unit/services/test_nbp_rate_service.py
+- tests/unit/services/test_net_worth_service.py
+- tests/unit/services/test_payee_service.py
+- tests/unit/services/test_personal_loan_service.py
+- tests/unit/services/test_planned_transaction_service.py
+- tests/unit/services/test_report_service.py
+- tests/unit/services/test_reserve_fund_service.py
+- tests/unit/services/test_scheduled_backup_service.py
+- tests/unit/services/test_setup_service.py
+- tests/unit/services/test_subscription_service.py
+- tests/unit/services/test_tenant_service.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/services/test_unplanned_radar_service.py
+- tests/unit/services/test_wizard_action_service.py
+- tests/unit/services/test_yearly_plan_service.py
+- tests/unit/test_debug_info.py
+- tests/xdist_postgres.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Delivered in parts, each a merged PR: A #194 (55e18a2), B1 #195 / B2a #196 / B2b #197 (stacked, merged together as 18df430), B2c #199 (1c07c7b), B3 #200 (c3dd44b), C1 #201 (6451bce), C2 #202 (7ea3a74). Acceptance criteria were not re-run at archive time (--fast); each part passed CI and verify.sh on its own PR.
