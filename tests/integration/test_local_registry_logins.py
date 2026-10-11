@@ -267,7 +267,8 @@ async def test_the_administrator_manages_local_logins(instance: str) -> None:
 
     assert await cli.logins() == 0
     listing = out.getvalue().splitlines()[-1].split("\t")
-    assert listing[1:3] == ["owner@example.com", "admin"]
+    # The password was printed for someone else: it is changed at the next sign-in.
+    assert listing[1:3] == ["owner@example.com", "admin,must-change"]
 
     assert await cli.registration(None) == 0
     assert out.getvalue().splitlines()[-1] == "registration closed"
