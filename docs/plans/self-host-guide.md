@@ -108,6 +108,31 @@ documentation site (GitHub Pages, `mkdocs.yml`).
   The `pages` workflow runs the same build, so it was broken too.
 - **Member limit.** The plan's "the member limit" has nothing behind it yet: a
   family is one login until `hosted-household-sharing`. The guide says that.
+- **Review findings (2026-10-11), all taken.**
+  - `COMPOSE_FILE` in `.env` is the guide's one way to choose overlays. A
+    command typed with fewer `-f` files would rebuild `kaleta` from the base
+    file and undo an HTTPS overlay.
+  - busybox `crond` runs its jobs with no environment. Run under `env -i`,
+    the job failed with `pg_dump: not found`, and `KALETA_BACKUP_KEEP_DAYS`
+    was unset. The script now sets `PATH` and the crontab line carries
+    `TZ` and the retention. A real `crond` run (the schedule set to every
+    minute) wrote the dump and logged it to `podman compose logs backup`.
+  - Dumps are `chown`ed to the owner of the backup directory, and the guide
+    has it created first. Docker's root-made directory is stated.
+  - `kaleta-backup [name]` keeps a pre-upgrade dump apart from the nightly
+    one. Stale `*.partial` files are swept.
+  - `KALETA_PUBLIC_URL` left the HTTPS overlays: only the Supabase provider
+    reads it.
+  - The guide asks for Compose 2.24+, because of `!override`.
+  - On a reachable machine the guide creates the administrator with
+    `kaleta-admin create-login --admin` first.
+  - The new-machine key step writes, installs and removes the file; it was
+    tried on Podman.
+  - The rollback has its order spelled out.
+  - Images re-pinned: `cloudflared:2026.10.0`, `caddy:2.11-alpine`.
+- **How the measurement seeded around the `taxonomy` bug** (chores.md):
+  the fresh family's 8 canonical tags were deleted, and `seed.py` then
+  recreated them with everything else.
 - **Open question (`age`)**: default taken. It is documented as optional, with
   one command.
 

@@ -1,15 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 #
 # Nightly pg_dump of the self-hosted stack (docs/self-hosting.md, "Backups").
-#
-#   podman compose -f docker-compose.yml -f deploy/selfhost/backup.yml up -d
+# Add it to COMPOSE_FILE in .env, then `podman compose up -d`.
 #
 # Every night at 03:00 (the container's TZ, UTC unless set) it writes
 # kaleta-YYYY-MM-DD.dump — pg_dump's custom format — into KALETA_BACKUP_DIR
-# (default ./backups, beside docker-compose.yml) and deletes dumps older than
-# KALETA_BACKUP_KEEP_DAYS (default 14). A dump now:
+# (default ./backups, beside docker-compose.yml; create it first, so that it
+# and the dumps belong to you) and deletes dumps older than
+# KALETA_BACKUP_KEEP_DAYS (default 14). A dump now, optionally named:
 #
-#   podman compose -f docker-compose.yml -f deploy/selfhost/backup.yml exec backup kaleta-backup
+#   podman compose exec backup kaleta-backup [before-upgrade]
 #
 # The directory is still on this machine: copy it somewhere else as well.
 
@@ -30,15 +30,23 @@ services:
         #!/bin/sh
         set -eu
         umask 077
-        out="/backups/kaleta-$$(date +%F).dump"
+        # crond runs its jobs with next to no environment.
+        export PATH=/usr/local/bin:/usr/bin:/bin
+        keep="$${KALETA_BACKUP_KEEP_DAYS:-14}"
+        out="/backups/kaleta-$${1:-$$(date +%F)}.dump"
         PGPASSWORD="$$(cat /secrets/db_password)" \
           pg_dump -h db -U kaleta -d kaleta -Fc -f "$$out.partial"
         mv "$$out.partial" "$$out"
-        find /backups -name 'kaleta-*.dump' -mtime +"$${KALETA_BACKUP_KEEP_DAYS}" -delete
+        # The dump belongs to whoever owns the directory (you, if you made it).
+        chown "$$(stat -c %u:%g /backups)" "$$out"
+        find /backups -name 'kaleta-*.dump' -mtime +"$$keep" -delete
+        find /backups -name 'kaleta-*.partial' -mtime +1 -delete
         echo "kaleta-backup: wrote $$out ($$(du -h "$$out" | cut -f1))"
         SCRIPT
         chmod 0755 /usr/local/bin/kaleta-backup
-        echo "0 3 * * * /usr/local/bin/kaleta-backup" > /etc/crontabs/root
+        # crond gives its jobs no environment: the settings go on the line, and
+        # the output to the container's log (`podman compose logs backup`).
+        echo "0 3 * * * TZ=$$TZ KALETA_BACKUP_KEEP_DAYS=$$KALETA_BACKUP_KEEP_DAYS /usr/local/bin/kaleta-backup > /proc/1/fd/1 2>&1" > /etc/crontabs/root
         exec crond -f -l 8
     volumes:
       - kaleta-secrets:/secrets:ro

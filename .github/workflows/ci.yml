@@ -106,7 +106,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CLOUDFLARE_TUNNEL_TOKEN: placeholder
-      KALETA_PUBLIC_URL: https://kaleta.example.com
       KALETA_DOMAIN: kaleta.example.com
     steps:
       - name: Checkout

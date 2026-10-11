@@ -4,12 +4,11 @@
 # "HTTPS, option B"). Needs ports 80 and 443 reachable from the internet and
 # a DNS name pointing at this machine.
 #
-#   KALETA_DOMAIN=kaleta.example.com \
-#     podman compose -f docker-compose.yml -f deploy/selfhost/caddy.yml up -d
+# Needs KALETA_DOMAIN in .env, and the file in COMPOSE_FILE.
 
 services:
   caddy:
-    image: docker.io/library/caddy:2.10-alpine
+    image: docker.io/library/caddy:2.11-alpine
     command: ["caddy", "reverse-proxy", "--from", "${KALETA_DOMAIN:?set KALETA_DOMAIN}", "--to", "kaleta:8080"]
     ports:
       - "80:80"
@@ -26,7 +25,6 @@ services:
     ports: !override
       - "127.0.0.1:8080:8080"
     environment:
-      KALETA_PUBLIC_URL: https://${KALETA_DOMAIN:?set KALETA_DOMAIN}
       KALETA_SESSION_COOKIE_SECURE: "true"
 
 volumes:

@@ -3,15 +3,13 @@
 # HTTPS through a Cloudflare Tunnel — no open port on this machine
 # (docs/self-hosting.md, "HTTPS, option A").
 #
-#   CLOUDFLARE_TUNNEL_TOKEN=… KALETA_PUBLIC_URL=https://kaleta.example.com \
-#     podman compose -f docker-compose.yml -f deploy/selfhost/cloudflared.yml up -d
-#
-# (or put both in a .env file next to docker-compose.yml). In the Cloudflare
-# dashboard the tunnel's public hostname points at http://kaleta:8080.
+# Needs CLOUDFLARE_TUNNEL_TOKEN in .env, and the file in COMPOSE_FILE. In the
+# Cloudflare dashboard the tunnel's public hostname points at http://kaleta:8080.
+# Re-pin the image now and then: Cloudflare stops supporting old releases.
 
 services:
   cloudflared:
-    image: docker.io/cloudflare/cloudflared:2025.9.1
+    image: docker.io/cloudflare/cloudflared:2026.10.0
     command: ["tunnel", "--no-autoupdate", "run"]
     environment:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN (Cloudflare → Zero Trust → Tunnels)}
@@ -25,5 +23,4 @@ services:
     ports: !override
       - "127.0.0.1:8080:8080"
     environment:
-      KALETA_PUBLIC_URL: ${KALETA_PUBLIC_URL:?set KALETA_PUBLIC_URL to the tunnel's https:// address}
       KALETA_SESSION_COOKIE_SECURE: "true"
