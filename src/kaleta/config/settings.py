@@ -11,6 +11,10 @@ logger = logging.getLogger(__name__)
 
 _INSECURE_KEY = "change-me-in-production"
 _DEFAULT_DATA_DIR = Path.home() / ".kaleta"
+#: Docker's and Podman's place for secret files: ``/run/secrets/kaleta_secret_key``
+#: is read as ``KALETA_SECRET_KEY`` (an environment variable still wins), so a
+#: ``compose exec … kaleta-admin`` sees the same settings as the app.
+_SECRETS_DIR = Path("/run/secrets")
 #: A PostgreSQL on this machine; anything else is set with ``KALETA_DB_URL``.
 _DEFAULT_DB_URL = "postgresql+asyncpg://kaleta@localhost:5432/kaleta"
 _POSTGRES_ONLY = (
@@ -34,7 +38,11 @@ def normalize_db_url(url: str) -> str:
 class Settings(BaseSettings):
     # A refused value is never echoed: a database URL or a key may carry a secret.
     model_config = SettingsConfigDict(
-        env_prefix="KALETA_", env_file=".env", extra="ignore", hide_input_in_errors=True
+        env_prefix="KALETA_",
+        env_file=".env",
+        secrets_dir=_SECRETS_DIR if _SECRETS_DIR.is_dir() else None,
+        extra="ignore",
+        hide_input_in_errors=True,
     )
 
     db_url: str = _DEFAULT_DB_URL

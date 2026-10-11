@@ -4053,6 +4053,13 @@ Feature: Settings — Data safety
     Then it refuses to start with a message naming PostgreSQL 16+ and ADR-38
     And a "postgresql://" URL is accepted and rewritten to the asyncpg driver
 
+  KAL-SET-031 @automated
+  Scenario: Settings are read from secret files under /run/secrets
+    Given /run/secrets holds "kaleta_db_url" and "kaleta_secret_key"
+    When Kaleta reads its settings
+    Then KALETA_DB_URL and KALETA_SECRET_KEY take the files' contents, trailing newline dropped
+    And an environment variable of the same name still wins over its file
+
   KAL-SET-019 @removed
     # Removed by ADR-38 (postgres-only B2b): a family schema is upgraded by the start-up migration of the registry layout.
   Scenario: Configured database auto-upgrades to alembic head on start
