@@ -417,3 +417,6 @@ check it still reproduces before acting on it.
       transaction (`TransactionUpdate.expected_updated_at`). Accounts, budgets,
       planned transactions and the rest still let the last save win silently;
       each editor would pass the `updated_at` it loaded the same way.
+- [ ] **`safety_funds.archived_section_body` (pl) is masculine-only** — "Fundusze,
+      które wycofałeś". Gender-neutral: "Wycofane fundusze. Możesz je przywrócić w
+      każdej chwili." Seen by the i18n check of `funds-irregular-items`.

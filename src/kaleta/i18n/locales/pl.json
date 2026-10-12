@@ -2364,7 +2364,7 @@
     "item_name": "Pozycja",
     "yearly_amount": "Kwota roczna",
     "monthly": "Miesięcznie",
-    "due_month": "Zwykle płatne w",
+    "due_month": "Miesiąc płatności",
     "category": "Kategoria płatności",
     "preview": "Odkładaj {monthly} miesięcznie",
     "item_incomplete": "Podaj nazwę pozycji i kwotę roczną.",
@@ -2372,13 +2372,13 @@
     "item_deleted": "Pozycja usunięta.",
     "no_items": "Brak pozycji. Dodaj roczne koszty, które pokrywa ten fundusz — ubezpieczenie auta, podatek od nieruchomości.",
     "funding_title": "Zasilanie funduszu",
-    "funding_body": "Odkładaj {amount} co miesiąc: comiesięczny przelew na {account}.",
+    "funding_body": "Odkładaj {amount} miesięcznie — stałym przelewem na {account}.",
     "needs_account": "Najpierw przypisz funduszowi konto (edycja w Funduszach bezpieczeństwa i rezerwowych) — tam trafi comiesięczny przelew.",
     "needs_items": "Dodaj pozycję, a tutaj pojawi się propozycja comiesięcznego przelewu.",
-    "needs_source": "Dodaj drugie konto, z którego będą płynąć pieniądze.",
+    "needs_source": "Dodaj drugie konto, z którego przelejesz pieniądze.",
     "from_account": "Z konta",
     "start_date": "Pierwszy przelew",
     "create_funding": "Utwórz comiesięczny przelew",
-    "funding_created": "Zaplanowano comiesięczny przelew {amount}."
+    "funding_created": "Zaplanowano comiesięczny przelew na kwotę {amount}."
   }
 }

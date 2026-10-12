@@ -2181,6 +2181,7 @@ Feature: Recurring Payment Detection
     And "Kominiarz" costs 150.00 once a year
     When I look at the irregular expenses fund line on the radar
     Then it sums their yearly estimates to 1450.00
+    And it suggests setting aside 145.00 a month, a tenth of the year
     And it offers a link to Safety & Reserve Funds
 ```
 

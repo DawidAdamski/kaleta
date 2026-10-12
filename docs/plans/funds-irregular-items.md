@@ -100,3 +100,14 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
   the planned transfer), `tests/unit/core/test_irregular.py` (the rule's rounding). The
   radar's unit test now expects 145.00 a month for 1450.00 a year (÷10), by the decision
   above.
+
+### After review (Part A)
+
+- **`KAL-REC-009` pins the radar's monthly figure** (145.00 for 1450.00 a year) now that
+  it follows the fund's ÷10 rule, in the scenario and its integration test.
+- **The "already planned" check reads the description** ("<source> → <fund account>"), as
+  the salary's target does: after renaming an account the same transfer can be planned a
+  second time. Planned transactions have no target-account column; adding one is a plan of
+  its own.
+- **Polish copy** after the i18n check: "Miesiąc płatności" rather than a header ending on
+  "w", and no "co miesiąc … comiesięczny" twice in one sentence.

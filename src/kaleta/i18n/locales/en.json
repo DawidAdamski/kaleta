@@ -2357,7 +2357,7 @@
   },
   "irregular_fund": {
     "back": "← Safety & Reserve Funds",
-    "subtitle": "The yearly costs this fund saves for. Each is set aside at a tenth a month — two months of slack for the rise and for surprises.",
+    "subtitle": "The yearly costs this fund saves for. Each is set aside at a tenth a month — two months of slack for price rises and for surprises.",
     "items_title": "Yearly costs",
     "add_item": "Add item",
     "edit_item": "Edit item",
