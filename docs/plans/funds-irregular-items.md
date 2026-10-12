@@ -111,3 +111,45 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
   its own.
 - **Polish copy** after the i18n check: "Miesiąc płatności" rather than a header ending on
   "w", and no "co miesiąc … comiesięczny" twice in one sentence.
+
+### Decisions (Part B — the payments)
+
+- **The link is a column on the transaction**, `transactions.irregular_item_id` (`SET NULL`,
+  indexed), like `planned_transaction_id`: one item is paid many times over the years, one
+  payment pays one item. Deleting an item leaves its payments in the history as unplanned.
+- **Recording a payment** on the fund's page ("Record a payment") creates an expense on
+  the fund's account — amount, date, description, the item (or none: an unplanned cost),
+  and a category, defaulting to the item's. An expense needs a category, so with neither
+  the dialog refuses. The balance follows the ledger (`accounts-ledger-balances`), so the
+  payment lowers it with nothing else to update (`KAL-IRR-004`).
+- **The history** is the fund's account's ledger, newest first: money in is a
+  contribution; an expense is a payment of its item, or *unplanned* when it is linked to
+  none (`KAL-IRR-005`); money moved out to another account is a withdrawal, neither. An
+  unplanned payment can be linked to an item afterwards, and a payment unlinked, from
+  its row — an expense entered on the ledger or imported is linked the same way.
+- **Only an expense on the fund's own account links**, and only to an item of that fund;
+  the service refuses anything else.
+- **Tests (Part B)**: `tests/integration/test_irregular_fund_payments.py` (`KAL-IRR-004`,
+  `-005`, linking a ledger expense afterwards and unlinking it, and the refusals: another
+  account's expense, another fund's item, no category), and two e2e tests in
+  `tests/e2e/test_irregular_fund.py` that record each payment through the dialog and read
+  the balance and the history row. Breaking the link on record, or the unplanned mark,
+  each fails a test.
+
+### After review (Part B)
+
+- **A refused link redraws the row**, so its "paid for" choice goes back to what is stored.
+- **The history shows the latest 100 movements** and says so when it is full; the balance
+  above it counts the whole ledger.
+- **Recording a payment is two commits**: the expense (`TransactionService.create`), then
+  its link. A failure between them leaves an unplanned expense, which the row's "paid for"
+  links afterwards. Carrying the link on `TransactionCreate` would close that window but
+  widen the API's schema for a field only this page sets.
+- **Tests** gained money in, money moved out, and a deleted item's payment turning
+  unplanned.
+- **The e2e tests share an instance with every other**: their funds have no target (a fund
+  under target is a dashboard warning that outranked another test's subscription item),
+  their payments are dated 2024-01-15 (today's rows pushed another test's posted planned
+  row off the ledger's first page), and the category selects filter as one types — the
+  shared instance's list is too long for the option to be on screen, and so is a real
+  ledger's.

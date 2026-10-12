@@ -72,6 +72,13 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
         nullable=True,
         index=True,
     )
+    # A payment out of an irregular-expenses fund: the yearly item it pays
+    # (``funds-irregular-items``). ``NULL`` on the fund's account is unplanned.
+    irregular_item_id: Mapped[int | None] = mapped_column(
+        ForeignKey("irregular_items.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     # For cross-currency transfers: how many dest-currency units per 1 src-currency unit

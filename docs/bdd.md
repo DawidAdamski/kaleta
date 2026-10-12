@@ -2340,14 +2340,14 @@ Feature: Irregular Expenses Fund
     When I accept the suggested funding plan
     Then a monthly planned transfer of 180.00 to the fund account exists
 
-  KAL-IRR-004 @planned
+  KAL-IRR-004 @automated
   Scenario: Pay an item from the fund
     Given the fund holds 1500.00 and item "Car insurance" is due
     When I record the 1250.00 insurance payment from the fund account
     Then the payment is linked to the "Car insurance" item
     And the fund balance shows 250.00
 
-  KAL-IRR-005 @planned
+  KAL-IRR-005 @automated
   Scenario: Unplanned expense covered by the fund
     Given the fund holds 800.00
     When I record a 300.00 "heating underpayment" from the fund

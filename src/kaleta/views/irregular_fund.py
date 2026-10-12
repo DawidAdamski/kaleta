@@ -1,9 +1,11 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-"""``/wizard/safety-funds/{fund_id}``: an irregular-expenses fund's plan.
+"""``/wizard/safety-funds/{fund_id}``: an irregular-expenses fund's plan and history.
 
-``funds-irregular-items`` (``KAL-IRR-001``…``003``). The yearly costs the fund
-saves for, each at a tenth a month, their total, and the proposal that turns
-the total into a monthly planned transfer into the fund's account.
+``funds-irregular-items`` (``KAL-IRR-001``…``005``). What the fund holds, the
+yearly costs it saves for (each at a tenth a month) and their total, the
+proposal that turns the total into a monthly planned transfer into the fund's
+account, and the fund's history: what came in, which item each payment paid,
+and what was paid that no item planned for.
 """
 
 from __future__ import annotations
@@ -18,11 +20,14 @@ from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.category import CategoryType
 from kaleta.schemas.irregular_item import (
+    IrregularEntryKind,
+    IrregularFundEntry,
     IrregularFundingCreate,
     IrregularFundPlan,
     IrregularItemCreate,
     IrregularItemResponse,
     IrregularItemUpdate,
+    IrregularPaymentCreate,
 )
 from kaleta.services import (
     AccountService,
@@ -105,6 +110,7 @@ class _FundPage:
 
     async def render(self) -> None:
         self._build_item_dialog()
+        self._build_payment_dialog()
         await self.body()
 
     async def _plan(self) -> IrregularFundPlan:
@@ -133,8 +139,12 @@ class _FundPage:
             self.month_in = ui.select(
                 _month_options(), label=t("irregular_fund.due_month"), clearable=True
             ).classes("w-full")
+            # Typed to filter: a ledger's category list is long.
             self.category_in = ui.select(
-                self.categories, label=t("irregular_fund.category"), clearable=True
+                self.categories,
+                label=t("irregular_fund.category"),
+                clearable=True,
+                with_input=True,
             ).classes("w-full")
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button(t("common.cancel"), on_click=self.dialog.close).props("flat")
@@ -215,13 +225,100 @@ class _FundPage:
         ui.notify(t("irregular_fund.item_deleted"), type="positive")
         self.body.refresh()
 
+    # ── The payment dialog (``KAL-IRR-004``, ``-005``) ────────────────────
+
+    def _build_payment_dialog(self) -> None:
+        self.items: list[IrregularItemResponse] = []
+        self.pay_dialog = ui.dialog()
+        with self.pay_dialog, ui.card().classes("w-[420px] gap-3"):
+            ui.label(t("irregular_fund.record_payment")).classes("text-lg font-semibold")
+            self.pay_item = ui.select(
+                _Payments.item_options([]),
+                label=t("irregular_fund.paid_for"),
+                value=_Payments.UNPLANNED,
+            ).classes("w-full")
+            self.pay_item.on_value_change(lambda _e: self._default_category())
+            self.pay_amount = ui.number(t("common.amount"), min=0, step=10, format="%.2f").classes(
+                "w-full"
+            )
+            self.pay_date = ui.input(t("common.date")).props("type=date").classes("w-full")
+            self.pay_desc = ui.input(t("common.description")).classes("w-full")
+            self.pay_category = ui.select(
+                self.categories, label=t("common.category"), clearable=True, with_input=True
+            ).classes("w-full")
+            with ui.row().classes("w-full justify-end gap-2"):
+                ui.button(t("common.cancel"), on_click=self.pay_dialog.close).props("flat")
+                ui.button(t("irregular_fund.record"), on_click=self._record).props("color=primary")
+
+    def _default_category(self) -> None:
+        item = next((i for i in self.items if i.id == self.pay_item.value), None)
+        if item is not None and item.category_id is not None:
+            self.pay_category.set_value(item.category_id)
+
+    def _open_payment(self) -> None:
+        self.pay_item.set_options(_Payments.item_options(self.items), value=_Payments.UNPLANNED)
+        self.pay_amount.set_value(None)
+        self.pay_date.set_value(str(datetime.date.today()))
+        self.pay_desc.set_value("")
+        self.pay_category.set_value(None)
+        self.pay_dialog.open()
+
+    async def _record(self) -> None:
+        amount = _parse_amount(self.pay_amount.value)
+        if amount is None:
+            ui.notify(t("irregular_fund.payment_needs_amount"), type="negative")
+            return
+        try:
+            day = datetime.date.fromisoformat(self.pay_date.value)
+        except (TypeError, ValueError):
+            day = datetime.date.today()
+        item_id = self.pay_item.value or None
+        payload = IrregularPaymentCreate(
+            item_id=item_id,
+            amount=amount,
+            date=day,
+            description=self.pay_desc.value or "",
+            category_id=self.pay_category.value,
+        )
+
+        async def _write(session: Any) -> None:
+            await IrregularItemService(session).record_payment(self.fund_id, payload)
+
+        try:
+            await with_session(_write)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+            return
+        self.pay_dialog.close()
+        ui.notify(t("irregular_fund.payment_recorded"), type="positive")
+        self.body.refresh()
+
+    async def _link(self, entry: IrregularFundEntry, value: int | None) -> None:
+        item_id = value or None
+
+        async def _write(session: Any) -> None:
+            await IrregularItemService(session).link_payment(
+                self.fund_id, entry.transaction_id, item_id
+            )
+
+        try:
+            await with_session(_write)
+        except KaletaError as exc:
+            notify_kaleta_error(exc)
+        # Either way: a refused link puts the row's choice back to what is stored.
+        self.body.refresh()
+
     # ── The page body ─────────────────────────────────────────────────────
 
     @ui.refreshable_method
     async def body(self) -> None:
         plan = await self._plan()
+        self.items = plan.items
+        self._balance_card(plan)
         self._items_card(plan)
         self._funding_card(plan)
+        if plan.backing_account_id is not None:
+            await self._history_card(plan)
 
     def _items_card(self, plan: IrregularFundPlan) -> None:
         months = _month_options()
@@ -322,3 +419,79 @@ class _FundPage:
                 ui.button(t("irregular_fund.create_funding"), on_click=_create).props(
                     "color=primary no-caps"
                 )
+
+    def _balance_card(self, plan: IrregularFundPlan) -> None:
+        with (
+            ui.card().classes(SECTION_CARD),
+            ui.row().classes("w-full items-center justify-between gap-3"),
+        ):
+            with ui.column().classes("gap-0"):
+                ui.label(t("irregular_fund.holds")).classes(BODY_MUTED)
+                ui.label(_fmt(plan.balance)).classes("text-2xl font-semibold k-mono").props(
+                    'data-testid="irregular-balance"'
+                )
+            if plan.backing_account_id is not None:
+                ui.button(
+                    t("irregular_fund.record_payment"),
+                    icon="payments",
+                    on_click=self._open_payment,
+                ).props("color=primary no-caps")
+
+    async def _history_card(self, plan: IrregularFundPlan) -> None:
+        async def _load(session: Any) -> list[IrregularFundEntry]:
+            return await IrregularItemService(session).history(self.fund_id)
+
+        entries = await with_session(_load)
+        options = _Payments.item_options(plan.items)
+        full = len(entries) >= IrregularItemService.HISTORY_LIMIT
+        with ui.card().classes(SECTION_CARD):
+            ui.label(t("irregular_fund.history_title")).classes(SECTION_HEADING)
+            if not entries:
+                ui.label(t("irregular_fund.no_history")).classes(BODY_MUTED)
+                return
+            for entry in entries:
+                with (
+                    ui.row()
+                    .classes("w-full px-2 py-1 items-center gap-3 border-b")
+                    .props(f'data-testid="irregular-entry-{entry.transaction_id}"')
+                ):
+                    ui.label(entry.date.isoformat()).classes("w-28 text-sm k-mono " + BODY_MUTED)
+                    ui.label(entry.description or "—").classes("flex-1 truncate")
+                    self._entry_kind(entry, options)
+                    ui.label(_fmt(entry.amount)).classes("w-32 text-right k-mono")
+            if full:
+                # The balance counts everything; say the list does not.
+                ui.label(
+                    t("irregular_fund.history_latest", count=IrregularItemService.HISTORY_LIMIT)
+                ).classes(f"{BODY_MUTED} text-xs mt-2")
+
+    def _entry_kind(self, entry: IrregularFundEntry, options: dict[int, str]) -> None:
+        with ui.row().classes("w-56 items-center gap-2 no-wrap"):
+            if entry.kind in (IrregularEntryKind.PAYMENT, IrregularEntryKind.UNPLANNED):
+                if entry.kind is IrregularEntryKind.UNPLANNED:
+                    ui.badge(t("irregular_fund.kind_unplanned"), color="warning").props(
+                        'data-testid="irregular-unplanned"'
+                    )
+                ui.select(
+                    options,
+                    value=entry.item_id or _Payments.UNPLANNED,
+                    on_change=lambda e, en=entry: self._link(en, e.value),
+                ).props('dense borderless data-testid="irregular-paid-for"').classes(
+                    "flex-1 text-sm"
+                )
+            else:
+                ui.label(t(f"irregular_fund.kind_{entry.kind.value}")).classes(
+                    BODY_MUTED + " text-sm"
+                )
+
+
+class _Payments:
+    """Labels for the history's kinds and the "paid for" choice, shared by the page."""
+
+    UNPLANNED = 0
+
+    @staticmethod
+    def item_options(items: list[IrregularItemResponse]) -> dict[int, str]:
+        return {_Payments.UNPLANNED: t("irregular_fund.unplanned_option")} | {
+            i.id: i.name for i in items
+        }

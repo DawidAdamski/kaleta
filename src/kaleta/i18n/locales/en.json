@@ -2379,6 +2379,19 @@
     "from_account": "From account",
     "start_date": "First transfer on",
     "create_funding": "Create the monthly transfer",
-    "funding_created": "Monthly transfer of {amount} planned."
+    "funding_created": "Monthly transfer of {amount} planned.",
+    "unplanned_option": "No item",
+    "record_payment": "Record a payment",
+    "paid_for": "Paid for",
+    "record": "Record",
+    "payment_needs_amount": "Enter the amount paid.",
+    "payment_recorded": "Payment recorded.",
+    "holds": "The fund holds",
+    "history_title": "Fund history",
+    "no_history": "Nothing has moved on the fund's account yet.",
+    "kind_unplanned": "Unplanned",
+    "kind_contribution": "Contribution",
+    "kind_withdrawal": "Moved out",
+    "history_latest": "The latest {count} movements; the balance counts them all."
   }
 }

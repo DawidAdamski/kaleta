@@ -2379,6 +2379,19 @@
     "from_account": "Z konta",
     "start_date": "Pierwszy przelew",
     "create_funding": "Utwórz comiesięczny przelew",
-    "funding_created": "Zaplanowano comiesięczny przelew na kwotę {amount}."
+    "funding_created": "Zaplanowano comiesięczny przelew na kwotę {amount}.",
+    "unplanned_option": "Bez pozycji",
+    "record_payment": "Zapisz płatność",
+    "paid_for": "Za co",
+    "record": "Zapisz",
+    "payment_needs_amount": "Podaj zapłaconą kwotę.",
+    "payment_recorded": "Płatność zapisana.",
+    "holds": "W funduszu jest",
+    "history_title": "Historia funduszu",
+    "no_history": "Na koncie funduszu nic się jeszcze nie działo.",
+    "kind_unplanned": "Poza planem",
+    "kind_contribution": "Wpłata",
+    "kind_withdrawal": "Wypłata na inne konto",
+    "history_latest": "Ostatnie {count} operacji; saldo obejmuje wszystkie."
   }
 }
