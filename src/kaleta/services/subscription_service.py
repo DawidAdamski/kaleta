@@ -13,7 +13,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.exceptions import ValidationError
+from kaleta.exceptions import NotFoundError, ValidationError
 from kaleta.models.category import Category
 from kaleta.models.dismissed_candidate import (
     DismissedCandidate,
@@ -32,6 +32,8 @@ from kaleta.schemas.subscription import (
     SubscriptionTotals,
     SubscriptionUpdate,
 )
+from kaleta.seeders.catalog import SUBSCRIPTION_CHILDREN as _PURPOSE_NAMES_PL
+from kaleta.services.category_service import SUBSCRIPTION_PURPOSE_CHILDREN as _PURPOSE_NAMES_EN
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.text_order import by_name
 
@@ -544,15 +546,41 @@ class SubscriptionService:
         window_days: int | None,
         today: datetime.date,
     ) -> int:
-        """Update every matching tx inside the detector window to the given category.
+        """Re-file the historical charges that match a detected candidate."""
+        return await self._recategorise(
+            payee_id=candidate.payee_id,
+            merchant_name=candidate.payee_name,
+            amount=candidate.amount,
+            sub_category_id=sub_category_id,
+            window_days=window_days,
+            today=today,
+        )
+
+    async def _recategorise(
+        self,
+        *,
+        payee_id: int | None,
+        merchant_name: str,
+        amount: Decimal,
+        sub_category_id: int,
+        window_days: int | None,
+        today: datetime.date,
+        dry_run: bool = False,
+    ) -> int:
+        """Re-file (or, ``dry_run``, count) the charges that match a subscription.
 
         Matching = same payee_id (when set) or same description merchant-key,
-        AND same amount bucket, AND non-transfer expense.
-        Returns the number of rows touched.
+        AND same amount bucket, AND a non-transfer expense inside the detector
+        window. A dry run counts only the charges that would actually move
+        (those not already filed under ``sub_category_id``) and writes nothing.
+        Returns the number of rows touched / that would move.
         """
         effective = window_days if window_days and window_days > 0 else DETECTOR_WINDOW_DAYS
         window_start = today - datetime.timedelta(days=effective)
-        target_bucket = _amount_bucket(candidate.amount)
+        target_bucket = _amount_bucket(amount)
+        # A subscription's name is a display name; normalise it to the same
+        # merchant-key the detector stores so the compare is apples to apples.
+        target_key = merchant_key_from_description(merchant_name)
 
         stmt = select(Transaction).where(
             Transaction.type == TransactionType.EXPENSE,
@@ -560,8 +588,8 @@ class SubscriptionService:
             Transaction.date >= window_start,
             Transaction.date <= today,
         )
-        if candidate.payee_id is not None:
-            stmt = stmt.where(Transaction.payee_id == candidate.payee_id)
+        if payee_id is not None:
+            stmt = stmt.where(Transaction.payee_id == payee_id)
         else:
             stmt = stmt.where(Transaction.payee_id.is_(None))
         result = await self.session.execute(stmt)
@@ -569,16 +597,71 @@ class SubscriptionService:
         for tx in result.scalars().all():
             if _amount_bucket(abs(tx.amount)) != target_bucket:
                 continue
-            if (
-                candidate.payee_id is None
-                and merchant_key_from_description(tx.description) != candidate.payee_name
-            ):
-                # Description-based candidate whose merchant-key doesn't match.
+            if payee_id is None and merchant_key_from_description(tx.description) != target_key:
+                # Description-based match whose merchant-key doesn't match.
+                continue
+            if dry_run:
+                if tx.category_id != sub_category_id:
+                    touched += 1
                 continue
             tx.category_id = sub_category_id
             touched += 1
-        await self.session.commit()
+        if not dry_run:
+            await self.session.commit()
         return touched
+
+    async def refile(
+        self,
+        sub_id: int,
+        sub_category_id: int | None,
+        *,
+        window_days: int | None = None,
+        today: datetime.date | None = None,
+    ) -> int:
+        """File a subscription under a purpose child and re-file its history.
+
+        Generalises the candidate flow (:meth:`_recategorise_matching`) to an
+        existing subscription: its matching charges (payee or merchant-key +
+        amount bucket) move to ``sub_category_id``. Returns how many charges
+        were re-filed. A ``None`` category clears the filing and moves nothing.
+        """
+        sub = await self.get(sub_id)
+        if sub is None:
+            raise NotFoundError(f"Subscription id={sub_id} not found")
+        sub.category_id = sub_category_id
+        if sub_category_id is None:
+            await self.session.commit()
+            return 0
+        return await self._recategorise(
+            payee_id=sub.payee_id,
+            merchant_name=sub.name,
+            amount=sub.amount,
+            sub_category_id=sub_category_id,
+            window_days=window_days,
+            today=today or datetime.date.today(),
+        )
+
+    async def count_refilable(
+        self,
+        sub_id: int,
+        sub_category_id: int,
+        *,
+        window_days: int | None = None,
+        today: datetime.date | None = None,
+    ) -> int:
+        """How many matching charges would move to ``sub_category_id`` (no writes)."""
+        sub = await self.get(sub_id)
+        if sub is None:
+            raise NotFoundError(f"Subscription id={sub_id} not found")
+        return await self._recategorise(
+            payee_id=sub.payee_id,
+            merchant_name=sub.name,
+            amount=sub.amount,
+            sub_category_id=sub_category_id,
+            window_days=window_days,
+            today=today or datetime.date.today(),
+            dry_run=True,
+        )
 
     async def _subscription_category_ids(self) -> set[int]:
         """Return the id set: Subscriptions root + every direct child."""
@@ -594,6 +677,23 @@ class SubscriptionService:
         )
         ids.update(children_result.scalars().all())
         return ids
+
+    @staticmethod
+    def purpose_child_index_map(sub_children: builtins.list[Category]) -> dict[int, int]:
+        """Map a purpose index → the tree child's id, matched by the child's name.
+
+        Lets a caller resolve :func:`suggest_purpose_index` to a concrete child
+        regardless of the tree's language (the children carry stored names in one
+        language — EN or PL). A child the user renamed matches neither and is
+        simply absent from the map.
+        """
+        by_index: dict[int, int] = {}
+        for child in sub_children:
+            for index in range(len(_PURPOSE_NAMES_EN)):
+                if child.name in (_PURPOSE_NAMES_EN[index], _PURPOSE_NAMES_PL[index]):
+                    by_index[index] = child.id
+                    break
+        return by_index
 
     async def subscription_transactions_grouped(
         self, *, today: datetime.date | None = None, window_days: int = 90
@@ -751,6 +851,74 @@ def merchant_key_from_description(desc: str | None) -> str:
     first = desc.split("/", 1)[0]
     first = re.sub(r"\s+", " ", first).strip().upper()
     return first[:_MERCHANT_KEY_MAX_LEN]
+
+
+# Purpose-child index, aligned between ``SUBSCRIPTION_PURPOSE_CHILDREN`` (EN)
+# and its Polish twin in ``seeders.catalog`` — 0 Streaming, 1 Music, 2 Software,
+# 3 Phone & internet, 4 News & reading, 5 Fitness & health, 6 Cloud & backup
+# (7 is the "Other" catch-all, never suggested).
+(
+    PURPOSE_STREAMING,
+    PURPOSE_MUSIC,
+    PURPOSE_SOFTWARE,
+    PURPOSE_PHONE,
+    PURPOSE_READING,
+    PURPOSE_FITNESS,
+    PURPOSE_CLOUD,
+) = range(7)
+
+#: Curated merchant → purpose-child index (subscriptions-categories plan, Part B).
+#: Each needle is matched as a substring of the uppercased merchant-key, so a
+#: distinctive token is enough. Order matters: the first group that matches wins,
+#: so the more specific tokens (e.g. "YOUTUBE MUSIC") sit before the broader ones.
+_MERCHANT_PURPOSE_HINTS: tuple[tuple[tuple[str, ...], int], ...] = (
+    (("YOUTUBE MUSIC", "SPOTIFY", "TIDAL", "DEEZER", "APPLE MUSIC"), PURPOSE_MUSIC),
+    (
+        ("NETFLIX", "HBO", "DISNEY", "CANAL+", "VIAPLAY", "SKYSHOWTIME", "YOUTUBE PREMIUM"),
+        PURPOSE_STREAMING,
+    ),
+    (
+        (
+            "MICROSOFT",
+            "OFFICE365",
+            "ADOBE",
+            "JETBRAINS",
+            "GITHUB",
+            "OPENAI",
+            "CHATGPT",
+            "NOTION",
+            "CANVA",
+            "1PASSWORD",
+        ),
+        PURPOSE_SOFTWARE,
+    ),
+    (("ORANGE", "T-MOBILE", "TMOBILE", "NETIA", "VECTRA", "PLAY ", "PLUS ", "UPC"), PURPOSE_PHONE),
+    (
+        ("STORYTEL", "LEGIMI", "AUDIBLE", "EMPIK", "KINDLE", "NYTIMES", "ONET PREMIUM"),
+        PURPOSE_READING,
+    ),
+    (
+        ("MULTISPORT", "MEDICOVER", "ZDROFIT", "FITATU", "HEADSPACE", "STRAVA"),
+        PURPOSE_FITNESS,
+    ),
+    (("GOOGLE ONE", "ICLOUD", "DROPBOX", "BACKBLAZE", "ONEDRIVE", "MEGA.NZ"), PURPOSE_CLOUD),
+)
+
+
+def suggest_purpose_index(merchant_name: str | None) -> int | None:
+    """Guess a merchant's subscription purpose, or ``None`` when unknown.
+
+    A substring match of a curated token list against the uppercased merchant
+    key. The returned index aligns with ``SUBSCRIPTION_PURPOSE_CHILDREN`` and
+    its Polish twin, so the caller resolves it to the tree's own language.
+    """
+    key = merchant_key_from_description(merchant_name)
+    if not key:
+        return None
+    for needles, purpose in _MERCHANT_PURPOSE_HINTS:
+        if any(needle in key for needle in needles):
+            return purpose
+    return None
 
 
 def _candidate_from_group(

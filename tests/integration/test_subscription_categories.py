@@ -12,12 +12,16 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
+from sqlalchemy import select
+
 from kaleta.models.account import Account, AccountType
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import Transaction, TransactionType
+from kaleta.schemas.subscription import SubscriptionCreate
 from kaleta.seeders.catalog import SUBSCRIPTION_CHILDREN as SUBSCRIPTION_PURPOSE_CHILDREN_PL
 from kaleta.services import CategoryService, SubscriptionService
 from kaleta.services.category_service import SUBSCRIPTION_PURPOSE_CHILDREN
+from kaleta.services.subscription_service import suggest_purpose_index
 from tests.conftest import make_session_factory
 
 
@@ -193,3 +197,121 @@ async def test_ensure_is_idempotent_on_a_second_run(db_engine) -> None:
         names = [c.name for c in await svc.list_subscription_children()]
 
     assert sorted(names) == sorted(SUBSCRIPTION_PURPOSE_CHILDREN)
+
+
+async def _account(session) -> Account:
+    account = Account(name="Konto", type=AccountType.CHECKING, opening_balance=Decimal("0"))
+    session.add(account)
+    await session.flush()
+    return account
+
+
+async def test_refiling_a_subscription_moves_its_matching_history(db_engine) -> None:
+    """Covers: KAL-SUB-007
+
+    Filing a subscription under a purpose child re-files the charges that match
+    it (same merchant-key + amount bucket) in the detector window; an unrelated
+    charge is left alone, and the subscription itself is filed under the child.
+    """
+    async with make_session_factory(db_engine)() as session:
+        cats = CategoryService(session)
+        await cats.ensure_subscriptions_root_and_children()
+        streaming = next(
+            c for c in await cats.list_subscription_children() if c.name == "Streaming"
+        )
+        account = await _account(session)
+        for day in (2, 3):
+            session.add(
+                Transaction(
+                    account_id=account.id,
+                    amount=Decimal("-49.99"),
+                    type=TransactionType.EXPENSE,
+                    date=datetime.date(2026, 4, day),
+                    description="Netflix",
+                )
+            )
+        session.add(
+            Transaction(
+                account_id=account.id,
+                amount=Decimal("-12.00"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2026, 4, 4),
+                description="Biedronka",
+            )
+        )
+        await session.commit()
+
+        svc = SubscriptionService(session)
+        sub = await svc.create(
+            SubscriptionCreate(name="Netflix", amount=Decimal("49.99"), cadence_days=30)
+        )
+        moved = await svc.refile(sub.id, streaming.id, today=datetime.date(2026, 4, 30))
+        assert moved == 2
+
+        rows = (await session.execute(select(Transaction))).scalars().all()
+        netflix = [tx for tx in rows if tx.description == "Netflix"]
+        biedronka = next(tx for tx in rows if tx.description == "Biedronka")
+        assert all(tx.category_id == streaming.id for tx in netflix)
+        assert biedronka.category_id is None
+
+        refreshed = await svc.get(sub.id)
+        assert refreshed is not None
+        assert refreshed.category_id == streaming.id
+
+
+async def test_count_refilable_is_a_dry_run(db_engine) -> None:
+    """Covers: KAL-SUB-007
+
+    The count of charges that would move writes nothing — the charge stays
+    uncategorised until the move is confirmed.
+    """
+    async with make_session_factory(db_engine)() as session:
+        cats = CategoryService(session)
+        await cats.ensure_subscriptions_root_and_children()
+        streaming = next(
+            c for c in await cats.list_subscription_children() if c.name == "Streaming"
+        )
+        account = await _account(session)
+        session.add(
+            Transaction(
+                account_id=account.id,
+                amount=Decimal("-49.99"),
+                type=TransactionType.EXPENSE,
+                date=datetime.date(2026, 4, 2),
+                description="Netflix",
+            )
+        )
+        await session.commit()
+
+        svc = SubscriptionService(session)
+        sub = await svc.create(SubscriptionCreate(name="Netflix", amount=Decimal("49.99")))
+        would_move = await svc.count_refilable(
+            sub.id, streaming.id, today=datetime.date(2026, 4, 30)
+        )
+        assert would_move == 1
+
+        # description is EncryptedText (not filterable in SQL) — load and check in Python.
+        rows = (await session.execute(select(Transaction))).scalars().all()
+        netflix = [tx for tx in rows if tx.description == "Netflix"]
+        assert len(netflix) == 1
+        assert netflix[0].category_id is None
+
+
+async def test_a_known_merchant_suggests_its_purpose_child(db_engine) -> None:
+    """Covers: KAL-SUB-008
+
+    A curated merchant (Spotify) resolves to the real "Music & audio" child of
+    the seeded tree; an unknown merchant resolves to nothing.
+    """
+    async with make_session_factory(db_engine)() as session:
+        cats = CategoryService(session)
+        await cats.ensure_subscriptions_root_and_children()
+        children = await cats.list_subscription_children()
+        index_map = SubscriptionService.purpose_child_index_map(children)
+        music = next(c for c in children if c.name == "Music & audio")
+
+        index = suggest_purpose_index("Spotify P34324")
+        assert index is not None
+        assert index_map[index] == music.id
+
+        assert suggest_purpose_index("Biedronka 1234") is None

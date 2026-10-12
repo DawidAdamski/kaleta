@@ -38,7 +38,6 @@ async def subscriptions_page() -> None:
         candidates = await svc.detect_candidates(window_days=detector_days)
         renewals = await svc.upcoming_renewals(days=30)
         by_category = await svc.subscription_transactions_grouped()
-        expense_cats = await cat_svc.list()
         sub_children = await cat_svc.list_subscription_children()
         sub_root = await cat_svc.get_subscriptions_root()
         return (
@@ -47,7 +46,6 @@ async def subscriptions_page() -> None:
             candidates,
             renewals,
             by_category,
-            expense_cats,
             sub_children,
             sub_root,
         )
@@ -58,7 +56,6 @@ async def subscriptions_page() -> None:
         candidates,
         renewals,
         by_category,
-        expense_cats,
         sub_children,
         sub_root,
     ) = await with_session(_load_page_data)
@@ -66,10 +63,10 @@ async def subscriptions_page() -> None:
     sub_responses = [SubscriptionResponse.model_validate(s) for s in subs]
     current_subs = [s for s in sub_responses if s.status.value != "cancelled"]
     cancelled_subs = [s for s in sub_responses if s.status.value == "cancelled"]
-    category_opts = CategoryService.build_option_labels(
-        [c for c in expense_cats if c.type.value == "expense"]
-    )
     sub_category_opts = CategoryService.build_option_labels(sub_children)
+    # Maps a curated merchant hint (suggest_purpose_index) to the tree's own
+    # child id, so tracking a known merchant pre-selects its purpose.
+    purpose_index_to_id = SubscriptionService.purpose_child_index_map(sub_children)
 
     with page_layout(t("subscriptions.title"), wide=True):
         with ui.row().classes("w-full items-center justify-between gap-4 flex-wrap"):
@@ -100,8 +97,8 @@ async def subscriptions_page() -> None:
             cancel,
             reactivate,
         ) = build_subscription_dialogs(
-            category_opts=category_opts,
             sub_category_opts=sub_category_opts,
+            purpose_index_to_id=purpose_index_to_id,
             detector_days=detector_days,
         )
 

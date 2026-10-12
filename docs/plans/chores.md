@@ -448,3 +448,8 @@ check it still reproduces before acting on it.
       helpers at `kaleta.observability.app_version()` so there is one resolver (deferred
       from `auto-versioning` Part 1 to keep that PR off the view layer — touching a view
       forces the e2e gate).
+- [ ] **Orphaned subscriptions i18n keys.** `subscriptions.notes_show`,
+      `notes_hide` and `note_indicator` exist in both `en.json`/`pl.json` but are
+      referenced nowhere in `src/` (leftovers from an earlier notes-toggle refactor;
+      `rows.py::_render_sub_row_notes` no longer uses them). Drop them from both
+      locales. Spotted by i18n-verifier during `subscriptions-categories` Part B.

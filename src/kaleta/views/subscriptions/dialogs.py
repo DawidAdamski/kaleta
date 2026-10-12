@@ -14,15 +14,19 @@ from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.subscription import DetectorCandidate, SubscriptionResponse, SubscriptionUpdate
 from kaleta.services import SubscriptionService, with_session
-from kaleta.services.subscription_service import SubscriptionFormError, parse_subscription_form
+from kaleta.services.subscription_service import (
+    SubscriptionFormError,
+    parse_subscription_form,
+    suggest_purpose_index,
+)
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.theme import BODY_MUTED
 
 
 def build_subscription_dialogs(
     *,
-    category_opts: dict[int, str],
     sub_category_opts: dict[int, str],
+    purpose_index_to_id: dict[int, int],
     detector_days: int | None,
 ) -> tuple[
     Callable[[], None],
@@ -35,9 +39,10 @@ def build_subscription_dialogs(
     Callable[[int], Awaitable[None]],
     Callable[[int], Awaitable[None]],
 ]:
-    editing_state: dict[str, int | None] = {"id": None}
+    editing_state: dict[str, int | None] = {"id": None, "old_category_id": None}
     pending_delete: dict[str, Any] = {"id": 0, "name": ""}
     pending_candidate: dict[str, DetectorCandidate | None] = {"cand": None}
+    refile_state: dict[str, int] = {"sub_id": 0, "cat_id": 0}
 
     with ui.dialog() as fund_dialog, ui.card().classes("w-[520px] gap-3"):
         dialog_title = ui.label(t("subscriptions.dialog_title_new")).classes("text-lg font-bold")
@@ -78,10 +83,12 @@ def build_subscription_dialogs(
                 .props("dense outlined type=date")
                 .classes("flex-1")
             )
-        if category_opts:
+        # The category is the subscription's purpose child in the Subscriptions
+        # tree (ADR-28): filing it here re-files the matching history (Part B).
+        if sub_category_opts:
             category_in = (
                 ui.select(
-                    options=category_opts,
+                    options=sub_category_opts,
                     label=t("subscriptions.field_category"),
                     with_input=True,
                 )
@@ -127,6 +134,15 @@ def build_subscription_dialogs(
                 t("subscriptions.cancel_dialog_confirm"), icon="event_busy"
             ).props("color=amber-8 unelevated")
 
+    with ui.dialog() as refile_dialog, ui.card().classes("w-[440px] gap-3"):
+        ui.label(t("subscriptions.refile_title")).classes("text-lg font-bold")
+        refile_body = ui.label("").classes(BODY_MUTED)
+        with ui.row().classes("w-full justify-end gap-2 mt-2"):
+            refile_skip_btn = ui.button(t("subscriptions.refile_skip")).props("flat")
+            refile_confirm_btn = ui.button(
+                t("subscriptions.refile_confirm"), icon="drive_file_move"
+            ).props("color=primary unelevated")
+
     with ui.dialog() as confirm_dialog, ui.card().classes("w-[480px] gap-3"):
         ui.label(t("subscriptions.confirm_title")).classes("text-lg font-bold")
         confirm_body = ui.label("").classes(BODY_MUTED)
@@ -149,6 +165,7 @@ def build_subscription_dialogs(
 
     def open_add_dialog() -> None:
         editing_state["id"] = None
+        editing_state["old_category_id"] = None
         dialog_title.set_text(t("subscriptions.dialog_title_new"))
         name_in.set_value("")
         amount_in.set_value(0)
@@ -164,6 +181,7 @@ def build_subscription_dialogs(
 
     def open_edit_dialog(sub: SubscriptionResponse) -> None:
         editing_state["id"] = sub.id
+        editing_state["old_category_id"] = sub.category_id
         dialog_title.set_text(t("subscriptions.dialog_title_edit"))
         name_in.set_value(sub.name)
         amount_in.set_value(float(sub.amount))
@@ -194,22 +212,60 @@ def build_subscription_dialogs(
             ui.notify(exc.message, type="warning")
             return
 
-        async def _persist(session: Any) -> None:
-            sub_svc = SubscriptionService(session)
-            if editing_state["id"] is None:
-                await sub_svc.create(payload)
-            else:
-                await sub_svc.update(
-                    editing_state["id"],
-                    SubscriptionUpdate(**payload.model_dump()),
-                )
+        editing_id = editing_state["id"]
+        new_cat = payload.category_id
+        old_cat = editing_state["old_category_id"]
+        category_changed = editing_id is not None and new_cat is not None and new_cat != old_cat
 
-        await with_session(_persist)
+        async def _persist(session: Any) -> int:
+            sub_svc = SubscriptionService(session)
+            if editing_id is None:
+                await sub_svc.create(payload)
+                return 0
+            await sub_svc.update(editing_id, SubscriptionUpdate(**payload.model_dump()))
+            # Filing under a new purpose child offers to re-file the history too,
+            # over the same window the detector itself uses.
+            if category_changed and new_cat is not None:
+                return await sub_svc.count_refilable(editing_id, new_cat, window_days=detector_days)
+            return 0
+
+        movable = await with_session(_persist)
         fund_dialog.close()
         ui.notify(t("subscriptions.saved"), type="positive")
+        if category_changed and editing_id is not None and new_cat is not None and movable > 0:
+            refile_state["sub_id"] = editing_id
+            refile_state["cat_id"] = new_cat
+            refile_body.set_text(
+                t(
+                    "subscriptions.refile_body",
+                    count=movable,
+                    category=sub_category_opts.get(new_cat, ""),
+                )
+            )
+            refile_dialog.open()
+            return
         ui.navigate.reload()
 
     save_btn.on_click(save_sub)
+
+    async def confirm_refile() -> None:
+        async def _refile(session: Any) -> None:
+            await SubscriptionService(session).refile(
+                refile_state["sub_id"], refile_state["cat_id"], window_days=detector_days
+            )
+
+        await with_session(_refile)
+        refile_dialog.close()
+        ui.notify(t("subscriptions.refiled"), type="positive")
+        ui.navigate.reload()
+
+    def skip_refile() -> None:
+        # The subscription's own filing is already saved; leave the history as it is.
+        refile_dialog.close()
+        ui.navigate.reload()
+
+    refile_confirm_btn.on_click(confirm_refile)
+    refile_skip_btn.on_click(skip_refile)
 
     def open_delete_dialog(sub: SubscriptionResponse) -> None:
         pending_delete["id"] = sub.id
@@ -270,6 +326,11 @@ def build_subscription_dialogs(
         if not sub_category_opts:
             silent_track(cand)
             return
+        # Pre-select the purpose a curated merchant map suggests (Part B); the
+        # user can still change it before confirming.
+        index = suggest_purpose_index(cand.payee_name)
+        suggested = purpose_index_to_id.get(index) if index is not None else None
+        sub_cat_select.set_value(suggested if suggested is not None else default_sub_cat)
         confirm_dialog.open()
 
     async def dismiss_candidate(cand: DetectorCandidate) -> None:
