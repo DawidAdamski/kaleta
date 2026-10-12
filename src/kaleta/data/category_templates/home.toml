@@ -1,0 +1,11 @@
+key = "home"
+name = "Własny dom / mieszkanie"
+name_en = "Own home"
+order = 50
+
+[[groups]]
+type = "expense"
+name = "Nieruchomość"
+name_en = "Property"
+children = ["Kredyt hipoteczny", "Podatek od nieruchomości", "Ubezpieczenie domu", "Remonty", "Wyposażenie", "Ogród"]
+children_en = ["Mortgage", "Property tax", "Home insurance", "Renovations", "Furnishing", "Garden"]

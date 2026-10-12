@@ -1,0 +1,25 @@
+key = "single"
+name = "Singiel"
+name_en = "Single"
+order = 10
+
+[[groups]]
+type = "expense"
+name = "Mieszkanie"
+name_en = "Housing"
+children = ["Czynsz", "Media", "Internet i telefon"]
+children_en = ["Rent", "Utilities", "Internet & phone"]
+
+[[groups]]
+type = "expense"
+name = "Codzienne życie"
+name_en = "Everyday"
+children = ["Żywność", "Transport", "Zdrowie", "Rozrywka"]
+children_en = ["Groceries", "Transport", "Health", "Leisure"]
+
+[[groups]]
+type = "income"
+name = "Przychody"
+name_en = "Income"
+children = ["Wynagrodzenie", "Inne przychody"]
+children_en = ["Salary", "Other income"]

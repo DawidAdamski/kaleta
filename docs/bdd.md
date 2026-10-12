@@ -474,6 +474,56 @@ Feature: Category Management
     And I see "Nieprzypisane" in the expense categories list
 ```
 
+## Feature: Category templates
+
+Instead of building a category tree by hand, pick what describes your life —
+single, family, a company, a car, your own home — and Kaleta builds the matching
+categories, merging several picks into one tree.
+
+```gherkin
+Feature: Category templates
+  As a new user
+  I want to build my categories from templates that describe my life
+  So that I do not start from an empty tree
+
+  KAL-CTP-001 @automated
+  Scenario: Applying a template creates its categories
+    Given an empty category tree
+    When I apply the "Single" template
+    Then its parent categories and their children appear in the tree
+
+  KAL-CTP-002 @automated
+  Scenario: Combining templates merges a shared parent
+    Given an empty category tree
+    When I apply the "Single" and "Family with children" templates
+    Then "Codzienne życie" appears once, holding the children of both
+
+  KAL-CTP-003 @automated
+  Scenario: Applying a template twice adds nothing
+    Given I have applied the "Single" template
+    When I apply it again
+    Then no categories are added
+
+  KAL-CTP-004 @automated
+  Scenario: A repeatable template makes one subtree per copy
+    Given an empty category tree
+    When I apply the "Car" template for "Skoda" and for "Toyota"
+    Then there is a "Samochód: Skoda" and a "Samochód: Toyota", each with the car children
+
+  KAL-CTP-005 @automated
+  Scenario: The company template seeds business subscription purposes
+    Given an empty category tree
+    When I apply the "Company" template
+    Then the Subscriptions tree gains Hosting, Business software, Accounting and Marketing
+    And applying it for a second company does not duplicate them
+
+  KAL-CTP-006 @automated
+  Scenario: Preview shows what would be added without changing anything
+    Given an empty category tree
+    When I preview the "Single" template
+    Then it lists the categories that would be added and writes nothing
+```
+
 ## Feature: Tag Management
 
 ```gherkin

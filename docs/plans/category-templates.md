@@ -3,7 +3,7 @@ plan_id: category-templates
 title: Category templates for who you are — single, family, company, car, home — combined
 area: setup / categories
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -78,3 +78,64 @@ business subscription children), the setup view and `src/kaleta/views/categories
 - Does "Company" belong in a personal budget, or should a company be its own family
   (tenant)? Default: categories only, for a sole trader who keeps both in one ledger;
   record the trade-off.
+
+## Implementation notes
+
+### Delivery in two slices (PRs)
+
+- **Slice 1 — the engine (this PR)**: the TOML catalogue + `CategoryTemplateService`
+  (list / preview / apply), merging by blind index, repeatable copies, and the Company →
+  Subscriptions-tree seeding. Service + data + tests + BDD only — no views, so the short
+  gate applies.
+- **Slice 2 — the UI (next PR)**: the first-run setup checkboxes and Settings → Categories
+  "Add from a template", with the preview dialog; rewires `views/categories.py` onto the
+  new service and retires the old flat JSON templates. Views → `--e2e` gate + i18n.
+
+### Decisions (Slice 1)
+
+- **A primitive template system already existed** and stays until Slice 2: flat JSON
+  (`single-person`, `polish-household`, `freelancer`, `student`) under
+  `data/category_templates/`, with `CategoryService.{list,preview,apply}_template` adding
+  only root names, wired into `views/categories.py`. Slice 1 adds a *new*, richer system
+  beside it (`*.toml` + `CategoryTemplateService`) so the view keeps working; Slice 2
+  removes the old one.
+- **TOML, loaded by `tomllib`** (open question resolved — no new dependency; Python 3.13
+  stdlib), validated by `schemas/category_template.py` (Pydantic). Each template is one
+  file: `key`, `name`/`name_en`, `order`, `repeatable`, `[[groups]]` (a parent + its
+  children, per type, both languages), and optional `subscriptions`/`subscriptions_en`.
+  **Gotcha recorded**: a bare TOML key after a `[[groups]]` header binds to that table, so
+  `subscriptions` must sit *above* the groups.
+- **Combining by blind index**: `apply` ensures each parent (root of its type) then each
+  child, matching existing rows by `exact_index(name)`, so a parent shared by two
+  templates — or a re-run — is reused, never duplicated. The catalogue carries both
+  languages; the caller passes `language` (Slice 2's view will use the family's), default
+  Polish for this Polish-first app.
+- **Repeatable multiples**: a `repeatable` template applied with a `copy_name` suffixes its
+  parents — `Samochód` → `Samochód: Skoda` — so two cars are two subtrees. Children and the
+  Company subscription purposes are *not* suffixed; the subscription purposes are shared
+  across company copies (added once by blind index), matching #219.
+- **Company belongs in the personal ledger** (open question): categories only, for a sole
+  trader who keeps both in one ledger — no separate tenant. Its business purposes also seed
+  the Subscriptions tree, via `CategoryService.ensure_subscriptions_root_and_children`
+  (creating the tree in the family's language first if absent).
+- **Budgets**: not seeded (open question default kept); a `budget_hint` field is **not**
+  added in Slice 1 — deferred until the budget builder consumes it.
+
+### Review fixes (Slice 1)
+
+- **Preview counts by name-path, not DB id.** `planned` is keyed `("root", name, type)` /
+  `("child", parent_name, child, type)` / `("sub", name)`. Keying on `parent_id` was wrong:
+  a not-yet-created parent has `id=None`, so two new car copies' shared child "Paliwo"
+  collided and the second read as already existing. Covered by a two-car preview test.
+- **Company subscriptions are atomic and add only the 4 business purposes.** The apply
+  creates a *bare* Subscriptions root (one transaction, no internal commit) when none
+  exists, rather than calling `ensure_subscriptions_root_and_children` (which commits and
+  seeds the 8 default purpose children). The tree's own default children are added later,
+  in the family's language, when the Subscriptions page first runs `ensure_...` — it finds
+  this root by its flag, so no second root. So `apply().created` and `preview` count only
+  the template's own categories (incl. the 4 business purposes), never the tree defaults.
+- **Language is the caller's.** Business purposes are added in the passed `language`; a tree
+  already built in another language would mix (documented + tested). The Slice 2 view will
+  pass the family's language.
+- **Blank `copy_name` is not a suffix.** `"  "` strips to empty → no `": "` suffix (would
+  otherwise make "Samochód: "); tested.

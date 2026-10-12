@@ -1,0 +1,18 @@
+key = "student"
+name = "Student"
+name_en = "Student"
+order = 80
+
+[[groups]]
+type = "expense"
+name = "Edukacja"
+name_en = "Education"
+children = ["Czesne", "Książki i materiały", "Akademik / stancja", "Komunikacja miejska"]
+children_en = ["Tuition", "Books & materials", "Dorm / lodging", "Public transport"]
+
+[[groups]]
+type = "income"
+name = "Przychody"
+name_en = "Income"
+children = ["Stypendium", "Praca dorywcza", "Wsparcie rodziny"]
+children_en = ["Scholarship", "Part-time work", "Family support"]

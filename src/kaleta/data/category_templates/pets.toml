@@ -1,0 +1,11 @@
+key = "pets"
+name = "Zwierzęta"
+name_en = "Pets"
+order = 70
+
+[[groups]]
+type = "expense"
+name = "Zwierzęta"
+name_en = "Pets"
+children = ["Karma", "Weterynarz", "Akcesoria", "Pielęgnacja"]
+children_en = ["Food", "Vet", "Accessories", "Grooming"]

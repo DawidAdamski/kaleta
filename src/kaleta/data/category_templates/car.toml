@@ -1,0 +1,12 @@
+key = "car"
+name = "Samochód"
+name_en = "Car"
+order = 40
+repeatable = true
+
+[[groups]]
+type = "expense"
+name = "Samochód"
+name_en = "Car"
+children = ["Paliwo", "Ubezpieczenie (OC/AC)", "Serwis i naprawy", "Przegląd", "Opony", "Myjnia i akcesoria"]
+children_en = ["Fuel", "Insurance (OC/AC)", "Service & repairs", "Inspection", "Tyres", "Wash & accessories"]

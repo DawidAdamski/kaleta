@@ -1,0 +1,11 @@
+key = "rental"
+name = "Wynajem"
+name_en = "Renting"
+order = 60
+
+[[groups]]
+type = "expense"
+name = "Mieszkanie"
+name_en = "Housing"
+children = ["Czynsz najmu", "Opłaty administracyjne"]
+children_en = ["Rent", "Administrative fees"]

@@ -1,0 +1,25 @@
+key = "company"
+name = "Firma (JDG)"
+name_en = "Company (sole trader)"
+order = 30
+repeatable = true
+
+# Business purposes added under the Subscriptions tree (ADR-28, #219). Must stay
+# above the [[groups]] tables: in TOML a bare key after a table header binds to
+# that table, not the root.
+subscriptions = ["Hosting i domeny", "Oprogramowanie firmowe", "Księgowość i fakturowanie", "Marketing i reklama"]
+subscriptions_en = ["Hosting & domains", "Business software", "Accounting & invoicing", "Marketing & ads"]
+
+[[groups]]
+type = "expense"
+name = "Firma"
+name_en = "Business"
+children = ["Podatki (VAT, PIT)", "ZUS", "Księgowość", "Oprogramowanie", "Sprzęt", "Marketing"]
+children_en = ["Taxes (VAT, PIT)", "Social insurance", "Accounting", "Software", "Hardware", "Marketing"]
+
+[[groups]]
+type = "income"
+name = "Przychody firmowe"
+name_en = "Business income"
+children = ["Faktury", "Abonamenty klientów"]
+children_en = ["Invoices", "Client retainers"]
