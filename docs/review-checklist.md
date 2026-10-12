@@ -57,6 +57,20 @@ vacuum. The PR description must link the plan file in `docs/plans/`
 - [ ] No secrets, no real personal/financial data, no `.db` files in
       the diff.
 
+## 5a. Security
+
+- [ ] New API routes sit under the auth-gated `v1_router` (or their
+      public exposure is justified); state-changing calls require a
+      bearer token, not just a cookie session.
+- [ ] New queries respect family/schema isolation — no `public()`
+      session for family data, no raw SQL with user-controlled input
+      (schema identifiers stay regex-validated).
+- [ ] Code handling user input / uploads / external data passes ruff's
+      `S` family with no unexplained `# noqa`, and adds no new known-
+      vulnerable dependency (`./scripts/security/audit_deps.sh`).
+- [ ] No new unauthenticated information disclosure (version, tenant
+      ids, internal state) beyond what the security assessment records.
+
 ## 6. Documentation & housekeeping
 
 - [ ] Plan's `## Implementation notes` updated with decisions and

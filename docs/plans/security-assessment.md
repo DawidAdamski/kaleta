@@ -3,7 +3,7 @@ plan_id: security-assessment
 title: Security assessment of Kaleta — a Kali toolbox walk against our own instance
 area: security
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -76,6 +76,40 @@ anyone else's systems, and never a tool built for breaking into third parties.
 `scripts/security/*` (new), `docs/security/*` (new), `docs/review-checklist.md` (a security
 line), `.github/workflows/ci.yml` (optional: the headless checks on a schedule),
 `docs/bdd.md` (`KAL-SEC-*` if any behaviour changes), `pyproject.toml` (dev tooling).
+
+## Implementation notes
+
+### Delivery in slices
+
+This is a `large` plan; it ships in single-purpose PRs rather than one diff:
+
+- **Slice 1 — recon + static pass (this PR).** The surface map, the full Kali
+  category walk (applies / check / result / not-applicable) in
+  `docs/security/assessment-2026-10-12.md`, the two headless checks that run
+  with no server (`scripts/security/audit_deps.sh` for dependency advisories,
+  and ruff's `S` family already in `verify.sh`), a static authz review of the
+  `/api/v1` routes, and `docs/security/README.md` describing the manual/dynamic
+  checks. Dev tooling: `pip-audit` added to the dev group.
+- **Slice 2 — dynamic runners (later).** Headless runner scripts for the
+  checks that need a live instance (ZAP baseline, `schemathesis` against the
+  OpenAPI doc), wired for a local/staging target and optionally a nightly CI
+  job. Any confirmed finding gets a `KAL-SEC-*` regression test and a fix
+  branch.
+
+### Decisions (Slice 1)
+
+- **Dependency advisory tool: `pip-audit`** (open question 3). `uv` has no
+  built-in advisory audit yet, so `pip-audit` (OSV/PyPI database) is added to
+  the dev group and wrapped by `scripts/security/audit_deps.sh`
+  (`--skip-editable` drops the local `kaleta` package, which is not on PyPI).
+  First run: **no known vulnerabilities**.
+- **Static security lint reuses ruff's `S` family** rather than adding a second
+  bandit install — the rules are the same checks and already run in
+  `verify.sh`. Clean, with five justified `# noqa: S…` (all carrying an
+  explanatory comment).
+- **Cadence** (open question 1): the two cheap headless checks are release/CI
+  candidates; the dynamic scanners stay manual-before-release. Wiring a nightly
+  job is deferred to Slice 2 so PR latency is untouched now.
 
 ## Open questions
 
