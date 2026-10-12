@@ -3,8 +3,9 @@ plan_id: auto-versioning
 title: Automatic version numbers — every build and release traceable to a commit
 area: build / ci / observability
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-12
+roadmap_ref: ../../roadmap.md
 ---
 
 # Automatic version numbers — every build and release traceable to a commit
@@ -190,3 +191,49 @@ running instance and say exactly which commit it is.
   image) never sees it. Verified by building the slim image with the arg and reading back
   `kaleta.__version__` (= the arg). The docker metadata-action already tags the image with
   semver + `sha-<short>`.
+
+## Implementation
+
+Landed on 2026-10-12.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2cf27f9` | Dawid Adamski | 2026-10-12 | Merge pull request #221 from DawidAdamski/feat/auto-versioning-vcs |
+| `90c1ee5` | Dawid Adamski | 2026-10-12 | Merge pull request #222 from DawidAdamski/feat/auto-versioning-release-please |
+
+**Files changed:**
+- .github/workflows/docker.yml
+- .github/workflows/release-please.yml
+- .gitignore
+- .release-please-manifest.json
+- CHANGELOG.md
+- Containerfile
+- Containerfile.full
+- docs/bdd.md
+- docs/plans/auto-versioning.md
+- docs/plans/chores.md
+- pyproject.toml
+- release-please-config.json
+- scripts/check_spdx_headers.py
+- src/kaleta/__init__.py
+- src/kaleta/main.py
+- src/kaleta/observability/version.py
+- tests/integration/test_health.py
+- tests/unit/api/test_health.py
+- tests/unit/observability/__init__.py
+- tests/unit/observability/test_version.py
+- uv.lock
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run python -c "import kaleta; assert kaleta.__version__ and kaleta.__version__ != '0.1.0'"` | 0 |
+| `test -f CHANGELOG.md` | 0 |
+| `test -f .github/workflows/release-please.yml` | 0 |
+| `grep -q "hatch-vcs" pyproject.toml` | 0 |
+| `uv run pytest tests/integration/test_health.py -q` | 0 |
+| `uv run pytest tests/unit/observability/test_version.py -q` | 0 |
+| `./scripts/verify.sh` | 0 |
+
+**Notes:** Delivered in two PRs: #221 (git-derived version via hatch-vcs, merge 2cf27f9) and #222 (release-please + version-stamped Docker images, merge 90c1ee5; feature commit 3381775). The files list above shows full Touchpoints overlap.
