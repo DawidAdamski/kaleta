@@ -75,3 +75,10 @@ Gap-closing plan for issue #9 (`KAL-ANR-001`…`003`), from
   charge × 365 / its cadence in days, rounded to the grosz.
 - **`AnnualReviewService`** owns the three steps' reads and the carry; the view only wires
   it.
+- **The wizard lists it** in its budget section ("Annual review", after the scenarios), so
+  the index (artboard `3d`) gains one row; its routes test covers the link.
+- **Tests**: `tests/integration/test_annual_review.py` (`KAL-ANR-001`…`003`, and the carry
+  keeping this year's lines — a fixed line moved by its category's %, one without a
+  category carried as is, no extra line where the lines already derive the budgets, and
+  "replaces" once next year has a plan); `tests/e2e/test_annual_review.py` walks the three
+  steps on 2021, a year no other e2e test plans.

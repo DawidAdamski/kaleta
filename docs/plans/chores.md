@@ -429,3 +429,11 @@ check it still reproduces before acting on it.
       deletes the non-keepers; a duplicate's `irregular_item_id` (and, as before,
       `planned_transaction_id`) is not moved to the keeper. Seen in the review of
       `funds-irregular-items` Part B.
+- [ ] **`GET /api/v1/budgets/?year=` ignores the year without `month`.** The route
+      documents "Use `year` to filter by year", but `BudgetService.list` only filters
+      when `month` is given, so every year's budgets come back. Seen writing the
+      `budgets-annual-review` e2e. Fix: filter by `year` alone too (and a test).
+- [ ] **The budget builder's Apply stacks handlers.** `views/budget_builder.py` calls
+      `diff_apply_btn.on_click(_confirm)` on every opening of the diff dialog, so the
+      n-th confirmation runs `apply` n times (idempotent upserts, but n commits). Seen
+      while reusing its dialog for the annual review, which builds its own once.
