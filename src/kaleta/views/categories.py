@@ -322,6 +322,12 @@ def register() -> None:
 
                 created = await with_session(_apply)
                 ui.notify(t("categories.template_applied", count=created), type="positive")
+                # Clear the picker so reopening it starts fresh, not on the just-applied set.
+                for checkbox, copy_input in picks.values():
+                    checkbox.value = False
+                    if copy_input is not None:
+                        copy_input.value = ""
+                selection_state["selections"] = []
                 template_preview_dialog.close()
                 category_list.refresh()
 
