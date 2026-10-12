@@ -152,3 +152,41 @@ running instance and say exactly which commit it is.
   fell back to `"v0.1.0"` in a non-installed source checkout; with the version now
   git-derived they show the real one. Left untouched so Part 1 stays off the view layer
   (no e2e gate); a later cleanup can point them at the single resolver.
+
+### Decisions (Part 2)
+
+- **`release-please` with `release-type: simple`.** Chosen over `python-semantic-release`
+  (which would push tags/commits straight onto the protected `main` and wants to own the
+  version in a file, duplicating hatch-vcs). `simple` keeps the version in
+  `.release-please-manifest.json` + `CHANGELOG.md` and creates the `vX.Y.Z` tag — exactly
+  the source hatch-vcs reads. Clean split: release-please makes the tag, hatch-vcs reads it.
+  `include-v-in-tag: true` **and `include-component-in-tag: false`** give the tag `v0.2.0`
+  (not `kaleta-v0.2.0`, which the `^v…$` `tag_regex` would miss). `bump-minor-pre-major`
+  keeps pre-1.0 `feat` → minor. `bootstrap-sha` is the Part-1 merge, so the first release
+  PR's changelog starts there, not from all history. Manifest baseline `0.1.0`; the first
+  release PR proposes `0.2.0` (there are `feat`s since) and cuts the first real tag — until
+  then hatch-vcs keeps reporting `0.0.1.devN`. **Needs the maintainer** to enable
+  *Settings → Actions → General → "Allow GitHub Actions to create and approve pull
+  requests"*, else the release PR cannot be opened.
+- **The release image is dispatched, not triggered.** A tag pushed with `GITHUB_TOKEN`
+  does not trigger other workflows (GitHub's loop guard), so `docker.yml`'s `tags: v*` path
+  would never fire for a release, and the plain `main`-push build races the tag's creation
+  (baking a dev version). So `release-please.yml`, when `release_created`, runs
+  `gh workflow run docker.yml --ref <tag>` — `workflow_dispatch` is the documented
+  exception that *does* fire from `GITHUB_TOKEN`, needs no PAT, and checks out the tag so
+  the image gets the clean `vX.Y.Z` version and the metadata-action's semver tags. The
+  ordinary `main`-push build still produces the dev-versioned `main`/`sha` image.
+- **Image version via the generic `SETUPTOOLS_SCM_PRETEND_VERSION` build arg.** The image
+  build has no `.git`, so `docker.yml` computes the version once with
+  `uvx --with hatch-vcs hatch version` (checkout `fetch-depth: 0` for the tags; the step
+  fails if the value is empty or non-numeric rather than silently baking `0.0.0`) and
+  passes it as `--build-arg KALETA_VERSION`; the Containerfile exports it as
+  `SETUPTOOLS_SCM_PRETEND_VERSION` for the `uv sync` that builds the project, falling back
+  to `0.0.0` when absent. The per-package `SETUPTOOLS_SCM_PRETEND_VERSION_FOR_KALETA` form
+  was tried first and silently ignored; the generic var works. **No dependency is
+  mis-versioned by it**: both Containerfiles install all dependencies in the first
+  `uv sync --no-install-project` (no pretend env), then build only the project under the
+  pretend env in the second `uv sync`, so a source-built dep (e.g. Prophet in the `.full`
+  image) never sees it. Verified by building the slim image with the arg and reading back
+  `kaleta.__version__` (= the arg). The docker metadata-action already tags the image with
+  semver + `sha-<short>`.

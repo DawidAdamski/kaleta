@@ -9,6 +9,9 @@ on:
   pull_request:
     branches:
       - main
+  # release-please dispatches this against the new vX.Y.Z tag (a tag pushed with
+  # GITHUB_TOKEN cannot trigger the `tags: v*` path above).
+  workflow_dispatch:
 
 env:
   GHCR_IMAGE: ghcr.io/${{ github.repository }}
@@ -25,6 +28,22 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # hatch-vcs needs the tags to derive the version (auto-versioning).
+          fetch-depth: 0
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+
+      - name: Compute version
+        id: ver
+        # The same value the package would report; baked into the image below,
+        # since the build itself runs without .git. stderr carries uv/hatch chatter.
+        # Fail loudly rather than let the image silently fall back to 0.0.0.
+        run: |
+          v="$(uvx --with hatch-vcs hatch version 2>/dev/null)"
+          test -n "$v" && echo "$v" | grep -qE '^[0-9]'
+          echo "version=$v" >> "$GITHUB_OUTPUT"
 
       - name: Log in to GitHub Container Registry
         if: github.event_name != 'pull_request'
@@ -67,6 +86,8 @@ jobs:
           context: .
           file: Containerfile
           push: ${{ github.event_name != 'pull_request' }}
+          build-args: |
+            KALETA_VERSION=${{ steps.ver.outputs.version }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
