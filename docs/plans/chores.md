@@ -437,3 +437,7 @@ check it still reproduces before acting on it.
       `diff_apply_btn.on_click(_confirm)` on every opening of the diff dialog, so the
       n-th confirmation runs `apply` n times (idempotent upserts, but n commits). Seen
       while reusing its dialog for the annual review, which builds its own once.
+- [ ] **The plan archiver writes "archived" into the wrong column** of the gap-closing
+      table in `docs/plans/README.md` (`| Plan | Issue | Effort | Status | … |`): the
+      Issue column (losing e.g. `#10 IRR`) while Status keeps `draft`. Every archived row
+      of that table shows it.
