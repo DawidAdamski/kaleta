@@ -1319,7 +1319,6 @@ wheels = [
 
 [[package]]
 name = "kaleta"
-version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "alembic" },
@@ -1401,7 +1400,7 @@ requires-dist = [
     { name = "sqlalchemy", specifier = ">=2.1" },
     { name = "uvicorn", specifier = ">=0.42.0" },
 ]
-provides-extras = ["forecast", "import-xlsx", "docs", "tracker", "hosted"]
+provides-extras = ["docs", "forecast", "hosted", "import-xlsx", "tracker"]
 
 [package.metadata.requires-dev]
 dev = [

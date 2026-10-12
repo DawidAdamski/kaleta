@@ -3,12 +3,16 @@
 
 from __future__ import annotations
 
-from importlib.metadata import version as pkg_version
-
 
 def app_version() -> str:
-    """Installed package version, or ``"unknown"`` outside an installed tree."""
+    """The app version — git-derived by hatch-vcs, resolved once in ``kaleta``.
+
+    One source of truth with ``kaleta.__version__`` (read from the installed
+    package metadata); ``"unknown"`` if that is unavailable.
+    """
     try:
-        return pkg_version("kaleta")
+        from kaleta import __version__
+
+        return __version__
     except Exception:
         return "unknown"

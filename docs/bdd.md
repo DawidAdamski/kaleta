@@ -4522,7 +4522,7 @@ Feature: Public API
     Given a running instance with a reachable database
     When I GET /api/v1/health without credentials
     Then the response is 200
-    And the body includes version "0.1.0"
+    And the body includes the app version (git-derived, see KAL-OPS-001)
     And database_ok is true
     And migrations_pending is a boolean
     And tenancy, auth_backend and keyring_sessions (a count) are reported
@@ -4544,6 +4544,27 @@ Feature: Public API
     Given a running instance
     When I GET /api/v1/auth/mfa without credentials
     Then the response is 401
+```
+
+## Feature: Build version
+
+Every build carries a version derived from git, so a running instance —
+its health probe, debug panel, logs, bug reports and events — can be traced
+back to the exact commit it was built from, instead of a frozen `0.1.0`.
+
+```gherkin
+Feature: Build version
+  As an operator
+  I want every build to report a real, git-derived version
+  So that I can tell which commit a running instance is
+
+  KAL-OPS-001 @automated
+  Scenario: The app reports a git-derived, commit-traceable version
+    Given a build of the app
+    Then its version is not the hard-coded "0.1.0"
+    And its version has a PEP 440 shape (a release, or X.Y.devN+g<sha> between tags)
+    And the version from the package, from kaleta.__version__ and from /api/v1/health agree
+    And the version fits the String(40) column that events and bug reports store it in
 ```
 
 ## Feature: Navigation

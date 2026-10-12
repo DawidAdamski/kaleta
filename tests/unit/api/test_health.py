@@ -43,8 +43,8 @@ async def test_health_unauthenticated_returns_version_and_db_ok(db_engine) -> No
 
     assert resp.status_code == 200
     body = resp.json()
-    assert body["version"] == "0.1.0"
     assert body["version"] == __version__
+    assert body["version"] != "0.1.0"
     assert body["database_ok"] is True
     assert body["status"] == "ok"
     assert isinstance(body["migrations_pending"], bool)
@@ -91,7 +91,8 @@ async def test_health_service_reports_pending_for_a_family_schema_behind_head() 
     assert snap.database_ok is True
     assert snap.migrations_pending is True
     assert snap.tenants_pending_migration == 1
-    assert snap.version == "0.1.0"
+    assert snap.version == __version__
+    assert snap.version != "0.1.0"
 
 
 @pytest.mark.asyncio
