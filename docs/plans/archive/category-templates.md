@@ -3,8 +3,9 @@ plan_id: category-templates
 title: Category templates for who you are — single, family, company, car, home — combined
 area: setup / categories
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-12
+roadmap_ref: ../../roadmap.md
 ---
 
 # Category templates for who you are — single, family, company, car, home — combined
@@ -166,3 +167,49 @@ business subscription children), the setup view and `src/kaleta/views/categories
 - **E2e**: `tests/e2e/test_category_templates.py` (KAL-CTP-007) drives the picker — open,
   tick "Single", preview, apply, see "Housing"/"Rent" in the tree. Runs in English (the e2e
   app's language).
+
+## Implementation
+
+Landed on 2026-10-12.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1ebd845` | Dawid Adamski | 2026-10-12 | Merge pull request #224 from DawidAdamski/feat/category-templates-engine |
+| `08ebfdb` | Dawid Adamski | 2026-10-12 | Merge pull request #229 from DawidAdamski/feat/category-templates-ui |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/category-templates.md
+- src/kaleta/data/category_templates/car.toml
+- src/kaleta/data/category_templates/company.toml
+- src/kaleta/data/category_templates/family.toml
+- src/kaleta/data/category_templates/freelancer.json
+- src/kaleta/data/category_templates/home.toml
+- src/kaleta/data/category_templates/pets.toml
+- src/kaleta/data/category_templates/polish-household.json
+- src/kaleta/data/category_templates/rental.toml
+- src/kaleta/data/category_templates/single-person.json
+- src/kaleta/data/category_templates/single.toml
+- src/kaleta/data/category_templates/student.json
+- src/kaleta/data/category_templates/student.toml
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/schemas/category_template.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/category_service.py
+- src/kaleta/services/category_template_service.py
+- src/kaleta/views/categories.py
+- tests/e2e/test_category_templates.py
+- tests/integration/test_category_templates.py
+- tests/unit/services/test_category_template_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/integration/test_category_templates.py -q` | 0 |
+| `uv run pytest tests/e2e/test_category_templates.py -q` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
+
+**Notes:** Partial coverage: none of the plan's Touchpoints matched the commit's changed files — verify the SHA.

@@ -357,7 +357,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [category-templates](category-templates.md) | draft | Setup — category templates per persona |
+| [category-templates](archive/category-templates.md) | archived | Setup — category templates per persona |
 | [security-assessment](security-assessment.md) | draft | Security — pre-launch assessment |
 | [deploy-k3s](deploy-k3s.md) | draft | Deploy — self-hosted k3s (do last) |
 | [accounts-ledger-balances](archive/accounts-ledger-balances.md) | archived | Accounts — balances follow the ledger (blocks funds-savings-goals, funds-irregular-items) |
