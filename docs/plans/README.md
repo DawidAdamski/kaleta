@@ -244,7 +244,7 @@ its `KAL-` scenarios. Greenfield features (`KAL-INV` #15, `KAL-GFT` #11,
 | [budgets-plan-comparisons-gaps](archive/budgets-plan-comparisons-gaps.md) | archived | medium | draft | coordinate with budgets-plan-unification |
 | [funds-savings-goals](archive/funds-savings-goals.md) | archived | medium | draft | [accounts-ledger-balances](archive/accounts-ledger-balances.md) |
 | [funds-irregular-items](archive/funds-irregular-items.md) | archived | large | draft | [accounts-ledger-balances](archive/accounts-ledger-balances.md) |
-| [budgets-annual-review](budgets-annual-review.md) | #9 ANR | large | draft | funds-irregular-items (step 3) |
+| [budgets-annual-review](archive/budgets-annual-review.md) | #9 ANR | large | archived | funds-irregular-items (step 3) |
 
 ### Q4 2026 — Open-source launch (execute in this order)
 

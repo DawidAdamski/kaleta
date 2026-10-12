@@ -3,14 +3,15 @@ plan_id: budgets-annual-review
 title: Annual review — guided year close on top of the yearly plan tooling
 area: budgets
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets
+status: archived
+archived_at: 2026-10-12
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Annual review — guided year close on top of the yearly plan tooling
 
 Gap-closing plan for issue #9 (`KAL-ANR-001`…`003`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
+[`audit-planned-vs-code`](audit-planned-vs-code.md).
 
 ## What exists (2026-09-23)
 
@@ -21,7 +22,7 @@ Gap-closing plan for issue #9 (`KAL-ANR-001`…`003`), from
   but `/wizard/budget-builder` is locked to the current year;
   `copy_forward` is month-to-month only.
 - Subscriptions exist; irregular-fund items do not (see
-  [`funds-irregular-items`](archive/funds-irregular-items.md)).
+  [`funds-irregular-items`](funds-irregular-items.md)).
 
 ## Scope
 
@@ -102,3 +103,37 @@ Gap-closing plan for issue #9 (`KAL-ANR-001`…`003`), from
   derive stays (as with the budget builder, `bulk_upsert`). Items of an archived irregular
   fund are not asked about: archived is the user's "this fund is done".
 - **Tests** gained the scheduled cancellation that is not asked about.
+
+## Implementation
+
+Landed on 2026-10-12 (PR #216).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `fe4daf8` | Dawid Adamski | 2026-10-12 | Merge pull request #216 from DawidAdamski/feat/budgets-annual-review |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/budgets-annual-review.md
+- docs/plans/chores.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/schemas/annual_review.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/annual_review_service.py
+- src/kaleta/views/annual_review.py
+- src/kaleta/views/wizard.py
+- tests/e2e/test_annual_review.py
+- tests/integration/test_annual_review.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:**
+- Delivered in PR #216 (merge `fe4daf8`); the plan declares no Touchpoints section, so the overlap check was vacuous. The files above cover the plan's scope (service, schema, view, wizard link, i18n, tests, BDD retag).
+- Acceptance criteria were not re-run at archive time; PR #216 CI ran them.
+- Issue #9: PR #216 carries no closing keyword (GitHub reports no closing issue references), so the issue is not closed automatically. The maintainer should close #9.
