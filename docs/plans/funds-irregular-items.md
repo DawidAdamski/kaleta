@@ -135,3 +135,15 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
   `tests/e2e/test_irregular_fund.py` that record each payment through the dialog and read
   the balance and the history row. Breaking the link on record, or the unplanned mark,
   each fails a test.
+
+### After review (Part B)
+
+- **A refused link redraws the row**, so its "paid for" choice goes back to what is stored.
+- **The history shows the latest 100 movements** and says so when it is full; the balance
+  above it counts the whole ledger.
+- **Recording a payment is two commits**: the expense (`TransactionService.create`), then
+  its link. A failure between them leaves an unplanned expense, which the row's "paid for"
+  links afterwards. Carrying the link on `TransactionCreate` would close that window but
+  widen the API's schema for a field only this page sets.
+- **Tests** gained money in, money moved out, and a deleted item's payment turning
+  unplanned.

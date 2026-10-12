@@ -2389,8 +2389,9 @@
     "holds": "W funduszu jest",
     "history_title": "Historia funduszu",
     "no_history": "Na koncie funduszu nic się jeszcze nie działo.",
-    "kind_unplanned": "Nieplanowany",
+    "kind_unplanned": "Poza planem",
     "kind_contribution": "Wpłata",
-    "kind_withdrawal": "Wypłata na inne konto"
+    "kind_withdrawal": "Wypłata na inne konto",
+    "history_latest": "Ostatnie {count} operacji; saldo obejmuje wszystkie."
   }
 }

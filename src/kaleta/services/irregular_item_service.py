@@ -45,6 +45,8 @@ HISTORY_LIMIT = 100
 
 
 class IrregularItemService:
+    HISTORY_LIMIT = HISTORY_LIMIT
+
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 

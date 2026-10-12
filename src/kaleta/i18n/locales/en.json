@@ -2391,6 +2391,7 @@
     "no_history": "Nothing has moved on the fund's account yet.",
     "kind_unplanned": "Unplanned",
     "kind_contribution": "Contribution",
-    "kind_withdrawal": "Moved out"
+    "kind_withdrawal": "Moved out",
+    "history_latest": "The latest {count} movements; the balance counts them all."
   }
 }

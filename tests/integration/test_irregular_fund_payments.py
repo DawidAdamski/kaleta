@@ -24,7 +24,7 @@ from kaleta.schemas.irregular_item import (
     IrregularPaymentCreate,
 )
 from kaleta.schemas.reserve_fund import ReserveFundCreate, ReserveFundKind
-from kaleta.schemas.transaction import TransactionCreate, TransactionType
+from kaleta.schemas.transaction import TransactionCreate, TransactionType, TransferDirection
 from kaleta.services import (
     AccountService,
     CategoryService,
@@ -173,3 +173,42 @@ async def test_only_the_funds_own_expenses_and_items_link(fund: _Fund) -> None:
         await fund.items.record_payment(
             fund_id, IrregularPaymentCreate(amount=Decimal("10.00"), date=DAY)
         )
+
+
+async def test_money_in_and_out_and_a_deleted_item(fund: _Fund) -> None:
+    fund_id, account_id = await fund.holding("0.00")
+    cat = await fund.category("Serwis")
+    item = await fund.items.create(
+        fund_id, IrregularItemCreate(name="Przegląd auta", yearly_amount=Decimal("1200.00"))
+    )
+    txs = TransactionService(fund.session)
+    for direction, amount in ((TransferDirection.IN, "500.00"), (TransferDirection.OUT, "50.00")):
+        await txs.create(
+            TransactionCreate(
+                account_id=account_id,
+                amount=Decimal(amount),
+                type=TransactionType.TRANSFER,
+                transfer_direction=direction,
+                date=DAY,
+            )
+        )
+    paid = await fund.items.record_payment(
+        fund_id,
+        IrregularPaymentCreate(
+            item_id=item.id, amount=Decimal("100.00"), date=DAY, category_id=cat
+        ),
+    )
+
+    by_id = {e.transaction_id: e for e in await fund.items.history(fund_id)}
+    kinds = sorted((e.kind.value, e.amount) for e in by_id.values())
+    assert kinds == [
+        ("contribution", Decimal("500.00")),
+        ("payment", Decimal("-100.00")),
+        ("withdrawal", Decimal("-50.00")),
+    ]
+
+    # The item goes; its payment stays in the history, now unplanned.
+    await fund.items.delete(item.id)
+    after = {e.transaction_id: e for e in await fund.items.history(fund_id)}
+    assert after[paid.id].kind is IrregularEntryKind.UNPLANNED
+    assert after[paid.id].item_name is None

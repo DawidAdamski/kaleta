@@ -301,7 +301,7 @@ class _FundPage:
             await with_session(_write)
         except KaletaError as exc:
             notify_kaleta_error(exc)
-            return
+        # Either way: a refused link puts the row's choice back to what is stored.
         self.body.refresh()
 
     # ── The page body ─────────────────────────────────────────────────────
@@ -439,6 +439,7 @@ class _FundPage:
 
         entries = await with_session(_load)
         options = _Payments.item_options(plan.items)
+        full = len(entries) >= IrregularItemService.HISTORY_LIMIT
         with ui.card().classes(SECTION_CARD):
             ui.label(t("irregular_fund.history_title")).classes(SECTION_HEADING)
             if not entries:
@@ -454,6 +455,11 @@ class _FundPage:
                     ui.label(entry.description or "—").classes("flex-1 truncate")
                     self._entry_kind(entry, options)
                     ui.label(_fmt(entry.amount)).classes("w-32 text-right k-mono")
+            if full:
+                # The balance counts everything; say the list does not.
+                ui.label(
+                    t("irregular_fund.history_latest", count=IrregularItemService.HISTORY_LIMIT)
+                ).classes(f"{BODY_MUTED} text-xs mt-2")
 
     def _entry_kind(self, entry: IrregularFundEntry, options: dict[int, str]) -> None:
         with ui.row().classes("w-56 items-center gap-2 no-wrap"):

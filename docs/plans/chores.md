@@ -425,3 +425,7 @@ check it still reproduces before acting on it.
 - [ ] **`safety_funds.archived_section_body` (pl) is masculine-only** — "Fundusze,
       które wycofałeś". Gender-neutral: "Wycofane fundusze. Możesz je przywrócić w
       każdej chwili." Seen by the i18n check of `funds-irregular-items`.
+- [ ] **Merging duplicate transactions drops their links.** `DedupeService.merge_transactions`
+      deletes the non-keepers; a duplicate's `irregular_item_id` (and, as before,
+      `planned_transaction_id`) is not moved to the keeper. Seen in the review of
+      `funds-irregular-items` Part B.
