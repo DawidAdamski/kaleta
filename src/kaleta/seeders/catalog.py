@@ -39,8 +39,19 @@ EXPENSE_CATEGORIES = (
 INCOME_CATEGORIES = ("Wynagrodzenie", "Freelance", "Zwroty", "Inne przychody")
 
 #: The subscriptions tree (ADR 028): one flagged root and its direct children.
+#: The children group a charge by *what it is*, not how often it bills
+#: (``subscriptions-categories``).
 SUBSCRIPTIONS_ROOT = "Subskrypcje"
-SUBSCRIPTION_CHILDREN = ("Miesięczne", "Roczne", "Inne")
+SUBSCRIPTION_CHILDREN = (
+    "Streaming wideo",
+    "Muzyka i audio",
+    "Oprogramowanie i aplikacje",
+    "Telefon i internet",
+    "Prasa i czytanie",
+    "Sport i zdrowie",
+    "Chmura i kopie",
+    "Inne",
+)
 
 BUDGETED_CATEGORIES = (
     "Żywność",

@@ -571,7 +571,7 @@ class TestCategoryDriven:
         cat_svc = CategoryService(session)
         await cat_svc.ensure_subscriptions_root_and_children()
         children = await cat_svc.list_subscription_children()
-        monthly_cat = next(c for c in children if c.name == "Monthly")
+        monthly_cat = next(c for c in children if c.name == "Streaming")
 
         payee = await _add_payee(session, "Netflix")
         today = datetime.date(2026, 4, 1)
@@ -598,7 +598,7 @@ class TestCategoryDriven:
         cat_svc = CategoryService(session)
         await cat_svc.ensure_subscriptions_root_and_children()
         children = await cat_svc.list_subscription_children()
-        monthly_cat = next(c for c in children if c.name == "Monthly")
+        monthly_cat = next(c for c in children if c.name == "Streaming")
 
         payee = await _add_payee(session, "Spotify")
         today = datetime.date(2026, 4, 1)
@@ -637,8 +637,8 @@ class TestCategoryDriven:
         cat_svc = CategoryService(session)
         await cat_svc.ensure_subscriptions_root_and_children()
         children = await cat_svc.list_subscription_children()
-        monthly_cat = next(c for c in children if c.name == "Monthly")
-        yearly_cat = next(c for c in children if c.name == "Yearly")
+        monthly_cat = next(c for c in children if c.name == "Streaming")
+        yearly_cat = next(c for c in children if c.name == "Music & audio")
 
         netflix = await _add_payee(session, "Netflix")
         disney = await _add_payee(session, "Disney Plus")
@@ -664,8 +664,8 @@ class TestCategoryDriven:
         svc = SubscriptionService(session)
         groups = await svc.subscription_transactions_grouped(today=today)
         names = {g.category_name for g in groups}
-        assert names == {"Monthly", "Yearly"}
-        monthly_group = next(g for g in groups if g.category_name == "Monthly")
+        assert names == {"Streaming", "Music & audio"}
+        monthly_group = next(g for g in groups if g.category_name == "Streaming")
         assert monthly_group.merchants[0].label == "Netflix"
         assert monthly_group.merchants[0].total_spent == Decimal("49.99")
 

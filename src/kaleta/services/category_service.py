@@ -15,6 +15,7 @@ from kaleta.db.types import exact_index
 from kaleta.exceptions import ConflictError, KaletaError, NotFoundError
 from kaleta.models.category import Category, CategoryType
 from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryUpdate
+from kaleta.seeders.catalog import SUBSCRIPTION_CHILDREN as SUBSCRIPTION_PURPOSE_CHILDREN_PL
 from kaleta.services.text_order import by_name
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "category_templates"
@@ -42,6 +43,34 @@ class TemplatePreview:
     @property
     def total_to_add(self) -> int:
         return len(self.to_add_income) + len(self.to_add_expense)
+
+
+#: Billing-period children the Subscriptions tree once shipped
+#: (``subscriptions-categories``), English and Polish default names — *only* the
+#: ones with no purpose meaning. "Other"/"Inne" are deliberately absent: they are
+#: the catch-all in both the old cadence tree and the new purpose tree, so an empty
+#: one is kept, not retired. An unreferenced cadence child is retired when the
+#: purpose children are ensured.
+SUBSCRIPTION_CADENCE_CHILDREN: tuple[str, ...] = (
+    "Monthly",
+    "Yearly",
+    "Miesięczne",
+    "Roczne",
+)
+
+#: The Subscriptions tree's purpose children (``subscriptions-categories``), English —
+#: the default this service ensures for a family. The Polish example data uses
+#: ``seeders.catalog.SUBSCRIPTION_CHILDREN``.
+SUBSCRIPTION_PURPOSE_CHILDREN: tuple[str, ...] = (
+    "Streaming",
+    "Music & audio",
+    "Software & apps",
+    "Phone & internet",
+    "News & reading",
+    "Fitness & health",
+    "Cloud & backup",
+    "Other",
+)
 
 
 class CategoryService:
@@ -237,12 +266,33 @@ class CategoryService:
         ids.update(result.scalars().all())
         return ids
 
+    #: Blind indexes of the purpose children that are *unique* to the new scheme —
+    #: both locales, minus the shared "Other"/"Inne" catch-all. Their presence is the
+    #: signal that a tree is already organised by purpose, so a second locale's set is
+    #: never added beside it (``subscriptions-categories``).
+    @staticmethod
+    def _distinct_purpose_bidx() -> set[str | None]:
+        shared = {exact_index("Other"), exact_index("Inne")}
+        names = (*SUBSCRIPTION_PURPOSE_CHILDREN, *SUBSCRIPTION_PURPOSE_CHILDREN_PL)
+        return {exact_index(name) for name in names} - shared
+
+    @staticmethod
+    def default_purpose_children(language: str) -> builtins.list[str]:
+        """The purpose child names a fresh tree is seeded with, in *language*."""
+        if language.startswith("pl"):
+            return list(SUBSCRIPTION_PURPOSE_CHILDREN_PL)
+        return list(SUBSCRIPTION_PURPOSE_CHILDREN)
+
     async def ensure_subscriptions_root_and_children(
         self, child_names: builtins.list[str] | None = None
     ) -> Category:
         """Create the Subscriptions root + default children if missing.
 
-        Idempotent — safe to call from seeds. Returns the root.
+        Idempotent — safe to call from seeds. The default children are the English
+        purpose names; a caller that knows the family's language passes its own
+        (``child_names``). A tree that already carries purpose children in *any*
+        language is left as it is — adding a second locale's set would show every
+        group twice. Returns the root.
         """
         root = await self.get_subscriptions_root()
         if root is None:
@@ -254,14 +304,65 @@ class CategoryService:
             self.session.add(root)
             await self.session.commit()
             await self.session.refresh(root)
-        defaults = child_names if child_names is not None else ["Monthly", "Yearly", "Other"]
+        defaults = child_names if child_names is not None else list(SUBSCRIPTION_PURPOSE_CHILDREN)
         existing = await self.list_subscription_children()
-        existing_names = {c.name for c in existing}
-        for name in defaults:
-            if name not in existing_names:
-                self.session.add(Category(name=name, type=CategoryType.EXPENSE, parent_id=root.id))
-        await self.session.commit()
+        # Match by blind index, not the raw name: it is encryption- and
+        # case-stable, so a re-run never files a child twice.
+        filed = {c.name_bidx for c in existing}
+        if not (filed & self._distinct_purpose_bidx()):
+            for name in defaults:
+                if exact_index(name) not in filed:
+                    self.session.add(
+                        Category(name=name, type=CategoryType.EXPENSE, parent_id=root.id)
+                    )
+            await self.session.commit()
+        await self._prune_empty_cadence_children(root.id)
         return await self.get(root.id)  # type: ignore[return-value]
+
+    async def _prune_empty_cadence_children(self, root_id: int) -> None:
+        """Remove a shipped cadence child nobody renamed, filed a charge under, or nested.
+
+        The old billing-period children (``subscriptions-categories``). A child a
+        member edited (a different name), or that anything references, is theirs and
+        stays. Matched by blind index, so it works without the name in the clear. The
+        shared "Other"/"Inne" catch-all is not a cadence name, so it is never removed.
+        """
+        cadence = {exact_index(name) for name in SUBSCRIPTION_CADENCE_CHILDREN}
+        children = await self.session.execute(select(Category).where(Category.parent_id == root_id))
+        removed = False
+        for child in children.scalars():
+            if child.name_bidx in cadence and not await self._category_is_referenced(child.id):
+                await self.session.delete(child)
+                removed = True
+        if removed:
+            await self.session.commit()
+
+    async def _category_is_referenced(self, category_id: int) -> bool:
+        """Whether any row anywhere points at this category (so it must not be removed)."""
+        from kaleta.models.budget import Budget
+        from kaleta.models.categorisation_rule import CategorisationRule
+        from kaleta.models.irregular_item import IrregularItem
+        from kaleta.models.planned_transaction import PlannedTransaction
+        from kaleta.models.reserve_fund import ReserveFund
+        from kaleta.models.subscription import Subscription
+        from kaleta.models.transaction import Transaction, TransactionSplit
+
+        checks = (
+            (Category.id, Category.parent_id == category_id),
+            (Transaction.id, Transaction.category_id == category_id),
+            (TransactionSplit.id, TransactionSplit.category_id == category_id),
+            (Budget.id, Budget.category_id == category_id),
+            (PlannedTransaction.id, PlannedTransaction.category_id == category_id),
+            (Subscription.id, Subscription.category_id == category_id),
+            (CategorisationRule.id, CategorisationRule.category_id == category_id),
+            (ReserveFund.id, ReserveFund.backing_category_id == category_id),
+            (IrregularItem.id, IrregularItem.category_id == category_id),
+        )
+        for col, where in checks:
+            found = await self.session.execute(select(col).where(where).limit(1))
+            if found.first() is not None:
+                return True
+        return False
 
     @staticmethod
     def list_templates() -> builtins.list[str]:

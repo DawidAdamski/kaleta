@@ -23,14 +23,19 @@ from kaleta.seeders.base import Seeder, month_offset, rng, row_count, salary
 from kaleta.seeders.catalog import BASE_BUDGETS
 from kaleta.seeders.lookups import accounts_by_kind, categories_by_name, subscription_child
 
-#: The five monthly subscriptions that mirror the curated subscription payees.
+#: The five monthly subscriptions that mirror the curated subscription payees,
+#: each with its purpose child (``subscriptions-categories``).
 _SUBSCRIPTIONS = (
-    ("Netflix", Decimal("22.00"), 3),
-    ("Spotify", Decimal("23.00"), 7),
-    ("YouTube Premium", Decimal("35.00"), 14),
-    ("iCloud", Decimal("8.00"), 18),
-    ("ChatGPT Plus", Decimal("99.00"), 27),
+    ("Netflix", Decimal("22.00"), 3, "Streaming wideo"),
+    ("Spotify", Decimal("23.00"), 7, "Muzyka i audio"),
+    ("YouTube Premium", Decimal("35.00"), 14, "Streaming wideo"),
+    ("iCloud", Decimal("8.00"), 18, "Chmura i kopie"),
+    ("ChatGPT Plus", Decimal("99.00"), 27, "Oprogramowanie i aplikacje"),
 )
+
+#: The purpose children the planned subscription-like rows are filed under.
+_PHONE = "Telefon i internet"
+_SOFTWARE = "Oprogramowanie i aplikacje"
 
 
 class PlannedTransactionsSeeder(Seeder):
@@ -44,8 +49,10 @@ class PlannedTransactionsSeeder(Seeder):
     async def create(self, session: AsyncSession) -> dict[str, int]:
         accounts = await accounts_by_kind(session)
         categories = await categories_by_name(session)
-        monthly = await subscription_child(session, "Miesięczne")
-        yearly = await subscription_child(session, "Roczne")
+        sub_cats = {
+            name: await subscription_child(session, name)
+            for name in {_PHONE, _SOFTWARE, *(c for *_, c in _SUBSCRIPTIONS)}
+        }
         checking = accounts["checking"]
         cash = accounts["cash"]
         credit = accounts["credit"]
@@ -101,7 +108,7 @@ class PlannedTransactionsSeeder(Seeder):
                 amount=Decimal("49.00"),
                 type=TransactionType.EXPENSE,
                 account_id=checking.id,
-                category_id=monthly.id,
+                category_id=sub_cats[_PHONE].id,
                 description="Abonament komórkowy",
                 frequency=RecurrenceFrequency.MONTHLY,
                 start_date=this_month_on(22),
@@ -131,7 +138,7 @@ class PlannedTransactionsSeeder(Seeder):
                 amount=Decimal("60.00"),
                 type=TransactionType.EXPENSE,
                 account_id=credit.id,
-                category_id=yearly.id,
+                category_id=sub_cats[_SOFTWARE].id,
                 description="Odnowienie domeny — raz w roku",
                 frequency=RecurrenceFrequency.YEARLY,
                 start_date=datetime.date(today.year + 1, 2, 1),
@@ -154,12 +161,12 @@ class PlannedTransactionsSeeder(Seeder):
                 amount=amount,
                 type=TransactionType.EXPENSE,
                 account_id=credit.id,
-                category_id=monthly.id,
+                category_id=sub_cats[category].id,
                 description=f"Subskrypcja {name} — miesięcznie",
                 frequency=RecurrenceFrequency.MONTHLY,
                 start_date=this_month_on(day),
             )
-            for name, amount, day in _SUBSCRIPTIONS
+            for name, amount, day, category in _SUBSCRIPTIONS
         ]
 
         prev_year, prev_month = month_offset(today, 1)
@@ -180,7 +187,7 @@ class PlannedTransactionsSeeder(Seeder):
                 amount=Decimal("69.00"),
                 type=TransactionType.EXPENSE,
                 account_id=checking.id,
-                category_id=monthly.id,
+                category_id=sub_cats[_PHONE].id,
                 description="Doładowanie — termin minął",
                 frequency=RecurrenceFrequency.ONCE,
                 start_date=datetime.date(prev_year, prev_month, min(18, prev_last_day)),
