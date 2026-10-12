@@ -167,7 +167,9 @@ class _Review:
                     for event in ("blur", "keydown.enter"):
                         pct_in.on(
                             event,
-                            lambda _e, cid=row.category_id, w=pct_in: self._set_pct(cid, w.value),
+                            lambda _e, cid=row.category_id, w=pct_in: self._set_pct(
+                                cid, w.value, w
+                            ),
                         )
                     ui.label(_fmt(row.next_amount)).classes(
                         "w-32 text-right k-mono font-semibold"
@@ -183,11 +185,14 @@ class _Review:
                     on_click=self._review_diff,
                 ).props("color=primary no-caps")
 
-    def _set_pct(self, category_id: int, value: Any) -> None:
+    def _set_pct(self, category_id: int, value: Any, field: ui.number | None = None) -> None:
         pct = _decimal(value or 0)
         if pct is None:
             return
-        pct = max(pct, MIN_PCT)
+        if pct < MIN_PCT:
+            pct = MIN_PCT
+            if field is not None:
+                field.set_value(float(pct))  # show what is used, not what was typed
         if self.adjustments.get(category_id, Decimal("0")) == pct:
             return  # nothing changed: no redraw
         self.adjustments[category_id] = pct
