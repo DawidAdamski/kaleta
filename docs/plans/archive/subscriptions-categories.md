@@ -3,8 +3,9 @@ plan_id: subscriptions-categories
 title: Subscriptions by what they are — streaming, software, phone — not by how often they bill
 area: subscriptions
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#subscriptions
+status: archived
+archived_at: 2026-10-12
+roadmap_ref: ../../roadmap.md#subscriptions
 ---
 
 # Subscriptions by what they are — streaming, software, phone — not by how often they bill
@@ -187,3 +188,31 @@ group, and to file each subscription under one of them. Today the Subscriptions 
   number) counts only charges that would actually move; `refile` returns every
   matching charge, including ones already under the target. The view uses only the
   dry-run count, so the number the user sees is the number that moves.
+
+## Implementation
+
+Landed on 2026-10-12 (PR #231).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `30c0fb7` | Dawid Adamski | 2026-10-12 | Merge pull request #231 from DawidAdamski/feat/subscriptions-filing |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/subscriptions-categories.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/subscription_service.py
+- src/kaleta/views/subscriptions/dialogs.py
+- src/kaleta/views/subscriptions/page.py
+- tests/integration/test_subscription_categories.py
+- tests/unit/services/test_subscription_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Part A (the purpose tree) landed earlier; Part B (filing under a purpose child, re-file history, merchant suggestion) landed in PR #231 (feature commits `057c75f`, `a7608f1`). The changed files (subscription service, subscriptions views, locales, tests) were checked against the plan by hand; the automatic Touchpoints match did not recognise them.

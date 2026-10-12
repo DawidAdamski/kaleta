@@ -303,7 +303,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
-| [subscriptions-categories](subscriptions-categories.md) | draft | Subscriptions — group by purpose |
+| [subscriptions-categories](archive/subscriptions-categories.md) | archived | Subscriptions — group by purpose |
 | [auth-hosted-email-links](archive/auth-hosted-email-links.md) | archived | Hosted programme — resend confirmation, magic-link sign-in |
 | [audit-production-readiness](archive/audit-production-readiness.md) | archived | Cross-cutting audit (data-safety / ops lens) |
 | [p2-hardening-analysis](archive/p2-hardening-analysis.md) | archived | Auth / API / Settings (audit P2) |
