@@ -2,9 +2,6 @@
 from __future__ import annotations
 
 import builtins
-import json
-from dataclasses import dataclass
-from pathlib import Path
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,8 +15,6 @@ from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryUp
 from kaleta.seeders.catalog import SUBSCRIPTION_CHILDREN as SUBSCRIPTION_PURPOSE_CHILDREN_PL
 from kaleta.services.text_order import by_name
 
-_TEMPLATE_DIR = Path(__file__).resolve().parent.parent / "data" / "category_templates"
-
 # Maximum category nesting depth supported by the UI (root → child).
 _CATEGORY_TREE_DEPTH = 2
 
@@ -30,19 +25,6 @@ def _category_tree_load_options(depth: int = _CATEGORY_TREE_DEPTH) -> LoaderOpti
     for _ in range(depth - 1):
         loader = loader.selectinload(Category.children)
     return loader
-
-
-@dataclass(slots=True)
-class TemplatePreview:
-    key: str
-    to_add_income: builtins.list[str]
-    to_add_expense: builtins.list[str]
-    skipped_income: builtins.list[str]
-    skipped_expense: builtins.list[str]
-
-    @property
-    def total_to_add(self) -> int:
-        return len(self.to_add_income) + len(self.to_add_expense)
 
 
 #: Billing-period children the Subscriptions tree once shipped
@@ -363,69 +345,3 @@ class CategoryService:
             if found.first() is not None:
                 return True
         return False
-
-    @staticmethod
-    def list_templates() -> builtins.list[str]:
-        """Return available template keys (JSON filenames without extension)."""
-        if not _TEMPLATE_DIR.is_dir():
-            return []
-        return sorted(p.stem for p in _TEMPLATE_DIR.glob("*.json"))
-
-    @staticmethod
-    def _load_template(key: str) -> dict[str, builtins.list[str]]:
-        path = _TEMPLATE_DIR / f"{key}.json"
-        if not path.is_file():
-            raise NotFoundError(f"Category template not found: {key}")
-        data = json.loads(path.read_text(encoding="utf-8"))
-        return {
-            "income": [str(n) for n in data.get("income", [])],
-            "expense": [str(n) for n in data.get("expense", [])],
-        }
-
-    async def preview_template(self, key: str) -> TemplatePreview:
-        """Return the diff between a template and the current category set.
-
-        Names collide by (lower-case name, type) scoped to root level.
-        """
-        tmpl = self._load_template(key)
-        existing = await self.list()
-        existing_income = {
-            c.name.lower()
-            for c in existing
-            if c.type == CategoryType.INCOME and c.parent_id is None
-        }
-        existing_expense = {
-            c.name.lower()
-            for c in existing
-            if c.type == CategoryType.EXPENSE and c.parent_id is None
-        }
-
-        to_add_income = [n for n in tmpl["income"] if n.lower() not in existing_income]
-        to_add_expense = [n for n in tmpl["expense"] if n.lower() not in existing_expense]
-        skipped_income = [n for n in tmpl["income"] if n.lower() in existing_income]
-        skipped_expense = [n for n in tmpl["expense"] if n.lower() in existing_expense]
-
-        return TemplatePreview(
-            key=key,
-            to_add_income=to_add_income,
-            to_add_expense=to_add_expense,
-            skipped_income=skipped_income,
-            skipped_expense=skipped_expense,
-        )
-
-    async def apply_template(self, key: str) -> int:
-        """Insert any missing template entries as root-level categories.
-
-        Returns the number of categories created.
-        """
-        preview = await self.preview_template(key)
-        created = 0
-        for name in preview.to_add_income:
-            self.session.add(Category(name=name, type=CategoryType.INCOME))
-            created += 1
-        for name in preview.to_add_expense:
-            self.session.add(Category(name=name, type=CategoryType.EXPENSE))
-            created += 1
-        if created:
-            await self.session.commit()
-        return created

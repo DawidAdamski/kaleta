@@ -139,3 +139,30 @@ business subscription children), the setup view and `src/kaleta/views/categories
   pass the family's language.
 - **Blank `copy_name` is not a suffix.** `"  "` strips to empty → no `": "` suffix (would
   otherwise make "Samochód: "); tested.
+
+### Decisions (Slice 2 — the UI)
+
+- **One picker serves both "where"s.** The plan asked for first-run setup checkboxes *and*
+  a Settings → Categories "Add from a template". In Kaleta the wizard's Setup card for
+  categories links straight to `/categories`, so the picker lives there and is the
+  first-run experience as well — no separate onboarding screen. The "Load template" button
+  on `/categories` opens it; a returning user uses the same button to add a template later.
+- **Multi-select, not one-at-a-time.** The picker is a checklist of all templates
+  (`CategoryTemplateService.list()`); ticking several and applying once merges them by
+  blind index (KAL-CTP-002). A repeatable template (car, company) shows a copy-name input;
+  a second car is a second visit to the picker (idempotent — KAL-CTP-003/004).
+- **Names from the catalogue, descriptions from i18n.** The template display names come from
+  the TOML (`display_name(language)`) — the single source, already bilingual — so they are
+  not duplicated into the locale files. Only the one-line descriptions and the picker/preview
+  chrome are i18n keys (`categories.template_desc_<key>`, `template_picker_*`, etc.).
+- **Language is the user's.** The view reads `app.storage.user["language"]` and passes it to
+  `preview`/`apply`, so the Company template's business purposes land in the same language as
+  the rest of the tree (closing the Slice 1 caveat).
+- **Old flat JSON system retired.** Removed `CategoryService.{list,preview,apply}_template`,
+  `_load_template`, `TemplatePreview`, `_TEMPLATE_DIR` and the `*.json` templates
+  (`single-person`, `polish-household`, `freelancer`, `student`) plus their now-unused
+  `template_name_*` / `template_skipped` i18n keys. The TOML catalogue + `CategoryTemplateService`
+  is now the only template system.
+- **E2e**: `tests/e2e/test_category_templates.py` (KAL-CTP-007) drives the picker — open,
+  tick "Single", preview, apply, see "Housing"/"Rent" in the tree. Runs in English (the e2e
+  app's language).
