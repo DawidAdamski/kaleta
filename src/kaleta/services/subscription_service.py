@@ -898,7 +898,7 @@ _MERCHANT_PURPOSE_HINTS: tuple[tuple[tuple[str, ...], int], ...] = (
         PURPOSE_READING,
     ),
     (
-        ("MULTISPORT", "MEDICOVER", "BENEFIT", "ZDROFIT", "FITATU", "CALM", "HEADSPACE", "STRAVA"),
+        ("MULTISPORT", "MEDICOVER", "ZDROFIT", "FITATU", "HEADSPACE", "STRAVA"),
         PURPOSE_FITNESS,
     ),
     (("GOOGLE ONE", "ICLOUD", "DROPBOX", "BACKBLAZE", "ONEDRIVE", "MEGA.NZ"), PURPOSE_CLOUD),

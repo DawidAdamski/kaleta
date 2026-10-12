@@ -223,16 +223,17 @@ def build_subscription_dialogs(
                 await sub_svc.create(payload)
                 return 0
             await sub_svc.update(editing_id, SubscriptionUpdate(**payload.model_dump()))
-            # Filing under a new purpose child offers to re-file the history too.
+            # Filing under a new purpose child offers to re-file the history too,
+            # over the same window the detector itself uses.
             if category_changed and new_cat is not None:
-                return await sub_svc.count_refilable(editing_id, new_cat)
+                return await sub_svc.count_refilable(editing_id, new_cat, window_days=detector_days)
             return 0
 
         movable = await with_session(_persist)
         fund_dialog.close()
         ui.notify(t("subscriptions.saved"), type="positive")
-        if category_changed and new_cat is not None and movable > 0:
-            refile_state["sub_id"] = int(editing_id)  # type: ignore[arg-type]
+        if category_changed and editing_id is not None and new_cat is not None and movable > 0:
+            refile_state["sub_id"] = editing_id
             refile_state["cat_id"] = new_cat
             refile_body.set_text(
                 t(
@@ -250,7 +251,7 @@ def build_subscription_dialogs(
     async def confirm_refile() -> None:
         async def _refile(session: Any) -> None:
             await SubscriptionService(session).refile(
-                refile_state["sub_id"], refile_state["cat_id"]
+                refile_state["sub_id"], refile_state["cat_id"], window_days=detector_days
             )
 
         await with_session(_refile)
