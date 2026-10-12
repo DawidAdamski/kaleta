@@ -453,3 +453,10 @@ check it still reproduces before acting on it.
       referenced nowhere in `src/` (leftovers from an earlier notes-toggle refactor;
       `rows.py::_render_sub_row_notes` no longer uses them). Drop them from both
       locales. Spotted by i18n-verifier during `subscriptions-categories` Part B.
+- [ ] **Security assessment findings F-1..F-4 await fixes.** The 2026-10-12
+      assessment (`docs/security/assessment-2026-10-12.md`) recorded four
+      Low/Info items — `/health` info disclosure, always-on OpenAPI docs,
+      cookie not `Secure`-by-default with no prod warning, and no server-side
+      upload byte cap. Slice 2 of `security-assessment` plans their fixes
+      (each with a `KAL-SEC-*` regression test); logged here so none is lost
+      if Slice 2 slips.

@@ -136,7 +136,8 @@ allowlist. No action now.
   defaults `False` (`config/settings.py:68`) — a deliberate choice so http-only
   dev installs work, documented in the source comment. The gap: there is a
   debug-time warning when secure is *on*, but **no warning when it is left off
-  in a non-debug (production-shaped) run**. *Remediation:* warn (or refuse) when
+  in a non-debug (production-shaped) run** (verified by grep —
+  `warn_secure_cookie_in_debug` is the only such warning). *Remediation:* warn (or refuse) when
   a non-debug instance serves the cookie without `Secure`, mirroring the
   `secret_key` guard.
 - **F-4 (Info) — no server-side upload byte cap.** `max_file_size=50MB` is a
