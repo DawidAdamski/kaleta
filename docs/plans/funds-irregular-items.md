@@ -3,7 +3,7 @@ plan_id: funds-irregular-items
 title: Irregular expenses fund — itemised yearly costs, ÷10 contribution, fund history
 area: budgets
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#budgets
 ---
 
@@ -57,3 +57,36 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
 
 - ÷10 vs ÷12: the radar uses 12. Default: ÷10 for user items as the
   scenarios say; the radar line stays an estimate.
+
+## Implementation notes
+
+### Delivery in two PRs
+
+- **Part A — the plan**: `IrregularItem` (model, migration, service), the fund's own page
+  with its items and the ÷10 total (`KAL-IRR-001`, `-002`), the funding proposal as a
+  monthly planned transfer (`KAL-IRR-003`), and the radar on the same rule.
+- **Part B — the payments**: a payment out of the fund linked to an item, the fund's
+  history with unlinked payments marked unplanned (`KAL-IRR-004`, `-005`).
+
+### Decisions (Part A)
+
+- **One rule, ÷10, in `kaleta.core.irregular`** (open question): an item's monthly
+  contribution is its yearly amount ÷ 10, rounded half-up to the grosz, and the fund's is
+  the sum of its items'. The radar's fund line uses the same function instead of ÷ 12 —
+  the plan says not to keep two formulas, and the radar's total is a suggestion for this
+  very fund. `KAL-REC-009` pins the yearly total (unchanged); the monthly figure the radar
+  prints moves from yearly ÷ 12 to yearly ÷ 10.
+- **`irregular_items`**: `fund_id` (cascade with the fund), `name` (`EncryptedText`, like a
+  fund's name), `yearly_amount` (> 0), `due_month` (1–12, optional: a surprise cost has
+  none), `category_id` (optional, `SET NULL`; Part B's payment defaults to it). Items
+  belong to an `IRREGULAR` fund only; the service refuses another kind.
+- **The fund's page** is `/wizard/safety-funds/{fund_id}`, reached from an irregular
+  fund's card ("Items"). The Safety Funds list keeps its cards; the plan lives on its own
+  page because it grows a list, a proposal and (Part B) a history.
+- **The funding proposal** follows the salary one (`KAL-SAL-004`): pick the account the
+  money comes from, a start date (the first of next month), and "Create the monthly
+  transfer" creates a monthly planned `TRANSFER` of the fund's contribution on that
+  account, described "<source> → <fund account>". A planned transaction has no target
+  account column, so the target is named in the description, as for the salary. Proposed
+  only when the fund has a backing account and at least one item; the button is refused
+  when a monthly transfer of the same amount and description already exists.
