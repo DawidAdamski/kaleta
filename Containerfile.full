@@ -20,8 +20,13 @@ COPY alembic.ini ./
 COPY alembic_public/ alembic_public/
 COPY alembic_public.ini ./
 
-# The project itself, now that its code is in place.
-RUN uv sync --frozen --no-dev --extra forecast --extra hosted
+# The project itself, now that its code is in place. The image has no .git, so
+# hatch-vcs can't read the version from git — the CI build passes it in as
+# KALETA_VERSION (auto-versioning Part 2); a local build without it falls back to
+# 0.0.0, matching pyproject's fallback-version.
+ARG KALETA_VERSION=""
+RUN SETUPTOOLS_SCM_PRETEND_VERSION="${KALETA_VERSION:-0.0.0}" \
+    uv sync --frozen --no-dev --extra forecast --extra hosted
 
 # `uv run` would otherwise sync the dev group into the image at every start.
 ENV UV_NO_SYNC=1

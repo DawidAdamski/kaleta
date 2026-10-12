@@ -1,0 +1,35 @@
+name: Release Please
+
+# Keeps a standing "release PR" that bumps the version and CHANGELOG.md from the
+# conventional-commit history. Merging that PR cuts a vX.Y.Z tag + GitHub Release;
+# hatch-vcs then derives the package version from the tag (auto-versioning Part 2).
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: write
+  # Dispatch docker.yml for the release image (see the build step below).
+  actions: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    steps:
+      # Reads release-please-config.json + .release-please-manifest.json.
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # A tag pushed with GITHUB_TOKEN does not trigger other workflows (GitHub's
+      # loop guard), so docker.yml's `v*` trigger would never fire for a release.
+      # workflow_dispatch is the allowed exception, so kick the image build off the
+      # new tag here when a release is actually cut.
+      - name: Build the release image from the new tag
+        if: ${{ steps.release.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run docker.yml --ref "${{ steps.release.outputs.tag_name }}"
