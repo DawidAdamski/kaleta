@@ -10,7 +10,7 @@ import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.account import AccountType
-from kaleta.models.category import CategoryType
+from kaleta.models.category import Category, CategoryType
 from kaleta.models.payee import Payee
 from kaleta.models.subscription import SubscriptionStatus
 from kaleta.models.transaction import Transaction, TransactionType
@@ -22,13 +22,18 @@ from kaleta.services import (
     CategoryService,
     SubscriptionService,
 )
+from kaleta.services.category_service import SUBSCRIPTION_PURPOSE_CHILDREN
 from kaleta.services.subscription_service import (
+    PURPOSE_MUSIC,
+    PURPOSE_PHONE,
+    PURPOSE_STREAMING,
     SubscriptionCategoryGroup,
     SubscriptionFormError,
     SubscriptionMerchantRow,
     build_notes_preview,
     category_group_monthly_total,
     parse_subscription_form,
+    suggest_purpose_index,
 )
 
 
@@ -725,3 +730,38 @@ class TestSubscriptionViewHelpers:
         assert payload.url == "https://example.com"
         assert payload.notes == "family plan"
         assert payload.auto_renew is False
+
+
+def test_suggest_purpose_index_maps_known_merchants() -> None:
+    """Covers: KAL-SUB-008
+
+    A curated merchant map proposes a purpose; an unknown merchant proposes none.
+    """
+    assert suggest_purpose_index("NETFLIX /AMSTERDAM") == PURPOSE_STREAMING
+    assert suggest_purpose_index("Spotify P34324") == PURPOSE_MUSIC
+    assert suggest_purpose_index("YouTube Music") == PURPOSE_MUSIC
+    assert suggest_purpose_index("Orange Polska") == PURPOSE_PHONE
+    assert suggest_purpose_index("Biedronka 1234") is None
+    assert suggest_purpose_index("") is None
+    assert suggest_purpose_index(None) is None
+
+
+def test_purpose_child_index_map_resolves_children_by_name() -> None:
+    """Covers: KAL-SUB-008
+
+    The purpose index resolves to the tree child carrying that purpose's name;
+    a renamed child matches nothing and is absent.
+    """
+    children = [
+        Category(id=10 + i, name=name, type=CategoryType.EXPENSE)
+        for i, name in enumerate(SUBSCRIPTION_PURPOSE_CHILDREN)
+    ]
+    children.append(Category(id=99, name="My own thing", type=CategoryType.EXPENSE))
+
+    index_map = SubscriptionService.purpose_child_index_map(children)
+
+    # Streaming is index 0, Music & audio index 1 — aligned with the tuple.
+    assert index_map[PURPOSE_STREAMING] == 10
+    assert index_map[PURPOSE_MUSIC] == 11
+    # The renamed child is not mapped to any purpose.
+    assert 99 not in index_map.values()

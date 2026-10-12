@@ -2290,6 +2290,20 @@ Feature: Subscriptions Panel
     When I open the Subscriptions panel
     Then those empty categories are replaced by the purpose categories
     But a billing-period category I filed a charge under stays beside them
+
+  KAL-SUB-007 @automated
+  Scenario: Filing a subscription under a purpose child re-files its history
+    Given a subscription whose past charges are uncategorised
+    When I file it under a purpose child and confirm the move
+    Then its matching charges in the detector window move to that child
+    And a dry run first reports how many charges would move
+
+  KAL-SUB-008 @automated
+  Scenario: A known merchant suggests its purpose
+    Given the recurring-charge detector surfaced a Spotify candidate
+    When I open the track dialog
+    Then "Music & audio" is pre-selected as its purpose
+    And an unknown merchant leaves the purpose unset
 ```
 
 ---

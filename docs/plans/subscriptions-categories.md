@@ -139,3 +139,34 @@ group, and to file each subscription under one of them. Today the Subscriptions 
   locales minus the shared `Other`/`Inne`. So a family that switches language keeps its
   existing tree rather than gaining a second, and an example-data (Polish) tree is not
   doubled with English when the page opens.
+
+### Decisions (Part B — filing)
+
+- **The dialog's category select *is* the purpose child.** Part A kept the edit
+  dialog's category select on all expense categories; Part B narrows it to the
+  Subscriptions-tree purpose children (`sub_category_opts`). One concept, one
+  column (Part A): the subscription's `category_id` is its purpose child, and the
+  "By category" card already groups by it. The old all-expense `category_opts`
+  path is removed from the page and the dialog.
+- **Re-filing is generalised from the candidate flow.** `_recategorise_matching`
+  (candidate) now delegates to a shared `_recategorise(payee_id, merchant_name,
+  amount, …, dry_run)`. Two public methods use it for an existing subscription:
+  `refile(sub_id, category_id)` sets the purpose child and moves the matching
+  charges (same payee or merchant-key + amount bucket, in the detector window);
+  `count_refilable(...)` is the dry run that counts only the charges that would
+  actually move (not already under the target), writing nothing.
+- **Editing confirms the move.** Saving an edit that changes the purpose child
+  runs the dry-run count; if any charges would move, a confirmation ("Move N
+  charges to X?") offers to re-file the history or skip. The subscription's own
+  filing is saved either way (`update` set it); skip just leaves the history.
+- **A curated merchant → purpose map suggests the child.** `suggest_purpose_index`
+  matches a curated token list against the uppercased merchant key and returns a
+  purpose *index* aligned with `SUBSCRIPTION_PURPOSE_CHILDREN` (EN) and its Polish
+  twin; `SubscriptionService.purpose_child_index_map` resolves that index to the
+  tree's own child id, so it works whichever language the tree is in. The track
+  dialog pre-selects the suggestion; the user can change it. A renamed child
+  matches no index and is simply never suggested. The merchant-key keeps only the
+  first `/`-segment (bank-description quirk), so some merchants (e.g. iCloud via
+  "APPLE.COM/BILL") stay unmatched — acceptable, the user picks.
+- BDD: KAL-SUB-007 (re-filing, incl. dry-run) and KAL-SUB-008 (suggestion),
+  `@automated` by the integration + unit tests.
