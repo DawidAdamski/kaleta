@@ -393,6 +393,8 @@ class PlannedTransactionService:
             rows.append(
                 {
                     "id": PlannedTransactionService.planned_row_key(occ.planned_id, occ.date),
+                    # Nobody has added this occurrence yet ("Added by" reads a dash).
+                    "user_id": None,
                     "planned_id": occ.planned_id,
                     "is_planned": True,
                     "days_ahead": (occ.date - today).days,
