@@ -135,5 +135,5 @@ status: proposed
     logins, encryption always on and up to ten members per family.*
 - **Plans**: [`hosted-tenancy-foundation`](../plans/archive/hosted-tenancy-foundation.md),
   [`hosted-field-encryption`](../plans/archive/hosted-field-encryption.md),
-  [`hosted-household-sharing`](../plans/hosted-household-sharing.md),
+  [`hosted-household-sharing`](../plans/archive/hosted-household-sharing.md),
   [`hosted-supabase-rollout`](../plans/archive/hosted-supabase-rollout.md).

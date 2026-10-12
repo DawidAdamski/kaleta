@@ -27,7 +27,7 @@ protects a self-hoster's SQLite file.
 Depends on [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md)
 for `TenantContext`, `public.tenant_members` and the key-material
 columns. The keypair-per-member design is what lets
-[`hosted-household-sharing`](../hosted-household-sharing.md) add and remove
+[`hosted-household-sharing`](hosted-household-sharing.md) add and remove
 members later without changing this plan.
 
 ## Scope
@@ -72,7 +72,7 @@ members later without changing this plan.
 - Passphrase change: unwrap the private key with the old KEK, wrap
   with the new, update the row; the recovery wrap and the sealed DEK
   are untouched. Rotating the DEK itself (re-encrypting every row) is
-  built in [`hosted-household-sharing`](../hosted-household-sharing.md)
+  built in [`hosted-household-sharing`](hosted-household-sharing.md)
   §3; this plan leaves the ciphertext header room for it (a key-version
   byte after the format byte).
 

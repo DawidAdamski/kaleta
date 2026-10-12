@@ -3,8 +3,9 @@ plan_id: hosted-household-sharing
 title: Household sharing — up to ten members on one family account
 area: auth / db / settings
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#2027-directions
+status: archived
+archived_at: 2026-10-12
+roadmap_ref: ../../roadmap.md#2027-directions
 ---
 
 # Household sharing — up to ten members on one family account
@@ -21,10 +22,10 @@ records who made it, and removing a member revokes access for real by
 re-keying the household. The same flow works on a self-hosted instance
 with local logins (ADR-38: one layout everywhere).
 
-Depends on [`postgres-only`](archive/postgres-only.md) (local logins on the
-multi layout, ADR-38), [`hosted-tenancy-foundation`](archive/hosted-tenancy-foundation.md)
+Depends on [`postgres-only`](postgres-only.md) (local logins on the
+multi layout, ADR-38), [`hosted-tenancy-foundation`](hosted-tenancy-foundation.md)
 (the `tenant_members` registry and the per-member `users` rows are laid
-down there) and [`hosted-field-encryption`](archive/hosted-field-encryption.md)
+down there) and [`hosted-field-encryption`](hosted-field-encryption.md)
 (the per-member keypair hierarchy is defined there so a single-member
 account and a household use one code path).
 
@@ -427,3 +428,77 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
 - **Known edge, not reachable today**: a flush that deleted the acting member's own `users`
   row would write audit rows pointing at it. Removed members keep their row (Part A), and a
   declined member's row is deleted by the owner, not by themselves.
+
+## Implementation
+
+Landed on 2026-10-12.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5381401` | Dawid Adamski | 2026-10-12 | Merge pull request #209 from DawidAdamski/feat/household-sharing-part-a |
+| `21aac92` | Dawid Adamski | 2026-10-12 | Merge pull request #210 from DawidAdamski/feat/household-sharing-part-b |
+| `a674bc0` | Dawid Adamski | 2026-10-12 | Merge pull request #211 from DawidAdamski/feat/household-sharing-part-c |
+
+**Files changed:**
+- alembic/versions/t4u5v6w7x8y9_add_audit_log_user_id.py
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/chores.md
+- docs/privacy.md
+- docs/tech-stack.md
+- src/kaleta/auth/household.py
+- src/kaleta/auth/middleware.py
+- src/kaleta/config/settings.py
+- src/kaleta/crypto/__init__.py
+- src/kaleta/crypto/keyring.py
+- src/kaleta/crypto/keys.py
+- src/kaleta/db/audit.py
+- src/kaleta/db/types.py
+- src/kaleta/exceptions.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/audit_log.py
+- src/kaleta/schemas/transaction.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/api_token_service.py
+- src/kaleta/services/audit_service.py
+- src/kaleta/services/data_encryption_service.py
+- src/kaleta/services/household_service.py
+- src/kaleta/services/key_service.py
+- src/kaleta/services/member_name_service.py
+- src/kaleta/services/planned_transaction_service.py
+- src/kaleta/services/setup_service.py
+- src/kaleta/services/tenant_service.py
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/components/filter_bar.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/join.py
+- src/kaleta/views/monthly_readiness.py
+- src/kaleta/views/settings/history_tab.py
+- src/kaleta/views/settings/household_tab.py
+- src/kaleta/views/settings/page.py
+- src/kaleta/views/settings/security_tab.py
+- src/kaleta/views/transactions/edit_dialog.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/unlock.py
+- src/kaleta/views/wizard.py
+- tests/e2e/test_household.py
+- tests/household_helpers.py
+- tests/integration/test_household_isolation.py
+- tests/integration/test_household_rekey_budget.py
+- tests/integration/test_household_working_together.py
+- tests/unit/auth/test_household_auth.py
+- tests/unit/crypto/test_rekey.py
+- tests/unit/services/test_household_service.py
+- tests/unit/views/test_household_ledger.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(not re-run at archiving; all three PRs passed CI, incl. `./scripts/verify.sh --e2e`)_ | – |
+
+**Notes:** Delivered in three PRs: A (#209, core), B (#210, pages), C (#211, working together). The listed SHAs are merge commits; the file list is their combined diff against the previous main.
+
+**Outstanding manual verification:** the `[manual]` criterion (two phones, two authenticator apps, one household on the hosted instance) has NOT been done by hand yet. It is recorded here as outstanding, not as passed.

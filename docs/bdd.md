@@ -3781,7 +3781,7 @@ Feature: Instance administration
 ## Feature: Household sharing
 
 Up to ten people on one family's data, each with their own login and data passphrase
-([`hosted-household-sharing`](plans/hosted-household-sharing.md)). The owner invites,
+([`hosted-household-sharing`](plans/archive/hosted-household-sharing.md)). The owner invites,
 approves by sealing the household's key to the newcomer's keypair, and removing a member
 re-keys the household. The server never holds the key while nobody is unlocked, so
 approving and re-keying need the owner unlocked.
