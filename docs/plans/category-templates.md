@@ -25,6 +25,18 @@ categories without touching anything else.
   Single, Family (children), Company (JDG: ZUS, VAT, księgowość, …), Car, Own home (podatek
   od nieruchomości, ubezpieczenie, remonty), Rental (czynsz najmu), Pets, Student. Polish
   and English names.
+- **Company adds business subscription groups** (requested after `subscriptions-categories`):
+  the Subscriptions tree (ADR-28) ships only personal purpose children (Streaming, Muzyka…).
+  Applying the Company template adds *firmowe* purpose children under the same subscriptions
+  root so a sole trader's abonamenty group by business purpose, not mixed into the personal
+  ones: **Hosting i domeny / Hosting & domains**, **Oprogramowanie firmowe / Business
+  software**, **Księgowość i fakturowanie / Accounting & invoicing**, **Marketing i reklama /
+  Marketing & ads**. They are added by the same blind-index, idempotent path as the personal
+  children (`CategoryService.ensure_subscriptions_root_and_children` / the template service),
+  so re-applying adds nothing and the panel's "By category" card groups them automatically.
+  "2 companies" (repeatable) does *not* duplicate these — a firm's subscription purpose is
+  shared across its copies — only the firm's own expense/income subtree repeats. A user who
+  never picks Company keeps a clean personal subscriptions tree.
 - **Combining**: applying several templates merges by normalised name (the blind index
   the categories already have), so "Ubezpieczenia" appears once with every template's
   children under it. Applying a template twice adds nothing.
@@ -53,8 +65,9 @@ categories without touching anything else.
 
 `src/kaleta/seeders/catalog.py` (or a new `src/kaleta/templates/categories/*.toml`),
 `src/kaleta/services/category_template_service.py` (new), `src/kaleta/services/setup_service.py`,
-the setup view and `src/kaleta/views/categories*`, `src/kaleta/i18n/locales/*.json`,
-`docs/bdd.md`.
+`src/kaleta/services/category_service.py` (the subscriptions root, for the Company template's
+business subscription children), the setup view and `src/kaleta/views/categories*`,
+`src/kaleta/i18n/locales/*.json`, `docs/bdd.md`.
 
 ## Open questions
 
