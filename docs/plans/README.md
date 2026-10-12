@@ -303,6 +303,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [subscriptions-categories](subscriptions-categories.md) | draft | Subscriptions — group by purpose |
 | [auth-hosted-email-links](archive/auth-hosted-email-links.md) | archived | Hosted programme — resend confirmation, magic-link sign-in |
 | [audit-production-readiness](archive/audit-production-readiness.md) | archived | Cross-cutting audit (data-safety / ops lens) |
 | [p2-hardening-analysis](archive/p2-hardening-analysis.md) | archived | Auth / API / Settings (audit P2) |
@@ -356,6 +357,9 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 
 | Plan | Status | Roadmap ref |
 |---|---|---|
+| [category-templates](category-templates.md) | draft | Setup — category templates per persona |
+| [security-assessment](security-assessment.md) | draft | Security — pre-launch assessment |
+| [deploy-k3s](deploy-k3s.md) | draft | Deploy — self-hosted k3s (do last) |
 | [accounts-ledger-balances](archive/accounts-ledger-balances.md) | archived | Accounts — balances follow the ledger (blocks funds-savings-goals, funds-irregular-items) |
 | [budgets-plan-unification](budgets-plan-unification.md) | draft | Budgets |
 | [hosted-tenancy-foundation](archive/hosted-tenancy-foundation.md) | archived | Hosted programme (1) |
