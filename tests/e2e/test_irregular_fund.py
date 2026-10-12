@@ -17,6 +17,7 @@ from tests.e2e.seed_helpers import seed_account, seed_category, seed_reserve_fun
 FUND = "Wydatki nieregularne IRR E2E"
 FUND_ACCOUNT = "Konto funduszu IRR E2E"
 SOURCE = "Konto główne IRR E2E"
+PAID_ON = "2024-01-15"
 
 
 def _add_item(page: Page, name: str, yearly: str) -> None:
@@ -34,7 +35,7 @@ def test_the_fund_plans_its_items_and_the_monthly_transfer(page: Page, base_url:
     """Covers: KAL-IRR-001, KAL-IRR-002, KAL-IRR-003"""
     backing = seed_account(FUND_ACCOUNT)
     seed_account(SOURCE)
-    seed_reserve_fund(FUND, 3000.0, backing, kind="irregular", emergency_multiplier=None)
+    seed_reserve_fund(FUND, 0.0, backing, kind="irregular", emergency_multiplier=None)
 
     page.goto(f"{base_url}/wizard/safety-funds")
     card = page.locator(".q-card").filter(has_text=FUND)
@@ -64,7 +65,9 @@ def test_the_fund_plans_its_items_and_the_monthly_transfer(page: Page, base_url:
 def _fund_page(page: Page, base_url: str, fund: str, account: str, balance: str) -> None:
     backing = seed_account(account)
     update_account(backing, balance=balance)
-    seed_reserve_fund(fund, 3000.0, backing, kind="irregular", emergency_multiplier=None)
+    # No target: a fund below one is a dashboard warning, and this shared
+    # instance's wizard widget has other tests' warnings to rank.
+    seed_reserve_fund(fund, 0.0, backing, kind="irregular", emergency_multiplier=None)
     page.goto(f"{base_url}/wizard/safety-funds")
     page.locator(".q-card").filter(has_text=fund).get_by_role("button", name="Items").click()
     expect(page.get_by_test_id("irregular-balance")).to_have_text(
@@ -72,8 +75,12 @@ def _fund_page(page: Page, base_url: str, fund: str, account: str, balance: str)
     )
 
 
-def _pick(page: Page, scope: Locator, label: str, option: str) -> None:
-    scope.locator(".q-select").filter(has_text=label).click()
+def _pick(page: Page, scope: Locator, label: str, option: str, *, typed: bool = False) -> None:
+    select = scope.locator(".q-select").filter(has_text=label)
+    select.click()
+    if typed:
+        # The shared instance holds every test's categories: filter, do not scroll.
+        select.locator("input").fill(option)
     page.locator(".q-menu").get_by_text(option, exact=True).click()
 
 
@@ -83,10 +90,12 @@ def _record_payment(page: Page, amount: str, *, item: str | None = None, **field
     if item is not None:
         _pick(page, dialog, "Paid for", item)
     dialog.get_by_role("spinbutton", name="Amount", exact=True).fill(amount)
+    # Long ago, so these rows sit below every other test's recent ones.
+    dialog.get_by_label("Date", exact=True).fill(PAID_ON)
     if "description" in fields:
         dialog.get_by_label("Description", exact=True).fill(fields["description"])
     if "category" in fields:
-        _pick(page, dialog, "Category", fields["category"])
+        _pick(page, dialog, "Category", fields["category"], typed=True)
     dialog.get_by_role("button", name="Record").click()
     expect(page.get_by_text("Payment recorded.")).to_be_visible(timeout=5000)
 
@@ -99,7 +108,7 @@ def test_paying_an_item_from_the_fund(page: Page, base_url: str) -> None:
     dialog = page.get_by_role("dialog")
     dialog.get_by_label("Item", exact=True).fill("Car insurance")
     dialog.get_by_role("spinbutton", name="Yearly amount", exact=True).fill("1200")
-    _pick(page, dialog, "Category for its payments", "Ubezpieczenia IRR4 E2E")
+    _pick(page, dialog, "Category for its payments", "Ubezpieczenia IRR4 E2E", typed=True)
     dialog.get_by_role("button", name="Save").click()
     expect(page.get_by_text("Item saved.")).to_be_visible(timeout=5000)
 

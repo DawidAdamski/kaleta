@@ -147,3 +147,9 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
   widen the API's schema for a field only this page sets.
 - **Tests** gained money in, money moved out, and a deleted item's payment turning
   unplanned.
+- **The e2e tests share an instance with every other**: their funds have no target (a fund
+  under target is a dashboard warning that outranked another test's subscription item),
+  their payments are dated 2024-01-15 (today's rows pushed another test's posted planned
+  row off the ledger's first page), and the category selects filter as one types — the
+  shared instance's list is too long for the option to be on screen, and so is a real
+  ledger's.

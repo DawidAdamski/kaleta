@@ -139,8 +139,12 @@ class _FundPage:
             self.month_in = ui.select(
                 _month_options(), label=t("irregular_fund.due_month"), clearable=True
             ).classes("w-full")
+            # Typed to filter: a ledger's category list is long.
             self.category_in = ui.select(
-                self.categories, label=t("irregular_fund.category"), clearable=True
+                self.categories,
+                label=t("irregular_fund.category"),
+                clearable=True,
+                with_input=True,
             ).classes("w-full")
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button(t("common.cancel"), on_click=self.dialog.close).props("flat")
@@ -240,7 +244,7 @@ class _FundPage:
             self.pay_date = ui.input(t("common.date")).props("type=date").classes("w-full")
             self.pay_desc = ui.input(t("common.description")).classes("w-full")
             self.pay_category = ui.select(
-                self.categories, label=t("common.category"), clearable=True
+                self.categories, label=t("common.category"), clearable=True, with_input=True
             ).classes("w-full")
             with ui.row().classes("w-full justify-end gap-2"):
                 ui.button(t("common.cancel"), on_click=self.pay_dialog.close).props("flat")
