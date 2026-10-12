@@ -36,6 +36,8 @@ _PUBLIC_UI_PATHS: frozenset[str] = frozenset(
         "/login/mfa",
         "/create-account",
         "/reset-password",
+        # An invitation link: the invitee has no login yet (household sharing).
+        "/join",
         # The magic-link landing page signs the browser in itself.
         "/auth/magic",
         # Rotating a session means it is not authenticated under its new id

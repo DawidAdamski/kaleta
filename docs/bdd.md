@@ -3877,6 +3877,25 @@ Feature: Household sharing
     Given "ania@example.com" was removed from the household
     When "jan@example.com" invites them again and they sign in
     Then they are pending, with no keys, until they set up a passphrase and are approved
+
+  KAL-HHS-013 @automated
+  Scenario: Two people share a household in the browser
+    Given "jan@example.com" set up the instance, chose a data passphrase and added the payee "Biedronka"
+    When they invite "ania@example.com" on Settings → Household and pass the link on
+    And "ania@example.com" opens it, chooses a password and sets up their own data passphrase
+    Then they see "Waiting for jan@example.com to approve you." and their key fingerprint, and no data
+    When "jan@example.com" sees the same fingerprint, approves and types their data passphrase
+    Then "ania@example.com" unlocks with their own passphrase and sees "Biedronka"
+    And the payee "Lidl" they add is seen by "jan@example.com"
+    When "jan@example.com" removes them with the household re-keyed
+    Then the next page of "ania@example.com" is the login page, where they can no longer sign in
+    And "jan@example.com" still sees "Biedronka" and "Lidl" without unlocking again
+
+  KAL-HHS-014 @automated
+  Scenario: An invitation link works once
+    Given "ania@example.com" joined through their invitation link
+    When anyone opens that link again
+    Then the page says "This invitation no longer works" and asks for nothing
 ```
 
 ## Feature: Data encryption (user-held passphrase)

@@ -37,6 +37,7 @@ from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.household_service import (
     HouseholdInvitations,
     HouseholdService,
+    WaitingRoom,
     next_key_version,
 )
 from kaleta.services.local_identity_service import LocalIdentityService
@@ -44,6 +45,7 @@ from tests.household_helpers import (
     OWNER,
     PARTNER,
     PARTNER_PASSPHRASE,
+    Member,
     accept,
     act,
     approved_partner,
@@ -381,3 +383,37 @@ async def test_re_inviting_at_the_limit_replaces_the_link(household_db: str) -> 
         second = await service.invite(PARTNER)
         assert first.token != second.token
         assert [i.email for i in await service.invitations()] == [PARTNER]
+
+
+async def test_the_waiting_room_names_the_owner_and_the_members_own_fingerprint(
+    household_db: str,
+) -> None:
+    owner = await owner_with_data(household_db)
+    partner = await joined_partner(household_db, owner)
+
+    async def _room(service: HouseholdService) -> WaitingRoom:
+        return await service.waiting_room()
+
+    room = await act(partner, _room)
+    async with AsyncSessionFactory.public() as public:
+        key = await public.scalar(
+            select(TenantMember.public_key).where(TenantMember.email == PARTNER)
+        )
+    assert key is not None
+    assert room.owner_email == OWNER
+    assert room.fingerprint == fingerprint(key)
+
+    # Once approved there is nothing to wait for.
+    await _approve_partner(owner)
+    with pytest.raises(ConflictError):
+        await act(partner, _room)
+
+
+async def _approve_partner(owner: Member) -> None:
+    member_id = await member_id_of(owner, PARTNER)
+    key = owner.unlocked_key()
+
+    async def _approve(service: HouseholdService) -> None:
+        await service.approve(member_id, key)
+
+    await act(owner, _approve)

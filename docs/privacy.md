@@ -88,6 +88,35 @@ API bearer token cannot unlock data by itself — it only works while
 its member has an unlocked browser session elsewhere; otherwise the
 API answers `423 Locked` with error code `tenant_locked`.
 
+### Household members
+
+A household is several members on one family's data
+([`hosted-household-sharing`](plans/hosted-household-sharing.md)). Each
+member has their own login, second factor and data passphrase; the
+data key is sealed to each member's own key, so no member ever learns
+another's passphrase.
+
+- **What one member sees of another**: the e-mail address, the display
+  name they chose, their role (owner or member), whether they are
+  waiting for approval, when they joined, and their key's fingerprint
+  (8 groups of 4 characters, to compare over the phone before
+  approving). Nothing else about the other person — not their
+  passphrase, recovery code, second factor or sessions.
+- **The finances are shared**: every member reads and writes the same
+  ledger.
+- **An invitation link** carries no key: it only proves that its
+  address was invited. It works once, for 72 hours; the server keeps a
+  hash of it, never the link.
+- **Approving** seals the data key to the newcomer's key. The owner
+  types their data passphrase to do it, after comparing fingerprints.
+- **Removing a member, or a member leaving,** signs them out everywhere,
+  revokes their API tokens and, by default, moves the whole household
+  to a new data key, so a copy of the old one opens nothing written
+  afterwards — or before: every row is re-encrypted. While that runs
+  (seconds), nobody in the household can unlock. Removing without the
+  re-key only deletes the member's copy of the key: enough for a lost
+  phone, not for someone who might have kept a copy.
+
 ### Limits of this model
 
 This is encryption at rest under a key the operator does not hold —

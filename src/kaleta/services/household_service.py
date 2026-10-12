@@ -88,6 +88,14 @@ class HouseholdMember:
     #: A keypair is set up — what approving seals the key to.
     has_keys: bool
 
+    @property
+    def is_owner(self) -> bool:
+        return self.role is TenantRole.OWNER
+
+    @property
+    def is_pending(self) -> bool:
+        return self.status is TenantMemberStatus.PENDING
+
 
 @dataclass(frozen=True)
 class PendingInvitation:
@@ -106,6 +114,16 @@ class Invitation:
 
     def link(self, base_url: str) -> str:
         return f"{base_url.rstrip('/')}/join?token={self.token}"
+
+
+@dataclass(frozen=True)
+class WaitingRoom:
+    """What a pending member sees while the owner has not approved them yet."""
+
+    owner_email: str
+    #: Of the member's own public key, to read out to the owner; ``None``
+    #: until they have set a passphrase.
+    fingerprint: str | None
 
 
 @dataclass(frozen=True)
@@ -349,6 +367,27 @@ class HouseholdService:
             )
             for m in rows
         ]
+
+    async def waiting_room(self) -> WaitingRoom:
+        """For a pending member: whom they wait for, and what to compare with them.
+
+        Only the registry is read — a pending member holds no key to the rest.
+        """
+        member = self.me.member
+        if member.status is not TenantMemberStatus.PENDING:
+            msg = "Only a member waiting for approval has a waiting room."
+            raise ConflictError(msg)
+        owner_email = await self.public.scalar(
+            select(TenantMember.email).where(
+                TenantMember.tenant_id == self.tenant.id,
+                TenantMember.role == TenantRole.OWNER,
+                TenantMember.status == TenantMemberStatus.ACTIVE,
+            )
+        )
+        return WaitingRoom(
+            owner_email=owner_email or "",
+            fingerprint=fingerprint(member.public_key) if member.public_key is not None else None,
+        )
 
     async def invitations(self) -> list[PendingInvitation]:
         self._require_active()

@@ -145,6 +145,7 @@ def _register_views() -> None:
         housekeeping,
         import_view,
         institutions,
+        join,
         login,
         login_mfa,
         magic_link,
@@ -175,6 +176,7 @@ def _register_views() -> None:
     unlock.register()
     magic_link.register()
     create_account.register()
+    join.register()
     reset_password.register()
     change_password.register()
     admin.register()
