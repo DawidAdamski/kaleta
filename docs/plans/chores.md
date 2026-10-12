@@ -429,3 +429,7 @@ check it still reproduces before acting on it.
       deletes the non-keepers; a duplicate's `irregular_item_id` (and, as before,
       `planned_transaction_id`) is not moved to the keeper. Seen in the review of
       `funds-irregular-items` Part B.
+- [ ] **The plan archiver writes "archived" into the wrong column** of the gap-closing
+      table in `docs/plans/README.md` (`| Plan | Issue | Effort | Status | … |`): the
+      Issue column (losing e.g. `#10 IRR`) while Status keeps `draft`. Every archived row
+      of that table shows it.
