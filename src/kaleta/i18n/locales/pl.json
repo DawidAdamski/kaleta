@@ -482,7 +482,7 @@
     "setup_institution_count_one": "{count} instytucja",
     "household_shared": "Wspólne dla całego gospodarstwa: krok wykonany przez jedną osobę jest wykonany dla wszystkich.",
     "step_annual_review": "Przegląd roczny",
-    "step_annual_review_desc": "Raz w roku: jak poszedł plan, przeniesienie budżetów na kolejny rok ze zmianami oraz decyzja o każdej subskrypcji i pozycji nieregularnej."
+    "step_annual_review_desc": "Raz w roku podsumowuje plan, przenosi budżety na kolejny rok ze zmianami i pozwala zdecydować o każdej subskrypcji i pozycji funduszu nieregularnego."
   },
   "budget_builder": {
     "title": "Kreator budżetu",
@@ -2411,7 +2411,7 @@
     "planned_this": "Plan {year}",
     "adjustment": "Zmiana",
     "planned_next": "Plan {year}",
-    "replaces_plan": "Rok {next} ma już plan roczny: przeniesienie go zastąpi.",
+    "replaces_plan": "Rok {next} ma już plan roczny: przeniesienie zastąpi ten plan.",
     "carry_button": "Przenieś na {next}",
     "carried": "Budżety na {next} są ustawione.",
     "step_commitments": "3 · Zobowiązania",
@@ -2429,6 +2429,6 @@
     "adjust_irregular_item": "{name}: nowa kwota roczna",
     "amount_needed": "Podaj kwotę większą od zera.",
     "adjusted": "Zmieniono: {name}.",
-    "dropped": "Zrezygnowano: {name}."
+    "dropped": "Zrezygnowano z: {name}."
   }
 }

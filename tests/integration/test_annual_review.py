@@ -14,6 +14,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.subscription import SubscriptionStatus
 from kaleta.schemas.account import AccountCreate
@@ -24,7 +25,7 @@ from kaleta.schemas.irregular_item import IrregularItemCreate
 from kaleta.schemas.reserve_fund import ReserveFundCreate, ReserveFundKind
 from kaleta.schemas.subscription import SubscriptionCreate
 from kaleta.schemas.transaction import TransactionCreate, TransactionType
-from kaleta.schemas.yearly_plan import FixedLine, YearlyPlanPayload
+from kaleta.schemas.yearly_plan import FixedLine, VariableLine, YearlyPlanPayload
 from kaleta.services import (
     AccountService,
     AnnualReviewService,
@@ -201,3 +202,46 @@ async def test_each_commitment_is_kept_adjusted_or_dropped(year: _Year) -> None:
     assert [r.name for r in await year.review.commitments()] == ["Netflix", "Car insurance"]
     kept = await subs.get(netflix.id)
     assert kept is not None and kept.amount == Decimal("49.00")
+
+
+async def test_several_lines_and_a_raise_on_the_grid_move_by_one_percent(year: _Year) -> None:
+    insurance = await year.category("Insurance")
+    plans = YearlyPlanService(year.session)
+    await plans.apply(
+        YearlyPlanPayload(
+            year=YEAR,
+            fixed_lines=[FixedLine(name="OC", amount=Decimal("600.00"), category_id=insurance)],
+            variable_lines=[
+                VariableLine(name="Assistance", amount=Decimal("300.00"), category_id=insurance)
+            ],
+        )
+    )
+    # Then raised on the grid by hand: 100 a month, 1200 a year, 300 above the lines.
+    await year.monthly_budget(insurance, "100.00")
+
+    carry = await year.review.carry(YEAR, {insurance: Decimal("10")})
+    assert [(f.name, f.amount) for f in carry.payload.fixed_lines] == [("OC", Decimal("660.00"))]
+    assert [(v.name, v.amount) for v in carry.payload.variable_lines] == [
+        ("Assistance", Decimal("330.00")),
+        ("Insurance", Decimal("330.00")),
+    ]
+    [row] = carry.rows
+    assert (row.planned, row.next_amount) == (Decimal("1200.00"), Decimal("1320.00"))
+
+
+async def test_a_category_cannot_go_below_nothing(year: _Year) -> None:
+    insurance = await year.category("Insurance")
+    await year.monthly_budget(insurance, "100.00")
+    with pytest.raises(ValidationError):
+        await year.review.carry(YEAR, {insurance: Decimal("-101")})
+    carry = await year.review.carry(YEAR, {insurance: Decimal("-100")})
+    assert carry.rows[0].next_amount == Decimal("0.00")
+
+
+async def test_a_subscription_already_cancelled_for_later_is_not_asked_about(
+    year: _Year,
+) -> None:
+    subs = SubscriptionService(year.session)
+    leaving = await subs.create(SubscriptionCreate(name="HBO", amount=Decimal("29.99")))
+    await subs.cancel(leaving.id, effective_on=datetime.date.today() + datetime.timedelta(days=20))
+    assert await year.review.commitments() == []

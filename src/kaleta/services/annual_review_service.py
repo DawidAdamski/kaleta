@@ -16,7 +16,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.exceptions import NotFoundError
+from kaleta.exceptions import NotFoundError, ValidationError
 from kaleta.models.reserve_fund import ReserveFundKind
 from kaleta.models.subscription import SubscriptionStatus
 from kaleta.schemas.annual_review import (
@@ -105,6 +105,8 @@ class AnnualReviewService:
         their own, moved the same way.
         """
         pct = adjustments or {}
+        if any(p < Decimal("-100") for p in pct.values()):
+            raise ValidationError("A category cannot go down by more than 100%.")
         plans = YearlyPlanService(self.session)
         this = await plans.get_payload(year)
         names = await self._expense_names()

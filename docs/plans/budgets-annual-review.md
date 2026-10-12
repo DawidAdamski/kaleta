@@ -82,3 +82,23 @@ Gap-closing plan for issue #9 (`KAL-ANR-001`…`003`), from
   category carried as is, no extra line where the lines already derive the budgets, and
   "replaces" once next year has a plan); `tests/e2e/test_annual_review.py` walks the three
   steps on 2021, a year no other e2e test plans.
+
+### After review
+
+- **A % is applied on leaving its field** (or Enter), not per keystroke — the redraw
+  rebuilt the input being typed in. It goes down to −100% (the field's minimum; the
+  service refuses below, a `ValidationError`, and a test pins both).
+- **The year comes from the selector's own range** (the current year and the five before
+  it); a `?year=` outside it falls back to the current year rather than a value the
+  selector does not hold.
+- **"Planned this year" in the carry** is the larger of the budgets and what this year's
+  lines derive: the yearly plan's lines are the user's intent and carry as written, and
+  budgets set above them on the grid carry as an extra line. A category *lowered* on the
+  grid below its lines carries its lines — lower the line in the budget builder to carry
+  less. (Test: several lines of one category plus a raise on the grid, moved by one %.)
+- **Known limits, kept**: budgets set by hand carry as one yearly line, spread evenly by
+  the yearly plan — a December-heavy category keeps its total, not its shape; and applying
+  replaces next year's *plan*, while a next-year budget cell the carried plan does not
+  derive stays (as with the budget builder, `bulk_upsert`). Items of an archived irregular
+  fund are not asked about: archived is the user's "this fund is done".
+- **Tests** gained the scheduled cancellation that is not asked about.

@@ -28,6 +28,8 @@ from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEA
 REVIEW_URL = "/wizard/annual-review"
 #: Years the selector offers before the current one.
 YEARS_BACK = 5
+#: A category can go down to nothing, not below.
+MIN_PCT = Decimal("-100")
 
 
 def _fmt(amount: Decimal) -> str:
@@ -45,7 +47,8 @@ def register() -> None:
     @ui.page(REVIEW_URL)
     async def annual_review_page(year: int | None = None) -> None:
         this_year = datetime.date.today().year
-        chosen = year if year is not None and 2000 <= year <= this_year else this_year
+        oldest = this_year - YEARS_BACK
+        chosen = year if year is not None and oldest <= year <= this_year else this_year
         with page_layout(t("annual_review.title"), wide=True):
             with ui.row().classes("w-full items-end justify-between gap-4"):
                 with ui.column().classes("gap-1"):
@@ -154,14 +157,18 @@ class _Review:
                 ):
                     ui.label(row.name).classes("flex-1")
                     ui.label(_fmt(row.planned)).classes("w-32 text-right k-mono")
-                    ui.number(
-                        value=float(row.pct),
-                        step=1,
-                        suffix="%",
-                        on_change=lambda e, cid=row.category_id: self._set_pct(cid, e.value),
-                    ).props(f'dense data-testid="anr-pct-{row.category_id}"').classes(
-                        "w-32 text-right"
+                    # Applied on leaving the field (or Enter), not per keystroke:
+                    # the redraw would rebuild the input being typed in.
+                    pct_in = (
+                        ui.number(value=float(row.pct), step=1, min=-100, suffix="%")
+                        .props(f'dense data-testid="anr-pct-{row.category_id}"')
+                        .classes("w-32 text-right")
                     )
+                    for event in ("blur", "keydown.enter"):
+                        pct_in.on(
+                            event,
+                            lambda _e, cid=row.category_id, w=pct_in: self._set_pct(cid, w.value),
+                        )
                     ui.label(_fmt(row.next_amount)).classes(
                         "w-32 text-right k-mono font-semibold"
                     ).props(f'data-testid="anr-next-{row.category_id}"')
@@ -180,6 +187,9 @@ class _Review:
         pct = _decimal(value or 0)
         if pct is None:
             return
+        pct = max(pct, MIN_PCT)
+        if self.adjustments.get(category_id, Decimal("0")) == pct:
+            return  # nothing changed: no redraw
         self.adjustments[category_id] = pct
         self.carry.refresh()
 

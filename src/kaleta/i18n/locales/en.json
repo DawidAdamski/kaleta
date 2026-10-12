@@ -482,7 +482,7 @@
     "setup_institution_count_one": "{count} institution",
     "household_shared": "Shared with your household: a step one of you completes is done for everyone.",
     "step_annual_review": "Annual review",
-    "step_annual_review_desc": "Once a year: how the plan went, carry the budgets into next year with your changes, and keep, adjust or drop each subscription and irregular item."
+    "step_annual_review_desc": "Once a year, sums up how the plan went, carries the budgets into next year with your changes, and asks to keep, adjust or drop each subscription and irregular-fund item."
   },
   "budget_builder": {
     "title": "Budget Builder",
