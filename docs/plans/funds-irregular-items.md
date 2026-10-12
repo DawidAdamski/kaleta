@@ -129,3 +129,9 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
   its row — an expense entered on the ledger or imported is linked the same way.
 - **Only an expense on the fund's own account links**, and only to an item of that fund;
   the service refuses anything else.
+- **Tests (Part B)**: `tests/integration/test_irregular_fund_payments.py` (`KAL-IRR-004`,
+  `-005`, linking a ledger expense afterwards and unlinking it, and the refusals: another
+  account's expense, another fund's item, no category), and two e2e tests in
+  `tests/e2e/test_irregular_fund.py` that record each payment through the dialog and read
+  the balance and the history row. Breaking the link on record, or the unplanned mark,
+  each fails a test.

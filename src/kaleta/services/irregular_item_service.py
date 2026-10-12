@@ -22,17 +22,26 @@ from kaleta.models.account import Account
 from kaleta.models.irregular_item import IrregularItem
 from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFrequency
 from kaleta.models.reserve_fund import ReserveFund, ReserveFundKind
-from kaleta.models.transaction import TransactionType
+from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.irregular_item import (
+    IrregularEntryKind,
+    IrregularFundEntry,
     IrregularFundingCreate,
     IrregularFundPlan,
     IrregularItemCreate,
     IrregularItemResponse,
     IrregularItemUpdate,
+    IrregularPaymentCreate,
 )
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
+from kaleta.schemas.transaction import TransactionCreate
+from kaleta.services.account_service import AccountService
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.text_order import text_key
+from kaleta.services.transaction_service import TransactionService
+
+#: Rows of the fund's history the page shows, newest first.
+HISTORY_LIMIT = 100
 
 
 class IrregularItemService:
@@ -72,6 +81,11 @@ class IrregularItemService:
             yearly_total=sum((i.yearly_amount for i in items), Decimal("0.00")),
             # The sum of what each row shows, so the column adds up on screen.
             monthly_total=sum((i.monthly_contribution for i in items), Decimal("0.00")),
+            balance=(
+                await AccountService(self.session).balance(fund.backing_account_id)
+                if fund.backing_account_id is not None
+                else Decimal("0.00")
+            ),
         )
 
     # ── Items ─────────────────────────────────────────────────────────────
@@ -151,6 +165,92 @@ class IrregularItemService:
                 start_date=payload.start_date,
                 is_active=True,
             )
+        )
+
+    # ── Payments and the fund's history (``KAL-IRR-004``, ``-005``) ───────
+
+    async def _fund_account(self, fund_id: int) -> int:
+        fund = await self._fund(fund_id)
+        if fund.backing_account_id is None:
+            raise ValidationError("The fund has no account to pay from.")
+        return fund.backing_account_id
+
+    async def _fund_item(self, fund_id: int, item_id: int) -> IrregularItem:
+        item = await self._item(item_id)
+        if item.fund_id != fund_id:
+            raise ValidationError("That item belongs to another fund.")
+        return item
+
+    async def record_payment(self, fund_id: int, data: IrregularPaymentCreate) -> Transaction:
+        """An expense out of the fund's account, paying one item or none (unplanned)."""
+        account_id = await self._fund_account(fund_id)
+        item = await self._fund_item(fund_id, data.item_id) if data.item_id is not None else None
+        category_id = data.category_id or (item.category_id if item is not None else None)
+        if category_id is None:
+            raise ValidationError("Choose a category for the payment.")
+        description = data.description.strip() or (item.name if item is not None else "")
+        tx = await TransactionService(self.session).create(
+            TransactionCreate(
+                account_id=account_id,
+                category_id=category_id,
+                amount=data.amount,
+                type=TransactionType.EXPENSE,
+                date=data.date,
+                description=description,
+            )
+        )
+        if item is not None:
+            tx.irregular_item_id = item.id
+            await self.session.commit()
+        return tx
+
+    async def link_payment(self, fund_id: int, transaction_id: int, item_id: int | None) -> None:
+        """Say which item an expense on the fund's account paid; ``None`` makes it unplanned."""
+        account_id = await self._fund_account(fund_id)
+        tx = await self.session.get(Transaction, transaction_id)
+        if tx is None:
+            raise NotFoundError(f"Transaction {transaction_id} not found.")
+        if tx.account_id != account_id or tx.type is not TransactionType.EXPENSE:
+            raise ValidationError("Only an expense paid from the fund's account is a payment.")
+        if item_id is not None:
+            await self._fund_item(fund_id, item_id)
+        tx.irregular_item_id = item_id
+        await self.session.commit()
+
+    async def history(self, fund_id: int) -> builtins.list[IrregularFundEntry]:
+        """The fund's account's movements, newest first, each said for what it is."""
+        account_id = await self._fund_account(fund_id)
+        names = {i.id: i.name for i in await self.items(fund_id)}
+        rows = await self.session.execute(
+            select(Transaction)
+            .where(Transaction.account_id == account_id)
+            .order_by(Transaction.date.desc(), Transaction.id.desc())
+            .limit(HISTORY_LIMIT)
+        )
+        return [self._entry(tx, names) for tx in rows.scalars().all()]
+
+    @staticmethod
+    def _entry(tx: Transaction, names: dict[int, str]) -> IrregularFundEntry:
+        incoming = tx.type is TransactionType.INCOME or (
+            tx.type is TransactionType.TRANSFER and tx.transfer_direction is TransferDirection.IN
+        )
+        item_id = tx.irregular_item_id if tx.irregular_item_id in names else None
+        if incoming:
+            kind = IrregularEntryKind.CONTRIBUTION
+        elif tx.type is TransactionType.EXPENSE:
+            kind = (
+                IrregularEntryKind.PAYMENT if item_id is not None else IrregularEntryKind.UNPLANNED
+            )
+        else:
+            kind = IrregularEntryKind.WITHDRAWAL
+        return IrregularFundEntry(
+            transaction_id=tx.id,
+            date=tx.date,
+            description=tx.description,
+            amount=tx.amount if incoming else -tx.amount,
+            kind=kind,
+            item_id=item_id,
+            item_name=names.get(item_id) if item_id is not None else None,
         )
 
     @staticmethod

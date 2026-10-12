@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import datetime
+import enum
 from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
@@ -11,11 +12,14 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from kaleta.core.irregular import monthly_contribution
 
 __all__ = [
+    "IrregularEntryKind",
+    "IrregularFundEntry",
     "IrregularFundPlan",
     "IrregularFundingCreate",
     "IrregularItemCreate",
     "IrregularItemResponse",
     "IrregularItemUpdate",
+    "IrregularPaymentCreate",
 ]
 
 
@@ -59,6 +63,8 @@ class IrregularFundPlan(BaseModel):
     items: list[IrregularItemResponse]
     yearly_total: Decimal
     monthly_total: Decimal
+    #: What the fund holds: its account's balance, from the ledger.
+    balance: Decimal = Decimal("0.00")
 
 
 class IrregularFundingCreate(BaseModel):
@@ -66,3 +72,34 @@ class IrregularFundingCreate(BaseModel):
 
     from_account_id: int
     start_date: datetime.date
+
+
+class IrregularPaymentCreate(BaseModel):
+    """A payment out of the fund: of one item, or (``item_id`` ``None``) an unplanned cost."""
+
+    item_id: int | None = None
+    amount: Decimal = Field(..., gt=0, decimal_places=2)
+    date: datetime.date
+    description: str = Field(default="", max_length=500)
+    #: ``None``: the item's own category.
+    category_id: int | None = None
+
+
+class IrregularEntryKind(enum.StrEnum):
+    CONTRIBUTION = "contribution"
+    PAYMENT = "payment"
+    UNPLANNED = "unplanned"
+    WITHDRAWAL = "withdrawal"
+
+
+class IrregularFundEntry(BaseModel):
+    """One row of the fund's history: a movement on its account."""
+
+    transaction_id: int
+    date: datetime.date
+    description: str
+    #: Signed: money into the fund is positive, out of it negative.
+    amount: Decimal
+    kind: IrregularEntryKind
+    item_id: int | None = None
+    item_name: str | None = None
