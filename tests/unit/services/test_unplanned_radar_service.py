@@ -371,7 +371,8 @@ class TestSummary:
 
         assert summary.candidate_count == 2
         assert summary.yearly_total == Decimal("1450.00")
-        assert summary.monthly_equivalent == Decimal("120.83")
+        # The irregular fund's ÷10 rule (funds-irregular-items), not ÷12.
+        assert summary.monthly_equivalent == Decimal("145.00")
 
     def test_summary_of_nothing_is_zero(self):
         summary = RadarSummary.from_candidates([])

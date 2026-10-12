@@ -8,6 +8,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from pydantic import BaseModel
 
+from kaleta.core.irregular import monthly_contribution
 from kaleta.schemas.planned_transaction import RecurrenceFrequency
 
 _CENTS = Decimal("0.01")
@@ -59,7 +60,8 @@ class RadarSummary(BaseModel):
         return cls(
             candidate_count=len(candidates),
             yearly_total=yearly,
-            monthly_equivalent=(yearly / Decimal(12)).quantize(_CENTS, rounding=ROUND_HALF_UP),
+            # The irregular fund's own rule, so the suggestion and the fund agree.
+            monthly_equivalent=monthly_contribution(yearly),
         )
 
 

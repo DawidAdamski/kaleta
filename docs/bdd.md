@@ -2181,6 +2181,7 @@ Feature: Recurring Payment Detection
     And "Kominiarz" costs 150.00 once a year
     When I look at the irregular expenses fund line on the radar
     Then it sums their yearly estimates to 1450.00
+    And it suggests setting aside 145.00 a month, a tenth of the year
     And it offers a link to Safety & Reserve Funds
 ```
 
@@ -2321,19 +2322,19 @@ Feature: Irregular Expenses Fund
   I want a fund fed monthly that covers irregular yearly costs
   So that an insurance bill or tax never surprises my monthly budget
 
-  KAL-IRR-001 @planned
+  KAL-IRR-001 @automated
   Scenario: Define an irregular yearly item
     Given I am on the Irregular Fund page
     When I add item "Car insurance" with yearly amount 1200.00
     Then the item appears with a monthly contribution of 120.00 (1200 / 10)
 
-  KAL-IRR-002 @planned
+  KAL-IRR-002 @automated
   Scenario: Fund shows the total monthly contribution
     Given items "Car insurance 1200.00" and "Property tax 600.00" exist
     When I open the Irregular Fund page
     Then the required monthly contribution shows 180.00
 
-  KAL-IRR-003 @planned
+  KAL-IRR-003 @automated
   Scenario: Monthly contribution is a planned transfer
     Given the fund's monthly contribution is 180.00
     When I accept the suggested funding plan

@@ -35,6 +35,7 @@ from kaleta.models.credit import CreditCardProfile, LoanProfile
 from kaleta.models.currency_rate import CurrencyRate
 from kaleta.models.dismissed_candidate import DismissedCandidate
 from kaleta.models.institution import Institution
+from kaleta.models.irregular_item import IrregularItem
 from kaleta.models.payee import Payee
 from kaleta.models.payee_identity import PayeeIdentity
 from kaleta.models.payee_merge import DismissedPayeeMerge, PayeeAutoMerge
@@ -60,6 +61,7 @@ _CLEARED_MODELS = (
     PayeeAutoMerge,
     DismissedPayeeMerge,
     PayeeIdentity,
+    IrregularItem,
     ReserveFund,
     PersonalLoanRepayment,
     PersonalLoan,

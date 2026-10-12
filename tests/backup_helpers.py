@@ -34,6 +34,7 @@ from kaleta.models import (
     ImportRun,
     Institution,
     InstitutionType,
+    IrregularItem,
     LoanDirection,
     LoanProfile,
     LoanStatus,
@@ -318,6 +319,25 @@ async def seed_every_model(session: AsyncSession) -> None:
             backing_mode=ReserveFundBackingMode.ACCOUNT,
             backing_account_id=account.id,
             emergency_multiplier=6,
+            user_id=user.id,
+        )
+    )
+    irregular = ReserveFund(
+        name="Irregular",
+        kind=ReserveFundKind.IRREGULAR,
+        target_amount=Decimal("3000.00"),
+        backing_mode=ReserveFundBackingMode.ACCOUNT,
+        backing_account_id=account.id,
+        user_id=user.id,
+    )
+    session.add(irregular)
+    await session.flush()
+    session.add(
+        IrregularItem(
+            fund_id=irregular.id,
+            name="Car insurance",
+            yearly_amount=Decimal("1200.00"),
+            due_month=3,
             user_id=user.id,
         )
     )

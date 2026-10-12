@@ -145,6 +145,7 @@ def _register_views() -> None:
         housekeeping,
         import_view,
         institutions,
+        irregular_fund,
         join,
         login,
         login_mfa,
@@ -196,6 +197,7 @@ def _register_views() -> None:
     reports.register()
     reports_canned.register()
     safety_funds.register()
+    irregular_fund.register()
     subscriptions.register()
     personal_loans.register()
     monthly_readiness.register()

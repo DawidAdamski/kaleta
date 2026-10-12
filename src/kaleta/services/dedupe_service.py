@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category
+from kaleta.models.irregular_item import IrregularItem
 from kaleta.models.payee import Payee
 from kaleta.models.planned_transaction import PlannedTransaction
 from kaleta.models.reserve_fund import ReserveFund
@@ -480,6 +481,11 @@ class DedupeService:
             update(ReserveFund)
             .where(ReserveFund.backing_category_id.in_(victims))
             .values(backing_category_id=keeper_id)
+        )
+        await self.session.execute(
+            update(IrregularItem)
+            .where(IrregularItem.category_id.in_(victims))
+            .values(category_id=keeper_id)
         )
         await self.session.execute(
             update(Subscription)

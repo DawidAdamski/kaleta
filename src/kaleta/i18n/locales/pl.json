@@ -589,7 +589,8 @@
     "archived_msg": "Fundusz zarchiwizowany.",
     "unarchived_msg": "Fundusz przywrócony.",
     "archived_section_heading": "Zarchiwizowane fundusze",
-    "archived_section_body": "Fundusze, które wycofałeś. Możesz je przywrócić w każdej chwili."
+    "archived_section_body": "Fundusze, które wycofałeś. Możesz je przywrócić w każdej chwili.",
+    "items": "Pozycje"
   },
   "salary": {
     "title": "Wypłacaj sobie pensję",
@@ -2353,5 +2354,31 @@
     "action_sessions_revoked": "Wylogowanie wszędzie",
     "action_admin_granted": "Nadanie roli administratora",
     "action_admin_revoked": "Odebranie roli administratora"
+  },
+  "irregular_fund": {
+    "back": "← Fundusze bezpieczeństwa i rezerwowe",
+    "subtitle": "Roczne koszty, na które odkłada ten fundusz. Na każdy odkładasz jedną dziesiątą miesięcznie — dwa miesiące zapasu na podwyżkę i niespodzianki.",
+    "items_title": "Koszty roczne",
+    "add_item": "Dodaj pozycję",
+    "edit_item": "Edytuj pozycję",
+    "item_name": "Pozycja",
+    "yearly_amount": "Kwota roczna",
+    "monthly": "Miesięcznie",
+    "due_month": "Miesiąc płatności",
+    "category": "Kategoria płatności",
+    "preview": "Odkładaj {monthly} miesięcznie",
+    "item_incomplete": "Podaj nazwę pozycji i kwotę roczną.",
+    "item_saved": "Pozycja zapisana.",
+    "item_deleted": "Pozycja usunięta.",
+    "no_items": "Brak pozycji. Dodaj roczne koszty, które pokrywa ten fundusz — ubezpieczenie auta, podatek od nieruchomości.",
+    "funding_title": "Zasilanie funduszu",
+    "funding_body": "Odkładaj {amount} miesięcznie — stałym przelewem na {account}.",
+    "needs_account": "Najpierw przypisz funduszowi konto (edycja w Funduszach bezpieczeństwa i rezerwowych) — tam trafi comiesięczny przelew.",
+    "needs_items": "Dodaj pozycję, a tutaj pojawi się propozycja comiesięcznego przelewu.",
+    "needs_source": "Dodaj drugie konto, z którego przelejesz pieniądze.",
+    "from_account": "Z konta",
+    "start_date": "Pierwszy przelew",
+    "create_funding": "Utwórz comiesięczny przelew",
+    "funding_created": "Zaplanowano comiesięczny przelew na kwotę {amount}."
   }
 }

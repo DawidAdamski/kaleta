@@ -386,6 +386,11 @@ check it still reproduces before acting on it.
       message (line ~178); `test_auth.py` + `test_mfa.py` passed 3/3 together
       and the file passes alone. Cause not found — a click before the page's
       websocket is up is the suspect. Fix: find it before adding any wait.
+      Seen again on `funds-irregular-items` (2026-10-12) one step earlier, at
+      KAL-AUTH-014 (the first password sign-in after enrolling): 1 of 3 runs of
+      the file *alone* failed in 15 s, so it reproduces without the suite —
+      on `main` too (a674bc0: 1 of 4 alone), and twice running in full
+      `verify.sh --e2e` on that branch at line ~178.
 - [ ] **"Fetch NBP rates" has no throttle.** Any member of any family can
       press it, and each press is one request to api.nbp.pl for the whole
       instance (idempotent, public data). Seen in the review of `postgres-only`
@@ -417,3 +422,6 @@ check it still reproduces before acting on it.
       transaction (`TransactionUpdate.expected_updated_at`). Accounts, budgets,
       planned transactions and the rest still let the last save win silently;
       each editor would pass the `updated_at` it loaded the same way.
+- [ ] **`safety_funds.archived_section_body` (pl) is masculine-only** — "Fundusze,
+      które wycofałeś". Gender-neutral: "Wycofane fundusze. Możesz je przywrócić w
+      każdej chwili." Seen by the i18n check of `funds-irregular-items`.

@@ -592,6 +592,15 @@ def _render_fund_card(
                         ui.label(t("safety_funds.target_derived_badge")).classes(
                             f"{BODY_MUTED} text-xs"
                         )
+                if fund.kind == ReserveFundKind.IRREGULAR:
+                    # The plan behind the fund — its items — has a page of its own.
+                    ui.button(
+                        t("safety_funds.items"),
+                        icon="list_alt",
+                        on_click=lambda _e, fid=fund.id: ui.navigate.to(
+                            f"/wizard/safety-funds/{fid}"
+                        ),
+                    ).props("flat dense no-caps color=primary")
                 if is_goal:
                     ui.button(
                         t("safety_funds.contribute"),

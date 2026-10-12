@@ -82,3 +82,5 @@ async def test_fund_line_sums_the_yearly_estimates(session: AsyncSession) -> Non
 
     assert summary.candidate_count == 2
     assert summary.yearly_total == Decimal("1450.00")
+    # A tenth a month: the irregular fund's own rule.
+    assert summary.monthly_equivalent == Decimal("145.00")
