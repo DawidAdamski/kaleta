@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from typing import Any
 
-from nicegui import ui
+from nicegui import app, ui
 
 from kaleta.i18n import t
 from kaleta.schemas.category import CategoryCreate, CategoryResponse, CategoryType, CategoryUpdate
-from kaleta.services import CategoryService, with_session
-from kaleta.services.category_service import TemplatePreview
+from kaleta.schemas.category_template import TemplateSelection
+from kaleta.services import CategoryService, CategoryTemplateService, with_session
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, DIALOG_TITLE, PAGE_TITLE, SECTION_CARD
 
@@ -282,27 +282,52 @@ def register() -> None:
             _render_group(expense_roots, CategoryType.EXPENSE)
 
         # ── Template picker + preview ─────────────────────────────────────
-        template_state: dict[str, TemplatePreview | None] = {"preview": None}
+        # Build the tree from who you are: pick templates (single, family, a car,
+        # a company, …) and Kaleta merges their categories into one tree. Names
+        # come from the template catalogue in the family's language; a repeatable
+        # template (a car, a company) takes a per-copy name so two cars are two
+        # subtrees. See the ``category-templates`` plan.
+        language = app.storage.user.get("language", "en")
+        templates = CategoryTemplateService.list()
+        # key → (checkbox, copy-name input | None); the input exists only for
+        # repeatable templates.
+        picks: dict[str, tuple[Any, Any]] = {}
+        selection_state: dict[str, list[TemplateSelection]] = {"selections": []}
+
+        def _current_selections() -> list[TemplateSelection]:
+            selections: list[TemplateSelection] = []
+            for tmpl in templates:
+                checkbox, copy_input = picks[tmpl.key]
+                if not checkbox.value:
+                    continue
+                copy_name = copy_input.value.strip() if copy_input is not None else None
+                selections.append(TemplateSelection(key=tmpl.key, copy_name=copy_name or None))
+            return selections
 
         with ui.dialog() as template_preview_dialog, ui.card().classes("w-[460px]"):
-            preview_title = ui.label("").classes(f"{DIALOG_TITLE} mb-2")
+            ui.label(t("categories.template_preview_title")).classes(f"{DIALOG_TITLE} mb-2")
             preview_summary = ui.label("").classes("text-sm mb-3")
-            preview_list = ui.column().classes("gap-0 max-h-64 overflow-auto w-full")
-            preview_skipped = ui.label("").classes(f"{BODY_MUTED} text-xs mt-2")
+            preview_list = ui.column().classes("gap-0 max-h-80 overflow-auto w-full")
 
             async def _apply_preview() -> None:
-                preview = template_state["preview"]
-                if preview is None:
+                selections = selection_state["selections"]
+                if not selections:
                     return
 
                 async def _apply(session: Any) -> int:
-                    return await CategoryService(session).apply_template(preview.key)
+                    result = await CategoryTemplateService(session).apply(
+                        selections, language=language
+                    )
+                    return result.created
 
                 created = await with_session(_apply)
-                ui.notify(
-                    t("categories.template_applied", count=created),
-                    type="positive",
-                )
+                ui.notify(t("categories.template_applied", count=created), type="positive")
+                # Clear the picker so reopening it starts fresh, not on the just-applied set.
+                for checkbox, copy_input in picks.values():
+                    checkbox.value = False
+                    if copy_input is not None:
+                        copy_input.value = ""
+                selection_state["selections"] = []
                 template_preview_dialog.close()
                 category_list.refresh()
 
@@ -312,65 +337,64 @@ def register() -> None:
                     t("categories.template_apply"), on_click=_apply_preview
                 ).props("color=primary")
 
-        def _render_preview(preview: TemplatePreview) -> None:
-            template_state["preview"] = preview
-            name = t(f"categories.template_name_{preview.key}")
-            preview_title.set_text(t("categories.template_preview_title", name=name))
-            if preview.total_to_add == 0:
+        def _type_icon(row_type: CategoryType) -> tuple[str, str]:
+            if row_type == CategoryType.INCOME:
+                return "trending_up", "green"
+            return "trending_down", "red"
+
+        async def _open_preview() -> None:
+            selections = _current_selections()
+            if not selections:
+                ui.notify(t("categories.template_pick_one"), type="warning")
+                return
+            selection_state["selections"] = selections
+
+            async def _load(session: Any) -> Any:
+                return await CategoryTemplateService(session).preview(selections, language=language)
+
+            preview = await with_session(_load)
+            template_picker_dialog.close()
+            if preview.to_add == 0:
                 preview_summary.set_text(t("categories.template_nothing_to_add"))
                 apply_btn.props("disable")
             else:
-                preview_summary.set_text(
-                    t("categories.template_will_add", count=preview.total_to_add)
-                )
+                preview_summary.set_text(t("categories.template_will_add", count=preview.to_add))
                 apply_btn.props(remove="disable")
             preview_list.clear()
             with preview_list:
-                for name in preview.to_add_income:
-                    with ui.row().classes("items-center gap-2 py-1"):
-                        ui.icon("trending_up", color="green").classes("text-sm")
-                        ui.label(name).classes("text-sm")
-                for name in preview.to_add_expense:
-                    with ui.row().classes("items-center gap-2 py-1"):
-                        ui.icon("trending_down", color="red").classes("text-sm")
-                        ui.label(name).classes("text-sm")
-            skipped_all = preview.skipped_income + preview.skipped_expense
-            if skipped_all:
-                preview_skipped.set_text(
-                    t("categories.template_skipped", names=", ".join(skipped_all))
-                )
-            else:
-                preview_skipped.set_text("")
-
-        async def _open_template_preview(key: str) -> None:
-            preview = await with_session(
-                lambda session: CategoryService(session).preview_template(key)
-            )
-            _render_preview(preview)
+                for prow in preview.rows:
+                    icon, color = _type_icon(prow.type)
+                    row_classes = "items-center gap-2 py-1" + (" opacity-50" if prow.exists else "")
+                    with ui.row().classes(row_classes):
+                        ui.icon(icon, color=color).classes("text-sm")
+                        ui.label(prow.label).classes("text-sm")
+                        if prow.exists:
+                            ui.icon("check", color="grey").classes("text-sm")
             template_preview_dialog.open()
 
-        with ui.dialog() as template_picker_dialog, ui.card().classes("w-[420px]"):
-            ui.label(t("categories.template_picker_title")).classes(f"{DIALOG_TITLE} mb-2")
-            with ui.column().classes("gap-2 w-full"):
-                for tmpl_key in CategoryService.list_templates():
-
-                    async def _pick(k: str = tmpl_key) -> None:
-                        template_picker_dialog.close()
-                        await _open_template_preview(k)
-
-                    with (
-                        ui.card()
-                        .classes("w-full cursor-pointer hover:bg-slate-50 p-3 border")
-                        .on("click", _pick)
-                    ):
-                        ui.label(t(f"categories.template_name_{tmpl_key}")).classes(
-                            "k-heading font-medium"
+        with ui.dialog() as template_picker_dialog, ui.card().classes("w-[460px]"):
+            ui.label(t("categories.template_picker_title")).classes(f"{DIALOG_TITLE} mb-1")
+            ui.label(t("categories.template_picker_hint")).classes(f"{BODY_MUTED} text-xs mb-2")
+            with ui.column().classes("gap-2 w-full max-h-96 overflow-auto"):
+                for tmpl in templates:
+                    with ui.card().classes("w-full p-3 border"):
+                        checkbox = ui.checkbox(tmpl.display_name(language)).classes("font-medium")
+                        ui.label(t(f"categories.template_desc_{tmpl.key}")).classes(
+                            f"{BODY_MUTED} text-xs ml-8"
                         )
-                        ui.label(t(f"categories.template_desc_{tmpl_key}")).classes(
-                            f"{BODY_MUTED} text-xs"
-                        )
-            with ui.row().classes("w-full justify-end mt-3"):
+                        copy_input = None
+                        if tmpl.repeatable:
+                            copy_input = (
+                                ui.input(placeholder=t("categories.template_copy_name"))
+                                .props("dense outlined")
+                                .classes("ml-8 w-56")
+                            )
+                        picks[tmpl.key] = (checkbox, copy_input)
+            with ui.row().classes("w-full justify-end gap-2 mt-3"):
                 ui.button(t("common.cancel"), on_click=template_picker_dialog.close).props("flat")
+                ui.button(t("categories.template_preview_button"), on_click=_open_preview).props(
+                    "color=primary"
+                )
 
         # ── Page layout ───────────────────────────────────────────────────
         with page_layout(t("categories.title")):

@@ -87,18 +87,18 @@ business subscription children), the setup view and `src/kaleta/views/categories
   (list / preview / apply), merging by blind index, repeatable copies, and the Company →
   Subscriptions-tree seeding. Service + data + tests + BDD only — no views, so the short
   gate applies.
-- **Slice 2 — the UI (next PR)**: the first-run setup checkboxes and Settings → Categories
-  "Add from a template", with the preview dialog; rewires `views/categories.py` onto the
-  new service and retires the old flat JSON templates. Views → `--e2e` gate + i18n.
+- **Slice 2 — the UI (done)**: the template picker with its preview dialog on
+  `/categories`; rewires `views/categories.py` onto the new service and retires the old
+  flat JSON templates. Views → `--e2e` gate + i18n. See *Decisions (Slice 2 — the UI)* below.
 
 ### Decisions (Slice 1)
 
-- **A primitive template system already existed** and stays until Slice 2: flat JSON
+- **A primitive template system already existed** and stayed through Slice 1: flat JSON
   (`single-person`, `polish-household`, `freelancer`, `student`) under
   `data/category_templates/`, with `CategoryService.{list,preview,apply}_template` adding
-  only root names, wired into `views/categories.py`. Slice 1 adds a *new*, richer system
-  beside it (`*.toml` + `CategoryTemplateService`) so the view keeps working; Slice 2
-  removes the old one.
+  only root names, wired into `views/categories.py`. Slice 1 added a *new*, richer system
+  beside it (`*.toml` + `CategoryTemplateService`) so the view kept working; Slice 2 removed
+  the old one.
 - **TOML, loaded by `tomllib`** (open question resolved — no new dependency; Python 3.13
   stdlib), validated by `schemas/category_template.py` (Pydantic). Each template is one
   file: `key`, `name`/`name_en`, `order`, `repeatable`, `[[groups]]` (a parent + its
@@ -108,7 +108,7 @@ business subscription children), the setup view and `src/kaleta/views/categories
 - **Combining by blind index**: `apply` ensures each parent (root of its type) then each
   child, matching existing rows by `exact_index(name)`, so a parent shared by two
   templates — or a re-run — is reused, never duplicated. The catalogue carries both
-  languages; the caller passes `language` (Slice 2's view will use the family's), default
+  languages; the caller passes `language` (the Slice 2 view uses the family's), default
   Polish for this Polish-first app.
 - **Repeatable multiples**: a `repeatable` template applied with a `copy_name` suffixes its
   parents — `Samochód` → `Samochód: Skoda` — so two cars are two subtrees. Children and the
@@ -135,7 +135,34 @@ business subscription children), the setup view and `src/kaleta/views/categories
   this root by its flag, so no second root. So `apply().created` and `preview` count only
   the template's own categories (incl. the 4 business purposes), never the tree defaults.
 - **Language is the caller's.** Business purposes are added in the passed `language`; a tree
-  already built in another language would mix (documented + tested). The Slice 2 view will
-  pass the family's language.
+  already built in another language would mix (documented + tested). The Slice 2 view passes
+  the family's language.
 - **Blank `copy_name` is not a suffix.** `"  "` strips to empty → no `": "` suffix (would
   otherwise make "Samochód: "); tested.
+
+### Decisions (Slice 2 — the UI)
+
+- **One picker serves both "where"s.** The plan asked for first-run setup checkboxes *and*
+  a Settings → Categories "Add from a template". In Kaleta the wizard's Setup card for
+  categories links straight to `/categories`, so the picker lives there and is the
+  first-run experience as well — no separate onboarding screen. The "Load template" button
+  on `/categories` opens it; a returning user uses the same button to add a template later.
+- **Multi-select, not one-at-a-time.** The picker is a checklist of all templates
+  (`CategoryTemplateService.list()`); ticking several and applying once merges them by
+  blind index (KAL-CTP-002). A repeatable template (car, company) shows a copy-name input;
+  a second car is a second visit to the picker (idempotent — KAL-CTP-003/004).
+- **Names from the catalogue, descriptions from i18n.** The template display names come from
+  the TOML (`display_name(language)`) — the single source, already bilingual — so they are
+  not duplicated into the locale files. Only the one-line descriptions and the picker/preview
+  chrome are i18n keys (`categories.template_desc_<key>`, `template_picker_*`, etc.).
+- **Language is the user's.** The view reads `app.storage.user["language"]` and passes it to
+  `preview`/`apply`, so the Company template's business purposes land in the same language as
+  the rest of the tree (closing the Slice 1 caveat).
+- **Old flat JSON system retired.** Removed `CategoryService.{list,preview,apply}_template`,
+  `_load_template`, `TemplatePreview`, `_TEMPLATE_DIR` and the `*.json` templates
+  (`single-person`, `polish-household`, `freelancer`, `student`) plus their now-unused
+  `template_name_*` / `template_skipped` i18n keys. The TOML catalogue + `CategoryTemplateService`
+  is now the only template system.
+- **E2e**: `tests/e2e/test_category_templates.py` (KAL-CTP-007) drives the picker — open,
+  tick "Single", preview, apply, see "Housing"/"Rent" in the tree. Runs in English (the e2e
+  app's language).

@@ -522,6 +522,12 @@ Feature: Category templates
     Given an empty category tree
     When I preview the "Single" template
     Then it lists the categories that would be added and writes nothing
+
+  KAL-CTP-007 @automated
+  Scenario: Build the tree from the template picker on the Categories page
+    Given I am on the Categories page
+    When I open the template picker, tick "Single", preview and apply
+    Then the categories from the Single template appear in the tree
 ```
 
 ## Feature: Tag Management
