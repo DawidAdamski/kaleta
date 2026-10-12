@@ -83,7 +83,7 @@ leaves the hooks it needs.
     registry migration.
   - `TenantInvite` (`token_hash`, `tenant_id`, `email`, `role`,
     `expires_at`, `accepted_at`) — used by
-    [`hosted-household-sharing`](../hosted-household-sharing.md); created
+    [`hosted-household-sharing`](hosted-household-sharing.md); created
     here so the registry migration is one file.
   This plan creates every tenant with exactly one `owner` member; the
   household plan adds the second to fourth.
@@ -171,7 +171,7 @@ leaves the hooks it needs.
   `hosted-supabase-rollout`.
 - MFA → `auth-two-factor`.
 - Inviting, approving and removing members, re-keying →
-  [`hosted-household-sharing`](../hosted-household-sharing.md). This plan
+  [`hosted-household-sharing`](hosted-household-sharing.md). This plan
   only lays down the tables and the one-row-per-member rule.
 - Migrating an existing single-tenant SQLite database into a hosted
   account (a later "import my self-hosted data" plan; the full-schema

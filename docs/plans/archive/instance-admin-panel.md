@@ -67,7 +67,7 @@ its own:
 
 - Reading or exporting a family's data (the operator never can).
 - Invites, approval and re-keying inside a family
-  ([`hosted-household-sharing`](../hosted-household-sharing.md)).
+  ([`hosted-household-sharing`](hosted-household-sharing.md)).
 - Billing or plans.
 
 ## Acceptance criteria

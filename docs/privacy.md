@@ -91,7 +91,7 @@ API answers `423 Locked` with error code `tenant_locked`.
 ### Household members
 
 A household is several members on one family's data
-([`hosted-household-sharing`](plans/hosted-household-sharing.md)). Each
+([`hosted-household-sharing`](plans/archive/hosted-household-sharing.md)). Each
 member has their own login, second factor and data passphrase; the
 data key is sealed to each member's own key, so no member ever learns
 another's passphrase.
