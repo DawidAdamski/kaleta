@@ -374,3 +374,32 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
   member in this process) is pinned by `tests/unit/auth/test_household_auth.py`.
 - **The invitation link's base** is `KALETA_PUBLIC_URL` when set, otherwise the request's
   own base URL — behind a proxy that rewrites `Host`, set `KALETA_PUBLIC_URL`.
+
+### Decisions (Part C — working together)
+
+- **Rows already record who added them**: `kaleta.services.attribution` stamps `user_id` on
+  every new `UserOwnedMixin` row from `TenantContext.member_user_id` (laid down by the
+  tenancy plan), transactions, planned transactions and import runs included. Part C adds
+  nothing there.
+- **`audit_log.user_id`** is a new nullable column (tenant-schema migration, `ON DELETE SET
+  NULL`, no backfill: older entries say "—"), stamped from the same context by the flush
+  listener and by the auth and token events. A plain integer next to the encrypted
+  snapshots: which member changed something is no more than `transactions.user_id` already
+  shows the operator.
+- **A member's name** is their `users.display_name`, else e-mail, else username — the same
+  row the Household tab edits — read by `MemberNameService` in the tenant schema. A removed
+  member keeps their row (Part A), so their past entries keep their name.
+- **"Who" and "Added by" appear only in a household** — once the family has two or more
+  `users` rows. Alone, every row is the user's own: the History column and the ledger's
+  column and filter would say one name over and over, and the ledger (artboard `2a`) stays
+  as drawn for everyone who is not sharing.
+- **The stale-write guard covers the transaction dialog**, the one place two members
+  realistically edit the same row (categorising the month). `TransactionUpdate` takes an
+  optional `expected_updated_at`; when the row moved on since the dialog loaded it,
+  `update` raises `StaleWriteError` (a `ConflictError`, 409 on the API) naming the member
+  of the row's last audited change, and the dialog says "changed by <name> a moment ago"
+  with a Reload that loads their version. Without the field (every older API client)
+  last write wins, as before. Other editors are not guarded; `chores.md` has the line.
+- **The wizard's copy**: a household of two or more sees one sentence under the wizard's
+  and Monthly Readiness's subtitles — the progress there is shared, what one marks done
+  the others see. Alone, the copy is unchanged.
