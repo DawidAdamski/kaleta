@@ -24,10 +24,13 @@ from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEA
 
 async def subscriptions_page() -> None:
     detector_days = int(app.storage.user.get("subscriptions_detector_days", 0) or 0) or None
+    language = str(app.storage.user.get("language", "en"))
 
     async def _load_page_data(session: Any) -> tuple[Any, ...]:
         cat_svc = CategoryService(session)
-        await cat_svc.ensure_subscriptions_root_and_children()
+        await cat_svc.ensure_subscriptions_root_and_children(
+            CategoryService.default_purpose_children(language)
+        )
         svc = SubscriptionService(session)
         await svc.settle_due_cancellations()
         subs = await svc.list()

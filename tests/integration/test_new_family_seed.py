@@ -40,4 +40,16 @@ async def test_a_new_familys_subscriptions_tree_is_not_example_data(
     children = (
         await session.execute(select(Category.name).where(Category.parent_id == root.id))
     ).scalars()
-    assert sorted(children) == ["Inne", "Miesięczne", "Monthly", "Roczne"]
+    # The seeder adds the Polish purpose children by blind index; the "Monthly"
+    # child the test planted stays (it is not touched by the seeder).
+    assert sorted(children) == [
+        "Chmura i kopie",
+        "Inne",
+        "Monthly",
+        "Muzyka i audio",
+        "Oprogramowanie i aplikacje",
+        "Prasa i czytanie",
+        "Sport i zdrowie",
+        "Streaming wideo",
+        "Telefon i internet",
+    ]

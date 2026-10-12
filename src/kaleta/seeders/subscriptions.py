@@ -30,6 +30,15 @@ _TRACKED = (
 #: Where a tracked charge's merchant is looked up, when one of ours matches.
 _PAYEE_FOR = {"Netflix": "Netflix", "Spotify": "Spotify", "iCloud 200 GB": "iCloud"}
 
+#: The purpose child (``subscriptions-categories``) each example charge is filed under.
+_CATEGORY_FOR = {
+    "iCloud 200 GB": "Chmura i kopie",
+    "Allegro Smart": "Inne",
+    "Netflix": "Streaming wideo",
+    "Spotify": "Muzyka i audio",
+    "Magazyn Focus": "Prasa i czytanie",
+}
+
 
 class SubscriptionsSeeder(Seeder):
     key = "subscriptions"
@@ -40,7 +49,9 @@ class SubscriptionsSeeder(Seeder):
         return await row_count(session, Subscription)
 
     async def create(self, session: AsyncSession) -> dict[str, int]:
-        monthly = await subscription_child(session, "Miesięczne")
+        categories = {
+            name: await subscription_child(session, name) for name in set(_CATEGORY_FOR.values())
+        }
         payees = await payees_by_name(session)
         today = datetime.date.today()
 
@@ -58,7 +69,7 @@ class SubscriptionsSeeder(Seeder):
                     first_seen_at=next_expected - datetime.timedelta(days=cadence * 3),
                     next_expected_at=next_expected,
                     status=SubscriptionStatus.ACTIVE,
-                    category_id=monthly.id,
+                    category_id=categories[_CATEGORY_FOR[name]].id,
                     payee_id=payee.id if payee is not None else None,
                     auto_renew=True,
                 )
@@ -75,7 +86,7 @@ class SubscriptionsSeeder(Seeder):
                 next_expected_at=None,
                 status=SubscriptionStatus.CANCELLED,
                 cancelled_at=today - datetime.timedelta(days=45),
-                category_id=monthly.id,
+                category_id=categories[_CATEGORY_FOR["Magazyn Focus"]].id,
                 auto_renew=False,
                 notes="Zrezygnowano — prenumerata papierowa",
             )

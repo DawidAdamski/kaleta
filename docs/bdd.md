@@ -2221,6 +2221,19 @@ Feature: Subscriptions Panel
     Then until 2026-04-30 it stays active and counts 49.99 toward the monthly total
     And from 2026-04-30 it moves to the cancelled section
     And it no longer counts toward the monthly total
+
+  KAL-SUB-005 @automated
+  Scenario: Subscriptions are organised by what you pay for
+    Given a family opening the Subscriptions panel for the first time
+    Then its subscription categories are Streaming, Music & audio, Software & apps, Phone & internet, News & reading, Fitness & health, Cloud & backup and Other
+    And a Netflix charge filed under "Streaming" shows in a Streaming group with its total
+
+  KAL-SUB-006 @automated
+  Scenario: An unused billing-period category is retired
+    Given a subscriptions tree still holding the old empty Monthly, Yearly and Other categories
+    When I open the Subscriptions panel
+    Then those empty categories are replaced by the purpose categories
+    But a billing-period category I filed a charge under stays beside them
 ```
 
 ---

@@ -166,8 +166,17 @@ class TestCategoryServiceListTree:
             expense_tree = await svc.list_tree(type=CategoryType.EXPENSE)
 
         subs = next(r for r in expense_tree if r.name == "Subscriptions")
-        assert len(subs.children) == 3
-        assert {c.name for c in subs.children} == {"Monthly", "Other", "Yearly"}
+        assert len(subs.children) == 8
+        assert {c.name for c in subs.children} == {
+            "Streaming",
+            "Music & audio",
+            "Software & apps",
+            "Phone & internet",
+            "News & reading",
+            "Fitness & health",
+            "Cloud & backup",
+            "Other",
+        }
         for child in subs.children:
             assert child.children == []
             assert isinstance(child, CategoryResponse)
@@ -182,6 +191,6 @@ class TestCategoryServiceListTree:
             responses = [CategoryResponse.model_validate(c) for c in roots]
 
         subs = next(r for r in responses if r.name == "Subscriptions")
-        assert len(subs.children) == 3
+        assert len(subs.children) == 8
         for child in subs.children:
             assert child.children == []
