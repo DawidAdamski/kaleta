@@ -24,6 +24,8 @@ class AuditEntryDisplay:
     record_id: int | None
     reverted: bool
     changed_fields: tuple[str, ...]
+    #: The member who made the change; ``None`` when nobody is recorded.
+    user_id: int | None = None
 
 
 class AuditService:
@@ -72,7 +74,18 @@ class AuditService:
             record_id=entry.record_id,
             reverted=entry.reverted,
             changed_fields=cls.changed_field_names(entry),
+            user_id=entry.user_id,
         )
+
+    async def last_changed_by(self, table_name: str, record_id: int) -> int | None:
+        """The member behind the newest recorded change of one row, if anyone is recorded."""
+        result = await self.session.execute(
+            select(AuditLog.user_id)
+            .where(AuditLog.table_name == table_name, AuditLog.record_id == record_id)
+            .order_by(AuditLog.id.desc())
+            .limit(1)
+        )
+        return result.scalar_one_or_none()
 
     async def revert(self, audit_id: int) -> None:
         entry = await self.session.get(AuditLog, audit_id)

@@ -412,3 +412,8 @@ check it still reproduces before acting on it.
       disabled member's — so another family's member keeps a cached watermark
       for up to `TTL_SECONDS` (60 s). Seen while wiring household removal (same
       family there, so not affected). Fix: `forget(user_id, tenant_id=…)`.
+- [ ] **The stale-write guard covers only the transaction dialog.** Part C of
+      `hosted-household-sharing` refuses a save over a newer version of a
+      transaction (`TransactionUpdate.expected_updated_at`). Accounts, budgets,
+      planned transactions and the rest still let the last save win silently;
+      each editor would pass the `updated_at` it loaded the same way.

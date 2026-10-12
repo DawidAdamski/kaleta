@@ -28,6 +28,20 @@ class ConflictError(KaletaError):
     code = "conflict"
 
 
+class StaleWriteError(ConflictError):
+    """The row changed since the editor loaded it (``hosted-household-sharing`` §4).
+
+    ``changed_by`` names the member behind the newer change when one is
+    recorded, so the page can say whose change would be overwritten.
+    """
+
+    code = "stale_write"
+
+    def __init__(self, message: str, *, changed_by: str | None = None) -> None:
+        super().__init__(message)
+        self.changed_by = changed_by
+
+
 class ImportError_(KaletaError):  # noqa: N801, N818
     """CSV / bank import parse failures (not Python's built-in ImportError)."""
 

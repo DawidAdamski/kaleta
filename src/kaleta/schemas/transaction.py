@@ -121,6 +121,10 @@ class TransactionUpdate(BaseModel):
     tag_ids: list[int] | None = None
     splits: list[TransactionSplitCreate] | None = None
     payee_name: str | None = Field(default=None, max_length=200)
+    #: The row's ``updated_at`` as the editor loaded it. When given and the row
+    #: has changed since, the update is refused (``StaleWriteError``) instead
+    #: of overwriting someone else's change; left out, the last write wins.
+    expected_updated_at: datetime.datetime | None = None
 
 
 class TransactionResponse(TransactionBase):

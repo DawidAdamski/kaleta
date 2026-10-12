@@ -58,6 +58,7 @@ from kaleta.services.local_identity_service import (
     normalise_email,
     subject_of,
 )
+from kaleta.services.member_name_service import MemberNameService
 from kaleta.services.tenant_service import (
     TenantMembership,
     TenantService,
@@ -358,7 +359,7 @@ class HouseholdService:
             HouseholdMember(
                 member_id=m.id,
                 email=m.email,
-                display_name=names.get(m.user_id or 0) or m.email.split("@", 1)[0],
+                display_name=MemberNameService.name(names.get(m.user_id or 0), m.email),
                 role=m.role,
                 status=m.status,
                 joined_at=m.joined_at,

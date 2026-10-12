@@ -337,7 +337,11 @@
     "eyebrow_n_accounts_few": "{count} accounts",
     "eyebrow_n_accounts_many": "{count} accounts",
     "group_week_label": "Week {week} · {start} – {end}",
-    "group_month_label": "{month} {year}"
+    "group_month_label": "{month} {year}",
+    "added_by": "Added by",
+    "stale_write_by": "{name} changed this transaction a moment ago. Saving now would undo their change.",
+    "stale_write": "This transaction was changed elsewhere a moment ago. Saving now would undo that change.",
+    "stale_reload": "Reload"
   },
   "tags": {
     "title": "Tags",
@@ -475,7 +479,8 @@
     "setup_import_more": "Import more",
     "setup_institution_count_few": "{count} institutions",
     "setup_institution_count_many": "{count} institutions",
-    "setup_institution_count_one": "{count} institution"
+    "setup_institution_count_one": "{count} institution",
+    "household_shared": "Shared with your household: a step one of you completes is done for everyone."
   },
   "budget_builder": {
     "title": "Budget Builder",
@@ -724,7 +729,8 @@
     "stage_3_complete": "Mark allocated",
     "stage_4_title": "Acknowledge upcoming bills",
     "stage_4_no_bills": "No planned bills for this month.",
-    "stage_4_complete": "Mark bills seen"
+    "stage_4_complete": "Mark bills seen",
+    "household_shared": "The month is shared with your household: a stage one of you marks done is done for everyone."
   },
   "unplanned_radar": {
     "title": "Unplanned expenses radar",
@@ -2066,7 +2072,8 @@
     "record_deleted": "full record",
     "op_insert": "Added",
     "op_update": "Updated",
-    "op_delete": "Deleted"
+    "op_delete": "Deleted",
+    "who": "Who"
   },
   "auth": {
     "password": "Password",

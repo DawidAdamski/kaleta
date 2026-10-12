@@ -11,7 +11,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, selectinload
 
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
-from kaleta.exceptions import ConflictError, KaletaError, NotFoundError, ValidationError
+from kaleta.exceptions import (
+    ConflictError,
+    KaletaError,
+    NotFoundError,
+    StaleWriteError,
+    ValidationError,
+)
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import (
     Transaction,
@@ -24,6 +30,8 @@ from kaleta.schemas.transaction import (
     TransactionSplitCreate,
     TransactionUpdate,
 )
+from kaleta.services.audit_service import AuditService
+from kaleta.services.member_name_service import MemberNameService
 from kaleta.services.payee_service import PayeeService
 
 #: The most rows a text search reads (newest first). Descriptions are
@@ -72,6 +80,7 @@ class TransactionService:
         tx_types: builtins.list[TransactionType] | None = None,
         search: str | None = None,
         tag_ids: builtins.list[int] | None = None,
+        user_ids: builtins.list[int] | None = None,
     ) -> Select[Transaction]:
         """Every filter that SQL can answer. ``search`` is not one of them (see
         :meth:`_search_ids`); the parameter stays so every caller passes the
@@ -90,6 +99,9 @@ class TransactionService:
             stmt = stmt.where(Transaction.type.in_(tx_types))
         if tag_ids:
             stmt = stmt.where(Transaction.tags.any(Tag.id.in_(tag_ids)))
+        if user_ids:
+            # "Added by": the member the row was attributed to on create.
+            stmt = stmt.where(Transaction.user_id.in_(user_ids))
         return stmt
 
     async def list(
@@ -103,9 +115,10 @@ class TransactionService:
         tag_ids: builtins.list[int] | None = None,
         limit: int = 50,
         offset: int = 0,
+        user_ids: builtins.list[int] | None = None,
     ) -> builtins.list[Transaction]:
         base = self._base_stmt(
-            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids
+            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids, user_ids
         )
         stmt = base.options(
             selectinload(Transaction.account),
@@ -164,9 +177,10 @@ class TransactionService:
         tx_types: builtins.list[TransactionType] | None = None,
         search: str | None = None,
         tag_ids: builtins.list[int] | None = None,
+        user_ids: builtins.list[int] | None = None,
     ) -> int:
         stmt = self._base_stmt(
-            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids
+            account_ids, category_ids, date_from, date_to, tx_types, None, tag_ids, user_ids
         )
         if search:
             return len(await self._search_ids(stmt, search))
@@ -465,9 +479,11 @@ class TransactionService:
         transaction = await self.get(transaction_id)
         if transaction is None:
             return None
+        await self._refuse_stale_write(transaction, data.expected_updated_at)
         fields_set = data.model_fields_set
         updates = data.model_dump(
-            exclude_unset=True, exclude={"splits", "is_split", "tag_ids", "payee_name"}
+            exclude_unset=True,
+            exclude={"splits", "is_split", "tag_ids", "payee_name", "expected_updated_at"},
         )
         # A typed payee resolves to an id here too, so the edit dialog can name a
         # payee that does not exist yet. No learned defaults on update: the row
@@ -525,6 +541,33 @@ class TransactionService:
             transaction.tags = await self._load_tags(tag_ids)
         await self.session.commit()
         return await self.get(transaction_id)
+
+    async def _refuse_stale_write(
+        self, transaction: Transaction, expected: datetime.datetime | None
+    ) -> None:
+        """Refuse an edit made over a version of the row that is no longer current.
+
+        Two members of a household can open the same row; the second save
+        would silently undo the first. The row is locked first, so a save in
+        flight elsewhere finishes before the comparison is made.
+        """
+        if expected is None:
+            return
+        current = await self.session.scalar(
+            select(Transaction.updated_at).where(Transaction.id == transaction.id).with_for_update()
+        )
+        if current is None or current == expected:
+            return
+        changed_by: str | None = None
+        user_id = await AuditService(self.session).last_changed_by("transactions", transaction.id)
+        if user_id is not None:
+            changed_by = (await MemberNameService(self.session).names()).get(user_id)
+        msg = (
+            f"This transaction was changed by {changed_by} a moment ago."
+            if changed_by
+            else "This transaction was changed elsewhere a moment ago."
+        )
+        raise StaleWriteError(msg, changed_by=changed_by)
 
     @staticmethod
     def _settle_transfer_direction(
@@ -663,6 +706,7 @@ class TransactionService:
             split_tooltip = ""
         return {
             "id": transaction.id,
+            "user_id": transaction.user_id,
             "date": str(transaction.date),
             # The ledger shows DD.MM; the ISO value stays for sorting and tooltips.
             "date_short": TransactionService.short_date(transaction.date),

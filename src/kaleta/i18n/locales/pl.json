@@ -337,7 +337,11 @@
     "eyebrow_n_accounts_few": "{count} konta",
     "eyebrow_n_accounts_many": "{count} kont",
     "group_week_label": "Tydzień {week} · {start} – {end}",
-    "group_month_label": "{month} {year}"
+    "group_month_label": "{month} {year}",
+    "added_by": "Dodane przez",
+    "stale_write_by": "Ta transakcja została przed chwilą zmieniona przez: {name}. Zapisanie teraz cofnęłoby tę zmianę.",
+    "stale_write": "Ta transakcja została przed chwilą zmieniona gdzie indziej. Zapisanie teraz cofnęłoby tę zmianę.",
+    "stale_reload": "Wczytaj ponownie"
   },
   "tags": {
     "title": "Tagi",
@@ -475,7 +479,8 @@
     "setup_import_more": "Importuj więcej",
     "setup_institution_count_few": "{count} instytucje",
     "setup_institution_count_many": "{count} instytucji",
-    "setup_institution_count_one": "{count} instytucja"
+    "setup_institution_count_one": "{count} instytucja",
+    "household_shared": "Wspólne dla całego gospodarstwa: krok wykonany przez jedną osobę jest wykonany dla wszystkich."
   },
   "budget_builder": {
     "title": "Kreator budżetu",
@@ -724,7 +729,8 @@
     "stage_3_complete": "Oznacz jako rozdzielone",
     "stage_4_title": "Zatwierdź nadchodzące rachunki",
     "stage_4_no_bills": "Brak planowanych rachunków na ten miesiąc.",
-    "stage_4_complete": "Oznacz rachunki jako widoczne"
+    "stage_4_complete": "Oznacz rachunki jako widoczne",
+    "household_shared": "Miesiąc jest wspólny dla całego gospodarstwa: etap oznaczony przez jedną osobę jest oznaczony dla wszystkich."
   },
   "unplanned_radar": {
     "title": "Radar nieplanowanych wydatków",
@@ -2066,7 +2072,8 @@
     "record_deleted": "cały rekord",
     "op_insert": "Dodano",
     "op_update": "Zaktualizowano",
-    "op_delete": "Usunięto"
+    "op_delete": "Usunięto",
+    "who": "Kto"
   },
   "auth": {
     "password": "Hasło",

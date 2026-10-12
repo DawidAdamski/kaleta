@@ -54,6 +54,18 @@ def space_amounts(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return rows
 
 
+def attach_added_by(rows: list[dict[str, Any]], names: dict[int, str]) -> list[dict[str, Any]]:
+    """Name the member who added each recorded row ("Added by", a household's column).
+
+    A planned row was added by nobody yet, and a row from before attribution
+    by nobody recorded: both read as a dash.
+    """
+    for row in rows:
+        user_id = row.get("user_id")
+        row["added_by"] = names.get(user_id, "—") if isinstance(user_id, int) else "—"
+    return rows
+
+
 def attach_upcoming_labels(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Say when a planned row falls in words, next to the date it falls on.
 
@@ -129,9 +141,12 @@ def _day_and_month(day: datetime.date, with_month: bool) -> str:
     return f"{day.day} {t(f'common.month_of_{day.month}')}"
 
 
-def transaction_columns() -> list[dict[str, Any]]:
-    """Standard column definitions for the transactions list table."""
-    return [
+def transaction_columns(*, added_by: bool = False) -> list[dict[str, Any]]:
+    """Standard column definitions for the transactions list table.
+
+    ``added_by`` adds the household's "Added by" column before the actions.
+    """
+    columns: list[dict[str, Any]] = [
         {
             "name": "date",
             "label": t("common.date"),
@@ -218,6 +233,21 @@ def transaction_columns() -> list[dict[str, Any]]:
             "style": "width: 88px; min-width: 88px",
         },
     ]
+    if added_by:
+        columns.insert(
+            -1,
+            {
+                "name": "added_by",
+                "label": t("transactions.added_by"),
+                "field": "added_by",
+                "align": "left",
+                "style": (
+                    "width: 120px; min-width: 120px; max-width: 120px;"
+                    " overflow: hidden; text-overflow: ellipsis; white-space: nowrap"
+                ),
+            },
+        )
+    return columns
 
 
 def _body_slot(
@@ -229,7 +259,15 @@ def _body_slot(
     group_net_label: str,
     planned_label: str,
     planned_tooltip: str,
+    added_by: bool = False,
 ) -> str:
+    added_by_cell = (
+        '<q-td key="added_by" :props="props" class="k-muted text-[12px]">'
+        "{{ props.row.added_by }}"
+        "</q-td>"
+        if added_by
+        else ""
+    )
     return (
         '<tr v-if="props.row.sep_label">'
         f'<td colspan="{colspan}" class="k-sep-row q-px-md q-py-xs">'
@@ -299,6 +337,7 @@ def _body_slot(
         ' :style="`border-color:${tag.color};color:${tag.color}`"'
         ' class="q-mr-xs text-xs">{{ tag.name }}</q-chip>'
         "</q-td>"
+        f"{added_by_cell}"
         '<q-td key="actions" :props="props" auto-width>'
         '<q-chip v-if="props.row.is_planned" dense outline icon="schedule"'
         ' class="text-xs k-planned-chip">'
@@ -331,10 +370,17 @@ def render_transaction_table(
     on_split: Callable[[Any], Awaitable[None]] | None = None,
     on_open_planned: Callable[[Any], Awaitable[None]] | None = None,
     colspan: int = 9,
+    added_by: bool = False,
 ) -> ui.table:
-    """Render the transactions data table and wire edit/selection/split events."""
+    """Render the transactions data table and wire edit/selection/split events.
+
+    ``added_by``: a household's ledger, with the "Added by" column (rows carry
+    ``added_by``, see :func:`attach_added_by`).
+    """
+    if added_by:
+        colspan += 1
     tbl = (
-        ui.table(columns=transaction_columns(), rows=rows, row_key="id")
+        ui.table(columns=transaction_columns(added_by=added_by), rows=rows, row_key="id")
         .classes(TABLE_SURFACE)
         .style("min-width: 1100px; table-layout: fixed")
     )
@@ -350,6 +396,7 @@ def render_transaction_table(
             group_net_label=t("transactions.group_net"),
             planned_label=t("transactions.planned_chip"),
             planned_tooltip=t("transactions.planned_row_tooltip"),
+            added_by=added_by,
         ),
     )
     tbl.on("edit_tx", on_edit)

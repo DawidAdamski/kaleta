@@ -9,7 +9,7 @@ from typing import Any
 from nicegui import ui
 
 from kaleta.i18n import t
-from kaleta.services import AuditService, with_session
+from kaleta.services import AuditService, MemberNameService, with_session
 from kaleta.services.audit_service import AuditEntryDisplay
 
 
@@ -74,10 +74,13 @@ async def render_history_tab() -> None:
         @ui.refreshable
         async def audit_history() -> None:
 
-            async def _load(session: Any) -> list[AuditEntryDisplay]:
-                return await AuditService(session).list_for_display()
+            async def _load(session: Any) -> tuple[list[AuditEntryDisplay], dict[int, str]]:
+                entries = await AuditService(session).list_for_display()
+                return entries, await MemberNameService(session).names()
 
-            entries = await with_session(_load)
+            entries, names = await with_session(_load)
+            # Alone, every change is the user's own; a household says whose.
+            show_who = MemberNameService.is_household(names)
 
             if not entries:
                 ui.label(t("audit.empty")).classes("text-slate-400 text-sm")
@@ -86,6 +89,8 @@ async def render_history_tab() -> None:
             with ui.row().classes("w-full px-2 py-1 text-xs text-slate-500 font-medium border-b"):
                 ui.label(t("audit.timestamp")).classes("w-40")
                 ui.label(t("audit.operation")).classes("w-28")
+                if show_who:
+                    ui.label(t("audit.who")).classes("w-32")
                 ui.label(t("audit.table")).classes("w-36")
                 ui.label(t("audit.record_id")).classes("w-16 text-right")
                 ui.label(t("audit.changes")).classes("flex-1")
@@ -105,6 +110,11 @@ async def render_history_tab() -> None:
                         "w-40 text-sm font-mono text-slate-600"
                     )
                     ui.badge(op_label, color=color).classes("w-28 text-center")
+                    if show_who:
+                        who = names.get(entry.user_id) if entry.user_id is not None else None
+                        ui.label(who or "—").classes("w-32 text-sm truncate").props(
+                            f'data-testid="audit-who-{entry.id}"'
+                        )
                     ui.label(entry.table_name).classes("w-36 text-sm")
                     ui.label(str(entry.record_id) if entry.record_id is not None else "—").classes(
                         "w-16 text-right text-sm text-slate-500"

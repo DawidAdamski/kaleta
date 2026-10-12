@@ -386,8 +386,9 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
   listener and by the auth and token events. A plain integer next to the encrypted
   snapshots: which member changed something is no more than `transactions.user_id` already
   shows the operator.
-- **A member's name** is their `users.display_name`, else e-mail, else username — the same
-  row the Household tab edits — read by `MemberNameService` in the tenant schema. A removed
+- **A member's name** is their `users.display_name`, else the part of their e-mail before
+  the `@` — one rule, `MemberNameService.name`, which the Household tab now uses too, so a
+  member is called the same everywhere. A removed
   member keeps their row (Part A), so their past entries keep their name.
 - **"Who" and "Added by" appear only in a household** — once the family has two or more
   `users` rows. Alone, every row is the user's own: the History column and the ledger's
@@ -403,3 +404,13 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
 - **The wizard's copy**: a household of two or more sees one sentence under the wizard's
   and Monthly Readiness's subtitles — the progress there is shared, what one marks done
   the others see. Alone, the copy is unchanged.
+- **Tests (Part C)**: `tests/integration/test_household_working_together.py` (`KAL-HHS-015`,
+  `-016`, `-017`) — the history's member, the "Added by" filter, a stale save refused with
+  the other member's name and the row keeping their change; each safeguard was checked by
+  breaking it (no stamp on audit rows, no guard, no filter: each fails a test). The e2e
+  (`tests/e2e/test_household.py`) adds what the owner's pages show once the partner is in:
+  "ania" and "jan" in History, the "Added by" chip (absent before the invitation) and the
+  wizard's sentence (`KAL-HHS-018`). The stale-write banner has no e2e of its own: two
+  browser contexts editing one transaction would need an account, a category and a
+  transaction built through the UI first, for a banner whose text and trigger the
+  integration test already pins.

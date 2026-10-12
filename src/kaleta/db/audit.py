@@ -28,6 +28,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, UOWTransaction
 
 from kaleta.db.base import Base
+from kaleta.db.tenant_context import current_tenant
 from kaleta.models.audit_log import AuditLog  # registers table in Base.metadata
 
 log = logging.getLogger(__name__)
@@ -61,6 +62,12 @@ def _serialize(obj: Any) -> dict[str, Any]:
         return {c.name: _jsonify(getattr(obj, c.name, None)) for c in obj.__table__.columns}
     except Exception:
         return {}
+
+
+def _acting_member() -> int | None:
+    """The household member this change is attributed to, when one is acting."""
+    ctx = current_tenant()
+    return ctx.member_user_id if ctx is not None else None
 
 
 def _is_auditable(obj: Any) -> bool:
@@ -144,7 +151,9 @@ def _after_flush_postexec(session: Session, flush_ctx: UOWTransaction) -> None:
     for d in session.info.pop("_audit_deletes", []):
         entries.append(AuditLog(operation="DELETE", **d))
 
+    member = _acting_member()
     for entry in entries:
+        entry.user_id = member
         session.add(entry)
 
 
@@ -177,6 +186,7 @@ async def record_auth_event(
             record_id=None,
             old_data=None,
             new_data=payload,
+            user_id=_acting_member(),
         )
     )
     if commit:
@@ -198,6 +208,7 @@ async def record_token_event(
             record_id=None,
             old_data=None,
             new_data=payload,
+            user_id=_acting_member(),
         )
     )
     await session.commit()

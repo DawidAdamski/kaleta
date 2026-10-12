@@ -3896,6 +3896,35 @@ Feature: Household sharing
     Given "ania@example.com" joined through their invitation link
     When anyone opens that link again
     Then the page says "This invitation no longer works" and asks for nothing
+
+  KAL-HHS-015 @automated
+  Scenario: The history says which member made each change
+    Given "jan@example.com" and "ania@example.com" share a household
+    When "ania@example.com" adds the payee "Lidl"
+    Then Settings → History in the browser of "jan@example.com" shows "ania" beside that change
+    And the changes "jan@example.com" made show "jan"
+
+  KAL-HHS-016 @automated
+  Scenario: The ledger says who added each transaction
+    Given "jan@example.com" added the expense "Biedronka" and "ania@example.com" added "Lidl"
+    When "jan@example.com" filters the transactions by "Added by" "ania"
+    Then only "Lidl" is listed
+    And a family of one sees no "Added by" column or filter
+
+  KAL-HHS-017 @automated
+  Scenario: A save over another member's change is refused
+    Given "jan@example.com" and "ania@example.com" opened the same transaction to edit
+    When "ania@example.com" saves their change first
+    And "jan@example.com" saves theirs
+    Then "jan@example.com" is told "ania" changed it a moment ago, and the row keeps the change of "ania"
+    When "jan@example.com" reloads the transaction and saves again
+    Then the save goes through
+
+  KAL-HHS-018 @automated
+  Scenario: The wizard says its progress belongs to the household
+    Given "jan@example.com" and "ania@example.com" share a household
+    When "jan@example.com" opens the wizard
+    Then it says the steps are shared: a step one of them completes is done for everyone
 ```
 
 ## Feature: Data encryption (user-held passphrase)

@@ -5,10 +5,10 @@ One app of its own on a fresh database, ``local`` logins and encryption on (the
 production setting). Two browser contexts, kept across the module's tests,
 which run in file order and build on each other as the two people would: the
 owner sets the instance up and invites, the partner joins through the link and
-waits, the owner approves, both see the same payees, the owner removes the
-partner and the partner is locked out.
+waits, the owner approves, both see the same payees — and the owner's pages say which of them
+did what — the owner removes the partner and the partner is locked out.
 
-Covers: KAL-HHS-013, KAL-HHS-014
+Covers: KAL-HHS-013, KAL-HHS-014, KAL-HHS-015, KAL-HHS-016, KAL-HHS-018
 """
 
 from __future__ import annotations
@@ -156,6 +156,10 @@ def test_the_owner_invites_and_the_partner_joins_and_waits(
     _set_passphrase(owner, OWNER_PASSPHRASE)
     expect(owner).not_to_have_url(re.compile(r"/unlock"), timeout=20000)
     _add_payee(owner, "Biedronka")
+    # A family of one: the ledger has no "Added by" to filter on.
+    owner.goto(f"{BASE}/transactions")
+    expect(owner.get_by_text("Transactions", exact=True).first).to_be_visible(timeout=15000)
+    expect(owner.locator(".k-chip-members")).to_have_count(0)
 
     _household_tab(owner)
     owner.get_by_label("E-mail", exact=True).fill(PARTNER)
@@ -198,7 +202,7 @@ def test_a_used_invitation_link_no_longer_works(household: Household, fresh_page
 def test_the_owner_approves_and_both_share_the_payees(
     household: Household, owner_page: Page, partner_page: Page
 ) -> None:
-    """Covers: KAL-HHS-013"""
+    """Covers: KAL-HHS-013, KAL-HHS-015, KAL-HHS-016, KAL-HHS-018"""
     owner = owner_page
     _household_tab(owner)
     row = owner.get_by_test_id(f"member-{PARTNER}")
@@ -221,6 +225,19 @@ def test_the_owner_approves_and_both_share_the_payees(
     _add_payee(partner, "Lidl")
 
     _sees_payees(owner, "Biedronka", "Lidl")
+
+    # Two of them now: the owner's pages say who did what.
+    owner.goto(f"{BASE}/settings?tab=history")
+    who = owner.locator('[data-testid^="audit-who-"]')
+    expect(who.filter(has_text=re.compile(r"^ania$")).first).to_be_visible(timeout=15000)
+    expect(who.filter(has_text=re.compile(r"^jan$")).first).to_be_visible()
+    owner.goto(f"{BASE}/transactions")
+    expect(owner.locator(".k-chip-members")).to_be_visible(timeout=15000)
+    owner.goto(f"{BASE}/wizard")
+    expect(owner.get_by_test_id("wizard-household")).to_have_text(
+        "Shared with your household: a step one of you completes is done for everyone.",
+        timeout=15000,
+    )
 
 
 def test_removing_the_partner_locks_them_out(
