@@ -386,6 +386,9 @@ check it still reproduces before acting on it.
       message (line ~178); `test_auth.py` + `test_mfa.py` passed 3/3 together
       and the file passes alone. Cause not found — a click before the page's
       websocket is up is the suspect. Fix: find it before adding any wait.
+      Seen again on `funds-irregular-items` (2026-10-12) one step earlier, at
+      KAL-AUTH-014 (the first password sign-in after enrolling): 1 of 3 runs of
+      the file *alone* failed in 15 s, so it reproduces without the suite.
 - [ ] **"Fetch NBP rates" has no throttle.** Any member of any family can
       press it, and each press is one request to api.nbp.pl for the whole
       instance (idempotent, public data). Seen in the review of `postgres-only`
