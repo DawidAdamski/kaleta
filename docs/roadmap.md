@@ -277,6 +277,9 @@ Canned reports library.
 #### Tags {#tags}
 Tag seed list and transaction tagging.
 
+#### Subscriptions {#subscriptions}
+Subscription detection, tracking, and grouping by purpose.
+
 #### UX {#ux}
 Feature categorization and IA audits.
 
