@@ -3,14 +3,15 @@ plan_id: funds-irregular-items
 title: Irregular expenses fund — itemised yearly costs, ÷10 contribution, fund history
 area: budgets
 effort: large
-status: in-progress
-roadmap_ref: ../roadmap.md#budgets
+status: archived
+archived_at: 2026-10-12
+roadmap_ref: ../../roadmap.md#budgets
 ---
 
 # Irregular expenses fund — itemised yearly costs, ÷10 contribution, fund history
 
 Gap-closing plan for issue #10 (`KAL-IRR-001`…`005`), from
-[`audit-planned-vs-code`](archive/audit-planned-vs-code.md).
+[`audit-planned-vs-code`](audit-planned-vs-code.md).
 
 ## Intent
 
@@ -32,7 +33,7 @@ the fund against its item.
   account, which no transaction moves (see the chore inbox entry of
   2026-09-23). `KAL-IRR-004` / `005` cannot hold until that is fixed or
   the fund balance is derived from transactions. Fixed by
-  [`accounts-ledger-balances`](archive/accounts-ledger-balances.md); do that plan first.
+  [`accounts-ledger-balances`](accounts-ledger-balances.md); do that plan first.
 
 ## Scope
 
@@ -153,3 +154,53 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
   row off the ledger's first page), and the category selects filter as one types — the
   shared instance's list is too long for the option to be on screen, and so is a real
   ledger's.
+
+## Implementation
+
+Landed on 2026-10-12.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `dbfcecf` | Dawid Adamski | 2026-10-12 | Merge pull request #213 from DawidAdamski/feat/funds-irregular-items |
+| `ac8aa33` | Dawid Adamski | 2026-10-12 | Merge pull request #214 from DawidAdamski/feat/funds-irregular-payments |
+
+**Files changed:**
+- alembic/versions/u5v6w7x8y9z0_add_irregular_items.py
+- alembic/versions/v6w7x8y9z0a1_add_transaction_irregular_item.py
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/funds-irregular-items.md
+- src/kaleta/core/irregular.py
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/irregular_item.py
+- src/kaleta/models/transaction.py
+- src/kaleta/schemas/irregular_item.py
+- src/kaleta/schemas/unplanned_radar.py
+- src/kaleta/seeders/reserve_funds.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/data_service.py
+- src/kaleta/services/dedupe_service.py
+- src/kaleta/services/irregular_item_service.py
+- src/kaleta/views/irregular_fund.py
+- src/kaleta/views/safety_funds.py
+- tests/backup_helpers.py
+- tests/e2e/test_irregular_fund.py
+- tests/integration/test_irregular_fund_payments.py
+- tests/integration/test_irregular_fund.py
+- tests/integration/test_unplanned_radar_summary.py
+- tests/unit/core/test_irregular.py
+- tests/unit/services/test_unplanned_radar_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `grep -cE "KAL-IRR-00[1-5] @automated" docs/bdd.md \| grep -q '^5$'` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+
+**Notes:**
+- Delivered in two PRs: #213 (Part A, merge `dbfcecf`) and #214 (Part B, merge `ac8aa33`). The files listed above are the union of both merges and cover the plan's Touchpoints.
+- Issue #10: neither PR carries a closing keyword (GitHub reports no closing issue references), so the issue is not closed automatically. The maintainer should close #10.

@@ -21,7 +21,7 @@ Gap-closing plan for issue #9 (`KAL-ANR-001`…`003`), from
   but `/wizard/budget-builder` is locked to the current year;
   `copy_forward` is month-to-month only.
 - Subscriptions exist; irregular-fund items do not (see
-  [`funds-irregular-items`](funds-irregular-items.md)).
+  [`funds-irregular-items`](archive/funds-irregular-items.md)).
 
 ## Scope
 
