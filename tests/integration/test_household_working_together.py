@@ -170,3 +170,10 @@ async def test_a_save_over_someone_elses_change_is_refused(household_db: str) ->
     await _as(owner, _edit("Biedronka (jan)", await _as(owner, _loaded)))
     await _as(partner, _edit("Biedronka", None))
     assert await _as(owner, _description) == "Biedronka"
+
+    # Their own save in another tab: refused too, but not "changed by" themselves.
+    second_tab = await _as(owner, _loaded)
+    await _as(owner, _edit("Biedronka — tab 1", second_tab))
+    with pytest.raises(StaleWriteError) as own:
+        await _as(owner, _edit("Biedronka — tab 2", second_tab))
+    assert own.value.changed_by is None

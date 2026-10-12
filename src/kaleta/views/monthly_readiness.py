@@ -78,9 +78,9 @@ def register() -> None:
                     ).classes(BODY_MUTED)
                     if in_household:
                         # One month's readiness for the whole household.
-                        ui.label(t("monthly_readiness.household_shared")).classes(
-                            BODY_MUTED
-                        ).props('data-testid="readiness-household"')
+                        ui.label(t("monthly_readiness.household_shared")).classes(BODY_MUTED).props(
+                            'data-testid="readiness-household"'
+                        )
                 n_done = sum(1 for v in stages_done.values() if v)
                 ui.badge(
                     t("monthly_readiness.progress", done=n_done, total=4),

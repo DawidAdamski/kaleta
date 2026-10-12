@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session, selectinload
 
 from kaleta.core.weeks import DEFAULT_WEEK_START_MODE, WeekStartMode, week_bucket
+from kaleta.db.tenant_context import current_tenant
 from kaleta.exceptions import (
     ConflictError,
     KaletaError,
@@ -560,7 +561,10 @@ class TransactionService:
             return
         changed_by: str | None = None
         user_id = await AuditService(self.session).last_changed_by("transactions", transaction.id)
-        if user_id is not None:
+        ctx = current_tenant()
+        acting = ctx.member_user_id if ctx is not None else None
+        # Their own save in another tab is "elsewhere", not "by <themselves>".
+        if user_id is not None and user_id != acting:
             changed_by = (await MemberNameService(self.session).names()).get(user_id)
         msg = (
             f"This transaction was changed by {changed_by} a moment ago."

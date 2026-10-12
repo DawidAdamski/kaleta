@@ -414,3 +414,16 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
   browser contexts editing one transaction would need an account, a category and a
   transaction built through the UI first, for a banner whose text and trigger the
   integration test already pins.
+
+### After review (Part C)
+
+- **A version without a time zone is UTC**: `expected_updated_at` from an API client that
+  leaves the zone out would otherwise never equal the stored `timestamptz`, and every save
+  would read as stale.
+- **A member's own save in another tab** is refused the same way, but reads "changed
+  elsewhere", not "changed by" themselves.
+- **The audit row's foreign key** carries PostgreSQL's default name
+  (`audit_log_user_id_fkey`), the one a schema built from the models gets.
+- **Known edge, not reachable today**: a flush that deleted the acting member's own `users`
+  row would write audit rows pointing at it. Removed members keep their row (Part A), and a
+  declined member's row is deleted by the owner, not by themselves.

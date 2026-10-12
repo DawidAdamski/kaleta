@@ -23,11 +23,11 @@ def upgrade() -> None:
     with op.batch_alter_table("audit_log") as batch_op:
         batch_op.add_column(sa.Column("user_id", sa.Integer(), nullable=True))
         batch_op.create_foreign_key(
-            "fk_audit_log_user_id_users", "users", ["user_id"], ["id"], ondelete="SET NULL"
+            "audit_log_user_id_fkey", "users", ["user_id"], ["id"], ondelete="SET NULL"
         )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("audit_log") as batch_op:
-        batch_op.drop_constraint("fk_audit_log_user_id_users", type_="foreignkey")
+        batch_op.drop_constraint("audit_log_user_id_fkey", type_="foreignkey")
         batch_op.drop_column("user_id")

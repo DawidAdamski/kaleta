@@ -7,6 +7,9 @@ services); these pin what the page draws from it.
 
 from __future__ import annotations
 
+import datetime
+
+from kaleta.schemas.transaction import TransactionUpdate
 from kaleta.services.member_name_service import MemberNameService
 from kaleta.views.components.filter_bar import active_filter_count, filter_chip_label
 from kaleta.views.components.transaction_table import attach_added_by, transaction_columns
@@ -48,3 +51,8 @@ def test_a_member_is_their_chosen_name_else_their_address_before_the_at() -> Non
 def test_a_household_is_two_or_more() -> None:
     assert not MemberNameService.is_household({1: "jan"})
     assert MemberNameService.is_household(MEMBERS)
+
+
+def test_a_version_sent_without_a_zone_is_read_as_utc() -> None:
+    naive = TransactionUpdate(expected_updated_at=datetime.datetime(2026, 10, 1, 12, 0))
+    assert naive.expected_updated_at == datetime.datetime(2026, 10, 1, 12, 0, tzinfo=datetime.UTC)
