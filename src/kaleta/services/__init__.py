@@ -10,6 +10,7 @@ from kaleta.services.backup_service import BackupService
 from kaleta.services.budget_service import BudgetService, RealizationTotals
 from kaleta.services.bug_report_service import BugReportService
 from kaleta.services.category_service import CategoryService
+from kaleta.services.category_template_service import CategoryTemplateService
 from kaleta.services.credit_service import CreditService
 from kaleta.services.currency_rate_service import CurrencyRateService
 from kaleta.services.day_totals import DayTotals
@@ -55,6 +56,7 @@ __all__ = [
     "BudgetService",
     "BugReportService",
     "CategoryService",
+    "CategoryTemplateService",
     "CreditService",
     "CurrencyRateService",
     # Reductions over what the services above return, not services of their

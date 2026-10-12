@@ -1,0 +1,18 @@
+key = "family"
+name = "Rodzina z dziećmi"
+name_en = "Family with children"
+order = 20
+
+[[groups]]
+type = "expense"
+name = "Dzieci"
+name_en = "Children"
+children = ["Opieka i żłobek", "Szkoła i zajęcia", "Ubrania dziecięce", "Zabawki"]
+children_en = ["Childcare", "School & activities", "Children's clothes", "Toys"]
+
+[[groups]]
+type = "expense"
+name = "Codzienne życie"
+name_en = "Everyday"
+children = ["Żywność", "Chemia i higiena"]
+children_en = ["Groceries", "Household & hygiene"]
