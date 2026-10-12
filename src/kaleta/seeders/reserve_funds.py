@@ -2,7 +2,8 @@
 """The three funds a household actually keeps.
 
 One emergency fund with a months-of-coverage target, one for the bills that
-arrive once a year, and one saving towards something. All three are backed by
+arrive once a year (with those bills as its items), and one saving towards
+something. All three are backed by
 the savings account, which is where the balance behind them comes from.
 """
 
@@ -13,6 +14,7 @@ from decimal import Decimal
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.models.irregular_item import IrregularItem
 from kaleta.models.reserve_fund import ReserveFund, ReserveFundBackingMode, ReserveFundKind
 from kaleta.seeders.base import Seeder, row_count
 from kaleta.seeders.lookups import accounts_by_kind
@@ -55,7 +57,22 @@ class ReserveFundsSeeder(Seeder):
             ),
         ]
         session.add_all(funds)
-        return {"reserve_funds": len(funds)}
+        await session.flush()
+        irregular = funds[1]
+        # (name, yearly amount, month it is usually paid)
+        bills = [
+            ("Ubezpieczenie OC/AC", "1800.00", 3),
+            ("Podatek od nieruchomości", "600.00", 5),
+            ("Przegląd i serwis auta", "1200.00", 9),
+            ("Kominiarz", "150.00", 10),
+        ]
+        session.add_all(
+            IrregularItem(
+                fund_id=irregular.id, name=name, yearly_amount=Decimal(amount), due_month=month
+            )
+            for name, amount, month in bills
+        )
+        return {"reserve_funds": len(funds), "irregular_items": len(bills)}
 
     async def remove(self, session: AsyncSession) -> None:
         await session.execute(delete(ReserveFund))

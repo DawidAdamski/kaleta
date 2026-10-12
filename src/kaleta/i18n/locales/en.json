@@ -589,7 +589,8 @@
     "archived_msg": "Fund archived.",
     "unarchived_msg": "Fund restored.",
     "archived_section_heading": "Archived funds",
-    "archived_section_body": "Funds you've retired. Restore any time."
+    "archived_section_body": "Funds you've retired. Restore any time.",
+    "items": "Items"
   },
   "salary": {
     "title": "Pay yourself a salary",
@@ -2353,5 +2354,31 @@
     "action_sessions_revoked": "Signed out everywhere",
     "action_admin_granted": "Made administrator",
     "action_admin_revoked": "Administrator removed"
+  },
+  "irregular_fund": {
+    "back": "← Safety & Reserve Funds",
+    "subtitle": "The yearly costs this fund saves for. Each is set aside at a tenth a month — two months of slack for the rise and for surprises.",
+    "items_title": "Yearly costs",
+    "add_item": "Add item",
+    "edit_item": "Edit item",
+    "item_name": "Item",
+    "yearly_amount": "Yearly amount",
+    "monthly": "Monthly",
+    "due_month": "Usually paid in",
+    "category": "Category for its payments",
+    "preview": "Set aside {monthly} a month",
+    "item_incomplete": "Give the item a name and a yearly amount.",
+    "item_saved": "Item saved.",
+    "item_deleted": "Item deleted.",
+    "no_items": "No items yet. Add the yearly costs this fund pays for — car insurance, property tax.",
+    "funding_title": "Feeding the fund",
+    "funding_body": "Set aside {amount} every month: a monthly transfer into {account}.",
+    "needs_account": "Give the fund an account first (edit it on Safety & Reserve Funds); the monthly transfer goes there.",
+    "needs_items": "Add an item and the monthly transfer it needs is proposed here.",
+    "needs_source": "Add another account for the money to come from.",
+    "from_account": "From account",
+    "start_date": "First transfer on",
+    "create_funding": "Create the monthly transfer",
+    "funding_created": "Monthly transfer of {amount} planned."
   }
 }

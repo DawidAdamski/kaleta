@@ -90,3 +90,13 @@ Out of scope: gift planning (`KAL-GFT`, issue #11) feeding items.
   account column, so the target is named in the description, as for the salary. Proposed
   only when the fund has a backing account and at least one item; the button is refused
   when a monthly transfer of the same amount and description already exists.
+- **Wherever a fund's rows go, its items go**: the category merge (`DedupeService`) moves
+  an item's category to the keeper, "clear all data" deletes items, and the backup carries
+  the new table (its round-trip test seeds one). The example data gives "Wydatki
+  nieregularne" four yearly bills.
+- **Tests (Part A)**: `tests/integration/test_irregular_fund.py` (`KAL-IRR-001`…`003`,
+  with the refusals: another kind of fund, a transfer from the fund into itself, the same
+  transfer twice), `tests/e2e/test_irregular_fund.py` (the page from the fund's card to
+  the planned transfer), `tests/unit/core/test_irregular.py` (the rule's rounding). The
+  radar's unit test now expects 145.00 a month for 1450.00 a year (÷10), by the decision
+  above.
