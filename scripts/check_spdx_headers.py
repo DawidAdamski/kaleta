@@ -13,6 +13,8 @@ ROOT = Path(__file__).resolve().parents[1]
 SPDX_LINE = "# SPDX-License-Identifier: AGPL-3.0-or-later"
 SPDX_PREFIX = f"{SPDX_LINE}\n"
 SCAN_ROOTS = ("src/kaleta", "tests", "scripts")
+# Generated files we do not own the header of (hatch-vcs writes _version.py).
+EXCLUDE = frozenset({"src/kaleta/_version.py"})
 SHEBANG_RE = re.compile(r"^#!.*\n")
 ENCODING_RE = re.compile(r"^#.*coding[=:]\s*[-\w.]+\n")
 
@@ -44,7 +46,7 @@ def iter_python_files() -> list[Path]:
         if not root.exists():
             continue
         files.extend(sorted(root.rglob("*.py")))
-    return files
+    return [f for f in files if f.relative_to(ROOT).as_posix() not in EXCLUDE]
 
 
 def main() -> int:

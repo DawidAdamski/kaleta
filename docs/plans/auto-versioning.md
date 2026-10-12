@@ -3,7 +3,7 @@ plan_id: auto-versioning
 title: Automatic version numbers — every build and release traceable to a commit
 area: build / ci / observability
 effort: medium
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -102,3 +102,53 @@ running instance and say exactly which commit it is.
 - **`String(40)` width** for `bug_report.app_version` / `app_event.app_version`: a dev
   version like `0.2.1.dev14+g8b57246` fits, but confirm the longest plausible string
   stays under 40, else widen in the same migration.
+
+## Implementation notes
+
+### Delivery in two PRs
+
+- **Part 1 — the git-derived version (this PR)**: `hatch-vcs` computes the version from
+  git tags and bakes it into the installed package (and a generated, git-ignored
+  `src/kaleta/_version.py`); `src/kaleta/__init__.py` resolves it from package metadata
+  (fallback `"0.0.0+unknown"` when not installed); `app_version()` delegates to it, so
+  there is one source of truth. No repo settings, no CI, no release tool — it works the
+  moment the dependency is synced, and needs nothing from the maintainer.
+- **Part 2 — release automation (next PR)**: `release-please` on `main` cuts `vX.Y.Z`
+  tags/releases from conventional commits, and `docker.yml` tags images with the version
+  and sha and bakes the version in via a build arg (`SETUPTOOLS_SCM_PRETEND_VERSION_FOR_KALETA`,
+  since the image build has no `.git`). CI/build jobs that need an accurate version add
+  `fetch-depth: 0` to their checkout (a shallow clone has no tags; Part 1 tolerates this
+  via the fallback, Part 2 needs the real tag). Part 2 needs the maintainer to enable
+  *Settings → Actions → General → "Allow GitHub Actions to create and approve pull
+  requests"* and to confirm `release-please` over `python-semantic-release`.
+
+### Decisions (Part 1)
+
+- **No tag yet → `0.0.1.devN+g<sha>`.** With no `vX.Y.Z` tag, setuptools_scm (under
+  hatch-vcs) guesses the next patch and marks it a dev build with the commit sha, e.g.
+  `0.0.1.dev1087+g12fc655` (plus a `.dYYYYMMDD` suffix only when the working tree is
+  dirty). Unique per commit, so every build is traceable even before the first release.
+  Part 2's first release PR sets a real baseline tag.
+- **`tag_regex` pins `v`-prefixed tags** so only `vX.Y.Z` drives the version (not an
+  unrelated tag someone pushes).
+- **`fallback-version = "0.0.0"`** keeps a source tarball without `.git` buildable (a
+  wheel built from a git-less copy reports `0.0.0`, confirmed), so the Docker image build
+  cannot fail; Part 2 gives it the real version through a build arg
+  (`SETUPTOOLS_SCM_PRETEND_VERSION_FOR_KALETA`). The build hook writes
+  `src/kaleta/_version.py` as an embedded artifact; nothing imports it today — the app
+  reads the version from package metadata — it is kept for Part 2 to consume if it wants a
+  no-metadata fallback.
+- **Editable-install staleness**: `importlib.metadata` fixes the version at `uv sync`
+  time, so a local dev tree lags new commits (and shows a `.dYYYYMMDD` dirty suffix) until
+  reinstalled. Inherent and fine for the build/Docker case; tests do not depend on it.
+- **`String(40)` is enough** (open question resolved): the longest realistic string,
+  `0.0.1.dev9999+g12345678.d20261012` (~33 chars), fits; no migration needed.
+- **Single source of truth**: `kaleta.__version__` is the only resolver; `app_version()`,
+  health, logs, debug panel and events all read through it. `main.py` now gives FastAPI
+  `app_version()` instead of a hard-coded `"0.1.0"`, so the OpenAPI document reports the
+  real version too.
+- **The UI displays need no change**: the drawer foot (`views/layout.py`) and the login
+  foot (`views/auth_common.py`) already read the version from package metadata and only
+  fell back to `"v0.1.0"` in a non-installed source checkout; with the version now
+  git-derived they show the real one. Left untouched so Part 1 stays off the view layer
+  (no e2e gate); a later cleanup can point them at the single resolver.

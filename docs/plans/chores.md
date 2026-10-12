@@ -441,3 +441,10 @@ check it still reproduces before acting on it.
       table in `docs/plans/README.md` (`| Plan | Issue | Effort | Status | … |`): the
       Issue column (losing e.g. `#10 IRR`) while Status keeps `draft`. Every archived row
       of that table shows it.
+- [ ] **Three copies of the version resolver.** `kaleta.__version__`
+      (`src/kaleta/__init__.py`), `views/layout.py` (`_APP_VERSION`) and
+      `views/auth_common.py` (`app_version`) each read the package version
+      independently, with their own `"v0.1.0"` offline fallback. Point the two view
+      helpers at `kaleta.observability.app_version()` so there is one resolver (deferred
+      from `auto-versioning` Part 1 to keep that PR off the view layer — touching a view
+      forces the e2e gate).

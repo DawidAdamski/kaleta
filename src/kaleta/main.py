@@ -263,7 +263,9 @@ async def _api_lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_api() -> FastAPI:
-    api = FastAPI(title="Kaleta API", version="0.1.0", lifespan=_api_lifespan)
+    from kaleta.observability import app_version
+
+    api = FastAPI(title="Kaleta API", version=app_version(), lifespan=_api_lifespan)
     register_error_handlers(api)
     register_health_alias(api)
     return api
