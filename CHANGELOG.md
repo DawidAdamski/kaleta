@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/DawidAdamski/kaleta/compare/v0.2.0...v0.3.0) (2026-10-12)
+
+
+### Features
+
+* **categories:** template picker — build the tree from who you are ([be9d6e0](https://github.com/DawidAdamski/kaleta/commit/be9d6e0d17f50dc408c91e0f5a046befa7494313))
+* **categories:** template picker — build the tree from who you are (Slice 2) ([08ebfdb](https://github.com/DawidAdamski/kaleta/commit/08ebfdb78396b31fd1c0f3034b1422f92c940ef6))
+* **security:** assessment recon + static pass (Slice 1) ([85226e4](https://github.com/DawidAdamski/kaleta/commit/85226e46b5e4a6a6c6974f20d135d54ce11710be))
+* **security:** assessment recon + static pass (Slice 1) ([5f9444b](https://github.com/DawidAdamski/kaleta/commit/5f9444bfd22cfba9d9e20fc8ff8a18551db23140))
+* **subscriptions:** file under a purpose child and re-file history (Part B) ([30c0fb7](https://github.com/DawidAdamski/kaleta/commit/30c0fb7b6913199a69a12ad89fd3ec25a11db50f))
+* **subscriptions:** file under a purpose child and re-file history (Part B) ([057c75f](https://github.com/DawidAdamski/kaleta/commit/057c75fe7b18bb2fa60b5bf5db3a928e88a19a26))
+
 ## [0.2.0](https://github.com/DawidAdamski/kaleta/compare/v0.1.0...v0.2.0) (2026-10-12)
 
 
