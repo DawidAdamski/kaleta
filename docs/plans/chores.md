@@ -388,7 +388,9 @@ check it still reproduces before acting on it.
       websocket is up is the suspect. Fix: find it before adding any wait.
       Seen again on `funds-irregular-items` (2026-10-12) one step earlier, at
       KAL-AUTH-014 (the first password sign-in after enrolling): 1 of 3 runs of
-      the file *alone* failed in 15 s, so it reproduces without the suite.
+      the file *alone* failed in 15 s, so it reproduces without the suite —
+      on `main` too (a674bc0: 1 of 4 alone), and twice running in full
+      `verify.sh --e2e` on that branch at line ~178.
 - [ ] **"Fetch NBP rates" has no throttle.** Any member of any family can
       press it, and each press is one request to api.nbp.pl for the whole
       instance (idempotent, public data). Seen in the review of `postgres-only`
