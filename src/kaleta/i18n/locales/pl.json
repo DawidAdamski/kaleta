@@ -480,7 +480,9 @@
     "setup_institution_count_few": "{count} instytucje",
     "setup_institution_count_many": "{count} instytucji",
     "setup_institution_count_one": "{count} instytucja",
-    "household_shared": "Wspólne dla całego gospodarstwa: krok wykonany przez jedną osobę jest wykonany dla wszystkich."
+    "household_shared": "Wspólne dla całego gospodarstwa: krok wykonany przez jedną osobę jest wykonany dla wszystkich.",
+    "step_annual_review": "Przegląd roczny",
+    "step_annual_review_desc": "Raz w roku podsumowuje plan, przenosi budżety na kolejny rok ze zmianami i pozwala zdecydować o każdej subskrypcji i pozycji funduszu nieregularnego."
   },
   "budget_builder": {
     "title": "Kreator budżetu",
@@ -2393,5 +2395,40 @@
     "kind_contribution": "Wpłata",
     "kind_withdrawal": "Wypłata na inne konto",
     "history_latest": "Ostatnie {count} operacji; saldo obejmuje wszystkie."
+  },
+  "annual_review": {
+    "title": "Przegląd roczny",
+    "subtitle": "Zamknij {year} i przygotuj {next}: jak poszedł plan, co przechodzi dalej, które zobowiązania zostają.",
+    "year": "Rok",
+    "step_summary": "1 · {year} w liczbach",
+    "summary_empty": "W tym roku nie ma budżetów ani wydatków.",
+    "planned": "Plan",
+    "actual": "Wykonanie",
+    "difference": "Różnica",
+    "step_carry": "2 · Przenieś budżety na {next}",
+    "carry_empty": "Na {year} nic nie zaplanowano — nie ma budżetu do przeniesienia.",
+    "carry_hint": "Podnieś lub obniż kategorię o procent; pozostałe przechodzą bez zmian.",
+    "planned_this": "Plan {year}",
+    "adjustment": "Zmiana",
+    "planned_next": "Plan {year}",
+    "replaces_plan": "Rok {next} ma już plan roczny: przeniesienie zastąpi ten plan.",
+    "carry_button": "Przenieś na {next}",
+    "carried": "Budżety na {next} są ustawione.",
+    "step_commitments": "3 · Zobowiązania",
+    "commitments_empty": "Brak subskrypcji i pozycji funduszu nieregularnego do przejrzenia.",
+    "commitments_hint": "Zostaw, zmień kwotę albo zrezygnuj.",
+    "kind_subscription": "Subskrypcja",
+    "kind_irregular_item": "Pozycja funduszu nieregularnego",
+    "per_year": "{amount} / rok",
+    "keep": "Zostaw",
+    "adjust": "Zmień",
+    "drop": "Zrezygnuj",
+    "kept": "Zostaje",
+    "new_amount": "Nowa kwota",
+    "adjust_subscription": "{name}: nowa opłata",
+    "adjust_irregular_item": "{name}: nowa kwota roczna",
+    "amount_needed": "Podaj kwotę większą od zera.",
+    "adjusted": "Zmieniono: {name}.",
+    "dropped": "Zrezygnowano z: {name}."
   }
 }

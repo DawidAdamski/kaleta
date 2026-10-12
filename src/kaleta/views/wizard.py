@@ -71,6 +71,7 @@ _STEPS: list[tuple[str, str, str]] = [
     # Budget builder
     ("checklist", "budget_builder", "budget"),
     ("science", "scenarios", "budget"),
+    ("event_repeat", "annual_review", "budget"),
     # Personal loans
     ("handshake", "personal_loans", "loans"),
 ]
@@ -79,6 +80,7 @@ _STEPS: list[tuple[str, str, str]] = [
 # index says what the app will do — but plainly, and below what it does now.
 _STEP_ROUTES: dict[str, str] = {
     "budget_builder": "/wizard/budget-builder",
+    "annual_review": "/wizard/annual-review",
     "emergency": "/wizard/safety-funds",
     "irregular": "/wizard/safety-funds",
     "vacation": "/wizard/safety-funds",

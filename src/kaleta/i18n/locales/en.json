@@ -480,7 +480,9 @@
     "setup_institution_count_few": "{count} institutions",
     "setup_institution_count_many": "{count} institutions",
     "setup_institution_count_one": "{count} institution",
-    "household_shared": "Shared with your household: a step one of you completes is done for everyone."
+    "household_shared": "Shared with your household: a step one of you completes is done for everyone.",
+    "step_annual_review": "Annual review",
+    "step_annual_review_desc": "Once a year, sums up how the plan went, carries the budgets into next year with your changes, and asks to keep, adjust or drop each subscription and irregular-fund item."
   },
   "budget_builder": {
     "title": "Budget Builder",
@@ -2393,5 +2395,40 @@
     "kind_contribution": "Contribution",
     "kind_withdrawal": "Moved out",
     "history_latest": "The latest {count} movements; the balance counts them all."
+  },
+  "annual_review": {
+    "title": "Annual review",
+    "subtitle": "Close {year} and set up {next}: how the plan went, what carries over, which commitments stay.",
+    "year": "Year",
+    "step_summary": "1 · {year} in numbers",
+    "summary_empty": "No budgets or expenses in this year.",
+    "planned": "Planned",
+    "actual": "Actual",
+    "difference": "Difference",
+    "step_carry": "2 · Carry the budgets into {next}",
+    "carry_empty": "Nothing was planned for {year} — there is no budget to carry.",
+    "carry_hint": "Raise or lower a category by a percentage; the rest carry as they are.",
+    "planned_this": "Planned {year}",
+    "adjustment": "Change",
+    "planned_next": "Planned {year}",
+    "replaces_plan": "{next} already has a yearly plan: carrying replaces it.",
+    "carry_button": "Carry into {next}",
+    "carried": "The {next} budgets are set.",
+    "step_commitments": "3 · Commitments",
+    "commitments_empty": "No subscriptions or irregular-fund items to review.",
+    "commitments_hint": "Keep it, adjust its amount, or drop it.",
+    "kind_subscription": "Subscription",
+    "kind_irregular_item": "Irregular-fund item",
+    "per_year": "{amount} / year",
+    "keep": "Keep",
+    "adjust": "Adjust",
+    "drop": "Drop",
+    "kept": "Kept",
+    "new_amount": "New amount",
+    "adjust_subscription": "{name}: the new charge",
+    "adjust_irregular_item": "{name}: the new yearly amount",
+    "amount_needed": "Enter an amount above zero.",
+    "adjusted": "{name} adjusted.",
+    "dropped": "{name} dropped."
   }
 }

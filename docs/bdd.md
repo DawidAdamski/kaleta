@@ -2240,19 +2240,19 @@ Feature: Annual Review
   I want a guided yearly review
   So that I plan the coming year in one sitting
 
-  KAL-ANR-001 @planned
+  KAL-ANR-001 @automated
   Scenario: Annual review summarises the closing year
     Given a year of transactions and budgets exists
     When I start the Annual Review
     Then I see per-category totals of plan vs actual for the year
 
-  KAL-ANR-002 @planned
+  KAL-ANR-002 @automated
   Scenario: Carry budgets into the next year with adjustments
     Given the Annual Review shows this year's category budgets
     When I carry them into next year and raise "Insurance" by 10%
     Then next year's budget plan is created with the adjustment
 
-  KAL-ANR-003 @planned
+  KAL-ANR-003 @automated
   Scenario: Review subscriptions and irregular items
     Given tracked subscriptions and irregular fund items exist
     When I reach the review's commitments step

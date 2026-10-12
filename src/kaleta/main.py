@@ -132,6 +132,7 @@ def _register_views() -> None:
     from kaleta.views import (
         accounts,
         admin,
+        annual_review,
         budget_builder,
         budget_plan,
         budgets,
@@ -197,6 +198,7 @@ def _register_views() -> None:
     reports.register()
     reports_canned.register()
     safety_funds.register()
+    annual_review.register()
     irregular_fund.register()
     subscriptions.register()
     personal_loans.register()

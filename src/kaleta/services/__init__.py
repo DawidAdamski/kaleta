@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 from kaleta.services import attribution as _attribution  # noqa: F401 — registers the flush hook
 from kaleta.services.account_service import AccountService
+from kaleta.services.annual_review_service import AnnualReviewService
 from kaleta.services.api_token_service import ApiTokenService
 from kaleta.services.asset_service import AssetService
 from kaleta.services.audit_service import AuditService
@@ -45,6 +46,7 @@ from kaleta.services.yearly_plan_service import YearlyPlanService
 
 __all__ = [
     "AccountService",
+    "AnnualReviewService",
     "ApiTokenService",
     "AssetService",
     "AuditService",
