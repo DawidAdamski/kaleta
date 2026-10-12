@@ -20,6 +20,7 @@ from kaleta.services import (
     AccountService,
     CategoryService,
     InstitutionService,
+    MemberNameService,
     TransactionService,
     with_session,
 )
@@ -200,6 +201,11 @@ def register() -> None:
             mentor_suggestions,
         ) = await with_session(_load)
 
+        async def _names(session: Any) -> dict[int, str]:
+            return await MemberNameService(session).names()
+
+        in_household = MemberNameService.is_household(await with_session(_names))
+
         done_flags = [
             n_institutions > 0,
             n_accounts > 0,
@@ -236,6 +242,12 @@ def register() -> None:
                 )
                 ui.label(t("wizard.title")).classes(PAGE_TITLE)
                 ui.label(t("wizard.subtitle")).classes(f"{INK_2} text-[13.5px] leading-[1.6] mt-3")
+                if in_household:
+                    # The steps read the household's ledger, so they are done
+                    # or not for everyone in it.
+                    ui.label(t("wizard.household_shared")).classes(
+                        f"{INK_2} text-[13.5px] leading-[1.6] mt-1"
+                    ).props('data-testid="wizard-household"')
 
             # ── Mentor ────────────────────────────────────────────────────────
             # One suggestion, above everything else, because it is the only

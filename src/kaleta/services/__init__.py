@@ -16,6 +16,7 @@ from kaleta.services.dedupe_service import DedupeService
 from kaleta.services.hosted_mfa_service import FactorGateway, HostedEnrolment, HostedMfaService
 from kaleta.services.import_rule_service import ImportRuleService
 from kaleta.services.institution_service import InstitutionService
+from kaleta.services.member_name_service import MemberNameService
 from kaleta.services.mfa_service import MfaEnrolment, MfaService, MfaStatus
 from kaleta.services.money_flow_service import MoneyFlowService
 from kaleta.services.monthly_readiness_service import MonthlyReadinessService
@@ -62,6 +63,7 @@ __all__ = [
     "HostedMfaService",
     "ImportRuleService",
     "InstitutionService",
+    "MemberNameService",
     "MfaEnrolment",
     "MfaService",
     "MfaStatus",

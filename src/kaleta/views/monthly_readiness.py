@@ -16,7 +16,7 @@ from kaleta.schemas.monthly_readiness import (
     Stage4AcknowledgeBills,
     Stage4PlannedRow,
 )
-from kaleta.services import MonthlyReadinessService, with_session
+from kaleta.services import MemberNameService, MonthlyReadinessService, with_session
 from kaleta.views.layout import page_layout
 from kaleta.views.theme import (
     AMOUNT_EXPENSE,
@@ -53,6 +53,11 @@ def register() -> None:
 
         row, stage_1, stage_2, stage_3, stage_4 = await with_session(_load)
 
+        async def _names(session: Any) -> dict[int, str]:
+            return await MemberNameService(session).names()
+
+        in_household = MemberNameService.is_household(await with_session(_names))
+
         stages_done = {
             1: row.stage_1_done,
             2: row.stage_2_done,
@@ -71,6 +76,11 @@ def register() -> None:
                             month=_month_label(state["year"], state["month"]),
                         )
                     ).classes(BODY_MUTED)
+                    if in_household:
+                        # One month's readiness for the whole household.
+                        ui.label(t("monthly_readiness.household_shared")).classes(BODY_MUTED).props(
+                            'data-testid="readiness-household"'
+                        )
                 n_done = sum(1 for v in stages_done.values() if v)
                 ui.badge(
                     t("monthly_readiness.progress", done=n_done, total=4),

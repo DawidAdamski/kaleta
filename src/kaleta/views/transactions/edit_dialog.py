@@ -11,6 +11,7 @@ from typing import Any
 
 from nicegui import ui
 
+from kaleta.exceptions import KaletaError, StaleWriteError
 from kaleta.i18n import t
 from kaleta.schemas.categorisation_rule import (
     CategorisationRuleCreate,
@@ -19,6 +20,7 @@ from kaleta.schemas.categorisation_rule import (
 )
 from kaleta.schemas.transaction import TransactionSplitCreate, TransactionType, TransactionUpdate
 from kaleta.services import RuleService, TransactionService, with_session
+from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.transactions.payee_field import build_payee_select, split_payee_value
 from kaleta.views.transactions.split_editor import build_split_editor
 
@@ -43,6 +45,8 @@ def build_edit_dialog(
     edit_is_split: dict[str, bool] = {"value": False}
     edit_original_category_id: dict[str, int | None] = {"value": None}
     loaded_payee: dict[str, Any] = {"id": None, "name": None}
+    #: The row's ``updated_at`` as loaded: a save over a newer version is refused.
+    loaded_version: dict[str, datetime.datetime | None] = {"value": None}
     edit_split_rows: list[dict[str, Any]] = []
     edit_dialog = ui.dialog()
     suggest_dialog = ui.dialog()
@@ -237,6 +241,7 @@ def build_edit_dialog(
                 notes=edit_notes_input.value,
                 category_id=edit_category_sel.value if is_cat_visible else None,
                 tag_ids=edit_tag_sel.value or [],
+                expected_updated_at=loaded_version["value"],
             )
             # Hidden for transfers: leave the stored payee alone rather than
             # clearing whatever the importer attached to the leg. Assigning after
@@ -308,7 +313,21 @@ def build_edit_dialog(
                     category_id=new_category_id,
                 )
 
-            suggestion = await with_session(_update)
+            try:
+                suggestion = await with_session(_update)
+            except StaleWriteError as exc:
+                # Not a toast: the answer is a choice — load their version or
+                # keep this one open to copy from — and it belongs in the dialog.
+                stale_label.set_text(
+                    t("transactions.stale_write_by", name=exc.changed_by)
+                    if exc.changed_by
+                    else t("transactions.stale_write")
+                )
+                stale_row.set_visibility(True)
+                return
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+                return
             ui.notify(t("transactions.updated"), type="positive")
             edit_dialog.close()
             on_saved()
@@ -323,6 +342,23 @@ def build_edit_dialog(
                     )
                 )
                 suggest_dialog.open()
+
+        async def _reload() -> None:
+            tx_id = edit_tx_id["value"]
+            if tx_id is not None:
+                await open_for_id(tx_id)
+
+        with (
+            ui.row()
+            .classes("w-full items-center gap-2 no-wrap rounded bg-amber-1 p-2")
+            .props('data-testid="stale-write"') as stale_row
+        ):
+            ui.icon("sync_problem", color="warning")
+            stale_label = ui.label("").classes("text-sm flex-1")
+            ui.button(t("transactions.stale_reload"), on_click=_reload).props(
+                "flat dense no-caps color=warning"
+            )
+        stale_row.set_visibility(False)
 
         with ui.row().classes("w-full justify-end gap-2 mt-2"):
             ui.button(t("common.cancel"), on_click=edit_dialog.close).props("flat")
@@ -350,6 +386,8 @@ def build_edit_dialog(
         if tx is None:
             return
         edit_tx_id["value"] = tx_id
+        loaded_version["value"] = tx.updated_at
+        stale_row.set_visibility(False)
         edit_original_category_id["value"] = tx.category_id
         edit_split_rows.clear()
         if tx.is_split:

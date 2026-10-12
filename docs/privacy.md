@@ -104,6 +104,11 @@ another's passphrase.
   passphrase, recovery code, second factor or sessions.
 - **The finances are shared**: every member reads and writes the same
   ledger.
+- **Who did what**: each new row and each entry of the change history
+  records which member made it, and once a family has two members the
+  History tab and the ledger's "Added by" show it. That link is a plain
+  member number next to the encrypted row, so the operator can see
+  which member wrote how many rows and when — never what they wrote.
 - **An invitation link** carries no key: it only proves that its
   address was invited. It works once, for 72 hours; the server keeps a
   hash of it, never the link.

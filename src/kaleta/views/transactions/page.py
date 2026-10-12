@@ -14,6 +14,7 @@ from kaleta.schemas.transaction import TransactionType
 from kaleta.services import (
     AccountService,
     CategoryService,
+    MemberNameService,
     PayeeService,
     PlannedTransactionService,
     TagService,
@@ -27,6 +28,7 @@ from kaleta.views.components.filter_bar import (
 )
 from kaleta.views.components.transaction_table import (
     DEFAULT_PAGE_SIZE,
+    attach_added_by,
     attach_group_labels,
     attach_split_labels,
     attach_type_labels,
@@ -59,14 +61,18 @@ if TYPE_CHECKING:  # import-linter excludes typing-only imports
 
 
 async def transactions_page(*, open_new: bool = False) -> None:
-    async def _load_reference_data(session: Any) -> tuple[Any, Any, Any, Any]:
+    async def _load_reference_data(session: Any) -> tuple[Any, Any, Any, Any, dict[int, str]]:
         accounts = await AccountService(session).list()
         categories = await CategoryService(session).list()
         tags = await TagService(session).list()
         payees = await PayeeService(session).list()
-        return accounts, categories, tags, payees
+        members = await MemberNameService(session).names()
+        return accounts, categories, tags, payees, members
 
-    accounts, categories, tags, payees = await with_session(_load_reference_data)
+    accounts, categories, tags, payees, member_names = await with_session(_load_reference_data)
+    #: A household's ledger says who added each row and filters by it; a
+    #: family of one keeps artboard `2a`'s columns.
+    in_household = MemberNameService.is_household(member_names)
 
     account_options: dict[int, str] = {a.id: a.name for a in accounts}
     expense_cats = CategoryService.build_option_labels(
@@ -119,6 +125,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         "category_ids": [],
         "tx_types": [],
         "tag_ids": [],
+        "user_ids": [],
         "search": "",
         "page": 0,
         "page_size": DEFAULT_PAGE_SIZE,
@@ -222,7 +229,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
         # Upcoming rows belong at the head of a newest-first list, so they ride
         # on the first page only — repeating them under every page number would
         # promise the same money once per page. A tag filter rules them out
-        # entirely: a plan carries no tags, so none of them can match.
+        # entirely: a plan carries no tags, so none of them can match — and so
+        # does "Added by", since nobody has added a plan's next row yet.
         window = (
             PlannedTransactionService.upcoming_window(
                 get_transactions_upcoming_days(),
@@ -230,7 +238,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
                 date_from=filters["date_from"],
                 date_to=filters["date_to"],
             )
-            if filters["page"] == 0 and not filters["tag_ids"]
+            if filters["page"] == 0 and not filters["tag_ids"] and not filters["user_ids"]
             else None
         )
 
@@ -244,6 +252,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
                 tx_types=_list_or_none("tx_types"),
                 tag_ids=_list_or_none("tag_ids"),
                 search=filters["search"] or None,
+                user_ids=_list_or_none("user_ids"),
             )
             txs = await svc.list(
                 account_ids=_list_or_none("account_ids"),
@@ -255,6 +264,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
                 search=filters["search"] or None,
                 limit=page_size,
                 offset=filters["page"] * page_size,
+                user_ids=_list_or_none("user_ids"),
             )
             upcoming: list[PlannedOccurrence] = []
             if window is not None:
@@ -294,6 +304,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
                 week_mode,
             )
         )
+        if in_household:
+            rows = attach_added_by(rows, member_names)
         page_rows.clear()
         # Planned rows are deliberately left out: the selection bar totals and
         # deletes by id, and a planned row's id names no transaction.
@@ -337,6 +349,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             on_split=_handle_split,
             on_selection=_on_selection,
             on_open_planned=planned_dialog_ctx.open_for_row_key,
+            added_by=in_household,
         )
         render_pagination_bar(
             total=total,
@@ -399,6 +412,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filters["category_ids"] = []
         filters["tx_types"] = []
         filters["tag_ids"] = []
+        filters["user_ids"] = []
         filters["search"] = ""
         filters["page"] = 0
         filter_widgets.date_from_input.set_value(None)
@@ -407,6 +421,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
         filter_widgets.category_filter.set_value([])
         filter_widgets.type_filter.set_value([])
         filter_widgets.tag_filter.set_value([])
+        if filter_widgets.member_filter is not None:
+            filter_widgets.member_filter.set_value([])
         filter_widgets.search_input.set_value("")
         _drop_selection()
         _repaint_filter_row()
@@ -451,6 +467,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
             on_tag_change=lambda v: _set_list_filter("tag_ids", v),
             on_clear=_clear_filters,
             on_clear_dates=_clear_dates,
+            member_options=member_names if in_household else None,
+            on_member_change=lambda v: _set_list_filter("user_ids", v),
         )
 
         table_actions_ui = render_table_actions(

@@ -374,3 +374,56 @@ columns, `tenant_invites`, `TenantStatus.REKEYING`, `tenants.key_version`, the
   member in this process) is pinned by `tests/unit/auth/test_household_auth.py`.
 - **The invitation link's base** is `KALETA_PUBLIC_URL` when set, otherwise the request's
   own base URL — behind a proxy that rewrites `Host`, set `KALETA_PUBLIC_URL`.
+
+### Decisions (Part C — working together)
+
+- **Rows already record who added them**: `kaleta.services.attribution` stamps `user_id` on
+  every new `UserOwnedMixin` row from `TenantContext.member_user_id` (laid down by the
+  tenancy plan), transactions, planned transactions and import runs included. Part C adds
+  nothing there.
+- **`audit_log.user_id`** is a new nullable column (tenant-schema migration, `ON DELETE SET
+  NULL`, no backfill: older entries say "—"), stamped from the same context by the flush
+  listener and by the auth and token events. A plain integer next to the encrypted
+  snapshots: which member changed something is no more than `transactions.user_id` already
+  shows the operator.
+- **A member's name** is their `users.display_name`, else the part of their e-mail before
+  the `@` — one rule, `MemberNameService.name`, which the Household tab now uses too, so a
+  member is called the same everywhere. A removed
+  member keeps their row (Part A), so their past entries keep their name.
+- **"Who" and "Added by" appear only in a household** — once the family has two or more
+  `users` rows. Alone, every row is the user's own: the History column and the ledger's
+  column and filter would say one name over and over, and the ledger (artboard `2a`) stays
+  as drawn for everyone who is not sharing.
+- **The stale-write guard covers the transaction dialog**, the one place two members
+  realistically edit the same row (categorising the month). `TransactionUpdate` takes an
+  optional `expected_updated_at`; when the row moved on since the dialog loaded it,
+  `update` raises `StaleWriteError` (a `ConflictError`, 409 on the API) naming the member
+  of the row's last audited change, and the dialog says "changed by <name> a moment ago"
+  with a Reload that loads their version. Without the field (every older API client)
+  last write wins, as before. Other editors are not guarded; `chores.md` has the line.
+- **The wizard's copy**: a household of two or more sees one sentence under the wizard's
+  and Monthly Readiness's subtitles — the progress there is shared, what one marks done
+  the others see. Alone, the copy is unchanged.
+- **Tests (Part C)**: `tests/integration/test_household_working_together.py` (`KAL-HHS-015`,
+  `-016`, `-017`) — the history's member, the "Added by" filter, a stale save refused with
+  the other member's name and the row keeping their change; each safeguard was checked by
+  breaking it (no stamp on audit rows, no guard, no filter: each fails a test). The e2e
+  (`tests/e2e/test_household.py`) adds what the owner's pages show once the partner is in:
+  "ania" and "jan" in History, the "Added by" chip (absent before the invitation) and the
+  wizard's sentence (`KAL-HHS-018`). The stale-write banner has no e2e of its own: two
+  browser contexts editing one transaction would need an account, a category and a
+  transaction built through the UI first, for a banner whose text and trigger the
+  integration test already pins.
+
+### After review (Part C)
+
+- **A version without a time zone is UTC**: `expected_updated_at` from an API client that
+  leaves the zone out would otherwise never equal the stored `timestamptz`, and every save
+  would read as stale.
+- **A member's own save in another tab** is refused the same way, but reads "changed
+  elsewhere", not "changed by" themselves.
+- **The audit row's foreign key** carries PostgreSQL's default name
+  (`audit_log_user_id_fkey`), the one a schema built from the models gets.
+- **Known edge, not reachable today**: a flush that deleted the acting member's own `users`
+  row would write audit rows pointing at it. Removed members keep their row (Part A), and a
+  declined member's row is deleted by the owner, not by themselves.

@@ -104,6 +104,14 @@ class TransactionCreate(TransactionBase):
         return self
 
 
+def _as_aware(value: datetime.datetime | None) -> datetime.datetime | None:
+    """A timestamp without a zone is UTC: compared with the stored ``timestamptz``,
+    a naive one would never be equal and every save would read as stale."""
+    if value is not None and value.tzinfo is None:
+        return value.replace(tzinfo=datetime.UTC)
+    return value
+
+
 class TransactionUpdate(BaseModel):
     account_id: int | None = None
     category_id: int | None = None
@@ -121,6 +129,10 @@ class TransactionUpdate(BaseModel):
     tag_ids: list[int] | None = None
     splits: list[TransactionSplitCreate] | None = None
     payee_name: str | None = Field(default=None, max_length=200)
+    #: The row's ``updated_at`` as the editor loaded it. When given and the row
+    #: has changed since, the update is refused (``StaleWriteError``) instead
+    #: of overwriting someone else's change; left out, the last write wins.
+    expected_updated_at: Annotated[datetime.datetime | None, AfterValidator(_as_aware)] = None
 
 
 class TransactionResponse(TransactionBase):

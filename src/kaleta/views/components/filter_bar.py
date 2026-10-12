@@ -52,6 +52,7 @@ def filter_chip_label(
     category_options: dict[int, str],
     type_options: dict[str, str],
     tag_options: dict[int, str],
+    member_options: dict[int, str] | None = None,
 ) -> tuple[str, str]:
     """What a chip reads: ``(main, extra)``, both empty when the filter is unset.
 
@@ -65,6 +66,8 @@ def filter_chip_label(
         return summarise_selection(_names(filters.get("category_ids") or [], category_options))
     if field_name == "tags":
         return summarise_selection(_names(filters.get("tag_ids") or [], tag_options))
+    if field_name == "members":
+        return summarise_selection(_names(filters.get("user_ids") or [], member_options or {}))
     if field_name == "types":
         values = [getattr(v, "value", v) for v in filters.get("tx_types") or []]
         return summarise_selection([type_options[v] for v in values if v in type_options])
@@ -136,6 +139,8 @@ class FilterBarWidgets:
     type_filter: Any
     search_input: Any
     tag_filter: Any
+    #: The household's "Added by" select; ``None`` for a family of one.
+    member_filter: Any | None
     #: The "Clear all N" link, whose text the page rewrites as filters change.
     clear_all_button: ui.button
     #: Repaint the chips after a filter changed. The page owns the filter dict,
@@ -194,6 +199,8 @@ def render_filter_bar(
     on_tag_change: Callable[[list[int]], None],
     on_clear: Callable[[], None],
     on_clear_dates: Callable[[], None],
+    member_options: dict[int, str] | None = None,
+    on_member_change: Callable[[list[int]], None] | None = None,
     filters_title_key: str = "transactions.filters",
     date_range_key: str = "transactions.date_range",
     date_from_key: str = "transactions.date_from",
@@ -205,7 +212,11 @@ def render_filter_bar(
     tags_key: str = "transactions.tags",
     manage_tags_tooltip_key: str = "transactions.manage_tags",
 ) -> FilterBarWidgets:
-    """Render the transactions filter chips and return widget refs."""
+    """Render the transactions filter chips and return widget refs.
+
+    ``member_options`` and ``on_member_change`` add the household's "Added by"
+    chip; without them (a family of one) the bar is the artboard's.
+    """
     chips: dict[str, _Chip] = {}
     widgets: dict[str, Any] = {}
 
@@ -295,6 +306,13 @@ def render_filter_bar(
             "categories", categories_key, category_options, on_category_change, "w-64"
         )
         tag_filter = _select_chip("tags", tags_key, tag_options, on_tag_change, "w-48")
+        member_filter = (
+            _select_chip(
+                "members", "transactions.added_by", member_options, on_member_change, "w-48"
+            )
+            if member_options and on_member_change is not None
+            else None
+        )
 
         chips["search"] = _new_chip("search", search_key, _clear_search)
         with chips["search"].opener:
@@ -331,6 +349,7 @@ def render_filter_bar(
                     category_options=category_options,
                     type_options=type_options,
                     tag_options=tag_options,
+                    member_options=member_options,
                 )
             )
 
@@ -344,6 +363,7 @@ def render_filter_bar(
         type_filter=type_filter,
         search_input=widgets["search"],
         tag_filter=tag_filter,
+        member_filter=member_filter,
         clear_all_button=clear_all_button,
         refresh_chips=_refresh_chips,
     )
@@ -372,6 +392,7 @@ def active_filter_count(filters: dict[str, Any]) -> int:
             bool(filters.get("category_ids")),
             bool(filters.get("tx_types")),
             bool(filters.get("tag_ids")),
+            bool(filters.get("user_ids")),
             bool(filters.get("search")),
         ]
     )

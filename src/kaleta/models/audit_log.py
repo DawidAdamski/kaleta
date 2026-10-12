@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import datetime
 
-from sqlalchemy import Boolean, DateTime, Integer, String, func
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base
@@ -30,5 +30,10 @@ class AuditLog(Base):
     )
     new_data: Mapped[str | None] = mapped_column(
         EncryptedText("audit_log.new_data", plaintext_while_locked=True), nullable=True
+    )
+    #: The member who made the change (``hosted-household-sharing`` §4); ``NULL``
+    #: for entries written before attribution, or with no member acting.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     reverted: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
