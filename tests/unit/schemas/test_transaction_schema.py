@@ -34,14 +34,14 @@ TODAY = datetime.date.today()
 
 
 def _base(**kwargs) -> dict:
-    defaults = dict(
-        account_id=1,
-        category_id=1,
-        amount=Decimal("100.00"),
-        type=TransactionType.EXPENSE,
-        date=TODAY,
-        description="Test transaction",
-    )
+    defaults = {
+        "account_id": 1,
+        "category_id": 1,
+        "amount": Decimal("100.00"),
+        "type": TransactionType.EXPENSE,
+        "date": TODAY,
+        "description": "Test transaction",
+    }
     defaults.update(kwargs)
     return defaults
 

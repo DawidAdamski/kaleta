@@ -98,13 +98,38 @@ extend-exclude = ["*.md", "src/kaleta/_version.py"]
 # S is ruff's port of bandit's checks; it replaces the separate bandit run
 # (see docs/plans/lint-hardening.md). RUF carries the ruff-specific rules,
 # including RUF100 (unused `# noqa`) which keeps suppressions honest.
-select = ["E", "F", "I", "N", "W", "UP", "B", "SIM", "S", "RUF"]
+select = [
+    "E", "F", "I", "N", "W", "UP", "B", "SIM", "S", "RUF",
+    # Part 2 (lint-hardening-part-2): async footguns, logging correctness,
+    # banned-api (money ≠ Float), implicit str-concat, f-strings, raise-from,
+    # pylint errors, comprehensions, pie, return consistency, private access,
+    # perf anti-patterns.
+    "ASYNC", "G", "LOG", "TID", "ISC", "FLY", "RSE", "PLE",
+    "C4", "PIE", "RET", "SLF", "PERF",
+]
 ignore = [
     # Prose in two languages uses typographic dashes and quotes on purpose.
     "RUF001",
     "RUF002",
     "RUF003",
 ]
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+# Money and amounts are stored as Numeric/Decimal (ADR precision 15, scale 2),
+# never as binary floats — a Float column silently loses cents. The only
+# legitimate float column is a 0..1 similarity score (payee_merge), which keeps
+# a documented `# noqa: TID251`.
+"sqlalchemy.Float".msg = "Amounts must be Numeric/Decimal, not Float (floats lose cents). A genuine non-money float (e.g. a 0..1 score) needs an explicit noqa."
+"sqlalchemy.REAL".msg = "Amounts must be Numeric/Decimal, not REAL."
+"sqlalchemy.Double".msg = "Amounts must be Numeric/Decimal, not Double."
+"sqlalchemy.FLOAT".msg = "Amounts must be Numeric/Decimal, not FLOAT."
+"sqlalchemy.types.Float".msg = "Amounts must be Numeric/Decimal, not Float."
+"sqlalchemy.types.FLOAT".msg = "Amounts must be Numeric/Decimal, not FLOAT."
+"sqlalchemy.types.REAL".msg = "Amounts must be Numeric/Decimal, not REAL."
+"sqlalchemy.types.Double".msg = "Amounts must be Numeric/Decimal, not Double."
+"sqlalchemy.dialects.postgresql.FLOAT".msg = "Amounts must be Numeric/Decimal, not FLOAT."
+"sqlalchemy.dialects.postgresql.REAL".msg = "Amounts must be Numeric/Decimal, not REAL."
+"sqlalchemy.dialects.postgresql.DOUBLE_PRECISION".msg = "Amounts must be Numeric/Decimal, not DOUBLE_PRECISION."
 
 [tool.ruff.lint.per-file-ignores]
 # FastAPI uses Depends/Query in argument defaults — B008 is a false positive there.
@@ -114,16 +139,34 @@ ignore = [
 # Demo data is not a security boundary: `random` is the right generator here.
 "src/kaleta/seeders/**" = ["S311"]
 # Tests assert, use fixture passwords, spawn the app under test and bind
-# 0.0.0.0 for the e2e server — none of which is production code.
-"tests/**" = ["S101", "S104", "S105", "S106", "S603", "S607", "S608"]
+# 0.0.0.0 for the e2e server — none of which is production code. Tests also
+# legitimately reach into private members of the unit under test (SLF001).
+"tests/**" = ["S101", "S104", "S105", "S106", "S603", "S607", "S608", "SLF001"]
 # Operator scripts: demo password, subprocess calls, benchmark randomness.
 "scripts/**" = ["S105", "S310", "S311", "S603", "S607"]
-# Data migrations build statements from literal table names.
-"alembic/versions/**" = ["S608"]
+# Data migrations build statements from literal table names, and record the
+# historical schema verbatim — including the one legitimate Float column
+# (a 0..1 similarity score), so the money-guard (TID251) does not apply here.
+"alembic/versions/**" = ["S608", "TID251"]
 
 [tool.mypy]
 python_version = "3.13"
 strict = true
+# Beyond strict (lint-hardening-part-2): require a code on every
+# `# type: ignore` (pairs with RUF100 to keep suppressions honest) and flag
+# variables that may be unbound on some path. Both are clean on the tree today.
+#
+# Deliberately NOT enabled here (deferred to their own chore): `warn_unreachable`,
+# `truthy-bool` and `redundant-expr`. On this codebase they almost only surface
+# the "declared non-optional but runtime-optional" gap — SQLAlchemy relationships
+# (`if p.account`) and NiceGUI context (`if ui.context.client`) that the type
+# system models as always-present but code defensively guards. Adopting them now
+# would mean ~10 `# type: ignore` on legitimate defensive code; the real fix is
+# to type those relationships/results as optional, which is its own change.
+enable_error_code = [
+    "possibly-undefined",
+    "ignore-without-code",
+]
 # Pydantic 2 models and settings: validate field types in constructors and
 # `model_validate` calls the way the runtime does.
 plugins = ["pydantic.mypy"]

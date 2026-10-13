@@ -358,7 +358,9 @@ async def rotate_session_id(request: Request) -> None:
     snapshot = {k: v for k, v in old.items() if k not in _AUTH_KEYS and k not in _ROTATE_KEYS}
     old.clear()
     new_id = str(uuid4())
-    await app.storage._create_user_storage(new_id)
+    # NiceGUI exposes no public API to mint a fresh user-storage slot; this
+    # private helper is the only way to rotate the session id (SLF001).
+    await app.storage._create_user_storage(new_id)  # noqa: SLF001
     request.session["id"] = new_id
     app.storage.user.update(snapshot)
 

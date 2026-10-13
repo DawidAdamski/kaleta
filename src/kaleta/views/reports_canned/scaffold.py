@@ -25,7 +25,7 @@ def loading_label() -> None:
 def month_controls(state: dict[str, Any], on_change: Any) -> None:
     """Year+month selectors. Mutates ``state["year"]`` / ``state["month"]``."""
     today = datetime.date.today()
-    years = [y for y in range(today.year - 5, today.year + 1)]
+    years = list(range(today.year - 5, today.year + 1))
     months = {i: datetime.date(2000, i, 1).strftime("%B") for i in range(1, 13)}
     with ui.row().classes("items-end gap-3 mb-2"):
         ui.select(

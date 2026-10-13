@@ -85,7 +85,8 @@ class DataEncryptionService:
                 )
             )
         result = await self.session.execute(query)
-        rows = [dict(row._mapping) for row in result]
+        # Row._mapping is SQLAlchemy's documented row→dict accessor (SLF001).
+        rows = [dict(row._mapping) for row in result]  # noqa: SLF001
         if not rows:
             return 0
         written = [*columns, *targets]

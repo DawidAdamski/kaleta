@@ -903,18 +903,16 @@ class BudgetService:
         }
 
         return sorted(
-            builtins.list(
-                [
-                    CategoryBudgetSummary(
-                        category_id=cat_id,
-                        category_name=category_names.get(cat_id)
-                        or all_expense_cats.get(cat_id, "Unknown"),
-                        budget_amount=budget_totals.get(cat_id, Decimal("0")),
-                        actual_amount=actuals.get(cat_id, Decimal("0")),
-                    )
-                    for cat_id in all_cat_ids
-                ]
-            ),
+            [
+                CategoryBudgetSummary(
+                    category_id=cat_id,
+                    category_name=category_names.get(cat_id)
+                    or all_expense_cats.get(cat_id, "Unknown"),
+                    budget_amount=budget_totals.get(cat_id, Decimal("0")),
+                    actual_amount=actuals.get(cat_id, Decimal("0")),
+                )
+                for cat_id in all_cat_ids
+            ],
             key=lambda s: s.category_name,
         )
 

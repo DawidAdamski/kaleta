@@ -143,10 +143,8 @@ def register() -> None:
 
                 def _export() -> None:
                     rows: list[list[Any]] = []
-                    for r in stmt.income_by_category:
-                        rows.append(["income", r.category, r.amount])
-                    for r in stmt.expense_by_category:
-                        rows.append(["expense", r.category, r.amount])
+                    rows.extend(["income", r.category, r.amount] for r in stmt.income_by_category)
+                    rows.extend(["expense", r.category, r.amount] for r in stmt.expense_by_category)
                     if stmt.loans_out:
                         rows.append(["loan", t("reports_lib.loans_out"), stmt.loans_out])
                     if stmt.loans_in:

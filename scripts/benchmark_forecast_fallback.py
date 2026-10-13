@@ -63,9 +63,9 @@ def _rolling_mean_forecast(
     if len(sorted_days) < 14:
         return None
 
-    deltas: list[float] = []
-    for i in range(1, len(sorted_days)):
-        deltas.append(running[sorted_days[i]] - running[sorted_days[i - 1]])
+    deltas: list[float] = [
+        running[sorted_days[i]] - running[sorted_days[i - 1]] for i in range(1, len(sorted_days))
+    ]
 
     window = deltas[-30:] if len(deltas) >= 30 else deltas
     mean_delta = statistics.mean(window)

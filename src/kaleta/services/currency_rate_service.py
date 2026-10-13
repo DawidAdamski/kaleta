@@ -236,9 +236,11 @@ class CurrencyRateService:
         foreign_currencies = sorted(c for c in account_currencies if c != default_currency)
         relevant_pairs = [(fc, tc) for (fc, tc) in existing_pairs if tc == default_currency]
         existing_froms = {fc for (fc, _) in relevant_pairs}
-        for currency in foreign_currencies:
-            if currency not in existing_froms:
-                relevant_pairs.append((currency, default_currency))
+        relevant_pairs.extend(
+            (currency, default_currency)
+            for currency in foreign_currencies
+            if currency not in existing_froms
+        )
         return relevant_pairs
 
     async def list_recent_for_pairs(

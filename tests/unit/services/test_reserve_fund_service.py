@@ -278,7 +278,7 @@ class TestDerivedTarget:
             self.TODAY,
         )
         await _settle_balance(session, acc, balance)
-        fund = await ReserveFundService(session).create(
+        return await ReserveFundService(session).create(
             ReserveFundCreate(
                 name="Security fund",
                 kind=ReserveFundKind.EMERGENCY,
@@ -288,7 +288,6 @@ class TestDerivedTarget:
                 target_from_spending=True,
             )
         )
-        return fund
 
     async def test_target_derives_from_12_month_spending(self, session: AsyncSession):
         """Covers: KAL-FND-002

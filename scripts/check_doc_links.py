@@ -67,10 +67,11 @@ def heading_anchors(path: Path) -> set[str]:
 
 def extract_links(path: Path) -> list[LinkRef]:
     text = path.read_text(encoding="utf-8")
-    refs: list[LinkRef] = []
-    for line_no, line in enumerate(text.splitlines(), start=1):
-        for match in MARKDOWN_LINK.finditer(line):
-            refs.append(LinkRef(path, line_no, match.group(2).strip(), match.group(1)))
+    refs: list[LinkRef] = [
+        LinkRef(path, line_no, match.group(2).strip(), match.group(1))
+        for line_no, line in enumerate(text.splitlines(), start=1)
+        for match in MARKDOWN_LINK.finditer(line)
+    ]
     if path.suffix == ".md" and "plans" in path.parts:
         in_frontmatter = False
         for line_no, line in enumerate(text.splitlines(), start=1):

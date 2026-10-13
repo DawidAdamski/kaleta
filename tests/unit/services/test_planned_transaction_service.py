@@ -48,14 +48,14 @@ async def _make_category(
 
 
 def _pt(account_id: int, **kwargs) -> PlannedTransactionCreate:
-    defaults: dict = dict(
-        name="Rent",
-        amount=Decimal("1000.00"),
-        type=TransactionType.EXPENSE,
-        account_id=account_id,
-        frequency=RecurrenceFrequency.MONTHLY,
-        start_date=datetime.date(2025, 1, 1),
-    )
+    defaults: dict = {
+        "name": "Rent",
+        "amount": Decimal("1000.00"),
+        "type": TransactionType.EXPENSE,
+        "account_id": account_id,
+        "frequency": RecurrenceFrequency.MONTHLY,
+        "start_date": datetime.date(2025, 1, 1),
+    }
     defaults.update(kwargs)
     return PlannedTransactionCreate(**defaults)
 

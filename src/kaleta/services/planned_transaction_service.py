@@ -390,7 +390,7 @@ class PlannedTransactionService:
         """
         rows: builtins.list[dict[str, Any]] = []
         for occ in occurrences:
-            rows.append(
+            rows.append(  # noqa: PERF401 — large display-row dict; a comprehension would not read better (cold path)
                 {
                     "id": PlannedTransactionService.planned_row_key(occ.planned_id, occ.date),
                     # Nobody has added this occurrence yet ("Added by" reads a dash).
@@ -559,9 +559,9 @@ class PlannedTransactionService:
         if planned_id is not None:
             occurrences = [o for o in occurrences if o.planned_id == planned_id]
 
-        results: builtins.list[Transaction] = []
-        for occ in occurrences:
-            results.append(await self.post_occurrence(occ.planned_id, occ.date))
+        results: builtins.list[Transaction] = [
+            await self.post_occurrence(occ.planned_id, occ.date) for occ in occurrences
+        ]
         logger.info(
             "Posted %s due planned occurrence(s) (as_of=%s, lookback=%s)",
             len(results),

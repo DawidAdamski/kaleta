@@ -86,8 +86,7 @@ async def update_budget(
     svc = BudgetService(session)
     if not await svc.get(budget_id):
         raise HTTPException(status_code=404, detail="Budget entry not found")
-    updated = await svc.update(budget_id, data)
-    return updated  # type: ignore[return-value]
+    return await svc.update(budget_id, data)  # type: ignore[return-value]
 
 
 @router.delete("/{budget_id}", status_code=204, summary="Delete a budget entry", responses=_404)

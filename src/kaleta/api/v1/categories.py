@@ -82,8 +82,7 @@ async def update_category(
     svc = CategoryService(session)
     if not await svc.get(category_id):
         raise HTTPException(status_code=404, detail="Category not found")
-    updated = await svc.update(category_id, data)
-    return updated  # type: ignore[return-value]
+    return await svc.update(category_id, data)  # type: ignore[return-value]
 
 
 @router.delete("/{category_id}", status_code=204, summary="Delete a category", responses=_404)

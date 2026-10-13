@@ -10,7 +10,7 @@ from kaleta.schemas.budget import BudgetCreate, BudgetUpdate
 
 
 def _base(**kwargs) -> dict:
-    defaults = dict(category_id=1, amount=Decimal("500.00"), month=3, year=2026)
+    defaults = {"category_id": 1, "amount": Decimal("500.00"), "month": 3, "year": 2026}
     defaults.update(kwargs)
     return defaults
 

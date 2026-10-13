@@ -190,8 +190,7 @@ class CategoryService:
         result: builtins.list[Category] = []
         for parent in sorted((c for c in categories if c.parent_id is None), key=lambda c: c.name):
             result.append(parent)
-            for child in sorted(children_by_parent.get(parent.id, []), key=lambda c: c.name):
-                result.append(child)
+            result.extend(sorted(children_by_parent.get(parent.id, []), key=lambda c: c.name))
         return result
 
     @staticmethod
