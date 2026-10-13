@@ -41,6 +41,12 @@ spec:
         app.kubernetes.io/component: valkey
     spec:
       securityContext:
+        # Run as the valkey image's built-in non-root user so the entrypoint
+        # never needs CHOWN/SETUID/SETGID — we drop ALL capabilities below.
+        # fsGroup makes the /data PVC writable by that user.
+        runAsNonRoot: true
+        runAsUser: {{ $v.runAsUser }}
+        fsGroup: {{ $v.fsGroup }}
         seccompProfile:
           type: RuntimeDefault
       containers:

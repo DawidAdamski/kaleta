@@ -348,6 +348,17 @@ is **not** adopted and would be its own amendment, pointing at
 - `docs/deploy-k3s.md` "Scaling beyond one replica" expanded into a real runbook
   (what it needs, what the chart enforces, what a member sees on a pod change,
   migrations, the PG ceiling).
+- **Review nits folded in:** an external `redis.url` (may carry a password) now
+  rides in the chart Secret via `secretKeyRef`, never a plain Deployment env var
+  (the bundled URL has none, stays inline); the bundled Valkey runs as the
+  image's non-root uid 999 with `fsGroup` so `drop: ALL` does not crash-loop it;
+  a `NetworkPolicy` (default on, k3s-enforced) limits the auth-less bundled
+  Valkey to app pods, with the residual (sessions are bearer state; use an
+  external password-protected Valkey for more) documented; the guard also
+  `fail`s on `redis.enabled`+`redis.url` together and on sticky sessions with a
+  non-Traefik `className`; and the runbook states migrations must be
+  backward-compatible (expand/contract) across the `maxUnavailable: 0` rollout
+  window.
 
 Remaining open questions for the live-cluster stage: **sticky granularity**
 (Traefik per-browser affinity is accepted — documented consequence: two devices

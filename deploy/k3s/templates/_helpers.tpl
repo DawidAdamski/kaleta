@@ -51,6 +51,12 @@ sessions + rate-limit) and sticky sessions (the in-process KeyRing needs client
 affinity). Fails rendering with a sentence rather than shipping a broken deploy.
 */}}
 {{- define "kaleta.validateScaling" -}}
+{{- if and .Values.redis.enabled .Values.redis.url -}}
+{{- fail "redis.enabled and redis.url are both set — pick one. The bundled Valkey would otherwise silently win over your external url." -}}
+{{- end -}}
+{{- if and .Values.ingress.stickySessions (ne .Values.ingress.className "traefik") -}}
+{{- fail "ingress.stickySessions renders Traefik annotations and is a no-op on other ingress controllers. Set ingress.className=traefik, or configure client affinity on your own ingress and adapt the chart." -}}
+{{- end -}}
 {{- if gt (int .Values.replicaCount) 1 -}}
 {{- if not (include "kaleta.redisUrl" .) -}}
 {{- fail "replicaCount > 1 requires Valkey: set redis.enabled=true or redis.url. Keys are never stored there — only sessions and rate-limit counters." -}}

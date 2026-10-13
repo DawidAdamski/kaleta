@@ -105,10 +105,22 @@ ingress:
 # single instance by default-off, or point `url` at your own.
 redis:
   # Bundle a small single-instance Valkey. Set false and fill `url` for your own.
+  # Setting BOTH enabled and url is rejected. The bundled Valkey has no auth and
+  # is reached only in-cluster; a NetworkPolicy (below) limits that to app pods.
+  # For stronger isolation point `url` at a password-protected external Valkey.
   enabled: false
   image: docker.io/valkey/valkey:8-alpine
   # External Valkey URL, used when enabled=false. redis://[:password@]host:6379/0
+  # A password here is kept in the chart Secret, never a plain Deployment env var.
   url: ""
+  # The valkey image's built-in non-root user (uid 999) — it starts as that user
+  # so no Linux capabilities are needed (we drop ALL).
+  runAsUser: 999
+  fsGroup: 999
+  # Restrict who may reach the bundled Valkey to this release's app pods. k3s
+  # enforces NetworkPolicy; disable only if your CNI does not.
+  networkPolicy:
+    enabled: true
   persistence:
     enabled: true
     size: 1Gi

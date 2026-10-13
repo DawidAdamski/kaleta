@@ -200,10 +200,17 @@ Three things, all turned on together:
 
 - **Valkey** holds the shared, non-secret state every pod must agree on
   (NiceGUI's session storage, the login rate-limit counters). Bundle one with
-  `redis.enabled=true`, or point `redis.url` at your own.
-- **Sticky sessions** (`ingress.stickySessions=true`) keep a browser on the pod
-  whose in-process KeyRing holds its unlocked key. The chart renders the Traefik
-  cookie-affinity annotations on the Service.
+  `redis.enabled=true`, or point `redis.url` at your own (setting both is
+  rejected). The bundled Valkey has **no auth**; its sessions are bearer-style
+  state, so a `NetworkPolicy` (`redis.networkPolicy.enabled`, on by default,
+  enforced by k3s) limits ingress to this release's app pods. For a stronger
+  control, use an **external, password-protected** Valkey via `redis.url` — a
+  password there is kept in the chart Secret, never a plain env var. No keys are
+  ever stored in Valkey either way.
+- **Sticky sessions** (`ingress.stickySessions=true`, **Traefik only** — the
+  chart renders Traefik cookie-affinity annotations on the Service and refuses
+  to render sticky with another `ingress.className`) keep a browser on the pod
+  whose in-process KeyRing holds its unlocked key.
 - **A rolling update** (`replicaCount > 1` switches the strategy from `Recreate`
   to `RollingUpdate` automatically), a `PodDisruptionBudget`, and a termination
   grace period, so a planned upgrade drains a pod's members onto their
@@ -242,6 +249,16 @@ serve traffic until `/api/v1/health` reports the schema current (the readiness
 probe). **Caveat:** the advisory lock is session-scoped, so `KALETA_DB_URL` must
 be a **direct or session-mode** Postgres endpoint — a transaction-pooling
 PgBouncer/Supabase pooler would silently defeat it.
+
+Because `maxUnavailable: 0` keeps the old pods serving while the new one
+migrates, a schema change must be **backward-compatible across the rollout
+window** (expand/contract: add columns/tables in the release that starts using
+them, drop the old ones only a release later). This is the normal rolling-update
+discipline; single-replica `Recreate` does not need it.
+
+Going from one replica to several deletes the single-replica sessions PVC
+(`app.persistence`). That only forces a re-login for whoever was mid-session;
+the data key is re-entered at `/unlock` after any pod change regardless.
 
 ### Postgres connection ceiling
 

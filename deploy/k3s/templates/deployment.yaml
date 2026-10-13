@@ -63,9 +63,18 @@ spec:
             {{- end }}
             - name: KALETA_SESSION_COOKIE_SECURE
               value: {{ .Values.ingress.cookieSecure | quote }}
-            {{- with (include "kaleta.redisUrl" .) }}
+            {{- if .Values.redis.enabled }}
+            # Bundled Valkey: no password in the URL, so an inline value is fine.
             - name: KALETA_REDIS_URL
-              value: {{ . | quote }}
+              value: {{ include "kaleta.redisUrl" . | quote }}
+            {{- else if .Values.redis.url }}
+            # External Valkey: the URL may carry a password, so it rides in the
+            # Secret (KALETA_DB_URL does the same).
+            - name: KALETA_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaleta.secretName" . }}
+                  key: KALETA_REDIS_URL
             {{- end }}
             # KALETA_SECRET_KEY + KALETA_DB_URL come from the Secret; kept as
             # explicit refs (not envFrom) so the Postgres bootstrap creds in the
