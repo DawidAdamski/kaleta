@@ -127,9 +127,7 @@ async def seed_features(
     else:
         wanted = _with_dependencies(asked)
 
-    outcomes: list[SeedOutcome] = []
-    for key in wanted:
-        outcomes.append(await SEEDERS_BY_KEY[key].seed(session))
+    outcomes: list[SeedOutcome] = [await SEEDERS_BY_KEY[key].seed(session) for key in wanted]
     await session.commit()
     return outcomes
 

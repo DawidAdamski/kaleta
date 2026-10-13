@@ -267,7 +267,7 @@ class ReserveFundService:
         result = await self.session.execute(
             select(Account.id, Account.currency).where(Account.id.in_([source_id, target_id]))
         )
-        currencies: dict[int, str] = {account_id: currency for account_id, currency in result}
+        currencies: dict[int, str] = dict(result.all())
         for account_id in (source_id, target_id):
             if account_id not in currencies:
                 raise NotFoundError(f"Account {account_id} not found.")

@@ -145,11 +145,12 @@ def _after_flush_postexec(session: Session, flush_ctx: UOWTransaction) -> None:
             )
         )
 
-    for d in session.info.pop("_audit_updates", []):
-        entries.append(AuditLog(operation="UPDATE", **d))
-
-    for d in session.info.pop("_audit_deletes", []):
-        entries.append(AuditLog(operation="DELETE", **d))
+    entries.extend(
+        AuditLog(operation="UPDATE", **d) for d in session.info.pop("_audit_updates", [])
+    )
+    entries.extend(
+        AuditLog(operation="DELETE", **d) for d in session.info.pop("_audit_deletes", [])
+    )
 
     member = _acting_member()
     for entry in entries:

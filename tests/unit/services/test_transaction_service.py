@@ -47,14 +47,14 @@ async def _make_category(
 
 
 def _tx(account_id: int, category_id: int, **kwargs) -> TransactionCreate:
-    defaults = dict(
-        account_id=account_id,
-        category_id=category_id,
-        amount=Decimal("100.00"),
-        type=TransactionType.EXPENSE,
-        date=TODAY,
-        description="Test",
-    )
+    defaults = {
+        "account_id": account_id,
+        "category_id": category_id,
+        "amount": Decimal("100.00"),
+        "type": TransactionType.EXPENSE,
+        "date": TODAY,
+        "description": "Test",
+    }
     defaults.update(kwargs)
     return TransactionCreate(**defaults)
 
@@ -1009,16 +1009,16 @@ class TestSplitTransactionDelete:
 
 
 def _transfer_leg(account_id: int, amount: Decimal, **kwargs) -> TransactionCreate:
-    defaults = dict(
-        account_id=account_id,
-        category_id=None,
-        amount=amount,
-        type=TransactionType.TRANSFER,
-        transfer_direction=TransferDirection.OUT,
-        date=TODAY,
-        description="Transfer",
-        is_internal_transfer=True,
-    )
+    defaults = {
+        "account_id": account_id,
+        "category_id": None,
+        "amount": amount,
+        "type": TransactionType.TRANSFER,
+        "transfer_direction": TransferDirection.OUT,
+        "date": TODAY,
+        "description": "Transfer",
+        "is_internal_transfer": True,
+    }
     defaults.update(kwargs)
     return TransactionCreate(**defaults)
 

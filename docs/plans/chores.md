@@ -460,3 +460,12 @@ check it still reproduces before acting on it.
       upload byte cap. Slice 2 of `security-assessment` plans their fixes
       (each with a `KAL-SEC-*` regression test); logged here so none is lost
       if Slice 2 slips.
+- [ ] **`api/v1` `update_*` endpoints return an ORM model as a Response.** The
+      `update_*` handlers in `transactions/payees/institutions/categories/budgets`
+      return `Service.update(...)` which is typed `Model | None`, while the
+      endpoint is annotated `-> XxxResponse`; FastAPI serialises it via
+      `response_model`, and every sibling `create/get/list` carries
+      `# type: ignore[return-value]`. `lint-hardening-part-2` added the missing
+      ignore to the `update_*` ones (they were only hidden by a stale mypy cache).
+      Consider typing these returns properly (e.g. `XxxResponse.model_validate`,
+      or a shared helper) and dropping the whole family of `# type: ignore`.

@@ -122,8 +122,7 @@ async def update_transaction(
     svc = TransactionService(session)
     if not await svc.get(transaction_id):
         raise HTTPException(status_code=404, detail="Transaction not found")
-    updated = await svc.update(transaction_id, data)
-    return updated  # type: ignore[return-value]
+    return await svc.update(transaction_id, data)  # type: ignore[return-value]
 
 
 @router.delete("/{transaction_id}", status_code=204, summary="Delete a transaction", responses=_404)

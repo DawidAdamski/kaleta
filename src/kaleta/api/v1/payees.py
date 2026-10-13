@@ -142,8 +142,7 @@ async def update_payee(
     svc = PayeeService(session)
     if not await svc.get(payee_id):
         raise HTTPException(status_code=404, detail="Payee not found")
-    updated = await svc.update(payee_id, data)
-    return updated  # type: ignore[return-value]
+    return await svc.update(payee_id, data)  # type: ignore[return-value]
 
 
 @router.delete("/{payee_id}", status_code=204, summary="Delete a payee", responses=_404)

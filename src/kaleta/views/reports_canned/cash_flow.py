@@ -101,10 +101,8 @@ def register() -> None:
 
                 def _export() -> None:
                     rows: list[list[Any]] = []
-                    for r in cfs.inflows:
-                        rows.append(["inflow", r.category, r.amount])
-                    for r in cfs.outflows:
-                        rows.append(["outflow", r.category, r.amount])
+                    rows.extend(["inflow", r.category, r.amount] for r in cfs.inflows)
+                    rows.extend(["outflow", r.category, r.amount] for r in cfs.outflows)
                     csv_download(
                         f"cash_flow_{cfs.year}_{cfs.month:02d}.csv",
                         [t("common.type"), t("common.category"), t("common.amount")],

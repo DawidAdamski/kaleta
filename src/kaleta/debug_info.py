@@ -92,7 +92,7 @@ def mask_env_value(name: str, value: str) -> str:
     upper = name.upper()
     if any(marker in upper for marker in _SECRET_MARKERS):
         return MASK if value else ""
-    if upper.endswith("DB_URL") or upper.endswith("MIGRATE_URL"):
+    if upper.endswith(("DB_URL", "MIGRATE_URL")):
         return mask_db_url(value)
     return value
 
@@ -155,7 +155,7 @@ def build_sections(
     a language, but it also holds whatever a later feature puts there, and the
     panel is not the place to find out which.
     """
-    sections = [
+    return [
         DebugSection(title="Versions", rows=version_rows()),
         DebugSection(
             title="Environment",
@@ -179,7 +179,6 @@ def build_sections(
             empty_note="No log lines were captured for this session.",
         ),
     ]
-    return sections
 
 
 def sections_as_markdown(sections: list[DebugSection]) -> str:

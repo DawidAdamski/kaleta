@@ -34,15 +34,15 @@ class BudgetsSeeder(Seeder):
         for months_back in range(MONTHS):
             year, month = month_offset(today, months_back)
             factor = inflation(months_back)
-            for name in BUDGETED_CATEGORIES:
-                rows.append(
-                    Budget(
-                        category_id=categories[name].id,
-                        amount=zloty(float(BASE_BUDGETS[name]) * factor),
-                        month=month,
-                        year=year,
-                    )
+            rows.extend(
+                Budget(
+                    category_id=categories[name].id,
+                    amount=zloty(float(BASE_BUDGETS[name]) * factor),
+                    month=month,
+                    year=year,
                 )
+                for name in BUDGETED_CATEGORIES
+            )
         session.add_all(rows)
         return {"budgets": len(rows)}
 

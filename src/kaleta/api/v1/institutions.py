@@ -73,8 +73,7 @@ async def update_institution(
     svc = InstitutionService(session)
     if not await svc.get(institution_id):
         raise HTTPException(status_code=404, detail="Institution not found")
-    updated = await svc.update(institution_id, data)
-    return updated  # type: ignore[return-value]
+    return await svc.update(institution_id, data)  # type: ignore[return-value]
 
 
 @router.delete(

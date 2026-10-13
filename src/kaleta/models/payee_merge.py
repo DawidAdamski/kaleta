@@ -4,7 +4,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import DateTime, Float, ForeignKey, UniqueConstraint
+# Float here is a 0..1 name-similarity score (see MergeHistory.score), not money,
+# so the banned-api money guard (TID251) is deliberately suppressed on this line.
+from sqlalchemy import DateTime, Float, ForeignKey, UniqueConstraint  # noqa: TID251
 from sqlalchemy.orm import Mapped, mapped_column
 
 from kaleta.db.base import Base

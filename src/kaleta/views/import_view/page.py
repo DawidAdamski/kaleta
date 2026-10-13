@@ -274,7 +274,9 @@ async def import_page() -> None:
 
     def _set_active(file_id: str) -> None:
         previous = _active()
-        if previous is not None and previous.id != file_id and not settings_section._loading:
+        # settings_section is this view's own widget wrapper; _loading is its
+        # internal "mid-repaint" guard, read here to avoid a feedback write (SLF001).
+        if previous is not None and previous.id != file_id and not settings_section._loading:  # noqa: SLF001
             settings_section.sync_from_widgets(previous)
         state["active_id"] = file_id
         _repaint_active()
@@ -448,7 +450,7 @@ async def import_page() -> None:
         _sync_step(follow=takes_focus)
 
     def _on_settings_change() -> None:
-        if settings_section._loading:
+        if settings_section._loading:  # noqa: SLF001 — own widget's mid-repaint guard (see _set_active)
             return
         active = _active()
         if active is None:

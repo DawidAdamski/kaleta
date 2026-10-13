@@ -391,14 +391,14 @@ def build_edit_dialog(
         edit_original_category_id["value"] = tx.category_id
         edit_split_rows.clear()
         if tx.is_split:
-            for split in tx.splits:
-                edit_split_rows.append(
-                    {
-                        "category_id": split.category_id,
-                        "amount": float(split.amount),
-                        "note": split.note,
-                    }
-                )
+            edit_split_rows.extend(
+                {
+                    "category_id": split.category_id,
+                    "amount": float(split.amount),
+                    "note": split.note,
+                }
+                for split in tx.splits
+            )
         edit_account_sel.set_value(tx.account_id)
         edit_amount_input.set_value(float(tx.amount))
         edit_desc_input.set_value(tx.description or "")
