@@ -3,9 +3,11 @@
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 from argparse import Namespace
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -210,11 +212,59 @@ def release_interrupted_rekeys(db_url: str) -> int:
     return released
 
 
-def ensure_multi_tenant_current(db_url: str) -> TenantMigrationRun:
-    """Bring the registry, then every tenant schema, to head.
+#: Advisory-lock key for the whole-instance migration run. Any fixed value
+#: works as long as every pod uses the same one, so it is a literal, not a hash
+#: that could drift between versions. ``pg_advisory_lock`` takes a ``bigint``.
+_MIGRATION_LOCK_KEY = 6_519_041_207_314_002  # "kaleta migrate", picked once.
 
-    Startup of a multi-tenant instance and ``scripts/migrate_tenants.py``. No
-    safety copy: backing the database up is the operator's (ADR-38). The
+
+@contextlib.contextmanager
+def _migration_advisory_lock(db_url: str) -> Iterator[None]:
+    """Hold a Postgres session advisory lock for the duration of a migration run.
+
+    Several replicas starting together would otherwise run Alembic against one
+    database concurrently (ADR-38: one Postgres, a schema per family), which is
+    a hazard. The lock serialises them: the first replica migrates while the
+    rest block here; each then acquires the lock in turn, finds the schema
+    already at head (the run is idempotent) and does nothing. A replica that
+    dies mid-run drops its connection, which releases the lock for the next.
+    This also protects the single-replica ``Recreate`` case at no cost.
+
+    AUTOCOMMIT keeps the lock-holding connection out of a long transaction; a
+    *session*-level ``pg_advisory_lock`` persists on the connection regardless,
+    until it is unlocked or the connection closes.
+    """
+    from sqlalchemy import text
+
+    engine = create_engine(_sync_url(db_url))
+    conn = engine.connect().execution_options(isolation_level="AUTOCOMMIT")
+    try:
+        conn.execute(text("SELECT pg_advisory_lock(:key)"), {"key": _MIGRATION_LOCK_KEY})
+        try:
+            yield
+        finally:
+            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY})
+    finally:
+        conn.close()
+        engine.dispose()
+
+
+def ensure_multi_tenant_current(db_url: str) -> TenantMigrationRun:
+    """Bring the registry, then every tenant schema, to head, under a lock.
+
+    Startup of a multi-tenant instance and ``scripts/migrate_tenants.py``. The
+    whole run is serialised by a Postgres advisory lock so that several
+    replicas coming up together migrate one at a time rather than concurrently
+    (see :func:`_migration_advisory_lock`).
+    """
+    with _migration_advisory_lock(db_url):
+        return _migrate_registry_and_tenants(db_url)
+
+
+def _migrate_registry_and_tenants(db_url: str) -> TenantMigrationRun:
+    """Bring the registry, then every tenant schema, to head (holds no lock).
+
+    No safety copy: backing the database up is the operator's (ADR-38). The
     registry failing stops the run — nothing can start without it. A tenant
     schema failing suspends that one account (its members are refused at
     sign-in, the health probe lists it) and the run goes on, so one broken

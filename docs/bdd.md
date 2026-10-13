@@ -3764,6 +3764,14 @@ Feature: Hosted accounts (multi-tenant)
     When Kaleta reads its settings
     Then it refuses to start with "KALETA_MODE=app (the desktop window) is gone (ADR-38): run web"
     And KALETA_MODE=web and KALETA_MODE=api still start
+
+  KAL-TEN-026 @automated
+  Scenario: Several replicas starting together migrate the database once
+    Given a hosted Kaleta started as more than one replica against one database
+    When the replicas come up at the same time and each would migrate to head
+    Then a database advisory lock lets only one replica migrate at a time
+    And the others wait, then find the schema already current and change nothing
+    And a replica that dies mid-migration releases the lock for the next one
 ```
 
 ## Feature: Instance administration
