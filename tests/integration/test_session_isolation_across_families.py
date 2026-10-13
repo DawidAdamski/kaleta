@@ -3,15 +3,20 @@
 
 The horizontal-scaling plan's top safety requirement, proven without a cluster.
 Posture 1 puts several families on one pod (sticky sessions), so that pod's
-process holds more than one family's unlocked data key at once. Each request
-must resolve its tenant schema and data key strictly from *its own* context
-(the ``ContextVar``s behind ``use_tenant`` / ``use_data_key``), never from
-"whatever this process last unlocked". This test drives two families
-concurrently on one event loop and asserts:
+process holds more than one family's unlocked data key at once. A request must
+resolve its tenant schema and data key strictly from *its own* context, never
+from "whatever this process last unlocked".
 
-* each concurrent read returns only its own family's rows, every time, and
-* reading one family's rows under the other family's key fails to decrypt
-  rather than returning anything.
+These tests read exactly as a request does: only the per-task ``TenantContext``
+is set (``use_tenant``), and its ``key_ring`` slot is filled from the process
+``KeyRing`` keyed by *that* member — the same resolution the auth layer does.
+No key is injected through the explicit-key ContextVar (``use_data_key``), so
+the decrypting read genuinely exercises ``current_data_key()``'s resolution
+from the context. That is what makes this a guard against the anti-pattern the
+plan forbids: were ``current_data_key()`` to read a process-global
+"last unlocked key" instead of the context, one of the two interleaved tasks
+would get the wrong key and fail. (Verified: stubbing that resolution to a
+module global turns the concurrent test red — see the plan's Slice 2 note.)
 
 Covers: KAL-ENC-011
 """
@@ -23,11 +28,14 @@ from collections.abc import AsyncIterator
 from dataclasses import dataclass
 
 import pytest
+from sqlalchemy import select
 
 from kaleta.auth.providers import RegistryAuthProvider
 from kaleta.crypto import DataKey
 from kaleta.db import AsyncSessionFactory
+from kaleta.db.tenant_context import use_tenant
 from kaleta.exceptions import EncryptionError
+from kaleta.models.payee import Payee
 from kaleta.schemas.identity import RegistrationMode
 from kaleta.services.local_identity_service import LocalIdentityService
 from tests.household_helpers import (
@@ -35,7 +43,6 @@ from tests.household_helpers import (
     Member,
     add_payees,
     household_database,
-    payee_names,
     set_up_passphrase,
     sign_in,
 )
@@ -49,6 +56,24 @@ class Family:
     member: Member
     key: DataKey
     payees: list[str]
+
+
+async def _read_payees_under_key(member: Member, key: DataKey | None) -> list[str]:
+    """Read ``member``'s payees with ``key`` resolved the way a request resolves it.
+
+    Only the tenant context is set; the data key rides on ``TenantContext.key_ring``
+    (what the auth layer fills), not on the explicit-key ContextVar. So the
+    decrypting read goes through ``current_data_key()``'s context resolution.
+    """
+    with use_tenant(member.context(key)):
+        async with AsyncSessionFactory() as session:
+            result = await session.execute(select(Payee.name).order_by(Payee.id))
+            return list(result.scalars().all())
+
+
+async def _read_own_payees(member: Member) -> list[str]:
+    """Read as a live request would: the key comes from the process ``KeyRing``."""
+    return await _read_payees_under_key(member, member.unlocked_key())
 
 
 async def _new_family(url: str, email: str, passphrase: str, payees: list[str]) -> Family:
@@ -78,8 +103,9 @@ async def two_families() -> AsyncIterator[tuple[Family, Family]]:
         bravo = await _new_family(
             url, "bravo@example.com", "bravo family passphrase", _BRAVO_PAYEES
         )
-        # Distinct accounts, distinct data keys — the whole point.
+        # Distinct accounts, schemas and data keys — the whole point.
         assert alpha.member.tenant_id != bravo.member.tenant_id
+        assert alpha.member.schema != bravo.member.schema
         assert alpha.key.dek != bravo.key.dek
         yield alpha, bravo
 
@@ -96,11 +122,12 @@ async def test_concurrent_reads_never_cross_families(
     async def _read_repeatedly(family: Family) -> None:
         for _ in range(25):
             await asyncio.sleep(0)  # yield so the two tasks actually interleave
-            assert await payee_names(family.member, family.key) == family.payees
+            assert await _read_own_payees(family.member) == family.payees
 
     # gather wraps each coroutine in its own Task, which runs in its own copy of
-    # the context: if tenant/key leaked across tasks, one of these would read
-    # the other family's payees (or fail to decrypt) on some iteration.
+    # the context, and the asyncpg await yields between them: if tenant or key
+    # resolution leaked across tasks, one of these would read the other family's
+    # payees (or fail to decrypt) on some iteration.
     await asyncio.gather(_read_repeatedly(alpha), _read_repeatedly(bravo))
 
 
@@ -113,13 +140,15 @@ async def test_one_familys_key_cannot_read_the_others_rows(
     """
     alpha, bravo = two_families
 
-    # Sanity: each key reads its own family's rows.
-    assert await payee_names(alpha.member, alpha.key) == alpha.payees
-    assert await payee_names(bravo.member, bravo.key) == bravo.payees
+    # Sanity: resolved from the process KeyRing, each family reads its own rows.
+    assert await _read_own_payees(alpha.member) == alpha.payees
+    assert await _read_own_payees(bravo.member) == bravo.payees
 
-    # Bravo's rows, but Alpha's key: the AES-GCM tag over Bravo's ciphertext
-    # rejects Alpha's key. Fails closed — no plaintext, Alpha's or Bravo's.
-    with pytest.raises(EncryptionError):
-        await payee_names(bravo.member, alpha.key)
-    with pytest.raises(EncryptionError):
-        await payee_names(alpha.member, bravo.key)
+    # Bravo's rows, but Alpha's key in the context: the AES-GCM tag over Bravo's
+    # ciphertext rejects Alpha's key. ``match`` pins the wrong-key (InvalidTag)
+    # branch, not the unknown-format or version-mismatch ones. Fails closed —
+    # no plaintext, Alpha's or Bravo's.
+    with pytest.raises(EncryptionError, match="Could not decrypt"):
+        await _read_payees_under_key(bravo.member, alpha.key)
+    with pytest.raises(EncryptionError, match="Could not decrypt"):
+        await _read_payees_under_key(alpha.member, bravo.key)

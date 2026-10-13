@@ -290,6 +290,23 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   key), never returning plaintext. This is the regression guard against the
   anti-pattern the plan forbids — stashing the last-unlocked key in process-wide
   state. → BDD `KAL-ENC-011 @automated`.
+  - **Faithful to the request path (review nit).** The read sets only the
+    per-task `TenantContext` and lets the DEK ride on `TenantContext.key_ring`
+    (filled from the process `KeyRing` for *that* member) — it does **not** use
+    `use_data_key` (the explicit-key ContextVar), which would win over the
+    context and mask a broken resolution. So the decrypting read genuinely goes
+    through `current_data_key()`'s context resolution.
+  - **Mutation evidence (red→green).** Replacing `current_data_key()` with the
+    anti-pattern — return the process `KeyRing`'s last-unlocked entry, ignoring
+    the per-request context — turns **both** tests red (the second-unlocked
+    family's key is served to everyone, so the other family's rows fail the
+    AES-GCM tag); reverting restores green. A naive mutant that re-reads the
+    correct context each call does *not* go red, because decryption is
+    synchronous and resolves atomically — which is itself why the ContextVar
+    design is sound.
+  - The wrong-key assertion pins the `InvalidTag` branch with
+    `match="Could not decrypt"`, so a locked tenant, unknown format or
+    version mismatch cannot pass for the wrong-key case.
 - Existing `tests/integration/test_tenant_isolation.py` already covers *row*
   isolation across tenants (schemas, token rejection, fail-closed) but
   sequentially and with `encryption="off"`; this slice adds the concurrency and
