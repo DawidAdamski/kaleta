@@ -137,3 +137,48 @@ status: proposed
   [`hosted-field-encryption`](../plans/archive/hosted-field-encryption.md),
   [`hosted-household-sharing`](../plans/archive/hosted-household-sharing.md),
   [`hosted-supabase-rollout`](../plans/archive/hosted-supabase-rollout.md).
+
+## Addendum (2026-10): running more than one replica keeps the operator blind
+
+The [`horizontal-scaling`](../plans/horizontal-scaling.md) plan makes running
+**N app replicas** a supported option. This addendum records that doing so, as
+that plan builds it (**Posture 1**), changes none of the guarantees above.
+
+- **The DEK still lives only in the memory of the pod where the member
+  unlocked.** No key material is ever written to Valkey (the shared
+  session/rate-limit store), to disk, to `app.storage.user`, or to logs —
+  exactly as this ADR requires. Valkey holds only the *authenticated* session
+  envelope (so a member stays logged in across pods — user id, e-mail, tenant
+  schema; PII, but no keys) and the login rate-limit counters. The passphrase,
+  the member KEK and the unwrapped DEK never leave the process.
+- **Sticky sessions, not shared keys, are how multi-pod works.** Ingress client
+  affinity is designed to keep a given browser landing on the pod whose
+  in-process `KeyRing` holds its DEK (the chart wiring — Traefik cookie
+  affinity, `replicaCount>1`, the Valkey dependency — is tracked in
+  [`horizontal-scaling`](../plans/horizontal-scaling.md)). Scaling out spreads
+  *different* members/families across pods.
+- **Failover costs a re-unlock, not operator access.** Losing a pod (crash,
+  scale-in, node drain) means the affected member re-enters their **data
+  passphrase** — precisely what any restart already requires, since the DEK is
+  gone from memory by design. The infrastructure never reconstructs a DEK
+  without the member (the compromised- or malicious-host case is unchanged and
+  stays as the threat model above describes it). This is the hard trade-off:
+  seamless cross-pod failover and operator-blindness are mutually exclusive, and
+  this ADR chooses operator-blindness.
+- **One process holding several families' DEKs never crosses them.** Each
+  request resolves its tenant schema and DEK strictly from its own per-task
+  context (`ContextVar`s), never from "whatever this pod last unlocked" —
+  regression-tested under real concurrency (`KAL-ENC-011`).
+- **Concurrent replicas migrate the database once**, serialised by a Postgres
+  advisory lock, so N pods starting together do not run Alembic concurrently
+  (`KAL-TEN-026`).
+
+**Not adopted here: Posture 2.** Storing the DEK wrapped by an *operator unwrap
+key* (KMS or pod env) in Valkey so any pod can serve a member without a
+re-unlock *would* downgrade this ADR's promise to the ordinary SaaS posture
+("encrypted at rest; the provider can decrypt an active session"), because the
+operator would then hold a key that reconstructs any account's DEK. It is
+deliberately **not** built; should the product ever choose seamless failover
+over operator-blindness, it becomes its own ADR amendment and a paid-tier
+opt-in. The design and threat model are tracked in the research plan
+[`encryption-posture-research`](../plans/encryption-posture-research.md).
