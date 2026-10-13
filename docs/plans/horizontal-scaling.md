@@ -275,8 +275,27 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   `tests/integration/test_login_rate_limit_replicas.py` (`KAL-AUTH-034`) cover
   the shared-counter path. No new test added — that would duplicate.
 
+### Slice 2 — session-isolation regression test, cluster-independent
+- **The top safety requirement is now a test.** `TenantContext` and the data
+  key both live in `ContextVar`s (`src/kaleta/db/tenant_context.py`,
+  `src/kaleta/db/types.py`), so a request already resolves its tenant schema and
+  DEK strictly from its own context, never from "whatever this process last
+  unlocked". `tests/integration/test_session_isolation_across_families.py`
+  proves it holds under actual concurrency on one process: two families,
+  unlocked with distinct passphrases (hence distinct DEKs), read concurrently
+  via `asyncio.gather` (each coroutine runs in its own copied context) across 25
+  interleaved iterations — each read returns only its own family's payees. A
+  second test confirms it fails *closed*: reading one family's rows under the
+  other family's key raises `EncryptionError` (the AES-GCM tag rejects the wrong
+  key), never returning plaintext. This is the regression guard against the
+  anti-pattern the plan forbids — stashing the last-unlocked key in process-wide
+  state. → BDD `KAL-ENC-011 @automated`.
+- Existing `tests/integration/test_tenant_isolation.py` already covers *row*
+  isolation across tenants (schemas, token rejection, fail-closed) but
+  sequentially and with `encryption="off"`; this slice adds the concurrency and
+  the DEK-crossover dimensions it does not.
+
 ### Still to do (later slices)
-Session-isolation regression test (two tenants on one process); the Valkey /
-sticky-session chart path, `PodDisruptionBudget`, rolling-update strategy and
-the re-unlock "reconnect" modal (mostly `[manual]`, need a live cluster); the
-ADR-35 multi-pod addendum.
+The Valkey / sticky-session chart path, `PodDisruptionBudget`, rolling-update
+strategy and the re-unlock "reconnect" modal (mostly `[manual]`, need a live
+cluster); the ADR-35 multi-pod addendum.
