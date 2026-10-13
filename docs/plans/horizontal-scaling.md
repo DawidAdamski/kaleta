@@ -382,15 +382,22 @@ state the app already handles:
   → `/unlock?redirect_to=…`, the **data-passphrase** prompt, never `/login`.
 
 That is exactly the plan's requirement ("prompt for just the data passphrase,
-not a full re-login"), and it is covered by
+not a full re-login"). The **guard behaviour** is covered by
 `tests/unit/auth/test_unlock_guard.py::test_a_locked_page_load_goes_to_unlock`
 (`KAL-ENC-003`): an authenticated session with an empty `KeyRing` requesting a
-page is redirected to `/unlock`, and unlocking resumes it. A failover pod is
-that case. No `src/kaleta/views/` change, hence no new e2e.
+page is redirected to `/unlock`, and unlocking resumes it — a failover pod is
+that case. The test uses a dict-backed fake for `app.storage.user`, so it proves
+the guard, not the Valkey-backed *sharing* of the session across pods; that half
+rests on the `NiceguiStorageService.configure_environment` wiring (and every pod
+sharing `KALETA_SECRET_KEY`) and is confirmed only by the `[manual]` k3d run
+below. No `src/kaleta/views/` change, hence no new e2e.
 
-An *in-place* modal that catches the NiceGUI websocket reconnect without a page
-navigation is optional UX polish, not a correctness or security requirement, and
-its only verification is the `[manual]` k3d run below. Deferred, not built.
+When an already-open page's websocket reconnects to a new pod, the expectation
+is that NiceGUI's reconnect ends in a page load, which hits the middleware and
+the same `/unlock` gate — the `[manual]` k3d run is what confirms that NiceGUI
+2.x actually behaves this way across pods. An *in-place* modal that avoids any
+reload is optional UX polish, not a correctness or security requirement, and
+would be verifiable only on the cluster too. Deferred, not built.
 
 ### Still to do (needs a live cluster — `[manual]` only)
 All buildable (cluster-independent) work is done; what remains can be checked
