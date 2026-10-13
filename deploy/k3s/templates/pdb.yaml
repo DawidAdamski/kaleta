@@ -1,0 +1,18 @@
+{{- /* SPDX-License-Identifier: AGPL-3.0-or-later */ -}}
+{{- if and (gt (int .Values.replicaCount) 1) .Values.podDisruptionBudget.enabled -}}
+# Only meaningful with more than one replica: keep at least one app pod serving
+# through a voluntary disruption (a node drain for an upgrade). A single-replica
+# release stays on Recreate, where a PDB would just block drains.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "kaleta.fullname" . }}
+  labels:
+    {{- include "kaleta.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "kaleta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: app
+{{- end -}}

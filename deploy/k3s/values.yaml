@@ -16,8 +16,11 @@ image:
   pullPolicy: IfNotPresent
 
 # The app runs as a single replica by default: the KeyRing is in-process and
-# sessions are file-backed, so one replica is the simple, correct case. Scaling
-# up needs Valkey + sticky sessions — see `redis` below and docs/deploy-k3s.md.
+# sessions are file-backed, so one replica is the simple, correct case. To run
+# more than one you MUST also enable Valkey (`redis` below) and sticky sessions
+# (`ingress.stickySessions`) — the chart refuses to render otherwise. Keys are
+# never shared between pods; a pod loss just sends its members back to /unlock
+# (ADR-35 addendum + docs/deploy-k3s.md "Scaling beyond one replica").
 replicaCount: 1
 
 app:
@@ -88,11 +91,61 @@ ingress:
   tls: true
   # Set true to mark the session cookie Secure (required behind TLS).
   cookieSecure: true
+  # Traefik cookie affinity. REQUIRED for replicaCount > 1: a browser keeps
+  # hitting the pod whose in-process KeyRing holds its unlocked key; a
+  # re-balance or pod loss just sends that member back to /unlock. Rendered as
+  # annotations on the Service, which Traefik's Kubernetes Ingress provider reads.
+  stickySessions: false
+  stickyCookieName: kaleta_affinity
 
-# Multi-replica knob (NOT the default). Set redis.url and bump replicaCount,
-# and add sticky sessions on the ingress. A restart still locks the KeyRing.
+# Valkey (Redis-wire-compatible) for the shared, NON-secret state every replica
+# must agree on: NiceGUI's session storage and the login rate-limit counters.
+# REQUIRED for replicaCount > 1. The account DEK is NEVER put here — it stays in
+# the unlocking pod's memory (ADR-35 addendum). Mirrors `postgres`: a bundled
+# single instance by default-off, or point `url` at your own.
 redis:
+  # Bundle a small single-instance Valkey. Set false and fill `url` for your own.
+  # Setting BOTH enabled and url is rejected. The bundled Valkey has no auth and
+  # is reached only in-cluster; a NetworkPolicy (below) limits that to app pods.
+  # For stronger isolation point `url` at a password-protected external Valkey.
+  enabled: false
+  image: docker.io/valkey/valkey:8-alpine
+  # External Valkey URL, used when enabled=false. redis://[:password@]host:6379/0
+  # A password here is kept in the chart Secret, never a plain Deployment env var.
   url: ""
+  # The valkey image's built-in non-root user (uid 999) — it starts as that user
+  # so no Linux capabilities are needed (we drop ALL).
+  runAsUser: 999
+  fsGroup: 999
+  # Restrict who may reach the bundled Valkey to this release's app pods. k3s
+  # enforces NetworkPolicy; disable only if your CNI does not.
+  networkPolicy:
+    enabled: true
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: "500m"
+      memory: 256Mi
+
+# Graceful rollout, used only when replicaCount > 1 (single replica stays
+# Recreate so two versions never migrate the database at once). Surge a new pod
+# in before draining an old one, and give in-flight websockets time to close.
+rollout:
+  maxSurge: 1
+  maxUnavailable: 0
+  terminationGracePeriodSeconds: 60
+
+# PodDisruptionBudget, rendered only for replicaCount > 1, so a node drain keeps
+# at least one app pod serving.
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
 
 # pg_dump backup CronJob (bundled Postgres only). Dumps to a PVC; wire restic/
 # rclone off-box via backup.extraCommand if you want off-cluster copies.

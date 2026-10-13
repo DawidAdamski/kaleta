@@ -5,6 +5,15 @@ metadata:
   name: {{ include "kaleta.fullname" . }}
   labels:
     {{- include "kaleta.labels" . | nindent 4 }}
+  {{- if .Values.ingress.stickySessions }}
+  # Traefik client affinity: keep a browser on the pod whose KeyRing holds its
+  # unlocked key. Read by Traefik's Kubernetes Ingress provider off the Service.
+  annotations:
+    traefik.ingress.kubernetes.io/service.sticky.cookie: "true"
+    traefik.ingress.kubernetes.io/service.sticky.cookie.name: {{ .Values.ingress.stickyCookieName | quote }}
+    traefik.ingress.kubernetes.io/service.sticky.cookie.secure: {{ .Values.ingress.cookieSecure | quote }}
+    traefik.ingress.kubernetes.io/service.sticky.cookie.httponly: "true"
+  {{- end }}
 spec:
   type: ClusterIP
   selector:

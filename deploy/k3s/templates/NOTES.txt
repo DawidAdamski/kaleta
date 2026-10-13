@@ -1,10 +1,16 @@
 Kaleta {{ .Chart.AppVersion }} is installed as release "{{ .Release.Name }}".
 
 Image:    {{ .Values.image.repository }}:{{ .Values.image.tag }}
+Replicas: {{ .Values.replicaCount }}{{ if gt (int .Values.replicaCount) 1 }} (Valkey + sticky sessions){{ end }}
 {{- if .Values.postgres.enabled }}
 Database: bundled PostgreSQL ({{ include "kaleta.postgres.fullname" . }})
 {{- else }}
 Database: external ({{ .Values.externalDatabase.url | default "UNSET — set externalDatabase.url" }})
+{{- end }}
+{{- if .Values.redis.enabled }}
+Valkey:   bundled ({{ include "kaleta.valkey.fullname" . }})
+{{- else if .Values.redis.url }}
+Valkey:   external
 {{- end }}
 
 1. Wait for the rollout:
@@ -30,6 +36,12 @@ Database: external ({{ .Values.externalDatabase.url | default "UNSET — set ext
 
 NOTE: the KeyRing holds the encryption key in memory — every pod restart sends
 each family back to /unlock (ADR-35/38). This is expected, not a fault.
+{{- if gt (int .Values.replicaCount) 1 }}
+Running {{ .Values.replicaCount }} replicas: sticky sessions pin each browser to
+one pod; losing that pod re-balances the member to another and asks for the data
+passphrase again (never a silent wrong-decrypt). Keys are never put in Valkey.
+See docs/deploy-k3s.md "Scaling beyond one replica".
+{{- end }}
 {{- if not .Values.secrets.existingSecret }}
 
 Secrets rendered from values. For GitOps, prefer secrets.existingSecret and

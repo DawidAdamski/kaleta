@@ -323,9 +323,55 @@ replicas migrate once (`KAL-TEN-026`). It also states explicitly that Posture 2
 is **not** adopted and would be its own amendment, pointing at
 `encryption-posture-research.md`. Documentation only; no code, no new scenario.
 
-### Still to do (later slices, need a live cluster — mostly `[manual]`)
-The Valkey / sticky-session chart path (`replicaCount>1`, `RollingUpdate`,
-`PodDisruptionBudget`, Traefik cookie affinity, bundled/external Valkey, the
-migration gate wired into the chart), the re-unlock "reconnect" modal, and the
-scaling runbook in `docs/deploy-k3s.md`. These are the acceptance criteria
-marked `[manual]`.
+### Slice 4 — multi-replica chart path + runbook, cluster-independent to build
+`deploy/k3s/` now has a real `replicaCount > 1` path:
+- **Strategy** switches from `Recreate` (one replica) to `RollingUpdate`
+  (`maxSurge`/`maxUnavailable` tunable, default surge-before-drain) above one,
+  with `terminationGracePeriodSeconds` for websocket draining.
+- **Bundled Valkey** (`redis.enabled`, a single-instance StatefulSet mirroring
+  Postgres) or an external `redis.url`; `KALETA_REDIS_URL` resolves from a
+  `kaleta.redisUrl` helper. **Open question resolved — Valkey: bundled by
+  default-off with an external escape hatch** (mirrors the Postgres decision).
+- **Sticky sessions** (`ingress.stickySessions`) render Traefik cookie-affinity
+  annotations on the Service.
+- **`PodDisruptionBudget`** rendered only above one replica.
+- **Guard**: `kaleta.validateScaling` makes the chart `fail` to render
+  `replicaCount > 1` without *both* Valkey and sticky sessions — a broken
+  "request lands on a pod that never unlocked" config cannot be shipped.
+- **No migration Job** — the Slice 1 advisory lock already serialises concurrent
+  startup, so the chart needs no pre-upgrade hook; documented in the runbook,
+  with the PgBouncer/session-mode caveat and PG connection-ceiling note. **Open
+  question resolved — migration gate stays the advisory lock, not a Job.**
+- Validated with `helm lint` + `helm template` (single replica → Recreate, no
+  Valkey/PDB; multi → RollingUpdate + PDB + bundled Valkey + sticky + sessions
+  as emptyDir; both guard failures; external-`redis.url` path).
+- `docs/deploy-k3s.md` "Scaling beyond one replica" expanded into a real runbook
+  (what it needs, what the chart enforces, what a member sees on a pod change,
+  migrations, the PG ceiling).
+- **Review nits folded in:** an external `redis.url` (may carry a password) now
+  rides in the chart Secret via `secretKeyRef`, never a plain Deployment env var
+  (the bundled URL has none, stays inline); the bundled Valkey runs as the
+  image's non-root uid 999 with `fsGroup` so `drop: ALL` does not crash-loop it;
+  a `NetworkPolicy` (default on, k3s-enforced) limits the auth-less bundled
+  Valkey to app pods, with the residual (sessions are bearer state; use an
+  external password-protected Valkey for more) documented; the guard also
+  `fail`s on `redis.enabled`+`redis.url` together and on sticky sessions with a
+  non-Traefik `className`; and the runbook states migrations must be
+  backward-compatible (expand/contract) across the `maxUnavailable: 0` rollout
+  window.
+
+Remaining open questions for the live-cluster stage: **sticky granularity**
+(Traefik per-browser affinity is accepted — documented consequence: two devices
+of one family may pin to different pods, each unlocks its own; keys are
+per-member anyway) and **NiceGUI 2.x multi-instance** behaviour, which only a
+real `replicaCount=2` run on k3d can confirm.
+
+### Still to do (needs a live cluster)
+- The re-unlock **"reconnect" modal**: a request landing on a pod whose
+  `KeyRing` lacks the DEK (post-failover) but with a still-authenticated Valkey
+  session should prompt for just the data passphrase, not a full re-login. This
+  touches `src/kaleta/views/` (⇒ `verify.sh --e2e`) and is the last code slice.
+- The `[manual]` acceptance criteria: a `replicaCount=2` k3d run proving the
+  session survives a rolling update, a hard failover prompts only for the
+  passphrase, migrations run exactly once, and killing one pod keeps the app up
+  for members on the survivor.
