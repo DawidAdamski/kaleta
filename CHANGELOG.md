@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.4.0](https://github.com/DawidAdamski/kaleta/compare/v0.3.0...v0.4.0) (2026-10-13)
+
+
+### Features
+
+* **deploy:** complete the k3s Helm chart + docs (deploy-k3s Slice 1) ([44aa03c](https://github.com/DawidAdamski/kaleta/commit/44aa03cbf4b3754540ff6d4487696c40244d31a6))
+* **deploy:** k3s Helm chart + docs (deploy-k3s Slice 1) ([d2893ef](https://github.com/DawidAdamski/kaleta/commit/d2893ef035edc04f947925f7ce180089b0512094))
+
+
+### Bug Fixes
+
+* **deploy:** component selector + restore runbook (chart review) ([30542c0](https://github.com/DawidAdamski/kaleta/commit/30542c0a788c15fd773367287b1c2c3f5e6a1ca8))
+
 ## [0.3.0](https://github.com/DawidAdamski/kaleta/compare/v0.2.0...v0.3.0) (2026-10-12)
 
 
