@@ -36,10 +36,10 @@ Covers:
   release-please step (`.github/workflows/release-please.yml`).
 - A scheduled + manually-dispatchable retention workflow
   (`.github/workflows/image-retention.yml`) that prunes old `sha-*` tags
-  on Docker Hub (keep newest N) and clears dangling untagged versions on
-  GHCR. Conservative keep-rule: it only ever removes `sha-*` tags beyond
-  the newest N — `main`, semver and anything else are protected by
-  construction. Manual runs default to **dry-run** (list only).
+  on Docker Hub (keep newest N). Conservative keep-rule: it only ever
+  removes `sha-*` tags beyond the newest N — `main`, semver and anything
+  else are protected by construction. Manual runs default to **dry-run**
+  (list only).
 
 Does NOT cover:
 - The root cause of PRs being locked (a repo setting / external actor, not
@@ -48,8 +48,15 @@ Does NOT cover:
 - The one-off build of the already-missing `0.3.0` image — that is a
   manual `gh workflow run docker.yml --ref v0.3.0` the maintainer triggers
   (publishes a public image; out of band from this PR).
-- GHCR *tagged* pruning (free, generous, tied to the public repo) — only
-  untagged cleanup here.
+- **GHCR pruning — deliberately deferred.** `docker.yml` builds with
+  provenance attestations, so each tagged image is an OCI *index* whose
+  child manifests (image + attestation) appear on GHCR as *untagged*
+  package versions. `actions/delete-package-versions`' "delete only
+  untagged" mode would delete those children and leave the tagged index
+  pointing at missing blobs — pulls of `:main` / `:sha-*` would then fail.
+  A safe GHCR prune needs a provenance-aware tool (e.g.
+  `snok/container-retention-policy`); out of scope here, where the ask was
+  Docker Hub. GHCR is free, generous, and tied to the public repo anyway.
 - The `anihilat` Docker Hub namespace: never hard-coded; the workflow
   reads `${{ secrets.DOCKER_USERNAME }}` so nothing personal lands in this
   repo.
@@ -88,12 +95,18 @@ Does NOT cover:
   strictly `^sha-` tags, sorts by `last_updated` desc, keeps `KEEP_SHA=10`,
   deletes the tail. `main`/`latest`/semver are unreachable by the selector.
   Manual dispatch defaults to `dry_run: true` (list only); the weekly cron
-  prunes for real. GHCR side only clears dangling *untagged* digests via
-  `actions/delete-package-versions@v5` (no tag ever removed), skipped on
-  manual dry-runs since that action has no preview mode.
+  prunes for real. A `concurrency` group stops a manual run and the cron
+  from overlapping.
+- **GHCR dropped from scope (review finding).** The first draft added an
+  `actions/delete-package-versions@v5` "delete untagged" job for GHCR; the
+  reviewer correctly flagged that provenance attestations make tagged images
+  OCI indexes whose children are *untagged* versions, so that job would
+  corrupt tagged images. Removed; see Scope → Does NOT cover.
 - **Secrets / privacy.** The prune job sets `environment: DOCKER_HUB` to reach
   `DOCKER_USERNAME`/`DOCKER_TOKEN` (same gate as `docker.yml`); the namespace
   is read from the secret, never hard-coded, so the `anihilat` handle stays
   out of this repo.
 - **Docker Hub auth.** `POST /v2/users/login/` with the PAT as `password`
-  yields a JWT; API calls use `Authorization: JWT <token>`.
+  yields a JWT; API calls use `Authorization: JWT <token>`. The PAT needs
+  **delete** scope, or the `DELETE /tags/<name>/` call returns 401/403 —
+  `DOCKER_TOKEN` may need widening from the push-only scope docker.yml uses.

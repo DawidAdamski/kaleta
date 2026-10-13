@@ -1,13 +1,17 @@
 name: Image tag retention
 
-# Prunes throwaway image tags so the registries do not grow without bound.
-# Every push to main adds a `sha-<short>` tag on both GHCR and Docker Hub;
-# Docker Hub's free tier has no retention policy, so they accumulate forever.
-# We only ever deploy `main`, a semver tag, or a recent `sha-*`.
+# Prunes throwaway image tags on Docker Hub so the repo does not grow without
+# bound. Every push to main adds a `sha-<short>` tag; Docker Hub's free tier has
+# no retention policy, so they accumulate forever. We only ever deploy `main`, a
+# semver tag, or a recent `sha-*`.
 #
 # Conservative by construction: this only ever removes `sha-*` tags beyond the
-# newest KEEP_SHA on Docker Hub, plus dangling *untagged* versions on GHCR.
-# `main`, `latest`, semver (`0.3.0`, `0.3`) and anything else are never touched.
+# newest KEEP_SHA. `main`, `latest`, semver (`0.3.0`, `0.3`) and anything else
+# are never selected. GHCR is deliberately out of scope — see the plan.
+concurrency:
+  group: image-retention
+  cancel-in-progress: false
+
 on:
   schedule:
     - cron: "0 4 * * 1" # Mon 04:00 UTC — real prune
@@ -67,20 +71,3 @@ jobs:
             fi
           done
           echo "Done."
-
-  ghcr-untagged:
-    runs-on: ubuntu-latest
-    # The GHCR cleanup action has no dry-run, so skip it for manual preview runs;
-    # it still runs on the schedule and on an explicit dry_run=false dispatch.
-    # It only removes dangling *untagged* digests, never a tagged image.
-    if: ${{ github.event_name == 'schedule' || inputs.dry_run == false }}
-    permissions:
-      packages: write
-    steps:
-      - name: Delete dangling untagged GHCR versions
-        uses: actions/delete-package-versions@v5
-        with:
-          package-name: kaleta
-          package-type: container
-          delete-only-untagged-versions: "true"
-          token: ${{ secrets.GITHUB_TOKEN }}
