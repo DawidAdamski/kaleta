@@ -70,6 +70,7 @@ the naive fallback.
 - [Hosted deployment (Supabase)](docs/deployment.md) — multi-tenant instance, operations, hosted-dev stack, demo
 - [Privacy](docs/privacy.md) — what is encrypted, anonymous error events, retention, bug reports
 - [Local deploy (launchd / systemd)](docs/deploy-local.md) — autostart on localhost + `/api/v1/health`
+- [Deploy on k3s (Helm)](docs/deploy-k3s.md) — self-hosted chart: app, bundled Postgres, Traefik TLS, backups
 - [Contributing](CONTRIBUTING.md) — how we work and open a PR
 - [Security](SECURITY.md) — report vulnerabilities privately
 

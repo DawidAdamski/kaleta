@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Kaleta Helm values. See docs/deploy-k3s.md for the full walkthrough.
+# The only values you must set for a real deploy are `ingress.host` and the
+# two secrets (secretKey, the database password) — everything else has a
+# homelab-sane default.
+
+# Override the generated resource names (optional).
+nameOverride: ""
+fullnameOverride: ""
+
+image:
+  repository: ghcr.io/dawidadamski/kaleta
+  # Pinned release tag — never `latest`. A rollout is a deliberate bump.
+  tag: "0.3.0"
+  pullPolicy: IfNotPresent
+
+# The app runs as a single replica by default: the KeyRing is in-process and
+# sessions are file-backed, so one replica is the simple, correct case. Scaling
+# up needs Valkey + sticky sessions — see `redis` below and docs/deploy-k3s.md.
+replicaCount: 1
+
+app:
+  mode: web
+  authBackend: local
+  # Absolute URL the app is reached at; drives cookies and links. Defaults to
+  # https://<ingress.host> when left empty and the ingress is enabled.
+  publicUrl: ""
+  # Extra KALETA_* env vars, as name/value pairs, merged after the managed ones.
+  extraEnv: []
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 512Mi
+  # PVC for ~/.kaleta (NiceGUI file-backed sessions). Lost sessions just mean a
+  # re-login; the data key is re-entered at /unlock after any restart regardless.
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""  # "" = cluster default (local-path on k3s)
+
+# Secrets. For a real deploy, set these here (or --set) or point `existingSecret`
+# at a Secret you manage out-of-band (sealed-secrets, SOPS, …).
+secrets:
+  # KALETA_SECRET_KEY — signs session cookies. MUST be changed; the app refuses
+  # to start in non-debug with the insecure default.
+  secretKey: ""
+  # Name of a pre-created Secret holding KALETA_SECRET_KEY and KALETA_DB_URL
+  # (and KALETA_DB_PASSWORD for the bundled Postgres). Overrides the values above.
+  existingSecret: ""
+
+# Bundled single-instance PostgreSQL (ADR-38: one Postgres for the whole
+# instance). Set enabled=false and fill externalDatabase to use a managed one.
+postgres:
+  enabled: true
+  image: docker.io/library/postgres:18
+  database: kaleta
+  # The non-superuser app role (see deploy/postgres/init-app-role.sql).
+  appUser: kaleta_app
+  appPassword: "kaleta_app"  # CHANGE ME for a real deploy.
+  # The superuser password for the bundled instance's bootstrap.
+  postgresPassword: "postgres"  # CHANGE ME for a real deploy.
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# Used only when postgres.enabled=false. A full SQLAlchemy async URL.
+externalDatabase:
+  url: ""  # postgresql+asyncpg://user:pass@host:5432/kaleta
+
+ingress:
+  enabled: true
+  className: traefik
+  host: kaleta.example.com
+  # cert-manager ClusterIssuer that signs the TLS cert (Let's Encrypt).
+  clusterIssuer: letsencrypt-prod
+  tls: true
+  # Set true to mark the session cookie Secure (required behind TLS).
+  cookieSecure: true
+
+# Multi-replica knob (NOT the default). Set redis.url and bump replicaCount,
+# and add sticky sessions on the ingress. A restart still locks the KeyRing.
+redis:
+  url: ""
+
+# pg_dump backup CronJob (bundled Postgres only). Dumps to a PVC; wire restic/
+# rclone off-box via backup.extraCommand if you want off-cluster copies.
+backup:
+  enabled: true
+  schedule: "0 3 * * *"  # 03:00 daily
+  retentionDays: 14
+  persistence:
+    enabled: true
+    size: 5Gi
+    storageClass: ""

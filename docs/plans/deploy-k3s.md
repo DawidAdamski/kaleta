@@ -3,7 +3,7 @@ plan_id: deploy-k3s
 title: Deploy Kaleta on a self-hosted k3s cluster
 area: deploy
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -77,6 +77,74 @@ Supabase. **Do this plan last**, once the features above are merged.
 `deploy/k3s/*` (new), `deploy/postgres/init-app-role.sql`, `scripts/k3s-smoke.sh` (new),
 `docs/deploy-k3s.md` (new), `docs/deployment.md` / `docs/self-hosting.md` (cross-links),
 `.github/workflows/*` (optional kind smoke test), `README.md` (a deploy pointer).
+
+## Implementation notes
+
+### Delivery in slices
+
+`large` plan; ships in single-purpose PRs:
+
+- **Slice 1 — the Helm chart + docs (this PR).** A Helm chart under
+  `deploy/k3s/` (bundled Postgres StatefulSet, app Deployment, Service, Traefik
+  Ingress + cert-manager, Secret, backup CronJob), `values.yaml` with the knobs,
+  and `docs/deploy-k3s.md`. Validated statically with `helm lint` and
+  `helm template | kubectl apply --dry-run`. No app-code changes.
+- **Slice 2 — prove it stands up (later).** `scripts/k3s-smoke.sh` stands up a
+  k3d cluster, installs the chart, waits for `/api/v1/health`, creates the first
+  account and signs in; optional kind CI job. Live cluster run lives here, not
+  in Slice 1.
+
+### Decisions (Slice 1)
+
+- **Helm chart, not kustomize** (open question 1): the knobs (domain, storage
+  class, replica count, bundled-vs-external Postgres, image tag) are exactly a
+  `values.yaml`. Validated with `helm` 4.x locally.
+- **Bundled Postgres StatefulSet, external supported** (open question 2):
+  `postgres.enabled=true` ships a single-instance StatefulSet with a PVC and the
+  app role from `deploy/postgres/init-app-role.sql` (as a ConfigMap-mounted init
+  script); set `postgres.enabled=false` + `externalDatabase.url` to point at a
+  managed Postgres.
+- **Traefik + cert-manager default** (open question 3): k3s ships Traefik; the
+  Ingress carries a `cert-manager.io/cluster-issuer` annotation. Caddy stays
+  documented as the alternative (the existing `deploy/selfhost/caddy.yml`).
+- **Pinned image tag** (open question 4): `image.tag` defaults to the current
+  release (`ghcr.io/dawidadamski/kaleta`, published by `.github/workflows/docker.yml`),
+  never `latest`; a rollout is a deliberate tag bump.
+- **One replica, `Recreate`** : the in-process KeyRing and file-backed sessions
+  make `replicas: 1` the correct default; the Deployment uses `strategy:
+  Recreate` so two versions never migrate at once. Multi-replica (Valkey +
+  sticky sessions) is a documented, non-default knob.
+
+### Slice 1 — implemented
+
+Chart complete under `deploy/k3s/`: `Chart.yaml`, `values.yaml`, `.helmignore`,
+and templates `_helpers.tpl`, `secret.yaml`, `deployment.yaml` (+ sessions PVC),
+`service.yaml`, `ingress.yaml`, `postgres.yaml` (StatefulSet + headless Service
++ init ConfigMap), `backup.yaml` (CronJob + PVC), `NOTES.txt`. Docs in
+`docs/deploy-k3s.md`; README pointer added.
+
+- **DB URL in a helper, not a root mutation.** The WIP `{{ set . ... }}` hack is
+  gone; `kaleta.dbUrl` builds the asyncpg URL (bundled role + service name, or
+  the external URL) and `fail`s when neither is set. `secret.yaml` and the env
+  wiring call the helper.
+- **App-role password never in the ConfigMap.** The bundled Postgres init is a
+  `.sh` (not the static `.sql`) that reads `$POSTGRES_APP_PASSWORD` from the
+  Secret at runtime: `\$\$` escapes the PL/pgSQL dollar-quote so the shell keeps
+  it, while `$POSTGRES_APP_PASSWORD` is expanded. The ConfigMap holds the script
+  shape only. (Caveat: a password with a literal `'` would break the inline SQL;
+  the generated hex passwords in the docs do not.)
+- **Explicit secret refs, not `envFrom`.** The app gets `KALETA_SECRET_KEY` and
+  `KALETA_DB_URL` via `secretKeyRef`, so the Postgres bootstrap creds in the same
+  Secret never land in the app pod's environment.
+- **Headless Postgres Service** (`clusterIP: None`) named by
+  `kaleta.postgres.fullname`, which is exactly the host in `KALETA_DB_URL`.
+- **Validated statically** (no live cluster, per the slicing): `helm lint` clean;
+  `helm template | kubectl apply --dry-run=client` passes for both the bundled
+  and the external-DB paths; both `fail` guards fire. Live stand-up + smoke test
+  are Slice 2.
+- **GitOps note.** Default renders the Secret from values (fine for
+  `helm install`); `secrets.existingSecret` points at a SOPS/sealed Secret for
+  Flux/Argo. The owner's own cluster deploy uses that path (separate repo).
 
 ## Open questions
 
