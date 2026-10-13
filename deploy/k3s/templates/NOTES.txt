@@ -1,0 +1,37 @@
+Kaleta {{ .Chart.AppVersion }} is installed as release "{{ .Release.Name }}".
+
+Image:    {{ .Values.image.repository }}:{{ .Values.image.tag }}
+{{- if .Values.postgres.enabled }}
+Database: bundled PostgreSQL ({{ include "kaleta.postgres.fullname" . }})
+{{- else }}
+Database: external ({{ .Values.externalDatabase.url | default "UNSET — set externalDatabase.url" }})
+{{- end }}
+
+1. Wait for the rollout:
+
+     kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "kaleta.fullname" . }}
+
+2. Health (503 = database not ready; database_ok:true + no pending migrations = OK):
+
+     kubectl -n {{ .Release.Namespace }} exec deploy/{{ include "kaleta.fullname" . }} -- \
+       python -c "import urllib.request;print(urllib.request.urlopen('http://localhost:8080/api/v1/health').read().decode())"
+
+{{- if .Values.ingress.enabled }}
+
+3. Open the app and create the first (local) account:
+
+     https://{{ .Values.ingress.host }}
+{{- else }}
+
+3. No ingress enabled — port-forward to reach it:
+
+     kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "kaleta.fullname" . }} 8080:80
+{{- end }}
+
+NOTE: the KeyRing holds the encryption key in memory — every pod restart sends
+each family back to /unlock (ADR-35/38). This is expected, not a fault.
+{{- if not .Values.secrets.existingSecret }}
+
+Secrets rendered from values. For GitOps, prefer secrets.existingSecret and
+manage the Secret with SOPS/sealed-secrets instead of plaintext values.
+{{- end }}

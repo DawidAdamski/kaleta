@@ -1,0 +1,128 @@
+{{- /* SPDX-License-Identifier: AGPL-3.0-or-later */ -}}
+{{- if .Values.postgres.enabled -}}
+{{- $pg := .Values.postgres -}}
+# Init script for the app role. initdb runs files in /docker-entrypoint-initdb.d
+# once, on an empty data dir. A .sh (not the static .sql) so the password comes
+# from the env (sourced from the Secret) and never lives in this ConfigMap.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "kaleta.postgres.fullname" . }}-init
+  labels:
+    {{- include "kaleta.labels" . | nindent 4 }}
+data:
+  10-init-app-role.sh: |
+    #!/bin/sh
+    set -e
+    psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+      DO \$\$
+      BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{{ $pg.appUser }}') THEN
+          CREATE ROLE {{ $pg.appUser }} LOGIN PASSWORD '$POSTGRES_APP_PASSWORD'
+            NOSUPERUSER NOCREATEDB NOCREATEROLE;
+        END IF;
+      END
+      \$\$;
+      GRANT CONNECT, CREATE ON DATABASE {{ $pg.database }} TO {{ $pg.appUser }};
+      GRANT USAGE, CREATE ON SCHEMA public TO {{ $pg.appUser }};
+    EOSQL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaleta.postgres.fullname" . }}
+  labels:
+    {{- include "kaleta.labels" . | nindent 4 }}
+spec:
+  # Headless: the single Postgres pod is reached by its stable service DNS name,
+  # which is exactly what KALETA_DB_URL points at.
+  clusterIP: None
+  selector:
+    {{- include "kaleta.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgres
+  ports:
+    - name: postgres
+      port: 5432
+      targetPort: postgres
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "kaleta.postgres.fullname" . }}
+  labels:
+    {{- include "kaleta.labels" . | nindent 4 }}
+spec:
+  serviceName: {{ include "kaleta.postgres.fullname" . }}
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "kaleta.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgres
+  template:
+    metadata:
+      labels:
+        {{- include "kaleta.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgres
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: postgres
+          image: {{ $pg.image | quote }}
+          ports:
+            - name: postgres
+              containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: {{ $pg.database | quote }}
+            # Superuser password + app-role password, both from the Secret.
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaleta.secretName" . }}
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRES_APP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaleta.secretName" . }}
+                  key: POSTGRES_APP_PASSWORD
+            # initdb writes the cluster under a subdir so the mount's lost+found
+            # does not collide with an empty-dir check.
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          readinessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ $pg.appUser }}", "-d", "{{ $pg.database }}"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["pg_isready", "-U", "{{ $pg.appUser }}", "-d", "{{ $pg.database }}"]
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            {{- toYaml $pg.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+            - name: init
+              mountPath: /docker-entrypoint-initdb.d
+      volumes:
+        - name: init
+          configMap:
+            name: {{ include "kaleta.postgres.fullname" . }}-init
+            defaultMode: 0755
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        {{- with $pg.persistence.storageClass }}
+        storageClassName: {{ . | quote }}
+        {{- end }}
+        resources:
+          requests:
+            storage: {{ $pg.persistence.size }}
+{{- end -}}

@@ -48,3 +48,20 @@ ingress is on, else empty (the app falls back to its own default).
 {{- printf "https://%s" .Values.ingress.host -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+The SQLAlchemy async DB URL. Bundled Postgres: built from the app role and the
+in-cluster service name. External: the URL given verbatim. Fails loudly when
+postgres is disabled and no external URL is set, so a misconfigured release
+never renders a Secret with an empty URL.
+*/}}
+{{- define "kaleta.dbUrl" -}}
+{{- if .Values.postgres.enabled -}}
+{{- $pg := .Values.postgres -}}
+{{- printf "postgresql+asyncpg://%s:%s@%s:5432/%s" $pg.appUser $pg.appPassword (include "kaleta.postgres.fullname" .) $pg.database -}}
+{{- else if .Values.externalDatabase.url -}}
+{{- .Values.externalDatabase.url -}}
+{{- else -}}
+{{- fail "postgres.enabled is false but externalDatabase.url is empty — set one." -}}
+{{- end -}}
+{{- end -}}

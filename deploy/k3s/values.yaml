@@ -5,6 +5,10 @@
 # two secrets (secretKey, the database password) — everything else has a
 # homelab-sane default.
 
+# Override the generated resource names (optional).
+nameOverride: ""
+fullnameOverride: ""
+
 image:
   repository: ghcr.io/dawidadamski/kaleta
   # Pinned release tag — never `latest`. A rollout is a deliberate bump.

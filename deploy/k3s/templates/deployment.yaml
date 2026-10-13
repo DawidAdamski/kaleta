@@ -1,0 +1,123 @@
+{{- /* SPDX-License-Identifier: AGPL-3.0-or-later */ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "kaleta.fullname" . }}
+  labels:
+    {{- include "kaleta.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  # One replica + in-process KeyRing + file-backed sessions ⇒ Recreate, so two
+  # versions never run (and never migrate the database) at once.
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "kaleta.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "kaleta.selectorLabels" . | nindent 8 }}
+    spec:
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: kaleta
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: KALETA_MODE
+              value: {{ .Values.app.mode | quote }}
+            - name: KALETA_AUTH_BACKEND
+              value: {{ .Values.app.authBackend | quote }}
+            - name: KALETA_HOST
+              value: "0.0.0.0"
+            - name: KALETA_PORT
+              value: "8080"
+            {{- with (include "kaleta.publicUrl" .) }}
+            - name: KALETA_PUBLIC_URL
+              value: {{ . | quote }}
+            {{- end }}
+            - name: KALETA_SESSION_COOKIE_SECURE
+              value: {{ .Values.ingress.cookieSecure | quote }}
+            {{- with .Values.redis.url }}
+            - name: KALETA_REDIS_URL
+              value: {{ . | quote }}
+            {{- end }}
+            # KALETA_SECRET_KEY + KALETA_DB_URL come from the Secret; kept as
+            # explicit refs (not envFrom) so the Postgres bootstrap creds in the
+            # same Secret never leak into the app's environment.
+            - name: KALETA_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaleta.secretName" . }}
+                  key: KALETA_SECRET_KEY
+            - name: KALETA_DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "kaleta.secretName" . }}
+                  key: KALETA_DB_URL
+            {{- with .Values.app.extraEnv }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          # /api/v1/health returns 503 until the database is reachable and
+          # migrations are applied — a good readiness gate.
+          readinessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/v1/health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.app.resources | nindent 12 }}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+          volumeMounts:
+            # Image runs as root (no USER in the Containerfile); HOME=/root, so
+            # NiceGUI's file-backed sessions live under /root/.kaleta.
+            - name: sessions
+              mountPath: /root/.kaleta
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: sessions
+          {{- if .Values.app.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "kaleta.fullname" . }}-sessions
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: tmp
+          emptyDir: {}
+{{- if .Values.app.persistence.enabled }}
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "kaleta.fullname" . }}-sessions
+  labels:
+    {{- include "kaleta.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  {{- with .Values.app.persistence.storageClass }}
+  storageClassName: {{ . | quote }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.app.persistence.size }}
+{{- end }}

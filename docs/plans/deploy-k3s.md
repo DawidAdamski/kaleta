@@ -115,6 +115,37 @@ Supabase. **Do this plan last**, once the features above are merged.
   Recreate` so two versions never migrate at once. Multi-replica (Valkey +
   sticky sessions) is a documented, non-default knob.
 
+### Slice 1 — implemented
+
+Chart complete under `deploy/k3s/`: `Chart.yaml`, `values.yaml`, `.helmignore`,
+and templates `_helpers.tpl`, `secret.yaml`, `deployment.yaml` (+ sessions PVC),
+`service.yaml`, `ingress.yaml`, `postgres.yaml` (StatefulSet + headless Service
++ init ConfigMap), `backup.yaml` (CronJob + PVC), `NOTES.txt`. Docs in
+`docs/deploy-k3s.md`; README pointer added.
+
+- **DB URL in a helper, not a root mutation.** The WIP `{{ set . ... }}` hack is
+  gone; `kaleta.dbUrl` builds the asyncpg URL (bundled role + service name, or
+  the external URL) and `fail`s when neither is set. `secret.yaml` and the env
+  wiring call the helper.
+- **App-role password never in the ConfigMap.** The bundled Postgres init is a
+  `.sh` (not the static `.sql`) that reads `$POSTGRES_APP_PASSWORD` from the
+  Secret at runtime: `\$\$` escapes the PL/pgSQL dollar-quote so the shell keeps
+  it, while `$POSTGRES_APP_PASSWORD` is expanded. The ConfigMap holds the script
+  shape only. (Caveat: a password with a literal `'` would break the inline SQL;
+  the generated hex passwords in the docs do not.)
+- **Explicit secret refs, not `envFrom`.** The app gets `KALETA_SECRET_KEY` and
+  `KALETA_DB_URL` via `secretKeyRef`, so the Postgres bootstrap creds in the same
+  Secret never land in the app pod's environment.
+- **Headless Postgres Service** (`clusterIP: None`) named by
+  `kaleta.postgres.fullname`, which is exactly the host in `KALETA_DB_URL`.
+- **Validated statically** (no live cluster, per the slicing): `helm lint` clean;
+  `helm template | kubectl apply --dry-run=client` passes for both the bundled
+  and the external-DB paths; both `fail` guards fire. Live stand-up + smoke test
+  are Slice 2.
+- **GitOps note.** Default renders the Secret from values (fine for
+  `helm install`); `secrets.existingSecret` points at a SOPS/sealed Secret for
+  Flux/Argo. The owner's own cluster deploy uses that path (separate repo).
+
 ## Open questions
 
 - Helm chart or plain manifests + kustomize? Default: a Helm chart — values for the

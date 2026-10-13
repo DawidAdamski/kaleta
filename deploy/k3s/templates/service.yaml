@@ -1,0 +1,15 @@
+{{- /* SPDX-License-Identifier: AGPL-3.0-or-later */ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "kaleta.fullname" . }}
+  labels:
+    {{- include "kaleta.labels" . | nindent 4 }}
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "kaleta.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
