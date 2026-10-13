@@ -79,13 +79,15 @@ def test_concurrent_runs_never_migrate_at_the_same_time(monkeypatch: pytest.Monk
     """
     active = 0
     max_active = 0
+    runs = 0
     counter_lock = threading.Lock()
     both_ready = threading.Barrier(2)
 
     def _fake_body(db_url: str) -> setup_service.TenantMigrationRun:
-        nonlocal active, max_active
+        nonlocal active, max_active, runs
         with counter_lock:
             active += 1
+            runs += 1
             max_active = max(max_active, active)
         time.sleep(0.2)  # hold the lock long enough for the other thread to collide
         with counter_lock:
@@ -94,9 +96,14 @@ def test_concurrent_runs_never_migrate_at_the_same_time(monkeypatch: pytest.Monk
 
     monkeypatch.setattr(setup_service, "_migrate_registry_and_tenants", _fake_body)
 
+    errors: list[Exception] = []
+
     def _worker() -> None:
-        both_ready.wait()
-        setup_service.ensure_multi_tenant_current(_DB_URL)
+        try:
+            both_ready.wait()
+            setup_service.ensure_multi_tenant_current(_DB_URL)
+        except Exception as exc:  # a swallowed worker failure must not pass as success
+            errors.append(exc)
 
     threads = [threading.Thread(target=_worker) for _ in range(2)]
     for thread in threads:
@@ -104,4 +111,8 @@ def test_concurrent_runs_never_migrate_at_the_same_time(monkeypatch: pytest.Monk
     for thread in threads:
         thread.join(timeout=10)
 
-    assert max_active == 1  # the advisory lock never let both bodies run at once
+    assert not any(thread.is_alive() for thread in threads)  # neither hung on the lock
+    assert errors == []  # both acquired the lock and ran cleanly
+    assert runs == 2  # both bodies actually executed (not one crashing early)
+    assert max_active == 1  # but never at the same time — the lock serialised them.
+    # Without the lock, the barrier + sleep(0.2) would overlap them: max_active == 2.

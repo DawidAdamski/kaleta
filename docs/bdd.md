@@ -3769,9 +3769,9 @@ Feature: Hosted accounts (multi-tenant)
   Scenario: Several replicas starting together migrate the database once
     Given a hosted Kaleta started as more than one replica against one database
     When the replicas come up at the same time and each would migrate to head
-    Then a database advisory lock lets only one replica migrate at a time
-    And the others wait, then find the schema already current and change nothing
-    And a replica that dies mid-migration releases the lock for the next one
+    Then a database advisory lock lets only one replica run the migration at a time
+    And the others wait for the lock rather than migrating concurrently
+    And a migration run that fails releases the lock for the next replica
 ```
 
 ## Feature: Instance administration

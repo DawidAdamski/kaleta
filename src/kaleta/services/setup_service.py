@@ -212,9 +212,16 @@ def release_interrupted_rekeys(db_url: str) -> int:
     return released
 
 
-#: Advisory-lock key for the whole-instance migration run. Any fixed value
-#: works as long as every pod uses the same one, so it is a literal, not a hash
-#: that could drift between versions. ``pg_advisory_lock`` takes a ``bigint``.
+#: Advisory-lock key for the migration run. The lock is scoped to the one
+#: database (ADR-38: one Postgres per instance, a schema per family), which is
+#: exactly the scope we want. Any fixed value works as long as every pod uses
+#: the same one, so it is a literal, not a hash that could drift between
+#: versions. ``pg_advisory_lock`` takes a ``bigint``.
+#:
+#: The lock is *session*-scoped, so it must run over a direct (or session-mode)
+#: connection: behind a transaction-pooling PgBouncer / Supabase pooler the
+#: lock and unlock can land on different backends and silently do nothing.
+#: ``KALETA_DB_URL`` for the migration must therefore be a direct endpoint.
 _MIGRATION_LOCK_KEY = 6_519_041_207_314_002  # "kaleta migrate", picked once.
 
 
@@ -243,7 +250,11 @@ def _migration_advisory_lock(db_url: str) -> Iterator[None]:
         try:
             yield
         finally:
-            conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY})
+            # Closing the connection (outer finally) releases the lock on its
+            # own, so an unlock that fails on a half-dead connection must not
+            # replace the real migration error with a connection error.
+            with contextlib.suppress(Exception):
+                conn.execute(text("SELECT pg_advisory_unlock(:key)"), {"key": _MIGRATION_LOCK_KEY})
     finally:
         conn.close()
         engine.dispose()

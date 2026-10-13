@@ -259,6 +259,16 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   `tests/integration/test_migration_lock.py` (mutual exclusion, release-on-exit,
   release-on-exception, and a two-thread test that the body never runs
   concurrently) → BDD `KAL-TEN-026 @automated`.
+- **Pooler caveat (feeds the PgBouncer open question).** A session-level
+  advisory lock only works over a direct (or session-mode) connection: behind a
+  transaction-pooling PgBouncer / Supabase pooler, lock and unlock can land on
+  different backends and the lock silently does nothing. The migration's
+  `KALETA_DB_URL` must be a direct endpoint — documented at `_MIGRATION_LOCK_KEY`
+  and to be surfaced in `docs/deploy-k3s.md` / `docs/deployment.md` in the
+  chart slice.
+- **Deferred (follow-up, not needed for correctness):** `SET lock_timeout` or a
+  `pg_try_advisory_lock` poll with a "waiting for migration lock" log line, so a
+  replica stuck on a hung migration does not stall other pods' startup silently.
 - **Rate-limit `RedisStore` acceptance criterion was already satisfied** before
   this plan: `tests/unit/auth/test_login_rate_limit.py` (`TestRedisStore` +
   the store-parametrised cases, with `fakeredis`) and
