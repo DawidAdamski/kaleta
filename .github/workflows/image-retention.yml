@@ -1,0 +1,73 @@
+name: Image tag retention
+
+# Prunes throwaway image tags on Docker Hub so the repo does not grow without
+# bound. Every push to main adds a `sha-<short>` tag; Docker Hub's free tier has
+# no retention policy, so they accumulate forever. We only ever deploy `main`, a
+# semver tag, or a recent `sha-*`.
+#
+# Conservative by construction: this only ever removes `sha-*` tags beyond the
+# newest KEEP_SHA. `main`, `latest`, semver (`0.3.0`, `0.3`) and anything else
+# are never selected. GHCR is deliberately out of scope — see the plan.
+concurrency:
+  group: image-retention
+  cancel-in-progress: false
+
+on:
+  schedule:
+    - cron: "0 4 * * 1" # Mon 04:00 UTC — real prune
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "List what would be deleted without deleting it"
+        type: boolean
+        default: true
+
+env:
+  KEEP_SHA: 10 # how many newest sha-* tags to keep on Docker Hub
+
+jobs:
+  dockerhub-prune:
+    runs-on: ubuntu-latest
+    # Docker Hub creds live behind this environment (same as docker.yml); without
+    # it DOCKER_USERNAME/DOCKER_TOKEN are empty and the job no-ops.
+    environment: DOCKER_HUB
+    steps:
+      - name: Prune old sha-* tags on Docker Hub
+        env:
+          DH_USER: ${{ secrets.DOCKER_USERNAME }}
+          DH_TOKEN: ${{ secrets.DOCKER_TOKEN }}
+          # Scheduled runs prune for real; manual runs honour the dry_run input
+          # (default true) so a human can review the list before anything is cut.
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || 'false' }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DH_USER:-}" ] || [ -z "${DH_TOKEN:-}" ]; then
+            echo "DOCKER_USERNAME/DOCKER_TOKEN not set — nothing to do."; exit 0
+          fi
+          echo "Repo: $DH_USER/kaleta  keep newest $KEEP_SHA sha-* tags  dry_run=$DRY_RUN"
+          TOKEN=$(curl -fsS -H 'Content-Type: application/json' \
+            -d "{\"username\":\"$DH_USER\",\"password\":\"$DH_TOKEN\"}" \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+          # Collect every tag (name + last_updated), paginating through the API.
+          url="https://hub.docker.com/v2/namespaces/$DH_USER/repositories/kaleta/tags?page_size=100"
+          tags_file="$(mktemp)"
+          while [ -n "$url" ] && [ "$url" != "null" ]; do
+            page="$(curl -fsS -H "Authorization: JWT $TOKEN" "$url")"
+            echo "$page" | jq -r '.results[] | [.name, .last_updated] | @tsv' >> "$tags_file"
+            url="$(echo "$page" | jq -r '.next')"
+          done
+          # sha-* only, newest first (ISO-8601 sorts lexically), drop the newest
+          # KEEP_SHA → the rest is the deletion list. Nothing else can be selected.
+          mapfile -t DELETE < <(grep -P '^sha-\S*\t' "$tags_file" | sort -k2 -r | tail -n +"$((KEEP_SHA + 1))" | cut -f1)
+          total="$(grep -cP '^sha-' "$tags_file" || true)"
+          echo "sha-* tags: ${total:-0} total, ${#DELETE[@]} to prune"
+          for t in "${DELETE[@]}"; do
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "DRY-RUN would delete: $t"
+            else
+              echo "Deleting: $t"
+              curl -fsS -X DELETE -H "Authorization: JWT $TOKEN" \
+                "https://hub.docker.com/v2/namespaces/$DH_USER/repositories/kaleta/tags/$t/"
+            fi
+          done
+          echo "Done."
