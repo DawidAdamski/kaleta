@@ -26,18 +26,42 @@ jobs:
 
       # A tag pushed with GITHUB_TOKEN does not trigger other workflows (GitHub's
       # loop guard), so docker.yml's `v*` trigger would never fire for a release.
-      # workflow_dispatch is the allowed exception, so kick the image build off the
-      # new tag here when a release is actually cut.
+      # workflow_dispatch is the allowed exception, so kick the image build off
+      # the new tag here when a release is actually cut.
       #
-      # `always()` on purpose: the release-please step above can exit non-zero
-      # *after* creating the release+tag (e.g. it then tries to comment on a
-      # merged PR that is locked — "Unable to create comment because issue is
-      # locked"). Its `release_created`/`tag_name` outputs are set before that
-      # point, so the image build must not be skipped just because a later,
-      # cosmetic sub-step failed. Guard on the output value explicitly instead
-      # of the implicit success() of the previous step.
-      - name: Build the release image from the new tag
-        if: ${{ always() && steps.release.outputs.release_created == 'true' }}
+      # This step must NOT depend on the release-please step's outcome or its
+      # outputs: that step routinely exits non-zero *after* creating the
+      # release+tag (it then fails to comment on a locked PR —
+      # "Unable to create comment because issue is locked"), and on that failure
+      # its `release_created`/`tag_name` outputs come back empty. An earlier fix
+      # that guarded on `always() && steps.release.outputs.release_created` was
+      # therefore still skipped (seen for v0.4.0). Instead, detect a fresh release
+      # independently: the latest GitHub Release's tag points at the very commit
+      # this push is building (the merge of the release PR). gh resolves the tag
+      # to its commit, so annotated vs lightweight does not matter.
+      - name: Build the release image when a release tag is at HEAD
+        if: ${{ always() }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run docker.yml --ref "${{ steps.release.outputs.tag_name }}"
+        run: |
+          set -euo pipefail
+          # Distinguish "no release yet" (fine, skip) from a real gh/auth/network
+          # error (fail loudly) — swallowing the latter would silently skip a real
+          # release build, which is the very bug this step exists to prevent.
+          if out="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>&1)"; then
+            tag="$out"
+          else
+            case "$out" in
+              *"release not found"*|*"no release"*)
+                echo "No releases yet — nothing to build."; exit 0 ;;
+              *)
+                echo "gh release view failed: $out" >&2; exit 1 ;;
+            esac
+          fi
+          tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" -q .sha)"
+          if [ "$tag_commit" = "$GITHUB_SHA" ]; then
+            echo "Release $tag is at HEAD ($GITHUB_SHA) — dispatching the image build."
+            gh workflow run docker.yml --repo "$GITHUB_REPOSITORY" --ref "$tag"
+          else
+            echo "Latest release $tag is at $tag_commit, not HEAD $GITHUB_SHA — ordinary push, skipping."
+          fi
