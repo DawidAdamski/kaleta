@@ -45,6 +45,12 @@ Everything has a homelab-sane default except:
 > `postgres.enabled=false` with no `externalDatabase.url` — a misconfigured
 > release never reaches the cluster.
 
+> Keep the bundled `postgres.appPassword` to unreserved characters (hex is
+> ideal): it goes verbatim into the `KALETA_DB_URL` and into an inline SQL
+> string, so a `@`, `:`, `/` would need URL-encoding and a `'` would break the
+> init SQL. For an external DB, URL-encode the password in `externalDatabase.url`
+> yourself.
+
 ## Install — bundled Postgres (default)
 
 ```sh
@@ -57,8 +63,9 @@ helm install kaleta deploy/k3s \
 ```
 
 The bundled Postgres StatefulSet creates the `kaleta` database and a
-**non-superuser** app role (`kaleta_app`) via an init script (from
-[`deploy/postgres/init-app-role.sql`](../deploy/postgres/init-app-role.sql));
+**non-superuser** app role (`kaleta_app`) via an init script that mirrors
+[`deploy/postgres/init-app-role.sql`](../deploy/postgres/init-app-role.sql) (the
+hosted instance's bootstrap);
 the role owns nothing it does not need — it may create schemas (one per family,
 ADR-38) and the registry tables in `public`, nothing more. The init script runs
 once, on an empty data directory; the role password is read from the Secret at
@@ -104,8 +111,10 @@ With `ingress.tls=true` and `ingress.clusterIssuer` set, the Ingress carries a
 `cert-manager.io/cluster-issuer` annotation and cert-manager provisions the cert
 into `<release>-kaleta-tls`. `ingress.cookieSecure=true` (the default) sets
 `KALETA_SESSION_COOKIE_SECURE` so cookies are only sent over HTTPS — **do not
-enable it on plain HTTP**, logins would break. An internal CA (not Let's
-Encrypt) is just a different `clusterIssuer` name.
+enable it on plain HTTP**, logins would break. This knob is independent of
+`ingress.enabled`: if you turn the ingress off and reach the app over plain HTTP
+(e.g. a port-forward), set `--set ingress.cookieSecure=false`. An internal CA
+(not Let's Encrypt) is just a different `clusterIssuer` name.
 
 ## Verify
 
@@ -129,12 +138,31 @@ With the bundled Postgres, a nightly CronJob runs `pg_dump -Fc` to a PVC
 (`backup.retentionDays`, default 14). The dump holds the **ciphertext** of
 user-written fields (ADR-35), so a restore is only readable with the **same
 `KALETA_SECRET_KEY`** — back up the Secret too (e.g. export it with SOPS and
-keep it off-cluster). Restore:
+keep it off-cluster).
+
+Restore needs the dump, which lives on the backup PVC (not mounted in the
+Postgres pod). Scale the app to 0 first, then run a one-off pod that mounts the
+PVC and restores over the network to the Postgres service:
 
 ```sh
-kubectl -n kaleta exec -it <postgres-pod> -- \
-  pg_restore -U kaleta_app -d kaleta --clean --if-exists /path/to/dump
+kubectl -n kaleta scale deploy/kaleta-kaleta --replicas=0
+
+kubectl -n kaleta run pg-restore --rm -it --restart=Never \
+  --image=docker.io/library/postgres:18 \
+  --overrides='{"spec":{"containers":[{"name":"pg-restore",
+    "image":"docker.io/library/postgres:18","stdin":true,"tty":true,
+    "command":["sh","-c","pg_restore -h kaleta-kaleta-postgres -U kaleta_app -d kaleta --clean --if-exists /backup/$DUMP"],
+    "env":[{"name":"PGPASSWORD","valueFrom":{"secretKeyRef":{"name":"kaleta","key":"POSTGRES_APP_PASSWORD"}}},
+           {"name":"DUMP","value":"kaleta-YYYYMMDD-HHMM.dump"}],
+    "volumeMounts":[{"name":"backup","mountPath":"/backup"}]}],
+    "volumes":[{"name":"backup","persistentVolumeClaim":{"claimName":"kaleta-kaleta-backup"}}]}}'
+
+kubectl -n kaleta scale deploy/kaleta-kaleta --replicas=1
 ```
+
+(The backup PVC is `ReadWriteOnce`, so the restore pod must land on the node
+holding it; with one node that is automatic. Replace the release prefix
+`kaleta-kaleta` and `DUMP` as needed.)
 
 External Postgres: use your provider's backups (`backup.enabled=false`).
 
@@ -144,8 +172,11 @@ External Postgres: use your provider's backups (`backup.enabled=false`).
 bump:
 
 ```sh
-helm upgrade kaleta deploy/k3s --reuse-values --set image.tag=0.4.0
+helm upgrade kaleta deploy/k3s --reset-then-reuse-values --set image.tag=0.4.0
 ```
+
+(`--reset-then-reuse-values` keeps your overrides but still picks up new chart
+defaults — safer than `--reuse-values` after a chart bump.)
 
 The app runs its migrations on start (registry first, then each family's
 schema); `Recreate` guarantees the old pod is gone before the new one migrates.

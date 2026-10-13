@@ -4,6 +4,8 @@
 # Init script for the app role. initdb runs files in /docker-entrypoint-initdb.d
 # once, on an empty data dir. A .sh (not the static .sql) so the password comes
 # from the env (sourced from the Secret) and never lives in this ConfigMap.
+# The role + grants MIRROR deploy/postgres/init-app-role.sql (the hosted
+# instance's bootstrap) — keep the two in sync.
 apiVersion: v1
 kind: ConfigMap
 metadata:
