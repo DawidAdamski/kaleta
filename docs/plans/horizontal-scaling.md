@@ -275,8 +275,44 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   `tests/integration/test_login_rate_limit_replicas.py` (`KAL-AUTH-034`) cover
   the shared-counter path. No new test added — that would duplicate.
 
+### Slice 2 — session-isolation regression test, cluster-independent
+- **The top safety requirement is now a test.** `TenantContext` and the data
+  key both live in `ContextVar`s (`src/kaleta/db/tenant_context.py`,
+  `src/kaleta/db/types.py`), so a request already resolves its tenant schema and
+  DEK strictly from its own context, never from "whatever this process last
+  unlocked". `tests/integration/test_session_isolation_across_families.py`
+  proves it holds under actual concurrency on one process: two families,
+  unlocked with distinct passphrases (hence distinct DEKs), read concurrently
+  via `asyncio.gather` (each coroutine runs in its own copied context) across 25
+  interleaved iterations — each read returns only its own family's payees. A
+  second test confirms it fails *closed*: reading one family's rows under the
+  other family's key raises `EncryptionError` (the AES-GCM tag rejects the wrong
+  key), never returning plaintext. This is the regression guard against the
+  anti-pattern the plan forbids — stashing the last-unlocked key in process-wide
+  state. → BDD `KAL-ENC-011 @automated`.
+  - **Faithful to the request path (review nit).** The read sets only the
+    per-task `TenantContext` and lets the DEK ride on `TenantContext.key_ring`
+    (filled from the process `KeyRing` for *that* member) — it does **not** use
+    `use_data_key` (the explicit-key ContextVar), which would win over the
+    context and mask a broken resolution. So the decrypting read genuinely goes
+    through `current_data_key()`'s context resolution.
+  - **Mutation evidence (red→green).** Replacing `current_data_key()` with the
+    anti-pattern — return the process `KeyRing`'s last-unlocked entry, ignoring
+    the per-request context — turns **both** tests red (the second-unlocked
+    family's key is served to everyone, so the other family's rows fail the
+    AES-GCM tag); reverting restores green. A naive mutant that re-reads the
+    correct context each call does *not* go red, because decryption is
+    synchronous and resolves atomically — which is itself why the ContextVar
+    design is sound.
+  - The wrong-key assertion pins the `InvalidTag` branch with
+    `match="Could not decrypt"`, so a locked tenant, unknown format or
+    version mismatch cannot pass for the wrong-key case.
+- Existing `tests/integration/test_tenant_isolation.py` already covers *row*
+  isolation across tenants (schemas, token rejection, fail-closed) but
+  sequentially and with `encryption="off"`; this slice adds the concurrency and
+  the DEK-crossover dimensions it does not.
+
 ### Still to do (later slices)
-Session-isolation regression test (two tenants on one process); the Valkey /
-sticky-session chart path, `PodDisruptionBudget`, rolling-update strategy and
-the re-unlock "reconnect" modal (mostly `[manual]`, need a live cluster); the
-ADR-35 multi-pod addendum.
+The Valkey / sticky-session chart path, `PodDisruptionBudget`, rolling-update
+strategy and the re-unlock "reconnect" modal (mostly `[manual]`, need a live
+cluster); the ADR-35 multi-pod addendum.

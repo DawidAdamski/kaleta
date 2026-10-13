@@ -4118,6 +4118,15 @@ Feature: Data encryption (user-held passphrase)
     When I restore that export
     Then the database holds ciphertext again and looking the payees up by name still works
     And a restore after which no key holder remains is refused and changes nothing
+
+  KAL-ENC-011 @automated
+  Scenario: Two families unlocked in one process never cross keys or rows
+    Given two families signed in and unlocked on the same server process, each
+      with its own data passphrase and its own encrypted payees
+    When both are read concurrently, each in its own request context
+    Then each read returns only its own family's payees, every time
+    And reading one family's rows under the other family's key fails to decrypt
+      rather than returning anything
 ```
 
 ## Feature: Demo instance
