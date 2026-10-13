@@ -366,12 +366,40 @@ of one family may pin to different pods, each unlocks its own; keys are
 per-member anyway) and **NiceGUI 2.x multi-instance** behaviour, which only a
 real `replicaCount=2` run on k3d can confirm.
 
-### Still to do (needs a live cluster)
-- The re-unlock **"reconnect" modal**: a request landing on a pod whose
-  `KeyRing` lacks the DEK (post-failover) but with a still-authenticated Valkey
-  session should prompt for just the data passphrase, not a full re-login. This
-  touches `src/kaleta/views/` (⇒ `verify.sh --e2e`) and is the last code slice.
-- The `[manual]` acceptance criteria: a `replicaCount=2` k3d run proving the
-  session survives a rolling update, a hard failover prompts only for the
-  passphrase, migrations run exactly once, and killing one pod keeps the app up
-  for members on the survivor.
+### Slice 5 — re-unlock on failover: already handled, no new code
+Investigated before building a "reconnect modal" and found the behaviour
+**already exists**, so none was added (building speculative UI would be waste).
+
+The post-failover state is *identical* to the everyday "signed in but locked"
+state the app already handles:
+- `SESSION_AUTHENTICATED` and the tenant keys live in `app.storage.user`, which
+  NiceGUI backs with Valkey when `KALETA_REDIS_URL` is set — so a failover pod
+  still sees the session as **authenticated**.
+- `is_unlocked()` consults the *in-process* `KeyRing`, which on a fresh pod is
+  empty — so the session reads as **locked**.
+- `AuthMiddleware` (`src/kaleta/auth/middleware.py`): authenticated + valid
+  tenant + not expired/revoked + `not is_unlocked()` ⇒ `unlock_redirect(path)`
+  → `/unlock?redirect_to=…`, the **data-passphrase** prompt, never `/login`.
+
+That is exactly the plan's requirement ("prompt for just the data passphrase,
+not a full re-login"), and it is covered by
+`tests/unit/auth/test_unlock_guard.py::test_a_locked_page_load_goes_to_unlock`
+(`KAL-ENC-003`): an authenticated session with an empty `KeyRing` requesting a
+page is redirected to `/unlock`, and unlocking resumes it. A failover pod is
+that case. No `src/kaleta/views/` change, hence no new e2e.
+
+An *in-place* modal that catches the NiceGUI websocket reconnect without a page
+navigation is optional UX polish, not a correctness or security requirement, and
+its only verification is the `[manual]` k3d run below. Deferred, not built.
+
+### Still to do (needs a live cluster — `[manual]` only)
+All buildable (cluster-independent) work is done; what remains can be checked
+only on a live multi-node cluster:
+- a `replicaCount=2` k3d run proving the session survives a rolling update, a
+  hard failover prompts only for the passphrase (the `/unlock` gate above),
+  migrations run exactly once, and killing one pod keeps the app up for members
+  on the survivor;
+- confirming NiceGUI 2.x multi-instance behaviour with Valkey storage.
+
+Once those `[manual]` checks pass on the cluster, the plan is complete and can be
+archived.
