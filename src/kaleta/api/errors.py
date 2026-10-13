@@ -56,8 +56,9 @@ async def kaleta_error_handler(request: Request, exc: KaletaError) -> JSONRespon
     status = _status_for(exc)
     event_id: str | None = None
     if status >= 500:
-        # Not in an `except` block (FastAPI calls handlers with the exc), so
-        # log.exception would record no traceback (LOG004) — pass exc_info=exc.
+        # Handlers receive the exc as an argument and may run outside an active
+        # `except` (LOG004 flags log.exception here) — pass exc_info=exc so the
+        # traceback is logged either way.
         log.error("Unhandled domain error: %s", exc.message, exc_info=exc)
         from kaleta.services.event_capture import capture_exception_async
 

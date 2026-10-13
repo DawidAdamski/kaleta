@@ -122,6 +122,14 @@ ignore = [
 "sqlalchemy.Float".msg = "Amounts must be Numeric/Decimal, not Float (floats lose cents). A genuine non-money float (e.g. a 0..1 score) needs an explicit noqa."
 "sqlalchemy.REAL".msg = "Amounts must be Numeric/Decimal, not REAL."
 "sqlalchemy.Double".msg = "Amounts must be Numeric/Decimal, not Double."
+"sqlalchemy.FLOAT".msg = "Amounts must be Numeric/Decimal, not FLOAT."
+"sqlalchemy.types.Float".msg = "Amounts must be Numeric/Decimal, not Float."
+"sqlalchemy.types.FLOAT".msg = "Amounts must be Numeric/Decimal, not FLOAT."
+"sqlalchemy.types.REAL".msg = "Amounts must be Numeric/Decimal, not REAL."
+"sqlalchemy.types.Double".msg = "Amounts must be Numeric/Decimal, not Double."
+"sqlalchemy.dialects.postgresql.FLOAT".msg = "Amounts must be Numeric/Decimal, not FLOAT."
+"sqlalchemy.dialects.postgresql.REAL".msg = "Amounts must be Numeric/Decimal, not REAL."
+"sqlalchemy.dialects.postgresql.DOUBLE_PRECISION".msg = "Amounts must be Numeric/Decimal, not DOUBLE_PRECISION."
 
 [tool.ruff.lint.per-file-ignores]
 # FastAPI uses Depends/Query in argument defaults — B008 is a false positive there.

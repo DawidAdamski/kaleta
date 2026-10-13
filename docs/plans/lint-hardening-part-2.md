@@ -60,9 +60,10 @@ them now would mean ~10 ignores on correct code.
 - `./scripts/verify.sh`
 
 ## Touchpoints
-`pyproject.toml` (ruff + mypy config), plus small lint fixes across `src/`
-(logging calls, comprehensions, returns, private access, perf) and one
-`# noqa: TID251` in `src/kaleta/models/payee_merge.py`.
+`pyproject.toml` (ruff + mypy config), plus small lint fixes across `src/`,
+`scripts/` and `tests/` (logging calls, comprehensions, returns, private
+access, perf, `dict()` literals) and one `# noqa: TID251` in
+`src/kaleta/models/payee_merge.py`.
 
 ## Implementation notes
 - **ruff families added** (`ASYNC G LOG TID ISC FLY RSE PLE C4 PIE RET SLF PERF`).
