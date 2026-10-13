@@ -29,6 +29,38 @@ app.kubernetes.io/instance: {{ .Release.Name }}
 {{- printf "%s-postgres" (include "kaleta.fullname" .) | trunc 63 | trimSuffix "-" -}}
 {{- end -}}
 
+{{- define "kaleta.valkey.fullname" -}}
+{{- printf "%s-valkey" (include "kaleta.fullname" .) | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+The Valkey (KALETA_REDIS_URL) the app uses, or empty when none is configured:
+the bundled instance's in-cluster service when redis.enabled, else redis.url.
+*/}}
+{{- define "kaleta.redisUrl" -}}
+{{- if .Values.redis.enabled -}}
+{{- printf "redis://%s:6379/0" (include "kaleta.valkey.fullname" .) -}}
+{{- else -}}
+{{- .Values.redis.url -}}
+{{- end -}}
+{{- end -}}
+
+{{/*
+Guard the multi-replica path: more than one replica needs Valkey (shared
+sessions + rate-limit) and sticky sessions (the in-process KeyRing needs client
+affinity). Fails rendering with a sentence rather than shipping a broken deploy.
+*/}}
+{{- define "kaleta.validateScaling" -}}
+{{- if gt (int .Values.replicaCount) 1 -}}
+{{- if not (include "kaleta.redisUrl" .) -}}
+{{- fail "replicaCount > 1 requires Valkey: set redis.enabled=true or redis.url. Keys are never stored there — only sessions and rate-limit counters." -}}
+{{- end -}}
+{{- if not .Values.ingress.stickySessions -}}
+{{- fail "replicaCount > 1 requires ingress.stickySessions=true: without client affinity a request can land on a pod whose KeyRing never took the unlock." -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+
 {{- define "kaleta.secretName" -}}
 {{- if .Values.secrets.existingSecret -}}
 {{- .Values.secrets.existingSecret -}}

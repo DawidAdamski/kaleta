@@ -1,4 +1,6 @@
 {{- /* SPDX-License-Identifier: AGPL-3.0-or-later */ -}}
+{{- include "kaleta.validateScaling" . -}}
+{{- $multi := gt (int .Values.replicaCount) 1 -}}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -7,10 +9,21 @@ metadata:
     {{- include "kaleta.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
-  # One replica + in-process KeyRing + file-backed sessions ⇒ Recreate, so two
-  # versions never run (and never migrate the database) at once.
   strategy:
+    {{- if $multi }}
+    # Multi-replica: surge a new pod in before draining an old one so sticky
+    # members land on a replacement. Concurrent migrations are safe — the
+    # startup migration is serialised by a Postgres advisory lock (ADR-35
+    # addendum), so no pre-upgrade Job is needed.
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.rollout.maxSurge }}
+      maxUnavailable: {{ .Values.rollout.maxUnavailable }}
+    {{- else }}
+    # One replica + in-process KeyRing + file-backed sessions ⇒ Recreate, so two
+    # versions never run (and never migrate the database) at once.
     type: Recreate
+    {{- end }}
   selector:
     matchLabels:
       {{- include "kaleta.selectorLabels" . | nindent 6 }}
@@ -21,6 +34,10 @@ spec:
         {{- include "kaleta.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: app
     spec:
+      {{- if $multi }}
+      # Let in-flight websockets drain before the pod goes (graceful rollout).
+      terminationGracePeriodSeconds: {{ .Values.rollout.terminationGracePeriodSeconds }}
+      {{- end }}
       securityContext:
         seccompProfile:
           type: RuntimeDefault
@@ -46,7 +63,7 @@ spec:
             {{- end }}
             - name: KALETA_SESSION_COOKIE_SECURE
               value: {{ .Values.ingress.cookieSecure | quote }}
-            {{- with .Values.redis.url }}
+            {{- with (include "kaleta.redisUrl" .) }}
             - name: KALETA_REDIS_URL
               value: {{ . | quote }}
             {{- end }}
@@ -97,15 +114,18 @@ spec:
               mountPath: /tmp
       volumes:
         - name: sessions
-          {{- if .Values.app.persistence.enabled }}
+          {{- if and .Values.app.persistence.enabled (not $multi) }}
           persistentVolumeClaim:
             claimName: {{ include "kaleta.fullname" . }}-sessions
           {{- else }}
+          # Multi-replica: NiceGUI session storage lives in Valkey, so each pod's
+          # local ~/.kaleta is ephemeral (and a shared RWO PVC could not span
+          # pods on different nodes anyway).
           emptyDir: {}
           {{- end }}
         - name: tmp
           emptyDir: {}
-{{- if .Values.app.persistence.enabled }}
+{{- if and .Values.app.persistence.enabled (not $multi) }}
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim

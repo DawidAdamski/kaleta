@@ -14,12 +14,14 @@ for the hosted (Supabase) layout see [`deployment.md`](deployment.md).
 
 | Object | When | Notes |
 |---|---|---|
-| `Deployment` (app) | always | `replicas: 1`, `Recreate` — KeyRing is in-process, sessions are file-backed |
-| `Service` + `Ingress` | `ingress.enabled` | Traefik class, cert-manager TLS |
+| `Deployment` (app) | always | `Recreate` at `replicaCount: 1`; `RollingUpdate` above it — KeyRing is in-process |
+| `Service` + `Ingress` | `ingress.enabled` | Traefik class, cert-manager TLS; sticky-cookie annotations when `ingress.stickySessions` |
 | `Secret` | unless `secrets.existingSecret` | `KALETA_SECRET_KEY`, `KALETA_DB_URL` (+ Postgres bootstrap creds) |
 | `StatefulSet` (Postgres) + headless `Service` + init `ConfigMap` | `postgres.enabled` | single instance, PVC, non-superuser app role |
+| `StatefulSet` (Valkey) + headless `Service` | `redis.enabled` | single instance; shared session + rate-limit state, never keys |
+| `PodDisruptionBudget` | `replicaCount > 1` & `podDisruptionBudget.enabled` | keep ≥1 app pod through a node drain |
 | `CronJob` + `PVC` (backup) | `backup.enabled` & `postgres.enabled` | nightly `pg_dump -Fc`, N-day retention |
-| `PVC` (sessions) | `app.persistence.enabled` | `~/.kaleta` for NiceGUI sessions |
+| `PVC` (sessions) | `app.persistence.enabled` & `replicaCount == 1` | `~/.kaleta` for NiceGUI sessions (multi-replica keeps sessions in Valkey) |
 
 ## Prerequisites
 
@@ -185,14 +187,68 @@ schema is compatible first.
 
 ## Scaling beyond one replica (not the default)
 
-More than one replica needs shared session/rate-limit state in **Valkey/Redis**
-and sticky sessions on the ingress — and a restart still locks the KeyRing. The
-knob exists but one replica is the shipped, correct default:
+One replica is the shipped, correct default. Running more is a supported
+**opt-in** for throughput and availability (a pod can die without taking the app
+down). It never weakens the security model: the account data key stays in the
+memory of the pod where the member unlocked, and is **never** put in Valkey
+(see the multi-pod addendum in
+[ADR-35](adr/035-hosted-multi-tenancy-and-user-held-encryption.md)).
+
+### What multi-replica needs — and what the chart enforces
+
+Three things, all turned on together:
+
+- **Valkey** holds the shared, non-secret state every pod must agree on
+  (NiceGUI's session storage, the login rate-limit counters). Bundle one with
+  `redis.enabled=true`, or point `redis.url` at your own.
+- **Sticky sessions** (`ingress.stickySessions=true`) keep a browser on the pod
+  whose in-process KeyRing holds its unlocked key. The chart renders the Traefik
+  cookie-affinity annotations on the Service.
+- **A rolling update** (`replicaCount > 1` switches the strategy from `Recreate`
+  to `RollingUpdate` automatically), a `PodDisruptionBudget`, and a termination
+  grace period, so a planned upgrade drains a pod's members onto their
+  replacement instead of dropping them.
+
+The chart **refuses to render** `replicaCount > 1` without both Valkey and
+sticky sessions, so you cannot ship a config where a request lands on a pod that
+never took the unlock.
 
 ```sh
---set redis.url=redis://valkey:6379/0 --set replicaCount=2
-# + sticky sessions on the ingress (provider-specific)
+helm upgrade --install kaleta deploy/k3s -n kaleta \
+  --set replicaCount=3 \
+  --set redis.enabled=true \
+  --set ingress.stickySessions=true \
+  # ... your existing --set flags (host, secrets, …)
+# External Valkey instead of the bundled one: drop redis.enabled and use
+#   --set redis.url=redis://valkey.my-ns.svc.cluster.local:6379/0
 ```
+
+### What a member sees on a pod change
+
+- **Rolling upgrade**: sticky affinity + surge-before-drain move most members
+  onto the new pod without interruption; the few mid-request get re-balanced.
+- **Hard pod loss (crash, scale-in, node drain)**: the affected member stays
+  **signed in** (the session lives in Valkey) and is asked only for their **data
+  passphrase** again at `/unlock` — never a full re-login, never a silent
+  wrong-decrypt. This is exactly today's single-pod restart behaviour, just
+  scoped to the members who were on the lost pod.
+
+### Migrations under multiple replicas
+
+No pre-migration `Job` is needed. The startup migration is serialised by a
+Postgres **advisory lock**: pods coming up together migrate one at a time, and
+the rest find the schema already current and change nothing. App pods do not
+serve traffic until `/api/v1/health` reports the schema current (the readiness
+probe). **Caveat:** the advisory lock is session-scoped, so `KALETA_DB_URL` must
+be a **direct or session-mode** Postgres endpoint — a transaction-pooling
+PgBouncer/Supabase pooler would silently defeat it.
+
+### Postgres connection ceiling
+
+Each app pod keeps its own async pool, so N pods multiply connections into the
+single Postgres. For a homelab handful of pods this is fine; size
+`postgres` accordingly, and reach for PgBouncer (session mode — see the caveat
+above) only if you approach the server's `max_connections`.
 
 ## Troubleshooting
 
