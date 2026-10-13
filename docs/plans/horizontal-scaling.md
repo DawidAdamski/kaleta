@@ -3,7 +3,7 @@ plan_id: horizontal-scaling
 title: Horizontal scaling — more than one replica, with sticky sessions
 area: deploy
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md#strategic-direction-open-core
 ---
 
@@ -241,4 +241,42 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   need PgBouncer, or is the per-pod pool small enough? Size it in the plan.
 
 ## Implementation notes
-(filled as work progresses)
+
+### Slice 1 — migration gate (advisory lock), cluster-independent
+- **Open question resolved — migration gate mechanism: Postgres advisory lock.**
+  Chosen over a pre-upgrade Helm-hook `Job` and over leader election, for the
+  reasons the plan already leaned toward: it needs no extra Helm object, DB
+  creds or ordering plumbing, and it *also* protects the single-replica
+  `Recreate` case at no cost. `ensure_multi_tenant_current` now wraps the whole
+  run in `_migration_advisory_lock` (`src/kaleta/services/setup_service.py`): a
+  session-level `pg_advisory_lock` on a dedicated AUTOCOMMIT connection, held
+  for the duration and released in a `finally` (and automatically if the
+  connection drops — a replica dying mid-run frees the lock for the next). The
+  body (`_migrate_registry_and_tenants`) is unchanged and already idempotent, so
+  waiters that acquire the lock after the first replica finishes find the schema
+  at head and do nothing. Lock key is a fixed literal (`_MIGRATION_LOCK_KEY`),
+  not a hash, so it can never drift between versions. Covered by
+  `tests/integration/test_migration_lock.py` (mutual exclusion, release-on-exit,
+  release-on-exception, and a two-thread test that the body never runs
+  concurrently) → BDD `KAL-TEN-026 @automated`.
+- **Pooler caveat (feeds the PgBouncer open question).** A session-level
+  advisory lock only works over a direct (or session-mode) connection: behind a
+  transaction-pooling PgBouncer / Supabase pooler, lock and unlock can land on
+  different backends and the lock silently does nothing. The migration's
+  `KALETA_DB_URL` must be a direct endpoint — documented at `_MIGRATION_LOCK_KEY`
+  and to be surfaced in `docs/deploy-k3s.md` / `docs/deployment.md` in the
+  chart slice.
+- **Deferred (follow-up, not needed for correctness):** `SET lock_timeout` or a
+  `pg_try_advisory_lock` poll with a "waiting for migration lock" log line, so a
+  replica stuck on a hung migration does not stall other pods' startup silently.
+- **Rate-limit `RedisStore` acceptance criterion was already satisfied** before
+  this plan: `tests/unit/auth/test_login_rate_limit.py` (`TestRedisStore` +
+  the store-parametrised cases, with `fakeredis`) and
+  `tests/integration/test_login_rate_limit_replicas.py` (`KAL-AUTH-034`) cover
+  the shared-counter path. No new test added — that would duplicate.
+
+### Still to do (later slices)
+Session-isolation regression test (two tenants on one process); the Valkey /
+sticky-session chart path, `PodDisruptionBudget`, rolling-update strategy and
+the re-unlock "reconnect" modal (mostly `[manual]`, need a live cluster); the
+ADR-35 multi-pod addendum.
