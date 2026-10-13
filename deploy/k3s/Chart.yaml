@@ -1,0 +1,22 @@
+# SPDX-License-Identifier: AGPL-3.0-or-later
+apiVersion: v2
+name: kaleta
+description: >-
+  Kaleta — a personal budget & finance app — on a self-hosted k3s cluster:
+  the app, a bundled PostgreSQL, TLS via Traefik + cert-manager, and backups.
+  The self-hosted default (ADR-38): one Postgres, a schema per family, local
+  logins, encryption always on.
+type: application
+# Chart version — bump on chart changes. appVersion tracks the shipped image.
+version: 0.1.0
+appVersion: "0.3.0"
+home: https://github.com/DawidAdamski/kaleta
+sources:
+  - https://github.com/DawidAdamski/kaleta
+maintainers:
+  - name: Dawid Adamski
+keywords:
+  - budget
+  - finance
+  - self-hosted
+  - postgresql

@@ -3,7 +3,7 @@ plan_id: deploy-k3s
 title: Deploy Kaleta on a self-hosted k3s cluster
 area: deploy
 effort: large
-status: draft
+status: in-progress
 roadmap_ref: ../roadmap.md
 ---
 
@@ -77,6 +77,43 @@ Supabase. **Do this plan last**, once the features above are merged.
 `deploy/k3s/*` (new), `deploy/postgres/init-app-role.sql`, `scripts/k3s-smoke.sh` (new),
 `docs/deploy-k3s.md` (new), `docs/deployment.md` / `docs/self-hosting.md` (cross-links),
 `.github/workflows/*` (optional kind smoke test), `README.md` (a deploy pointer).
+
+## Implementation notes
+
+### Delivery in slices
+
+`large` plan; ships in single-purpose PRs:
+
+- **Slice 1 — the Helm chart + docs (this PR).** A Helm chart under
+  `deploy/k3s/` (bundled Postgres StatefulSet, app Deployment, Service, Traefik
+  Ingress + cert-manager, Secret, backup CronJob), `values.yaml` with the knobs,
+  and `docs/deploy-k3s.md`. Validated statically with `helm lint` and
+  `helm template | kubectl apply --dry-run`. No app-code changes.
+- **Slice 2 — prove it stands up (later).** `scripts/k3s-smoke.sh` stands up a
+  k3d cluster, installs the chart, waits for `/api/v1/health`, creates the first
+  account and signs in; optional kind CI job. Live cluster run lives here, not
+  in Slice 1.
+
+### Decisions (Slice 1)
+
+- **Helm chart, not kustomize** (open question 1): the knobs (domain, storage
+  class, replica count, bundled-vs-external Postgres, image tag) are exactly a
+  `values.yaml`. Validated with `helm` 4.x locally.
+- **Bundled Postgres StatefulSet, external supported** (open question 2):
+  `postgres.enabled=true` ships a single-instance StatefulSet with a PVC and the
+  app role from `deploy/postgres/init-app-role.sql` (as a ConfigMap-mounted init
+  script); set `postgres.enabled=false` + `externalDatabase.url` to point at a
+  managed Postgres.
+- **Traefik + cert-manager default** (open question 3): k3s ships Traefik; the
+  Ingress carries a `cert-manager.io/cluster-issuer` annotation. Caddy stays
+  documented as the alternative (the existing `deploy/selfhost/caddy.yml`).
+- **Pinned image tag** (open question 4): `image.tag` defaults to the current
+  release (`ghcr.io/dawidadamski/kaleta`, published by `.github/workflows/docker.yml`),
+  never `latest`; a rollout is a deliberate tag bump.
+- **One replica, `Recreate`** : the in-process KeyRing and file-backed sessions
+  make `replicas: 1` the correct default; the Deployment uses `strategy:
+  Recreate` so two versions never migrate at once. Multi-replica (Valkey +
+  sticky sessions) is a documented, non-default knob.
 
 ## Open questions
 
