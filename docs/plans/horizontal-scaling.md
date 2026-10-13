@@ -51,6 +51,47 @@ Three things break under naïve multi-replica; this plan is really about these:
    (a pre-upgrade `Job`/initContainer, or a Postgres advisory lock, or leader
    election) with the app pods gated on "schema current".
 
+## The key question: operator-blind vs seamless failover — you cannot have both
+
+ADR-35 is **member-held, operator-blind** encryption: the account DEK is sealed
+to each member's keypair, unlocked from a *data passphrase* the operator never
+holds, and lives in process memory only — "never written to disk, to
+`app.storage.user`, or to logs". That is the product's distinguishing promise.
+
+There is a hard theorem here: **if any pod can serve a member without that
+member re-providing their secret, then the infrastructure (hence the operator)
+can reconstruct the DEK.** Seamless failover across pods and operator-blindness
+are mutually exclusive. So this plan presents two postures and recommends the
+first.
+
+### Posture 1 — stay operator-blind (RECOMMENDED, no ADR change)
+Multi-pod via **sticky sessions**; the DEK stays in the pod where the member
+unlocked. Losing that pod (crash, scale-in, node drain) means that member
+re-enters their **data passphrase** — which is *already* the behaviour on any
+restart today (the DEK is gone on restart by design). Multi-pod does not make
+this worse; it just adds pods, and spreads different members across them.
+Redis holds only the **non-secret** shared state (the authenticated session,
+rate-limit counters), so after a pod change the member is still *logged in* and
+only re-enters the passphrase — not a full login. Graceful rollouts (drain +
+affinity) make planned updates almost never force a re-unlock. **This is the
+"secure + multi-pod" answer and needs no ADR-35 change.** The DEK is never put
+in Redis.
+
+### Posture 2 — seamless failover (needs an ADR-35 downgrade, hosted-tier only)
+To avoid any re-unlock on failover, store the DEK **KEK-wrapped** in Redis with
+a TTL and keep the KEK in a **KMS** (or pod env); any pod unwraps it on a miss.
+Plaintext DEKs still live only in memory and Redis holds only ciphertext, but
+the **operator now holds (or can call) the KEK, so the operator can decrypt any
+account with a live session** — ADR-35's operator-blind promise is downgraded to
+"encrypted at rest; the provider can access active-session data", the normal
+SaaS posture. This is a conscious policy change: it would amend ADR-35 and
+`privacy.md`, and should be a paid-tier opt-in, not the default. Not pursued
+unless the product explicitly chooses seamless failover over operator-blindness.
+
+**Recommendation: build Posture 1.** It delivers secure, multi-pod hosting now;
+Posture 2 stays documented as the deliberate trade if seamless failover ever
+outweighs the operator-blind guarantee.
+
 ## Scope
 - **Shared state in Redis/Valkey** — prove, end to end under >1 replica, that:
   - NiceGUI `app.storage.user` is served from Redis (not per-pod files), so a
@@ -62,9 +103,18 @@ Three things break under naïve multi-replica; this plan is really about these:
 - **Sticky sessions** — ingress session affinity (Traefik cookie affinity on the
   Service / `traefik.ingress.kubernetes.io/service.sticky.cookie`), a chart knob
   (`ingress.stickySessions`), and the NiceGUI reconnect implication documented.
-- **KeyRing posture (decision, not code change)** — keep it in-process; record
-  the multi-replica security posture and the re-unlock-on-failover UX in an ADR
-  addendum (to ADR-35). State explicitly that keys are never placed in Redis.
+- **KeyRing stays in-process (Posture 1)** — keys never placed in Redis. Record
+  the multi-replica posture (sticky affinity + re-unlock-on-failover) as a short
+  ADR-35 addendum that *confirms* the operator-blind property still holds under
+  multi-pod. No key-wrapping code.
+- **Re-unlock UX** — when a request lands on a pod whose `KeyRing` lacks the DEK
+  (post-failover) but the Redis-backed session is still authenticated, prompt
+  the member for just the **data passphrase** (a lightweight "reconnect" modal),
+  not a full re-login. This is what makes Posture 1 pleasant rather than jarring.
+- **Graceful rollouts** — `PodDisruptionBudget`, `terminationGracePeriodSeconds`
+  + connection draining, and `RollingUpdate` tuned so a planned upgrade drains a
+  pod's members onto their replacement (with affinity) instead of dropping them,
+  minimising forced re-unlocks.
 - **One-shot migrations** — a mechanism so N pods do not migrate concurrently:
   a pre-install/pre-upgrade migration `Job` (reusing `scripts/migrate_tenants.py`)
   that app pods wait on, or an advisory-lock guard inside
@@ -79,10 +129,11 @@ Three things break under naïve multi-replica; this plan is really about these:
   behaviour, how to roll out safely).
 
 ## Not in scope
-- **Sharing unlocked keys across pods / a KMS/HSM-backed KeyRing.** That is the
-  only way to avoid re-unlock on failover, but it changes ADR-35's security
-  model fundamentally; it is a separate, larger plan (and an explicit
-  non-goal for the self-hosted default). Noted as the alternative.
+- **Posture 2 (KEK-wrapped DEK in Redis + KMS).** The seamless-failover design
+  above; deliberately *not* built here because it downgrades ADR-35's
+  operator-blind promise. Documented as the explicit alternative, to be its own
+  plan + ADR-35/`privacy.md` amendment only if the product chooses it. Plaintext
+  keys in Redis (no wrapping) are rejected outright.
 - **HA PostgreSQL.** One instance with backups stays; HA Postgres is its own
   plan (`deploy-k3s` Not-in-scope already says so). Multi-replica app against a
   single Postgres is fine until the connection ceiling — note pool sizing.
@@ -98,8 +149,10 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   with `fakeredis`)
 - `[manual]` With `replicaCount=2` + Redis + sticky sessions on k3d: sign in,
   unlock, and confirm the session survives being served across a rolling update
-  of the *other* pod; confirm a hard failover of the pinned pod sends that
-  member to `/unlock` (and nothing is silently decrypted wrong).
+  of the *other* pod; confirm a hard failover of the pinned pod leaves the member
+  **still authenticated** (Redis session) and prompts only for the data
+  passphrase (the reconnect modal), never a silent wrong-decrypt, and never a
+  DEK read from Redis.
 - `[manual]` A chart upgrade with `replicaCount=2` runs migrations exactly once
   (the migration Job/lock), and no app pod serves traffic before the schema is
   current.
@@ -114,7 +167,11 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   lock) and `scripts/migrate_tenants.py` (used by a Job).
 - `src/kaleta/services/nicegui_storage_service.py`,
   `src/kaleta/auth/login_rate_limit.py`, `src/kaleta/auth/session.py` — confirm
-  Redis paths; sweep for other process-local state.
+  Redis paths; sweep for other process-local state; the re-unlock "reconnect"
+  prompt (authenticated session but empty `KeyRing`) likely lives near session /
+  the unlock view.
+- A short **ADR-35 addendum** confirming the multi-pod posture keeps keys
+  operator-blind (Posture 1); Posture 2 would instead be a separate ADR amendment.
 - `deploy/k3s/` — `values.yaml` (`replicaCount`, `redis`, `ingress.stickySessions`,
   strategy), new `templates/` for a migration `Job`, `PodDisruptionBudget`, and
   the Redis/Valkey dependency; `templates/deployment.yaml` strategy + affinity.
