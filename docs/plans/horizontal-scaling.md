@@ -312,7 +312,20 @@ Most of this needs a live multi-node cluster, so several checks are `[manual]`.
   sequentially and with `encryption="off"`; this slice adds the concurrency and
   the DEK-crossover dimensions it does not.
 
-### Still to do (later slices)
-The Valkey / sticky-session chart path, `PodDisruptionBudget`, rolling-update
-strategy and the re-unlock "reconnect" modal (mostly `[manual]`, need a live
-cluster); the ADR-35 multi-pod addendum.
+### Slice 3 — ADR-35 multi-pod addendum, cluster-independent
+Added an `## Addendum (2026-10)` to
+`docs/adr/035-hosted-multi-tenancy-and-user-held-encryption.md` recording that
+Posture 1 (N replicas + sticky sessions + re-unlock on failover) keeps every
+guarantee of ADR-35: the DEK stays in the unlocking pod's memory, Valkey holds
+only non-secret session/rate-limit state, failover costs a re-unlock (not
+operator access), one process never crosses families' DEKs (`KAL-ENC-011`), and
+replicas migrate once (`KAL-TEN-026`). It also states explicitly that Posture 2
+is **not** adopted and would be its own amendment, pointing at
+`encryption-posture-research.md`. Documentation only; no code, no new scenario.
+
+### Still to do (later slices, need a live cluster — mostly `[manual]`)
+The Valkey / sticky-session chart path (`replicaCount>1`, `RollingUpdate`,
+`PodDisruptionBudget`, Traefik cookie affinity, bundled/external Valkey, the
+migration gate wired into the chart), the re-unlock "reconnect" modal, and the
+scaling runbook in `docs/deploy-k3s.md`. These are the acceptance criteria
+marked `[manual]`.
