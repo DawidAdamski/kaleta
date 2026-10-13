@@ -145,22 +145,26 @@ The [`horizontal-scaling`](../plans/horizontal-scaling.md) plan makes running
 that plan builds it (**Posture 1**), changes none of the guarantees above.
 
 - **The DEK still lives only in the memory of the pod where the member
-  unlocked.** Keys are never written to Valkey (the shared session/rate-limit
-  store), to disk, to `app.storage.user`, or to logs — exactly as this ADR
-  requires. Valkey holds only non-secret state: the *authenticated* session
-  envelope (so a member stays logged in across pods) and the login rate-limit
-  counters. The passphrase, the member KEK and the unwrapped DEK never leave
-  the process.
+  unlocked.** No key material is ever written to Valkey (the shared
+  session/rate-limit store), to disk, to `app.storage.user`, or to logs —
+  exactly as this ADR requires. Valkey holds only the *authenticated* session
+  envelope (so a member stays logged in across pods — user id, e-mail, tenant
+  schema; PII, but no keys) and the login rate-limit counters. The passphrase,
+  the member KEK and the unwrapped DEK never leave the process.
 - **Sticky sessions, not shared keys, are how multi-pod works.** Ingress client
-  affinity keeps a given browser landing on the pod whose in-process `KeyRing`
-  holds its DEK. Scaling out spreads *different* members/families across pods.
+  affinity is designed to keep a given browser landing on the pod whose
+  in-process `KeyRing` holds its DEK (the chart wiring — Traefik cookie
+  affinity, `replicaCount>1`, the Valkey dependency — is tracked in
+  [`horizontal-scaling`](../plans/horizontal-scaling.md)). Scaling out spreads
+  *different* members/families across pods.
 - **Failover costs a re-unlock, not operator access.** Losing a pod (crash,
   scale-in, node drain) means the affected member re-enters their **data
   passphrase** — precisely what any restart already requires, since the DEK is
   gone from memory by design. The infrastructure never reconstructs a DEK
-  without the member. This is the hard trade-off: seamless cross-pod failover
-  and operator-blindness are mutually exclusive, and this ADR chooses
-  operator-blindness.
+  without the member (the compromised- or malicious-host case is unchanged and
+  stays as the threat model above describes it). This is the hard trade-off:
+  seamless cross-pod failover and operator-blindness are mutually exclusive, and
+  this ADR chooses operator-blindness.
 - **One process holding several families' DEKs never crosses them.** Each
   request resolves its tenant schema and DEK strictly from its own per-task
   context (`ContextVar`s), never from "whatever this pod last unlocked" —
