@@ -45,10 +45,18 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)"
-          if [ -z "$tag" ]; then
-            echo "No releases yet — nothing to build."
-            exit 0
+          # Distinguish "no release yet" (fine, skip) from a real gh/auth/network
+          # error (fail loudly) — swallowing the latter would silently skip a real
+          # release build, which is the very bug this step exists to prevent.
+          if out="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>&1)"; then
+            tag="$out"
+          else
+            case "$out" in
+              *"release not found"*|*"no release"*)
+                echo "No releases yet — nothing to build."; exit 0 ;;
+              *)
+                echo "gh release view failed: $out" >&2; exit 1 ;;
+            esac
           fi
           tag_commit="$(gh api "repos/$GITHUB_REPOSITORY/commits/$tag" -q .sha)"
           if [ "$tag_commit" = "$GITHUB_SHA" ]; then
