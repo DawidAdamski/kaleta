@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.5.0](https://github.com/DawidAdamski/kaleta/compare/v0.4.0...v0.5.0) (2026-10-13)
+
+
+### Features
+
+* **deploy:** harden the migration lock + test (review nits) ([6531ae8](https://github.com/DawidAdamski/kaleta/commit/6531ae815504b387683a2b9f6b33f1b0c8f90607))
+* **deploy:** serialise startup migration with a Postgres advisory lock ([7621dc6](https://github.com/DawidAdamski/kaleta/commit/7621dc6dfb739f6991b503c9273f7ea4360c1463))
+* **deploy:** serialise startup migration with a Postgres advisory lock ([7e19198](https://github.com/DawidAdamski/kaleta/commit/7e191986c6309b41df8d293a851fbcb2d9ae713f))
+
 ## [0.4.0](https://github.com/DawidAdamski/kaleta/compare/v0.3.0...v0.4.0) (2026-10-13)
 
 
