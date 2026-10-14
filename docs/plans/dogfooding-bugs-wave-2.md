@@ -63,7 +63,7 @@ candidates #19/#22/#23 (deferred unless the user folds them in).
 - `src/kaleta/views/import_view/mapping_section.py` / `page.py` — link to settings (#10)
 - `src/kaleta/views/theme.py` / `layout.py` — global `:active` feedback (#13)
 - `src/kaleta/views/accounts.py` — group-by toggle active highlight (#2)
-- `src/kaleta/views/import_view/coverage_section.py` — history prominence (#7)
+- `src/kaleta/views/import_view/coverage_section.py` + `page.py` — history prominence (#7)
 - `docs/bdd.md` — KAL scenarios per slice
 
 ## Open questions
@@ -107,3 +107,29 @@ _(filled per slice)_
 - The e2e asserts the selected button's computed background sums to a dark
   (ink) value, which fails on the old accent fill and passes on ink —
   verified by swapping `main`'s `accounts.py` under the test.
+
+### Slice 3 — #7 surface import history
+- The history was buried: it lives on the **Format** step (`page.py`), inside
+  a collapsed `ui.expansion("reference_panels")`, which in turn holds a second
+  collapsed `ui.expansion("history_heading")` (`coverage_section.py`). The
+  page also hard-lands on the **Upload** step (`state["step"] = STEP_UPLOAD`),
+  so the user never even reaches the step the panel sits on — confirmed by
+  screenshots (scratchpad: lands on Upload; history is two expanders deep on
+  Format).
+- Fix is bounded: open **both** expanders by default (`value=True`). I did
+  **not** change the landing step — forcing Format-first would add friction to
+  the main upload flow for everyone and risk the import e2e. So walking back to
+  Format (the natural "where's my history" move) now shows it with no further
+  clicks, instead of two.
+- Residual (flagged to the user): history is still only on the Format step, not
+  the Upload step the user lands on. Whether to surface it further is a UX
+  decision left open.
+- e2e walks to the Format step and asserts the inner "File history" expander
+  is both **visible** (which needs the outer reference panel open) and carries
+  `q-expansion-item--expanded` (the inner one open). It deliberately does NOT
+  assert on the empty-history text: the e2e app's import state is shared, so
+  other tests may record runs and the "No imports recorded yet." line is not
+  reliably present — the expander *state* is. Fail-on-old / pass-on-new
+  re-verified for this final (class) assertion by swapping both `main` files
+  under the test: on `main` both expanders collapse, so the outer hides the
+  inner (`to_be_visible` fails) and the inner lacks the expanded class.

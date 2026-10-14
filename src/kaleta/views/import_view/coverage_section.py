@@ -96,7 +96,10 @@ class CoverageSection:
                             else:
                                 ui.label(t("import.coverage_never")).classes(f"flex-1 {BODY_MUTED}")
 
-            with ui.expansion(t("import.history_heading"), icon="history").classes(
+            # Opened by default: the history used to sit collapsed inside an
+            # also-collapsed reference panel — two clicks from a step the user
+            # does not even land on — so nobody found their past imports.
+            with ui.expansion(t("import.history_heading"), icon="history", value=True).classes(
                 f"{SECTION_CARD} w-full mt-2"
             ):
                 if not recent_runs:

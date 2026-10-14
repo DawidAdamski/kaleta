@@ -1574,6 +1574,13 @@ Feature: mBank CSV Import
     Then the preview shows the merchant, not the English card wording
     When I click "Import"
     Then the transactions are imported successfully
+
+  KAL-CSV-033 @automated
+  Scenario: Import history is visible without hunting through nested panels
+    Given I am on the Import page's Format step
+    When I open the "Account coverage and recent imports" reference panel
+    Then the file-history list is already expanded, not collapsed behind a
+      second click
 ```
 
 ## Feature: Transfer Recognition
