@@ -1593,6 +1593,17 @@ Feature: mBank CSV Import
     Then the format step is on screen, not the upload step
     When I choose the "mBank" format before uploading anything
     Then the mBank format is visibly selected
+
+  KAL-CSV-036 @automated
+  Scenario: Re-clicking the step you are on does not wedge the next step
+    The progress line lets you click the step already on screen; doing so
+    changes nothing but the record that you chose it. It must not drop the
+    next click — a repaint for a step that did not move used to swallow it.
+
+    Given I am on the Import page's Format step
+    When I click the Format step again
+    And then click the Upload step
+    Then the upload step is on screen
 ```
 
 ## Feature: Transfer Recognition
