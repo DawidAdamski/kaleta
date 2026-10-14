@@ -130,6 +130,12 @@ def build_settings_section(
             remember_cb = ui.checkbox(t("import.remember_mapping"), value=True)
             ui.label(t("import.remember_mapping_hint")).classes(f"{BODY_MUTED} text-xs")
             pattern_input = ui.input(t("import.filename_pattern")).classes("w-full max-w-md")
+            # The rules saved here are managed in Settings → Import. There was
+            # no way to get from the import flow to that list; this is it. New
+            # tab so an in-progress import (queue state is per-page) survives.
+            ui.link(
+                t("import.manage_saved_mappings"), "/settings?tab=import", new_tab=True
+            ).classes(f"{BODY_MUTED} text-xs")
     return SettingsSection(
         card=card,
         account_sel=account_sel,

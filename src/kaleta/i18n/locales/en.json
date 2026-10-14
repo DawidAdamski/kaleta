@@ -1249,6 +1249,7 @@
     "bulk_applied": "Default account applied to this file.",
     "remember_mapping": "Remember this mapping",
     "remember_mapping_hint": "Saves a filename rule so the next similar file is pre-filled.",
+    "manage_saved_mappings": "Manage saved mappings",
     "filename_pattern": "Filename pattern",
     "rule_chip": "Rule: {pattern}",
     "rule_applied": "Applied saved rule {pattern}.",
