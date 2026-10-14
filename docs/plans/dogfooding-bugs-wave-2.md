@@ -217,3 +217,20 @@ _(filled per slice)_
   `--e2e` run during this work and passed on re-run and 2/2 in isolation — the
   same step-node-click-under-`-n auto` fragility, not this fix. Logged in
   `chores.md`.
+
+### Slice 5 — #10: link the import flow to the saved import rules
+- The link lives in `settings_section.py` (the Settings step), beside
+  "Remember this mapping" — not in `mapping_section.py`/`page.py` as the
+  Touchpoints first guessed. That checkbox is exactly where the user is told a
+  mapping *can* be saved, so it is where they would look to find the ones
+  already saved. The saved rules themselves are managed in Settings → Import
+  (`settings/import_tab.py`), which the link targets via `/settings?tab=import`
+  (the settings page reads `?tab=` and opens that panel).
+- `new_tab=True`: the import queue is per-page state, so navigating away in the
+  same tab would discard an in-progress import. The link opens the rules list
+  beside it instead.
+- New i18n key `import.manage_saved_mappings` (en/pl). e2e
+  `test_import_link_to_saved_mappings.py` (KAL-CSV-035) uploads a recognised
+  CSV (which lands on the Settings step) and asserts the link's `href` and
+  `target=_blank`. Fail-on-old / pass-on-new verified by swapping `main`'s
+  `settings_section.py` under it (no link → test fails).
