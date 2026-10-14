@@ -505,3 +505,32 @@ check it still reproduces before acting on it.
       `save_add`/`save_edit`, which also don't catch. Consider a consistent
       KaletaError toast across the Categories view's mutations, and decide
       whether the root needs re-parent/rename protection too.
+- [ ] **#19 Dashboard: account names overflow their card border (dogfooding).**
+      Account-name text overflows the dashboard widget/tile; clip/ellipsis or
+      wrap. UX/layout → candidate for wave 2.
+- [ ] **#20 Safety fund: cannot return to the "months to cover" input
+      (dogfooding).** In the safety-funds view, switching to another sub-view
+      and back loses the screen holding the target-months figure — no way back.
+      Navigation/state bug; capture exact steps on retest.
+- [ ] **#21 New feature: Gifts (dogfooding).** List of people + events + amounts
+      (like the annual plan); sum, divide by 10, feed as a monthly irregular
+      reserve. Needs its own plan, not a chore — check against the existing
+      `KAL-GFT` gifts scenario/issue first to avoid duplication.
+- [ ] **#22 Editing a transaction scrolls the page back to the top
+      (dogfooding).** Scroll position is lost after an edit — tiring on a long
+      ledger. UX bug in the transactions view → candidate for wave 2.
+- [ ] **#23 Rules: the category picker lists only leaf/child categories
+      (dogfooding).** Roots are missing (or only subcategories shown), so a
+      category is hard to find when writing a rule. Bug/UX in the Rules view.
+- [ ] **#24 Subscriptions: the "all subscriptions" list disagrees with the
+      categories, and there is no billing cadence (dogfooding).** The panel's
+      list does not match what sits under the subscription categories; also add
+      a per-subscription frequency (monthly/yearly). Bug + small feature —
+      investigate with the subscriptions-root work (#6) and the subscriptions
+      ADR.
+- [ ] **#25 Transactions: "select all" fails with a search filter + grouping
+      (dogfooding).** With a description-search filter AND grouping by
+      month/week, the select-all checkbox does not select everything — it
+      flashes an "x of y shown" state then re-renders. Bug in the transactions
+      multi-select; shares the selection infra with #17 (bulk change-category),
+      so plan the two as one slice.
