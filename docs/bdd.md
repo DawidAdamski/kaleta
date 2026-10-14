@@ -1613,6 +1613,16 @@ Feature: mBank CSV Import
     When I click the Format step again
     And then click the Upload step
     Then the upload step is on screen
+
+  KAL-CSV-037 @automated
+  Scenario: Transfer suggestions scroll within a capped list, accept-all stays put
+    A long run of transfer suggestions used to grow the Confirm step's card
+    until the accept-all control below it was pushed off-screen. The pair list
+    now scrolls inside a bounded box, and accept-all sits in a footer under it.
+
+    Given an import run produced transfer-pair suggestions
+    Then the suggestion list is capped and scrolls within its own box
+    And the accept-all control stays in the card footer, not below the list
 ```
 
 ## Feature: Transfer Recognition
