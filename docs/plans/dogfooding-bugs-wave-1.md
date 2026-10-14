@@ -99,3 +99,7 @@ Each item ships as one PR (slice). Confirmed bugs only:
 - Why no test caught it: there was no e2e exercising the logo upload or
   the backup restore-from-file (settings data-safety e2e only covered the
   wipe-confirmation path). Added coverage at that level.
+- Coverage note: the e2e (KAL-INS-009) walks the *add*-logo path; the
+  *edit* handler is identical in shape, and the backup restore handler
+  shares the same upload-event API the add test now exercises. A dedicated
+  UI-level restore e2e is logged in `chores.md`.

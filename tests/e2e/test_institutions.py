@@ -12,6 +12,7 @@ upload path end to end.
 from __future__ import annotations
 
 import base64
+from pathlib import Path
 
 from playwright.sync_api import Page, expect
 
@@ -21,7 +22,7 @@ _PNG_1x1 = base64.b64decode(
 )
 
 
-def test_upload_logo_when_adding_institution(page: Page, base_url: str, tmp_path) -> None:
+def test_upload_logo_when_adding_institution(page: Page, base_url: str, tmp_path: Path) -> None:
     """Covers: KAL-INS-009
 
     Uploading a PNG in the Add Institution dialog shows a preview, and the
