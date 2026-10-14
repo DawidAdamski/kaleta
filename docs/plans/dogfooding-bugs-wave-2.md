@@ -200,11 +200,14 @@ _(filled per slice)_
   left the reader stuck. Before Slice 4 the landing was Upload, so re-picking
   the step you were on was rare; once Format became the landing, a test (and a
   user) re-picking Format before moving on hit it every time.
-- It passed the Slice 4 `verify.sh --e2e` because the suite runs e2e under
-  `-n auto`: `test_wise_qif_auto_detect_and_import` (which does `_step(FORMAT)`
-  then `_step(UPLOAD)`) only wedges when its sibling ordering is broken by the
-  parallel split. Deterministic in isolation (3/3), green in-file (27/27) —
-  which is why it slipped. Shipped as its own PR (not folded into #10).
+- The wedge is a race: the repaint of the unchanged step has to finish before
+  the next step-node click lands, or that click is dropped. It is timing, not
+  ordering — but the timing depends on load. `test_wise_qif_auto_detect_and_import`
+  (which does `_step(FORMAT)` then `_step(UPLOAD)`) hit it deterministically in
+  isolation (3/3) yet stayed green in-file (27/27) and under the parallel
+  `-n auto` suite that Slice 4's `verify.sh --e2e` ran — which is why it slipped.
+  Shipped as its own PR, separate from the #10 "link to saved mappings" slice,
+  to keep each diff single-purpose.
 - Fix: `_goto` records the choice (`step_chosen`) but returns before
   `_sync_step` when the step is not changing — no panel moves, no line
   changes, nothing to rebuild, nothing to drop. Regression test
