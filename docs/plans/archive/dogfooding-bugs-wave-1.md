@@ -3,8 +3,9 @@ plan_id: dogfooding-bugs-wave-1
 title: Dogfooding bugs — wave 1 (quick fixes from first real use)
 area: cross-cutting (institutions, settings, categories, planned transactions, import)
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-14
+roadmap_ref: ../../roadmap.md
 ---
 
 # Dogfooding bugs — wave 1 (quick fixes from first real use)
@@ -165,3 +166,45 @@ Each item ships as one PR (slice). Confirmed bugs only:
   not given a separate e2e because locating the flagged root in the seed is
   ambiguous (a flat same-named category may also exist), and `verify.sh
   --e2e` confirms the page still renders.
+
+## Implementation
+
+Landed on 2026-10-14.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `4016cd2` | Dawid (Ani) | 2026-10-14 | fix(upload): migrate upload handlers to the NiceGUI 3.x event API |
+| `c1dcacc` | Dawid (Ani) | 2026-10-14 | test(institutions): type the e2e tmp_path; note edit/restore coverage |
+| `f1b6794` | Dawid (Ani) | 2026-10-14 | fix(categories): add-subcategory no longer saves a root category |
+| `16140d4` | Dawid (Ani) | 2026-10-14 | fix(planned): narrow the category list to the selected type |
+| `1e6cb2b` | Dawid (Ani) | 2026-10-14 | fix(import): guard transfer accept/dismiss against a double-click |
+| `e47833f` | Dawid (Ani) | 2026-10-14 | fix(categories): protect the Subscriptions root from deletion |
+| `bd7c516` | Dawid (Ani) | 2026-10-14 | docs(chores): log subscriptions-root protection follow-ups |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/dogfooding-bugs-wave-1.md
+- src/kaleta/schemas/category.py
+- src/kaleta/services/category_service.py
+- src/kaleta/views/categories.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/institutions.py
+- src/kaleta/views/planned_transactions.py
+- src/kaleta/views/settings/data_tab.py
+- tests/e2e/test_categories_add.py
+- tests/e2e/test_institutions.py
+- tests/e2e/test_planned_category_by_type.py
+- tests/integration/test_subscription_categories.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit tests/integration -q` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
+| `uv run python scripts/spec_coverage.py` | 0 |
+
+**Notes:** Touchpoints of all five slices are covered by the listed commits (the script's automatic overlap warning was a false positive: the Touchpoints bullets are not in its expected format). PRs: #248 (slice 1), #249 (slice 2), #250 (slice 3), #251 (slice 4), #252 (slice 5).
+- Bug #4 ("Nazwa jest wymagana") was NOT fixed: it could not be reproduced on main; logged in `docs/plans/chores.md` for retest on a fresh deploy.
+- "Enter does not submit dialogs" and the subscriptions-root protection follow-ups are logged in `docs/plans/chores.md`.
