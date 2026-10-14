@@ -1,5 +1,44 @@
 # Changelog
 
+## [0.6.0](https://github.com/DawidAdamski/kaleta/compare/v0.5.0...v0.6.0) (2026-10-14)
+
+
+### Features
+
+* **deploy:** a real multi-replica path in the Helm chart ([d2eb5ca](https://github.com/DawidAdamski/kaleta/commit/d2eb5ca297217e21510e3aa84f0a186b8403d1cc))
+* **deploy:** a real multi-replica path in the Helm chart ([2dc4f31](https://github.com/DawidAdamski/kaleta/commit/2dc4f314e154eb4870576a8eb7d4212c1f4d9779))
+* **deploy:** secure the multi-replica chart path (review nits) ([f5aeeee](https://github.com/DawidAdamski/kaleta/commit/f5aeeee8dedaaf5c3f2bed69a461a4f8c5c86f55))
+* **import:** link the settings step to the saved import rules ([#10](https://github.com/DawidAdamski/kaleta/issues/10)) ([3359d8a](https://github.com/DawidAdamski/kaleta/commit/3359d8af4cd291013d0a8e4b62f50a278ddeafce))
+* **import:** link the settings step to the saved import rules ([#10](https://github.com/DawidAdamski/kaleta/issues/10)) ([113a341](https://github.com/DawidAdamski/kaleta/commit/113a34147a8974865e41981a456e7bdf481df48e))
+* **import:** open the import wizard on Format with a selectable page-default format ([#7](https://github.com/DawidAdamski/kaleta/issues/7) follow-up) ([6b85da4](https://github.com/DawidAdamski/kaleta/commit/6b85da4885763099b3ca6323a08c17d5bdacb2d4))
+* **import:** open the wizard on Format with a selectable page-default format ([ca03b44](https://github.com/DawidAdamski/kaleta/commit/ca03b445372c218d2f44f8a19c538bfedd07879e))
+* **theme:** give every button a press affordance ([#13](https://github.com/DawidAdamski/kaleta/issues/13)) ([3bd35b1](https://github.com/DawidAdamski/kaleta/commit/3bd35b1eb41d752cc03957726dff00f2ce266bd7))
+* **theme:** give every button a press affordance ([#13](https://github.com/DawidAdamski/kaleta/issues/13)) ([3f35118](https://github.com/DawidAdamski/kaleta/commit/3f35118e85312d6b7aa54695bf91a4d5236ec22b))
+
+
+### Bug Fixes
+
+* **accounts:** make the active "group by" option visibly selected ([010486d](https://github.com/DawidAdamski/kaleta/commit/010486d8f6000a8fc8551b193f6a7eb48c50fc09))
+* **accounts:** show which "group by" option is active ([#2](https://github.com/DawidAdamski/kaleta/issues/2)) ([2299e71](https://github.com/DawidAdamski/kaleta/commit/2299e7196968cf305b83e0f29bd2be226ea0b6b6))
+* **categories:** add-subcategory no longer saves a root category ([1a3805d](https://github.com/DawidAdamski/kaleta/commit/1a3805dffe10702742a8f19edb52c005d6602f15))
+* **categories:** add-subcategory no longer saves a root category ([f1b6794](https://github.com/DawidAdamski/kaleta/commit/f1b6794f098819731fa603a6e915291920eae214))
+* **categories:** protect the Subscriptions root from deletion ([d433c3b](https://github.com/DawidAdamski/kaleta/commit/d433c3be9de1d8e109580d0af2fa7b17075c096a))
+* **categories:** protect the Subscriptions root from deletion ([e47833f](https://github.com/DawidAdamski/kaleta/commit/e47833f3de942586d813be7ec0ff1bcb57c2e063))
+* **import:** cap the transfer-suggestions list and pin accept-all ([#8](https://github.com/DawidAdamski/kaleta/issues/8)) ([e026015](https://github.com/DawidAdamski/kaleta/commit/e02601536c5b533b3c2bc4e44d848a9873be53ea))
+* **import:** cap the transfer-suggestions list and pin accept-all ([#8](https://github.com/DawidAdamski/kaleta/issues/8)) ([ce717a3](https://github.com/DawidAdamski/kaleta/commit/ce717a3d3de9f37b7e429d12d8b0099790414aef))
+* **import:** don't repaint when re-clicking the step already on screen ([1c402f7](https://github.com/DawidAdamski/kaleta/commit/1c402f7d6960cd94efd2069a2923257052566a2a))
+* **import:** guard transfer accept/dismiss against a double-click ([8da128a](https://github.com/DawidAdamski/kaleta/commit/8da128a6c0cf6a500eec425f54db8e11d15d23a9))
+* **import:** guard transfer accept/dismiss against a double-click ([1e6cb2b](https://github.com/DawidAdamski/kaleta/commit/1e6cb2b28e005a1fdd83cf1e93753fbb968c45d9))
+* **import:** re-clicking the current step wedged wizard navigation ([#257](https://github.com/DawidAdamski/kaleta/issues/257) regression) ([31afd07](https://github.com/DawidAdamski/kaleta/commit/31afd072c50152089e5540436bf0ce6934452769))
+* **import:** surface import history — open the reference expanders by default ([3f1a401](https://github.com/DawidAdamski/kaleta/commit/3f1a4014eaf1b4ad69bd6468a897c6640cf7107d))
+* **import:** surface import history ([#7](https://github.com/DawidAdamski/kaleta/issues/7)) ([c1a0553](https://github.com/DawidAdamski/kaleta/commit/c1a05534f6df68e41c29c945b3e7c73ccf053847))
+* **planned:** narrow the category list to the selected type ([ecb508b](https://github.com/DawidAdamski/kaleta/commit/ecb508bc3f20132fb19006b518fa4055aa7f33ae))
+* **planned:** narrow the category list to the selected type ([16140d4](https://github.com/DawidAdamski/kaleta/commit/16140d474b43a50cf30ea81189bb9194c6d30f52))
+* **transactions:** tooltip on truncated ledger cells ([1f87692](https://github.com/DawidAdamski/kaleta/commit/1f876927b24b13f2e935f4d628251430f12496e4))
+* **transactions:** tooltip on truncated ledger cells ([#9](https://github.com/DawidAdamski/kaleta/issues/9)) ([1d4e1fb](https://github.com/DawidAdamski/kaleta/commit/1d4e1fb4d31a8ffec52328b4659e79574ac28d1b))
+* **upload:** migrate upload handlers to NiceGUI 3.x event API ([8071606](https://github.com/DawidAdamski/kaleta/commit/80716066052b7ccaf5ed7d2b407121db0c1ecb04))
+* **upload:** migrate upload handlers to the NiceGUI 3.x event API ([4016cd2](https://github.com/DawidAdamski/kaleta/commit/4016cd2078e67012dba79b167aefd74f970b6efd))
+
 ## [0.5.0](https://github.com/DawidAdamski/kaleta/compare/v0.4.0...v0.5.0) (2026-10-13)
 
 
