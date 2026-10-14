@@ -191,3 +191,26 @@ _(filled per slice)_
   newly-observed cross-file shared-state flake (the e2e suite shares one app
   family), not this slice: every import test passes together, and this slice
   touches only the import page. Logged in `chores.md`.
+
+### Slice 4a — follow-up fix: re-clicking the current step wedged navigation
+- Landing on Format (Slice 4) surfaced a latent bug: the progress line lets you
+  click the step already on screen, which ran the full `_goto` → `_sync_step`
+  repaint for a step that did not move. A click landing mid-rebuild (four
+  refreshables) was dropped, so clicking the current step and then the next one
+  left the reader stuck. Before Slice 4 the landing was Upload, so re-picking
+  the step you were on was rare; once Format became the landing, a test (and a
+  user) re-picking Format before moving on hit it every time.
+- It passed the Slice 4 `verify.sh --e2e` because the suite runs e2e under
+  `-n auto`: `test_wise_qif_auto_detect_and_import` (which does `_step(FORMAT)`
+  then `_step(UPLOAD)`) only wedges when its sibling ordering is broken by the
+  parallel split. Deterministic in isolation (3/3), green in-file (27/27) —
+  which is why it slipped. Shipped as its own PR (not folded into #10).
+- Fix: `_goto` records the choice (`step_chosen`) but returns before
+  `_sync_step` when the step is not changing — no panel moves, no line
+  changes, nothing to rebuild, nothing to drop. Regression test
+  `test_import_step_reclick.py` (KAL-CSV-036) re-clicks Format then clicks
+  Upload and asserts Upload is shown; fails 2/2 on `main`, passes on the fix.
+- `test_rules.py::test_rules_apply_during_csv_import` failed once in a parallel
+  `--e2e` run during this work and passed on re-run and 2/2 in isolation — the
+  same step-node-click-under-`-n auto` fragility, not this fix. Logged in
+  `chores.md`.

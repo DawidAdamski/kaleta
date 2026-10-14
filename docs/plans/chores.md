@@ -152,6 +152,16 @@ check it still reproduces before acting on it.
       is the mapping step not being on screen yet when the panel assertion
       fires under load. A `to_be_visible` already has a 10s timeout, so the
       fix is likely waiting on the file's parse state, not a longer timeout.
+- [ ] `tests/e2e/test_rules.py::test_rules_apply_during_csv_import` (KAL-RUL-002)
+      failed once in a parallel `--e2e` run, passed on re-run and 2/2 in
+      isolation. Same import-wizard step-node-click-under-`-n auto` fragility
+      the `_goto` fix (`fix/import-step-reclick-wedge`) addressed for the
+      deterministic re-click case: a raw `page.locator('[data-step=N]').click()`
+      followed immediately by `expect(panel).to_be_visible()` can race the
+      `_sync_step` refreshable rebuild under load. The shared `_import_step` /
+      `_step` helpers across the import e2e should wait on the step node's
+      `aria-current`/active state before asserting the panel, rather than
+      racing the repaint.
 - [ ] Payment calendar: `_out` / `_net` sum the day's subscription charges
       inside `views/payment_calendar.py`, mirroring `day_marks` beside them.
       Nothing callable from a service owns "what leaves on a day", so the

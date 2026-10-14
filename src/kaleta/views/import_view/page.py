@@ -868,8 +868,18 @@ async def import_page() -> None:
 
     def _goto(step: int) -> None:
         """The reader picks a step, and keeps it until the page may move."""
+        already_here = step == state["step"]
         state["step"] = step
         state["step_chosen"] = True
+        if already_here:
+            # Clicking the step already on screen moves no panel and changes no
+            # line — only that the reader has now chosen it. Re-running
+            # ``_sync_step`` would rebuild four refreshables for nothing, and a
+            # click landing mid-rebuild is dropped — which wedged the *next*
+            # step click once the page started landing on Format, where
+            # re-picking the step you are on is a no-op. Record the choice and
+            # skip the repaint.
+            return
         _sync_step()
 
     def _go_back() -> None:
