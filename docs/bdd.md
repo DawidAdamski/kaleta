@@ -489,6 +489,15 @@ Feature: Category Management
     When I click "Add subcategory" on a category and save the new name
     Then the new category appears as a subcategory of that parent
     And it is not created as a top-level root
+
+  KAL-CAT-014 @automated
+  Scenario: The Subscriptions root category cannot be deleted
+    Given the Subscriptions root category exists with its subtree
+    When I try to delete the Subscriptions root
+    Then the deletion is refused with a clear message
+    And the root and its subtree are unchanged
+    And an ordinary category can still be deleted
+    # The Categories view also hides the delete button on that root.
 ```
 
 ## Feature: Category templates

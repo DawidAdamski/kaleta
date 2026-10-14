@@ -149,3 +149,19 @@ Each item ships as one PR (slice). Confirmed bugs only:
   race in Playwright (and making the *un*guarded failure deterministic) is
   not feasible, so it is not automated. `verify.sh --e2e` confirms the
   existing transfer e2e (KAL-TRF-001..003) still pass.
+
+### Slice 5 — protect the Subscriptions root from deletion (#6)
+- Decision (maintainer, 2026-10-14): protect only the flagged root, and only
+  from deletion (renaming/re-parenting left alone).
+- `CategoryService.delete` now raises `ConflictError` when
+  `category.is_subscriptions_root` (before it would `session.delete` and
+  cascade away the subtree, nulling linked transactions). `CategoryResponse`
+  gained `is_subscriptions_root` so the view can read it, and the Categories
+  view hides the delete button on that root (service guard + hidden button,
+  defence in depth).
+- Test: integration `test_subscriptions_root_cannot_be_deleted`
+  (KAL-CAT-014) — the root is refused, it survives, an ordinary category
+  still deletes. The hidden-button view change is the same rule's UX surface;
+  not given a separate e2e because locating the flagged root in the seed is
+  ambiguous (a flat same-named category may also exist), and `verify.sh
+  --e2e` confirms the page still renders.

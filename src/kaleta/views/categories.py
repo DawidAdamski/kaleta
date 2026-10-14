@@ -262,12 +262,16 @@ def register() -> None:
                                         c, gt, c.parent_id
                                     ),
                                 ).props("flat round dense size=sm color=primary")
-                                ui.button(
-                                    icon="delete",
-                                    on_click=lambda c=parent: open_delete_dialog(
-                                        c, bool(c.children)
-                                    ),
-                                ).props("flat round dense size=sm color=negative")
+                                # The subscriptions root anchors the whole
+                                # subscriptions feature; deleting it breaks the
+                                # panel and the radar, so it offers no delete.
+                                if not parent.is_subscriptions_root:
+                                    ui.button(
+                                        icon="delete",
+                                        on_click=lambda c=parent: open_delete_dialog(
+                                            c, bool(c.children)
+                                        ),
+                                    ).props("flat round dense size=sm color=negative")
 
                             # Child rows
                             for child in sorted(parent.children, key=lambda c: c.name):

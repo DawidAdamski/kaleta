@@ -176,6 +176,14 @@ class CategoryService:
         category = await self.get(category_id)
         if category is None:
             return False
+        if category.is_subscriptions_root:
+            # Deleting it would cascade away the whole subscriptions subtree and
+            # null the linked transactions; the subscriptions panel and the
+            # unplanned radar both read this flagged root. Protect it.
+            raise ConflictError(
+                "The Subscriptions category is used by the subscriptions tracker "
+                "and cannot be deleted."
+            )
         await self.session.delete(category)
         await self.session.commit()
         return True
