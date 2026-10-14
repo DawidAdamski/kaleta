@@ -494,3 +494,14 @@ check it still reproduces before acting on it.
       works. Decide on a cross-cutting fix (e.g. per-input `keydown.enter`
       submit, or a non-ignoring keyboard) rather than patching one dialog.
       Noted during `dogfooding-bugs-wave-1` slice 2.
+- [ ] **Subscriptions root protection is service-layer only (follow-ups from
+      `dogfooding-bugs-wave-1` slice 5).** `CategoryService.delete` refuses the
+      flagged root, and the Categories view hides its delete button, but: (a)
+      there is no DB-level guard (a trigger/constraint) and nothing stops
+      `update()` from re-parenting the root (ruled out of scope for the slice);
+      (b) `views/categories.py` `confirm_delete` does not wrap `svc.delete` in
+      `notify_kaleta_error`, so a stale page that still shows the (now hidden)
+      delete button would surface an unhandled `ConflictError` — same gap as
+      `save_add`/`save_edit`, which also don't catch. Consider a consistent
+      KaletaError toast across the Categories view's mutations, and decide
+      whether the root needs re-parent/rename protection too.
