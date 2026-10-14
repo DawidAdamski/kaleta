@@ -1587,6 +1587,13 @@ Feature: Transfer Recognition
     When I open the dashboard's month widgets
     Then this month's income and expense totals exclude the 500.00
     And the transfer is listed in the ledger with neutral colouring
+
+  KAL-TRF-004 @manual
+  Scenario: Double-clicking "accept transfer" does not raise an error
+    Given a suggested transfer pair on the import Confirm step
+    When I double-click "Accept" on that pair before it finishes
+    Then the pair is linked exactly once
+    And no error notification is shown for the second click
 ```
 
 ## Feature: Auto-categorisation Rules
