@@ -324,6 +324,14 @@ async def transactions_page(*, open_new: bool = False) -> None:
         total_pages = max(1, (total + page_size - 1) // page_size)
         filters["total_pages"] = total_pages
         current_page = filters["page"]
+        if current_page >= total_pages:
+            # Keeping the page across an in-place edit assumes it still holds
+            # rows, but with a filter active an edit (or a pair) can push the
+            # last row off the final page and leave this offset past the end.
+            # Snap to the last real page and repaint once with the right offset.
+            filters["page"] = total_pages - 1
+            transaction_table.refresh()
+            return
         week_mode = get_week_start_mode()
         rows = attach_split_labels(
             attach_type_labels(TransactionService.build_table_rows(txs, grouping, week_mode))

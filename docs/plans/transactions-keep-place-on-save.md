@@ -19,8 +19,11 @@ offset are still exactly where you want to be.
 ## Scope
 - **Edit** (`build_edit_dialog`) and **pair-as-transfer** (`_pair_selected`)
   now refresh *in place*: the current page is kept and the scroll offset is
-  restored once the table has rebuilt. Both mutate rows that stay on screen,
-  so their page is always valid.
+  restored once the table has rebuilt. With a filter active an edit (or a
+  pair) can still push a row off the current page — e.g. editing the only row
+  on the last page so it no longer matches a search — so the table render
+  clamps `filters["page"]` to the last page that actually holds rows and
+  repaints once. The common case (no overflow) keeps the exact page.
 - **Add** keeps the old behaviour (`_apply_filters`, reset to page 1): a
   brand-new row belongs at the top where the reader can see it landed.
 - **Delete** keeps the old behaviour too (reset to page 1): a multi-delete
@@ -30,10 +33,9 @@ offset are still exactly where you want to be.
   before the repaint; `on_saved` on the edit dialog is now
   `Callable[[], Awaitable[None]]`. Add/delete callbacks stay synchronous.
 
-**Not in scope:** page-clamping after a delete empties the last page
-(delete still resets to page 1, which sidesteps it); scroll restore is
-best-effort cosmetics and is not asserted by the e2e (timing-dependent) —
-the deterministic contract is *the page is kept*.
+**Not in scope:** scroll restore is best-effort cosmetics and is not
+asserted by the e2e (timing-dependent) — the deterministic contract is
+*the page is kept (or clamped to the last non-empty page)*.
 
 ## Acceptance criteria
 - `uv run pytest tests/e2e/test_transactions_keep_place.py -q` — editing a
