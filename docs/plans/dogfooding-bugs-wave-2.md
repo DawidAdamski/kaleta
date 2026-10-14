@@ -77,4 +77,13 @@ _(filled per slice)_
 - The body slot (`transaction_table._body_slot`) already uses `<q-tooltip>`
   on the date cell, notes icon, splits icon and planned action — the pattern
   exists; the truncatable text cells (account / description / category /
-  added_by) simply lacked one.
+  added_by) simply lacked one. The truncation basis is a fixed column width
+  (account 166px, category 168px) with `overflow:hidden; text-overflow:
+  ellipsis` — per KAL-TXN-018 a cell must not widen the table, so the full
+  value needs the tooltip to stay reachable.
+- The e2e reaches a cell by its text, not a `key=` selector: Quasar does not
+  render QTd's `key` prop as a DOM attribute. Tooltips fire on hover of the
+  text node (the account cell's own text, the description `<span>`), which is
+  why the test moves the mouse away between the two hovers.
+- Fail-on-old / pass-on-new confirmed by swapping `main`'s
+  `transaction_table.py` under the new test.

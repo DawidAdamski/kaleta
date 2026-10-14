@@ -37,3 +37,11 @@ def test_truncated_account_cell_shows_full_name_on_hover(page: Page, base_url: s
 
     tooltip = page.locator(".q-tooltip").filter(has_text=long_account)
     expect(tooltip).to_be_visible(timeout=5000)
+
+    # The description cell carries the same affordance; hovering its text
+    # reveals the full description too.
+    page.mouse.move(0, 0)
+    desc_cell = row.locator("td").filter(has_text=description)
+    desc_cell.hover()
+    desc_tooltip = page.locator(".q-tooltip").filter(has_text=description)
+    expect(desc_tooltip).to_be_visible(timeout=5000)
