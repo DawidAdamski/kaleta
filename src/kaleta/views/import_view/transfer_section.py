@@ -96,13 +96,23 @@ def build_transfer_section(
     with card:
         ui.label(t("import.transfer_section")).classes(CARD_TITLE)
         ui.label(t("import.transfer_hint")).classes(f"{BODY_MUTED} mb-3")
-        pairs = ui.column().classes("w-full gap-0")
-        result_label = ui.label("").classes("text-sm k-trend--pos")
-        accept_all_btn = ui.button(
-            t("import.detect_transfers"),
-            icon="compare_arrows",
-            on_click=on_accept_all,
-        ).props("outline no-caps color=primary data-transfer-accept-all")
+        # Cap the list and let it scroll inside its own box: a long run of
+        # suggestions used to grow the card until the accept-all control below
+        # was pushed off-screen, out of reach without scrolling past every pair.
+        pairs = (
+            ui.column()
+            .classes("w-full gap-0 max-h-80 overflow-y-auto")
+            .props("data-transfer-pairs")
+        )
+        # Result + accept-all live in a footer under the scroll area, so they
+        # stay put however many pairs there are.
+        with ui.row().classes("w-full items-center gap-3 pt-3 mt-2 k-card-footer"):
+            result_label = ui.label("").classes("text-sm k-trend--pos flex-1 min-w-0")
+            accept_all_btn = ui.button(
+                t("import.detect_transfers"),
+                icon="compare_arrows",
+                on_click=on_accept_all,
+            ).props("outline no-caps color=primary data-transfer-accept-all")
     return TransferSection(
         card=card,
         pairs=pairs,

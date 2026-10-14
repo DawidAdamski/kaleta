@@ -234,3 +234,20 @@ _(filled per slice)_
   CSV (which lands on the Settings step) and asserts the link's `href` and
   `target=_blank`. Fail-on-old / pass-on-new verified by swapping `main`'s
   `settings_section.py` under it (no link → test fails).
+
+### Slice 6 — #8: cap the transfer-suggestions list, pin accept-all
+- The transfer section (`transfer_section.py`, Confirm step) listed every pair
+  in an uncapped column, with the accept-all control as a loose child below it.
+  A long run of suggestions grew the card until accept-all was pushed
+  off-screen — reachable only by scrolling past every pair.
+- Fix: the pair list gets `max-h-80 overflow-y-auto`, so it scrolls inside its
+  own bounded box instead of growing the card; result + accept-all move into a
+  `k-card-footer` row under the scroll area, so they stay put however many
+  pairs there are. A `data-transfer-pairs` hook was added to the list column
+  (consistent with the section's existing `data-transfer-*` attributes) so the
+  e2e can read its computed style — the only production addition beyond classes.
+- e2e `test_transfer_section_layout.py` (KAL-CSV-037) runs an import that yields
+  pairs, then asserts the list column has a non-`none` `max-height` and a
+  scrollable `overflow-y`, and that accept-all resolves under `.k-card-footer`.
+  Fail-on-old / pass-on-new verified by swapping `main`'s `transfer_section.py`
+  under it (no cap, no footer, no hook → the list locator times out).
