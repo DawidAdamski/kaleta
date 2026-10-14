@@ -1249,6 +1249,7 @@
     "bulk_applied": "Zastosowano domyślne konto do tego pliku.",
     "remember_mapping": "Zapamiętaj to mapowanie",
     "remember_mapping_hint": "Zapisuje regułę nazwy pliku, aby kolejny podobny plik był wstępnie wypełniony.",
+    "manage_saved_mappings": "Zarządzaj zapisanymi mapowaniami",
     "filename_pattern": "Wzorzec nazwy pliku",
     "rule_chip": "Reguła: {pattern}",
     "rule_applied": "Zastosowano zapisaną regułę {pattern}.",

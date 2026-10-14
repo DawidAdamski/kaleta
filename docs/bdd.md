@@ -1594,6 +1594,15 @@ Feature: mBank CSV Import
     When I choose the "mBank" format before uploading anything
     Then the mBank format is visibly selected
 
+  KAL-CSV-035 @automated
+  Scenario: The import settings step links to the saved import rules
+    Saved column mappings live in Settings → Import; the import flow never
+    pointed there. The settings step, beside "Remember this mapping", carries a
+    link to that list, opening in a new tab so the in-progress import survives.
+
+    Given I have a parsed file on the import settings step
+    Then there is a "Manage saved mappings" link to Settings → Import
+
   KAL-CSV-036 @automated
   Scenario: Re-clicking the step you are on does not wedge the next step
     The progress line lets you click the step already on screen; doing so
