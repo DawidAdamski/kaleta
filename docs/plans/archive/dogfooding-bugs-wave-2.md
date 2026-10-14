@@ -3,8 +3,9 @@ plan_id: dogfooding-bugs-wave-2
 title: Dogfooding bugs — wave 2 (discoverability + UX)
 area: views (transactions, import, theme)
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-14
+roadmap_ref: ../../roadmap.md
 ---
 
 # Dogfooding bugs — wave 2 (discoverability + UX)
@@ -268,3 +269,48 @@ _(filled per slice)_
   translateY(1px) matrix while held and `none` at rest. Fail-on-old /
   pass-on-new verified by swapping `main`'s `theme.py` under it (no rule →
   transform stays `none` while pressed). New BDD area `KAL-UIX`.
+
+## Implementation
+
+Landed on 2026-10-14.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1d4e1fb` | Dawid Adamski | 2026-10-14 | Merge pull request #254 from DawidAdamski/fix/truncated-cell-tooltips |
+| `2299e71` | Dawid Adamski | 2026-10-14 | Merge pull request #255 from DawidAdamski/fix/accounts-group-by-active-highlight |
+| `c1a0553` | Dawid Adamski | 2026-10-14 | Merge pull request #256 from DawidAdamski/fix/surface-import-history |
+| `6b85da4` | Dawid Adamski | 2026-10-14 | Merge pull request #257 from DawidAdamski/feat/import-format-first |
+| `31afd07` | Dawid Adamski | 2026-10-14 | Merge pull request #258 from DawidAdamski/fix/import-step-reclick-wedge |
+| `3359d8a` | Dawid Adamski | 2026-10-14 | Merge pull request #259 from DawidAdamski/feat/import-link-to-saved-mappings |
+| `e026015` | Dawid Adamski | 2026-10-14 | Merge pull request #260 from DawidAdamski/fix/transfer-section-overflow |
+| `3bd35b1` | Dawid Adamski | 2026-10-14 | Merge pull request #261 from DawidAdamski/feat/global-button-press-feedback |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/dogfooding-bugs-wave-2.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/accounts.py
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/import_view/constants.py
+- src/kaleta/views/import_view/coverage_section.py
+- src/kaleta/views/import_view/page.py
+- src/kaleta/views/import_view/settings_section.py
+- src/kaleta/views/import_view/transfer_section.py
+- src/kaleta/views/theme.py
+- tests/e2e/test_accounts_group_by.py
+- tests/e2e/test_button_press_feedback.py
+- tests/e2e/test_csv_import.py
+- tests/e2e/test_import_format_first.py
+- tests/e2e/test_import_history_visible.py
+- tests/e2e/test_import_link_to_saved_mappings.py
+- tests/e2e/test_import_step_reclick.py
+- tests/e2e/test_transaction_cell_tooltip.py
+- tests/e2e/test_transfer_section_layout.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
