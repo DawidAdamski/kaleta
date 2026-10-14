@@ -28,6 +28,15 @@ DEFAULT_EVENT_RETENTION_DAYS = 7
 DEFAULT_TRANSACTIONS_UPCOMING_DAYS = 7
 #: The only windows the ledger offers for upcoming planned rows. ``0`` is off.
 TRANSACTIONS_UPCOMING_DAYS_CHOICES = (0, 7, 30)
+#: How many rows the ledger shows per page by default.
+DEFAULT_TRANSACTIONS_PAGE_SIZE = 50
+#: The page sizes the ledger offers. Kept in step with the in-page selector's
+#: ``PAGE_SIZES`` (a unit test asserts they match).
+TRANSACTIONS_PAGE_SIZE_CHOICES = (50, 100, 200, 500)
+#: How the ledger groups rows by default; the ledger's own toggle can override.
+DEFAULT_TRANSACTIONS_GROUPING = "none"
+#: The groupings the ledger offers, matching the ledger toggle's options.
+TRANSACTIONS_GROUPING_CHOICES = ("none", "week", "month")
 
 __all__ = [
     "DEFAULT_AUTO_POST_DUE_ON_STARTUP",
@@ -42,10 +51,14 @@ __all__ = [
     "DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE",
     "DEFAULT_PAYMENT_CALENDAR_OVERDUE_DAYS",
     "DEFAULT_SUBSCRIPTIONS_DETECTOR_DAYS",
+    "DEFAULT_TRANSACTIONS_GROUPING",
+    "DEFAULT_TRANSACTIONS_PAGE_SIZE",
     "DEFAULT_TRANSACTIONS_UPCOMING_DAYS",
     "DEFAULT_TRANSFER_AMOUNT_TOLERANCE",
     "DEFAULT_TRANSFER_PAIRING_DAYS",
     "DEFAULT_WEEK_START",
     "DEFAULT_WEEK_START_MODE",
+    "TRANSACTIONS_GROUPING_CHOICES",
+    "TRANSACTIONS_PAGE_SIZE_CHOICES",
     "TRANSACTIONS_UPCOMING_DAYS_CHOICES",
 ]

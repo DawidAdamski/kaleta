@@ -15,7 +15,10 @@ from kaleta.views.components.amount_label import amount_cell_slot, spaced_thousa
 from kaleta.views.components.empty_state import pagination_empty_label, table_no_data_slot
 from kaleta.views.theme import LEDGER_FOOT, SEGMENT, SELECT_SUNKEN, TABLE_SURFACE
 
-PAGE_SIZES = [25, 50, 100, 200]
+# Kept in step with settings' TRANSACTIONS_PAGE_SIZE_CHOICES (a unit test
+# asserts they match), so the in-page selector and the Settings default offer
+# the same sizes.
+PAGE_SIZES = [50, 100, 200, 500]
 DEFAULT_PAGE_SIZE = 50
 
 

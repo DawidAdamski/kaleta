@@ -22,10 +22,14 @@ from kaleta.views.settings.constants import (
     DEFAULT_NUMBER_FORMAT,
     DEFAULT_PAYEE_AUTOMERGE_ENABLED,
     DEFAULT_PAYEE_DEDUPE_MAX_DISTANCE,
+    DEFAULT_TRANSACTIONS_GROUPING,
+    DEFAULT_TRANSACTIONS_PAGE_SIZE,
     DEFAULT_TRANSACTIONS_UPCOMING_DAYS,
     DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
     DEFAULT_TRANSFER_PAIRING_DAYS,
     DEFAULT_WEEK_START_MODE,
+    TRANSACTIONS_GROUPING_CHOICES,
+    TRANSACTIONS_PAGE_SIZE_CHOICES,
     TRANSACTIONS_UPCOMING_DAYS_CHOICES,
 )
 
@@ -41,6 +45,8 @@ __all__ = [
     "get_payee_automerge_enabled",
     "get_payee_automerge_threshold",
     "get_payee_dedupe_max_distance",
+    "get_transactions_grouping",
+    "get_transactions_page_size",
     "get_transactions_upcoming_days",
     "get_transfer_amount_tolerance",
     "get_transfer_pairing_days",
@@ -159,6 +165,28 @@ def get_transactions_upcoming_days() -> int:
         return DEFAULT_TRANSACTIONS_UPCOMING_DAYS
     if value not in TRANSACTIONS_UPCOMING_DAYS_CHOICES:
         return DEFAULT_TRANSACTIONS_UPCOMING_DAYS
+    return value
+
+
+def get_transactions_page_size() -> int:
+    """How many rows the ledger opens on. Only the offered sizes are honoured;
+    anything else in storage (an older build, a hand edit) falls back."""
+    raw = app.storage.user.get("transactions_page_size", DEFAULT_TRANSACTIONS_PAGE_SIZE)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return DEFAULT_TRANSACTIONS_PAGE_SIZE
+    if value not in TRANSACTIONS_PAGE_SIZE_CHOICES:
+        return DEFAULT_TRANSACTIONS_PAGE_SIZE
+    return value
+
+
+def get_transactions_grouping() -> str:
+    """How the ledger opens grouped. Only the toggle's options are honoured."""
+    raw = app.storage.user.get("transactions_grouping", DEFAULT_TRANSACTIONS_GROUPING)
+    value = str(raw)
+    if value not in TRANSACTIONS_GROUPING_CHOICES:
+        return DEFAULT_TRANSACTIONS_GROUPING
     return value
 
 

@@ -4521,6 +4521,14 @@ Feature: Settings — Data safety
     Then KALETA_DB_URL and KALETA_SECRET_KEY take the files' contents, trailing newline dropped
     And an environment variable of the same name still wins over its file
 
+  KAL-SET-032 @automated
+  Scenario: The ledger opens on the rows-per-page and grouping chosen in Settings
+    Given I set the transactions list to 200 rows per page, grouped by month
+    When I open the Transactions page
+    Then the ledger's page-size control shows 200
+    And the grouping toggle is set to Month
+    # The ledger's own selector and toggle still override for the session.
+
   KAL-SET-019 @removed
     # Removed by ADR-38 (postgres-only B2b): a family schema is upgraded by the start-up migration of the registry layout.
   Scenario: Configured database auto-upgrades to alembic head on start
