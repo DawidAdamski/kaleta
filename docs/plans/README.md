@@ -279,6 +279,7 @@ and [ADR-032](../adr/032-retire-the-controller-layer-views-call-services-directl
 | [import-flow-polish](archive/import-flow-polish.md) | archived | Import — dogfooding UX |
 | [transactions-type-labels-i18n](archive/transactions-type-labels-i18n.md) | archived | Transactions — dogfooding bug |
 | [transactions-split-discoverability](archive/transactions-split-discoverability.md) | archived | Transactions — dogfooding UX |
+| [dogfooding-bugs-wave-1](archive/dogfooding-bugs-wave-1.md) | archived | Categories / Import / Transactions / Settings — dogfooding bugs |
 | [auth-reset-password-cli](archive/auth-reset-password-cli.md) | archived | Auth (audit P1.10) |
 | [dashboard-customize-reset-options](archive/dashboard-customize-reset-options.md) | archived | Dashboard |
 | [transactions-notes-field](archive/transactions-notes-field.md) | archived | Transactions |
