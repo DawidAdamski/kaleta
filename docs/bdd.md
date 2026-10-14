@@ -1068,6 +1068,17 @@ Feature: Manual Transaction Entry
     Given a transaction whose account name is wider than its column
     When I hover the account cell in the ledger
     Then a tooltip shows the account name in full
+
+  KAL-TXN-020 @automated
+  Scenario: Typing in the ledger search leaves a single table
+    Each keystroke used to fire its own async table refresh; because the render
+    awaits the database, two could overlap and paint a second table under the
+    first, with the eyebrow count no longer matching the rows below it.
+
+    Given transactions whose description matches a search token
+    When I type the token into the ledger search box
+    Then the ledger shows exactly one table
+    And the eyebrow count matches the table's own "Showing … of N" footer
 ```
 
 ## Feature: Quick Entry

@@ -553,3 +553,10 @@ check it still reproduces before acting on it.
       flashes an "x of y shown" state then re-renders. Bug in the transactions
       multi-select; shares the selection infra with #17 (bulk change-category),
       so plan the two as one slice.
+- [ ] **Debounce the ledger search input (perf, not correctness).** Each
+      keystroke in the transactions search box fires its own `count`+`list`
+      query; the render-token guard (`transactions-search-render-race`) keeps
+      the UI correct, but a `debounce=300` on the Quasar input would cut a
+      word from N queries to one. Left out of the race fix because debounce
+      masks the race rather than fixing it (and hid the token from its test);
+      do it purely for query load if it ever matters.
