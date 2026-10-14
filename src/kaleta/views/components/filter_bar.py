@@ -319,8 +319,12 @@ def render_filter_bar(
             search_menu = ui.menu().classes("p-3")
         with search_menu:
             widgets["search"] = (
+                # `debounce`: Quasar holds the model-value event until typing
+                # pauses, so a word is one search, not one per letter — each of
+                # which would fire a fresh async table refresh (see the render
+                # token in the transactions page).
                 ui.input(t(search_key))
-                .props("clearable dense autofocus")
+                .props("clearable dense autofocus debounce=300")
                 .classes("w-64")
                 .on("update:model-value", lambda e: on_search_change(e.args or ""))
             )

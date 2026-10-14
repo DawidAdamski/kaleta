@@ -132,6 +132,13 @@ async def transactions_page(*, open_new: bool = False) -> None:
         "grouping": "none",
     }
 
+    #: Bumped on every table render. The render body awaits the database, so
+    #: two refreshes — a keystroke each in the search box — can be in flight at
+    #: once; a render whose token is stale by the time its query returns is a
+    #: loser that must not paint, or it draws a second table under the winner
+    #: and the eyebrow count disagrees with the one below it.
+    render_seq = {"n": 0}
+
     def _list_or_none(key: str) -> list[Any] | None:
         return filters[key] if filters[key] else None
 
@@ -223,6 +230,8 @@ async def transactions_page(*, open_new: bool = False) -> None:
 
     @ui.refreshable
     async def transaction_table() -> None:
+        render_seq["n"] += 1
+        token = render_seq["n"]
         page_size = filters["page_size"]
         grouping = filters["grouping"]
         today = datetime.date.today()
@@ -279,6 +288,11 @@ async def transactions_page(*, open_new: bool = False) -> None:
             return total, txs, upcoming
 
         total, txs, upcoming = await with_session(_fetch)
+        if token != render_seq["n"]:
+            # A newer refresh started while this one's query was running. It
+            # will paint; this one must not, or two tables stack and the
+            # eyebrow stops matching the rows below it.
+            return
         eyebrow.set_text(_eyebrow_text(total))
 
         total_pages = max(1, (total + page_size - 1) // page_size)
