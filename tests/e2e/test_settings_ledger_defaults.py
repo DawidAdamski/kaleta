@@ -24,10 +24,13 @@ def test_ledger_opens_on_the_settings_page_size_and_grouping(page: Page, base_ur
     # different values), so the labels locate each toggle option on their own.
     page_size_200 = page.get_by_role("button", name="200", exact=True)
     expect(page_size_200).to_be_visible(timeout=10000)
-    page_size_200.click()
-    page.get_by_role("button", name="Month", exact=True).click()
 
     try:
+        # Inside the try from the first write, so a failure between the two
+        # clicks still restores the default and nothing leaks into the session.
+        page_size_200.click()
+        page.get_by_role("button", name="Month", exact=True).click()
+
         page.goto(f"{base_url}/transactions")
         # The page-size select (the only select in the ledger footer) opens on 200.
         expect(page.locator(".k-ledger-foot .q-select")).to_contain_text("200", timeout=10000)
