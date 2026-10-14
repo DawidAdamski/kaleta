@@ -251,3 +251,20 @@ _(filled per slice)_
   scrollable `overflow-y`, and that accept-all resolves under `.k-card-footer`.
   Fail-on-old / pass-on-new verified by swapping `main`'s `transfer_section.py`
   under it (no cap, no footer, no hook → the list locator times out).
+
+### Slice 7 — #13: global button press feedback
+- Buttons gave no pressed-state affordance; on flat/dense buttons Quasar's
+  ripple is easy to miss, so a click did not always feel registered. There is
+  no shared button factory (~394 ad-hoc `ui.button` sites), so a per-button
+  change was out — this is one global rule in `theme.py`'s base block:
+  `.q-btn:active:not(.disabled):not([aria-disabled="true"]){transform:translateY(1px)}`.
+- Transform only, and deliberately **no** `transition` override on `.q-btn`:
+  setting `transition:transform` on the base selector would replace Quasar's
+  own colour/background transitions on buttons without a more specific rule,
+  snapping their hover fades. The press reads fine instant (keycap feel), and a
+  composited transform never nudges layout. Disabled buttons are excluded.
+- e2e `test_button_press_feedback.py` (KAL-UIX-001) holds the mouse down on the
+  import Continue button and asserts its computed `transform` is the
+  translateY(1px) matrix while held and `none` at rest. Fail-on-old /
+  pass-on-new verified by swapping `main`'s `theme.py` under it (no rule →
+  transform stays `none` while pressed). New BDD area `KAL-UIX`.
