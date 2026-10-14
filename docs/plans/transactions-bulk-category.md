@@ -57,3 +57,8 @@ them all in a single step.
   by the common flow, while the service still enforces them for the API.
 - `table_actions.py` imports `assignable_category_type` from
   `bulk_category_dialog` — same view layer, import-linter clean.
+- Stale ids are skipped silently: the returned count is the number of rows
+  actually found, so a caller passing an id that no longer exists gets a
+  smaller count, not an error. Acceptable for the UI (the selection only ever
+  holds live rows); an API caller that needs strictness can compare the count
+  it passed against the count returned.
