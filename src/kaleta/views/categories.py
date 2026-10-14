@@ -34,16 +34,28 @@ def register() -> None:
                 {0: t("categories.none_parent")}, label=t("categories.parent"), value=0
             ).classes("w-full")
 
-            async def _load_add_parents(cat_type: str) -> None:
+            async def _load_add_parents(cat_type: str, select: int = 0) -> None:
                 async def _load(session: Any) -> list[CategoryResponse]:
                     return await CategoryService(session).list_tree(type=CategoryType(cat_type))
 
                 roots = await with_session(_load)
                 options: dict[int, str] = {0: t("categories.none_parent")}
                 options.update({c.id: c.name for c in roots})
-                add_parent.set_options(options, value=0)
+                add_parent.set_options(options, value=select if select in options else 0)
 
-            add_type.on_value_change(lambda e: _load_add_parents(e.value))
+            async def _on_add_type_change(cat_type: str) -> None:
+                # Reload the parent list only for an *interactive* type change
+                # while the dialog is open. During the preset flow
+                # (open_add_dialog) the dialog is still closed and sets the
+                # parent itself; reacting here would schedule a second load
+                # that lands after the preset and resets the Parent select to
+                # "no parent" — so an "add subcategory" would be saved as a
+                # top-level root (the race this guards against).
+                if not add_dialog.value:
+                    return
+                await _load_add_parents(cat_type)
+
+            add_type.on_value_change(lambda e: _on_add_type_change(e.value))
 
             async def save_add() -> None:
                 if not add_name.value.strip():
@@ -85,9 +97,11 @@ def register() -> None:
             preset_parent_name: str = "",
         ) -> None:
             add_name.set_value("")
+            # The dialog is still closed here, so the Type change handler
+            # (_on_add_type_change) deliberately no-ops; this load is the one
+            # authoritative source of both the options and the preset parent.
             add_type.set_value(preset_type.value)
-            await _load_add_parents(preset_type.value)
-            add_parent.set_value(preset_parent_id or 0)
+            await _load_add_parents(preset_type.value, select=preset_parent_id or 0)
             add_dialog.open()
 
         # ── Edit dialog ───────────────────────────────────────────────────

@@ -472,6 +472,14 @@ Feature: Category Management
     When I add an income category named "Nieprzypisane" without a parent
     Then I see "Nieprzypisane" in the income categories list
     And I see "Nieprzypisane" in the expense categories list
+
+  KAL-CAT-013 @automated
+  Scenario: Adding a subcategory keeps it under its parent
+    Given I am on the Categories page
+    And the Add dialog's last-used type differs from the parent's type
+    When I click "Add subcategory" on a category and save the new name
+    Then the new category appears as a subcategory of that parent
+    And it is not created as a top-level root
 ```
 
 ## Feature: Category templates
