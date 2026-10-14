@@ -107,3 +107,23 @@ _(filled per slice)_
 - The e2e asserts the selected button's computed background sums to a dark
   (ink) value, which fails on the old accent fill and passes on ink —
   verified by swapping `main`'s `accounts.py` under the test.
+
+### Slice 3 — #7 surface import history
+- The history was buried: it lives on the **Format** step (`page.py`), inside
+  a collapsed `ui.expansion("reference_panels")`, which in turn holds a second
+  collapsed `ui.expansion("history_heading")` (`coverage_section.py`). The
+  page also hard-lands on the **Upload** step (`state["step"] = STEP_UPLOAD`),
+  so the user never even reaches the step the panel sits on — confirmed by
+  screenshots (scratchpad: lands on Upload; history is two expanders deep on
+  Format).
+- Fix is bounded: open **both** expanders by default (`value=True`). I did
+  **not** change the landing step — forcing Format-first would add friction to
+  the main upload flow for everyone and risk the import e2e. So walking back to
+  Format (the natural "where's my history" move) now shows it with no further
+  clicks, instead of two.
+- Residual (flagged to the user): history is still only on the Format step, not
+  the Upload step the user lands on. Whether to surface it further is a UX
+  decision left open.
+- e2e walks to the Format step and asserts the empty-history line is visible
+  with no expander clicks — fails on `main` (both collapsed), passes on the
+  fix. Verified by swapping both files under the test.

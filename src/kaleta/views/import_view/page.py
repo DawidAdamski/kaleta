@@ -992,7 +992,12 @@ async def import_page() -> None:
             # before choosing a format, and a card each on the way to every
             # import is how the old page got long.
             # No card of its own: what it opens onto is two cards already.
-            with ui.expansion(t("import.reference_panels")).classes(f"{DISCLOSURE} w-full"):
+            # Opened by default so the import history is actually discoverable:
+            # left collapsed it hid two expanders deep on a step the user does
+            # not land on.
+            with ui.expansion(t("import.reference_panels"), value=True).classes(
+                f"{DISCLOSURE} w-full"
+            ):
                 coverage_section = build_coverage_section()
                 coverage_section.render(state["activity_rows"], recent_runs=state["history_rows"])
 
