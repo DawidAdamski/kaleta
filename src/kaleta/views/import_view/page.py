@@ -684,65 +684,90 @@ async def import_page() -> None:
         )
         transfer_section.set_visible(True)
 
+    # One in-flight transfer action at a time. Each accept/dismiss mutates the
+    # suggestion set and re-renders it, so a second click fired inside the
+    # round trip (impatient double-click) would otherwise hit the
+    # already-linked guard and surface a confusing ConflictError toast.
+    transfer_busy = {"value": False}
+
     async def _accept_transfer_pair(suggestion: TransferPairSuggestion) -> None:
-        amount_tolerance = get_transfer_amount_tolerance()
-
-        async def _accept(session: Any) -> None:
-            await ImportService(session).accept_transfer_pair(
-                suggestion.outgoing_id,
-                suggestion.incoming_id,
-                amount_tolerance=amount_tolerance,
-            )
-
+        if transfer_busy["value"]:
+            return
+        transfer_busy["value"] = True
         try:
-            await with_session(_accept)
-        except KaletaError as exc:
-            notify_kaleta_error(exc)
-        else:
-            ui.notify(t("import.transfer_pair_accepted"), type="positive")
-        await _refresh_transfer_pairs()
+            amount_tolerance = get_transfer_amount_tolerance()
+
+            async def _accept(session: Any) -> None:
+                await ImportService(session).accept_transfer_pair(
+                    suggestion.outgoing_id,
+                    suggestion.incoming_id,
+                    amount_tolerance=amount_tolerance,
+                )
+
+            try:
+                await with_session(_accept)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+            else:
+                ui.notify(t("import.transfer_pair_accepted"), type="positive")
+            await _refresh_transfer_pairs()
+        finally:
+            transfer_busy["value"] = False
 
     async def _dismiss_transfer_pair(suggestion: TransferPairSuggestion) -> None:
-        async def _dismiss(session: Any) -> None:
-            await ImportService(session).dismiss_transfer_pair(
-                suggestion.outgoing_id, suggestion.incoming_id
-            )
-
+        if transfer_busy["value"]:
+            return
+        transfer_busy["value"] = True
         try:
-            await with_session(_dismiss)
-        except KaletaError as exc:
-            notify_kaleta_error(exc)
-        else:
-            ui.notify(t("import.transfer_pair_dismissed"), type="info")
-        await _refresh_transfer_pairs()
+
+            async def _dismiss(session: Any) -> None:
+                await ImportService(session).dismiss_transfer_pair(
+                    suggestion.outgoing_id, suggestion.incoming_id
+                )
+
+            try:
+                await with_session(_dismiss)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+            else:
+                ui.notify(t("import.transfer_pair_dismissed"), type="info")
+            await _refresh_transfer_pairs()
+        finally:
+            transfer_busy["value"] = False
 
     async def run_detect() -> None:
         """Accept every suggestion on screen at once."""
+        if transfer_busy["value"]:
+            return
         window = _transfer_window()
         if window is None:
             return
         date_from, date_to = window
-        pairing_days = get_transfer_pairing_days()
-        amount_tolerance = get_transfer_amount_tolerance()
-
-        async def _detect(session: Any) -> int:
-            return await ImportService(session).detect_and_link_transfers(
-                max_days_apart=pairing_days,
-                amount_tolerance=amount_tolerance,
-                date_from=date_from,
-                date_to=date_to,
-            )
-
+        transfer_busy["value"] = True
         try:
-            pairs = await with_session(_detect)
-        except KaletaError as exc:
-            notify_kaleta_error(exc)
+            pairing_days = get_transfer_pairing_days()
+            amount_tolerance = get_transfer_amount_tolerance()
+
+            async def _detect(session: Any) -> int:
+                return await ImportService(session).detect_and_link_transfers(
+                    max_days_apart=pairing_days,
+                    amount_tolerance=amount_tolerance,
+                    date_from=date_from,
+                    date_to=date_to,
+                )
+
+            try:
+                pairs = await with_session(_detect)
+            except KaletaError as exc:
+                notify_kaleta_error(exc)
+                await _refresh_transfer_pairs()
+                return
+            msg = t("import.linked_pairs", count=pairs)
+            transfer_section.set_result(msg)
+            ui.notify(msg, type="positive")
             await _refresh_transfer_pairs()
-            return
-        msg = t("import.linked_pairs", count=pairs)
-        transfer_section.set_result(msg)
-        ui.notify(msg, type="positive")
-        await _refresh_transfer_pairs()
+        finally:
+            transfer_busy["value"] = False
 
     def _on_bulk_account_change(_e: object = None) -> None:
         value = queue_section.bulk_account_sel.value

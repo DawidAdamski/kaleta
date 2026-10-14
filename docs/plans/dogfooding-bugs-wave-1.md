@@ -135,3 +135,17 @@ Each item ships as one PR (slice). Confirmed bugs only:
   type value does not change). Mirrors the transactions add dialog. e2e
   KAL-PLN-028 fails on the old code (income category offered under Expense)
   and passes now.
+
+### Slice 4 — double-click on "accept transfer" (#11)
+- The transfer accept/dismiss/accept-all handlers in `import_view/page.py`
+  had no re-entrancy guard (only `do_import_all` did). An impatient
+  double-click fired the handler twice; the second hit `pair_as_transfer`'s
+  already-linked guard and surfaced a confusing `ConflictError` toast — no
+  data corruption (the guard prevents duplicates), just a bad message.
+- Fix: a shared `transfer_busy` flag, set at the top of each handler and
+  cleared in `finally`, mirroring `do_import_all`'s `state["importing"]`
+  pattern. The second click returns immediately.
+- Test: KAL-TRF-004 is `@manual` — reliably triggering the sub-round-trip
+  race in Playwright (and making the *un*guarded failure deterministic) is
+  not feasible, so it is not automated. `verify.sh --e2e` confirms the
+  existing transfer e2e (KAL-TRF-001..003) still pass.
