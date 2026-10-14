@@ -15,10 +15,15 @@ from kaleta.views.settings.constants import (
     DEFAULT_SUBSCRIPTIONS_DETECTOR_DAYS,
     DEFAULT_TRANSFER_AMOUNT_TOLERANCE,
     DEFAULT_TRANSFER_PAIRING_DAYS,
+    TRANSACTIONS_PAGE_SIZE_CHOICES,
 )
 from kaleta.views.settings.helpers import set_user_key
 from kaleta.views.settings.payee_automerge import PayeeAutoMergeSettings
-from kaleta.views.settings.user_prefs import get_transactions_upcoming_days
+from kaleta.views.settings.user_prefs import (
+    get_transactions_grouping,
+    get_transactions_page_size,
+    get_transactions_upcoming_days,
+)
 from kaleta.views.theme import SEGMENT
 
 
@@ -141,6 +146,30 @@ def render_features_tab() -> None:
                 },
                 value=get_transactions_upcoming_days(),
                 on_change=lambda e: set_user_key("transactions_upcoming_days", int(e.value or 0)),
+            ).props("dense unelevated no-caps toggle-text-color=info").classes(SEGMENT)
+
+        with ui.card().classes("p-6 w-full"):
+            with ui.row().classes("items-center gap-2 mb-1"):
+                ui.icon("view_list", color="primary").classes("text-xl")
+                ui.label(t("settings.ledger_display_title")).classes("text-lg font-semibold")
+            ui.label(t("settings.ledger_display_hint")).classes("text-xs text-slate-500 mb-4")
+
+            ui.label(t("settings.ledger_page_size")).classes("text-sm mb-1")
+            ui.toggle(
+                {s: str(s) for s in TRANSACTIONS_PAGE_SIZE_CHOICES},
+                value=get_transactions_page_size(),
+                on_change=lambda e: set_user_key("transactions_page_size", int(e.value)),
+            ).props("dense unelevated no-caps toggle-text-color=info").classes(SEGMENT)
+
+            ui.label(t("settings.ledger_grouping")).classes("text-sm mb-1 mt-4")
+            ui.toggle(
+                {
+                    "none": t("transactions.group_none"),
+                    "week": t("transactions.group_week"),
+                    "month": t("transactions.group_month"),
+                },
+                value=get_transactions_grouping(),
+                on_change=lambda e: set_user_key("transactions_grouping", str(e.value)),
             ).props("dense unelevated no-caps toggle-text-color=info").classes(SEGMENT)
 
         with ui.card().classes("p-6 w-full"):

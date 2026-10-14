@@ -27,7 +27,6 @@ from kaleta.views.components.filter_bar import (
     render_filter_bar,
 )
 from kaleta.views.components.transaction_table import (
-    DEFAULT_PAGE_SIZE,
     attach_added_by,
     attach_group_labels,
     attach_split_labels,
@@ -40,6 +39,8 @@ from kaleta.views.components.transaction_table import (
 from kaleta.views.error_handling import notify_kaleta_error
 from kaleta.views.layout import page_layout
 from kaleta.views.settings.user_prefs import (
+    get_transactions_grouping,
+    get_transactions_page_size,
     get_transactions_upcoming_days,
     get_week_start_mode,
 )
@@ -128,8 +129,10 @@ async def transactions_page(*, open_new: bool = False) -> None:
         "user_ids": [],
         "search": "",
         "page": 0,
-        "page_size": DEFAULT_PAGE_SIZE,
-        "grouping": "none",
+        # Open on the sizes/grouping the reader chose in Settings; the ledger's
+        # own selector and toggle still override for the session.
+        "page_size": get_transactions_page_size(),
+        "grouping": get_transactions_grouping(),
     }
 
     def _list_or_none(key: str) -> list[Any] | None:
