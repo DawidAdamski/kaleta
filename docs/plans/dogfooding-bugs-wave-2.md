@@ -16,10 +16,11 @@ layout that overflows. None are data-correctness bugs; all erode trust in
 the UI. This wave ships them one PR per bug, same rhythm as wave 1.
 
 ## Scope
-Covers six reported items. Two of them (#2, #7) turned out to already have a
-working implementation — see Open questions; their slices are reframed as
-"make it obvious / surface it", pending the user's steer, and are **not**
-started until that steer lands.
+Covers six reported items. Two of them (#2, #7) first looked like they
+already worked — see Open questions. The user clarified both: #2 was
+genuinely broken on the **Accounts** page (first map had looked at the
+ledger toggle) and is fixed; #7's history exists but is buried two expanders
+deep and will be surfaced.
 
 1. **#9 — Truncated table cells have no hover tooltip.** account /
    description / category / added_by cells truncate with ellipsis but carry
@@ -61,7 +62,7 @@ candidates #19/#22/#23 (deferred unless the user folds them in).
 - `src/kaleta/views/import_view/transfer_section.py` — pairs column + accept-all (#8)
 - `src/kaleta/views/import_view/mapping_section.py` / `page.py` — link to settings (#10)
 - `src/kaleta/views/theme.py` / `layout.py` — global `:active` feedback (#13)
-- `src/kaleta/views/theme.py`, `transaction_table.py` — grouping highlight (#2)
+- `src/kaleta/views/accounts.py` — group-by toggle active highlight (#2)
 - `src/kaleta/views/import_view/coverage_section.py` — history prominence (#7)
 - `docs/bdd.md` — KAL scenarios per slice
 

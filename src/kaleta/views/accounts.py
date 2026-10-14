@@ -324,6 +324,10 @@ def register() -> None:
                 ui.label(t("accounts.title")).classes(PAGE_TITLE)
                 with ui.row().classes("gap-2 items-center"):
                     ui.label(t("accounts.group_by")).classes(BODY_MUTED)
+                    # `k-segment` is the brand's group-by control (its CSS says
+                    # so): it fills the chosen option with ink so the active
+                    # grouping is visible at a glance, which a plain
+                    # `color=primary` toggle left ambiguous.
                     ui.toggle(
                         {
                             "type": t("accounts.group_type"),
@@ -331,10 +335,6 @@ def register() -> None:
                         },
                         value=state["group_by"],
                         on_change=lambda e: _set_group(e.value),
-                        # `k-segment` is the brand's group-by control (its CSS
-                        # says so): it fills the chosen option with ink so the
-                        # active grouping is visible at a glance, which a plain
-                        # `color=primary` toggle left ambiguous.
                     ).props("dense unelevated no-caps toggle-text-color=info").classes(SEGMENT)
                     ui.button(t("accounts.add"), icon="add", on_click=_open_add).props(
                         "color=primary"
