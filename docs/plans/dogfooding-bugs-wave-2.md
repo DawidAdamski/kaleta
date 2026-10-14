@@ -44,7 +44,16 @@ deep and will be surfaced.
    own CSS says it exists for group-by controls, filling the chosen option
    with ink). Apply `k-segment`.
 6. **#7 — Import history (reframe: surface it).** History already exists in a
-   collapsed expansion. Pending user steer on prominence.
+   collapsed expansion. Surfaced in slice 3; the Format-step reframe below
+   grew out of looking at it.
+7. **#7-followup — the import wizard opens a step past its first question.**
+   Dogfooding slice 3 exposed a deeper flaw: the page landed on **Upload**
+   (step 2), a step past the **Format** step (step 1) whose only control — the
+   bank/format chooser — did nothing until a file existed (`_select_profile`
+   returns early when there is no active file), so clicking a format on the
+   empty landing was a dead no-op. User chose option A: land on Format, make
+   the format a page-level default that highlights at once and carries to the
+   files uploaded next.
 
 Out of scope: new import-history data model (exists); a shared button
 factory refactor (394 call sites — too broad for this wave); the wave-2
@@ -64,6 +73,7 @@ candidates #19/#22/#23 (deferred unless the user folds them in).
 - `src/kaleta/views/theme.py` / `layout.py` — global `:active` feedback (#13)
 - `src/kaleta/views/accounts.py` — group-by toggle active highlight (#2)
 - `src/kaleta/views/import_view/coverage_section.py` + `page.py` — history prominence (#7)
+- `src/kaleta/views/import_view/page.py` + `constants.py` — land on Format, page-default format (#7-followup)
 - `docs/bdd.md` — KAL scenarios per slice
 
 ## Open questions
@@ -133,3 +143,38 @@ _(filled per slice)_
   re-verified for this final (class) assertion by swapping both `main` files
   under the test: on `main` both expanders collapse, so the outer hides the
   inner (`to_be_visible` fails) and the inner lacks the expanded class.
+
+### Slice 4 — #7-followup: import wizard opens on Format (option A)
+- Root cause of the three dogfooded symptoms is one inversion: `profile` is a
+  per-file attribute, but its chooser sat on step 1 *before* a file could
+  exist. `current_step(None)` returns Upload, and the page both defaulted
+  `state["step"]` to Upload and did `_sync_step(follow=True)` on first render,
+  so it opened a step past Format; and `_select_profile` returned early with
+  no active file, so a format click on the empty landing selected nothing.
+- Fix (option A, user's choice):
+  1. Land on Format: `state["step"] = STEP_FORMAT`, and first render calls
+     `_sync_step()` (no `follow`) so the clamp keeps the reader on Format
+     instead of chasing the work to Upload.
+  2. A page-level default format: `state["default_profile"]` (starts
+     `GENERIC_PROFILE`). `_select_profile` stores it and, when there is no
+     active file, lights the chip directly (`set_active_profile(key)`) and
+     returns — no parse, but no longer a dead click. `_repaint_active` shows
+     the default on the chip whenever no file is active.
+  3. `handle_upload` starts each new file on `state["default_profile"]`. A
+     `generic` default still auto-detects on parse (unchanged); an explicit
+     bank applies that profile and degrades to generic+mapping if the file
+     does not match it (`parse_queued_file`'s own fallback), so no dead end.
+- `current_step` and the wizard navigation functions are untouched: only the
+  *reader's* landing and the format's scope changed, not where the work is —
+  the `test_import_wizard_step` unit suite still holds as written.
+- Three existing e2e in `test_csv_import.py` asserted the old Upload landing
+  (or reached for an upload-step control on load): `test_a_late_upload…`,
+  `test_continue_refuses…`, `test_bulk_default_skips_matched_rule`. Updated to
+  open on Format and walk to Upload where an upload-step control is needed —
+  `set_input_files` still works on the now-hidden input (actionability skips
+  file inputs), so only the visible-click/landing assertions moved. This is a
+  deliberate behaviour change, not a loosened assertion.
+- New e2e `test_import_format_first.py` (KAL-CSV-034) asserts the Format panel
+  is up (Upload hidden) on load and that an mBank click lights the chip with
+  no file. Fail-on-old / pass-on-new verified by swapping `main`'s `page.py`
+  under it: on `main` it lands on Upload (first assert fails).
