@@ -1079,6 +1079,17 @@ Feature: Manual Transaction Entry
     When I type the token into the ledger search box
     Then the ledger shows exactly one table
     And the eyebrow count matches the table's own "Showing … of N" footer
+
+  KAL-TXN-021 @automated
+  Scenario: Editing a transaction keeps the reader on the same page
+    Saving a change used to re-read the ledger and snap it back to page 1 at
+    the top, so on a long ledger you lost your spot every time you fixed a
+    row. Editing one existing row leaves its page (and scroll offset) alone.
+
+    Given a ledger paged across more than one page
+    And I have navigated to the second page
+    When I edit a transaction shown on that page and save it
+    Then the ledger stays on the second page
 ```
 
 ## Feature: Quick Entry

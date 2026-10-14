@@ -535,9 +535,12 @@ check it still reproduces before acting on it.
       (like the annual plan); sum, divide by 10, feed as a monthly irregular
       reserve. Needs its own plan, not a chore — check against the existing
       `KAL-GFT` gifts scenario/issue first to avoid duplication.
-- [ ] **#22 Editing a transaction scrolls the page back to the top
+- [x] **#22 Editing a transaction scrolls the page back to the top
       (dogfooding).** Scroll position is lost after an edit — tiring on a long
       ledger. UX bug in the transactions view → candidate for wave 2.
+      Fixed in `transactions-keep-place-on-save`: edit and pair-as-transfer
+      now refresh in place (keep the current page, restore the scroll offset);
+      add/delete still reset to the top on purpose (see the plan's Scope).
 - [ ] **#23 Rules: the category picker lists only leaf/child categories
       (dogfooding).** Roots are missing (or only subcategories shown), so a
       category is hard to find when writing a rule. Bug/UX in the Rules view.
