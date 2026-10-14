@@ -38,6 +38,10 @@ class CategoryResponse(CategoryBase):
     id: int
     created_at: datetime
     updated_at: datetime
+    #: The one flagged root of the subscriptions tree — the subscriptions
+    #: tracker and the unplanned radar read it, so the view protects it from
+    #: deletion.
+    is_subscriptions_root: bool = False
     children: list[CategoryResponse] = []
 
 

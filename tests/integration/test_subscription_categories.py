@@ -12,8 +12,10 @@ from __future__ import annotations
 import datetime
 from decimal import Decimal
 
+import pytest
 from sqlalchemy import select
 
+from kaleta.exceptions import ConflictError
 from kaleta.models.account import Account, AccountType
 from kaleta.models.category import Category, CategoryType
 from kaleta.models.transaction import Transaction, TransactionType
@@ -315,3 +317,28 @@ async def test_a_known_merchant_suggests_its_purpose_child(db_engine) -> None:
         assert index_map[index] == music.id
 
         assert suggest_purpose_index("Biedronka 1234") is None
+
+
+async def test_subscriptions_root_cannot_be_deleted(db_engine) -> None:
+    """Covers: KAL-CAT-014
+
+    The flagged Subscriptions root anchors the subscriptions panel and the
+    unplanned radar, and deleting it would cascade away its subtree and null
+    the linked transactions. ``delete`` must refuse it while still deleting an
+    ordinary category.
+    """
+    async with make_session_factory(db_engine)() as session:
+        svc = CategoryService(session)
+        root = await svc.ensure_subscriptions_root_and_children()
+        normal = Category(name="Groceries", type=CategoryType.EXPENSE)
+        session.add(normal)
+        await session.flush()
+        normal_id = normal.id
+        await session.commit()
+
+        with pytest.raises(ConflictError):
+            await svc.delete(root.id)
+
+        # The root survives; an ordinary category still deletes.
+        assert await svc.get(root.id) is not None
+        assert await svc.delete(normal_id) is True
