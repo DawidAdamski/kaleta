@@ -358,6 +358,13 @@ Feature: Account Management
     Given "PKO Main" is at 1000.00 and "Oszczędności" is a registered own account
     When I import an mBank row of -300.00 to "Oszczędności"'s account number
     Then "PKO Main" shows 700.00
+
+  KAL-ACC-011 @automated
+  Scenario: The active "group by" option is visibly selected
+    Given I am on the Accounts page grouping by type
+    When I look at the "group by" control
+    Then the selected option is filled with ink, so it stands out
+      from the option I did not pick
 ```
 
 ## Feature: Category Management

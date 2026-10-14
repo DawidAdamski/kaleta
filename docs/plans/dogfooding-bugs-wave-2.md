@@ -35,9 +35,13 @@ started until that steer lands.
 4. **#13 — No global button click feedback.** Buttons give no pressed-state
    affordance. Add a global `:active` feedback (no per-button change; there
    is no shared button factory — ~394 ad-hoc `ui.button` sites).
-5. **#2 — Group-by active highlight (reframe: make it obvious).** A highlight
-   already exists (ink fill + weight). Pending user steer on whether to
-   strengthen it.
+5. **#2 — Accounts "group by": the active option is not visibly selected.**
+   The user clarified this is the **Accounts** page (not the ledger): the
+   type/institution toggle shows no clear selected state, so you cannot tell
+   at a glance which grouping is active. The toggle was a plain
+   `color=primary` toggle and never wore the brand's `k-segment` class (whose
+   own CSS says it exists for group-by controls, filling the chosen option
+   with ink). Apply `k-segment`.
 6. **#7 — Import history (reframe: surface it).** History already exists in a
    collapsed expansion. Pending user steer on prominence.
 
@@ -62,13 +66,16 @@ candidates #19/#22/#23 (deferred unless the user folds them in).
 - `docs/bdd.md` — KAL scenarios per slice
 
 ## Open questions
-- **#2 and #7 already work.** The map found: the grouping toggle already
-  fills the active option with ink + bumps its weight
-  (`theme.py` `.k-segment .q-btn.bg-primary`), and import history already
-  renders via `ImportRun` + `list_recent_runs` in a `ui.expansion` in
-  `coverage_section.py`. So neither is "broken". Need the user's steer:
-  strengthen the grouping highlight? expand history out of the collapsed
-  expansion? Do not ship a speculative restyle (Working Agreement §4).
+- **#2 — resolved by the user.** The first map looked at the *ledger*
+  grouping toggle (which does wear `k-segment`); the user meant the
+  **Accounts** page toggle, which did not. So it was genuinely broken there.
+  Fixed in slice 2 by applying `k-segment`.
+- **#7 — the history exists but is buried two expanders deep.** It lives
+  inside `_panel(STEP_FORMAT)` → `ui.expansion("reference_panels")` →
+  `ui.expansion("history_heading")` (`page.py:995–997`,
+  `coverage_section.py:99`), both collapsed, on the Format step — which is
+  why the user never found it. Slice to surface it (user asked for a
+  screenshot of the current state first, then the fix).
 
 ## Implementation notes
 _(filled per slice)_
@@ -87,3 +94,15 @@ _(filled per slice)_
   why the test moves the mouse away between the two hovers.
 - Fail-on-old / pass-on-new confirmed by swapping `main`'s
   `transaction_table.py` under the new test.
+
+### Slice 2 — #2 accounts group-by active highlight
+- Root cause: the Accounts toggle (`accounts.py`) used
+  `.props("color=primary …")` with no `k-segment` class, so Quasar's default
+  selected fill was the accent (`--q-primary` ≈ #B4591F) — close enough to
+  the unpicked option that the user could not tell which was active. The
+  ledger's grouping toggle already uses `k-segment`, which remaps
+  `--q-primary → --k-ink`, filling the chosen option with ink. Applied the
+  same class + `toggle-text-color=info` here.
+- The e2e asserts the selected button's computed background sums to a dark
+  (ink) value, which fails on the old accent fill and passes on ink —
+  verified by swapping `main`'s `accounts.py` under the test.

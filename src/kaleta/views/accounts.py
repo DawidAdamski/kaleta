@@ -17,7 +17,7 @@ from kaleta.schemas.institution import InstitutionResponse
 from kaleta.services import AccountService, InstitutionService, with_session
 from kaleta.views.institution_avatar import institution_avatar
 from kaleta.views.layout import page_layout
-from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD
+from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SEGMENT
 
 
 def _fmt_activity(value: object | None) -> str:
@@ -331,7 +331,11 @@ def register() -> None:
                         },
                         value=state["group_by"],
                         on_change=lambda e: _set_group(e.value),
-                    ).props("color=primary dense unelevated no-caps")
+                        # `k-segment` is the brand's group-by control (its CSS
+                        # says so): it fills the chosen option with ink so the
+                        # active grouping is visible at a glance, which a plain
+                        # `color=primary` toggle left ambiguous.
+                    ).props("dense unelevated no-caps toggle-text-color=info").classes(SEGMENT)
                     ui.button(t("accounts.add"), icon="add", on_click=_open_add).props(
                         "color=primary"
                     )
