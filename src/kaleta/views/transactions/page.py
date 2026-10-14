@@ -192,6 +192,32 @@ async def transactions_page(*, open_new: bool = False) -> None:
         table_actions_ui.refresh()
         _repaint_filter_row()
 
+    async def _refresh_keeping_place() -> None:
+        """Repaint after editing a row in place without yanking the reader
+        back to the top.
+
+        An edit changes one existing row, so its page and scroll offset are
+        still the right place to be — unlike adding (a new row belongs at the
+        top, so add keeps :func:`_apply_filters`). We keep ``filters["page"]``
+        untouched and restore the scroll offset once the table has rebuilt.
+        """
+        try:
+            offset = await ui.run_javascript("window.scrollY", timeout=2.0)
+        except Exception:
+            # Scroll restore is best-effort cosmetics; never block the save on it.
+            offset = None
+        _drop_selection()
+        transaction_table.refresh()
+        table_actions_ui.refresh()
+        _repaint_filter_row()
+        try:
+            y = int(offset)
+        except (TypeError, ValueError):
+            return
+        # rAF waits for the refreshed table to lay out before we scroll, so the
+        # document is tall enough for the offset to still be reachable.
+        ui.run_javascript(f"requestAnimationFrame(() => window.scrollTo(0, {y}))")
+
     add_dialog_ctx = build_add_dialog(
         account_options,
         accounts_by_id,
@@ -207,7 +233,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
         income_cats,
         tag_options,
         payee_options,
-        on_saved=_apply_filters,
+        on_saved=_refresh_keeping_place,
     )
     _, confirm_delete_selected = build_delete_dialog(
         selected_tx_ids,
@@ -229,7 +255,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             notify_kaleta_error(exc)
             return
         ui.notify(t("transactions.marked_as_transfer"), type="positive")
-        _apply_filters()
+        await _refresh_keeping_place()
 
     @ui.refreshable
     async def transaction_table() -> None:
@@ -301,6 +327,14 @@ async def transactions_page(*, open_new: bool = False) -> None:
         total_pages = max(1, (total + page_size - 1) // page_size)
         filters["total_pages"] = total_pages
         current_page = filters["page"]
+        if current_page >= total_pages:
+            # Keeping the page across an in-place edit assumes it still holds
+            # rows, but with a filter active an edit (or a pair) can push the
+            # last row off the final page and leave this offset past the end.
+            # Snap to the last real page and repaint once with the right offset.
+            filters["page"] = total_pages - 1
+            transaction_table.refresh()
+            return
         week_mode = get_week_start_mode()
         rows = attach_split_labels(
             attach_type_labels(TransactionService.build_table_rows(txs, grouping, week_mode))

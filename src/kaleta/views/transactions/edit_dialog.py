@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 import datetime
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any
@@ -39,7 +39,7 @@ def build_edit_dialog(
     tag_options: dict[int, str],
     payee_options: dict[int, str],
     *,
-    on_saved: Callable[[], None],
+    on_saved: Callable[[], Awaitable[None]],
 ) -> EditDialogContext:
     edit_tx_id: dict[str, int | None] = {"value": None}
     edit_is_split: dict[str, bool] = {"value": False}
@@ -330,7 +330,7 @@ def build_edit_dialog(
                 return
             ui.notify(t("transactions.updated"), type="positive")
             edit_dialog.close()
-            on_saved()
+            await on_saved()
             if suggestion is not None:
                 pending_suggestion["value"] = suggestion
                 suggest_body.set_text(
