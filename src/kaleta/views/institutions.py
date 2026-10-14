@@ -128,9 +128,9 @@ def register() -> None:
                 )
                 add_logo_preview.visible = False
 
-                def _add_upload(e: events.UploadEventArguments) -> None:
+                async def _add_upload(e: events.UploadEventArguments) -> None:
                     try:
-                        url = save_logo(e.name, e.content.read())  # type: ignore[attr-defined]
+                        url = save_logo(e.file.name, await e.file.read())
                     except ValidationError:
                         ui.notify(t("institutions.logo_invalid_format"), type="negative")
                         return
@@ -234,9 +234,9 @@ def register() -> None:
                 )
                 edit_logo_preview.visible = False
 
-                def _edit_upload(e: events.UploadEventArguments) -> None:
+                async def _edit_upload(e: events.UploadEventArguments) -> None:
                     try:
-                        url = save_logo(e.name, e.content.read())  # type: ignore[attr-defined]
+                        url = save_logo(e.file.name, await e.file.read())
                     except ValidationError:
                         ui.notify(t("institutions.logo_invalid_format"), type="negative")
                         return
