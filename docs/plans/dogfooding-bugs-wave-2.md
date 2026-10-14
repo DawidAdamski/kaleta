@@ -63,7 +63,7 @@ candidates #19/#22/#23 (deferred unless the user folds them in).
 - `src/kaleta/views/import_view/mapping_section.py` / `page.py` — link to settings (#10)
 - `src/kaleta/views/theme.py` / `layout.py` — global `:active` feedback (#13)
 - `src/kaleta/views/accounts.py` — group-by toggle active highlight (#2)
-- `src/kaleta/views/import_view/coverage_section.py` — history prominence (#7)
+- `src/kaleta/views/import_view/coverage_section.py` + `page.py` — history prominence (#7)
 - `docs/bdd.md` — KAL scenarios per slice
 
 ## Open questions
@@ -124,6 +124,12 @@ _(filled per slice)_
 - Residual (flagged to the user): history is still only on the Format step, not
   the Upload step the user lands on. Whether to surface it further is a UX
   decision left open.
-- e2e walks to the Format step and asserts the empty-history line is visible
-  with no expander clicks — fails on `main` (both collapsed), passes on the
-  fix. Verified by swapping both files under the test.
+- e2e walks to the Format step and asserts the inner "File history" expander
+  is both **visible** (which needs the outer reference panel open) and carries
+  `q-expansion-item--expanded` (the inner one open). It deliberately does NOT
+  assert on the empty-history text: the e2e app's import state is shared, so
+  other tests may record runs and the "No imports recorded yet." line is not
+  reliably present — the expander *state* is. Fail-on-old / pass-on-new
+  re-verified for this final (class) assertion by swapping both `main` files
+  under the test: on `main` both expanders collapse, so the outer hides the
+  inner (`to_be_visible` fails) and the inner lacks the expanded class.
