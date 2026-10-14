@@ -1585,9 +1585,9 @@ Feature: mBank CSV Import
   KAL-CSV-034 @automated
   Scenario: Import page opens on the format step and the chosen format highlights
     The first question is which bank, and its answer shapes every step after
-    it — so the page opens on Format, not a step past it. The format is the
-    page's default: it can be chosen before any file exists, lights up at
-    once, and carries to the files uploaded next.
+    it — so the page opens on Format, not a step past it. The format can be
+    chosen before any file exists and lights up at once, instead of being a
+    dead click until something is uploaded.
 
     Given I am on the Import page
     Then the format step is on screen, not the upload step

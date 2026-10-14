@@ -178,3 +178,16 @@ _(filled per slice)_
   is up (Upload hidden) on load and that an mBank click lights the chip with
   no file. Fail-on-old / pass-on-new verified by swapping `main`'s `page.py`
   under it: on `main` it lands on Upload (first assert fails).
+- The "default carries to the next upload" half of the fix is covered by code
+  and this note, not by an e2e assertion, on purpose: for a generic CSV it has
+  no *user-visible* tell. A carried `generic` default and no default both
+  auto-detect; a carried bank default on a non-matching file falls back to
+  generic+mapping — the same mapping step a generic upload reaches. So the two
+  worlds look identical on screen, and an e2e claiming to tell them apart would
+  be asserting on nothing. KAL-CSV-034's scenario was reworded to the landing +
+  chip-highlight it actually proves, rather than over-claiming the carry.
+- verify.sh --e2e: 248 passed, 1 failed — `test_map_unrecognised_csv_and_import`,
+  which passes alone and with its whole file (`test_csv_import.py`, 27/27). A
+  newly-observed cross-file shared-state flake (the e2e suite shares one app
+  family), not this slice: every import test passes together, and this slice
+  touches only the import page. Logged in `chores.md`.

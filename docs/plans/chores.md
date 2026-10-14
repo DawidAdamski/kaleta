@@ -143,6 +143,15 @@ check it still reproduces before acting on it.
       leaves 800+ movements, many dated today, so a fresh row can land past
       the 50th. Find the row through the search chip rather than
       `get_by_text(...).first` on page 1.
+- [ ] `tests/e2e/test_csv_import.py::test_map_unrecognised_csv_and_import`
+      (KAL-CSV-005) failed once in a full `verify.sh --e2e` run on a green
+      tree, passing in isolation and with its whole file (27/27). Observed
+      during `feat/import-format-first`, which touches only the import page
+      and whose import tests all pass together — so a cross-file shared-state
+      race, not that change. It walks Format → Upload → mapping; the suspect
+      is the mapping step not being on screen yet when the panel assertion
+      fires under load. A `to_be_visible` already has a 10s timeout, so the
+      fix is likely waiting on the file's parse state, not a longer timeout.
 - [ ] Payment calendar: `_out` / `_net` sum the day's subscription charges
       inside `views/payment_calendar.py`, mirroring `day_marks` beside them.
       Nothing callable from a service owns "what leaves on a day", so the
