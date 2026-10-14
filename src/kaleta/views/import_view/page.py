@@ -30,7 +30,7 @@ from kaleta.services.import_service import (
 )
 from kaleta.views.components.amount_label import spaced_thousands
 from kaleta.views.error_handling import notify_kaleta_error
-from kaleta.views.import_view.constants import METADATA_PROFILES
+from kaleta.views.import_view.constants import GENERIC_PROFILE, METADATA_PROFILES
 from kaleta.views.import_view.coverage_section import build_coverage_section
 from kaleta.views.import_view.mapping_section import build_mapping_section
 from kaleta.views.import_view.metadata_section import build_metadata_section
@@ -119,7 +119,16 @@ async def import_page() -> None:
         "active_id": None,
         # The step on screen. ``current_step`` says where the *work* is; this
         # says where the reader is, which is behind it whenever they walk back.
-        "step": STEP_UPLOAD,
+        # The page lands on Format (step 1): it is the first question — which
+        # bank — and its answer shapes every step after it. Landing on Upload
+        # instead put the reader a step past a question they never saw.
+        "step": STEP_FORMAT,
+        # The format chosen on the Format step, before any file exists. It is
+        # the page's default: it lights the chosen chip immediately and every
+        # file uploaded afterwards starts on it (see ``handle_upload``). Per
+        # file the profile can still change — detection may upgrade a generic
+        # upload, and the switcher shows each file's own.
+        "default_profile": GENERIC_PROFILE,
         # True once the reader has picked a step for themselves. An upload
         # that finishes afterwards must not drag them off it — see
         # `handle_upload`.
@@ -219,7 +228,9 @@ async def import_page() -> None:
         refreshables rebuilt twice per event is four too many.
         """
         active = _active()
-        profile_section.set_active_profile(active.profile if active else None)
+        # With no file the chip still shows the page default, so the Format
+        # step is never a row of unlit buttons that select nothing.
+        profile_section.set_active_profile(active.profile if active else state["default_profile"])
 
         if active is None:
             metadata_section.hide()
@@ -308,8 +319,15 @@ async def import_page() -> None:
         _sync_step(follow=True)
 
     async def _select_profile(key: str) -> None:
+        # The choice is the page default from here on: it carries to every
+        # file uploaded next (see ``handle_upload``).
+        state["default_profile"] = key
         active = _active()
         if active is None:
+            # No file yet — nothing to parse, but the chip must still light up.
+            # A format that selected nothing on the empty landing step was the
+            # dead click this slice fixes.
+            profile_section.set_active_profile(key)
             return
         active.profile = key
         if key == "mbank":
@@ -398,6 +416,11 @@ async def import_page() -> None:
             encoding=encoding,
             filename_pattern=suggested,
             skip_duplicates=get_import_skip_duplicates_default(),
+            # Start on the format chosen on the Format step. A ``generic``
+            # default still auto-detects on parse (unchanged); an explicit bank
+            # applies that profile, degrading gracefully to generic if the file
+            # turns out not to match it.
+            profile=state["default_profile"],
         )
 
         rule_applied = await _apply_import_rule(queued_file)
@@ -1039,4 +1062,7 @@ async def import_page() -> None:
 
         _render_queue()
         _repaint_active()
-        _sync_step(follow=True)
+        # Not ``follow``: the work with an empty queue is Upload, but the page
+        # opens on Format (``state["step"]``) so the reader meets the
+        # which-bank question first. The clamp keeps them there.
+        _sync_step()

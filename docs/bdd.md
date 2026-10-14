@@ -1581,6 +1581,18 @@ Feature: mBank CSV Import
     When I open the "Account coverage and recent imports" reference panel
     Then the file-history list is already expanded, not collapsed behind a
       second click
+
+  KAL-CSV-034 @automated
+  Scenario: Import page opens on the format step and the chosen format highlights
+    The first question is which bank, and its answer shapes every step after
+    it — so the page opens on Format, not a step past it. The format can be
+    chosen before any file exists and lights up at once, instead of being a
+    dead click until something is uploaded.
+
+    Given I am on the Import page
+    Then the format step is on screen, not the upload step
+    When I choose the "mBank" format before uploading anything
+    Then the mBank format is visibly selected
 ```
 
 ## Feature: Transfer Recognition

@@ -688,6 +688,9 @@ def test_bulk_default_skips_matched_rule(page: Page, base_url: str) -> None:
     seed_import_rule("bulk-mbank-*.csv", mbank_id)
 
     page.goto(f"{base_url}/import")
+    # The batch-default selector lives on the upload step; the page now opens
+    # on Format, so walk to Upload before reaching for it.
+    _step(page, STEP_UPLOAD)
     _select_import_option(page, "Default account for this batch", _account_option(cash))
     page.locator('input[type="file"]').set_input_files(
         [str(OTHER_A), str(OTHER_B), str(OTHER_C), str(BULK_MBANK)]
@@ -1288,12 +1291,14 @@ def test_a_late_upload_does_not_take_the_step_you_chose(page: Page, base_url: st
     only while nobody has chosen for themselves.
     """
     page.goto(f"{base_url}/import")
-    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+    # The page opens on Format; the hidden upload input still takes a file.
+    expect(_panel(page, STEP_FORMAT)).to_be_visible(timeout=5000)
 
     page.locator('input[type="file"]').set_input_files(str(OTHER_A))
     _wait_for_file(page, "other-a.csv")
 
-    # The reader goes somewhere of their own choosing.
+    # The first upload took the reader to the file's own step. They now walk
+    # back to Format of their own choosing.
     _step(page, STEP_FORMAT)
 
     # A second file lands. It joins the queue — the page is not pretending
@@ -1324,7 +1329,10 @@ def test_continue_refuses_an_unfinished_step_and_says_why(page: Page, base_url: 
     seed_income_category("Other Income Refuses")
 
     page.goto(f"{base_url}/import")
-    expect(_panel(page, STEP_UPLOAD)).to_be_visible(timeout=5000)
+    # The page opens on Format; the "upload a file" refusal belongs to the
+    # upload step, so walk to it first.
+    expect(_panel(page, STEP_FORMAT)).to_be_visible(timeout=5000)
+    _step(page, STEP_UPLOAD)
 
     # Nothing uploaded: the upload step is waiting on a file, and says so.
     expect(page.locator("[data-continue]")).to_be_disabled()
