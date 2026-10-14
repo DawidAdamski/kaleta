@@ -7,7 +7,7 @@ import datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from nicegui import ui
+from nicegui import events, ui
 
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
@@ -255,8 +255,8 @@ async def render_data_tab(
 
             uploaded_bytes: list[bytes] = []
 
-            def _on_upload(e: object) -> None:
-                content = e.content.read()  # type: ignore[attr-defined]
+            async def _on_upload(e: events.UploadEventArguments) -> None:
+                content = await e.file.read()
                 uploaded_bytes.clear()
                 uploaded_bytes.append(content)
                 restore_btn.enable()

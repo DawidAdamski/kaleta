@@ -265,6 +265,15 @@ Feature: Institution Management
     Given I am on the Institutions page
     When I click "Add Institution"
     Then the "Type" field defaults to "Bank"
+
+  KAL-INS-009 @automated
+  Scenario: Upload a logo when adding an institution
+    Given I am on the Institutions page
+    When I click "Add Institution"
+    And I fill in "Name" with "Revolut"
+    And I upload a PNG image as the logo
+    Then I see a preview of the uploaded logo
+    And after saving, the institution "Revolut" shows its logo in the list
 ```
 
 ## Feature: Account Management

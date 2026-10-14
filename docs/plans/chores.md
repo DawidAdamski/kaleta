@@ -469,3 +469,11 @@ check it still reproduces before acting on it.
       ignore to the `update_*` ones (they were only hidden by a stale mypy cache).
       Consider typing these returns properly (e.g. `XxxResponse.model_validate`,
       or a shared helper) and dropping the whole family of `# type: ignore`.
+- [ ] **Backup restore-from-file has no UI-level e2e.** `KAL-SET-015` is
+      `@automated` only at the `BackupService` level (`tests/integration/
+      test_backup.py`); the Settings → Data tab upload widget itself is
+      untested, which is exactly why `data_tab._on_upload` silently broke
+      on the NiceGUI 2.x→3.x upload-event API change (fixed in
+      `dogfooding-bugs-wave-1` slice 1, alongside the institution logo
+      upload which now has an e2e). Add an e2e that uploads a backup ZIP in
+      the Data tab and confirms the restore, so the UI handler is guarded.
