@@ -264,6 +264,7 @@ def _body_slot(
     added_by_cell = (
         '<q-td key="added_by" :props="props" class="k-muted text-[12px]">'
         "{{ props.row.added_by }}"
+        '<q-tooltip v-if="props.row.added_by">{{ props.row.added_by }}</q-tooltip>'
         "</q-td>"
         if added_by
         else ""
@@ -301,7 +302,11 @@ def _body_slot(
         "</div>"
         "<q-tooltip>{{ props.row.date }}</q-tooltip>"
         "</q-td>"
-        '<q-td key="account" :props="props">{{ props.row.account }}</q-td>'
+        '<q-td key="account" :props="props">{{ props.row.account }}'
+        # The column truncates with an ellipsis, so the full name is only
+        # reachable through a tooltip (same affordance the date cell uses).
+        '<q-tooltip v-if="props.row.account">{{ props.row.account }}</q-tooltip>'
+        "</q-td>"
         '<q-td key="description" :props="props">'
         '<div class="row items-center no-wrap q-gutter-xs">'
         '<q-icon v-if="props.row.has_notes" name="sticky_note_2" size="xs" color="primary"'
@@ -309,7 +314,9 @@ def _body_slot(
         f' aria-label="{notes_label}">'
         "<q-tooltip>{{ props.row.notes }}</q-tooltip>"
         "</q-icon>"
-        "<span>{{ props.row.description }}</span>"
+        "<span>{{ props.row.description }}"
+        '<q-tooltip v-if="props.row.description">{{ props.row.description }}</q-tooltip>'
+        "</span>"
         "</div>"
         "</q-td>"
         '<q-td key="category" :props="props">'
@@ -324,6 +331,8 @@ def _body_slot(
         "<span :class=\"props.row.has_splits || props.row.category === '—'"
         " ? '' : 'k-cat-pill'\">"
         "{{ props.row.category }}"
+        "<q-tooltip v-if=\"props.row.category && props.row.category !== '—'\">"
+        "{{ props.row.category }}</q-tooltip>"
         "</span>"
         "</div>"
         "</q-td>"

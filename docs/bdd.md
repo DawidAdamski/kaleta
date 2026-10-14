@@ -1055,6 +1055,12 @@ Feature: Manual Transaction Entry
     Then every row shows its edit and split actions
     And the table ends inside the window,
       so no column is reached by scrolling it sideways
+
+  KAL-TXN-019 @automated
+  Scenario: A truncated cell reveals its full value on hover
+    Given a transaction whose account name is wider than its column
+    When I hover the account cell in the ledger
+    Then a tooltip shows the account name in full
 ```
 
 ## Feature: Quick Entry
