@@ -55,15 +55,28 @@ def _type_color(tx_type: TransactionType) -> str:
 def register() -> None:
     @ui.page("/planned")
     async def planned_page() -> None:
-        async def _load_refs(session: Any) -> tuple[dict[int, str], dict[int, str]]:
+        async def _load_refs(
+            session: Any,
+        ) -> tuple[dict[int, str], dict[int, str], dict[int, str]]:
             accounts = await AccountService(session).list()
             cats_list = await CategoryService(session).list()
-            return (
-                {a.id: a.name for a in accounts},
-                CategoryService.build_option_labels(cats_list),
+            expense_cats = CategoryService.build_option_labels(
+                [c for c in cats_list if c.type.value == "expense"]
             )
+            income_cats = CategoryService.build_option_labels(
+                [c for c in cats_list if c.type.value == "income"]
+            )
+            return ({a.id: a.name for a in accounts}, expense_cats, income_cats)
 
-        account_opts, cat_opts = await with_session(_load_refs)
+        account_opts, expense_cats, income_cats = await with_session(_load_refs)
+
+        def _category_opts_for(tx_type: TransactionType) -> dict[int, str]:
+            # A plan's categories follow its type; a transfer has none.
+            if tx_type == TransactionType.INCOME:
+                return income_cats
+            if tx_type == TransactionType.EXPENSE:
+                return expense_cats
+            return {}
 
         # ── Shared form state ─────────────────────────────────────────────────
         edit_id: dict[str, int | None] = {"value": None}
@@ -101,8 +114,16 @@ def register() -> None:
                     t("common.amount"), min=0.01, step=0.01, precision=2
                 ).classes("flex-1")
                 category_sel = ui.select(
-                    cat_opts, label=t("common.category"), clearable=True
+                    expense_cats, label=t("common.category"), clearable=True
                 ).classes("flex-1")
+
+                def _on_type_change() -> None:
+                    # Narrow the category list to the chosen type (none for a
+                    # transfer) and clear any now-invalid selection.
+                    category_sel.set_options(_category_opts_for(type_sel.value))
+                    category_sel.set_value(None)
+
+                type_sel.on_value_change(lambda _: _on_type_change())
 
             desc_input = (
                 ui.textarea(t("common.description")).classes("w-full").props("rows=2 autogrow")
@@ -239,6 +260,7 @@ def register() -> None:
             account_sel.set_value(next(iter(account_opts), None))
             type_sel.set_value(TransactionType.EXPENSE)
             amount_input.set_value(None)
+            category_sel.set_options(_category_opts_for(TransactionType.EXPENSE))
             category_sel.set_value(None)
             desc_input.set_value("")
             freq_sel.set_value(RecurrenceFrequency.MONTHLY)
@@ -256,6 +278,7 @@ def register() -> None:
             account_sel.set_value(pt.account_id)
             type_sel.set_value(pt.type)
             amount_input.set_value(float(pt.amount))
+            category_sel.set_options(_category_opts_for(pt.type))
             category_sel.set_value(pt.category_id)
             desc_input.set_value(pt.description or "")
             freq_sel.set_value(pt.frequency)

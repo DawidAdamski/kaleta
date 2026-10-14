@@ -2172,6 +2172,15 @@ Feature: Planned and Recurring Transactions
     When I open that day's sheet
     Then the sheet says Out 12.99 and Net -12.99
       And the day's cell in the grid says the same -12.99
+
+  KAL-PLN-028 @automated
+  Scenario: The planned category list narrows to the chosen type
+    Given I am adding a planned transaction
+    When the type is "Expense"
+    Then only expense categories are offered, not income ones
+    When I change the type to "Income"
+    Then the category selection is cleared
+      And only income categories are offered, not expense ones
 ```
 
 ## Feature: Recurring Payment Detection
