@@ -103,3 +103,35 @@ Each item ships as one PR (slice). Confirmed bugs only:
   *edit* handler is identical in shape, and the backup restore handler
   shares the same upload-event API the add test now exercises. A dedicated
   UI-level restore e2e is logged in `chores.md`.
+
+### Slice 2 — add-subcategory saved a root; and #4 "Nazwa jest wymagana"
+- #16 root cause: `open_add_dialog` preset the dialog, but when the
+  parent's type differed from the dialog's last-used type, `set_value` on
+  the Type select scheduled its async `on_value_change` reload, which
+  landed after the preset and reset the Parent select to 0 — so the child
+  was persisted with `parent_id=None` (a silent root). Fixed by guarding
+  the Type handler to react only to interactive changes while the dialog
+  is open (`add_dialog.value`); the preset flow is the single authoritative
+  source via `_load_add_parents(..., select=...)`. e2e KAL-CAT-013 fails on
+  the old code and passes now. Shipped as PR #249.
+- #4 ("Nazwa jest wymagana" with a typed name) **could not be reproduced**
+  on `main`: typed-name + Save creates the category reliably, including
+  aggressive fast-typing + immediate Save (3/3). A duplicate name raises a
+  distinct "already exists", not "name required". Deferred to the chore
+  inbox with a request to retry on a fresh deploy + environment details
+  (hypothesis: an older deployed build, or an input value-sync timing issue
+  that only shows under real network latency, never on localhost).
+- Separate finding: Enter does not submit the category dialogs because
+  NiceGUI's `ui.keyboard` defaults to `ignore=['input','select','button',
+  'textarea']` — a cross-cutting dialog-UX issue (same pattern in other
+  dialogs), logged to chores for later, per the maintainer.
+
+### Slice 3 — planned transactions: category list narrows by type (#18)
+- `planned_transactions.py` listed every category regardless of type. Now
+  `_load_refs` builds `expense_cats`/`income_cats` separately, a Type
+  `on_value_change` swaps the category options (empty for a transfer) and
+  clears the stale selection, and `_open_add`/`_open_edit` set the options
+  for the chosen type explicitly (so the open case is correct even when the
+  type value does not change). Mirrors the transactions add dialog. e2e
+  KAL-PLN-028 fails on the old code (income category offered under Expense)
+  and passes now.

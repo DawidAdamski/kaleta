@@ -477,3 +477,20 @@ check it still reproduces before acting on it.
       `dogfooding-bugs-wave-1` slice 1, alongside the institution logo
       upload which now has an e2e). Add an e2e that uploads a backup ZIP in
       the Data tab and confirms the restore, so the UI handler is guarded.
+- [ ] **Category create reported "Nazwa jest wymagana" with a name typed
+      (#4, dogfooding).** Could not be reproduced on `main`
+      (`dogfooding-bugs-wave-1` slice 2): typed-name + Save creates the
+      category every time, including fast-typing + immediate Save; a
+      duplicate raises "already exists", not "name required". Revisit if it
+      recurs on a fresh deploy — capture whether it was a non-localhost
+      server and whether the name was typed fast (hypothesis: stale
+      build, or an input value-sync race only visible under network
+      latency).
+- [ ] **Enter does not submit app dialogs.** `ui.keyboard(on_key=...)` in
+      the Add/Edit dialogs (categories, planned, institutions, …) never
+      fires while a field is focused, because NiceGUI's `ui.keyboard`
+      defaults to `ignore=['input','select','button','textarea']`. So the
+      Enter-to-save wiring is dead in the normal case; only the Save button
+      works. Decide on a cross-cutting fix (e.g. per-input `keydown.enter`
+      submit, or a non-ignoring keyboard) rather than patching one dialog.
+      Noted during `dogfooding-bugs-wave-1` slice 2.
