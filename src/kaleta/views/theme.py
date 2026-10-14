@@ -841,6 +841,14 @@ body{background-color:var(--k-ground);color:var(--k-ink)}
 .k-muted-strong{color:var(--k-muted-strong)}
 /* Links are actions: accent text, never the browser's default blue. */
 a:not(.q-btn):not(.q-item){color:var(--k-accent-text)}
+/* Press feedback (#13): every button dips a pixel while held, so a click is
+   felt even where Quasar's ripple is faint (flat/dense buttons). There is no
+   shared button factory — ~394 ad-hoc `ui.button` call sites — so this lives
+   here, once, for all of them. Transform only, no `transition` override on
+   `.q-btn` (which would clobber Quasar's own colour transitions): it
+   composites, so it never nudges the layout, and a disabled button stays
+   still. */
+.q-btn:active:not(.disabled):not([aria-disabled="true"]){transform:translateY(1px)}
 .k-mono,.k-amount{
   font-family:'IBM Plex Mono',ui-monospace,monospace;
   font-variant-numeric:tabular-nums

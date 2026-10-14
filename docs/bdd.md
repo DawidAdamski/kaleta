@@ -5005,6 +5005,26 @@ Feature: Wizard Action Items
     And each action still shows its severity
 ```
 
+## Feature: Interaction feedback
+
+```gherkin
+Feature: Button press feedback
+  As a user
+  I want a button to react when I press it
+  So that I can tell a click registered, even on flat or dense buttons
+
+  KAL-UIX-001 @automated
+  Scenario: A button dips while held and springs back on release
+    There is no shared button factory (~394 ad-hoc buttons), so this is a
+    single global rule: a composited transform, so it never shifts layout.
+
+    Given I am on a page with an enabled button
+    When I press and hold the button
+    Then the button is nudged down while held
+    When I release it
+    Then the button returns to its resting position
+```
+
 ---
 
 ## Notes for test implementation
