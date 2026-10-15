@@ -542,10 +542,15 @@ check it still reproduces before acting on it.
       its name label to the tile width so `truncate` clips to an ellipsis
       (with the full name on a tooltip) instead of the nowrap name spilling
       past the tile and the card.
-- [ ] **#20 Safety fund: cannot return to the "months to cover" input
+- [x] **#20 Safety fund: cannot return to the "months to cover" input
       (dogfooding).** In the safety-funds view, switching to another sub-view
       and back loses the screen holding the target-months figure — no way back.
       Navigation/state bug; capture exact steps on retest.
+      Repro (user): in the New reserve fund dialog, switch Fund type Emergency →
+      Irregular → Emergency; the "Cover N months" + Derive controls don't come
+      back. Fixed in `safety-funds-kind-toggle-visibility`: `_on_kind_change`
+      read the raw Quasar `e.args` (not the option key) so the emergency-only
+      rows never re-showed; now reads `kind_in.value`.
 - [ ] **#21 New feature: Gifts (dogfooding).** List of people + events + amounts
       (like the annual plan); sum, divide by 10, feed as a monthly irregular
       reserve. Needs its own plan, not a chore — check against the existing
