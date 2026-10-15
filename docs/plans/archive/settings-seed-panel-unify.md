@@ -3,8 +3,9 @@ plan_id: settings-seed-panel-unify
 title: One example-data panel in Settings, not two
 area: settings
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#seed
+status: archived
+archived_at: 2026-10-15
+roadmap_ref: ../../roadmap.md#seed
 ---
 
 # One example-data panel in Settings, not two
@@ -61,3 +62,30 @@ card is retitled "Backups & clearing"). The old "Demo data" card is removed.
 - Verified fail-on-old by swapping both views to `git show main:…`: both new
   e2e tests fail on the old two-card structure and pass on the fix;
   `./scripts/verify.sh --e2e` is green (260 e2e).
+
+## Implementation
+
+Landed on 2026-10-15 (PR #274).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `751d3ab` | Dawid Adamski | 2026-10-15 | feat(settings): one example-data panel, not two |
+| `e9f2a67` | Dawid Adamski | 2026-10-15 | Merge pull request #274 from DawidAdamski/feat/settings-seed-panel-unify |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/settings-seed-panel-unify.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/settings/data_tab.py
+- src/kaleta/views/settings/example_data_section.py
+- tests/e2e/test_settings_seed_panel.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/e2e/test_settings_data_safety.py -q` | 0 |
+| `uv run pytest tests/e2e/test_settings_seed_panel.py -q` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
