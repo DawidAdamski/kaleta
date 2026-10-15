@@ -10,11 +10,15 @@ Covers: KAL-PLT-010
 
 from __future__ import annotations
 
+from collections import Counter
+
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.models.category import Category, CategoryType
+from kaleta.models.tag import Tag
 from kaleta.seeders import SEED_FEATURE_KEYS, seed_features, seed_status
+from kaleta.seeders.catalog import CANONICAL_TAGS
 
 
 async def test_a_new_familys_subscriptions_tree_is_not_example_data(
@@ -53,3 +57,33 @@ async def test_a_new_familys_subscriptions_tree_is_not_example_data(
         "Streaming wideo",
         "Telefon i internet",
     ]
+
+
+async def test_seeding_a_family_that_already_has_the_canonical_tags(
+    session: AsyncSession,
+) -> None:
+    """Seeding must not die on the canonical tags a fresh family already carries.
+
+    Migration ``b9d4e2c8a1f5`` seeds the eight canonical tags into every family
+    schema. The taxonomy seeder used to insert them again unconditionally and
+    die on ``uq_tags_name_bidx`` — the "seed everything" failure seen in
+    dogfooding on a brand-new family.
+
+    Covers: KAL-PLT-011
+    """
+    # Stand in for the migration: plant the canonical tags before seeding.
+    for name, _icon, _color in CANONICAL_TAGS:
+        session.add(Tag(name=name))
+    await session.commit()
+
+    [outcome] = await seed_features(session, ["taxonomy"])
+
+    assert not outcome.skipped
+    # All eight already existed, so the seeder added none of them — the count
+    # reflects rows actually written.
+    assert outcome.counts["tags"] == 0
+    # Each canonical tag exists exactly once — the pre-existing ones were
+    # skipped, not duplicated.
+    counts = Counter((await session.execute(select(Tag.name))).scalars().all())
+    for name, _icon, _color in CANONICAL_TAGS:
+        assert counts[name] == 1, f"{name!r} seeded {counts[name]} times"

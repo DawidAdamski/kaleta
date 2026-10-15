@@ -20,12 +20,17 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
-- [ ] `scripts/seed.py` (and so Settings → Data → Example data) fails on a
+- [x] `scripts/seed.py` (and so Settings → Data → Example data) fails on a
       fresh registry-layout family: the `taxonomy` seeder inserts the 8
       `CANONICAL_TAGS`, which the new family already has, and dies on
       `uq_tags_name_bidx`. Skip tags that exist, as it already does for the
       subscription children. Found while measuring the compose stack for
       `self-host-guide`.
+      Fixed in `seed-fresh-family-canonical-tags`: the seeder now skips
+      canonical tags already filed (by blind index), like the subscription
+      children. Confirmed live in dogfooding ("seed everything" on a fresh
+      family); it succeeded after a wipe+reseed because the wipe clears the
+      tags first. Covered by KAL-PLT-011.
 - [ ] `docs/plans/README.md`: the archived `postgres-only` row has Effort and
       Status swapped (`archived | draft`), and `scripts/plan_archive.sh` makes
       the same swap on every run (the archiver corrected it by hand for
