@@ -2686,6 +2686,12 @@ Feature: Reserve Funds
     Given "Emergency cash" holds 1800.00 against a 3000.00 target
     When I open the dashboard
     Then I see a warning that the reserve is below target
+
+  KAL-FND-004 @automated
+  Scenario: Switching the fund type back to Emergency restores its fields
+    Given the New reserve fund dialog is open on the Emergency type
+    When I switch the fund type to Irregular and back to Emergency
+    Then the "months of coverage" input and the derive-target switch are shown again
 ```
 
 ---
