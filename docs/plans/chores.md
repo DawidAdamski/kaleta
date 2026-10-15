@@ -20,6 +20,12 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] Two orphaned i18n keys in `settings` (pre-existing, spotted during
+      `settings-seed-panel-unify`): `settings.dark_mode` and
+      `settings.rate_label` have no `t()` reference anywhere in `src/` or
+      `tests/` (the `dark_mode` hits are `app.storage.user["dark_mode"]`, a
+      different thing). Drop both from `en.json`/`pl.json`.
+
 - [x] `scripts/seed.py` (and so Settings → Data → Example data) fails on a
       fresh registry-layout family: the `taxonomy` seeder inserts the 8
       `CANONICAL_TAGS`, which the new family already has, and dies on
