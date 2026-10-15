@@ -3,8 +3,9 @@ plan_id: rules-category-picker-hierarchy
 title: Rules — category picker shows the tree, not a flat name list
 area: views (rules)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-15
+roadmap_ref: ../../roadmap.md
 ---
 
 # Rules — category picker shows the tree, not a flat name list
@@ -46,6 +47,12 @@ selectable, which matches today's behaviour; only the *labels* change.
 - Indented/grouped Quasar option slots — the `Root → Child` text label is the
   established app-wide convention; do not invent a second one.
 
+## Touchpoints
+- `src/kaleta/views/rules.py`
+- `tests/e2e/test_rules.py`
+- `tests/e2e/seed_helpers.py`
+- `docs/bdd.md`
+
 ## Acceptance criteria
 - `uv run pytest tests/e2e/test_rules.py -q` green.
 - Fail-on-old proof: with `rules.py` swapped to `git show main:…`, the new test
@@ -81,3 +88,25 @@ selectable, which matches today's behaviour; only the *labels* change.
   category into later e2e tests. After this, `verify --e2e` is green (261
   e2e, 0 failures); an earlier run's transactions cluster was timing flakiness,
   not a deterministic regression (identical serial order passed on re-run).
+
+## Implementation
+
+Landed on 2026-10-15 (PR #276).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d1054f3` | Dawid Adamski | 2026-10-15 | Merge pull request #276 from DawidAdamski/fix/rules-category-picker-hierarchy |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/rules-category-picker-hierarchy.md
+- src/kaleta/views/rules.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_rules.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
