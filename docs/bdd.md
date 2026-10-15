@@ -4385,6 +4385,13 @@ Feature: Per-feature example data
     Then the categories are seeded, not left alone
     And there is still exactly one subscriptions root
     And the Polish subscription children are filed under it
+
+  KAL-PLT-011 @automated
+  Scenario: Seeding a family that already holds the canonical tags does not fail
+    Given a new family whose schema already carries the eight canonical tags
+    When I seed "Categories, tags & payees"
+    Then the seeding succeeds instead of failing on the tag uniqueness constraint
+    And each canonical tag still exists exactly once, not duplicated
 ```
 
 ## Feature: Anonymous error events

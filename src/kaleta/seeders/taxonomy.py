@@ -94,7 +94,16 @@ class TaxonomySeeder(Seeder):
             for name in SUBSCRIPTION_CHILDREN
             if exact_index(name) not in filed
         ]
-        tags = [Tag(name=name, icon=icon, color=color) for name, icon, color in CANONICAL_TAGS]
+        # The 8 canonical tags are seeded into every family by migration
+        # `b9d4e2c8a1f5`, so on a fresh family they already exist. Skip the ones
+        # already filed — exactly as the subscription children above do —
+        # instead of inserting blindly and dying on `uq_tags_name_bidx`.
+        filed_tags = set((await session.execute(select(Tag.name_bidx))).scalars())
+        tags = [
+            Tag(name=name, icon=icon, color=color)
+            for name, icon, color in CANONICAL_TAGS
+            if exact_index(name) not in filed_tags
+        ]
         payees = [Payee(name=name) for name in curated_payee_names()]
         session.add_all([*children, *tags, *payees])
         await session.flush()
