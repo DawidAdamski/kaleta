@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0](https://github.com/DawidAdamski/kaleta/compare/v0.6.0...v0.7.0) (2026-10-15)
+
+
+### Features
+
+* **settings:** choose the ledger's default page size and grouping ([9a96300](https://github.com/DawidAdamski/kaleta/commit/9a96300c4273e7fe59daf8865f5370921cdca1a6))
+* **settings:** default ledger page size (50/100/200/500) and grouping ([b0ac0f9](https://github.com/DawidAdamski/kaleta/commit/b0ac0f9e9717cbd270711cce9d498addfd1ed18e))
+* **transactions:** bulk change-category for selected rows ([#17](https://github.com/DawidAdamski/kaleta/issues/17)) ([d62b9d3](https://github.com/DawidAdamski/kaleta/commit/d62b9d3e4d84053221e37094e759d4b6dcb5b3b4))
+* **transactions:** bulk change-category for selected rows ([#17](https://github.com/DawidAdamski/kaleta/issues/17)) ([8a48ec0](https://github.com/DawidAdamski/kaleta/commit/8a48ec00dc3978180a88d65b3473aa0259af3047))
+
+
+### Bug Fixes
+
+* **transactions:** clamp page to last non-empty page after in-place refresh ([f46abc6](https://github.com/DawidAdamski/kaleta/commit/f46abc6397202cde914e7b961c5e8c76988688ce))
+* **transactions:** drop debounce, keep the render-token guard as the fix ([63e02b3](https://github.com/DawidAdamski/kaleta/commit/63e02b36b4c91d2602ae30c24f2e2e3e16f60b75))
+* **transactions:** editing a row keeps the reader's place ([#22](https://github.com/DawidAdamski/kaleta/issues/22)) ([2d44fc4](https://github.com/DawidAdamski/kaleta/commit/2d44fc426bc538653dc6c09718ee48804dc71ae8))
+* **transactions:** editing a row keeps the reader's place ([#22](https://github.com/DawidAdamski/kaleta/issues/22)) ([6a8d81a](https://github.com/DawidAdamski/kaleta/commit/6a8d81aee6651dd2944a6e7c0e0550e70dce7222))
+* **transactions:** stop the ledger search painting a second table ([07de5c9](https://github.com/DawidAdamski/kaleta/commit/07de5c927e284cad78bde4d8e6d1cf0a8af9c03e))
+* **transactions:** stop the ledger search painting a second table ([ca9e23a](https://github.com/DawidAdamski/kaleta/commit/ca9e23acb149615a65810324b9bd76f0204842c9))
+
 ## [0.6.0](https://github.com/DawidAdamski/kaleta/compare/v0.5.0...v0.6.0) (2026-10-14)
 
 
