@@ -3,8 +3,9 @@ plan_id: seed-fresh-family-canonical-tags
 title: Example-data seeding fails on a fresh family's canonical tags
 area: platform
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#seed
+status: archived
+archived_at: 2026-10-15
+roadmap_ref: ../../roadmap.md#seed
 ---
 
 # Example-data seeding fails on a fresh family's canonical tags
@@ -48,3 +49,25 @@ the same skip.
   seeded rows are absent; the test plants the eight canonical tags itself to
   stand in for migration `b9d4e2c8a1f5`, exactly as the sibling KAL-PLT-010
   test plants the subscriptions root.
+
+## Implementation
+
+Landed on 2026-10-15 (PR #272).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `28ea1fb` | Dawid Adamski | 2026-10-15 | Merge pull request #272 from DawidAdamski/fix/seed-fresh-family-canonical-tags |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/seed-fresh-family-canonical-tags.md
+- src/kaleta/seeders/taxonomy.py
+- tests/integration/test_new_family_seed.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/integration/test_new_family_seed.py -q` | 0 |
+| `./scripts/verify.sh` | 0 |
