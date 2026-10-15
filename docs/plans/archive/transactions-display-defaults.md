@@ -3,8 +3,9 @@ plan_id: transactions-display-defaults
 title: Settings — default ledger page size and grouping
 area: views (settings, transactions)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-15
+roadmap_ref: ../../roadmap.md
 ---
 
 # Settings — default ledger page size and grouping
@@ -60,3 +61,32 @@ behaviour — only their initial values and the offered sizes.
   run — grouping/page size not the default they assume). Fixed by restoring the
   default (50 rows / no grouping) in a `finally`, the same "left as found"
   convention `test_settings_week_debug.py` uses for the weekly-grouping knob.
+
+## Implementation
+
+Landed on 2026-10-15.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `b0ac0f9` | Dawid Adamski | 2026-10-15 | Merge pull request #264 from DawidAdamski/feat/transactions-display-defaults |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/README.md
+- docs/plans/transactions-display-defaults.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/views/components/transaction_table.py
+- src/kaleta/views/settings/constants.py
+- src/kaleta/views/settings/features_tab.py
+- src/kaleta/views/settings/user_prefs.py
+- src/kaleta/views/transactions/page.py
+- tests/e2e/test_settings_ledger_defaults.py
+- tests/unit/views/test_user_prefs.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+

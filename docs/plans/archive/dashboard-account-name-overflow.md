@@ -3,8 +3,9 @@ plan_id: dashboard-account-name-overflow
 title: Dashboard account tiles clip long names instead of overflowing the card
 area: dashboard
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#dashboard
+status: archived
+archived_at: 2026-10-15
+roadmap_ref: ../../roadmap.md#dashboard
 ---
 
 # Dashboard account tiles clip long names instead of overflowing the card
@@ -50,3 +51,25 @@ on the running app with three long-named accounts: label right edges at
   the card's right edge — rather than a pixel width, so it holds whichever
   accounts the shared e2e instance ranks into the three tiles.
 - No new i18n keys: the tooltip reuses the account name.
+
+## Implementation
+
+Landed on 2026-10-15.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `1d1c67e` | Dawid Adamski | 2026-10-15 | Merge pull request #269 from DawidAdamski/fix/dashboard-account-name-overflow |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/dashboard-account-name-overflow.md
+- src/kaleta/views/dashboard_widgets/balance_card.py
+- tests/e2e/test_dashboard_account_overflow.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
