@@ -13,11 +13,12 @@ import re
 import tempfile
 from pathlib import Path
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.ledger import search_ledger
 from tests.e2e.pages import on_import_page
 from tests.e2e.seed_helpers import (
+    delete_category,
     get_or_seed_category,
     seed_account,
     seed_category,
@@ -72,6 +73,59 @@ def test_create_categorisation_rule(page: Page, base_url: str) -> None:
 
     expect(page.get_by_text("LIDL").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Groceries").first).to_be_visible(timeout=5000)
+
+
+def _scroll_menu_to(page: Page, menu: Locator, target: Locator) -> None:
+    """Scroll a virtualised Quasar menu until *target* renders in the DOM."""
+    for _ in range(40):
+        if target.count() > 0:
+            return
+        menu.hover()
+        page.mouse.wheel(0, 400)
+        page.wait_for_timeout(50)
+
+
+def test_rule_category_picker_shows_the_tree(page: Page, base_url: str) -> None:
+    """Covers: KAL-RUL-005
+
+    Given a root category "Transport" with a child "Fuel"
+    When I open the category picker in the Add-rule dialog
+    Then the child shows as "Transport → Fuel" and the root shows on its own.
+
+    The names carry a unique suffix so the labels are unambiguous in the shared
+    worker DB, and both categories are removed in ``finally`` — a leaked
+    category would pollute every other test's category picker (the #19 lesson).
+    """
+    root_name = "Transport RUL005"
+    child_name = "Fuel RUL005"
+    root_id = seed_category(root_name)
+    child_id = seed_category(child_name, parent_id=root_id)
+    try:
+        page.goto(f"{base_url}/rules")
+        expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
+            timeout=5000
+        )
+
+        page.get_by_role("button", name="Add Rule").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_be_visible(timeout=5000)
+
+        dialog.locator(".q-select").filter(has_text="Category").click()
+        menu = page.locator(".q-menu").last
+        expect(menu).to_be_visible(timeout=5000)
+
+        # The child is labelled with its root, not as a bare orphan name.
+        child_opt = menu.get_by_text(f"{root_name} → {child_name}", exact=True)
+        _scroll_menu_to(page, menu, child_opt)
+        expect(child_opt).to_be_visible()
+
+        # The root is still selectable on its own line.
+        root_opt = menu.get_by_text(root_name, exact=True)
+        _scroll_menu_to(page, menu, root_opt)
+        expect(root_opt).to_be_visible()
+    finally:
+        delete_category(child_id)
+        delete_category(root_id)
 
 
 def _import_step(page: Page, step: int) -> None:

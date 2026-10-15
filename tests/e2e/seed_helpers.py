@@ -79,6 +79,12 @@ def seed_category(name: str, cat_type: str = "expense", parent_id: int | None = 
     return resp.json()["id"]
 
 
+def delete_category(category_id: int) -> None:
+    """Delete a category via the REST API (test cleanup)."""
+    resp = _client.delete(f"{API_BASE}/categories/{category_id}")
+    resp.raise_for_status()
+
+
 def get_or_seed_category(name: str, cat_type: str = "expense") -> int:
     """Return an existing category id by name, or create it."""
     resp = _client.get(f"{API_BASE}/categories/", params={"type": cat_type})
