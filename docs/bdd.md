@@ -1734,6 +1734,12 @@ Feature: Auto-categorisation Rules
     And an imported LIDL transaction pre-categorised "Groceries"
     When I change its category to "Alcohol"
     Then the manual category is kept and the rule does not reapply
+
+  KAL-RUL-005 @automated
+  Scenario: The rule category picker shows the category tree
+    Given a root category "Transport" with a child "Fuel"
+    When I open the category picker in the Add-rule dialog
+    Then the child shows as "Transport → Fuel" and the root shows on its own
 ```
 
 ---

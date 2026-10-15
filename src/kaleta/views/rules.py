@@ -38,7 +38,10 @@ def register() -> None:
         async def _load_category_options() -> dict[int, str]:
             async def _load(session: Any) -> dict[int, str]:
                 cats = await CategoryService(session).list()
-                return {c.id: c.name for c in cats}
+                # Hierarchical labels ("Root → Child"), tree order — the same
+                # builder Reports uses, so a child is never an orphan bare name
+                # you cannot place under a root (dogfooding #23).
+                return CategoryService.build_option_labels(cats)
 
             return await with_session(_load)
 

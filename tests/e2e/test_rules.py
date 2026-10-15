@@ -13,11 +13,12 @@ import re
 import tempfile
 from pathlib import Path
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
 from tests.e2e.ledger import search_ledger
 from tests.e2e.pages import on_import_page
 from tests.e2e.seed_helpers import (
+    delete_category,
     get_or_seed_category,
     seed_account,
     seed_category,
@@ -26,20 +27,27 @@ from tests.e2e.seed_helpers import (
 )
 
 
+def _scroll_menu_to(page: Page, menu: Locator, target: Locator) -> None:
+    """Scroll a virtualised Quasar menu until *target* renders in the DOM.
+
+    Quasar virtualises long option lists: an option far down the list is not in
+    the DOM at all until the menu is scrolled to it, and both the account list
+    and the category list grow with every row the suite seeds.
+    """
+    for _ in range(40):
+        if target.count() > 0:
+            return
+        menu.hover()
+        page.mouse.wheel(0, 400)
+        page.wait_for_timeout(50)
+
+
 def _select_option(page: Page, label: str, option: str) -> None:
     page.locator(".q-select").filter(has_text=label).click()
     menu = page.locator(".q-menu").last
     expect(menu).to_be_visible(timeout=5000)
     target = menu.get_by_text(option, exact=True)
-    # Quasar virtualises long option lists: an option far down the list is not
-    # in the DOM at all until the menu is scrolled to it. The account list grows
-    # with every account the suite seeds, so scroll until the option renders.
-    for _ in range(30):
-        if target.count() > 0:
-            break
-        menu.hover()
-        page.mouse.wheel(0, 400)
-        page.wait_for_timeout(50)
+    _scroll_menu_to(page, menu, target)
     target.click()
 
 
@@ -53,25 +61,81 @@ def test_create_categorisation_rule(page: Page, base_url: str) -> None:
     Given I am on the Rules page
     When I add a rule: description contains "LIDL" sets category "Groceries"
     Then the rule appears in the rules list
+
+    Uses a dedicated root category with a unique name rather than the shared
+    "Groceries": "Groceries" is a template *child* (`children_en`), so once any
+    test seeds the templates the picker labels it "Parent → Groceries" (the
+    hierarchy of KAL-RUL-005) and an exact "Groceries" match would be flaky.
+    The rule's FK to the category is ON DELETE CASCADE, so deleting the
+    category in ``finally`` removes the rule too — no leak into later tests.
     """
-    get_or_seed_category("Groceries")
+    cat_name = "Groceries RUL001"
+    cat_id = seed_category(cat_name)
+    try:
+        page.goto(f"{base_url}/rules")
+        expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
+            timeout=5000
+        )
 
-    page.goto(f"{base_url}/rules")
-    expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
-        timeout=5000
-    )
+        page.get_by_role("button", name="Add Rule").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_be_visible(timeout=5000)
 
-    page.get_by_role("button", name="Add Rule").click()
-    dialog = page.get_by_role("dialog")
-    expect(dialog).to_be_visible(timeout=5000)
+        dialog.get_by_label("Pattern").fill("LIDL")
+        dialog.locator(".q-select").filter(has_text="Category").click()
+        menu = page.locator(".q-menu").last
+        cat_opt = menu.get_by_text(cat_name, exact=True)
+        _scroll_menu_to(page, menu, cat_opt)
+        cat_opt.click()
+        dialog.get_by_role("button", name="Save").click()
 
-    dialog.get_by_label("Pattern").fill("LIDL")
-    dialog.locator(".q-select").filter(has_text="Category").click()
-    page.locator(".q-menu").get_by_text("Groceries", exact=True).click()
-    dialog.get_by_role("button", name="Save").click()
+        expect(page.get_by_text("LIDL").first).to_be_visible(timeout=5000)
+        expect(page.get_by_text(cat_name).first).to_be_visible(timeout=5000)
+    finally:
+        delete_category(cat_id)
 
-    expect(page.get_by_text("LIDL").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Groceries").first).to_be_visible(timeout=5000)
+
+def test_rule_category_picker_shows_the_tree(page: Page, base_url: str) -> None:
+    """Covers: KAL-RUL-005
+
+    Given a root category "Transport" with a child "Fuel"
+    When I open the category picker in the Add-rule dialog
+    Then the child shows as "Transport → Fuel" and the root shows on its own.
+
+    The names carry a unique suffix so the labels are unambiguous in the shared
+    worker DB, and both categories are removed in ``finally`` — a leaked
+    category would pollute every other test's category picker (the #19 lesson).
+    """
+    root_name = "Transport RUL005"
+    child_name = "Fuel RUL005"
+    root_id = seed_category(root_name)
+    child_id = seed_category(child_name, parent_id=root_id)
+    try:
+        page.goto(f"{base_url}/rules")
+        expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
+            timeout=5000
+        )
+
+        page.get_by_role("button", name="Add Rule").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_be_visible(timeout=5000)
+
+        dialog.locator(".q-select").filter(has_text="Category").click()
+        menu = page.locator(".q-menu").last
+        expect(menu).to_be_visible(timeout=5000)
+
+        # The child is labelled with its root, not as a bare orphan name.
+        child_opt = menu.get_by_text(f"{root_name} → {child_name}", exact=True)
+        _scroll_menu_to(page, menu, child_opt)
+        expect(child_opt).to_be_visible()
+
+        # The root is still selectable on its own line.
+        root_opt = menu.get_by_text(root_name, exact=True)
+        _scroll_menu_to(page, menu, root_opt)
+        expect(root_opt).to_be_visible()
+    finally:
+        delete_category(child_id)
+        delete_category(root_id)
 
 
 def _import_step(page: Page, step: int) -> None:

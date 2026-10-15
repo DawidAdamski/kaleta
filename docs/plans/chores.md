@@ -556,9 +556,13 @@ check it still reproduces before acting on it.
       Fixed in `transactions-keep-place-on-save`: edit and pair-as-transfer
       now refresh in place (keep the current page, restore the scroll offset);
       add/delete still reset to the top on purpose (see the plan's Scope).
-- [ ] **#23 Rules: the category picker lists only leaf/child categories
+- [x] **#23 Rules: the category picker lists only leaf/child categories
       (dogfooding).** Roots are missing (or only subcategories shown), so a
       category is hard to find when writing a rule. Bug/UX in the Rules view.
+      Fixed in `rules-category-picker-hierarchy`: the real cause was a flat
+      `{id: name}` option map, so a child showed as a bare name beside its root
+      with no hierarchy. Now reuses `CategoryService.build_option_labels`
+      ("Root → Child", tree order) — the same builder Reports uses.
 - [ ] **#24 Subscriptions: the "all subscriptions" list disagrees with the
       categories, and there is no billing cadence (dogfooding).** The panel's
       list does not match what sits under the subscription categories; also add
