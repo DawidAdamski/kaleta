@@ -73,3 +73,11 @@ selectable, which matches today's behaviour; only the *labels* change.
   routing both pickers through one `_scroll_menu_to` helper (the scroll loop
   that already lived inlined in `_select_option`); the exact-label assertion is
   unchanged — not a loosened check.
+- KAL-RUL-001 also stopped using the shared "Groceries" (a template *child*,
+  `children_en`, so the hierarchy now labels it "Parent → Groceries" and an
+  exact "Groceries" click is flaky). It seeds a uniquely-named ROOT and deletes
+  it in `finally`; the rule's `category_id` FK is `ON DELETE CASCADE`, so the
+  rule goes with it — which also stops the old test leaking a permanent rule +
+  category into later e2e tests. After this, `verify --e2e` is green (261
+  e2e, 0 failures); an earlier run's transactions cluster was timing flakiness,
+  not a deterministic regression (identical serial order passed on re-run).
