@@ -295,47 +295,6 @@ async def render_data_tab(
                 )
                 restore_btn.disable()
 
-        with ui.row().classes("gap-3 flex-wrap"):
-            ui.button(t("settings.backup_export"), icon="download", on_click=_do_export).props(
-                "color=primary"
-            )
-            ui.button(
-                t("settings.ledger_export"),
-                icon="table_view",
-                on_click=_do_ledger_export,
-            ).props("outline color=primary").tooltip(t("settings.ledger_export_hint"))
-            ui.button(t("settings.backup_restore"), icon="upload", on_click=restore_dlg.open).props(
-                "outline color=negative"
-            )
-
-    with ui.card().classes("p-6 w-full mt-4"):
-        with ui.row().classes("items-center gap-2 mb-1"):
-            ui.icon("science", color="primary").classes("text-xl")
-            ui.label(t("settings.data_title")).classes("text-lg font-semibold")
-        ui.label(t("settings.data_hint")).classes("text-xs text-slate-500 mb-4")
-
-        async def _do_seed() -> None:
-            seed_dlg.close()
-            notif = ui.notification(t("settings.seeding"), spinner=True, timeout=0)
-            try:
-
-                async def _seed(session: Any) -> dict[str, int]:
-                    return await DataService(session).seed()
-
-                stats = await with_session(_seed)
-                notif.dismiss()
-                ui.notify(
-                    t(
-                        "settings.seed_done",
-                        tx=stats["transactions"],
-                        months=t("settings.seed_years"),
-                    ),
-                    type="positive",
-                )
-            except Exception as exc:
-                notif.dismiss()
-                ui.notify(f"{t('settings.seed_error')}: {exc}", type="negative")
-
         async def _do_clear_data() -> None:
             if (wipe_input.value or "").strip() != "DELETE":
                 ui.notify(t("settings.clear_confirm_typo"), type="warning")
@@ -353,18 +312,6 @@ async def render_data_tab(
             except Exception as exc:
                 notif.dismiss()
                 ui.notify(f"{t('settings.clear_error')}: {exc}", type="negative")
-
-        seed_dlg = ui.dialog()
-        with seed_dlg, ui.card().classes("w-96"):
-            ui.label(t("settings.seed_confirm_title")).classes("text-base font-semibold mb-1")
-            ui.label(t("settings.seed_confirm_body")).classes("text-sm text-slate-600 mb-4")
-            with ui.row().classes("w-full justify-end gap-2"):
-                ui.button(t("common.cancel"), on_click=seed_dlg.close).props("flat")
-                ui.button(
-                    t("settings.seed_btn"),
-                    icon="science",
-                    on_click=_do_seed,
-                ).props("color=primary unelevated")
 
         clear_data_dlg = ui.dialog()
         with clear_data_dlg, ui.card().classes("w-96"):
@@ -389,9 +336,17 @@ async def render_data_tab(
 
             wipe_input.on_value_change(_update_wipe_confirm)
 
-        with ui.row().classes("gap-3"):
-            ui.button(t("settings.seed_btn"), icon="science", on_click=seed_dlg.open).props(
+        with ui.row().classes("gap-3 flex-wrap"):
+            ui.button(t("settings.backup_export"), icon="download", on_click=_do_export).props(
                 "color=primary"
+            )
+            ui.button(
+                t("settings.ledger_export"),
+                icon="table_view",
+                on_click=_do_ledger_export,
+            ).props("outline color=primary").tooltip(t("settings.ledger_export_hint"))
+            ui.button(t("settings.backup_restore"), icon="upload", on_click=restore_dlg.open).props(
+                "outline color=negative"
             )
             ui.button(
                 t("settings.clear_btn"),

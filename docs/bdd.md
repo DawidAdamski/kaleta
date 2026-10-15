@@ -4654,6 +4654,16 @@ Feature: Settings — weekly grouping and the debug panel
     Then it is a multi-line Markdown block headed "Kaleta debug info"
     And the secret key row reads "***"
     And the configured secret key appears nowhere in the block
+
+  KAL-SET-033 @automated
+  Scenario: Example data lives in one card, not two
+    Given I am on Settings → Data
+    Then there is a single "Example data" card
+    And it holds the per-feature buttons, "Seed everything", and the one
+      destructive "Populate with example data" reset below them
+    And there is no separate "Demo data" card
+    And "Clear all data" sits with Backup/Restore under "Backups & clearing"
+    And opening the reset asks to confirm before it overwrites anything
 ```
 
 ## Feature: Currency rates — NBP Table A

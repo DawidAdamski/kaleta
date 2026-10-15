@@ -1,10 +1,14 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 """Settings — Data tab, the Example data section.
 
-One button per feature and one for the lot. Every one of them is safe to press
-twice: the seeders in :mod:`kaleta.seeders` own their own rows and skip a
+One button per feature and one for the lot. The additive buttons are safe to
+press twice: the seeders in :mod:`kaleta.seeders` own their own rows and skip a
 feature that already has example data, and the section says how many rows each
 feature holds so the skip is never a surprise.
+
+Below a divider sits the one destructive action — "Populate with example data"
+(wipe + reseed) — behind its own confirmation, so there is a single place for
+example data rather than a second "Demo data" card.
 """
 
 from __future__ import annotations
@@ -116,3 +120,53 @@ async def render_example_data_section() -> None:
 
         confirm_btn.on_click(_seed)
         await buttons()
+
+        # The one destructive seed: wipe everything and reload a fresh demo. It
+        # lives here, below a divider, so there is a single place for example
+        # data — not a second "Demo data" card.
+        ui.separator().classes("my-4")
+
+        reset_dlg = ui.dialog()
+
+        async def _reset() -> None:
+            reset_dlg.close()
+            notif = ui.notification(t("settings.seeding"), spinner=True, timeout=0)
+            try:
+
+                async def _run(session: Any) -> dict[str, int]:
+                    return await DataService(session).seed()
+
+                stats = await with_session(_run)
+                notif.dismiss()
+                ui.notify(
+                    t(
+                        "settings.seed_done",
+                        tx=stats["transactions"],
+                        months=t("settings.seed_years"),
+                    ),
+                    type="positive",
+                )
+                buttons.refresh()
+            except KaletaError as exc:
+                notif.dismiss()
+                notify_kaleta_error(exc)
+            except Exception as exc:
+                notif.dismiss()
+                ui.notify(f"{t('settings.seed_error')}: {exc}", type="negative")
+
+        with reset_dlg, ui.card().classes("w-96"):
+            ui.label(t("settings.seed_confirm_title")).classes("text-base font-semibold mb-1")
+            ui.label(t("settings.seed_confirm_body")).classes("text-sm text-negative mb-4")
+            with ui.row().classes("w-full justify-end gap-2"):
+                ui.button(t("common.cancel"), on_click=reset_dlg.close).props("flat")
+                ui.button(
+                    t("settings.seed_btn"),
+                    icon="restart_alt",
+                    on_click=_reset,
+                ).props("color=negative unelevated")
+
+        ui.button(
+            t("settings.seed_btn"),
+            icon="restart_alt",
+            on_click=reset_dlg.open,
+        ).props("outline color=negative").tooltip(t("settings.seed_confirm_body"))
