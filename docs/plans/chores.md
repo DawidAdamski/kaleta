@@ -524,9 +524,13 @@ check it still reproduces before acting on it.
       `save_add`/`save_edit`, which also don't catch. Consider a consistent
       KaletaError toast across the Categories view's mutations, and decide
       whether the root needs re-parent/rename protection too.
-- [ ] **#19 Dashboard: account names overflow their card border (dogfooding).**
+- [x] **#19 Dashboard: account names overflow their card border (dogfooding).**
       Account-name text overflows the dashboard widget/tile; clip/ellipsis or
       wrap. UX/layout → candidate for wave 2.
+      Fixed in `dashboard-account-name-overflow`: the balance-card tile binds
+      its name label to the tile width so `truncate` clips to an ellipsis
+      (with the full name on a tooltip) instead of the nowrap name spilling
+      past the tile and the card.
 - [ ] **#20 Safety fund: cannot return to the "months to cover" input
       (dogfooding).** In the safety-funds view, switching to another sub-view
       and back loses the screen holding the target-months figure — no way back.
