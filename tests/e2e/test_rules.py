@@ -27,20 +27,27 @@ from tests.e2e.seed_helpers import (
 )
 
 
+def _scroll_menu_to(page: Page, menu: Locator, target: Locator) -> None:
+    """Scroll a virtualised Quasar menu until *target* renders in the DOM.
+
+    Quasar virtualises long option lists: an option far down the list is not in
+    the DOM at all until the menu is scrolled to it, and both the account list
+    and the category list grow with every row the suite seeds.
+    """
+    for _ in range(40):
+        if target.count() > 0:
+            return
+        menu.hover()
+        page.mouse.wheel(0, 400)
+        page.wait_for_timeout(50)
+
+
 def _select_option(page: Page, label: str, option: str) -> None:
     page.locator(".q-select").filter(has_text=label).click()
     menu = page.locator(".q-menu").last
     expect(menu).to_be_visible(timeout=5000)
     target = menu.get_by_text(option, exact=True)
-    # Quasar virtualises long option lists: an option far down the list is not
-    # in the DOM at all until the menu is scrolled to it. The account list grows
-    # with every account the suite seeds, so scroll until the option renders.
-    for _ in range(30):
-        if target.count() > 0:
-            break
-        menu.hover()
-        page.mouse.wheel(0, 400)
-        page.wait_for_timeout(50)
+    _scroll_menu_to(page, menu, target)
     target.click()
 
 
@@ -68,21 +75,16 @@ def test_create_categorisation_rule(page: Page, base_url: str) -> None:
 
     dialog.get_by_label("Pattern").fill("LIDL")
     dialog.locator(".q-select").filter(has_text="Category").click()
-    page.locator(".q-menu").get_by_text("Groceries", exact=True).click()
+    # The option list is virtualised and grows with every category the suite
+    # seeds, so "Groceries" may not be in the DOM until the menu is scrolled.
+    menu = page.locator(".q-menu").last
+    groceries_opt = menu.get_by_text("Groceries", exact=True)
+    _scroll_menu_to(page, menu, groceries_opt)
+    groceries_opt.click()
     dialog.get_by_role("button", name="Save").click()
 
     expect(page.get_by_text("LIDL").first).to_be_visible(timeout=5000)
     expect(page.get_by_text("Groceries").first).to_be_visible(timeout=5000)
-
-
-def _scroll_menu_to(page: Page, menu: Locator, target: Locator) -> None:
-    """Scroll a virtualised Quasar menu until *target* renders in the DOM."""
-    for _ in range(40):
-        if target.count() > 0:
-            return
-        menu.hover()
-        page.mouse.wheel(0, 400)
-        page.wait_for_timeout(50)
 
 
 def test_rule_category_picker_shows_the_tree(page: Page, base_url: str) -> None:

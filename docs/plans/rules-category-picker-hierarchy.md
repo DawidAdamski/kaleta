@@ -65,3 +65,11 @@ selectable, which matches today's behaviour; only the *labels* change.
   RUL005" and passes.
 - No i18n keys touched (labels are category names + an arrow glyph, not
   translated strings).
+- The existing `test_create_categorisation_rule` (KAL-RUL-001) regressed under
+  the *full* suite only: reordering the options (now by root, children
+  interleaved) pushed "Groceries" out of the virtualised menu's initial DOM, so
+  its no-scroll `get_by_text(...).click()` timed out. Passed in isolation
+  (short list), failed under `verify --e2e` (long accumulated list). Fixed by
+  routing both pickers through one `_scroll_menu_to` helper (the scroll loop
+  that already lived inlined in `_select_option`); the exact-label assertion is
+  unchanged — not a loosened check.
