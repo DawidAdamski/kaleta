@@ -19,6 +19,7 @@ from kaleta.exceptions import (
     StaleWriteError,
     ValidationError,
 )
+from kaleta.models.category import Category, CategoryType
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import (
     Transaction,
@@ -421,6 +422,40 @@ class TransactionService:
             )
         outgoing, incoming = oriented
         await self.pair_as_transfer(outgoing.id, incoming.id)
+
+    async def set_category_bulk(self, transaction_ids: builtins.list[int], category_id: int) -> int:
+        """Assign one category to many rows at once; return how many changed.
+
+        The ledger's multi-select recategorises a batch of similar rows in a
+        single step. The category's type has to match every row's — an expense
+        category cannot land on an income — and split rows carry a category per
+        line, so neither can take one here. Both are refused for the whole
+        batch rather than applied in part, so the user is never left guessing
+        which of the selected rows actually moved.
+        """
+        if not transaction_ids:
+            return 0
+        category = await self.session.get(Category, category_id)
+        if category is None:
+            raise NotFoundError(f"Category {category_id} not found.")
+        if category.type not in (CategoryType.INCOME, CategoryType.EXPENSE):
+            raise ValidationError("Only income and expense categories can be assigned.")
+        stmt = select(Transaction).where(Transaction.id.in_(transaction_ids))
+        transactions = builtins.list((await self.session.execute(stmt)).scalars().all())
+        wanted = TransactionType(category.type.value)
+        for tx in transactions:
+            if tx.is_split:
+                raise ValidationError(
+                    "A split transaction's category is set per line, not in bulk."
+                )
+            if tx.type != wanted:
+                raise ValidationError(
+                    f"A {category.type.value} category can only go on {category.type.value} rows."
+                )
+        for tx in transactions:
+            tx.category_id = category_id
+        await self.session.commit()
+        return len(transactions)
 
     @staticmethod
     def orient_transfer_legs(

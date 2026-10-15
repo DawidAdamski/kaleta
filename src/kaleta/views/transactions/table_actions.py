@@ -17,6 +17,7 @@ from kaleta.views.theme import (
     SELECTION_BAR,
     SELECTION_DIVIDER,
 )
+from kaleta.views.transactions.bulk_category_dialog import assignable_category_type
 
 
 def render_table_actions(
@@ -25,6 +26,7 @@ def render_table_actions(
     *,
     on_delete: Callable[[], None],
     on_pair: Callable[[], Awaitable[None]],
+    on_change_category: Callable[[], None],
     on_clear: Callable[[], None],
     refresh: Callable[[], None],
 ) -> Any:
@@ -63,6 +65,25 @@ def render_table_actions(
             pair_button.tooltip(t("transactions.mark_as_transfer_hint"))
             if n != 2:
                 pair_button.props("disable")
+            # Recategorise the batch in one step. A category is typed, so this
+            # only makes sense when every selected row is the same income or
+            # expense type — mixed selections and splits leave it disabled with
+            # a tooltip that says why.
+            category_button = (
+                ui.button(
+                    t("transactions.change_category"),
+                    icon="sell",
+                    on_click=on_change_category,
+                    color=None,
+                )
+                .props("flat dense no-caps data-change-category")
+                .classes(SELECTION_ACTION)
+            )
+            if assignable_category_type(selected_rows) is None:
+                category_button.props("disable")
+                category_button.tooltip(t("transactions.change_category_mixed"))
+            else:
+                category_button.tooltip(t("transactions.change_category_hint", count=n))
             delete_button = (
                 ui.button(t("common.delete"), icon="delete", on_click=on_delete, color=None)
                 .props("flat dense no-caps")

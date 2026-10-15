@@ -556,6 +556,15 @@ check it still reproduces before acting on it.
       flashes an "x of y shown" state then re-renders. Bug in the transactions
       multi-select; shares the selection infra with #17 (bulk change-category),
       so plan the two as one slice.
+      Investigated during `transactions-bulk-category` (#17): could NOT
+      reproduce as a correctness failure. A targeted e2e (one account, 6 rows
+      spread across two months, month grouping, header select-all — with and
+      without an upcoming planned row) selected all 6 real rows and correctly
+      excluded the planned one. The "flash" is `_on_selection` →
+      `_keep_selected_rows` re-syncing when select-all ticks a planned row that
+      has no checkbox; it settles to the right set. Likely needs a more
+      specific repro (virtual scroll with many rows, or a pre-#263 state).
+      Left open — #17 shipped on its own.
 - [ ] **Debounce the ledger search input (perf, not correctness).** Each
       keystroke in the transactions search box fires its own `count`+`list`
       query; the render-token guard (`transactions-search-render-race`) keeps

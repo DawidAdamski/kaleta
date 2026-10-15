@@ -1090,6 +1090,16 @@ Feature: Manual Transaction Entry
     And I have navigated to the second page
     When I edit a transaction shown on that page and save it
     Then the ledger stays on the second page
+
+  KAL-TXN-022 @automated
+  Scenario: Reassign the category of several selected transactions at once
+    The ledger's multi-select could pair and delete but not recategorise. A
+    category is typed, so the action applies to a selection of one income or
+    expense type; mixed selections and splits leave it disabled.
+
+    Given several selected transactions that share one expense category
+    When I pick a different expense category through "Change category"
+    Then every selected transaction shows the new category
 ```
 
 ## Feature: Quick Entry

@@ -11,7 +11,7 @@ from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.core.weeks import WeekStartMode
-from kaleta.exceptions import ValidationError
+from kaleta.exceptions import NotFoundError, ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.category import CategoryType
 from kaleta.models.transaction import TransactionType, TransferDirection
@@ -2034,3 +2034,74 @@ class TestMergeUpcomingRows:
             "month",
         )
         assert merged[0]["sep_net"] == "+9,111.26"
+
+
+class TestSetCategoryBulk:
+    """Covers: KAL-TXN-022 — the ledger's multi-select recategorises a batch."""
+
+    async def test_reassigns_every_matching_row(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        old_cat = await _make_category(session, "Food")
+        new_cat = await _make_category(session, "Dining")
+        ids = [(await svc.create(_tx(acc_id, old_cat))).id for _ in range(3)]
+
+        changed = await svc.set_category_bulk(ids, new_cat)
+
+        assert changed == 3
+        for tx_id in ids:
+            tx = await svc.get(tx_id)
+            assert tx is not None
+            assert tx.category_id == new_cat
+
+    async def test_empty_ids_change_nothing(self, svc: TransactionService):
+        assert await svc.set_category_bulk([], 1) == 0
+
+    async def test_unknown_category_is_rejected(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        cat_id = await _make_category(session, "Food")
+        tx_id = (await svc.create(_tx(acc_id, cat_id))).id
+
+        with pytest.raises(NotFoundError):
+            await svc.set_category_bulk([tx_id], 999999)
+
+    async def test_type_mismatch_is_rejected_and_nothing_moves(
+        self, svc: TransactionService, session: AsyncSession
+    ):
+        acc_id = await _make_account(session)
+        expense_cat = await _make_category(session, "Food")
+        income_cat = await _make_category(session, "Salary", CategoryType.INCOME)
+        tx_id = (await svc.create(_tx(acc_id, expense_cat))).id
+
+        with pytest.raises(ValidationError):
+            await svc.set_category_bulk([tx_id], income_cat)
+
+        tx = await svc.get(tx_id)
+        assert tx is not None
+        assert tx.category_id == expense_cat
+
+    async def test_split_row_is_rejected(self, svc: TransactionService, session: AsyncSession):
+        acc_id = await _make_account(session)
+        cat1 = await _make_category(session, "Food")
+        cat2 = await _make_category(session, "Transport")
+        target = await _make_category(session, "Dining")
+        split = await svc.create(
+            TransactionCreate(
+                account_id=acc_id,
+                category_id=None,
+                amount=Decimal("150.00"),
+                type=TransactionType.EXPENSE,
+                date=TODAY,
+                is_split=True,
+                splits=[
+                    TransactionSplitCreate(category_id=cat1, amount=Decimal("100.00")),
+                    TransactionSplitCreate(category_id=cat2, amount=Decimal("50.00")),
+                ],
+            )
+        )
+
+        with pytest.raises(ValidationError):
+            await svc.set_category_bulk([split.id], target)

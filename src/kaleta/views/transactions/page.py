@@ -52,6 +52,7 @@ from kaleta.views.theme import (
     TITLE_ACTION_PRIMARY,
 )
 from kaleta.views.transactions.add_dialog import build_add_dialog
+from kaleta.views.transactions.bulk_category_dialog import build_bulk_category_dialog
 from kaleta.views.transactions.delete_dialog import build_delete_dialog
 from kaleta.views.transactions.edit_dialog import build_edit_dialog
 from kaleta.views.transactions.planned_dialog import build_planned_dialog
@@ -238,6 +239,13 @@ async def transactions_page(*, open_new: bool = False) -> None:
     _, confirm_delete_selected = build_delete_dialog(
         selected_tx_ids,
         on_deleted=_apply_filters,
+    )
+    _, open_bulk_category = build_bulk_category_dialog(
+        selected_tx_ids,
+        selected_rows,
+        expense_cats,
+        income_cats,
+        on_applied=_refresh_keeping_place,
     )
     planned_dialog_ctx = build_planned_dialog()
 
@@ -527,6 +535,7 @@ async def transactions_page(*, open_new: bool = False) -> None:
             selected_rows,
             on_delete=confirm_delete_selected,
             on_pair=_pair_selected,
+            on_change_category=open_bulk_category,
             on_clear=_untick_table,
             refresh=lambda: table_actions_ui.refresh(),
         )
