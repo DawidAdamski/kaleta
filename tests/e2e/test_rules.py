@@ -61,30 +61,38 @@ def test_create_categorisation_rule(page: Page, base_url: str) -> None:
     Given I am on the Rules page
     When I add a rule: description contains "LIDL" sets category "Groceries"
     Then the rule appears in the rules list
+
+    Uses a dedicated root category with a unique name rather than the shared
+    "Groceries": "Groceries" is a template *child* (`children_en`), so once any
+    test seeds the templates the picker labels it "Parent → Groceries" (the
+    hierarchy of KAL-RUL-005) and an exact "Groceries" match would be flaky.
+    The rule's FK to the category is ON DELETE CASCADE, so deleting the
+    category in ``finally`` removes the rule too — no leak into later tests.
     """
-    get_or_seed_category("Groceries")
+    cat_name = "Groceries RUL001"
+    cat_id = seed_category(cat_name)
+    try:
+        page.goto(f"{base_url}/rules")
+        expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
+            timeout=5000
+        )
 
-    page.goto(f"{base_url}/rules")
-    expect(page.get_by_role("main").get_by_text("Rules", exact=True).first).to_be_visible(
-        timeout=5000
-    )
+        page.get_by_role("button", name="Add Rule").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_be_visible(timeout=5000)
 
-    page.get_by_role("button", name="Add Rule").click()
-    dialog = page.get_by_role("dialog")
-    expect(dialog).to_be_visible(timeout=5000)
+        dialog.get_by_label("Pattern").fill("LIDL")
+        dialog.locator(".q-select").filter(has_text="Category").click()
+        menu = page.locator(".q-menu").last
+        cat_opt = menu.get_by_text(cat_name, exact=True)
+        _scroll_menu_to(page, menu, cat_opt)
+        cat_opt.click()
+        dialog.get_by_role("button", name="Save").click()
 
-    dialog.get_by_label("Pattern").fill("LIDL")
-    dialog.locator(".q-select").filter(has_text="Category").click()
-    # The option list is virtualised and grows with every category the suite
-    # seeds, so "Groceries" may not be in the DOM until the menu is scrolled.
-    menu = page.locator(".q-menu").last
-    groceries_opt = menu.get_by_text("Groceries", exact=True)
-    _scroll_menu_to(page, menu, groceries_opt)
-    groceries_opt.click()
-    dialog.get_by_role("button", name="Save").click()
-
-    expect(page.get_by_text("LIDL").first).to_be_visible(timeout=5000)
-    expect(page.get_by_text("Groceries").first).to_be_visible(timeout=5000)
+        expect(page.get_by_text("LIDL").first).to_be_visible(timeout=5000)
+        expect(page.get_by_text(cat_name).first).to_be_visible(timeout=5000)
+    finally:
+        delete_category(cat_id)
 
 
 def test_rule_category_picker_shows_the_tree(page: Page, base_url: str) -> None:
