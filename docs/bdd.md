@@ -4999,6 +4999,17 @@ Feature: Dashboard Customization
     And the year is dropped on purpose, so ten rows either side of a new year
       would read alike
     And "View all" opens the ledger, where the full date is
+
+  KAL-DSH-010 @automated
+  Scenario: A long account name is clipped to its tile, not spilled past the card
+    Given I am signed in on a 1360 pixel wide viewport
+    And three of my accounts have long names and the largest balances
+    When I open the dashboard
+    Then each of the three names fills one tile under the balance hero
+    And a name too long for its tile is cut with an ellipsis, not rendered at
+      its full width
+    And no name reaches past the card's right edge
+    And the full name is still available as the tile's tooltip
 ```
 
 ## Feature: Wizard Action Items

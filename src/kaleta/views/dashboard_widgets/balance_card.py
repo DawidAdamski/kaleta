@@ -35,7 +35,11 @@ _MAX_ACCOUNT_TILES = 3
 
 def _account_chip(name: str, balance: Decimal) -> None:
     with ui.column().classes("k-account-chip gap-0.5 rounded-[10px] px-3.5 py-3 flex-1 min-w-32"):
-        ui.label(name).classes(f"{CARD_CAPTION} truncate")
+        # `w-full` binds the label to the tile's width so `truncate` actually
+        # clips (with an ellipsis) instead of the nowrap name rendering at its
+        # intrinsic width and spilling past the tile and the card (#19). A
+        # tooltip keeps the full name reachable once it is cut.
+        ui.label(name).classes(f"{CARD_CAPTION} truncate w-full").tooltip(name)
         ui.label(fmt_number(balance)).classes(f"k-mono {INK} text-[16px] font-medium")
 
 
