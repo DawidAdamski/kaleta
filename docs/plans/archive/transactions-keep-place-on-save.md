@@ -3,8 +3,9 @@ plan_id: transactions-keep-place-on-save
 title: Editing a transaction keeps the reader's place
 area: transactions
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md#transactions
+status: archived
+archived_at: 2026-10-15
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Editing a transaction keeps the reader's place
@@ -58,3 +59,30 @@ asserted by the e2e (timing-dependent) — the deterministic contract is
   last page. Honouring the scroll there would need a re-fetch + clamp; the
   reset-to-top path is correct and already shipped. Logged as a possible
   follow-up if dogfooding flags it.
+
+## Implementation
+
+Landed on 2026-10-15.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `2d44fc4` | Dawid Adamski | 2026-10-15 | Merge pull request #265 from DawidAdamski/fix/transactions-keep-place-on-save |
+| `f46abc6` | Dawid (Ani) | 2026-10-15 | fix(transactions): clamp page to last non-empty page after in-place refresh |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/transactions-keep-place-on-save.md
+- src/kaleta/views/transactions/edit_dialog.py
+- src/kaleta/views/transactions/page.py
+- tests/e2e/test_transactions_keep_place.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/e2e/test_transactions_keep_place.py -q` | 0 |
+| `uv run ruff check src/kaleta/views/transactions` | 0 |
+| `uv run mypy src/kaleta/views/transactions/page.py src/kaleta/views/transactions/edit_dialog.py` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
+

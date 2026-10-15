@@ -3,8 +3,9 @@ plan_id: transactions-bulk-category
 title: Bulk change-category for selected transactions
 area: transactions
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md#transactions
+status: archived
+archived_at: 2026-10-15
+roadmap_ref: ../../roadmap.md#transactions
 ---
 
 # Bulk change-category for selected transactions
@@ -62,3 +63,37 @@ them all in a single step.
   smaller count, not an error. Acceptable for the UI (the selection only ever
   holds live rows); an API caller that needs strictness can compare the count
   it passed against the count returned.
+
+## Implementation
+
+Landed on 2026-10-15.
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `d62b9d3` | Dawid Adamski | 2026-10-15 | Merge pull request #267 from DawidAdamski/feat/transactions-bulk-category |
+| `8a48ec0` | Dawid (Ani) | 2026-10-15 | feat(transactions): bulk change-category for selected rows (#17) |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/transactions-bulk-category.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/services/transaction_service.py
+- src/kaleta/views/transactions/bulk_category_dialog.py
+- src/kaleta/views/transactions/page.py
+- src/kaleta/views/transactions/table_actions.py
+- tests/e2e/test_transactions_bulk_category.py
+- tests/unit/services/test_transaction_service.py
+- tests/unit/views/test_bulk_category.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| `uv run pytest tests/unit/services/test_transaction_service.py -q -k SetCategoryBulk` | 0 |
+| `uv run pytest tests/unit/views/test_bulk_category.py -q` | 0 |
+| `uv run pytest tests/e2e/test_transactions_bulk_category.py -q` | 0 |
+| `uv run lint-imports` | 0 |
+| `./scripts/verify.sh --e2e` | 0 |
+
