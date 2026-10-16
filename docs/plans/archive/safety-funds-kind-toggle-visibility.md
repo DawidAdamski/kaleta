@@ -3,8 +3,9 @@ plan_id: safety-funds-kind-toggle-visibility
 title: Safety funds — switching fund type back to Emergency restores its fields
 area: views (safety_funds)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-16
+roadmap_ref: ../../roadmap.md
 ---
 
 # Safety funds — switching fund type back to Emergency restores its fields
@@ -69,3 +70,24 @@ not `e.args`.
 - The test opens the Add dialog and never saves; it seeds one backing account
   (the dialog refuses to open without one) and deletes it in `finally`.
 - No i18n keys added; no new user-facing strings.
+
+## Implementation
+
+Landed on 2026-10-16 (PR #278).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `8d3339c` | Dawid Adamski | 2026-10-16 | Merge pull request #278 from DawidAdamski/fix/safety-funds-kind-toggle-visibility |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/safety-funds-kind-toggle-visibility.md
+- src/kaleta/views/safety_funds.py
+- tests/e2e/test_reserve_funds.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
