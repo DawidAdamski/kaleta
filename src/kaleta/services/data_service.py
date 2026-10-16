@@ -34,6 +34,7 @@ from kaleta.models.category import Category
 from kaleta.models.credit import CreditCardProfile, LoanProfile
 from kaleta.models.currency_rate import CurrencyRate
 from kaleta.models.dismissed_candidate import DismissedCandidate
+from kaleta.models.gift import Gift
 from kaleta.models.institution import Institution
 from kaleta.models.irregular_item import IrregularItem
 from kaleta.models.payee import Payee
@@ -63,6 +64,7 @@ _CLEARED_MODELS = (
     PayeeIdentity,
     IrregularItem,
     ReserveFund,
+    Gift,
     PersonalLoanRepayment,
     PersonalLoan,
     Counterparty,

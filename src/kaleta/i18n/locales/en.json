@@ -31,6 +31,7 @@
     "subscriptions": "Subscriptions",
     "safety_funds": "Safety Funds",
     "personal_loans": "Personal Loans",
+    "gifts": "Gifts",
     "payees": "Payees",
     "rules": "Rules",
     "tab_home": "Home",
@@ -1851,6 +1852,7 @@
     "example_data_reserve_funds": "Reserve funds",
     "example_data_personal_loans": "Personal loans",
     "example_data_credit_cards": "Credit cards",
+    "example_data_gifts": "Gifts",
     "clear_error": "Clear failed",
     "tab_general": "General",
     "tab_appearance": "Appearance",
@@ -2447,5 +2449,23 @@
     "amount_needed": "Enter an amount above zero.",
     "adjusted": "{name} adjusted.",
     "dropped": "{name} dropped."
+  },
+  "gifts": {
+    "title": "Gifts",
+    "subtitle": "Plan gifts per person and occasion for the year, so the money is set aside ahead of time.",
+    "add": "Add gift",
+    "dialog_title": "New gift",
+    "dialog_edit_title": "Edit gift",
+    "person": "Who it's for",
+    "occasion": "Occasion",
+    "amount": "Amount",
+    "yearly_total": "Yearly gifts total",
+    "empty": "No gifts planned yet. Add who you're buying for, the occasion, and how much to set aside.",
+    "incomplete": "Give the gift a person, an occasion and an amount.",
+    "saved": "Gift saved.",
+    "deleted": "Gift deleted.",
+    "confirm_delete_title": "Delete gift?",
+    "confirm_delete_body": "\"{occasion}\" for {person} will be removed.",
+    "confirm_delete_confirm": "Delete"
   }
 }

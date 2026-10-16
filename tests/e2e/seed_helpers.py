@@ -450,6 +450,39 @@ def seed_subscription(
     return _run_async_worker(_create)
 
 
+def seed_gift(person: str, occasion: str, amount: float) -> int:
+    """Create a planned gift via the service layer; return its ID."""
+    from decimal import Decimal
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.schemas.gift import GiftCreate
+    from kaleta.services import GiftService
+
+    async def _create() -> int:
+        async with AsyncSessionFactory() as session:
+            gift = await GiftService(session).create(
+                GiftCreate(person=person, occasion=occasion, amount=Decimal(str(amount)))
+            )
+            return gift.id
+
+    return _run_async_worker(_create)
+
+
+def clear_gifts() -> None:
+    """Delete every gift — the gift total is sum-based, so tests start clean."""
+    from sqlalchemy import delete
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.gift import Gift
+
+    async def _clear() -> None:
+        async with AsyncSessionFactory() as session:
+            await session.execute(delete(Gift))
+            await session.commit()
+
+    _run_async_worker(_clear)
+
+
 def seed_recurring_payee_charges(
     account_id: int,
     category_id: int,

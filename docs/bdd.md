@@ -2592,7 +2592,7 @@ Feature: Gift Planning
   I want to plan gifts per person and occasion for the year
   So that gift money is saved up ahead of time
 
-  KAL-GFT-001 @planned
+  KAL-GFT-001 @automated
   Scenario: Maintain the gift list
     Given I am on the Gifts page
     When I add "Mum — birthday — 200.00" and "Mum — Christmas — 150.00"

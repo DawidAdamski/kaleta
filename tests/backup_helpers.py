@@ -30,6 +30,7 @@ from kaleta.models import (
     DismissedCandidate,
     DismissedPayeeMerge,
     DismissedTransferPair,
+    Gift,
     ImportRule,
     ImportRun,
     Institution,
@@ -338,6 +339,14 @@ async def seed_every_model(session: AsyncSession) -> None:
             name="Car insurance",
             yearly_amount=Decimal("1200.00"),
             due_month=3,
+            user_id=user.id,
+        )
+    )
+    session.add(
+        Gift(
+            person="Mum",
+            occasion="birthday",
+            amount=Decimal("200.00"),
             user_id=user.id,
         )
     )

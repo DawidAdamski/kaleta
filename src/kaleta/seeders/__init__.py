@@ -22,6 +22,7 @@ from kaleta.seeders.assets import AssetsSeeder
 from kaleta.seeders.base import Seeder, SeedOutcome
 from kaleta.seeders.budgets import BudgetsSeeder
 from kaleta.seeders.credit_cards import CreditCardsSeeder
+from kaleta.seeders.gifts import GiftsSeeder
 from kaleta.seeders.personal_loans import PersonalLoansSeeder
 from kaleta.seeders.planned import PlannedTransactionsSeeder
 from kaleta.seeders.reserve_funds import ReserveFundsSeeder
@@ -52,6 +53,7 @@ SEEDERS: tuple[Seeder, ...] = (
     ReserveFundsSeeder(),
     PersonalLoansSeeder(),
     CreditCardsSeeder(),
+    GiftsSeeder(),
 )
 
 SEEDERS_BY_KEY: dict[str, Seeder] = {seeder.key: seeder for seeder in SEEDERS}

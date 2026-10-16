@@ -31,6 +31,7 @@
     "subscriptions": "Subskrypcje",
     "safety_funds": "Fundusze bezpieczeństwa",
     "personal_loans": "Pożyczki prywatne",
+    "gifts": "Prezenty",
     "payees": "Odbiorcy",
     "rules": "Reguły",
     "tab_home": "Start",
@@ -1851,6 +1852,7 @@
     "example_data_reserve_funds": "Fundusze rezerwowe",
     "example_data_personal_loans": "Pożyczki prywatne",
     "example_data_credit_cards": "Karty kredytowe",
+    "example_data_gifts": "Prezenty",
     "clear_error": "Błąd podczas usuwania danych",
     "tab_general": "Ogólne",
     "tab_appearance": "Wygląd",
@@ -2447,5 +2449,23 @@
     "amount_needed": "Podaj kwotę większą od zera.",
     "adjusted": "Zmieniono: {name}.",
     "dropped": "Zrezygnowano z: {name}."
+  },
+  "gifts": {
+    "title": "Prezenty",
+    "subtitle": "Zaplanuj prezenty dla każdej osoby i okazji na cały rok, żeby odłożyć na nie pieniądze z wyprzedzeniem.",
+    "add": "Dodaj prezent",
+    "dialog_title": "Nowy prezent",
+    "dialog_edit_title": "Edytuj prezent",
+    "person": "Dla kogo",
+    "occasion": "Okazja",
+    "amount": "Kwota",
+    "yearly_total": "Roczna suma prezentów",
+    "empty": "Brak zaplanowanych prezentów. Dodaj dla kogo kupujesz, okazję i ile odłożyć.",
+    "incomplete": "Podaj osobę, okazję i kwotę prezentu.",
+    "saved": "Zapisano prezent.",
+    "deleted": "Usunięto prezent.",
+    "confirm_delete_title": "Usunąć prezent?",
+    "confirm_delete_body": "„{occasion}” dla {person} zostanie usunięty.",
+    "confirm_delete_confirm": "Usuń"
   }
 }
