@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.8.0](https://github.com/DawidAdamski/kaleta/compare/v0.7.0...v0.8.0) (2026-10-16)
+
+
+### Features
+
+* **gifts:** maintain the gift list — person, occasion, amount ([#21](https://github.com/DawidAdamski/kaleta/issues/21)) ([3186de2](https://github.com/DawidAdamski/kaleta/commit/3186de264a3216d06bd688a17a9507a77b498311))
+* **gifts:** maintain the gift list — person, occasion, amount ([#21](https://github.com/DawidAdamski/kaleta/issues/21)) ([8148332](https://github.com/DawidAdamski/kaleta/commit/8148332e7b06022c8fa61527593da92341c9d294))
+* **settings:** one example-data panel, not two ([e9f2a67](https://github.com/DawidAdamski/kaleta/commit/e9f2a67be5f08f5de3efe68e4433ae845aa0b367))
+* **settings:** one example-data panel, not two ([751d3ab](https://github.com/DawidAdamski/kaleta/commit/751d3abc6b6c9c6e92042cf666e3a99bd454c785))
+
+
+### Bug Fixes
+
+* **dashboard:** clip long account names to their tile ([#19](https://github.com/DawidAdamski/kaleta/issues/19)) ([1d1c67e](https://github.com/DawidAdamski/kaleta/commit/1d1c67e4a78a803e8a9b8dfd0ee8b02960e055a9))
+* **dashboard:** clip long account names to their tile ([#19](https://github.com/DawidAdamski/kaleta/issues/19)) ([88f489d](https://github.com/DawidAdamski/kaleta/commit/88f489d6e0c10fc8a8ae685583c546256ce863f5))
+* **gifts:** address review — clear_all coverage, validation, NotFoundError ([52a086f](https://github.com/DawidAdamski/kaleta/commit/52a086fefdacb3955b0a8c63e0a3d6546c9235ba))
+* **rules:** category picker shows the tree, not flat names ([d8a7c68](https://github.com/DawidAdamski/kaleta/commit/d8a7c682020225ba9067eb5c49e9f12fab569c46))
+* **rules:** category picker shows the tree, not flat names ([#23](https://github.com/DawidAdamski/kaleta/issues/23)) ([d1054f3](https://github.com/DawidAdamski/kaleta/commit/d1054f39b74761c306e75245e83fed20cfa23ba3))
+* **safety-funds:** restore Emergency fields when switching fund type back ([#20](https://github.com/DawidAdamski/kaleta/issues/20)) ([8d3339c](https://github.com/DawidAdamski/kaleta/commit/8d3339cc5eed961886094ecd094305536ce010c7))
+* **safety-funds:** restore emergency fields when switching kind back ([60eb136](https://github.com/DawidAdamski/kaleta/commit/60eb136cbfc77fd9bf1080f65b1dd9a3f26f3cca))
+* **seed:** skip canonical tags already present on a fresh family ([28ea1fb](https://github.com/DawidAdamski/kaleta/commit/28ea1fba03e50b7de9280510130c25a22beb579a))
+* **seed:** skip canonical tags already present on a fresh family ([b80b5f4](https://github.com/DawidAdamski/kaleta/commit/b80b5f4bd1876e4f1bf1be955ab7a2098983e3bf))
+
 ## [0.7.0](https://github.com/DawidAdamski/kaleta/compare/v0.6.0...v0.7.0) (2026-10-15)
 
 
