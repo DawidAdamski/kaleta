@@ -8,6 +8,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import NotFoundError
 from kaleta.schemas.gift import GiftCreate, GiftUpdate
 from kaleta.services import GiftService
 
@@ -79,15 +80,17 @@ class TestGiftServiceUpdateDelete:
         assert updated.amount == Decimal("250.00")
         assert updated.person == "Mum"
 
-    async def test_update_missing_returns_none(self, svc: GiftService):
-        assert await svc.update(9999, GiftUpdate(amount=Decimal("1"))) is None
+    async def test_update_missing_raises_not_found(self, svc: GiftService):
+        with pytest.raises(NotFoundError):
+            await svc.update(9999, GiftUpdate(amount=Decimal("1")))
 
     async def test_delete_removes_the_gift(self, svc: GiftService):
         gift = await svc.create(
             GiftCreate(person="Mum", occasion="birthday", amount=Decimal("200.00"))
         )
-        assert await svc.delete(gift.id) is True
+        await svc.delete(gift.id)
         assert await svc.get(gift.id) is None
 
-    async def test_delete_missing_returns_false(self, svc: GiftService):
-        assert await svc.delete(9999) is False
+    async def test_delete_missing_raises_not_found(self, svc: GiftService):
+        with pytest.raises(NotFoundError):
+            await svc.delete(9999)

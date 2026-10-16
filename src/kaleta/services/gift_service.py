@@ -7,6 +7,7 @@ from decimal import Decimal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kaleta.exceptions import NotFoundError
 from kaleta.models.gift import Gift
 from kaleta.schemas.gift import (
     GiftCreate,
@@ -38,23 +39,22 @@ class GiftService:
         result = await self.session.execute(select(Gift).order_by(Gift.id))
         return list(result.scalars().all())
 
-    async def update(self, gift_id: int, payload: GiftUpdate) -> Gift | None:
+    async def update(self, gift_id: int, payload: GiftUpdate) -> Gift:
         gift = await self.get(gift_id)
         if gift is None:
-            return None
+            raise NotFoundError(f"Gift {gift_id} not found")
         for key, value in payload.model_dump(exclude_unset=True).items():
             setattr(gift, key, value)
         await self.session.commit()
         await self.session.refresh(gift)
         return gift
 
-    async def delete(self, gift_id: int) -> bool:
+    async def delete(self, gift_id: int) -> None:
         gift = await self.get(gift_id)
         if gift is None:
-            return False
+            raise NotFoundError(f"Gift {gift_id} not found")
         await self.session.delete(gift)
         await self.session.commit()
-        return True
 
     async def summary(self) -> GiftsSummary:
         """The list grouped by person (names are encrypted, so group in Python).

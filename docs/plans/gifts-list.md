@@ -80,6 +80,7 @@ the yearly total against the BDD literals (200.00 + 150.00 → 350.00 under
 - `src/kaleta/schemas/gift.py`
 - `src/kaleta/services/gift_service.py`
 - `src/kaleta/services/__init__.py`
+- `src/kaleta/services/data_service.py`
 - `src/kaleta/views/gifts.py`
 - `src/kaleta/main.py`
 - `src/kaleta/views/layout.py`
@@ -88,6 +89,9 @@ the yearly total against the BDD literals (200.00 + 150.00 → 350.00 under
 - `src/kaleta/seeders/gifts.py`
 - `src/kaleta/seeders/__init__.py`
 - `tests/unit/services/test_gift_service.py`
+- `tests/unit/seeders/test_registry.py`
+- `tests/integration/test_example_data.py`
+- `tests/backup_helpers.py`
 - `tests/e2e/test_gifts.py`
 - `tests/e2e/seed_helpers.py`
 - `docs/bdd.md`
@@ -98,6 +102,31 @@ the yearly total against the BDD literals (200.00 + 150.00 → 350.00 under
   slice 1).
 
 ## Implementation notes
+- Grouping: `GiftService.summary()` groups in Python keyed on the exact
+  `person` string (`person` is `EncryptedText`, so SQL can't group or sort on
+  it); group order is a case-insensitive `casefold()` sort. "Mum" and "mum"
+  are therefore distinct groups — acceptable for slice 1.
+- Zero-amount: the schema allows `amount >= 0` (storage floor), but the view
+  treats a missing/zero amount as "not entered yet" and blocks the save with
+  the `gifts.incomplete` warning — the UI intentionally requires a positive
+  amount for a planned gift. These are not in conflict: the schema is the
+  storage contract, the view is stricter on input.
+- View validation: the Add/Edit payload is built and validated (Pydantic)
+  before the DB session; a `ValidationError` (e.g. a value past the field
+  caps) shows the `gifts.incomplete` warning instead of propagating uncaught.
+  The person/occasion inputs also carry `maxlength=100`, and the amount is
+  quantized to 2 places, so the caps are respected at the source.
+- Service errors: `update`/`delete` raise `NotFoundError` for a missing id
+  (consistent with the other services), which the view surfaces through
+  `notify_kaleta_error`, so a stale edit/delete dialog can't silently "succeed".
+- Touchpoints widened beyond the original list during review: a new table must
+  also be added to `DataService._CLEARED_MODELS`
+  (`src/kaleta/services/data_service.py`) or the example-data "clear" would
+  leave seeded gifts behind, and to the all-table guards
+  `tests/unit/seeders/test_registry.py` (`_MODEL_FOR`),
+  `tests/backup_helpers.py` (`seed_every_model`) and
+  `tests/integration/test_example_data.py` (`SEEDED_TABLES`). Backup discovers
+  tables from `Base.metadata`, so the backup service itself needed no change.
 - Migration parity: not checked via standalone `uv run alembic check` (not a
   project CI gate; it needs the tenant schema at head and is finicky to invoke
   with `-x tenant_schema=`). Parity is instead enforced by the suite: the

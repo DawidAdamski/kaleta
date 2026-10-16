@@ -5,6 +5,7 @@ from decimal import Decimal
 from typing import Any
 
 from nicegui import ui
+from pydantic import ValidationError
 
 from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
@@ -52,10 +53,14 @@ def register() -> None:
             with ui.dialog() as gift_dialog, ui.card().classes("w-[460px] gap-3"):
                 dialog_title = ui.label(t("gifts.dialog_title")).classes("text-lg font-bold")
                 person_in = (
-                    ui.input(label=t("gifts.person")).props("dense outlined").classes("w-full")
+                    ui.input(label=t("gifts.person"))
+                    .props("dense outlined maxlength=100")
+                    .classes("w-full")
                 )
                 occasion_in = (
-                    ui.input(label=t("gifts.occasion")).props("dense outlined").classes("w-full")
+                    ui.input(label=t("gifts.occasion"))
+                    .props("dense outlined maxlength=100")
+                    .classes("w-full")
                 )
                 amount_in = (
                     ui.number(label=t("gifts.amount"), value=0, min=0, format="%.2f")
@@ -74,18 +79,28 @@ def register() -> None:
                 if not person or not occasion or not amount_in.value:
                     ui.notify(t("gifts.incomplete"), type="warning")
                     return
-                amount = Decimal(str(amount_in.value))
+                # Quantize to the stored scale; the schema's decimal_places=2
+                # would otherwise reject a float that prints more digits.
+                amount = Decimal(str(amount_in.value)).quantize(Decimal("0.01"))
+                gift_id = editing_state["id"]
+                try:
+                    draft = GiftCreate(person=person, occasion=occasion, amount=amount)
+                except ValidationError:
+                    ui.notify(t("gifts.incomplete"), type="warning")
+                    return
 
                 async def _save(session: Any) -> None:
                     svc = GiftService(session)
-                    if editing_state["id"] is None:
-                        await svc.create(
-                            GiftCreate(person=person, occasion=occasion, amount=amount)
-                        )
+                    if gift_id is None:
+                        await svc.create(draft)
                     else:
                         await svc.update(
-                            editing_state["id"],
-                            GiftUpdate(person=person, occasion=occasion, amount=amount),
+                            gift_id,
+                            GiftUpdate(
+                                person=draft.person,
+                                occasion=draft.occasion,
+                                amount=draft.amount,
+                            ),
                         )
 
                 try:

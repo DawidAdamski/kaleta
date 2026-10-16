@@ -24,6 +24,7 @@ from kaleta.models.asset import Asset
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category
 from kaleta.models.credit import CreditCardProfile
+from kaleta.models.gift import Gift
 from kaleta.models.institution import Institution
 from kaleta.models.payee import Payee
 from kaleta.models.personal_loan import Counterparty, PersonalLoan, PersonalLoanRepayment
@@ -33,6 +34,7 @@ from kaleta.models.subscription import Subscription
 from kaleta.models.tag import Tag
 from kaleta.models.transaction import Transaction
 from kaleta.seeders import SEED_FEATURE_KEYS, seed_all, seed_features
+from kaleta.services.data_service import DataService
 from tests.script_family import ScriptFamily, script_family
 
 # Slow tier (test-suite-speed): seed CLIs in subprocesses, whole-dataset seeding.
@@ -50,6 +52,7 @@ SEEDED_TABLES = (
     Category,
     Counterparty,
     CreditCardProfile,
+    Gift,
     Institution,
     Payee,
     PersonalLoan,
@@ -103,6 +106,21 @@ async def test_seed_everything_fills_every_feature_once(session: AsyncSession) -
     again = await seed_all(session)
     assert all(outcome.skipped for outcome in again)
     assert await _counts(session) == first
+
+
+async def test_clear_all_empties_every_seeded_table(session: AsyncSession) -> None:
+    """clear_all must wipe every example-data table (guards _CLEARED_MODELS).
+
+    A new seeded table left out of DataService._CLEARED_MODELS would survive a
+    clear; seeding everything and then clearing must leave each table at zero.
+    """
+    await seed_all(session)
+    assert all(count > 0 for count in (await _counts(session)).values())
+
+    await DataService(session).clear_all()
+
+    remaining = await _counts(session)
+    assert all(count == 0 for count in remaining.values()), remaining
 
 
 async def test_seeding_accounts_leaves_the_other_tables_empty(session: AsyncSession) -> None:
