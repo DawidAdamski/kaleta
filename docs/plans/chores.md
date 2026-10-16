@@ -596,7 +596,7 @@ check it still reproduces before acting on it.
       word from N queries to one. Left out of the race fix because debounce
       masks the race rather than fixing it (and hid the token from its test);
       do it purely for query load if it ever matters.
-- [ ] **The e2e tier flakes under timing load, which can block archival/CI.**
+- [x] **The e2e tier flakes under timing load, which can block archival/CI.**
       `scripts/verify.sh --e2e` runs `pytest tests/e2e/` with no rerun; a
       transactions cluster (`test_transactions.py` row-count waits, a category
       picker "resolved to 2 elements") intermittently times out, then passes
@@ -606,3 +606,13 @@ check it still reproduces before acting on it.
       archive. Options: add `pytest-rerun`/`--reruns` to the e2e tier only, or
       pin the specific flaky waits. (The `test_mfa` parallel flake is a related,
       already-noted instance.)
+      Fixed in `chore/e2e-rerun-timeout-flakes`: added `pytest-rerunfailures`
+      (dev dep) and a `pytest_collection_modifyitems` hook in
+      `tests/e2e/conftest.py` that marks every e2e test
+      `flaky(reruns=2, only_rerun=["Timeout.*exceeded", "strict mode
+      violation"])`. Scoped to the e2e tier (path guard) and to timing
+      signatures only: a deterministic failure does not match, or matches but
+      fails on every attempt, so a real regression is never masked — only
+      timing flakes are rescued (rule 4). Lives in the conftest, not
+      `scripts/verify.sh` (a protected DoD gate script), so CI gets the same
+      tolerance. Did not pin individual waits.
