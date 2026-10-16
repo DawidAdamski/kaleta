@@ -143,6 +143,7 @@ def _register_views() -> None:
         credit_calculator,
         dashboard,
         forecast,
+        gifts,
         housekeeping,
         import_view,
         institutions,
@@ -200,6 +201,7 @@ def _register_views() -> None:
     safety_funds.register()
     annual_review.register()
     irregular_fund.register()
+    gifts.register()
     subscriptions.register()
     personal_loans.register()
     monthly_readiness.register()

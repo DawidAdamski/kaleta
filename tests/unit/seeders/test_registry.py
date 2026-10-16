@@ -18,6 +18,7 @@ from kaleta.models.asset import Asset
 from kaleta.models.budget import Budget
 from kaleta.models.category import Category
 from kaleta.models.credit import CreditCardProfile
+from kaleta.models.gift import Gift
 from kaleta.models.institution import Institution
 from kaleta.models.payee import Payee
 from kaleta.models.personal_loan import PersonalLoan
@@ -48,6 +49,7 @@ _MODEL_FOR = {
     "reserve_funds": ReserveFund,
     "personal_loans": PersonalLoan,
     "credit_cards": CreditCardProfile,
+    "gifts": Gift,
 }
 
 
