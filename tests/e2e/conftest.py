@@ -102,6 +102,33 @@ def _terminate_process(proc: subprocess.Popen[str]) -> None:
         proc.wait(timeout=5)
 
 
+#: Failure signatures that are timing flakes, not defects: Playwright waits
+#: that time out, and the strict-mode "resolved to N elements" race. Matched
+#: against the exception repr by pytest-rerunfailures' ``only_rerun``.
+_E2E_FLAKE_SIGNATURES = ["Timeout.*exceeded", "strict mode violation"]
+_E2E_DIR = Path(__file__).resolve().parent
+
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """Retry only timing-flaky e2e tests (chores.md: the e2e tier flakes under load).
+
+    The e2e tier runs serially with real browser timing, so it occasionally
+    hits Playwright timeouts / strict-mode "resolved to N elements" races that
+    pass clean on a retry. Reruns are scoped to those signatures via
+    ``only_rerun``: a deterministic failure (a wrong assertion value, a real
+    regression) either does not match them, or matches but fails on every
+    attempt — so a genuine bug is never masked, only timing flakes are rescued
+    (Working Agreement rule 4). This lives in the e2e conftest, not
+    ``scripts/verify.sh``, so every e2e run (CI included) gets the same
+    tolerance and the DoD gate script stays untouched. The path guard keeps the
+    marker off the unit/integration tiers if they are ever collected together.
+    """
+    flaky = pytest.mark.flaky(reruns=2, reruns_delay=1, only_rerun=_E2E_FLAKE_SIGNATURES)
+    for item in items:
+        if _E2E_DIR in item.path.parents:
+            item.add_marker(flaky)
+
+
 @pytest.hookimpl(tryfirst=True, hookwrapper=True)
 def pytest_runtest_makereport(item: Any, call: Any) -> Generator[None, Any, Any]:
     outcome = yield

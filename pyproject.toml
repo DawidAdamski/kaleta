@@ -256,5 +256,6 @@ dev = [
     "redis>=5.0",
     "fakeredis>=2.26",
     "pytest-xdist>=3.8.0",
+    "pytest-rerunfailures>=16.0",
     "pip-audit>=2.10.1",
 ]
