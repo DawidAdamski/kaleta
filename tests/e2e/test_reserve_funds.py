@@ -6,15 +6,68 @@ Page URL: /wizard/safety-funds
 
 from __future__ import annotations
 
-from playwright.sync_api import Page, expect
+from playwright.sync_api import Locator, Page, expect
 
-from tests.e2e.seed_helpers import seed_account, seed_reserve_fund, update_account
+from tests.e2e.seed_helpers import (
+    delete_account,
+    seed_account,
+    seed_reserve_fund,
+    update_account,
+)
 
 
 def _fill_number(scope: Page, label: str, value: str) -> None:
     field = scope.get_by_role("spinbutton", name=label, exact=True)
     field.click(click_count=3)
     field.fill(value)
+
+
+def _select_fund_type(page: Page, dialog: Locator, option: str) -> None:
+    dialog.locator(".q-select").filter(has_text="Fund type").click()
+    page.locator(".q-menu").get_by_text(option, exact=True).click()
+
+
+def test_switching_fund_type_back_to_emergency_restores_its_fields(
+    page: Page, base_url: str
+) -> None:
+    """Covers: KAL-FND-004
+
+    The Emergency fund type shows "Cover [N] months of expenses" and the
+    "Derive target from my spending" switch. Switching the fund type away hides
+    them; switching back to Emergency must bring them back (dogfooding #20 — it
+    used to leave the dialog stuck in the reduced layout with no way back to the
+    months-to-cover input). Opens the Add dialog and never saves, so the only
+    cleanup needed is the seeded backing account (the dialog won't open without
+    one).
+    """
+    account_id = seed_account("Emergency Toggle FND004 E2E")
+    try:
+        page.goto(f"{base_url}/wizard/safety-funds")
+        expect(page.get_by_text("Safety & Reserve Funds", exact=True).first).to_be_visible(
+            timeout=5000
+        )
+
+        page.get_by_role("button", name="Add fund").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_be_visible(timeout=5000)
+
+        cover = dialog.get_by_text("months of expenses", exact=True)
+        derive = dialog.get_by_text("Derive target from my spending", exact=True)
+        # Emergency is the default kind: both emergency-only controls are shown.
+        expect(cover).to_be_visible()
+        expect(derive).to_be_visible()
+
+        _select_fund_type(page, dialog, "Irregular expenses")
+        expect(cover).not_to_be_visible()
+        expect(derive).not_to_be_visible()
+
+        _select_fund_type(page, dialog, "Emergency fund")
+        # Back on Emergency the two controls must reappear — the bug left them
+        # hidden, stranding the months-to-cover input.
+        expect(cover).to_be_visible()
+        expect(derive).to_be_visible()
+    finally:
+        delete_account(account_id)
 
 
 def test_emergency_cash_shows_balance_against_target(page: Page, base_url: str) -> None:

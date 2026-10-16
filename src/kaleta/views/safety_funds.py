@@ -206,13 +206,18 @@ def register() -> None:
                     account_in = None
                     ui.label(t("safety_funds.need_account")).classes(f"{BODY_MUTED} k-trend--warn")
 
-                def _on_kind_change(e: Any) -> None:
+                def _on_kind_change(_e: Any = None) -> None:
                     # Show multiplier only for emergency; update default name
                     # only when creating a new fund (don't clobber user edits).
-                    is_emergency = e.args == ReserveFundKind.EMERGENCY.value
+                    # Read the select's own value, not the raw Quasar event
+                    # payload: for a ui.select `e.args` is not the option key, so
+                    # switching the kind back to Emergency never re-showed its
+                    # fields (dogfooding #20).
+                    kind_value = kind_in.value
+                    is_emergency = kind_value == ReserveFundKind.EMERGENCY.value
                     multiplier_row.set_visibility(is_emergency)
                     derive_row.set_visibility(is_emergency)
-                    target_date_in.set_visibility(e.args == GOAL_KIND.value)
+                    target_date_in.set_visibility(kind_value == GOAL_KIND.value)
                     if not is_emergency:
                         derive_in.set_value(False)
                     if editing_state["id"] is None:
@@ -225,7 +230,7 @@ def register() -> None:
                             ),
                             ReserveFundKind.VACATION.value: t("safety_funds.default_name_vacation"),
                         }
-                        name_in.set_value(defaults[e.args])
+                        name_in.set_value(defaults[kind_value])
 
                 kind_in.on("update:model-value", _on_kind_change)
 
