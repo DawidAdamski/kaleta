@@ -125,7 +125,9 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
     """
     flaky = pytest.mark.flaky(reruns=2, reruns_delay=1, only_rerun=_E2E_FLAKE_SIGNATURES)
     for item in items:
-        if _E2E_DIR in item.path.parents:
+        # Resolve both sides: a symlinked checkout would otherwise miss the
+        # match and silently drop the reruns.
+        if _E2E_DIR in item.path.resolve().parents:
             item.add_marker(flaky)
 
 
