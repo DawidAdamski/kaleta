@@ -2468,6 +2468,18 @@
     "deleted": "Usunięto prezent.",
     "confirm_delete_title": "Usunąć prezent?",
     "confirm_delete_body": "„{occasion}” dla {person} zostanie usunięty.",
-    "confirm_delete_confirm": "Usuń"
+    "confirm_delete_confirm": "Usuń",
+    "mark_bought": "Oznacz jako kupione",
+    "mark_not_bought": "Oznacz jako niekupione",
+    "bought_badge": "Kupione",
+    "planned_amount": "Planowane {amount}",
+    "bought_title": "Oznacz prezent jako kupiony",
+    "bought_body": "Podłącz wydatek, którym zapłacono za ten prezent. Jego kwota stanie się faktycznym kosztem.",
+    "bought_pick": "Transakcja",
+    "bought_pick_required": "Wybierz transakcję, którą zapłacono za prezent.",
+    "bought_confirm": "Podłącz",
+    "bought_done": "Prezent oznaczony jako kupiony.",
+    "bought_no_tx": "Brak ostatniego wydatku do podłączenia. Najpierw dodaj zakup do księgi.",
+    "not_bought_done": "Prezent oznaczony jako niekupiony."
   }
 }

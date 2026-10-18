@@ -2468,6 +2468,18 @@
     "deleted": "Gift deleted.",
     "confirm_delete_title": "Delete gift?",
     "confirm_delete_body": "\"{occasion}\" for {person} will be removed.",
-    "confirm_delete_confirm": "Delete"
+    "confirm_delete_confirm": "Delete",
+    "mark_bought": "Mark as bought",
+    "mark_not_bought": "Mark as not bought",
+    "bought_badge": "Bought",
+    "planned_amount": "Planned {amount}",
+    "bought_title": "Mark gift as bought",
+    "bought_body": "Link the expense that paid for this gift. Its amount becomes the actual cost.",
+    "bought_pick": "Transaction",
+    "bought_pick_required": "Pick the transaction that paid for the gift.",
+    "bought_confirm": "Link",
+    "bought_done": "Gift marked as bought.",
+    "bought_no_tx": "No recent expense to link. Add the purchase to the ledger first.",
+    "not_bought_done": "Gift marked as not bought."
   }
 }

@@ -11,10 +11,13 @@ from playwright.sync_api import Page, expect
 from tests.e2e.seed_helpers import (
     clear_gifts,
     delete_reserve_fund,
+    delete_transaction,
     primary_irregular_fund_id,
     seed_account,
+    seed_category,
     seed_gift,
     seed_reserve_fund,
+    seed_transaction,
 )
 
 
@@ -93,3 +96,39 @@ def test_gift_total_feeds_the_irregular_fund(page: Page, base_url: str) -> None:
     finally:
         clear_gifts()
         delete_reserve_fund(fund_id)
+
+
+def test_mark_a_gift_as_bought(page: Page, base_url: str) -> None:
+    """Covers: KAL-GFT-003
+
+    A gift planned at 200.00, linked to a 189.99 expense in the ledger, is
+    marked bought and shows that actual cost. Gifts are sum-based across the
+    family, so gifts are cleared before and in a finally; the seeded expense is
+    removed too (shared-ledger / rerun-safe, #19).
+    """
+    clear_gifts()
+    account_id = seed_account("Konto (e2e gift bought)")
+    category_id = seed_category("Prezenty e2e bought", "expense")
+    tx_id = seed_transaction(account_id, category_id, 189.99, description="Prezent dla mamy e2e")
+    gift_id = seed_gift("Mum", "birthday", 200)
+    try:
+        page.goto(f"{base_url}/wizard/gifts")
+        row = page.get_by_test_id(f"gift-row-{gift_id}")
+        expect(row).to_be_visible(timeout=5000)
+
+        row.get_by_role("button", name="Mark as bought").click()
+        dialog = page.get_by_role("dialog")
+        expect(dialog).to_be_visible(timeout=5000)
+        # Pick the 189.99 expense from the transaction select.
+        dialog.get_by_label("Transaction", exact=True).click()
+        page.get_by_role("option").filter(has_text="189.99").first.click()
+        dialog.get_by_role("button", name="Link").click()
+        expect(dialog).not_to_be_visible(timeout=5000)
+
+        # The gift is marked bought with its actual cost.
+        bought_row = page.get_by_test_id(f"gift-row-{gift_id}")
+        expect(bought_row.get_by_test_id("gift-bought-badge")).to_be_visible(timeout=5000)
+        expect(bought_row.get_by_test_id("gift-actual-cost")).to_have_text("189.99")
+    finally:
+        clear_gifts()
+        delete_transaction(tx_id)

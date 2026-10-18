@@ -38,6 +38,10 @@ class GiftResponse(GiftBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    #: Bought once a ledger transaction is linked to it (``KAL-GFT-003``).
+    bought: bool = False
+    #: The sum of the linked transactions' amounts; ``None`` until bought.
+    actual_cost: Decimal | None = None
 
 
 class GiftPersonGroup(BaseModel):

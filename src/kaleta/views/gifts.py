@@ -28,10 +28,19 @@ def _fmt_amount(d: Decimal) -> str:
 def register() -> None:
     @ui.page("/wizard/gifts")
     async def gifts_page() -> None:
-        async def _load(session: Any) -> GiftsSummary:
-            return await GiftService(session).summary()
+        async def _load(session: Any) -> tuple[GiftsSummary, list[tuple[int, str]]]:
+            svc = GiftService(session)
+            summary = await svc.summary()
+            options = [
+                (
+                    tx.id,
+                    f"{tx.date.isoformat()} · {tx.description or '—'} · {_fmt_amount(tx.amount)}",
+                )
+                for tx in await svc.buyable_transactions(limit=50)
+            ]
+            return summary, options
 
-        summary = await with_session(_load)
+        summary, buyable = await with_session(_load)
 
         with page_layout(t("gifts.title"), wide=True):
             # ── Header ───────────────────────────────────────────────────
@@ -168,6 +177,68 @@ def register() -> None:
                 )
                 delete_dialog.open()
 
+            # ── Mark-bought dialog (link a transaction) ──────────────────
+            pending_bought: dict[str, int] = {"id": 0}
+
+            with ui.dialog() as bought_dialog, ui.card().classes("w-[460px] gap-3"):
+                ui.label(t("gifts.bought_title")).classes("text-lg font-bold")
+                ui.label(t("gifts.bought_body")).classes(BODY_MUTED)
+                tx_select = (
+                    ui.select(
+                        dict(buyable),
+                        label=t("gifts.bought_pick"),
+                        with_input=True,
+                    )
+                    .props("dense outlined")
+                    .classes("w-full")
+                )
+                with ui.row().classes("w-full justify-end gap-2 mt-2"):
+                    ui.button(t("common.cancel"), on_click=bought_dialog.close).props("flat")
+                    confirm_bought_btn = ui.button(t("gifts.bought_confirm"), icon="check").props(
+                        "color=primary unelevated"
+                    )
+
+            async def _confirm_bought() -> None:
+                gift_id = int(pending_bought["id"])
+                tx_id = tx_select.value
+                if not tx_id:
+                    ui.notify(t("gifts.bought_pick_required"), type="warning")
+                    return
+
+                async def _link(session: Any) -> None:
+                    await GiftService(session).link_transaction(gift_id, int(tx_id))
+
+                try:
+                    await with_session(_link)
+                except KaletaError as exc:
+                    notify_kaleta_error(exc)
+                    return
+                bought_dialog.close()
+                ui.notify(t("gifts.bought_done"), type="positive")
+                ui.navigate.reload()
+
+            confirm_bought_btn.on_click(_confirm_bought)
+
+            def _open_bought_dialog(gift: GiftResponse) -> None:
+                if not buyable:
+                    ui.notify(t("gifts.bought_no_tx"), type="warning")
+                    return
+                pending_bought["id"] = gift.id
+                tx_select.set_value(None)
+                bought_dialog.open()
+
+            async def _mark_not_bought(gift: GiftResponse) -> None:
+                async def _undo(session: Any) -> None:
+                    await GiftService(session).mark_not_bought(gift.id)
+
+                try:
+                    await with_session(_undo)
+                except KaletaError as exc:
+                    notify_kaleta_error(exc)
+                    return
+                ui.notify(t("gifts.not_bought_done"), type="positive")
+                ui.navigate.reload()
+
             # ── Gift list, grouped by person ─────────────────────────────
             if not summary.groups:
                 ui.label(t("gifts.empty")).classes(f"{BODY_MUTED} mt-4")
@@ -180,9 +251,39 @@ def register() -> None:
                             ui.label(group.person).classes(SECTION_HEADING)
                             ui.label(_fmt_amount(group.subtotal)).classes("font-bold")
                         for gift in group.gifts:
-                            with ui.row().classes("w-full items-center justify-between gap-2"):
+                            with (
+                                ui.row()
+                                .classes("w-full items-center justify-between gap-2")
+                                .props(f'data-testid="gift-row-{gift.id}"')
+                            ):
                                 ui.label(gift.occasion).classes("flex-1")
-                                ui.label(_fmt_amount(gift.amount)).classes("tabular-nums")
+                                if gift.bought and gift.actual_cost is not None:
+                                    ui.badge(t("gifts.bought_badge"), color="positive").props(
+                                        'data-testid="gift-bought-badge"'
+                                    )
+                                    with ui.column().classes("gap-0 items-end"):
+                                        ui.label(_fmt_amount(gift.actual_cost)).classes(
+                                            "tabular-nums font-semibold"
+                                        ).props('data-testid="gift-actual-cost"')
+                                        ui.label(
+                                            t(
+                                                "gifts.planned_amount",
+                                                amount=_fmt_amount(gift.amount),
+                                            )
+                                        ).classes(f"{BODY_MUTED} text-xs")
+                                    ui.button(
+                                        icon="undo",
+                                        on_click=lambda _e, g=gift: _mark_not_bought(g),
+                                    ).props("flat dense round size=sm").tooltip(
+                                        t("gifts.mark_not_bought")
+                                    )
+                                else:
+                                    ui.label(_fmt_amount(gift.amount)).classes("tabular-nums")
+                                    ui.button(
+                                        t("gifts.mark_bought"),
+                                        icon="shopping_bag",
+                                        on_click=lambda _e, g=gift: _open_bought_dialog(g),
+                                    ).props("flat dense no-caps size=sm color=primary")
                                 ui.button(
                                     icon="edit",
                                     on_click=lambda _e, g=gift: _open_edit_dialog(g),
