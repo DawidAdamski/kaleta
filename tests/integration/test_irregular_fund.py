@@ -18,11 +18,13 @@ from kaleta.exceptions import ConflictError, ValidationError
 from kaleta.models.account import AccountType
 from kaleta.models.planned_transaction import RecurrenceFrequency
 from kaleta.schemas.account import AccountCreate
+from kaleta.schemas.gift import GiftCreate
 from kaleta.schemas.irregular_item import IrregularFundingCreate, IrregularItemCreate
 from kaleta.schemas.reserve_fund import ReserveFundCreate, ReserveFundKind
 from kaleta.schemas.transaction import TransactionType
 from kaleta.services import (
     AccountService,
+    GiftService,
     IrregularItemService,
     PlannedTransactionService,
     ReserveFundService,
@@ -37,6 +39,7 @@ class _Fund:
         self.funds = ReserveFundService(session)
         self.items = IrregularItemService(session)
         self.planned = PlannedTransactionService(session)
+        self.gifts = GiftService(session)
 
     async def account(self, name: str) -> int:
         created = await self.accounts.create(
@@ -58,6 +61,11 @@ class _Fund:
     async def item(self, fund_id: int, name: str, yearly: str) -> None:
         await self.items.create(
             fund_id, IrregularItemCreate(name=name, yearly_amount=Decimal(yearly))
+        )
+
+    async def gift(self, person: str, occasion: str, amount: str) -> None:
+        await self.gifts.create(
+            GiftCreate(person=person, occasion=occasion, amount=Decimal(amount))
         )
 
 
@@ -127,3 +135,59 @@ async def test_no_transfer_is_planned_from_the_fund_into_itself(fund: _Fund) -> 
         await fund.items.create_funding_plan(
             fund_id, IrregularFundingCreate(from_account_id=backing, start_date=START)
         )
+
+
+async def test_the_gift_total_is_a_line_of_the_fund(fund: _Fund) -> None:
+    """Covers: KAL-GFT-002
+
+    The yearly gifts total (200.00 + 150.00 = 350.00) rides along as a derived
+    "Gifts" line, set aside at a tenth a month like any item (350.00 ÷ 10).
+    """
+    fund_id = await fund.fund(await fund.account("Konto funduszu"))
+    await fund.gift("Mum", "birthday", "200.00")
+    await fund.gift("Mum", "Christmas", "150.00")
+
+    plan = await fund.items.plan(fund_id)
+    assert [(d.source, d.yearly_amount, d.monthly_contribution) for d in plan.derived_items] == [
+        ("gifts", Decimal("350.00"), Decimal("35.00"))
+    ]
+    # With no stored items, the fund's totals are the gift line alone.
+    assert plan.yearly_total == Decimal("350.00")
+    assert plan.monthly_total == Decimal("35.00")
+
+
+async def test_the_gift_line_adds_to_the_stored_items(fund: _Fund) -> None:
+    """Covers: KAL-GFT-002"""
+    fund_id = await fund.fund(await fund.account("Konto funduszu"))
+    await fund.item(fund_id, "Car insurance", "1200.00")
+    await fund.gift("Mum", "birthday", "200.00")
+    await fund.gift("Mum", "Christmas", "150.00")
+
+    plan = await fund.items.plan(fund_id)
+    # Car insurance 1200.00 (120.00) + gifts 350.00 (35.00).
+    assert plan.yearly_total == Decimal("1550.00")
+    assert plan.monthly_total == Decimal("155.00")
+
+
+async def test_only_the_primary_irregular_fund_carries_the_gift_line(fund: _Fund) -> None:
+    """Covers: KAL-GFT-002
+
+    The gifts total is one global figure, so it rides on exactly one fund — the
+    oldest live irregular fund — never on a second one as well.
+    """
+    first = await fund.fund(await fund.account("Fundusz 1"))
+    second = await fund.fund(await fund.account("Fundusz 2"))
+    await fund.gift("Mum", "birthday", "200.00")
+    await fund.gift("Mum", "Christmas", "150.00")
+
+    assert [d.source for d in (await fund.items.plan(first)).derived_items] == ["gifts"]
+    assert (await fund.items.plan(second)).derived_items == []
+
+
+async def test_no_gift_line_when_there_are_no_gifts(fund: _Fund) -> None:
+    fund_id = await fund.fund(await fund.account("Konto funduszu"))
+    await fund.item(fund_id, "Car insurance", "1200.00")
+
+    plan = await fund.items.plan(fund_id)
+    assert plan.derived_items == []
+    assert plan.yearly_total == Decimal("1200.00")

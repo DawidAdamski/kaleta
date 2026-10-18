@@ -20,6 +20,7 @@ from kaleta.exceptions import KaletaError
 from kaleta.i18n import t
 from kaleta.schemas.category import CategoryType
 from kaleta.schemas.irregular_item import (
+    DerivedFundItem,
     IrregularEntryKind,
     IrregularFundEntry,
     IrregularFundingCreate,
@@ -40,6 +41,13 @@ from kaleta.views.layout import page_layout
 from kaleta.views.theme import BODY_MUTED, PAGE_TITLE, SECTION_CARD, SECTION_HEADING
 
 FUNDS_URL = "/wizard/safety-funds"
+GIFTS_URL = "/wizard/gifts"
+
+#: Derived fund lines the items card knows how to render, keyed by the line's
+#: ``source``: (label key, hint key, the page that owns it).
+_DERIVED_SOURCES: dict[str, tuple[str, str, str]] = {
+    "gifts": ("irregular_fund.gifts_item", "irregular_fund.gifts_item_hint", GIFTS_URL),
+}
 
 
 def fund_url(fund_id: int) -> str:
@@ -328,7 +336,7 @@ class _FundPage:
                 ui.button(
                     t("irregular_fund.add_item"), icon="add", on_click=lambda: self._open(None)
                 ).props("flat dense no-caps color=primary")
-            if not plan.items:
+            if not plan.items and not plan.derived_items:
                 ui.label(t("irregular_fund.no_items")).classes(BODY_MUTED)
                 return
             with ui.row().classes("w-full px-2 text-xs font-medium border-b " + BODY_MUTED):
@@ -358,6 +366,8 @@ class _FundPage:
                         ui.button(icon="delete", on_click=lambda _e, i=item: self._delete(i)).props(
                             "flat dense round size=sm color=negative"
                         ).tooltip(t("common.delete"))
+            for derived in plan.derived_items:
+                self._derived_row(derived)
             with ui.row().classes("w-full px-2 pt-2 items-center font-semibold"):
                 ui.label(t("common.total")).classes("flex-1")
                 ui.label("").classes("w-32")
@@ -367,13 +377,35 @@ class _FundPage:
                 )
                 ui.label("").classes("w-20")
 
+    def _derived_row(self, derived: DerivedFundItem) -> None:
+        """A read-only line owned by another feature (e.g. the gifts total)."""
+        labels = _DERIVED_SOURCES.get(derived.source)
+        with (
+            ui.row()
+            .classes("w-full px-2 py-1 items-center border-b")
+            .props(f'data-testid="irregular-derived-{derived.source}"')
+        ):
+            with ui.column().classes("flex-1 gap-0"):
+                if labels is not None:
+                    label_key, hint_key, url = labels
+                    ui.link(t(label_key), url).classes("text-sm")
+                    ui.label(t(hint_key)).classes(f"{BODY_MUTED} text-xs")
+                else:
+                    ui.label(derived.source).classes("text-sm")
+            ui.label("—").classes("w-32 text-sm")
+            ui.label(_fmt(derived.yearly_amount)).classes("w-32 text-right k-mono")
+            ui.label(_fmt(derived.monthly_contribution)).classes(
+                "w-32 text-right k-mono font-semibold"
+            ).props('data-testid="irregular-derived-monthly"')
+            ui.label("").classes("w-20")
+
     def _funding_card(self, plan: IrregularFundPlan) -> None:
         with ui.card().classes(SECTION_CARD):
             ui.label(t("irregular_fund.funding_title")).classes(SECTION_HEADING)
             if plan.backing_account_id is None:
                 ui.label(t("irregular_fund.needs_account")).classes(BODY_MUTED)
                 return
-            if not plan.items:
+            if not plan.items and not plan.derived_items:
                 ui.label(t("irregular_fund.needs_items")).classes(BODY_MUTED)
                 return
             target = self.accounts.get(plan.backing_account_id, "—")

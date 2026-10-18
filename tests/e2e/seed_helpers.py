@@ -642,6 +642,45 @@ def seed_reserve_fund(
     return _run_async_worker(_create)
 
 
+def primary_irregular_fund_id() -> int | None:
+    """The irregular fund the gift total attaches to: the oldest live one.
+
+    Mirrors ``IrregularItemService`` so a test can open the exact fund that
+    carries the derived "Gifts" line regardless of other funds in the family.
+    """
+    from sqlalchemy import func, select
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.reserve_fund import ReserveFund, ReserveFundKind
+
+    async def _read() -> int | None:
+        async with AsyncSessionFactory() as session:
+            result = await session.execute(
+                select(func.min(ReserveFund.id)).where(
+                    ReserveFund.kind == ReserveFundKind.IRREGULAR,
+                    ReserveFund.is_archived.is_(False),
+                )
+            )
+            return result.scalar_one_or_none()
+
+    return _run_async_worker(_read)
+
+
+def delete_reserve_fund(fund_id: int) -> None:
+    """Remove a reserve fund seeded by a test, to keep the shared family tidy."""
+    from sqlalchemy import delete
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.reserve_fund import ReserveFund
+
+    async def _delete() -> None:
+        async with AsyncSessionFactory() as session:
+            await session.execute(delete(ReserveFund).where(ReserveFund.id == fund_id))
+            await session.commit()
+
+    _run_async_worker(_delete)
+
+
 def disable_mfa_for_all() -> int:
     """Drop every second-factor enrolment in the e2e database.
 

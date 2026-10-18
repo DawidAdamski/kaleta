@@ -13,7 +13,7 @@ from __future__ import annotations
 import builtins
 from decimal import Decimal
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kaleta.core.irregular import monthly_contribution
@@ -24,6 +24,7 @@ from kaleta.models.planned_transaction import PlannedTransaction, RecurrenceFreq
 from kaleta.models.reserve_fund import ReserveFund, ReserveFundKind
 from kaleta.models.transaction import Transaction, TransactionType, TransferDirection
 from kaleta.schemas.irregular_item import (
+    DerivedFundItem,
     IrregularEntryKind,
     IrregularFundEntry,
     IrregularFundingCreate,
@@ -36,9 +37,13 @@ from kaleta.schemas.irregular_item import (
 from kaleta.schemas.planned_transaction import PlannedTransactionCreate
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.account_service import AccountService
+from kaleta.services.gift_service import GiftService
 from kaleta.services.planned_transaction_service import PlannedTransactionService
 from kaleta.services.text_order import text_key
 from kaleta.services.transaction_service import TransactionService
+
+#: The feature whose yearly total rides along as a derived fund line.
+GIFTS_SOURCE = "gifts"
 
 #: Rows of the fund's history the page shows, newest first.
 HISTORY_LIMIT = 100
@@ -71,18 +76,50 @@ class IrregularItemService:
             key=lambda i: (i.due_month is None, i.due_month or 0, text_key(i.name)),
         )
 
+    async def _primary_irregular_id(self) -> int | None:
+        """The irregular fund the gift total attaches to: the oldest live one.
+
+        There can be several irregular funds, but the gifts total is one global
+        figure — so it rides on exactly one, the non-archived fund with the
+        lowest id, to avoid asking the user to set the money aside twice.
+        """
+        result = await self.session.execute(
+            select(func.min(ReserveFund.id)).where(
+                ReserveFund.kind == ReserveFundKind.IRREGULAR,
+                ReserveFund.is_archived.is_(False),
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def _derived_items(self, fund: ReserveFund) -> builtins.list[DerivedFundItem]:
+        """Lines owned by other features: the yearly gifts total, on the primary fund."""
+        if fund.id != await self._primary_irregular_id():
+            return []
+        gifts_total = (await GiftService(self.session).summary()).yearly_total
+        if gifts_total <= 0:
+            return []
+        return [DerivedFundItem(source=GIFTS_SOURCE, yearly_amount=gifts_total)]
+
     async def plan(self, fund_id: int) -> IrregularFundPlan:
-        """The fund's items and what they ask for: ``KAL-IRR-001``, ``-002``."""
+        """The fund's items and what they ask for: ``KAL-IRR-001``, ``-002``, ``KAL-GFT-002``."""
         fund = await self._fund(fund_id)
         items = [IrregularItemResponse.model_validate(i) for i in await self.items(fund_id)]
+        derived = await self._derived_items(fund)
         return IrregularFundPlan(
             fund_id=fund.id,
             fund_name=fund.name,
             backing_account_id=fund.backing_account_id,
             items=items,
-            yearly_total=sum((i.yearly_amount for i in items), Decimal("0.00")),
+            derived_items=derived,
+            yearly_total=(
+                sum((i.yearly_amount for i in items), Decimal("0.00"))
+                + sum((d.yearly_amount for d in derived), Decimal("0.00"))
+            ),
             # The sum of what each row shows, so the column adds up on screen.
-            monthly_total=sum((i.monthly_contribution for i in items), Decimal("0.00")),
+            monthly_total=(
+                sum((i.monthly_contribution for i in items), Decimal("0.00"))
+                + sum((d.monthly_contribution for d in derived), Decimal("0.00"))
+            ),
             balance=(
                 await AccountService(self.session).balance(fund.backing_account_id)
                 if fund.backing_account_id is not None

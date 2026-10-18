@@ -2386,6 +2386,8 @@
     "yearly_amount": "Kwota roczna",
     "monthly": "Miesięcznie",
     "due_month": "Miesiąc płatności",
+    "gifts_item": "Prezenty",
+    "gifts_item_hint": "Z Twojej listy prezentów",
     "category": "Kategoria płatności",
     "preview": "Odkładaj {monthly} miesięcznie",
     "item_incomplete": "Podaj nazwę pozycji i kwotę roczną.",
