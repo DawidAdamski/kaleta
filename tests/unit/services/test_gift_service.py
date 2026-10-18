@@ -9,7 +9,7 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.exceptions import NotFoundError, ValidationError
+from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.schemas.account import AccountCreate
 from kaleta.schemas.category import CategoryCreate, CategoryType
 from kaleta.schemas.gift import GiftCreate, GiftUpdate
@@ -217,3 +217,50 @@ class TestGiftServiceMarkBought:
         )
         with pytest.raises(NotFoundError):
             await svc.link_transaction(gift.id, 9999)
+
+    async def test_relinking_to_another_gift_conflicts(
+        self, svc: GiftService, session: AsyncSession
+    ):
+        first = await svc.create(
+            GiftCreate(person="Mum", occasion="birthday", amount=Decimal("200.00"))
+        )
+        second = await svc.create(
+            GiftCreate(person="Dad", occasion="name day", amount=Decimal("120.00"))
+        )
+        tx_id = await _expense(session, "189.99")
+        await svc.link_transaction(first.id, tx_id)
+        with pytest.raises(ConflictError):
+            await svc.link_transaction(second.id, tx_id)
+
+    async def test_buyable_transactions_excludes_linked_ones(
+        self, svc: GiftService, session: AsyncSession
+    ):
+        gift = await svc.create(
+            GiftCreate(person="Mum", occasion="birthday", amount=Decimal("200.00"))
+        )
+        linked = await _expense(session, "189.99")
+        free = await _expense(session, "50.00")
+        await svc.link_transaction(gift.id, linked)
+
+        ids = [tx.id for tx in await svc.buyable_transactions()]
+        assert free in ids
+        assert linked not in ids
+
+    async def test_deleting_the_linked_transaction_reverts_to_unbought(
+        self, svc: GiftService, session: AsyncSession
+    ):
+        gift = await svc.create(
+            GiftCreate(person="Mum", occasion="birthday", amount=Decimal("200.00"))
+        )
+        tx_id = await _expense(session, "189.99")
+        await svc.link_transaction(gift.id, tx_id)
+        assert (await svc.get_response(gift.id)).bought is True  # type: ignore[union-attr]
+
+        # Deleting the ledger row nulls the FK (ondelete SET NULL), so the
+        # derived state falls back to unbought with no extra bookkeeping.
+        await TransactionService(session).delete(tx_id)
+
+        response = await svc.get_response(gift.id)
+        assert response is not None
+        assert response.bought is False
+        assert response.actual_cost is None

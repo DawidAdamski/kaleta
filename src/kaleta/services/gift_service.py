@@ -7,7 +7,7 @@ from decimal import Decimal
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from kaleta.exceptions import NotFoundError, ValidationError
+from kaleta.exceptions import ConflictError, NotFoundError, ValidationError
 from kaleta.models.gift import Gift
 from kaleta.models.transaction import Transaction, TransactionType
 from kaleta.schemas.gift import (
@@ -17,7 +17,6 @@ from kaleta.schemas.gift import (
     GiftsSummary,
     GiftUpdate,
 )
-from kaleta.services.transaction_service import TransactionService
 
 
 class GiftService:
@@ -102,6 +101,8 @@ class GiftService:
             raise NotFoundError(f"Transaction {transaction_id} not found")
         if tx.type is not TransactionType.EXPENSE:
             raise ValidationError("Only an expense can pay for a gift.")
+        if tx.gift_id is not None and tx.gift_id != gift_id:
+            raise ConflictError("That transaction already pays for another gift.")
         tx.gift_id = gift_id
         await self.session.commit()
 
@@ -116,11 +117,21 @@ class GiftService:
         await self.session.commit()
 
     async def buyable_transactions(self, limit: int = 50) -> builtins.list[Transaction]:
-        """Recent expenses not yet linked to any gift — the "mark bought" picker."""
-        txs = await TransactionService(self.session).list(
-            tx_types=[TransactionType.EXPENSE], limit=limit
+        """Recent expenses not yet linked to any gift — the "mark bought" picker.
+
+        The unlinked filter is in the query, not applied after the fact, so an
+        already-bought expense never uses up a slot and hides an older free one.
+        """
+        result = await self.session.execute(
+            select(Transaction)
+            .where(
+                Transaction.type == TransactionType.EXPENSE,
+                Transaction.gift_id.is_(None),
+            )
+            .order_by(Transaction.date.desc(), Transaction.id.desc())
+            .limit(limit)
         )
-        return [tx for tx in txs if tx.gift_id is None]
+        return list(result.scalars().all())
 
     async def summary(self) -> GiftsSummary:
         """The list grouped by person (names are encrypted, so group in Python).

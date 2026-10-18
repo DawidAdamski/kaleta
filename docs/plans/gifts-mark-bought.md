@@ -106,3 +106,16 @@ the BDD literals (planned 200.00, actual cost 189.99).
 - The example-data seeder is left as-is: seeded gifts stay "planned" (unbought).
   Marking bought is a user action, not part of the demo dataset — so no seeder
   or seeder-guard change.
+- **Deleting a linked transaction** reverts the gift to unbought with no extra
+  bookkeeping: `bought` / `actual_cost` are a live `SUM` over
+  `Transaction.gift_id`, and the FK is `ondelete=SET NULL`, so the row simply
+  drops out of the sum. Deleting a *gift* nulls the transactions' `gift_id`
+  rather than touching the ledger. A unit test pins the transaction-delete case.
+- `buyable_transactions` filters `gift_id IS NULL` **in the query** (not after a
+  `limit`), so an already-bought expense never uses up a picker slot and hides
+  an older free one (review finding). It queries `Transaction` directly rather
+  than through `TransactionService`, so there is no service-to-service call.
+- Two helpers beyond the original touchpoint list: `GiftService.get_response`
+  (one gift with its bought state, for the unit tests and a single-row caller)
+  and the e2e `delete_transaction` helper (ledger cleanup, rerun-safe). Both
+  small and test-driven.

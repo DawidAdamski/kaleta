@@ -121,7 +121,7 @@ def test_mark_a_gift_as_bought(page: Page, base_url: str) -> None:
         expect(dialog).to_be_visible(timeout=5000)
         # Pick the 189.99 expense from the transaction select.
         dialog.get_by_label("Transaction", exact=True).click()
-        page.get_by_role("option").filter(has_text="189.99").first.click()
+        page.get_by_role("option").filter(has_text="Prezent dla mamy e2e").first.click()
         dialog.get_by_role("button", name="Link").click()
         expect(dialog).not_to_be_visible(timeout=5000)
 
