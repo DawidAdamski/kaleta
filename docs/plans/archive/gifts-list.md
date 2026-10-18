@@ -3,8 +3,9 @@ plan_id: gifts-list
 title: Gifts — maintain the gift list (person, occasion, amount)
 area: views (gifts)
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-18
+roadmap_ref: ../../roadmap.md
 ---
 
 # Gifts — maintain the gift list (person, occasion, amount)
@@ -135,3 +136,43 @@ the yearly total against the BDD literals (200.00 + 150.00 → 350.00 under
   same schema from `Base.metadata.create_all` — two independent builds that
   diverge loudly if the migration and the model disagree. `./scripts/verify.sh
   --e2e` runs both, so the `gifts` migration is exercised there.
+
+## Implementation
+
+Landed on 2026-10-18 (PR #281).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `3186de2` | Dawid Adamski | 2026-10-16 | Merge pull request #281 from DawidAdamski/feat/gifts-list |
+
+**Files changed:**
+- alembic/versions/c9c34c5fcfe3_add_gifts.py
+- docs/bdd.md
+- docs/plans/gifts-list.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/main.py
+- src/kaleta/models/__init__.py
+- src/kaleta/models/gift.py
+- src/kaleta/schemas/gift.py
+- src/kaleta/seeders/__init__.py
+- src/kaleta/seeders/gifts.py
+- src/kaleta/services/__init__.py
+- src/kaleta/services/data_service.py
+- src/kaleta/services/gift_service.py
+- src/kaleta/views/gifts.py
+- src/kaleta/views/layout.py
+- tests/backup_helpers.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_gifts.py
+- tests/integration/test_example_data.py
+- tests/unit/seeders/test_registry.py
+- tests/unit/services/test_gift_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Still @planned in docs/bdd.md: KAL-GFT-002 KAL-GFT-003 — retag before or after archiving.
