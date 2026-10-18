@@ -8,7 +8,14 @@ from __future__ import annotations
 
 from playwright.sync_api import Page, expect
 
-from tests.e2e.seed_helpers import clear_gifts
+from tests.e2e.seed_helpers import (
+    clear_gifts,
+    delete_reserve_fund,
+    primary_irregular_fund_id,
+    seed_account,
+    seed_gift,
+    seed_reserve_fund,
+)
 
 
 def _add_gift(page: Page, person: str, occasion: str, amount: str) -> None:
@@ -55,3 +62,34 @@ def test_maintain_the_gift_list(page: Page, base_url: str) -> None:
         expect(total_value).to_have_text("350.00")
     finally:
         clear_gifts()
+
+
+def test_gift_total_feeds_the_irregular_fund(page: Page, base_url: str) -> None:
+    """Covers: KAL-GFT-002
+
+    The yearly gifts total (200.00 + 150.00 = 350.00) shows on the irregular
+    fund page as a read-only "Gifts" line. The line rides on the primary
+    (oldest live) irregular fund, so the test opens exactly that fund. The gift
+    total is sum-based across the family, so gifts are cleared before and in a
+    finally; the seeded fund is removed too (shared-DB / rerun-safe, #19).
+    """
+    clear_gifts()
+    account_id = seed_account("Konto funduszu nieregularnego (e2e)")
+    fund_id = seed_reserve_fund(
+        "Wydatki nieregularne (e2e)", 0.0, account_id, kind="irregular", emergency_multiplier=None
+    )
+    try:
+        seed_gift("Mum", "birthday", 200)
+        seed_gift("Mum", "Christmas", 150)
+        primary_id = primary_irregular_fund_id()
+        assert primary_id is not None
+
+        page.goto(f"{base_url}/wizard/safety-funds/{primary_id}")
+        gifts_row = page.get_by_test_id("irregular-derived-gifts")
+        expect(gifts_row).to_be_visible(timeout=5000)
+        # A "Gifts" line with the yearly total 350.00 is included.
+        expect(gifts_row.get_by_text("Gifts", exact=True)).to_be_visible()
+        expect(gifts_row.get_by_text("350.00", exact=True)).to_be_visible()
+    finally:
+        clear_gifts()
+        delete_reserve_fund(fund_id)

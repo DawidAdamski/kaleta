@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from kaleta.core.irregular import monthly_contribution
 
 __all__ = [
+    "DerivedFundItem",
     "IrregularEntryKind",
     "IrregularFundEntry",
     "IrregularFundPlan",
@@ -54,6 +55,25 @@ class IrregularItemResponse(BaseModel):
         return monthly_contribution(self.yearly_amount)
 
 
+class DerivedFundItem(BaseModel):
+    """A fund line whose yearly amount is owned by another feature.
+
+    Not a stored ``IrregularItem``: it has no id and is read-only here — the
+    yearly gifts total surfaces as one of these so gifts are set aside the same
+    ÷10-a-month way as a real item, while gifts stay editable only on their own
+    page. ``source`` names the owning feature (e.g. ``"gifts"``).
+    """
+
+    source: str
+    yearly_amount: Decimal
+
+    @computed_field  # type: ignore[prop-decorator]
+    @property
+    def monthly_contribution(self) -> Decimal:
+        """A tenth of the yearly amount — the same rule as a stored item."""
+        return monthly_contribution(self.yearly_amount)
+
+
 class IrregularFundPlan(BaseModel):
     """One irregular fund's items, and what they ask for each month."""
 
@@ -61,6 +81,10 @@ class IrregularFundPlan(BaseModel):
     fund_name: str
     backing_account_id: int | None
     items: list[IrregularItemResponse]
+    #: Lines whose yearly amount comes from another feature (e.g. the gifts
+    #: total); folded into the totals below but kept apart so the view renders
+    #: them read-only.
+    derived_items: list[DerivedFundItem] = []
     yearly_total: Decimal
     monthly_total: Decimal
     #: What the fund holds: its account's balance, from the ledger.

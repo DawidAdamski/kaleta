@@ -2386,6 +2386,8 @@
     "yearly_amount": "Yearly amount",
     "monthly": "Monthly",
     "due_month": "Usually paid in",
+    "gifts_item": "Gifts",
+    "gifts_item_hint": "From your gift list",
     "category": "Category for its payments",
     "preview": "Set aside {monthly} a month",
     "item_incomplete": "Give the item a name and a yearly amount.",

@@ -2599,7 +2599,7 @@ Feature: Gift Planning
     Then both entries appear grouped under "Mum"
     And the yearly gifts total shows 350.00
 
-  KAL-GFT-002 @planned
+  KAL-GFT-002 @automated
   Scenario: Gift total feeds the irregular fund
     Given the yearly gifts total is 350.00
     When I open the Irregular Fund page
