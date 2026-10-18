@@ -20,6 +20,15 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
+- [ ] `IrregularItemService.create_funding_plan` dedupes a planned transfer by
+      `existing.amount == plan.monthly_total` (`irregular_item_service.py`).
+      Now that the gifts total folds into `monthly_total` (`gifts-irregular-fund`),
+      changing the gift list moves the proposed monthly amount, so a second
+      transfer can be planned next to the now-stale one. Pre-existing behaviour
+      (a stored-item edit already does this), not a regression — but gifts make
+      it easier to hit. Consider keying the dedupe on the fund/route rather than
+      the exact amount, or updating the existing active plan in place.
+
 - [ ] Two orphaned i18n keys in `settings` (pre-existing, spotted during
       `settings-seed-panel-unify`): `settings.dark_mode` and
       `settings.rate_label` have no `t()` reference anywhere in `src/` or
