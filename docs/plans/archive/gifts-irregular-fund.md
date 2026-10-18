@@ -3,8 +3,9 @@ plan_id: gifts-irregular-fund
 title: Gifts — the yearly gift total feeds the irregular fund
 area: services + views (gifts, irregular fund)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-18
+roadmap_ref: ../../roadmap.md
 ---
 
 # Gifts — the yearly gift total feeds the irregular fund
@@ -126,3 +127,32 @@ contribution 350.00 ÷ 10 = 35.00).
   (`_Payments.item_options` / history keep reading `plan.items`). This avoids
   the sentinel-id hack the alternative (injecting into `plan.items`) would need,
   and keeps `IrregularItemResponse`'s `id: int` / `fund_id: int` contract intact.
+
+## Implementation
+
+Landed on 2026-10-18 (PR #283).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `0629622` | Dawid Adamski | 2026-10-18 | Merge pull request #283 from DawidAdamski/feat/gifts-irregular-fund |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/gifts-irregular-fund.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/schemas/irregular_item.py
+- src/kaleta/services/irregular_item_service.py
+- src/kaleta/views/irregular_fund.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_gifts.py
+- tests/integration/test_irregular_fund.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
+
+**Notes:** Still @planned in docs/bdd.md: KAL-GFT-003 — retag before or after archiving.
