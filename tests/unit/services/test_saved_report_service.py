@@ -428,3 +428,20 @@ class TestDerivedColumnsExecution:
             pytest.approx(60.0),
             pytest.approx(140.0 / 3),
         )
+
+
+class TestDimensionDispatchIsExhaustive:
+    """The dimension dispatchers fail loudly on an unknown dimension.
+
+    ``_dimension`` / ``_flow_dimension`` used to fall through to a silent
+    "group by category" default; they now call ``assert_never``, so an
+    unhandled dimension raises instead of quietly mis-grouping.
+    """
+
+    def test_dimension_rejects_unknown(self) -> None:
+        with pytest.raises(AssertionError):
+            SavedReportService._dimension("bogus")  # type: ignore[arg-type]
+
+    def test_flow_dimension_rejects_unknown(self) -> None:
+        with pytest.raises(AssertionError):
+            SavedReportService._flow_dimension("bogus", object())  # type: ignore[arg-type]

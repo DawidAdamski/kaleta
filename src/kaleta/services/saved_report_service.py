@@ -5,7 +5,7 @@ import builtins
 import dataclasses
 import datetime
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, assert_never, get_args
 
 from sqlalchemy import Integer, String, cast, extract, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -779,8 +779,11 @@ class SavedReportService:
                 "Weekday",
                 True,
             )
-        # fallback
-        return (Transaction.category_id, [], "Category", False)
+        # Dimension is a closed Literal and every member is handled above, so
+        # this is unreachable; assert_never makes a future unhandled member a
+        # mypy error here (and a loud failure at runtime) instead of silently
+        # grouping by category.
+        assert_never(dim)
 
     @staticmethod
     def _flow_dimension(
@@ -827,4 +830,6 @@ class SavedReportService:
                 "Weekday",
                 True,
             )
-        return (flow.c.category_id, [], "Category", False)
+        # Unreachable for the same reason as ``_dimension``; fail loudly rather
+        # than silently grouping an unknown dimension by category.
+        assert_never(dim)
