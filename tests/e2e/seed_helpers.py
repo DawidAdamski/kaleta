@@ -681,6 +681,21 @@ def delete_reserve_fund(fund_id: int) -> None:
     _run_async_worker(_delete)
 
 
+def delete_transaction(transaction_id: int) -> None:
+    """Remove a transaction seeded by a test, to keep the shared ledger tidy."""
+    from sqlalchemy import delete
+
+    from kaleta.db import AsyncSessionFactory
+    from kaleta.models.transaction import Transaction
+
+    async def _delete() -> None:
+        async with AsyncSessionFactory() as session:
+            await session.execute(delete(Transaction).where(Transaction.id == transaction_id))
+            await session.commit()
+
+    _run_async_worker(_delete)
+
+
 def disable_mfa_for_all() -> int:
     """Drop every second-factor enrolment in the e2e database.
 

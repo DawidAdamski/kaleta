@@ -2605,7 +2605,7 @@ Feature: Gift Planning
     When I open the Irregular Fund page
     Then a "Gifts" item with yearly amount 350.00 is included
 
-  KAL-GFT-003 @planned
+  KAL-GFT-003 @automated
   Scenario: Mark a gift as bought
     Given gift "Mum — birthday — 200.00" is planned
     When I link a 189.99 transaction to that gift

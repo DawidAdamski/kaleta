@@ -79,6 +79,13 @@ class Transaction(TimestampMixin, UserOwnedMixin, Base):
         nullable=True,
         index=True,
     )
+    # The gift this expense paid for (``KAL-GFT-003``). A gift is "bought" when
+    # a transaction points at it; its actual cost is the sum of those amounts.
+    gift_id: Mapped[int | None] = mapped_column(
+        ForeignKey("gifts.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     amount: Mapped[Decimal] = mapped_column(Numeric(precision=15, scale=2), nullable=False)
     # For cross-currency transfers: how many dest-currency units per 1 src-currency unit
