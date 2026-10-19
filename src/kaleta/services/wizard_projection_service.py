@@ -32,7 +32,11 @@ from kaleta.schemas.wizard_projections import (
     PulledRow,
     SubscriptionCharge,
 )
-from kaleta.services.subscription_service import _to_monthly
+from kaleta.services.subscription_service import (
+    MONTHLY_CADENCE_RANGE,
+    YEARLY_CADENCE_RANGE,
+    _to_monthly,
+)
 from kaleta.services.text_order import by_name
 
 # ── Frequency → monthly equivalent ───────────────────────────────────────────
@@ -97,9 +101,12 @@ def _frequency_label(pt: PlannedTransaction) -> str:
 
 
 def _subscription_cadence_label(sub: Subscription) -> str:
-    if 27 <= sub.cadence_days <= 33:
+    # Same cadence buckets the panel's ``_to_monthly`` uses, shared so the
+    # label and the monthly figure can never disagree on what "monthly"/"yearly"
+    # means.
+    if sub.cadence_days in MONTHLY_CADENCE_RANGE:
         return "monthly"
-    if 350 <= sub.cadence_days <= 380:
+    if sub.cadence_days in YEARLY_CADENCE_RANGE:
         return "yearly"
     return f"{sub.cadence_days}d"
 
