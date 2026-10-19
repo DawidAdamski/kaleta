@@ -3,8 +3,9 @@ plan_id: api-tenant-isolation-guard
 title: API cross-family isolation — a guard so no new route can skip tenant binding
 area: security (api)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-19
+roadmap_ref: ../../roadmap.md
 ---
 
 # API cross-family isolation — a guard so no new route can skip tenant binding
@@ -90,3 +91,22 @@ all through `get_session`; only `health` public).
   tenant data, mounted outside the auth-gated `v1_router`. If a second public
   route is ever added, the guard's exempt set is where that decision is recorded.
 </content>
+
+## Implementation
+
+Landed on 2026-10-19 (PR #297).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `9485f68` | Dawid Adamski | 2026-10-19 | Merge pull request #297 from DawidAdamski/feat/api-tenant-isolation-guard |
+
+**Files changed:**
+- docs/plans/api-tenant-isolation-guard.md
+- docs/security/assessment-2026-10-12.md
+- tests/integration/test_api_tenant_isolation_guard.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
