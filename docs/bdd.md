@@ -3793,7 +3793,7 @@ Feature: Hosted accounts (multi-tenant)
     Given a hosted Kaleta with two accounts, both behind the installed schema version
     When the instance starts and the first account's migration fails
     Then the first account is suspended and the second is migrated
-    And the health probe lists the first account's id as suspended
+    And the administrative health probe lists the first account's id as suspended (admin tier only, KAL-SEC-001)
     And the first account's members are refused at sign-in, the second's are let in
 
   KAL-TEN-011 @removed
@@ -3820,7 +3820,7 @@ Feature: Hosted accounts (multi-tenant)
     When the operator restarts the container
     Then my next page load keeps me signed in
     And I am sent to /unlock and asked for my data passphrase
-    And the health probe reports keyring_sessions 0 until someone unlocks
+    And the administrative health probe reports keyring_sessions 0 until someone unlocks (admin tier only, KAL-SEC-001)
 
   KAL-TEN-014 @automated
   Scenario: The hosted demo is an account of its own, reset in place
@@ -4792,15 +4792,25 @@ Feature: Public API
     Then all public endpoints are listed with request and response schemas
 
   KAL-API-004 @automated
-  Scenario: Unauthenticated health probe reports version and DB status
+  Scenario: Unauthenticated health probe reports liveness only
     Given a running instance with a reachable database
     When I GET /api/v1/health without credentials
     Then the response is 200
-    And the body includes the app version (git-derived, see KAL-OPS-001)
-    And database_ok is true
-    And migrations_pending is a boolean
-    And tenancy, auth_backend and keyring_sessions (a count) are reported
-    And on a hosted instance the ids of suspended accounts are listed
+    And the body is exactly status "ok" and database_ok true
+    And it discloses no version, backend, migration state or family ids
+    And the response is 503 when the database is unreachable
+
+  KAL-SEC-001 @automated
+  Scenario: The health probe discloses by tier, so no family reads another's state
+    Given a running instance hosting more than one family
+    When an unauthenticated monitor GETs /api/v1/health
+    Then it gets liveness only (status and database_ok)
+    When a signed-in family caller (a family bearer token or a cookie session) GETs it
+    Then it also gets the version, the sign-in backend and whether migrations are pending
+    But it does not get the suspended-family ids, the keyring-session count or the pending count
+    When an instance administrator GETs it (the KALETA_API_TOKEN env token, or an admin cookie session)
+    Then it additionally gets the suspended-family ids and the cross-family counts
+    And a family-scoped credential never reaches the administrative tier, whoever owns it
 
   KAL-API-005 @automated
   Scenario: Reading two-factor status over the API
@@ -4837,7 +4847,7 @@ Feature: Build version
     Given a build of the app
     Then its version is not the hard-coded "0.1.0"
     And its version has a PEP 440 shape (a release, or X.Y.devN+g<sha> between tags)
-    And the version from the package, from kaleta.__version__ and from /api/v1/health agree
+    And the version from the package, from kaleta.__version__ and from an authenticated /api/v1/health agree (version is family tier and up, KAL-SEC-001)
     And the version fits the String(40) column that events and bug reports store it in
 ```
 
