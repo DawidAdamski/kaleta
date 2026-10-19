@@ -253,11 +253,13 @@ check it still reproduces before acting on it.
       now delegates to `_to_monthly`, so the builder and the panel agree
       (yearly 120.00 → 10.00). The `_subscription_cadence_label` ranges are
       still inlined — a cosmetic duplicate, left as a separate follow-up below.
-- [ ] `wizard_projection_service._subscription_cadence_label` inlines the same
+- [x] `wizard_projection_service._subscription_cadence_label` inlines the same
       27–33 / 350–380 day ranges as `subscription_service`'s
       `MONTHLY_CADENCE_RANGE` / `YEARLY_CADENCE_RANGE`. Point it at the shared
       constants too (zero behaviour change) — deferred from
       `projection-subscription-monthly` to keep that diff single-purpose.
+      Done in `chore/cadence-label-shared-ranges`: the label now reads
+      `in MONTHLY_CADENCE_RANGE` / `in YEARLY_CADENCE_RANGE`.
 
 - [ ] A cancellation scheduled for a future date (KAL-SUB-004) only flips
       to `cancelled` when `SubscriptionService.settle_due_cancellations`
