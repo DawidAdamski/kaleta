@@ -3,8 +3,9 @@ plan_id: funding-plan-refresh-amount
 title: Funding plan — re-planning refreshes the one transfer instead of duplicating
 area: services (irregular fund)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-19
+roadmap_ref: ../../roadmap.md
 ---
 
 # Funding plan — re-planning refreshes the one transfer instead of duplicating
@@ -95,3 +96,24 @@ scenario literals (180.00 then 240.00).
   so it is not mistaken for part of this fix.
 </content>
 </invoke>
+
+## Implementation
+
+Landed on 2026-10-19 (PR #289).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `697858c` | Dawid Adamski | 2026-10-19 | Merge pull request #289 from DawidAdamski/fix/funding-plan-refresh-amount |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/funding-plan-refresh-amount.md
+- src/kaleta/services/irregular_item_service.py
+- tests/integration/test_irregular_fund.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
