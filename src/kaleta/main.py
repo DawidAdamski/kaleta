@@ -14,36 +14,18 @@ NiceguiStorageService.configure_environment(redis_url=settings.redis_url)
 
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from typing import Any
 
 import uvicorn
 from fastapi import FastAPI
-from fastapi.openapi.docs import get_swagger_ui_html
-from fastapi.responses import HTMLResponse
 from nicegui import app as nicegui_app
 from nicegui import ui
 
 from kaleta.api import create_api_router
+from kaleta.api.docs import mount_api_docs
 from kaleta.api.errors import register_error_handlers
 from kaleta.api.v1.health import register_health_alias
 from kaleta.auth.session import session_middleware_kwargs, warn_secure_cookie_in_debug
 from kaleta.logging_config import RequestContextMiddleware, configure_logging
-
-# Cached OpenAPI spec — generated once from our router tree.
-_openapi_spec: dict[str, Any] | None = None
-
-
-def _api_spec() -> dict[str, Any]:
-    global _openapi_spec
-    if _openapi_spec is None:
-        tmp = FastAPI(
-            title="Kaleta API",
-            version="1.0.0",
-            description="Public REST API for the Kaleta personal finance app.",
-        )
-        tmp.include_router(create_api_router())
-        _openapi_spec = tmp.openapi()
-    return _openapi_spec
 
 
 def _setup_pwa() -> None:
@@ -68,17 +50,8 @@ def _register_api() -> None:
     register_error_handlers(nicegui_app)
     nicegui_app.include_router(create_api_router())
     register_health_alias(nicegui_app)
-
-    @nicegui_app.get("/api-docs", response_class=HTMLResponse, include_in_schema=False)
-    async def _swagger_ui() -> HTMLResponse:
-        return get_swagger_ui_html(
-            openapi_url="/api-docs/openapi.json",
-            title="Kaleta API",
-        )
-
-    @nicegui_app.get("/api-docs/openapi.json", include_in_schema=False)
-    async def _openapi_json() -> dict[str, Any]:
-        return _api_spec()
+    # Swagger UI + OpenAPI JSON only when the flag allows it (F-2, KAL-SEC-002).
+    mount_api_docs(nicegui_app)
 
 
 def _warn_repo_root_data_leftovers() -> None:

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from kaleta.main import _api_spec
+from kaleta.api.docs import build_api_spec
 
 
 class TestOpenApiSchema:
@@ -11,9 +11,11 @@ class TestOpenApiSchema:
         """Covers: KAL-API-003
 
         The generated OpenAPI document lists the public REST endpoints with
-        request and response schemas for core resources.
+        request and response schemas for core resources. Whether the document is
+        *served* at ``/api-docs`` is gated separately (KAL-SEC-002); this checks
+        the document's completeness.
         """
-        spec = _api_spec()
+        spec = build_api_spec()
         paths = spec.get("paths", {})
 
         expected_paths = [

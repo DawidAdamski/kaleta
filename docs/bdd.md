@@ -4786,8 +4786,8 @@ Feature: Public API
     Then the response contains the per-category planned amounts
 
   KAL-API-003 @automated
-  Scenario: API schema is discoverable
-    Given a running instance
+  Scenario: API schema lists every public endpoint
+    Given a running instance with the OpenAPI docs enabled (see KAL-SEC-002)
     When I open the OpenAPI documentation endpoint
     Then all public endpoints are listed with request and response schemas
 
@@ -4811,6 +4811,15 @@ Feature: Public API
     When an instance administrator GETs it (the KALETA_API_TOKEN env token, or an admin cookie session)
     Then it additionally gets the suspended-family ids and the cross-family counts
     And a family-scoped credential never reaches the administrative tier, whoever owns it
+
+  KAL-SEC-002 @automated
+  Scenario: The OpenAPI docs are gated, so a production run does not publish the API surface
+    Given a production-shaped run (debug off) with KALETA_API_DOCS unset
+    When a client GETs /api-docs or /api-docs/openapi.json
+    Then both are 404 — neither the Swagger page nor the schema is served
+    When the operator sets KALETA_API_DOCS=true
+    Then both are served again and the schema lists every public endpoint
+    And in development (debug on) the docs are served by default
 
   KAL-API-005 @automated
   Scenario: Reading two-factor status over the API

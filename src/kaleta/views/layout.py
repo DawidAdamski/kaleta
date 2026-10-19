@@ -515,15 +515,24 @@ def page_layout(title: str, *, wide: bool = False, container: str | None = None)
 
             hdr.on("click", _make_toggle(group_key, items_col, chevron))
 
-        # The artboard's index ends at Setup; the app has one more route to
-        # offer and no group to put it in, so it keeps a hairline of its own.
-        ui.separator().classes("mx-6 mt-4 mb-1 opacity-60")
-        with ui.item(on_click=lambda: ui.navigate.to("/api-docs", new_tab=True)).classes(NAV_ITEM):
-            with ui.item_section().props("avatar"):
-                ui.icon("api")
-            with ui.item_section():
-                ui.item_label(t("nav.api_docs"))
-        if session_is_admin():
+        # The artboard's index ends at Setup; the app has up to two more routes
+        # to offer and no group to put them in, so they keep a hairline of their
+        # own. The API-docs link follows the docs flag (KAL-SEC-002): a
+        # production run with the docs gated off would otherwise show a dead link
+        # to a 404. The hairline shows only when something sits below it.
+        show_api_docs = settings.api_docs_enabled
+        show_admin = session_is_admin()
+        if show_api_docs or show_admin:
+            ui.separator().classes("mx-6 mt-4 mb-1 opacity-60")
+        if show_api_docs:
+            with ui.item(on_click=lambda: ui.navigate.to("/api-docs", new_tab=True)).classes(
+                NAV_ITEM
+            ):
+                with ui.item_section().props("avatar"):
+                    ui.icon("api")
+                with ui.item_section():
+                    ui.item_label(t("nav.api_docs"))
+        if show_admin:
             # The instance's, not the family's: below the hairline with the API.
             admin_cls = f"{NAV_ITEM} {NAV_ITEM_ACTIVE if _nav_active(ADMIN_PATH) else ''}".strip()
             with ui.item(on_click=lambda: ui.navigate.to(ADMIN_PATH)).classes(admin_cls):
