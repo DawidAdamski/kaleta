@@ -84,7 +84,7 @@ async def create_transaction(
     data: TransactionCreate,
     session: AsyncSession = Depends(get_session),
 ) -> TransactionResponse:
-    return await TransactionService(session).create(data)  # type: ignore[return-value]
+    return TransactionResponse.model_validate(await TransactionService(session).create(data))
 
 
 @router.get(
@@ -100,7 +100,7 @@ async def get_transaction(
     tx = await TransactionService(session).get(transaction_id)
     if not tx:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return tx  # type: ignore[return-value]
+    return TransactionResponse.model_validate(tx)
 
 
 @router.put(
@@ -119,10 +119,10 @@ async def update_transaction(
     data: TransactionUpdate,
     session: AsyncSession = Depends(get_session),
 ) -> TransactionResponse:
-    svc = TransactionService(session)
-    if not await svc.get(transaction_id):
+    updated = await TransactionService(session).update(transaction_id, data)
+    if updated is None:
         raise HTTPException(status_code=404, detail="Transaction not found")
-    return await svc.update(transaction_id, data)  # type: ignore[return-value]
+    return TransactionResponse.model_validate(updated)
 
 
 @router.delete("/{transaction_id}", status_code=204, summary="Delete a transaction", responses=_404)

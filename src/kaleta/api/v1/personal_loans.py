@@ -15,4 +15,5 @@ router = APIRouter(prefix="/personal-loans", tags=["Personal loans"])
 async def list_personal_loans(
     session: AsyncSession = Depends(get_session),
 ) -> list[PersonalLoanResponse]:
-    return await PersonalLoanService(session).list_loans()  # type: ignore[return-value]
+    loans = await PersonalLoanService(session).list_loans()
+    return [PersonalLoanResponse.model_validate(loan) for loan in loans]

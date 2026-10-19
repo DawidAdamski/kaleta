@@ -16,6 +16,5 @@ async def list_reserve_funds(
     include_archived: bool = Query(False, description="Include archived funds"),
     session: AsyncSession = Depends(get_session),
 ) -> list[ReserveFundResponse]:
-    return await ReserveFundService(session).list(  # type: ignore[return-value]
-        include_archived=include_archived
-    )
+    funds = await ReserveFundService(session).list(include_archived=include_archived)
+    return [ReserveFundResponse.model_validate(fund) for fund in funds]

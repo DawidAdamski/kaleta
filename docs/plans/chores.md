@@ -515,7 +515,7 @@ check it still reproduces before acting on it.
       upload byte cap. Slice 2 of `security-assessment` plans their fixes
       (each with a `KAL-SEC-*` regression test); logged here so none is lost
       if Slice 2 slips.
-- [ ] **`api/v1` `update_*` endpoints return an ORM model as a Response.** The
+- [x] **`api/v1` `update_*` endpoints return an ORM model as a Response.** The
       `update_*` handlers in `transactions/payees/institutions/categories/budgets`
       return `Service.update(...)` which is typed `Model | None`, while the
       endpoint is annotated `-> XxxResponse`; FastAPI serialises it via
@@ -524,6 +524,13 @@ check it still reproduces before acting on it.
       ignore to the `update_*` ones (they were only hidden by a stale mypy cache).
       Consider typing these returns properly (e.g. `XxxResponse.model_validate`,
       or a shared helper) and dropping the whole family of `# type: ignore`.
+      Done in `chore/api-v1-typed-responses`: every handler now returns
+      `XxxResponse.model_validate(...)` (lists as a comprehension), dropping all
+      22 `# type: ignore[return-value]` across the 8 v1 routers (the five above
+      plus `reserve_funds`/`subscriptions`/`personal_loans` list endpoints). The
+      `update_*` handlers now guard on the update result (`None` → 404) instead
+      of a redundant pre-`get`. Behaviour is unchanged — `model_validate` with
+      `from_attributes` produces exactly what `response_model` serialised before.
 - [ ] **Backup restore-from-file has no UI-level e2e.** `KAL-SET-015` is
       `@automated` only at the `BackupService` level (`tests/integration/
       test_backup.py`); the Settings → Data tab upload widget itself is
