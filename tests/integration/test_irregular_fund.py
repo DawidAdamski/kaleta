@@ -127,6 +127,35 @@ async def test_the_contribution_becomes_a_monthly_planned_transfer(fund: _Fund) 
         await fund.items.create_funding_plan(fund_id, payload)
 
 
+async def test_re_planning_refreshes_the_one_transfer_when_the_total_changes(
+    fund: _Fund,
+) -> None:
+    """Covers: KAL-IRR-006
+
+    With a 180.00 transfer already planned, raising the contribution to 240.00
+    and re-accepting updates that one transfer in place — no second row — the
+    scenario literals.
+    """
+    backing = await fund.account("Konto funduszu")
+    source = await fund.account("Konto główne")
+    fund_id = await fund.fund(backing)
+    await fund.item(fund_id, "Car insurance", "1200.00")
+    await fund.item(fund_id, "Property tax", "600.00")
+
+    payload = IrregularFundingCreate(from_account_id=source, start_date=START)
+    await fund.items.create_funding_plan(fund_id, payload)
+    [first] = await fund.planned.list()
+    assert first.amount == Decimal("180.00")
+
+    # The contribution rises (1800 + 600 = 2400 yearly → 240.00 a month).
+    await fund.item(fund_id, "Car service", "600.00")
+    refreshed = await fund.items.create_funding_plan(fund_id, payload)
+
+    assert refreshed.id == first.id
+    [planned] = await fund.planned.list()
+    assert planned.amount == Decimal("240.00")
+
+
 async def test_no_transfer_is_planned_from_the_fund_into_itself(fund: _Fund) -> None:
     backing = await fund.account("Konto funduszu")
     fund_id = await fund.fund(backing)

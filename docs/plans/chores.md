@@ -20,7 +20,7 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
 
 ## Open
 
-- [ ] `IrregularItemService.create_funding_plan` dedupes a planned transfer by
+- [x] `IrregularItemService.create_funding_plan` dedupes a planned transfer by
       `existing.amount == plan.monthly_total` (`irregular_item_service.py`).
       Now that the gifts total folds into `monthly_total` (`gifts-irregular-fund`),
       changing the gift list moves the proposed monthly amount, so a second
@@ -28,6 +28,10 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
       (a stored-item edit already does this), not a regression — but gifts make
       it easier to hit. Consider keying the dedupe on the fund/route rather than
       the exact amount, or updating the existing active plan in place.
+      Fixed in `funding-plan-refresh-amount` (KAL-IRR-006): the dedupe now keys
+      on the route (source → fund account), not the amount; an equal amount
+      still conflicts ("already planned"), but a changed contribution refreshes
+      the one transfer's amount in place instead of adding a second.
 
 - [ ] Two orphaned i18n keys in `settings` (pre-existing, spotted during
       `settings-seed-panel-unify`): `settings.dark_mode` and

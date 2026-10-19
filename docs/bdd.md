@@ -2578,6 +2578,14 @@ Feature: Irregular Expenses Fund
     When I record a 300.00 "heating underpayment" from the fund
     Then the expense is marked as unplanned within the fund history
     And the fund balance shows 500.00
+
+  KAL-IRR-006 @automated
+  Scenario: Re-planning after the contribution changes refreshes the one transfer
+    Given a monthly funding transfer of 180.00 is already planned for the fund
+    And the fund's monthly contribution has risen to 240.00
+    When I accept the suggested funding plan again
+    Then the one planned transfer now reads 240.00
+    And no second transfer is planned
 ```
 
 ## Feature: Gift Planning
