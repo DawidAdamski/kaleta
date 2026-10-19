@@ -515,15 +515,23 @@ check it still reproduces before acting on it.
       `rows.py::_render_sub_row_notes` no longer uses them). Drop them from both
       locales. Spotted by i18n-verifier during `subscriptions-categories` Part B.
       Dropped in `i18n-hygiene-orphans-and-gender` (both locales).
-- [ ] **Security assessment findings F-2..F-4 await fixes.** The 2026-10-12
+- [ ] **Security assessment findings F-3..F-4 await fixes.** The 2026-10-12
       assessment (`docs/security/assessment-2026-10-12.md`) recorded four
       Low/Info items. **F-1** (`/health` info disclosure) is fixed by
       `health-tiered-disclosure` (KAL-SEC-001): the probe discloses by tier, so
-      a family credential never sees another family's state. Remaining:
-      F-2 always-on OpenAPI docs, F-3 cookie not `Secure`-by-default with no
-      prod warning, F-4 no server-side upload byte cap. Slice 2 of
-      `security-assessment` plans their fixes (each with a `KAL-SEC-*`
-      regression test); logged here so none is lost if Slice 2 slips.
+      a family credential never sees another family's state. **F-2**
+      (always-on OpenAPI docs) is fixed by `api-docs-gated` (KAL-SEC-002): the
+      docs are off in a production-shaped run unless `KALETA_API_DOCS` opts in.
+      Remaining: F-3 cookie not `Secure`-by-default with no prod warning, F-4 no
+      server-side upload byte cap. Slice 2 of `security-assessment` plans their
+      fixes (each with a `KAL-SEC-*` regression test); logged here so none is
+      lost if Slice 2 slips.
+- [ ] **No automated check that the sidebar omits the "API docs" link when the
+      docs are gated off.** `api-docs-gated` (KAL-SEC-002) hides the link when
+      `settings.api_docs_enabled` is false, but the e2e suite runs with
+      `KALETA_DEBUG=true` (docs on), so the gated-off sidebar path is unverified.
+      A debug-off e2e app (or a render-level test) would guard it. Low value —
+      the gating logic itself is covered by `test_api_docs.py`.
 - [x] **`api/v1` `update_*` endpoints return an ORM model as a Response.** The
       `update_*` handlers in `transactions/payees/institutions/categories/budgets`
       return `Service.update(...)` which is typed `Model | None`, while the

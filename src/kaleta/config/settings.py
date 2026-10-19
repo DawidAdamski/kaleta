@@ -52,6 +52,13 @@ class Settings(BaseSettings):
     mode: Literal["web", "api"] = "web"
     secret_key: str = _INSECURE_KEY
     debug: bool = False
+    #: Serve the OpenAPI schema and Swagger UI at ``/api-docs`` (and
+    #: ``/api-docs/openapi.json``). ``None`` (the default) follows ``debug``: on
+    #: in development, off in a production-shaped run, so the API surface map is
+    #: not handed to every unauthenticated client (security assessment F-2). Set
+    #: ``KALETA_API_DOCS=true`` to publish the docs anyway, or ``false`` to keep
+    #: them off even in debug. The API routes and their auth are unaffected.
+    api_docs: bool | None = None
     #: A bearer token from the environment, for headless use (≥16 characters):
     #: the instance administrator, in their family — like any token, it reads
     #: encrypted data only while that member has an unlocked session. A value
@@ -184,6 +191,11 @@ class Settings(BaseSettings):
     def encryption_enabled(self) -> bool:
         """Whether encrypted columns encrypt (rather than store plaintext)."""
         return self.encryption == "passphrase"
+
+    @property
+    def api_docs_enabled(self) -> bool:
+        """Whether to publish ``/api-docs`` — the override when set, else ``debug`` (F-2)."""
+        return self.debug if self.api_docs is None else self.api_docs
 
     @field_validator("auth_backend", "encryption", mode="before")
     @classmethod

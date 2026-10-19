@@ -153,6 +153,8 @@ KALETA_SECRET_KEY=...                 # Session/auth secret (required outside de
                                       # also derives the key for encrypted columns —
                                       # rotating it forces re-enrolling two-factor auth
 KALETA_DEBUG=false                    # Debug mode; allows placeholder secret key
+KALETA_API_DOCS=                      # Serve /api-docs + /api-docs/openapi.json;
+                                      # unset follows KALETA_DEBUG, true/false forces on/off
 KALETA_API_TOKEN=...                  # Bootstrap bearer for headless API (≥16 chars);
                                       # creates locked user `api` on startup if needed
 KALETA_SESSION_TTL_HOURS=72           # UI session TTL; 0 disables
