@@ -3,8 +3,9 @@ plan_id: gifts-mark-bought
 title: Gifts — mark a gift bought by linking the transaction that paid for it
 area: models + services + views (gifts)
 effort: medium
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-19
+roadmap_ref: ../../roadmap.md
 ---
 
 # Gifts — mark a gift bought by linking the transaction that paid for it
@@ -119,3 +120,31 @@ the BDD literals (planned 200.00, actual cost 189.99).
   (one gift with its bought state, for the unit tests and a single-row caller)
   and the e2e `delete_transaction` helper (ledger cleanup, rerun-safe). Both
   small and test-driven.
+
+## Implementation
+
+Landed on 2026-10-19 (PR #285).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `e13fd03` | Dawid Adamski | 2026-10-19 | Merge pull request #285 from DawidAdamski/feat/gifts-mark-bought |
+
+**Files changed:**
+- alembic/versions/e9ecbe7dd5b0_add_transaction_gift_id.py
+- docs/bdd.md
+- docs/plans/gifts-mark-bought.md
+- src/kaleta/i18n/locales/en.json
+- src/kaleta/i18n/locales/pl.json
+- src/kaleta/models/transaction.py
+- src/kaleta/schemas/gift.py
+- src/kaleta/services/gift_service.py
+- src/kaleta/views/gifts.py
+- tests/e2e/seed_helpers.py
+- tests/e2e/test_gifts.py
+- tests/unit/services/test_gift_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
