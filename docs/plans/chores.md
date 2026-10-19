@@ -137,9 +137,14 @@ Migrated verbatim on 2026-09-23 when this file replaced the issue as the
 inbox. **Not re-verified** — treat each as a lead, not a finding, and
 check it still reproduces before acting on it.
 
-- [ ] `SavedReportService._flow_dimension`: unreachable final return
+- [x] `SavedReportService._flow_dimension`: unreachable final return
       references `Category` without a join — replace with `raise ValueError`
       / `assert_never` so a future new dimension fails loudly.
+      Done in `chore/flow-dimension-assert-never`: both twin dispatchers
+      (`_dimension` and `_flow_dimension`) now end in `assert_never(dim)`, so a
+      new `Dimension` member without a branch is a mypy error (and a loud
+      runtime failure) instead of a silent group-by-category. Unit tests pin
+      both.
 - [ ] e2e round-trip for KAL-API-001 (create via API → visible in the
       Transactions UI).
 - [ ] `SettingsSection._update_currency_warning` (import view): warns
