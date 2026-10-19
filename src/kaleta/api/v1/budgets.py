@@ -29,7 +29,8 @@ async def list_budgets(
     month: int | None = Query(None, ge=1, le=12, description="Filter by month (requires year)"),
     session: AsyncSession = Depends(get_session),
 ) -> list[BudgetResponse]:
-    return await BudgetService(session).list(month=month, year=year)  # type: ignore[return-value]
+    budgets = await BudgetService(session).list(month=month, year=year)
+    return [BudgetResponse.model_validate(budget) for budget in budgets]
 
 
 @router.post(
@@ -49,7 +50,7 @@ async def create_budget(
     data: BudgetCreate,
     session: AsyncSession = Depends(get_session),
 ) -> BudgetResponse:
-    return await BudgetService(session).upsert(data)  # type: ignore[return-value]
+    return BudgetResponse.model_validate(await BudgetService(session).upsert(data))
 
 
 @router.get(
@@ -65,7 +66,7 @@ async def get_budget(
     budget = await BudgetService(session).get(budget_id)
     if not budget:
         raise HTTPException(status_code=404, detail="Budget entry not found")
-    return budget  # type: ignore[return-value]
+    return BudgetResponse.model_validate(budget)
 
 
 @router.put(
@@ -83,10 +84,10 @@ async def update_budget(
     data: BudgetUpdate,
     session: AsyncSession = Depends(get_session),
 ) -> BudgetResponse:
-    svc = BudgetService(session)
-    if not await svc.get(budget_id):
+    updated = await BudgetService(session).update(budget_id, data)
+    if updated is None:
         raise HTTPException(status_code=404, detail="Budget entry not found")
-    return await svc.update(budget_id, data)  # type: ignore[return-value]
+    return BudgetResponse.model_validate(updated)
 
 
 @router.delete("/{budget_id}", status_code=204, summary="Delete a budget entry", responses=_404)

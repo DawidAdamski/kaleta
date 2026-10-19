@@ -29,7 +29,8 @@ async def list_categories(
     type: CategoryType | None = Query(None, description="Filter by category type"),
     session: AsyncSession = Depends(get_session),
 ) -> list[CategoryResponse]:
-    return await CategoryService(session).list(type=type)  # type: ignore[return-value]
+    categories = await CategoryService(session).list(type=type)
+    return [CategoryResponse.model_validate(category) for category in categories]
 
 
 @router.post(
@@ -46,7 +47,7 @@ async def create_category(
     data: CategoryCreate,
     session: AsyncSession = Depends(get_session),
 ) -> CategoryResponse:
-    return await CategoryService(session).create(data)  # type: ignore[return-value]
+    return CategoryResponse.model_validate(await CategoryService(session).create(data))
 
 
 @router.get(
@@ -62,7 +63,7 @@ async def get_category(
     category = await CategoryService(session).get(category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found")
-    return category  # type: ignore[return-value]
+    return CategoryResponse.model_validate(category)
 
 
 @router.put(
@@ -79,10 +80,10 @@ async def update_category(
     data: CategoryUpdate,
     session: AsyncSession = Depends(get_session),
 ) -> CategoryResponse:
-    svc = CategoryService(session)
-    if not await svc.get(category_id):
+    updated = await CategoryService(session).update(category_id, data)
+    if updated is None:
         raise HTTPException(status_code=404, detail="Category not found")
-    return await svc.update(category_id, data)  # type: ignore[return-value]
+    return CategoryResponse.model_validate(updated)
 
 
 @router.delete("/{category_id}", status_code=204, summary="Delete a category", responses=_404)

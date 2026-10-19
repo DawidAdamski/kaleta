@@ -19,7 +19,8 @@ router = APIRouter(prefix="/institutions", tags=["Institutions"])
 async def list_institutions(
     session: AsyncSession = Depends(get_session),
 ) -> list[InstitutionResponse]:
-    return await InstitutionService(session).list()  # type: ignore[return-value]
+    institutions = await InstitutionService(session).list()
+    return [InstitutionResponse.model_validate(institution) for institution in institutions]
 
 
 @router.post(
@@ -37,7 +38,7 @@ async def create_institution(
     data: InstitutionCreate,
     session: AsyncSession = Depends(get_session),
 ) -> InstitutionResponse:
-    return await InstitutionService(session).create(data)  # type: ignore[return-value]
+    return InstitutionResponse.model_validate(await InstitutionService(session).create(data))
 
 
 @router.get(
@@ -53,7 +54,7 @@ async def get_institution(
     institution = await InstitutionService(session).get(institution_id)
     if not institution:
         raise HTTPException(status_code=404, detail="Institution not found")
-    return institution  # type: ignore[return-value]
+    return InstitutionResponse.model_validate(institution)
 
 
 @router.put(
@@ -70,10 +71,10 @@ async def update_institution(
     data: InstitutionUpdate,
     session: AsyncSession = Depends(get_session),
 ) -> InstitutionResponse:
-    svc = InstitutionService(session)
-    if not await svc.get(institution_id):
+    updated = await InstitutionService(session).update(institution_id, data)
+    if updated is None:
         raise HTTPException(status_code=404, detail="Institution not found")
-    return await svc.update(institution_id, data)  # type: ignore[return-value]
+    return InstitutionResponse.model_validate(updated)
 
 
 @router.delete(

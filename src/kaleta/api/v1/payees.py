@@ -31,7 +31,8 @@ router = APIRouter(prefix="/payees", tags=["Payees"])
 
 @router.get("/", response_model=list[PayeeResponse], summary="List all payees")
 async def list_payees(session: AsyncSession = Depends(get_session)) -> list[PayeeResponse]:
-    return await PayeeService(session).list()  # type: ignore[return-value]
+    payees = await PayeeService(session).list()
+    return [PayeeResponse.model_validate(payee) for payee in payees]
 
 
 @router.post(
@@ -48,7 +49,7 @@ async def create_payee(
     data: PayeeCreate,
     session: AsyncSession = Depends(get_session),
 ) -> PayeeResponse:
-    return await PayeeService(session).create(data)  # type: ignore[return-value]
+    return PayeeResponse.model_validate(await PayeeService(session).create(data))
 
 
 @router.get(
@@ -100,7 +101,7 @@ async def get_payee(
     payee = await PayeeService(session).get(payee_id)
     if not payee:
         raise HTTPException(status_code=404, detail="Payee not found")
-    return payee  # type: ignore[return-value]
+    return PayeeResponse.model_validate(payee)
 
 
 @router.get(
@@ -139,10 +140,10 @@ async def update_payee(
     data: PayeeUpdate,
     session: AsyncSession = Depends(get_session),
 ) -> PayeeResponse:
-    svc = PayeeService(session)
-    if not await svc.get(payee_id):
+    updated = await PayeeService(session).update(payee_id, data)
+    if updated is None:
         raise HTTPException(status_code=404, detail="Payee not found")
-    return await svc.update(payee_id, data)  # type: ignore[return-value]
+    return PayeeResponse.model_validate(updated)
 
 
 @router.delete("/{payee_id}", status_code=204, summary="Delete a payee", responses=_404)

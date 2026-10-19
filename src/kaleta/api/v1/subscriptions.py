@@ -15,4 +15,5 @@ router = APIRouter(prefix="/subscriptions", tags=["Subscriptions"])
 async def list_subscriptions(
     session: AsyncSession = Depends(get_session),
 ) -> list[SubscriptionResponse]:
-    return await SubscriptionService(session).list()  # type: ignore[return-value]
+    subscriptions = await SubscriptionService(session).list()
+    return [SubscriptionResponse.model_validate(sub) for sub in subscriptions]
