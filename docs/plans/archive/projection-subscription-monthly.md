@@ -3,8 +3,9 @@ plan_id: projection-subscription-monthly
 title: Budget-builder projection normalises a subscription like the panel does
 area: services (wizard projection / subscriptions)
 effort: small
-status: in-progress
-roadmap_ref: ../roadmap.md
+status: archived
+archived_at: 2026-10-19
+roadmap_ref: ../../roadmap.md
 ---
 
 # Budget-builder projection normalises a subscription like the panel does
@@ -108,3 +109,25 @@ Expected values are the `KAL-SUB-002`/`-009` literals (120.00 → 10.00).
   here while the panel counted it in full. A `cadence_days=31` unit case pins
   that half of the fix.
 </content>
+
+## Implementation
+
+Landed on 2026-10-19 (PR #292).
+
+| SHA | Author | Date | Message |
+|---|---|---|---|
+| `5e7518f` | Dawid Adamski | 2026-10-19 | Merge pull request #292 from DawidAdamski/fix/projection-subscription-monthly |
+
+**Files changed:**
+- docs/bdd.md
+- docs/plans/chores.md
+- docs/plans/projection-subscription-monthly.md
+- src/kaleta/services/wizard_projection_service.py
+- tests/integration/test_wizard_projection.py
+- tests/unit/services/test_wizard_projection_service.py
+
+**Acceptance criteria run:**
+
+| Command | Exit |
+|---|---|
+| _(skipped: --fast, validated by PR CI)_ | – |
