@@ -33,11 +33,12 @@ the "Small findings" section of `AGENTS.md` for the rule of thumb.
       still conflicts ("already planned"), but a changed contribution refreshes
       the one transfer's amount in place instead of adding a second.
 
-- [ ] Two orphaned i18n keys in `settings` (pre-existing, spotted during
+- [x] Two orphaned i18n keys in `settings` (pre-existing, spotted during
       `settings-seed-panel-unify`): `settings.dark_mode` and
       `settings.rate_label` have no `t()` reference anywhere in `src/` or
       `tests/` (the `dark_mode` hits are `app.storage.user["dark_mode"]`, a
       different thing). Drop both from `en.json`/`pl.json`.
+      Dropped in `i18n-hygiene-orphans-and-gender` (both locales).
 
 - [x] `scripts/seed.py` (and so Settings → Data → Example data) fails on a
       fresh registry-layout family: the `taxonomy` seeder inserts the 8
@@ -465,9 +466,10 @@ check it still reproduces before acting on it.
       transaction (`TransactionUpdate.expected_updated_at`). Accounts, budgets,
       planned transactions and the rest still let the last save win silently;
       each editor would pass the `updated_at` it loaded the same way.
-- [ ] **`safety_funds.archived_section_body` (pl) is masculine-only** — "Fundusze,
+- [x] **`safety_funds.archived_section_body` (pl) is masculine-only** — "Fundusze,
       które wycofałeś". Gender-neutral: "Wycofane fundusze. Możesz je przywrócić w
       każdej chwili." Seen by the i18n check of `funds-irregular-items`.
+      Rewritten to the gender-neutral wording in `i18n-hygiene-orphans-and-gender`.
 - [ ] **Merging duplicate transactions drops their links.** `DedupeService.merge_transactions`
       deletes the non-keepers; a duplicate's `irregular_item_id` (and, as before,
       `planned_transaction_id`) is not moved to the keeper. Seen in the review of
@@ -491,11 +493,12 @@ check it still reproduces before acting on it.
       helpers at `kaleta.observability.app_version()` so there is one resolver (deferred
       from `auto-versioning` Part 1 to keep that PR off the view layer — touching a view
       forces the e2e gate).
-- [ ] **Orphaned subscriptions i18n keys.** `subscriptions.notes_show`,
+- [x] **Orphaned subscriptions i18n keys.** `subscriptions.notes_show`,
       `notes_hide` and `note_indicator` exist in both `en.json`/`pl.json` but are
       referenced nowhere in `src/` (leftovers from an earlier notes-toggle refactor;
       `rows.py::_render_sub_row_notes` no longer uses them). Drop them from both
       locales. Spotted by i18n-verifier during `subscriptions-categories` Part B.
+      Dropped in `i18n-hygiene-orphans-and-gender` (both locales).
 - [ ] **Security assessment findings F-1..F-4 await fixes.** The 2026-10-12
       assessment (`docs/security/assessment-2026-10-12.md`) recorded four
       Low/Info items — `/health` info disclosure, always-on OpenAPI docs,
