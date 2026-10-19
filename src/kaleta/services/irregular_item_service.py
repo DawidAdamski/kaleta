@@ -34,7 +34,10 @@ from kaleta.schemas.irregular_item import (
     IrregularItemUpdate,
     IrregularPaymentCreate,
 )
-from kaleta.schemas.planned_transaction import PlannedTransactionCreate
+from kaleta.schemas.planned_transaction import (
+    PlannedTransactionCreate,
+    PlannedTransactionUpdate,
+)
 from kaleta.schemas.transaction import TransactionCreate
 from kaleta.services.account_service import AccountService
 from kaleta.services.gift_service import GiftService
@@ -182,15 +185,28 @@ class IrregularItemService:
         description = f"{source.name} → {target.name}"
 
         planned = PlannedTransactionService(self.session)
+        # Match the active transfer by its route (source → fund account), not by
+        # amount: the monthly contribution moves when the fund's items change
+        # (gifts fold into it), and an amount-keyed check would miss the existing
+        # plan and leave a stale duplicate behind.
         for existing in await planned.list():
             if (
                 existing.is_active
                 and existing.type is TransactionType.TRANSFER
                 and existing.account_id == source.id
-                and existing.amount == plan.monthly_total
                 and existing.description == description
             ):
-                raise ConflictError("This monthly transfer is already planned.")
+                if existing.amount == plan.monthly_total:
+                    raise ConflictError("This monthly transfer is already planned.")
+                # The contribution changed: refresh the one transfer in place
+                # rather than planning a second one beside it.
+                refreshed = await planned.update(
+                    existing.id,
+                    PlannedTransactionUpdate(amount=plan.monthly_total),
+                )
+                if refreshed is None:
+                    raise NotFoundError("Planned transfer not found.")
+                return refreshed
 
         return await planned.create(
             PlannedTransactionCreate(
