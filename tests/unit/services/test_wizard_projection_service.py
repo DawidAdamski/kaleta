@@ -59,12 +59,28 @@ class TestMonthlyHelpers:
         sub = Subscription(name="Netflix", amount=Decimal("49.99"), cadence_days=30)
         assert _monthly_from_subscription(sub) == Decimal("49.99")
 
-    def test_monthly_from_subscription_yearly(self):
+    def test_monthly_from_subscription_odd_monthly_cadence(self):
+        """Covers: KAL-SUB-009
+
+        A monthly bill whose cadence is 31 (inside the monthly range) counts in
+        full like the panel — not the old 30-day drift (49.99 × 30 / 31 = 48.38).
+        """
         from kaleta.models.subscription import Subscription
 
-        sub = Subscription(name="Amazon Prime", amount=Decimal("365.00"), cadence_days=365)
-        # 365 × 30 / 365 = 30/mo.
-        assert _monthly_from_subscription(sub) == Decimal("30.00")
+        sub = Subscription(name="Netflix", amount=Decimal("49.99"), cadence_days=31)
+        assert _monthly_from_subscription(sub) == Decimal("49.99")
+
+    def test_monthly_from_subscription_yearly(self):
+        """Covers: KAL-SUB-009
+
+        A yearly bill is a twelfth, like the panel (KAL-SUB-002) — not the old
+        30-day approximation (which gave 120 × 30 / 365 = 9.86).
+        """
+        from kaleta.models.subscription import Subscription
+
+        sub = Subscription(name="Domain", amount=Decimal("120.00"), cadence_days=365)
+        # 120.00 / 12 = 10.00/mo.
+        assert _monthly_from_subscription(sub) == Decimal("10.00")
 
     def test_monthly_from_planned_yearly(self):
         from kaleta.models.planned_transaction import PlannedTransaction
@@ -179,15 +195,22 @@ class TestBudgetBuilderProjection:
         assert result.fixed[0].amount == Decimal("49.99")
 
     async def test_yearly_subscription_amortised_to_monthly(self, session: AsyncSession):
+        """Covers: KAL-SUB-009
+
+        Through the budget builder, a yearly bill projects as a twelfth — the
+        same figure the Subscriptions panel shows (KAL-SUB-002), not the old
+        30-day approximation.
+        """
         await SubscriptionService(session).create(
             SubscriptionCreate(
-                name="Amazon Prime",
-                amount=Decimal("365"),
+                name="Domain",
+                amount=Decimal("120.00"),
                 cadence_days=365,
             )
         )
         result = await WizardProjectionService(session).get_budget_builder_sources(2026)
-        assert result.fixed[0].amount == Decimal("30.00")
+        # 120.00 / 12 = 10.00/mo.
+        assert result.fixed[0].amount == Decimal("10.00")
         assert result.fixed[0].cadence == "yearly"
 
     async def test_reserves_projected(self, session: AsyncSession):

@@ -2446,6 +2446,12 @@ Feature: Subscriptions Panel
     When I open the track dialog
     Then "Music & audio" is pre-selected as its purpose
     And an unknown merchant leaves the purpose unset
+
+  KAL-SUB-009 @automated
+  Scenario: Budget builder projects a subscription like the panel
+    Given a yearly subscription "Domain 120.00 yearly"
+    When the budget builder projects its monthly cost
+    Then it shows 10.00 per month, the same twelfth the panel uses
 ```
 
 ---
