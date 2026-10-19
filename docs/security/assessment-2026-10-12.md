@@ -150,6 +150,12 @@ allowlist. No action now.
   rests entirely on correct tenant binding + schema separation. This is by
   design (ADR-38) and backed by the refuse-on-None guard and the integration
   isolation tests. Recorded so it is a conscious decision, not an oversight.
+  *Update (`api-tenant-isolation-guard`):* because it is the single control, a
+  static guard (`tests/integration/test_api_tenant_isolation_guard.py`) now
+  asserts every `/api/v1` data handler opens its session through `get_session`
+  (tenant-bound) and no v1 module reaches for the public/registry or a raw
+  session factory — so a future route that skipped the family binding fails the
+  suite. F-5 stays accepted by design, now defended.
 
 ## Next
 
