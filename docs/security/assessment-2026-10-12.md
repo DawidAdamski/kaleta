@@ -23,7 +23,7 @@ items are information-disclosure and hardening defaults, all Low/Info.
 |---|---|---|---|
 | F-1 | Low | `/health` (unauthenticated) discloses version, migration state, suspended family ids, unlocked-keyring count | **Fixed** (`health-tiered-disclosure`, KAL-SEC-001) |
 | F-2 | Low | `/api-docs` + OpenAPI JSON served unconditionally (not debug-gated) | **Fixed** (`api-docs-gated`, KAL-SEC-002) |
-| F-3 | Low | Session cookie not `Secure` by default; no production warning when left off | Tracked |
+| F-3 | Low | Session cookie not `Secure` by default; no production warning when left off | **Fixed** (`cookie-secure-prod-warning`, KAL-SEC-003) |
 | F-4 | Info | Import handler reads uploaded bytes with no independent server-side size cap (front-end limit only) | Tracked |
 | F-5 | Info | Tenant schema isolation is the single control for cross-family reads (no secondary per-row predicate) | Accepted by design |
 
@@ -85,7 +85,7 @@ Each category is marked **applies** (with the concrete check and result) or
 | Vulnerability analysis / fuzzing | Input validation at Pydantic boundaries; upload parsing | Pagination capped (`page_size le=200`); search `max_length=200`. Decode never raises. **F-4**: server-side handler reads uploaded bytes with only the front-end 50 MB limit — no independent byte cap. Schema-aware fuzzing (`schemathesis`) deferred to Slice 2. |
 | Database / SQL injection | Raw SQL audit; blind-index safety | Only `text()` uses are constants, bound params, or regex-validated schema identifiers (`tenant_service.py:102,110`); **no user-controlled raw SQL**. Blind-index columns maintained by an ORM `before_flush` hook and queried via ORM equality — no raw `_bidx` query. sqlmap pass deferred to Slice 2. |
 | Password / brute force | Login + MFA rate limits, lockout, token revocation | 5/15-min lockout; per-user revocation watermark; `secrets.compare_digest` on token + nonce. In-process limiter is non-atomic across replicas (use Redis in prod). |
-| Sniffing / TLS / cookies | Cookie flags, secrets in URLs | **F-3**: `session_cookie_secure` defaults `False` (deliberate for http-only installs, but no prod warning when off). `SameSite=lax`. HttpOnly via Starlette default. No PII/secrets placed in URLs. `testssl.sh` is a deployment-edge check (Caddy), out of scope for a local HTTP instance. |
+| Sniffing / TLS / cookies | Cookie flags, secrets in URLs | **F-3 (fixed)**: `session_cookie_secure` defaults `False` (deliberate for http-only installs), and a production-shaped run without `Secure` now logs a start-up warning (`cookie-secure-prod-warning`, KAL-SEC-003). `SameSite=lax`. HttpOnly via Starlette default. No PII/secrets placed in URLs. `testssl.sh` is a deployment-edge check (Caddy), out of scope for a local HTTP instance. |
 | Reporting | Record findings | This document; headless checks under `scripts/security/`. |
 
 ### Not applicable
@@ -145,14 +145,16 @@ allowlist. No action now.
   production-shaped run returns 404 for both the page and the JSON by default,
   while development is unchanged and a self-hoster can opt back in. The API
   routes and their auth are untouched.
-- **F-3 (Low) — cookie not `Secure` by default.** `session_cookie_secure`
-  defaults `False` (`config/settings.py:68`) — a deliberate choice so http-only
-  dev installs work, documented in the source comment. The gap: there is a
-  debug-time warning when secure is *on*, but **no warning when it is left off
-  in a non-debug (production-shaped) run** (verified by grep —
-  `warn_secure_cookie_in_debug` is the only such warning). *Remediation:* warn (or refuse) when
-  a non-debug instance serves the cookie without `Secure`, mirroring the
-  `secret_key` guard.
+- **F-3 (Low) — cookie not `Secure` by default.** *Fixed
+  (`cookie-secure-prod-warning`, KAL-SEC-003).* `session_cookie_secure` still
+  defaults `False` — a deliberate choice so http-only dev installs work — but a
+  production-shaped run (debug off) that serves the cookie without `Secure` now
+  logs a start-up warning (`warn_insecure_cookie_in_production`), the mirror of
+  the existing debug-time warning. We **warn, not refuse**: unlike the
+  placeholder `secret_key` (never valid in production), a plain-http run is
+  legitimate behind a TLS-terminating reverse proxy or on a trusted LAN, and the
+  app has no reliable signal that TLS is present — so the operator sets
+  `KALETA_SESSION_COOKIE_SECURE=true` once TLS is in front.
 - **F-4 (Info) — no server-side upload byte cap.** `max_file_size=50MB` is a
   NiceGUI front-end limit; `handle_upload` reads `await e.file.read()` into
   memory with no independent server-side cap (`views/import_view/page.py:388`).
@@ -175,6 +177,6 @@ allowlist. No action now.
 Slice 2 (`docs/plans/security-assessment.md`): dynamic runner scripts (ZAP
 baseline, `schemathesis` against the OpenAPI doc) against a live instance, a
 `KAL-SEC-*` regression test per confirmed finding, and fixes for the remaining
-hardening items on their own branches. **F-1 is fixed** (`health-tiered-disclosure`)
-and **F-2 is fixed** (`api-docs-gated`); F-3 (cookie `Secure` warning) and F-4
-(upload byte cap) are next.
+hardening items on their own branches. **F-1 is fixed** (`health-tiered-disclosure`),
+**F-2 is fixed** (`api-docs-gated`) and **F-3 is fixed**
+(`cookie-secure-prod-warning`); F-4 (upload byte cap) is next.

@@ -786,3 +786,24 @@ def warn_secure_cookie_in_debug(cfg: Settings | None = None) -> None:
             "KALETA_SESSION_COOKIE_SECURE is on in debug mode: the browser will not "
             "send the session cookie over plain http, so login only works behind TLS."
         )
+
+
+def warn_insecure_cookie_in_production(cfg: Settings | None = None) -> None:
+    """Say so when a production-shaped run serves the session cookie without ``Secure``.
+
+    The opposite of :func:`warn_secure_cookie_in_debug`: with ``KALETA_DEBUG``
+    off and ``session_cookie_secure`` off, the cookie is sent over plain http, so
+    anyone on the network path can read it and hijack a session (assessment F-3).
+    We warn rather than refuse — a plain-http production run is legitimate behind
+    a TLS-terminating reverse proxy or on a trusted LAN, and the app has no
+    reliable signal that TLS is in front — so the operator enables
+    ``KALETA_SESSION_COOKIE_SECURE`` once it is.
+    """
+    cfg = cfg if cfg is not None else settings
+    if not cfg.debug and not cfg.session_cookie_secure:
+        logger.warning(
+            "KALETA_SESSION_COOKIE_SECURE is off in a production-shaped run "
+            "(KALETA_DEBUG is false): the session cookie is sent over plain http, so "
+            "anyone on the network path can read it. Set KALETA_SESSION_COOKIE_SECURE=true "
+            "when the instance is served over TLS (directly or behind a TLS-terminating proxy)."
+        )
